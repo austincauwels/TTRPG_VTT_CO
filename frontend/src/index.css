@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=IM+Fell+English&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0f170f] text-[#d4af37] font-serif;
+    background-image: url('https://www.transparenttextures.com/patterns/parchment.png');
+  }
+  h1, h2, h3, h4 { font-family: 'IM Fell English', serif; }
+}
+
+@layer components {
+  .parchment-card {
+    @apply bg-[#1a2e1a] border-2 border-[#d4af37] shadow-2xl p-6 rounded-sm;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.2) 100%);
+  }
+  .btn-gold { @apply bg-[#d4af37] text-[#0f170f] px-4 py-2 font-bold uppercase tracking-widest transition-all hover:bg-[#b8962f] active:scale-95; }
+  .input-dark { @apply bg-[#0f170f] border border-[#d4af37] text-[#d4af37] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#d4af37]; }
+}
+
+.action-dot { @apply w-4 h-4 rounded-full border border-[#d4af37] inline-block mr-1 cursor-pointer; }
+.action-dot.filled { @apply bg-[#d4af37]; }
+.mark-box { @apply w-6 h-6 border-2 border-[#d4af37] flex items-center justify-center cursor-pointer; }
+.mark-box.filled { @apply bg-red-900; }
