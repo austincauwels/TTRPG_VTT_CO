@@ -11,9 +11,12 @@ const useGameStore = create((set, get) => ({
   
   // --- 1. CONNECTION & DATA ROUTING ---
   connect: (gameId) => {
-    // Uses the Codespaces proxy address to ensure the WebSocket resolves securely!
-    // Note: Using wss:// (Secure WebSockets) because GitHub Codespaces strictly enforces HTTPS.
-    const socket = new WebSocket(`wss://animated-space-chainsaw-r495qgrq5vv5cpg74-8000.app.github.dev/ws/${gameId}`);
+    // Dynamically build the WebSocket URL to route through the Vite frontend proxy.
+    // This bypasses the GitHub Codespaces 403 Forbidden cross-origin security block.
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/${gameId}`;
+    
+    const socket = new WebSocket(wsUrl);
     
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);

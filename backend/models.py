@@ -1,3 +1,4 @@
+# backend/models.py
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Float, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -40,6 +41,16 @@ class Character(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     game_id = Column(Integer, ForeignKey("games.id"))
     circle_id = Column(Integer, ForeignKey("circles.id"))
+
+    # --- NARRATIVE & METADATA DETAILS (ADDED TO FIX THE FORGE ERROR) ---
+    pronouns = Column(String, default="Unlisted")
+    style = Column(String, default="")
+    catalyst = Column(String, default="")
+    question = Column(String, default="")
+    role_ability = Column(String, default="None")
+    specialty_ability = Column(String, default="None")
+    gear = Column(JSON, default=list) # Stores tracking lists natively
+    profile_pic = Column(String, nullable=True)
 
     # Actions
     # Nerve

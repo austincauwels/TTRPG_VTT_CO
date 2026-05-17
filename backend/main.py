@@ -5,13 +5,13 @@ from typing import List, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware  # <-- NEW IMPORT
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
 
-# Adjust these imports if your file structure differs slightly
 from .models import Base, User, Game, Character, Circle
 from .engine import roll_dice, calculate_resistance_max
 
@@ -28,6 +28,17 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+# =====================================================================
+# CORS MIDDLEWARE (THE FIX FOR THE 403 FORBIDDEN ERROR)
+# =====================================================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins (including your Vite proxy subdomains)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all HTTP methods and WebSocket upgrades
+    allow_headers=["*"],  # Allows all headers (including custom Origin and Host headers)
+)
 
 def get_db():
     db = SessionLocal()
@@ -48,26 +59,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-    user = db.query(User).filter(User.username == username).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
 # =====================================================================
-# PYDANTIC SCHEMAS (Strict defaults to prevent SQLite crashes)
+# PYDANTIC SCHEMAS 
 # =====================================================================
 class CharacterBase(BaseModel):
     name: str
@@ -120,16 +113,14 @@ class CharacterResponse(CharacterBase):
 async def get_investigator(investigator_id: int, db: Session = Depends(get_db)):
     character = db.query(Character).filter(Character.id == investigator_id).first()
     if not character:
-        raise HTTPException(status_code=404, detail="Investigator dossier not found in the archives.")
+        raise HTTPException(status_code=404, detail="Investigator dossier not found.")
     
     if isinstance(character.gear, str):
         try: character.gear = json.loads(character.gear)
         except: character.gear = []
-            
     if isinstance(character.scars_list, str):
         try: character.scars_list = json.loads(character.scars_list)
         except: character.scars_list = []
-
     return character
 
 @app.post("/api/investigators/forge", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
@@ -141,7 +132,6 @@ async def forge_investigator(character_data: CharacterCreate, db: Session = Depe
             db.add(circle)
             db.commit()
 
-        # Hardcode user for testing to bypass foreign key constraint
         user = db.query(User).filter(User.id == 1).first()
         if not user:
             user = User(id=1, username="admin", email="admin@archive.com", hashed_password="xxx")
@@ -150,7 +140,6 @@ async def forge_investigator(character_data: CharacterCreate, db: Session = Depe
 
         char_dict = character_data.dict() if hasattr(character_data, 'dict') else character_data.model_dump()
         
-        # Hard fallback to explicitly cast None to 0
         for key in ["body_marks", "brain_marks", "bleed_marks", "scars_count", "move", "strike", "control", "sneak", "hide", "sway", "survey", "read", "sense"]:
             if char_dict.get(key) is None:
                 char_dict[key] = 0
@@ -159,22 +148,19 @@ async def forge_investigator(character_data: CharacterCreate, db: Session = Depe
         char_dict["scars_list"] = json.dumps(char_dict.get("scars_list") or [])
 
         new_character = Character(**char_dict, circle_id=circle.id, user_id=user.id)
-        
         db.add(new_character)
         db.commit()
         db.refresh(new_character)
         
         new_character.gear = json.loads(new_character.gear)
         new_character.scars_list = json.loads(new_character.scars_list)
-        
         return new_character
-        
     except Exception as e:
-        db.rollback() # CRITICAL: Prevents DB locks on failure
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Database Forge Error: {str(e)}")
 
 # =====================================================================
-# WEBSOCKET MULTIPLAYER ENGINE
+# WEBSOCKET STREAM ROUTER 
 # =====================================================================
 class ConnectionManager:
     def __init__(self):
@@ -193,48 +179,46 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 def get_char_dict(char):
-    # Safe JSON parsing
     gear = char.gear if not isinstance(char.gear, str) else json.loads(char.gear) if char.gear else []
     scars = char.scars_list if not isinstance(char.scars_list, str) else json.loads(char.scars_list) if char.scars_list else []
     
-    # BULLETPROOF DICTIONARY: Eliminates undefined/None errors on frontend
     return {
-        "id": getattr(char, "id", 1), 
-        "name": getattr(char, "name", "Unknown Investigator") or "Unknown",
+        "id": getattr(char, "id", 1),
+        "name": getattr(char, "name", "Unknown Investigator"),
         
-        "move": getattr(char, "move", 0) or 0, 
-        "strike": getattr(char, "strike", 0) or 0, 
+        "move": getattr(char, "move", 0) or 0,
+        "strike": getattr(char, "strike", 0) or 0,
         "control": getattr(char, "control", 0) or 0,
-        "hide": getattr(char, "hide", 0) or 0, 
-        "sneak": getattr(char, "sneak", 0) or 0, 
+        "hide": getattr(char, "hide", 0) or 0,
+        "sneak": getattr(char, "sneak", 0) or 0,
         "sway": getattr(char, "sway", 0) or 0,
-        "survey": getattr(char, "survey", 0) or 0, 
-        "read": getattr(char, "read", 0) or 0, 
+        "survey": getattr(char, "survey", 0) or 0,
+        "read": getattr(char, "read", 0) or 0,
         "sense": getattr(char, "sense", 0) or 0,
         
-        "gilded_move": bool(getattr(char, "gilded_move", False)), 
-        "gilded_strike": bool(getattr(char, "gilded_strike", False)), 
+        "gilded_move": bool(getattr(char, "gilded_move", False)),
+        "gilded_strike": bool(getattr(char, "gilded_strike", False)),
         "gilded_control": bool(getattr(char, "gilded_control", False)),
-        "gilded_hide": bool(getattr(char, "gilded_hide", False)), 
-        "gilded_sneak": bool(getattr(char, "gilded_sneak", False)), 
+        "gilded_hide": bool(getattr(char, "gilded_hide", False)),
+        "gilded_sneak": bool(getattr(char, "gilded_sneak", False)),
         "gilded_sway": bool(getattr(char, "gilded_sway", False)),
-        "gilded_survey": bool(getattr(char, "gilded_survey", False)), 
-        "gilded_read": bool(getattr(char, "gilded_read", False)), 
+        "gilded_survey": bool(getattr(char, "gilded_survey", False)),
+        "gilded_read": bool(getattr(char, "gilded_read", False)),
         "gilded_sense": bool(getattr(char, "gilded_sense", False)),
         
-        "nerve_max": getattr(char, "nerve_max", 1) or 1, 
+        "nerve_max": getattr(char, "nerve_max", 1) or 1,
         "nerve_current": getattr(char, "nerve_current", 1) or 1,
-        "cunning_max": getattr(char, "cunning_max", 1) or 1, 
+        "cunning_max": getattr(char, "cunning_max", 1) or 1,
         "cunning_current": getattr(char, "cunning_current", 1) or 1,
-        "intuition_max": getattr(char, "intuition_max", 1) or 1, 
+        "intuition_max": getattr(char, "intuition_max", 1) or 1,
         "intuition_current": getattr(char, "intuition_current", 1) or 1,
         
-        "body_marks": getattr(char, "body_marks", 0) or 0, 
-        "brain_marks": getattr(char, "brain_marks", 0) or 0, 
+        "body_marks": getattr(char, "body_marks", 0) or 0,
+        "brain_marks": getattr(char, "brain_marks", 0) or 0,
         "bleed_marks": getattr(char, "bleed_marks", 0) or 0,
-        "scars_count": getattr(char, "scars_count", 0) or 0, 
+        "scars_count": getattr(char, "scars_count", 0) or 0,
         "scars_list": scars,
-        "incapacitated": bool(getattr(char, "incapacitated", False)), 
+        "incapacitated": bool(getattr(char, "incapacitated", False)),
         "circle_id": getattr(char, "circle_id", 1),
         
         "pronouns": getattr(char, "pronouns", "Unlisted") or "Unlisted",
@@ -285,28 +269,18 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
 
             if action == "roll" and character:
                 act = payload.get("action")
-                spent = payload.get("drive_spent", 0)
+                spent = int(payload.get("drive_spent", 0))
                 cat = "nerve" if act in ["move", "strike", "control"] else "cunning" if act in ["hide", "sneak", "sway"] else "intuition"
                 
-                # Consume Drive
                 setattr(character, f"{cat}_current", max(0, getattr(character, f"{cat}_current") - spent))
-                
-                # Determine if action is gilded
                 is_gilded_action = getattr(character, f"gilded_{act}", False)
                 res = roll_dice(getattr(character, act, 0) + spent, is_gilded_action)
                 
-                # RESTRUCTURE DICE FOR FRONTEND: Convert [4,5] to [{"value":4,"is_gilded":true}, {"value":5,"is_gilded":false}]
                 formatted_dice = []
-                # Assuming engine roll_dice returns 'dice' as list of ints.
-                # In Candela Obscura, usually the first die rolled is the gilded one if applicable.
-                if res.get("type") == "zero":
-                    pass # Zero rolls usually just return two dice taking the lowest, handle normally
-                
                 for i, die_value in enumerate(res.get("dice", [])):
-                    is_this_die_gilded = True if (is_gilded_action and i == 0) else False
                     formatted_dice.append({
                         "value": die_value,
-                        "is_gilded": is_this_die_gilded
+                        "is_gilded": True if (is_gilded_action and i == 0) else False
                     })
                 
                 res["dice"] = formatted_dice
@@ -329,9 +303,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
             elif action == "select_gilded" and character:
                 cat = payload.get("drive_category")
                 if cat and hasattr(character, f"{cat}_current"):
-                    current_val = getattr(character, f"{cat}_current")
-                    max_val = getattr(character, f"{cat}_max", 3)
-                    setattr(character, f"{cat}_current", min(max_val, current_val + 1))
+                    setattr(character, f"{cat}_current", min(getattr(character, f"{cat}_max", 3), getattr(character, f"{cat}_current") + 1))
                     db.commit()
                     await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
 
@@ -342,8 +314,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
                     if val >= 4:
                         setattr(character, f"{m_type}_marks", 0)
                         character.scars_count = getattr(character, "scars_count", 0) + 1
-                        if character.scars_count >= 4: 
-                            character.incapacitated = True
+                        if character.scars_count >= 4: character.incapacitated = True
                         db.commit()
                         await manager.broadcast(game_id, {"type": "trigger_scar", "payload": {"character_id": char_id, "mark_type": m_type, "character": get_char_dict(character)}})
                     else:
@@ -353,8 +324,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
 
             elif action == "apply_scar" and character:
                 character.scars_list = list(character.scars_list) + [payload.get("scar_text")]
-                down = payload.get("shift_down")
-                up = payload.get("shift_up")
+                down, up = payload.get("shift_down"), payload.get("shift_up")
                 if down and up and hasattr(character, down) and hasattr(character, up):
                     if getattr(character, down) > 0 and getattr(character, up) < 3:
                         setattr(character, down, getattr(character, down) - 1)
