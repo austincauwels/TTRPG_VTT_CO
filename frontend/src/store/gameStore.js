@@ -1,58 +1,99 @@
+// src/store/gameStore.js
 import { create } from 'zustand';
 
 const useGameStore = create((set, get) => ({
-  socket: null, character: null, circle: null, lastRoll: null, showScarModal: false,
+  // --- STATE PARAMETERS ---
+  socket: null,
+  character: null,
+  circle: null,
+  lastRoll: null,
+  showScarModal: false,
+  
+  // --- 1. CONNECTION & DATA ROUTING ---
   connect: (gameId) => {
-    const socket = new WebSocket(`ws://animated-space-chainsaw-r495qgrq5vv5cpg74-8000.app.github.dev/ws/${gameId}`);
-    socket.onmessage = (e) => {
-      const m = JSON.parse(e.data);
-      if (m.type === 'character_update') set({ character: m.payload });
-      else if (m.type === 'circle_update') set({ circle: m.payload });
-      else if (m.type === 'roll_result') set({ lastRoll: m.payload.roll, character: m.payload.character });
-      else if (m.type === 'trigger_scar') set({ character: m.payload.character, showScarModal: true });
+    // Uses the Codespaces proxy address to ensure the WebSocket resolves securely!
+    // Note: Using wss:// (Secure WebSockets) because GitHub Codespaces strictly enforces HTTPS.
+    const socket = new WebSocket(`wss://animated-space-chainsaw-r495qgrq5vv5cpg74-8000.app.github.dev/ws/${gameId}`);
+    
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      
+      if (message.type === 'character_update') {
+        set({ character: message.payload });
+      } 
+      else if (message.type === 'circle_update') {
+        set({ circle: message.payload });
+      } 
+      else if (message.type === 'roll_result') {
+        set({ lastRoll: message.payload.roll, character: message.payload.character });
+      } 
+      else if (message.type === 'trigger_scar') {
+        set({ character: message.payload.character, showScarModal: true });
+      }
     };
+    
     set({ socket });
   },
-  rollAction: (actionName, driveSpent) => {
-    const { socket, character } = get();
-    if (socket && character) {
+
+  // --- 2. LOCAL STATE OVERRIDE (Creation Handshake) ---
+  setLocalCharacter: (characterData) => {
+    set({ character: characterData });
+  },
+
+  // --- 3. GAMEPLAY ACTION TRANSMITTERS ---
+  rollAction: (actionName, driveSpent = 0) => {
+    const { socket } = get();
+    if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: 'roll',
-        payload: {
-          character_id: character.id,
-          action: actionName,
-          drive_spent: parseInt(driveSpent) || 0
-        }
+        payload: { action: actionName, drive_spent: driveSpent }
       }));
     }
   },
-  selectGilded: (driveCategory) => {
-    const { socket, character } = get();
-    if (socket && character) socket.send(JSON.stringify({ type: 'select_gilded', payload: { character_id: character.id, drive_category: driveCategory } }));
-  },
-  takeMark: (markType) => {
-    const { socket, character } = get();
-    if (socket && character) socket.send(JSON.stringify({ type: 'take_mark', payload: { character_id: character.id, mark_type: markType } }));
-  },
-  applyScar: (scarText, shiftDown, shiftUp) => {
-    const { socket, character } = get();
-    if (socket && character) {
-      socket.send(JSON.stringify({ type: 'apply_scar', payload: { character_id: character.id, scar_text: scarText, shift_down: shiftDown, shift_up: shiftUp } }));
-      set({ showScarModal: false });
+
+  updateDrive: (pool, newValue) => {
+    const { socket } = get();
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: 'update_drive',
+        payload: { pool: pool, value: newValue }
+      }));
     }
   },
-  updateCircle: (data) => {
-    const { socket, character } = get();
-    if (socket && character?.circle_id) {
+
+  takeMark: (markType) => {
+    const { socket } = get();
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: 'take_mark',
+        payload: { mark_type: markType }
+      }));
+    }
+  },
+
+  applyScar: (scarText, shiftDown, shiftUp) => {
+    const { socket } = get();
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: 'apply_scar',
+        payload: { scar_text: scarText, shift_down: shiftDown, shift_up: shiftUp }
+      }));
+    }
+    // Automatically close the frontend modal once the network payload fires
+    set({ showScarModal: false }); 
+  },
+
+  updateCircle: (updates) => {
+    const { socket } = get();
+    if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: 'update_circle',
-        payload: {
-          circle_id: character.circle_id,
-          ...data
-        }
+        payload: updates
       }));
     }
-  }
+  },
+
+  closeScarModal: () => set({ showScarModal: false })
 }));
 
 export default useGameStore;
