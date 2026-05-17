@@ -3,7 +3,7 @@ import { create } from 'zustand';
 const useGameStore = create((set, get) => ({
   socket: null, character: null, circle: null, lastRoll: null, showScarModal: false,
   connect: (gameId) => {
-    const socket = new WebSocket(`ws://${window.location.host}/ws/${gameId}`);
+    const socket = new WebSocket(`ws://animated-space-chainsaw-r495qgrq5vv5cpg74-8000.app.github.dev/ws/${gameId}`);
     socket.onmessage = (e) => {
       const m = JSON.parse(e.data);
       if (m.type === 'character_update') set({ character: m.payload });

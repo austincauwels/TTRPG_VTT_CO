@@ -1,16 +1,42 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import useGameStore from './store/gameStore';
 import ActionModule from './components/ActionModule';
 import ScarModal from './components/ScarModal';
+import { CharacterCreator } from './components/CharacterCreator'; // <-- 1. Import the new component
 
 function App() {
   const { connect, character, circle, lastRoll, takeMark, updateCircle, selectGilded } = useGameStore();
+  
+  // A temporary state to force the creator open for testing
+  const [isCreating, setIsCreating] = useState(true); 
+
   useEffect(() => { connect(1); }, [connect]);
 
   const handleCircleUpdate = (field, val) => {
     updateCircle({ [field]: val });
   };
 
+  // --- 2. Intercept the standard render to show the Character Creator ---
+  if (isCreating || !character) {
+    return (
+      <div className="min-h-screen p-8">
+        <header className="max-w-6xl mx-auto mb-6 text-center">
+          <h1 className="text-5xl mb-2 font-serif text-academia-dark">Candela Obscura</h1>
+          <p className="text-xl italic opacity-80 text-academia-dark/70">Virtual Tabletop</p>
+        </header>
+        
+        <CharacterCreator 
+          onSubmit={(characterData) => {
+            console.log("Forged Investigator Data:", characterData);
+            // In the future, this will send data via WebSockets to save to the database
+            setIsCreating(false); 
+          }} 
+        />
+      </div>
+    );
+  }
+
+  // --- 3. The existing Game Board render below ---
   return (
     <div className="min-h-screen p-8">
       <header className="max-w-6xl mx-auto mb-12 text-center">
@@ -33,7 +59,7 @@ function App() {
                         key={i}
                         onClick={() => {
                           if (d.is_gilded) {
-                            const act = lastRoll.action; // Need to ensure action is in payload
+                            const act = lastRoll.action; 
                             const cat = ["move", "strike", "control"].includes(act) ? "nerve" : ["hide", "sneak", "sway"].includes(act) ? "cunning" : "intuition";
                             selectGilded(cat);
                           }

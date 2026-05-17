@@ -1,0 +1,11 @@
+# Frontend Dependencies
+node_modules/
+dist/
+.env
+
+# Backend Dependencies
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
