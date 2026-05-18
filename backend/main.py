@@ -264,7 +264,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
             action = message.get("type")
             payload = message.get("payload", {})
             
-            char_id = payload.get("character_id") if payload else game_id
+            # Fall back to game_id if character_id is missing from the incoming payload dictionary
+            char_id = payload.get("character_id") or game_id
             character = db.query(Character).filter(Character.id == char_id).first()
 
             if action == "roll" and character:
