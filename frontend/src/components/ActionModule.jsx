@@ -3,67 +3,30 @@ import React from 'react';
 import useGameStore from '../store/gameStore';
 import * as Gi from "react-icons/gi";
 
-// Safe rendering wrapper for icons to prevent crashes if an icon string is missing
-const SafeIcon = ({ name, size = 18, className = "" }) => {
+const SafeIcon = ({ name, size = 16, className = "" }) => {
   if (!name || !Gi[name]) return null;
   return React.createElement(Gi[name], { size, className });
 };
 
-// Strict Boolean evaluator to handle SQLite's various truthy/falsy representations
 function evaluateGilded(val) {
   if (val === true || val === 1 || val === "true" || val === "1") return true;
   return false;
 }
 
 export default function ActionModule() {
-  // Extract real-time state and socket transmitters from your Zustand store
   const { character, rollAction, updateDrive } = useGameStore();
 
-  // Guard clause: If character data hasn't fully loaded over the socket pipe yet, 
-  // render a thematic safe placeholder instead of throwing a layout crash.
   if (!character) {
     return (
       <div className="bg-[#f5ebd6] border-2 border-[#1a1311] p-8 text-center shadow-lg">
         <div className="animate-pulse flex flex-col items-center justify-center space-y-4">
           <SafeIcon name="GiHourglass" size={32} className="text-[#721c15] opacity-50" />
-          <p className="font-serif italic opacity-60 text-[#1a1311]">Synchronizing Archive Ledger Rows...</p>
+          <p className="font-serif italic opacity-60 text-[#1a1311]">Synchronizing Operative Dossier Matrix...</p>
         </div>
       </div>
     );
   }
 
-  // Exact configuration matrix matching your flat SQLAlchemy database column layout
-  const categories = [
-    { 
-      name: 'Nerve', 
-      driveKey: 'nerve',
-      actions: [
-        { key: 'move', label: 'Move' },
-        { key: 'strike', label: 'Strike' },
-        { key: 'control', label: 'Control' }
-      ] 
-    },
-    { 
-      name: 'Cunning', 
-      driveKey: 'cunning',
-      actions: [
-        { key: 'hide', label: 'Hide' },
-        { key: 'sneak', label: 'Sneak' },
-        { key: 'sway', label: 'Sway' }
-      ] 
-    },
-    { 
-      name: 'Intuition', 
-      driveKey: 'intuition',
-      actions: [
-        { key: 'survey', label: 'Survey' },
-        { key: 'read', label: 'Read' },
-        { key: 'sense', label: 'Sense' }
-      ] 
-    }
-  ];
-
-  // Handler for clicking the drive pool to consume a point
   const handleSpendDrive = (pool) => {
     const currentDrive = character[`${pool}_current`] || 0;
     if (currentDrive > 0) {
@@ -71,47 +34,83 @@ export default function ActionModule() {
     }
   };
 
+  const categories = [
+    {
+      name: 'Nerve',
+      driveKey: 'nerve',
+      icon: 'GiBiceps',
+      actions: [
+        { key: 'move', label: 'Move', desc: 'Run, climb, leap, or navigate physical hazards.' },
+        { key: 'strike', label: 'Strike', desc: 'Engage in close combat or unleash force.' },
+        { key: 'control', label: 'Control', desc: 'Handle machinery, aim precisely, or assert force.' }
+      ]
+    },
+    {
+      name: 'Cunning',
+      driveKey: 'cunning',
+      icon: 'GiDominoMask',
+      actions: [
+        { key: 'hide', label: 'Hide', desc: 'Conceal your presence or mask evidence.' },
+        { key: 'sneak', label: 'Sneak', desc: 'Move silently or act without notice.' },
+        { key: 'sway', label: 'Sway', desc: 'Influence, charm, or manipulate interactions.' }
+      ]
+    },
+    {
+      name: 'Intuition',
+      driveKey: 'intuition',
+      icon: 'GiSemiClosedEye',
+      actions: [
+        { key: 'survey', label: 'Survey', desc: 'Analyze surroundings or search for clues.' },
+        { key: 'read', label: 'Read', desc: 'Scrutinize expressions or interpret intent.' },
+        { key: 'sense', label: 'Sense', desc: 'Detect phenomena or tap into insight.' }
+      ]
+    }
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-serif text-[#1a1311]">
       
-      {/* Active Special Abilities Headers */}
-      <div className="grid grid-cols-2 gap-4 border-b border-[#1a1311]/20 pb-4 mb-4">
-        <div className="bg-[#ebdcb9] border border-[#1a1311]/20 p-2.5 rounded shadow-inner">
-          <span className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-0.5">Role Domain Power</span>
-          <p className="text-xs font-bold leading-tight text-[#1a1311]">{character.role_ability || "Standard Domain Ability"}</p>
-        </div>
-        <div className="bg-[#ebdcb9] border border-[#1a1311]/20 p-2.5 rounded shadow-inner">
-          <span className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-0.5">Specialty Master Ability</span>
-          <p className="text-xs font-bold leading-tight text-[#1a1311]">{character.specialty_ability || "Focus Archetype Power"}</p>
-        </div>
+      {/* SECTION I: DOSSIER CORE METRICS SUB-HEADER */}
+      <div className="border-b-2 border-[#1a1311] pb-2 mb-4 flex justify-between items-center">
+        <h3 className="text-sm font-sans font-black uppercase tracking-widest text-[#721c15] flex items-center gap-1">
+          <SafeIcon name="GiBookmarklet" size={14} /> I. Attributes & Field Actions Matrix
+        </h3>
+        <span className="text-[10px] font-sans font-bold opacity-60 uppercase">Click Pips to Execute Rolls</span>
       </div>
 
-      {/* Main Stats Loop Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* MATRIX TABLE BLOCK (Page 2 Blueprint Style) */}
+      <div className="space-y-6">
         {categories.map((cat) => {
           const currentDrive = character[`${cat.driveKey}_current`] || 0;
-          const maxDrive = character[`${cat.driveKey}_max`] || 1;
+          const maxDrive = character[`${cat.driveKey}_max`] || 3;
 
           return (
-            <div key={cat.name} className="border border-[#1a1311]/30 bg-[#fdfaf4] p-4 rounded shadow-sm relative">
+            <div key={cat.name} className="border border-[#1a1311] bg-[#ebdcb9]/20 rounded-sm overflow-hidden shadow-sm">
               
-              {/* Header row containing Drive pools */}
-              <div className="flex justify-between items-center mb-3 border-b border-[#1a1311]/10 pb-2">
-                <h3 className="text-lg font-black uppercase tracking-tight text-[#1a1311]">{cat.name}</h3>
+              {/* Row Header - Drive Pool Indicator */}
+              <div className="bg-[#ebdcb9]/60 border-b border-[#1a1311] px-4 py-2 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <SafeIcon name={cat.icon} className="text-[#721c15]" size={16} />
+                  <span className="text-base font-black uppercase tracking-wide">{cat.name} Domain</span>
+                </div>
                 
-                {/* Clickable Drive counter block */}
+                {/* Clickable Drive Diamonds Counter Layout */}
                 <div 
                   onClick={() => handleSpendDrive(cat.driveKey)}
-                  className="flex items-center gap-1.5 cursor-pointer group select-none"
-                  title={`Click to burn 1 point of ${cat.name} Drive`}
+                  className="flex items-center gap-3 cursor-pointer group select-none"
+                  title={`Click to consume 1 point of ${cat.name} Drive`}
                 >
-                  <span className="text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15] group-hover:text-red-700 transition-colors">Burn</span>
-                  <div className="flex gap-1">
+                  <span className="text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] group-hover:text-red-800 transition-colors">
+                    Available Drive Points:
+                  </span>
+                  <div className="flex gap-2">
                     {Array.from({ length: maxDrive }).map((_, i) => (
                       <div 
                         key={i} 
-                        className={`w-3.5 h-3.5 border border-[#1a1311] transform rotate-45 transition-colors ${
-                          i < currentDrive ? 'bg-[#1a1311] shadow-[1px_1px_0px_#721c15]' : 'bg-transparent'
+                        className={`w-3.5 h-3.5 border-2 border-[#1a1311] transform rotate-45 transition-all shadow-sm ${
+                          i < currentDrive 
+                            ? 'bg-[#1a1311] scale-110 shadow-[1px_1px_0px_#721c15]' 
+                            : 'bg-white/80 hover:bg-[#721c15]/20'
                         }`} 
                       />
                     ))}
@@ -119,31 +118,34 @@ export default function ActionModule() {
                 </div>
               </div>
 
-              {/* Sub-Actions Columns */}
-              <div className="space-y-2">
+              {/* Action Rows Grid inside domain */}
+              <div className="divide-y divide-[#1a1311]/20">
                 {cat.actions.map((act) => {
                   const actionValue = character[act.key] || 0;
                   const isGilded = evaluateGilded(character[`gilded_${act.key}`]);
 
                   return (
-                    <div key={act.key} className="flex justify-between items-center p-1.5 rounded hover:bg-[#ebdcb9]/40 transition-colors group">
-                      
-                      {/* Action Roll Trigger Button */}
-                      <button 
-                        onClick={() => rollAction(act.key, 0)}
-                        className="text-xs font-bold uppercase tracking-wider text-[#1a1311] hover:text-[#721c15] transition-colors flex items-center gap-1.5"
-                      >
-                        {isGilded && <SafeIcon name="GiDiamonds" className="text-[#d4af37]" size={12} />}
-                        {act.label}
-                      </button>
+                    <div key={act.key} className="p-3 flex justify-between items-center hover:bg-[#ebdcb9]/40 transition-colors group">
+                      <div className="min-w-0 pr-4">
+                        <button 
+                          onClick={() => rollAction(act.key, 0)}
+                          className="text-sm font-black uppercase tracking-wider text-[#1a1311] hover:text-[#721c15] transition-colors flex items-center gap-2"
+                        >
+                          {isGilded && <SafeIcon name="GiDiamonds" className="text-[#d4af37]" size={14} />}
+                          <span className="border-b border-transparent group-hover:border-[#721c15]">{act.label}</span>
+                        </button>
+                        <p className="text-xs italic opacity-60 leading-tight mt-0.5 font-serif hidden sm:block">{act.desc}</p>
+                      </div>
 
-                      {/* Action Point Pips rendering block layout */}
-                      <div className="flex gap-1">
+                      {/* Action Point Circle Pips */}
+                      <div className="flex gap-1.5 shrink-0 bg-black/5 p-1.5 rounded-full border border-[#1a1311]/10">
                         {Array.from({ length: 3 }).map((_, i) => (
                           <div 
                             key={i} 
-                            className={`w-3 h-3 rounded-full border border-[#1a1311] ${
-                              i < actionValue ? 'bg-[#721c15] shadow-inner' : 'bg-transparent'
+                            className={`w-3.5 h-3.5 rounded-full border-2 border-[#1a1311] transition-all ${
+                              i < actionValue 
+                                ? 'bg-[#721c15] scale-105 shadow-inner' 
+                                : 'bg-white/40'
                             }`} 
                           />
                         ))}
@@ -156,6 +158,52 @@ export default function ActionModule() {
             </div>
           );
         })}
+      </div>
+
+      {/* SECTION II: ACQUIRED DOMAIN METRICS POWER SUB-HEADER (Page 2 Blueprint Style) */}
+      <div className="border-b-2 border-[#1a1311] pb-1 pt-4 mb-4">
+        <h3 className="text-sm font-sans font-black uppercase tracking-widest text-[#721c15] flex items-center gap-1">
+          <SafeIcon name="GiScroll" size={14} /> II. Assigned Domain Core Abilities
+        </h3>
+      </div>
+
+      {/* DETAILED DOMAIN TEXT LEDGER CARDS */}
+      <div className="space-y-3 font-serif">
+        <div className="bg-[#ebdcb9]/40 border border-[#1a1311] p-4 rounded-sm relative shadow-sm">
+          <div className="absolute top-2 right-2 text-[#721c15]/20"><SafeIcon name="GiQuillInk" size={18} /></div>
+          <span className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">
+            Guild Archetype Role Power Matrix
+          </span>
+          <h4 className="font-bold text-base border-b border-[#1a1311]/10 pb-0.5 text-[#1a1311]">
+            {character.role_ability || "Standard Domain Ability"}
+          </h4>
+          <p className="text-xs italic text-black/70 mt-2 leading-relaxed">
+            {character.role_ability === "I Know a Guy" 
+              ? "Once per assignment, you can produce a contact who possesses specialized knowledge or resources relevant to the anomaly."
+              : character.role_ability === "Sweet Talk"
+              ? "When you Sway someone by flattering them or offering them something they want, add +1d to your total outcome matrix."
+              : "This specialized character asset grants unique mechanical adjustments to outcomes or mark distributions during active field missions."
+            }
+          </p>
+        </div>
+
+        <div className="bg-[#ebdcb9]/40 border border-[#1a1311] p-4 rounded-sm relative shadow-sm">
+          <div className="absolute top-2 right-2 text-[#721c15]/20"><SafeIcon name="GiMedal" size={18} /></div>
+          <span className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">
+            Focus Specialty Master Ability Matrix
+          </span>
+          <h4 className="font-bold text-base border-b border-[#1a1311]/10 pb-0.5 text-[#1a1311]">
+            {character.specialty_ability || "Focus Archetype Power"}
+          </h4>
+          <p className="text-xs italic text-black/70 mt-2 leading-relaxed">
+            {character.specialty_ability === "Insider Access"
+              ? "You can easily pass through restricted parameters or administrative sectors using your credentialed background files."
+              : character.specialty_ability === "Patch Up"
+              ? "Once per scene, you can heal a physical Body mark directly on an affected ally without utilizing a resource Stitch."
+              : "This master ability reflects advanced vocational experience, providing an operative advantage when executing field actions."
+            }
+          </p>
+        </div>
       </div>
 
     </div>

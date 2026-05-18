@@ -1,3 +1,4 @@
+// src/components/CharacterCreator.jsx
 import React, { useState } from 'react';
 import * as Gi from "react-icons/gi";
 
@@ -6,7 +7,7 @@ const STANDARD_GEAR = [
   "Bleed Detector", "Bleed Containment Vial", "Hand Weapon", "Lantern", "Matches & Candles", "First Aid Kit"
 ];
 
-// Complete Thematic Mapping Configuration Built from Spreadsheet Records
+// Complete Thematic Mapping Configuration Built Directly From Your Codebase
 const ROLES = {
   "Face": {
     icon: "GiDramaMasks",
@@ -210,17 +211,8 @@ const ROLES = {
   }
 };
 
-const BrassCornerFiligree = () => (
-  <>
-    <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-[#d4af37]" />
-    <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-[#d4af37]" />
-    <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-[#d4af37]" />
-    <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-[#d4af37]" />
-  </>
-);
-
-const SafeIcon = ({ name, size = 24, className = "" }) => {
-  if (!name || !Gi[name]) return <div style={{ width: size, height: size }} className="bg-[#b8860b]/10 border border-dashed border-[#b8860b]/40 rounded" />;
+const SafeIcon = ({ name, size = 18, className = "" }) => {
+  if (!name || !Gi[name]) return <div style={{ width: size, height: size }} className="bg-[#160f0d]/10 border border-dashed border-[#721c15]/30 rounded-full" />;
   return React.createElement(Gi[name], { size, className });
 };
 
@@ -246,9 +238,12 @@ export const CharacterCreator = ({ onSubmit }) => {
     }
   };
 
-  const handleRoleChange = (e) => {
-    setRole(e.target.value); setSpecialty(""); 
-    setSelectedRoleAbility(""); setSelectedSpecialtyAbility(""); setSelectedGear([]);
+  const handleRoleChange = (selectedRole) => {
+    setRole(selectedRole); 
+    setSpecialty(""); 
+    setSelectedRoleAbility(""); 
+    setSelectedSpecialtyAbility(""); 
+    setSelectedGear([]);
   };
 
   const toggleGear = (item) => {
@@ -257,509 +252,377 @@ export const CharacterCreator = ({ onSubmit }) => {
   };
 
   const handleComplete = () => {
-    if (onSubmit) onSubmit({ name, pronouns, style, catalyst, question, role, specialty, roleAbility: selectedRoleAbility, specialtyAbility: selectedSpecialtyAbility, gear: selectedGear, profilePic });
+    if (onSubmit) onSubmit({ 
+      name, pronouns, style, catalyst, question, role, specialty, 
+      roleAbility: selectedRoleAbility, specialtyAbility: selectedSpecialtyAbility, 
+      gear: selectedGear, profilePic 
+    });
   };
 
-  const renderDots = (count, max = 3, color = "bg-[#e5c158]") => (
-    <div className="flex gap-2 bg-black/50 p-2 rounded-md border border-[#3e2f29]">
-      {[...Array(max)].map((_, i) => (
-        <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-[#160f0d] ${i < count ? color : 'bg-[#1c1412]'}`} />
-      ))}
-    </div>
-  );
-
-  const renderBoxes = (count = 3) => (
-    <div className="flex gap-2">
-      {[...Array(count)].map((_, i) => (
-        <div key={i} className="w-6 h-6 border-2 border-[#1a1311] bg-white/70 shadow-[inset_0_2px_5px_rgba(0,0,0,0.3)] rounded-sm" />
-      ))}
-    </div>
-  );
-
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-[#1c1311] via-[#0f0a09] to-[#050303] text-[#1a1311] flex flex-col font-sans">
+    <div className="w-full max-w-5xl mx-auto px-4 py-6 font-serif text-[#1a1311]">
       
       {/* =========================================================================
-          THE DNDBEYOND-STYLE WEBSITE HEADER
+          THEMATIC 3-STEP PROGRESS NAVIGATION LANE
           ========================================================================= */}
-      <header className="w-full bg-gradient-to-r from-[#211714] via-[#2d201c] to-[#211714] border-b-4 border-[#e5c158] px-6 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.8)] z-30 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-black/40 border border-[#e5c158]/50 rounded-lg text-[#e5c158]">
-            <Gi.GiCandleSkull size={32} />
+      <div className="flex border border-[#3e2f29] bg-[#1a1311] text-xs font-sans font-black tracking-widest text-center select-none rounded mb-8 shadow-md">
+        <div 
+          onClick={() => setStep(1)}
+          className={`flex-1 py-3 cursor-pointer border-r border-[#3e2f29] transition-colors ${step === 1 ? 'bg-[#721c15] text-[#fdfaf4]' : 'text-[#fdfaf4]/40 hover:bg-black/20'}`}
+        >
+          1. REGISTRATION
+        </div>
+        <div 
+          onClick={() => name && role && specialty && setStep(2)}
+          className={`flex-1 py-3 cursor-pointer border-r border-[#3e2f29] transition-colors ${
+            (!name || !role || !specialty) ? 'opacity-30 cursor-not-allowed text-[#fdfaf4]/20' : step === 2 ? 'bg-[#721c15] text-[#fdfaf4]' : 'text-[#fdfaf4]/40 hover:bg-black/20'
+          }`}
+        >
+          2. INTERVIEW
+        </div>
+        <div 
+          onClick={() => name && role && specialty && catalyst && selectedRoleAbility && selectedSpecialtyAbility && setStep(3)}
+          className={`flex-1 py-3 cursor-pointer transition-colors ${
+            (!name || !role || !specialty || !catalyst || !selectedRoleAbility || !selectedSpecialtyAbility) ? 'opacity-30 cursor-not-allowed text-[#fdfaf4]/20' : step === 3 ? 'bg-[#721c15] text-[#fdfaf4]' : 'text-[#fdfaf4]/40 hover:bg-black/20'
+          }`}
+        >
+          3. CANDELA DOSSIER
+        </div>
+      </div>
+
+      {/* =========================================================================
+          MAIN PARCHMENT RECORD CARD FRAME
+          ========================================================================= */}
+      <div className="bg-[#f5ebd6] border-4 border-double border-[#1a1311] shadow-[0_15px_35px_rgba(0,0,0,0.7)] p-8 relative rounded-sm min-h-[550px] flex flex-col justify-between">
+        
+        {/* Intricate Antique Corner Filigrees */}
+        <div className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-[#1a1311]/40" />
+        <div className="absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-[#1a1311]/40" />
+        <div className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-[#1a1311]/40" />
+        <div className="absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-[#1a1311]/40" />
+
+        {/* =========================================================================
+            STEP 1: REGISTRATION (Identity + Career & Profession Selection)
+            ========================================================================= */}
+        {step === 1 && (
+          <div className="animate-fadeIn space-y-8 flex-1">
+            <div className="text-center border-b border-[#1a1311]/20 pb-4">
+              <h2 className="text-2xl font-black uppercase tracking-wide text-[#721c15]">Applicant Registration</h2>
+              <p className="text-[10px] font-sans font-black uppercase tracking-widest text-black/50 mt-1">Please provide vital identity details for prompt evaluation</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {/* Left Column: Passport Portrait */}
+              <div className="lg:col-span-4 flex flex-col items-center">
+                <label className="w-full aspect-[3/4] border-2 border-dashed border-[#1a1311]/40 bg-[#ebdcb9]/50 rounded flex flex-col items-center justify-center cursor-pointer hover:bg-[#ebdcb9]/80 hover:border-[#721c15]/60 transition-all relative overflow-hidden shadow-inner group">
+                  {profilePic ? (
+                    <img src={profilePic} alt="Dossier headshot" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center p-4">
+                      <Gi.GiIdCard size={40} className="mx-auto text-[#1a1311]/30 mb-2 group-hover:scale-110 transition-transform" />
+                      <span className="block text-[10px] font-sans font-black tracking-widest text-[#1a1311]/50 uppercase">[+] AFFIX PORTRAIT</span>
+                    </div>
+                  )}
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                </label>
+                <span className="text-[9px] font-sans italic opacity-50 mt-2 text-center">Recent portraits are required for identity verification</span>
+              </div>
+
+              {/* Right Column: Lined Form Fields + Dropdowns */}
+              <div className="lg:col-span-8 space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="relative border-b border-[#1a1311]/30 pb-1">
+                    <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">Full Name</label>
+                    <input 
+                      type="text" 
+                      value={name} 
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Full Nomenclature Name..." 
+                      className="w-full bg-transparent font-serif font-bold text-base border-none focus:outline-none placeholder-black/20"
+                    />
+                  </div>
+
+                  <div className="relative border-b border-[#1a1311]/30 pb-1">
+                    <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">Gender</label>
+                    <input 
+                      type="text" 
+                      value={pronouns} 
+                      onChange={(e) => setPronouns(e.target.value)}
+                      placeholder="e.g., He/They, She/Her..." 
+                      className="w-full bg-transparent font-serif italic text-base border-none focus:outline-none placeholder-black/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">Profession</label>
+                    <select 
+                      value={role} 
+                      onChange={(e) => handleRoleChange(e.target.value)}
+                      className="w-full bg-[#ebdcb9] border border-[#1a1311]/30 rounded p-2 text-xs font-sans font-bold focus:outline-none"
+                    >
+                      <option value="">-- Choose Profession --</option>
+                      {Object.keys(ROLES).map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+
+                  {role && (
+                    <div className="animate-fadeIn">
+                      <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">Field of Focus</label>
+                      <select 
+                        value={specialty} 
+                        onChange={(e) => setSpecialty(e.target.value)}
+                        className="w-full bg-[#ebdcb9] border border-[#1a1311]/30 rounded p-2 text-xs font-sans font-bold focus:outline-none"
+                      >
+                        <option value="">-- Choose Field Specialty --</option>
+                        {Object.keys(ROLES[role].specialties).map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative border-b border-[#1a1311]/30 pb-1 pt-2">
+                  <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">Identifying Characteristics</label>
+                  <textarea 
+                    rows={2}
+                    value={style} 
+                    onChange={(e) => setStyle(e.target.value)}
+                    placeholder="Detail apparel, tailored suits, ink-stained marks, or signature items..." 
+                    className="w-full bg-transparent font-serif text-xs border-none focus:outline-none resize-none placeholder-black/20 leading-relaxed"
+                  />
+                </div>
+              </div>
+
+            </div>
           </div>
+        )}
+
+        {/* =========================================================================
+            STEP 2: INTERVIEW (Narrative Questions + Assets Section)
+            ========================================================================= */}
+        {step === 2 && (
+          <div className="animate-fadeIn space-y-6 flex-1 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
+            <div className="text-center border-b border-[#1a1311]/20 pb-3">
+              <h2 className="text-2xl font-black uppercase tracking-wide text-[#721c15]">Applicant Examination Logs</h2>
+              <p className="text-[10px] font-sans font-black uppercase tracking-widest text-black/50 mt-1">Notes from Interviews Conducted with Applicants</p>
+            </div>
+
+            {/* Top Row: Narrative Prompts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-[#ebdcb9]/40 border border-[#1a1311]/20 p-3 rounded shadow-inner">
+                <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1 border-b border-[#1a1311]/10 pb-1">
+                  RECORD YOUR CATALYST: WHY DO YOU SEEK CANDELA OBSCURA?
+                </label>
+                <textarea 
+                  rows={2}
+                  value={catalyst} 
+                  onChange={(e) => setCatalyst(e.target.value)}
+                  placeholder="Document the specific event or supernatural puncture that tore away the mundane world..." 
+                  className="w-full bg-transparent font-serif text-xs border-none focus:outline-none resize-none placeholder-black/30 leading-relaxed"
+                />
+              </div>
+
+              <div className="bg-[#ebdcb9]/40 border border-[#1a1311]/20 p-3 rounded shadow-inner">
+                <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1 border-b border-[#1a1311]/10 pb-1">
+                  CONVEY YOUR CURIOSITY: WHAT ANSWERS ARE YOU DEMANDING?
+                </label>
+                <textarea 
+                  rows={2}
+                  value={question} 
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="What is the central question or haunting mystery your investigator pursues into the dark?" 
+                  className="w-full bg-transparent font-serif text-xs border-none focus:outline-none resize-none placeholder-black/30 leading-relaxed"
+                />
+              </div>
+            </div>
+
+            {/* Bottom Row: The Assets Section */}
+            <div className="border-t-2 border-dashed border-[#1a1311]/20 pt-4">
+              <h3 className="text-sm font-sans font-black uppercase tracking-wider text-[#721c15] mb-3 flex items-center gap-1">
+                <Gi.GiBriefcase size={14} /> Record of Professional Assets
+              </h3>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+                
+                {/* 1. Role Ability */}
+                <div className="bg-[#ebdcb9]/60 border border-[#1a1311]/20 p-3 rounded space-y-2">
+                  <span className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15]">Role Ability</span>
+                  <div className="space-y-1.5">
+                    {Object.entries(ROLES[role].baseAbilities).map(([name, data]) => (
+                      <div 
+                        key={name}
+                        onClick={() => setSelectedRoleAbility(name)}
+                        className={`p-2 border rounded cursor-pointer transition-all flex items-start gap-2 ${
+                          selectedRoleAbility === name ? 'bg-white border-[#721c15] shadow-sm' : 'border-[#1a1311]/10 hover:bg-white/40'
+                        }`}
+                      >
+                        <div className={`p-1 rounded-full shrink-0 ${selectedRoleAbility === name ? 'bg-[#721c15] text-[#fdfaf4]' : 'bg-[#ebdcb9] text-[#1a1311]'}`}>
+                          <SafeIcon name={data.icon} size={12} />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="block text-[11px] font-black tracking-tight leading-none">{name}</span>
+                          <span className="block text-[10px] opacity-70 leading-tight font-serif mt-0.5">{data.text}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Specialty Ability */}
+                <div className="bg-[#ebdcb9]/60 border border-[#1a1311]/20 p-3 rounded space-y-2">
+                  <span className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15]">Specialty Ability</span>
+                  <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+                    {ROLES[role].specialties[specialty] ? (
+                      Object.entries(ROLES[role].specialties[specialty].abilities).map(([name, data]) => (
+                        <div 
+                          key={name}
+                          onClick={() => setSelectedSpecialtyAbility(name)}
+                          className={`p-2 border rounded cursor-pointer transition-all flex items-start gap-2 ${
+                            selectedSpecialtyAbility === name ? 'bg-white border-[#721c15] shadow-sm' : 'border-[#1a1311]/10 hover:bg-white/40'
+                          }`}
+                        >
+                          <div className={`p-1 rounded-full shrink-0 ${selectedSpecialtyAbility === name ? 'bg-[#721c15] text-[#fdfaf4]' : 'bg-[#ebdcb9] text-[#1a1311]'}`}>
+                            <SafeIcon name={data.icon} size={12} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="block text-[11px] font-black tracking-tight leading-none">{name}</span>
+                            <span className="block text-[10px] opacity-70 leading-tight font-serif mt-0.5">{data.text}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-[10px] italic opacity-50">Select Profession to populate asset parameters</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Gear Ledger */}
+                <div className="bg-[#ebdcb9]/60 border border-[#1a1311]/20 p-3 rounded space-y-2">
+                  <div className="flex justify-between items-center border-b border-[#1a1311]/10 pb-0.5">
+                    <span className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15]">Ledger of Starting Gear</span>
+                    <span className="text-[9px] font-sans font-black opacity-60">({selectedGear.length}/3)</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1 text-[11px] max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+                    {ROLES[role].specialties[specialty] && ROLES[role].specialties[specialty].gear.map(item => (
+                      <div 
+                        key={item} 
+                        onClick={() => toggleGear(item)}
+                        className={`flex items-center gap-1.5 p-1 rounded cursor-pointer select-none transition-colors ${
+                          selectedGear.includes(item) ? 'bg-[#721c15]/10 font-bold' : 'hover:bg-white/30'
+                        }`}
+                      >
+                        <div className={`w-3 h-3 border border-[#1a1311] flex items-center justify-center rounded-sm text-[8px] ${selectedGear.includes(item) ? 'bg-[#721c15] text-white' : 'bg-transparent'}`}>
+                          {selectedGear.includes(item) && "✓"}
+                        </div>
+                        <span className="opacity-90 truncate">{item} <span className="text-[8px] text-[#721c15] font-sans uppercase font-black tracking-tighter">[Sig]</span></span>
+                      </div>
+                    ))}
+                    {STANDARD_GEAR.map(item => (
+                      <div 
+                        key={item} 
+                        onClick={() => toggleGear(item)}
+                        className={`flex items-center gap-1.5 p-1 rounded cursor-pointer select-none transition-colors ${
+                          selectedGear.includes(item) ? 'bg-[#721c15]/10 font-bold' : 'hover:bg-white/30'
+                        }`}
+                      >
+                        <div className={`w-3 h-3 border border-[#1a1311] flex items-center justify-center rounded-sm text-[8px] ${selectedGear.includes(item) ? 'bg-[#721c15] text-white' : 'bg-transparent'}`}>
+                          {selectedGear.includes(item) && "✓"}
+                        </div>
+                        <span className="opacity-80 truncate">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* =========================================================================
+            STEP 3: CANDELA DOSSIER (Finalized Bureaucratic Statement Preview)
+            ========================================================================= */}
+        {step === 3 && (
+          <div className="animate-fadeIn space-y-6 flex-1 text-sm font-serif">
+            <div className="text-center border-b-2 border-[#1a1311] pb-3">
+              <h2 className="text-3xl font-black uppercase tracking-tight text-[#1a1311]">Candela Archive Ledger Dossier</h2>
+              <p className="text-[10px] font-sans font-black uppercase tracking-widest text-black/50 mt-1">Verified administrative record ready for formal transmission</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b border-[#1a1311]/20 pb-4">
+              <div className="space-y-1 bg-[#ebdcb9]/30 p-3 rounded border border-[#1a1311]/10">
+                <span className="block text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15]">01. Core Nomenclature</span>
+                <p className="font-bold text-base text-[#1a1311]">{name}</p>
+                <p className="text-xs italic opacity-70">{pronouns}</p>
+              </div>
+              <div className="space-y-1 bg-[#ebdcb9]/30 p-3 rounded border border-[#1a1311]/10">
+                <span className="block text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15]">02. Profession</span>
+                <p className="font-bold text-base text-[#1a1311]">{role}</p>
+                <p className="text-xs font-sans font-black tracking-wide text-[#721c15]/80 uppercase">{specialty}</p>
+              </div>
+              <div className="space-y-1 bg-[#ebdcb9]/30 p-3 rounded border border-[#1a1311]/10">
+                <span className="block text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15]">03. Summary of Value to Institute</span>
+                <p className="font-bold text-base text-[#1a1311]">2 Assets Identified</p>
+                <p className="text-xs opacity-70 truncate">{selectedGear.length} Equipment Items Noted</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 bg-[#ebdcb9]/20 p-4 border border-dashed border-[#1a1311]/30 rounded">
+              <div>
+                <span className="block text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15]">Administrative Catalyst Record</span>
+                <p className="text-xs italic leading-relaxed text-[#1a1311]/90 mt-0.5">"{catalyst}"</p>
+              </div>
+              <div className="pt-2 border-t border-[#1a1311]/10">
+                <span className="block text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15]">Core Inquiry Matrix</span>
+                <p className="text-xs leading-relaxed text-[#1a1311]/90 mt-0.5">"{question}"</p>
+              </div>
+            </div>
+
+            <div className="text-center py-2 opacity-60 font-sans font-black tracking-widest text-[9px] uppercase animate-pulse">
+              ⚠️ Warning: This dossier is pending final review. Ensure all information is accurate and complete before submission.
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            MECHANICAL ROW CONTROLLER NAVIGATION BUTTONS
+            ========================================================================= */}
+        <div className="flex justify-between items-center border-t border-[#1a1311]/20 pt-4 mt-6">
           <div>
-            <span className="font-serif text-2xl font-black tracking-widest text-[#f6f3eb] uppercase block">Candela Obscura</span>
-            <span className="text-[10px] uppercase tracking-widest font-bold text-[#e5c158]/80 block">Order Management Hub v4.26</span>
+            {step > 1 && (
+              <button 
+                onClick={() => setStep(step - 1)}
+                className="px-4 py-1.5 border border-[#1a1311] font-sans font-black text-xs uppercase tracking-widest hover:bg-[#1a1311] hover:text-[#fdfaf4] transition-all rounded shadow-sm"
+              >
+                Back Log
+              </button>
+            )}
+          </div>
+
+          <div>
+            {step < 3 ? (
+              <button 
+                onClick={() => setStep(step + 1)}
+                disabled={step === 1 ? (!name || !role || !specialty) : (!catalyst || !selectedRoleAbility || !selectedSpecialtyAbility)}
+                className={`px-5 py-1.5 bg-[#1a1311] text-[#fdfaf4] font-sans font-black text-xs uppercase tracking-widest hover:bg-[#721c15] transition-all rounded shadow shadow-black/20 ${
+                  (step === 1 ? (!name || !role || !specialty) : (!catalyst || !selectedRoleAbility || !selectedSpecialtyAbility)) ? 'opacity-30 cursor-not-allowed' : ''
+                }`}
+              >
+                Advance
+              </button>
+            ) : (
+              <button 
+                onClick={handleComplete}
+                className="px-6 py-2 bg-[#721c15] text-[#fdfaf4] border-2 border-[#1a1311] font-sans font-black text-xs uppercase tracking-widest hover:bg-red-800 transition-all rounded shadow-md shadow-black/30"
+              >
+                Finalize Dossier Ledger
+              </button>
+            )}
           </div>
         </div>
-        <nav className="flex items-center gap-6 text-xs font-black uppercase tracking-wider text-[#f6f3eb]/70">
-          <a href="#dashboard" className="hover:text-[#e5c158] transition-colors border-b-2 border-transparent hover:border-[#e5c158] pb-1">Campaign Grid</a>
-          <a href="#dossier" className="text-[#e5c158] border-b-2 border-[#e5c158] pb-1">Character Forge</a>
-          <a href="#archives" className="hover:text-[#e5c158] transition-colors border-b-2 border-transparent hover:border-[#e5c158] pb-1">Lore Vault</a>
-        </nav>
-      </header>
-
-      {/* Main Structural Body Viewport */}
-      <div className="w-full flex-1 flex flex-col lg:flex-row shadow-[inset_0_4px_30px_rgba(0,0,0,0.5)]">
-        
-        {/* =========================================================================
-            THEMATIC CAMPAIGN STATUS SIDEBAR PANEL (LEFT)
-            ========================================================================= */}
-        <aside className="w-full lg:w-64 bg-[#1e1513] border-b-2 lg:border-b-0 lg:border-r-2 border-[#3e2f29] p-5 text-[#f6f3eb]/80 flex flex-col gap-6 z-20">
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#e5c158] border-b border-[#3e2f29] pb-2 mb-3">Circle Status</h3>
-            <div className="bg-black/30 border border-[#3e2f29] p-3 rounded space-y-2 text-xs font-bold">
-              <div className="flex justify-between"><span>Current Target:</span> <span className="text-[#e5c158]">The Red Tide</span></div>
-              <div className="flex justify-between"><span>Sanctum:</span> <span className="text-white">Redfield Library</span></div>
-              <div className="flex justify-between"><span>Active Illumination:</span> <span className="text-emerald-400">3 / 12</span></div>
-            </div>
-          </div>
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#e5c158] border-b border-[#3e2f29] pb-2 mb-3">Circle Operatives</h3>
-            <div className="space-y-2">
-              <div className="p-2.5 bg-black/20 border-l-4 border-emerald-500 rounded text-xs flex justify-between items-center">
-                <span className="font-bold text-white">Arthur Vance</span>
-                <span className="text-[10px] uppercase font-black px-1.5 py-0.5 bg-emerald-900 text-emerald-200 rounded">Doctor</span>
-              </div>
-              <div className="p-2.5 bg-black/40 border-l-4 border-[#e5c158] rounded text-xs flex justify-between items-center">
-                <span className="font-bold text-white">{name || "New Registry"}</span>
-                <span className="text-[10px] uppercase font-black px-1.5 py-0.5 bg-[#b8860b]/40 text-[#e5c158] rounded">{specialty || "Unset"}</span>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* CENTER CONSOLE WORKSPACE (MAHOGANY BUREAU VISUAL PAD) */}
-        <main className="flex-1 bg-gradient-to-br from-[#261b18] via-[#16100e] to-[#0f0a09] p-3 md:p-8 flex items-center justify-center relative shadow-[inset_0_0_80px_rgba(0,0,0,0.8)]">
-          <div className="w-full max-w-5xl bg-[#1d2726] p-2 md:p-5 rounded-xl border-4 border-[#3e2c21] shadow-[0_30px_70px_rgba(0,0,0,0.9)] relative">
-            <div className="absolute inset-0 bg-black/20 rounded-lg pointer-events-none shadow-[inset_0_0_20px_rgba(0,0,0,0.7)]" />
-
-            {/* HIGH-CONTRAST PARCHMENT INTERACTIVE SHEET */}
-            <div className="bg-[#f5ebd6] relative shadow-2xl border-4 border-double border-[#1a1311] p-5 md:p-8 flex flex-col min-h-[820px] rounded-sm">
-              <BrassCornerFiligree />
-              
-              {/* Card Header Pipeline */}
-              <div className="text-center mb-6 border-b-4 border-double border-[#1a1311] pb-5 relative">
-                <h1 className="text-3xl md:text-4xl font-serif text-[#1a1311] tracking-wider uppercase font-black">
-                  {step === 1 ? "I. Registration" : step === 2 ? "II. Interview" : "III. Candela Dossier"}
-                </h1>
-                
-                {/* HIGH-CONTRAST SEPARATOR BRIDGES */}
-                <div className="w-64 h-0.5 bg-gradient-to-r from-transparent via-[#721c15] to-transparent mx-auto mt-2" />
-                
-                <div className="flex justify-center gap-6 mt-4 text-[11px] font-black uppercase tracking-widest text-[#1a1311]/70">
-                  <span className={step === 1 ? 'text-[#721c15] scale-105 border-b-2 border-[#721c15] pb-0.5 font-black' : ''}>1.Registration </span>
-                  <span>•</span>
-                  <span className={step === 2 ? 'text-[#721c15] scale-105 border-b-2 border-[#721c15] pb-0.5 font-black' : ''}>2.Interview </span>
-                  <span>•</span>
-                  <span className={step === 3 ? 'text-[#721c15] scale-105 border-b-2 border-[#721c15] pb-0.5 font-black' : ''}>3.Candela Dossier </span>
-                </div>
-              </div>
-
-              {/* Module Flow Controls */}
-              <div className="flex-1 overflow-y-auto pr-2">
-                
-                {/* --- STEP 1: IDENTITY SCHEMA --- */}
-                {step === 1 && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="md:col-span-1 flex flex-col items-center md:border-r-2 border-dashed border-[#1a1311]/20 md:pr-6">
-                      <div className="w-48 h-64 border-4 border-double border-[#1a1311] bg-[#1a1311]/5 mb-3 relative flex items-center justify-center overflow-hidden bg-[#eadecd] shadow-inner">
-                        {profilePic ? (
-                          <img src={profilePic} alt="Affixed likeness" className="object-cover w-full h-full grayscale transition-all duration-300" />
-                        ) : (
-                          <div className="text-center p-4">
-                            <span className="text-5xl block font-black text-[#721c15] mb-2">[ + ]</span>
-                            <span className="font-serif text-xs font-black text-[#1a1311] tracking-widest uppercase">Affix Portrait</span>
-                          </div>
-                        )}
-                        <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-                      </div>
-                      <p className="text-[10px] font-black uppercase tracking-wider text-[#721c15]/80 text-center leading-tight">Portrait or Headshot Required for Prompt Applicant Registration</p>
-                    </div>
-                    
-                    <div className="md:col-span-2 space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="bg-[#ebdcb9] p-3 border-2 border-[#1a1311]/60 rounded shadow-inner">
-                          <label className="block text-xs font-black uppercase mb-1 text-[#721c15] tracking-wider">Investigator Appellation</label>
-                          <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-2 bg-transparent border-b border-[#1a1311] font-serif text-lg font-black focus:border-[#721c15] focus:outline-none text-[#1a1311]" placeholder="Full Name" />
-                        </div>
-                        <div className="bg-[#ebdcb9] p-3 border-2 border-[#1a1311]/60 rounded shadow-inner">
-                          <label className="block text-xs font-black uppercase mb-1 text-[#721c15] tracking-wider">Gender</label>
-                          <input type="text" value={pronouns} onChange={e => setPronouns(e.target.value)} className="w-full p-2 bg-transparent border-b border-[#1a1311] font-serif text-lg font-black focus:border-[#721c15] focus:outline-none text-[#1a1311]" placeholder="e.g. He/They" />
-                        </div>
-                      </div>
-
-                      <div className="bg-[#ebdcb9] p-4 border-2 border-[#1a1311]/60 rounded-lg shadow-inner transition-all hover:border-[#721c15]">
-                          <label className="text-xs font-black uppercase mb-2 text-[#721c15] tracking-wider flex items-center gap-2">
-                            <span>Attributes</span>
-                          </label>
-                          <textarea 
-                            value={style} 
-                            onChange={e => setStyle(e.target.value)} 
-                            className="w-full p-2.5 bg-[#fdfaf4]/40 border-2 border-[#1a1311]/20 rounded font-serif text-sm font-bold focus:border-[#721c15] focus:bg-[#fdfaf4] focus:outline-none text-[#1a1311] h-20 resize-none leading-relaxed shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] transition-colors placeholder-[#1a1311]/40" 
-                            placeholder="e.g., A tailored but frayed charcoal overcoat, heavy shadows beneath fatigued eyes, ink-stained knuckles, and a silver pocket watch that ticks slightly out of sync..." 
-                          />
-                          <span className="text-[10px] font-bold text-[#721c15]/70 mt-1 block italic">
-                            * Note down any notable scars, unique garments, or strange personal heirlooms carried on your person.
-                          </span>
-                        </div>`
-
-                      <div className="bg-[#ebdcb9] p-3 border-2 border-[#1a1311]/60 rounded shadow-inner">
-                        <label className="block text-xs font-black uppercase mb-1 text-[#721c15] tracking-wider">Record your Catalyst: Why do you seek Candela Obscura?</label>
-                        <textarea value={catalyst} onChange={e => setCatalyst(e.target.value)} className="w-full p-2 bg-transparent border border-[#1a1311]/40 font-serif text-sm focus:border-[#721c15] font-medium focus:outline-none h-14 resize-none text-[#1a1311] leading-relaxed" placeholder="Record the incident that tore down the structural veil..." />
-                      </div>
-
-                      <div className="bg-[#ebdcb9] p-3 border-2 border-[#1a1311]/60 rounded shadow-inner">
-                        <label className="block text-xs font-black uppercase mb-1 text-[#721c15] tracking-wider">Convey your Curiosity: What answers are you demanding?</label>
-                        <textarea value={question} onChange={e => setQuestion(e.target.value)} className="w-full p-2 bg-transparent border border-[#1a1311]/40 font-serif text-sm focus:border-[#721c15] font-medium focus:outline-none h-14 resize-none text-[#1a1311] leading-relaxed" placeholder="What core revelation demands your complete sacrifice?" />
-                      </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t-2 border-double border-[#1a1311]/20">
-                        <div className="bg-[#1a1311] p-4 rounded-lg border-2 border-[#e5c158] shadow-xl">
-                          <label className="block text-xs font-bold uppercase mb-2 text-[#f5ebd6] tracking-widest">Select Core Archetype</label>
-                          <select value={role} onChange={handleRoleChange} className="w-full p-3 bg-[#261b18] text-[#e5c158] font-serif text-md rounded border border-[#e5c158]/30 focus:outline-none cursor-pointer font-black tracking-wide">
-                            <option value="" disabled>-- Choose Role --</option>
-                            {Object.keys(ROLES).map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                        </div>
-                        {role && (
-                          <div className="bg-[#1a1311] p-4 rounded-lg border-2 border-[#e5c158] shadow-xl">
-                            <label className="block text-xs font-bold uppercase mb-2 text-[#f5ebd6] tracking-widest">Select Specialized Field</label>
-                            <select value={specialty} onChange={e => {setSpecialty(e.target.value); setSelectedGear([]); setSelectedSpecialtyAbility("")}} className="w-full p-3 bg-[#261b18] text-[#e5c158] font-serif text-md rounded border border-[#e5c158]/30 focus:outline-none cursor-pointer font-black tracking-wide">
-                              <option value="" disabled>-- Choose Specialty --</option>
-                              {Object.keys(ROLES[role].specialties).map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        )}
-                      </div>
-
-                      {role && specialty && (
-                        <div className="bg-white/60 border-2 border-[#1a1311]/40 rounded-lg p-4 flex gap-4 items-center shadow-sm">
-                          <div className="text-[#721c15] p-2 bg-black/5 rounded border border-black/10">
-                            <SafeIcon name={ROLES[role].specialties[specialty].icon} size={36} />
-                          </div>
-                          <div>
-                            <h4 className="font-serif font-black text-[#721c15] text-lg uppercase tracking-wider">{specialty} Field Overview</h4>
-                            <p className="text-xs font-bold text-[#1a1311] mt-0.5 leading-relaxed">{ROLES[role].specialties[specialty].description}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* --- STEP 2: MECHANICS CONFIGURATIONS --- */}
-                {step === 2 && role && specialty && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <h2 className="font-serif text-xl font-black text-[#721c15] border-b-2 border-[#1a1311] pb-1.5 uppercase tracking-wide">Traits</h2>
-                      
-                      <div className="space-y-3">
-                        <span className="text-xs font-black uppercase text-[#1a1311] tracking-wider block">1. Core Role Asset ({role})</span>
-                        {Object.entries(ROLES[role].baseAbilities).map(([aName, aDesc]) => (
-                          <button key={aName} onClick={() => setSelectedRoleAbility(aName)} className={`w-full text-left p-4 border-2 transition-all rounded-lg flex gap-4 items-start ${selectedRoleAbility === aName ? 'bg-[#1a1311] text-[#f5ebd6] border-[#e5c158] shadow-2xl' : 'border-[#1a1311]/30 text-[#1a1311] hover:border-[#721c15] bg-white/50'}`}>
-                            <div className={`mt-0.5 p-1.5 rounded border ${selectedRoleAbility === aName ? 'bg-black/40 text-[#e5c158] border-[#e5c158]/30' : 'bg-black/5 text-[#721c15] border-black/10'}`}>
-                              <SafeIcon name={aDesc.icon} size={28} /> {/* INCREASED SIZE */}
-                            </div>
-                            <div>
-                              <span className={`font-serif font-black text-base block ${selectedRoleAbility === aName ? 'text-[#e5c158]' : 'text-[#721c15]'}`}>{aName}</span>
-                              <span className="text-xs mt-1 block font-bold leading-relaxed opacity-95">{aDesc.text}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="space-y-3 pt-2">
-                        <span className="text-xs font-black uppercase text-[#1a1311] tracking-wider block">2. Specialty Asset ({specialty})</span>
-                        {Object.entries(ROLES[role].specialties[specialty].abilities).map(([aName, aDesc]) => (
-                          <button key={aName} onClick={() => setSelectedSpecialtyAbility(aName)} className={`w-full text-left p-4 border-2 transition-all rounded-lg flex gap-4 items-start ${selectedSpecialtyAbility === aName ? 'bg-[#1a1311] text-[#f5ebd6] border-[#e5c158] shadow-2xl' : 'border-[#1a1311]/30 text-[#1a1311] hover:border-[#721c15] bg-white/50'}`}>
-                            <div className={`mt-0.5 p-1.5 rounded border ${selectedSpecialtyAbility === aName ? 'bg-black/40 text-[#e5c158] border-[#e5c158]/30' : 'bg-black/5 text-[#721c15] border-black/10'}`}>
-                              <SafeIcon name={aDesc.icon} size={28} /> {/* INCREASED SIZE */}
-                            </div>
-                            <div>
-                              <span className={`font-serif font-black text-base block ${selectedSpecialtyAbility === aName ? 'text-[#e5c158]' : 'text-[#721c15]'}`}>{aName}</span>
-                              <span className="text-xs mt-1 block font-bold leading-relaxed opacity-95">{aDesc.text}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h2 className="font-serif text-xl font-black text-[#721c15] border-b-2 border-[#1a1311] pb-1.5 uppercase tracking-wide">Gear Request</h2>
-                      <div className="text-xs font-bold text-[#1a1311] my-3 bg-[#ebdcb9] p-3 border-2 border-[#1a1311]/40 rounded shadow-inner leading-relaxed">
-                        Every Assignment you may request three items from Candela Obscura ({selectedGear.length}/3 verified).
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <div className="bg-white/60 p-4 border-2 border-[#1a1311]/30 rounded-lg shadow-sm">
-                          <span className="text-xs font-black uppercase tracking-wider mb-2 block text-[#721c15]">{specialty} Specific Loadout</span>
-                          <div className="grid grid-cols-1 gap-2">
-                            {ROLES[role].specialties[specialty].gear.map(item => (
-                              <button key={item} onClick={() => toggleGear(item)} className={`p-3 text-left border rounded-md transition-all text-sm font-black flex justify-between items-center ${selectedGear.includes(item) ? 'bg-[#1a1311] text-[#f5ebd6] border-[#1a1311] shadow-xl' : 'bg-[#f5ebd6]/60 border-[#1a1311]/20 text-[#1a1311] hover:bg-white hover:border-[#1a1311]'}`}>
-                                <span>{item}</span>
-                                {selectedGear.includes(item) && <span className="text-xs text-[#e5c158] tracking-widest font-black">[ READY ]</span>}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="bg-white/60 p-4 border-2 border-[#1a1311]/30 rounded-lg shadow-sm">
-                          <span className="text-xs font-black uppercase tracking-wider mb-2 block text-[#1a1311]/70">Standard Gear</span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {STANDARD_GEAR.map(item => (
-                              <button key={item} onClick={() => toggleGear(item)} className={`p-2.5 text-left text-xs border rounded-md transition-all font-black flex justify-between items-center ${selectedGear.includes(item) ? 'bg-[#1a1311] text-[#f5ebd6] border-[#1a1311] shadow-xl' : 'bg-transparent border-[#1a1311]/20 text-[#1a1311] hover:bg-white hover:border-[#1a1311]'}`}>
-                                <span>{item}</span>
-                                {selectedGear.includes(item) && <span className="text-[#e5c158] text-xs font-black">[✓]</span>}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* --- STEP 3: HIGH-CONTRAST VISUAL LEDGER SHEET --- */}
-                {step === 3 && (
-                  <div className="bg-[#fdfaf4] border-4 border-double border-[#1a1311] p-5 md:p-6 shadow-2xl relative text-[#1a1311] rounded-lg flex flex-col gap-5">
-                    
-                    {/* FULL ROW HEADER WITH PORTRAIT MATCHING DESTINATION HEIGHT */}
-                    <div className="border-b-4 border-[#1a1311] pb-5 flex flex-col md:flex-row gap-6 items-stretch relative">
-                      
-                      {/* LEFT COLUMN: Full Height Portrait */}
-                      <div className="flex flex-col justify-stretch flex-shrink-0">
-                        {profilePic ? (
-                          <img 
-                            src={profilePic} 
-                            alt="Dossier portrait" 
-                            className="w-32 md:w-36 h-full object-cover border-2 border-[#1a1311] grayscale bg-white shadow-xl rounded-md" 
-                          />
-                        ) : (
-                          <div className="w-32 md:w-36 h-full min-h-[180px] border-2 border-dashed border-[#1a1311]/40 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-center p-3 bg-black/5 rounded-md leading-relaxed">
-                            Portrait Not Affixed
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* RIGHT COLUMN: Attributes & Narrative Data stacked vertically */}
-                      <div className="flex-1 flex flex-col justify-between gap-4">
-                        
-                        {/* Row 1: Core Identity Marks */}
-                        <div className="border-b border-[#1a1311]/10 pb-2">
-                          <h2 className="text-3xl md:text-4xl font-serif uppercase tracking-wide font-black m-0 text-[#1a1311] leading-tight">
-                            {name || "Anonymous Active Agent"}
-                          </h2>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-black uppercase tracking-widest text-[#721c15] mt-1">
-                            <span>Gender: {pronouns || "Unlisted"}</span>
-                            <span>Role: {role}</span>
-                            <span>Specialty: {specialty}</span>
-                          </div>
-                        </div>
-                        
-                        {/* Row 2: Shared Motivations Enclosures */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-bold leading-relaxed">
-                          <div className="bg-[#ebdcb9]/20 p-2.5 border border-[#1a1311]/20 rounded-md">
-                            <span className="font-black uppercase tracking-widest block text-[9px] text-[#721c15] mb-0.5">Origin Catalyst</span>
-                            <p className="italic font-medium text-[#1a1311]">{catalyst || "No narrative parameter logged."}</p>
-                          </div>
-                          <div className="bg-[#ebdcb9]/20 p-2.5 border border-[#1a1311]/20 rounded-md">
-                            <span className="font-black uppercase tracking-widest block text-[9px] text-[#721c15] mb-0.5">Focus Target Question</span>
-                            <p className="italic font-medium text-[#1a1311]">{question || "No narrative parameter logged."}</p>
-                          </div>
-                        </div>
-
-                        {/* Row 3: Physical Description Banner Panel */}
-                        <div className="bg-[#ebdcb9]/40 p-3 border border-[#1a1311]/30 rounded-lg shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)] text-left">
-                          <span className="font-black uppercase tracking-widest text-[9px] text-[#721c15] block mb-1">Attire & Physical Appearance</span> 
-                          <p className="text-[#1a1311] font-bold font-serif text-xs leading-relaxed whitespace-pre-line">
-                            {style || "No specific physical descriptions cataloged in active files."}
-                          </p>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    {/* FAUX-LEATHER ENCLOSURES WITH Monumental 40px SPECIFIC ATTRIBUTE TOKENS */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 font-bold">
-                      
-                      {/* NERVE MODULE MATRIX */}
-                      <div className="bg-gradient-to-b from-[#1e1412] to-[#120b0a] border-2 border-[#31221e] text-[#f6f3eb] p-4 rounded-lg shadow-[inset_0_0_20px_rgba(0,0,0,0.85),0_8px_16px_rgba(0,0,0,0.4)] relative">
-                        {/*Monumental Attribute Token Added */}
-                        <div className="absolute top-3 right-3 text-[#e5c158]/20"><SafeIcon name="GiGauntlet" size={40} /></div>
-                        <div className="border-b border-[#e5c158]/30 pb-2 mb-3">
-                          <span className="text-base font-serif font-black uppercase tracking-widest text-[#e5c158] block">Nerve</span>
-                          <div className="flex justify-between items-center mt-1 text-[10px] font-black uppercase tracking-wider text-white/60">
-                            <span>Drive Maximum: {ROLES[role].specialties[specialty].stats.nerve.max}</span>
-                            <span>Resistance: {Math.floor(ROLES[role].specialties[specialty].stats.nerve.max / 3)}</span>
-                          </div>
-                        </div>
-                        <div className="space-y-2.5 text-sm font-serif font-black">
-                          <div className="flex justify-between items-center"><span>Move</span> {renderDots(ROLES[role].specialties[specialty].stats.nerve.move, 3, "bg-[#e5c158]")}</div>
-                          <div className="flex justify-between items-center"><span>Strike</span> {renderDots(ROLES[role].specialties[specialty].stats.nerve.strike, 3, "bg-[#e5c158]")}</div>
-                          <div className="flex justify-between items-center"><span>Control</span> {renderDots(ROLES[role].specialties[specialty].stats.nerve.control, 3, "bg-[#e5c158]")}</div>
-                        </div>
-                      </div>
-
-                      {/* CUNNING MODULE MATRIX */}
-                      <div className="bg-gradient-to-b from-[#1e1412] to-[#120b0a] border-2 border-[#31221e] text-[#f6f3eb] p-4 rounded-lg shadow-[inset_0_0_20px_rgba(0,0,0,0.85),0_8px_16px_rgba(0,0,0,0.4)] relative">
-                        {/*Monumental Attribute Token Added */}
-                        <div className="absolute top-3 right-3 text-[#e5c158]/20"><SafeIcon name="GiSmokeBomb" size={40} /></div>
-                        <div className="border-b border-[#e5c158]/30 pb-2 mb-3">
-                          <span className="text-base font-serif font-black uppercase tracking-widest text-[#e5c158] block">Cunning</span>
-                          <div className="flex justify-between items-center mt-1 text-[10px] font-black uppercase tracking-wider text-white/60">
-                            <span>Drive Maximum: {ROLES[role].specialties[specialty].stats.cunning.max}</span>
-                            <span>Resistance: {Math.floor(ROLES[role].specialties[specialty].stats.cunning.max / 3)}</span>
-                          </div>
-                        </div>
-                        <div className="space-y-2.5 text-sm font-serif font-black">
-                          <div className="flex justify-between items-center"><span>Sway</span> {renderDots(ROLES[role].specialties[specialty].stats.cunning.sway, 3, "bg-[#e5c158]")}</div>
-                          <div className="flex justify-between items-center"><span>Read</span> {renderDots(ROLES[role].specialties[specialty].stats.cunning.read, 3, "bg-[#e5c158]")}</div>
-                          <div className="flex justify-between items-center"><span>Hide</span> {renderDots(ROLES[role].specialties[specialty].stats.cunning.hide, 3, "bg-[#e5c158]")}</div>
-                        </div>
-                      </div>
-
-                      {/* INTUITION MODULE MATRIX */}
-                      <div className="bg-gradient-to-b from-[#1e1412] to-[#120b0a] border-2 border-[#31221e] text-[#f6f3eb] p-4 rounded-lg shadow-[inset_0_0_20px_rgba(0,0,0,0.85),0_8px_16px_rgba(0,0,0,0.4)] relative">
-                        {/*Monumental Attribute Token Added */}
-                        <div className="absolute top-3 right-3 text-[#e5c158]/20"><SafeIcon name="GiStarSwirl" size={40} /></div>
-                        <div className="border-b border-[#e5c158]/30 pb-2 mb-3">
-                          <span className="text-base font-serif font-black uppercase tracking-widest text-[#e5c158] block">Intuition</span>
-                          <div className="flex justify-between items-center mt-1 text-[10px] font-black uppercase tracking-wider text-white/60">
-                            <span>Drive Maximum: {ROLES[role].specialties[specialty].stats.intuition.max}</span>
-                            <span>Resistance: {Math.floor(ROLES[role].specialties[specialty].stats.intuition.max / 3)}</span>
-                          </div>
-                        </div>
-                        <div className="space-y-2.5 text-sm font-serif font-black">
-                          <div className="flex justify-between items-center"><span>Survey</span> {renderDots(ROLES[role].specialties[specialty].stats.intuition.survey, 3, "bg-[#e5c158]")}</div>
-                          <div className="flex justify-between items-center"><span>Focus</span> {renderDots(ROLES[role].specialties[specialty].stats.intuition.focus, 3, "bg-[#e5c158]")}</div>
-                          <div className="flex justify-between items-center"><span>Sense</span> {renderDots(ROLES[role].specialties[specialty].stats.intuition.sense, 3, "bg-[#e5c158]")}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Split Infrastructure Layout Sections */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t-2 border-[#1a1311] pt-5 mt-1">
-                      <div className="space-y-5">
-                        <div>
-                          <div className="uppercase font-black tracking-widest text-xs border-b-2 border-[#1a1311] pb-1 mb-2.5 text-[#721c15]">Marks</div>
-                          <div className="space-y-2.5 font-serif text-sm font-bold bg-white/50 p-3 rounded border border-[#1a1311]/20 shadow-inner">
-                            <div className="flex justify-between items-center"><span>Body (Physical Harm)</span> {renderBoxes(3)}</div>
-                            <div className="flex justify-between items-center"><span>Brain (Mental Chaos)</span> {renderBoxes(3)}</div>
-                            <div className="flex justify-between items-center"><span>Bleed (Arcane Infection)</span> {renderBoxes(3)}</div>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="uppercase font-black tracking-widest text-xs border-b-2 border-[#1a1311] pb-1 mb-2 text-[#721c15]">Illumination Keys</div>
-                          <ul className="list-disc pl-5 text-xs italic font-black space-y-1 text-[#1a1311]/90 leading-relaxed">
-                            {ROLES[role].keys.map(k => <li key={k}>{k}</li>)}
-                          </ul>
-                        </div>
-                      </div>
-
-                      {/* Capabilities Matrix Viewport */}
-                      <div className="space-y-5">
-                        <div>
-                          <div className="uppercase font-black tracking-widest text-xs border-b-2 border-[#1a1311] pb-1 mb-2.5 text-[#721c15]">Traits</div>
-                          <div className="space-y-3.5 bg-white/50 p-3 rounded border border-[#1a1311]/20 shadow-inner">
-                            <div className="text-sm">
-                              <span className="font-serif font-black text-[#1a1311] text-base flex items-center gap-2">
-                                <SafeIcon name={ROLES[role].baseAbilities[selectedRoleAbility].icon} size={20} className="text-[#721c15]" />
-                                {selectedRoleAbility}
-                              </span> 
-                              <span className="font-bold block mt-1 text-xs text-[#1a1311]/90 leading-relaxed">{ROLES[role].baseAbilities[selectedRoleAbility].text}</span>
-                            </div>
-                            
-                            {/* CRISP ACCENT DIVIDERS */}
-                            <div className="border-t border-[#721c15]/20 my-1.5" />
-                            
-                            <div className="text-sm">
-                              <span className="font-serif font-black text-[#1a1311] text-base flex items-center gap-2">
-                                <SafeIcon name={ROLES[role].specialties[specialty].abilities[selectedSpecialtyAbility].icon} size={20} className="text-[#721c15]" />
-                                {selectedSpecialtyAbility}
-                              </span> 
-                              <span className="font-bold block mt-1 text-xs text-[#1a1311]/90 leading-relaxed">{ROLES[role].specialties[specialty].abilities[selectedSpecialtyAbility].text}</span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <div className="uppercase font-black tracking-widest text-xs border-b-2 border-[#1a1311] pb-1 mb-2 text-[#721c15]">Equipped Gear</div>
-                          <div className="flex flex-wrap gap-1.5 bg-white/50 p-3 rounded border border-[#1a1311]/20 shadow-inner">
-                            {selectedGear.map(g => (
-                              <span key={g} className="px-3 py-1.5 bg-[#1a1311] border border-[#e5c158]/50 text-[#f5ebd6] text-xs font-black uppercase rounded shadow-md tracking-wider">{g}</span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Navigation Steppers Footer */}
-              <div className="mt-6 pt-4 border-t-2 border-[#1a1311] flex justify-between items-center z-10">
-                <button 
-                  onClick={() => setStep(step - 1)}
-                  disabled={step === 1}
-                  className="px-5 py-2 border-2 border-[#1a1311] bg-[#eadecd]/60 hover:bg-[#1a1311] hover:text-[#f5ebd6] text-[#1a1311] font-black uppercase tracking-widest text-xs rounded transition-all disabled:opacity-10"
-                >
-                  &lt; Back
-                </button>
-                
-                {step < 3 ? (
-                  <button 
-                    onClick={() => setStep(step + 1)}
-                    disabled={(step === 1 && (!name || !role || !specialty)) || (step === 2 && (!selectedRoleAbility || !selectedSpecialtyAbility || selectedGear.length !== 3))}
-                    className="px-7 py-3 bg-[#1a1311] text-[#f5ebd6] font-serif tracking-widest uppercase hover:bg-white hover:text-[#1a1311] border-2 border-[#1a1311] transition-all font-black rounded shadow-xl disabled:opacity-20 text-xs"
-                  >
-                    {step === 2 && selectedGear.length !== 3 ? `Equip Kit (${selectedGear.length}/3)` : "Next Phase"}
-                  </button>
-                ) : (
-                  <button 
-                    onClick={handleComplete}
-                    className="px-10 py-3.5 bg-[#721c15] text-white font-serif text-lg tracking-widest uppercase hover:bg-[#1a1311] hover:text-[#e5c158] border-2 border-[#721c15] transition-all shadow-xl font-black rounded"
-                  >
-                    Finalize Dossier
-                  </button>
-                )}
-              </div>
-
-            </div>
-          </div>
-        </main>
-
-        {/* =========================================================================
-            CAMPAIGN ASSIGNMENT PROGRESS REPORT SIDEBAR PANEL (RIGHT)
-            ========================================================================= */}
-        <aside className="w-full lg:w-64 bg-[#1e1513] border-t-2 lg:border-t-0 lg:border-l-2 border-[#3e2f29] p-5 text-[#f6f3eb]/80 flex flex-col gap-6 z-20">
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#e5c158] border-b border-[#3e2f29] pb-2 mb-3">Active Clocks</h3>
-            <div className="space-y-3 text-xs font-bold">
-              <div>
-                <div className="flex justify-between mb-1"><span>Guard Patrol:</span> <span className="text-amber-400">3 / 4 Boxes</span></div>
-                <div className="w-full h-2.5 bg-black/50 rounded overflow-hidden border border-[#3e2f29]">
-                  <div className="w-3/4 h-full bg-amber-500" />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between mb-1"><span>Bleed Exposure:</span> <span className="text-red-400">1 / 6 Boxes</span></div>
-                <div className="w-full h-2.5 bg-black/50 rounded overflow-hidden border border-[#3e2f29]">
-                  <div className="w-1/6 h-full bg-red-600" />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#e5c158] border-b border-[#3e2f29] pb-2 mb-3">Live Feed Log</h3>
-            <div className="p-3 bg-black/30 border border-[#3e2f29] rounded text-[11px] font-medium leading-relaxed font-serif h-48 overflow-y-auto space-y-2 text-[#f6f3eb]/60">
-              <p><span className="text-[#e5c158] font-sans font-black">[21:42]</span> Circle forged entry into the apothecary laboratory basement.</p>
-              <p><span className="text-[#e5c158] font-sans font-black">[21:48]</span> Arthur Vance resisted a major Bleed puncture mark shock trace.</p>
-              <p><span className="text-[#e5c158] font-sans font-black">[22:01]</span> A strange artifact silhouette was securely cataloged.</p>
-            </div>
-          </div>
-        </aside>
 
       </div>
     </div>
