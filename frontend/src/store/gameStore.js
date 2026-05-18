@@ -1,4 +1,3 @@
-// src/store/gameStore.js
 import { create } from 'zustand';
 
 const useGameStore = create((set, get) => ({
@@ -8,11 +7,10 @@ const useGameStore = create((set, get) => ({
   circle: null,
   lastRoll: null,
   showScarModal: false,
+  isRolling: false, // <-- 1. Add the rolling state flag
   
   // --- 1. CONNECTION & DATA ROUTING ---
   connect: (gameId) => {
-    // Dynamically build the WebSocket URL to route through the Vite frontend proxy.
-    // This bypasses the GitHub Codespaces 403 Forbidden cross-origin security block.
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/${gameId}`;
     
@@ -28,8 +26,12 @@ const useGameStore = create((set, get) => ({
         set({ circle: message.payload });
       } 
       else if (message.type === 'roll_result') {
-        set({ lastRoll: message.payload.roll, character: message.payload.character });
-      } 
+        set({ 
+          lastRoll: message.payload.roll, 
+          character: message.payload.character,
+          isRolling: false // <-- This line resets the screen from "Casting Lots..." back to the tray view
+        });
+      }
       else if (message.type === 'trigger_scar') {
         set({ character: message.payload.character, showScarModal: true });
       }
@@ -38,7 +40,6 @@ const useGameStore = create((set, get) => ({
     set({ socket });
   },
 
-  // --- 2. LOCAL STATE OVERRIDE (Creation Handshake) ---
   setLocalCharacter: (characterData) => {
     set({ character: characterData });
   },
@@ -46,6 +47,10 @@ const useGameStore = create((set, get) => ({
   // --- 3. GAMEPLAY ACTION TRANSMITTERS ---
   rollAction: (actionName, driveSpent = 0) => {
     const { socket } = get();
+    
+    // 2. Wipe previous dice and trigger rolling state immediately
+    set({ lastRoll: null, isRolling: true });
+    
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: 'roll',
@@ -53,6 +58,8 @@ const useGameStore = create((set, get) => ({
       }));
     }
   },
+
+  // ... (Keep existing updateDrive, takeMark, applyScar, etc.)
 
   updateDrive: (pool, newValue) => {
     const { socket } = get();

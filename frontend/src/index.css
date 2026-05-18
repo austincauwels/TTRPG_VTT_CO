@@ -110,6 +110,11 @@
 /* UTILITIES LAYER (Scrollbars)                                      */
 /* ================================================================= */
 @layer utilities {
+  .animate-dieTumble {
+    /* Using a cubic-bezier for a snappy, heavy drop effect */
+    animation: dieTumble 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  }
+  
   .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
   }
@@ -143,11 +148,11 @@
   }
 }
 
-@keyframes diceTumble {
-  0% { transform: rotate(0deg) scale(0.8); opacity: 0.3; }
-  30% { transform: rotate(-180deg) scale(1.1); }
-  70% { transform: rotate(45deg) scale(0.9); }
-  100% { transform: rotate(0deg) scale(1); opacity: 1; }
+@keyframes dieTumble {
+  0% { transform: translateY(-60px) rotate(0deg) scale(0.5); opacity: 0; }
+  30% { transform: translateY(10px) rotate(180deg) scale(1.1); }
+  60% { transform: translateY(-5px) rotate(360deg) scale(0.95); }
+  100% { transform: translateY(0) rotate(var(--random-skew)) scale(1); opacity: 1; }
 }
 
 /* Global utility handles to safely call keyframes via React state hooks */
