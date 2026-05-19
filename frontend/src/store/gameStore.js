@@ -7,9 +7,10 @@ const useGameStore = create((set, get) => ({
   circle: null,
   lastRoll: null,
   showScarModal: false,
-  isRolling: false, // <-- 1. Add the rolling state flag
+  scarModalData: null, // Track metadata about which mark triggered the scar
+  isRolling: false,
   
-  // --- 1. CONNECTION & DATA ROUTING ---
+  // --- CONNECTION & DATA ROUTING ---
   connect: (gameId) => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/${gameId}`;
@@ -29,11 +30,15 @@ const useGameStore = create((set, get) => ({
         set({ 
           lastRoll: message.payload.roll, 
           character: message.payload.character,
-          isRolling: false // <-- This line resets the screen from "Casting Lots..." back to the tray view
+          isRolling: false
         });
       }
       else if (message.type === 'trigger_scar') {
-        set({ character: message.payload.character, showScarModal: true });
+        set({ 
+          character: message.payload.character, 
+          showScarModal: true,
+          scarModalData: { type: message.payload.mark_type } // Store the mark vector that popped the threshold
+        });
       }
     };
     
@@ -44,11 +49,9 @@ const useGameStore = create((set, get) => ({
     set({ character: characterData });
   },
 
-  // --- 3. GAMEPLAY ACTION TRANSMITTERS ---
+  // --- GAMEPLAY ACTION TRANSMITTERS ---
   rollAction: (actionName, driveSpent = 0) => {
     const { socket } = get();
-    
-    // 2. Wipe previous dice and trigger rolling state immediately
     set({ lastRoll: null, isRolling: true });
     
     if (socket && socket.readyState === WebSocket.OPEN) {
@@ -58,8 +61,6 @@ const useGameStore = create((set, get) => ({
       }));
     }
   },
-
-  // ... (Keep existing updateDrive, takeMark, applyScar, etc.)
 
   updateDrive: (pool, newValue) => {
     const { socket } = get();
@@ -81,16 +82,25 @@ const useGameStore = create((set, get) => ({
     }
   },
 
-  applyScar: (scarText, shiftDown, shiftUp) => {
+  // CRITICAL COMPATIBILITY FIX: Expects an object containing text and shifting keys
+  applyScar: (payloadData) => {
     const { socket } = get();
     if (socket && socket.readyState === WebSocket.OPEN) {
+      // Unpack object structure to match backend expectation fields perfectly
+      const outPayload = typeof payloadData === 'string' 
+        ? { scar_text: payloadData, shift_down: null, shift_up: null }
+        : { 
+            scar_text: payloadData.scar_text, 
+            shift_down: payloadData.shift_down, 
+            shift_up: payloadData.shift_up 
+          };
+
       socket.send(JSON.stringify({
         type: 'apply_scar',
-        payload: { scar_text: scarText, shift_down: shiftDown, shift_up: shiftUp }
+        payload: outPayload
       }));
     }
-    // Automatically close the frontend modal once the network payload fires
-    set({ showScarModal: false }); 
+    set({ showScarModal: false, scarModalData: null }); 
   },
 
   updateCircle: (updates) => {
@@ -103,7 +113,7 @@ const useGameStore = create((set, get) => ({
     }
   },
 
-  closeScarModal: () => set({ showScarModal: false })
+  closeScarModal: () => set({ showScarModal: false, scarModalData: null })
 }));
 
 export default useGameStore;

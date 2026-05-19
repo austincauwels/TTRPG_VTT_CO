@@ -177,10 +177,10 @@ function App() {
     );
   }
 
-  const handleSpendDrive = (pool) => {
-    const currentDrive = character[`${pool}_current`] || 0;
-    if (currentDrive > 0) {
-      updateDrive(pool, currentDrive - 1);
+  const handleSpendDrive = (pool, value) => {
+    const maxDrive = character[`${pool}_max`] || 1;
+    if (value >= 0 && value <= maxDrive) {
+      updateDrive(pool, value);
     }
   };
 
@@ -474,7 +474,7 @@ function App() {
 
             </div>
 
-            {/* =========================================================================
+           {/* =========================================================================
                 COLUMN 2: REGULATION GOVERNMENT DESK PARCHMENT WORKSPACE SHEET
                 ========================================================================= */}
             <div className="lg:col-span-6">
@@ -543,20 +543,25 @@ function App() {
                           <div key={cat.name} className="bg-white/40 border border-black/20 p-2.5 rounded-sm flex flex-col justify-between">
                             <div className="flex justify-between items-center border-b border-black/10 pb-1.5 mb-2">
                               <span className="font-serif font-black text-xs uppercase tracking-wide text-black">{cat.name}</span>
-                              <div 
-                                onClick={() => handleSpendDrive(cat.driveKey)}
-                                className="flex items-center gap-1 cursor-pointer select-none group"
-                                title={`Click to burn 1 point of ${cat.name} Drive`}
-                              >
-                                <div className="flex gap-0.5">
-                                  {Array.from({ length: maxDrive }).map((_, i) => (
-                                    <div 
-                                      key={i} 
-                                      className={`w-2.5 h-2.5 border border-black transform rotate-45 transition-colors shadow-sm ${
-                                        i < currentDrive ? 'bg-black' : 'bg-transparent'
-                                      }`} 
-                                    />
-                                  ))}
+                              <div className="flex items-center gap-1 select-none group" title={`Click individual pips to adjust ${cat.name} Drive`}>
+                                <div className="flex gap-1.5 px-0.5">
+                                  {Array.from({ length: maxDrive }).map((_, i) => {
+                                    const isActive = i < currentDrive;
+                                    return (
+                                      <div
+                                        key={i}
+                                        onClick={() => {
+                                          const targetValue = isActive ? i : i + 1;
+                                          handleSpendDrive(cat.driveKey, targetValue);
+                                        }}
+                                        className={`w-2.5 h-2.5 border border-black transform rotate-45 cursor-pointer transition-all duration-150 ${
+                                          isActive 
+                                            ? 'bg-black scale-105 shadow-sm' 
+                                            : 'bg-transparent hover:bg-black/20'
+                                        }`}
+                                      />
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </div>
@@ -612,14 +617,18 @@ function App() {
                                 >
                                   {type} [+]
                                 </button>
-                                <div className="flex gap-1.5">
+                                <div 
+                                  className="flex gap-1.5 cursor-pointer group"
+                                  onClick={() => takeMark(type)}
+                                  title={`Click to add a ${type} mark`}
+                                >
                                   {Array.from({ length: 3 }).map((_, i) => (
                                     <div 
                                       key={i} 
-                                      className={`w-3.5 h-5 border-2 border-black shadow-inner rounded-sm transition-all ${
+                                      className={`w-3.5 h-5 border-2 border-black shadow-inner rounded-sm transition-all duration-150 ${
                                         character && i < character[`${type}_marks`] 
                                           ? 'bg-black transform rotate-3 scale-105' 
-                                          : 'bg-transparent'
+                                          : 'bg-transparent group-hover:bg-black/20 group-hover:border-red-800/50'
                                       }`} 
                                     />
                                   ))}
@@ -883,7 +892,6 @@ function App() {
 
               </div>
             </div>
-
             {/* =========================================================================
                 COLUMN 3: MAHOGANY DICE TRADING VAULT HUD
                 ========================================================================= */}
