@@ -1,22 +1,23 @@
 import { create } from 'zustand';
 
 const useGameStore = create((set, get) => ({
-  // --- STATE PARAMETERS ---
   socket: null,
   character: null,
   circle: null,
   lastRoll: null,
   showScarModal: false,
-  scarModalData: null, // Track metadata about which mark triggered the scar
+  scarModalData: null,
   isRolling: false,
   
-  // --- CONNECTION & DATA ROUTING ---
   connect: (gameId) => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/${gameId}`;
     
     const socket = new WebSocket(wsUrl);
     
+    socket.onopen = () => console.log(`Connected to Vault Websocket: ${gameId}`);
+    socket.onerror = (err) => console.error("WebSocket connection error:", err);
+
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
       
@@ -37,7 +38,7 @@ const useGameStore = create((set, get) => ({
         set({ 
           character: message.payload.character, 
           showScarModal: true,
-          scarModalData: { type: message.payload.mark_type } // Store the mark vector that popped the threshold
+          scarModalData: { type: message.payload.mark_type } 
         });
       }
     };
@@ -49,7 +50,6 @@ const useGameStore = create((set, get) => ({
     set({ character: characterData });
   },
 
-  // --- GAMEPLAY ACTION TRANSMITTERS ---
   rollAction: (actionName, driveSpent = 0) => {
     const { socket } = get();
     set({ lastRoll: null, isRolling: true });
@@ -59,6 +59,10 @@ const useGameStore = create((set, get) => ({
         type: 'roll',
         payload: { action: actionName, drive_spent: driveSpent }
       }));
+    } else {
+      console.warn("Network transmission failed: Vault socket offline. Aborting roll.");
+      // Instantly unlock the dice tray so the UI doesn't freeze
+      setTimeout(() => set({ isRolling: false }), 400);
     }
   },
 
@@ -82,11 +86,9 @@ const useGameStore = create((set, get) => ({
     }
   },
 
-  // CRITICAL COMPATIBILITY FIX: Expects an object containing text and shifting keys
   applyScar: (payloadData) => {
     const { socket } = get();
     if (socket && socket.readyState === WebSocket.OPEN) {
-      // Unpack object structure to match backend expectation fields perfectly
       const outPayload = typeof payloadData === 'string' 
         ? { scar_text: payloadData, shift_down: null, shift_up: null }
         : { 

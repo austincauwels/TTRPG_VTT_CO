@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.middleware.cors import CORSMiddleware  # <-- NEW IMPORT
+from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import create_engine
@@ -29,15 +29,12 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# =====================================================================
-# CORS MIDDLEWARE (THE FIX FOR THE 403 FORBIDDEN ERROR)
-# =====================================================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (including your Vite proxy subdomains)
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all HTTP methods and WebSocket upgrades
-    allow_headers=["*"],  # Allows all headers (including custom Origin and Host headers)
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 def get_db():
@@ -46,18 +43,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # =====================================================================
 # PYDANTIC SCHEMAS 
@@ -115,12 +100,14 @@ async def get_investigator(investigator_id: int, db: Session = Depends(get_db)):
     if not character:
         raise HTTPException(status_code=404, detail="Investigator dossier not found.")
     
+    # Safely unpack legacy stringified JSON if it exists
     if isinstance(character.gear, str):
         try: character.gear = json.loads(character.gear)
         except: character.gear = []
     if isinstance(character.scars_list, str):
         try: character.scars_list = json.loads(character.scars_list)
         except: character.scars_list = []
+        
     return character
 
 @app.post("/api/investigators/forge", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
@@ -144,16 +131,15 @@ async def forge_investigator(character_data: CharacterCreate, db: Session = Depe
             if char_dict.get(key) is None:
                 char_dict[key] = 0
         
-        char_dict["gear"] = json.dumps(char_dict.get("gear") or [])
-        char_dict["scars_list"] = json.dumps(char_dict.get("scars_list") or [])
+        # FIX: Provide Python lists natively. Do NOT use json.dumps() here.
+        char_dict["gear"] = char_dict.get("gear") or []
+        char_dict["scars_list"] = char_dict.get("scars_list") or []
 
         new_character = Character(**char_dict, circle_id=circle.id, user_id=user.id)
         db.add(new_character)
         db.commit()
         db.refresh(new_character)
         
-        new_character.gear = json.loads(new_character.gear)
-        new_character.scars_list = json.loads(new_character.scars_list)
         return new_character
     except Exception as e:
         db.rollback()
@@ -264,7 +250,6 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
             action = message.get("type")
             payload = message.get("payload", {})
             
-            # Fall back to game_id if character_id is missing from the incoming payload dictionary
             char_id = payload.get("character_id") or game_id
             character = db.query(Character).filter(Character.id == char_id).first()
 
