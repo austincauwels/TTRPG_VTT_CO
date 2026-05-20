@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import useGameStore from '../store/gameStore';
+import useGameStore from '../../store/gameStore';
 
 const ScarModal = () => {
   const { showScarModal, scarModalData, applyScar, character, closeScarModal } = useGameStore();

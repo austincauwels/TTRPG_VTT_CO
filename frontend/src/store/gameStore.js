@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 const useGameStore = create((set, get) => ({
+  accessSession: null, // Tracked globally so GM controls can verify role
   socket: null,
   character: null,
   circle: null,
@@ -8,6 +9,8 @@ const useGameStore = create((set, get) => ({
   showScarModal: false,
   scarModalData: null,
   isRolling: false,
+
+  setAccessSession: (session) => set({ accessSession: session }),
   
   connect: (gameId) => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -21,6 +24,7 @@ const useGameStore = create((set, get) => ({
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
       
+      // These handlers automatically sync GM updates to the players in real-time
       if (message.type === 'character_update') {
         set({ character: message.payload });
       } 
@@ -40,6 +44,10 @@ const useGameStore = create((set, get) => ({
           showScarModal: true,
           scarModalData: { type: message.payload.mark_type } 
         });
+      }
+      else if (message.type === 'scene_transition') {
+        // Optional: Future hook to render full-screen narrative overlays
+        console.log(`[SCENE SHIFT]: ${message.payload.scene_name} - ${message.payload.description}`);
       }
     };
     
@@ -61,7 +69,6 @@ const useGameStore = create((set, get) => ({
       }));
     } else {
       console.warn("Network transmission failed: Vault socket offline. Aborting roll.");
-      // Instantly unlock the dice tray so the UI doesn't freeze
       setTimeout(() => set({ isRolling: false }), 400);
     }
   },
@@ -112,6 +119,25 @@ const useGameStore = create((set, get) => ({
         type: 'update_circle',
         payload: updates
       }));
+    }
+  },
+
+  // ==========================================
+  // GM ADMINISTRATIVE ACTIONS
+  // ==========================================
+  gmAdjustTension: (markType, newValue) => {
+    const { socket, accessSession } = get();
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: 'gm_update_tension',
+        payload: { 
+          mark_type: markType, 
+          value: newValue,
+          role: accessSession?.role // Authenticate action on backend
+        }
+      }));
+    } else {
+      console.warn("Vault socket offline. Cannot transmit GM override.");
     }
   },
 

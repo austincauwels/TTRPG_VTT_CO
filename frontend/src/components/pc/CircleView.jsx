@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import useGameStore from '../store/gameStore';
-import { SheetDivider } from './Decorations';
-import { SafeIcon } from './SafeIcon';
+import useGameStore from '../../store/gameStore';
+import { SheetDivider } from '../shared/Decorations';
+import { SafeIcon } from '../shared/SafeIcon';
 
 export const CircleView = () => {
   // Global Store Bindings

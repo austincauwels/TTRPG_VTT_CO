@@ -150,14 +150,18 @@ async def forge_investigator(character_data: CharacterCreate, db: Session = Depe
 # =====================================================================
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: dict[int, List[WebSocket]] = {}
-    async def connect(self, game_id: int, websocket: WebSocket):
+        # game_id is now a string to support both numeric character IDs and GM campaign codes
+        self.active_connections: dict[str, List[WebSocket]] = {}
+        
+    async def connect(self, game_id: str, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.setdefault(game_id, []).append(websocket)
-    def disconnect(self, game_id: int, websocket: WebSocket):
+        
+    def disconnect(self, game_id: str, websocket: WebSocket):
         if game_id in self.active_connections:
             self.active_connections[game_id].remove(websocket)
-    async def broadcast(self, game_id: int, message: dict):
+            
+    async def broadcast(self, game_id: str, message: dict):
         if game_id in self.active_connections:
             for connection in self.active_connections[game_id]:
                 await connection.send_json(message)
@@ -228,7 +232,7 @@ def get_circle_dict(circle):
     }
 
 @app.websocket("/ws/{game_id}")
-async def websocket_endpoint(websocket: WebSocket, game_id: int):
+async def websocket_endpoint(websocket: WebSocket, game_id: str):
     await manager.connect(game_id, websocket)
     db = SessionLocal()
     
@@ -238,7 +242,14 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
         db.add(circle)
         db.commit()
         
-    character = db.query(Character).filter(Character.id == game_id).first()
+    # Safely parse game_id into an int for investigator lookups, handling GM campaign codes gracefully
+    character = None
+    try:
+        parsed_char_id = int(game_id)
+        character = db.query(Character).filter(Character.id == parsed_char_id).first()
+    except ValueError:
+        pass # It's a GM string campaign code, not a character ID
+        
     if character:
         await websocket.send_json({"type": "character_update", "payload": get_char_dict(character)})
     await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(circle)})
@@ -250,10 +261,51 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
             action = message.get("type")
             payload = message.get("payload", {})
             
-            char_id = payload.get("character_id") or game_id
-            character = db.query(Character).filter(Character.id == char_id).first()
+            # Identify the target character for this action (if applicable)
+            target_char_id = payload.get("character_id")
+            if target_char_id is None:
+                try: target_char_id = int(game_id)
+                except ValueError: target_char_id = None
+                
+            character = db.query(Character).filter(Character.id == target_char_id).first() if target_char_id else None
 
-            if action == "roll" and character:
+            # --- GM ADMINISTRATIVE HOOKS ---
+            if action == "gm_update_tension" and character:
+                if payload.get("role") != "GM": continue # Security override
+                
+                m_type = payload.get("mark_type")
+                value = payload.get("value")
+                if m_type and value is not None:
+                    setattr(character, f"{m_type}_marks", value)
+                    db.commit()
+                    await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+
+            elif action == "gm_update_circle":
+                if payload.get("role") != "GM": continue # Security override
+                
+                circle_id = payload.get("circle_id") or 1
+                target_circle = db.query(Circle).filter(Circle.id == circle_id).first()
+                if target_circle:
+                    for field in ["stitch", "refresh", "train"]:
+                        if field in payload:
+                            setattr(target_circle, field, payload[field])
+                    db.commit()
+                    await manager.broadcast(game_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)})
+
+            elif action == "gm_transition_scene":
+                if payload.get("role") != "GM": continue # Security override
+                
+                # Push a narrative UI update to all connected investigators
+                await manager.broadcast(game_id, {
+                    "type": "scene_transition",
+                    "payload": {
+                        "scene_name": payload.get("scene_name", "Unknown Location"),
+                        "description": payload.get("description", "")
+                    }
+                })
+
+            # --- STANDARD PLAYER HOOKS ---
+            elif action == "roll" and character:
                 act = payload.get("action")
                 spent = int(payload.get("drive_spent", 0))
                 cat = "nerve" if act in ["move", "strike", "control"] else "cunning" if act in ["hide", "sneak", "sway"] else "intuition"
@@ -275,7 +327,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
                 
                 await manager.broadcast(game_id, {
                     "type": "roll_result", 
-                    "payload": {"character_id": char_id, "action": act, "roll": res, "character": get_char_dict(character)}
+                    "payload": {"character_id": target_char_id, "action": act, "roll": res, "character": get_char_dict(character)}
                 })
 
             elif action == "update_drive" and character: 
@@ -302,7 +354,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
                         character.scars_count = getattr(character, "scars_count", 0) + 1
                         if character.scars_count >= 4: character.incapacitated = True
                         db.commit()
-                        await manager.broadcast(game_id, {"type": "trigger_scar", "payload": {"character_id": char_id, "mark_type": m_type, "character": get_char_dict(character)}})
+                        await manager.broadcast(game_id, {"type": "trigger_scar", "payload": {"character_id": target_char_id, "mark_type": m_type, "character": get_char_dict(character)}})
                     else:
                         setattr(character, f"{m_type}_marks", val)
                         db.commit()
@@ -320,13 +372,13 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
 
             elif action == "update_circle":
                 circle_id = payload.get("circle_id") or 1
-                circle = db.query(Circle).filter(Circle.id == circle_id).first()
-                if circle:
+                target_circle = db.query(Circle).filter(Circle.id == circle_id).first()
+                if target_circle:
                     for field in ["stitch", "refresh", "train"]:
                         if field in payload:
-                            setattr(circle, field, payload[field])
+                            setattr(target_circle, field, payload[field])
                     db.commit()
-                    await manager.broadcast(game_id, {"type": "circle_update", "payload": get_circle_dict(circle)})
+                    await manager.broadcast(game_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)})
 
     except WebSocketDisconnect:
         manager.disconnect(game_id, websocket)

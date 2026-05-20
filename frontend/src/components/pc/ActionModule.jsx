@@ -1,6 +1,6 @@
 // src/components/ActionModule.jsx
 import React from 'react';
-import useGameStore from '../store/gameStore';
+import useGameStore from '../../store/gameStore';
 import * as Gi from "react-icons/gi";
 
 const SafeIcon = ({ name, size = 16, className = "" }) => {
