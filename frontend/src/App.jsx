@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import useGameStore from './store/gameStore';
 
 // Components
-// Components
+import LoginScreen from './components/LoginScreen';
 import { CampaignGatekeeper } from './components/shared/CampaignGatekeeper';
 import ScarModal from './components/pc/ScarModal';
 import { CharacterCreator } from './components/CharacterCreator';
@@ -27,6 +27,7 @@ function App() {
   const [isCreating, setIsCreating] = useState(true); 
   const [activeTab, setActiveTab] = useState('character');
 
+  
   // --- 1. GATEKEEPER LOGIN ---
   if (!accessSession) {
     return (

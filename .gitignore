@@ -9,3 +9,5 @@ __pycache__/
 .venv/
 venv/
 env/
+# fair use images
+/public/images/The_Fairelands_map.png
