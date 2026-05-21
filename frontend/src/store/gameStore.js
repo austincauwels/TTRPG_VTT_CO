@@ -1,6 +1,16 @@
+// src/store/gameStore.js
 import { create } from 'zustand';
 
 const useGameStore = create((set, get) => ({
+  // ==========================================
+  // APPLICATION ROUTING & STAGE MANAGEMENT
+  // ==========================================
+  stage: 'LOGIN', // Possible values: 'LOGIN', 'HOME', 'CHARACTER_CREATION', 'DESK', 'GM_DASH'
+  setStage: (newStage) => set({ stage: newStage }),
+
+  // ==========================================
+  // GLOBAL GAME STATE
+  // ==========================================
   accessSession: null, // Tracked globally so GM controls can verify role
   socket: null,
   character: null,
@@ -10,8 +20,17 @@ const useGameStore = create((set, get) => ({
   scarModalData: null,
   isRolling: false,
 
-  setAccessSession: (session) => set({ accessSession: session }),
+  // Automatically route to HOME on successful login, or back to LOGIN if session is cleared
+  setAccessSession: (session) => {
+    set({ 
+      accessSession: session,
+      stage: session ? 'HOME' : 'LOGIN' 
+    });
+  },
   
+  // ==========================================
+  // WEBSOCKET CONNECTION & EVENT HANDLERS
+  // ==========================================
   connect: (gameId) => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/${gameId}`;
@@ -54,6 +73,9 @@ const useGameStore = create((set, get) => ({
     set({ socket });
   },
 
+  // ==========================================
+  // CHARACTER & GAMEPLAY ACTIONS
+  // ==========================================
   setLocalCharacter: (characterData) => {
     set({ character: characterData });
   },
