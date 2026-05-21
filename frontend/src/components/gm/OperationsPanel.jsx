@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
-import { ArtDecoCorner, BrassCornerFiligree } from '../shared/Decorations';
+import { BrassCornerFiligree } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
 
 import { GMSidebar } from './GMSidebar';
@@ -12,15 +12,27 @@ import { ArchivesView } from '../shared/ArchivesView';
 
 export const OperationsPanel = () => {
   const [activeTab, setActiveTab] = useState('roster');
+  
+  // State for the Brass Casting Bowl
   const [gmDiceCount, setGmDiceCount] = useState(1);
-  const { rollAction } = useGameStore();
+  const { rollAction, logout } = useGameStore(); 
 
   const handleGmRoll = () => {
     rollAction('GM Override', gmDiceCount);
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] text-[#f1f5f9] font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12">
+    <div className="min-h-screen bg-[#020617] text-[#f1f5f9] font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 relative">
+      
+      {/* LOGOUT BUTTON */}
+      <div className="absolute top-4 right-6 z-50">
+        <button 
+          onClick={logout}
+          className="text-[10px] uppercase tracking-[0.2em] text-[#3b82f6] hover:text-white transition-colors border border-transparent hover:border-[#3b82f6]/50 px-2 py-1"
+        >
+          [ Abandon Archive ]
+        </button>
+      </div>
       
       {/* ORIGINAL HEADER */}
       <header className="w-full bg-[#0f172a] py-6 flex flex-col items-center justify-center border-b border-black/60 shadow-xl">
@@ -29,30 +41,27 @@ export const OperationsPanel = () => {
       </header>
 
       {/* ORIGINAL GM CONTROL BAR */}
-              <div className="w-full bg-[#1e293b] border-b border-slate-700 py-3 shadow-md z-40 flex justify-center">
-              {/* Add padding-left (pl-X) to nudge it rightward */}
-              <div className="w-full max-w-[1500px] px-8 flex items-center justify-start pl-[220px] gap-8">
-                
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-[#3b82f6]">
-                    <SafeIcon name="GiEyeShield" size={30} />
-                    <span className="font-serif text-sm font-bold tracking-[0.2em] uppercase text-slate-100">
-                      Lightkeeper's Desk
-                    </span>
-                  </div>
-                  <div className="w-px h-8 bg-slate-700 mx-2" />
-                </div>
+      <div className="w-full bg-[#1e293b] border-b border-slate-700 py-3 shadow-md z-40 flex justify-center">
+        <div className="w-full max-w-[1500px] px-8 flex items-center justify-start pl-[220px] gap-8">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-[#3b82f6]">
+              <SafeIcon name="GiEyeShield" size={30} />
+              <span className="font-serif text-sm font-bold tracking-[0.2em] uppercase text-slate-100">
+                Lightkeeper's Desk
+              </span>
+            </div>
+            <div className="w-px h-8 bg-slate-700 mx-2" />
+          </div>
 
-              </div>
-
-        <div className="flex items-center gap-4 bg-[#0f172a] px-4 py-1.5 rounded-sm border border-slate-700 shadow-inner">
-           <SafeIcon name="GiRollingDices" size={16} className="text-[#3b82f6]" />
-           <div className="flex items-center gap-2">
-             <button onClick={() => setGmDiceCount(Math.max(1, gmDiceCount - 1))} className="w-6 h-6 bg-[#1e293b] border border-slate-600 rounded-sm text-[10px] font-bold hover:bg-[#3b82f6] transition-colors">-</button>
-             <span className="font-mono text-slate-100 text-sm w-4 text-center">{gmDiceCount}</span>
-             <button onClick={() => setGmDiceCount(Math.min(10, gmDiceCount + 1))} className="w-6 h-6 bg-[#1e293b] border border-slate-600 rounded-sm text-[10px] font-bold hover:bg-[#3b82f6] transition-colors">+</button>
-           </div>
-           <button onClick={handleGmRoll} className="ml-2 px-4 py-1 bg-[#3b82f6]/20 text-[#60a5fa] border border-[#3b82f6]/50 hover:bg-[#3b82f6] hover:text-white font-mono text-[10px] font-bold uppercase tracking-[0.2em] transition-all rounded-sm">Cast</button>
+          <div className="flex items-center gap-4 bg-[#0f172a] px-4 py-1.5 rounded-sm border border-slate-700 shadow-inner">
+             <SafeIcon name="GiRollingDices" size={16} className="text-[#3b82f6]" />
+             <div className="flex items-center gap-2">
+               <button onClick={() => setGmDiceCount(Math.max(1, gmDiceCount - 1))} className="w-6 h-6 bg-[#1e293b] border border-slate-600 rounded-sm text-[10px] font-bold hover:bg-[#3b82f6] transition-colors">-</button>
+               <span className="font-mono text-slate-100 text-sm w-4 text-center">{gmDiceCount}</span>
+               <button onClick={() => setGmDiceCount(Math.min(10, gmDiceCount + 1))} className="w-6 h-6 bg-[#1e293b] border border-slate-600 rounded-sm text-[10px] font-bold hover:bg-[#3b82f6] transition-colors">+</button>
+             </div>
+             <button onClick={handleGmRoll} className="ml-2 px-4 py-1 bg-[#3b82f6]/20 text-[#60a5fa] border border-[#3b82f6]/50 hover:bg-[#3b82f6] hover:text-white font-mono text-[10px] font-bold uppercase tracking-[0.2em] transition-all rounded-sm">Cast</button>
+          </div>
         </div>
       </div>
 
@@ -63,7 +72,7 @@ export const OperationsPanel = () => {
             {activeTab === 'roster' && <SceneManager />}
           </div>
 
-          {/* CENTER PANEL: Wood Texture Applied */}
+          {/* CENTER PANEL */}
           <div className="lg:col-span-6">
             {activeTab === 'roster' && (
               <div className="bg-[#241710] bg-[url('https://www.transparenttextures.com/patterns/dark-wood.png')] p-8 rounded-sm shadow-2xl border border-slate-700 min-h-[850px]">
@@ -80,9 +89,9 @@ export const OperationsPanel = () => {
 
           <div className="lg:col-span-3">
              <div className="bg-[#0f172a] border border-slate-800 rounded-sm shadow-2xl overflow-hidden">
-                <div className="grayscale sepia-[.2] hue-rotate-[190deg] brightness-90">
-                   <DiceVault />
-                </div>
+               <div className="grayscale sepia-[.2] hue-rotate-[190deg] brightness-90">
+                 <DiceVault />
+               </div>
              </div>
           </div>
         </div>

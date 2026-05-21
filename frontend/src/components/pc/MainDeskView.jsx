@@ -12,17 +12,27 @@ import { DiceVault } from './DiceVault';
 import ScarModal from './ScarModal';
 
 export const MainDeskView = () => {
-  const { character, accessSession } = useGameStore();
+  const { character, accessSession, logout } = useGameStore();
   const [activeTab, setActiveTab] = useState('character');
 
   return (
-    <div className="min-h-screen bg-[#160e0b] text-[#fdfaf4] font-serif selection:bg-[#721c15] selection:text-white antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12">
+    <div className="min-h-screen bg-[#160e0b] text-[#fdfaf4] font-serif selection:bg-[#721c15] selection:text-white antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 relative">
       
       {/* HEADER */}
       <header className="w-full bg-[#090504] relative py-6 flex flex-col items-center justify-center border-b border-black/40 shadow-xl">
         <ArtDecoCorner position="top-left" />
         <ArtDecoCorner position="top-right" />
         
+        {/* LOGOUT BUTTON */}
+        <div className="absolute top-4 right-6 z-50">
+          <button 
+            onClick={logout}
+            className="text-[10px] uppercase tracking-[0.2em] text-[#a82222] hover:text-parchment transition-colors border border-transparent hover:border-[#a82222]/50 px-2 py-1"
+          >
+            [ Abandon Archive ]
+          </button>
+        </div>
+
         <h1 className="text-4xl md:text-5xl font-serif font-bold tracking-[0.15em] text-white uppercase drop-shadow-md">
           CANDELA OBSCURA
         </h1>

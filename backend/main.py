@@ -47,6 +47,10 @@ def get_db():
 # =====================================================================
 # PYDANTIC SCHEMAS 
 # =====================================================================
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 class CharacterBase(BaseModel):
     name: str
     pronouns: str = "Unlisted"
@@ -94,6 +98,27 @@ class CharacterResponse(CharacterBase):
 # =====================================================================
 # REST API ENDPOINTS
 # =====================================================================
+
+@app.post("/api/auth/login")
+async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
+    # 1. Look up the user
+    user = db.query(User).filter(User.username == credentials.username).first()
+    
+    # 2. Strict Password Verification (No Fallbacks)
+    if not user or not pwd_context.verify(credentials.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid credentials."
+        )
+
+    # 3. Issue Session Data
+    return {
+        "role": "GM" if user.username.lower() == "admin" else "PLAYER",
+        "name": user.username,
+        "userId": user.id,
+        "campaignCode": "fairelands-01"
+    }
+
 @app.get("/api/investigators/{investigator_id}", response_model=CharacterResponse)
 async def get_investigator(investigator_id: int, db: Session = Depends(get_db)):
     character = db.query(Character).filter(Character.id == investigator_id).first()
@@ -113,25 +138,34 @@ async def get_investigator(investigator_id: int, db: Session = Depends(get_db)):
 @app.post("/api/investigators/forge", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
 async def forge_investigator(character_data: CharacterCreate, db: Session = Depends(get_db)):
     try:
+        # 1. Ensure the Circle exists
         circle = db.query(Circle).filter(Circle.id == 1).first()
         if not circle:
             circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
             db.add(circle)
             db.commit()
 
+        # 2. Query for the admin user first to avoid duplicate errors
         user = db.query(User).filter(User.id == 1).first()
         if not user:
-            user = User(id=1, username="admin", email="admin@archive.com", hashed_password="xxx")
+            # Hash the password securely using pwd_context
+            user = User(
+                id=1, 
+                username="admin", 
+                email="admin@archive.com", 
+                hashed_password=pwd_context.hash("admin") # Using secure bcrypt hash
+            )
             db.add(user)
             db.commit()
+            db.refresh(user)
 
+        # 3. Create the character
         char_dict = character_data.dict() if hasattr(character_data, 'dict') else character_data.model_dump()
         
         for key in ["body_marks", "brain_marks", "bleed_marks", "scars_count", "move", "strike", "control", "sneak", "hide", "sway", "survey", "read", "sense"]:
             if char_dict.get(key) is None:
                 char_dict[key] = 0
         
-        # FIX: Provide Python lists natively. Do NOT use json.dumps() here.
         char_dict["gear"] = char_dict.get("gear") or []
         char_dict["scars_list"] = char_dict.get("scars_list") or []
 
