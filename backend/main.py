@@ -27,6 +27,38 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)
 
+# ==========================================
+# ADD THIS BLOCK TO SEED THE DB ON STARTUP
+# ==========================================
+def init_db():
+    db = SessionLocal()
+    try:
+        # 1. Seed default Circle
+        circle = db.query(Circle).filter(Circle.id == 1).first()
+        if not circle:
+            circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
+            db.add(circle)
+            
+        # 2. Seed default Admin User
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if not admin_user:
+            new_admin = User(
+                id=1,
+                username="admin",
+                email="admin@archive.com",
+                hashed_password=pwd_context.hash("admin")
+            )
+            db.add(new_admin)
+            
+        db.commit()
+    except Exception as e:
+        print(f"Error seeding database: {e}")
+    finally:
+        db.close()
+
+# Run the seed function immediately
+init_db()
+
 app = FastAPI()
 
 app.add_middleware(
@@ -104,14 +136,14 @@ async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
     # 1. Look up the user
     user = db.query(User).filter(User.username == credentials.username).first()
     
-    # 2. Strict Password Verification (No Fallbacks)
+    # 2. Verify password using the bcrypt context
     if not user or not pwd_context.verify(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="Invalid credentials."
         )
 
-    # 3. Issue Session Data
+    # 3. Return session data
     return {
         "role": "GM" if user.username.lower() == "admin" else "PLAYER",
         "name": user.username,

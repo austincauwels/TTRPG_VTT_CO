@@ -11,28 +11,33 @@ const LoginScreen = () => {
   const { setAccessSession } = useGameStore();
 
  const handleLogin = async (e) => {
-  e.preventDefault();
-  const username = e.target.username.value;
-  const password = e.target.password.value;
+    e.preventDefault();
+    const username = e.target.username.value;
+    const password = e.target.password.value;
 
-  try {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
 
-    if (!response.ok) {
-      throw new Error("Invalid credentials");
+      if (!response.ok) {
+        throw new Error("Invalid credentials");
+      }
+
+      const data = await response.json();
+      console.log("Login successful:", data);
+      
+      // ADD THIS LINE: This updates your global state
+      setAccessSession(data); 
+      
+      // The app router should automatically detect the session 
+      // and move you to the MainDeskView.
+    } catch (err) {
+      alert("The Order does not recognize your identity.");
     }
-
-    const data = await response.json();
-    console.log("Login successful:", data);
-    // You will add your 'setAccessSession' logic here once confirmed working
-  } catch (err) {
-    alert("The Order does not recognize your identity.");
-  }
-};
+  };
 
   return (
     <div 
