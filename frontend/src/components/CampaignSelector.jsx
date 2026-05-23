@@ -1,11 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import useGameStore from '../store/gameStore';
 
 export const CampaignSelector = () => {
-  const { setStage, connect, logout } = useGameStore();
+  const { setStage, connect, logout, accessSession, character, joinCampaign, refreshCharacterStatus } = useGameStore();
+  const [campaignCode, setCampaignCode] = useState('');
+  const [joinError, setJoinError] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleResumeCampaign = (campaignId) => {
-    connect(campaignId);
+  const isGM = accessSession?.role === 'GM';
+  const characterStatus = character?.status || null;
+
+  const handleResumeCampaign = () => {
+    connect(character.id);
     setStage('DESK');
   };
 
@@ -21,6 +28,25 @@ export const CampaignSelector = () => {
   const handleLogout = () => {
     logout();
     setStage('LOGIN');
+  };
+
+  const handleSubmitCode = async (e) => {
+    e.preventDefault();
+    if (!campaignCode.trim() || !character?.id) return;
+    setIsJoining(true);
+    setJoinError('');
+    const result = await joinCampaign(character.id, campaignCode.trim());
+    setIsJoining(false);
+    if (!result.success) {
+      setJoinError(result.detail || 'Invalid campaign code.');
+    }
+  };
+
+  const handleRefreshStatus = async () => {
+    if (!character?.id) return;
+    setIsRefreshing(true);
+    await refreshCharacterStatus(character.id);
+    setIsRefreshing(false);
   };
 
   return (
@@ -231,9 +257,9 @@ export const CampaignSelector = () => {
         <div className="flex gap-6 items-center justify-center w-[50%] ml-4 z-30">
           
           {/* TOME I: YOUR CHARACTERS (Dark Forest Green Leather) */}
-          <div 
-            onClick={() => handleResumeCampaign('fairelands-01')}
-            className="thick-book group w-[28vw] max-w-[400px] aspect-[1/1.4] bg-[#0b1f12] p-6 shadow-[15px_25px_40px_rgba(0,0,0,0.95),inset_8px_0_20px_rgba(0,0,0,0.9),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[-3deg] -translate-y-4 hover:-translate-y-6"
+          <div
+            onClick={characterStatus === 'active' ? handleResumeCampaign : undefined}
+            className={`thick-book group w-[28vw] max-w-[400px] aspect-[1/1.4] bg-[#0b1f12] p-6 shadow-[15px_25px_40px_rgba(0,0,0,0.95),inset_8px_0_20px_rgba(0,0,0,0.9),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[-3deg] -translate-y-4 ${characterStatus === 'active' ? 'hover:-translate-y-6 cursor-pointer' : 'cursor-default'}`}
           >
             <div className="leather-texture" />
             <div className="absolute inset-6 border-2 border-black/40 embossed-stamp pointer-events-none rounded-sm z-10" />
@@ -250,38 +276,68 @@ export const CampaignSelector = () => {
               <p className="font-garamond text-[#a8a8a8] text-sm italic tracking-wide max-w-[80%] leading-relaxed drop-shadow-md">
                 Review your assigned identities, trauma marks, and active clearance keys.
               </p>
+              {character && (
+                <span className={`font-mono-data text-[8px] font-bold tracking-[0.3em] uppercase mt-3 ${characterStatus === 'active' ? 'text-emerald-400' : 'text-[#c49d47]/50'}`}>
+                  {characterStatus === 'active' ? '● Active' : characterStatus === 'pending' ? '◌ Pending' : '○ Unaffiliated'}
+                </span>
+              )}
             </div>
           </div>
 
-          {/* TOME II: ACTIVE ASSIGNMENT */}
-          <div 
-            onClick={() => handleResumeCampaign('fairelands-01')}
-            className="thick-book group w-[30vw] max-w-[440px] aspect-[1/1.3] bg-[#1e0624] p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-6 translate-x-4 hover:-translate-y-1 hover:rotate-[1deg]"
-          >
-            <div className="leather-texture" />
-          {/* Burnished Gold Embossing Effect */}
-          <div className="absolute inset-5 border-[3px] border-[#c49d47]/40 embossed-stamp pointer-events-none rounded z-10" />
-          
-          <div className="z-20 flex flex-col items-center text-center relative">
-            <span className="font-mono-data text-[10px] font-bold tracking-[0.5em] text-[#c49d47]/60 mb-6 uppercase drop-shadow-md">
-              Campaign Log
-            </span>
-            {/* New Font: Playfair Display Italic/Bold for high-end embossed look */}
-            <h2 className="font-playfair italic font-bold text-5xl md:text-6xl embossed-gold tracking-tight leading-[1.05] mb-4 group-hover:text-[#e8c678] transition-colors">
-              The<br/>Fairelands
-            </h2>
-            <div className="flex items-center gap-3 my-4">
-              <div className="w-6 h-[1px] bg-[#c49d47]/30" />
-              <svg className="w-5 h-5 text-[#c49d47]/50" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                <path strokeLinecap="square" strokeLinejoin="miter" d="M12 2l2 4h-4l2-4zm-3 4h6v14H9V6zm1.5 3h3M10.5 12h3M10.5 15h3M5 21h14" />
-              </svg>
-              <div className="w-6 h-[1px] bg-[#c49d47]/30" />
+          {/* TOME II: ACTIVE ASSIGNMENT — locked until character is active */}
+          {characterStatus === 'active' ? (
+            <div
+              onClick={handleResumeCampaign}
+              className="thick-book group w-[30vw] max-w-[440px] aspect-[1/1.3] bg-[#1e0624] p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-6 translate-x-4 hover:-translate-y-1 hover:rotate-[1deg] cursor-pointer"
+            >
+              <div className="leather-texture" />
+              <div className="absolute inset-5 border-[3px] border-[#c49d47]/40 embossed-stamp pointer-events-none rounded z-10" />
+              <div className="z-20 flex flex-col items-center text-center relative">
+                <span className="font-mono-data text-[10px] font-bold tracking-[0.5em] text-[#c49d47]/60 mb-6 uppercase drop-shadow-md">Campaign Log</span>
+                <h2 className="font-playfair italic font-bold text-5xl md:text-6xl embossed-gold tracking-tight leading-[1.05] mb-4 group-hover:text-[#e8c678] transition-colors">
+                  The<br/>Fairelands
+                </h2>
+                <div className="flex items-center gap-3 my-4">
+                  <div className="w-6 h-[1px] bg-[#c49d47]/30" />
+                  <svg className="w-5 h-5 text-[#c49d47]/50" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="square" strokeLinejoin="miter" d="M12 2l2 4h-4l2-4zm-3 4h6v14H9V6zm1.5 3h3M10.5 12h3M10.5 15h3M5 21h14" />
+                  </svg>
+                  <div className="w-6 h-[1px] bg-[#c49d47]/30" />
+                </div>
+                <p className="font-garamond text-[#c49d47]/80 text-[13px] tracking-wider max-w-[70%] leading-relaxed drop-shadow-md uppercase mt-2">
+                  Resume your circle's ongoing deployment within the capital sector.
+                </p>
+              </div>
             </div>
-            <p className="font-garamond text-[#c49d47]/80 text-[13px] tracking-wider max-w-[70%] leading-relaxed drop-shadow-md uppercase mt-2">
-              Resume your circle's ongoing deployment within the capital sector.
-            </p>
+          ) : (
+            <div className="thick-book w-[30vw] max-w-[440px] aspect-[1/1.3] bg-[#120614] p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-6 translate-x-4 cursor-not-allowed opacity-80">
+              <div className="leather-texture" />
+              <div className="absolute inset-5 border-[3px] border-[#c49d47]/20 embossed-stamp pointer-events-none rounded z-10" />
+              <div className="z-20 flex flex-col items-center text-center relative gap-4">
+                {/* Padlock icon */}
+                <svg className="w-10 h-10 text-[#c49d47]/40" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+                <h2 className="font-playfair italic font-bold text-5xl embossed-gold tracking-tight leading-[1.05] opacity-40">
+                  The<br/>Fairelands
+                </h2>
+                <p className="font-garamond text-[#c49d47]/60 text-[12px] tracking-wider max-w-[75%] leading-relaxed uppercase mt-1">
+                  {characterStatus === 'pending'
+                    ? 'Awaiting Lightkeeper Approval'
+                    : 'Submit a Campaign Code to Request Entry'}
+                </p>
+                {characterStatus === 'pending' && (
+                  <button
+                    onClick={handleRefreshStatus}
+                    disabled={isRefreshing}
+                    className="font-mono-data text-[9px] tracking-[0.3em] uppercase text-[#3b82f6]/70 hover:text-[#3b82f6] transition-colors border border-[#3b82f6]/20 hover:border-[#3b82f6]/50 px-3 py-1 mt-1"
+                  >
+                    {isRefreshing ? '[ Checking... ]' : '[ Refresh Status ]'}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
         </div>
 
@@ -350,8 +406,50 @@ export const CampaignSelector = () => {
           </div>
 
          
+          {/* CAMPAIGN CODE INPUT PAMPHLET — shown to players with unaffiliated character */}
+          {!isGM && character && characterStatus === 'unaffiliated' && (
+            <div className="pamphlet w-[230px] h-[400px] rotate-[5deg] bottom-[20px] left-[260px] hover:-translate-y-2 hover:rotate-[4deg] z-50 p-2">
+              <div className="w-full h-full border-[3px] border-double border-[#8a2222]/50 p-3 flex flex-col items-start text-[#2b251e] bg-[#e8e0cc]">
+                <div className="w-full border-b border-[#8a2222]/30 pb-2 mb-3">
+                  <span className="font-mono-data text-[8px] font-black tracking-widest text-[#8a2222] block">CHAPTER ADMISSION</span>
+                  <span className="font-mono-data text-[7px] tracking-[0.2em] opacity-70">Form CO-201</span>
+                </div>
+                <div className="flex-1 flex flex-col justify-start gap-3">
+                  <p className="font-garamond text-[13px] leading-relaxed italic font-semibold">
+                    Present your Circle's access cipher to be admitted into the ongoing investigation.
+                  </p>
+                  <form onSubmit={handleSubmitCode} className="flex flex-col gap-2 mt-2">
+                    <label className="font-cinzel text-[9px] font-bold tracking-widest uppercase text-[#2b251e]/70">
+                      Campaign Cipher
+                    </label>
+                    <input
+                      type="text"
+                      value={campaignCode}
+                      onChange={e => setCampaignCode(e.target.value)}
+                      placeholder="e.g. fairelands-01"
+                      className="bg-[#d9cdb4] border border-[#5c4a35]/50 px-2 py-1.5 font-mono-data text-[11px] text-[#2b251e] placeholder-[#8a7a63]/60 outline-none focus:border-[#8a2222]/60 w-full"
+                    />
+                    {joinError && (
+                      <p className="font-mono-data text-[9px] text-[#8a2222] tracking-wide">{joinError}</p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={isJoining || !campaignCode.trim()}
+                      className="mt-1 bg-[#7a1812] text-[#fdfaf4] font-cinzel text-[10px] font-bold tracking-widest uppercase px-3 py-2 shadow-[inset_0_0_8px_rgba(0,0,0,0.6)] hover:bg-[#9a2218] transition-colors disabled:opacity-40"
+                    >
+                      {isJoining ? 'Submitting...' : 'Submit & Register'}
+                    </button>
+                  </form>
+                </div>
+                <div className="w-full border-t border-[#3a3228]/40 pt-2 mt-3 text-center">
+                  <span className="font-cinzel text-[9px] font-bold tracking-widest opacity-60">Seal & Dispatch</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* PAMPHLET I: NEW CHARACTER (Turn-of-the-Century Victorian Style) */}
-          <div 
+          <div
             onClick={handleNewInvestigator}
             className="pamphlet w-[210px] h-[390px] rotate-[-2deg] bottom-[40px] left-[40px] hover:-translate-y-3 hover:-translate-x-2 hover:rotate-[-3deg] z-30 p-2"
           >

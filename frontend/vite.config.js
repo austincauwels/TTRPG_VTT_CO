@@ -8,13 +8,19 @@ export default defineConfig({
     proxy: {
       // 1. Forward standard API database requests to the FastAPI backend
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,
       },
-      // 2. Forward persistent multiplayer WebSocket traffic to the FastAPI backend
+      // 2. Forward campaign management routes (join, approve, roster)
+      '/campaign': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // 3. Forward persistent multiplayer WebSocket traffic to the FastAPI backend
       '/ws': {
-        target: 'ws://localhost:8000',
+        target: 'ws://127.0.0.1:8000',
         ws: true,
         changeOrigin: true,
         secure: false,

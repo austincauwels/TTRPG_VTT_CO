@@ -107,9 +107,68 @@
 }
 
 /* ================================================================= */
-/* UTILITIES LAYER (Scrollbars)                                      */
+/* UTILITIES LAYER (Scrollbars + Skeuomorphic Paper + Card Deck)    */
 /* ================================================================= */
 @layer utilities {
+
+  /* --- SKEUOMORPHIC PAPER BASE --- */
+  .paper-bg {
+    background-color: #f0e2c0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Tea stain blobs — place as sibling divs with inline size/position */
+  .tea-stain {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  /* Horizontal fold crease lines */
+  .fold-line {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    border-top: 1px solid rgba(139, 90, 43, 0.13);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Paper texture dot-grid overlay */
+  .paper-texture {
+    background-image:
+      radial-gradient(rgba(100, 60, 20, 0.04) 1px, transparent 0),
+      linear-gradient(rgba(139,90,43,0.03) 1px, transparent 1px);
+    background-size: 22px 22px, 100% 28px;
+  }
+
+  /* Ruled writing lines */
+  .paper-ruled {
+    background-image: linear-gradient(transparent calc(28px - 1px), rgba(139,90,43,0.15) 28px);
+    background-size: 100% 28px;
+  }
+
+  /* Action rating pip dots */
+  .action-pip {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 1.5px solid #5a3a28;
+    display: inline-block;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    flex-shrink: 0;
+  }
+  .action-pip.filled {
+    background-color: #721c15;
+    border-color: #721c15;
+    box-shadow: 0 0 4px rgba(114,28,21,0.55);
+  }
+  .action-pip.gilded {
+    background-color: #d4af37;
+    border-color: #a07c1a;
+    box-shadow: 0 0 5px rgba(212,175,55,0.7);
+  }
   .animate-dieTumble {
     /* Using a cubic-bezier for a snappy, heavy drop effect */
     animation: dieTumble 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;

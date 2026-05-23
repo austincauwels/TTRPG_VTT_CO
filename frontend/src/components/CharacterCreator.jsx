@@ -2,12 +2,10 @@
 import React, { useState } from 'react';
 import * as Gi from "react-icons/gi";
 
-// Standard equipment issue ledger available to all investigators
 const STANDARD_GEAR = [
   "Bleed Detector", "Bleed Containment Vial", "Hand Weapon", "Lantern", "Matches & Candles", "First Aid Kit"
 ];
 
-// Complete Thematic Mapping Configuration Built Directly From Your Codebase
 const ROLES = {
   "Face": {
     icon: "GiDramaMasks",
@@ -211,39 +209,319 @@ const ROLES = {
   }
 };
 
-const SafeIcon = ({ name, size = 18, className = "" }) => {
-  if (!name || !Gi[name]) return <div style={{ width: size, height: size }} className="bg-[#160f0d]/10 border border-dashed border-[#721c15]/30 rounded-full" />;
-  return React.createElement(Gi[name], { size, className });
+// Muted, moody role palette
+const ROLE_COLORS = {
+  Face:    { primary: '#9a8235', secondary: '#5a4a1a', rgb: '154,130,53',  cardBg: '#1a150a' },
+  Muscle:  { primary: '#7a4822', secondary: '#452310', rgb: '122,72,34',   cardBg: '#150e08' },
+  Scholar: { primary: '#1e4f72', secondary: '#0e2940', rgb: '30,79,114',   cardBg: '#08111a' },
+  Slink:   { primary: '#2a4d25', secondary: '#152710', rgb: '42,77,37',    cardBg: '#0a1208' },
+  Weird:   { primary: '#4a2870', secondary: '#26123c', rgb: '74,40,112',   cardBg: '#110a18' },
 };
 
+const CARD_IMAGES = {
+  Journalist: '/images/Journalist.png',
+  Magician:   '/images/magician.jpg',
+  Explorer:   '/images/explorer.png',
+  Soldier:    '/images/soldier.png',
+  Doctor:     '/images/doctor.png',
+  Professor:  '/images/professor.png',
+  Criminal:   '/images/criminal.webp',
+  Detective:  '/images/detective.jpg',
+  Medium:     '/images/medium.jpg',
+  Occultist:  '/images/occult.jpg',
+};
+
+const GEAR_ICONS = {
+  "Bleed Detector":        "GiRadarSweep",
+  "Bleed Containment Vial":"GiChemicalDrop",
+  "Hand Weapon":           "GiKnifeThrust",
+  "Lantern":               "GiLantern",
+  "Matches & Candles":     "GiLitCandelabra",
+  "First Aid Kit":         "GiFirstAidKit",
+  "Press Credentials":     "GiPapers",
+  "Camera":                "GiFilmProjector",
+  "Hidden Recording Device":"GiMicrophone",
+  "Flash Powder":          "GiFireworkRocket",
+  "Lockpicks":             "GiLockpicks",
+  "Trick Deck of Cards":   "GiCardRandom",
+  "Heavy Climbing Gear":   "GiWhip",
+  "Machete":               "GiMachete",
+  "Vintage Map Collection":"GiTreasureMap",
+  "Heavy Firearm":         "GiRevolver",
+  "Tactical Armor":        "GiArmorVest",
+  "Trench Whistle":        "GiWhistle",
+  "Surgical Tools":        "GiScalpel",
+  "Heavy Sedatives":       "GiSyringe",
+  "Medical Journals":      "GiNotebook",
+  "Thick Reference Tome":  "GiBookCover",
+  "Chemical Kit":          "GiTestTubes",
+  "University Keys":       "GiKey",
+  "Advanced Lockpicks":    "GiLockpicks",
+  "Forged Documents":      "GiScrollUnfurled",
+  "Concealed Blade":       "GiStiletto",
+  "Magnifying Glass":      "GiMagnifyingGlass",
+  "Evidence Bags":         "GiSuitcase",
+  "Concealed Pistol":      "GiPistolGun",
+  "Spirit Board":          "GiCrystalBall",
+  "Ectoplasm Vial":        "GiGhost",
+  "Tarot Deck":            "GiCardRandom",
+  "Arcane Texts":          "GiSpellBook",
+  "Occult Supplies":       "GiCauldron",
+  "Ritual Dagger":         "GiKnifeThrust",
+};
+
+const ACTION_DRIVES = [
+  { drive: 'Nerve',     color: '#7a4822', bgColor: 'rgba(122,72,34,0.1)',   statsKey: 'nerve',
+    actions: [{ key: 'move', label: 'Drive' }, { key: 'strike', label: 'Strike' }, { key: 'control', label: 'Control' }] },
+  { drive: 'Cunning',   color: '#2a4d25', bgColor: 'rgba(42,77,37,0.1)',    statsKey: 'cunning',
+    actions: [{ key: 'hide', label: 'Tinker' }, { key: 'sneak', label: 'Sneak' }, { key: 'sway', label: 'Swindle' }] },
+  { drive: 'Intuition', color: '#4a2870', bgColor: 'rgba(74,40,112,0.1)',   statsKey: 'intuition',
+    actions: [{ key: 'survey', label: 'Survey' }, { key: 'read', label: 'Read' }, { key: 'sense', label: 'Sense' }] },
+];
+
+function statsToActions(stats) {
+  return {
+    move: stats.nerve.move, strike: stats.nerve.strike, control: stats.nerve.control,
+    hide: stats.cunning.hide, sneak: stats.cunning.read, sway: stats.cunning.sway,
+    survey: stats.intuition.survey, read: stats.intuition.focus, sense: stats.intuition.sense,
+  };
+}
+
+const SafeIcon = ({ name, size = 18, className = "", style: s }) => {
+  if (!name || !Gi[name]) return <div style={{ width: size, height: size, ...s }} className="opacity-20 rounded-full border border-dashed border-current" />;
+  return React.createElement(Gi[name], { size, className, style: s });
+};
+
+// Art-deco SVG corner ornament — rotated for each corner
+const DecoCorner = ({ color, rot = 0 }) => (
+  <svg viewBox="0 0 44 44" width="50" height="50" fill="none"
+    style={{ display: 'block', transform: `rotate(${rot}deg)` }}>
+    <path d="M1 1L1 22L4 19L4 4L19 4L22 1Z" fill={color} opacity="0.9"/>
+    <path d="M1 1L32 1" stroke={color} strokeWidth="1.2" opacity="0.55"/>
+    <path d="M1 1L1 32" stroke={color} strokeWidth="1.2" opacity="0.55"/>
+    <circle cx="1" cy="1" r="2.5" fill={color}/>
+    <rect x="4" y="4" width="11" height="11" stroke={color} strokeWidth="0.9" fill="none" opacity="0.6"/>
+    <rect x="6.5" y="6.5" width="6" height="6" fill={color} opacity="0.2"/>
+    <path d="M22 1L22 4L26 4" stroke={color} strokeWidth="0.8" opacity="0.5"/>
+    <path d="M28 1L28 3" stroke={color} strokeWidth="0.7" opacity="0.35"/>
+    <path d="M1 22L4 22L4 26" stroke={color} strokeWidth="0.8" opacity="0.5"/>
+    <path d="M1 28L3 28" stroke={color} strokeWidth="0.7" opacity="0.35"/>
+    <path d="M19 4L22 1L25 4L22 7Z" fill={color} opacity="0.65"/>
+    <path d="M4 19L1 22L4 25L7 22Z" fill={color} opacity="0.65"/>
+    <circle cx="11" cy="11" r="1.8" fill={color} opacity="0.55"/>
+  </svg>
+);
+
+// Mid-edge diamond ornament
+const EdgeDiamond = ({ color }) => (
+  <svg viewBox="0 0 14 14" width="17" height="17" fill="none">
+    <path d="M7 0L14 7L7 14L0 7Z" fill={color} opacity="0.7"/>
+    <path d="M7 3L11 7L7 11L3 7Z" fill="none" stroke={color} strokeWidth="0.6" opacity="0.5"/>
+    <circle cx="7" cy="7" r="1.2" fill={color} opacity="0.8"/>
+  </svg>
+);
+
+// Skeuomorphic parchment wrapper with watermarks, tea stains, fold lines
+const PaperSheet = ({ children, className = "" }) => (
+  <div className={`paper-bg paper-texture relative ${className}`}
+    style={{ border: '3px double #3e2a1a', boxShadow: '0 14px 36px rgba(0,0,0,0.65), inset 0 0 80px rgba(139,90,43,0.07)' }}>
+    {/* Tea stains */}
+    <div className="tea-stain" style={{ width: 320, height: 240, top: -60, left: -80, background: 'radial-gradient(ellipse at center, rgba(139,90,43,0.12) 0%, transparent 70%)' }} />
+    <div className="tea-stain" style={{ width: 260, height: 200, bottom: -40, right: -50, background: 'radial-gradient(ellipse at center, rgba(100,60,20,0.10) 0%, transparent 70%)' }} />
+    <div className="tea-stain" style={{ width: 160, height: 120, top: '45%', right: '10%', background: 'radial-gradient(ellipse at center, rgba(120,70,30,0.07) 0%, transparent 70%)' }} />
+    <div className="tea-stain" style={{ width: 90, height: 70, top: '20%', left: '8%', background: 'radial-gradient(ellipse at center, rgba(100,55,15,0.06) 0%, transparent 70%)' }} />
+    {/* Fold lines */}
+    <div className="fold-line" style={{ top: '34%' }} />
+    <div className="fold-line" style={{ top: '67%' }} />
+    {/* Corner filigrees */}
+    <div className="absolute top-2 left-2 w-7 h-7 border-t-2 border-l-2 border-[#3e2a1a]/50" />
+    <div className="absolute top-2 right-2 w-7 h-7 border-t-2 border-r-2 border-[#3e2a1a]/50" />
+    <div className="absolute bottom-2 left-2 w-7 h-7 border-b-2 border-l-2 border-[#3e2a1a]/50" />
+    <div className="absolute bottom-2 right-2 w-7 h-7 border-b-2 border-r-2 border-[#3e2a1a]/50" />
+    {/* Text watermark */}
+    <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-0"
+      style={{ transform: 'rotate(-28deg)' }}>
+      <span className="text-[100px] font-serif font-black text-[#3e2a1a] whitespace-nowrap select-none"
+        style={{ opacity: 0.032, letterSpacing: '0.08em' }}>CANDELA OBSCURA</span>
+    </div>
+    {/* Circular seal watermark */}
+    <div className="absolute bottom-8 right-8 pointer-events-none z-0" style={{ opacity: 0.06 }}>
+      <div className="w-28 h-28 rounded-full flex flex-col items-center justify-center"
+        style={{ border: '3px solid #3e2a1a' }}>
+        <span className="text-[7px] font-sans font-black tracking-[0.35em] text-[#3e2a1a] uppercase">Candela</span>
+        <Gi.GiWaxSeal size={30} className="text-[#3e2a1a] my-1" />
+        <span className="text-[7px] font-sans font-black tracking-[0.35em] text-[#3e2a1a] uppercase">Archive</span>
+      </div>
+    </div>
+    <div className="relative z-10 p-8">{children}</div>
+  </div>
+);
+
+// ── Individual specialty card ──────────────────────────────────────────────────
+const CARD_W = 230;
+const CARD_H = 370;
+
+const SpecialtyCard = ({ roleName, specialtyName, index, total, isSelected, isAnySelected, isHovered }) => {
+  const roleData = ROLES[roleName];
+  const spec = roleData.specialties[specialtyName];
+  const color = ROLE_COLORS[roleName];
+  const img = CARD_IMAGES[specialtyName];
+
+  const angle  = -22 + (index / (total - 1)) * 44;
+  const xOff   = (index - (total - 1) / 2) * 28;
+  const yDip   = Math.abs(index - (total - 1) / 2) * 4;
+
+  let transform, zIndex, opacity;
+  if (isSelected) {
+    transform = `translateX(-50%) translateY(-55px) scale(1.18) rotate(0deg)`;
+    zIndex = 80; opacity = 1;
+  } else if (isAnySelected) {
+    transform = `translateX(calc(-50% + ${xOff}px)) translateY(150px) scale(0.7) rotate(${angle * 0.4}deg)`;
+    zIndex = 1; opacity = 0;
+  } else if (isHovered) {
+    transform = `translateX(calc(-50% + ${xOff}px)) translateY(${yDip - 72}px) rotate(0deg) scale(1.1)`;
+    zIndex = 90; opacity = 1;
+  } else {
+    transform = `translateX(calc(-50% + ${xOff}px)) translateY(${yDip}px) rotate(${angle}deg)`;
+    zIndex = index + 1; opacity = 1;
+  }
+
+  return (
+    <div style={{
+      position: 'absolute', bottom: 0, left: '50%',
+      width: CARD_W, height: CARD_H,
+      transform, zIndex, opacity,
+      transition: 'transform 380ms cubic-bezier(0.34,1.2,0.64,1), opacity 320ms ease',
+      pointerEvents: isAnySelected && !isSelected ? 'none' : 'auto',
+      cursor: isSelected ? 'default' : 'pointer',
+    }}>
+      {/* Outer frame — double border */}
+      <div style={{
+        width: '100%', height: '100%', position: 'relative', borderRadius: 5, overflow: 'hidden',
+        border: `3px solid ${color.primary}`,
+        boxShadow: `inset 0 0 0 2px ${color.secondary}, inset 0 0 0 5px ${color.primary}22, 0 12px 30px rgba(0,0,0,0.7)`,
+        background: color.cardBg,
+      }}>
+        {/* Artwork */}
+        {img
+          ? <img src={img} alt={specialtyName} draggable={false}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                filter: 'sepia(0.82) brightness(0.72) contrast(1.14) saturate(0.48)' }} />
+          : <div style={{ width: '100%', height: '100%', background: `radial-gradient(ellipse at center, rgba(${color.rgb},0.18), ${color.cardBg})` }} />
+        }
+
+        {/* Vignette overlay */}
+        <div style={{ position: 'absolute', inset: 0,
+          background: `radial-gradient(ellipse at 50% 45%, transparent 30%, rgba(0,0,0,0.72) 100%)`,
+          pointerEvents: 'none', zIndex: 2 }} />
+
+        {/* Top gradient + role label */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 5,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.88) 55%, transparent 100%)',
+          padding: '10px 8px 14px' }}>
+          <div style={{ height: 1, background: `linear-gradient(to right, transparent, ${color.primary}, transparent)`, marginBottom: 5 }} />
+          <p style={{ textAlign: 'center', fontSize: 11, fontFamily: 'sans-serif', fontWeight: 900,
+            letterSpacing: '0.22em', textTransform: 'uppercase', color: color.primary }}>
+            {roleName}
+          </p>
+        </div>
+
+        {/* Bottom gradient + specialty name */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 5,
+          background: 'linear-gradient(to top, rgba(0,0,0,0.92) 60%, transparent 100%)',
+          padding: '14px 8px 10px' }}>
+          <div style={{ height: 1, background: `linear-gradient(to right, transparent, ${color.primary}, transparent)`, marginBottom: 6 }} />
+          <p style={{ textAlign: 'center', fontSize: 16, fontFamily: 'serif', fontWeight: 700,
+            color: '#f8f0e4', textShadow: '0 1px 6px rgba(0,0,0,0.9)', lineHeight: 1.2 }}>
+            {specialtyName}
+          </p>
+        </div>
+
+        {/* Horizontal edge rules */}
+        <div style={{ position: 'absolute', left: 38, right: 38, top: 34, height: 1, zIndex: 4,
+          background: `linear-gradient(to right, transparent, ${color.primary}80, transparent)` }} />
+        <div style={{ position: 'absolute', left: 38, right: 38, bottom: 34, height: 1, zIndex: 4,
+          background: `linear-gradient(to right, transparent, ${color.primary}80, transparent)` }} />
+
+        {/* Corner ornaments — all 4 corners */}
+        <div style={{ position: 'absolute', top: 2, left: 2, zIndex: 10 }}><DecoCorner color={color.primary} rot={0} /></div>
+        <div style={{ position: 'absolute', top: 2, right: 2, zIndex: 10 }}><DecoCorner color={color.primary} rot={90} /></div>
+        <div style={{ position: 'absolute', bottom: 2, left: 2, zIndex: 10 }}><DecoCorner color={color.primary} rot={270} /></div>
+        <div style={{ position: 'absolute', bottom: 2, right: 2, zIndex: 10 }}><DecoCorner color={color.primary} rot={180} /></div>
+
+        {/* Mid-edge diamonds */}
+        <div style={{ position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
+          <EdgeDiamond color={color.primary} />
+        </div>
+        <div style={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
+          <EdgeDiamond color={color.primary} />
+        </div>
+        <div style={{ position: 'absolute', left: 2, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+          <EdgeDiamond color={color.primary} />
+        </div>
+        <div style={{ position: 'absolute', right: 2, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+          <EdgeDiamond color={color.primary} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Main component ─────────────────────────────────────────────────────────────
 export const CharacterCreator = ({ onSubmit }) => {
   const [step, setStep] = useState(1);
-  
+
+  // Card deck state
+  const [expandedCard, setExpandedCard] = useState(null); // selected
+  const [hoveredCard,  setHoveredCard]  = useState(null); // hover preview
+
+  // Identity
   const [profilePic, setProfilePic] = useState(null);
-  const [name, setName] = useState("");
-  const [pronouns, setPronouns] = useState("");
-  const [style, setStyle] = useState("");
-  const [catalyst, setCatalyst] = useState("");
-  const [question, setQuestion] = useState("");
-  const [role, setRole] = useState("");
-  const [specialty, setSpecialty] = useState("");
-  
-  const [selectedRoleAbility, setSelectedRoleAbility] = useState("");
+  const [name,       setName]       = useState("");
+  const [pronouns,   setPronouns]   = useState("");
+  const [style,      setStyle]      = useState("");
+  const [catalyst,   setCatalyst]   = useState("");
+  const [question,   setQuestion]   = useState("");
+
+  // Chosen role/specialty (locked in when "Choose This Specialty" clicked)
+  const [role,     setRole]     = useState("");
+  const [specialty,setSpecialty]= useState("");
+
+  // Abilities — chosen in Step 1 panel
+  const [selectedRoleAbility,      setSelectedRoleAbility]      = useState("");
   const [selectedSpecialtyAbility, setSelectedSpecialtyAbility] = useState("");
+
+  // Actions & gear
+  const [actions, setActions] = useState({ move:0,strike:0,control:0,hide:0,sneak:0,sway:0,survey:0,read:0,sense:0 });
+  const [gildedActions, setGildedActions] = useState({ nerve:'', cunning:'', intuition:'' });
   const [selectedGear, setSelectedGear] = useState([]);
 
+  // Finalize routing
+  const [showJoinInput, setShowJoinInput] = useState(false);
+  const [campaignCode,  setCampaignCode]  = useState("");
+
   const handleImageUpload = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setProfilePic(URL.createObjectURL(e.target.files[0]));
-    }
+    if (e.target.files?.[0]) setProfilePic(URL.createObjectURL(e.target.files[0]));
   };
 
-  const handleRoleChange = (selectedRole) => {
-    setRole(selectedRole); 
-    setSpecialty(""); 
-    setSelectedRoleAbility(""); 
-    setSelectedSpecialtyAbility(""); 
+  // Expand a card — reset ability picks if switching specialty
+  const handleExpandCard = (roleName, specialtyName) => {
+    const switching = expandedCard?.roleName !== roleName || expandedCard?.specialtyName !== specialtyName;
+    setExpandedCard({ roleName, specialtyName });
+    if (switching) { setSelectedRoleAbility(""); setSelectedSpecialtyAbility(""); }
+    setHoveredCard(null);
+  };
+
+  // Confirm specialty choice and advance to step 2
+  const chooseSpecialty = () => {
+    if (!expandedCard || !selectedRoleAbility || !selectedSpecialtyAbility) return;
+    setRole(expandedCard.roleName);
+    setSpecialty(expandedCard.specialtyName);
+    const stats = ROLES[expandedCard.roleName].specialties[expandedCard.specialtyName].stats;
+    setActions(statsToActions(stats));
     setSelectedGear([]);
+    setExpandedCard(null);
+    setStep(2);
   };
 
   const toggleGear = (item) => {
@@ -251,380 +529,603 @@ export const CharacterCreator = ({ onSubmit }) => {
     else if (selectedGear.length < 3) setSelectedGear([...selectedGear, item]);
   };
 
-  const handleComplete = () => {
-    if (onSubmit) onSubmit({ 
-      name, pronouns, style, catalyst, question, role, specialty, 
-      roleAbility: selectedRoleAbility, specialtyAbility: selectedSpecialtyAbility, 
-      gear: selectedGear, profilePic 
+  const getDriveTotal = (di) => di.actions.reduce((s, a) => s + (actions[a.key] || 0), 0);
+  const getDriveMax   = (di) => role && specialty ? (ROLES[role]?.specialties[specialty]?.stats?.[di.statsKey]?.max ?? 9) : 9;
+
+  const adjustAction = (key, delta, di) => {
+    const v = (actions[key] || 0) + delta;
+    if (v < 0 || v > 4) return;
+    if (delta > 0 && getDriveTotal(di) >= getDriveMax(di)) return;
+    setActions(p => ({ ...p, [key]: v }));
+  };
+
+  const toggleGilded = (driveKey, actionKey) => {
+    setGildedActions(p => ({ ...p, [driveKey]: p[driveKey] === actionKey ? '' : actionKey }));
+  };
+
+  const handleComplete = (mode, code) => {
+    if (onSubmit) onSubmit({
+      name, pronouns, style, catalyst, question, role, specialty,
+      roleAbility: selectedRoleAbility, specialtyAbility: selectedSpecialtyAbility,
+      gear: selectedGear, profilePic, actions, gildedActions,
+      mode: mode || 'save',
+      campaignCode: code || '',
     });
   };
 
+  // Step unlock logic
+  const step2Unlocked = !!(role && specialty && selectedRoleAbility && selectedSpecialtyAbility);
+  const step3Unlocked = step2Unlocked && !!name;
+  const step4Unlocked = step3Unlocked && !!catalyst;
+
+  const canAdvance = step === 2 ? !!(name && catalyst) : step === 3;
+
+  const allCards = Object.entries(ROLES).flatMap(([rn, rd]) =>
+    Object.keys(rd.specialties).map(sn => ({ roleName: rn, specialtyName: sn }))
+  );
+
+  // What to show in right panel (selected takes priority over hover)
+  const panelTarget = expandedCard || hoveredCard;
+  const panelRoleData    = panelTarget ? ROLES[panelTarget.roleName] : null;
+  const panelSpecData    = panelTarget ? panelRoleData?.specialties[panelTarget.specialtyName] : null;
+  const panelColor       = panelTarget ? ROLE_COLORS[panelTarget.roleName] : null;
+  const isFullPanel      = !!expandedCard; // full ability selection vs hover preview
+
+  const STEP_LABELS = ["1. CHOOSE PATH", "2. PROFILE", "3. ACTION RATINGS", "4. GEAR & DOSSIER"];
+  const STEP_UNLOCKED = [true, step2Unlocked, step3Unlocked, step4Unlocked];
+
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 py-6 font-serif text-[#1a1311]">
-      
-      {/* =========================================================================
-          THEMATIC 3-STEP PROGRESS NAVIGATION LANE
-          ========================================================================= */}
-      <div className="flex border border-[#3e2f29] bg-[#1a1311] text-xs font-sans font-black tracking-widest text-center select-none rounded mb-8 shadow-md">
-        <div 
-          onClick={() => setStep(1)}
-          className={`flex-1 py-3 cursor-pointer border-r border-[#3e2f29] transition-colors ${step === 1 ? 'bg-[#721c15] text-[#fdfaf4]' : 'text-[#fdfaf4]/40 hover:bg-black/20'}`}
-        >
-          1. REGISTRATION
-        </div>
-        <div 
-          onClick={() => name && role && specialty && setStep(2)}
-          className={`flex-1 py-3 cursor-pointer border-r border-[#3e2f29] transition-colors ${
-            (!name || !role || !specialty) ? 'opacity-30 cursor-not-allowed text-[#fdfaf4]/20' : step === 2 ? 'bg-[#721c15] text-[#fdfaf4]' : 'text-[#fdfaf4]/40 hover:bg-black/20'
-          }`}
-        >
-          2. INTERVIEW
-        </div>
-        <div 
-          onClick={() => name && role && specialty && catalyst && selectedRoleAbility && selectedSpecialtyAbility && setStep(3)}
-          className={`flex-1 py-3 cursor-pointer transition-colors ${
-            (!name || !role || !specialty || !catalyst || !selectedRoleAbility || !selectedSpecialtyAbility) ? 'opacity-30 cursor-not-allowed text-[#fdfaf4]/20' : step === 3 ? 'bg-[#721c15] text-[#fdfaf4]' : 'text-[#fdfaf4]/40 hover:bg-black/20'
-          }`}
-        >
-          3. CANDELA DOSSIER
-        </div>
+    <div className="w-full max-w-6xl mx-auto px-4 py-4 font-serif text-[#1a1311]">
+
+      {/* ── PROGRESS NAV ── */}
+      <div className="flex border border-[#3e2f29] bg-[#1a1311] text-sm font-sans font-black tracking-widest text-center select-none rounded mb-6 shadow-md overflow-hidden">
+        {STEP_LABELS.map((label, i) => {
+          const n = i + 1;
+          const unlocked = STEP_UNLOCKED[i];
+          const active = step === n;
+          return (
+            <div key={n} onClick={() => unlocked && setStep(n)}
+              className={`flex-1 py-3 border-r border-[#3e2f29] last:border-r-0 transition-colors ${
+                active   ? 'bg-[#721c15] text-[#fdfaf4]' :
+                unlocked ? 'text-[#fdfaf4]/50 hover:bg-black/20 cursor-pointer' :
+                           'opacity-25 cursor-not-allowed text-[#fdfaf4]/20'
+              }`}>
+              {label}
+            </div>
+          );
+        })}
       </div>
 
-      {/* =========================================================================
-          MAIN PARCHMENT RECORD CARD FRAME
-          ========================================================================= */}
-      <div className="bg-[#f5ebd6] border-4 border-double border-[#1a1311] shadow-[0_15px_35px_rgba(0,0,0,0.7)] p-8 relative rounded-sm min-h-[550px] flex flex-col justify-between">
-        
-        {/* Intricate Antique Corner Filigrees */}
-        <div className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-[#1a1311]/40" />
-        <div className="absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-[#1a1311]/40" />
-        <div className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-[#1a1311]/40" />
-        <div className="absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-[#1a1311]/40" />
-
-        {/* =========================================================================
-            STEP 1: REGISTRATION (Identity + Career & Profession Selection)
-            ========================================================================= */}
-        {step === 1 && (
-          <div className="animate-fadeIn space-y-8 flex-1">
-            <div className="text-center border-b border-[#1a1311]/20 pb-4">
-              <h2 className="text-2xl font-black uppercase tracking-wide text-[#721c15]">Applicant Registration</h2>
-              <p className="text-[10px] font-sans font-black uppercase tracking-widest text-black/50 mt-1">Please provide vital identity details for prompt evaluation</p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              
-              {/* Left Column: Passport Portrait */}
-              <div className="lg:col-span-4 flex flex-col items-center">
-                <label className="w-full aspect-[3/4] border-2 border-dashed border-[#1a1311]/40 bg-[#ebdcb9]/50 rounded flex flex-col items-center justify-center cursor-pointer hover:bg-[#ebdcb9]/80 hover:border-[#721c15]/60 transition-all relative overflow-hidden shadow-inner group">
-                  {profilePic ? (
-                    <img src={profilePic} alt="Dossier headshot" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="text-center p-4">
-                      <Gi.GiIdCard size={40} className="mx-auto text-[#1a1311]/30 mb-2 group-hover:scale-110 transition-transform" />
-                      <span className="block text-[10px] font-sans font-black tracking-widest text-[#1a1311]/50 uppercase">[+] AFFIX PORTRAIT</span>
-                    </div>
-                  )}
-                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                </label>
-                <span className="text-[9px] font-sans italic opacity-50 mt-2 text-center">Recent portraits are required for identity verification</span>
-              </div>
-
-              {/* Right Column: Lined Form Fields + Dropdowns */}
-              <div className="lg:col-span-8 space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="relative border-b border-[#1a1311]/30 pb-1">
-                    <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">Full Name</label>
-                    <input 
-                      type="text" 
-                      value={name} 
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Full Nomenclature Name..." 
-                      className="w-full bg-transparent font-serif font-bold text-base border-none focus:outline-none placeholder-black/20"
-                    />
-                  </div>
-
-                  <div className="relative border-b border-[#1a1311]/30 pb-1">
-                    <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">Gender</label>
-                    <input 
-                      type="text" 
-                      value={pronouns} 
-                      onChange={(e) => setPronouns(e.target.value)}
-                      placeholder="e.g., He/They, She/Her..." 
-                      className="w-full bg-transparent font-serif italic text-base border-none focus:outline-none placeholder-black/20"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div>
-                    <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">Profession</label>
-                    <select 
-                      value={role} 
-                      onChange={(e) => handleRoleChange(e.target.value)}
-                      className="w-full bg-[#ebdcb9] border border-[#1a1311]/30 rounded p-2 text-xs font-sans font-bold focus:outline-none"
-                    >
-                      <option value="">-- Choose Profession --</option>
-                      {Object.keys(ROLES).map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
-
-                  {role && (
-                    <div className="animate-fadeIn">
-                      <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">Field of Focus</label>
-                      <select 
-                        value={specialty} 
-                        onChange={(e) => setSpecialty(e.target.value)}
-                        className="w-full bg-[#ebdcb9] border border-[#1a1311]/30 rounded p-2 text-xs font-sans font-bold focus:outline-none"
-                      >
-                        <option value="">-- Choose Field Specialty --</option>
-                        {Object.keys(ROLES[role].specialties).map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                  )}
-                </div>
-
-                <div className="relative border-b border-[#1a1311]/30 pb-1 pt-2">
-                  <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1">Identifying Characteristics</label>
-                  <textarea 
-                    rows={2}
-                    value={style} 
-                    onChange={(e) => setStyle(e.target.value)}
-                    placeholder="Detail apparel, tailored suits, ink-stained marks, or signature items..." 
-                    className="w-full bg-transparent font-serif text-xs border-none focus:outline-none resize-none placeholder-black/20 leading-relaxed"
-                  />
-                </div>
-              </div>
-
-            </div>
+      {/* ══════════════════════════════════════════════════════════════════════
+          STEP 1 — CHOOSE YOUR PATH
+          ══════════════════════════════════════════════════════════════════════ */}
+      {step === 1 && (
+        <div className="animate-fadeIn">
+          <div className="text-center mb-5">
+            <h2 className="text-3xl font-black uppercase tracking-widest text-[#fdfaf4]"
+              style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}>Choose Your Path</h2>
+            <p className="text-sm font-sans tracking-[0.2em] text-[#fdfaf4]/35 uppercase mt-1">
+              Draw from the deck — hover to preview, click to select
+            </p>
           </div>
-        )}
 
-        {/* =========================================================================
-            STEP 2: INTERVIEW (Narrative Questions + Assets Section)
-            ========================================================================= */}
-        {step === 2 && (
-          <div className="animate-fadeIn space-y-6 flex-1 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
-            <div className="text-center border-b border-[#1a1311]/20 pb-3">
-              <h2 className="text-2xl font-black uppercase tracking-wide text-[#721c15]">Applicant Examination Logs</h2>
-              <p className="text-[10px] font-sans font-black uppercase tracking-widest text-black/50 mt-1">Notes from Interviews Conducted with Applicants</p>
-            </div>
+          <div className="flex gap-6 items-start" style={{ minHeight: 540 }}>
 
-            {/* Top Row: Narrative Prompts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-[#ebdcb9]/40 border border-[#1a1311]/20 p-3 rounded shadow-inner">
-                <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1 border-b border-[#1a1311]/10 pb-1">
-                  RECORD YOUR CATALYST: WHY DO YOU SEEK CANDELA OBSCURA?
-                </label>
-                <textarea 
-                  rows={2}
-                  value={catalyst} 
-                  onChange={(e) => setCatalyst(e.target.value)}
-                  placeholder="Document the specific event or supernatural puncture that tore away the mundane world..." 
-                  className="w-full bg-transparent font-serif text-xs border-none focus:outline-none resize-none placeholder-black/30 leading-relaxed"
-                />
+            {/* ── LEFT: card fan ── */}
+            <div className="shrink-0" style={{ width: 530 }}>
+              {/* Group container with gentle tilt */}
+              <div style={{
+                position: 'relative', height: 590,
+                transform: expandedCard ? 'rotate(0deg)' : 'rotate(-7deg)',
+                transition: 'transform 480ms cubic-bezier(0.4,0,0.2,1)',
+              }}>
+                {allCards.map(({ roleName, specialtyName }, idx) => {
+                  const isSel  = expandedCard?.roleName === roleName && expandedCard?.specialtyName === specialtyName;
+                  const isHov  = hoveredCard?.roleName  === roleName && hoveredCard?.specialtyName  === specialtyName;
+                  const anySel = !!expandedCard;
+                  return (
+                    <div
+                      key={`${roleName}-${specialtyName}`}
+                      onMouseEnter={() => !anySel && setHoveredCard({ roleName, specialtyName })}
+                      onMouseLeave={() => !anySel && setHoveredCard(null)}
+                      onClick={() => {
+                        if (isSel) { setExpandedCard(null); setHoveredCard(null); }
+                        else handleExpandCard(roleName, specialtyName);
+                      }}
+                    >
+                      <SpecialtyCard
+                        roleName={roleName} specialtyName={specialtyName}
+                        index={idx} total={allCards.length}
+                        isSelected={isSel} isAnySelected={anySel} isHovered={isHov}
+                      />
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="bg-[#ebdcb9]/40 border border-[#1a1311]/20 p-3 rounded shadow-inner">
-                <label className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15] mb-1 border-b border-[#1a1311]/10 pb-1">
-                  CONVEY YOUR CURIOSITY: WHAT ANSWERS ARE YOU DEMANDING?
-                </label>
-                <textarea 
-                  rows={2}
-                  value={question} 
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="What is the central question or haunting mystery your investigator pursues into the dark?" 
-                  className="w-full bg-transparent font-serif text-xs border-none focus:outline-none resize-none placeholder-black/30 leading-relaxed"
-                />
-              </div>
+              {/* Return to deck */}
+              {expandedCard && (
+                <div className="text-center mt-2">
+                  <button
+                    onClick={() => { setExpandedCard(null); setHoveredCard(null); }}
+                    className="text-[11px] font-sans font-black uppercase tracking-widest px-4 py-1.5 rounded transition-all border border-[#fdfaf4]/15 text-[#fdfaf4]/40 hover:text-[#fdfaf4]/70 hover:border-[#fdfaf4]/30"
+                  >
+                    ← Return to Deck
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Bottom Row: The Assets Section */}
-            <div className="border-t-2 border-dashed border-[#1a1311]/20 pt-4">
-              <h3 className="text-sm font-sans font-black uppercase tracking-wider text-[#721c15] mb-3 flex items-center gap-1">
-                <Gi.GiBriefcase size={14} /> Record of Professional Assets
-              </h3>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-                
-                {/* 1. Role Ability */}
-                <div className="bg-[#ebdcb9]/60 border border-[#1a1311]/20 p-3 rounded space-y-2">
-                  <span className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15]">Role Ability</span>
-                  <div className="space-y-1.5">
-                    {Object.entries(ROLES[role].baseAbilities).map(([name, data]) => (
-                      <div 
-                        key={name}
-                        onClick={() => setSelectedRoleAbility(name)}
-                        className={`p-2 border rounded cursor-pointer transition-all flex items-start gap-2 ${
-                          selectedRoleAbility === name ? 'bg-white border-[#721c15] shadow-sm' : 'border-[#1a1311]/10 hover:bg-white/40'
-                        }`}
-                      >
-                        <div className={`p-1 rounded-full shrink-0 ${selectedRoleAbility === name ? 'bg-[#721c15] text-[#fdfaf4]' : 'bg-[#ebdcb9] text-[#1a1311]'}`}>
-                          <SafeIcon name={data.icon} size={12} />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="block text-[11px] font-black tracking-tight leading-none">{name}</span>
-                          <span className="block text-[10px] opacity-70 leading-tight font-serif mt-0.5">{data.text}</span>
+            {/* ── RIGHT: description panel ── */}
+            <div className="flex-1" style={{ minHeight: 460 }}>
+              {!panelTarget ? (
+                /* Empty state */
+                <div className="h-full flex flex-col items-center justify-center text-center px-8"
+                  style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: 6, background: 'rgba(10,6,4,0.5)' }}>
+                  <Gi.GiCardRandom size={48} className="text-[#fdfaf4]/10 mb-4" />
+                  <p className="text-xl font-serif text-[#fdfaf4]/20 italic">Hover a card to preview</p>
+                  <p className="text-sm font-sans tracking-widest text-[#fdfaf4]/10 uppercase mt-1">Click to enter selection</p>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col rounded overflow-hidden"
+                  style={{ border: `1px solid ${panelColor.primary}33`, background: '#0a0705', boxShadow: `0 4px 20px rgba(0,0,0,0.6), inset 0 0 0 1px ${panelColor.secondary}44` }}>
+
+                  {/* Panel header */}
+                  <div className="px-5 pt-5 pb-4 shrink-0"
+                    style={{ borderBottom: `1px solid ${panelColor.primary}25`, background: `linear-gradient(to bottom, rgba(${panelColor.rgb},0.1), transparent)` }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
+                        style={{ background: `rgba(${panelColor.rgb},0.15)`, border: `1px solid ${panelColor.primary}` }}>
+                        <SafeIcon name={panelSpecData?.icon} size={22} style={{ color: panelColor.primary }} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-sans font-black tracking-[0.22em] uppercase" style={{ color: panelColor.primary }}>
+                          {panelTarget.roleName}
+                        </p>
+                        <h3 className="text-2xl font-black text-[#fdfaf4] leading-tight">{panelTarget.specialtyName}</h3>
+                        <p className="text-base italic text-[#fdfaf4]/55 mt-0.5">{panelSpecData?.description}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Panel body — scrollable */}
+                  <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-5">
+
+                    {/* ── Specialty Abilities ── */}
+                    <div>
+                      <p className="text-sm font-sans font-black tracking-[0.2em] uppercase mb-2.5" style={{ color: panelColor.primary }}>
+                        {isFullPanel ? "Choose a Specialty Ability" : "Specialty Abilities"}
+                      </p>
+                      <div className="space-y-2">
+                        {Object.entries(panelSpecData?.abilities || {}).map(([aN, aD]) => {
+                          const picked = isFullPanel && selectedSpecialtyAbility === aN;
+                          return (
+                            <div key={aN}
+                              onClick={() => isFullPanel && setSelectedSpecialtyAbility(aN)}
+                              className={`flex items-start gap-3 p-3 rounded transition-all ${isFullPanel ? 'cursor-pointer' : ''}`}
+                              style={{
+                                background: picked ? `rgba(${panelColor.rgb},0.22)` : `rgba(255,255,255,0.03)`,
+                                border: `1px solid ${picked ? panelColor.primary : (isFullPanel ? `rgba(${panelColor.rgb},0.18)` : 'rgba(255,255,255,0.06)')}`,
+                                boxShadow: picked ? `0 0 8px rgba(${panelColor.rgb},0.25)` : 'none',
+                              }}>
+                              <div className="shrink-0 mt-0.5 w-7 h-7 rounded-full flex items-center justify-center"
+                                style={{ background: picked ? panelColor.primary : `rgba(${panelColor.rgb},0.15)`, border: `1px solid ${panelColor.primary}55` }}>
+                                <SafeIcon name={aD.icon} size={14} style={{ color: picked ? '#0f0805' : panelColor.primary }} />
+                              </div>
+                              <div>
+                                <p className="text-base font-black text-[#fdfaf4] leading-tight">{aN}</p>
+                                <p className="text-sm text-[#fdfaf4]/60 leading-snug mt-0.5">{aD.text}</p>
+                              </div>
+                              {picked && <Gi.GiCheckMark size={14} className="ml-auto shrink-0 mt-1" style={{ color: panelColor.primary }} />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* ── Role Abilities (full panel only) ── */}
+                    {isFullPanel && (
+                      <div>
+                        <p className="text-sm font-sans font-black tracking-[0.2em] uppercase mb-2.5" style={{ color: panelColor.primary }}>
+                          Choose a {panelTarget.roleName} Role Ability
+                        </p>
+                        <div className="space-y-2">
+                          {Object.entries(panelRoleData?.baseAbilities || {}).map(([aN, aD]) => {
+                            const picked = selectedRoleAbility === aN;
+                            return (
+                              <div key={aN}
+                                onClick={() => setSelectedRoleAbility(aN)}
+                                className="flex items-start gap-3 p-3 rounded cursor-pointer transition-all"
+                                style={{
+                                  background: picked ? `rgba(${panelColor.rgb},0.22)` : `rgba(255,255,255,0.03)`,
+                                  border: `1px solid ${picked ? panelColor.primary : `rgba(${panelColor.rgb},0.18)`}`,
+                                  boxShadow: picked ? `0 0 8px rgba(${panelColor.rgb},0.25)` : 'none',
+                                }}>
+                                <div className="shrink-0 mt-0.5 w-7 h-7 rounded-full flex items-center justify-center"
+                                  style={{ background: picked ? panelColor.primary : `rgba(${panelColor.rgb},0.15)`, border: `1px solid ${panelColor.primary}55` }}>
+                                  <SafeIcon name={aD.icon} size={14} style={{ color: picked ? '#0f0805' : panelColor.primary }} />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-black text-[#fdfaf4] leading-tight">{aN}</p>
+                                  <p className="text-xs text-[#fdfaf4]/55 leading-snug mt-0.5">{aD.text}</p>
+                                </div>
+                                {picked && <Gi.GiCheckMark size={14} className="ml-auto shrink-0 mt-1" style={{ color: panelColor.primary }} />}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    )}
 
-                {/* 2. Specialty Ability */}
-                <div className="bg-[#ebdcb9]/60 border border-[#1a1311]/20 p-3 rounded space-y-2">
-                  <span className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15]">Specialty Ability</span>
-                  <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
-                    {ROLES[role].specialties[specialty] ? (
-                      Object.entries(ROLES[role].specialties[specialty].abilities).map(([name, data]) => (
-                        <div 
-                          key={name}
-                          onClick={() => setSelectedSpecialtyAbility(name)}
-                          className={`p-2 border rounded cursor-pointer transition-all flex items-start gap-2 ${
-                            selectedSpecialtyAbility === name ? 'bg-white border-[#721c15] shadow-sm' : 'border-[#1a1311]/10 hover:bg-white/40'
-                          }`}
-                        >
-                          <div className={`p-1 rounded-full shrink-0 ${selectedSpecialtyAbility === name ? 'bg-[#721c15] text-[#fdfaf4]' : 'bg-[#ebdcb9] text-[#1a1311]'}`}>
-                            <SafeIcon name={data.icon} size={12} />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="block text-[11px] font-black tracking-tight leading-none">{name}</span>
-                            <span className="block text-[10px] opacity-70 leading-tight font-serif mt-0.5">{data.text}</span>
-                          </div>
-                        </div>
-                      ))
+                    {/* Starting gear preview */}
+                    <div>
+                      <p className="text-sm font-sans font-black tracking-[0.2em] uppercase mb-2" style={{ color: panelColor.primary }}>
+                        Starting Gear
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {panelSpecData?.gear.map(g => (
+                          <span key={g} className="text-xs font-serif italic text-[#fdfaf4]/60 px-2.5 py-1 rounded"
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Panel footer CTA */}
+                  <div className="px-5 py-4 shrink-0"
+                    style={{ borderTop: `1px solid ${panelColor.primary}20` }}>
+                    {isFullPanel ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm text-[#fdfaf4]/35 italic">
+                          {(!selectedSpecialtyAbility || !selectedRoleAbility) ? 'Select both abilities above to continue' : 'Ready to proceed'}
+                        </p>
+                        <button
+                          onClick={chooseSpecialty}
+                          disabled={!selectedRoleAbility || !selectedSpecialtyAbility}
+                          className="px-5 py-2 text-base font-sans font-black uppercase tracking-wider rounded transition-all shrink-0"
+                          style={{
+                            background: (selectedRoleAbility && selectedSpecialtyAbility) ? panelColor.primary : 'rgba(255,255,255,0.06)',
+                            color: (selectedRoleAbility && selectedSpecialtyAbility) ? '#0a0705' : 'rgba(255,255,255,0.2)',
+                            boxShadow: (selectedRoleAbility && selectedSpecialtyAbility) ? `0 2px 12px rgba(${panelColor.rgb},0.45)` : 'none',
+                            cursor: (selectedRoleAbility && selectedSpecialtyAbility) ? 'pointer' : 'not-allowed',
+                          }}>
+                          Choose Specialty →
+                        </button>
+                      </div>
                     ) : (
-                      <span className="text-[10px] italic opacity-50">Select Profession to populate asset parameters</span>
+                      <button
+                        onClick={() => handleExpandCard(panelTarget.roleName, panelTarget.specialtyName)}
+                        className="w-full py-2 text-base font-sans font-black uppercase tracking-wider rounded transition-all"
+                        style={{ background: `rgba(${panelColor.rgb},0.15)`, border: `1px solid ${panelColor.primary}55`, color: panelColor.primary }}>
+                        Select this Specialty →
+                      </button>
                     )}
                   </div>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-                {/* 3. Gear Ledger */}
-                <div className="bg-[#ebdcb9]/60 border border-[#1a1311]/20 p-3 rounded space-y-2">
-                  <div className="flex justify-between items-center border-b border-[#1a1311]/10 pb-0.5">
-                    <span className="block text-[9px] font-sans font-black uppercase tracking-widest text-[#721c15]">Ledger of Starting Gear</span>
-                    <span className="text-[9px] font-sans font-black opacity-60">({selectedGear.length}/3)</span>
+      {/* ══════════════════════════════════════════════════════════════════════
+          STEP 2 — INVESTIGATOR PROFILE (Registration + Interview combined)
+          ══════════════════════════════════════════════════════════════════════ */}
+      {step === 2 && (
+        <PaperSheet>
+          <div className="animate-fadeIn space-y-7">
+            <div className="text-center pb-5" style={{ borderBottom: '1px solid rgba(62,42,26,0.22)' }}>
+              <h2 className="text-3xl font-black uppercase tracking-wide text-[#721c15]">Investigator Profile</h2>
+              <p className="text-sm font-sans font-black uppercase tracking-[0.18em] text-black/40 mt-1">
+                {specialty} · {role} — Complete identity and background record
+              </p>
+            </div>
+
+            {/* ── Identity Section ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
+              {/* Portrait */}
+              <div className="lg:col-span-4">
+                <label className="block text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-2">Portrait</label>
+                <label className="w-full aspect-[3/4] border-2 border-dashed border-[#5a3a28]/40 bg-[#e4cfa0]/30 rounded flex flex-col items-center justify-center cursor-pointer hover:bg-[#e4cfa0]/55 hover:border-[#721c15]/50 transition-all relative overflow-hidden shadow-inner group">
+                  {profilePic
+                    ? <img src={profilePic} alt="Portrait" className="w-full h-full object-cover" />
+                    : <div className="text-center p-5">
+                        <Gi.GiIdCard size={48} className="mx-auto text-[#1a1311]/22 mb-3 group-hover:scale-110 transition-transform" />
+                        <span className="block text-sm font-sans font-black tracking-widest text-[#1a1311]/35 uppercase">[+] Affix Portrait</span>
+                        <span className="block text-xs font-sans italic text-[#1a1311]/25 mt-1">Recent likeness required</span>
+                      </div>
+                  }
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                </label>
+              </div>
+
+              {/* Fields */}
+              <div className="lg:col-span-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1">Full Name *</label>
+                    <input type="text" value={name} onChange={e => setName(e.target.value)}
+                      placeholder="Full Nomenclature Name…"
+                      className="w-full bg-transparent font-serif font-bold text-xl focus:outline-none placeholder-black/20 pb-1"
+                      style={{ borderBottom: '1px solid rgba(90,58,40,0.38)' }} />
                   </div>
-                  <div className="grid grid-cols-1 gap-1 text-[11px] max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
-                    {ROLES[role].specialties[specialty] && ROLES[role].specialties[specialty].gear.map(item => (
-                      <div 
-                        key={item} 
-                        onClick={() => toggleGear(item)}
-                        className={`flex items-center gap-1.5 p-1 rounded cursor-pointer select-none transition-colors ${
-                          selectedGear.includes(item) ? 'bg-[#721c15]/10 font-bold' : 'hover:bg-white/30'
-                        }`}
-                      >
-                        <div className={`w-3 h-3 border border-[#1a1311] flex items-center justify-center rounded-sm text-[8px] ${selectedGear.includes(item) ? 'bg-[#721c15] text-white' : 'bg-transparent'}`}>
-                          {selectedGear.includes(item) && "✓"}
-                        </div>
-                        <span className="opacity-90 truncate">{item} <span className="text-[8px] text-[#721c15] font-sans uppercase font-black tracking-tighter">[Sig]</span></span>
-                      </div>
-                    ))}
-                    {STANDARD_GEAR.map(item => (
-                      <div 
-                        key={item} 
-                        onClick={() => toggleGear(item)}
-                        className={`flex items-center gap-1.5 p-1 rounded cursor-pointer select-none transition-colors ${
-                          selectedGear.includes(item) ? 'bg-[#721c15]/10 font-bold' : 'hover:bg-white/30'
-                        }`}
-                      >
-                        <div className={`w-3 h-3 border border-[#1a1311] flex items-center justify-center rounded-sm text-[8px] ${selectedGear.includes(item) ? 'bg-[#721c15] text-white' : 'bg-transparent'}`}>
-                          {selectedGear.includes(item) && "✓"}
-                        </div>
-                        <span className="opacity-80 truncate">{item}</span>
-                      </div>
-                    ))}
+                  <div>
+                    <label className="block text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1">Gender / Pronouns</label>
+                    <input type="text" value={pronouns} onChange={e => setPronouns(e.target.value)}
+                      placeholder="e.g., He/They, She/Her…"
+                      className="w-full bg-transparent font-serif italic text-xl focus:outline-none placeholder-black/20 pb-1"
+                      style={{ borderBottom: '1px solid rgba(90,58,40,0.38)' }} />
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1">Identifying Characteristics</label>
+                  <textarea rows={3} value={style} onChange={e => setStyle(e.target.value)}
+                    placeholder="Detail apparel, distinguishing marks, tailored suits, or signature items that set this investigator apart from the common crowd…"
+                    className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-black/20 leading-7 paper-ruled"
+                    style={{ borderBottom: '1px solid rgba(90,58,40,0.25)' }} />
+                </div>
               </div>
             </div>
 
+            {/* ── Divider ── */}
+            <div className="flex items-center gap-3 py-1">
+              <div className="flex-1" style={{ borderTop: '1px dashed rgba(62,42,26,0.25)' }} />
+              <Gi.GiWaxSeal size={18} className="text-[#721c15]/30 shrink-0" />
+              <div className="flex-1" style={{ borderTop: '1px dashed rgba(62,42,26,0.25)' }} />
+            </div>
+
+            {/* ── Interview Section ── */}
+            <div className="space-y-5">
+              <h3 className="text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15]">Examination Record — Interview Transcript</h3>
+
+              <div className="bg-[#e4cfa0]/30 p-5 rounded-sm shadow-inner" style={{ border: '1px solid rgba(90,58,40,0.18)' }}>
+                <label className="block text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-2 pb-1.5"
+                  style={{ borderBottom: '1px solid rgba(90,58,40,0.15)' }}>
+                  Record Your Catalyst — Why do you seek Candela Obscura? *
+                </label>
+                <textarea rows={3} value={catalyst} onChange={e => setCatalyst(e.target.value)}
+                  placeholder="Document the specific event or supernatural rupture that tore away the mundane world and drew you into the dark…"
+                  className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-black/22 leading-7 paper-ruled" />
+              </div>
+
+              <div className="bg-[#e4cfa0]/30 p-5 rounded-sm shadow-inner" style={{ border: '1px solid rgba(90,58,40,0.18)' }}>
+                <label className="block text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-2 pb-1.5"
+                  style={{ borderBottom: '1px solid rgba(90,58,40,0.15)' }}>
+                  Convey Your Curiosity — What answers are you demanding?
+                </label>
+                <textarea rows={3} value={question} onChange={e => setQuestion(e.target.value)}
+                  placeholder="What is the central question or haunting mystery your investigator pursues into the dark, whatever the cost…"
+                  className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-black/22 leading-7 paper-ruled" />
+              </div>
+            </div>
           </div>
-        )}
+        </PaperSheet>
+      )}
 
-        {/* =========================================================================
-            STEP 3: CANDELA DOSSIER (Finalized Bureaucratic Statement Preview)
-            ========================================================================= */}
-        {step === 3 && (
-          <div className="animate-fadeIn space-y-6 flex-1 text-sm font-serif">
-            <div className="text-center border-b-2 border-[#1a1311] pb-3">
-              <h2 className="text-3xl font-black uppercase tracking-tight text-[#1a1311]">Candela Archive Ledger Dossier</h2>
-              <p className="text-[10px] font-sans font-black uppercase tracking-widest text-black/50 mt-1">Verified administrative record ready for formal transmission</p>
+      {/* ══════════════════════════════════════════════════════════════════════
+          STEP 3 — ACTION RATINGS
+          ══════════════════════════════════════════════════════════════════════ */}
+      {step === 3 && (
+        <PaperSheet>
+          <div className="animate-fadeIn space-y-6">
+            <div className="text-center pb-5" style={{ borderBottom: '1px solid rgba(62,42,26,0.22)' }}>
+              <h2 className="text-3xl font-black uppercase tracking-wide text-[#721c15]">Determine Action Ratings</h2>
+              <p className="text-sm font-sans font-black uppercase tracking-[0.18em] text-black/40 mt-1">
+                Distribute your points across the nine actions — pre-set from your {specialty} specialty
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b border-[#1a1311]/20 pb-4">
-              <div className="space-y-1 bg-[#ebdcb9]/30 p-3 rounded border border-[#1a1311]/10">
-                <span className="block text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15]">01. Core Nomenclature</span>
-                <p className="font-bold text-base text-[#1a1311]">{name}</p>
-                <p className="text-xs italic opacity-70">{pronouns}</p>
-              </div>
-              <div className="space-y-1 bg-[#ebdcb9]/30 p-3 rounded border border-[#1a1311]/10">
-                <span className="block text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15]">02. Profession</span>
-                <p className="font-bold text-base text-[#1a1311]">{role}</p>
-                <p className="text-xs font-sans font-black tracking-wide text-[#721c15]/80 uppercase">{specialty}</p>
-              </div>
-              <div className="space-y-1 bg-[#ebdcb9]/30 p-3 rounded border border-[#1a1311]/10">
-                <span className="block text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15]">03. Summary of Value to Institute</span>
-                <p className="font-bold text-base text-[#1a1311]">2 Assets Identified</p>
-                <p className="text-xs opacity-70 truncate">{selectedGear.length} Equipment Items Noted</p>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {ACTION_DRIVES.map(di => {
+                const dTotal = getDriveTotal(di);
+                const dMax   = getDriveMax(di);
+                const gKey   = di.drive.toLowerCase();
+                return (
+                  <div key={di.drive} className="rounded-sm p-5" style={{ background: di.bgColor, border: `1px solid ${di.color}30` }}>
+                    <div className="flex items-center justify-between mb-4 pb-3" style={{ borderBottom: `1px solid ${di.color}28` }}>
+                      <span className="text-lg font-black uppercase tracking-wider" style={{ color: di.color }}>{di.drive}</span>
+                      <span className="text-xs font-sans font-black opacity-55">{dTotal} / {dMax}</span>
+                    </div>
+                    <div className="space-y-4">
+                      {di.actions.map(({ key, label }) => {
+                        const val = actions[key] || 0;
+                        const isGilded = gildedActions[gKey] === key;
+                        return (
+                          <div key={key} className="flex items-center gap-2">
+                            <button onClick={() => toggleGilded(gKey, key)} title={isGilded ? "Remove gild" : "Gild action"}
+                              className="shrink-0 w-6 h-6 flex items-center justify-center focus:outline-none transition-opacity hover:opacity-100"
+                              style={{ opacity: isGilded ? 1 : 0.2 }}>
+                              <Gi.GiStarFormation size={15} style={{ color: isGilded ? '#d4af37' : '#5a3a28' }} />
+                            </button>
+                            <span className="text-base font-serif font-bold text-[#1a1311] w-20 shrink-0">{label}</span>
+                            <div className="flex gap-1.5 flex-1">
+                              {[1,2,3,4].map(n => (
+                                <div key={n} className={`action-pip ${n <= val ? (isGilded && n === val ? 'gilded' : 'filled') : ''}`} />
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button onClick={() => adjustAction(key, -1, di)} disabled={val <= 0}
+                                className="w-6 h-6 flex items-center justify-center font-black text-base rounded hover:bg-[#721c15]/10 disabled:opacity-20 focus:outline-none transition-colors"
+                                style={{ color: '#721c15' }}>−</button>
+                              <button onClick={() => adjustAction(key, 1, di)} disabled={val >= 4 || dTotal >= dMax}
+                                className="w-6 h-6 flex items-center justify-center font-black text-base rounded hover:bg-[#721c15]/10 disabled:opacity-20 focus:outline-none transition-colors"
+                                style={{ color: '#721c15' }}>+</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="space-y-3 bg-[#ebdcb9]/20 p-4 border border-dashed border-[#1a1311]/30 rounded">
+            <p className="text-sm font-sans italic text-[#5a3a28]/55 text-center">
+              ☆ Click the star beside an action to gild it — gilded actions roll an extra die on their first result.
+            </p>
+          </div>
+        </PaperSheet>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          STEP 4 — GEAR & DOSSIER
+          ══════════════════════════════════════════════════════════════════════ */}
+      {step === 4 && (
+        <PaperSheet>
+          <div className="animate-fadeIn space-y-7">
+            <div className="text-center pb-5" style={{ borderBottom: '1px solid rgba(62,42,26,0.22)' }}>
+              <h2 className="text-3xl font-black uppercase tracking-wide text-[#721c15]">Starting Gear &amp; Final Dossier</h2>
+              <p className="text-sm font-sans font-black uppercase tracking-[0.18em] text-black/40 mt-1">
+                Select up to 3 items — then review and submit your dossier for Archive transmission
+              </p>
+            </div>
+
+            {/* Gear ledger */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-sans font-black uppercase tracking-[0.15em] text-[#721c15] flex items-center gap-2">
+                  <Gi.GiBriefcase size={16} /> Equipment Ledger
+                </h3>
+                <span className="text-sm font-sans font-black text-black/45">{selectedGear.length} / 3 selected</span>
+              </div>
+
+              {/* Specialty gear */}
+              <div className="mb-4">
+                <p className="text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15]/70 mb-2">Signature Equipment — {specialty}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {ROLES[role]?.specialties[specialty]?.gear.map(item => (
+                    <div key={item} onClick={() => toggleGear(item)}
+                      className={`flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? 'shadow-sm' : 'hover:bg-[#e4cfa0]/40'}`}
+                      style={{
+                        background: selectedGear.includes(item) ? 'rgba(114,28,21,0.1)' : 'rgba(228,207,160,0.2)',
+                        border: `1px solid ${selectedGear.includes(item) ? '#721c15' : 'rgba(90,58,40,0.22)'}`,
+                      }}>
+                      <div className={`w-4 h-4 border flex items-center justify-center rounded-sm text-xs shrink-0 ${selectedGear.includes(item) ? 'bg-[#721c15] border-[#721c15] text-white' : 'border-[#5a3a28]/40'}`}>
+                        {selectedGear.includes(item) && "✓"}
+                      </div>
+                      <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? '#721c15' : '#5a3a28', opacity: selectedGear.includes(item) ? 1 : 0.55, flexShrink: 0 }} />
+                      <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-[#1a1311]' : 'text-[#1a1311]/75'}`}>{item}</span>
+                      <span className="ml-auto text-[8px] font-sans font-black uppercase text-[#721c15]/60 tracking-tighter shrink-0">[Sig]</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Standard gear */}
               <div>
-                <span className="block text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15]">Administrative Catalyst Record</span>
-                <p className="text-xs italic leading-relaxed text-[#1a1311]/90 mt-0.5">"{catalyst}"</p>
-              </div>
-              <div className="pt-2 border-t border-[#1a1311]/10">
-                <span className="block text-[8px] font-sans font-black uppercase tracking-widest text-[#721c15]">Core Inquiry Matrix</span>
-                <p className="text-xs leading-relaxed text-[#1a1311]/90 mt-0.5">"{question}"</p>
+                <p className="text-sm font-sans font-black uppercase tracking-[0.18em] text-[#5a3a28]/55 mb-2">Standard Issue Equipment</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {STANDARD_GEAR.map(item => (
+                    <div key={item} onClick={() => toggleGear(item)}
+                      className={`flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? '' : 'hover:bg-[#e4cfa0]/30'}`}
+                      style={{
+                        background: selectedGear.includes(item) ? 'rgba(114,28,21,0.08)' : 'rgba(228,207,160,0.1)',
+                        border: `1px solid ${selectedGear.includes(item) ? '#721c1580' : 'rgba(90,58,40,0.15)'}`,
+                      }}>
+                      <div className={`w-4 h-4 border flex items-center justify-center rounded-sm text-xs shrink-0 ${selectedGear.includes(item) ? 'bg-[#721c15] border-[#721c15] text-white' : 'border-[#5a3a28]/35'}`}>
+                        {selectedGear.includes(item) && "✓"}
+                      </div>
+                      <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? '#721c15' : '#5a3a28', opacity: selectedGear.includes(item) ? 0.9 : 0.45, flexShrink: 0 }} />
+                      <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-[#1a1311]' : 'text-[#1a1311]/60'}`}>{item}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="text-center py-2 opacity-60 font-sans font-black tracking-widest text-[9px] uppercase animate-pulse">
-              ⚠️ Warning: This dossier is pending final review. Ensure all information is accurate and complete before submission.
+            {/* Dossier summary */}
+            <div style={{ borderTop: '2px dashed rgba(62,42,26,0.2)' }} className="pt-5 space-y-4">
+              <h3 className="text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15]">Candela Archive Ledger — Investigator Summary</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: "Investigator", value: name },
+                  { label: "Pronouns",     value: pronouns || '—' },
+                  { label: "Role · Specialty", value: `${role} · ${specialty}` },
+                  { label: "Gear Selected", value: `${selectedGear.length} of 3 items` },
+                ].map(({ label, value }) => (
+                  <div key={label} className="p-3 rounded-sm" style={{ background: 'rgba(228,207,160,0.28)', border: '1px solid rgba(90,58,40,0.15)' }}>
+                    <span className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-0.5">{label}</span>
+                    <span className="text-base font-bold text-[#1a1311] block truncate">{value}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="p-4 rounded-sm" style={{ background: 'rgba(228,207,160,0.18)', border: '1px dashed rgba(90,58,40,0.22)' }}>
+                <span className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1">Administrative Catalyst</span>
+                <p className="text-base italic text-[#1a1311]/80 leading-relaxed">"{catalyst}"</p>
+              </div>
+            </div>
+
+            <div className="text-center pt-1 text-xs font-sans font-black tracking-widest uppercase text-[#5a3a28]/38 animate-pulse">
+              ⚠ Pending final review — verify all fields before submission to the Archive
             </div>
           </div>
-        )}
+        </PaperSheet>
+      )}
 
-        {/* =========================================================================
-            MECHANICAL ROW CONTROLLER NAVIGATION BUTTONS
-            ========================================================================= */}
-        <div className="flex justify-between items-center border-t border-[#1a1311]/20 pt-4 mt-6">
-          <div>
-            {step > 1 && (
-              <button 
-                onClick={() => setStep(step - 1)}
-                className="px-4 py-1.5 border border-[#1a1311] font-sans font-black text-xs uppercase tracking-widest hover:bg-[#1a1311] hover:text-[#fdfaf4] transition-all rounded shadow-sm"
-              >
-                Back Log
-              </button>
-            )}
-          </div>
-
-          <div>
-            {step < 3 ? (
-              <button 
-                onClick={() => setStep(step + 1)}
-                disabled={step === 1 ? (!name || !role || !specialty) : (!catalyst || !selectedRoleAbility || !selectedSpecialtyAbility)}
-                className={`px-5 py-1.5 bg-[#1a1311] text-[#fdfaf4] font-sans font-black text-xs uppercase tracking-widest hover:bg-[#721c15] transition-all rounded shadow shadow-black/20 ${
-                  (step === 1 ? (!name || !role || !specialty) : (!catalyst || !selectedRoleAbility || !selectedSpecialtyAbility)) ? 'opacity-30 cursor-not-allowed' : ''
-                }`}
-              >
-                Advance
-              </button>
-            ) : (
-              <button 
-                onClick={handleComplete}
-                className="px-6 py-2 bg-[#721c15] text-[#fdfaf4] border-2 border-[#1a1311] font-sans font-black text-xs uppercase tracking-widest hover:bg-red-800 transition-all rounded shadow-md shadow-black/30"
-              >
-                Finalize Dossier Ledger
-              </button>
-            )}
-          </div>
+      {/* ── BOTTOM NAV BUTTONS ── */}
+      {step > 1 && (
+        <div className="flex justify-between items-center mt-5">
+          <button onClick={() => setStep(step - 1)}
+            className="px-5 py-2 text-base border border-[#fdfaf4]/18 font-sans font-black uppercase tracking-widest text-[#fdfaf4]/50 hover:bg-white/5 hover:text-[#fdfaf4]/75 transition-all rounded">
+            ← Back
+          </button>
+          {step < 4 ? (
+            <button
+              onClick={() => canAdvance && setStep(step + 1)}
+              disabled={!canAdvance}
+              className="px-7 py-2 text-base font-sans font-black uppercase tracking-widest rounded transition-all shadow"
+              style={{
+                background: canAdvance ? '#721c15' : 'rgba(26,19,17,0.6)',
+                color: canAdvance ? '#fdfaf4' : 'rgba(253,250,244,0.2)',
+                cursor: canAdvance ? 'pointer' : 'not-allowed',
+              }}>
+              Advance →
+            </button>
+          ) : (
+            <div className="flex flex-col items-end gap-3">
+              {showJoinInput && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={campaignCode}
+                    onChange={e => setCampaignCode(e.target.value)}
+                    placeholder="Enter circle code..."
+                    className="px-3 py-2 text-base font-serif bg-transparent border-b-2 border-[#8b5a2b] text-[#1a1311] placeholder-[#8b5a2b]/50 focus:outline-none w-52"
+                  />
+                  <button
+                    onClick={() => campaignCode.trim() && handleComplete('join', campaignCode.trim())}
+                    disabled={!campaignCode.trim()}
+                    className="px-5 py-2 text-sm border-2 border-[#1a1311] font-sans font-black uppercase tracking-widest rounded shadow-md transition-all"
+                    style={{
+                      background: campaignCode.trim() ? '#1e4f72' : 'rgba(26,19,17,0.4)',
+                      color: campaignCode.trim() ? '#fdfaf4' : 'rgba(253,250,244,0.3)',
+                      cursor: campaignCode.trim() ? 'pointer' : 'not-allowed',
+                    }}>
+                    Join Circle →
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleComplete('save')}
+                  className="px-6 py-2.5 text-sm border border-[#8b5a2b] font-sans font-black uppercase tracking-widest rounded transition-all"
+                  style={{ background: 'rgba(245,235,214,0.6)', color: '#3e2a1a' }}>
+                  Save for Later
+                </button>
+                <button
+                  onClick={() => setShowJoinInput(v => !v)}
+                  className="px-6 py-2.5 text-sm border-2 border-[#1a1311] font-sans font-black uppercase tracking-widest rounded shadow-md transition-all"
+                  style={{ background: '#721c15', color: '#fdfaf4' }}>
+                  {showJoinInput ? 'Cancel' : 'Enter Campaign Code'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-
-      </div>
+      )}
     </div>
   );
 };

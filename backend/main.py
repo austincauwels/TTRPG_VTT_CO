@@ -1,9 +1,13 @@
 import os
+import sys
 import json
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
+# Ensure backend/ is on the path regardless of where uvicorn is invoked from
+sys.path.insert(0, os.path.dirname(__file__))
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, APIRouter
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError, jwt
@@ -12,8 +16,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
 
-from .models import Base, User, Game, Character, Circle
-from .engine import roll_dice, calculate_resistance_max
+from models import Base, User, Game, Character, Circle, Campaign
+from engine import (
+    create_new_campaign, request_join_campaign,
+    approve_investigator, get_campaign_roster,
+    roll_dice, calculate_resistance_max
+)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "candela_obscura_secret_key_unbreakable_shadows")
 ALGORITHM = "HS256"
@@ -23,23 +31,28 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./candela_obscura.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base.metadata.create_all(bind=engine)
+db_engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
+Base.metadata.create_all(bind=db_engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # ==========================================
-# ADD THIS BLOCK TO SEED THE DB ON STARTUP
+# SEED THE DB ON STARTUP
 # ==========================================
 def init_db():
     db = SessionLocal()
     try:
-        # 1. Seed default Circle
         circle = db.query(Circle).filter(Circle.id == 1).first()
         if not circle:
             circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
             db.add(circle)
-            
-        # 2. Seed default Admin User
+
         admin_user = db.query(User).filter(User.username == "admin").first()
         if not admin_user:
             new_admin = User(
@@ -49,14 +62,19 @@ def init_db():
                 hashed_password=pwd_context.hash("admin")
             )
             db.add(new_admin)
-            
+
+        # Seed default campaign so login can return a campaignId
+        campaign = db.query(Campaign).filter(Campaign.campaign_code == "fairelands-01").first()
+        if not campaign:
+            campaign = Campaign(name="The Fairelands", campaign_code="fairelands-01")
+            db.add(campaign)
+
         db.commit()
     except Exception as e:
         print(f"Error seeding database: {e}")
     finally:
         db.close()
 
-# Run the seed function immediately
 init_db()
 
 app = FastAPI()
@@ -69,15 +87,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 # =====================================================================
-# PYDANTIC SCHEMAS 
+# PYDANTIC SCHEMAS
 # =====================================================================
 class LoginRequest(BaseModel):
     username: str
@@ -91,7 +102,7 @@ class CharacterBase(BaseModel):
     question: str = ""
     role_ability: str = "None"
     specialty_ability: str = "None"
-    profile_pic: Optional[str] = None 
+    profile_pic: Optional[str] = None
     gear: List[str] = []
 
     move: int = 0
@@ -119,13 +130,56 @@ class CharacterBase(BaseModel):
     incapacitated: bool = False
 
 class CharacterCreate(CharacterBase):
-    pass 
+    pass
 
 class CharacterResponse(CharacterBase):
     id: int
     circle_id: int
+    status: str = "unaffiliated"
     class Config:
         from_attributes = True
+
+class CharacterRosterItem(BaseModel):
+    id: int
+    name: str
+    role_class: Optional[str] = None
+    circle_name: Optional[str] = None
+    status: str
+    class Config:
+        from_attributes = True
+
+class RosterResponse(BaseModel):
+    pending_investigators: List[CharacterRosterItem]
+    active_investigators: List[CharacterRosterItem]
+
+# =====================================================================
+# CAMPAIGN ROUTER
+# =====================================================================
+router = APIRouter()
+
+@router.post("/campaign/create")
+def create_campaign(name: str, code: str, db: Session = Depends(get_db)):
+    return create_new_campaign(db, name, code)
+
+@router.post("/campaign/join")
+def join_campaign(character_id: int, code: str, db: Session = Depends(get_db)):
+    result = request_join_campaign(db, character_id, code)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+@router.post("/campaign/approve/{character_id}")
+def approve_character(character_id: int, db: Session = Depends(get_db)):
+    result = approve_investigator(db, character_id)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@router.get("/campaign/{campaign_id}/roster", response_model=RosterResponse)
+def get_roster(campaign_id: int, db: Session = Depends(get_db)):
+    return get_campaign_roster(db, campaign_id)
+
+app.include_router(router)
 
 # =====================================================================
 # REST API ENDPOINTS
@@ -133,22 +187,22 @@ class CharacterResponse(CharacterBase):
 
 @app.post("/api/auth/login")
 async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    # 1. Look up the user
     user = db.query(User).filter(User.username == credentials.username).first()
-    
-    # 2. Verify password using the bcrypt context
+
     if not user or not pwd_context.verify(credentials.password, user.hashed_password):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials."
         )
 
-    # 3. Return session data
+    campaign = db.query(Campaign).filter(Campaign.campaign_code == "fairelands-01").first()
+
     return {
         "role": "GM" if user.username.lower() == "admin" else "PLAYER",
         "name": user.username,
         "userId": user.id,
-        "campaignCode": "fairelands-01"
+        "campaignCode": "fairelands-01",
+        "campaignId": campaign.id if campaign else None
     }
 
 @app.get("/api/investigators/{investigator_id}", response_model=CharacterResponse)
@@ -156,48 +210,43 @@ async def get_investigator(investigator_id: int, db: Session = Depends(get_db)):
     character = db.query(Character).filter(Character.id == investigator_id).first()
     if not character:
         raise HTTPException(status_code=404, detail="Investigator dossier not found.")
-    
-    # Safely unpack legacy stringified JSON if it exists
+
     if isinstance(character.gear, str):
         try: character.gear = json.loads(character.gear)
         except: character.gear = []
     if isinstance(character.scars_list, str):
         try: character.scars_list = json.loads(character.scars_list)
         except: character.scars_list = []
-        
+
     return character
 
 @app.post("/api/investigators/forge", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
 async def forge_investigator(character_data: CharacterCreate, db: Session = Depends(get_db)):
     try:
-        # 1. Ensure the Circle exists
         circle = db.query(Circle).filter(Circle.id == 1).first()
         if not circle:
             circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
             db.add(circle)
             db.commit()
 
-        # 2. Query for the admin user first to avoid duplicate errors
         user = db.query(User).filter(User.id == 1).first()
         if not user:
-            # Hash the password securely using pwd_context
             user = User(
-                id=1, 
-                username="admin", 
-                email="admin@archive.com", 
-                hashed_password=pwd_context.hash("admin") # Using secure bcrypt hash
+                id=1,
+                username="admin",
+                email="admin@archive.com",
+                hashed_password=pwd_context.hash("admin")
             )
             db.add(user)
             db.commit()
             db.refresh(user)
 
-        # 3. Create the character
         char_dict = character_data.dict() if hasattr(character_data, 'dict') else character_data.model_dump()
-        
+
         for key in ["body_marks", "brain_marks", "bleed_marks", "scars_count", "move", "strike", "control", "sneak", "hide", "sway", "survey", "read", "sense"]:
             if char_dict.get(key) is None:
                 char_dict[key] = 0
-        
+
         char_dict["gear"] = char_dict.get("gear") or []
         char_dict["scars_list"] = char_dict.get("scars_list") or []
 
@@ -205,28 +254,27 @@ async def forge_investigator(character_data: CharacterCreate, db: Session = Depe
         db.add(new_character)
         db.commit()
         db.refresh(new_character)
-        
+
         return new_character
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database Forge Error: {str(e)}")
 
 # =====================================================================
-# WEBSOCKET STREAM ROUTER 
+# WEBSOCKET STREAM ROUTER
 # =====================================================================
 class ConnectionManager:
     def __init__(self):
-        # game_id is now a string to support both numeric character IDs and GM campaign codes
         self.active_connections: dict[str, List[WebSocket]] = {}
-        
+
     async def connect(self, game_id: str, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.setdefault(game_id, []).append(websocket)
-        
+
     def disconnect(self, game_id: str, websocket: WebSocket):
         if game_id in self.active_connections:
             self.active_connections[game_id].remove(websocket)
-            
+
     async def broadcast(self, game_id: str, message: dict):
         if game_id in self.active_connections:
             for connection in self.active_connections[game_id]:
@@ -237,11 +285,11 @@ manager = ConnectionManager()
 def get_char_dict(char):
     gear = char.gear if not isinstance(char.gear, str) else json.loads(char.gear) if char.gear else []
     scars = char.scars_list if not isinstance(char.scars_list, str) else json.loads(char.scars_list) if char.scars_list else []
-    
+
     return {
         "id": getattr(char, "id", 1),
         "name": getattr(char, "name", "Unknown Investigator"),
-        
+
         "move": getattr(char, "move", 0) or 0,
         "strike": getattr(char, "strike", 0) or 0,
         "control": getattr(char, "control", 0) or 0,
@@ -251,7 +299,7 @@ def get_char_dict(char):
         "survey": getattr(char, "survey", 0) or 0,
         "read": getattr(char, "read", 0) or 0,
         "sense": getattr(char, "sense", 0) or 0,
-        
+
         "gilded_move": bool(getattr(char, "gilded_move", False)),
         "gilded_strike": bool(getattr(char, "gilded_strike", False)),
         "gilded_control": bool(getattr(char, "gilded_control", False)),
@@ -261,14 +309,14 @@ def get_char_dict(char):
         "gilded_survey": bool(getattr(char, "gilded_survey", False)),
         "gilded_read": bool(getattr(char, "gilded_read", False)),
         "gilded_sense": bool(getattr(char, "gilded_sense", False)),
-        
+
         "nerve_max": getattr(char, "nerve_max", 1) or 1,
         "nerve_current": getattr(char, "nerve_current", 1) or 1,
         "cunning_max": getattr(char, "cunning_max", 1) or 1,
         "cunning_current": getattr(char, "cunning_current", 1) or 1,
         "intuition_max": getattr(char, "intuition_max", 1) or 1,
         "intuition_current": getattr(char, "intuition_current", 1) or 1,
-        
+
         "body_marks": getattr(char, "body_marks", 0) or 0,
         "brain_marks": getattr(char, "brain_marks", 0) or 0,
         "bleed_marks": getattr(char, "bleed_marks", 0) or 0,
@@ -276,7 +324,7 @@ def get_char_dict(char):
         "scars_list": scars,
         "incapacitated": bool(getattr(char, "incapacitated", False)),
         "circle_id": getattr(char, "circle_id", 1),
-        
+
         "pronouns": getattr(char, "pronouns", "Unlisted") or "Unlisted",
         "style": getattr(char, "style", "") or "",
         "catalyst": getattr(char, "catalyst", "") or "",
@@ -284,7 +332,8 @@ def get_char_dict(char):
         "role_ability": getattr(char, "role_ability", "None") or "None",
         "specialty_ability": getattr(char, "specialty_ability", "None") or "None",
         "gear": gear,
-        "profile_pic": getattr(char, "profile_pic", None)
+        "profile_pic": getattr(char, "profile_pic", None),
+        "status": getattr(char, "status", "unaffiliated") or "unaffiliated",
     }
 
 def get_circle_dict(circle):
@@ -301,21 +350,20 @@ def get_circle_dict(circle):
 async def websocket_endpoint(websocket: WebSocket, game_id: str):
     await manager.connect(game_id, websocket)
     db = SessionLocal()
-    
+
     circle = db.query(Circle).filter(Circle.id == 1).first()
     if not circle:
         circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
         db.add(circle)
         db.commit()
-        
-    # Safely parse game_id into an int for investigator lookups, handling GM campaign codes gracefully
+
     character = None
     try:
         parsed_char_id = int(game_id)
         character = db.query(Character).filter(Character.id == parsed_char_id).first()
     except ValueError:
-        pass # It's a GM string campaign code, not a character ID
-        
+        pass  # GM string campaign code
+
     if character:
         await websocket.send_json({"type": "character_update", "payload": get_char_dict(character)})
     await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(circle)})
@@ -326,19 +374,18 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
             message = json.loads(data)
             action = message.get("type")
             payload = message.get("payload", {})
-            
-            # Identify the target character for this action (if applicable)
+
             target_char_id = payload.get("character_id")
             if target_char_id is None:
                 try: target_char_id = int(game_id)
                 except ValueError: target_char_id = None
-                
+
             character = db.query(Character).filter(Character.id == target_char_id).first() if target_char_id else None
 
             # --- GM ADMINISTRATIVE HOOKS ---
             if action == "gm_update_tension" and character:
-                if payload.get("role") != "GM": continue # Security override
-                
+                if payload.get("role") != "GM": continue
+
                 m_type = payload.get("mark_type")
                 value = payload.get("value")
                 if m_type and value is not None:
@@ -347,8 +394,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                     await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
 
             elif action == "gm_update_circle":
-                if payload.get("role") != "GM": continue # Security override
-                
+                if payload.get("role") != "GM": continue
+
                 circle_id = payload.get("circle_id") or 1
                 target_circle = db.query(Circle).filter(Circle.id == circle_id).first()
                 if target_circle:
@@ -359,9 +406,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                     await manager.broadcast(game_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)})
 
             elif action == "gm_transition_scene":
-                if payload.get("role") != "GM": continue # Security override
-                
-                # Push a narrative UI update to all connected investigators
+                if payload.get("role") != "GM": continue
+
                 await manager.broadcast(game_id, {
                     "type": "scene_transition",
                     "payload": {
@@ -375,28 +421,28 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                 act = payload.get("action")
                 spent = int(payload.get("drive_spent", 0))
                 cat = "nerve" if act in ["move", "strike", "control"] else "cunning" if act in ["hide", "sneak", "sway"] else "intuition"
-                
+
                 setattr(character, f"{cat}_current", max(0, getattr(character, f"{cat}_current") - spent))
                 is_gilded_action = getattr(character, f"gilded_{act}", False)
                 res = roll_dice(getattr(character, act, 0) + spent, is_gilded_action)
-                
+
                 formatted_dice = []
                 for i, die_value in enumerate(res.get("dice", [])):
                     formatted_dice.append({
                         "value": die_value,
                         "is_gilded": True if (is_gilded_action and i == 0) else False
                     })
-                
+
                 res["dice"] = formatted_dice
                 res["action"] = act
                 db.commit()
-                
+
                 await manager.broadcast(game_id, {
-                    "type": "roll_result", 
+                    "type": "roll_result",
                     "payload": {"character_id": target_char_id, "action": act, "roll": res, "character": get_char_dict(character)}
                 })
 
-            elif action == "update_drive" and character: 
+            elif action == "update_drive" and character:
                 pool = payload.get("pool")
                 value = payload.get("value")
                 if pool and value is not None:

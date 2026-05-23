@@ -24,7 +24,7 @@ const CampaignSelectorPlaceholder = () => {
 };
 
 export const AppRouter = () => {
-  const { stage, setLocalCharacter, setStage, connect, accessSession } = useGameStore();
+  const { stage, setLocalCharacter, setStage, connect, accessSession, joinCampaign } = useGameStore();
 
   switch (stage) {
   case 'LOGIN':
@@ -49,6 +49,7 @@ export const AppRouter = () => {
             onSubmit={async (characterData) => {
               try {
                 // Formatting payload
+                const a = characterData.actions || {};
                 const payload = {
                   name: characterData.name || "Unknown Investigator",
                   pronouns: characterData.pronouns || "Unlisted",
@@ -58,7 +59,16 @@ export const AppRouter = () => {
                   role_ability: characterData.roleAbility || "None",
                   specialty_ability: characterData.specialtyAbility || "None",
                   gear: characterData.gear || [],
-                  profile_pic: characterData.profilePic || null 
+                  profile_pic: characterData.profilePic || null,
+                  move:    a.move    || 0,
+                  strike:  a.strike  || 0,
+                  control: a.control || 0,
+                  hide:    a.hide    || 0,
+                  sneak:   a.sneak   || 0,
+                  sway:    a.sway    || 0,
+                  survey:  a.survey  || 0,
+                  read:    a.read    || 0,
+                  sense:   a.sense   || 0,
                 };
 
                 const response = await fetch('/api/investigators/forge', {
@@ -70,12 +80,21 @@ export const AppRouter = () => {
                 if (!response.ok) throw new Error("Forge Failed");
 
                 const savedCharacter = await response.json();
-                
-                // Update State and Navigate
                 setLocalCharacter(savedCharacter);
-                connect(savedCharacter.id); // Connect to websockets
-                setStage('DESK'); // Move to the VTT
-                
+
+                if (characterData.mode === 'join' && characterData.campaignCode) {
+                  const joinResult = await joinCampaign(savedCharacter.id, characterData.campaignCode);
+                  if (joinResult?.success) {
+                    connect(savedCharacter.id);
+                    setStage('DESK');
+                  } else {
+                    console.error("Failed to join campaign:", joinResult?.detail);
+                    setStage('HOME');
+                  }
+                } else {
+                  setStage('HOME');
+                }
+
               } catch (err) {
                 console.error("Network Error during Forge:", err);
               }

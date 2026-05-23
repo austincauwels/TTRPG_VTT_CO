@@ -13,7 +13,7 @@ const useGameStore = create(
       // ==========================================
       // GLOBAL GAME STATE
       // ==========================================
-      accessSession: null, 
+      accessSession: null,
       socket: null,
       character: null,
       circle: null,
@@ -21,6 +21,7 @@ const useGameStore = create(
       showScarModal: false,
       scarModalData: null,
       isRolling: false,
+      campaignRoster: { pending_investigators: [], active_investigators: [] },
 
       // Automatically route to HOME on successful login, or back to LOGIN if session is cleared
       setAccessSession: (session) => {
@@ -158,6 +159,62 @@ const useGameStore = create(
             payload: updates
           }));
         }
+      },
+
+      // ==========================================
+      // CAMPAIGN APPROVAL FLOW ACTIONS
+      // ==========================================
+      fetchRoster: async (campaignId) => {
+        if (!campaignId) return;
+        try {
+          const res = await fetch(`/campaign/${campaignId}/roster`);
+          if (res.ok) {
+            const data = await res.json();
+            set({ campaignRoster: data });
+          }
+        } catch (err) {
+          console.error("Failed to fetch campaign roster:", err);
+        }
+      },
+
+      approveInvestigator: async (characterId, campaignId) => {
+        try {
+          const res = await fetch(`/campaign/approve/${characterId}`, { method: 'POST' });
+          if (res.ok) {
+            await get().fetchRoster(campaignId);
+          }
+        } catch (err) {
+          console.error("Failed to approve investigator:", err);
+        }
+      },
+
+      joinCampaign: async (characterId, code) => {
+        try {
+          const res = await fetch(`/campaign/join?character_id=${characterId}&code=${encodeURIComponent(code)}`, { method: 'POST' });
+          if (res.ok) {
+            set(state => ({ character: { ...state.character, status: 'pending' } }));
+            return { success: true };
+          }
+          const err = await res.json().catch(() => ({}));
+          return { success: false, detail: err.detail || 'Unknown error' };
+        } catch (err) {
+          console.error("Failed to join campaign:", err);
+          return { success: false, detail: err.message };
+        }
+      },
+
+      refreshCharacterStatus: async (characterId) => {
+        try {
+          const res = await fetch(`/api/investigators/${characterId}`);
+          if (res.ok) {
+            const char = await res.json();
+            set(state => ({ character: { ...state.character, status: char.status } }));
+            return char.status;
+          }
+        } catch (err) {
+          console.error("Failed to refresh character status:", err);
+        }
+        return null;
       },
 
       // ==========================================

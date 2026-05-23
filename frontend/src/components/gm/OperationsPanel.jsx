@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import useGameStore from '../../store/gameStore';
 import { BrassCornerFiligree } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
@@ -12,13 +13,22 @@ import { ArchivesView } from '../shared/ArchivesView';
 
 export const OperationsPanel = () => {
   const [activeTab, setActiveTab] = useState('roster');
-  
-  // State for the Brass Casting Bowl
   const [gmDiceCount, setGmDiceCount] = useState(1);
-  const { rollAction, logout } = useGameStore(); 
+  const { rollAction, logout, accessSession, campaignRoster, fetchRoster, approveInvestigator } = useGameStore();
+
+  // Fetch the campaign roster when the panel mounts
+  useEffect(() => {
+    if (accessSession?.campaignId) {
+      fetchRoster(accessSession.campaignId);
+    }
+  }, [accessSession?.campaignId]);
 
   const handleGmRoll = () => {
     rollAction('GM Override', gmDiceCount);
+  };
+
+  const handleStamp = (characterId) => {
+    approveInvestigator(characterId, accessSession?.campaignId);
   };
 
   return (
@@ -75,8 +85,60 @@ export const OperationsPanel = () => {
           {/* CENTER PANEL */}
           <div className="lg:col-span-6">
             {activeTab === 'roster' && (
-              <div className="bg-[#241710] bg-[url('https://www.transparenttextures.com/patterns/dark-wood.png')] p-8 rounded-sm shadow-2xl border border-slate-700 min-h-[850px]">
-                <div className="flex flex-wrap gap-6"><PlayerRosterCard /></div>
+              <div className="bg-[#241710] bg-[url('https://www.transparenttextures.com/patterns/dark-wood.png')] p-8 rounded-sm shadow-2xl border border-slate-700 min-h-[850px] flex flex-col gap-8">
+
+                {/* CORRESPONDENCE STACK — pending investigators awaiting approval */}
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-[1px] flex-1 bg-amber-900/40" />
+                    <h3 className="font-mono text-[9px] font-bold uppercase tracking-[0.35em] text-amber-600/70">
+                      Correspondence — Pending Review
+                    </h3>
+                    <div className="h-[1px] flex-1 bg-amber-900/40" />
+                  </div>
+                  {campaignRoster.pending_investigators?.length === 0 ? (
+                    <p className="font-mono text-[10px] text-slate-600 uppercase tracking-widest text-center py-6 italic">
+                      No pending correspondence.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-4">
+                      <AnimatePresence>
+                        {campaignRoster.pending_investigators.map(inv => (
+                          <PlayerRosterCard
+                            key={inv.id}
+                            investigator={inv}
+                            onStamp={() => handleStamp(inv.id)}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </div>
+
+                {/* ACTIVE CIRCLE MEMBERS */}
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-[1px] flex-1 bg-blue-900/30" />
+                    <h3 className="font-mono text-[9px] font-bold uppercase tracking-[0.35em] text-blue-500/60">
+                      Active Circle Members
+                    </h3>
+                    <div className="h-[1px] flex-1 bg-blue-900/30" />
+                  </div>
+                  {campaignRoster.active_investigators?.length === 0 ? (
+                    <p className="font-mono text-[10px] text-slate-600 uppercase tracking-widest text-center py-6 italic">
+                      No active investigators on record.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-6">
+                      <AnimatePresence>
+                        {campaignRoster.active_investigators.map(inv => (
+                          <PlayerRosterCard key={inv.id} investigator={inv} />
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </div>
+
               </div>
             )}
             {activeTab === 'circle' && <CirclePage />}

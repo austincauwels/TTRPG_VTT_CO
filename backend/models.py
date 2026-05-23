@@ -97,5 +97,19 @@ class Character(Base):
     # Status
     incapacitated = Column(Boolean, default=False)
 
+    # Campaign binding — approval flow: 'unaffiliated', 'pending', 'active'
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
+    status = Column(String, default="unaffiliated", nullable=False)
+
     game = relationship("Game", back_populates="characters")
     circle = relationship("Circle", back_populates="characters")
+    campaign = relationship("Campaign", back_populates="characters")
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    campaign_code = Column(String, unique=True, index=True, nullable=False)
+
+    characters = relationship("Character", back_populates="campaign")
