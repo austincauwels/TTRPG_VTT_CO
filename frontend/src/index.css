@@ -1,4 +1,6 @@
 /* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Playwrite+NO:ital,wght@0,100..400;1,100..400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -191,6 +193,11 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(114, 28, 21, 0.6);
   }
+
+  /* --- LIGHTKEEPER HANDWRITING FONT --- */
+  .lightkeeper-hand {
+    font-family: 'Playwrite NO', cursive;
+  }
 }
 
 /* ================================================================= */
@@ -212,6 +219,17 @@
   30% { transform: translateY(10px) rotate(180deg) scale(1.1); }
   60% { transform: translateY(-5px) rotate(360deg) scale(0.95); }
   100% { transform: translateY(0) rotate(var(--random-skew)) scale(1); opacity: 1; }
+}
+
+@keyframes liftShimmy {
+  0%, 100% { transform: translateY(0) rotate(var(--random-skew, 0deg)); }
+  25%       { transform: translateY(-8px) rotate(-4deg); }
+  65%       { transform: translateY(-5px) rotate(3deg); }
+  85%       { transform: translateY(-7px) rotate(-2deg); }
+}
+
+.animate-liftShimmy {
+  animation: liftShimmy 1.5s ease-in-out infinite;
 }
 
 /* Global utility handles to safely call keyframes via React state hooks */

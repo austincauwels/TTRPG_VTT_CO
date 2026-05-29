@@ -1,18 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 
-// Components
 import { SafeIcon } from '../shared/SafeIcon';
 import { ArtDecoCorner, BrassCornerFiligree } from '../shared/Decorations';
 import { InvestigatorDossier } from './InvestigatorDossier';
-import { CircleView } from './CircleView';
-import { ArchivesView } from '../shared/ArchivesView';
+import { CircleView, AdvancementModal } from './CircleView';
+import { NotebookView } from '../shared/NotebookView';
 import { TactileSidebar } from './TactileSidebar';
 import { DiceVault } from './DiceVault';
 import ScarModal from './ScarModal';
+import { AbilityMarkOffer } from './AbilityMarkOffer';
+import { CircleCreationPopup } from './CircleCreationPopup';
+import { RelationshipIntroPopup } from './RelationshipIntroPopup';
 
 export const MainDeskView = () => {
-  const { character, accessSession, logout } = useGameStore();
+  const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite } = useGameStore(useShallow(s => ({
+    character: s.character,
+    circle: s.circle,
+    circleCreation: s.circleCreation,
+    accessSession: s.accessSession,
+    socket: s.socket,
+    connect: s.connect,
+    logout: s.logout,
+    fetchCircleCreationState: s.fetchCircleCreationState,
+    setStage: s.setStage,
+    pendingRelationshipIntro: s.pendingRelationshipIntro,
+    rejoinInvite: s.rejoinInvite,
+    setRejoinInvite: s.setRejoinInvite,
+  })));
+
+  const [deathDismissed, setDeathDismissed] = useState(false);
+
+  useEffect(() => { setDeathDismissed(false); }, [character?.id]);
+
+  useEffect(() => {
+    if (character?.id && !socket) {
+      connect(character.id);
+    }
+  }, [character?.id]);
+
+  useEffect(() => {
+    if (character?.status === 'active' && character?.campaign_id) {
+      fetchCircleCreationState(character.campaign_id);
+    }
+  }, [character?.status, character?.campaign_id]);
+
+  const showCreationPopup =
+    character?.status === 'active' &&
+    !circle?.is_finalized &&
+    circleCreation.isVisible;
+
   const [activeTab, setActiveTab] = useState('character');
 
   return (
@@ -25,9 +63,9 @@ export const MainDeskView = () => {
         
         {/* LOGOUT BUTTON */}
         <div className="absolute top-4 right-6 z-50">
-          <button 
-            onClick={logout}
-            className="text-[10px] uppercase tracking-[0.2em] text-[#a82222] hover:text-parchment transition-colors border border-transparent hover:border-[#a82222]/50 px-2 py-1"
+          <button
+            onClick={() => setStage('HOME')}
+            className="text-sm font-bold uppercase tracking-[0.2em] text-[#a82222] hover:text-white transition-colors bg-black/70 hover:bg-black/90 border border-[#a82222]/50 hover:border-[#a82222] px-4 py-2"
           >
             [ Abandon Archive ]
           </button>
@@ -95,7 +133,7 @@ export const MainDeskView = () => {
       {/* DYNAMIC VIEW ROUTING */}
       <main className="max-w-[1500px] mx-auto p-4 mt-2">
         {activeTab === 'archives' ? (
-          <ArchivesView />
+          <NotebookView isGM={false} />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <TactileSidebar />
@@ -111,7 +149,68 @@ export const MainDeskView = () => {
           </div>
         )}
         <ScarModal />
+        <AbilityMarkOffer />
+        <AdvancementModal />
       </main>
+      {showCreationPopup && <CircleCreationPopup />}
+      {pendingRelationshipIntro && <RelationshipIntroPopup />}
+
+      {/* REJOIN INVITE BANNER — shown when Lightkeeper has sent an invite */}
+      {rejoinInvite && !character?.is_dead && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[800] flex items-center gap-4 bg-[#1a0505] border border-[#8b1a1a] px-6 py-4 shadow-[0_4px_30px_rgba(139,26,26,0.5)] max-w-xl w-[calc(100%-2rem)]">
+          <div className="flex-1 min-w-0">
+            <p className="font-mono text-xs text-[#8b4a4a] uppercase tracking-[0.2em] mb-0.5">Lightkeeper Invitation</p>
+            <p className="text-[#c9b89a] font-serif text-base leading-snug truncate">
+              Invited to rejoin <strong className="text-white">{rejoinInvite.campaign_name}</strong>
+            </p>
+          </div>
+          <button
+            onClick={() => setStage('CHARACTER_CREATION')}
+            className="shrink-0 px-4 py-2 bg-[#8b1a1a] hover:bg-[#a82222] text-white font-sans font-black uppercase tracking-[0.15em] text-xs border border-[#5c0f0f] transition-colors"
+          >
+            Commission Investigator
+          </button>
+          <button
+            onClick={() => setRejoinInvite(null)}
+            className="shrink-0 text-[#8b1a1a] hover:text-[#c9b89a] font-mono text-lg leading-none transition-colors"
+          >✕</button>
+        </div>
+      )}
+
+      {/* DEATH MODAL — blocks desk when investigator has perished */}
+      {character?.is_dead && !deathDismissed && (
+        <div className="fixed inset-0 z-[900] bg-black/90 flex flex-col items-center justify-center text-center px-6">
+          <div className="max-w-lg w-full bg-[#0d0807] border-2 border-[#5c1010] p-10 shadow-[0_0_80px_rgba(120,10,10,0.6)]">
+            <div className="text-[#8b1a1a] text-6xl mb-4 font-serif">✝</div>
+            <h2 className="text-3xl font-serif font-bold tracking-widest text-white uppercase mb-3">
+              Investigator Deceased
+            </h2>
+            <p className="text-[#c9b89a] font-serif text-base leading-relaxed mb-8">
+              Your investigator has perished in the field.<br />
+              The Order requires a new operative.
+            </p>
+            {rejoinInvite && (
+              <p className="text-[#8b4a4a] font-mono text-xs uppercase tracking-widest mb-5">
+                Lightkeeper invitation waiting — {rejoinInvite.campaign_name}
+              </p>
+            )}
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setStage('CHARACTER_CREATION')}
+                className="w-full py-3 px-6 bg-[#8b1a1a] hover:bg-[#a82222] text-white font-sans font-black uppercase tracking-[0.25em] text-sm transition-colors border border-[#5c0f0f]"
+              >
+                [ Commission New Investigator ]
+              </button>
+              <button
+                onClick={() => setDeathDismissed(true)}
+                className="w-full py-2 px-6 bg-transparent hover:bg-zinc-800 text-[#8b1a1a] font-sans uppercase tracking-[0.2em] text-xs transition-colors border border-zinc-700"
+              >
+                [ Linger ]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

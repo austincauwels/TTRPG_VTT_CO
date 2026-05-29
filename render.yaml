@@ -1,0 +1,31 @@
+databases:
+  - name: candela-db
+    databaseName: candela_obscura
+    user: candela_user
+    plan: free
+
+services:
+  - type: web
+    name: candela-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: candela-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false   # set manually after frontend deploys (e.g. https://candela-frontend.onrender.com,http://localhost:5173)
+
+  - type: static
+    name: candela-frontend
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false   # set manually to the backend URL after it deploys (e.g. https://candela-backend-xxxx.onrender.com)

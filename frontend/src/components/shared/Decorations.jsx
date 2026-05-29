@@ -1,6 +1,5 @@
 import React from 'react';
 
-// Art Deco Corner SVG Component for the Website Header
 export const ArtDecoCorner = ({ position }) => {
   const rotation = {
     'top-left': 'rotate-0',
@@ -21,7 +20,6 @@ export const ArtDecoCorner = ({ position }) => {
   );
 };
 
-// Intricate Antique Corner Brackets for Document Sheets
 export const BrassCornerFiligree = () => (
   <>
     <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-black opacity-30" />
@@ -31,7 +29,6 @@ export const BrassCornerFiligree = () => (
   </>
 );
 
-// Clean Divider Rule for Parchment Sheet Spacing
 export const SheetDivider = () => (
   <div className="w-full h-0.5 border-t border-black/20 my-6 border-dashed" />
 );

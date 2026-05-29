@@ -1,60 +1,228 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useGameStore from '../store/gameStore';
+import { apiUrl } from '../utils/api';
+
+const PEN_FONTS = [
+  'Reenie Beenie', 'Caveat', 'Shadows Into Light', 'Zeyada', 'Sacramento',
+  'Homemade Apple', 'Alex Brush', 'Cedarville Cursive', 'La Belle Aurore',
+  'Charm', 'Dawning of a New Day', 'Gaegu', 'Grape Nuts', 'Moondance',
+  'Long Cang', 'Indie Flower', 'Kalam', 'Patrick Hand', 'Rock Salt', 'Gochi Hand'
+];
 
 export const CampaignSelector = () => {
-  const { setStage, connect, logout, accessSession, character, joinCampaign, refreshCharacterStatus } = useGameStore();
-  const [campaignCode, setCampaignCode] = useState('');
-  const [joinError, setJoinError] = useState('');
-  const [isJoining, setIsJoining] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const {
+    setStage, connect, logout, accessSession, character, characters, gmCampaigns,
+    lastPlayedCampaign, joinCampaign, refreshCharacterStatus, fetchUserData,
+    setLastPlayed, setLocalCharacter, rejoinInvite, setRejoinInvite,
+  } = useGameStore();
 
-  const isGM = accessSession?.role === 'GM';
-  const characterStatus = character?.status || null;
+  // Pamphlet / desk state
+  const [showGMBack, setShowGMBack] = useState(false);
+  const [gmCampaignName, setGmCampaignName] = useState('');
+  const [gmCode, setGmCode] = useState('');
 
-  const handleResumeCampaign = () => {
-    connect(character.id);
-    setStage('DESK');
-  };
+  // Book overlay state
+  const [showBook, setShowBook] = useState(false);
+  const [isClosingBook, setIsClosingBook] = useState(false);
+  const [isLoadingBook, setIsLoadingBook] = useState(false);
 
-  const handleLightkeeperAccess = (campaignId) => {
-    connect(campaignId);
-    setStage('GM_DASH');
-  };
+  // Per-character inline join form state  { [charId]: { code, pen, error, loading } }
+  const [joinForms, setJoinForms] = useState({});
 
-  const handleNewInvestigator = () => {
-    setStage('CHARACTER_CREATION');
-  };
+  // Campaign creation state (right page of book)
+  const [newCampName, setNewCampName] = useState('');
+  const [newCampCode, setNewCampCode] = useState('');
+  const [createError, setCreateError] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [showRegisterForm, setShowRegisterForm] = useState(false);
+
+  // Fetch user data on mount so book covers show accurate counts without needing to open the book
+  useEffect(() => {
+    if (accessSession?.userId) {
+      fetchUserData(accessSession.userId);
+    }
+  }, [accessSession?.userId]);
+
+  // Auto-populate lastPlayedCampaign from the first active character/campaign so the last session
+  // book unlocks as soon as the user has an active record — even before they manually re-enter
+  useEffect(() => {
+    if (!lastPlayedCampaign) {
+      const firstActive = characters.find(c => c.status === 'active');
+      if (firstActive) {
+        setLastPlayed({
+          type: 'player',
+          characterId: firstActive.id,
+          campaignName: firstActive.campaign_name || 'Active Campaign',
+          campaignCode: '',
+        });
+      } else if (gmCampaigns.length > 0) {
+        setLastPlayed({
+          type: 'gm',
+          campaignCode: gmCampaigns[0].campaign_code,
+          campaignName: gmCampaigns[0].name,
+          campaignId: gmCampaigns[0].id,
+        });
+      }
+    }
+  }, [characters, gmCampaigns]);
 
   const handleLogout = () => {
     logout();
     setStage('LOGIN');
   };
 
-  const handleSubmitCode = async (e) => {
+  const [gmEntryError, setGmEntryError] = useState('');
+  const [isGmCreating, setIsGmCreating] = useState(false);
+
+  const handleGMEntry = async (e) => {
     e.preventDefault();
-    if (!campaignCode.trim() || !character?.id) return;
-    setIsJoining(true);
-    setJoinError('');
-    const result = await joinCampaign(character.id, campaignCode.trim());
-    setIsJoining(false);
-    if (!result.success) {
-      setJoinError(result.detail || 'Invalid campaign code.');
+    if (!gmCode.trim()) return;
+    setGmEntryError('');
+    setIsGmCreating(true);
+    try {
+      const res = await fetch(
+        apiUrl(`/campaign/create?name=${encodeURIComponent((gmCampaignName || gmCode).trim())}&code=${encodeURIComponent(gmCode.trim())}&user_id=${accessSession?.userId || ''}`),
+        { method: 'POST' }
+      );
+      if (res.ok) {
+        const camp = await res.json();
+        await fetchUserData(accessSession?.userId);
+        enterAsGM({ campaign_code: camp.campaign_code, name: camp.name, id: camp.id });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setGmEntryError(err.detail || 'Failed to create campaign.');
+      }
+    } catch {
+      setGmEntryError('Network error — try again.');
+    } finally {
+      setIsGmCreating(false);
     }
   };
 
-  const handleRefreshStatus = async () => {
-    if (!character?.id) return;
-    setIsRefreshing(true);
-    await refreshCharacterStatus(character.id);
-    setIsRefreshing(false);
+  const closeBook = () => {
+    setIsClosingBook(true);
+    setTimeout(() => { setShowBook(false); setIsClosingBook(false); }, 420);
+  };
+
+  const handleOpenRoster = async () => {
+    setShowBook(true);
+    setIsClosingBook(false);
+    if (accessSession?.userId && characters.length === 0 && gmCampaigns.length === 0) {
+      setIsLoadingBook(true);
+      await fetchUserData(accessSession.userId);
+      setIsLoadingBook(false);
+    }
+  };
+
+  const refreshBook = async () => {
+    if (!accessSession?.userId) return;
+    setIsLoadingBook(true);
+    await fetchUserData(accessSession.userId);
+    setIsLoadingBook(false);
+  };
+
+  const enterAsPlayer = (char) => {
+    setLocalCharacter({ id: char.id, name: char.name, status: char.status });
+    connect(char.id);
+    setLastPlayed({ type: 'player', characterId: char.id, campaignName: char.campaign_name || 'Active Campaign', campaignCode: char.campaign_code || '' });
+    closeBook();
+    setStage('DESK');
+  };
+
+  const enterAsGM = (camp) => {
+    connect(camp.campaign_code);
+    setLastPlayed({ type: 'gm', campaignCode: camp.campaign_code, campaignName: camp.name, campaignId: camp.id });
+    closeBook();
+    setStage('GM_DASH');
+  };
+
+  const handleLastPlayed = () => {
+    if (!lastPlayedCampaign) return;
+    if (lastPlayedCampaign.type === 'player') {
+      setLocalCharacter({ id: lastPlayedCampaign.characterId, name: lastPlayedCampaign.campaignName });
+      connect(lastPlayedCampaign.characterId);
+      setStage('DESK');
+    } else {
+      const matchedCamp = gmCampaigns.find(c => c.campaign_code === lastPlayedCampaign.campaignCode);
+      if (matchedCamp && !lastPlayedCampaign.campaignId) {
+        setLastPlayed({ ...lastPlayedCampaign, campaignId: matchedCamp.id });
+      }
+      connect(lastPlayedCampaign.campaignCode);
+      setStage('GM_DASH');
+    }
+  };
+
+  const handleCreateCampaign = async (e) => {
+    e.preventDefault();
+    if (!newCampName.trim() || !newCampCode.trim()) return;
+    setIsCreating(true);
+    setCreateError('');
+    try {
+      const res = await fetch(
+        apiUrl(`/campaign/create?name=${encodeURIComponent(newCampName.trim())}&code=${encodeURIComponent(newCampCode.trim())}&user_id=${accessSession?.userId || ''}`),
+        { method: 'POST' }
+      );
+      if (res.ok) {
+        const camp = await res.json();
+        setNewCampName('');
+        setNewCampCode('');
+        await fetchUserData(accessSession?.userId);
+        enterAsGM({ campaign_code: camp.campaign_code, name: camp.name, id: camp.id });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setCreateError(err.detail || 'Failed to create campaign.');
+      }
+    } catch (err) {
+      setCreateError('Network error — try again.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleJoinForChar = async (charId) => {
+    const form = joinForms[charId] || {};
+    if (!form.code?.trim()) return;
+    setJoinForms(f => ({ ...f, [charId]: { ...f[charId], loading: true, error: '' } }));
+    const result = await joinCampaign(charId, form.code.trim(), form.pen || 'Caveat');
+    if (result.success) {
+      await fetchUserData(accessSession?.userId);
+      setJoinForms(f => ({ ...f, [charId]: { expanded: false, code: '', pen: 'Caveat', loading: false, error: '' } }));
+    } else {
+      setJoinForms(f => ({ ...f, [charId]: { ...f[charId], loading: false, error: result.detail || 'Invalid code.' } }));
+    }
   };
 
   return (
     <div className="scene-container min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-black">
+
+      {/* GM Rejoin Invite Banner */}
+      {rejoinInvite && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[500] flex items-center gap-4 bg-[#1a0505] border border-[#8b1a1a] px-6 py-4 shadow-[0_4px_30px_rgba(139,26,26,0.5)] max-w-xl w-[calc(100%-2rem)]">
+          <div className="flex-1 min-w-0">
+            <p className="font-mono text-xs text-[#8b4a4a] uppercase tracking-[0.2em] mb-0.5">Lightkeeper Invitation</p>
+            <p className="text-[#c9b89a] font-serif text-base leading-snug truncate">
+              You have been invited to rejoin <strong className="text-white">{rejoinInvite.campaign_name}</strong>
+            </p>
+          </div>
+          <button
+            onClick={() => setStage('CHARACTER_CREATION')}
+            className="shrink-0 px-4 py-2 bg-[#8b1a1a] hover:bg-[#a82222] text-white font-sans font-black uppercase tracking-[0.15em] text-xs border border-[#5c0f0f] transition-colors"
+          >
+            Commission Investigator
+          </button>
+          <button
+            onClick={() => setRejoinInvite(null)}
+            className="shrink-0 text-[#8b1a1a] hover:text-[#c9b89a] font-mono text-lg leading-none transition-colors"
+            aria-label="Dismiss invite"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       
       {/* 1. DYNAMIC ASSET & STYLE INJECTION */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Alex+Brush&family=Caveat&family=Cedarville+Cursive&family=Charm&family=Dawning+of+a+New+Day&family=Gaegu&family=Gochi+Hand&family=Grape+Nuts&family=Homemade+Apple&family=Indie+Flower&family=Kalam&family=La+Belle+Aurore&family=Long+Cang&family=Moondance&family=Patrick+Hand&family=Reenie+Beenie&family=Rock+Salt&family=Sacramento&family=Shadows+Into+Light&family=Zeyada&display=swap');
 
         .font-cinzel { font-family: 'Cinzel', serif; }
         .font-garamond { font-family: 'Cormorant Garamond', serif; }
@@ -178,30 +346,63 @@ export const CampaignSelector = () => {
           mix-blend-mode: multiply;
           filter: grayscale(80%) sepia(40%) contrast(120%) brightness(95%);
         }
+
+        /* ── Book open/close animation ── */
+        @keyframes bookOpen {
+          0%   { transform: perspective(1800px) scale(0.12) rotateX(58deg) translateY(130px); opacity: 0; }
+          55%  { opacity: 1; }
+          100% { transform: perspective(1800px) scale(1) rotateX(0deg) translateY(0); opacity: 1; }
+        }
+        @keyframes bookClose {
+          0%   { transform: perspective(1800px) scale(1) rotateX(0deg) translateY(0); opacity: 1; }
+          45%  { opacity: 1; }
+          100% { transform: perspective(1800px) scale(0.12) rotateX(58deg) translateY(130px); opacity: 0; }
+        }
+        .roster-book { animation: bookOpen 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        .roster-book.closing { animation: bookClose 0.4s cubic-bezier(0.36, 0, 0.66, 0) forwards; }
+
+        .book-page {
+          background-color: #f0e8d0;
+          background-image: repeating-linear-gradient(
+            transparent,
+            transparent 27px,
+            rgba(90,58,40,0.08) 27px,
+            rgba(90,58,40,0.08) 28px
+          );
+        }
+        .book-page-right {
+          background-color: #ede4c8;
+          background-image: repeating-linear-gradient(
+            transparent,
+            transparent 27px,
+            rgba(60,40,20,0.07) 27px,
+            rgba(60,40,20,0.07) 28px
+          );
+        }
       `}</style>
 
       {/* 2. DESK BACKGROUND */}
       <div className="absolute inset-0 desk-surface pointer-events-none z-0" />
 
-      {/* 3. SHIFTED TIGHT CANDLE CLUSTER (Perfectly Round, Different Sizes) */}
-      <div className="absolute top-[28%] left-[8%] w-[250px] h-[250px] z-20 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-5 -translate-y-1/2 w-[600px] h-[600px] rounded-full mix-blend-screen bg-[radial-gradient(circle,rgba(240,140,50,0.12)_0%,rgba(200,80,20,0.02)_35%,transparent_60%)] animate-[candleSharedGlow_4s_infinite_alternate]" />
-        
-        {/* Candle 1 (Massive) */}
-        <div className="absolute bottom-[10%] left-[15%] w-32 h-32 rounded-full bg-gradient-to-br from-[#f2ead3] to-[#b3a48c] shadow-[10px_15px_25px_rgba(0,0,0,0.95)] border border-[#fff2d8]/30 flex items-center justify-center rotate-[-2deg]">
-          <div className="absolute inset-2.5 rounded-full border border-[#8a7a63]/50 bg-gradient-to-tl from-[#b09e84] to-[#e6d9bf]" />
+      {/* 3. TIGHT CANDLE CLUSTER */}
+      <div className="absolute top-[24%] left-[6%] w-[14vw] max-w-[220px] min-w-[120px] h-[200px] z-20 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[32vw] h-[32vw] max-w-[500px] max-h-[500px] rounded-full mix-blend-screen bg-[radial-gradient(circle,rgba(240,140,50,0.13)_0%,rgba(200,80,20,0.03)_40%,transparent_65%)] animate-[candleSharedGlow_4s_infinite_alternate]" />
+
+        {/* Candle 1 (Massive) — bottom-left anchor */}
+        <div className="absolute bottom-[0%] left-[3%] w-[8vw] max-w-[128px] min-w-[64px] aspect-square rounded-full bg-gradient-to-br from-[#f2ead3] to-[#b3a48c] shadow-[10px_15px_25px_rgba(0,0,0,0.95)] border border-[#fff2d8]/30 flex items-center justify-center rotate-[-2deg]">
+          <div className="absolute inset-[10%] rounded-full border border-[#8a7a63]/50 bg-gradient-to-tl from-[#b09e84] to-[#e6d9bf]" />
           <div className="relative w-3.5 h-3.5 rounded-full bg-[#ffeed0] shadow-[0_0_15px_6px_rgba(255,140,40,0.9)] animate-[wickFlicker_0.15s_infinite_alternate]" />
         </div>
 
-        {/* Candle 2 (Medium) */}
-        <div className="absolute bottom-[40%] left-[55%] w-20 h-20 rounded-full bg-gradient-to-br from-[#e0d3ba] to-[#9c8e75] shadow-[15px_20px_30px_rgba(0,0,0,0.9)] border border-[#f5ead2]/20 flex items-center justify-center rotate-[4deg]">
-          <div className="absolute inset-2 rounded-full border border-[#7a6a53]/60 bg-gradient-to-tl from-[#a08e74] to-[#d6c7ac]" />
+        {/* Candle 2 (Medium) — upper-right of large */}
+        <div className="absolute top-[4%] left-[52%] w-[5vw] max-w-[80px] min-w-[44px] aspect-square rounded-full bg-gradient-to-br from-[#e0d3ba] to-[#9c8e75] shadow-[15px_20px_30px_rgba(0,0,0,0.9)] border border-[#f5ead2]/20 flex items-center justify-center rotate-[4deg]">
+          <div className="absolute inset-[10%] rounded-full border border-[#7a6a53]/60 bg-gradient-to-tl from-[#a08e74] to-[#d6c7ac]" />
           <div className="relative w-2.5 h-2.5 rounded-full bg-[#ffeed0] shadow-[0_0_12px_4px_rgba(255,130,30,0.8)] animate-[wickFlicker_0.2s_infinite_alternate-reverse]" />
         </div>
 
-        {/* Candle 3 (Small) */}
-        <div className="absolute bottom-[15%] left-[65%] w-14 h-14 rounded-full bg-gradient-to-br from-[#d1c2a3] to-[#8a7b62] shadow-[5px_10px_15px_rgba(0,0,0,0.8)] border border-[#e0d1b4]/20 flex items-center justify-center rotate-[-6deg]">
-          <div className="absolute inset-1.5 rounded-full border border-[#6e5e48]/50 bg-gradient-to-tl from-[#9c896e] to-[#c7b799]" />
+        {/* Candle 3 (Small) — lower-right, tucked in */}
+        <div className="absolute top-[60%] right-[4%] w-[3.5vw] max-w-[56px] min-w-[32px] aspect-square rounded-full bg-gradient-to-br from-[#d1c2a3] to-[#8a7b62] shadow-[5px_10px_15px_rgba(0,0,0,0.8)] border border-[#e0d1b4]/20 flex items-center justify-center rotate-[-6deg]">
+          <div className="absolute inset-[10%] rounded-full border border-[#6e5e48]/50 bg-gradient-to-tl from-[#9c896e] to-[#c7b799]" />
           <div className="relative w-2 h-2 rounded-full bg-[#ffeed0] shadow-[0_0_10px_3px_rgba(255,120,20,0.7)] animate-[wickFlicker_0.1s_infinite_alternate]" />
         </div>
       </div>
@@ -258,44 +459,74 @@ export const CampaignSelector = () => {
           
           {/* TOME I: YOUR CHARACTERS (Dark Forest Green Leather) */}
           <div
-            onClick={characterStatus === 'active' ? handleResumeCampaign : undefined}
-            className={`thick-book group w-[28vw] max-w-[400px] aspect-[1/1.4] bg-[#0b1f12] p-6 shadow-[15px_25px_40px_rgba(0,0,0,0.95),inset_8px_0_20px_rgba(0,0,0,0.9),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[-3deg] -translate-y-4 ${characterStatus === 'active' ? 'hover:-translate-y-6 cursor-pointer' : 'cursor-default'}`}
+            onClick={handleOpenRoster}
+            className="thick-book group w-[28vw] max-w-[400px] aspect-[1/1.4] bg-[#0b1f12] p-6 shadow-[15px_25px_40px_rgba(0,0,0,0.95),inset_8px_0_20px_rgba(0,0,0,0.9),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[-3deg] -translate-y-4 hover:-translate-y-6 cursor-pointer"
           >
             <div className="leather-texture" />
             <div className="absolute inset-6 border-2 border-black/40 embossed-stamp pointer-events-none rounded-sm z-10" />
             <div className="absolute inset-8 border border-black/30 embossed-stamp pointer-events-none rounded-sm z-10" />
 
-            <div className="z-20 flex flex-col items-center text-center px-4 relative">
-              <span className="font-mono-data text-[9px] font-bold tracking-[0.4em] text-[#c49d47]/70 mb-4 uppercase drop-shadow-md">
-                Dossier Vol. III
+            <div className="z-20 flex flex-col items-center text-center px-4 relative w-full">
+              <span className="font-mono-data text-[18px] font-bold tracking-[0.4em] text-[#c49d47]/70 mb-4 uppercase drop-shadow-md">
+                Dossier Vol. I
               </span>
-              <h2 className="font-playfair text-4xl md:text-5xl font-black embossed-gold tracking-wider leading-[1.1] mb-2 group-hover:text-[#e8c678] transition-colors">
-                Active<br/>Roster
+              <h2 className="font-playfair text-4xl md:text-5xl font-black embossed-gold tracking-wider leading-[1.1] mb-2">
+                Active<br/>Register
               </h2>
-              <div className="w-12 h-[1px] bg-[#c49d47]/30 my-5 shadow-[0_1px_0_rgba(255,255,255,0.1)]" />
-              <p className="font-garamond text-[#a8a8a8] text-sm italic tracking-wide max-w-[80%] leading-relaxed drop-shadow-md">
-                Review your assigned identities, trauma marks, and active clearance keys.
-              </p>
-              {character && (
-                <span className={`font-mono-data text-[8px] font-bold tracking-[0.3em] uppercase mt-3 ${characterStatus === 'active' ? 'text-emerald-400' : 'text-[#c49d47]/50'}`}>
-                  {characterStatus === 'active' ? '● Active' : characterStatus === 'pending' ? '◌ Pending' : '○ Unaffiliated'}
-                </span>
-              )}
+              <div className="w-12 h-[1px] bg-[#c49d47]/30 my-4 shadow-[0_1px_0_rgba(255,255,255,0.1)]" />
+              <>
+                <p className="font-garamond text-[#a8a8a8] text-[28px] italic tracking-wide max-w-[80%] leading-relaxed drop-shadow-md">
+                  List of your current investigators and campaigns.
+                </p>
+                <div className="w-full text-left space-y-2 mt-3">
+                  {characters.filter(c => c.status === 'active').length > 0 && (
+                    <div className="flex items-center gap-2 pl-1">
+                      <span className="text-emerald-400 text-xl">●</span>
+                      <span className="font-garamond text-2xl italic text-[#fdfaf4]/75">
+                        {characters.filter(c => c.status === 'active').length} Profile{characters.filter(c => c.status === 'active').length !== 1 ? 's' : ''} Recorded
+                      </span>
+                    </div>
+                  )}
+                  {characters.filter(c => c.status === 'pending').length > 0 && (
+                    <div className="flex items-center gap-2 pl-1">
+                      <span className="text-[#c49d47]/70 text-xl">◌</span>
+                      <span className="font-garamond text-2xl italic text-[#c49d47]/60">
+                        {characters.filter(c => c.status === 'pending').length} Awaiting Approval
+                      </span>
+                    </div>
+                  )}
+                  {gmCampaigns.length > 0 && (
+                    <div className="flex items-center gap-2 pl-1">
+                      <span className="text-[#c49d47] text-xl">▶</span>
+                      <span className="font-garamond text-2xl italic text-[#c49d47]/75">
+                        {gmCampaigns.length} Investigation{gmCampaigns.length !== 1 ? 's' : ''} Recorded
+                      </span>
+                    </div>
+                  )}
+                  {characters.length === 0 && gmCampaigns.length === 0 && (
+                    <span className="font-mono-data text-base font-bold tracking-[0.3em] uppercase text-[#c49d47]/40">
+                      ○ No Records
+                    </span>
+                  )}
+                </div>
+              </>
             </div>
           </div>
 
-          {/* TOME II: ACTIVE ASSIGNMENT — locked until character is active */}
-          {characterStatus === 'active' ? (
+          {/* TOME II: LAST SESSION */}
+          {lastPlayedCampaign ? (
             <div
-              onClick={handleResumeCampaign}
+              onClick={handleLastPlayed}
               className="thick-book group w-[30vw] max-w-[440px] aspect-[1/1.3] bg-[#1e0624] p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-6 translate-x-4 hover:-translate-y-1 hover:rotate-[1deg] cursor-pointer"
             >
               <div className="leather-texture" />
               <div className="absolute inset-5 border-[3px] border-[#c49d47]/40 embossed-stamp pointer-events-none rounded z-10" />
               <div className="z-20 flex flex-col items-center text-center relative">
-                <span className="font-mono-data text-[10px] font-bold tracking-[0.5em] text-[#c49d47]/60 mb-6 uppercase drop-shadow-md">Campaign Log</span>
-                <h2 className="font-playfair italic font-bold text-5xl md:text-6xl embossed-gold tracking-tight leading-[1.05] mb-4 group-hover:text-[#e8c678] transition-colors">
-                  The<br/>Fairelands
+                <span className="font-mono-data text-xl font-bold tracking-[0.5em] text-[#c49d47]/60 mb-6 uppercase drop-shadow-md">
+                  {lastPlayedCampaign.type === 'gm' ? 'List of Campaigns' : 'Campaign Log'}
+                </span>
+                <h2 className="font-playfair italic font-bold text-4xl md:text-5xl embossed-gold tracking-tight leading-[1.1] mb-4 group-hover:text-[#e8c678] transition-colors">
+                  {lastPlayedCampaign.campaignName || 'Last Session'}
                 </h2>
                 <div className="flex items-center gap-3 my-4">
                   <div className="w-6 h-[1px] bg-[#c49d47]/30" />
@@ -304,37 +535,63 @@ export const CampaignSelector = () => {
                   </svg>
                   <div className="w-6 h-[1px] bg-[#c49d47]/30" />
                 </div>
-                <p className="font-garamond text-[#c49d47]/80 text-[13px] tracking-wider max-w-[70%] leading-relaxed drop-shadow-md uppercase mt-2">
-                  Resume your circle's ongoing deployment within the capital sector.
+                <p className="font-garamond text-[#c49d47]/80 text-[26px] tracking-wider max-w-[70%] leading-relaxed drop-shadow-md uppercase mt-2">
+                  {lastPlayedCampaign.type === 'gm'
+                    ? "Resume command of your active investigation."
+                    : "Resume your circle's ongoing assignment."}
                 </p>
               </div>
             </div>
           ) : (
-            <div className="thick-book w-[30vw] max-w-[440px] aspect-[1/1.3] bg-[#120614] p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-6 translate-x-4 cursor-not-allowed opacity-80">
+            <div className="thick-book w-[30vw] max-w-[440px] aspect-[1/1.3] bg-[#120614] p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-6 translate-x-4 cursor-not-allowed">
               <div className="leather-texture" />
               <div className="absolute inset-5 border-[3px] border-[#c49d47]/20 embossed-stamp pointer-events-none rounded z-10" />
-              <div className="z-20 flex flex-col items-center text-center relative gap-4">
-                {/* Padlock icon */}
-                <svg className="w-10 h-10 text-[#c49d47]/40" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                </svg>
-                <h2 className="font-playfair italic font-bold text-5xl embossed-gold tracking-tight leading-[1.05] opacity-40">
-                  The<br/>Fairelands
+
+              <div className="z-20 flex flex-col items-center text-center relative w-full" style={{ marginBottom: '60px' }}>
+                <span className="font-mono-data text-xl font-bold tracking-[0.5em] text-[#c49d47]/50 mb-4 uppercase drop-shadow-md">Campaign Log</span>
+                <h2 className="font-playfair italic font-bold text-5xl md:text-6xl embossed-gold tracking-tight leading-[1.05]">
+                  Last<br/>Session
                 </h2>
-                <p className="font-garamond text-[#c49d47]/60 text-[12px] tracking-wider max-w-[75%] leading-relaxed uppercase mt-1">
-                  {characterStatus === 'pending'
-                    ? 'Awaiting Lightkeeper Approval'
-                    : 'Submit a Campaign Code to Request Entry'}
+              </div>
+
+              {/* Leather strap with brass lock */}
+              <div className="absolute inset-x-0 z-30" style={{ top: '44%', height: '38px' }}>
+                <div className="absolute inset-0" style={{
+                  background: 'linear-gradient(to bottom, #7a5228 0%, #3e2410 30%, #4a2c14 55%, #3e2410 72%, #7a5228 100%)',
+                  boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.07), inset 0 -3px 7px rgba(0,0,0,0.75), 0 5px 14px rgba(0,0,0,0.7)',
+                  borderTop: '2px solid rgba(15,8,3,0.92)',
+                  borderBottom: '2px solid rgba(15,8,3,0.92)',
+                }} />
+                <div className="absolute inset-x-3" style={{ top: '7px', height: '1px', backgroundImage: 'repeating-linear-gradient(to right, rgba(210,165,75,0.5) 0px, rgba(210,165,75,0.5) 5px, transparent 5px, transparent 11px)' }} />
+                <div className="absolute inset-x-3" style={{ bottom: '7px', height: '1px', backgroundImage: 'repeating-linear-gradient(to right, rgba(210,165,75,0.5) 0px, rgba(210,165,75,0.5) 5px, transparent 5px, transparent 11px)' }} />
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ zIndex: 40 }}>
+                  <svg width="42" height="56" viewBox="0 0 42 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 24V14C12 8.48 16.48 4 22 4C27.52 4 32 8.48 32 14V24" stroke="#1a0e04" strokeWidth="7" strokeLinecap="round" fill="none"/>
+                    <path d="M12 24V14C12 8.48 16.48 4 22 4C27.52 4 32 8.48 32 14V24" stroke="#c49d47" strokeWidth="4" strokeLinecap="round" fill="none"/>
+                    <path d="M12 24V14C12 8.48 16.48 4 22 4" stroke="rgba(255,220,120,0.35)" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                    <rect x="5" y="23" width="34" height="30" rx="4" fill="rgba(0,0,0,0.55)" transform="translate(1.5,2.5)"/>
+                    <rect x="5" y="23" width="34" height="30" rx="4" fill="url(#brassGrad)"/>
+                    <rect x="5" y="23" width="34" height="30" rx="4" stroke="#1a0e04" strokeWidth="1.5"/>
+                    <rect x="6" y="24" width="32" height="5" rx="2" fill="rgba(255,255,255,0.1)"/>
+                    <rect x="5" y="23" width="5" height="30" rx="4" fill="rgba(0,0,0,0.2)"/>
+                    <circle cx="22" cy="35" r="5" fill="rgba(10,5,2,0.9)"/>
+                    <rect x="20" y="38" width="4" height="9" rx="2" fill="rgba(10,5,2,0.9)"/>
+                    <defs>
+                      <linearGradient id="brassGrad" x1="5" y1="23" x2="39" y2="53" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#c49d47"/>
+                        <stop offset="35%" stopColor="#7a5c18"/>
+                        <stop offset="70%" stopColor="#9a7828"/>
+                        <stop offset="100%" stopColor="#5a4010"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+              </div>
+
+              <div className="z-20 absolute bottom-7 flex flex-col items-center gap-2 w-full px-6">
+                <p className="font-garamond text-[#c49d47]/55 text-2xl tracking-wider text-center leading-relaxed uppercase">
+                  No Recent Sessions
                 </p>
-                {characterStatus === 'pending' && (
-                  <button
-                    onClick={handleRefreshStatus}
-                    disabled={isRefreshing}
-                    className="font-mono-data text-[9px] tracking-[0.3em] uppercase text-[#3b82f6]/70 hover:text-[#3b82f6] transition-colors border border-[#3b82f6]/20 hover:border-[#3b82f6]/50 px-3 py-1 mt-1"
-                  >
-                    {isRefreshing ? '[ Checking... ]' : '[ Refresh Status ]'}
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -406,61 +663,19 @@ export const CampaignSelector = () => {
           </div>
 
          
-          {/* CAMPAIGN CODE INPUT PAMPHLET — shown to players with unaffiliated character */}
-          {!isGM && character && characterStatus === 'unaffiliated' && (
-            <div className="pamphlet w-[230px] h-[400px] rotate-[5deg] bottom-[20px] left-[260px] hover:-translate-y-2 hover:rotate-[4deg] z-50 p-2">
-              <div className="w-full h-full border-[3px] border-double border-[#8a2222]/50 p-3 flex flex-col items-start text-[#2b251e] bg-[#e8e0cc]">
-                <div className="w-full border-b border-[#8a2222]/30 pb-2 mb-3">
-                  <span className="font-mono-data text-[8px] font-black tracking-widest text-[#8a2222] block">CHAPTER ADMISSION</span>
-                  <span className="font-mono-data text-[7px] tracking-[0.2em] opacity-70">Form CO-201</span>
-                </div>
-                <div className="flex-1 flex flex-col justify-start gap-3">
-                  <p className="font-garamond text-[13px] leading-relaxed italic font-semibold">
-                    Present your Circle's access cipher to be admitted into the ongoing investigation.
-                  </p>
-                  <form onSubmit={handleSubmitCode} className="flex flex-col gap-2 mt-2">
-                    <label className="font-cinzel text-[9px] font-bold tracking-widest uppercase text-[#2b251e]/70">
-                      Campaign Cipher
-                    </label>
-                    <input
-                      type="text"
-                      value={campaignCode}
-                      onChange={e => setCampaignCode(e.target.value)}
-                      placeholder="e.g. fairelands-01"
-                      className="bg-[#d9cdb4] border border-[#5c4a35]/50 px-2 py-1.5 font-mono-data text-[11px] text-[#2b251e] placeholder-[#8a7a63]/60 outline-none focus:border-[#8a2222]/60 w-full"
-                    />
-                    {joinError && (
-                      <p className="font-mono-data text-[9px] text-[#8a2222] tracking-wide">{joinError}</p>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={isJoining || !campaignCode.trim()}
-                      className="mt-1 bg-[#7a1812] text-[#fdfaf4] font-cinzel text-[10px] font-bold tracking-widest uppercase px-3 py-2 shadow-[inset_0_0_8px_rgba(0,0,0,0.6)] hover:bg-[#9a2218] transition-colors disabled:opacity-40"
-                    >
-                      {isJoining ? 'Submitting...' : 'Submit & Register'}
-                    </button>
-                  </form>
-                </div>
-                <div className="w-full border-t border-[#3a3228]/40 pt-2 mt-3 text-center">
-                  <span className="font-cinzel text-[9px] font-bold tracking-widest opacity-60">Seal & Dispatch</span>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* PAMPHLET I: NEW CHARACTER (Turn-of-the-Century Victorian Style) */}
           <div
-            onClick={handleNewInvestigator}
+            onClick={() => setStage('CHARACTER_CREATION')}
             className="pamphlet w-[210px] h-[390px] rotate-[-2deg] bottom-[40px] left-[40px] hover:-translate-y-3 hover:-translate-x-2 hover:rotate-[-3deg] z-30 p-2"
           >
             {/* Ornate Inner Border */}
             <div className="w-full h-full border-[3px] border-double border-[#3a3228]/80 p-3 flex flex-col items-center text-[#ddd7cf] bg-[rgb(95,114,103)]">
               
               <div className="w-full text-center border-b border-[#3a3228]/40 pb-2 mb-3">
-                <span className="font-mono-data text-[8px] font-bold uppercase tracking-[0.3em] opacity-80">
+                <span className="font-mono-data text-base font-bold uppercase tracking-[0.3em] opacity-80">
                   Registry Form
                 </span>
-                <div className="font-garamond text-xs italic tracking-wider opacity-90 mt-1">
+                <div className="font-garamond text-2xl italic tracking-wider opacity-90 mt-1">
                   No. CO-102
                 </div>
               </div>
@@ -480,48 +695,129 @@ export const CampaignSelector = () => {
                   <div className="w-6 h-[1px] bg-[#3a3228]" />
                 </div>
 
-                <p className="font-garamond text-xs leading-relaxed italic px-2 mt-4 opacity-90 font-medium">
-                  Draft a pristine dossier to register a newly appointed Investigator into the official chapter records.
+                <p className="font-garamond text-2xl leading-relaxed italic px-2 mt-4 opacity-90 font-medium">
+                  Create your Investigator
                 </p>
               </div>
 
               <div className="w-full border-t border-[#3a3228]/40 pt-2 mt-3 text-center">
-                 <span className="font-cinzel text-[10px] font-bold tracking-widest">Sign & Date</span>
+                 <span className="font-cinzel text-xl font-bold tracking-widest">Join Today</span>
               </div>
             </div>
           </div>
 
-          {/* PAMPHLET II: GM OPERATIONS (Turn-of-the-Century Victorian Style) */}
-          <div 
-            onClick={() => handleLightkeeperAccess('fairelands-01')}
-            className="pamphlet w-[220px] h-[380px] rotate-[2deg] top-[100px] right-[200px] hover:-translate-y-4 hover:translate-x-4 hover:rotate-[4deg] z-40 p-2 bg-[#dfd6bc]"
+          {/* PAMPHLET II: GM OPERATIONS — flips to entry form */}
+          <div
+            className={`absolute w-[220px] h-[380px] rotate-[2deg] top-[100px] right-[200px] z-40 transition-transform duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${!showGMBack ? 'hover:-translate-y-4 hover:translate-x-4 hover:rotate-[4deg] cursor-pointer' : 'cursor-default'}`}
+            style={{ perspective: '1200px' }}
+            onClick={!showGMBack ? () => setShowGMBack(true) : undefined}
           >
-            {/* Ornate Inner Border */}
-            <div className="w-full h-full border-[3px] border-double border-[#8a2222]/50 p-3 flex flex-col items-center text-[#2b251e] bg-[rgb(186,190,199)]">
-              
-              <div className="w-full flex justify-between items-start border-b border-[#8a2222]/30 pb-2 mb-4">
-                <span className="font-mono-data text-[8px] font-black tracking-widest text-[#8a2222]">TOP SECRET</span>
-                <span className="font-mono-data text-[8px] font-bold tracking-[0.2em] opacity-80">LIGHTKEEPER</span>
+            <div
+              className="w-full h-full"
+              style={{
+                position: 'relative',
+                transformStyle: 'preserve-3d',
+                transition: 'transform 0.65s cubic-bezier(0.22, 1, 0.36, 1)',
+                transform: showGMBack ? 'rotateY(180deg)' : 'rotateY(0deg)',
+              }}
+            >
+              {/* FRONT FACE — matches Blank Intake style */}
+              <div
+                className="absolute inset-0 border-[3px] border-double border-[#3a3228]/80 p-3 flex flex-col items-center text-[#ddd7cf]"
+                style={{
+                  backfaceVisibility: 'hidden',
+                  backgroundColor: 'rgb(95,114,103)',
+                  backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.08 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)'/%3E%3C/svg%3E\")",
+                  boxShadow: '4px 6px 15px rgba(0,0,0,0.7), inset 0 0 40px rgba(60,80,60,0.4)',
+                }}
+              >
+                <div className="w-full text-center border-b border-[#3a3228]/40 pb-2 mb-3">
+                  <span className="font-mono-data text-base font-bold uppercase tracking-[0.3em] opacity-80">Operations Form</span>
+                  <div className="font-garamond text-2xl italic tracking-wider opacity-90 mt-1">No. LK-001</div>
+                </div>
+
+                <div className="flex-1 flex flex-col justify-center items-center text-center px-1">
+                  <h3 className="font-playfair font-black text-2xl uppercase tracking-widest leading-none mb-1 text-[rgb(212,208,202)]">
+                    Lightkeeper
+                  </h3>
+                  <h3 className="font-playfair font-black text-2xl uppercase tracking-widest leading-none mb-4 text-[rgb(212,208,202)]">
+                    Access
+                  </h3>
+                  <div className="flex items-center gap-1 my-2 opacity-70">
+                    <div className="w-6 h-[1px] bg-[#3a3228]" />
+                    <div className="w-1.5 h-1.5 rounded-full border border-[#3a3228]" />
+                    <div className="w-6 h-[1px] bg-[#3a3228]" />
+                  </div>
+                  <p className="font-garamond text-2xl leading-relaxed italic px-2 mt-4 opacity-90 font-medium">
+                    Take command of your own circle.
+                  </p>
+                </div>
+
+                <div className="w-full border-t border-[#3a3228]/40 pt-2 mt-3 text-center">
+                  <span className="font-cinzel text-xl font-bold tracking-widest">Light the Way</span>
+                </div>
               </div>
 
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <svg className="w-10 h-10 text-[#2b251e] mb-4 opacity-90" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="square" strokeLinejoin="miter" d="M9 7V5a3 3 0 016 0v2M6 7h12v11a2 2 0 01-2 2H8a2 2 0 01-2-2V7z" />
-                  <circle cx="12" cy="12" r="2" fill="currentColor" />
-                </svg>
-                
-                <h3 className="font-cinzel font-black text-[22px] uppercase tracking-[0.15em] text-[#1a1611] border-y-2 border-[#1a1611] py-2 w-full mb-4">
-                  Operations
-                </h3>
+              {/* BACK FACE — campaign entry form */}
+              <div
+                className="absolute inset-0 border-[3px] border-double border-[#3a3228]/80 p-3 flex flex-col items-start text-[#ddd7cf]"
+                style={{
+                  backfaceVisibility: 'hidden',
+                  transform: 'rotateY(180deg)',
+                  backgroundColor: 'rgb(95,114,103)',
+                  backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.08 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)'/%3E%3C/svg%3E\")",
+                  boxShadow: '4px 6px 15px rgba(0,0,0,0.7), inset 0 0 40px rgba(60,80,60,0.4)',
+                }}
+              >
+                <div className="w-full border-b border-[#3a3228]/40 pb-2 mb-4">
+                </div>
 
-                <p className="font-garamond text-xs leading-relaxed px-3 font-semibold opacity-90">
-                  Access campaign parameters, manage chapter standing, and execute local phenomena.
-                </p>
-              </div>
+                <form onSubmit={handleGMEntry} className="flex-1 flex flex-col gap-4 w-full justify-center">
+                  <div className="flex flex-col gap-1">
+                    <label className="font-cinzel text-[18px] font-bold tracking-widest uppercase text-[#ddd7cf]/70">
+                      Campaign Name
+                    </label>
+                    <input
+                      type="text"
+                      value={gmCampaignName}
+                      onChange={e => setGmCampaignName(e.target.value)}
+                      placeholder="e.g. The Fairelands"
+                      onClick={e => e.stopPropagation()}
+                      className="bg-[#4a5e50]/60 border border-[#3a3228]/70 px-2 py-1.5 font-garamond text-2xl text-[#ddd7cf] placeholder-[#ddd7cf]/35 outline-none focus:border-[#c49d47]/50 w-full"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-cinzel text-[18px] font-bold tracking-widest uppercase text-[#ddd7cf]/70">
+                      Entry Cipher
+                    </label>
+                    <input
+                      type="text"
+                      value={gmCode}
+                      onChange={e => setGmCode(e.target.value)}
+                      placeholder="e.g. fairelands-01"
+                      onClick={e => e.stopPropagation()}
+                      className="bg-[#4a5e50]/60 border border-[#3a3228]/70 px-2 py-1.5 font-garamond text-2xl text-[#ddd7cf] placeholder-[#ddd7cf]/35 outline-none focus:border-[#c49d47]/50 w-full"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!gmCode.trim() || isGmCreating}
+                    onClick={e => e.stopPropagation()}
+                    className="mt-1 bg-[#3a2810] text-[#c49d47] font-cinzel text-xl font-bold tracking-widest uppercase px-3 py-2 border border-[#c49d47]/30 hover:bg-[#4a3820] hover:border-[#c49d47]/60 transition-colors disabled:opacity-40"
+                  >
+                    {isGmCreating ? 'Creating...' : 'Enter Operations'}
+                  </button>
+                  {gmEntryError && (
+                    <p className="font-mono text-xs text-red-400/80 text-center mt-1">{gmEntryError}</p>
+                  )}
+                </form>
 
-              <div className="absolute bottom-6 right-6 w-12 h-12 rounded-full bg-[#7a1812] shadow-[inset_0_0_12px_rgba(0,0,0,0.8),0_4px_6px_rgba(0,0,0,0.5)] flex items-center justify-center opacity-95">
-                <div className="absolute inset-1 rounded-full border border-white/20" />
-                <span className="font-cinzel text-[#fdfaf4] text-xs font-black drop-shadow-md">CO</span>
+                <button
+                  onClick={e => { e.stopPropagation(); setShowGMBack(false); }}
+                  className="w-full border-t border-[#3a3228]/40 pt-2 mt-3 text-center font-cinzel text-[18px] font-bold tracking-widest opacity-55 hover:opacity-90 transition-opacity"
+                >
+                  ← Return
+                </button>
               </div>
             </div>
           </div>
@@ -531,6 +827,287 @@ export const CampaignSelector = () => {
 
       {/* FOREGROUND ATMOSPHERICS */}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black pointer-events-none opacity-80 z-50 mix-blend-overlay" />
+
+      {/* BOOK OVERLAY */}
+      {showBook && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.88)' }}
+          onClick={closeBook}
+        >
+          <div
+            className={`roster-book${isClosingBook ? ' closing' : ''} relative flex`}
+            style={{
+              width: '90vw', maxWidth: 1100, height: '85vh',
+              borderRadius: '4px 12px 12px 4px',
+              boxShadow: '0 30px 80px rgba(0,0,0,0.98), 0 0 0 2px rgba(0,0,0,0.9)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Book spine */}
+            <div style={{
+              width: 28, flexShrink: 0,
+              background: 'linear-gradient(to right, #1a0a02, #3a1e08, #2a1205)',
+              borderRadius: '4px 0 0 4px',
+              boxShadow: 'inset -4px 0 8px rgba(0,0,0,0.6)',
+              borderRight: '2px solid rgba(0,0,0,0.8)',
+            }} />
+
+            {/* LEFT PAGE: Player Registry */}
+            <div className="book-page flex flex-col overflow-hidden" style={{ flex: 1, borderRight: '2px solid rgba(90,58,40,0.25)' }}>
+              <div className="px-7 pt-6 pb-3 shrink-0" style={{ borderBottom: '2px solid rgba(90,58,40,0.18)' }}>
+                <p className="font-mono-data text-[18px] tracking-[0.4em] text-[#5a3a28]/60 uppercase mb-1">List of Investigators</p>
+                <h2 className="font-cinzel text-4xl font-black text-[#8b1a1a]">Player Registry</h2>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-7 py-4 space-y-5">
+                {isLoadingBook ? (
+                  <p className="font-garamond text-[32px] italic text-[#5a3a28]/50">Retrieving dossiers…</p>
+                ) : (
+                  <>
+                    {/* Active characters */}
+                    {characters.filter(c => c.status === 'active').length > 0 && (
+                      <div>
+                        <p className="font-mono-data text-[18px] tracking-[0.35em] uppercase mb-2 text-emerald-700">Active Campaigns</p>
+                        <div className="space-y-1.5">
+                          {characters.filter(c => c.status === 'active').map(char => (
+                            <button
+                              key={char.id}
+                              onClick={() => enterAsPlayer(char)}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#5a3a28]/10 transition-colors text-left group"
+                              style={{ border: '1px solid rgba(90,58,40,0.15)' }}
+                            >
+                              <span className="text-emerald-600 text-xl shrink-0">●</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-garamond font-bold text-xl text-[#2b1a0e] group-hover:text-[#8b1a1a] transition-colors truncate">{char.name}</p>
+                                {char.campaign_name && (
+                                  <p className="font-mono-data text-base tracking-[0.2em] uppercase text-[#5a3a28]/50 truncate">{char.campaign_name}</p>
+                                )}
+                              </div>
+                              <span className="font-mono-data text-base text-emerald-600 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">Enter →</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pending characters */}
+                    {characters.filter(c => c.status === 'pending').length > 0 && (
+                      <div>
+                        <p className="font-mono-data text-[18px] tracking-[0.35em] uppercase mb-2 text-[#7a5a18]">Awaiting Lightkeeper Approval</p>
+                        <div className="space-y-1.5">
+                          {characters.filter(c => c.status === 'pending').map(char => (
+                            <div key={char.id} className="flex items-center gap-3 px-3 py-2.5"
+                              style={{ border: '1px solid rgba(196,157,71,0.2)', background: 'rgba(196,157,71,0.04)' }}>
+                              <span className="text-[#c49d47]/60 text-xl shrink-0">◌</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-garamond font-bold text-xl text-[#2b1a0e]/70 truncate">{char.name}</p>
+                                {char.campaign_name && (
+                                  <p className="font-mono-data text-base tracking-[0.2em] uppercase text-[#5a3a28]/40 truncate">{char.campaign_name}</p>
+                                )}
+                              </div>
+                              <button
+                                onClick={refreshBook}
+                                disabled={isLoadingBook}
+                                className="font-mono-data text-base tracking-[0.2em] uppercase text-[#3b82f6]/60 hover:text-[#3b82f6] transition-colors shrink-0"
+                                style={{ border: '1px solid rgba(59,130,246,0.2)', padding: '4px 12px' }}
+                              >
+                                {isLoadingBook ? '…' : 'Refresh'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Unaffiliated characters with inline join form */}
+                    {characters.filter(c => c.status === 'unaffiliated').length > 0 && (
+                      <div>
+                        <p className="font-mono-data text-[18px] tracking-[0.35em] uppercase mb-2 text-[#5a3a28]/50">Unaffiliated Investigators</p>
+                        <div className="space-y-2">
+                          {characters.filter(c => c.status === 'unaffiliated').map(char => {
+                            const form = joinForms[char.id] || {};
+                            return (
+                              <div key={char.id} style={{ border: '1px solid rgba(90,58,40,0.12)', background: 'rgba(255,255,255,0.015)' }}>
+                                <button
+                                  onClick={() => setJoinForms(f => ({ ...f, [char.id]: { ...f[char.id], expanded: !form.expanded } }))}
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#5a3a28]/06 transition-colors text-left"
+                                >
+                                  <span className="text-[#5a3a28]/40 text-xl shrink-0">○</span>
+                                  <p className="font-garamond font-bold text-xl text-[#2b1a0e]/50 flex-1 truncate">{char.name}</p>
+                                  <span className="font-mono-data text-base text-[#5a3a28]/40">{form.expanded ? '▲' : '▼ Join'}</span>
+                                </button>
+                                {form.expanded && (
+                                  <div className="px-3 pb-3 space-y-2 border-t" style={{ borderColor: 'rgba(90,58,40,0.1)' }}>
+                                    <input
+                                      type="text"
+                                      value={form.code || ''}
+                                      onChange={e => setJoinForms(f => ({ ...f, [char.id]: { ...f[char.id], code: e.target.value } }))}
+                                      placeholder="Campaign Cipher…"
+                                      className="w-full bg-white/60 border border-[#5a3a28]/30 px-2 py-1.5 font-garamond text-[28px] text-[#2b1a0e] placeholder-[#5a3a28]/30 outline-none focus:border-[#8b1a1a]/50 mt-2"
+                                    />
+                                    <div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setJoinForms(f => ({ ...f, [char.id]: { ...f[char.id], dropdownOpen: !form.dropdownOpen } }))}
+                                        className="w-full bg-white/60 border border-[#5a3a28]/30 px-3 py-2 flex items-center justify-between hover:bg-white/80 transition-colors"
+                                        style={{ borderColor: form.dropdownOpen ? 'rgba(139,26,26,0.5)' : undefined }}
+                                      >
+                                        <span className="text-[28px] text-[#2b1a0e]" style={{ fontFamily: form.pen || 'Caveat' }}>
+                                          {form.pen || 'Caveat'}
+                                        </span>
+                                        <span className="text-base text-[#5a3a28]/50 ml-2 shrink-0">{form.dropdownOpen ? '▲' : '▼'}</span>
+                                      </button>
+                                      {form.dropdownOpen && (
+                                        <div className="border border-[#5a3a28]/30 border-t-0 max-h-52 overflow-y-auto"
+                                          style={{ background: '#f7f0de' }}>
+                                          {PEN_FONTS.map(font => (
+                                            <button
+                                              key={font}
+                                              type="button"
+                                              onClick={() => setJoinForms(f => ({ ...f, [char.id]: { ...f[char.id], pen: font, dropdownOpen: false } }))}
+                                              className="w-full px-3 py-2 text-left hover:bg-[#5a3a28]/12 transition-colors"
+                                              style={{
+                                                fontFamily: font,
+                                                fontSize: '22px',
+                                                color: '#2b1a0e',
+                                                background: (form.pen || 'Caveat') === font ? 'rgba(90,58,40,0.12)' : undefined,
+                                                borderBottom: '1px solid rgba(90,58,40,0.08)',
+                                              }}
+                                            >
+                                              {font}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                    {form.error && <p className="font-mono-data text-[18px] text-red-700">{form.error}</p>}
+                                    <button
+                                      onClick={() => handleJoinForChar(char.id)}
+                                      disabled={form.loading || !form.code?.trim()}
+                                      className="w-full bg-[#8b1a1a] text-[#fdf8f0] font-cinzel text-[18px] font-bold tracking-widest uppercase px-3 py-1.5 hover:bg-[#a82222] transition-colors disabled:opacity-40"
+                                    >
+                                      {form.loading ? 'Joining…' : 'Join Circle'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {characters.length === 0 && (
+                      <p className="font-garamond text-[28px] italic text-[#5a3a28]/40">No investigators Registered.</p>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="px-7 py-4 shrink-0" style={{ borderTop: '2px solid rgba(90,58,40,0.12)' }}>
+                <button
+                  onClick={() => { closeBook(); setStage('CHARACTER_CREATION'); }}
+                  className="w-full font-cinzel text-xl font-bold tracking-widest uppercase text-[#8b1a1a] hover:text-[#c42222] transition-colors py-2 hover:bg-[#8b1a1a]/05"
+                  style={{ border: '1px solid rgba(139,26,26,0.25)' }}
+                >
+                  + Register New Investigator
+                </button>
+              </div>
+            </div>
+
+            {/* RIGHT PAGE: Lightkeeper Ledger */}
+            <div className="book-page-right flex flex-col overflow-hidden" style={{ flex: 1, borderRadius: '0 12px 12px 0' }}>
+              <div className="px-7 pt-6 pb-3 shrink-0 flex items-start justify-between" style={{ borderBottom: '2px solid rgba(60,40,20,0.18)' }}>
+                <div>
+                  <p className="font-mono-data text-[18px] tracking-[0.4em] text-[#3c2814]/60 uppercase mb-1">List of Campaigns</p>
+                  <h2 className="font-cinzel text-4xl font-black text-[#7a5a18]">Lightkeeper Ledger</h2>
+                </div>
+                <button
+                  onClick={closeBook}
+                  className="font-mono-data text-xl tracking-[0.3em] uppercase text-[#3c2814]/40 hover:text-[#3c2814] transition-colors mt-1 px-3 py-1"
+                  style={{ border: '1px solid rgba(60,40,20,0.2)' }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-7 py-4 space-y-5">
+                {/* Active GM campaigns */}
+                {gmCampaigns.length > 0 && (
+                  <div>
+                    <p className="font-mono-data text-[18px] tracking-[0.35em] uppercase mb-2 text-[#7a5a18]/70">Active Investigations</p>
+                    <div className="space-y-1.5">
+                      {gmCampaigns.map(camp => (
+                        <button
+                          key={camp.id}
+                          onClick={() => enterAsGM(camp)}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#3c2814]/08 transition-colors text-left group"
+                          style={{ border: '1px solid rgba(60,40,20,0.15)' }}
+                        >
+                          <span className="text-[#c49d47]/70 text-xl shrink-0">▶</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-garamond font-bold text-xl text-[#2b1a0e] group-hover:text-[#7a5a18] transition-colors truncate">{camp.name}</p>
+                            <p className="font-mono-data text-base tracking-[0.2em] uppercase text-[#3c2814]/40 truncate">{camp.campaign_code}</p>
+                          </div>
+                          <span className="font-mono-data text-base text-[#c49d47]/60 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">Open →</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {gmCampaigns.length === 0 && !isLoadingBook && (
+                  <p className="font-garamond text-[28px] italic text-[#3c2814]/40">No active investigations found.</p>
+                )}
+              </div>
+
+              {/* Expandable registration form */}
+              {showRegisterForm && (
+                <div className="px-7 py-4 shrink-0" style={{ borderTop: '1px solid rgba(60,40,20,0.15)', background: 'rgba(60,40,20,0.04)' }}>
+                  <form onSubmit={async (e) => { await handleCreateCampaign(e); if (!createError) setShowRegisterForm(false); }} className="space-y-3">
+                    <div>
+                      <label className="font-cinzel text-base font-bold tracking-widest uppercase text-[#3c2814]/50 block mb-1">Investigation Name</label>
+                      <input type="text" value={newCampName} onChange={e => setNewCampName(e.target.value)}
+                        placeholder="e.g. The Fairelands"
+                        className="w-full bg-white/50 border border-[#3c2814]/25 px-3 py-2 font-garamond text-[28px] text-[#2b1a0e] placeholder-[#3c2814]/30 outline-none focus:border-[#7a5a18]/50" />
+                    </div>
+                    <div>
+                      <label className="font-cinzel text-base font-bold tracking-widest uppercase text-[#3c2814]/50 block mb-1">Access Cipher</label>
+                      <input type="text" value={newCampCode} onChange={e => setNewCampCode(e.target.value)}
+                        placeholder="e.g. fairelands-01"
+                        className="w-full bg-white/50 border border-[#3c2814]/25 px-3 py-2 font-garamond text-[28px] text-[#2b1a0e] placeholder-[#3c2814]/30 outline-none focus:border-[#7a5a18]/50" />
+                    </div>
+                    {createError && <p className="font-mono-data text-[18px] text-red-700">{createError}</p>}
+                    <div className="flex gap-2">
+                      <button type="submit" disabled={isCreating || !newCampName.trim() || !newCampCode.trim()}
+                        className="flex-1 bg-[#3c2814] text-[#c49d47] font-cinzel text-[18px] font-bold tracking-widest uppercase px-3 py-2 hover:bg-[#5a3a1a] transition-colors disabled:opacity-40"
+                        style={{ border: '1px solid rgba(196,157,71,0.3)' }}>
+                        {isCreating ? 'Registering…' : 'Confirm Registration'}
+                      </button>
+                      <button type="button" onClick={() => setShowRegisterForm(false)}
+                        className="px-4 py-2 font-cinzel text-base tracking-widest uppercase text-[#3c2814]/50 hover:text-[#3c2814] transition-colors"
+                        style={{ border: '1px solid rgba(60,40,20,0.2)' }}>
+                        ✕
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              <div className="px-7 py-4 shrink-0" style={{ borderTop: '2px solid rgba(60,40,20,0.12)' }}>
+                <button
+                  onClick={() => setShowRegisterForm(r => !r)}
+                  className="w-full font-cinzel text-xl font-bold tracking-widest uppercase text-[#7a5a18] hover:text-[#a07830] transition-colors py-2 hover:bg-[#7a5a18]/05"
+                  style={{ border: '1px solid rgba(122,90,24,0.25)' }}
+                >
+                  {showRegisterForm ? '− Collapse Form' : '+ Register Investigation'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

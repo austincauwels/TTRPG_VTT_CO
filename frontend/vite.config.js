@@ -1,4 +1,4 @@
-// vite.config.js - Vite configuration file to set up development server and proxy for API and WebSocket requests
+// Dev proxy: forwards /api, /campaign, and /ws to the FastAPI backend.
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 

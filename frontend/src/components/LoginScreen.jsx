@@ -1,22 +1,23 @@
-// src/components/LoginScreen.jsx
 import React, { useState } from 'react';
 import useGameStore from '../store/gameStore';
+import { apiUrl } from '../utils/api';
 
 const LoginScreen = () => {
   const officialMap = import.meta.env.VITE_MAP_OFFICIAL;
   const backupMap = import.meta.env.VITE_MAP_PUBLIC;
   const [imgError, setImgError] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const backgroundImage = imgError ? backupMap : officialMap;
-  
+
   const { setAccessSession } = useGameStore();
 
- const handleLogin = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     const username = e.target.username.value;
     const password = e.target.password.value;
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -27,15 +28,46 @@ const LoginScreen = () => {
       }
 
       const data = await response.json();
-      console.log("Login successful:", data);
-      
-      // ADD THIS LINE: This updates your global state
-      setAccessSession(data); 
-      
-      // The app router should automatically detect the session 
-      // and move you to the MainDeskView.
+      setAccessSession(data);
     } catch (err) {
       alert("The Order does not recognize your identity.");
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    const username = e.target.username.value;
+    const email = e.target.email.value;
+    const password = e.target.password.value;
+    const confirmPassword = e.target.confirmPassword.value;
+
+    if (password !== confirmPassword) {
+      alert("Ciphers do not match. Please re-enter.");
+      return;
+    }
+
+    try {
+      const response = await fetch(apiUrl('/api/auth/register'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        const detail = err.detail;
+        const message = typeof detail === 'string' ? detail
+          : Array.isArray(detail) ? detail.map(d => d.msg).join(', ')
+          : "Registration failed";
+        throw new Error(message);
+      }
+
+      const data = await response.json();
+      setAccessSession(data);
+    } catch (err) {
+      alert(err.message === "Registration failed"
+        ? "The Order could not enlist you at this time."
+        : err.message);
     }
   };
 
@@ -64,51 +96,125 @@ const LoginScreen = () => {
       {/* Login Container */}
       <div className="bg-mahogany/95 border-2 border-oxblood p-8 rounded-sm shadow-2xl w-full max-w-md backdrop-blur-sm z-10">
         <div className="bg-[#1a1311] p-6 border border-amber-900/30 inset-shadow-sm">
-          <h2 className="text-2xl font-serif text-center text-white mb-6 border-b-2 border-oxblood pb-2">
-            Investigator Access
+          <h2 className="text-4xl font-serif text-center text-white mb-6 border-b-2 border-oxblood pb-2">
+            {isRegistering ? "Enlist as Investigator" : "Investigator Access"}
           </h2>
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-white mb-1" htmlFor="username">
-                Identification
-              </label>
-              <input 
-                type="text" 
-                id="username"
-                className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
-                placeholder="Enter your designation..."
-              />
-            </div>
+          {isRegistering ? (
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-white mb-1" htmlFor="username">
+                  Identification
+                </label>
+                <input
+                  type="text"
+                  id="username"
+                  required
+                  className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
+                  placeholder="Choose your designation..."
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-white mb-1" htmlFor="password">
-                Cipher
-              </label>
-              <input 
-                type="password" 
-                id="password"
-                className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
-                placeholder="Enter secure cipher..."
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-semibold text-white mb-1" htmlFor="email">
+                  Correspondence
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  required
+                  className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
+                  placeholder="Enter your address..."
+                />
+              </div>
 
-            <div className="pt-6 space-y-3">
-              <button 
-                type="submit" 
-                className="w-full bg-red-800 hover:bg-red-900 text-white py-3 px-4 font-serif text-lg tracking-wider transition-colors border border-transparent hover:border-parchment/50 shadow-md"
-              >
-                Enter the Chapter
-              </button>
-              
-              <button 
-                type="button" 
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-2 px-4 font-serif text-sm tracking-widest uppercase transition-colors border border-zinc-600"
-              >
-                Create New Account
-              </button>
-            </div>
-          </form>
+              <div>
+                <label className="block text-sm font-semibold text-white mb-1" htmlFor="password">
+                  Cipher
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  required
+                  className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
+                  placeholder="Create a secure cipher..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-white mb-1" htmlFor="confirmPassword">
+                  Confirm Cipher
+                </label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  required
+                  className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
+                  placeholder="Repeat your cipher..."
+                />
+              </div>
+
+              <div className="pt-6 space-y-3">
+                <button
+                  type="submit"
+                  className="w-full bg-red-800 hover:bg-red-900 text-white py-3 px-4 font-serif text-lg tracking-wider transition-colors border border-transparent hover:border-parchment/50 shadow-md"
+                >
+                  Enlist with the Order
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRegistering(false)}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-2 px-4 font-serif text-sm tracking-widest uppercase transition-colors border border-zinc-600"
+                >
+                  Back to Login
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-white mb-1" htmlFor="username">
+                  Identification
+                </label>
+                <input
+                  type="text"
+                  id="username"
+                  className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
+                  placeholder="Username"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xl font-semibold text-white mb-1" htmlFor="password">
+                  Cipher
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
+                  placeholder="Password"
+                />
+              </div>
+
+              <div className="pt-6 space-y-3">
+                <button
+                  type="submit"
+                  className="w-full bg-red-800 hover:bg-red-900 text-white py-3 px-4 font-serif text-lg tracking-wider transition-colors border border-transparent hover:border-parchment/50 shadow-md"
+                >
+                  Enter the Chapter
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRegistering(true)}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-2 px-4 font-serif text-sm tracking-widest uppercase transition-colors border border-zinc-600"
+                >
+                  Create New Account
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div> // This closes the main background container

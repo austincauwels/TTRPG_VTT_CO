@@ -4,10 +4,13 @@ import useGameStore from '../../store/gameStore';
 const ScarModal = () => {
   const { showScarModal, scarModalData, applyScar, character, closeScarModal } = useGameStore();
   const [medicalNotes, setMedicalNotes] = useState('');
-  
+
   const [degradeAction, setDegradeAction] = useState('');
   const [advanceAction, setAdvanceAction] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [skipShifts, setSkipShifts] = useState(false);
+
+  const isHardened = character?.specialty_ability === 'Hardened';
 
   if (!showScarModal) return null;
 
@@ -33,42 +36,48 @@ const ScarModal = () => {
       setErrorMessage('You must document the traumatic manifestation in the ledger.');
       return;
     }
-    if (!degradeAction) {
-      setErrorMessage('Physiological Protocol Error: Select one Action Rating to decrease.');
-      return;
-    }
-    if (!advanceAction) {
-      setErrorMessage('Physiological Protocol Error: Select one Action Rating to increase.');
-      return;
-    }
-    if (degradeAction === advanceAction) {
-      setErrorMessage('Diagnostic Violation: Shifting actions must target distinct domains.');
-      return;
+
+    if (!skipShifts) {
+      if (!degradeAction) {
+        setErrorMessage('Physiological Protocol Error: Select one Action Rating to decrease.');
+        return;
+      }
+      if (!advanceAction) {
+        setErrorMessage('Physiological Protocol Error: Select one Action Rating to increase.');
+        return;
+      }
+      if (degradeAction === advanceAction) {
+        setErrorMessage('Diagnostic Violation: Shifting actions must target distinct domains.');
+        return;
+      }
+
+      const currentScore = character ? character[degradeAction] || 0 : 0;
+      if (currentScore <= 0) {
+        setErrorMessage(`Invalid Adjustment: Cannot decrease ${degradeAction.toUpperCase()} below 0.`);
+        return;
+      }
+
+      const currentAdvanceScore = character ? character[advanceAction] || 0 : 0;
+      if (currentAdvanceScore >= 3) {
+        setErrorMessage(`Invalid Adjustment: Cannot increase ${advanceAction.toUpperCase()} beyond cap (3).`);
+        return;
+      }
     }
 
-    const currentScore = character ? character[degradeAction] || 0 : 0;
-    if (currentScore <= 0) {
-      setErrorMessage(`Invalid Adjustment: Cannot decrease ${degradeAction.toUpperCase()} below 0.`);
-      return;
-    }
+    const shiftNote = skipShifts ? '[HARDENED — no action shift]' : `[SCAR SHIFT: -1 ${degradeAction.toUpperCase()} / +1 ${advanceAction.toUpperCase()}]`;
+    const finalNotes = `${medicalNotes.trim()} ${shiftNote}`;
 
-    const currentAdvanceScore = character ? character[advanceAction] || 0 : 0;
-    if (currentAdvanceScore >= 3) {
-      setErrorMessage(`Invalid Adjustment: Cannot increase ${advanceAction.toUpperCase()} beyond cap (3).`);
-      return;
-    }
-
-    const finalNotes = `${medicalNotes.trim()} [SCAR SHIFT: -1 ${degradeAction.toUpperCase()} / +1 ${advanceAction.toUpperCase()}]`;
-    
     applyScar({
       scar_text: finalNotes,
-      shift_down: degradeAction,
-      shift_up: advanceAction
+      shift_down: skipShifts ? null : degradeAction,
+      shift_up: skipShifts ? null : advanceAction,
+      skip_shifts: skipShifts,
     });
-    
+
     setMedicalNotes('');
     setDegradeAction('');
     setAdvanceAction('');
+    setSkipShifts(false);
   };
 
   return (
@@ -106,7 +115,22 @@ const ScarModal = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="relative z-10 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          {/* Hardened ability — skip action shifts */}
+          {isHardened && (
+            <label className="flex items-center gap-2 cursor-pointer bg-stone-100 border border-stone-300 rounded px-3 py-2">
+              <input
+                type="checkbox"
+                checked={skipShifts}
+                onChange={(e) => setSkipShifts(e.target.checked)}
+                className="text-stone-900 focus:ring-0 w-3 h-3 cursor-pointer bg-transparent border-stone-600"
+              />
+              <span className="font-mono text-[11px] font-bold text-stone-700">
+                Hardened — skip action rating shifts
+              </span>
+            </label>
+          )}
+
+          <div className={`grid grid-cols-2 gap-4 ${skipShifts ? 'opacity-40 pointer-events-none' : ''}`}>
             <div className="border border-stone-400 bg-stone-50 p-3 rounded-sm flex flex-col">
               <span className="block font-sans text-[9px] font-black uppercase tracking-wider text-red-900 border-b border-stone-300 pb-1 mb-2">
                 1. Narrative Loss (-1 Point)
