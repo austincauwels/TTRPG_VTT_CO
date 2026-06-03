@@ -111,7 +111,7 @@ const LoginScreen = () => {
                   id="username"
                   required
                   className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
-                  placeholder="Choose your designation..."
+                  placeholder="username"
                 />
               </div>
 
@@ -124,7 +124,7 @@ const LoginScreen = () => {
                   id="email"
                   required
                   className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
-                  placeholder="Enter your address..."
+                  placeholder="email address"
                 />
               </div>
 
@@ -137,7 +137,7 @@ const LoginScreen = () => {
                   id="password"
                   required
                   className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
-                  placeholder="Create a secure cipher..."
+                  placeholder="password"
                 />
               </div>
 
@@ -150,7 +150,7 @@ const LoginScreen = () => {
                   id="confirmPassword"
                   required
                   className="w-full p-2 bg-transparent border-b-2 border-zinc-500 text-white focus:border-oxblood focus:outline-none transition-colors"
-                  placeholder="Repeat your cipher..."
+                  placeholder="confirm password"
                 />
               </div>
 
