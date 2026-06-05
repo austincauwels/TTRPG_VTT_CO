@@ -337,9 +337,16 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   const [chatTarget, setChatTarget] = useState('@Circle');
   const [chatMessage, setChatMessage] = useState('');
   const chatInputRef = useRef(null);
+  const logContainerRef = useRef(null);
 
   const logEntries = externalLog ?? activityLog;
   const gildedPending = !!(pendingGildedChoice && lastRoll?.needs_gilded_choice);
+
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logEntries.length]);
 
   // Post-roll ability prompts
   const postRollAbilityPrompts = useMemo(() => {
@@ -497,6 +504,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
                     <div
                       key={`${lastRoll.id || idx}-${idx}`}
                       onClick={clickHandler}
+                      onTouchEnd={clickHandler ? (e) => { e.preventDefault(); clickHandler(); } : undefined}
                       className={`w-11 h-11 border rounded font-serif font-black text-xl flex items-center justify-center shadow-2xl ${tumbleClass}
                         ${die.is_gilded
                           ? 'border-2 border-[#d4af37] bg-gradient-to-br from-[#e5c158] to-[#b8860b] text-[#1a1311] shadow-[0_0_15px_rgba(212,175,55,0.5)] scale-105'
@@ -591,6 +599,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
           <SafeIcon name="GiScroll" size={18} /> Activity Log
         </h3>
         <div
+          ref={logContainerRef}
           className="h-[240px] overflow-y-auto space-y-3 text-base font-serif leading-normal px-3 py-2 custom-scrollbar"
           style={{
             background: '#fefefc',

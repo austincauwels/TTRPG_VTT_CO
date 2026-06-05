@@ -186,7 +186,7 @@ const useGameStore = create(
             const inkColor = (typeof payload === 'object' && payload.ink_color) ? payload.ink_color : null;
             set(state => ({
               lastActivityLog: payload,
-              activityLog: [{ text, type: logType, time, inkColor }, ...state.activityLog].slice(0, 50),
+              activityLog: [...state.activityLog, { text, type: logType, time, inkColor }].slice(-50),
             }));
           }
           else if (message.type === 'vote_update') {
@@ -377,6 +377,8 @@ const useGameStore = create(
         const updates = { lastPlayedCampaign: info };
         if (info?.type === 'gm') {
           updates.accessSession = { ...(get().accessSession || {}), role: 'GM' };
+        } else if (info?.type === 'player') {
+          updates.accessSession = { ...(get().accessSession || {}), role: 'PLAYER' };
         }
         set(updates);
       },
@@ -389,7 +391,8 @@ const useGameStore = create(
       },
 
       rollAction: (actionName, driveSpent = 0, isSecret = false, abilityMods = []) => {
-        const { socket } = get();
+        const { socket, pendingGildedChoice } = get();
+        if (pendingGildedChoice) return;
         if (!socket || socket.readyState !== WebSocket.OPEN) {
           console.warn("Network transmission failed: Vault socket offline. Aborting roll.");
           return;
@@ -416,6 +419,13 @@ const useGameStore = create(
         const { socket } = get();
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'burn_resistance', payload: { action, drive_key: driveKey } }));
+        }
+      },
+
+      gmResetCharacter: (characterId) => {
+        const { socket } = get();
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'gm_reset_character', payload: { character_id: characterId, role: 'GM' } }));
         }
       },
 
@@ -521,6 +531,16 @@ const useGameStore = create(
           socket.send(JSON.stringify({
             type: 'update_circle',
             payload: { ...updates, role: accessSession?.role }
+          }));
+        }
+      },
+
+      spendCircleResource: (resourceType) => {
+        const { socket, circle } = get();
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'spend_resource',
+            payload: { circle_id: circle?.id, resource_type: resourceType },
           }));
         }
       },

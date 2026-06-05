@@ -196,7 +196,7 @@ const GEAR_ICONS = {
 };
 
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false }) => {
-  const { character: storeChar, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage } = useGameStore(useShallow(s => ({
+  const { character: storeChar, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling } = useGameStore(useShallow(s => ({
     character: s.character,
     updateDrive: s.updateDrive,
     rollAction: s.rollAction,
@@ -205,6 +205,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     socket: s.socket,
     accessSession: s.accessSession,
     setStage: s.setStage,
+    pendingGildedChoice: s.pendingGildedChoice,
+    isRolling: s.isRolling,
   })));
   const character = charProp || storeChar;
   const [infoTab, setInfoTab] = useState('role'); // 'role' | 'specialty' | 'profile'
@@ -414,6 +416,14 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         </h3>
       </div>
 
+      {/* Train bonus active indicator */}
+      {character?.train_bonus && (
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#d4af37]/15 border border-[#d4af37]/50 text-[#7a5800] font-mono text-[9px] uppercase tracking-widest rounded-sm">
+          <SafeIcon name="GiD6" size={11} />
+          Train +1d active — bonus die consumed on next roll
+        </div>
+      )}
+
       {/* Action and Drive Pools Grid */}
       <div className="grid grid-cols-1 gap-4 bg-black/[0.02] border border-black/10 p-3 rounded-sm shadow-inner">
         {domainCategories.map((cat) => {
@@ -526,13 +536,17 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                           </span>
                         ) : (
                           <button
+                            disabled={!!pendingGildedChoice || !!isRolling}
                             onClick={() => {
                               const spend = preSpend[cat.driveKey] || 0;
+                              const actionRating = character[act.key] || 0;
+                              const effectiveSpend = Math.min(spend, Math.max(0, 6 - actionRating));
                               setPreSpend(p => ({ ...p, [cat.driveKey]: 0 }));
                               setActiveMods(p => ({ ...p, [act.key]: [] }));
-                              rollAction(act.key, spend, false, selectedMods);
+                              rollAction(act.key, effectiveSpend, false, selectedMods);
                             }}
-                            className="font-mono text-sm font-bold uppercase hover:text-red-800 transition-colors tracking-tight flex items-center gap-1.5 text-left"
+                            className={`font-mono text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-left transition-colors ${(pendingGildedChoice || isRolling) ? 'opacity-40 cursor-not-allowed' : 'hover:text-red-800'}`}
+                            style={{ touchAction: 'manipulation' }}
                           >
                             {isGilded && <div className="w-2 h-2 bg-[#d4af37] rounded-full" />}
                             {act.label}

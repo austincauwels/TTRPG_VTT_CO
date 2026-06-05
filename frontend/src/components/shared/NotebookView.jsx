@@ -255,7 +255,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
     if (authorMap[b].author_type === 'gm') return 1;
     return a.localeCompare(b);
   });
-  const activeFilter    = selectedAuthorFilter ?? (authorKeys.find(k => authorMap[k]?.author_type === 'gm') || authorKeys[0] || null);
+  const activeFilter    = selectedAuthorFilter;
   const filteredEntries = activeFilter
     ? fieldEntries.filter(e => e.author_name === activeFilter)
     : fieldEntries;
@@ -536,6 +536,16 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                   <div className="mb-4">
                     <span className="block font-sans text-[18px] font-black text-black/40 uppercase tracking-widest mb-2">Filter by Author</span>
                     <div className="flex flex-wrap gap-1.5">
+                      <button
+                        onClick={() => setSelectedAuthorFilter(null)}
+                        className="px-2 py-1 text-[20px] rounded-sm border transition-all font-mono font-black uppercase tracking-widest"
+                        style={{
+                          color: activeFilter === null ? '#fff' : '#555',
+                          borderColor: '#888',
+                          background: activeFilter === null ? '#555' : 'transparent',
+                          opacity: activeFilter === null ? 1 : 0.6,
+                        }}
+                      >All</button>
                       {authorKeys.map(name => {
                         const info = authorMap[name];
                         const isActive = activeFilter === name;

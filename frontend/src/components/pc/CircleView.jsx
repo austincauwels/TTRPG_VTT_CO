@@ -48,9 +48,9 @@ const TRACK_SIZE = 12;
 const RESOURCE_MAX_SQUARES = 9;
 
 const RESOURCES = [
-  { label: 'Stitch', key: 'stitch' },
-  { label: 'Refresh', key: 'refresh' },
-  { label: 'Train', key: 'train' },
+  { label: 'Stitch',  key: 'stitch',  desc: 'Clear all marks (Body, Brain, Bleed) for yourself.' },
+  { label: 'Refresh', key: 'refresh', desc: 'Restore all drives, resistances & ability uses for yourself.' },
+  { label: 'Train',   key: 'train',   desc: 'Gain a bonus d6 added to your next roll.' },
 ];
 
 const ILLUM_QUESTIONS = [
@@ -339,7 +339,7 @@ export function AdvancementModal() {
 
 export const CircleView = () => {
   const {
-    circle, character, updateCircle, accessSession,
+    circle, character, updateCircle, spendCircleResource, accessSession,
     submitAssignmentReport, circleAdvancement, dismissCircleAdvancement, applyAdvancement,
     circleCreation, respondToRelationship, proposeRelationship, openRelationshipPopup,
   } = useGameStore();
@@ -403,10 +403,20 @@ export const CircleView = () => {
       ? 'some'
       : 'none';
 
-  function setResource(key, n, currentVal) {
-    const isAdding = n > (currentVal ?? 0);
-    if (isAdding && !isGM) return;
-    updateCircle({ circle_id: circId, [key]: n });
+  function handleResourceClick(key, pipIndex, avail) {
+    const wouldSpend = (pipIndex + 1) <= avail;
+    if (wouldSpend) {
+      if (isGM) {
+        updateCircle({ circle_id: circId, [key]: pipIndex });
+      } else {
+        if (!circle?.resources_editable) return;
+        if ((character?.resources_spent_assignment || 0) >= 2) return;
+        spendCircleResource(key);
+      }
+    } else {
+      if (!isGM) return;
+      updateCircle({ circle_id: circId, [key]: pipIndex + 1 });
+    }
   }
 
   function handleSubmitReport() {
@@ -626,15 +636,25 @@ export const CircleView = () => {
             </p>
           )}
 
+          {circle?.resources_editable && !isGM && (
+            <p className="font-mono text-[9px] text-[#721c15]/70 uppercase tracking-widest font-bold">
+              {character?.resources_spent_assignment || 0}/2 resources used this assignment
+            </p>
+          )}
+
           <div className="space-y-3">
-            {RESOURCES.map(({ label, key }) => {
+            {RESOURCES.map(({ label, key, desc }) => {
               const avail = circle?.[key] ?? maxCap;
+              const spentAll = !isGM && (character?.resources_spent_assignment || 0) >= 2;
               return (
                 <div key={key} className="bg-white/60 border border-black/20 p-3 rounded-sm shadow-sm">
-                  <span className="font-serif font-black text-sm uppercase tracking-wide text-black block mb-2">
+                  <span className="font-serif font-black text-sm uppercase tracking-wide text-black block">
                     {label}
                   </span>
-                  {/* Available row — always shows 9 pips; players can subtract only, GM can add */}
+                  <span className="font-mono text-[9px] text-black/35 block mb-2 leading-snug">
+                    {desc}
+                  </span>
+                  {/* Available row — always shows 9 pips; players spend (left-click filled pip), GM can add/remove freely */}
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="font-mono text-[9px] text-black/50 uppercase font-bold w-20">Available</span>
                     <div className="flex gap-1">
@@ -642,24 +662,23 @@ export const CircleView = () => {
                         const withinMax = i < maxCap;
                         const filled = i < avail;
                         const wouldAdd = (i + 1) > avail;
-                        const clickable = withinMax && (!wouldAdd || isGM);
-                        function handleClick() {
-                          if (!clickable) return;
-                          if (i + 1 === avail) setResource(key, i, avail);
-                          else if (i + 1 < avail) setResource(key, i + 1, avail);
-                          else setResource(key, i + 1, avail);
-                        }
+                        const playerCanSpend = !wouldAdd && circle?.resources_editable && !spentAll && avail > 0;
+                        const clickable = withinMax && (isGM || (!wouldAdd && playerCanSpend));
                         const titleText = !withinMax
                           ? 'Beyond current maximum'
                           : wouldAdd && !isGM
-                            ? `Only the Lightkeeper can refill ${label}`
-                            : filled
-                              ? `Spend ${label} (set to ${i})`
-                              : `Add ${label} (set to ${i + 1})`;
+                            ? 'Only the Lightkeeper can refill resources'
+                            : spentAll && !isGM
+                              ? '2/2 resources already used this assignment'
+                              : !circle?.resources_editable && !isGM
+                                ? 'Resources locked — Lightkeeper controls spending'
+                                : filled
+                                  ? `Spend ${label}`
+                                  : `Add ${label} (set to ${i + 1})`;
                         return (
                           <div
                             key={i}
-                            onClick={clickable ? handleClick : undefined}
+                            onClick={clickable ? () => handleResourceClick(key, i, avail) : undefined}
                             title={titleText}
                             className={`w-4 h-4 rounded-sm border transition-all ${
                               filled

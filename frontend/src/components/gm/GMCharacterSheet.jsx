@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useShallow } from 'zustand/react/shallow';
+import useGameStore from '../../store/gameStore';
 import { InvestigatorDossier } from '../pc/InvestigatorDossier';
 import { BrassCornerFiligree } from '../shared/Decorations';
 import { apiUrl } from '../../utils/api';
@@ -8,6 +10,15 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   const [fullChar, setFullChar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [resetConfirm, setResetConfirm] = useState(false);
+
+  const { gmResetCharacter } = useGameStore(useShallow(s => ({ gmResetCharacter: s.gmResetCharacter })));
+
+  const handleReset = () => {
+    if (!resetConfirm) { setResetConfirm(true); return; }
+    gmResetCharacter(rosterItem.id);
+    setResetConfirm(false);
+  };
 
   useEffect(() => {
     if (!rosterItem?.id) return;
@@ -58,7 +69,27 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
         )}
 
         {fullChar && !loading && (
-          <InvestigatorDossier character={fullChar} readOnly />
+          <>
+            <InvestigatorDossier character={fullChar} readOnly />
+            <div className="mt-6 pt-4 border-t border-black/10 flex items-center gap-3">
+              <button
+                onClick={handleReset}
+                onBlur={() => setResetConfirm(false)}
+                className={`font-mono text-xs font-black uppercase tracking-[0.2em] px-4 py-2 border transition-colors ${
+                  resetConfirm
+                    ? 'bg-[#8b1a1a] text-white border-[#5c0f0f] hover:bg-[#a82222]'
+                    : 'bg-transparent text-[#8b1a1a] border-[#8b1a1a]/50 hover:bg-[#8b1a1a]/10'
+                }`}
+              >
+                {resetConfirm ? '[ Confirm Reset ]' : '[ Reset Session Resources ]'}
+              </button>
+              {resetConfirm && (
+                <span className="font-mono text-[10px] text-[#8b1a1a]/70 uppercase tracking-widest">
+                  Resets drive, resistance & ability uses
+                </span>
+              )}
+            </div>
+          </>
         )}
       </div>
     </motion.div>

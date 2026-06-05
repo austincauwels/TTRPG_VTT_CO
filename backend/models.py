@@ -137,6 +137,10 @@ class Character(Base):
     # Per-assignment ability use tracking: { "Death Defy": 1, "Saw This Coming": 2, ... }
     ability_uses = Column(JSON, default=dict)
 
+    # Circle resource tracking
+    train_bonus                = Column(Boolean, default=False)
+    resources_spent_assignment = Column(Integer, default=0)
+
     # Status
     incapacitated = Column(Boolean, default=False)
     is_dead = Column(Boolean, default=False)

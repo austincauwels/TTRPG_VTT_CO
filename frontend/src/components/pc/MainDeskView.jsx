@@ -67,7 +67,7 @@ export const MainDeskView = () => {
             onClick={() => setStage('HOME')}
             className="text-sm font-bold uppercase tracking-[0.2em] text-[#a82222] hover:text-white transition-colors bg-black/70 hover:bg-black/90 border border-[#a82222]/50 hover:border-[#a82222] px-4 py-2"
           >
-            [ Abandon Archive ]
+            [ Sign Out of Campaign ]
           </button>
         </div>
 

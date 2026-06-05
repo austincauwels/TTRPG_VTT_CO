@@ -227,6 +227,17 @@ def init_db():
     except Exception:
         pass
 
+    for col, typedef in [
+        ("train_bonus",                "INTEGER DEFAULT 0"),
+        ("resources_spent_assignment", "INTEGER DEFAULT 0"),
+    ]:
+        try:
+            with db_engine.connect() as conn:
+                conn.execute(text(f"ALTER TABLE characters ADD COLUMN {col} {typedef}"))
+                conn.commit()
+        except Exception:
+            pass
+
 init_db()
 
 limiter = Limiter(key_func=get_remote_address)
@@ -890,6 +901,16 @@ async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get
     circle.is_finalized = True
     campaign.roster_finalized = True
 
+    # Set starting resources to 1 + number of active members
+    active_member_count = db.query(Character).filter(
+        Character.campaign_id == body.campaign_id,
+        Character.status == "active",
+    ).count()
+    starting_resources = 1 + active_member_count
+    circle.stitch  = starting_resources
+    circle.refresh = starting_resources
+    circle.train   = starting_resources
+
     # Any character still pending when the roster is locked was not included — release them
     pending_chars = db.query(Character).filter(
         Character.campaign_id == body.campaign_id,
@@ -1109,6 +1130,26 @@ async def add_notebook_entry(campaign_id: int, entry_data: NotebookEntryCreate, 
     if entry_data.visibility == 'all':
         campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
         if campaign:
+            entry_payload = {
+                "id": entry.id,
+                "title": entry.title,
+                "content": entry.content,
+                "author_name": entry.author_name,
+                "author_type": entry.author_type,
+                "entry_type": entry.entry_type,
+                "visibility": entry.visibility,
+                "character_id": entry.character_id,
+                "page_number": entry.page_number,
+                "pen_font": entry.pen_font,
+                "ink_color": entry.ink_color,
+                "image_data": entry.image_data,
+                "created_at": entry.created_at.isoformat() if entry.created_at else None,
+                "is_deleted": entry.is_deleted,
+            }
+            await manager.broadcast_campaign(campaign.campaign_code, campaign_id, {
+                "type": "notebook_entry",
+                "payload": entry_payload,
+            }, db)
             await manager.broadcast_campaign(campaign.campaign_code, campaign_id, {
                 "type": "activity_log",
                 "payload": {
@@ -1365,6 +1406,8 @@ def get_char_dict(char):
         "campaign_id": getattr(char, "campaign_id", None),
         "personal_circle_answer": getattr(char, "personal_circle_answer", "") or "",
         "ability_uses": getattr(char, "ability_uses", None) or {},
+        "train_bonus": bool(getattr(char, "train_bonus", False)),
+        "resources_spent_assignment": getattr(char, "resources_spent_assignment", 0) or 0,
     }
 
 def get_circle_dict(circle):
@@ -1580,6 +1623,11 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                                 uses = dict(character.ability_uses or {})
                                 uses[mod_name] = uses.get(mod_name, 0) + 1
                                 character.ability_uses = uses
+
+                        # Consume Train bonus (+1d on first roll after spending Train resource)
+                        if getattr(character, "train_bonus", False):
+                            extra_dice_count += 1
+                            character.train_bonus = False
 
                         setattr(character, f"{cat}_current", max(0, getattr(character, f"{cat}_current") - spent))
                         is_gilded_action = getattr(character, f"gilded_{act}", False)
@@ -2085,6 +2133,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                     ).all()
                     for ch in active_chars:
                         ch.ability_uses = {}
+                        ch.resources_spent_assignment = 0
+                        ch.train_bonus = False
                     db.commit()
                     await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
                     for ch in active_chars:
@@ -2093,6 +2143,82 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                         "type": "activity_log",
                         "payload": {"message": "— Assignment ended. Ability uses have been reset. —", "log_type": "field"},
                     }, db)
+
+            elif action == "gm_reset_character":
+                if payload.get("role") != "GM": continue
+                target_id = payload.get("character_id")
+                if target_id:
+                    target_char = db.query(Character).filter(
+                        Character.id == target_id,
+                        Character.campaign_id == camp_id,
+                    ).first()
+                    if target_char:
+                        target_char.nerve_current     = target_char.nerve_max
+                        target_char.cunning_current   = target_char.cunning_max
+                        target_char.intuition_current = target_char.intuition_max
+                        target_char.nerve_resistance_spent     = 0
+                        target_char.cunning_resistance_spent   = 0
+                        target_char.intuition_resistance_spent = 0
+                        target_char.ability_uses = {}
+                        db.commit()
+                        await manager.broadcast(str(target_char.id), {
+                            "type": "character_update",
+                            "payload": get_char_dict(target_char),
+                        })
+                        await manager.broadcast_campaign(camp_code, camp_id, {
+                            "type": "activity_log",
+                            "payload": {
+                                "message": f"— {target_char.name}'s session resources have been reset. —",
+                                "log_type": "field",
+                            },
+                        }, db)
+
+            elif action == "spend_resource" and character:
+                resource_type = payload.get("resource_type")
+                if resource_type not in ("stitch", "refresh", "train"):
+                    continue
+                if not circle or not getattr(circle, "resources_editable", False):
+                    continue
+                if (getattr(character, "resources_spent_assignment", 0) or 0) >= 2:
+                    continue
+                cur_val = getattr(circle, resource_type, 0) or 0
+                if cur_val <= 0:
+                    continue
+
+                if resource_type == "stitch":
+                    character.body_marks  = 0
+                    character.brain_marks = 0
+                    character.bleed_marks = 0
+                elif resource_type == "refresh":
+                    character.nerve_current     = character.nerve_max
+                    character.cunning_current   = character.cunning_max
+                    character.intuition_current = character.intuition_max
+                    character.nerve_resistance_spent     = 0
+                    character.cunning_resistance_spent   = 0
+                    character.intuition_resistance_spent = 0
+                    character.ability_uses = {}
+                elif resource_type == "train":
+                    character.train_bonus = True
+
+                setattr(circle, resource_type, cur_val - 1)
+                character.resources_spent_assignment = (getattr(character, "resources_spent_assignment", 0) or 0) + 1
+                db.commit()
+
+                _RESOURCE_MSG = {
+                    "stitch":  "all marks cleared.",
+                    "refresh": "drives & resistances restored.",
+                    "train":   "Train d6 bonus active for next roll.",
+                }
+                await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+                await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)
+                await manager.broadcast_campaign(camp_code, camp_id, {
+                    "type": "activity_log",
+                    "payload": {
+                        "message": f"{character.name} used {resource_type.capitalize()} — {_RESOURCE_MSG[resource_type]}",
+                        "log_type": "field",
+                        "ink_color": getattr(character, "ink_color", "") or "",
+                    },
+                }, db)
 
             elif action == "apply_advancement" and character:
                 adv_choice = payload.get("choice")

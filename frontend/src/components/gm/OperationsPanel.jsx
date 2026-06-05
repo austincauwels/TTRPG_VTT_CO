@@ -174,7 +174,7 @@ export const OperationsPanel = () => {
           onClick={() => setStage('HOME')}
           className="text-sm font-bold uppercase tracking-[0.2em] text-[#3b82f6] hover:text-white transition-colors bg-[#0f172a]/80 hover:bg-[#0f172a] border border-[#3b82f6]/50 hover:border-[#3b82f6] px-4 py-2"
         >
-          [ Abandon Archive ]
+          [ Sign Out of Campaign ]
         </button>
       </div>
       
