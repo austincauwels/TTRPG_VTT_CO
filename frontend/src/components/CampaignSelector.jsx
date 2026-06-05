@@ -124,7 +124,7 @@ export const CampaignSelector = () => {
   const enterAsPlayer = (char) => {
     setLocalCharacter({ id: char.id, name: char.name, status: char.status });
     connect(char.id);
-    setLastPlayed({ type: 'player', characterId: char.id, campaignName: char.campaign_name || 'Active Campaign', campaignCode: char.campaign_code || '' });
+    setLastPlayed({ type: 'player', characterId: char.id, campaignName: char.campaign_name || 'Active Campaign', campaignCode: char.campaign_code || '', campaignId: char.campaign_id || null });
     closeBook();
     setStage('DESK');
   };

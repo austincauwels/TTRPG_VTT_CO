@@ -376,9 +376,9 @@ const useGameStore = create(
       setLastPlayed: (info) => {
         const updates = { lastPlayedCampaign: info };
         if (info?.type === 'gm') {
-          updates.accessSession = { ...(get().accessSession || {}), role: 'GM' };
+          updates.accessSession = { ...(get().accessSession || {}), role: 'GM', campaignId: info.campaignId ?? null };
         } else if (info?.type === 'player') {
-          updates.accessSession = { ...(get().accessSession || {}), role: 'PLAYER' };
+          updates.accessSession = { ...(get().accessSession || {}), role: 'PLAYER', campaignId: info.campaignId ?? null };
         }
         set(updates);
       },
