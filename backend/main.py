@@ -438,7 +438,13 @@ class NotebookEntryResponse(BaseModel):
 # =====================================================================
 router = APIRouter()
 
-_SAFE_FONT_NAMES = {"Caveat", "Satisfy", "Kalam", "Shadows Into Light", "Amatic SC", "Permanent Marker"}
+_SAFE_FONT_NAMES = {
+    "Caveat", "Satisfy", "Kalam", "Shadows Into Light", "Amatic SC", "Permanent Marker",
+    "Reenie Beenie", "Zeyada", "Sacramento", "Homemade Apple", "Alex Brush",
+    "Cedarville Cursive", "La Belle Aurore", "Charm", "Dawning of a New Day",
+    "Gaegu", "Grape Nuts", "Moondance", "Long Cang", "Indie Flower",
+    "Patrick Hand", "Rock Salt", "Gochi Hand",
+}
 _ALLOWED_CAMPAIGN_CODE_RE = _re.compile(r"^[a-zA-Z0-9\-_]{3,32}$")
 
 @router.post("/campaign/create")
@@ -1143,7 +1149,7 @@ async def add_notebook_entry(campaign_id: int, entry_data: NotebookEntryCreate, 
                 "pen_font": entry.pen_font,
                 "ink_color": entry.ink_color,
                 "image_data": entry.image_data,
-                "created_at": entry.created_at.isoformat() if entry.created_at else None,
+                "created_at": entry.created_at or None,
                 "is_deleted": entry.is_deleted,
             }
             await manager.broadcast_campaign(campaign.campaign_code, campaign_id, {
@@ -1747,6 +1753,13 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                         log_msg = f"{character.name} used Bending Spoons — took 1 Bleed mark to upgrade the result."
                         await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
                         await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": log_msg, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
+
+            elif action == "update_pen_font" and character:
+                new_font = payload.get("pen_font", "")
+                if new_font in _SAFE_FONT_NAMES:
+                    character.pen_font = new_font
+                    db.commit()
+                    await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
 
             elif action == "take_mark" and character:
                 m_type = payload.get("mark_type")

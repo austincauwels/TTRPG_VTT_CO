@@ -3,6 +3,13 @@ import useGameStore from '../../store/gameStore';
 
 const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = '#1a1a1a';
+
+const PEN_FONTS = [
+  'Caveat', 'Reenie Beenie', 'Kalam', 'Indie Flower', 'Patrick Hand',
+  'Shadows Into Light', 'Zeyada', 'Sacramento', 'Homemade Apple', 'Alex Brush',
+  'Cedarville Cursive', 'La Belle Aurore', 'Charm', 'Dawning of a New Day',
+  'Gaegu', 'Grape Nuts', 'Moondance', 'Long Cang', 'Rock Salt', 'Gochi Hand',
+];
 const ENTRIES_PER_SIDE = 3;
 
 const LINED_PAPER = {
@@ -177,6 +184,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
     updateNotebookEntry,
     deleteEphemeralNote,
     uploadNotebookImage,
+    updatePenFont,
   } = useGameStore();
 
   const isGM      = isGMProp !== null ? isGMProp : accessSession?.role === 'GM';
@@ -675,6 +683,23 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                         <p className="font-mono text-[12px] text-black/35 uppercase">{pendingImageType} staged — will submit with entry</p>
                       </div>
                       <button onClick={clearPendingImage} className="text-black/30 hover:text-red-600 font-black text-lg transition-colors">✕</button>
+                    </div>
+                  )}
+
+                  {/* Font picker — player only */}
+                  {!isGM && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[14px] uppercase tracking-widest text-black/40">Pen Style</span>
+                      <select
+                        value={authorFont}
+                        onChange={e => updatePenFont(e.target.value)}
+                        className="bg-transparent border-b border-black/25 focus:border-black/50 outline-none text-[18px] py-0.5 flex-1"
+                        style={{ fontFamily: authorFont, color: authorColor }}
+                      >
+                        {PEN_FONTS.map(f => (
+                          <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+                        ))}
+                      </select>
                     </div>
                   )}
 

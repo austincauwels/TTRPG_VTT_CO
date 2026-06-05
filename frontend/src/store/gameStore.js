@@ -535,6 +535,16 @@ const useGameStore = create(
         }
       },
 
+      updatePenFont: (penFont) => {
+        const { socket } = get();
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'update_pen_font',
+            payload: { pen_font: penFont },
+          }));
+        }
+      },
+
       spendCircleResource: (resourceType) => {
         const { socket, circle } = get();
         if (socket?.readyState === WebSocket.OPEN) {
