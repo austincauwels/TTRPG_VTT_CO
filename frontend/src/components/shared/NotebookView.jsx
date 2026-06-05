@@ -200,6 +200,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
   const [showEphemeral, setShowEphemeral]               = useState(false);
   const [ephemeralText, setEphemeralText]               = useState('');
   const [isAddingEphemeral, setIsAddingEphemeral]       = useState(false);
+  const [deleteConfirm, setDeleteConfirm]               = useState(null);
   // Lightkeeper resources — single continuous note
   const [showLKResources, setShowLKResources]           = useState(false);
   const [lkContent, setLkContent]                       = useState('');
@@ -574,22 +575,52 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                   {filteredEntries.length === 0 ? (
                     <p className="text-[28px] font-serif italic text-black/40 mt-4">No entries recorded yet.</p>
-                  ) : filteredEntries.map(entry => (
-                    <button key={entry.id} onClick={() => setCurrentSpread(entrySpread(entry))}
-                      className="w-full text-left flex items-center justify-between px-3 py-2 rounded-sm border border-black/[0.08] hover:bg-black/[0.03] transition-all group"
-                      style={{ background: 'rgba(0,0,0,0.015)' }}
-                    >
-                      <span className="text-[26px] leading-tight flex items-center gap-2"
-                        style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
-                        {entry.entry_type === 'sketch' && <span className="text-[14px]">✏</span>}
-                        {entry.entry_type === 'photo' && <span className="text-[14px]">📷</span>}
-                        {entry.title}
-                      </span>
-                      <span className="font-mono text-[18px] text-black/35 shrink-0 ml-2 group-hover:text-black/60">
-                        p.{entry.page_number}
-                      </span>
-                    </button>
-                  ))}
+                  ) : filteredEntries.map(entry => {
+                    const canDelete = isGM
+                      ? entry.author_type === 'gm'
+                      : entry.author_name === authorName;
+                    const isPendingDelete = deleteConfirm === entry.id;
+                    return (
+                      <div key={entry.id}
+                        className="w-full flex items-center gap-1 rounded-sm border border-black/[0.08] hover:bg-black/[0.03] transition-all group"
+                        style={{ background: 'rgba(0,0,0,0.015)' }}
+                      >
+                        <button onClick={() => { setDeleteConfirm(null); setCurrentSpread(entrySpread(entry)); }}
+                          className="flex-1 text-left flex items-center justify-between px-3 py-2"
+                        >
+                          <span className="text-[26px] leading-tight flex items-center gap-2"
+                            style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
+                            {entry.entry_type === 'sketch' && <span className="text-[14px]">✏</span>}
+                            {entry.entry_type === 'photo' && <span className="text-[14px]">📷</span>}
+                            {entry.title}
+                          </span>
+                          <span className="font-mono text-[18px] text-black/35 shrink-0 ml-2 group-hover:text-black/60">
+                            p.{entry.page_number}
+                          </span>
+                        </button>
+                        {canDelete && (
+                          isPendingDelete ? (
+                            <div className="flex items-center gap-1 pr-2 shrink-0">
+                              <button
+                                onClick={() => { deleteEphemeralNote(entry.id); setDeleteConfirm(null); }}
+                                className="font-mono text-[13px] font-black uppercase tracking-widest px-2 py-1 bg-[#8b1a1a] text-white hover:bg-[#a82222] transition-colors rounded-sm"
+                              >Delete</button>
+                              <button
+                                onClick={() => setDeleteConfirm(null)}
+                                className="font-mono text-[13px] text-black/40 hover:text-black/70 px-1 transition-colors"
+                              >Cancel</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={e => { e.stopPropagation(); setDeleteConfirm(entry.id); }}
+                              className="shrink-0 pr-3 font-mono text-[18px] text-black/20 hover:text-[#8b1a1a] transition-colors opacity-0 group-hover:opacity-100"
+                              title="Delete this entry"
+                            >×</button>
+                          )
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* GM-only: Lightkeeper Resources link in TOC */}
