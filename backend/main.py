@@ -1,36 +1,30 @@
-"""FastAPI application: REST endpoints, WebSocket game loop, authentication, and database session management."""
+"""Entry point for uvicorn (main:app).
+
+The application lives in the vtt package. Importing this module has the same side
+effects as before the split: it reads backend/.env, refuses to start without
+SECRET_KEY, creates the tables, seeds user 1 and circle 1 and runs the additive
+migrations in init_db. It also re-exports the names the tests use (app,
+SessionLocal, db_engine, limiter, init_db, pwd_context, manager,
+ConnectionManager, Base, SQLALCHEMY_DATABASE_URL).
+"""
 import os
 import sys
+import types
 import json
 import base64
-import logging
-from datetime import datetime, timedelta
 from typing import List, Optional
-from dotenv import load_dotenv
 
 # Ensure backend/ is on the path regardless of where uvicorn is invoked from
 sys.path.insert(0, os.path.dirname(__file__))
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S",
-)
-logger = logging.getLogger("candela")
+from vtt.config import logger, SQLALCHEMY_DATABASE_URL, CORS_ORIGINS, _SAFE_FONT_NAMES, _ALLOWED_CAMPAIGN_CODE_RE
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Request, status, APIRouter, UploadFile, File, Form
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-from sqlalchemy import create_engine, text, or_, func
-from sqlalchemy.orm import sessionmaker, Session, joinedload
-from pydantic import BaseModel, field_validator
-import re as _re
+from sqlalchemy import or_, func
+from sqlalchemy.orm import Session
 
 from models import Base, User, Game, Character, Circle, Campaign, NotebookEntry, CircleVote, Relationship
 from engine import (
@@ -41,411 +35,56 @@ from engine import (
     calculate_outcome, OUTCOME_LABELS,
     apply_advancement,
 )
+from vtt import db as _db
+from vtt.security import pwd_context, limiter
+from vtt.db import db_engine, SessionLocal, get_db, init_db
+from vtt.schemas import (
+    NotebookEntryUpdate, LoginRequest, RegisterRequest, CharacterCreate,
+    CharacterSummaryItem, CampaignSummaryItem, CharacterResponse, CharacterRosterItem,
+    RosterResponse, NotebookEntryCreate, NotebookEntryResponse, RejoinRequest,
+    InviteRejoinRequest, CircleVoteSubmit, RelationshipPropose, RelationshipRespond,
+    FinalizeRosterRequest,
+)
+from vtt.serializers import get_char_dict, get_circle_dict
+from vtt.circle_queries import get_or_create_campaign_circle, votes_dict, relationships_list, resolve_circle
+from vtt.ws.manager import ConnectionManager, manager
+
+
+class _MainModule(types.ModuleType):
+    """Assigning main.db_engine or main.SessionLocal (the tests do this with
+    monkeypatch to point the app at a scratch schema) also replaces them in vtt.db,
+    which is where init_db, get_db and the WebSocket handler look them up."""
+
+    def __setattr__(self, name, value):
+        if name in ("db_engine", "SessionLocal"):
+            setattr(_db, name, value)
+        super().__setattr__(name, value)
+
+
+sys.modules[__name__].__class__ = _MainModule
 
 # Abilities that can intercept marks on other players — used for efficient DB filtering
 INTERCEPT_ABILITIES = {"Behind Me", "Premonitions"}
 
-_secret = os.getenv("SECRET_KEY")
-if not _secret:
-    raise RuntimeError("SECRET_KEY environment variable must be set. Generate one with: openssl rand -hex 32")
-SECRET_KEY = _secret
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./candela_obscura.db")
-_connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
-db_engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=_connect_args)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
 Base.metadata.create_all(bind=db_engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def init_db():
-    """Seed required rows and run additive ALTER TABLE migrations. Each migration is idempotent — the except block silently ignores columns that already exist."""
-    db = SessionLocal()
-    try:
-        circle = db.query(Circle).filter(Circle.id == 1).first()
-        if not circle:
-            circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
-            db.add(circle)
-
-        admin_user = db.query(User).filter(User.username == "admin").first()
-        if not admin_user:
-            new_admin = User(
-                id=1,
-                username="admin",
-                email="admin@archive.com",
-                hashed_password=pwd_context.hash("admin")
-            )
-            db.add(new_admin)
-
-        db.commit()
-    except Exception as e:
-        logger.error("Error seeding database: %s", e)
-    finally:
-        db.close()
-
-    for col, typedef in [
-        ("guard_patrol", "INTEGER DEFAULT 0"),
-        ("miasma_bleed", "INTEGER DEFAULT 0"),
-        ("location",     "TEXT DEFAULT ''"),
-        ("atmosphere",   "TEXT DEFAULT ''"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE circles ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass  # column already exists
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE campaigns ADD COLUMN gm_user_id INTEGER"))
-            conn.commit()
-    except Exception:
-        pass  # column already exists
-
-    for col in [("role", "TEXT DEFAULT ''"), ("specialty", "TEXT DEFAULT ''")]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE characters ADD COLUMN {col[0]} {col[1]}"))
-                conn.commit()
-        except Exception:
-            pass  # column already exists
-
-    for col, typedef in [
-        ("chapter_house_location", "TEXT"),
-        ("circle_ability",         "TEXT"),
-        ("insignia",               "TEXT"),
-        ("backstory_answers",      "TEXT DEFAULT '{}'"),
-        ("is_finalized",           "INTEGER DEFAULT 0"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE circles ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE campaigns ADD COLUMN roster_finalized INTEGER DEFAULT 0"))
-            conn.commit()
-    except Exception:
-        pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE characters ADD COLUMN personal_circle_answer TEXT DEFAULT ''"))
-            conn.commit()
-    except Exception:
-        pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE relationships ADD COLUMN last_actor_id INTEGER"))
-            conn.commit()
-    except Exception:
-        pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE circles ADD COLUMN illumination INTEGER DEFAULT 0"))
-            conn.commit()
-    except Exception:
-        pass
-
-    for col, typedef in [
-        ("tension_clock", "INTEGER DEFAULT 4"),
-        ("tension_label", "TEXT DEFAULT ''"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE circles ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
-
-    for col in ["nerve_resistance_spent", "cunning_resistance_spent", "intuition_resistance_spent"]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE characters ADD COLUMN {col} INTEGER DEFAULT 0"))
-                conn.commit()
-        except Exception:
-            pass
-
-    for col, typedef in [
-        ("entry_type", "TEXT DEFAULT 'field_log'"),
-        ("visibility",  "TEXT DEFAULT 'all'"),
-        ("image_data",  "TEXT"),
-        ("is_deleted",  "INTEGER DEFAULT 0"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE notebook_entries ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
-
-    for col, typedef in [
-        ("resources_editable", "INTEGER DEFAULT 0"),
-        ("reports_open",       "INTEGER DEFAULT 0"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE circles ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE circles ADD COLUMN campaign_id INTEGER REFERENCES campaigns(id)"))
-            conn.commit()
-    except Exception:
-        pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE characters ADD COLUMN ability_uses TEXT DEFAULT '{}'"))
-            conn.commit()
-    except Exception:
-        pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE users ADD COLUMN pending_rejoin_campaign_id INTEGER"))
-            conn.commit()
-    except Exception:
-        pass
-
-    for col, typedef in [
-        ("train_bonus",                "INTEGER DEFAULT 0"),
-        ("resources_spent_assignment", "INTEGER DEFAULT 0"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE characters ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
-
 init_db()
 
-limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:4173").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # =====================================================================
-# PYDANTIC SCHEMAS
-# =====================================================================
-class NotebookEntryUpdate(BaseModel):
-    title: Optional[str] = None
-    content: Optional[str] = None
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-    @field_validator("username")
-    @classmethod
-    def username_length(cls, v):
-        if len(v) > 64:
-            raise ValueError("Username too long")
-        return v
-
-class RegisterRequest(BaseModel):
-    username: str
-    email: str
-    password: str
-
-    @field_validator("username")
-    @classmethod
-    def username_alphanum(cls, v):
-        if len(v) < 2 or len(v) > 32:
-            raise ValueError("Username must be 2–32 characters")
-        if not _re.match(r"^[\w\-. ]+$", v):
-            raise ValueError("Username contains invalid characters")
-        return v
-
-    @field_validator("email")
-    @classmethod
-    def email_length(cls, v):
-        if len(v) > 254:
-            raise ValueError("Email too long")
-        return v
-
-    @field_validator("password")
-    @classmethod
-    def password_strength(cls, v):
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        if len(v) > 128:
-            raise ValueError("Password too long")
-        return v
-
-class CharacterBase(BaseModel):
-    name: str
-    pronouns: str = "Unlisted"
-    style: str = ""
-    catalyst: str = ""
-    question: str = ""
-    role: str = ""
-    specialty: str = ""
-    role_ability: str = "None"
-    specialty_ability: str = "None"
-    profile_pic: Optional[str] = None
-    gear: List[str] = []
-
-    move: int = 0
-    strike: int = 0
-    control: int = 0
-    sneak: int = 0
-    hide: int = 0
-    sway: int = 0
-    survey: int = 0
-    read: int = 0
-    sense: int = 0
-
-    gilded_move: bool = False
-    gilded_strike: bool = False
-    gilded_control: bool = False
-    gilded_hide: bool = False
-    gilded_sneak: bool = False
-    gilded_sway: bool = False
-    gilded_survey: bool = False
-    gilded_read: bool = False
-    gilded_sense: bool = False
-
-    nerve_current: int = 1
-    nerve_max: int = 1
-    nerve_resistance_spent: int = 0
-    cunning_current: int = 1
-    cunning_max: int = 1
-    cunning_resistance_spent: int = 0
-    intuition_current: int = 1
-    intuition_max: int = 1
-    intuition_resistance_spent: int = 0
-
-    body_marks: int = 0
-    brain_marks: int = 0
-    bleed_marks: int = 0
-    scars_count: int = 0
-    scars_list: List[str] = []
-    incapacitated: bool = False
-
-class CharacterCreate(CharacterBase):
-    user_id: Optional[int] = None
-
-class CharacterSummaryItem(BaseModel):
-    id: int
-    name: str
-    role_ability: str = "None"
-    specialty_ability: str = "None"
-    status: str
-    campaign_id: Optional[int] = None
-    campaign_name: Optional[str] = None
-    campaign_code: Optional[str] = None
-    class Config:
-        from_attributes = True
-
-class CampaignSummaryItem(BaseModel):
-    id: int
-    name: str
-    campaign_code: str
-    class Config:
-        from_attributes = True
-
-class CharacterResponse(CharacterBase):
-    id: int
-    circle_id: int
-    status: str = "unaffiliated"
-    pen_font: str = "Caveat"
-    ink_color: str = ""
-    class Config:
-        from_attributes = True
-
-class CharacterRosterItem(BaseModel):
-    id: int
-    name: str
-    role_class: Optional[str] = None
-    role_ability: Optional[str] = None
-    specialty: Optional[str] = None
-    specialty_ability: Optional[str] = None
-    profile_pic: Optional[str] = None
-    circle_name: Optional[str] = None
-    status: str
-    is_dead: bool = False
-    pen_font: Optional[str] = "Caveat"
-    ink_color: Optional[str] = ""
-    class Config:
-        from_attributes = True
-
-class RosterResponse(BaseModel):
-    pending_investigators: List[CharacterRosterItem]
-    active_investigators: List[CharacterRosterItem]
-    roster_finalized: bool = False
-
-class NotebookEntryCreate(BaseModel):
-    title: str
-    content: str
-    author_name: str
-    author_type: str          # 'gm' | 'player'
-    character_id: Optional[int] = None
-    entry_type: str = 'field_log'
-    visibility: str = 'all'
-    image_data: Optional[str] = None
-
-class NotebookEntryResponse(BaseModel):
-    id: int
-    campaign_id: int
-    character_id: Optional[int]
-    author_name: str
-    author_type: str
-    pen_font: str
-    ink_color: str
-    title: str
-    content: str
-    created_at: str
-    page_number: int
-    entry_type: str = 'field_log'
-    visibility: str = 'all'
-    image_data: Optional[str] = None
-    is_deleted: bool = False
-    class Config:
-        from_attributes = True
-
-# =====================================================================
 # CAMPAIGN ROUTER
 # =====================================================================
 router = APIRouter()
-
-_SAFE_FONT_NAMES = {
-    "Caveat", "Satisfy", "Kalam", "Shadows Into Light", "Amatic SC", "Permanent Marker",
-    "Reenie Beenie", "Zeyada", "Sacramento", "Homemade Apple", "Alex Brush",
-    "Cedarville Cursive", "La Belle Aurore", "Charm", "Dawning of a New Day",
-    "Gaegu", "Grape Nuts", "Moondance", "Long Cang", "Indie Flower",
-    "Patrick Hand", "Rock Salt", "Gochi Hand",
-}
-_ALLOWED_CAMPAIGN_CODE_RE = _re.compile(r"^[a-zA-Z0-9\-_]{3,32}$")
 
 @router.post("/campaign/create")
 def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Session = Depends(get_db)):
@@ -561,9 +200,6 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db)):
     }, db)
     return {"ok": True}
 
-class RejoinRequest(BaseModel):
-    character_id: int
-    campaign_code: str
 
 @router.post("/campaign/rejoin")
 async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db)):
@@ -632,8 +268,6 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db)):
     }, db)
     return {"success": True, "character": get_char_dict(new_char)}
 
-class InviteRejoinRequest(BaseModel):
-    username: str
 
 @router.post("/campaign/{campaign_id}/invite-rejoin")
 async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session = Depends(get_db)):
@@ -688,69 +322,9 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db)):
     }
 
 # =====================================================================
-# CIRCLE CREATION SCHEMAS
-# =====================================================================
-
-class CircleVoteSubmit(BaseModel):
-    circle_id: int
-    character_id: int
-    vote_type: str   # 'name' | 'ability' | 'question'
-    value: str
-
-class RelationshipPropose(BaseModel):
-    circle_id: int
-    from_character_id: int
-    to_character_id: int
-    rel_type: str
-    lore: str = ""
-
-class RelationshipRespond(BaseModel):
-    relationship_id: int
-    action: str          # 'accept' | 'counter'
-    counter_type: Optional[str] = None
-    counter_lore: Optional[str] = None
-
-class FinalizeRosterRequest(BaseModel):
-    campaign_id: int
-    circle_id: int
-
 # =====================================================================
 # CIRCLE CREATION ENDPOINTS
 # =====================================================================
-
-def get_or_create_campaign_circle(db: Session, campaign_id: int) -> Circle:
-    """Returns the circle owned by this campaign, creating one if it doesn't exist yet."""
-    circle = db.query(Circle).filter(Circle.campaign_id == campaign_id).first()
-    if not circle:
-        circle = Circle(name="Unnamed Circle", stitch=1, refresh=1, train=1, campaign_id=campaign_id)
-        db.add(circle)
-        db.commit()
-        db.refresh(circle)
-    return circle
-
-def _votes_dict(db: Session, circle_id: int) -> dict:
-    all_votes = db.query(CircleVote).filter(CircleVote.circle_id == circle_id).all()
-    result = {"name_suggest": [], "name_vote": [], "ability": [], "question": [], "insignia": []}
-    for v in all_votes:
-        vtype = v.vote_type
-        if vtype in result:
-            result[vtype].append({"character_id": v.character_id, "value": v.value})
-    return result
-
-def _relationships_list(db: Session, circle_id: int) -> list:
-    rels = db.query(Relationship).filter(Relationship.circle_id == circle_id).all()
-    return [
-        {
-            "id": r.id,
-            "from_character_id": r.from_character_id,
-            "to_character_id": r.to_character_id,
-            "rel_type": r.rel_type,
-            "lore": r.lore or "",
-            "status": r.status,
-            "last_actor_id": getattr(r, "last_actor_id", None),
-        }
-        for r in rels
-    ]
 
 @router.get("/campaign/{campaign_id}/circle-creation-state")
 def get_circle_creation_state(campaign_id: int, db: Session = Depends(get_db)):
@@ -763,8 +337,8 @@ def get_circle_creation_state(campaign_id: int, db: Session = Depends(get_db)):
         "circle_id": circle.id,
         "is_finalized": bool(getattr(circle, "is_finalized", False)),
         "active_investigators": [get_char_dict(c) for c in active],
-        "votes": _votes_dict(db, circle.id),
-        "relationships": _relationships_list(db, circle.id),
+        "votes": votes_dict(db, circle.id),
+        "relationships": relationships_list(db, circle.id),
         "backstory_answers": get_circle_dict(circle)["backstory_answers"],
     }
 
@@ -798,7 +372,7 @@ def submit_circle_vote(body: CircleVoteSubmit, db: Session = Depends(get_db)):
             db.add(CircleVote(circle_id=body.circle_id, character_id=body.character_id,
                               vote_type=body.vote_type, value=body.value))
         db.commit()
-    all_votes = _votes_dict(db, body.circle_id)
+    all_votes = votes_dict(db, body.circle_id)
     return {"ok": True, "votes": all_votes[body.vote_type]}
 
 @router.post("/circle/relationship/propose")
@@ -824,7 +398,7 @@ def propose_relationship(body: RelationshipPropose, db: Session = Depends(get_db
             status="proposed",
         ))
     db.commit()
-    return {"ok": True, "relationships": _relationships_list(db, body.circle_id)}
+    return {"ok": True, "relationships": relationships_list(db, body.circle_id)}
 
 @router.post("/circle/relationship/respond")
 def respond_relationship(body: RelationshipRespond, db: Session = Depends(get_db)):
@@ -840,7 +414,7 @@ def respond_relationship(body: RelationshipRespond, db: Session = Depends(get_db
         rel.counter_type = body.counter_type
         rel.counter_lore = body.counter_lore
     db.commit()
-    return {"ok": True, "relationships": _relationships_list(db, rel.circle_id)}
+    return {"ok": True, "relationships": relationships_list(db, rel.circle_id)}
 
 @router.post("/campaign/finalize-roster")
 async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get_db)):
@@ -1282,177 +856,6 @@ def get_user_gm_campaigns(user_id: int, db: Session = Depends(get_db)):
 # =====================================================================
 # WEBSOCKET STREAM ROUTER
 # =====================================================================
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: dict[str, List[WebSocket]] = {}
-
-    async def connect(self, game_id: str, websocket: WebSocket):
-        await websocket.accept()
-        for old_conn in self.active_connections.get(game_id, []):
-            try:
-                await old_conn.close(code=1001)
-            except Exception:
-                pass
-        self.active_connections[game_id] = [websocket]
-
-    def disconnect(self, game_id: str, websocket: WebSocket):
-        if game_id in self.active_connections:
-            try:
-                self.active_connections[game_id].remove(websocket)
-            except ValueError:
-                pass
-
-    async def broadcast(self, game_id: str, message: dict):
-        if game_id not in self.active_connections:
-            return
-        dead = []
-        for connection in self.active_connections[game_id]:
-            try:
-                await connection.send_json(message)
-            except Exception:
-                dead.append(connection)
-        for conn in dead:
-            try:
-                self.active_connections[game_id].remove(conn)
-            except ValueError:
-                pass
-
-    async def broadcast_all(self, message: dict):
-        dead = []
-        for gid, connections in self.active_connections.items():
-            for connection in connections:
-                try:
-                    await connection.send_json(message)
-                except Exception:
-                    dead.append((gid, connection))
-        for gid, conn in dead:
-            try:
-                self.active_connections[gid].remove(conn)
-            except ValueError:
-                pass
-
-    async def broadcast_campaign(self, campaign_code: str, campaign_id, message: dict, db):
-        """Broadcast to all active connections belonging to a campaign.
-        Falls back to broadcasting only to campaign_code if campaign_id is unknown."""
-        if not campaign_id:
-            await self.broadcast(campaign_code, message)
-            return
-        chars = db.query(Character).filter(
-            Character.campaign_id == campaign_id,
-            Character.status == "active",
-        ).all()
-        ids = {campaign_code}
-        for c in chars:
-            ids.add(str(c.id))
-        for gid in ids:
-            await self.broadcast(gid, message)
-
-manager = ConnectionManager()
-
-def get_char_dict(char):
-    gear = char.gear if not isinstance(char.gear, str) else json.loads(char.gear) if char.gear else []
-    scars = char.scars_list if not isinstance(char.scars_list, str) else json.loads(char.scars_list) if char.scars_list else []
-
-    return {
-        "id": getattr(char, "id", 1),
-        "name": getattr(char, "name", "Unknown Investigator"),
-
-        "move": getattr(char, "move", 0) or 0,
-        "strike": getattr(char, "strike", 0) or 0,
-        "control": getattr(char, "control", 0) or 0,
-        "hide": getattr(char, "hide", 0) or 0,
-        "sneak": getattr(char, "sneak", 0) or 0,
-        "sway": getattr(char, "sway", 0) or 0,
-        "survey": getattr(char, "survey", 0) or 0,
-        "read": getattr(char, "read", 0) or 0,
-        "sense": getattr(char, "sense", 0) or 0,
-
-        "gilded_move": bool(getattr(char, "gilded_move", False)),
-        "gilded_strike": bool(getattr(char, "gilded_strike", False)),
-        "gilded_control": bool(getattr(char, "gilded_control", False)),
-        "gilded_hide": bool(getattr(char, "gilded_hide", False)),
-        "gilded_sneak": bool(getattr(char, "gilded_sneak", False)),
-        "gilded_sway": bool(getattr(char, "gilded_sway", False)),
-        "gilded_survey": bool(getattr(char, "gilded_survey", False)),
-        "gilded_read": bool(getattr(char, "gilded_read", False)),
-        "gilded_sense": bool(getattr(char, "gilded_sense", False)),
-
-        "nerve_max": getattr(char, "nerve_max", 1) or 1,
-        "nerve_current": max(0, getattr(char, "nerve_current", 0) or 0),
-        "nerve_resistance_spent": getattr(char, "nerve_resistance_spent", 0) or 0,
-        "cunning_max": getattr(char, "cunning_max", 1) or 1,
-        "cunning_current": max(0, getattr(char, "cunning_current", 0) or 0),
-        "cunning_resistance_spent": getattr(char, "cunning_resistance_spent", 0) or 0,
-        "intuition_max": getattr(char, "intuition_max", 1) or 1,
-        "intuition_current": max(0, getattr(char, "intuition_current", 0) or 0),
-        "intuition_resistance_spent": getattr(char, "intuition_resistance_spent", 0) or 0,
-
-        "body_marks": getattr(char, "body_marks", 0) or 0,
-        "brain_marks": getattr(char, "brain_marks", 0) or 0,
-        "bleed_marks": getattr(char, "bleed_marks", 0) or 0,
-        "scars_count": getattr(char, "scars_count", 0) or 0,
-        "scars_list": scars,
-        "incapacitated": bool(getattr(char, "incapacitated", False)),
-        "is_dead": bool(getattr(char, "is_dead", False)),
-        "circle_id": getattr(char, "circle_id", 1),
-
-        "pronouns": getattr(char, "pronouns", "Unlisted") or "Unlisted",
-        "style": getattr(char, "style", "") or "",
-        "catalyst": getattr(char, "catalyst", "") or "",
-        "question": getattr(char, "question", "") or "",
-        "role": getattr(char, "role", "") or "",
-        "specialty": getattr(char, "specialty", "") or "",
-        "role_ability": getattr(char, "role_ability", "None") or "None",
-        "specialty_ability": getattr(char, "specialty_ability", "None") or "None",
-        "gear": gear,
-        "profile_pic": getattr(char, "profile_pic", None),
-        "status": getattr(char, "status", "unaffiliated") or "unaffiliated",
-        "pen_font": getattr(char, "pen_font", "Caveat") or "Caveat",
-        "ink_color": getattr(char, "ink_color", "") or "",
-        "campaign_id": getattr(char, "campaign_id", None),
-        "personal_circle_answer": getattr(char, "personal_circle_answer", "") or "",
-        "ability_uses": getattr(char, "ability_uses", None) or {},
-        "train_bonus": bool(getattr(char, "train_bonus", False)),
-        "resources_spent_assignment": getattr(char, "resources_spent_assignment", 0) or 0,
-    }
-
-def get_circle_dict(circle):
-    backstory = getattr(circle, "backstory_answers", None) or {}
-    if isinstance(backstory, str):
-        try: backstory = json.loads(backstory)
-        except: backstory = {}
-    return {
-        "id": circle.id,
-        "name": circle.name,
-        "stitch": circle.stitch,
-        "refresh": circle.refresh,
-        "train": circle.train,
-        "guard_patrol": getattr(circle, "guard_patrol", None) or 0,
-        "miasma_bleed": getattr(circle, "miasma_bleed", None) or 0,
-        "tension_clock": getattr(circle, "tension_clock", 4) if getattr(circle, "tension_clock", None) is not None else 4,
-        "tension_label": getattr(circle, "tension_label", None) or "",
-        "location": getattr(circle, "location", None) or "",
-        "atmosphere": getattr(circle, "atmosphere", None) or "",
-        "max_capacity": 1 + sum(1 for c in circle.characters if c.status == "active"),
-        "chapter_house_location": getattr(circle, "chapter_house_location", None) or "",
-        "circle_ability": getattr(circle, "circle_ability", None) or "",
-        "insignia": getattr(circle, "insignia", None) or "",
-        "backstory_answers": backstory,
-        "is_finalized": bool(getattr(circle, "is_finalized", False)),
-        "illumination": getattr(circle, "illumination", 0) or 0,
-        "resources_editable": bool(getattr(circle, "resources_editable", False)),
-        "reports_open": bool(getattr(circle, "reports_open", False)),
-    }
-
-def resolve_circle(db, circle_id, camp_id):
-    """Find circle by id. Falls back to plain id lookup for legacy circles with campaign_id=NULL."""
-    if camp_id:
-        c = db.query(Circle).filter(Circle.id == circle_id, Circle.campaign_id == camp_id).first()
-        if c is None:
-            c = db.query(Circle).filter(Circle.id == circle_id).first()
-        return c
-    return db.query(Circle).filter(Circle.id == circle_id).first()
-
 @app.websocket("/ws/{game_id}")
 async def websocket_endpoint(websocket: WebSocket, game_id: str):
     logger.info("WebSocket connected: game_id=%s", game_id)
@@ -2313,7 +1716,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                         else:
                             db.add(CircleVote(circle_id=c_id, character_id=char_id, vote_type=v_type, value=v_value))
                         db.commit()
-                    updated_votes = _votes_dict(db, c_id)
+                    updated_votes = votes_dict(db, c_id)
                     await manager.broadcast_campaign(camp_code, camp_id, {
                         "type": "vote_update",
                         "payload": {"vote_type": v_type, "votes": updated_votes[v_type]}
@@ -2384,7 +1787,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                     db.commit()
                     await manager.broadcast_campaign(camp_code, camp_id, {
                         "type": "relationship_update",
-                        "payload": {"relationships": _relationships_list(db, c_id)}
+                        "payload": {"relationships": relationships_list(db, c_id)}
                     }, db)
 
             elif action == "circle_relationship_respond":
@@ -2410,7 +1813,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                         db.commit()
                         await manager.broadcast_campaign(camp_code, camp_id, {
                             "type": "relationship_update",
-                            "payload": {"relationships": _relationships_list(db, rel.circle_id)}
+                            "payload": {"relationships": relationships_list(db, rel.circle_id)}
                         }, db)
 
             elif action == "chat_message":
