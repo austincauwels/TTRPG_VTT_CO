@@ -220,7 +220,7 @@ def init_db():
         pass
 
     for col, typedef in [
-        ("tension_clock", "INTEGER DEFAULT 4"),
+        ("tension_clock", "INTEGER DEFAULT 0"),
         ("tension_label", "TEXT DEFAULT ''"),
     ]:
         try:
@@ -229,6 +229,15 @@ def init_db():
                 conn.commit()
         except Exception:
             pass
+
+    # The tension clock used to start full (4 of 4); new circles now start it empty.
+    # Existing circles keep whatever value their GM left them at.
+    try:
+        with db_engine.connect() as conn:
+            conn.execute(text("ALTER TABLE circles ALTER COLUMN tension_clock SET DEFAULT 0"))
+            conn.commit()
+    except Exception:
+        pass
 
     for col in ["nerve_resistance_spent", "cunning_resistance_spent", "intuition_resistance_spent"]:
         try:

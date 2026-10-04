@@ -257,7 +257,7 @@ MIGRATED_COLUMNS = {
     ("circles", "backstory_answers"): ("json", "'{}'::json"),
     ("circles", "is_finalized"): ("boolean", "false"),
     ("circles", "illumination"): ("integer", "0"),
-    ("circles", "tension_clock"): ("integer", "4"),
+    ("circles", "tension_clock"): ("integer", "0"),
     ("circles", "tension_label"): ("text", "''::text"),
     ("circles", "resources_editable"): ("boolean", "false"),
     ("circles", "reports_open"): ("boolean", "false"),

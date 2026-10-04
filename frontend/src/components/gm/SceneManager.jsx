@@ -10,7 +10,7 @@ const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', min
 const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reconnects by itself; try again in a moment.';
 
 // ── Single labeled 4-slice tension clock ──────────────────────────────────────
-// Replaces the two GMThreatWatch gauges. Starts fully filled (4/4 red slices).
+// Replaces the two GMThreatWatch gauges. Starts empty and fills a red slice per step.
 // GM can adjust with +/- controls. Label is editable by GM, read-only for players.
 export const TensionClock = ({ readOnly = false }) => {
   const { circle, socket, accessSession, lastPlayedCampaign } = useGameStore(useShallow(s => ({
@@ -22,7 +22,7 @@ export const TensionClock = ({ readOnly = false }) => {
   const isGM = !readOnly && (accessSession?.role === 'GM' || lastPlayedCampaign?.type === 'gm');
   const socketReady = socket?.readyState === WebSocket.OPEN;
 
-  const currentVal = circle?.tension_clock ?? 4;
+  const currentVal = circle?.tension_clock ?? 0;
   const label = circle?.tension_label ?? '';
 
   const sendUpdate = (updates) => {

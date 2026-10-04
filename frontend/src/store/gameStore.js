@@ -229,7 +229,7 @@ const useGameStore = create(
           else if (message.type === 'circle_update') {
             const next = message.payload;
             const seen = tensionSeen;
-            const value = next?.tension_clock ?? 4;
+            const value = next?.tension_clock ?? 0;
             tensionSeen = next ? { id: next.id, value } : null;
             set({ circle: next });
             // The GM raised the tension on the pocket watch: it ticks at every desk

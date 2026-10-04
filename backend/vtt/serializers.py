@@ -87,7 +87,7 @@ def get_circle_dict(circle):
         "train": circle.train,
         "guard_patrol": getattr(circle, "guard_patrol", None) or 0,
         "miasma_bleed": getattr(circle, "miasma_bleed", None) or 0,
-        "tension_clock": getattr(circle, "tension_clock", 4) if getattr(circle, "tension_clock", None) is not None else 4,
+        "tension_clock": getattr(circle, "tension_clock", None) or 0,
         "tension_label": getattr(circle, "tension_label", None) or "",
         "location": getattr(circle, "location", None) or "",
         "atmosphere": getattr(circle, "atmosphere", None) or "",

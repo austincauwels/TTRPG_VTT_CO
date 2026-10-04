@@ -58,8 +58,8 @@ class Circle(Base):
     guard_patrol = Column(Integer, default=0)
     miasma_bleed = Column(Integer, default=0)
 
-    # Single labeled tension clock (4 slices, starts full)
-    tension_clock = Column(Integer, default=4)
+    # Single labeled tension clock (4 slices, starts empty and fills as tension rises)
+    tension_clock = Column(Integer, default=0)
     tension_label = Column(String, default="")
 
     # Scene manager fields broadcast to players
