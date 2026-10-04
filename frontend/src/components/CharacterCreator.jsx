@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import * as Gi from "react-icons/gi";
+import * as Gi from "./shared/gameIcons";
 import { JoinCampaignForm } from './shared/JoinCampaignForm';
 import { ConfirmAction } from './shared/ConfirmAction';
 import { radioArrows } from './shared/a11y';

@@ -9,7 +9,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 
 // The notebook's sketch sheet runs Excalidraw (MIT), loaded only when the sheet opens.
 // Excalidraw fetches its hand-drawn fonts at run time from window.EXCALIDRAW_ASSET_PATH
-// (set in components/shared/sketch/loadSketchSheet.js) and only falls back to a CDN when
+// (set in components/shared/sketch/loadSketchPad.js) and only falls back to a CDN when
 // they are missing there. This copies the package's fonts into the build, under
 // excalidraw/fonts (beside the licence, excalidraw/LICENSE.txt), so the site serves them
 // itself.
@@ -49,6 +49,14 @@ export default defineConfig({
       // Mermaid, which the build cannot hold in memory: a small stand-in takes its place
       '@excalidraw/mermaid-to-excalidraw': path.join(here, 'src/components/shared/sketch/noMermaid.js'),
     },
+  },
+  // The build has to fit the heap .npmrc gives it, on the 1 GB machine that runs the site.
+  // Rollup's cache (kept for watch mode, which a one-off build never uses) and gzipping every
+  // chunk to report its size are memory it does not need: with both off it fits in 512 MB,
+  // with both on it did not.
+  build: {
+    rollupOptions: { cache: false },
+    reportCompressedSize: false,
   },
   server: {
     proxy: {
