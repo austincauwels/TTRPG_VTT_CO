@@ -26,6 +26,35 @@
         "title": "AccountGoogleLinkRequest",
         "type": "object"
       },
+      "AccountProof": {
+        "description": "What every change on the account page carries to prove the account again: its\ncurrent password, or a Google credential (an ID token from Google Identity Services)\nof the Google account linked to it, a few minutes old at most.",
+        "properties": {
+          "credential": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "title": "AccountProof",
+        "type": "object"
+      },
       "Body_upload_notebook_image_api_notebook__campaign_id__upload_post": {
         "properties": {
           "author_name": {
@@ -868,6 +897,46 @@
         "title": "EmailChange",
         "type": "object"
       },
+      "EmailChangeCancel": {
+        "description": "POST /api/auth/me/email/cancel: a proof of the account, or instead the token of the\nchange's own link (the page at /confirm-email offers Cancel change).",
+        "properties": {
+          "credential": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          }
+        },
+        "title": "EmailChangeCancel",
+        "type": "object"
+      },
       "EmailChangeConfirm": {
         "properties": {
           "token": {
@@ -1540,7 +1609,7 @@
     },
     "/api/auth/email-change/undo": {
       "post": {
-        "description": "The undo link mailed to the old address once a change went through. No login:\nwhoever made the change may have changed the password since. The old address comes\nback, every session ends (a password nobody knows; the user's sockets close), a Google\nlink the old address does not prove is removed, and the old address gets a password\nreset link while password sign-in is on. Answers the account's id, name and address\nand whether a reset link was sent.",
+        "description": "The undo link mailed to the old address once a change went through. No login:\nwhoever made the change may have changed the password since. The old address comes\nback, every session ends (a password nobody knows; the user's sockets close), and the\nold address gets a password reset link while password sign-in is on. The Google link\nstays when it is the one the account had when the change went through or the old\naddress is its email, and else is removed, unless no reset link can be sent: then\nit stays, as the account's only way in. The address the undo takes off the account\ngets a notice. Answers the account's id, name and address, whether a reset link was\nsent, and whether a Google link stayed (its email masked, and whether it stayed only\nas the way in).",
         "operationId": "undo_email_change_api_auth_email_change_undo_post",
         "requestBody": {
           "content": {
@@ -1778,8 +1847,18 @@
     },
     "/api/auth/me/email/cancel": {
       "post": {
-        "description": "Drops the change that waits, if any; its link stops working. No proof: it changes\nnothing on the account, and the owner can always undo a change someone else asked for.",
+        "description": "Drops the change that waits, if any; its link stops working. Needs a proof like the\nother changes (a login token alone could drop the owner's change), or instead the\nchange's own link (token), which the page at /confirm-email sends: a link that does\nnot work is refused as confirm refuses it. A failed proof counts per user; a right\none always goes through.",
         "operationId": "cancel_email_change_api_auth_me_email_cancel_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeCancel"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -1788,6 +1867,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Cancel Email Change"
@@ -1869,8 +1958,18 @@
     },
     "/api/auth/me/email/resend": {
       "post": {
-        "description": "A new link for the change that waits, to the same new address. The older link\nstops working and the change still expires when it would have, so this needs no\nproof. Limited with the requests (mail_refusal).",
+        "description": "A new link for the change that waits, to the same new address. The older link\nstops working and the change still expires when it would have. Needs a proof like\nthe other changes: each resend uses up the owner's confirmation emails and ends the\nlink the owner may already have. Limited with the requests (mail_refusal).",
         "operationId": "resend_email_change_api_auth_me_email_resend_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountProof"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "202": {
             "content": {
@@ -1879,6 +1978,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Resend Email Change"
@@ -1997,7 +2106,7 @@
     },
     "/api/auth/me/username": {
       "post": {
-        "description": "A new username under the register rule (the schema strips it), free as\nvtt/usernames.py compares names. A change of case of the user's own name is allowed.\nThe old name is held for the user for USERNAME_HOLD_DAYS. Answers the account.",
+        "description": "A new username under the register rule (the schema strips it), free as\nvtt/usernames.py compares names. A change of case of the user's own name is allowed.\nThe old name is held for the user for USERNAME_HOLD_DAYS. A rename that frees a name\nis capped per user (usernames.rename_refusal: a few a day, and a few held names at a\ntime). Answers the account.",
         "operationId": "change_username_api_auth_me_username_post",
         "requestBody": {
           "content": {
@@ -2071,7 +2180,7 @@
     },
     "/api/auth/password-reset/confirm": {
       "post": {
-        "description": "Sets a new password with the token from a reset link, once. The new password ends\nevery login token issued before. An unproven Google link (one made with another\nGoogle email, or from before the Google email was recorded) is removed, because\nwhoever reads the address owns the account. The answer is what login answers, with\na new token, plus googleUnlinked: whether a Google link was removed.",
+        "description": "Sets a new password with the token from a reset link, once. The new password ends\nevery login token issued before. An unproven Google link (one made with another\nGoogle email, or from before the Google email was recorded) is removed, because\nwhoever reads the address owns the account. The answer is what login answers, with\na new token, plus googleUnlinked: whether a Google link was removed. A link that a\nnewer one replaced says so, while the newer one works.",
         "operationId": "confirm_password_reset_api_auth_password_reset_confirm_post",
         "requestBody": {
           "content": {

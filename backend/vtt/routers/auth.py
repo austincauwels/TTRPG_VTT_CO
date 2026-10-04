@@ -63,6 +63,8 @@ REGISTER_REFUSALS_LIMITED = "Too many accounts could not be created from here. P
 REGISTER_REFUSAL_LIMIT = parse_limit("10/hour")
 REGISTER_REFUSAL_SCOPE = "register-refused"
 RESET_LINK_INVALID = "This link has expired or has already been used. Please ask for a new one."
+# Only to whoever holds a link that a newer one replaced (password_reset.replaced_link).
+RESET_LINK_REPLACED = "A newer link was sent. Use the latest email."
 
 
 def signed_in_response(db: Session, user: User) -> dict:
@@ -500,7 +502,10 @@ async def current_account(db: Session = Depends(get_db), user: User = Depends(ge
 # limit up cannot keep the owner from changing the password, which ends that session.
 FAILED_PROOF_LIMIT = parse_limit("10/hour")
 FAILED_PROOF_SCOPE = "account-failed-proof"
-FAILED_PROOFS_LIMITED = "Too many failed attempts on this account. Please try again in an hour."
+# Over the limit the right password, Google sign-in or link still goes through, so the
+# words do not tell the owner to wait.
+FAILED_PROOFS_LIMITED = ("This account has reached its limit of failed attempts. "
+                         "The right password, Google sign-in or link still works.")
 
 
 def refused_proof(user: User, status_code: int, detail: str) -> HTTPException:
@@ -618,11 +623,14 @@ async def confirm_password_reset(request: Request, body: PasswordResetConfirm, d
     every login token issued before. An unproven Google link (one made with another
     Google email, or from before the Google email was recorded) is removed, because
     whoever reads the address owns the account. The answer is what login answers, with
-    a new token, plus googleUnlinked: whether a Google link was removed."""
+    a new token, plus googleUnlinked: whether a Google link was removed. A link that a
+    newer one replaced says so, while the newer one works."""
     require_password_login()
     found = password_reset.find_token(db, body.token)
     if found is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=RESET_LINK_INVALID)
+        replaced = password_reset.replaced_link(db, body.token)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=RESET_LINK_REPLACED if replaced else RESET_LINK_INVALID)
     row, user = found
     new_hash = await run_in_threadpool(pwd_context.hash, body.password)
     outcome = password_reset.use_token(db, row, user, new_hash)

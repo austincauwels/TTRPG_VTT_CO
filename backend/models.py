@@ -33,9 +33,11 @@ class User(Base):
 
 class PasswordResetToken(Base):
     """An outstanding password reset link (vtt/password_reset.py). Only the SHA-256 of
-    the link's token is kept. A row is deleted when its link is used, when the user asks
-    for a newer link, and when the user's password is reset; password_stamp (see
-    vtt/security.py) makes it useless once the password changes any other way."""
+    the link's token is kept. A row is deleted when its link is used and when the user's
+    password is reset; password_stamp (see vtt/security.py) makes it useless once the
+    password changes any other way. When the user asks for a newer link the row stays,
+    marked replaced_at, so that its link can say that a newer one was sent; it never works
+    again, and it expires with the newer link."""
     __tablename__ = "password_reset_tokens"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -43,6 +45,7 @@ class PasswordResetToken(Base):
     password_stamp = Column(String(32), nullable=False)
     created_at = Column(Integer, nullable=False)  # Unix time, seconds
     expires_at = Column(Integer, nullable=False)  # Unix time, seconds
+    replaced_at = Column(Integer, nullable=True)  # Unix time, seconds: when a newer link replaced it
 
 class EmailChangeToken(Base):
     """A pending change of a user's email address (vtt/email_change.py): the link mailed
@@ -65,13 +68,15 @@ class EmailChangeUndo(Base):
     (vtt/email_change.py). Only the SHA-256 of the link's token is kept. It works once,
     for EMAIL_UNDO_EXPIRE_DAYS, whatever happened to the account since: a new password,
     a new Google link or another change of address do not end it. Using it deletes it
-    and every undo link of the user issued after it."""
+    and every undo link of the user issued after it. google_sub is the Google link the
+    account had when the change went through (NULL: none), which the undo keeps."""
     __tablename__ = "email_change_undos"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     token_hash = Column(String(64), nullable=False, unique=True, index=True)
     old_email = Column(String, nullable=False)    # the address the undo puts back
     new_email = Column(String, nullable=False)    # the address the change set
+    google_sub = Column(String, nullable=True)    # the Google link when the change went through
     created_at = Column(Integer, nullable=False)  # Unix time, seconds
     expires_at = Column(Integer, nullable=False)  # Unix time, seconds
 

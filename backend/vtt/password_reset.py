@@ -11,7 +11,11 @@ password_reset_tokens, with the user, the user's password stamp at the time (see
 vtt/security.py) and an expiry PASSWORD_RESET_EXPIRE_MINUTES later. A token works
 once: POST /api/auth/password-reset/confirm deletes its row before it sets the new
 password, and deletes the user's other rows with it. A newer request for the same user
-deletes the older rows. Any other change of the password (Sign in with Google linking
+replaces the older rows: they stay, marked replaced_at, never work again and expire with
+the newer link, so that the holder of an older link is told a newer one was sent
+(replaced_link) rather than that it expired. Each email's subject carries the time it
+was sent, Pacific time (subject), so that Gmail does not stack the emails of several
+requests in one thread, where the oldest link shows first. Any other change of the password (Sign in with Google linking
 by email, retire_published_passwords, a hash set in the database) changes the stamp,
 so an older token no longer matches. The new password changes the stamp that login
 tokens carry too, which ends every earlier session. Using a token also marks the
@@ -30,6 +34,7 @@ import re
 import secrets
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 
 from limits import parse as parse_limit
@@ -42,7 +47,13 @@ from vtt.config import logger
 from vtt.db import PUBLISHED_PASSWORDS
 from vtt.security import limiter, password_stamp
 
-SUBJECT = "Set a new Candela Obscura password"
+try:
+    from zoneinfo import ZoneInfo
+    _PACIFIC = ZoneInfo("America/Los_Angeles")
+except Exception:  # no time zone data on this system: pacific_by_rule
+    _PACIFIC = None
+
+SUBJECT = "Set a new Candela Obscura password"  # then the time it was sent: subject()
 
 # Per address, on top of the per-IP limit on the route. Every request counts, whether
 # or not an account has the address, so a refusal says nothing about accounts.
@@ -84,6 +95,7 @@ class ResetEmail:
     to: str
     username: str
     link: str
+    issued_at: int  # Unix seconds, for the subject's time
 
 
 def now() -> int:
@@ -164,38 +176,70 @@ def forget_expired(db: Session) -> None:
 
 
 def issue_links(db: Session, users: List[User]) -> List[ResetEmail]:
-    """A new token for each user, replacing any older one. The caller commits, then
-    sends the emails."""
+    """A new token for each user. The user's older rows are marked replaced (they never
+    work again) and now expire with the new one. The caller commits, then sends the
+    emails."""
     issued_at = now()
+    expires_at = issued_at + config.PASSWORD_RESET_EXPIRE_MINUTES * 60
     emails = []
     for user in users:
         token = secrets.token_urlsafe(32)
-        db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete(
-            synchronize_session=False)
+        db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).update({
+            PasswordResetToken.replaced_at: func.coalesce(PasswordResetToken.replaced_at, issued_at),
+            PasswordResetToken.expires_at: expires_at,
+        }, synchronize_session=False)
         db.add(PasswordResetToken(
             user_id=user.id,
             token_hash=token_hash(token),
             password_stamp=password_stamp(user.hashed_password),
             created_at=issued_at,
-            expires_at=issued_at + config.PASSWORD_RESET_EXPIRE_MINUTES * 60,
+            expires_at=expires_at,
         ))
-        emails.append(ResetEmail(to=user.email, username=user.username, link=reset_link(token)))
+        emails.append(ResetEmail(to=user.email, username=user.username, link=reset_link(token), issued_at=issued_at))
         logger.info("Issued a password reset link for user id=%s", user.id)
     return emails
 
 
-def find_token(db: Session, token: Optional[str]) -> Optional[Tuple[PasswordResetToken, User]]:
-    """(row, user) for a token that can still be used: it exists, has not expired, its
-    user exists, and the user's password is still the one it was issued for."""
+def _row(db: Session, token: Optional[str]) -> Optional[PasswordResetToken]:
+    """The row of a token that exists and has not expired, or None."""
     if not token or not isinstance(token, str):
         return None
     row = db.query(PasswordResetToken).filter(PasswordResetToken.token_hash == token_hash(token)).first()
     if row is None or row.expires_at <= now():
         return None
+    return row
+
+
+def _stamp_matches(row: PasswordResetToken, user: Optional[User]) -> bool:
+    return user is not None and hmac.compare_digest(row.password_stamp, password_stamp(user.hashed_password))
+
+
+def find_token(db: Session, token: Optional[str]) -> Optional[Tuple[PasswordResetToken, User]]:
+    """(row, user) for a token that can still be used: it exists, has not expired, no
+    newer link replaced it, its user exists, and the user's password is still the one it
+    was issued for."""
+    row = _row(db, token)
+    if row is None or row.replaced_at is not None:
+        return None
     user = db.query(User).filter(User.id == row.user_id).first()
-    if user is None or not hmac.compare_digest(row.password_stamp, password_stamp(user.hashed_password)):
+    if not _stamp_matches(row, user):
         return None
     return row, user
+
+
+def replaced_link(db: Session, token: Optional[str]) -> bool:
+    """True for the token of a link that a newer one replaced, while the newest link of
+    its user still works (find_token would take it). Only whoever holds the old link can
+    learn this, so it says nothing about which addresses have accounts."""
+    row = _row(db, token)
+    if row is None or row.replaced_at is None:
+        return False
+    newest = db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == row.user_id, PasswordResetToken.replaced_at.is_(None),
+        PasswordResetToken.expires_at > now()).order_by(PasswordResetToken.id.desc()).first()
+    if newest is None:
+        return False
+    return _stamp_matches(newest, db.query(User).filter(User.id == row.user_id).first())
 
 
 @dataclass
@@ -249,6 +293,35 @@ NIGHT, PARCHMENT, INK, SEPIA, OXBLOOD, CREAM = "#120b0a", "#f0e2c0", "#1a1311", 
 SERIF = "Georgia, 'Times New Roman', serif"
 
 
+def pacific_by_rule(at: int) -> datetime:
+    """The time at `at` (Unix seconds) on the US Pacific clock by the rule in force since
+    2007 (daylight time from 2 AM on the second Sunday of March to 2 AM on the first
+    Sunday of November), for a system without time zone data."""
+    utc = datetime.fromtimestamp(at, timezone.utc)
+
+    def sunday(month: int, nth: int) -> datetime:
+        first = datetime(utc.year, month, 1, tzinfo=timezone.utc)
+        return first + timedelta(days=(6 - first.weekday()) % 7 + 7 * (nth - 1))
+
+    starts = sunday(3, 2) + timedelta(hours=10)  # 2 AM Pacific standard time
+    ends = sunday(11, 1) + timedelta(hours=9)    # 2 AM Pacific daylight time
+    return utc + timedelta(hours=-7 if starts <= utc < ends else -8)
+
+
+def pacific_clock(at: int) -> str:
+    """The time of day at `at` (Unix seconds) on the clock of the US Pacific coast, where
+    the site's players are: "10:00 AM", "9:05 PM"."""
+    local = datetime.fromtimestamp(at, _PACIFIC) if _PACIFIC is not None else pacific_by_rule(at)
+    return f"{local.hour % 12 or 12}:{local.minute:02d} {'AM' if local.hour < 12 else 'PM'}"
+
+
+def subject(issued_at: int) -> str:
+    """The reset email's subject: "Set a new Candela Obscura password (10:00 AM)". The time
+    makes each request's email a thread of its own in Gmail, so the newest link is the
+    one on top, not hidden under an older one."""
+    return f"{SUBJECT} ({pacific_clock(issued_at)})"
+
+
 def email_text(username: str, link: str) -> str:
     return (
         f"Someone asked to set a new password for the Candela Obscura account \"{username}\".\n"
@@ -263,12 +336,12 @@ def email_text(username: str, link: str) -> str:
     )
 
 
-def email_html(username: str, link: str) -> str:
+def email_html(username: str, link: str, title: str = SUBJECT) -> str:
     name, href = html.escape(username), html.escape(link, quote=True)
     small = f"margin:0 0 14px;font-size:14px;line-height:1.5;color:{SEPIA};"
     return f"""<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{SUBJECT}</title></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{html.escape(title)}</title></head>
 <body style="margin:0;padding:0;background:{NIGHT};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{NIGHT};">
 <tr><td align="center" style="padding:32px 16px;">
@@ -292,5 +365,6 @@ def email_html(username: str, link: str) -> str:
 def send_reset_email(message: ResetEmail) -> None:
     """Runs after the answer has gone out (a background task), so the time the answer
     takes does not depend on whether an account matched."""
-    mail.send_email(message.to, SUBJECT, email_text(message.username, message.link),
-                    email_html(message.username, message.link))
+    title = subject(message.issued_at)
+    mail.send_email(message.to, title, email_text(message.username, message.link),
+                    email_html(message.username, message.link, title))

@@ -230,6 +230,18 @@ class EmailChange(AccountProof):
     def email_shape(cls, v):
         return check_email_shape(v)
 
+class EmailChangeCancel(AccountProof):
+    """POST /api/auth/me/email/cancel: a proof of the account, or instead the token of the
+    change's own link (the page at /confirm-email offers Cancel change)."""
+    token: Optional[str] = None
+
+    @field_validator("token")
+    @classmethod
+    def cancel_token_length(cls, v):
+        if v is not None and len(v) > _MAX_RESET_TOKEN_LENGTH:
+            raise ValueError("Token too long")
+        return v
+
 class EmailChangeConfirm(BaseModel):
     token: str
 

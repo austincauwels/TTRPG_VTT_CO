@@ -14,11 +14,14 @@ Once the change went through, the old address gets a second notice with an undo 
 RESET_URL_BASE/undo-email-change?token=<token>, that works once for EMAIL_UNDO_EXPIRE_DAYS
 (table email_change_undos), signed in or not, whatever happened to the account since.
 Using it (POST /api/auth/email-change/undo) puts the old address back, ends every
-session (a password nobody knows), removes a Google link that the old address does not
-prove, and mails a password reset link to the old address. Whoever asked for the change
-needed the password or the linked Google account; whoever reads the old address gets the
-account back. While an undo link can put an address back, no other account may take it
-(address_held).
+session (a password nobody knows), and mails a password reset link to the old address.
+The Google link stays when it is the one the account had when the change went through
+(recorded in the undo row) or the old address is its email; another one is removed,
+unless no reset link can be sent (password sign-in off), when removing it would leave
+the account no way in. The address the undo takes off the account gets a notice
+(undone_email). Whoever asked for the change needed the password or the linked Google
+account; whoever reads the old address gets the account back. While an undo link can
+put an address back, no other account may take it (address_held).
 
 A token is 32 random bytes (secrets.token_urlsafe). Only its SHA-256 is stored, in
 email_change_tokens, with the user, the new address, the address the account had when
@@ -33,8 +36,9 @@ The emails go through vtt/mail.py like the reset emails, under caps of their own
 (mail_refusal), so that email changes can never use up the reset emails' caps: per user
 (EMAIL_CHANGE_MAIL_LIMIT), per new address (EMAIL_CHANGE_ADDRESS_LIMIT) and for the whole
 server (EMAIL_CHANGE_MAIL_LIMITS). A request counts its notice of the finished change
-too, so that notice always goes out. The reset email an undo sends is not capped: each
-undo link comes from one finished change.
+too, so that notice always goes out. The two emails an undo sends (the reset link and
+the notice to the address it takes off) are not capped: each undo link comes from one
+finished change.
 """
 import hashlib
 import hmac
@@ -45,7 +49,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from limits import parse as parse_limit
-from sqlalchemy import case, func
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 
 from models import EmailChangeToken, EmailChangeUndo, PasswordResetToken, User
@@ -60,6 +64,7 @@ EMAIL_UNDO_EXPIRE_DAYS = 7         # the undo link sent to the old address
 LINK_SUBJECT = "Confirm your new Candela Obscura email address"
 NOTICE_SUBJECT = "Your Candela Obscura email address is being changed"
 CHANGED_SUBJECT = "Your Candela Obscura email address was changed"
+UNDONE_SUBJECT = "Your Candela Obscura email address was changed back"
 
 # Emails about changing the address, per user: a request and each resend count one.
 EMAIL_CHANGE_MAIL_LIMIT = parse_limit("3/hour")
@@ -253,7 +258,8 @@ def mail_refusal(user: User, new_address: str, emails: int) -> Optional[str]:
 
 def issue_undo(db: Session, user_id: int, old_email: str, new_email: str) -> str:
     """An undo link for a change of address that just went through, for the old
-    address. Returns the token; the caller commits, then sends changed_email."""
+    address. It records the Google link the account has now (google_sub), which the
+    undo keeps. Returns the token; the caller commits, then sends changed_email."""
     token = secrets.token_urlsafe(32)
     issued_at = now()
     db.add(EmailChangeUndo(
@@ -261,6 +267,7 @@ def issue_undo(db: Session, user_id: int, old_email: str, new_email: str) -> str
         token_hash=token_hash(token),
         old_email=old_email,
         new_email=new_email,
+        google_sub=db.query(User.google_sub).filter(User.id == user_id).scalar(),
         created_at=issued_at,
         expires_at=issued_at + EMAIL_UNDO_EXPIRE_DAYS * 24 * 60 * 60,
     ))
@@ -277,30 +284,45 @@ def find_undo(db: Session, token: Optional[str]) -> Optional[EmailChangeUndo]:
     return row
 
 
-def undo(db: Session, row: EmailChangeUndo, new_password_hash: str) -> bool:
+def link_kept_by_rule(google_sub: Optional[str], google_email: Optional[str], row: EmailChangeUndo) -> bool:
+    """Whether an undo keeps this Google link by its rule: it is the link the account
+    had when the change went through (row.google_sub), or its email is the old address."""
+    return google_sub is not None and (
+        (row.google_sub is not None and google_sub == row.google_sub)
+        or normalize_address(google_email or "") == normalize_address(row.old_email))
+
+
+def undo(db: Session, row: EmailChangeUndo, new_password_hash: str, keep_any_link: bool = False) -> bool:
     """Deletes the undo row, and the user's undo rows issued after it (they belong to
     later changes, which this one takes back; left alone, whoever made those changes
     could undo this undo). Then one UPDATE of the user: the old address back, proven
     (the link reached it); the password replaced with new_password_hash, one nobody
     knows, which ends every session; has_password false; the Google link removed unless
-    its email is the old address. The user's waiting change and reset links are deleted.
-    False when another request used the row first; the caller then rolls back. The
-    caller commits, and handles the unique index on the address."""
+    it is the one the account had when the change went through or its email is the old
+    address (link_kept_by_rule). With keep_any_link (no reset link will be sent, so
+    without Google the account would have no way in) the Google link stays whatever it
+    is. The user's waiting change and reset links are deleted. False when another
+    request used the row first; the caller then rolls back. The caller commits, and
+    handles the unique index on the address."""
     claimed = db.query(EmailChangeUndo).filter(EmailChangeUndo.id == row.id).delete(
         synchronize_session=False)
     if claimed != 1:
         return False
     db.query(EmailChangeUndo).filter(EmailChangeUndo.user_id == row.user_id, EmailChangeUndo.id > row.id).delete(
         synchronize_session=False)
-    kept_link = func.lower(func.coalesce(User.google_email, "")) == normalize_address(row.old_email)
-    changed = db.query(User).filter(User.id == row.user_id).update({
+    values = {
         User.email: row.old_email,
         User.email_proven: True,
         User.hashed_password: new_password_hash,
         User.has_password: False,
-        User.google_sub: case((kept_link, User.google_sub), else_=None),
-        User.google_email: case((kept_link, User.google_email), else_=None),
-    }, synchronize_session=False)
+    }
+    if not keep_any_link:
+        kept_link = func.lower(func.coalesce(User.google_email, "")) == normalize_address(row.old_email)
+        if row.google_sub is not None:
+            kept_link = or_(kept_link, User.google_sub == row.google_sub)
+        values[User.google_sub] = case((kept_link, User.google_sub), else_=None)
+        values[User.google_email] = case((kept_link, User.google_email), else_=None)
+    changed = db.query(User).filter(User.id == row.user_id).update(values, synchronize_session=False)
     if changed != 1:
         return False
     db.query(EmailChangeToken).filter(EmailChangeToken.user_id == row.user_id).delete(
@@ -438,6 +460,32 @@ def changed_email(to: str, username: str, new_address: str, link: str) -> Email:
         ("If you made this change, you can ignore this email.", True),
     ], button=("Undo this change", href))
     return Email(to=to, subject=CHANGED_SUBJECT, text=text, html=page)
+
+
+def undone_email(to: str, username: str, old_address: str, google_email: Optional[str] = None,
+                 google_kept: bool = False) -> Email:
+    """To the address an undo took off the account: what happened, plainly. Whoever
+    reads it may be the owner, signed out by someone who reads the old address."""
+    shown = masked(old_address)
+    if google_kept:
+        google = (f"Google sign-in with {masked(google_email)} still works." if google_email
+                  else "Its Google sign-in still works.")
+    else:
+        google = ""
+    first = (f"The email address of the Candela Obscura account \"{username}\" was changed back to {shown}. "
+             "Someone used the undo link that was sent to that address when this one replaced it.")
+    second = ("This address is no longer on the account. Every sign-in to the account has ended "
+              "and its password no longer works.")
+    third = f"If you did not expect this, whoever reads {shown} now has the account."
+    text = "\n\n".join(p for p in (first, f"{second} {google}".strip(), third)) + "\n"
+    page = _letter(UNDONE_SUBJECT, [
+        (f"The email address of the account <strong>{html.escape(username)}</strong> was changed back to "
+         f"<strong>{html.escape(shown)}</strong>. Someone used the undo link that was sent to that address "
+         "when this one replaced it.", False),
+        (html.escape(f"{second} {google}".strip()), True),
+        (html.escape(third), True),
+    ])
+    return Email(to=to, subject=UNDONE_SUBJECT, text=text, html=page)
 
 
 def send(message: Email) -> None:

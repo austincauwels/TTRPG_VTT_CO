@@ -11,7 +11,8 @@ address went through, works without a login.
 Every change needs a login token and proves the account again: with its current
 password, or with a Google credential of the Google account linked to it that Google
 issued at most GOOGLE_PROOF_MAX_AGE_SECONDS before (a Google sign-in made for this
-request). Removing Google takes the password only. A login token alone is never enough:
+request). Removing Google takes the password only; cancelling a change of address also
+takes the change's own link. A login token alone is never enough:
 tokens last 30 days and cannot be revoked one at a time. A failed proof counts against a
 limit per user (refused_proof) besides the per-IP limit of its route; a right proof
 always goes through. The log names the user id and what changed, never a password, a
@@ -35,8 +36,8 @@ from vtt.db import get_db, unusable_password_hash
 from vtt.routers.auth import (RELINK_WRONG_PASSWORD, REGISTER_REFUSALS_LIMITED, SEEDED_USERNAMES, USERNAME_TAKEN,
                               account_view, check_password, count_register_refusal, proof_google_identity,
                               proven_link, refused_proof, register_refusals_left)
-from vtt.schemas import (AccountProof, EmailChange, EmailChangeConfirm, EmailChangeUndo, GoogleRemoval,
-                         PasswordChange, UsernameChange)
+from vtt.schemas import (AccountProof, EmailChange, EmailChangeCancel, EmailChangeConfirm, EmailChangeUndo,
+                         GoogleRemoval, PasswordChange, UsernameChange)
 from vtt.security import create_access_token, limiter, pwd_context
 from vtt.ws.manager import manager
 
@@ -147,7 +148,9 @@ async def change_username(request: Request, body: UsernameChange, db: Session = 
                           user: User = Depends(get_current_user)):
     """A new username under the register rule (the schema strips it), free as
     vtt/usernames.py compares names. A change of case of the user's own name is allowed.
-    The old name is held for the user for USERNAME_HOLD_DAYS. Answers the account."""
+    The old name is held for the user for USERNAME_HOLD_DAYS. A rename that frees a name
+    is capped per user (usernames.rename_refusal: a few a day, and a few held names at a
+    time). Answers the account."""
     if user.username in SEEDED_USERNAMES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=USERNAME_FIXED)
     proof = await proven(user, body, "username")
@@ -155,6 +158,11 @@ async def change_username(request: Request, body: UsernameChange, db: Session = 
         return account_view(db, user)
     if name_taken_by_another(db, user, body.username):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=USERNAME_TAKEN)
+    frees_name = usernames.frees_a_name(user.username, body.username)
+    if frees_name:
+        refusal = usernames.rename_refusal(db, user.id, user.username, body.username)
+        if refusal:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=refusal)
     try:
         if not write_if_unchanged(db, user, proof, {User.username: body.username}):
             raise account_changed()
@@ -165,6 +173,8 @@ async def change_username(request: Request, body: UsernameChange, db: Session = 
         # Another request took the name after the check (the unique index on username)
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=USERNAME_TAKEN)
+    if frees_name:
+        usernames.count_rename(user.id)
     db.refresh(user)
     logger.info("Changed the username of user id=%s (%s proof)", user.id, proof.how)
     return account_view(db, user)
@@ -245,12 +255,14 @@ async def request_email_change(request: Request, body: EmailChange, background_t
 
 @router.post("/api/auth/me/email/resend", status_code=status.HTTP_202_ACCEPTED)
 @limiter.limit("10/minute")
-async def resend_email_change(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db),
-                              user: User = Depends(get_current_user)):
+async def resend_email_change(request: Request, body: AccountProof, background_tasks: BackgroundTasks,
+                              db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """A new link for the change that waits, to the same new address. The older link
-    stops working and the change still expires when it would have, so this needs no
-    proof. Limited with the requests (mail_refusal)."""
+    stops working and the change still expires when it would have. Needs a proof like
+    the other changes: each resend uses up the owner's confirmation emails and ends the
+    link the owner may already have. Limited with the requests (mail_refusal)."""
     require_email_links()
+    proof = await proven(user, body, "resend")
     row = email_change.pending(db, user)
     if row is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=NO_PENDING_EMAIL)
@@ -260,7 +272,7 @@ async def resend_email_change(request: Request, background_tasks: BackgroundTask
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=refusal)
     token = email_change.reissue(db, row)
     db.commit()
-    logger.info("Sent the email change link again for user id=%s", user.id)
+    logger.info("Sent the email change link again for user id=%s (%s proof)", user.id, proof.how)
     background_tasks.add_task(email_change.send, email_change.link_email(
         new_email, user.username, email_change.confirm_link(token)))
     return account_view(db, user)
@@ -268,12 +280,20 @@ async def resend_email_change(request: Request, background_tasks: BackgroundTask
 
 @router.post("/api/auth/me/email/cancel")
 @limiter.limit("10/minute")
-async def cancel_email_change(request: Request, db: Session = Depends(get_db),
+async def cancel_email_change(request: Request, body: EmailChangeCancel, db: Session = Depends(get_db),
                               user: User = Depends(get_current_user)):
-    """Drops the change that waits, if any; its link stops working. No proof: it changes
-    nothing on the account, and the owner can always undo a change someone else asked for."""
+    """Drops the change that waits, if any; its link stops working. Needs a proof like the
+    other changes (a login token alone could drop the owner's change), or instead the
+    change's own link (token), which the page at /confirm-email sends: a link that does
+    not work is refused as confirm refuses it. A failed proof counts per user; a right
+    one always goes through."""
+    if body.password or body.credential or not body.token:
+        how = (await proven(user, body, "cancel")).how
+    else:
+        usable_link(db, user, body.token)
+        how = "link"
     if email_change.cancel(db, user):
-        logger.info("Cancelled the email change of user id=%s", user.id)
+        logger.info("Cancelled the email change of user id=%s (%s proof)", user.id, how)
     db.commit()
     return account_view(db, user)
 
@@ -347,10 +367,14 @@ async def undo_email_change(request: Request, body: EmailChangeUndo, background_
                             db: Session = Depends(get_db)):
     """The undo link mailed to the old address once a change went through. No login:
     whoever made the change may have changed the password since. The old address comes
-    back, every session ends (a password nobody knows; the user's sockets close), a Google
-    link the old address does not prove is removed, and the old address gets a password
-    reset link while password sign-in is on. Answers the account's id, name and address
-    and whether a reset link was sent."""
+    back, every session ends (a password nobody knows; the user's sockets close), and the
+    old address gets a password reset link while password sign-in is on. The Google link
+    stays when it is the one the account had when the change went through or the old
+    address is its email, and else is removed, unless no reset link can be sent: then
+    it stays, as the account's only way in. The address the undo takes off the account
+    gets a notice. Answers the account's id, name and address, whether a reset link was
+    sent, and whether a Google link stayed (its email masked, and whether it stayed only
+    as the way in)."""
     row = email_change.find_undo(db, body.token)
     if row is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=UNDO_LINK_INVALID)
@@ -361,12 +385,18 @@ async def undo_email_change(request: Request, body: EmailChangeUndo, background_
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=UNDO_ADDRESS_TAKEN)
     new_hash = await run_in_threadpool(unusable_password_hash)
     send_reset = bool(config.ALLOW_PASSWORD_LOGIN and config.RESET_URL_BASE)
+    # What the undo takes off, for the notice. The row is gone after the commit.
+    removed_address = email_change.notice_goes_to(user)
+    old_email = row.old_email
     resets = []
     try:
-        if not email_change.undo(db, row, new_hash):
+        if not email_change.undo(db, row, new_hash, keep_any_link=not send_reset):
             db.rollback()
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=UNDO_LINK_INVALID)
-        db.refresh(user)  # the old address and the new password hash, for the reset link
+        db.refresh(user)  # the old address, the new password hash and the Google link left
+        google_kept = user.google_sub is not None
+        only_way_in = google_kept and not email_change.link_kept_by_rule(user.google_sub, user.google_email, row)
+        google_email = user.google_email if google_kept else None
         if send_reset:
             resets = password_reset.issue_links(db, [user])
         db.commit()
@@ -374,12 +404,20 @@ async def undo_email_change(request: Request, body: EmailChangeUndo, background_
         # Another account took the address after the check (the unique index on email)
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=UNDO_ADDRESS_TAKEN)
-    logger.info("Undid a change of the email address of user id=%s with its undo link: every session ended%s",
-                user.id, ", a reset link was sent" if resets else "")
+    logger.info("Undid a change of the email address of user id=%s with its undo link: every session ended%s%s",
+                user.id, ", a reset link was sent" if resets else "",
+                "" if not google_kept else (", its Google link stayed as the only way in" if only_way_in
+                                            else ", its Google link stayed"))
     await manager.close_user(user.id)
     for message in resets:
         background_tasks.add_task(password_reset.send_reset_email, message)
-    return {"userId": user.id, "name": user.username, "email": user.email, "passwordReset": bool(resets)}
+    if removed_address and email_change.normalize_address(removed_address) != email_change.normalize_address(old_email):
+        background_tasks.add_task(email_change.send, email_change.undone_email(
+            removed_address, user.username, old_email, google_email, google_kept))
+    return {"userId": user.id, "name": user.username, "email": user.email, "passwordReset": bool(resets),
+            "googleKept": google_kept,
+            "googleEmail": email_change.masked(google_email) if google_email else None,
+            "googleOnlyWayIn": only_way_in}
 
 
 # --- Google sign-in ------------------------------------------------------------------------

@@ -115,9 +115,11 @@ def test_migrated_columns_exist(client):
     google_sub_index = [i for i in insp.get_indexes("users") if i["column_names"] == ["google_sub"]]
     assert [(i["name"], bool(i["unique"])) for i in google_sub_index] == [("ix_users_google_sub", True)]
     assert {c["name"] for c in insp.get_columns("password_reset_tokens")} == {
-        "id", "user_id", "token_hash", "password_stamp", "created_at", "expires_at"}
+        "id", "user_id", "token_hash", "password_stamp", "created_at", "expires_at", "replaced_at"}
     assert {c["name"] for c in insp.get_columns("email_change_tokens")} == {
         "id", "user_id", "token_hash", "new_email", "old_email", "password_stamp", "created_at", "expires_at"}
+    assert {c["name"] for c in insp.get_columns("email_change_undos")} == {
+        "id", "user_id", "token_hash", "old_email", "new_email", "google_sub", "created_at", "expires_at"}
 
 
 def _run_import(env):

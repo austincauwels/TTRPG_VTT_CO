@@ -150,8 +150,9 @@ def init_db():
     that older ALTERs added as INTEGER are converted to BOOLEAN (convert_integer_flags). The seeded admin (user 1, which owns characters forged before
     login tokens) gets a random password nobody knows. Tables added after the first
     release (password_reset_tokens, email_change_tokens, email_change_undos,
-    username_holds) are created here when missing, so init_db alone brings an older
-    database up to date. Last, with password sign-in off, it warns how many accounts
+    username_holds) are created here when missing, and the columns added to them since
+    (password_reset_tokens.replaced_at, email_change_undos.google_sub) are added, so
+    init_db alone brings an older database up to date. Last, with password sign-in off, it warns how many accounts
     have no Google sign-in (warn_password_only_accounts)."""
     db = SessionLocal()
     try:
@@ -388,6 +389,17 @@ def init_db():
             table.create(bind=db_engine, checkfirst=True)
         except Exception as e:
             logger.error("Could not create the %s table: %s", table.name, e)
+    # Columns added to those tables later (docs/refactor/AUTH.md): when a newer reset link
+    # replaced a row, and the Google link an account had when a change of address went
+    # through. Existing rows get NULL: not replaced, and no link recorded.
+    for table, col in [("password_reset_tokens", "replaced_at INTEGER"),
+                       ("email_change_undos", "google_sub TEXT")]:
+        try:
+            with db_engine.connect() as conn:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col}"))
+                conn.commit()
+        except Exception:
+            pass
 
     convert_integer_flags()
     retire_published_passwords()

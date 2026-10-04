@@ -48,7 +48,9 @@ GOOGLE_NOT_THIS_ACCOUNT = detail("That Google account is not the one linked to t
 GOOGLE_PROOF_OLD = detail("That Google sign-in is too old. Please confirm with Google again.")
 GOOGLE_REFUSED = detail("Google could not confirm this sign-in. Please try again.")
 ACCOUNT_CHANGED = detail("The account changed while this was being saved. Please try again.")
-CHANGES_LIMITED = detail("Too many failed attempts on this account. Please try again in an hour.")
+CHANGES_LIMITED = detail("This account has reached its limit of failed attempts. "
+                         "The right password, Google sign-in or link still works.")
+RENAMES_LIMITED = detail("You can change your username 3 times a day. Please try again tomorrow.")
 USERNAME_TAKEN = detail("That identification is already claimed.")
 USERNAME_FIXED = detail("This account's username cannot be changed.")
 EMAIL_SAME = detail("That is already your email address.")
@@ -174,6 +176,14 @@ def remove_google(client, headers, password=support.PASSWORD):
     return call(client, "google/remove", headers, password=password)
 
 
+def resend(client, headers, password=support.PASSWORD, credential=None):
+    return call(client, "email/resend", headers, password=password, credential=credential)
+
+
+def cancel(client, headers, password=support.PASSWORD, credential=None, token=None):
+    return call(client, "email/cancel", headers, password=password, credential=credential, token=token)
+
+
 def me(client, headers):
     r = client.get("/api/auth/me", headers=headers)
     assert r.status_code == 200, r.text
@@ -291,6 +301,28 @@ def test_init_db_adds_has_password_and_the_table_to_an_older_database(client, mo
         main.init_db()
         with Session() as s:
             assert s.query(User.has_password).filter(User.username == "admin").scalar() is False
+
+
+def test_init_db_adds_the_recorded_google_link_to_an_older_undo_table(client, monkeypatch):
+    """email_change_undos came before its google_sub column; a second start changes nothing
+    and keeps the rows."""
+    from sqlalchemy import inspect as sa_inspect, text
+    with support.isolated_schema() as (eng, Session, schema):
+        with eng.begin() as conn:
+            conn.execute(text("ALTER TABLE email_change_undos DROP COLUMN google_sub"))
+        monkeypatch.setattr(main, "db_engine", eng)
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        main.init_db()
+        assert "google_sub" in {c["name"] for c in sa_inspect(eng).get_columns("email_change_undos")}
+        with Session() as s:
+            s.add(User(id=7, username="u7", email="u7@candela-players.org", hashed_password="x"))
+            s.commit()
+            s.add(EmailChangeUndo(user_id=7, token_hash="h" * 64, old_email="a@candela-players.org",
+                                  new_email="b@candela-players.org", google_sub="g-sub", created_at=1, expires_at=2))
+            s.commit()
+        main.init_db()
+        with Session() as s:
+            assert s.query(EmailChangeUndo.google_sub).filter(EmailChangeUndo.user_id == 7).scalar() == "g-sub"
 
 
 # --- the proof every change needs ------------------------------------------------------------
@@ -422,6 +454,9 @@ def test_every_route_needs_a_login_token_before_anything_else(client, google, ro
     ("email/confirm", {"token": "t" * 257}),
     ("email/check", {}),
     ("email/check", {"token": "t" * 257}),
+    ("email/resend", {"password": "p" * 1025}),
+    ("email/cancel", {"password": "p" * 1025}),
+    ("email/cancel", {"token": "t" * 257}),
     ("google/remove", {}),
     ("google/remove", {"password": "p" * 1025}),
 ])
@@ -796,7 +831,7 @@ def test_resend_mails_a_new_link_to_the_same_address(client, outbox):
     new_email, first = asked(client, outbox, u, headers)
     [row] = rows_of(u.id)
     before = len(outbox)
-    r = call(client, "email/resend", headers)
+    r = resend(client, headers)
     assert (r.status_code, r.json()["pendingEmail"]) == (202, new_email)
     [message] = outbox[before:]  # no second notice to the old address
     assert message.to == new_email
@@ -810,7 +845,7 @@ def test_resend_mails_a_new_link_to_the_same_address(client, outbox):
 
 def test_resend_without_a_waiting_change(client, outbox):
     u = player()
-    r = call(client, "email/resend", signed_in(u))
+    r = resend(client, signed_in(u))
     assert (r.status_code, r.json()) == (409, NO_PENDING_EMAIL)
     assert outbox == []
 
@@ -819,12 +854,63 @@ def test_cancel_drops_the_waiting_change(client, outbox):
     u = player()
     headers = signed_in(u)
     _, token = asked(client, outbox, u, headers)
-    r = call(client, "email/cancel", headers)
+    r = cancel(client, headers)
     assert (r.status_code, r.json()["pendingEmail"], r.json()["email"]) == (200, None, u.email)
     assert rows_of(u.id) == []
     assert confirm(client, headers, token).status_code == 400
     # a second cancel is fine
-    assert call(client, "email/cancel", headers).status_code == 200
+    assert cancel(client, headers).status_code == 200
+
+
+def test_resend_and_cancel_need_a_proof(client, outbox, google):
+    """The review's finding D: with a login token alone, a thief could use up the owner's
+    confirmation emails, end the link the owner already had, or drop the owner's change."""
+    u = player()
+    headers = signed_in(u)
+    new_email, token = asked(client, outbox, u, headers)
+    [row] = rows_of(u.id)
+    before = len(outbox)
+    for r in (resend(client, headers, password=None), cancel(client, headers, password=None),
+              call(client, "email/cancel", headers, token="")):
+        assert (r.status_code, r.json()) == (403, PROOF_NEEDED)
+    for r in (resend(client, headers, password="a-guess"), cancel(client, headers, password="a-guess")):
+        assert (r.status_code, r.json()) == (403, WRONG_PASSWORD)
+    assert outbox[before:] == []
+    [again] = rows_of(u.id)
+    assert again.token_hash == row.token_hash  # the owner's link still works
+    assert me(client, headers)["pendingEmail"] == new_email
+    assert check(client, headers, token).json()["newEmail"] == new_email
+
+
+def test_resend_and_cancel_take_a_google_proof(client, outbox, google):
+    u, sub, headers = google_only()
+    r = request_email(client, headers, address(), password=None, credential=google.credential(sub=sub))
+    assert r.status_code == 202, r.text
+    r = resend(client, headers, password=None, credential=google.credential(sub=sub))
+    assert r.status_code == 202, r.text
+    r = cancel(client, headers, password=None, credential=google.credential(sub=sub, age=6 * 60))
+    assert (r.status_code, r.json()) == (403, GOOGLE_PROOF_OLD)
+    r = cancel(client, headers, password=None, credential=google.credential(sub=sub))
+    assert (r.status_code, r.json()["pendingEmail"]) == (200, None)
+
+
+def test_cancel_takes_the_changes_own_link(client, outbox):
+    """The page at /confirm-email offers Cancel change and sends the link as the proof."""
+    u, other = player(), player()
+    headers = signed_in(u)
+    _, token = asked(client, outbox, u, headers)
+    for r, expected in ((cancel(client, headers, password=None, token="no-such-link"), (400, LINK_INVALID)),
+                        (cancel(client, signed_in(other), password=None, token=token), (403, LINK_OTHER_ACCOUNT))):
+        assert (r.status_code, r.json()) == expected
+    assert len(rows_of(u.id)) == 1
+    r = cancel(client, headers, password=None, token=token)
+    assert (r.status_code, r.json()["pendingEmail"]) == (200, None)
+    assert rows_of(u.id) == []
+    # a password sent with it must still be right
+    _, token = asked(client, outbox, u, headers)
+    r = cancel(client, headers, password="a-guess", token=token)
+    assert (r.status_code, r.json()) == (403, WRONG_PASSWORD)
+    assert len(rows_of(u.id)) == 1
 
 
 def test_the_same_address_is_refused(client, outbox):
@@ -1115,6 +1201,21 @@ def test_the_real_limits():
     assert email_change.EMAIL_CHANGE_EXPIRE_MINUTES == 60
     assert email_change.EMAIL_UNDO_EXPIRE_DAYS == 7
     assert usernames.USERNAME_HOLD_DAYS == 90
+    assert str(usernames.RENAME_LIMIT) == "3 per 1 day"
+    assert usernames.MAX_HOLDS_PER_USER == 5
+
+
+def test_the_limit_words_do_not_say_to_wait(client, outbox, limiter_on, monkeypatch):
+    """Over the failed-proof limit the right password still works at once, so the 429 says
+    that a limit was reached, not to try again in an hour."""
+    monkeypatch.setattr(auth_router, "FAILED_PROOF_LIMIT", parse_limit("1/hour"))
+    u = player()
+    headers = signed_in(u)
+    change_password(client, headers, password="guess-1")
+    r = change_password(client, headers, password="guess-2")
+    assert (r.status_code, r.json()) == (429, CHANGES_LIMITED)
+    assert "hour" not in r.json()["detail"] and "limit of failed attempts" in r.json()["detail"]
+    assert change_password(client, headers).status_code == 200
 
 
 def test_each_route_is_limited_per_ip(client, outbox, limiter_on):
@@ -1210,11 +1311,11 @@ def test_confirmation_emails_are_limited_per_user(client, outbox, limiter_on):
     headers = signed_in(u)
     for _ in range(2):
         asked(client, outbox, u, headers)
-    assert call(client, "email/resend", headers).status_code == 202
+    assert resend(client, headers).status_code == 202
     sent = len(outbox)
     r = request_email(client, headers, address())
     assert (r.status_code, r.json()) == (429, MAIL_LIMITED)
-    r = call(client, "email/resend", headers)
+    r = resend(client, headers)
     assert (r.status_code, r.json()) == (429, MAIL_LIMITED)
     assert len(outbox) == sent
     v = player()
@@ -1273,7 +1374,7 @@ def test_resend_counts_against_the_new_address(client, outbox, limiter_on):
     for _ in range(2):
         u = player()
         asked(client, outbox, u, signed_in(u), new_email=target)
-    assert call(client, "email/resend", signed_in(u)).status_code == 202
+    assert resend(client, signed_in(u)).status_code == 202
     v = player()
     r = request_email(client, signed_in(v), target)
     assert (r.status_code, r.json()) == (429, MAIL_ADDRESS_LIMITED)
@@ -1299,15 +1400,20 @@ def test_confirm_is_limited_per_ip(client, limiter_on):
     assert codes == [400] * 10 + [429]
 
 
-def test_cancel_is_not_limited_per_user(client, limiter_on, monkeypatch):
-    """The owner can always drop a change someone else asked for."""
-    monkeypatch.setattr(auth_router, "FAILED_PROOF_LIMIT", parse_limit("1/hour"))
+def test_the_owner_can_always_cancel_or_resend(client, outbox, limiter_on, monkeypatch):
+    """Resend and cancel take a proof now, and a right one goes through when a stolen
+    session has used up the failed-proof limit, so the owner can always drop a change
+    someone else asked for. Wrong guesses on them count like any other."""
+    monkeypatch.setattr(auth_router, "FAILED_PROOF_LIMIT", parse_limit("2/hour"))
     u = player()
     headers = signed_in(u)
-    for guess in ("guess-1", "guess-2"):
-        change_username(client, headers, f"n_{support.uid()}", password=guess)
-    assert change_username(client, headers, f"n_{support.uid()}", password="guess-3").status_code == 429
-    assert call(client, "email/cancel", headers).status_code == 200
+    asked(client, outbox, u, headers)
+    assert [resend(client, headers, password="guess-1").status_code,
+            cancel(client, headers, password="guess-2").status_code,
+            cancel(client, headers, password="guess-3").status_code] == [403, 403, 429]
+    assert resend(client, headers).status_code == 202
+    assert cancel(client, headers).status_code == 200
+    assert rows_of(u.id) == []
 
 
 def test_the_per_user_limits_are_off_with_the_limiter(client, outbox, monkeypatch):
@@ -1383,19 +1489,21 @@ def test_the_undo_link_takes_the_account_back(client, outbox):
     ends, and a link to set a new password goes to the old address."""
     u = player()
     thief = signed_in(u)
-    _, undo_token = changed(client, outbox, u, thief)
+    new_email, undo_token = changed(client, outbox, u, thief)
     thief = support.bearer(change_password(client, thief).json()["token"])
     before = len(outbox)
     r = undo(client, undo_token)
     assert r.status_code == 200, r.text
-    assert r.json() == {"userId": u.id, "name": u.username, "email": u.email, "passwordReset": True}
+    assert r.json() == {"userId": u.id, "name": u.username, "email": u.email, "passwordReset": True,
+                        "googleKept": False, "googleEmail": None, "googleOnlyWayIn": False}
     row = support.fetch(User, u.id)
     assert (row.email, row.email_proven, row.has_password) == (u.email, True, False)
     assert client.get("/api/auth/me", headers=thief).status_code == 401
     assert support.login(client, u.username, NEW_PASSWORD).status_code == 401
     assert undo_rows_of(u.id) == []
-    [reset] = outbox[before:]
-    assert (reset.to, reset.subject) == (u.email, password_reset.SUBJECT)
+    [reset] = [m for m in outbox[before:] if m.to == u.email]
+    assert reset.subject.startswith(password_reset.SUBJECT + " (")
+    assert [m.to for m in outbox[before:]] == [u.email, new_email]  # and a notice to the address it took off
     reset_token = _RESET_LINK.search(reset.text).group(1)
     r = client.post("/api/auth/password-reset/confirm", json={"token": reset_token, "password": "mine-again-1"})
     assert r.status_code == 200, r.text
@@ -1448,7 +1556,9 @@ def test_an_undo_removes_a_google_link_the_old_address_does_not_prove(client, ou
     theirs = google.credential(email=f"someone.{support.uid()}@gmail.test")
     r = client.post("/api/auth/me/google", json={"credential": theirs, "password": support.PASSWORD}, headers=headers)
     assert r.json()["googleLinked"] is True
-    assert undo(client, undo_token).status_code == 200
+    r = undo(client, undo_token)
+    assert r.status_code == 200
+    assert (r.json()["googleKept"], r.json()["googleEmail"]) == (False, None)
     row = support.fetch(User, u.id)
     assert (row.google_sub, row.google_email) == (None, None)
     assert client.post("/api/auth/google", json={"credential": theirs}).json()["needs_account"] is True
@@ -1461,6 +1571,107 @@ def test_an_undo_keeps_a_google_link_of_the_old_address(client, outbox, google):
     assert undo(client, undo_token).status_code == 200
     assert support.fetch(User, u.id).google_sub == sub
     assert client.post("/api/auth/google", json={"credential": google.credential(sub=sub)}).json()["userId"] == u.id
+
+
+def test_an_undo_keeps_the_google_link_the_account_had_when_the_change_went_through(client, outbox, google,
+                                                                                    monkeypatch):
+    """The review's finding B: the owner's own Google link may use another address than
+    the account's. The undo row records the link the account had when the change went
+    through, and the undo keeps it, so that owner can still sign in, with password
+    sign-in off too (no reset link then)."""
+    sub, theirs = f"g{support.uid(20)}", f"other.{support.uid()}@gmail.test"
+    u = player(google_sub=sub, google_email=theirs)
+    new_email, undo_token = changed(client, outbox, u, signed_in(u))
+    [row] = undo_rows_of(u.id)
+    assert row.google_sub == sub
+    support.update(User, u.id, hashed_password=support.cheap_hash("the-thief-changed-it"))
+    before = len(outbox)
+    r = undo(client, undo_token)
+    assert r.status_code == 200, r.text
+    masked = "o***@gmail.test"
+    assert (r.json()["googleKept"], r.json()["googleEmail"], r.json()["googleOnlyWayIn"]) == (True, masked, False)
+    assert (support.fetch(User, u.id).google_sub, support.fetch(User, u.id).google_email) == (sub, theirs)
+    assert client.post("/api/auth/google", json={"credential": google.credential(sub=sub)}).json()["userId"] == u.id
+    [notice] = [m for m in outbox[before:] if m.to == new_email]
+    assert f"Google sign-in with {masked} still works." in notice.text
+    assert theirs not in notice.text + notice.html
+    # with password sign-in off as well
+    v_sub = f"g{support.uid(20)}"
+    v = player(google_sub=v_sub, google_email=f"other.{support.uid()}@gmail.test")
+    _, undo_token = changed(client, outbox, v, signed_in(v))
+    monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", False)
+    r = undo(client, undo_token)
+    assert (r.json()["passwordReset"], r.json()["googleKept"], r.json()["googleOnlyWayIn"]) == (False, True, False)
+    assert support.fetch(User, v.id).google_sub == v_sub
+
+
+def test_an_undo_removes_a_link_that_replaced_the_recorded_one(client, outbox, google):
+    """Whoever made the change may have replaced the owner's link with their own since;
+    that one is not the recorded link, so it goes (password sign-in is on: the old address
+    gets a reset link)."""
+    u = player(google_sub=f"g{support.uid(20)}", google_email=f"owner.{support.uid()}@gmail.test")
+    headers = signed_in(u)
+    _, undo_token = changed(client, outbox, u, headers)
+    headers = support.bearer(remove_google(client, headers).json()["token"])
+    theirs = google.credential(email=f"thief.{support.uid()}@gmail.test")
+    r = client.post("/api/auth/me/google", json={"credential": theirs, "password": support.PASSWORD}, headers=headers)
+    assert r.json()["googleLinked"] is True
+    r = undo(client, undo_token)
+    assert (r.json()["passwordReset"], r.json()["googleKept"]) == (True, False)
+    assert support.fetch(User, u.id).google_sub is None
+
+
+def test_with_password_sign_in_off_an_undo_keeps_the_only_way_in(client, outbox, google, monkeypatch):
+    """No reset link can go out while password sign-in is off, so removing the Google link
+    would leave the account no way in at all. It stays, and the answer says so."""
+    u = player()
+    headers = signed_in(u)
+    _, undo_token = changed(client, outbox, u, headers)  # no link when the change went through
+    sub, theirs = f"g{support.uid(20)}", f"linked.later.{support.uid()}@gmail.test"
+    r = client.post("/api/auth/me/google", json={"credential": google.credential(sub=sub, email=theirs),
+                                                 "password": support.PASSWORD}, headers=headers)
+    assert r.json()["googleLinked"] is True
+    monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", False)
+    r = undo(client, undo_token)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"userId": u.id, "name": u.username, "email": u.email, "passwordReset": False,
+                        "googleKept": True, "googleEmail": "l***@gmail.test", "googleOnlyWayIn": True}
+    assert support.fetch(User, u.id).google_sub == sub
+    assert client.post("/api/auth/google", json={"credential": google.credential(sub=sub)}).json()["userId"] == u.id
+
+
+def test_an_undo_tells_the_address_it_takes_off(client, outbox):
+    """The review's finding C: the address the undo removes may be the real owner's (the
+    old address was a lost or shared mailbox), signed out without a word."""
+    u = player()
+    new_email, undo_token = changed(client, outbox, u, signed_in(u))
+    before = len(outbox)
+    assert undo(client, undo_token).status_code == 200
+    [notice] = [m for m in outbox[before:] if m.to == new_email]
+    assert notice.subject == "Your Candela Obscura email address was changed back"
+    assert u.username in notice.text and "p***@candela-players.org" in notice.text
+    assert "no longer on the account" in notice.text and "Every sign-in to the account has ended" in notice.text
+    assert "still works" not in notice.text
+    assert u.email not in notice.text + notice.html and undo_token not in notice.text + notice.html
+    assert "\u2014" not in notice.text + notice.html
+    assert "/reset-password" not in notice.text and "/undo-email-change" not in notice.text
+
+
+def test_the_notice_goes_to_the_address_the_account_has_when_undone(client, outbox):
+    """A to B, then B to C: the first undo link takes C off, so C is told, not B."""
+    u = player()
+    headers = signed_in(u)
+    _, undo_to_a = changed(client, outbox, u, headers)
+    c, _ = changed(client, outbox, u, headers)
+    before = len(outbox)
+    assert undo(client, undo_to_a).status_code == 200
+    assert [m.to for m in outbox[before:]] == [u.email, c]
+
+
+def test_the_undone_notice_escapes_the_username():
+    message = email_change.undone_email("x@candela-players.org", "<b>Mallory</b> & co", "old@candela-players.org")
+    assert "<b>Mallory</b>" not in message.html
+    assert "&lt;b&gt;Mallory&lt;/b&gt; &amp; co" in message.html
 
 
 def test_an_undo_ends_the_undo_links_of_later_changes(client, outbox):
@@ -1523,12 +1734,13 @@ def test_an_undo_with_password_sign_in_off_sends_no_reset_link(client, outbox, m
     """The reset routes are off then; the old address signs in with Google (step 2 links
     an account by its address)."""
     u = player()
-    _, undo_token = changed(client, outbox, u, signed_in(u))
+    new_email, undo_token = changed(client, outbox, u, signed_in(u))
     monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", False)
     before = len(outbox)
     r = undo(client, undo_token)
-    assert (r.status_code, r.json()["passwordReset"]) == (200, False)
-    assert outbox[before:] == [] and support.fetch_all(PasswordResetToken, user_id=u.id) == []
+    assert (r.status_code, r.json()["passwordReset"], r.json()["googleKept"]) == (200, False, False)
+    assert [m.to for m in outbox[before:]] == [new_email]  # the notice only, no reset link
+    assert support.fetch_all(PasswordResetToken, user_id=u.id) == []
 
 
 def test_an_undo_closes_the_users_sockets(client, outbox):
@@ -1714,6 +1926,59 @@ def test_a_rejoin_invite_by_a_freed_name_reaches_nobody(client):
     r = client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": old}, headers=support.as_user(gm.id))
     assert r.status_code == 404
     assert support.fetch(User, u.id).pending_rejoin_campaign_id is None
+
+
+def test_renames_are_limited_per_day(client, limiter_on):
+    """The review's finding A: each rename holds a name for 90 days, so renames without a
+    cap let one account keep hundreds of names from everyone. Three a day per user; a
+    change of case frees no name and does not count."""
+    u = player(username=f"Day {support.uid(6)}")
+    headers = signed_in(u)
+    for n in range(3):
+        name = f"Day {n} {support.uid(6)}"
+        assert change_username(client, headers, name).json()["name"] == name
+    r = change_username(client, headers, f"Day 4 {support.uid(6)}")
+    assert (r.status_code, r.json()) == (429, RENAMES_LIMITED)
+    assert support.fetch(User, u.id).username == name
+    assert change_username(client, headers, name.upper()).json()["name"] == name.upper()
+    assert len(support.fetch_all(UsernameHold, user_id=u.id)) == 3
+    # another user's renames are their own, and a failed proof is no rename
+    # (ten requests a minute per client in all: this test sends nine)
+    w = player()
+    assert change_username(client, signed_in(w), f"W {support.uid(6)}", password="a-guess").status_code == 403
+    for n in range(3):
+        assert change_username(client, signed_in(w), f"W {n} {support.uid(6)}").status_code == 200
+
+
+def test_one_account_holds_only_a_few_names(client, monkeypatch):
+    """At most MAX_HOLDS_PER_USER names are held for a user at a time; a rename that
+    would hold one more waits until the oldest hold ends. Going back to a held name ends
+    that hold, so it is always allowed. This cap lives in the database, so it holds with
+    the rate limiter off and across restarts."""
+    monkeypatch.setattr(usernames, "MAX_HOLDS_PER_USER", 2)
+    names = [f"Hold {n} {support.uid(6)}" for n in range(5)]
+    u = player(username=names[0])
+    headers = signed_in(u)
+    for name in names[1:3]:
+        assert change_username(client, headers, name).status_code == 200
+    r = change_username(client, headers, names[3])
+    assert (r.status_code, r.json()) == (429, detail(
+        "Your last 2 usernames are still held for you. You can change it again in 90 days, "
+        "or go back to one of them."))
+    assert support.fetch(User, u.id).username == names[2]
+    assert change_username(client, headers, names[2].lower()).status_code == 200  # a change of case
+    assert change_username(client, headers, names[0]).json()["name"] == names[0]  # back to a held name
+    holds = {h.name_key: h for h in support.fetch_all(UsernameHold, user_id=u.id)}
+    assert set(holds) == {names[1].lower(), names[2].lower()}
+    support.update(UsernameHold, holds[names[1].lower()].id, held_until=int(time.time()) + 3600)
+    r = change_username(client, headers, names[3])
+    assert (r.status_code, r.json()["detail"]) == (429, "Your last 2 usernames are still held for you. "
+                                                        "You can change it again in 1 day, or go back to one of them.")
+    support.update(UsernameHold, holds[names[1].lower()].id, held_until=int(time.time()) - 1)
+    assert change_username(client, headers, names[3]).json()["name"] == names[3]
+    # nobody else can take a name held for u meanwhile
+    r = change_username(client, signed_in(player()), names[0])
+    assert (r.status_code, r.json()) == (400, USERNAME_TAKEN)
 
 
 # --- password sign-in turned off later --------------------------------------------------------
