@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
@@ -11,6 +11,8 @@ import { useMarkUndo, MARK_NAME } from './useMarkUndo';
 import { useDialog } from '../shared/useDialog';
 import { tiltFor } from '../shared/handPlaced';
 import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks';
+import { PhotoMount } from '../shared/PhotoMount';
+import { usePortraitChange } from './usePortraitChange';
 
 // A die face (three pips). The whole action row is the roll; this die only shows on hover
 // or keyboard focus (.action-die in index.css), never as a standing icon on every row.
@@ -217,8 +219,9 @@ const GEAR_ICONS = {
 };
 
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false }) => {
-  const { character: storeChar, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling } = useGameStore(useShallow(s => ({
+  const { character: storeChar, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter } = useGameStore(useShallow(s => ({
     character: s.character,
+    setLocalCharacter: s.setLocalCharacter,
     updateDrive: s.updateDrive,
     rollAction: s.rollAction,
     takeMark: s.takeMark,
@@ -231,6 +234,15 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   })));
   const character = charProp || storeChar;
   const { held: heldMark, hold: holdMark, undo: undoMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
+  // The player's own photo: the answer to a change is the sheet as the table now has it
+  const photoInputRef = useRef(null);
+  const portrait = usePortraitChange({
+    characterId: storeChar?.id,
+    current: storeChar ? (storeChar.profile_pic ?? storeChar.profilePic ?? null) : null,
+    onSaved: (saved) => {
+      if (saved?.id != null && useGameStore.getState().character?.id === saved.id) setLocalCharacter(saved);
+    },
+  });
   const [infoTab, setInfoTab] = useState('role'); // 'role' | 'specialty' | 'profile'
   const [showGearModal, setShowGearModal] = useState(false);
   const [pendingGear, setPendingGear] = useState([]);
@@ -291,6 +303,44 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
   if (!character) return null;
 
+  // The photo. On the player's own desk it can be added or changed (owner's item 15); the
+  // GM's copy of the sheet only shows it.
+  const canChangePhoto = !readOnly && character.id != null && character.id === storeChar?.id;
+  const photo = canChangePhoto ? portrait.shown : (character.profile_pic ?? character.profilePic ?? null);
+  const pickPhoto = () => photoInputRef.current?.click();
+  const onPhotoPicked = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // the same file can be picked again
+    if (file) portrait.change(file);
+  };
+  const photoInside = photo ? (
+    <img src={photo} className={`w-full h-full object-cover grayscale contrast-125 sepia-[0.25] transition-opacity ${portrait.busy ? 'opacity-60' : ''}`} alt={`Portrait of ${character.name}`} />
+  ) : (
+    <PhotoMount className="w-full h-full">
+      {canChangePhoto && !portrait.busy && (
+        <span aria-hidden="true" className="absolute z-[3] inset-x-1 bottom-1.5 md:inset-x-3 md:bottom-3 border border-oxblood/70 bg-cream/85 px-1 py-1 md:py-1.5 rounded-sm font-sans text-xs font-black uppercase tracking-wider leading-tight text-oxblood group-hover:bg-oxblood group-hover:text-cream transition-colors">
+          Add portrait
+        </span>
+      )}
+    </PhotoMount>
+  );
+  // Saving, then Undo for a few seconds; or what went wrong
+  const photoNote = !canChangePhoto ? null
+    : portrait.error ? (
+      <p role="alert" className="font-serif text-base text-oxblood leading-snug">{portrait.error}</p>
+    ) : portrait.phase === 'changed' ? (
+      <div className="flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 px-3 py-2 rounded-sm">
+        <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-24">Portrait changed.</p>
+        <button
+          type="button"
+          onClick={portrait.undo}
+          className="shrink-0 min-h-[40px] px-3 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood hover:bg-oxblood hover:text-cream rounded-sm transition-colors"
+        >
+          Undo <span className="font-mono tabular-nums">{portrait.secondsLeft}s</span>
+        </button>
+      </div>
+    ) : null;
+
   const gear = character.gear || [];
   const openGearModal = () => {
     const available = [...STANDARD_GEAR, ...(character.specialty ? (SPECIALTY_GEAR[character.specialty] || []) : [])];
@@ -308,20 +358,47 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     <div className="dossier-c relative z-10 animate-fadeIn">
     <div className="dossier space-y-6">
 
-      {/* Investigator Portrait Frame */}
-      <div className="dossier-photo relative float-right ml-3 mb-2 w-24 h-[120px] p-1.5 md:float-none md:m-0 md:absolute md:top-0 md:right-0 md:w-44 md:h-[220px] md:p-2 bg-cream border border-ink/10 shadow-[4px_10px_24px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 hover:scale-105 duration-200 transition-all z-30 group">
-        <div className="absolute -top-3 md:-top-3.5 left-1/2 -translate-x-1/2 w-12 md:w-20 h-3 md:h-4 bg-parchment-deep/80 -rotate-3 border border-ink/5 mix-blend-multiply shadow-sm" />
-        <div className="w-full h-full bg-black/5 border border-ink/5 flex flex-col items-center justify-center overflow-hidden text-center">
-          {character.profilePic || character.profile_pic ? (
-            <img src={character.profilePic || character.profile_pic} className="w-full h-full object-cover grayscale contrast-125 sepia-[0.25]" alt={`Portrait of ${character.name}`} />
+      {/* Investigator Portrait Frame: a photograph taped to the sheet. On the player's own
+          desk it is a button: tap it to add a photo or change it, with Undo after. */}
+      <div className="dossier-photo-cell">
+        <div className="dossier-photo relative float-right ml-3 mb-2 w-24 h-[120px] p-1.5 md:float-none md:m-0 md:absolute md:top-0 md:right-0 md:w-44 md:h-[220px] md:p-2 bg-cream border border-ink/10 shadow-[4px_10px_24px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 hover:scale-105 duration-200 transition-all z-30 group">
+          <div className="absolute z-10 -top-3 md:-top-3.5 left-1/2 -translate-x-1/2 w-12 md:w-20 h-3 md:h-4 bg-parchment-deep/80 -rotate-3 border border-ink/5 mix-blend-multiply shadow-sm" />
+          {canChangePhoto ? (
+            <button
+              type="button"
+              onClick={pickPhoto}
+              disabled={portrait.busy}
+              aria-busy={portrait.busy || undefined}
+              aria-label={photo ? 'Change portrait' : 'Add portrait'}
+              className="photo-button relative block w-full h-full overflow-hidden text-center disabled:cursor-wait"
+            >
+              {photoInside}
+              {(photo || portrait.busy) && (
+                <span aria-hidden="true" className="photo-caption absolute z-[3] inset-x-0 bottom-0 bg-cream/90 border-t border-ink/15 px-1 py-1 font-sans text-xs font-black uppercase tracking-wider leading-tight text-ink">
+                  {portrait.phase === 'undoing' ? 'Undoing…'
+                    : portrait.busy ? 'Saving…'
+                    : <><span className="md:hidden">Change</span><span className="hidden md:inline">Change portrait</span></>}
+                </span>
+              )}
+            </button>
           ) : (
-            <div className="opacity-25 p-1">
-              <SafeIcon name="GiPerson" size={44} className="mx-auto" />
-              <span className="block text-xs font-sans font-black uppercase mt-1 tracking-tight">No portrait</span>
+            <div className="relative w-full h-full overflow-hidden">
+              {photoInside}
+              {!photo && <span className="sr-only">No portrait</span>}
             </div>
           )}
         </div>
+        {canChangePhoto && <div className="dossier-photo-note-wide">{photoNote}</div>}
       </div>
+      {canChangePhoto && (
+        <>
+          <input ref={photoInputRef} type="file" accept="image/*" tabIndex={-1} aria-hidden="true" className="hidden" onChange={onPhotoPicked} />
+          <p role="status" className="sr-only">
+            {portrait.busy ? (portrait.phase === 'undoing' ? 'Putting the last portrait back.' : 'Saving the portrait.')
+              : portrait.phase === 'changed' ? 'Portrait changed.' : ''}
+          </p>
+        </>
+      )}
 
       {/* The form's printed head: its number, and the registry's serial in red */}
       <div className="dossier-form flex items-center gap-2 md:w-2/3 -mt-1" aria-hidden="true">
@@ -359,6 +436,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           <div className="text-sm font-bold italic border-b border-ink pb-1 text-ink/70 mt-1.5 truncate">{character.pronouns || 'Not given'}</div>
         </div>
       </div>
+
+      {/* The photo's note, under the name while the sheet is one column */}
+      {canChangePhoto && photoNote && <div className="dossier-photo-note-narrow flow-root md:w-2/3">{photoNote}</div>}
 
       {/* Gear: a requisition slip from the chapter stores laid on the sheet under the name,
           a little crooked, its bottom edge torn off the pad. Each item is drawn large. */}

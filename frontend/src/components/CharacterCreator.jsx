@@ -6,7 +6,9 @@ import { radioArrows } from './shared/a11y';
 import { useDialog } from './shared/useDialog';
 import { PaperSheet } from './shared/PaperSheet';
 import { serialFor } from './shared/PrintMarks';
+import { PhotoMount } from './shared/PhotoMount';
 import { playPaperSound } from '../game/rollSounds';
+import { portraitDataUrl } from '../utils/api';
 
 const ILLUMINATION_KEYS = {
   Journalist: ['Gather Statements', 'Hunt Down a Lead', 'Speak Truth to Power'],
@@ -555,7 +557,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   const startOver = () => {
     clearDraft(draftKey);
     setStep(1); setCurrentIndex(0); setAnimState('idle');
-    setProfilePic(null); setName(''); setPronouns(''); setStyle(''); setCatalyst(''); setQuestion('');
+    setProfilePic(null); setPortraitError(''); setName(''); setPronouns(''); setStyle(''); setCatalyst(''); setQuestion('');
     setRole(''); setSpecialty(''); setSelectedRoleAbility(''); setSelectedSpecialtyAbility('');
     setLockedActions({ ...EMPTY_ACTIONS }); setFreeRaiseKey(null); setFreeAdditions({ ...EMPTY_ACTIONS });
     setLockedDrives({ ...EMPTY_DRIVES }); setDriveDistrib({ ...EMPTY_DRIVES });
@@ -564,12 +566,22 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
     setSaveError(''); setLastAttempt(null);
   };
 
-  const handleImageUpload = (e) => {
+  // A picked photo is shrunk in the browser to fit the server's portrait limit (a phone's
+  // photo is far larger), so the investigator saves with it.
+  const [portraitBusy, setPortraitBusy] = useState(false);
+  const [portraitError, setPortraitError] = useState('');
+  const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // the same file can be picked again
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setProfilePic(ev.target.result);
-    reader.readAsDataURL(file);
+    setPortraitError('');
+    setPortraitBusy(true);
+    try {
+      setProfilePic(await portraitDataUrl(file));
+    } catch (err) {
+      setPortraitError(err.message);
+    }
+    setPortraitBusy(false);
   };
 
   const flip = (dir) => {
@@ -1001,19 +1013,36 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               <div className="space-y-4">
                 {/* Portrait + Name row */}
                 <div className="flex gap-3 sm:gap-4 items-start">
-                  <div className="shrink-0">
-                    <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1.5">Portrait</label>
-                    <label className="flex flex-col items-center justify-center cursor-pointer hover:bg-parchment-deep/55 hover:border-oxblood/50 transition-all relative overflow-hidden shadow-inner group rounded w-[112px] h-[140px] sm:w-[160px] sm:h-[200px] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-candle-gold"
-                      style={{ border: '2px dashed rgb(var(--c-sepia)/0.4)', background: 'rgb(var(--c-parchment-deep)/0.3)' }}>
-                      {profilePic
-                        ? <img src={profilePic} alt={`Portrait of ${name || 'your investigator'}`} className="w-full h-full object-cover" />
-                        : <div className="text-center px-3">
-                            <Gi.GiIdCard size={36} className="mx-auto text-sepia/50 mb-2 group-hover:scale-110 transition-transform" />
-                            <span className="block text-xs font-sans font-black tracking-wider text-sepia uppercase leading-tight">[+] Affix Portrait</span>
-                          </div>
-                      }
-                      <input type="file" accept="image/*" onChange={handleImageUpload} className="sr-only" aria-label={profilePic ? 'Change the portrait' : 'Add a portrait'} />
+                  {/* An empty photo mount with its button under it; the mount takes a tap too */}
+                  <div className="shrink-0 w-[112px] sm:w-[160px]">
+                    <span id="creator-portrait-label" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1.5">Portrait</span>
+                    <label htmlFor="creator-portrait" className={`block cursor-pointer w-[112px] h-[140px] sm:w-[160px] sm:h-[200px] -rotate-1 transition-transform duration-200 hover:rotate-0 ${portraitBusy ? 'cursor-wait' : ''}`}>
+                      <PhotoMount
+                        src={profilePic}
+                        alt={`Portrait of ${name || 'your investigator'}`}
+                        className="w-full h-full rounded-sm"
+                        imgClassName={portraitBusy ? 'opacity-60' : ''}
+                      />
                     </label>
+                    <input
+                      id="creator-portrait" type="file" accept="image/*" onChange={handleImageUpload} disabled={portraitBusy}
+                      className="peer sr-only"
+                      aria-labelledby="creator-portrait-label creator-portrait-button"
+                      aria-describedby={portraitError ? 'creator-portrait-error' : undefined}
+                    />
+                    <label
+                      id="creator-portrait-button" htmlFor="creator-portrait"
+                      className="mt-2 flex items-center justify-center gap-1.5 min-h-[40px] px-2 py-1.5 rounded border-2 border-oxblood text-oxblood bg-transparent font-sans text-xs font-black uppercase tracking-wider leading-tight text-center cursor-pointer transition-colors hover:bg-oxblood hover:text-cream peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-candle-gold peer-disabled:opacity-60 peer-disabled:cursor-wait"
+                    >
+                      {portraitBusy ? 'Adding…' : profilePic ? 'Change portrait' : 'Add portrait'}
+                    </label>
+                    {profilePic && !portraitBusy && (
+                      <button type="button" onClick={() => { setProfilePic(null); setPortraitError(''); }}
+                        aria-label="Remove portrait"
+                        className="mt-1 w-full min-h-[32px] font-sans text-xs font-bold uppercase tracking-wider text-sepia hover:text-oxblood underline-offset-4 hover:underline transition-colors">
+                        Remove
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex-1 min-w-0 space-y-3 pt-5">
@@ -1032,6 +1061,9 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                     </div>
                   </div>
                 </div>
+                {portraitError && (
+                  <p id="creator-portrait-error" role="alert" className="-mt-1 font-serif text-base leading-snug text-oxblood">{portraitError}</p>
+                )}
 
                 {/* Identifying Characteristics */}
                 <div>

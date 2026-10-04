@@ -15,6 +15,17 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   const [attempt, setAttempt] = useState(0);
 
   const { gmResetCharacter } = useGameStore(useShallow(s => ({ gmResetCharacter: s.gmResetCharacter })));
+  // The roster takes the portrait_update frames, so a photo changed while this sheet is
+  // open shows here too (it was fetched once, when the sheet opened)
+  const rosterPic = useGameStore(s => {
+    const all = [...(s.campaignRoster.active_investigators || []), ...(s.campaignRoster.pending_investigators || [])];
+    const hit = all.find(c => c.id === rosterItem?.id);
+    return hit && 'profile_pic' in hit ? hit.profile_pic : undefined;
+  });
+  const rosterPicAtOpen = useRef(rosterPic);
+  const sheet = fullChar && rosterPic !== undefined && rosterPic !== rosterPicAtOpen.current
+    ? { ...fullChar, profile_pic: rosterPic }
+    : fullChar;
 
   // The sheet replaces the business card that opened it, so keyboard focus starts on Back.
   const backRef = useRef(null);
@@ -85,7 +96,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
 
         {fullChar && !loading && (
           <>
-            <InvestigatorDossier character={fullChar} readOnly />
+            <InvestigatorDossier character={sheet} readOnly />
             <ConfirmAction
               className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-3"
               onConfirm={() => gmResetCharacter(rosterItem.id)}

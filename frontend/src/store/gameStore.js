@@ -470,6 +470,31 @@ const useGameStore = create(
               },
             }));
           }
+          else if (message.type === 'portrait_update') {
+            // A character's photo changed (its player or the GM set it). It reaches the GM and
+            // the circle, so every copy of that character on this desk takes the new photo:
+            // the roster's cards, the circle's pinned photos, and the sheet if it is open.
+            if (!isForThisCampaign(message.payload)) return;
+            const { character_id: id, profile_pic: pic = null } = message.payload || {};
+            if (id == null) return;
+            const patch = (c) => (c && c.id === id
+              ? { ...c, profile_pic: pic, ...('profilePic' in c ? { profilePic: pic } : {}) }
+              : c);
+            const patchAll = (list) => (Array.isArray(list) ? list.map(patch) : list);
+            set(state => ({
+              character: patch(state.character),
+              characters: patchAll(state.characters),
+              campaignRoster: {
+                ...state.campaignRoster,
+                pending_investigators: patchAll(state.campaignRoster.pending_investigators),
+                active_investigators: patchAll(state.campaignRoster.active_investigators),
+              },
+              circleCreation: {
+                ...state.circleCreation,
+                activeInvestigators: patchAll(state.circleCreation.activeInvestigators),
+              },
+            }));
+          }
         };
 
         set(state => ({
