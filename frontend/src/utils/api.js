@@ -152,14 +152,55 @@ export const confirmPasswordReset = (token, password) =>
 // PORTRAITS
 // ==========================================
 
-// The largest picture the server takes as a portrait (backend/vtt/portraits.py), in
-// bytes, as File.size counts them. Forge takes the same pictures.
-export const PORTRAIT_MAX_BYTES = 10 * 1024 * 1024;
+// The longest portrait the server takes (backend/vtt/portraits.py): the whole data URL,
+// in characters. Forge takes the same pictures: PNG, JPEG or WebP only. A photo straight
+// from a phone is far larger, so send what portraitDataUrl makes of it.
+export const PORTRAIT_MAX_LENGTH = 400 * 1024;
+// The longest side, in pixels, that portraitDataUrl scales a picture down to.
+export const PORTRAIT_MAX_SIDE = 512;
 
-// Sets a character's portrait to a data URL (FileReader.readAsDataURL of the picture),
-// or clears it with null. Allowed for the owner and for the campaign's GM. Resolves to
-// the character as the WebSocket sends it; throws an Error with .status (413 too large,
-// 422 not a picture, 403 not allowed) and a message that can be shown as is.
+const PORTRAIT_TOO_LARGE_TEXT = 'The portrait is too large. Choose a smaller picture.';
+
+// A portrait data URL made from a picture the player chose (a File from an
+// <input type="file">): drawn no larger than PORTRAIT_MAX_SIDE on its longest side and
+// saved as JPEG, at lower quality until it fits PORTRAIT_MAX_LENGTH. Rejects with an
+// Error whose message can be shown as is when the browser cannot read the picture or it
+// does not fit.
+export const portraitDataUrl = (file) => new Promise((resolve, reject) => {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    const scale = Math.min(1, PORTRAIT_MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight, 1));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#ffffff'; // JPEG has no transparency
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(img, 0, 0, canvas.width, canvas.height);
+    for (const quality of [0.85, 0.7, 0.55, 0.4]) {
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      if (dataUrl.length <= PORTRAIT_MAX_LENGTH) {
+        resolve(dataUrl);
+        return;
+      }
+    }
+    reject(new Error(PORTRAIT_TOO_LARGE_TEXT));
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    reject(new Error('That file could not be read as a picture. Choose a PNG, JPEG or WebP picture.'));
+  };
+  img.src = url;
+});
+
+// Sets a character's portrait to a data URL (portraitDataUrl of the chosen picture),
+// or clears it with null. Allowed for the owner and for the campaign's GM, a limited
+// number of times (10 a minute, 50 a day per user). Resolves to the character as the
+// WebSocket sends it; throws an Error with .status (413 too large, 422 not a PNG, JPEG or
+// WebP picture, 429 changed too often, 403 not allowed) and a message that can be shown
+// as is.
 export const setCharacterPortrait = async (characterId, profilePic) => {
   let response;
   try {
@@ -173,7 +214,7 @@ export const setCharacterPortrait = async (characterId, profilePic) => {
   }
   if (!response.ok) {
     const error = new Error(response.status === 413
-      ? 'The portrait is too large. Choose a picture of at most 10 MB.'
+      ? PORTRAIT_TOO_LARGE_TEXT
       : await authErrorMessage(response));
     error.status = response.status;
     throw error;

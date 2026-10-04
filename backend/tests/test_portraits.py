@@ -1,25 +1,37 @@
 """PUT /api/investigators/{id}/portrait, and the portrait rule it shares with forge.
 
 The owner may set or clear a character's portrait, and so may the GM of its campaign
-while the character is active or pending. The character's own channel gets
-character_update; the campaign gets portrait_update (the GM and active members for an
-active character, the GM alone for a pending one).
+while the character is active or pending, a limited number of times per user. The
+character's own channel gets character_update; the campaign gets portrait_update (the
+GM and active members for an active character, the GM alone for a pending one). A
+stored value that breaks the rule is served as no portrait.
 """
+import asyncio
 import base64
 
 import pytest
 from fastapi import HTTPException
+from limits import parse as parse_limit
+from sqlalchemy import event
 
+import main
 import support
 from models import Character
 from vtt import portraits
 
-NOT_A_PICTURE = {"detail": "The portrait must be a picture (PNG, JPEG, GIF, WebP, AVIF, HEIC, BMP or TIFF)."}
-TOO_LARGE = {"detail": "The portrait is too large. Choose a picture of at most 10 MB."}
+NOT_A_PICTURE = {"detail": "The portrait must be a PNG, JPEG or WebP picture."}
+TOO_LARGE = {"detail": "The portrait is too large. Choose a smaller picture."}
+TOO_OFTEN = {"detail": "The portrait was changed too often. Please wait a few minutes and try again."}
+
+# How each picture type's bytes start.
+SIGNATURES = {"png": b"\x89PNG\r\n\x1a\n", "jpeg": b"\xff\xd8\xff\xe0", "webp": b"RIFF\x00\x00\x00\x00WEBP"}
 
 
 def picture(n_bytes=40, kind="png"):
-    raw = (b"\x89PNG\r\n\x1a\n" + bytes(range(256)) * (n_bytes // 256 + 1))[:n_bytes]
+    """A data URL of n_bytes of picture whose bytes start like the type (a PNG for a
+    type the rule does not take)."""
+    start = SIGNATURES.get(kind.lower(), SIGNATURES["png"])
+    raw = (start + bytes(range(256)) * (n_bytes // 256 + 1))[:n_bytes]
     return f"data:image/{kind};base64," + base64.b64encode(raw).decode()
 
 
@@ -128,10 +140,25 @@ def test_without_a_token_is_401(client):
 
 # --- what it may be --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("kind", ["png", "jpeg", "jpg", "gif", "webp", "avif", "heic", "bmp", "tiff", "PNG"])
-def test_raster_pictures_are_taken(client, kind):
+@pytest.mark.parametrize("kind", ["png", "jpeg", "webp"])
+def test_png_jpeg_and_webp_are_taken(client, kind):
     ch = support.forge(client)
     assert put(client, ch["id"], picture(kind=kind)).status_code == 200
+
+
+def test_the_bytes_may_be_any_of_the_three_types():
+    """A .png file that is really a JPEG still shows in every browser."""
+    jpeg_bytes = base64.b64encode(SIGNATURES["jpeg"] + b"rest").decode()
+    assert portraits.check_portrait("data:image/png;base64," + jpeg_bytes) is not None
+
+
+@pytest.mark.parametrize("kind", ["gif", "avif", "heic", "bmp", "tiff", "jpg", "PNG", "Jpeg"])
+def test_other_types_are_422(client, kind):
+    """The rule took eleven raster types in any case; it takes the three a browser's
+    canvas makes (the creator scales a photo down to one of them), written as
+    FileReader writes them."""
+    ch = support.forge(client)
+    assert (put(client, ch["id"], picture(kind=kind)).status_code, stored(ch["id"])) == (422, None)
 
 
 @pytest.mark.parametrize("value", [
@@ -144,6 +171,8 @@ def test_raster_pictures_are_taken(client, kind):
     "data:image/png;base64,abc",                 # bad padding
     "data:image/png;base64,QUJDé",          # not ASCII
     " data:image/png;base64,QUJD",               # not at the start
+    "data:image/png;base64," + base64.b64encode(b"just some text, not a picture").decode(),
+    "data:image/webp;base64," + base64.b64encode(b"RIFF\x00\x00\x00\x00WAVEfmt ").decode(),  # a sound
 ])
 def test_anything_else_is_422(client, value):
     ch = support.forge(client, profile_pic=picture(10))
@@ -162,22 +191,30 @@ def test_the_body_must_name_profile_pic(client, body):
 
 
 def test_size_limit(client, monkeypatch):
-    monkeypatch.setattr(portraits, "PORTRAIT_MAX_BYTES", 300)
+    """The limit is on the whole data URL, as stored and sent."""
+    monkeypatch.setattr(portraits, "PORTRAIT_MAX_LENGTH", len(picture(300)))
     ch = support.forge(client)
     assert put(client, ch["id"], picture(300)).status_code == 200
     r = put(client, ch["id"], picture(301))
     assert r.status_code == 413
     assert r.json() == TOO_LARGE
     assert stored(ch["id"]) == picture(300)
-    # far over the limit: refused from the length alone
     assert put(client, ch["id"], picture(3000)).status_code == 413
 
 
-def test_the_real_limit_is_ten_megabytes():
-    assert portraits.PORTRAIT_MAX_BYTES == 10 * 1024 * 1024
-    assert portraits.check_portrait(picture(portraits.PORTRAIT_MAX_BYTES)) is not None
+def test_the_real_limit_is_400_kb():
+    """It was 10 MB (about 13.4 MB as base64), so one account could fill CT209's 10 GB
+    disk with a few hundred forges, and a join broadcast could hold hundreds of MB.
+    400 KB of data URL holds a picture of about 300 KB; the creator sends far less."""
+    assert portraits.PORTRAIT_MAX_LENGTH == 400 * 1024
+    largest = picture(307_182)  # the most picture bytes a PNG data URL of 400 KB holds
+    assert len(largest) == 409_598
+    assert portraits.check_portrait(largest) == largest
     with pytest.raises(HTTPException) as refused:
-        portraits.check_portrait(picture(portraits.PORTRAIT_MAX_BYTES + 1))
+        portraits.check_portrait(picture(307_183))
+    assert refused.value.status_code == 413
+    with pytest.raises(HTTPException) as refused:  # far over: refused from the length alone
+        portraits.check_portrait("data:image/png;base64," + "A" * 20_000_000)
     assert refused.value.status_code == 413
 
 
@@ -198,7 +235,7 @@ def test_forge_refuses_what_the_portrait_route_refuses(client, monkeypatch):
         r = client.post("/api/investigators/forge", json={"name": "Inv", "profile_pic": value},
                         headers=support.as_user(owner.id))
         assert (r.status_code, r.json()) == (status, NOT_A_PICTURE)
-    monkeypatch.setattr(portraits, "PORTRAIT_MAX_BYTES", 300)
+    monkeypatch.setattr(portraits, "PORTRAIT_MAX_LENGTH", len(picture(300)))
     r = client.post("/api/investigators/forge", json={"name": "Inv", "profile_pic": picture(301)},
                     headers=support.as_user(owner.id))
     assert (r.status_code, r.json()) == (413, TOO_LARGE)
@@ -208,6 +245,114 @@ def test_forge_refuses_what_the_portrait_route_refuses(client, monkeypatch):
 def test_forge_without_a_portrait_is_unchanged(client):
     assert support.forge(client)["profile_pic"] is None
     assert support.forge(client, profile_pic=None)["profile_pic"] is None
+
+
+# --- how often it may change -------------------------------------------------------------------
+
+def test_the_real_change_limits():
+    assert [str(x) for x in portraits.PORTRAIT_CHANGE_LIMITS] == ["10 per 1 minute", "50 per 1 day"]
+
+
+def test_portrait_changes_are_limited_per_user(client, limiter_on, monkeypatch):
+    """Nothing limited forge or PUT /portrait, so one script could write portrait after
+    portrait. Each user now gets PORTRAIT_CHANGE_LIMITS (10 a minute, 50 a day); a
+    forge with a portrait counts, one without does not."""
+    monkeypatch.setattr(portraits, "PORTRAIT_CHANGE_LIMITS", (parse_limit("3/minute"), parse_limit("50/day")))
+    owner = support.make_user()
+    ch = support.forge(client, user_id=owner.id)  # no portrait: not counted
+    support.forge(client, user_id=owner.id, profile_pic=picture())
+    assert [put(client, ch["id"], p).status_code for p in (picture(41), None)] == [200, 200]
+    r = put(client, ch["id"], picture(42))
+    assert (r.status_code, r.json()) == (429, TOO_OFTEN)
+    assert stored(ch["id"]) is None
+    r = client.post("/api/investigators/forge", json={"name": "Inv", "profile_pic": picture()},
+                    headers=support.as_user(owner.id))
+    assert (r.status_code, r.json()) == (429, TOO_OFTEN)
+    assert support.forge(client, user_id=owner.id)["profile_pic"] is None  # still no limit without one
+    other = support.forge(client)
+    assert put(client, other["id"], picture()).status_code == 200  # another user has their own count
+
+
+def test_the_change_limit_counts_the_caller(client, limiter_on, monkeypatch):
+    """A GM setting portraits on the roster spends the GM's count, not the owners'."""
+    monkeypatch.setattr(portraits, "PORTRAIT_CHANGE_LIMITS", (parse_limit("1/minute"), parse_limit("50/day")))
+    camp = support.new_campaign(client)
+    first, second = support.active_member(client, camp), support.active_member(client, camp)
+    gm = support.as_gm(camp)
+    assert put(client, first["id"], picture(), headers=gm).status_code == 200
+    assert put(client, second["id"], picture(), headers=gm).status_code == 429
+    assert put(client, second["id"], picture()).status_code == 200  # its owner still may
+
+
+# --- stored values that break the rule are served as none ----------------------------------------
+
+LEGACY_VALUES = [
+    "https://tracker.example.org/me.png",  # a link: every viewer's browser would fetch it
+    "data:image/svg+xml;base64," + base64.b64encode(b"<svg/>").decode(),
+    "data:image/gif;base64," + base64.b64encode(b"GIF89a....").decode(),
+    "data:image/PNG;base64," + base64.b64encode(SIGNATURES["png"]).decode(),
+    "data:image/png;base64," + "A" * (400 * 1024),  # over the cap
+    "",
+]
+
+
+@pytest.mark.parametrize("value", LEGACY_VALUES)
+def test_a_stored_value_that_breaks_the_rule_is_served_as_none(client, value):
+    """Forge stored any string before the rule, and up to 10 MB until the cap was
+    lowered. Such values stay in the database but are never sent: not by the routes,
+    not in broadcasts."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp)
+    support.update(Character, ch["id"], profile_pic=value)
+    owner = support.as_owner(ch["id"])
+    assert client.get(f"/api/investigators/{ch['id']}", headers=owner).json()["profile_pic"] is None
+    [listed] = [c for c in client.get("/api/investigators", headers=owner).json() if c["id"] == ch["id"]]
+    assert listed["profile_pic"] is None
+    roster = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
+    assert [c["profile_pic"] for c in roster["active_investigators"] if c["id"] == ch["id"]] == [None]
+    state = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp)).json()
+    assert [c["profile_pic"] for c in state["active_investigators"] if c["id"] == ch["id"]] == [None]
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert ws.initial[0]["payload"]["profile_pic"] is None
+    assert stored(ch["id"]) == value  # nothing was deleted
+
+
+def test_a_stored_value_that_follows_the_rule_is_served(client):
+    pic = picture(kind="webp")
+    ch = support.forge(client)
+    support.update(Character, ch["id"], profile_pic=pic)
+    assert client.get(f"/api/investigators/{ch['id']}", headers=support.as_owner(ch["id"])).json()["profile_pic"] == pic
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert ws.initial[0]["payload"]["profile_pic"] == pic
+
+
+# --- campaign broadcasts ---------------------------------------------------------------------------
+
+def test_broadcast_campaign_reads_member_ids_only_and_serializes_once(client):
+    """It loaded every active member's whole row, portrait included, for every roll,
+    chat message and log line, and json.dumps ran once per socket."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, profile_pic=picture(2000))
+    b = support.active_member(client, camp)
+    gm_sock, a_sock, b_sock = support.FakeSocket(), support.FakeSocket(), support.FakeSocket()
+    mgr = main.ConnectionManager()
+    mgr.active_connections = {f"campaign:{camp['campaign_code']}": [gm_sock], str(a["id"]): [a_sock],
+                              str(b["id"]): [b_sock]}
+    statements = []
+
+    def record(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(main.db_engine, "before_cursor_execute", record)
+    try:
+        with main.SessionLocal() as db:
+            asyncio.run(mgr.broadcast_campaign(camp["campaign_code"], camp["id"],
+                                               {"type": "activity_log", "payload": {"message": "m"}}, db))
+    finally:
+        event.remove(main.db_engine, "before_cursor_execute", record)
+    assert statements and not any("profile_pic" in s for s in statements)
+    assert gm_sock.sent == a_sock.sent == b_sock.sent == [{"type": "activity_log", "payload": {"message": "m"}}]
+    assert gm_sock.texts[0] is a_sock.texts[0] is b_sock.texts[0]  # one string for every socket
 
 
 # --- who hears about it ----------------------------------------------------------------------

@@ -1805,7 +1805,7 @@
     },
     "/api/investigators/{investigator_id}/portrait": {
       "put": {
-        "description": "Sets the character's portrait to a picture data URL, or clears it (profile_pic\nnull). Allowed for the owner, and for the GM of the character's campaign while it\nis active or pending. Answers with the character as the WebSocket sends it.",
+        "description": "Sets the character's portrait to a picture data URL, or clears it (profile_pic\nnull). Allowed for the owner, and for the GM of the character's campaign while it\nis active or pending, a limited number of times per user (vtt/portraits.py).\nAnswers with the character as the WebSocket sends it.",
         "operationId": "set_portrait_api_investigators__investigator_id__portrait_put",
         "parameters": [
           {

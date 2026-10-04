@@ -13,6 +13,7 @@ Each socket also remembers the user whose login token opened it (connect's user_
 kept in the socket's state), so that close_user can end every socket of a user whose
 password has just changed.
 """
+import json
 from typing import List, Optional
 
 from fastapi import WebSocket
@@ -33,6 +34,12 @@ def character_key(character_id) -> str:
 def campaign_key(campaign_code: str) -> str:
     """The channel key of a campaign's GM socket."""
     return CAMPAIGN_KEY_PREFIX + campaign_code
+
+
+def encode(message: dict) -> str:
+    """A message as the text frame WebSocket.send_json would send (the same JSON
+    settings), so that a broadcast serializes it once, not once per socket."""
+    return json.dumps(message, separators=(",", ":"), ensure_ascii=False)
 
 
 class ConnectionManager:
@@ -83,13 +90,15 @@ class ConnectionManager:
             except ValueError:
                 pass
 
-    async def broadcast(self, key: str, message: dict):
+    async def _send_text(self, key: str, text: str):
+        """Sends an already serialized message to every socket on the key, and drops
+        the sockets that fail."""
         if key not in self.active_connections:
             return
         dead = []
-        for connection in self.active_connections[key]:
+        for connection in list(self.active_connections[key]):
             try:
-                await connection.send_json(message)
+                await connection.send_text(text)
             except Exception:
                 dead.append(connection)
         for conn in dead:
@@ -98,37 +107,35 @@ class ConnectionManager:
             except ValueError:
                 pass
 
+    async def broadcast(self, key: str, message: dict):
+        if key not in self.active_connections:
+            return
+        await self._send_text(key, encode(message))
+
     async def broadcast_all(self, message: dict):
-        dead = []
-        for gid, connections in self.active_connections.items():
-            for connection in connections:
-                try:
-                    await connection.send_json(message)
-                except Exception:
-                    dead.append((gid, connection))
-        for gid, conn in dead:
-            try:
-                self.active_connections[gid].remove(conn)
-            except ValueError:
-                pass
+        text = encode(message)
+        for key in list(self.active_connections):
+            await self._send_text(key, text)
 
     async def broadcast_campaign(self, campaign_code: str, campaign_id, message: dict, db):
         """Broadcast to the campaign's GM channel and its active members' channels.
 
         Without a campaign_id, campaign_code is taken as a channel key and only that
         channel gets the message. A WebSocket with no campaign passes its own key
-        here (WSContext.camp_code), so its campaign messages come back to itself."""
+        here (WSContext.camp_code), so its campaign messages come back to itself.
+
+        The members are read as ids only (a full Character row carries its
+        portrait), and the message is serialized once for every socket."""
         if not campaign_id:
             await self.broadcast(campaign_code, message)
             return
-        chars = db.query(Character).filter(
+        member_ids = db.query(Character.id).filter(
             Character.campaign_id == campaign_id,
             Character.status == "active",
         ).all()
-        ids = {campaign_key(campaign_code)}
-        for c in chars:
-            ids.add(character_key(c.id))
-        for gid in ids:
-            await self.broadcast(gid, message)
+        keys = {campaign_key(campaign_code)} | {character_key(row.id) for row in member_ids}
+        text = encode(message)
+        for key in keys:
+            await self._send_text(key, text)
 
 manager = ConnectionManager()

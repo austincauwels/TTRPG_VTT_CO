@@ -4,6 +4,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, field_validator
 
+from vtt.portraits import served_portrait
+
 
 class NotebookEntryUpdate(BaseModel):
     title: Optional[str] = None
@@ -260,6 +262,12 @@ class CharacterResponse(CharacterBase):
     class Config:
         from_attributes = True
 
+    @field_validator("profile_pic")
+    @classmethod
+    def portrait_as_served(cls, v):
+        # A stored portrait that breaks the portrait rule is sent as none (vtt/portraits.py).
+        return served_portrait(v)
+
 class CharacterRosterItem(BaseModel):
     id: int
     name: str
@@ -275,6 +283,11 @@ class CharacterRosterItem(BaseModel):
     ink_color: Optional[str] = ""
     class Config:
         from_attributes = True
+
+    @field_validator("profile_pic")
+    @classmethod
+    def portrait_as_served(cls, v):
+        return served_portrait(v)
 
 class RosterResponse(BaseModel):
     pending_investigators: List[CharacterRosterItem]

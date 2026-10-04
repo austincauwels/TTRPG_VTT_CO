@@ -481,13 +481,22 @@ def isolated_schema(create_tables=True):
 
 
 class FakeSocket:
-    """Stands in for a WebSocket inside ConnectionManager; fail=True makes send_json raise."""
+    """Stands in for a WebSocket inside ConnectionManager; fail=True makes sending raise.
+    sent holds the messages as dicts; texts holds the frames the manager sent as text
+    (it serializes a broadcast once and sends the same text to every socket)."""
 
     def __init__(self, fail=False):
         self.fail = fail
         self.sent = []
+        self.texts = []
 
     async def send_json(self, message):
         if self.fail:
             raise RuntimeError("socket is gone")
         self.sent.append(message)
+
+    async def send_text(self, text):
+        if self.fail:
+            raise RuntimeError("socket is gone")
+        self.texts.append(text)
+        self.sent.append(json.loads(text))
