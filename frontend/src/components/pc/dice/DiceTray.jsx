@@ -57,7 +57,7 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
   );
 };
 
-// A loudspeaker, struck through when the roll sounds are off
+// A loudspeaker, struck through when the sounds are off
 const SpeakerIcon = ({ muted }) => (
   <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none"
     stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -68,7 +68,8 @@ const SpeakerIcon = ({ muted }) => (
   </svg>
 );
 
-// Roll sounds on or off, remembered in this browser; it sits in the corner of the felt
+// The table's sounds on or off (dice, results, the watch's ticks, paper), remembered in
+// this browser; it sits in the corner of the felt
 const SoundToggle = () => {
   const [on, setOn] = useRollSounds();
   return (
@@ -76,8 +77,8 @@ const SoundToggle = () => {
       type="button"
       onClick={() => setOn(!on)}
       aria-pressed={on}
-      aria-label="Roll sounds"
-      title={on ? 'Roll sounds on' : 'Roll sounds off'}
+      aria-label="Sounds"
+      title={on ? 'Sounds on' : 'Sounds off'}
       className={`absolute top-1 right-1 z-20 w-10 h-10 flex items-center justify-center rounded-full transition-colors hover:bg-cream/10 ${
         on ? 'text-parchment-deep/80 hover:text-cream' : 'text-parchment-deep/45 hover:text-parchment-deep'}`}
     >

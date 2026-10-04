@@ -6,6 +6,7 @@ import { radioArrows } from './shared/a11y';
 import { useDialog } from './shared/useDialog';
 import { PaperSheet } from './shared/PaperSheet';
 import { serialFor } from './shared/PrintMarks';
+import { playPaperSound } from '../game/rollSounds';
 
 const ILLUMINATION_KEYS = {
   Journalist: ['Gather Statements', 'Hunt Down a Lead', 'Speak Truth to Power'],
@@ -577,6 +578,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
     if (animState !== 'idle' || (dir === 'forward' && atEnd) || (dir === 'backward' && atStart)) return;
     setSelectedRoleAbility('');
     setSelectedSpecialtyAbility('');
+    // The role card turns over on this screen: the paper sound (owner's round 3 item 21)
+    playPaperSound();
     setAnimState(`out-${dir}`);
     setTimeout(() => {
       setCurrentIndex(i => dir === 'forward' ? i + 1 : i - 1);

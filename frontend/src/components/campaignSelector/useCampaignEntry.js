@@ -1,7 +1,11 @@
 import { useState } from 'react';
+import { playPaperSound } from '../../game/rollSounds';
 
 // Book open/close state and the ways into a campaign. enterAsPlayer and enterAsGM keep their
 // call order: set character, connect, set last played, close book, set stage.
+// The book opening and closing on the desk plays the paper sound (owner's round 3 item 21);
+// a close that leaves the hub for another screen ({ silent: true }) does not, since the
+// book is never seen closing.
 export const useCampaignEntry = ({
   accessSession, characters, gmCampaigns, lastPlayedCampaign,
   setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData,
@@ -10,12 +14,15 @@ export const useCampaignEntry = ({
   const [isClosingBook, setIsClosingBook] = useState(false);
   const [isLoadingBook, setIsLoadingBook] = useState(false);
 
-  const closeBook = () => {
+  // Also used directly as a click or Escape handler, so its argument may be an event
+  const closeBook = (options) => {
+    if (!options?.silent) playPaperSound();
     setIsClosingBook(true);
     setTimeout(() => { setShowBook(false); setIsClosingBook(false); }, 420);
   };
 
   const handleOpenRoster = async () => {
+    playPaperSound();
     setShowBook(true);
     setIsClosingBook(false);
     if (accessSession?.userId && characters.length === 0 && gmCampaigns.length === 0) {
@@ -36,14 +43,14 @@ export const useCampaignEntry = ({
     setLocalCharacter({ id: char.id, name: char.name, status: char.status });
     connect(char.id);
     setLastPlayed({ type: 'player', characterId: char.id, campaignName: char.campaign_name || 'Active Campaign', campaignCode: char.campaign_code || '', campaignId: char.campaign_id || null });
-    closeBook();
+    closeBook({ silent: true });
     setStage('DESK');
   };
 
   const enterAsGM = (camp) => {
     connect(camp.campaign_code);
     setLastPlayed({ type: 'gm', campaignCode: camp.campaign_code, campaignName: camp.name, campaignId: camp.id });
-    closeBook();
+    closeBook({ silent: true });
     setStage('GM_DASH');
   };
 

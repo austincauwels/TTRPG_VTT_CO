@@ -5,6 +5,7 @@ import { tiltStyle } from '../shared/handPlaced';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey, pressable } from '../shared/a11y';
+import { playPaperSound } from '../../game/rollSounds';
 
 // A small Clear button on the circle sheet. Clearing erases the value on the server, so
 // it takes the shared two-step confirm.
@@ -85,7 +86,7 @@ function ReportFlipCard({ inv, report }) {
     <div
       className="cursor-pointer select-none"
       style={{ perspective: '1200px', width: '100%' }}
-      {...pressable(() => setFlipped(f => !f), flipped ? `${inv.name}'s report: turn back to the front` : `${inv.name}: ${report ? 'read the report' : 'no report yet, turn the card'}`)}
+      {...pressable(() => { playPaperSound(); setFlipped(f => !f); }, flipped ? `${inv.name}'s report: turn back to the front` : `${inv.name}: ${report ? 'read the report' : 'no report yet, turn the card'}`)}
       aria-pressed={flipped}
     >
       {/* The face that is up sits in the flow and sets the card's height; the other one

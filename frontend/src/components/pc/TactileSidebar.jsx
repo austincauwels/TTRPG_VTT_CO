@@ -6,6 +6,7 @@ import { tiltFor } from '../shared/handPlaced';
 import { useTypedText } from '../shared/useTypedText';
 import { SerialNo, BlankEntry, serialFor } from '../shared/PrintMarks';
 import { TurnOverMark, PushPin } from '../shared/Decorations';
+import { playPaperSound } from '../../game/rollSounds';
 
 // The investigator's photograph, small, pinned to the corner of their card. Only when
 // there is one: a card without a photograph shows no empty frame.
@@ -61,7 +62,8 @@ function RelationshipCard({ inv, myId, relationships, index }) {
   const myRel = relationships.find(r => r.from_character_id === myId && r.to_character_id === inv.id);
   const theirRel = relationships.find(r => r.from_character_id === inv.id && r.to_character_id === myId);
   const hasAny = myRel || theirRel;
-  const turn = () => setFlipped(f => !f);
+  // The card turns over on this screen, with the paper sound (owner's round 3 item 21)
+  const turn = () => { playPaperSound(); setFlipped(f => !f); };
   // The card is as tall as the face that is up; the borders (3px top, 1px bottom) sit on
   // the face, outside the measured content
   const height = (flipped ? heights.back : heights.front) + 4;

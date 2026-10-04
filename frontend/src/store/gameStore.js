@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { apiFetch, configureApiAuth, WS_CLOSE_UNAUTHENTICATED } from '../utils/api';
-import { playRollSound } from '../game/rollSounds';
+import { playRollSound, playDiceTumble, playTensionTick } from '../game/rollSounds';
 
 // Reconnecting after a dropped connection. The server closes an older socket on the same
 // channel with 1001 when a newer one opens (another tab or device), so 1001 never
@@ -11,6 +11,10 @@ const WS_CLOSE_REPLACED = 1001;
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 let reconnectTimer = null;
 let reconnectAttempts = 0;
+// The pocket watch's tension as this socket last saw it ({ id, value } of the circle), so
+// a raise can tick. The first circle after a (re)connect only sets it, so opening a desk
+// or reconnecting never ticks for a change made while away.
+let tensionSeen = null;
 
 const useGameStore = create(
   persist(
@@ -143,6 +147,7 @@ const useGameStore = create(
         }
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
+        tensionSeen = null;
         if (keepLog) set({ isRolling: false });
         else set({ activityLog: [], lastActivityLog: null, isRolling: false, pendingRoll: null });
         const apiBase = import.meta.env.VITE_API_URL || '';
@@ -218,7 +223,13 @@ const useGameStore = create(
             }
           }
           else if (message.type === 'circle_update') {
-            set({ circle: message.payload });
+            const next = message.payload;
+            const seen = tensionSeen;
+            const value = next?.tension_clock ?? 4;
+            tensionSeen = next ? { id: next.id, value } : null;
+            set({ circle: next });
+            // The GM raised the tension on the pocket watch: it ticks at every desk
+            if (seen && next && seen.id === next.id && value > seen.value) playTensionTick(value);
           }
           else if (message.type === 'roll_result') {
             const roll = message.payload.roll;
@@ -232,6 +243,9 @@ const useGameStore = create(
                 ? { action: message.payload.action, roll, character_id: message.payload.character_id }
                 : null,
             });
+            // The dice start tumbling on this desk now; a gilded roll's dice wait, still, for
+            // the choice, and tumble when a die is kept (resolveGildedChoice)
+            if (roll?.dice && !roll.needs_gilded_choice) playDiceTumble();
           }
           else if (message.type === 'roll_error') {
             set({ isRolling: false });
@@ -567,6 +581,8 @@ const useGameStore = create(
       resolveGildedChoice: (action, chosenType, chosenValue) => {
         const { socket } = get();
         set({ pendingGildedChoice: null });
+        // The kept die decides it: the dice tumble onto the felt now
+        playDiceTumble();
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'resolve_gilded',

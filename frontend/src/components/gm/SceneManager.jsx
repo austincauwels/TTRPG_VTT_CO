@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks';
+import { playPaperSound } from '../../game/rollSounds';
 
 const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reconnects by itself; try again in a moment.';
@@ -136,12 +137,26 @@ export const SceneManager = () => {
   // A short receipt under the stamps: what went out and when, or why it did not.
   const [receipt, setReceipt] = useState(null); // { ok, text }
 
+  // The letter goes out: the sheet shifts under the stamp with the paper sound (owner's
+  // round 3 item 21). Still under reduced motion, where only the sound remains.
+  const letterRef = useRef(null);
+  const sendOff = () => {
+    playPaperSound();
+    const el = letterRef.current;
+    if (!el?.animate || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    el.animate(
+      [{ transform: 'none' }, { transform: 'translate(4px, -3px) rotate(0.4deg)', offset: 0.35 }, { transform: 'none' }],
+      { duration: 460, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+  };
+
   const broadcastScene = () => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: 'gm_update_circle',
         payload: { role: accessSession?.role, circle_id: circle?.id || 1, location, atmosphere },
       }));
+      sendOff();
       setReceipt({ ok: true, text: `Dispatched at ${clockTime()}.` });
     } else {
       setReceipt({ ok: false, text: NOT_CONNECTED });
@@ -165,7 +180,7 @@ export const SceneManager = () => {
   const circleName = circle?.name || 'the Circle';
 
   return (
-    <div className="bg-parchment text-ink p-5 sm:p-8 xl:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
+    <div ref={letterRef} className="bg-parchment text-ink p-5 sm:p-8 xl:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
          style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.1) 28px)', backgroundSize: '100% 28px', lineHeight: '28px' }}>
 
       {/* Masking tape strip */}
