@@ -48,7 +48,7 @@ export const DeskStyles = () => (
     .hub-leather {
       position: absolute; inset: 10px 10px 12px 10px;
       border-radius: 3px;
-      background-color: #270c0b;
+      background-color: #210a09;
       background-image: ${LEATHER_GRAIN}, ${LEATHER_MOTTLE};
       background-size: 600px 600px, cover;
       box-shadow:
@@ -136,9 +136,9 @@ export const DeskStyles = () => (
        screen blend, so the wood and leather near the cluster brighten in their own colors
        and the candles' shadows show on it. */
     .desk-glow {
-      position: absolute; width: 760px; height: 760px; left: 0; top: 0;
+      position: absolute; width: 640px; height: 640px; left: 0; top: 0;
       transform: translate(-50%, -50%);
-      background: radial-gradient(closest-side, rgba(255,168,88,0.34), rgba(255,150,70,0.15) 28%, rgba(255,140,60,0.04) 58%, rgba(255,140,60,0));
+      background: radial-gradient(closest-side, rgba(255,168,88,0.3), rgba(255,150,70,0.12) 26%, rgba(255,140,60,0.03) 55%, rgba(255,140,60,0));
       mix-blend-mode: screen;
       opacity: var(--light, 1);
     }
@@ -150,9 +150,9 @@ export const DeskStyles = () => (
        hold them must not form a stacking context (no z-index, opacity or transform), or the
        blend has nothing to light. */
     .hub-light {
-      position: absolute; left: 0; top: 0; width: 1040px; height: 800px;
+      position: absolute; left: 0; top: 0; width: 920px; height: 700px;
       transform: translate(-50%, -50%) translate(calc(var(--flk-x, 0) * 5px), calc((var(--flk-s, 1) - 1) * -40px)) scale(var(--flk-s, 1));
-      background: radial-gradient(closest-side, rgba(255,176,92,0.74), rgba(255,160,80,0.38) 18%, rgba(255,150,70,0.1) 42%, rgba(255,140,60,0) 66%);
+      background: radial-gradient(closest-side, rgba(255,176,92,0.66), rgba(255,160,80,0.32) 17%, rgba(255,150,70,0.08) 40%, rgba(255,140,60,0) 62%);
       mix-blend-mode: soft-light;
       opacity: var(--light, 1);
     }
@@ -160,15 +160,17 @@ export const DeskStyles = () => (
     .hub-shade {
       position: absolute; left: 0; top: 0; width: 440vmax; height: 440vmax;
       transform: translate(-50%, -50%) translate(calc(var(--flk-x, 0) * 4px), 0) scale(var(--flk-s, 1));
-      background: radial-gradient(circle at center,
-        rgba(8,4,2,0) 0, rgba(8,4,2,0) 140px,
-        rgba(8,4,2,calc(var(--shade, 0.42) * 0.45)) 360px,
-        rgba(8,4,2,calc(var(--shade, 0.42) * 0.82)) 700px,
-        rgba(8,4,2,var(--shade, 0.42)) 1050px,
-        rgba(8,4,2,calc(var(--shade, 0.42) * 1.18)) 1600px);
+      /* wider than tall: the light runs further along the desk than down it, and its
+         reach grows with the screen, so the tickets stay legible and the corners dark */
+      background: radial-gradient(ellipse 220vmax 169vmax at center,
+        rgba(8,4,2,0) 0, rgba(8,4,2,0) max(182px, 12.6vw),
+        rgba(8,4,2,calc(var(--shade, 0.42) * 0.45)) max(468px, 32.5vw),
+        rgba(8,4,2,calc(var(--shade, 0.42) * 0.82)) max(910px, 63.2vw),
+        rgba(8,4,2,var(--shade, 0.42)) max(1365px, 94.8vw),
+        rgba(8,4,2,calc(var(--shade, 0.42) * 1.25)) max(2080px, 144.4vw));
     }
-    @media (max-width: 1023px) { .hub-shade { --shade: 0.48; } }
-    @media (min-width: 1024px) { .hub-shade { --shade: 0.46; } }
+    @media (max-width: 1023px) { .hub-shade { --shade: 0.56; } }
+    @media (min-width: 1024px) { .hub-shade { --shade: 0.4; } }
 
     /* ── Cast shadows ──
        Every object on the desk carries a .cast child: a soft dark copy of its outline,
@@ -469,6 +471,13 @@ export const DeskStyles = () => (
       box-shadow: 1px 2px 4px rgba(0,0,0,0.55), inset 0 -30px 40px -10px rgba(0,0,0,0.5);
       color: rgb(var(--c-ink));
       border-bottom: 2px solid rgba(0,0,0,0.3);
+    }
+    /* Furthest from the candles: the sheet darkens toward its far edge and its foot */
+    .herald-sheet::before {
+      content: ''; position: absolute; inset: 0; z-index: 30; pointer-events: none;
+      background:
+        linear-gradient(98deg, rgba(10,5,2,0) 22%, rgba(10,5,2,0.3) 68%, rgba(10,5,2,0.46) 100%),
+        linear-gradient(to bottom, rgba(10,5,2,0) 55%, rgba(10,5,2,0.22) 100%);
     }
     /* The fold dropping off the bottom */
     .herald-sheet::after {
