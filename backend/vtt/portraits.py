@@ -12,9 +12,10 @@ Portraits are stored in the database and sent inline in roster lists and in
 broadcasts to every socket of a campaign, so the cap keeps the database, its nightly
 dumps and every frame small. It was 10 MB, and before that forge stored any string.
 
-served_portrait applies the same type and size rule when a portrait is read, so a
-value stored before the rule (a link to another site, an SVG, a picture over the
-cap) is served as no portrait. The stored value is left alone.
+served_portrait applies the same type rule when a portrait is read, so a value
+stored before the rule (a link to another site, an SVG) is served as no portrait.
+Its size limit is the old 10 MB one (PORTRAIT_STORED_MAX_LENGTH), so players'
+existing pictures over the new 400 KB cap still show. The stored value is left alone.
 
 The one other value taken is a path to one of the app's own pictures, such as
 "/images/Journalist.png" (frontend/public/images, served by the same site): the role
@@ -34,6 +35,9 @@ from vtt.security import limiter
 
 # The longest data URL taken, in characters (ASCII, so also bytes): 400 KB.
 PORTRAIT_MAX_LENGTH = 400 * 1024
+# The longest stored data URL still served. Pictures saved under the old 10 MB limit
+# (about 13.4 MB as base64) keep showing; only new pictures must fit the 400 KB cap.
+PORTRAIT_STORED_MAX_LENGTH = 14 * 1024 * 1024
 PORTRAIT_TYPES = ("png", "jpeg", "webp")
 
 PORTRAIT_TOO_LARGE = "The portrait is too large. Choose a smaller picture."
@@ -87,11 +91,11 @@ def check_portrait(value):
 
 def served_portrait(value):
     """A stored portrait as the API serves it: the value when it is a PNG, JPEG or WebP
-    data URL of at most PORTRAIT_MAX_LENGTH characters, or a path to one of the app's
-    own pictures, else None (no portrait). It looks at the type and the length only;
-    every write since the rule was checked in full, and older bytes behind a valid
-    prefix are inert in an <img>."""
-    if isinstance(value, str) and len(value) <= PORTRAIT_MAX_LENGTH and _DATA_URL_PREFIX.match(value):
+    data URL of at most PORTRAIT_STORED_MAX_LENGTH characters, or a path to one of the
+    app's own pictures, else None (no portrait). It looks at the type and the length
+    only; every write since the rule was checked in full, and older bytes behind a
+    valid prefix are inert in an <img>."""
+    if isinstance(value, str) and len(value) <= PORTRAIT_STORED_MAX_LENGTH and _DATA_URL_PREFIX.match(value):
         return value
     if is_own_image_path(value):
         return value

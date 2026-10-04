@@ -297,7 +297,7 @@ LEGACY_VALUES = [
     "data:image/svg+xml;base64," + base64.b64encode(b"<svg/>").decode(),
     "data:image/gif;base64," + base64.b64encode(b"GIF89a....").decode(),
     "data:image/PNG;base64," + base64.b64encode(SIGNATURES["png"]).decode(),
-    "data:image/png;base64," + "A" * (400 * 1024),  # over the cap
+    "data:image/png;base64," + "A" * (14 * 1024 * 1024),  # over the old 10 MB limit
     "",
 ]
 
@@ -330,6 +330,23 @@ def test_a_stored_value_that_follows_the_rule_is_served(client):
     assert client.get(f"/api/investigators/{ch['id']}", headers=support.as_owner(ch["id"])).json()["profile_pic"] == pic
     with support.ws_connect(client, ch["id"]) as ws:
         assert ws.initial[0]["payload"]["profile_pic"] == pic
+
+
+def test_a_picture_saved_before_the_400_kb_cap_still_shows(client):
+    """Players' portraits of 450 to 550 KB, saved under the old 10 MB limit, vanished
+    from the circle cards when the read check used the new cap. Only new pictures must
+    fit 400 KB; stored ones keep showing up to the old limit."""
+    pic = picture(420_000)
+    assert len(pic) > portraits.PORTRAIT_MAX_LENGTH
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp)
+    support.update(Character, ch["id"], profile_pic=pic)
+    assert client.get(f"/api/investigators/{ch['id']}", headers=support.as_owner(ch["id"])).json()["profile_pic"] == pic
+    roster = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
+    assert [c["profile_pic"] for c in roster["active_investigators"] if c["id"] == ch["id"]] == [pic]
+    with pytest.raises(HTTPException) as refused:  # a new picture of that size is still refused
+        portraits.check_portrait(pic)
+    assert refused.value.status_code == 413
 
 
 # The app's own pictures (frontend/public/images): the role portraits the seeded and demo
