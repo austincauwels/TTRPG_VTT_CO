@@ -179,6 +179,24 @@ def test_list_entries_character_id_must_be_the_callers(client):
     assert private["id"] in [e["id"] for e in got]
 
 
+def test_list_entries_with_an_empty_character_id(client):
+    """Fixed: the GM's notebook sends character_id= (empty) when the GM has no
+    character, which was a 422, so the GM saw an empty notebook. An empty value now
+    means no character; the role is still checked against the token."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    public = _add(client, camp["id"])
+    secret = _add(client, camp["id"], visibility="gm_only", author_type="gm")
+    url = f"/api/notebook/{camp['id']}/entries"
+    r = client.get(f"{url}?role=GM&character_id=", headers=support.as_gm(camp))
+    assert r.status_code == 200
+    assert [e["id"] for e in r.json()] == [public["id"], secret["id"]]
+    r = client.get(f"{url}?role=player&character_id=", headers=support.as_owner(member["id"]))
+    assert [e["id"] for e in r.json()] == [public["id"]]
+    assert client.get(f"{url}?role=GM&character_id=", headers=support.as_owner(member["id"])).status_code == 403
+    assert client.get(f"{url}?character_id=abc", headers=support.as_gm(camp)).status_code == 422
+
+
 def test_list_entries_for_gm_and_members_only(client):
     camp = support.new_campaign(client)
     _add(client, camp["id"])

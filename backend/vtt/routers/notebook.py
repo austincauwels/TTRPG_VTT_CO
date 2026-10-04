@@ -7,9 +7,10 @@ author of an entry may change or delete it. A player writes as one of their
 characters in the campaign, and the server sets the author name, pen and ink.
 """
 import base64
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BeforeValidator
 from sqlalchemy.orm import Session
 
 from engine import create_notebook_entry
@@ -23,6 +24,10 @@ from vtt.schemas import NotebookEntryCreate, NotebookEntryResponse, NotebookEntr
 from vtt.ws.manager import manager
 
 router = APIRouter()
+
+# The frontend sends "character_id=" when it has no character (the GM's notebook).
+# An empty value means no character; anything else must still be an integer.
+OptionalCharacterId = Annotated[Optional[int], BeforeValidator(lambda v: None if v == "" else v)]
 
 
 def is_gm_entry(author_type, entry_type, visibility) -> bool:
@@ -68,7 +73,7 @@ def _require_author(db: Session, user: User, entry: NotebookEntry):
 
 
 @router.get("/api/notebook/{campaign_id}/entries", response_model=List[NotebookEntryResponse])
-def fetch_notebook_entries(campaign_id: int, role: str = "player", character_id: Optional[int] = None,
+def fetch_notebook_entries(campaign_id: int, role: str = "player", character_id: OptionalCharacterId = None,
                            db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     campaign = campaign_or_404(db, campaign_id)
     require_gm_or_member(db, user, campaign)

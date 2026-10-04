@@ -41,7 +41,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | GET /api/investigators | any logged-in user; lists only their own characters |
 | GET /api/investigators/{id} | owner, or GM of the character's campaign |
 | POST /api/investigators/forge | any logged-in user; the character is theirs |
-| GET /api/notebook/{campaign_id}/entries | GM or member; `role=GM` only for the GM (403 otherwise); `character_id` must be the caller's own character |
+| GET /api/notebook/{campaign_id}/entries | GM or member; `role=GM` only for the GM (403 otherwise); `character_id` must be the caller's own character (an empty `character_id=` means none) |
 | POST /api/notebook/{campaign_id}/entries | GM or member; a player must send `character_id`, and it must be the caller's own character and an active or pending member of this campaign (the GM may leave it out); Lightkeeper entries (author_type gm, entry_type lightkeeper or visibility gm_only) only for the GM. The server sets `author_name` (the character's name, or the GM's username), pen and ink |
 | PUT, DELETE /api/notebook/entries/{entry_id} | the author: the owner of the entry's character, or the campaign's GM for an entry without a character |
 | POST /api/notebook/{campaign_id}/upload | as for adding an entry |

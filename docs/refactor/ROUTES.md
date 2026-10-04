@@ -207,7 +207,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 ### Notebook routes
 
 **GET /api/notebook/{campaign_id}/entries** (line 1094, `def`)
-- Inputs: path `campaign_id`, query `role` (default `player`), `character_id` (optional int).
+- Inputs: path `campaign_id`, query `role` (default `player`), `character_id` (optional int; an empty value, which the GM's notebook sends, counts as absent since the bug-fix stage, where it used to be a 422).
 - Trusted ids: `campaign_id`, `character_id`, and the `role` string.
 - Tables: notebook_entries (non-deleted, ordered by page).
 - Filtering: `all` always; `gm_only` when `role == "GM"`; `self` when `entry.character_id == character_id`. Anyone can pass `role=GM` to read the Lightkeeper's private notes.
