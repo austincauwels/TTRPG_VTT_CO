@@ -19,10 +19,10 @@ export const NewInvestigatorPamphlet = ({ onOpen }) => (
       </div>
 
       <div className="flex-1 flex flex-col justify-center items-center text-center px-1">
-        <h3 className="font-display text-xl sm:text-3xl uppercase tracking-[0.08em] leading-none mb-1 text-oxblood">
+        <h3 className="font-display text-xl sm:text-2xl uppercase tracking-[0.06em] leading-none mb-1 text-oxblood">
           Blank
         </h3>
-        <h3 className="font-display text-xl sm:text-3xl uppercase tracking-[0.08em] leading-none mb-2 sm:mb-4 text-oxblood">
+        <h3 className="font-display text-xl sm:text-2xl uppercase tracking-[0.06em] leading-none mb-2 sm:mb-4 text-oxblood">
           Intake
         </h3>
 
@@ -33,7 +33,7 @@ export const NewInvestigatorPamphlet = ({ onOpen }) => (
           <div className="w-6 h-[1px] bg-sepia" />
         </div>
 
-        <p className="font-serif text-lg sm:text-2xl leading-snug italic px-1 sm:px-2 mt-2 sm:mt-4">
+        <p className="font-serif text-lg sm:text-xl leading-snug italic px-1 sm:px-2 mt-2 sm:mt-4">
           Create your Investigator
         </p>
       </div>

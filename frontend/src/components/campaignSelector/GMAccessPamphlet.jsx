@@ -63,10 +63,10 @@ export const GMAccessPamphlet = ({ accessSession, fetchUserData, enterAsGM }) =>
         </div>
 
         <div className="flex-1 flex flex-col justify-center items-center text-center px-1">
-          <h3 className="font-display text-xl sm:text-3xl uppercase tracking-[0.08em] leading-none mb-1 text-oxblood">
+          <h3 className="font-display text-xl sm:text-2xl uppercase tracking-[0.06em] leading-none mb-1 text-oxblood">
             Lightkeeper
           </h3>
-          <h3 className="font-display text-xl sm:text-3xl uppercase tracking-[0.08em] leading-none mb-2 sm:mb-4 text-oxblood">
+          <h3 className="font-display text-xl sm:text-2xl uppercase tracking-[0.06em] leading-none mb-2 sm:mb-4 text-oxblood">
             Access
           </h3>
           <div className="flex items-center gap-1 my-2 opacity-70">
@@ -74,7 +74,7 @@ export const GMAccessPamphlet = ({ accessSession, fetchUserData, enterAsGM }) =>
             <div className="w-1.5 h-1.5 rounded-full border border-sepia" />
             <div className="w-6 h-[1px] bg-sepia" />
           </div>
-          <p className="font-serif text-lg sm:text-2xl leading-snug italic px-1 sm:px-2 mt-2 sm:mt-4">
+          <p className="font-serif text-lg sm:text-xl leading-snug italic px-1 sm:px-2 mt-2 sm:mt-4">
             Take command of your own circle.
           </p>
         </div>
