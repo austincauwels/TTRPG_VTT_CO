@@ -509,12 +509,20 @@ def test_circle_creation_state_creates_circle_once(client):
     assert len(support.fetch_all(Circle, campaign_id=camp["id"])) == 1
 
 
-def test_circle_creation_state_unknown_campaign_is_404(client):
+@pytest.mark.parametrize("unknown", [987654321, 2 ** 31])
+def test_circle_creation_state_unknown_campaign_is_404(client, unknown):
     """Before tokens the GET tried to create a circle for any id and failed with a 500
-    on the foreign key. The access check now looks the campaign up first."""
-    r = client.get("/campaign/987654321/circle-creation-state", headers=support.as_stranger())
+    on the foreign key. The access check now looks the campaign up first, so no
+    circle is created, and neither is one for a caller who is refused."""
+    with support.server_errors_as_500(client):
+        r = client.get(f"/campaign/{unknown}/circle-creation-state", headers=support.as_stranger())
     assert r.status_code == 404
     assert r.json() == {"detail": "Campaign not found"}
+    assert support.campaign_circle(unknown) is None
+    camp = support.new_campaign(client)
+    r = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_stranger())
+    assert r.status_code == 403
+    assert support.campaign_circle(camp["id"]) is None
 
 
 def test_circle_creation_state_for_gm_and_members_only(client):
