@@ -4,7 +4,7 @@ Sign in with Google (POST /api/auth/google, /api/auth/google/link,
 which of the two is on. Password reset by email (POST /api/auth/password-reset and
 /api/auth/password-reset/confirm, see vtt/password_reset.py). The signed-in user's
 own account: GET /api/auth/me, and POST /api/auth/me/google, which links a Google
-account to it.
+account to it (the account page's other changes are in vtt/routers/account.py).
 
 Every route that signs someone in answers with the user's details plus "token", a
 login token (see vtt/security.py) that every other route and the WebSocket require.
@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from models import Campaign, User
-from vtt import config, google, password_reset
+from vtt import config, email_change, google, password_reset
 from vtt.auth import get_current_user
 from vtt.config import logger
 from vtt.db import PUBLISHED_PASSWORDS, get_db, unusable_password_hash
@@ -127,6 +127,17 @@ def require_password_login():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PASSWORD_LOGIN_OFF)
 
 
+def note_password_known(db: Session, user: User) -> None:
+    """A password that was just checked and worked is one somebody knows: has_password
+    becomes true (it is NULL for accounts from before the column). Only while the hash
+    is still the one checked."""
+    if user.has_password is True:
+        return
+    db.query(User).filter(User.id == user.id, User.hashed_password == user.hashed_password).update(
+        {User.has_password: True}, synchronize_session=False)
+    db.commit()
+
+
 @router.post("/api/auth/login")
 @limiter.limit("10/minute")
 async def login(request: Request, credentials: LoginRequest, db: Session = Depends(get_db)):
@@ -140,6 +151,7 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
             detail=INVALID_CREDENTIALS
         )
 
+    note_password_known(db, user)
     return signed_in_response(db, user)
 
 def register_refusals_left(request: Request) -> bool:
@@ -175,7 +187,8 @@ async def register(request: Request, credentials: RegisterRequest, db: Session =
     new_user = User(
         username=credentials.username,
         email=credentials.email,
-        hashed_password=await run_in_threadpool(pwd_context.hash, credentials.password)
+        hashed_password=await run_in_threadpool(pwd_context.hash, credentials.password),
+        has_password=True,
     )
     db.add(new_user)
     db.commit()
@@ -244,7 +257,8 @@ def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: 
     that is the account's email, ignoring case, the account's email counts as proven.
     With new_password_hash (the hash of a password nobody knows) the user's password is
     replaced too, which ends every login token issued before (they carry a stamp of the
-    password hash, see vtt/security.py).
+    password hash, see vtt/security.py), and has_password becomes false. With
+    expect_hash (a password the route checked) has_password becomes true.
 
     One conditional UPDATE, so a route that checked an older copy of the row cannot
     overwrite what another request wrote since: it writes only while google_sub is
@@ -257,6 +271,9 @@ def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: 
         values[User.email_proven] = True
     if new_password_hash is not None:
         values[User.hashed_password] = new_password_hash
+        values[User.has_password] = False
+    elif expect_hash is not None:
+        values[User.has_password] = True  # the route just checked that password
     conditions = [User.id == user.id,
                   User.google_sub.is_(None) if expect_sub is None else User.google_sub == expect_sub]
     if expect_hash is not None:
@@ -421,6 +438,7 @@ async def google_create(request: Request, body: GoogleCreateRequest, db: Session
         username=body.username,
         email=identity.email,
         hashed_password=await run_in_threadpool(unusable_password_hash),
+        has_password=False,
         google_sub=identity.sub,
         google_email=identity.email,
         email_proven=True,  # Google verified it
@@ -448,16 +466,49 @@ async def auth_config():
 
 # --- the signed-in user's own account ------------------------------------------------
 
-def account_view(user: User) -> dict:
-    """The signed-in user's account, as GET /api/auth/me and POST /api/auth/me/google answer."""
+def account_view(db: Session, user: User) -> dict:
+    """The signed-in user's account, as GET /api/auth/me and the account page's routes
+    answer: hasPassword is true, false, or null when it is not known (an account from
+    before it was recorded); pendingEmail is the new address of a change that waits for
+    its link, or null."""
+    linked = user.google_sub is not None
     return {"userId": user.id, "name": user.username, "email": user.email,
-            "googleLinked": user.google_sub is not None}
+            "googleLinked": linked, "googleEmail": user.google_email if linked else None,
+            "hasPassword": user.has_password, "pendingEmail": email_change.pending_address(db, user)}
 
 
 @router.get("/api/auth/me")
-async def current_account(user: User = Depends(get_current_user)):
+async def current_account(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """The caller's account, including whether a Google account is linked to it."""
-    return account_view(user)
+    return account_view(db, user)
+
+
+# Every change on the account page (and linking Google while signed in) counts against
+# this, per user, on top of the per-IP limit of its route (AUTH.md, The account page).
+ACCOUNT_CHANGE_LIMIT = parse_limit("10/hour")
+ACCOUNT_CHANGE_SCOPE = "account-change"
+ACCOUNT_CHANGES_LIMITED = "Too many account changes. Please try again in an hour."
+
+
+def count_account_change(user: User) -> None:
+    """Counts one change for the user; 429 once ACCOUNT_CHANGE_LIMIT is used up. Every
+    request counts, a refused one too, so a stolen session cannot guess the password
+    faster here. Off while the rate limiter is off."""
+    if limiter.enabled and not limiter.limiter.hit(ACCOUNT_CHANGE_LIMIT, ACCOUNT_CHANGE_SCOPE, str(user.id)):
+        logger.warning("Too many account changes for user id=%s", user.id)
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=ACCOUNT_CHANGES_LIMITED)
+
+
+async def signed_in_google_identity(credential: str) -> GoogleIdentity:
+    """verified_google_identity for a caller who is signed in. Elsewhere a refused
+    credential is 401, but the browser ends the session on any 401 (apiFetch in
+    utils/api.js), so here it is 400."""
+    try:
+        return await verified_google_identity(credential)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.detail)
+        raise
 
 
 def refuse_google_linked_elsewhere(db: Session, identity: GoogleIdentity) -> None:
@@ -470,7 +521,8 @@ def refuse_google_linked_elsewhere(db: Session, identity: GoogleIdentity) -> Non
 async def link_google_to_account(request: Request, body: AccountGoogleLinkRequest, db: Session = Depends(get_db),
                                  user: User = Depends(get_current_user)):
     """Links the Google account of a Google ID token (the credential, as for
-    /api/auth/google) to the signed-in user, who has none yet.
+    /api/auth/google) to the signed-in user, who has none yet. This is "Add Google
+    sign-in" on the account page.
 
     A login token alone is not enough: whoever stole one could link their own Google
     account and keep signing in after the owner changed the password. The request
@@ -479,16 +531,10 @@ async def link_google_to_account(request: Request, body: AccountGoogleLinkReques
     account whose password nobody knows proves itself. The password stays as it is
     and so do the login tokens. From then on Sign in with Google signs in to this
     account."""
-    try:
-        identity = await verified_google_identity(body.credential)
-    except HTTPException as exc:
-        # Elsewhere a refused credential is 401, but this caller is signed in, and the
-        # browser ends the session on any 401 (apiFetch in utils/api.js).
-        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.detail)
-        raise
+    count_account_change(user)
+    identity = await signed_in_google_identity(body.credential)
     if user.google_sub == identity.sub:
-        return account_view(user)  # linked already, for example by a second click
+        return account_view(db, user)  # linked already, for example by a second click
     if user.google_sub is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ACCOUNT_ALREADY_LINKED)
     checked_hash = None
@@ -505,11 +551,11 @@ async def link_google_to_account(request: Request, body: AccountGoogleLinkReques
         # Another request changed the account after the checks above (user is read
         # again after the rollback). Answer as the checks now would.
         if user.google_sub == identity.sub:
-            return account_view(user)
+            return account_view(db, user)
         if user.google_sub is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ACCOUNT_ALREADY_LINKED)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=RELINK_WRONG_PASSWORD)
-    return account_view(user)
+    return account_view(db, user)
 
 
 # --- password reset by email (vtt/password_reset.py) -----------------------------------

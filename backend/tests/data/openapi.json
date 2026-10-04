@@ -833,6 +833,54 @@
         "title": "CircleVoteSubmit",
         "type": "object"
       },
+      "EmailChange": {
+        "properties": {
+          "credential": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "EmailChange",
+        "type": "object"
+      },
+      "EmailChangeConfirm": {
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "EmailChangeConfirm",
+        "type": "object"
+      },
       "FinalizeRosterRequest": {
         "properties": {
           "campaign_id": {
@@ -890,6 +938,20 @@
           "password"
         ],
         "title": "GoogleLinkRequest",
+        "type": "object"
+      },
+      "GoogleRemoval": {
+        "description": "Removing the Google sign-in takes the account's current password, which also\nshows that the account can still be signed in to without Google.",
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "GoogleRemoval",
         "type": "object"
       },
       "GoogleSignInRequest": {
@@ -1133,6 +1195,41 @@
         "title": "NotebookEntryUpdate",
         "type": "object"
       },
+      "PasswordChange": {
+        "properties": {
+          "credential": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential"
+          },
+          "new_password": {
+            "title": "New Password",
+            "type": "string"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "required": [
+          "new_password"
+        ],
+        "title": "PasswordChange",
+        "type": "object"
+      },
       "PasswordResetConfirm": {
         "properties": {
           "password": {
@@ -1325,6 +1422,41 @@
           "active_investigators"
         ],
         "title": "RosterResponse",
+        "type": "object"
+      },
+      "UsernameChange": {
+        "properties": {
+          "credential": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "UsernameChange",
         "type": "object"
       },
       "ValidationError": {
@@ -1556,9 +1688,117 @@
         "summary": "Current Account"
       }
     },
+    "/api/auth/me/email": {
+      "post": {
+        "description": "Mails a link to the new address and a notice to the old one. Nothing changes until\nthe link is used (confirm_email_change). Answers the account, with pendingEmail.",
+        "operationId": "request_email_change_api_auth_me_email_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Email Change"
+      }
+    },
+    "/api/auth/me/email/cancel": {
+      "post": {
+        "description": "Drops the change that waits, if any; its link stops working. No proof: it changes\nnothing on the account, and the owner can always undo a change someone else asked for.",
+        "operationId": "cancel_email_change_api_auth_me_email_cancel_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Cancel Email Change"
+      }
+    },
+    "/api/auth/me/email/confirm": {
+      "post": {
+        "description": "Uses the link from the email, once, signed in as the user who asked for it. The\naddress changes and counts as proven; the user's password reset links end. A\nGoogle link is proven or not by the new address. Answers the account.",
+        "operationId": "confirm_email_change_api_auth_me_email_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Email Change"
+      }
+    },
+    "/api/auth/me/email/resend": {
+      "post": {
+        "description": "A new link for the change that waits, to the same new address. The older link\nstops working and the change still expires when it would have, so this needs no\nproof. Limited with the requests (EMAIL_CHANGE_MAIL_LIMIT).",
+        "operationId": "resend_email_change_api_auth_me_email_resend_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Resend Email Change"
+      }
+    },
     "/api/auth/me/google": {
       "post": {
-        "description": "Links the Google account of a Google ID token (the credential, as for\n/api/auth/google) to the signed-in user, who has none yet.\n\nA login token alone is not enough: whoever stole one could link their own Google\naccount and keep signing in after the owner changed the password. The request\nmust also prove the account again, with its current password, or with a Google\naccount whose email is the account's email (ignoring case), which is how an\naccount whose password nobody knows proves itself. The password stays as it is\nand so do the login tokens. From then on Sign in with Google signs in to this\naccount.",
+        "description": "Links the Google account of a Google ID token (the credential, as for\n/api/auth/google) to the signed-in user, who has none yet. This is \"Add Google\nsign-in\" on the account page.\n\nA login token alone is not enough: whoever stole one could link their own Google\naccount and keep signing in after the owner changed the password. The request\nmust also prove the account again, with its current password, or with a Google\naccount whose email is the account's email (ignoring case), which is how an\naccount whose password nobody knows proves itself. The password stays as it is\nand so do the login tokens. From then on Sign in with Google signs in to this\naccount.",
         "operationId": "link_google_to_account_api_auth_me_google_post",
         "requestBody": {
           "content": {
@@ -1591,6 +1831,117 @@
           }
         },
         "summary": "Link Google To Account"
+      }
+    },
+    "/api/auth/me/google/remove": {
+      "post": {
+        "description": "Unlinks the Google account. Takes the current password, so the account can still\nbe signed in to afterwards; refused for an account whose password nobody knows, and\nwhile password sign-in is off, either of which would lock the account. Sessions stay.\nAnswers the account.",
+        "operationId": "remove_google_sign_in_api_auth_me_google_remove_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleRemoval"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Google Sign In"
+      }
+    },
+    "/api/auth/me/password": {
+      "post": {
+        "description": "Sets a new password (the register rule). \"Change password\" proves the account with\nthe current one; \"Set a password\", for an account whose password nobody knows, with\na fresh Google sign-in. The new password ends every other session: every login\ntoken issued before stops working and the user's open sockets close (4401). The\nanswer is the account plus a new login token for this browser. A change of address\nwaiting for its link ends too.",
+        "operationId": "change_password_api_auth_me_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Password"
+      }
+    },
+    "/api/auth/me/username": {
+      "post": {
+        "description": "A new username under the register rule, free ignoring case. A change of case of\nthe user's own name is allowed. Answers the account.",
+        "operationId": "change_username_api_auth_me_username_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsernameChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Username"
       }
     },
     "/api/auth/password-reset": {

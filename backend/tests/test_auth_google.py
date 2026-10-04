@@ -934,15 +934,19 @@ NEEDS_PASSWORD = {"detail": "This Google account has another email address than 
 
 
 def test_me_shows_the_account(client):
+    """hasPassword: the login that made the token checked the password (test_account.py
+    has the other cases); pendingEmail: a change of address waiting for its link."""
     u = support.make_user()
     r = me(client, support.as_user(u.id))
     assert r.status_code == 200
-    assert r.json() == {"userId": u.id, "name": u.username, "email": u.email, "googleLinked": False}
+    assert r.json() == {"userId": u.id, "name": u.username, "email": u.email, "googleLinked": False,
+                        "googleEmail": None, "hasPassword": True, "pendingEmail": None}
 
 
 def test_me_shows_a_linked_google_account(client):
-    u = support.make_user(google_sub=f"g{support.uid(20)}")
-    assert me(client, support.as_user(u.id)).json()["googleLinked"] is True
+    u = support.make_user(google_sub=f"g{support.uid(20)}", google_email="linked.account@gmail.test")
+    body = me(client, support.as_user(u.id)).json()
+    assert (body["googleLinked"], body["googleEmail"]) == (True, "linked.account@gmail.test")
 
 
 def test_me_needs_a_token(client):
@@ -957,7 +961,8 @@ def test_a_signed_in_user_links_google(client, google):
     credential = google.credential()
     r = link_signed_in(client, credential, headers)
     assert r.status_code == 200, r.text
-    assert r.json() == {"userId": u.id, "name": u.username, "email": u.email, "googleLinked": True}
+    assert r.json() == {"userId": u.id, "name": u.username, "email": u.email, "googleLinked": True,
+                        "googleEmail": google.identity(credential).email, "hasPassword": True, "pendingEmail": None}
     sub = google.identity(credential).sub
     assert google_sub_of(u.id) == sub
     # the password and the session stay as they were

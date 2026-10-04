@@ -143,18 +143,23 @@ class GoogleCreateRequest(BaseModel):
     def username_alphanum(cls, v):
         return check_new_username(v)
 
+def check_email_shape(v):
+    """An address as typed into a form: surrounding spaces dropped, at most 254
+    characters, x@y with no spaces. Whether mail can reach it is checked later."""
+    v = v.strip()
+    if len(v) > 254:
+        raise ValueError("Email too long")
+    if not _re.fullmatch(r"[^\s@]+@[^\s@]+", v):
+        raise ValueError("That does not look like an email address")
+    return v
+
 class PasswordResetRequest(BaseModel):
     email: str
 
     @field_validator("email")
     @classmethod
     def email_shape(cls, v):
-        v = v.strip()
-        if len(v) > 254:
-            raise ValueError("Email too long")
-        if not _re.fullmatch(r"[^\s@]+@[^\s@]+", v):
-            raise ValueError("That does not look like an email address")
-        return v
+        return check_email_shape(v)
 
 # A reset token is 43 characters (secrets.token_urlsafe(32)).
 _MAX_RESET_TOKEN_LENGTH = 256
@@ -174,6 +179,69 @@ class PasswordResetConfirm(BaseModel):
     @classmethod
     def password_strength(cls, v):
         return check_new_password(v)
+
+# --- the account page (vtt/routers/account.py) -------------------------------------------
+
+class AccountProof(BaseModel):
+    """What every change on the account page carries to prove the account again: its
+    current password, or a Google credential (an ID token from Google Identity Services)
+    of the Google account linked to it, a few minutes old at most."""
+    password: Optional[str] = None
+    credential: Optional[str] = None
+
+    @field_validator("password")
+    @classmethod
+    def proof_password_length(cls, v):
+        return v if v is None else _check_login_password(v)
+
+    @field_validator("credential")
+    @classmethod
+    def proof_credential_length(cls, v):
+        return v if v is None else _check_token_length(v)
+
+class UsernameChange(AccountProof):
+    username: str
+
+    @field_validator("username")
+    @classmethod
+    def username_rule(cls, v):
+        return check_new_username(v)
+
+class PasswordChange(AccountProof):
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v):
+        return check_new_password(v)
+
+class EmailChange(AccountProof):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def email_shape(cls, v):
+        return check_email_shape(v)
+
+class EmailChangeConfirm(BaseModel):
+    token: str
+
+    @field_validator("token")
+    @classmethod
+    def token_length(cls, v):
+        if len(v) > _MAX_RESET_TOKEN_LENGTH:
+            raise ValueError("Token too long")
+        return v
+
+class GoogleRemoval(BaseModel):
+    """Removing the Google sign-in takes the account's current password, which also
+    shows that the account can still be signed in to without Google."""
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def password_length(cls, v):
+        return _check_login_password(v)
 
 class PortraitUpdate(BaseModel):
     # A data URL as the character creator makes it (vtt/portraits.py), or null to clear

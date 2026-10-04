@@ -21,7 +21,9 @@ PUBLIC = {"/api/auth/login", "/api/auth/register", "/api/auth/google", "/api/aut
           "/api/auth/google/create", "/api/auth/config", "/api/auth/password-reset",
           "/api/auth/password-reset/confirm"}
 # The signed-in user's own account is under /api/auth/ too, and needs a token.
-ACCOUNT = {"/api/auth/me", "/api/auth/me/google"}
+ACCOUNT = {"/api/auth/me", "/api/auth/me/google", "/api/auth/me/username", "/api/auth/me/password",
+           "/api/auth/me/email", "/api/auth/me/email/resend", "/api/auth/me/email/cancel",
+           "/api/auth/me/email/confirm", "/api/auth/me/google/remove"}
 
 PROTECTED = sorted(
     (method, route.path)
@@ -36,7 +38,7 @@ def _url(path):
 
 
 def test_every_route_but_the_sign_in_routes_is_protected():
-    assert len(PROTECTED) == 26
+    assert len(PROTECTED) == 33
     assert PUBLIC | ACCOUNT == {r.path for r in main.app.routes
                                 if isinstance(r, APIRoute) and r.path.startswith("/api/auth/")}
 
