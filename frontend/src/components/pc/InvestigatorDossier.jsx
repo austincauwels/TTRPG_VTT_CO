@@ -314,7 +314,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     if (file) portrait.change(file);
   };
   const photoInside = photo ? (
-    <img src={photo} className={`w-full h-full object-cover grayscale contrast-125 sepia-[0.25] transition-opacity ${portrait.busy ? 'opacity-60' : ''}`} alt={`Portrait of ${character.name}`} />
+    <img src={photo} className={`w-full h-full object-cover object-[50%_22%] grayscale contrast-125 sepia-[0.25] transition-opacity ${portrait.busy ? 'opacity-60' : ''}`} alt={`Portrait of ${character.name}`} />
   ) : (
     <PhotoMount className="w-full h-full">
       {canChangePhoto && !portrait.busy && (
@@ -510,7 +510,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
         {/* Card body — looks like an index card sitting on the desk */}
         <div
-          className="dossier-ability-card relative rounded-sm rounded-tl-none"
+          className="dossier-ability-card relative rounded-sm rounded-tl-none min-h-[110px]"
           style={{
             background: 'rgb(var(--c-cream))',
             backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.12) 24px)',
@@ -518,7 +518,6 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             lineHeight: '24px',
             boxShadow: '3px 5px 18px rgba(0,0,0,0.28), inset 0 0 30px rgb(var(--c-sepia) / 0.08)',
             border: '1px solid rgba(0,0,0,0.12)',
-            minHeight: '110px',
             padding: '12px 16px',
           }}
         >
@@ -585,8 +584,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         )}
       </div>
 
-      {/* Action and Drive Pools Grid */}
-      <div data-desk="drives" className="dossier-drives grid grid-cols-1 gap-4 bg-black/[0.02] border border-ink/10 p-3 rounded-sm shadow-inner">
+      {/* The three drives and their actions, printed on the page: each a section of the form
+          under a double rule in its drive's ink, with its actions as paper chits */}
+      <div data-desk="drives" className="dossier-drives grid grid-cols-1 gap-4">
         {domainCategories.map((cat) => {
           const currentDrive = character[`${cat.driveKey}_current`] || 0;
           const maxDrive = character[`${cat.driveKey}_max`] || 1;
@@ -594,11 +594,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           const resistSpent = character[`${cat.driveKey}_resistance_spent`] || 0;
 
           return (
-            <div key={cat.name} className="dossier-drive border p-3 rounded-sm grid grid-cols-1 sm:grid-cols-2 gap-3"
-              style={{ background: `rgb(var(--c-drive-${cat.driveKey}) / 0.07)`, borderColor: `rgb(var(--c-drive-${cat.driveKey}) / 0.3)` }}>
+            <div key={cat.name} className="dossier-drive border-t-[3px] border-double border-b px-3 pt-2.5 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-3"
+              style={{ background: `rgb(var(--c-drive-${cat.driveKey}) / 0.06)`, borderTopColor: `rgb(var(--c-drive-${cat.driveKey}) / 0.55)`, borderBottomColor: `rgb(var(--c-drive-${cat.driveKey}) / 0.2)` }}>
 
               {/* LEFT: Drive section */}
-              <div className="dossier-drive-panel group/drive bg-cream/60 border border-ink/20 p-2.5 rounded-sm shadow-sm flex flex-col gap-2">
+              <div className="dossier-drive-panel group/drive pb-2 border-b border-dotted border-ink/30 flex flex-col gap-2">
                 {/* Drive title + pre-spend buttons */}
                 <div className="flex items-center justify-between">
                   <span className="font-serif font-bold text-lg uppercase tracking-wide" style={{ color: `rgb(var(--c-drive-${cat.driveKey}))` }} title={DRIVE_FLAVOR[cat.driveKey]}>{cat.name}</span>
@@ -754,7 +754,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         </button>
                       )}
                       {availMods.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
+                        // The abilities that can add to this roll: a chip each, on one line, its
+                        // name and what it adds in the sheet's own marks (+1d, the gilded dot,
+                        // the drive it lets you spend). A chosen chip is ticked in ink.
+                        <div className="mod-chips flex flex-wrap gap-1 mt-1">
                           {availMods.map(mod => {
                             const on = selectedMods.includes(mod.key);
                             return (
@@ -762,16 +765,22 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                                 key={mod.key}
                                 type="button"
                                 aria-pressed={on}
+                                aria-label={mod.label}
+                                title={mod.label}
                                 onClick={() => toggleMod(act.key, mod.key)}
-                                className={`font-sans font-bold text-xs uppercase tracking-wider px-1.5 py-0.5 border transition-colors ${
-                                  on ? 'bg-candle-gold/20 border-candle-gold/70 text-ink' : 'border-ink/20 text-sepia hover:border-ink/40 hover:text-ink'
+                                className={`mod-chip relative inline-flex items-center gap-1 max-w-full whitespace-nowrap font-serif text-sm leading-6 px-1.5 border rounded-sm transition-colors ${
+                                  on ? 'bg-candle-gold/20 border-candle-gold/80 text-ink' : 'border-ink/25 text-sepia hover:border-ink/50 hover:text-ink'
                                 }`}
                               >
+                                <span className="min-w-0 truncate">{mod.key}</span>
+                                {mod.shows?.dice > 0 && <span className="shrink-0 font-mono tabular-nums text-xs font-bold">+{mod.shows.dice}d</span>}
+                                {mod.shows?.gild && <span aria-hidden="true" className="shrink-0 w-2 h-2 bg-candle-gold border border-sepia rounded-full" />}
+                                {mod.shows?.use && <span className="shrink-0 italic">{mod.shows.use}</span>}
                                 {on && (
-                                  <svg aria-hidden="true" viewBox="0 0 12 12" className="inline-block w-2.5 h-2.5 mr-1 -mt-px">
-                                    <path d="M2 6.4l2.6 2.6L10 3.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                  <svg aria-hidden="true" viewBox="0 0 12 12" className="absolute -top-1.5 -right-1 w-3.5 h-3.5 text-oxblood pointer-events-none">
+                                    <path d="M2 6.4l2.6 2.6L10 3.2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                   </svg>
-                                )}{mod.label}
+                                )}
                               </button>
                             );
                           })}
@@ -792,8 +801,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       {/* Vital Damage & Post-Mortem Ledger */}
       <div className="dossier-trauma grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
 
-        {/* Damage Tracks Column */}
-        <div data-desk="marks" className="dossier-marks md:col-span-5 bg-black/[0.02] border-2 border-ink p-4 rounded-sm flex flex-col justify-between shadow-inner">
+        {/* Damage Tracks: a manila tag tied to the sheet, its eyelet at the narrow end, the
+            marks inked in its boxes and the status rubber-stamped at its foot. The shadow
+            sits on the wrapper, since the tag's cut corners would clip a box-shadow. */}
+        <div data-desk="marks" className="dossier-marks relative md:col-span-5" style={{ filter: 'drop-shadow(2px 5px 5px rgba(0,0,0,0.24))' }}>
+        {/* Its string, through the eyelet and off over the page */}
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 40 20" preserveAspectRatio="none" className="marks-tag-string">
+          <path d="M37 12.5 C 28 4, 17 18, 9 9 S 2 6, 0 8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          <path d="M37 12.5 C 30 15, 22 19, 14 16" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        </svg>
+        <div className="marks-tag hand-placed h-full flex flex-col justify-between"
+          style={{ '--tilt': `${tiltFor(`marks-${character.id ?? ''}`, { min: 0.4, max: 1.1, sign: -1 })}deg` }}>
+          <span aria-hidden="true" className="marks-tag-eyelet" />
           <div>
             <h3 className="mark-head font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-2">
               <SafeIcon name="GiBleedingEye" size={22} className="text-oxblood" /> Marks
@@ -881,9 +900,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             )}
           </div>
 
-          <div className="mark-status mt-4 pt-2 border-t border-ink/10 text-xs font-sans font-bold text-sepia flex flex-wrap gap-x-2 justify-between items-center uppercase">
-            <span>Status</span>
-            <span className={`font-bold ${character?.is_dead ? 'text-ink' : character?.incapacitated ? 'text-oxblood' : 'text-ink'}`}>
+          {/* The status, rubber-stamped on the tag */}
+          <div className="mark-status mt-3 flex items-center">
+            <span className="sr-only">Status: </span>
+            <span className={`mark-stamp inline-block -rotate-2 border-2 rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight ${
+              character?.is_dead ? 'border-ink text-ink' : character?.incapacitated ? 'border-oxblood text-oxblood' : 'border-sepia/70 text-sepia'}`}>
               {character?.is_dead ? "Dead" : character?.incapacitated ? "Incapacitated" : "Able to act"}
             </span>
           </div>
@@ -904,12 +925,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             </button>
           )}
         </div>
+        </div>
 
         {/* Scars — editable textarea for players, list view for GM readOnly */}
         <div data-desk="scars" className="dossier-scars md:col-span-7 bg-cream border-2 border-dashed border-ink/60 p-4 pt-5 rounded-sm relative shadow-sm flex flex-col justify-between overflow-hidden">
-          <FormLine className="absolute top-1.5 right-3">Form C.O. 14 · Trauma record</FormLine>
+          <FormLine className="scars-form absolute top-1.5 right-3">Form C.O. 14 · Trauma record</FormLine>
           <div>
-            <div className="flex flex-wrap gap-2 justify-between items-center border-b border-ink/40 pb-1 mb-2 mt-3 sm:mt-0">
+            <div className="scars-head flex flex-wrap gap-2 justify-between items-center border-b border-ink/40 pb-1 mb-2 mt-3 sm:mt-0">
               <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
                 <ScarIcon size={22} className="text-ink" /> Scars
               </h3>
@@ -919,7 +941,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             </div>
           </div>
 
-          <div className="flex-1 space-y-1.5 pt-1"
+          <div className="scars-lines flex-1 space-y-1.5 pt-1"
                style={{
                  backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.14) 24px)',
                  backgroundSize: '100% 24px',

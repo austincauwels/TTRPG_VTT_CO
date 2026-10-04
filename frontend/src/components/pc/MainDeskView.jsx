@@ -66,6 +66,9 @@ export const MainDeskView = () => {
     circleCreation.isVisible;
 
   const [activeTab, setActiveTab] = useState('character');
+  // From xl the Circle tab's papers lie loose on the desk instead of on one sheet, over the
+  // sheet's column and the felt's (as the Notebook tab takes the whole desk)
+  const circleOnDesk = activeTab === 'circle';
   const deathDialogRef = useDialog({ open: !!character?.is_dead && !deathDismissed, onClose: () => setDeathDismissed(true) });
   const campaignName = lastPlayedCampaign?.type === 'player' ? lastPlayedCampaign.campaignName : null;
   const registryNo = `Registry file // No. ${serialFor(character?.id)}-CO`;
@@ -217,18 +220,24 @@ export const MainDeskView = () => {
           // column is as tall as the window and keeps its papers in view.
           <div className="grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-[minmax(15rem,1fr)_minmax(0,3.1fr)_minmax(19rem,1.3fr)] gap-6 xl:gap-x-6 2xl:gap-x-8 items-start xl:items-stretch xl:flex-1 xl:min-h-0">
             <TactileSidebar />
-            <div className="lg:col-span-6 xl:col-span-1 order-1 lg:order-none min-w-0 xl:min-h-0">
-              <div className="bg-cream text-ink rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] lg:min-h-[850px] xl:min-h-0 xl:h-full border-2 border-ink relative font-serif overflow-hidden">
-                <div className="absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
-                <BrassCornerFiligree />
-                <EdgeLine text="Candela Obscura · Chapter registry · Printed in Newfaire" className="bottom-2 left-10 right-10" />
-                <div data-desk="sheet" className="relative px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 xl:px-6 xl:pt-5 xl:pb-8 xl:h-full xl:overflow-y-auto custom-scrollbar">
+            <div className={`lg:col-span-6 ${circleOnDesk ? 'xl:col-span-2' : 'xl:col-span-1'} order-1 lg:order-none min-w-0 xl:min-h-0`}>
+              {/* The investigator's sheet. From xl its printed edge line has a strip of its
+                  own at the foot, under a hairline, so nothing scrolls beneath it. The Circle
+                  tab is not one sheet there: its papers lie on the desk side by side. */}
+              <div className={`bg-cream text-ink rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] lg:min-h-[850px] xl:min-h-0 xl:h-full border-2 border-ink relative font-serif overflow-hidden ${
+                circleOnDesk ? 'xl:bg-transparent xl:border-0 xl:shadow-none xl:rounded-none' : ''}`}>
+                <div className={`absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')] ${circleOnDesk ? 'xl:hidden' : ''}`} />
+                <div className={circleOnDesk ? 'xl:hidden' : undefined}><BrassCornerFiligree /></div>
+                <EdgeLine text="Candela Obscura · Chapter registry · Printed in Newfaire" className={`bottom-2 left-10 right-10 ${circleOnDesk ? 'xl:hidden' : ''}`} />
+                <div aria-hidden="true" className={`hidden ${circleOnDesk ? '' : 'xl:block'} absolute left-8 right-8 bottom-6 h-px bg-ink/15 pointer-events-none`} />
+                <div data-desk="sheet" className={`relative px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 xl:overflow-y-auto custom-scrollbar ${
+                  circleOnDesk ? 'xl:h-full xl:px-2 xl:pt-1.5 xl:pb-1' : 'xl:px-6 xl:pt-4 xl:pb-2 xl:h-[calc(100%-1.75rem)]'}`}>
                   {activeTab === 'character' && <InvestigatorDossier />}
                   {activeTab === 'circle' && <CircleView />}
                 </div>
               </div>
             </div>
-            <DiceVault />
+            <div className={circleOnDesk ? 'contents xl:hidden' : 'contents'}><DiceVault /></div>
           </div>
         )}
         <ScarModal />

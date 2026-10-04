@@ -132,12 +132,15 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
   );
 };
 
+// compact (the Circle tab's relationships paper): a smaller head, and the form to propose
+// folded behind its own button until it is wanted. A started draft stays open.
 export const RelationshipNegotiation = ({
-  inv, myId, relationships, circleId, forms, proposeRelationship, respondToRelationship,
+  inv, myId, relationships, circleId, forms, proposeRelationship, respondToRelationship, compact = false,
 }) => {
   const { drafts, setDrafts } = forms;
   const draft = drafts[inv.id] || {};
   const setDraft = (patch) => setDrafts(d => ({ ...d, [inv.id]: { ...d[inv.id], ...patch } }));
+  const formOpen = !compact || !!draft.open || !!draft.relType;
 
   const mine = relationships.find(r => r.from_character_id === myId && r.to_character_id === inv.id);
   const theirs = relationships.find(r => r.from_character_id === inv.id && r.to_character_id === myId);
@@ -150,17 +153,21 @@ export const RelationshipNegotiation = ({
   const subtitle = [inv.role || inv.role_class, inv.specialty].filter(Boolean).join(' · ');
 
   return (
-    <div className="border border-parchment-deep rounded-sm p-4 bg-cream/40 space-y-4">
-      <div className="flex items-center gap-3 flex-wrap">
+    <div className={compact ? 'py-3 first:pt-0 space-y-2.5' : 'border border-parchment-deep rounded-sm p-4 bg-cream/40 space-y-4'}>
+      <div className="flex items-center gap-x-3 gap-y-0.5 flex-wrap">
         <span aria-hidden="true" className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: inv.ink_color || 'rgb(var(--c-oxblood))' }} />
-        <span className="font-serif font-bold text-xl text-ink">{inv.name}</span>
+        <span className={`font-serif font-bold text-ink ${compact ? 'text-lg' : 'text-xl'}`}>{inv.name}</span>
         {subtitle && <span className="font-serif text-base text-sepia">{subtitle}</span>}
       </div>
 
       <div>
-        <h4 className="font-sans font-bold text-sm uppercase tracking-widest text-oxblood mb-2">Your relationship to {inv.name}</h4>
+        <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>Your relationship to {inv.name}</h4>
         {mine ? (
           <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship} />
+        ) : !formOpen ? (
+          <button type="button" aria-expanded={false} onClick={() => setDraft({ open: true })} className={quietButton}>
+            Propose a relationship
+          </button>
         ) : (
           <div className="space-y-3">
             <RelationshipFields
@@ -181,8 +188,8 @@ export const RelationshipNegotiation = ({
       </div>
 
       {theirs && (
-        <div className="pt-3 border-t border-parchment-deep">
-          <h4 className="font-sans font-bold text-sm uppercase tracking-widest text-oxblood mb-2">{inv.name}'s relationship to you</h4>
+        <div className={compact ? 'pt-2' : 'pt-3 border-t border-parchment-deep'}>
+          <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>{inv.name}'s relationship to you</h4>
           <RelationshipStatus rel={theirs} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship} />
         </div>
       )}

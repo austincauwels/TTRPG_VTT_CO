@@ -71,6 +71,14 @@ export function getAvailableRollMods(character, action) {
       extraDice: extra,
       extraGild: !!def.extraGild,
       driveSubstitute: def.driveSubstitute || null,
+      // What the chip shows beside the ability's name, in the sheet's own marks: "+1d", the
+      // gilded dot, the drive it lets you spend. The full label names the chip.
+      shows: {
+        dice: extra > 0 ? extra : 0,
+        gild: !!def.extraGild || (!!def.gildIfCunningResist2 && resistRemaining(character, 'cunning') >= 2),
+        use: def.driveSubstitute === 'any' ? 'any drive'
+          : def.driveSubstitute ? def.driveSubstitute[0].toUpperCase() + def.driveSubstitute.slice(1) : null,
+      },
     });
   });
   return mods;

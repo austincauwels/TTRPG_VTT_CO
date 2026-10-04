@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
-import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey } from '../shared/a11y';
 import { FormLine, SerialNo, DateStamp, PrinterMark, BlankEntry, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
+import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -416,24 +416,27 @@ export const CircleView = () => {
   }
 
   return (
-    <div className="circleview-c relative z-10 animate-sheetDrop space-y-8 text-ink">
+    // The circle's file: the charter, the assignment report, the stores' ledger, the
+    // history and the relationships, each its own paper, side by side (CirclePaper.jsx)
+    <div className="relative z-10 animate-sheetDrop text-ink">
+    <CirclePapers>
 
-      {/* I. Circle Identity Header */}
-      <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/80 p-5 shadow-md rounded-sm">
+      {/* I. The circle's charter */}
+      <CirclePaper kind="charter" tilt={-0.4} aria-labelledby="circle-charter-name">
         <div className="flex items-center gap-2 -mt-1 mb-3" aria-hidden="true">
           <PrinterMark size={13} />
           <FormLine>Form C.O. 3 · Circle charter</FormLine>
           <SerialNo value={serialFor(`circle-${circle?.id ?? ''}`)} className="ml-auto" />
         </div>
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="flex gap-4 items-start">
 
           {/* Name + Chapter House */}
-          <div className="flex-1 space-y-3">
+          <div className="flex-1 min-w-0 space-y-2.5">
             <div>
               <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
                 Circle name
               </span>
-              <div className="text-2xl font-serif font-black text-ink uppercase mt-1 leading-tight">
+              <div id="circle-charter-name" className="text-xl font-serif font-black text-ink uppercase mt-0.5 leading-tight break-words">
                 {circle?.name || 'Unnamed Circle'}
               </div>
             </div>
@@ -451,22 +454,23 @@ export const CircleView = () => {
           </div>
 
           {/* Insignia Stamp */}
-          <div className="shrink-0 flex flex-col items-center gap-2">
+          <div className="shrink-0 flex flex-col items-center gap-1.5">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
               Insignia
             </span>
-            <div className="w-20 h-20 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
+            <div className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
               <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
-              <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={38} className="text-ink/85" />
+              <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={30} className="text-ink/85" />
             </div>
           </div>
         </div>
 
-        {/* Illumination Tracker — under Circle Designation */}
-        <div className="mt-4 pt-4 border-t border-ink/10">
+        {/* Illumination Tracker */}
+        <div className="mt-3 pt-3 border-t border-ink/10">
           <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
             Illumination
+            <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">{illum} / {TRACK_SIZE}</span>
           </h3>
           {trackFull && (
             <div className="mb-2 px-2 py-1.5 bg-candle-gold/20 border border-candle-gold rounded-sm flex items-center gap-2">
@@ -476,13 +480,13 @@ export const CircleView = () => {
               </span>
             </div>
           )}
-          <div className="flex gap-1.5 flex-wrap mb-1">
+          <div className="flex gap-1.5 flex-wrap" role="img" aria-label={`Illumination ${illum} of ${TRACK_SIZE}`}>
             {Array.from({ length: TRACK_SIZE }).map((_, i) => {
               const filled    = i < illum;
               const milestone = (i + 1) % 3 === 0;
               return (
                 <div key={i} title={`Illumination ${i + 1}`}
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center shadow-inner transition-all ${
+                  className={`w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center shadow-inner transition-all ${
                     filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50'
                   } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}>
                   {milestone && <div className={`w-1.5 h-1.5 rounded-full bg-candle-gold ${filled ? 'opacity-100' : 'opacity-30'}`} />}
@@ -490,20 +494,17 @@ export const CircleView = () => {
               );
             })}
           </div>
-          <div className="font-mono tabular-nums text-sm text-sepia">
-            {illum} / {TRACK_SIZE}
-          </div>
         </div>
 
         {/* Active Circle Abilities (stacked) */}
         {circle?.circle_ability && (
-          <div className="mt-4 pt-4 border-t border-ink/10">
+          <div className="mt-3 pt-3 border-t border-ink/10">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">
               Circle {circle.circle_ability.split('\n').length > 1 ? 'Abilities' : 'Ability'}
             </span>
             <div className="space-y-1.5 mt-1">
               {circle.circle_ability.split('\n').filter(Boolean).map((ability, i) => (
-                <p key={i} className="font-serif text-sm text-ink/90 leading-relaxed">
+                <p key={i} className="font-serif text-sm text-ink/90 leading-snug">
                   <span className="font-bold uppercase">{ability}: </span>
                   {CIRCLE_ABILITY_DESCRIPTIONS[ability] || ''}
                 </p>
@@ -511,107 +512,97 @@ export const CircleView = () => {
             </div>
           </div>
         )}
-      </div>
+      </CirclePaper>
 
-      {/* II + III — Main body grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* II. The assignment report: the illumination questions and this investigator's keys */}
+      <CirclePaper kind="ruled" tilt={0.5} tape aria-labelledby="circle-report-title">
+        <h3 id="circle-report-title" className="font-sans text-sm font-black uppercase tracking-widest text-oxblood flex items-center gap-1.5 border-b border-ink/10 pb-1">
+          <SafeIcon name="GiQuillInk" size={12} />
+          Illumination Questions & Keys
+        </h3>
+        <FormLine className="block mt-1 mb-3">Form C.O. 11 · Assignment report</FormLine>
 
-        {/* Left column: Evaluation */}
-        <div className="lg:col-span-7 space-y-6">
-          <div>{/* spacer */}</div>
+        {/* 3 Illumination Questions — checkboxes */}
+        <div className="space-y-2 mb-3">
+          {ILLUM_QUESTIONS.map((q, i) => (
+            <label key={i} className="flex items-start gap-2.5 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={evalQ[i]}
+                onChange={() => setEvalQ(prev => { const n = [...prev]; n[i] = !n[i]; return n; })}
+                className="mt-0.5 w-4 h-4 accent-oxblood cursor-pointer shrink-0"
+                disabled={submitted}
+              />
+              <p className="font-serif text-sm text-ink/80 leading-snug italic group-hover:text-ink transition-colors">
+                "{q}"
+              </p>
+            </label>
+          ))}
+        </div>
 
-          {/* III. End-of-Assignment Illumination Questions */}
-          <div className="hand-placed bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 p-5 shadow-md rounded-sm relative" style={{ '--tilt': '-0.5deg' }}>
-            <h3 className="font-sans text-base font-black uppercase tracking-widest text-oxblood mb-1 flex items-center gap-1.5 border-b border-ink/10 pb-1">
-              <SafeIcon name="GiQuillInk" size={12} />
-              Illumination Questions & Keys
-            </h3>
-            <FormLine className="block mb-4">Form C.O. 11 · Assignment report</FormLine>
-
-            {/* 3 Illumination Questions — checkboxes */}
-            <div className="space-y-3 mb-5">
-              {ILLUM_QUESTIONS.map((q, i) => (
-                <label key={i} className="flex items-start gap-3 cursor-pointer group">
+        {/* Illumination Keys — individual checkboxes */}
+        {myKeys.length > 0 && (
+          <div className="border-t border-ink/10 pt-2.5 mb-3">
+            <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1.5">
+              {character?.specialty} Illumination Keys
+            </span>
+            <div className="space-y-1">
+              {myKeys.map((k, i) => (
+                <label key={i} className="flex items-center gap-2.5 cursor-pointer group">
                   <input
                     type="checkbox"
-                    checked={evalQ[i]}
-                    onChange={() => setEvalQ(prev => { const n = [...prev]; n[i] = !n[i]; return n; })}
-                    className="mt-0.5 w-4 h-4 accent-oxblood cursor-pointer shrink-0"
+                    checked={!!keyChecks[i]}
+                    onChange={() => setKeyChecks(prev => ({ ...prev, [i]: !prev[i] }))}
+                    className="w-3.5 h-3.5 accent-oxblood cursor-pointer"
                     disabled={submitted}
                   />
-                  <p className="font-serif text-sm text-ink/80 leading-snug italic group-hover:text-ink transition-colors">
-                    "{q}"
-                  </p>
+                  <span className="font-serif text-sm text-ink/80 group-hover:text-ink transition-colors">{k}</span>
                 </label>
               ))}
             </div>
-
-            {/* Illumination Keys — individual checkboxes */}
-            {myKeys.length > 0 && (
-              <div className="border-t border-ink/10 pt-4 mb-4">
-                <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-2">
-                  {character?.specialty} Illumination Keys
-                </span>
-                <div className="space-y-1.5">
-                  {myKeys.map((k, i) => (
-                    <label key={i} className="flex items-center gap-2.5 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={!!keyChecks[i]}
-                        onChange={() => setKeyChecks(prev => ({ ...prev, [i]: !prev[i] }))}
-                        className="w-3.5 h-3.5 accent-oxblood cursor-pointer"
-                        disabled={submitted}
-                      />
-                      <span className="font-serif text-sm text-ink/80 group-hover:text-ink transition-colors">{k}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Submit Report Button */}
-            <div className="flex items-center justify-between pt-3 border-t border-ink/10">
-              {submitted ? (
-                <span role="status" className="flex items-center gap-3">
-                  <span className="sr-only">Report sent to the GM</span>
-                  <DateStamp label="Report sent" date={stampDate(new Date())} tone="green" tilt={-2} />
-                </span>
-              ) : (
-                <>
-                  <div>
-                    <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider block">
-                      {circle?.reports_open ? 'Reports open' : 'Reports closed'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleSubmitReport}
-                    disabled={!circle?.reports_open}
-                    className={`px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-all ${
-                      circle?.reports_open
-                        ? 'bg-ink text-cream border-ink hover:bg-oxblood hover:border-oxblood'
-                        : 'bg-transparent text-sepia border-ink/20 cursor-not-allowed'
-                    }`}
-                  >
-                    Send report
-                  </button>
-                </>
-              )}
-            </div>
           </div>
-        </div>
+        )}
 
-        {/* Right column: Resources */}
-        <div className="lg:col-span-5 space-y-4">
-          <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-3 flex items-center gap-1.5">
+        {/* Submit Report Button */}
+        <div className="flex items-center justify-between pt-2.5 border-t border-ink/10">
+          {submitted ? (
+            <span role="status" className="flex items-center gap-3">
+              <span className="sr-only">Report sent to the GM</span>
+              <DateStamp label="Report sent" date={stampDate(new Date())} tone="green" tilt={-2} />
+            </span>
+          ) : (
+            <>
+              <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider">
+                {circle?.reports_open ? 'Reports open' : 'Reports closed'}
+              </span>
+              <button
+                onClick={handleSubmitReport}
+                disabled={!circle?.reports_open}
+                className={`px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-all ${
+                  circle?.reports_open
+                    ? 'bg-ink text-cream border-ink hover:bg-oxblood hover:border-oxblood'
+                    : 'bg-transparent text-sepia border-ink/20 cursor-not-allowed'
+                }`}
+              >
+                Send report
+              </button>
+            </>
+          )}
+        </div>
+      </CirclePaper>
+
+      {/* III. The stores' ledger card: the circle's resources */}
+      <CirclePaper kind="manila" tilt={-0.6} aria-labelledby="circle-resources-title">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-ink/25 pb-1 mb-2.5">
+          <h3 id="circle-resources-title" className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-1.5">
             <SafeIcon name="GiScrollUnfurled" size={14} className="text-oxblood" />
             Circle Resources
           </h3>
-
           {/* Where spending stands: locked by the GM, or how many of this assignment's two are used */}
-          <div className="flex items-center justify-between gap-3 font-sans text-xs font-bold uppercase tracking-wider text-sepia">
+          <span className="font-sans text-xs font-bold uppercase tracking-wider text-sepia">
             {circle?.resources_editable ? (
               !isGM && (
-                <span>Spent this assignment <span className="font-mono tabular-nums text-sm text-oxblood ml-1">{character?.resources_spent_assignment || 0} / 2</span></span>
+                <>Spent this assignment <span className="font-mono tabular-nums text-sm text-oxblood ml-1">{character?.resources_spent_assignment || 0} / 2</span></>
               )
             ) : (
               <span className="flex items-center gap-1.5">
@@ -619,175 +610,163 @@ export const CircleView = () => {
                 Spending locked
               </span>
             )}
-          </div>
+          </span>
+        </div>
 
-          <div className="space-y-3">
-            {RESOURCES.map(({ label, key, desc }) => {
-              const avail = circle?.[key] ?? maxCap;
-              const spentAll = !isGM && (character?.resources_spent_assignment || 0) >= 2;
-              return (
-                <div key={key} className="bg-cream/60 border border-ink/20 p-3 rounded-sm shadow-sm">
-                  <span className="font-serif font-black text-sm uppercase tracking-wide text-ink block">
-                    {label}
-                  </span>
-                  <span className="font-serif text-sm text-sepia block mb-2 leading-snug">
-                    {desc}
-                  </span>
-                  {/* Available row — always shows 9 pips; players spend (left-click filled pip), GM can add/remove freely */}
-                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-1.5">
-                    <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Available</span>
-                    <div className="flex flex-wrap gap-1">
-                      {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => {
-                        const withinMax = i < maxCap;
-                        const filled = i < avail;
-                        const wouldAdd = (i + 1) > avail;
-                        const playerCanSpend = !wouldAdd && circle?.resources_editable && !spentAll && avail > 0;
-                        const clickable = withinMax && (isGM || (!wouldAdd && playerCanSpend));
-                        const titleText = !withinMax
-                          ? 'Beyond current maximum'
-                          : wouldAdd && !isGM
-                            ? 'Only the GM can refill resources'
-                            : spentAll && !isGM
-                              ? 'You have used 2 of 2 this assignment'
-                              : !circle?.resources_editable && !isGM
-                                ? 'Spending is locked by the GM'
-                                : filled
-                                  ? `Spend ${label}`
-                                  : `Add ${label} (set to ${i + 1})`;
-                        return (
-                          <div
-                            key={i}
-                            onClick={clickable ? () => handleResourceClick(key, i, avail) : undefined}
-                            role={clickable ? 'button' : undefined}
-                            tabIndex={clickable ? 0 : undefined}
-                            onKeyDown={clickable ? onActivateKey(() => handleResourceClick(key, i, avail)) : undefined}
-                            aria-label={clickable ? titleText : undefined}
-                            aria-hidden={clickable ? undefined : true}
-                            title={titleText}
-                            className={`w-4 h-4 rounded-sm border transition-all ${
-                              filled
-                                ? 'bg-oxblood border-oxblood'
-                                : withinMax
-                                  ? wouldAdd && !isGM
-                                    ? 'bg-transparent border-dashed border-ink/20'
-                                    : 'bg-transparent border-ink/40 hover:border-oxblood/50'
-                                  : 'bg-transparent border-dashed border-ink/15'
-                            } ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                  {/* Maximum row */}
-                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                    <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Maximum</span>
-                    <div className="flex flex-wrap gap-1">
-                      {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => (
+        <div className="divide-y divide-dashed divide-sepia/35">
+          {RESOURCES.map(({ label, key, desc }) => {
+            const avail = circle?.[key] ?? maxCap;
+            const spentAll = !isGM && (character?.resources_spent_assignment || 0) >= 2;
+            return (
+              <div key={key} className="py-2 first:pt-0 last:pb-0">
+                <p className="font-serif text-sm leading-snug text-ink">
+                  <span className="font-black uppercase tracking-wide mr-1.5">{label}</span>
+                  <span className="text-sepia">{desc}</span>
+                </p>
+                {/* Available row — always shows 9 pips; players spend (left-click filled pip), GM can add/remove freely */}
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-1.5 mb-1">
+                  <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Available</span>
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => {
+                      const withinMax = i < maxCap;
+                      const filled = i < avail;
+                      const wouldAdd = (i + 1) > avail;
+                      const playerCanSpend = !wouldAdd && circle?.resources_editable && !spentAll && avail > 0;
+                      const clickable = withinMax && (isGM || (!wouldAdd && playerCanSpend));
+                      const titleText = !withinMax
+                        ? 'Beyond current maximum'
+                        : wouldAdd && !isGM
+                          ? 'Only the GM can refill resources'
+                          : spentAll && !isGM
+                            ? 'You have used 2 of 2 this assignment'
+                            : !circle?.resources_editable && !isGM
+                              ? 'Spending is locked by the GM'
+                              : filled
+                                ? `Spend ${label}`
+                                : `Add ${label} (set to ${i + 1})`;
+                      return (
                         <div
                           key={i}
-                          className={`w-4 h-4 rounded-sm border ${
-                            i < maxCap
-                              ? 'border-ink/40 bg-black/15'
-                              : 'border-dashed border-ink/15 bg-transparent'
-                          }`}
+                          onClick={clickable ? () => handleResourceClick(key, i, avail) : undefined}
+                          role={clickable ? 'button' : undefined}
+                          tabIndex={clickable ? 0 : undefined}
+                          onKeyDown={clickable ? onActivateKey(() => handleResourceClick(key, i, avail)) : undefined}
+                          aria-label={clickable ? titleText : undefined}
+                          aria-hidden={clickable ? undefined : true}
+                          title={titleText}
+                          className={`w-4 h-4 rounded-sm border transition-all ${
+                            filled
+                              ? 'bg-oxblood border-oxblood'
+                              : withinMax
+                                ? wouldAdd && !isGM
+                                  ? 'bg-transparent border-dashed border-ink/30'
+                                  : 'bg-transparent border-ink/40 hover:border-oxblood/50'
+                                : 'bg-transparent border-dashed border-ink/15'
+                          } ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
                         />
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                {/* Maximum row */}
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                  <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Maximum</span>
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-4 h-4 rounded-sm border ${
+                          i < maxCap
+                            ? 'border-ink/40 bg-black/15'
+                            : 'border-dashed border-ink/15 bg-transparent'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </div>
+      </CirclePaper>
 
-      <SheetDivider />
-
-      {/* V and VI: the circle's history, then its relationships; side by side on a wide
-          sheet (.circleview-lower in index.css) */}
-      <div className="circleview-lower space-y-8">
-      {/* V. Circle History */}
-      <div>
-        <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-1.5">
+      {/* IV. The circle's history: its question, and this investigator's answer */}
+      <CirclePaper kind="laid" tilt={0.7} aria-labelledby="circle-history-title">
+        <h3 id="circle-history-title" className="font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-2.5 flex items-center gap-1.5">
           <SafeIcon name="GiQuillInk" size={14} className="text-oxblood" />
           Circle History
         </h3>
 
         {selQ ? (
-          <div className="bg-cream border border-parchment-deep p-5 mb-5 rounded-sm shadow-sm">
-            <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-2">
+          <div className="mb-3">
+            <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1">
               Circle question
             </span>
-            <p className="font-serif text-base text-ink/90 leading-relaxed italic">
+            <p className="font-serif text-base text-ink/90 leading-snug italic">
               "{selQ.text}"
             </p>
           </div>
         ) : (
-          <BlankQuestionCard className="mb-5" />
+          <BlankQuestionCard className="mb-3" />
         )}
 
         {/* Player account */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="hand-placed bg-cream border border-parchment-deep p-4 rounded-sm shadow-sm relative" style={{ '--tilt': '0.6deg' }}>
-            <div className="flex items-center gap-2 mb-2 border-b border-ink/10 pb-1.5">
-              <SafeIcon name="GiQuillInk" size={12} className="text-oxblood" />
-              <span className="font-sans text-xs font-black uppercase tracking-wide text-ink/70">
-                {character?.name || 'You'}
-              </span>
-              {character?.specialty && (
-                <span className="font-sans font-bold text-xs text-sepia uppercase">· {character.specialty}</span>
-              )}
-            </div>
-            {character?.personal_circle_answer ? (
-              <p className="font-serif text-sm text-ink/85 leading-relaxed italic whitespace-pre-wrap">
-                "{character.personal_circle_answer}"
-              </p>
-            ) : (
-              // The answer lines, left blank
-              <>
-                <span aria-hidden="true" className="block h-6 border-b border-dotted border-sepia/45" />
-                <span aria-hidden="true" className="block h-6 border-b border-dotted border-sepia/45" />
-                <span className="sr-only">No answer</span>
-              </>
+        <div className="pt-2 border-t border-dashed border-sepia/40">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-sans text-xs font-black uppercase tracking-wide text-ink/70">
+              {character?.name || 'You'}
+            </span>
+            {character?.specialty && (
+              <span className="font-sans font-bold text-xs text-sepia uppercase">· {character.specialty}</span>
             )}
           </div>
+          {character?.personal_circle_answer ? (
+            <p className="font-serif text-sm text-ink/85 leading-snug italic whitespace-pre-wrap">
+              "{character.personal_circle_answer}"
+            </p>
+          ) : (
+            // The answer lines, left blank
+            <>
+              <span aria-hidden="true" className="block h-6 border-b border-dotted border-sepia/45" />
+              <span aria-hidden="true" className="block h-6 border-b border-dotted border-sepia/45" />
+              <span className="sr-only">No answer</span>
+            </>
+          )}
         </div>
-      </div>
+      </CirclePaper>
 
-      {/* VI. Circle Relationships */}
+      {/* V. Circle Relationships */}
       {investigators.filter(i => i.id !== myId).length > 0 && (
-        <>
-          <SheetDivider className="circleview-divider" />
-          <div>
-            <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-1.5">
-              <SafeIcon name="GiHeartInside" size={14} className="text-oxblood" />
-              Circle Relationships
-              {pendingRels.some(r => r.last_actor_id !== myId) && (
-                <span className="ml-2 px-2 py-0.5 bg-parchment-deep border border-candle-gold text-sepia font-sans font-bold text-xs uppercase tracking-wider rounded-sm">
-                  Response needed
-                </span>
-              )}
-            </h3>
+        <CirclePaper kind="plain" tilt={-0.5} aria-labelledby="circle-relationships-title">
+          <h3 id="circle-relationships-title" className="font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-3 flex flex-wrap items-center gap-1.5">
+            <SafeIcon name="GiHeartInside" size={14} className="text-oxblood" />
+            Circle Relationships
+            {pendingRels.some(r => r.last_actor_id !== myId) && (
+              <span className="ml-2 px-2 py-0.5 bg-parchment-deep border border-candle-gold text-sepia font-sans font-bold text-xs uppercase tracking-wider rounded-sm">
+                Response needed
+              </span>
+            )}
+          </h3>
 
-            <div className="space-y-3">
-              {investigators.filter(i => i.id !== myId).map(inv => (
-                <RelationshipNegotiation
-                  key={inv.id}
-                  inv={inv}
-                  myId={myId}
-                  relationships={relationships}
-                  circleId={circleId}
-                  forms={relForms}
-                  proposeRelationship={proposeRelationship}
-                  respondToRelationship={respondToRelationship}
-                />
-              ))}
-            </div>
+          <div className="divide-y divide-dashed divide-sepia/40">
+            {investigators.filter(i => i.id !== myId).map(inv => (
+              <RelationshipNegotiation
+                compact
+                key={inv.id}
+                inv={inv}
+                myId={myId}
+                relationships={relationships}
+                circleId={circleId}
+                forms={relForms}
+                proposeRelationship={proposeRelationship}
+                respondToRelationship={respondToRelationship}
+              />
+            ))}
           </div>
-        </>
+        </CirclePaper>
       )}
-      </div>
 
+    </CirclePapers>
     </div>
   );
 };
