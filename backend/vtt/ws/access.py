@@ -1,8 +1,10 @@
 """Who may open which channel, and who may send which message type.
 
 The rules follow the "should be allowed" column of docs/refactor/WEBSOCKET.md and are
-listed in docs/refactor/AUTH.md. A rejected message raises Rejected; the endpoint
-answers it with an action_rejected frame to the sender and handles nothing. Facts
+listed in docs/refactor/AUTH.md. A few rules also refuse a malformed payload (422)
+that would otherwise make the handler raise after it has committed. A rejected
+message raises Rejected; the endpoint answers it with an action_rejected frame to the
+sender and handles nothing. Facts
 are read with column queries (vtt.auth), so the socket's long-lived session never
 decides on a stale copy of a row.
 """
@@ -32,6 +34,10 @@ def _forbid():
 
 def _not_found(what):
     raise Rejected(404, f"{what} not found")
+
+
+def _invalid(detail):
+    raise Rejected(422, detail)
 
 
 def resolve_channel(db, user_id, game_id):
@@ -227,6 +233,14 @@ def _apply_scar(ctx, payload, character):
             _forbid()
 
 
+def _update_gear(ctx, payload, character):
+    """Gear is a list of item names. A list holding anything else used to be saved,
+    and then building the log line raised and ended the socket."""
+    gear = payload.get("gear", [])
+    if isinstance(gear, list) and not all(isinstance(item, str) for item in gear):
+        _invalid("Gear items must be text.")
+
+
 def _chat_message(ctx, payload, character):
     _sender_campaign(ctx)
     if str(payload.get("target", "@Circle")).lower() == "@environment" and not ctx.is_gm:
@@ -270,6 +284,7 @@ RULES = {
     "circle_relationship_propose": _circle_relationship_propose,
     "circle_relationship_respond": _circle_relationship_respond,
     "apply_scar": _apply_scar,
+    "update_gear": _update_gear,
     "chat_message": _chat_message,
     "add_notebook_entry": _add_notebook_entry,
 }

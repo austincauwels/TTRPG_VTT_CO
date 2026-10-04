@@ -148,7 +148,7 @@ Validation gaps: `action` is not checked against the nine actions, so `getattr` 
 
 **`update_pen_font`** (1757). Field: `pen_font`, which must be in `_SAFE_FONT_NAMES`. Sends `character_update` to the sender. Sent from `NotebookView`.
 
-**`update_gear`** (2040). Fields: `gear` (list), `character_id` (the UI sends the dossier character's id). Replaces the gear list with no check on elements or size. Sends `character_update` to the sender and an `activity_log` line that joins the gear names. A non-string element makes the join raise after the commit, which ends the connection.
+**`update_gear`** (2040). Fields: `gear` (list), `character_id` (the UI sends the dossier character's id). Replaces the gear list with no check on size. Sends `character_update` to the sender and an `activity_log` line that joins the gear names. Since the bug-fix stage a list with an element that is not a string gets `action_rejected` 422 and nothing is saved; before, the join raised after the commit, which ended the connection.
 
 **`revive_character`** (2006). No fields. Sets `incapacitated` False and all three mark tracks to 0; `is_dead` is left as is. Sends `character_update` to the sender and `activity_log` to the campaign.
 

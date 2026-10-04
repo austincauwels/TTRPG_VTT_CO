@@ -86,7 +86,7 @@ The character a message acts on is `payload.character_id`, or the player channel
 | gm_update_circle | the GM, for the campaign's own circle (`circle_id` still defaults to 1, which belongs to no campaign, so the frontend now sends the real id) |
 | gm_toggle_resource_edit, gm_toggle_reports, gm_advance_circle, refill_resources, gm_end_assignment, update_circle | the GM, for the campaign's own circle (default: the circle loaded at connect) |
 | roll | the owner; on a GM channel without a character it is a Lightkeeper roll |
-| update_drive, take_mark, revive_character, update_gear | the owner, or the GM for a member |
+| update_drive, take_mark, revive_character, update_gear | the owner, or the GM for a member; a `gear` list whose items are not all strings is 422 |
 | resolve_gilded, use_post_roll_ability, update_pen_font, resolve_ability_mark, burn_resistance, apply_advancement, circle_personal_answer | the owner |
 | apply_scar | the owner; `shift_down` and `shift_up` must be action ratings (move, strike, control, hide, sneak, sway, survey, read, sense), anything else is 403 (QUIRK D14) |
 | intercept_mark | the owner of the interceptor; `target_character_id` must exist (404) and be in the interceptor's campaign |

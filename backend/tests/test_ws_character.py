@@ -1,5 +1,7 @@
 """WebSocket character actions: update_drive, update_pen_font, update_gear,
 apply_advancement, spend_resource."""
+import pytest
+
 import engine
 import main
 import support
@@ -149,14 +151,18 @@ def test_update_gear_unaffiliated_logs_to_own_channel(client):
         assert support.types(ws.sync()) == ["character_update", "activity_log"]
 
 
-def test_update_gear_non_string_item_saves_then_closes(client):
-    """QUIRK: the gear is committed, then building the log line raises and the socket ends."""
-    ch = support.forge(client)
+@pytest.mark.parametrize("gear", [["map", 7], [None], [["nested"]], [{"name": "lamp"}]])
+def test_update_gear_non_string_item_is_rejected(client, gear):
+    """Fixed: the gear was committed, then building the log line raised and the socket
+    ended. A list with an item that is not text is now refused before anything is saved."""
+    ch = support.forge(client, gear=["lamp"])
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("update_gear", gear=["map", 7])
-        assert ws.recv()["type"] == "character_update"
-        assert support.wait_server_dropped(ch["id"])
-    assert support.fetch(Character, ch["id"]).gear == ["map", 7]
+        ws.send("update_gear", gear=gear)
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "update_gear", "status": 422, "detail": "Gear items must be text."}}]
+        ws.send("update_gear", gear=["map"])
+        assert support.types(ws.sync()) == ["character_update", "activity_log"]
+    assert support.fetch(Character, ch["id"]).gear == ["map"]
 
 
 # --- apply_advancement ------------------------------------------------------
