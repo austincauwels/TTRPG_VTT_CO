@@ -1,0 +1,117 @@
+import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+
+// Vote leaders and answers while the circle is forming. The open state lives in
+// OperationsPanel so it survives tab changes.
+export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, circleCreation }) => (
+  <div className="mt-3">
+    <button
+      onClick={() => setShowCircleStatus(s => !s)}
+      className="w-full flex items-center justify-between px-3 py-2 bg-slate-800/60 border border-slate-700 text-left"
+    >
+      <span className="font-mono text-xs uppercase tracking-[0.2em] text-blue-400/70">
+        Circle Formation Status
+      </span>
+      <span className="font-mono text-slate-500 text-xs">{showCircleStatus ? '▲' : '▼'}</span>
+    </button>
+    <AnimatePresence>
+      {showCircleStatus && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="overflow-hidden"
+        >
+          <div className="bg-slate-900/60 border border-slate-700 border-t-0 p-3 space-y-2">
+            {/* Name vote leader */}
+            {(() => {
+              const nameVotes = circleCreation.votes?.name_vote || [];
+              const tally = {};
+              nameVotes.forEach(v => { tally[v.value] = (tally[v.value] || 0) + 1; });
+              const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
+              const suggestCount = (circleCreation.votes?.name_suggest || []).length;
+              return (
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">Circle Name</span>
+                  <span className="font-mono text-xs text-slate-200">
+                    {leader ? `"${leader[0]}" (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : suggestCount > 0 ? `${suggestCount} suggest${suggestCount > 1 ? 'ions' : 'ion'}, no votes` : 'No suggestions yet'}
+                  </span>
+                </div>
+              );
+            })()}
+            {/* Ability vote leader */}
+            {(() => {
+              const abilityVotes = circleCreation.votes?.ability || [];
+              const tally = {};
+              abilityVotes.forEach(v => { tally[v.value] = (tally[v.value] || 0) + 1; });
+              const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
+              return (
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">Circle Ability</span>
+                  <span className="font-mono text-xs text-slate-200">
+                    {leader ? `${leader[0]} (${leader[1]})` : 'No votes yet'}
+                  </span>
+                </div>
+              );
+            })()}
+            {/* Insignia vote leader */}
+            {(() => {
+              const insVotes = circleCreation.votes?.insignia || [];
+              const tally = {};
+              insVotes.forEach(v => { tally[v.value] = (tally[v.value] || 0) + 1; });
+              const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
+              return leader ? (
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">Insignia</span>
+                  <span className="font-mono text-xs text-slate-200">{leader[0].replace('Gi','')} ({leader[1]})</span>
+                </div>
+              ) : null;
+            })()}
+            {/* Question vote leader */}
+            {(() => {
+              const qVotes = circleCreation.votes?.question || [];
+              const tally = {};
+              qVotes.forEach(v => { tally[v.value] = (tally[v.value] || 0) + 1; });
+              const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
+              return (
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">Question</span>
+                  <span className="font-mono text-xs text-slate-200">
+                    {leader ? `Q${leader[0].replace('q','')} selected (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : 'No votes yet'}
+                  </span>
+                </div>
+              );
+            })()}
+            {/* Relationships */}
+            {(() => {
+              const rels = circleCreation.relationships || [];
+              const confirmed = rels.filter(r => r.status === 'accepted').length;
+              const total = rels.length;
+              return (
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">Relationships</span>
+                  <span className="font-mono text-xs text-slate-200">
+                    {confirmed} confirmed / {total} proposed
+                  </span>
+                </div>
+              );
+            })()}
+            {/* Player personal answers */}
+            {circleCreation.activeInvestigators?.some(inv => inv.personal_circle_answer) && (
+              <div className="mt-2 pt-2 border-t border-slate-700 space-y-2">
+                <span className="font-mono text-xs text-slate-400 uppercase tracking-wider block">Player History Answers</span>
+                {circleCreation.activeInvestigators.map(inv => inv.personal_circle_answer ? (
+                  <div key={inv.id} className="bg-slate-800/40 rounded-sm p-2">
+                    <p className="font-mono text-xs text-slate-400 uppercase mb-1">{inv.name}</p>
+                    <p className="font-serif text-xs text-slate-200 italic leading-snug">"{inv.personal_circle_answer}"</p>
+                  </div>
+                ) : null)}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+);
