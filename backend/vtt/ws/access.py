@@ -6,6 +6,7 @@ answers it with an action_rejected frame to the sender and handles nothing. Fact
 are read with column queries (vtt.auth), so the socket's long-lived session never
 decides on a stale copy of a row.
 """
+from engine import ALL_ACTIONS
 from models import Campaign, Character, Circle, Relationship
 from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, character_facts
 
@@ -215,6 +216,15 @@ def _circle_relationship_respond(ctx, payload, character):
     _circle_of(ctx, rel.circle_id, _sender_campaign(ctx, active_only=True))
 
 
+def _apply_scar(ctx, payload, character):
+    """A scar may only move a point between two of the nine action ratings. Any other
+    name used to reach every numeric column, including campaign_id and user_id."""
+    for key in ("shift_down", "shift_up"):
+        name = payload.get(key)
+        if name and name not in ALL_ACTIONS:
+            _forbid()
+
+
 def _chat_message(ctx, payload, character):
     _sender_campaign(ctx)
     if str(payload.get("target", "@Circle")).lower() == "@environment" and not ctx.is_gm:
@@ -257,6 +267,7 @@ RULES = {
     "circle_backstory_update": _circle_backstory_update,
     "circle_relationship_propose": _circle_relationship_propose,
     "circle_relationship_respond": _circle_relationship_respond,
+    "apply_scar": _apply_scar,
     "chat_message": _chat_message,
     "add_notebook_entry": _add_notebook_entry,
 }

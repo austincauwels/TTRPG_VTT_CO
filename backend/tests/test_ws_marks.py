@@ -318,14 +318,23 @@ def test_apply_scar_shift_limits(client):
     assert (row.move, row.read, row.sense) == (0, 1, 3)
 
 
-def test_apply_scar_shifts_any_attribute(client):
-    """QUIRK: shift names are not limited to the nine actions."""
-    ch = support.forge(client, nerve_max=3, body_marks=0)
+@pytest.mark.parametrize("down, up", [
+    ("nerve_max", "body_marks"), ("campaign_id", "scars_count"), ("id", "move"), ("move", "user_id"),
+])
+def test_apply_scar_shifts_only_action_ratings(client, down, up):
+    """QUIRK D14 fixed: shift names used to reach any numeric column, which let a player
+    walk its character's campaign_id into another campaign. Now anything but the nine
+    actions is rejected and nothing is stored."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, nerve_max=3, body_marks=0, move=2)
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("apply_scar", scar_text="odd", shift_down="nerve_max", shift_up="body_marks")
-        ws.sync()
+        ws.send("apply_scar", scar_text="", shift_down=down, shift_up=up)
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "apply_scar", "status": 403, "detail": "Not allowed."}}]
     row = support.fetch(Character, ch["id"])
-    assert (row.nerve_max, row.body_marks) == (2, 1)
+    assert (row.nerve_max, row.body_marks, row.move, row.campaign_id, row.id, row.scars_count) == \
+        (3, 0, 2, camp["id"], ch["id"], 0)
+    assert row.user_id == support.owner_id(ch["id"])
 
 
 def test_fourth_scar_kills(client):

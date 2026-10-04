@@ -1,7 +1,7 @@
 """Character sheet messages: drives, pen font, scars, revive, gear and advancement."""
 import json
 
-from engine import apply_advancement
+from engine import ALL_ACTIONS, apply_advancement
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.serializers import get_char_dict
 from vtt.ws.manager import manager
@@ -41,7 +41,8 @@ async def handle_apply_scar(ctx):
         character.incapacitated = True
     down, up = payload.get("shift_down"), payload.get("shift_up")
     skip_shifts = payload.get("skip_shifts", False)
-    if not skip_shifts and down and up and hasattr(character, down) and hasattr(character, up):
+    # vtt.ws.access already rejects other names; this keeps the handler safe on its own.
+    if not skip_shifts and down in ALL_ACTIONS and up in ALL_ACTIONS:
         if getattr(character, down) > 0 and getattr(character, up) < 3:
             setattr(character, down, getattr(character, down) - 1)
             setattr(character, up, getattr(character, up) + 1)
