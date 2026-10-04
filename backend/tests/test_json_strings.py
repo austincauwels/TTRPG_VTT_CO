@@ -106,15 +106,15 @@ def test_finalize_roster_with_unparseable_backstory(client):
 
 
 def test_report_onto_string_backstory_is_saved(client):
-    """Unlike a dict that already has data (see test_ws_circle), a string is parsed
-    into a new dict, so the assignment is seen and the report is saved."""
+    """A string is parsed into a new dict and the report is added to it."""
     camp, (a,), cid = _campaign(client)
     support.update(Circle, cid, backstory_answers='{"chapter_house": "Mill"}')
     with support.ws_connect(client, a["id"]) as wa:
         wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
         wa.sync()
     assert support.fetch(Circle, cid).backstory_answers == {
-        "chapter_house": "Mill", "reports": {str(a["id"]): {"q0": True}}}
+        "chapter_house": "Mill",
+        "reports": {str(a["id"]): {"character_name": a["name"], "responses": {"q0": True}}}}
 
 
 def test_backstory_update_onto_string_backstory(client):

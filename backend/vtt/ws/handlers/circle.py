@@ -17,17 +17,28 @@ async def handle_submit_assignment_report(ctx):
     if char_id:
         target_circle = resolve_circle(db, circle_id, camp_id)
         if target_circle:
-            existing = target_circle.backstory_answers or {}
-            if isinstance(existing, str):
-                try: existing = json.loads(existing)
+            # Read the row again, locked until the commit, so reports other sockets
+            # saved after this session loaded the circle are kept.
+            db.refresh(target_circle, with_for_update=True)
+            raw = target_circle.backstory_answers
+            if isinstance(raw, str):
+                try: existing = json.loads(raw)
                 except: existing = {}
-            if "reports" not in existing:
-                existing["reports"] = {}
-            existing["reports"][str(char_id)] = responses
-            target_circle.backstory_answers = existing
-            db.commit()
+            else:
+                existing = raw
+            # New dicts, not the loaded ones changed in place: the JSON column does not
+            # track in-place changes, so assigning the same object back saved nothing.
+            existing = dict(existing) if isinstance(existing, dict) else {}
+            reports = existing.get("reports")
+            reports = dict(reports) if isinstance(reports, dict) else {}
             reporter = db.query(Character).filter(Character.id == char_id).first()
             reporter_name = reporter.name if reporter else "Unknown"
+            # The shape of the broadcast payload, which the GM's report card reads
+            # after a reload too.
+            reports[str(char_id)] = {"character_name": reporter_name, "responses": responses}
+            existing["reports"] = reports
+            target_circle.backstory_answers = existing
+            db.commit()
             await manager.broadcast_campaign(camp_code, camp_id, {
                 "type": "assignment_report_submitted",
                 "payload": {"character_id": char_id, "character_name": reporter_name, "responses": responses},

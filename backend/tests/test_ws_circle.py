@@ -159,7 +159,8 @@ def test_submit_assignment_report(client):
         assert wb.drain() == [expected]  # every player sees every report
         wa.send("submit_assignment_report", responses={"q0": True})  # needs character_id
         assert wa.sync() == []
-    assert support.fetch(Circle, cid).backstory_answers == {"reports": {str(a["id"]): {"q0": True, "q1": False}}}
+    assert support.fetch(Circle, cid).backstory_answers == {"reports": {str(a["id"]): {
+        "character_name": a["name"], "responses": {"q0": True, "q1": False}}}}
 
 
 def test_submit_report_only_for_own_character(client):
@@ -573,11 +574,18 @@ def test_update_circle_player_claiming_gm_is_rejected(client):
 
 # --- submit_assignment_report when backstory_answers already holds data ----------
 
-def test_second_report_from_a_fresh_session_is_broadcast_but_not_saved(client):
-    """QUIRK (likely live bug): once backstory_answers is not empty, the handler adds
-    the report to the dict it loaded, in place, and assigns that same object back.
-    The plain JSON column does not track in-place changes, so SQLAlchemy sees no
-    change and skips the UPDATE. The report is broadcast but lost on reload."""
+def _report(ch, responses):
+    """A stored report: the shape of the assignment_report_submitted payload, which the
+    GM's report card reads after a reload."""
+    return {"character_name": ch["name"], "responses": responses}
+
+
+def test_second_report_from_a_fresh_session_is_saved(client):
+    """Fixed (was a live bug): once backstory_answers was not empty, the handler added
+    the report to the dict it loaded, in place, and assigned that same object back. The
+    JSON column does not track in-place changes, so SQLAlchemy skipped the UPDATE and
+    the report was broadcast but lost on reload. Reports were also stored as the bare
+    responses, while the GM's report card reads {character_name, responses}."""
     camp, (a, b), cid = _campaign(client, members=2)
     with support.ws_connect(client, a["id"]) as wa:
         wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
@@ -587,31 +595,39 @@ def test_second_report_from_a_fresh_session_is_broadcast_but_not_saved(client):
             [msg] = wb.sync()
             assert msg["payload"] == {"character_id": b["id"], "character_name": b["name"], "responses": {"q0": False}}
             assert wa.drain() == [msg]
-    assert support.fetch(Circle, cid).backstory_answers == {"reports": {str(a["id"]): {"q0": True}}}
+    assert support.fetch(Circle, cid).backstory_answers == {"reports": {
+        str(a["id"]): _report(a, {"q0": True}), str(b["id"]): _report(b, {"q0": False})}}
+    state = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp["id"])).json()
+    assert state["backstory_answers"]["reports"][str(b["id"])] == {
+        "character_name": msg["payload"]["character_name"], "responses": msg["payload"]["responses"]}
 
 
-def test_reports_from_sockets_opened_before_any_report_replace_each_other(client):
-    """QUIRK: each socket keeps the empty dict it loaded at connect, so every report
-    builds a new dict holding only itself and the last report replaces the others."""
+def test_reports_from_sockets_opened_before_any_report_are_all_kept(client):
+    """Fixed: each socket kept the empty dict it loaded at connect, so every report
+    built a new dict holding only itself and the last report replaced the others. The
+    handler now reads the row again before adding its report."""
     camp, (a, b), cid = _campaign(client, members=2)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
         wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
         wa.sync()
         wb.send("submit_assignment_report", character_id=b["id"], responses={"q0": False})
         wb.sync()
-    assert support.fetch(Circle, cid).backstory_answers == {"reports": {str(b["id"]): {"q0": False}}}
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"q1": True})  # a report again
+        wa.sync()
+    assert support.fetch(Circle, cid).backstory_answers == {"reports": {
+        str(a["id"]): _report(a, {"q1": True}), str(b["id"]): _report(b, {"q0": False})}}
 
 
-def test_report_after_circle_answers_is_not_saved(client):
-    """QUIRK: same cause as above; any stored answer (chapter house, selected
-    question) makes the dict non-empty, so even the first report is lost."""
+def test_report_after_circle_answers_is_saved(client):
+    """Fixed: same cause as above; any stored answer (chapter house, selected
+    question) made the dict non-empty, so even the first report was lost."""
     camp, (a,), cid = _campaign(client)
     answers = {"chapter_house": "Mill", "selected_question_key": "q2"}
     support.update(Circle, cid, backstory_answers=answers)
     with support.ws_connect(client, a["id"]) as wa:
         wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
         assert support.types(wa.sync()) == ["assignment_report_submitted"]
-    assert support.fetch(Circle, cid).backstory_answers == answers
+    assert support.fetch(Circle, cid).backstory_answers == {**answers, "reports": {str(a["id"]): _report(a, {"q0": True})}}
 
 
 # --- the frontend's 'gm' fallback channel is gone ---------------------------------
