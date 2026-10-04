@@ -39,6 +39,10 @@ const useGameStore = create(
       lastPlayedCampaign: null, // { type:'player'|'gm', characterId?, campaignCode, campaignName }
       circle: null,
       lastRoll: null,
+      // The latest roll by someone else at the table, as its dice started tumbling there
+      // (the server's dice_thrown); the GM's tray shows it. { roll, kept, name, ink_color,
+      // action, rating, character_id }
+      tableRoll: null,
       pendingGildedChoice: null,
       showScarModal: false,
       scarModalData: null,
@@ -149,7 +153,7 @@ const useGameStore = create(
         reconnectTimer = null;
         tensionSeen = null;
         if (keepLog) set({ isRolling: false });
-        else set({ activityLog: [], lastActivityLog: null, isRolling: false, pendingRoll: null });
+        else set({ activityLog: [], lastActivityLog: null, isRolling: false, pendingRoll: null, tableRoll: null });
         const apiBase = import.meta.env.VITE_API_URL || '';
         const wsProtocol = (apiBase.startsWith('https') || window.location.protocol === 'https:') ? 'wss:' : 'ws:';
         const wsHost = apiBase ? apiBase.replace(/^https?:\/\//, '') : window.location.host;
@@ -235,6 +239,7 @@ const useGameStore = create(
             const roll = message.payload.roll;
             set({
               lastRoll: roll,
+              tableRoll: null, // this desk's own roll is the newest on its felt
               character: message.payload.character,
               isRolling: false,
               pendingRoll: null,
@@ -246,6 +251,20 @@ const useGameStore = create(
             // The dice start tumbling on this desk now; a gilded roll's dice wait, still, for
             // the choice, and tumble when a die is kept (resolveGildedChoice)
             if (roll?.dice && !roll.needs_gilded_choice) playDiceTumble();
+          }
+          else if (message.type === 'dice_thrown') {
+            // Someone else's dice start tumbling now (their roll landed, or they kept a
+            // gilded die): this desk hears them, and the GM's tray shows them. Their log
+            // line follows, and its result sound waits for the dice to land.
+            const p = message.payload || {};
+            const st = get();
+            const own = p.character_id == null
+              ? st.accessSession?.role === 'GM'
+              : p.character_id === st.character?.id;
+            if (!own) {
+              playDiceTumble();
+              if (Array.isArray(p.roll?.dice)) set({ tableRoll: p });
+            }
           }
           else if (message.type === 'roll_error') {
             set({ isRolling: false });

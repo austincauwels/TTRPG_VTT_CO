@@ -14,12 +14,14 @@ import { useSyncExternalStore } from 'react';
 // for a secret roll, and never again on a reconnect, since the log is not replayed.
 //
 // Owner's round 3 items 19 to 21 (the files are free to use or his own, his decision):
-//   public/sounds/dice-roll.mp3     dice on the felt, for everyone at the table. On the
-//                                   roller's own desk it starts with the tumble (the roll
-//                                   lands, or a gilded die is kept); the other desks, which
-//                                   only get the roll's log line, hear it when that line
-//                                   arrives. The result sound then waits until the dice
-//                                   have landed, so the two never sound at once.
+//   public/sounds/dice-roll.mp3     dice on the felt, for everyone at the table, as they
+//                                   start to tumble on the roller's desk (the roll lands,
+//                                   or a gilded die is kept): the roller's desk with its own
+//                                   tumble, the other desks when the server's dice_thrown
+//                                   arrives. A server without dice_thrown leaves them the
+//                                   roll's log line, and they hear the dice then. The result
+//                                   sound waits until the dice have landed, so the two
+//                                   never sound at once.
 //   public/sounds/tension-tick.mp3  the pocket watch ticking, for everyone, when the GM
 //                                   raises the tension: once for each slice now filled (the
 //                                   file holds four ticks a second apart). Lowering it is
@@ -163,7 +165,8 @@ const LAND_MS = 560;
 const OWN_LINE_MS = 2500;
 let lastTumbleAt = -Infinity;
 
-// The dice start tumbling on this desk: a roll lands on the felt, or a gilded die is kept
+// The dice start tumbling: on this desk (a roll lands on the felt, or a gilded die is kept),
+// or on another desk at the table (dice_thrown)
 export const playDiceTumble = () => {
   lastTumbleAt = Date.now();
   play('dice_roll');

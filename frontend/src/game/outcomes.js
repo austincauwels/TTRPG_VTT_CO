@@ -25,7 +25,7 @@ export const outcomeForKept = (value) => (value === 6 ? 'full_success' : value >
 //   a resistance reroll                           "Move, resistance burned: 2 dice, highest counts"
 //   the Lightkeeper's roll (no action)            "4 dice, highest counts"
 // The count is what the server threw (capped at 6). rating is the roller's rating in the
-// action when this desk knows it (the player's own desk): dice thrown beyond it (drive
+// action when this desk knows it (the roller's own desk, or the GM's felt from dice_thrown): dice thrown beyond it (drive
 // spent, an ability, a Train bonus) show as "+2d" after the action, the way the sheet's
 // drive stepper writes them. A resistance reroll throws the rating alone.
 // keptDie is the die kept in a gilded choice ({ value, idx }), when there was one.
@@ -43,7 +43,7 @@ export const rollPoolText = (roll, keptDie = null, rating = null) => {
     if (gilded) parts.push(`${gilded} gilded`);
     if (roll.type === 'zero') {
       parts.push('lowest counts');
-    } else if (roll.needs_gilded_choice) {
+    } else if (roll.needs_gilded_choice || keptDie) {
       const kept = keptDie ? dice[keptDie.idx] : null;
       if (kept) parts.push(`kept the ${kept.is_gilded ? 'gilded ' : ''}${kept.value}`);
     } else {

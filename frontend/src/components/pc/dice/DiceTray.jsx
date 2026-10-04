@@ -15,6 +15,14 @@ const OUTCOME_STAMP = {
   critical_success: 'text-ink border-ink bg-candle-gold',
 };
 
+// Each roll object the tray is handed gets its own number, for React's key
+const rollSerials = new WeakMap();
+let nextRollSerial = 1;
+const rollSerial = (roll) => {
+  if (!rollSerials.has(roll)) rollSerials.set(roll, nextRollSerial++);
+  return rollSerials.get(roll);
+};
+
 // A roll has no id from the server; its action and dice give the slip its number
 const rollKey = (roll) =>
   `${roll.action ?? ''}:${(roll.dice || []).map(d => `${d.value}${d.is_gilded ? 'g' : ''}`).join('')}${roll.is_resistance_roll ? ':r' : ''}`;
@@ -103,7 +111,8 @@ export const DiceTray = forwardRef(({
           <span className="font-serif italic text-candle-gold text-lg">Rolling…</span>
         </div>
       ) : lastRoll && lastRoll.dice ? (
-        <div className="flex flex-col items-center justify-center gap-3 animate-fadeIn">
+        // Keyed by the roll, so the next roll's dice tumble in even when they show the same faces
+        <div key={rollSerial(lastRoll)} className="flex flex-col items-center justify-center gap-3 animate-fadeIn">
           <div className="flex flex-wrap justify-center gap-3 2xl:gap-4 max-w-[190px] 2xl:max-w-[260px]" role="group"
             aria-label={gildedPending ? 'Keep one die' : `Dice: ${lastRoll.dice.map((d, i) => `${d.value}${d.is_gilded ? ' gilded' : ''}${getIsCandidate(d, i) ? ' (counts)' : ''}`).join(', ')}`}>
             {lastRoll.dice.map((die, idx) => {
