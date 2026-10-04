@@ -75,3 +75,9 @@ The list above is kept as it was found. These entries no longer hold, or hold on
 - A character_id of 0 or 1.5 is 404 (action_rejected). A bad character_id ('abc', object, list, true) still drops the frame.
 - The 'gm' fallback channel no longer exists (closed with 4404), so its reset and end-assignment quirks are gone.
 - The stale relationship-row quirk is still in the code, but whether the stale copy survives depends on when Python's garbage collector runs (the session's identity map holds weak references). The extra access-check queries changed that timing, so the test no longer pins it. ABILITY_MOD_DEFS is a local dict in the handler, and no current entry has both keys, so the order has no visible effect today. The real column types on the beta data copy were not checked either, because psql is not allowed here; the legacy-schema test pins what init_db produces instead.
+
+## Fixed by the bug-fix stage (2026-10-04)
+
+Each fix has its own commit, and its test was flipped or added in that commit.
+
+- train_bonus and the other migrated column types: init_db's ALTERs now add the types the models declare (BOOLEAN DEFAULT FALSE for the flags, JSON for backstory_answers and ability_uses). On every start, convert_integer_flags turns any flag column that an older ALTER added as INTEGER into BOOLEAN (0 becomes false, anything else true) and leaves boolean columns alone. train_bonus had broken every forge and every train action on databases that got it through the old ALTER (live and beta were converted by hand on 2026-10-04). Existing TEXT copies of the JSON columns are not converted, because old rows may not hold valid JSON. Tests: test_init_db_converts_an_integer_train_bonus_to_boolean and test_model_column_types_match_the_database_after_init_db_on_a_legacy_schema.

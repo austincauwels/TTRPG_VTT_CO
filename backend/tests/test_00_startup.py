@@ -247,30 +247,30 @@ MIGRATED_COLUMNS = {
     ("circles", "chapter_house_location"): ("text", None),
     ("circles", "circle_ability"): ("text", None),
     ("circles", "insignia"): ("text", None),
-    ("circles", "backstory_answers"): ("text", "'{}'::text"),
-    ("circles", "is_finalized"): ("integer", "0"),
+    ("circles", "backstory_answers"): ("json", "'{}'::json"),
+    ("circles", "is_finalized"): ("boolean", "false"),
     ("circles", "illumination"): ("integer", "0"),
     ("circles", "tension_clock"): ("integer", "4"),
     ("circles", "tension_label"): ("text", "''::text"),
-    ("circles", "resources_editable"): ("integer", "0"),
-    ("circles", "reports_open"): ("integer", "0"),
+    ("circles", "resources_editable"): ("boolean", "false"),
+    ("circles", "reports_open"): ("boolean", "false"),
     ("circles", "campaign_id"): ("integer", None),
     ("campaigns", "gm_user_id"): ("integer", None),
-    ("campaigns", "roster_finalized"): ("integer", "0"),
+    ("campaigns", "roster_finalized"): ("boolean", "false"),
     ("characters", "role"): ("text", "''::text"),
     ("characters", "specialty"): ("text", "''::text"),
     ("characters", "personal_circle_answer"): ("text", "''::text"),
     ("characters", "nerve_resistance_spent"): ("integer", "0"),
     ("characters", "cunning_resistance_spent"): ("integer", "0"),
     ("characters", "intuition_resistance_spent"): ("integer", "0"),
-    ("characters", "ability_uses"): ("text", "'{}'::text"),
-    ("characters", "train_bonus"): ("integer", "0"),
+    ("characters", "ability_uses"): ("json", "'{}'::json"),
+    ("characters", "train_bonus"): ("boolean", "false"),
     ("characters", "resources_spent_assignment"): ("integer", "0"),
     ("relationships", "last_actor_id"): ("integer", None),
     ("notebook_entries", "entry_type"): ("text", "'field_log'::text"),
     ("notebook_entries", "visibility"): ("text", "'all'::text"),
     ("notebook_entries", "image_data"): ("text", None),
-    ("notebook_entries", "is_deleted"): ("integer", "0"),
+    ("notebook_entries", "is_deleted"): ("boolean", "false"),
     ("users", "pending_rejoin_campaign_id"): ("integer", None),
     ("users", "google_sub"): ("text", None),
 }
@@ -287,11 +287,11 @@ def _schema_columns(eng, schema):
 def test_init_db_alters_upgrade_a_legacy_schema(client, monkeypatch):
     """Runs init_db against tables that predate every migration. Each ALTER runs in
     its own transaction, so one that fails (a column that already exists) does not
-    stop the rest. QUIRK: the added columns are TEXT and INTEGER, not the JSON and
-    BOOLEAN types the models declare (this is how a database that grew through these
-    ALTERs differs from a create_all one), and no seed rows are written on such a
-    database, because the seed query runs before the ALTERs and fails on the
-    missing columns."""
+    stop the rest. Fixed: the added flags are BOOLEAN and backstory_answers and
+    ability_uses are JSON, as the models declare (they used to be INTEGER and TEXT,
+    which broke every write of train_bonus on the live database). QUIRK: no seed rows
+    are written on such a database, because the seed query runs before the ALTERs and
+    fails on the missing columns."""
     with support.isolated_schema(create_tables=False) as (eng, Session, schema):
         with eng.begin() as conn:
             for ddl in LEGACY_TABLES:
@@ -311,6 +311,76 @@ def test_init_db_alters_upgrade_a_legacy_schema(client, monkeypatch):
             assert conn.execute(text("SELECT count(*) FROM users")).scalar() == 0
         main.init_db()  # a second start changes nothing
         assert _schema_columns(eng, schema) == cols
+
+
+def _column_types(eng, schema):
+    """(table, column) -> data_type, with text and character varying as one type
+    (PostgreSQL treats an unlimited VARCHAR and TEXT the same)."""
+    return {key: ("text" if data_type == "character varying" else data_type)
+            for key, (data_type, _default) in _schema_columns(eng, schema).items()}
+
+
+def _model_columns():
+    return {(t.name, c.name) for t in main.Base.metadata.tables.values() for c in t.columns}
+
+
+def test_init_db_converts_an_integer_train_bonus_to_boolean(client, monkeypatch):
+    """Bug fix: init_db used to add characters.train_bonus as INTEGER DEFAULT 0 while the
+    model is Boolean. PostgreSQL refuses False for an integer column, so on a database
+    that got the column that way every forge and every train action failed (live and
+    beta were converted by hand on 2026-10-04). init_db now converts the column, keeping
+    the values (0 is false, anything else true), and leaves it alone afterwards."""
+    with support.isolated_schema() as (eng, Session, schema):
+        with eng.begin() as conn:
+            conn.execute(text("ALTER TABLE characters DROP COLUMN train_bonus"))
+            conn.execute(text("ALTER TABLE characters ADD COLUMN train_bonus INTEGER DEFAULT 0"))
+            conn.execute(text("INSERT INTO characters (name, status, train_bonus) VALUES "
+                              "('Zero', 'unaffiliated', 0), ('One', 'unaffiliated', 1), "
+                              "('Unset', 'unaffiliated', NULL)"))
+        with Session() as s:  # the write that failed live
+            s.add(Character(name="Forged", status="unaffiliated"))
+            with pytest.raises(Exception, match="train_bonus"):
+                s.commit()
+        monkeypatch.setattr(main, "db_engine", eng)
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        main.init_db()
+        assert _schema_columns(eng, schema)[("characters", "train_bonus")] == ("boolean", "false")
+        with eng.connect() as conn:
+            rows = conn.execute(text("SELECT name, train_bonus FROM characters ORDER BY id")).all()
+        assert [tuple(r) for r in rows] == [("Zero", False), ("One", True), ("Unset", None)]
+
+        def flags():
+            with Session() as s:
+                return {c.name: c.train_bonus for c in s.query(Character)}
+
+        with Session() as s:
+            s.add(Character(name="Forged", status="unaffiliated"))
+            s.query(Character).filter(Character.name == "Zero").one().train_bonus = True
+            s.commit()
+        main.init_db()  # a second start changes nothing
+        from vtt import db as vtt_db
+        assert vtt_db.convert_integer_flags() == []
+        assert _schema_columns(eng, schema)[("characters", "train_bonus")] == ("boolean", "false")
+        assert flags() == {"Zero": True, "One": True, "Unset": None, "Forged": False}
+
+
+def test_model_column_types_match_the_database_after_init_db_on_a_legacy_schema(client, monkeypatch):
+    """A database made before the migrations (every column init_db adds is missing),
+    with train_bonus already added as INTEGER the way the old ALTER did it, ends up
+    with the type the model declares for every column, as a create_all one has."""
+    with support.isolated_schema() as (fresh_eng, _, fresh_schema):
+        expected = _column_types(fresh_eng, fresh_schema)
+    assert _model_columns() <= set(expected)
+    with support.isolated_schema() as (eng, Session, schema):
+        with eng.begin() as conn:
+            for table, col in MIGRATED_COLUMNS:
+                conn.execute(text(f"ALTER TABLE {table} DROP COLUMN {col}"))
+            conn.execute(text("ALTER TABLE characters ADD COLUMN train_bonus INTEGER DEFAULT 0"))
+        monkeypatch.setattr(main, "db_engine", eng)
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        main.init_db()
+        got = _column_types(eng, schema)
+        assert {key: got.get(key) for key in _model_columns()} == {key: expected[key] for key in _model_columns()}
 
 
 # --- circle 1 is recreated when it is missing --------------------------------

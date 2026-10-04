@@ -72,10 +72,56 @@ def retire_published_passwords():
     return changed
 
 
+# Flag columns that the ALTERs in init_db used to add as INTEGER DEFAULT 0, although the
+# models declare Boolean. PostgreSQL refuses True and False for an integer column, so on
+# a database that got one of these through the old ALTER every write of the flag failed.
+# train_bonus did exactly that: every forge and every train action failed on the live
+# database until it was converted by hand on 2026-10-04.
+INTEGER_FLAG_COLUMNS = [
+    ("characters", "train_bonus"),
+    ("circles", "is_finalized"),
+    ("circles", "resources_editable"),
+    ("circles", "reports_open"),
+    ("campaigns", "roster_finalized"),
+    ("notebook_entries", "is_deleted"),
+]
+
+
+def convert_integer_flags():
+    """Convert any column in INTEGER_FLAG_COLUMNS that is still an integer to BOOLEAN
+    DEFAULT FALSE (0 becomes false, anything else true). Columns that are already
+    boolean are left alone, so this is safe on every start. PostgreSQL only: SQLite
+    stores booleans as integers anyway. Returns the "table.column" names it changed."""
+    if db_engine.dialect.name != "postgresql":
+        return []
+    converted = []
+    for table, col in INTEGER_FLAG_COLUMNS:
+        try:
+            with db_engine.connect() as conn:
+                data_type = conn.execute(text(
+                    "SELECT data_type FROM information_schema.columns "
+                    "WHERE table_schema = current_schema() AND table_name = :t AND column_name = :c"),
+                    {"t": table, "c": col}).scalar()
+                if data_type not in ("smallint", "integer", "bigint"):
+                    continue
+                conn.execute(text(
+                    f"ALTER TABLE {table} ALTER COLUMN {col} DROP DEFAULT, "
+                    f"ALTER COLUMN {col} TYPE BOOLEAN USING ({col} <> 0), "
+                    f"ALTER COLUMN {col} SET DEFAULT FALSE"))
+                conn.commit()
+                converted.append(f"{table}.{col}")
+        except Exception as e:
+            logger.error("Could not convert %s.%s to boolean: %s", table, col, e)
+    if converted:
+        logger.warning("Converted integer flag columns to boolean: %s", ", ".join(converted))
+    return converted
+
+
 def init_db():
     """Seed required rows, run additive ALTER TABLE migrations, then retire published
     passwords. Each migration is idempotent; the except block silently ignores columns
-    that already exist. The seeded admin (user 1, which owns characters forged before
+    that already exist. The ALTERs add the types the models declare, and flag columns
+    that older ALTERs added as INTEGER are converted to BOOLEAN (convert_integer_flags). The seeded admin (user 1, which owns characters forged before
     login tokens) gets a random password nobody knows."""
     db = SessionLocal()
     try:
@@ -133,8 +179,8 @@ def init_db():
         ("chapter_house_location", "TEXT"),
         ("circle_ability",         "TEXT"),
         ("insignia",               "TEXT"),
-        ("backstory_answers",      "TEXT DEFAULT '{}'"),
-        ("is_finalized",           "INTEGER DEFAULT 0"),
+        ("backstory_answers",      "JSON DEFAULT '{}'"),
+        ("is_finalized",           "BOOLEAN DEFAULT FALSE"),
     ]:
         try:
             with db_engine.connect() as conn:
@@ -145,7 +191,7 @@ def init_db():
 
     try:
         with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE campaigns ADD COLUMN roster_finalized INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE campaigns ADD COLUMN roster_finalized BOOLEAN DEFAULT FALSE"))
             conn.commit()
     except Exception:
         pass
@@ -194,7 +240,7 @@ def init_db():
         ("entry_type", "TEXT DEFAULT 'field_log'"),
         ("visibility",  "TEXT DEFAULT 'all'"),
         ("image_data",  "TEXT"),
-        ("is_deleted",  "INTEGER DEFAULT 0"),
+        ("is_deleted",  "BOOLEAN DEFAULT FALSE"),
     ]:
         try:
             with db_engine.connect() as conn:
@@ -204,8 +250,8 @@ def init_db():
             pass
 
     for col, typedef in [
-        ("resources_editable", "INTEGER DEFAULT 0"),
-        ("reports_open",       "INTEGER DEFAULT 0"),
+        ("resources_editable", "BOOLEAN DEFAULT FALSE"),
+        ("reports_open",       "BOOLEAN DEFAULT FALSE"),
     ]:
         try:
             with db_engine.connect() as conn:
@@ -223,7 +269,7 @@ def init_db():
 
     try:
         with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE characters ADD COLUMN ability_uses TEXT DEFAULT '{}'"))
+            conn.execute(text("ALTER TABLE characters ADD COLUMN ability_uses JSON DEFAULT '{}'"))
             conn.commit()
     except Exception:
         pass
@@ -236,7 +282,7 @@ def init_db():
         pass
 
     for col, typedef in [
-        ("train_bonus",                "INTEGER DEFAULT 0"),
+        ("train_bonus",                "BOOLEAN DEFAULT FALSE"),
         ("resources_spent_assignment", "INTEGER DEFAULT 0"),
     ]:
         try:
@@ -261,4 +307,5 @@ def init_db():
     except Exception as e:
         logger.error("Could not create the unique index on users.google_sub: %s", e)
 
+    convert_integer_flags()
     retire_published_passwords()
