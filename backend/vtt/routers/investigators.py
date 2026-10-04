@@ -1,4 +1,5 @@
-"""Investigator (character) routes: list, fetch one, and forge a new one.
+"""Investigator (character) routes: list, fetch one, forge a new one, and set or clear
+a portrait.
 
 Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
 """
@@ -9,9 +10,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from models import Character, Circle, User
-from vtt.auth import character_or_404, get_current_user, require_owner_or_gm, require_self
+from vtt.auth import (
+    MEMBER_STATUSES, ROSTER_STATUSES, campaign_facts, character_or_404, get_current_user,
+    require_owner_or_gm, require_owner_or_roster_gm, require_self,
+)
 from vtt.db import get_db
-from vtt.schemas import CharacterCreate, CharacterResponse, CharacterRosterItem
+from vtt.portraits import check_portrait, refuse_too_many_portrait_changes, served_portrait
+from vtt.schemas import CharacterCreate, CharacterResponse, CharacterRosterItem, PortraitUpdate
+from vtt.serializers import get_char_dict
+from vtt.ws.manager import campaign_key, character_key, manager
 
 router = APIRouter()
 
@@ -57,6 +64,11 @@ async def forge_investigator(character_data: CharacterCreate, db: Session = Depe
     # The character belongs to the caller. A user_id that names someone else is refused.
     require_self(user, character_data.user_id)
     target_user_id = user.id
+    # The same portrait rule as PUT /api/investigators/{id}/portrait (413 or 422), and
+    # a forge with a portrait counts as a portrait change (429 past the limit).
+    if character_data.profile_pic:
+        refuse_too_many_portrait_changes(user.id)
+    character_data.profile_pic = check_portrait(character_data.profile_pic)
     try:
         circle = db.query(Circle).filter(Circle.id == 1).first()
         if not circle:
@@ -83,3 +95,44 @@ async def forge_investigator(character_data: CharacterCreate, db: Session = Depe
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database Forge Error: {str(e)}")
+
+
+async def broadcast_portrait(db: Session, character: Character) -> None:
+    """Tells the open sockets about a new portrait. The character's own channel gets
+    character_update with the whole sheet, as for every sheet change. A character on a
+    campaign's roster also gets portrait_update {character_id, campaign_id, profile_pic}
+    sent to the campaign: the GM and the active members for an active character (their
+    rosters and Circle cards show it), the GM alone for a pending one."""
+    await manager.broadcast(character_key(character.id), {
+        "type": "character_update", "payload": get_char_dict(character)})
+    if character.campaign_id is None or character.status not in ROSTER_STATUSES:
+        return
+    campaign = campaign_facts(db, character.campaign_id)
+    if campaign is None:
+        return
+    message = {"type": "portrait_update", "payload": {
+        "character_id": character.id, "campaign_id": campaign.id,
+        "profile_pic": served_portrait(character.profile_pic)}}
+    if character.status in MEMBER_STATUSES:
+        await manager.broadcast_campaign(campaign.campaign_code, campaign.id, message, db)
+    else:
+        await manager.broadcast(campaign_key(campaign.campaign_code), message)
+
+
+@router.put("/api/investigators/{investigator_id}/portrait")
+async def set_portrait(investigator_id: int, body: PortraitUpdate, db: Session = Depends(get_db),
+                       user: User = Depends(get_current_user)):
+    """Sets the character's portrait to a picture data URL, or clears it (profile_pic
+    null). Allowed for the owner, and for the GM of the character's campaign while it
+    is active or pending, a limited number of times per user (vtt/portraits.py).
+    Answers with the character as the WebSocket sends it."""
+    require_owner_or_roster_gm(
+        db, user, character_or_404(db, investigator_id, detail="Investigator dossier not found."))
+    refuse_too_many_portrait_changes(user.id)
+    portrait = check_portrait(body.profile_pic)
+    character = db.query(Character).filter(Character.id == investigator_id).first()
+    character.profile_pic = portrait
+    db.commit()
+    db.refresh(character)
+    await broadcast_portrait(db, character)
+    return get_char_dict(character)

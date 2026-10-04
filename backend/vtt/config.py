@@ -82,6 +82,14 @@ ALLOW_PASSWORD_LOGIN = _env_flag("ALLOW_PASSWORD_LOGIN", True)
 if not ALLOW_PASSWORD_LOGIN and not GOOGLE_CLIENT_ID:
     logger.warning("ALLOW_PASSWORD_LOGIN is off and GOOGLE_CLIENT_ID is not set, so nobody can log in")
 
+# Password reset by email (vtt/password_reset.py, docs/refactor/AUTH.md). The email goes
+# out through Resend's HTTP API with this key (vtt/mail.py). Without a key a reset
+# request still succeeds, and the log says that the email was not sent.
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+# Where the link in the email points: RESET_URL_BASE + "/reset-password?token=...".
+RESET_URL_BASE = (os.getenv("RESET_URL_BASE", "").strip() or "https://candela-beta.gatergrid.com").rstrip("/")
+PASSWORD_RESET_EXPIRE_MINUTES = 60  # a reset link works once, within this time
+
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./candela_obscura.db")
 
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:4173").split(",") if o.strip()]

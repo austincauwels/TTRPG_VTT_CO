@@ -54,6 +54,14 @@ def user_for_token(db: Session, token: Optional[str]) -> Optional[User]:
     return user
 
 
+def stamp_still_valid(db: Session, user_id: int, stamp: str) -> bool:
+    """True while the user exists and their password hash still has this stamp, so a
+    token carrying it still works. A column query, so the WebSocket's long-lived
+    session reads the row as it is now."""
+    row = db.query(User.hashed_password).filter(User.id == user_id).first()
+    return row is not None and hmac.compare_digest(stamp, password_stamp(row[0]))
+
+
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     user = user_for_token(db, bearer_token(request))
     if user is None:
@@ -138,4 +146,15 @@ def require_gm_of_character(db: Session, user: User, character) -> None:
 def require_owner_or_gm(db: Session, user: User, character) -> None:
     if character.user_id == user.id:
         return
+    require_gm_of_character(db, user, character)
+
+
+def require_owner_or_roster_gm(db: Session, user: User, character) -> None:
+    """The character's owner, or the GM of its campaign while the character is on the
+    roster (active or pending), as for the GM's WebSocket messages. A retired character
+    stays tagged with its old campaign, and that GM may no longer change it."""
+    if character.user_id == user.id:
+        return
+    if character.status not in ROSTER_STATUSES:
+        raise forbidden()
     require_gm_of_character(db, user, character)

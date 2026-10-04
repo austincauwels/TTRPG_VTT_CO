@@ -108,8 +108,13 @@ def update(model, obj_id, **fields):
 def password_hash():
     global _password_hash
     if _password_hash is None:
-        _password_hash = main.pwd_context.handler("bcrypt").using(rounds=4).hash(PASSWORD)
+        _password_hash = cheap_hash(PASSWORD)
     return _password_hash
+
+
+def cheap_hash(password):
+    """A bcrypt hash of the password with 4 rounds (fast; login accepts it)."""
+    return main.pwd_context.handler("bcrypt").using(rounds=4).hash(password)
 
 
 def make_user(username=None, email=None, **fields):
@@ -144,6 +149,14 @@ def token_for(user_id):
         r = login(CLIENT, username, password)
         assert r.status_code == 200, r.text
         _TOKENS[user_id] = r.json()["token"]
+    return _TOKENS[user_id]
+
+
+def fresh_token(user_id):
+    """A login token for the user's password hash as it is now (for a user whose hash
+    a test replaced, which ends the tokens issued before). It replaces the cached one."""
+    from vtt.security import create_access_token
+    _TOKENS[user_id] = create_access_token(user_id, fetch(User, user_id).hashed_password)
     return _TOKENS[user_id]
 
 
@@ -468,13 +481,22 @@ def isolated_schema(create_tables=True):
 
 
 class FakeSocket:
-    """Stands in for a WebSocket inside ConnectionManager; fail=True makes send_json raise."""
+    """Stands in for a WebSocket inside ConnectionManager; fail=True makes sending raise.
+    sent holds the messages as dicts; texts holds the frames the manager sent as text
+    (it serializes a broadcast once and sends the same text to every socket)."""
 
     def __init__(self, fail=False):
         self.fail = fail
         self.sent = []
+        self.texts = []
 
     async def send_json(self, message):
         if self.fail:
             raise RuntimeError("socket is gone")
         self.sent.append(message)
+
+    async def send_text(self, text):
+        if self.fail:
+            raise RuntimeError("socket is gone")
+        self.texts.append(text)
+        self.sent.append(json.loads(text))

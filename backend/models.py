@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for all game entities: users, campaigns, circles, characters, notebook entries, and relationship votes."""
+"""SQLAlchemy ORM models for all game entities: users, password reset links, campaigns, circles, characters, notebook entries, and relationship votes."""
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Float, Boolean, Text, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -14,6 +14,26 @@ class User(Base):
     pending_rejoin_campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
     # Sign in with Google: the Google account's subject id, once linked (unique index ix_users_google_sub)
     google_sub = Column(String, unique=True, index=True, nullable=True)
+    # The email of that Google account when it was linked. A link whose Google email is
+    # not the account's email (or was never recorded) is unproven: a password reset
+    # removes it, and so does the address owner's Google sign-in (docs/refactor/AUTH.md).
+    google_email = Column(String, nullable=True)
+    # True once someone showed they read the account's email: a used reset link, or a
+    # Google account with that address (made with Google, or linked with the same email).
+    email_proven = Column(Boolean, default=False)
+
+class PasswordResetToken(Base):
+    """An outstanding password reset link (vtt/password_reset.py). Only the SHA-256 of
+    the link's token is kept. A row is deleted when its link is used, when the user asks
+    for a newer link, and when the user's password is reset; password_stamp (see
+    vtt/security.py) makes it useless once the password changes any other way."""
+    __tablename__ = "password_reset_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    password_stamp = Column(String(32), nullable=False)
+    created_at = Column(Integer, nullable=False)  # Unix time, seconds
+    expires_at = Column(Integer, nullable=False)  # Unix time, seconds
 
 class Game(Base):
     __tablename__ = "games"

@@ -1,5 +1,10 @@
-"""Dict forms of a Character and a Circle, as sent over the WebSocket and in several REST responses."""
+"""Dict forms of a Character and a Circle, as sent over the WebSocket and in several REST responses.
+
+profile_pic is the stored portrait only when it follows the portrait rule
+(vtt/portraits.py served_portrait); anything else is sent as no portrait."""
 import json
+
+from vtt.portraits import served_portrait
 
 
 def get_char_dict(char):
@@ -58,7 +63,7 @@ def get_char_dict(char):
         "role_ability": getattr(char, "role_ability", "None") or "None",
         "specialty_ability": getattr(char, "specialty_ability", "None") or "None",
         "gear": gear,
-        "profile_pic": getattr(char, "profile_pic", None),
+        "profile_pic": served_portrait(getattr(char, "profile_pic", None)),
         "status": getattr(char, "status", "unaffiliated") or "unaffiliated",
         "pen_font": getattr(char, "pen_font", "Caveat") or "Caveat",
         "ink_color": getattr(char, "ink_color", "") or "",
