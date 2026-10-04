@@ -35,9 +35,12 @@ export const WS_CLOSE_UNAUTHENTICATED = 4401;
 // (error.status holds the HTTP status).
 
 const authErrorMessage = async (response) => {
-  if (response.status === 429) return 'Too many attempts. Please wait a minute and try again.';
   try {
-    const { detail } = await response.json();
+    const { detail, error } = await response.json();
+    // A 429 with a detail is one of the app's own limits (refused registrations, reset
+    // emails for one address, portrait changes), and its detail says how long to wait. The
+    // per-connection limits answer { error: "Rate limit exceeded: 5 per 1 minute" }.
+    if (response.status === 429 && typeof detail !== 'string') return tooManyAttempts(error);
     if (typeof detail === 'string') return authErrorText(detail);
     if (Array.isArray(detail) && detail.length) {
       // Validation errors, such as "Value error, Username must be 2–32 characters"
@@ -45,9 +48,14 @@ const authErrorMessage = async (response) => {
     }
   } catch {
     // not JSON
+    if (response.status === 429) return tooManyAttempts();
   }
   return 'Something went wrong. Please try again.';
 };
+
+const tooManyAttempts = (limit) => (/\bhour\b/i.test(String(limit || ''))
+  ? 'Too many attempts. Please try again in an hour.'
+  : 'Too many attempts. Please wait a minute and try again.');
 
 const postAuth = async (path, body) => {
   let response;
@@ -129,16 +137,9 @@ export const linkGoogleToAccount = (credential, password) =>
 // ==========================================
 
 // Asks for a reset email. Resolves to { ok: true } whether or not an account uses the
-// address, so the page shows the same text either way.
-export const requestPasswordReset = async (email) => {
-  try {
-    return await postAuth('/api/auth/password-reset', { email });
-  } catch (error) {
-    // Limited per address (3 an hour) as well as per connection.
-    if (error.status === 429) error.message = 'Too many reset emails have been asked for. Please try again in an hour.';
-    throw error;
-  }
-};
+// address, so the page shows the same text either way. Limited per address (3 an hour,
+// the server's own words say so) as well as per connection (5 a minute, 20 an hour).
+export const requestPasswordReset = (email) => postAuth('/api/auth/password-reset', { email });
 
 // Sets the new password with the token from the emailed link (/reset-password?token=...).
 // Resolves to a session, the same as a password login, plus googleUnlinked: true when the

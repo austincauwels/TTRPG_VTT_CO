@@ -11,8 +11,11 @@ export const PASSWORD_RULE = `At least ${PASSWORD_MIN_LENGTH} characters.`;
 
 const KNOWN = [
   [/^invalid credentials/i, 'That username and password do not match.'],
+  // Creating an account with Google still says which name is taken
   [/identification is already claimed/i, 'That username is already taken. Choose another one.'],
-  [/correspondence address is already registered/i, 'An account with that email address already exists. Sign in to it instead.'],
+  // Register gives one answer for a taken username or email, and limits how often it can be refused
+  [/cannot be used for a new account/i, 'That username or email address cannot be used for a new account. Choose another username, or sign in if you already have an account.'],
+  [/too many accounts could not be created/i, 'Too many accounts could not be created from here. Please try again in an hour.'],
   [/username must be 2.32/i, 'A username needs 2 to 32 characters.'],
   [/username contains invalid characters/i, 'A username can only use letters, digits, spaces, dots, dashes and underscores.'],
   [/password must be at least 8/i, `A password needs at least ${PASSWORD_MIN_LENGTH} characters.`],
