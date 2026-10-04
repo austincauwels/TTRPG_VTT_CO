@@ -323,5 +323,11 @@ def init_db():
     except Exception as e:
         logger.error("Could not create the password_reset_tokens table: %s", e)
 
+    # A drawn sketch's scene, kept for its author (vtt/sketch_scenes.py). Existing entries
+    # get NULL: no drawing to reopen, and has_scene is false. Every NotebookEntry query
+    # reads has_scene, so if adding it fails for any reason but "already there", the log
+    # says why.
+    add_columns("notebook_entries", [("sketch_scene", "TEXT")])
+
     convert_integer_flags()
     retire_published_passwords()

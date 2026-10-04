@@ -36,7 +36,8 @@ def _url(path):
 
 
 def test_every_route_but_the_sign_in_routes_is_protected():
-    assert len(PROTECTED) == 30
+    # 32 since a drawn sketch's scene and redraw routes (GET .../scene, PUT .../sketch)
+    assert len(PROTECTED) == 32
     assert PUBLIC | ACCOUNT == {r.path for r in main.app.routes
                                 if isinstance(r, APIRoute) and r.path.startswith("/api/auth/")}
 

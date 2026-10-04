@@ -68,6 +68,8 @@ HTTP_ROUTES = [
     (["PUT"], "/api/notebook/entries/{entry_id}", "update_notebook_entry", "NotebookEntryResponse", None),
     (["DELETE"], "/api/notebook/entries/{entry_id}", "delete_notebook_entry", None, 204),
     (["POST"], "/api/notebook/{campaign_id}/upload", "upload_notebook_image", None, 201),
+    (["GET"], "/api/notebook/entries/{entry_id}/scene", "get_sketch_scene", None, None),
+    (["PUT"], "/api/notebook/entries/{entry_id}/sketch", "redraw_sketch", "NotebookEntryResponse", None),
     (["GET"], "/api/users/{user_id}/characters", "get_user_characters", "list[CharacterSummaryItem]", None),
     (["GET"], "/api/users/{user_id}/campaigns", "get_user_gm_campaigns", "list[CampaignSummaryItem]", None),
 ]

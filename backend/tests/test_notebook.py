@@ -1,15 +1,18 @@
 """/api/notebook routes."""
 import base64
+import json
 
 import pytest
 
 import engine
+import main
 import support
 from models import Character, NotebookEntry, User
+from vtt.sketch_scenes import SCENE_MAX_BYTES
 
 ENTRY_KEYS = {"id", "campaign_id", "character_id", "author_name", "author_type", "pen_font",
               "ink_color", "title", "content", "created_at", "page_number", "entry_type",
-              "visibility", "image_data", "is_deleted"}
+              "visibility", "image_data", "is_deleted", "has_scene"}
 
 
 def _writer(campaign_id, fields):
@@ -51,6 +54,7 @@ def test_add_entry(client):
     assert body["page_number"] == 1
     assert body["is_deleted"] is False
     assert body["image_data"] is None
+    assert body["has_scene"] is False
     assert "T" in body["created_at"]  # ISO timestamp string
 
 
@@ -313,6 +317,7 @@ def test_upload_image(client):
     assert body["character_id"] == member["id"]
     assert body["ink_color"] == engine.INK_COLORS[0]
     assert body["page_number"] == 1
+    assert body["has_scene"] is False  # an uploaded picture has no drawing to reopen
     assert support.fetch(NotebookEntry, body["id"]).author_type == "player"
 
 
@@ -386,6 +391,228 @@ def test_unknown_ids_are_404_on_every_notebook_call(client, unknown):
             "upload, campaign": client.post(f"/api/notebook/{unknown}/upload", files=png, headers=gm),
             "upload, character": client.post(f"/api/notebook/{camp['id']}/upload", files=png,
                                              data={"character_id": str(unknown)}, headers=player),
+            "scene": client.get(f"/api/notebook/entries/{unknown}/scene", headers=gm),
+            "redraw": client.put(f"/api/notebook/entries/{unknown}/sketch",
+                                 files={**png, "scene": ("scene.json", _scene_bytes(), "application/json")},
+                                 headers=gm),
         }
     assert {name: r.status_code for name, r in calls.items()} == {name: 404 for name in calls}
     assert support.fetch_all(NotebookEntry, campaign_id=camp["id"]) == []
+
+
+# --- drawn sketches: the picture for everyone, the drawing for its author ---------
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 32  # a redrawn sketch's picture must start like a PNG
+
+
+def _element(type_, **fields):
+    return {"id": f"el-{support.uid()}", "type": type_, "x": 0, "y": 0, "width": 10, "height": 10,
+            "strokeColor": "#8b1a1a", "isDeleted": False, **fields}
+
+
+def _scene_bytes(*elements, **extra):
+    """An Excalidraw scene as the sheet sends it (one pen stroke unless elements are given)."""
+    elements = list(elements) or [_element("freedraw", points=[[0, 0], [4, 5]])]
+    return json.dumps({"type": "excalidraw", "version": 2, "source": "https://excalidraw.com",
+                       "elements": elements, **extra}).encode()
+
+
+def _draw(client, camp, member=None, scene=None, **data):
+    """Uploads a drawn sketch, its picture and its scene, as the member or as the GM."""
+    fields = {"title": "The cellar", "entry_type": "sketch", **data}
+    if member is not None:
+        fields["character_id"] = str(member["id"])
+    files = {"file": ("sketch.png", PNG, "image/png"),
+             "scene": ("scene.json", _scene_bytes() if scene is None else scene, "application/json")}
+    headers = support.as_owner(member["id"]) if member is not None else support.as_gm(camp)
+    return client.post(f"/api/notebook/{camp['id']}/upload", files=files, data=fields, headers=headers)
+
+
+def _redraw_files(png=PNG, scene=None):
+    return {"file": ("sketch.png", png, "image/png"),
+            "scene": ("scene.json", _scene_bytes() if scene is None else scene, "application/json")}
+
+
+def _stored_scene(entry_id):
+    """The scene as stored (the column is deferred, so a detached row does not carry it)."""
+    with main.SessionLocal() as s:
+        return s.query(NotebookEntry.sketch_scene).filter(NotebookEntry.id == entry_id).scalar()
+
+
+def test_drawn_sketch_keeps_its_drawing_for_the_author(client):
+    """Everyone sees a drawn sketch's picture and has_scene; no list carries the scene.
+    The author reads it back."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    other = support.active_member(client, camp)
+    r = _draw(client, camp, member)
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert set(body) == ENTRY_KEYS - {"author_type"}
+    assert (body["entry_type"], body["has_scene"]) == ("sketch", True)
+    assert body["image_data"] == "data:image/png;base64," + base64.b64encode(PNG).decode()
+    for headers in (support.as_owner(other["id"]), support.as_gm(camp), support.as_owner(member["id"])):
+        r = client.get(f"/api/notebook/{camp['id']}/entries", headers=headers)
+        assert r.status_code == 200
+        (listed,) = [e for e in r.json() if e["id"] == body["id"]]
+        assert set(listed) == ENTRY_KEYS
+        assert (listed["has_scene"], listed["image_data"]) == (True, body["image_data"])
+        assert "freedraw" not in r.text and "elements" not in r.text
+    r = client.get(f"/api/notebook/entries/{body['id']}/scene", headers=support.as_owner(member["id"]))
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/json"
+    scene = r.json()
+    assert set(scene) == {"type", "version", "elements"}
+    assert [e["type"] for e in scene["elements"]] == ["freedraw"]
+
+
+def test_scene_keeps_only_the_sheets_own_elements(client):
+    """Only the sheet's tools' elements are stored. Images, embeds, frames and other
+    kinds, elements marked deleted, the scene's files and its appState are dropped, and
+    no element keeps a link or customData."""
+    camp = support.new_campaign(client)
+    kept = [_element(t) for t in ("freedraw", "line", "arrow", "rectangle", "ellipse", "text")]
+    kept[3]["link"] = "javascript:alert(1)"
+    kept[4]["customData"] = {"secret": 1}
+    dropped = [_element(t) for t in ("image", "embeddable", "iframe", "frame", "magicframe", "diamond")]
+    dropped.append(_element("rectangle", isDeleted=True))
+    scene = _scene_bytes(*kept, *dropped, files={"f": {"dataURL": "data:image/png;base64,AAAA"}},
+                         appState={"viewBackgroundColor": "#000000"})
+    r = _draw(client, camp, scene=scene)
+    assert r.status_code == 201, r.text
+    stored = json.loads(_stored_scene(r.json()["id"]))
+    assert set(stored) == {"type", "version", "elements"}
+    assert [e["id"] for e in stored["elements"]] == [e["id"] for e in kept]
+    assert stored["elements"][3]["link"] is None
+    assert "customData" not in stored["elements"][4]
+    assert stored["elements"][0] == kept[0]
+
+
+def test_drawing_read_and_redrawn_only_by_the_author(client):
+    """Another member, the campaign's GM and a stranger get 403 for a player's drawing,
+    and a member for the GM's own, whether reading it or redrawing it; nothing changes."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    other = support.active_member(client, camp)
+    mine = _draw(client, camp, member).json()
+    gms = _draw(client, camp).json()
+    for entry, outsiders in ((mine, (support.as_owner(other["id"]), support.as_gm(camp), support.as_stranger())),
+                             (gms, (support.as_owner(member["id"]), support.as_stranger()))):
+        before = _stored_scene(entry["id"])
+        for headers in outsiders:
+            assert client.get(f"/api/notebook/entries/{entry['id']}/scene", headers=headers).status_code == 403
+            r = client.put(f"/api/notebook/entries/{entry['id']}/sketch",
+                           files=_redraw_files(PNG + b"defaced"), headers=headers)
+            assert r.status_code == 403
+        assert _stored_scene(entry["id"]) == before
+        assert support.fetch(NotebookEntry, entry["id"]).image_data == entry["image_data"]
+    assert client.get(f"/api/notebook/entries/{gms['id']}/scene", headers=support.as_gm(camp)).status_code == 200
+    assert client.get(f"/api/notebook/entries/{mine['id']}/scene",
+                      headers=support.as_owner(member["id"])).status_code == 200
+
+
+def test_redraw_replaces_the_picture_and_the_drawing(client):
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    me = support.as_owner(member["id"])
+    entry = _draw(client, camp, member).json()
+    line = _element("line", points=[[0, 0], [9, 9]])
+    newer = PNG + b"redrawn"
+    r = client.put(f"/api/notebook/entries/{entry['id']}/sketch", files=_redraw_files(newer, _scene_bytes(line)),
+                   headers=me)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert set(body) == ENTRY_KEYS
+    assert body["image_data"] == "data:image/png;base64," + base64.b64encode(newer).decode()
+    assert (body["has_scene"], body["title"], body["page_number"], body["content"]) == \
+        (True, entry["title"], entry["page_number"], entry["content"])
+    scene = client.get(f"/api/notebook/entries/{entry['id']}/scene", headers=me).json()
+    assert [e["id"] for e in scene["elements"]] == [line["id"]]
+    # a sketch uploaded as a picture has no drawing until its author draws on it
+    picture = client.post(f"/api/notebook/{camp['id']}/upload", files={"file": ("p.png", PNG, "image/png")},
+                          data={"title": "Map", "character_id": str(member["id"])}, headers=me).json()
+    assert picture["has_scene"] is False
+    r = client.get(f"/api/notebook/entries/{picture['id']}/scene", headers=me)
+    assert (r.status_code, r.json()) == (404, {"detail": "This sketch keeps no drawing."})
+    r = client.put(f"/api/notebook/entries/{picture['id']}/sketch", files=_redraw_files(), headers=me)
+    assert (r.status_code, r.json()["has_scene"]) == (200, True)
+
+
+@pytest.mark.parametrize("scene, status", [
+    (b"x" * (SCENE_MAX_BYTES + 1), 413),
+    (b"", 422),
+    (b"not json", 422),
+    (b"\xff\xfe\x00", 422),
+    (b"[]", 422),
+    (b'{"type": "excalidraw"}', 422),
+    (b'{"elements": {}}', 422),
+    (b'{"elements": ["rectangle"]}', 422),
+    (b"[" * 100000 + b"]" * 100000, 422),
+], ids=["too large", "empty", "not json", "not utf-8", "a list", "no elements", "elements not a list",
+        "element not an object", "nested too deep"])
+def test_drawing_refused_when_too_large_or_not_a_drawing(client, scene, status):
+    """The scene is read at most SCENE_MAX_BYTES before it is parsed (413 beyond), then
+    must be a JSON object with an "elements" list of objects (422). Nothing is stored."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    me = support.as_owner(member["id"])
+    r = _draw(client, camp, member, scene=scene)
+    assert r.status_code == status, r.text
+    assert support.fetch_all(NotebookEntry, campaign_id=camp["id"]) == []
+    entry = _draw(client, camp, member).json()
+    before = _stored_scene(entry["id"])
+    r = client.put(f"/api/notebook/entries/{entry['id']}/sketch", files=_redraw_files(PNG + b"x", scene), headers=me)
+    assert r.status_code == status, r.text
+    assert _stored_scene(entry["id"]) == before
+    assert support.fetch(NotebookEntry, entry["id"]).image_data == entry["image_data"]
+
+
+def test_drawing_at_the_size_limit_is_kept(client):
+    camp = support.new_campaign(client)
+    scene = _scene_bytes()
+    r = _draw(client, camp, scene=scene + b" " * (SCENE_MAX_BYTES - len(scene)))
+    assert (r.status_code, r.json()["has_scene"]) == (201, True)
+
+
+def test_a_drawing_belongs_to_a_live_sketch(client):
+    """Only a sketch takes a drawing (422 for a photo or a written entry), a redrawn
+    picture must be a PNG of at most 2 MB, both parts are required, and a deleted
+    sketch's drawing is gone with it (404)."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    me = support.as_owner(member["id"])
+    r = _draw(client, camp, member, entry_type="photo")
+    assert (r.status_code, r.json()) == (422, {"detail": "Only a sketch keeps a drawing."})
+    assert support.fetch_all(NotebookEntry, campaign_id=camp["id"]) == []
+    note = _add(client, camp["id"], character_id=member["id"])
+    r = client.put(f"/api/notebook/entries/{note['id']}/sketch", files=_redraw_files(), headers=me)
+    assert (r.status_code, r.json()) == (422, {"detail": "Only a sketch keeps a drawing."})
+    r = client.get(f"/api/notebook/entries/{note['id']}/scene", headers=me)
+    assert (r.status_code, r.json()) == (404, {"detail": "This sketch keeps no drawing."})
+    sketch = _draw(client, camp, member).json()
+    url = f"/api/notebook/entries/{sketch['id']}/sketch"
+    r = client.put(url, files={**_redraw_files(), "file": ("s.gif", b"GIF89a....", "image/gif")}, headers=me)
+    assert (r.status_code, r.json()) == (422, {"detail": "The sketch must be a PNG picture."})
+    r = client.put(url, files=_redraw_files(PNG + b"0" * (2 * 1024 * 1024)), headers=me)
+    assert (r.status_code, r.json()) == (413, {"detail": "Image too large (max 2MB)"})
+    assert client.put(url, files={"file": ("s.png", PNG, "image/png")}, headers=me).status_code == 422
+    assert client.put(url, files={"scene": ("s.json", _scene_bytes(), "application/json")},
+                      headers=me).status_code == 422
+    assert support.fetch(NotebookEntry, sketch["id"]).image_data == sketch["image_data"]
+    assert client.delete(f"/api/notebook/entries/{sketch['id']}", headers=me).status_code == 204
+    r = client.get(f"/api/notebook/entries/{sketch['id']}/scene", headers=me)
+    assert (r.status_code, r.json()) == (404, {"detail": "Entry not found"})
+    assert client.put(url, files=_redraw_files(), headers=me).status_code == 404
+
+
+def test_drawn_sketch_and_redraw_do_not_broadcast(client):
+    """Like every upload, a drawn sketch sends no socket message, so no frame ever
+    carries a scene; a redraw sends none either."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as mem:
+        entry = _draw(client, camp, member).json()
+        r = client.put(f"/api/notebook/entries/{entry['id']}/sketch", files=_redraw_files(),
+                       headers=support.as_owner(member["id"]))
+        assert r.status_code == 200
+        assert gm.drain() == [] and mem.drain() == []

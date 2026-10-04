@@ -26,6 +26,26 @@
         "title": "AccountGoogleLinkRequest",
         "type": "object"
       },
+      "Body_redraw_sketch_api_notebook_entries__entry_id__sketch_put": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "scene": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Scene",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "scene"
+        ],
+        "title": "Body_redraw_sketch_api_notebook_entries__entry_id__sketch_put",
+        "type": "object"
+      },
       "Body_upload_notebook_image_api_notebook__campaign_id__upload_post": {
         "properties": {
           "author_name": {
@@ -63,6 +83,18 @@
             "contentMediaType": "application/octet-stream",
             "title": "File",
             "type": "string"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scene"
           },
           "title": {
             "default": "Attached Image",
@@ -1052,6 +1084,11 @@
             "title": "Entry Type",
             "type": "string"
           },
+          "has_scene": {
+            "default": false,
+            "title": "Has Scene",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -2007,6 +2044,92 @@
           }
         },
         "summary": "Update Notebook Entry"
+      }
+    },
+    "/api/notebook/entries/{entry_id}/scene": {
+      "get": {
+        "operationId": "get_sketch_scene_api_notebook_entries__entry_id__scene_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Sketch Scene"
+      }
+    },
+    "/api/notebook/entries/{entry_id}/sketch": {
+      "put": {
+        "operationId": "redraw_sketch_api_notebook_entries__entry_id__sketch_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_redraw_sketch_api_notebook_entries__entry_id__sketch_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Redraw Sketch"
       }
     },
     "/api/notebook/{campaign_id}/entries": {

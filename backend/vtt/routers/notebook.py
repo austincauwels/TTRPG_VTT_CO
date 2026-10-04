@@ -5,11 +5,16 @@ campaign's GM and members read and write; role=GM (the Lightkeeper's private not
 only works for the GM; a character_id must be the caller's own character; only the
 author of an entry may change or delete it. A player writes as one of their
 characters in the campaign, and the server sets the author name, pen and ink.
+
+A drawn sketch (the notebook's drawing sheet) is uploaded with its scene as a second
+file part and keeps it in sketch_scene (vtt/sketch_scenes.py). Only the entry's author
+reads the scene back (GET .../scene) or redraws the sketch (PUT .../sketch); everyone
+else sees the picture, and responses carry has_scene, never the scene.
 """
 import base64
 from typing import Annotated, List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BeforeValidator
 from sqlalchemy.orm import Session
 
@@ -21,6 +26,7 @@ from vtt.auth import (
 )
 from vtt.db import get_db
 from vtt.schemas import NotebookEntryCreate, NotebookEntryResponse, NotebookEntryUpdate
+from vtt.sketch_scenes import read_png, read_scene
 from vtt.ws.manager import manager
 
 router = APIRouter()
@@ -28,6 +34,9 @@ router = APIRouter()
 # The frontend sends "character_id=" when it has no character (the GM's notebook).
 # An empty value means no character; anything else must still be an integer.
 OptionalCharacterId = Annotated[Optional[int], BeforeValidator(lambda v: None if v == "" else v)]
+
+NOT_A_SKETCH = "Only a sketch keeps a drawing."
+NO_SCENE = "This sketch keeps no drawing."
 
 
 def is_gm_entry(author_type, entry_type, visibility) -> bool:
@@ -196,6 +205,7 @@ async def upload_notebook_image(
     author_type: str = Form("player"),
     entry_type: str = Form("sketch"),
     character_id: Optional[int] = Form(None),
+    scene: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -205,6 +215,12 @@ async def upload_notebook_image(
     raw = await file.read()
     if len(raw) > 2 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Image too large (max 2MB)")
+    # A drawing comes only with a sketch; it is checked before anything is stored.
+    sketch_scene = None
+    if scene is not None:
+        if entry_type != "sketch":
+            raise HTTPException(status_code=422, detail=NOT_A_SKETCH)
+        sketch_scene = await read_scene(scene)
     b64 = base64.b64encode(raw).decode("utf-8")
     mime = file.content_type or "image/png"
     image_data = f"data:{mime};base64,{b64}"
@@ -221,6 +237,7 @@ async def upload_notebook_image(
         entry_type   = entry_type,
         visibility   = 'all',
         image_data   = image_data,
+        sketch_scene = sketch_scene,
     )
     return {
         "id": entry.id,
@@ -237,4 +254,48 @@ async def upload_notebook_image(
         "character_id": entry.character_id,
         "visibility": entry.visibility,
         "is_deleted": entry.is_deleted,
+        "has_scene": entry.has_scene,
     }
+
+
+def _live_entry_or_404(db: Session, entry_id: int) -> NotebookEntry:
+    """The entry, unless it is unknown or deleted ("Entry not found")."""
+    entry = db.query(NotebookEntry).filter(NotebookEntry.id == entry_id).first()
+    if not entry or entry.is_deleted:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    return entry
+
+
+# A drawn sketch's scene, for its author alone (403 for anyone else, before anything is
+# said about the scene); 404 when the entry keeps no drawing. (Comments, not docstrings,
+# on routes: a docstring would become the route's description in the OpenAPI document.)
+@router.get("/api/notebook/entries/{entry_id}/scene")
+def get_sketch_scene(entry_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    entry = _live_entry_or_404(db, entry_id)
+    _require_author(db, user, entry)
+    if entry.sketch_scene is None:
+        raise HTTPException(status_code=404, detail=NO_SCENE)
+    return Response(content=entry.sketch_scene, media_type="application/json")
+
+
+# The author keeps drawing: the sketch's picture (a PNG) and its scene are replaced
+# together. Sketch entries only (422); the author only (403).
+@router.put("/api/notebook/entries/{entry_id}/sketch", response_model=NotebookEntryResponse)
+async def redraw_sketch(
+    entry_id: int,
+    file: UploadFile = File(...),
+    scene: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    entry = _live_entry_or_404(db, entry_id)
+    _require_author(db, user, entry)
+    if entry.entry_type != "sketch":
+        raise HTTPException(status_code=422, detail=NOT_A_SKETCH)
+    raw = await read_png(file)
+    sketch_scene = await read_scene(scene)
+    entry.image_data = "data:image/png;base64," + base64.b64encode(raw).decode("ascii")
+    entry.sketch_scene = sketch_scene
+    db.commit()
+    db.refresh(entry)
+    return entry

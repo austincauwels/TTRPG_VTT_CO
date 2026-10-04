@@ -323,6 +323,9 @@ class NotebookEntryResponse(BaseModel):
     visibility: str = 'all'
     image_data: Optional[str] = None
     is_deleted: bool = False
+    # A drawn sketch keeps its drawing for its author (GET /api/notebook/entries/{id}/scene);
+    # the scene itself is never in a response.
+    has_scene: bool = False
     class Config:
         from_attributes = True
 

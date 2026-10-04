@@ -137,8 +137,10 @@ def create_notebook_entry(db: Session, campaign_id: int, title: str, content: st
                           character_id: int = None,
                           entry_type: str = 'field_log',
                           visibility: str = 'all',
-                          image_data: str = None):
-    """Creates a new notebook entry and assigns the next sequential page number."""
+                          image_data: str = None,
+                          sketch_scene: str = None):
+    """Creates a new notebook entry and assigns the next sequential page number.
+    sketch_scene is a drawn sketch's cleaned scene (vtt/sketch_scenes.py)."""
     max_page = db.query(func.max(NotebookEntry.page_number)).filter(
         NotebookEntry.campaign_id == campaign_id
     ).scalar() or 0
@@ -158,6 +160,7 @@ def create_notebook_entry(db: Session, campaign_id: int, title: str, content: st
         entry_type   = entry_type,
         visibility   = visibility,
         image_data   = image_data,
+        sketch_scene = sketch_scene,
         is_deleted   = False,
     )
     db.add(entry)

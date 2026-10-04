@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models for all game entities: users, password reset links, campaigns, circles, characters, notebook entries, and relationship votes."""
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Float, Boolean, Text, Index, DateTime, event
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, relationship, with_loader_criteria
+from sqlalchemy.orm import Session, column_property, deferred, relationship, with_loader_criteria
 
 Base = declarative_base()
 
@@ -278,5 +278,13 @@ class NotebookEntry(Base):
     visibility   = Column(String, default='all')         # 'all'|'gm_only'|'self'
     image_data   = Column(Text, nullable=True)           # base64-encoded image
     is_deleted   = Column(Boolean, default=False)
+    # A drawn sketch's Excalidraw scene, for its author only (vtt/sketch_scenes.py). Deferred:
+    # lists and the API read has_scene (below), so a scene is loaded only when asked for.
+    sketch_scene = deferred(Column(Text, nullable=True))
 
     campaign = relationship("Campaign", back_populates="notebook_entries")
+
+
+# Whether the entry keeps a drawing, worked out by the database (IS NOT NULL), so reading it
+# never loads the scene itself.
+NotebookEntry.has_scene = column_property(NotebookEntry.__table__.c.sketch_scene.isnot(None))

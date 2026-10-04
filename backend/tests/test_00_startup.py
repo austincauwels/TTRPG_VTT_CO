@@ -109,7 +109,7 @@ def test_migrated_columns_exist(client):
             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
             "train_bonus", "resources_spent_assignment", "deleted_at"} <= cols["characters"]
     assert "last_actor_id" in cols["relationships"]
-    assert {"entry_type", "visibility", "image_data", "is_deleted"} <= cols["notebook_entries"]
+    assert {"entry_type", "visibility", "image_data", "is_deleted", "sketch_scene"} <= cols["notebook_entries"]
     assert {"pending_rejoin_campaign_id", "google_sub", "google_email", "email_proven"} <= cols["users"]
     google_sub_index = [i for i in insp.get_indexes("users") if i["column_names"] == ["google_sub"]]
     assert [(i["name"], bool(i["unique"])) for i in google_sub_index] == [("ix_users_google_sub", True)]
@@ -217,6 +217,8 @@ def test_route_table_order(client):
         ("/api/notebook/entries/{entry_id}", ["PUT"]),
         ("/api/notebook/entries/{entry_id}", ["DELETE"]),
         ("/api/notebook/{campaign_id}/upload", ["POST"]),
+        ("/api/notebook/entries/{entry_id}/scene", ["GET"]),
+        ("/api/notebook/entries/{entry_id}/sketch", ["PUT"]),
         ("/api/users/{user_id}/characters", ["GET"]),
         ("/api/users/{user_id}/campaigns", ["GET"]),
         ("/ws/{game_id}", []),
@@ -285,6 +287,7 @@ MIGRATED_COLUMNS = {
     ("notebook_entries", "visibility"): ("text", "'all'::text"),
     ("notebook_entries", "image_data"): ("text", None),
     ("notebook_entries", "is_deleted"): ("boolean", "false"),
+    ("notebook_entries", "sketch_scene"): ("text", None),
     ("users", "pending_rejoin_campaign_id"): ("integer", None),
     ("users", "google_sub"): ("text", None),
     ("users", "google_email"): ("text", None),
