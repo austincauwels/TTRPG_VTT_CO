@@ -1,3 +1,5 @@
+import { authErrorText } from './authErrors';
+
 export const apiUrl = (path) => `${import.meta.env.VITE_API_URL || ''}${path}`;
 
 // Every API call goes through apiFetch, which sends the login token as
@@ -36,10 +38,10 @@ const authErrorMessage = async (response) => {
   if (response.status === 429) return 'Too many attempts. Please wait a minute and try again.';
   try {
     const { detail } = await response.json();
-    if (typeof detail === 'string') return detail;
+    if (typeof detail === 'string') return authErrorText(detail);
     if (Array.isArray(detail) && detail.length) {
       // Validation errors, such as "Value error, Username must be 2–32 characters"
-      return detail.map((d) => String(d.msg || '').replace(/^Value error, /, '')).join(' ');
+      return detail.map((d) => authErrorText(d.msg)).join(' ');
     }
   } catch {
     // not JSON
@@ -65,6 +67,14 @@ const postAuth = async (path, body) => {
   }
   return response.json();
 };
+
+// Password sign-in and registration, the fallback to Google. The same requests the
+// login screen always sent; a 403 means the server has turned password login off.
+export const signInWithPassword = (username, password) =>
+  postAuth('/api/auth/login', { username, password });
+
+export const registerWithPassword = (username, email, password) =>
+  postAuth('/api/auth/register', { username, email, password });
 
 // Which ways of signing in the server allows: { google, password_login }, or null
 // when that cannot be read (the login screen then offers both).
