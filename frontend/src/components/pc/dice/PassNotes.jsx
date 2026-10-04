@@ -3,7 +3,7 @@ import { SafeIcon } from '../../shared/SafeIcon';
 import { TargetDropdown } from './TargetDropdown';
 import { FormLine } from '../../shared/PrintMarks';
 
-export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat }) => {
+export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat, className = '' }) => {
   const [chatTarget, setChatTarget] = useState('@Circle');
   const [chatMessage, setChatMessage] = useState('');
   const chatInputRef = useRef(null);
@@ -36,7 +36,7 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
 
   // A memo pad dropped at the foot of the log, a little crooked, its edge over the log's
   return (
-  <div data-desk="passnotes" className="font-sans xl:shrink-0 xl:-mt-4 relative z-10">
+  <div data-desk="passnotes" className={`font-sans xl:shrink-0 xl:-mt-4 relative z-10 ${className}`}>
     <div
       className="hand-placed relative shadow-[2px_5px_18px_rgba(0,0,0,0.65)] border border-sepia/40"
       style={{

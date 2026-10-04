@@ -15,7 +15,11 @@ import { primeRollSounds } from '../../game/rollSounds';
 // The roll modifier tables now live in game/rollMods.js; these names stay importable here.
 export { MAX_ABILITY_USES, ABILITY_ROLL_MODS, getAvailableRollMods } from '../../game/rollMods';
 
-export const DiceVault = ({ showGmControls = false, logEntries: externalLog, playerList }) => {
+// phonePart: below md the player's desk shows one part at a time (MainDeskView): the felt and
+// the log for 'dice'; for 'notes' the pass-notes pad over the log, where the notes passed at
+// the table are written; nothing here for any other part. The phone roll bar is a pop-up of
+// its own and comes up whichever part is on show.
+export const DiceVault = ({ showGmControls = false, logEntries: externalLog, playerList, phonePart }) => {
   const {
     character, lastRoll: ownRoll, tableRoll, isRolling, rollWaiting, rollError, activityLog, rollAction,
     pendingGildedChoice, resolveGildedChoice, sendChat, circleCreation,
@@ -113,6 +117,8 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   useEffect(() => { primeRollSounds(); }, []);
 
   const showRollModifications = !showGmControls && (canResist || visiblePrompts.length > 0);
+  const onPhone = (...parts) => (phonePart === undefined || parts.includes(phonePart) ? '' : 'max-md:hidden');
+  const phoneEmpty = phonePart !== undefined && phonePart !== 'dice' && phonePart !== 'notes';
   const rollModifications = (
     <RollModifications
       canResist={canResist}
@@ -134,11 +140,12 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     // From xl the right rail is as tall as the window: the felt and its slip on top, the
     // pass-notes pad at the foot, and the log between them takes what is left, scrolling
     // inside itself.
-    <div data-desk="dice" className="lg:col-span-3 xl:col-span-1 space-y-6 mt-2 xl:mt-0 order-2 lg:order-none xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:space-y-0 xl:gap-3">
+    <div data-desk="dice" className={`lg:col-span-3 xl:col-span-1 space-y-6 mt-2 xl:mt-0 order-2 lg:order-none xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:space-y-0 xl:gap-3 ${
+      phonePart === undefined ? '' : 'max-md:flex max-md:flex-col max-md:space-y-0 max-md:gap-6'} ${phoneEmpty ? 'max-md:hidden' : ''}`}>
 
 
       {/* DICE TRAY, with the Lightkeeper's controls along its top rail on the GM's desk */}
-      <div className="xl:shrink-0">
+      <div className={`xl:shrink-0 ${onPhone('dice')}`}>
         {showGmControls && <GmDiceControls rollAction={rollAction} />}
         <DiceTray
           ref={trayRef}
@@ -158,13 +165,13 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       </div>
 
       {/* ROLL MODIFICATIONS */}
-      {showRollModifications && rollModifications}
+      {showRollModifications && <div className={onPhone('dice') || undefined}>{rollModifications}</div>}
 
       {/* ACTIVITY LOG */}
-      <ActivityLog logEntries={logEntries} gm={showGmControls} />
+      <ActivityLog logEntries={logEntries} gm={showGmControls} className={onPhone('dice', 'notes')} />
 
       {/* PASS NOTES (memo pad) */}
-      <PassNotes playerList={playerList} circleCreation={circleCreation} showGmControls={showGmControls} sendChat={sendChat} />
+      <PassNotes playerList={playerList} circleCreation={circleCreation} showGmControls={showGmControls} sendChat={sendChat} className={`${onPhone('notes')} ${phonePart === 'notes' ? 'max-md:order-first' : ''}`} />
 
       {showGmControls && <InviteRejoinSection />}
 
@@ -183,6 +190,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
           onDieClick={handleDieClick}
           trayInView={trayInView}
           rating={rollRating}
+          hasChoices={showRollModifications}
         >
           <DiceTray
             lastRoll={lastRoll}

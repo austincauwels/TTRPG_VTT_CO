@@ -7,6 +7,8 @@ import { useEffect, useRef } from 'react';
 // - focus goes back to whatever opened it when it closes.
 // Only the top dialog reacts when two are open. Attach the returned ref to the dialog box;
 // pass a new `view` when the same dialog swaps its box for another (a form, then a receipt).
+// alsoInside(el) names a box the dialog opened outside itself (the account card, in a
+// portal): while focus is in it, that box's own keys handle Tab and Escape.
 
 const FOCUSABLE = [
   'a[href]', 'button:not([disabled])', 'input:not([disabled]):not([type="hidden"])',
@@ -18,10 +20,12 @@ const stack = [];
 const focusables = (node) => Array.from(node.querySelectorAll(FOCUSABLE))
   .filter(el => el.offsetParent !== null || el === document.activeElement);
 
-export const useDialog = ({ open = true, onClose, view } = {}) => {
+export const useDialog = ({ open = true, onClose, view, alsoInside } = {}) => {
   const ref = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const alsoInsideRef = useRef(alsoInside);
+  alsoInsideRef.current = alsoInside;
 
   // Read the opener while rendering, before an autoFocus field inside moves focus.
   const openerRef = useRef(null);
@@ -49,6 +53,7 @@ export const useDialog = ({ open = true, onClose, view } = {}) => {
 
     const onKeyDown = (e) => {
       if (stack[stack.length - 1] !== entry || e.defaultPrevented) return;
+      if (alsoInsideRef.current?.(document.activeElement)) return;
       if (e.key === 'Escape' && closeRef.current) {
         e.preventDefault();
         closeRef.current();

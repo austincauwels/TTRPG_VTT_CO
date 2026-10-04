@@ -944,6 +944,22 @@
   rotate: -0.6deg;
 }
 
+/* The player desk's drawer on phones (owner's round 4 item 14, DeskDrawer.jsx): it slides
+   out from the right edge over the dimmed desk and slides back in when it closes. Under
+   reduced motion it is simply there, and gone. */
+@keyframes drawerIn { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes drawerOut { from { transform: none; } to { transform: translateX(100%); } }
+@keyframes scrimIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scrimOut { from { opacity: 1; } to { opacity: 0; } }
+.desk-drawer { animation: drawerIn 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.desk-drawer-scrim { animation: scrimIn 220ms ease-out backwards; }
+.desk-drawer-room.is-closing .desk-drawer { animation: drawerOut 220ms cubic-bezier(0.55, 0, 0.75, 0.3) forwards; }
+.desk-drawer-room.is-closing .desk-drawer-scrim { animation: scrimOut 220ms ease-in forwards; }
+
+/* The phone roll bar fades out when its time is up (owner's round 4 item 15) */
+.roll-bar { transition: opacity 400ms ease; }
+.roll-bar.is-fading { opacity: 0; }
+
 /* The Fairelands map on a desk that fits the screen: as large as the column allows, in its
    own proportions (3:2), with the "Open full size" line under it */
 @media (min-width: 1280px) {
@@ -991,4 +1007,8 @@
   .ink-stamp-press,
   .seal-press { animation: none !important; }
   .pen-underline::after { transition: none !important; }
+  /* The phone drawer does not slide and the roll bar does not fade */
+  .desk-drawer,
+  .desk-drawer-scrim { animation: none !important; }
+  .roll-bar { transition: none !important; }
 }

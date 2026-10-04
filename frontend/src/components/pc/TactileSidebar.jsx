@@ -159,7 +159,10 @@ function RelationshipCard({ inv, myId, relationships, index }) {
   );
 }
 
-export const TactileSidebar = () => {
+// phonePart: below md the drawer shows one part of the desk at a time (MainDeskView); this
+// rail shows only the Lightkeeper's note ('dispatch'), the circle's cards ('circle') or the
+// pocket watch ('watch'), and nothing for any other part.
+export const TactileSidebar = ({ phonePart }) => {
   const { character, circle, campaignRoster, circleCreation, fetchRoster } = useGameStore(useShallow(s => ({
     character: s.character,
     circle: s.circle,
@@ -177,15 +180,20 @@ export const TactileSidebar = () => {
     if (character?.campaign_id) fetchRoster(character.campaign_id);
   }, [character?.campaign_id]);
 
+  const phoneShows = (part) => phonePart === undefined || phonePart === part;
+  const onPhone = (part) => (phoneShows(part) ? '' : 'max-md:hidden');
+  const anyOnPhone = phoneShows('dispatch') || phoneShows('circle') || phoneShows('watch');
+
   // From xl the rail is as tall as the window: the GM's note at the top and the pocket
   // watch at the foot always show, and only the circle's cards between them scroll if a
   // large circle ever runs longer than the screen.
   return (
-    <div className="lg:col-span-3 xl:col-span-1 space-y-6 mt-2 xl:mt-0 relative order-3 lg:order-none xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:space-y-0 xl:gap-2">
+    <div className={`lg:col-span-3 xl:col-span-1 space-y-6 mt-2 xl:mt-0 relative order-3 lg:order-none xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:space-y-0 xl:gap-2 max-md:flex max-md:flex-col max-md:space-y-0 max-md:gap-6 ${
+      anyOnPhone ? '' : 'max-md:hidden'}`}>
 
       {/* The GM's dispatch, a library index card pinned to the desk a little crooked, its
           bottom edge torn. A new dispatch types in while the desk is open. */}
-      <div className="hand-placed lg:hover:rotate-0 transition-transform duration-200 relative xl:shrink-0"
+      <div className={`hand-placed lg:hover:rotate-0 transition-transform duration-200 relative xl:shrink-0 max-md:mt-3 ${onPhone('dispatch')}`}
            style={{ '--tilt': '-1.2deg', filter: 'drop-shadow(5px 8px 9px rgba(0,0,0,0.6))' }}>
         <PushPin size={22} className="absolute -top-2 left-1/2 -translate-x-1/2 z-20" />
         <div className="deckle-bottom bg-cream text-ink border border-parchment-deep p-6 pb-7 xl:px-5 xl:pt-4 xl:pb-6 relative"
@@ -216,7 +224,7 @@ export const TactileSidebar = () => {
 
       {/* Active Circle Registry: the members' cards pinned to the desk, each as tall as
           what is written on it. On a wide rail they lie two across. */}
-      <div data-desk="circle" className="px-1 xl:flex-1 xl:min-h-0 xl:overflow-y-auto xl:overflow-x-hidden xl:-mx-3 xl:px-3 xl:pt-1 xl:pb-2 custom-scrollbar">
+      <div data-desk="circle" className={`px-1 xl:flex-1 xl:min-h-0 xl:overflow-y-auto xl:overflow-x-hidden xl:-mx-3 xl:px-3 xl:pt-1 xl:pb-2 custom-scrollbar ${onPhone('circle')}`}>
         <span className="block font-sans text-sm font-black text-cream/70 uppercase tracking-widest leading-none mb-4 xl:mb-2.5">Your Circle</span>
 
         <div className="grid grid-cols-1 xl:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3 xl:gap-x-4 items-start">
@@ -270,9 +278,12 @@ export const TactileSidebar = () => {
       </div>
 
       {/* Tension Clock (Synced with GM, read-only for players): the pocket watch lying at
-          the foot of the rail */}
-      <div data-desk="watch" className="pt-6 pb-4 px-1 xl:pt-1 xl:pb-1 xl:shrink-0 flex justify-center items-center relative z-20">
-        <TensionClock readOnly />
+          the foot of the rail. Alone on a phone's screen it lies larger. */}
+      <div data-desk="watch" className={`pt-6 pb-4 px-1 xl:pt-1 xl:pb-1 xl:shrink-0 flex justify-center items-center relative z-20 ${
+        phonePart === 'watch' ? 'max-md:pt-10 max-md:pb-32' : ''} ${onPhone('watch')}`}>
+        <div className={phonePart === 'watch' ? 'max-md:scale-150 max-md:origin-top' : undefined}>
+          <TensionClock readOnly />
+        </div>
       </div>
     </div>
   );

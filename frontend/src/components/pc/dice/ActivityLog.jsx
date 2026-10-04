@@ -87,7 +87,7 @@ const LEDGER_ROWS = {
 // name and form number printed on the first sheet, then the entries on the ruled rows.
 // From xl it takes the height the rail leaves it and scrolls inside itself. The pad is the
 // same warm paper on the GM desk; `gm` stays in the signature for its caller.
-export const ActivityLog = ({ logEntries, gm = false }) => {
+export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
   const logContainerRef = useRef(null);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export const ActivityLog = ({ logEntries, gm = false }) => {
   }, [logEntries.length]);
 
   return (
-  <div data-desk="log" data-gm={gm || undefined} className="font-sans flex flex-col xl:flex-1 xl:min-h-0 shadow-[3px_8px_18px_rgba(0,0,0,0.6)]"
+  <div data-desk="log" data-gm={gm || undefined} className={`font-sans flex flex-col xl:flex-1 xl:min-h-0 shadow-[3px_8px_18px_rgba(0,0,0,0.6)] ${className}`}
     style={{ background: 'rgb(var(--c-cream))' }}>
     {/* The pad's glued binding */}
     <div aria-hidden="true" className="h-2.5 shrink-0 border-b border-black/40"

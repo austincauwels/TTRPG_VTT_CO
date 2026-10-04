@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 
@@ -21,6 +21,7 @@ import { ScarIcon } from '../shared/ScarIcon';
 import { Watermark, FormLine, EdgeLine, serialFor } from '../shared/PrintMarks';
 import { AccountMenu } from '../shared/AccountMenu';
 import { MourningCross } from '../shared/InkMarks';
+import { PhoneDeskNav } from './DeskDrawer';
 
 export const MainDeskView = () => {
   const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar } = useGameStore(useShallow(s => ({
@@ -67,6 +68,23 @@ export const MainDeskView = () => {
     circleCreation.isVisible;
 
   const [activeTab, setActiveTab] = useState('character');
+  // Below md one part of the desk shows at a time (owner's round 4 item 14): the sheet's tab,
+  // or one of the papers beside it, chosen from the drawer. From md every part shows.
+  const [phonePart, setPhonePart] = useState('sheet');
+  const current = phonePart === 'sheet' ? activeTab : phonePart;
+  const backTo = useRef('character');
+  const chooseTab = (tab) => { setActiveTab(tab); setPhonePart('sheet'); };
+  const showPart = (id) => {
+    if (id === 'back') id = backTo.current;
+    else if (id === 'dice' && current !== 'dice') backTo.current = current;
+    if (id === 'character' || id === 'circle' || id === 'archives') chooseTab(id);
+    else {
+      setPhonePart(id);
+      if (activeTab === 'archives') setActiveTab('character');
+    }
+    window.scrollTo({ top: 0 });
+  };
+  const onPhone = (show) => (show ? '' : 'max-md:hidden');
   // From xl the Circle tab's papers lie loose on the desk instead of on one sheet, over the
   // sheet's column and the felt's (as the Notebook tab takes the whole desk)
   const circleOnDesk = activeTab === 'circle';
@@ -85,7 +103,7 @@ export const MainDeskView = () => {
       <ConnectionBanner />
 
       {/* HEADER */}
-      <header className="w-full bg-night relative border-b border-ink/40 shadow-xl xl:sr-only">
+      <header className="w-full bg-night relative border-b border-ink/40 shadow-xl max-md:sr-only xl:sr-only">
         <ArtDecoCorner position="top-left" />
         <ArtDecoCorner position="top-right" />
 
@@ -110,8 +128,8 @@ export const MainDeskView = () => {
         </div>
 
         {/* LOGOUT BUTTON: in normal flow, so it never covers the title. From xl the band
-            below carries it. */}
-        <div className="relative z-10 flex gap-2 justify-center lg:justify-end lg:-mt-2 xl:hidden">
+            below carries it, and below md the drawer. */}
+        <div className="relative z-10 flex gap-2 justify-center lg:justify-end lg:-mt-2 max-md:hidden xl:hidden">
           <button
             onClick={() => setStage('HOME')}
             className="flex-1 sm:flex-none whitespace-nowrap text-xs sm:text-sm font-sans font-bold uppercase tracking-widest text-parchment-deep hover:text-cream transition-colors bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2"
@@ -124,31 +142,32 @@ export const MainDeskView = () => {
       </header>
 
       {/* REGISTRY NAVIGATION: the investigator's member ID strip, sealed at its left end.
-          From xl it is the desk's only header: a slim band across the top. */}
-      <div className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto mt-6 px-4 2xl:px-10 relative z-30 xl:max-w-none 2xl:max-w-none xl:w-full xl:mx-0 xl:mt-2.5 xl:px-5 2xl:px-8 xl:shrink-0">
+          From xl it is the desk's only header: a slim band across the top. Below md it is a
+          slim band too, held at the top of the screen, with the die and the drawer pull at
+          its end (owner's round 4 item 14). */}
+      <div className="sticky top-0 z-40 md:relative md:z-30 max-w-[1500px] 2xl:max-w-[1840px] mx-auto md:mt-6 md:px-4 2xl:px-10 xl:max-w-none 2xl:max-w-none xl:w-full xl:mx-0 xl:mt-2.5 xl:px-5 2xl:px-8 xl:shrink-0">
         {/* Her seal, pressed over the strip's left end (it carries her own 12 degree turn
-            and cast shadow). On phones it sits beside the name, so the tabs below can use
-            the full width. */}
-        <div className="absolute left-2 sm:left-4 top-1 sm:top-1/2 sm:-translate-y-1/2 2xl:left-8 xl:left-3 z-40 flex" aria-hidden="true">
-          <WaxSeal size={128} className="w-[74px] h-[74px] sm:w-32 sm:h-32 xl:w-16 xl:h-16" />
+            and cast shadow). */}
+        <div className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 2xl:left-8 xl:left-3 z-40 flex" aria-hidden="true">
+          <WaxSeal size={128} className="w-12 h-12 md:w-32 md:h-32 xl:w-16 xl:h-16" />
         </div>
 
-        <div className="w-full bg-parchment border-4 border-double border-ink p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] xl:shadow-[0_8px_18px_rgba(0,0,0,0.85)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-ink pl-[4.5rem] sm:pl-32 xl:pl-[5.25rem] pr-3 sm:pr-6 xl:pr-2 py-3 sm:py-5 xl:py-1.5 rounded-sm overflow-hidden">
+        <div className="w-full bg-parchment border-0 border-b-4 md:border-4 border-double border-ink relative shadow-[0_8px_18px_rgba(0,0,0,0.8)] md:shadow-[0_12px_30px_rgba(0,0,0,0.9)] xl:shadow-[0_8px_18px_rgba(0,0,0,0.85)] flex flex-row justify-between items-center gap-2 md:gap-4 text-ink pl-[4.25rem] md:pl-32 xl:pl-[5.25rem] pr-2 md:pr-6 xl:pr-2 py-1.5 md:py-5 xl:py-1.5 md:rounded-sm overflow-hidden">
           {/* The registry's number, printed large and faint across the strip, misprinted:
               off level, off register. Along the top of the strip it tilts up from its right
               end, so the start of the line climbs off the top edge and never drops into
-              the tabs; on tablets, where the tabs share the strip's row, it is also set
-              smaller and higher. */}
-          <Watermark misprint className="lg:hidden right-3 top-1.5 md:top-0.5 text-[30px] md:text-[24px] text-ink/[0.08]" style={{ '--misprint-tilt': '2.5deg' }}>
+              the tabs; on phones and tablets, where the controls share the strip's row, it
+              is set smaller and higher. */}
+          <Watermark misprint className="lg:hidden right-3 top-0 md:top-0.5 text-[22px] md:text-[24px] text-ink/[0.08]" style={{ '--misprint-tilt': '2.5deg' }}>
             {registryNo}
           </Watermark>
 
-          <div className="flex items-center gap-3 relative z-10 min-h-[3.75rem] sm:min-h-0 xl:shrink-0">
-            <div>
-              <FormLine className="block mb-1 xl:mb-0.5">Candela Obscura Member ID</FormLine>
-              <span className="block xl:inline font-serif font-bold text-xl xl:text-lg leading-tight text-ink">{character?.name || 'Your investigator'}</span>
+          <div className="flex items-center gap-3 relative z-10 min-w-0 flex-1 md:flex-none xl:shrink-0">
+            <div className="min-w-0">
+              <FormLine className="hidden md:block mb-1 xl:mb-0.5">Candela Obscura Member ID</FormLine>
+              <span className="block truncate md:overflow-visible md:whitespace-normal xl:inline font-serif font-bold text-lg md:text-xl xl:text-lg leading-tight text-ink">{character?.name || 'Your investigator'}</span>
               {campaignName && (
-                <span className="block xl:inline font-serif italic text-base text-sepia leading-snug mt-0.5 xl:mt-0 xl:ml-3">
+                <span className="block truncate md:overflow-visible md:whitespace-normal xl:inline font-serif italic text-sm md:text-base text-sepia leading-snug md:mt-0.5 xl:mt-0 xl:ml-3">
                   <span aria-hidden="true" className="hidden xl:inline mr-3 not-italic text-sepia/60">·</span>{campaignName}
                 </span>
               )}
@@ -162,13 +181,13 @@ export const MainDeskView = () => {
           </div>
 
           {/* uppercase sits on each button: Tailwind's base resets text-transform on buttons */}
-          <div className="flex gap-1 md:gap-2 -ml-12 sm:ml-0 font-sans text-xs font-black relative z-10 xl:shrink-0">
+          <div className="hidden md:flex gap-2 font-sans text-xs font-black relative z-10 xl:shrink-0">
             {['character', 'circle', 'archives'].map((tabName) => {
               const labels = { character: "Investigator", circle: "Circle", archives: "Notebook" };
               return (
                 <button
                   key={tabName}
-                  onClick={() => setActiveTab(tabName)}
+                  onClick={() => chooseTab(tabName)}
                   aria-current={activeTab === tabName ? 'page' : undefined}
                   className={`pen-host flex-auto md:flex-none px-1.5 md:px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 leading-tight uppercase tracking-normal md:tracking-widest rounded transition-all duration-150 ${
                     activeTab === tabName ? 'bg-ink text-parchment shadow-md border border-ink' : 'bg-transparent text-sepia [@media(hover:hover)]:hover:bg-black/5 [@media(hover:hover)]:hover:text-ink'
@@ -180,6 +199,8 @@ export const MainDeskView = () => {
               );
             })}
           </div>
+
+          <PhoneDeskNav current={current} onChoose={showPart} onHub={() => setStage('HOME')} />
 
           {/* The way out, at the band's end behind a printed rule (from xl) */}
           <div className="hidden xl:flex items-center gap-2 self-stretch shrink-0 pl-3 ml-1 border-l border-ink/25 relative z-10">
@@ -220,8 +241,8 @@ export const MainDeskView = () => {
           // sheet in the middle, the dice, the log and the pass notes on the right. Each
           // column is as tall as the window and keeps its papers in view.
           <div className="grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-[minmax(15rem,1fr)_minmax(0,3.1fr)_minmax(19rem,1.3fr)] gap-6 xl:gap-x-6 2xl:gap-x-8 items-start xl:items-stretch xl:flex-1 xl:min-h-0">
-            <TactileSidebar />
-            <div className={`lg:col-span-6 ${circleOnDesk ? 'xl:col-span-2' : 'xl:col-span-1'} order-1 lg:order-none min-w-0 xl:min-h-0`}>
+            <TactileSidebar phonePart={current} />
+            <div className={`lg:col-span-6 ${circleOnDesk ? 'xl:col-span-2' : 'xl:col-span-1'} order-1 lg:order-none min-w-0 xl:min-h-0 ${onPhone(phonePart === 'sheet')}`}>
               {/* The investigator's sheet. From xl its printed edge line has a strip of its
                   own at the foot, under a hairline, so nothing scrolls beneath it. The Circle
                   tab is not one sheet there: its papers lie on the desk side by side. */}
@@ -238,7 +259,7 @@ export const MainDeskView = () => {
                 </div>
               </div>
             </div>
-            <div className={circleOnDesk ? 'contents xl:hidden' : 'contents'}><DiceVault /></div>
+            <div className={circleOnDesk ? 'contents xl:hidden' : 'contents'}><DiceVault phonePart={current} /></div>
           </div>
         )}
         <ScarModal />
