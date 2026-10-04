@@ -91,7 +91,7 @@ The character a message acts on is `payload.character_id`, or the player channel
 | apply_scar | the owner; `shift_down` and `shift_up` must be action ratings (move, strike, control, hide, sneak, sway, survey, read, sense), anything else is 403 (QUIRK D14) |
 | intercept_mark | the owner of the interceptor; `target_character_id` must exist (404) and be in the interceptor's campaign |
 | spend_resource | the owner, an active member, on their campaign's circle |
-| submit_assignment_report, circle_creation_vote | the owner of `character_id`, an active member, on their campaign's circle |
+| submit_assignment_report, circle_creation_vote | the owner of `character_id`, an active member, on their campaign's circle; an unknown `vote_type` is 422 |
 | circle_backstory_update | an active member or the GM, on the campaign's circle |
 | circle_relationship_propose | a player for their own `from_character_id`, to a fellow member, on their campaign's circle |
 | circle_relationship_respond | the other party: the character that did not act last (for a proposal made over REST, which records no actor, the character it was made to); never the GM |

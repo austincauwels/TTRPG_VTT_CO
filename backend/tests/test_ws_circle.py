@@ -347,13 +347,17 @@ def test_circle_creation_vote(client):
     assert len(support.fetch_all(CircleVote, circle_id=cid, vote_type="name_suggest")) == 5
 
 
-def test_circle_creation_vote_unknown_type_stored_then_closes(client):
-    """QUIRK: an unknown vote_type is committed, then the KeyError ends the socket."""
+def test_circle_creation_vote_unknown_type_is_rejected(client):
+    """Fixed: an unknown vote_type was committed, then the KeyError ended the socket.
+    It is now refused (422) before anything is stored, and the socket keeps working."""
     camp, (a,), cid = _campaign(client)
     with support.ws_connect(client, a["id"]) as wa:
         wa.send("circle_creation_vote", character_id=a["id"], vote_type="colour", value="red")
-        assert support.wait_server_dropped(a["id"])
-    assert [v.value for v in support.fetch_all(CircleVote, circle_id=cid, vote_type="colour")] == ["red"]
+        assert wa.sync() == [{"type": "action_rejected", "payload": {
+            "action": "circle_creation_vote", "status": 422, "detail": "Unknown vote type."}}]
+        wa.send("circle_creation_vote", character_id=a["id"], vote_type="insignia", value="Moth")
+        assert support.types(wa.sync()) == ["vote_update"]
+    assert support.fetch_all(CircleVote, circle_id=cid, vote_type="colour") == []
 
 
 def test_circle_backstory_update(client):

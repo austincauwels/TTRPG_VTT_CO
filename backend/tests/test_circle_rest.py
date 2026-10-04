@@ -77,13 +77,14 @@ def test_vote_only_for_own_character_in_the_circles_campaign(client):
     assert r.json() == {"ok": True, "votes": [{"character_id": a["id"], "value": "Moth"}]}
 
 
-def test_vote_unknown_type_is_stored_then_500(client):
-    """QUIRK: an unknown vote_type is committed, then the response lookup raises KeyError."""
+def test_vote_unknown_type_is_422_and_not_stored(client):
+    """Fixed: an unknown vote_type was committed, then the response lookup raised
+    KeyError (500). It is now refused before anything is stored."""
     camp, (a, _), cid = _setup(client)
-    with support.server_errors_as_500(client):
-        r = _vote(client, cid, a["id"], "colour", "red")
-    assert r.status_code == 500
-    assert [v.value for v in support.fetch_all(CircleVote, circle_id=cid, vote_type="colour")] == ["red"]
+    r = _vote(client, cid, a["id"], "colour", "red")
+    assert r.status_code == 422
+    assert r.json() == {"detail": "Unknown vote type."}
+    assert support.fetch_all(CircleVote, circle_id=cid, vote_type="colour") == []
 
 
 def test_vote_validation(client):

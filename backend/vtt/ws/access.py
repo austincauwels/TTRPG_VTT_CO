@@ -11,6 +11,7 @@ decides on a stale copy of a row.
 from engine import ALL_ACTIONS
 from models import Campaign, Character, Circle, Relationship
 from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, character_facts
+from vtt.circle_queries import VOTE_TYPES
 
 # Close codes for a refused connection. The socket is accepted first and then
 # closed, so that browsers see the code (a refused handshake shows up as 1006).
@@ -175,6 +176,15 @@ def _member_circle_vote(ctx, payload, character):
     _circle_of(ctx, _default_circle(ctx, payload), _sender_campaign(ctx, active_only=True))
 
 
+def _circle_creation_vote(ctx, payload, character):
+    """An unknown vote_type used to be stored, and then the reply's lookup raised and
+    ended the socket."""
+    _member_circle_vote(ctx, payload, character)
+    if payload.get("character_id") and payload.get("vote_type") and payload.get("value") \
+            and payload.get("vote_type") not in VOTE_TYPES:
+        _invalid("Unknown vote type.")
+
+
 def _circle_backstory_update(ctx, payload, character):
     if not payload.get("question_key"):
         return  # the handler ignores the message
@@ -279,7 +289,7 @@ RULES = {
     "intercept_mark": _intercept_mark,
     "spend_resource": _spend_resource,
     "submit_assignment_report": _member_circle_vote,
-    "circle_creation_vote": _member_circle_vote,
+    "circle_creation_vote": _circle_creation_vote,
     "circle_backstory_update": _circle_backstory_update,
     "circle_relationship_propose": _circle_relationship_propose,
     "circle_relationship_respond": _circle_relationship_respond,

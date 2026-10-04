@@ -148,7 +148,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: JSON `CircleVoteSubmit {circle_id, character_id, vote_type, value}`.
 - Trusted ids: `circle_id`, `character_id`.
 - Tables: circle_votes (insert or update; `name_suggest` allows up to 5 distinct values per character).
-- Response: `{"ok": true, "votes": <list for vote_type>}`. A `vote_type` outside name_suggest, name_vote, ability, question, insignia is stored, then the response raises KeyError (500).
+- Response: `{"ok": true, "votes": <list for vote_type>}`. A `vote_type` outside name_suggest, name_vote, ability, question, insignia is 422 "Unknown vote type." and nothing is stored (before the bug-fix stage it was stored and then the response raised KeyError, a 500).
 - Notes: unused by the frontend; the WebSocket `circle_creation_vote` action does the same thing.
 
 **POST /circle/relationship/propose** (line 804, `def`)

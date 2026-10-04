@@ -188,7 +188,7 @@ Nothing checks that an offer was made, that the target took a mark, or that the 
 
 **`submit_assignment_report`** (2074). Fields: `circle_id`, `character_id` (required), `responses` (object). There is no character, ownership or `reports_open` check. Reads the circle row again (locked until the commit) and writes `backstory_answers.reports[str(character_id)] = {character_name, responses}`, the shape the GM's report card reads after a reload. (Before the bug-fix stage it stored the bare `responses` and changed the loaded dict in place, so once `backstory_answers` was not empty nothing was saved.) Sends `assignment_report_submitted {character_id, character_name, responses}` to the whole campaign, so every player's client also receives every report.
 
-**`circle_creation_vote`** (2284). Fields: `circle_id`, `character_id`, `vote_type`, `value`. For `name_suggest`, inserts if the character has fewer than 5 and this value is new. Other types keep one vote per character and type. Sends `vote_update {vote_type, votes}` to the campaign. An unknown `vote_type` is stored and then `updated_votes[vote_type]` raises KeyError, ending the connection. There is no check on finalization, ownership or circle membership.
+**`circle_creation_vote`** (2284). Fields: `circle_id`, `character_id`, `vote_type`, `value`. For `name_suggest`, inserts if the character has fewer than 5 and this value is new. Other types keep one vote per character and type. Sends `vote_update {vote_type, votes}` to the campaign. An unknown `vote_type` gets `action_rejected` 422 before anything is stored (since the bug-fix stage; before, it was stored and then `updated_votes[vote_type]` raised KeyError, ending the connection). There is no check on finalization, ownership or circle membership.
 
 **`circle_backstory_update`** (2322). Fields: `circle_id`, `question_key`, `answer`. Writes `backstory_answers[question_key] = answer`. Keys are free, and `reports` and `selected_question_key` live in the same JSON, so they can be overwritten. Sends `backstory_update {question_key, answer}` to the campaign. The UI also applies the change locally before sending.
 
@@ -284,7 +284,7 @@ These are current behavior. The refactor should decide for each one whether to p
 - D7. Secret rolls skip the single-gilded-die drive refresh and the Well-Read refund.
 - D8. `resolve_gilded` trusts the client's value and can be replayed; gilded-choice rolls can never be critical.
 - D9. `circle_relationship_respond` raises on a GM socket (`int(game_id)`). REST and WebSocket handle `counter` differently.
-- D10. Malformed input ends the connection: unknown `vote_type` (after the vote is committed), non-object payloads, non-numeric `chosen_value`, non-numeric resource values in `update_circle`, non-string gear elements (after commit).
+- D10. Malformed input ends the connection: non-numeric `chosen_value`, non-numeric resource values in `update_circle`. (Fixed in the bug-fix stage: unknown `vote_type`, non-object payloads and non-string gear elements now get `action_rejected` 422 or are ignored.)
 - D11. The ability use counter inside `roll` never counts anything.
 - D12. Exact-match ability checks stop working after a `new_ability` advancement.
 - D13. An all-digit campaign code collides with the character id of the same number.

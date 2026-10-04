@@ -14,9 +14,13 @@ def get_or_create_campaign_circle(db: Session, campaign_id: int) -> Circle:
         db.refresh(circle)
     return circle
 
+# The circle creation vote types. Any other vote_type is refused (422) before it is stored.
+VOTE_TYPES = ("name_suggest", "name_vote", "ability", "question", "insignia")
+
+
 def votes_dict(db: Session, circle_id: int) -> dict:
     all_votes = db.query(CircleVote).filter(CircleVote.circle_id == circle_id).all()
-    result = {"name_suggest": [], "name_vote": [], "ability": [], "question": [], "insignia": []}
+    result = {vote_type: [] for vote_type in VOTE_TYPES}
     for v in all_votes:
         vtype = v.vote_type
         if vtype in result:
