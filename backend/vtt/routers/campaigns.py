@@ -278,7 +278,7 @@ def _invitee(db: Session, typed: str) -> User:
     exact = db.query(User).filter(User.username == name).first()
     if exact is not None:
         return exact
-    matches = db.query(User).filter(func.lower(User.username) == name.lower()).limit(2).all()
+    matches = db.query(User).filter(func.lower(User.username) == func.lower(name)).limit(2).all()
     if not matches:
         raise HTTPException(status_code=404, detail="No player found with that username.")
     if len(matches) > 1:

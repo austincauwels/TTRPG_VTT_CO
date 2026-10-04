@@ -81,6 +81,14 @@ def signed_in_response(db: Session, user: User) -> dict:
     }
 
 
+def username_taken(db: Session, username: str) -> bool:
+    """True when a user has this name, ignoring case. Login compares names exactly, but
+    a new name must differ from every existing one in more than case, so that nobody
+    can pass for another player ("Mira" next to "mira") where people type or read a
+    name, such as the GM's invite to rejoin."""
+    return db.query(User.id).filter(func.lower(User.username) == func.lower(username)).first() is not None
+
+
 def require_password_login():
     if not config.ALLOW_PASSWORD_LOGIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PASSWORD_LOGIN_OFF)
@@ -105,7 +113,7 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
 @limiter.limit("5/minute")
 async def register(request: Request, credentials: RegisterRequest, db: Session = Depends(get_db)):
     require_password_login()
-    if db.query(User).filter(User.username == credentials.username).first():
+    if username_taken(db, credentials.username):
         raise HTTPException(status_code=400, detail=USERNAME_TAKEN)
     if db.query(User).filter(User.email == credentials.email).first():
         raise HTTPException(status_code=400, detail="That correspondence address is already registered.")
@@ -178,7 +186,7 @@ def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: 
 def refuse_new_google_user(db: Session, identity: GoogleIdentity, username: str) -> None:
     """The checks before a new user for a Google account, in the order AUTH.md gives."""
     refuse_linked_google_account(db, identity)
-    if db.query(User.id).filter(User.username == username).first() is not None:
+    if username_taken(db, username):
         raise HTTPException(status_code=400, detail=USERNAME_TAKEN)
     if db.query(User.id).filter(func.lower(User.email) == identity.email.lower()).first() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_TAKEN)
@@ -212,7 +220,7 @@ def suggest_username(db: Session, identity: GoogleIdentity) -> str:
         candidates.append(base[:32 - len(suffix)].rstrip() + suffix)
     candidates.append(base[:27].rstrip() + " " + secrets.token_hex(2))
     for candidate in candidates:
-        if db.query(User.id).filter(User.username == candidate).first() is None:
+        if not username_taken(db, candidate):
             return candidate
     return base
 

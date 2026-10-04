@@ -80,11 +80,18 @@ def test_register_duplicate_email(client):
     assert r.json() == {"detail": "That correspondence address is already registered."}
 
 
-def test_register_username_check_is_case_sensitive(client):
-    """QUIRK: 'Bob' and 'bob' are different accounts (invite-rejoin matches case-insensitively)."""
+def test_register_username_must_differ_in_more_than_case(client):
+    """'Bob' and 'bob' used to be two accounts, so one player could pass for another
+    where a name is typed or read (the GM's invite to rejoin matches names ignoring
+    case). A new name must now differ from every existing one in more than case.
+    Login still compares the name exactly (test_login_username_is_case_sensitive)."""
     base = f"case_{support.uid()}"
     assert _register(client, username=base.lower()).status_code == 201
-    assert _register(client, username=base.upper()).status_code == 201
+    for variant in (base.upper(), base.capitalize()):
+        r = _register(client, username=variant)
+        assert r.status_code == 400
+        assert r.json() == {"detail": "That identification is already claimed."}
+    assert support.fetch_all(User, username=base.upper()) == []
 
 
 @pytest.mark.parametrize("field,value", [

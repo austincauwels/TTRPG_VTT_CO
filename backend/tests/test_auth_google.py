@@ -378,6 +378,21 @@ def test_create_with_a_taken_username(client, google):
     assert create(client, token, f"free_{support.uid()}").status_code == 201
 
 
+def test_create_with_a_username_taken_in_other_case(client, google):
+    """Like register, a new name must differ from every existing one in more than case."""
+    taken = support.make_user(username=f"Nova_{support.uid()}")
+    r = create(client, needs_account(client, google), taken.username.lower())
+    assert r.status_code == 400
+    assert r.json() == {"detail": "That identification is already claimed."}
+    assert support.fetch_all(User, username=taken.username.lower()) == []
+
+
+def test_the_suggested_name_differs_from_taken_names_in_more_than_case(client, google):
+    name = f"Ada {support.uid()}"
+    support.make_user(username=name.upper())
+    assert google_sign_in(client, google.credential(name=name)).json()["suggested_name"] == f"{name} 2"
+
+
 @pytest.mark.parametrize("username", ["a", "x" * 33, "bad!name", "semi;colon"])
 def test_create_checks_the_username_like_register(client, google, username):
     assert create(client, needs_account(client, google), username).status_code == 422

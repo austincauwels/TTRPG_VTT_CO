@@ -139,7 +139,7 @@ Rate limited 10 per minute per IP, like login.
 2. Otherwise, if exactly one user without a `google_sub` has the Google email (compared ignoring case), the Google account is linked to that user (`google_sub` set) and they are signed in. This is how existing players move over: their first Google sign-in is the only step. Their username, email and password stay as they were. When two such users share the email, nobody is linked automatically. The accounts the seed scripts make (`admin` and the test players listed under Published passwords) are never linked by email. Their emails are seed data, not anyone's address; `admin@archive.com` is on a real domain whose owner could make a Google account for it, and admin owns every character forged before login tokens. Whoever knows one of their passwords can still link it with `/api/auth/google/link`. The list is `SEEDED_USERNAMES` in `vtt/routers/auth.py`, taken from `PUBLISHED_PASSWORDS`.
 3. Otherwise the answer is `{"needs_account": true, "link_token": ..., "suggested_name": ..., "email": <the Google email>}` and nothing is written.
 
-`suggested_name` is the Google name cut down to the username rule of register (letters, digits, spaces, dots, dashes and underscores, 2 to 32 characters), else the local part of the email, else "Investigator". When it is taken, " 2" to " 9" (then 4 random hex digits) is added.
+`suggested_name` is the Google name cut down to the username rule of register (letters, digits, spaces, dots, dashes and underscores, 2 to 32 characters), else the local part of the email, else "Investigator". When it is taken (ignoring case), " 2" to " 9" (then 4 random hex digits) is added.
 
 ### Link tokens
 
@@ -168,7 +168,7 @@ Rate limited 5 per minute per IP, like register. Status 201.
 | bad link token | 401, as above |
 | the Google account is already linked to a user | 409, as for link |
 | username breaks the register rule | 422 |
-| username taken (exact match, as in register) | 400 "That identification is already claimed." |
+| username taken, compared ignoring case as in register | 400 "That identification is already claimed." |
 | a user has the Google email, compared ignoring case (`users.email` is unique; this happens when two accounts share the email, which kept step 2 from linking) | 409 "An account with this email address already exists. Please use Link my existing account instead." |
 | otherwise | a new user with that username, the Google email, the `google_sub` and an unusable password (the bcrypt hash of a random value nobody is told); the answer is the login shape for a player with `token` |
 
