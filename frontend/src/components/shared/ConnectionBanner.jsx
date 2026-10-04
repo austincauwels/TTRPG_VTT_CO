@@ -5,7 +5,9 @@ import useGameStore from '../../store/gameStore';
 // Says when the desk is not connected to the table, so a roll or a mark that cannot be
 // sent is never a silent no-op. A dropped connection reconnects by itself; a desk that
 // another tab or device took over waits for the player to choose this one again.
-export const ConnectionBanner = () => {
+// className places it: by default it is held at the top of the screen; the player desk on
+// phones hangs it under its slim band instead, so the band's Menu and die stay in reach.
+export const ConnectionBanner = ({ className = 'sticky top-0 z-[850]' }) => {
   const { connectionState, reconnect, setStage } = useGameStore(useShallow(s => ({
     connectionState: s.connectionState,
     reconnect: s.reconnect,
@@ -22,7 +24,7 @@ export const ConnectionBanner = () => {
   if (!message) return null;
 
   return (
-    <div role="status" className="sticky top-0 z-[850] w-full bg-ink border-b border-oxblood-lit/60 shadow-[0_6px_16px_rgba(0,0,0,0.6)]">
+    <div role="status" className={`${className} w-full bg-ink border-b border-oxblood-lit/60 shadow-[0_6px_16px_rgba(0,0,0,0.6)]`}>
       <div className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="font-serif text-base text-parchment-deep leading-snug min-w-0 flex-1 basis-60">{message}</p>
         {connectionState === 'refused' ? (

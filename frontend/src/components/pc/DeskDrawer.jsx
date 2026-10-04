@@ -6,6 +6,7 @@ import { SafeIcon } from '../shared/SafeIcon';
 import { CrossMark } from '../shared/InkMarks';
 import { tiltFor } from '../shared/handPlaced';
 import { DieFace, DIE_BODY } from './dice/Die';
+import { agedPaper } from '../campaignSelector/paperArt';
 
 // The player desk below md (owner's round 4 item 14): the member ID strip is a slim band
 // with a die that brings up the dice and log in one tap, and a brass drawer pull that slides
@@ -37,33 +38,59 @@ const DrawerPull = () => (
   </svg>
 );
 
-// One slip in the drawer: torn paper like the Lightkeeper's slips, a little crooked, its
-// label inked under with the pen while it is the part on show
-const Slip = ({ part, active, onChoose, index }) => (
-  <button
-    type="button"
-    onClick={() => onChoose(part.id)}
-    aria-current={active ? 'page' : undefined}
-    className={`pen-host hand-placed relative w-full text-left ${part.gap ? 'mt-4' : ''}`}
-    style={{ '--tilt': `${tiltFor(`drawer-${part.id}`, { min: 0.4, max: 1.1, sign: index % 2 ? 1 : -1 })}deg`, filter: 'drop-shadow(3px 5px 5px rgba(0,0,0,0.6))' }}
-  >
-    <span
-      className={`flex items-center gap-3.5 min-h-[48px] pl-4 pr-3 py-2.5 ${active ? 'text-oxblood' : 'text-ink'}`}
-      style={{
-        clipPath: 'polygon(0% 4%, 99% 0%, 100% 96%, 1.5% 100%)',
-        background: active
-          ? 'linear-gradient(135deg, rgb(var(--c-cream)) 55%, rgb(var(--c-parchment)) 92%, rgb(var(--c-parchment-deep)) 100%)'
-          : 'linear-gradient(135deg, rgb(var(--c-parchment)) 60%, rgb(var(--c-parchment-deep)) 92%, rgb(var(--c-sepia) / 0.55) 100%)',
-        borderLeft: '2px solid rgb(var(--c-sepia))',
-      }}
+// Each slip is a strip of the world's aged paper (paperArt.js, as the hub's papers): torn
+// off at its right end with the pale fibres showing, worn along its long edges, yellowed
+// unevenly, its rim tea-stained and a few fox marks, some with a soft crease or a corner
+// turned down. Drawn once, when the desk's code loads. W x H are the slip's units (about a
+// pixel each; the two-line slip is taller).
+const SLIP_PAPER = Object.fromEntries(DESK_PARTS.map((part, i) => {
+  const H = part.id === 'dispatch' ? 66 : 52;
+  const corners = [{ bl: { r: 3 } }, { br: { ear: 13 } }, { tl: { r: 4 } }, { tr: { torn: 12 } }, { bl: { r: 5 } }, { tl: { ear: 11 } }, { br: { r: 4 } }][i];
+  const creases = i === 2 ? [[[0.36, 0], [0.33, 1]]] : i === 5 ? [[[0.71, 0], [0.74, 1]]] : undefined;
+  return [part.id, agedPaper({
+    W: 300, H, seed: 401 + i * 17,
+    edges: [i % 3 ? 'worn' : 'cut', 'torn', i % 2 ? 'cut' : 'worn', 'worn'],
+    corners, creases,
+    stain: { yellow: 0.24, rim: 0.65, rimW: 4, fox: 3 + (i % 3) },
+  })];
+}));
+
+// One slip in the drawer: a torn strip of aged paper, a little crooked, its label inked
+// under with the pen while it is the part on show (the brighter, cleaner slip). Its shadow
+// is the button's drop-shadow, which follows the torn edge.
+const Slip = ({ part, active, onChoose, index }) => {
+  const paper = SLIP_PAPER[part.id];
+  return (
+    <button
+      type="button"
+      onClick={() => onChoose(part.id)}
+      aria-current={active ? 'page' : undefined}
+      className={`pen-host hand-placed relative w-full text-left ${part.gap ? 'mt-4' : ''}`}
+      style={{ '--tilt': `${tiltFor(`drawer-${part.id}`, { min: 0.4, max: 1.1, sign: index % 2 ? 1 : -1 })}deg`, filter: 'drop-shadow(3px 5px 5px rgba(0,0,0,0.6))' }}
     >
-      <SafeIcon name={part.icon} size={18} className="shrink-0 opacity-75" />
-      <span className={`pen-underline font-serif uppercase tracking-[0.12em] text-base leading-tight ${active ? 'is-inked font-bold' : 'font-semibold'}`}>
-        {part.label}
+      <span className={`relative flex items-center gap-3.5 min-h-[52px] pl-[1.125rem] pr-6 py-2.5 ${active ? 'text-oxblood' : 'text-ink'}`}>
+        <span
+          aria-hidden="true"
+          data-slip-paper=""
+          className="absolute inset-0 overflow-hidden"
+          style={{
+            backgroundColor: active ? 'rgb(var(--c-cream))' : 'rgb(var(--c-parchment))',
+            WebkitMaskImage: paper.mask, maskImage: paper.mask,
+            WebkitMaskSize: '100% 100%', maskSize: '100% 100%',
+            WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+          }}
+        >
+          <span className="absolute inset-0 mix-blend-multiply bg-no-repeat bg-[length:100%_100%]" style={{ backgroundImage: paper.stain, opacity: active ? 0.55 : 1 }} />
+          {paper.light && <span className="absolute inset-0 bg-no-repeat bg-[length:100%_100%]" style={{ backgroundImage: paper.light }} />}
+        </span>
+        <SafeIcon name={part.icon} size={18} className="relative shrink-0 opacity-75" />
+        <span className={`relative pen-underline font-serif uppercase tracking-[0.12em] text-base leading-tight ${active ? 'is-inked font-bold' : 'font-semibold'}`}>
+          {part.label}
+        </span>
       </span>
-    </span>
-  </button>
-);
+    </button>
+  );
+};
 
 export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
   // closed, open, or closing (sliding back in before it leaves the page)

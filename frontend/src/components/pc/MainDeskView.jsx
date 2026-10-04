@@ -100,7 +100,8 @@ export const MainDeskView = () => {
   return (
     <div className="min-h-screen xl:h-[100dvh] xl:min-h-0 xl:flex xl:flex-col xl:overflow-hidden bg-night text-cream font-serif selection:bg-oxblood selection:text-cream antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-28 lg:pb-12 xl:pb-0 relative">
 
-      <ConnectionBanner />
+      {/* Held at the top of the screen from md; below md it hangs under the slim band */}
+      <ConnectionBanner className="max-md:hidden sticky top-0 z-[850]" />
 
       {/* HEADER */}
       <header className="w-full bg-night relative border-b border-ink/40 shadow-xl max-md:sr-only xl:sr-only">
@@ -147,8 +148,9 @@ export const MainDeskView = () => {
           its end (owner's round 4 item 14). */}
       <div className="sticky top-0 z-40 md:relative md:z-30 max-w-[1500px] 2xl:max-w-[1840px] mx-auto md:mt-6 md:px-4 2xl:px-10 xl:max-w-none 2xl:max-w-none xl:w-full xl:mx-0 xl:mt-2.5 xl:px-5 2xl:px-8 xl:shrink-0">
         {/* Her seal, pressed over the strip's left end (it carries her own 12 degree turn
-            and cast shadow). */}
-        <div className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 2xl:left-8 xl:left-3 z-40 flex" aria-hidden="true">
+            and cast shadow). Below md it keeps to the band's own 60px, clear of the
+            connection message that can hang under it. */}
+        <div className="absolute left-2 md:left-4 top-1.5 md:top-1/2 md:-translate-y-1/2 2xl:left-8 xl:left-3 z-40 flex" aria-hidden="true">
           <WaxSeal size={128} className="w-12 h-12 md:w-32 md:h-32 xl:w-16 xl:h-16" />
         </div>
 
@@ -213,6 +215,10 @@ export const MainDeskView = () => {
             <AccountMenu tone="paper" />
           </div>
         </div>
+
+        {/* Phones: the connection message rides under the band, so a page scrolled down
+            never has it over the Menu and the die */}
+        <ConnectionBanner className="md:hidden relative" />
       </div>
 
       {/* DYNAMIC VIEW ROUTING */}

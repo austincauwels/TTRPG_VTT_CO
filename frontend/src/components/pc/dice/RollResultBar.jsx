@@ -118,9 +118,12 @@ export const RollResultBar = ({
 
   const summary = (
     <span className="flex flex-col min-w-0">
-      <span className="flex items-center gap-1.5 font-sans text-xs font-black uppercase tracking-[0.14em] text-cream/70 min-w-0">
-        <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ background: rollerInk || 'rgb(var(--c-candle-gold))' }} />
-        <span className="truncate">{rollerName}{poolText ? ` · ${poolText}` : ''}</span>
+      {/* Every roll on the bar is the viewer's own (it is only on the player's desk), so it
+          carries her ink and the action in full, on a second line when it needs one; her
+          name shows only while the dice are still out */}
+      <span className="flex items-start gap-1.5 font-sans text-xs font-black uppercase tracking-[0.14em] leading-snug text-cream/70 min-w-0">
+        <span aria-hidden="true" className="w-2 h-2 mt-1 rounded-full shrink-0" style={{ background: rollerInk || 'rgb(var(--c-candle-gold))' }} />
+        <span data-roll-line="" className="min-w-0 break-words">{poolText || rollerName}</span>
       </span>
       <span className={`font-serif text-lg font-bold leading-tight truncate ${failed ? 'text-oxblood-lit' : outcome?.className || 'text-cream'}`}>{status}</span>
       {!isRolling && rollError && (
@@ -164,8 +167,10 @@ export const RollResultBar = ({
                   : null)}
               </div>
             ) : (
+              // Up to four dice in a row; five or six lie in two rows of three, so the action
+              // line keeps room for itself
               <button type="button" onClick={() => setOpen(true)} tabIndex={-1} aria-hidden="true"
-                className="flex flex-wrap justify-end items-center gap-1 shrink-0 max-w-[50%]">
+                className={`flex flex-wrap justify-end items-center gap-1 shrink-0 ${dice.length > 4 ? 'max-w-[5.75rem]' : 'max-w-[50%]'}`}>
                 {dice.map((die, idx) => (
                   <MiniDie key={idx} die={die}
                     counts={keptIdx !== null ? idx === keptIdx : getIsCandidate(die, idx)}
