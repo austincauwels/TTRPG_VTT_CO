@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import useGameStore from '../store/gameStore';
 import { apiFetch } from '../utils/api';
 import { campaignErrorText, NETWORK_ERROR } from '../utils/campaignErrors';
@@ -53,6 +53,15 @@ const useCreatorExits = (stage, setStage) => {
   }, [stage]);
 };
 
+// The emailed reset link opens /reset-password?token=... (docs/refactor/AUTH.md). The app
+// has no other addresses, so this one page is picked from the address before the stage.
+// It gives the token, an empty string when the link has none, or null on any other page.
+const RESET_PATH = /\/reset-password\/?$/;
+const resetTokenFromAddress = () => {
+  if (typeof window === 'undefined' || !RESET_PATH.test(window.location.pathname)) return null;
+  return new URLSearchParams(window.location.search).get('token') || '';
+};
+
 export const AppRouter = () => {
   const {
     stage, setLocalCharacter, setStage, connect, accessSession, joinCampaign,
@@ -60,7 +69,15 @@ export const AppRouter = () => {
     rejoinInvite, setRejoinInvite,
   } = useGameStore();
 
-  useCreatorExits(stage, setStage);
+  const [resetToken, setResetToken] = useState(resetTokenFromAddress);
+  // Leaving the reset page takes the token off the address, so a reload or Back does not
+  // offer a used link again.
+  const leaveResetPage = () => {
+    try { window.history.replaceState(null, '', import.meta.env.BASE_URL || '/'); } catch { /* no history */ }
+    setResetToken(null);
+  };
+
+  useCreatorExits(resetToken === null ? stage : null, setStage);
 
   // Compute rejoin context — either organic death path or GM invite path
   const deadCharRejoinCode = character?.is_dead && lastPlayedCampaign?.campaignCode
@@ -181,6 +198,11 @@ export const AppRouter = () => {
     setStage('HOME');
     return { ok: true };
   };
+
+  // The reset page is the login slip in its reset form. Once the new password is set it
+  // signs this browser out and becomes the sign-in slip; both are the same LoginScreen
+  // in the same place, so the slip carries its state across.
+  if (resetToken !== null) return <LoginScreen resetToken={resetToken} onLeaveReset={leaveResetPage} />;
 
   switch (stage) {
   case 'LOGIN':
