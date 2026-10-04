@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { ACTION_LABEL, scarShiftNote } from '../../game/actions';
 import { useDialog } from '../shared/useDialog';
+import { FormLine } from '../shared/PrintMarks';
 
 // The nine actions in the dossier's order, with the rulebook's names (the keys sneak and
 // read are Read and Focus).
@@ -131,12 +132,12 @@ const ScarModal = () => {
         </div>
 
         <div className="relative z-10 border-b-2 border-ink pb-4 mb-5">
+          <FormLine className="block mb-2">Form C.O. 14 · Trauma record</FormLine>
           <h2 id="scar-title" className="font-display text-2xl uppercase tracking-[0.06em] text-ink">
             A New Scar
           </h2>
           <p className="font-serif text-base text-ink mt-2 leading-snug">
-            {character?.name || 'Your investigator'}'s {markName} track is full, so they take a scar.
-            Describe it, then move one action point: lower one action by 1 and raise another by 1.
+            {character?.name || 'Your investigator'}'s {markName} track is full.
           </p>
           {isFourthScar && (
             <p className="font-serif text-base font-bold text-oxblood mt-2 leading-snug">
@@ -189,7 +190,6 @@ const ScarModal = () => {
               rows={3}
               value={medicalNotes}
               onChange={(e) => setMedicalNotes(e.target.value)}
-              placeholder="What happened, and how does it mark you?"
               className="w-full bg-transparent border-none rounded-none p-0 text-base font-serif leading-relaxed text-ink resize-none focus:ring-0 shadow-none placeholder-sepia/90 placeholder:italic"
               style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-oxblood)/0.08) 24px)', backgroundSize: '100% 24px', lineHeight: '24px' }}
             />
@@ -202,16 +202,13 @@ const ScarModal = () => {
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <div className="flex flex-col gap-1">
-              <button
-                type="button"
-                onClick={deferScar}
-                className="min-h-[40px] px-3 font-sans text-xs font-bold uppercase tracking-widest text-sepia hover:text-oxblood border border-sepia/40 hover:border-oxblood/50 rounded-sm transition-colors self-start"
-              >
-                Decide later
-              </button>
-              <span className="font-serif italic text-sm text-sepia leading-snug">The scar waits on your sheet; what you wrote is kept.</span>
-            </div>
+            <button
+              type="button"
+              onClick={deferScar}
+              className="min-h-[40px] px-3 font-sans text-xs font-bold uppercase tracking-widest text-sepia hover:text-oxblood border border-sepia/40 hover:border-oxblood/50 rounded-sm transition-colors"
+            >
+              Decide later
+            </button>
             <button type="submit" className="px-5 py-2.5 bg-ink text-cream hover:bg-oxblood font-sans font-black text-xs uppercase tracking-widest rounded-sm transition-colors shadow-md">
               Record scar
             </button>

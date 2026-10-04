@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { TargetDropdown } from './TargetDropdown';
+import { FormLine } from '../../shared/PrintMarks';
 
 export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat }) => {
   const [chatTarget, setChatTarget] = useState('@Circle');
@@ -53,6 +54,7 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
           <SafeIcon name="GiDiscussion" size={14} className="text-sepia" />
           <span className="font-sans font-black text-sm uppercase tracking-widest text-ink">Pass Notes</span>
         </div>
+        <FormLine className="hidden min-[360px]:inline">Form C.O. 22</FormLine>
       </div>
 
       {/* To: row */}
@@ -74,7 +76,8 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
           value={chatMessage}
           onChange={e => setChatMessage(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
-          placeholder="Write your message..."
+          placeholder="Message"
+          aria-label="Message"
           className="flex-1 min-w-0 bg-transparent border-b border-sepia/40 focus:border-oxblood text-base font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 transition-colors"
         />
         <button

@@ -16,6 +16,8 @@ import { RelationshipIntroPopup } from './RelationshipIntroPopup';
 import { ConnectionBanner } from '../shared/ConnectionBanner';
 import { MARK_NAME } from './useMarkUndo';
 import { useDialog } from '../shared/useDialog';
+import { WaxSeal } from '../shared/WaxSeal';
+import { Watermark, FormLine, EdgeLine, serialFor } from '../shared/PrintMarks';
 
 export const MainDeskView = () => {
   const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar } = useGameStore(useShallow(s => ({
@@ -105,20 +107,22 @@ export const MainDeskView = () => {
         </div>
       </header>
 
-      {/* REGISTRY NAVIGATION */}
-      <div className="max-w-[1500px] mx-auto mt-6 px-4 relative z-30">
+      {/* REGISTRY NAVIGATION: the investigator's member ID strip, sealed at its left end */}
+      <div className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto mt-6 px-4 2xl:px-10 relative z-30">
         {/* On phones the seal sits beside the name, so the tabs below can use the full width */}
-        <div className="absolute left-1.5 sm:left-3 top-2.5 sm:top-1/2 sm:-translate-y-1/2 w-16 h-16 sm:w-28 sm:h-28 bg-oxblood rounded-[48%] shadow-[4px_10px_20px_rgba(0,0,0,0.85),inset_-4px_-6px_10px_rgba(0,0,0,0.35),inset_2px_2px_4px_rgb(var(--c-cream)/0.15)] flex items-center justify-center border border-ink transform rotate-12 z-40 select-none group" aria-hidden="true">
-          <div className="w-11 h-11 sm:w-20 sm:h-20 rounded-full border border-dashed border-ink/20 flex items-center justify-center p-0.5 shadow-inner">
-            <div className="text-oxblood drop-shadow-[0_1.5px_1px_rgb(var(--c-cream)/0.1)] shadow-inner transform -translate-y-[1px] scale-[0.55] sm:scale-100">
-              <SafeIcon name="GiCandleHolder" size={62} />
-            </div>
-          </div>
+        <div className="absolute left-2 sm:left-4 top-1 sm:top-1/2 sm:-translate-y-1/2 2xl:left-8 z-40 select-none rotate-12 drop-shadow-[3px_9px_8px_rgba(0,0,0,0.75)]" aria-hidden="true">
+          <WaxSeal size={128} minSize={74} className="w-[74px] h-[74px] sm:w-32 sm:h-32" />
         </div>
 
-        <div className="w-full bg-parchment border-4 border-double border-ink p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-ink pl-16 sm:pl-32 pr-3 sm:pr-6 py-3 sm:py-5 rounded-sm overflow-hidden">
+        <div className="w-full bg-parchment border-4 border-double border-ink p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-ink pl-[4.5rem] sm:pl-32 pr-3 sm:pr-6 py-3 sm:py-5 rounded-sm overflow-hidden">
+          {/* The registry's number, printed large and faint across the strip */}
+          <Watermark className="left-14 sm:left-48 top-1.5 sm:top-1/2 sm:-translate-y-1/2 text-[30px] sm:text-5xl text-ink/[0.06]">
+            Registry file // No. {serialFor(character?.id)}-CO
+          </Watermark>
+
           <div className="flex items-center gap-3 relative z-10 min-h-[3.75rem] sm:min-h-0">
             <div>
+              <FormLine className="block mb-1">Candela Obscura Member ID</FormLine>
               <span className="block font-serif font-bold text-xl leading-tight text-ink">{character?.name || 'Your investigator'}</span>
               {campaignName && (
                 <span className="block font-serif italic text-base text-sepia leading-snug mt-0.5">{campaignName}</span>
@@ -149,12 +153,12 @@ export const MainDeskView = () => {
       </div>
 
       {/* DYNAMIC VIEW ROUTING */}
-      <main className="max-w-[1500px] mx-auto p-4 mt-2">
+      <main className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto p-4 2xl:px-10 mt-2">
         {scarWaiting && (
           <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-oxblood rounded-sm px-4 py-3 shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
             <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60">
               <strong className="font-bold">A scar is waiting.</strong>{' '}
-              {character?.name || 'Your investigator'}'s {MARK_NAME[pendingScar.type] || 'mark'} track filled. Record the scar to finish taking it.
+              {character?.name || 'Your investigator'}'s {MARK_NAME[pendingScar.type] || 'mark'} track is full.
             </p>
             <button
               onClick={reopenScar}
@@ -167,12 +171,15 @@ export const MainDeskView = () => {
         {activeTab === 'archives' ? (
           <NotebookView isGM={false} />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          // From 2xl the desk takes the width: the rails sit out at the edges, the dice tray
+          // column grows, and the sheet between them stays at a reading width.
+          <div className="grid grid-cols-1 lg:grid-cols-12 2xl:grid-cols-[minmax(0,23rem)_minmax(0,1fr)_minmax(0,27rem)] gap-6 2xl:gap-x-14 items-start">
             <TactileSidebar />
-            <div className="lg:col-span-6 order-1 lg:order-none min-w-0">
+            <div className="lg:col-span-6 2xl:col-span-1 order-1 lg:order-none min-w-0">
               <div className="bg-cream text-ink px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] lg:min-h-[850px] border-2 border-ink relative font-serif overflow-hidden">
                 <div className="absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
                 <BrassCornerFiligree />
+                <EdgeLine text="Candela Obscura · Chapter registry · Printed in Newfaire" className="bottom-2 left-10 right-10" />
                 {activeTab === 'character' && <InvestigatorDossier />}
                 {activeTab === 'circle' && <CircleView />}
               </div>
@@ -218,7 +225,6 @@ export const MainDeskView = () => {
             </h2>
             <p className="text-parchment-deep font-serif text-base leading-relaxed mb-8">
               With a fourth scar, {character?.name || 'your investigator'} is gone. Their sheet stays on record.
-              Create a new investigator to keep playing.
             </p>
             {rejoinInvite && (
               <p className="text-oxblood-lit font-serif italic text-base mb-5">

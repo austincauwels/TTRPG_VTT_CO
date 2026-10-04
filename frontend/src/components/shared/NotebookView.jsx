@@ -3,6 +3,7 @@ import useGameStore from '../../store/gameStore';
 import { ConfirmAction } from './ConfirmAction';
 import { CameraIcon, PencilIcon } from './NotebookIcons';
 import { tiltFor } from './handPlaced';
+import { FormLine, PrinterMark } from './PrintMarks';
 
 const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
@@ -28,11 +29,16 @@ function formatDate(isoStr) {
   } catch { return isoStr; }
 }
 
+// The foot of a page: the page number, and the register's printed line between
 function pageFooter(left, right) {
   return (
-    <div className="pt-4 border-t border-ink/10 flex justify-between items-center font-sans font-bold text-xs uppercase tracking-widest text-sepia">
-      <span>{left}</span>
-      <span className="font-bold">{right}</span>
+    <div className="pt-4 border-t border-ink/10 flex justify-between items-center gap-3 font-sans font-bold text-xs uppercase tracking-widest text-sepia">
+      <span className="min-w-[4rem]">{left}</span>
+      <span className="hidden sm:flex items-center gap-2" aria-hidden="true">
+        <PrinterMark size={11} />
+        <FormLine>Candela Obscura · Field register · Form C.O. 5</FormLine>
+      </span>
+      <span className="min-w-[4rem] text-right font-bold">{right}</span>
     </div>
   );
 }
@@ -534,19 +540,19 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
             <textarea
               value={ephemeralText}
               onChange={e => setEphemeralText(e.target.value)}
-              placeholder="Write a private note…"
+              placeholder="Private note"
+              aria-label="Private note"
               className="w-full bg-transparent border-none resize-none font-serif text-[24px] leading-[1.7] text-ink/80 placeholder-sepia/90 min-h-[80px]"
               style={{ fontFamily: authorFont, color: authorColor }}
               onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleAddEphemeral(); } }}
             />
-            <div className="flex justify-between items-center mt-2">
-              <span className="font-sans font-bold text-xs text-sepia uppercase">Ctrl+Enter saves the note</span>
+            <div className="flex justify-end items-center mt-2">
               <button
                 onClick={handleAddEphemeral}
                 disabled={!ephemeralText.trim() || isAddingEphemeral}
                 className="min-h-[40px] font-sans font-black text-sm uppercase tracking-widest text-ink px-3 py-1 border border-ink/30 hover:bg-black/5 disabled:opacity-50 transition-all"
               >
-                {isAddingEphemeral ? 'Saving…' : 'Pin Note →'}
+                {isAddingEphemeral ? 'Saving…' : 'Pin note'}
               </button>
             </div>
             {ephemeralError && <p role="alert" className="mt-2 font-serif text-base text-oxblood">{ephemeralError}</p>}
@@ -564,9 +570,6 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
               />
             ))}
           </div>
-          {ephemeralEntries.length === 0 && (
-            <p className="font-serif text-xl italic text-sepia text-center mt-8">No private notes yet. Write one above; only you can see it.</p>
-          )}
         </div>
       )}
 
@@ -602,7 +605,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
               <textarea
                 value={lkContent}
                 onChange={e => handleLKContentChange(e.target.value)}
-                placeholder="Write Lightkeeper notes here…"
+                aria-label="Lightkeeper notes"
                 className="w-full bg-transparent border-none resize-none text-[26px] leading-[3.5rem] font-serif text-ink placeholder-sepia/90"
                 style={{ backgroundImage: 'none', minHeight: '700px' }}
               />
@@ -663,9 +666,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                 )}
 
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                  {filteredEntries.length === 0 ? (
-                    <p className="text-2xl font-serif italic text-sepia mt-4">No entries yet. Write the first one on the facing page.</p>
-                  ) : filteredEntries.map(entry => {
+                  {filteredEntries.map(entry => {
                     const canDelete = isGM
                       ? entry.author_type === 'gm'
                       : entry.author_name === authorName;
@@ -700,11 +701,12 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                                 aria-label={armed ? `Yes, delete ${entry.title}` : `Delete ${entry.title}`}
                                 className={armed
                                   ? 'shrink-0 mr-2 min-h-[36px] px-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:brightness-125 transition rounded-sm'
-                                  : 'shrink-0 pr-3 min-h-[40px] font-sans text-lg text-sepia hover:text-oxblood transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'}
+                                  : 'shrink-0 w-9 min-h-[40px] font-sans text-lg text-sepia hover:text-oxblood transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'}
                               >{armed ? 'Yes, delete' : '×'}</button>
                             )}
                           />
                         )}
+                        {!canDelete && <span aria-hidden="true" className="shrink-0 w-9" />}
                       </div>
                     );
                   })}
@@ -730,9 +732,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                   Field Notes, page {currentSpread}
                 </div>
                 <div className="flex-1 overflow-y-auto relative mt-6" style={LINED_PAPER}>
-                  {leftEntries.length === 0
-                    ? <p className="text-2xl font-serif italic text-sepia text-center mt-16">Nothing on this page.</p>
-                    : leftEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === leftEntries.length - 1} />)}
+                  {leftEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === leftEntries.length - 1} />)}
                 </div>
                 {pageFooter(`Page ${currentSpread}`, '')}
               </div>
@@ -747,8 +747,8 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                 <div className="absolute top-3 right-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">Section II</div>
                 <header className="border-b-2 border-ink/80 pb-4 mb-5">
                   <h3 className="text-3xl sm:text-4xl leading-tight font-display tracking-[0.04em] text-ink uppercase">Log a Field Entry</h3>
-                  <p className="text-base sm:text-lg font-serif italic text-sepia mt-0.5">
-                    Everyone in the campaign can read it.
+                  <p className="font-sans font-bold text-xs text-sepia uppercase tracking-widest mt-1.5">
+                    Visible to everyone in the campaign
                   </p>
                 </header>
 
@@ -756,7 +756,6 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                   <div>
                     <label className="block font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-sepia mb-1">Entry Title</label>
                     <input type="text" value={newEntryTitle} onChange={e => setNewEntryTitle(e.target.value)}
-                      placeholder="e.g. The lighthouse keeper's diary"
                       className="w-full px-0 py-1 bg-transparent border-b-2 border-ink/30 focus:border-ink/60 text-[32px]"
                       style={{ fontFamily: authorFont, color: authorColor }} />
                   </div>
@@ -768,7 +767,6 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                         backgroundSize: '100% 28px', backgroundPosition: '0 32px',
                       }} />
                       <textarea value={newEntryContent} onChange={e => setNewEntryContent(e.target.value)}
-                        placeholder="Write what happened, or what you noticed."
                         className="w-full h-full min-h-[180px] bg-transparent border-none resize-none text-[28px] leading-[3.5rem] relative z-10 pt-1"
                         style={{ fontFamily: authorFont, color: authorColor }} />
                     </div>
@@ -777,7 +775,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                   {/* Image upload — staged preview */}
                   <div className="flex gap-2 items-center flex-wrap">
                     <input type="text" value={uploadCaption} onChange={e => setUploadCaption(e.target.value)}
-                      placeholder="Image caption (optional)"
+                      placeholder="Caption (optional)"
                       className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 text-lg font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5" />
                     <button onClick={() => sketchInputRef.current?.click()} disabled={isUploading || !!pendingImageFile}
                       className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
@@ -798,7 +796,6 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                       <img src={pendingImagePreview} alt="preview" className="w-16 h-16 object-cover border border-ink/20 rounded-sm" style={{ mixBlendMode: pendingImageType === 'sketch' ? 'multiply' : 'normal' }} />
                       <div className="flex-1 min-w-0">
                         <p className="font-mono text-sm text-sepia truncate">{pendingImageFile?.name}</p>
-                        <p className="font-serif italic text-sm text-sepia">This {pendingImageType} is saved with the entry.</p>
                       </div>
                       <button onClick={clearPendingImage} aria-label="Remove the image" className="min-w-[40px] min-h-[40px] text-sepia hover:text-oxblood font-black text-lg transition-colors">✕</button>
                     </div>

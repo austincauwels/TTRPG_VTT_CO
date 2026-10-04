@@ -53,17 +53,17 @@ export const RelationshipIntroPopup = () => {
               ? 'Introduce Yourself to the Circle'
               : `Welcome ${newCharacter?.name} to the Circle`}
           </h2>
-          <p className="font-serif text-base text-sepia mt-2 leading-relaxed">
-            {isNewCharacter
-              ? 'Give each member of your new circle a relationship. They accept it or counter with a change.'
-              : `${newCharacter?.name} has joined your circle. Propose your relationship to them, or answer the one they proposed.`}
-          </p>
+          {!isNewCharacter && (
+            <p className="font-serif text-base text-sepia mt-2 leading-relaxed">
+              {newCharacter?.name} has joined your circle.
+            </p>
+          )}
         </div>
 
         <div className="p-6 space-y-4">
           {targets.length === 0 ? (
             <p className="font-serif text-base text-sepia italic text-center py-6">
-              There is no one else in the circle yet, so there are no relationships to set up.
+              No one else in the circle yet
             </p>
           ) : (
             targets.map((inv) => (
@@ -88,9 +88,6 @@ export const RelationshipIntroPopup = () => {
           >
             Close
           </button>
-          <p className="font-serif italic text-base text-sepia text-center mt-2">
-            You can finish any relationship later on the Circle tab.
-          </p>
         </div>
       </motion.div>
     </div>

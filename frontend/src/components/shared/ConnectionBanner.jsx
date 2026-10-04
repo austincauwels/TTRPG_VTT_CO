@@ -15,13 +15,13 @@ export const ConnectionBanner = () => {
   const message = {
     reconnecting: 'The connection to the table dropped. Reconnecting… Rolls and marks wait until it is back.',
     replaced: 'This desk is open in another tab or on another device, so this one stopped updating.',
-    refused: 'The server would not open this desk. Go back to the chapter hub and open it again.',
+    refused: 'The server would not open this desk.',
   }[connectionState];
   if (!message) return null;
 
   return (
     <div role="status" className="sticky top-0 z-[850] w-full bg-ink border-b border-oxblood-lit/60 shadow-[0_6px_16px_rgba(0,0,0,0.6)]">
-      <div className="max-w-[1500px] mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="font-serif text-base text-parchment-deep leading-snug min-w-0 flex-1 basis-60">{message}</p>
         {connectionState === 'refused' ? (
           <button

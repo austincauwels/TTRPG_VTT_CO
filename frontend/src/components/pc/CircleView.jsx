@@ -5,6 +5,7 @@ import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey } from '../shared/a11y';
+import { FormLine, SerialNo, DateStamp, PrinterMark, serialFor, stampDate } from '../shared/PrintMarks';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -163,8 +164,7 @@ export function AdvancementModal() {
       <div className="fixed inset-0 z-[600] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
         <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="advancement-done-title" className="relative bg-cream border-2 border-candle-gold/60 rounded-sm p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-full max-w-[480px]">
           <div className="absolute top-0 left-0 right-0 h-1 bg-candle-gold" />
-          <h2 id="advancement-done-title" className="text-xl font-serif font-black text-oxblood mb-3">Advancement Applied</h2>
-          <p className="font-serif text-sm text-ink/70 mb-6">Your choices have been recorded. Check your dossier for the updated values.</p>
+          <h2 id="advancement-done-title" className="text-xl font-serif font-black text-oxblood mb-6">Advancement Applied</h2>
           <button onClick={dismissCircleAdvancement} className="w-full py-2 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream hover:bg-oxblood rounded-sm transition-all">
             Close
           </button>
@@ -182,7 +182,7 @@ export function AdvancementModal() {
           Circle Advancement
         </h2>
         <p className="font-serif italic text-base text-sepia mb-5">
-          The Illumination Track has filled. Choose <strong>2</strong> of the following for {character?.name || 'your investigator'}:
+          The Illumination track is full. Choose <strong>2</strong> for {character?.name || 'your investigator'}.
         </p>
 
         {circleAdvancement?.circle?.circle_ability && (() => {
@@ -330,9 +330,6 @@ export function AdvancementModal() {
             Later
           </button>
         </div>
-        <p className="font-serif italic text-sm text-sepia mt-3 text-center">
-          Choices are applied immediately to your dossier when confirmed.
-        </p>
       </div>
     </div>
   );
@@ -422,6 +419,11 @@ export const CircleView = () => {
 
       {/* I. Circle Identity Header */}
       <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/80 p-5 shadow-md rounded-sm">
+        <div className="flex items-center gap-2 -mt-1 mb-3" aria-hidden="true">
+          <PrinterMark size={13} />
+          <FormLine>Form C.O. 3 · Circle charter</FormLine>
+          <SerialNo value={serialFor(`circle-${circle?.id ?? ''}`)} className="ml-auto" />
+        </div>
         <div className="flex flex-col lg:flex-row gap-6 items-start">
 
           {/* Name + Chapter House */}
@@ -441,7 +443,7 @@ export const CircleView = () => {
               <div className="font-serif text-sm mt-0.5 italic leading-snug">
                 {circle?.chapter_house_location
                   ? <span className="text-oxblood">{circle.chapter_house_location}</span>
-                  : <span className="text-sepia">Not chosen yet. Your circle decides it in the formation papers.</span>
+                  : <span className="text-sepia">Not chosen yet</span>
                 }
               </div>
             </div>
@@ -487,8 +489,8 @@ export const CircleView = () => {
               );
             })}
           </div>
-          <div className="font-serif italic text-sm text-sepia">
-            {illum} of {TRACK_SIZE}. A milestone every 3.
+          <div className="font-mono tabular-nums text-sm text-sepia">
+            {illum} / {TRACK_SIZE}
           </div>
         </div>
 
@@ -523,9 +525,7 @@ export const CircleView = () => {
               <SafeIcon name="GiQuillInk" size={12} />
               Illumination Questions & Keys
             </h3>
-            <p className="font-serif italic text-sm text-sepia mb-4">
-              At the end of each assignment, tick what your investigator did, then send the report to the GM.
-            </p>
+            <FormLine className="block mb-4">Form C.O. 11 · Assignment report</FormLine>
 
             {/* 3 Illumination Questions — checkboxes */}
             <div className="space-y-3 mb-5">
@@ -571,14 +571,15 @@ export const CircleView = () => {
             {/* Submit Report Button */}
             <div className="flex items-center justify-between pt-3 border-t border-ink/10">
               {submitted ? (
-                <span className="font-sans text-xs text-seal-green uppercase tracking-widest font-black">
-                  ✓ Report sent to the GM
+                <span role="status" className="flex items-center gap-3">
+                  <span className="sr-only">Report sent to the GM</span>
+                  <DateStamp label="Report sent" date={stampDate(new Date())} tone="green" tilt={-2} />
                 </span>
               ) : (
                 <>
                   <div>
                     <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider block">
-                      {circle?.reports_open ? 'The GM is taking reports now' : 'The GM opens reports at the end of an assignment'}
+                      {circle?.reports_open ? 'Reports open' : 'Reports closed'}
                     </span>
                   </div>
                   <button
@@ -605,21 +606,19 @@ export const CircleView = () => {
             Circle Resources
           </h3>
 
-          <p className="font-serif italic text-sm text-sepia leading-relaxed">
-            Each resource holds 1 more than the number of investigators. Each investigator may spend up to 2 per assignment. They refill when the Illumination track fills.
-          </p>
-
-          {!circle?.resources_editable && (
-            <p className="font-serif italic text-sm text-sepia">
-              Spending is locked. The GM unlocks it when you can spend.
-            </p>
-          )}
-
-          {circle?.resources_editable && !isGM && (
-            <p className="font-serif italic text-sm text-oxblood">
-              You have used {character?.resources_spent_assignment || 0} of 2 this assignment. Tap a filled square to spend one.
-            </p>
-          )}
+          {/* Where spending stands: locked by the GM, or how many of this assignment's two are used */}
+          <div className="flex items-center justify-between gap-3 font-sans text-xs font-bold uppercase tracking-wider text-sepia">
+            {circle?.resources_editable ? (
+              !isGM && (
+                <span>Spent this assignment <span className="font-mono tabular-nums text-sm text-oxblood ml-1">{character?.resources_spent_assignment || 0} / 2</span></span>
+              )
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <SafeIcon name="GiPadlock" size={13} />
+                Spending locked
+              </span>
+            )}
+          </div>
 
           <div className="space-y-3">
             {RESOURCES.map(({ label, key, desc }) => {
@@ -711,7 +710,7 @@ export const CircleView = () => {
         </h3>
 
         {selQ ? (
-          <div className="bg-cream border border-parchment-deep p-5 mb-5 rounded-sm shadow-sm border-l-4 border-l-oxblood">
+          <div className="bg-cream border border-parchment-deep p-5 mb-5 rounded-sm shadow-sm">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-2">
               Circle question
             </span>
@@ -721,7 +720,7 @@ export const CircleView = () => {
           </div>
         ) : (
           <p className="font-serif text-sm text-sepia italic mb-5">
-            No circle question yet. Your circle votes on one in the formation papers.
+            No circle question yet
           </p>
         )}
 
@@ -743,7 +742,7 @@ export const CircleView = () => {
               </p>
             ) : (
               <p className="font-serif text-sm text-sepia italic">
-                No answer yet. Write yours in the formation papers once the circle has a question.
+                No answer yet
               </p>
             )}
           </div>

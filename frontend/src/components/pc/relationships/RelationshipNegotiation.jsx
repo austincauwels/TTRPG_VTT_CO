@@ -31,7 +31,7 @@ const RelationshipFields = ({ idPrefix, relType, lore, onType, onPrompt, onLore 
 
     {relType && RELATIONSHIP_DATA[relType] && (
       <div className="space-y-1.5">
-        <p className={labelClass}>Pick a question to answer (optional)</p>
+        <p className={labelClass}>Question (optional)</p>
         {RELATIONSHIP_DATA[relType].map((q, qi) => {
           const chosen = lore === q;
           return (
@@ -57,7 +57,6 @@ const RelationshipFields = ({ idPrefix, relType, lore, onType, onPrompt, onLore 
         id={`${idPrefix}-lore`}
         value={lore || ''}
         onChange={e => onLore(e.target.value)}
-        placeholder={relType ? 'Answer the question, or describe the relationship in your own words.' : 'Choose a relationship first.'}
         rows={3}
         disabled={!relType}
         className={`${fieldClass} resize-none disabled:opacity-50`}
@@ -91,13 +90,13 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
         {rel.lore && <span className="block italic text-base text-sepia mt-0.5">{rel.lore}</span>}
       </p>
 
-      {accepted && <p className="font-sans font-bold text-xs uppercase tracking-widest text-seal-green">✓ Confirmed by you both</p>}
-      {theirTurn && <p className="font-serif italic text-base text-sepia">Waiting for {theirName} to accept or counter.</p>}
+      {accepted && <p className="font-sans font-bold text-xs uppercase tracking-widest text-seal-green">Confirmed by you both</p>}
+      {theirTurn && <p className="font-serif italic text-base text-sepia">Waiting for {theirName}</p>}
 
       {myTurn && (
         <>
           <p className="font-serif text-base text-ink">
-            {countered ? `${theirName} suggested this change.` : `${theirName} proposed this.`} Accept it, or counter with a change of your own.
+            {countered ? `${theirName} suggested this change.` : `${theirName} proposed this.`}
           </p>
           <div className="flex gap-2 flex-wrap">
             <button type="button" onClick={() => respondToRelationship(rel.id, 'accept')} className={primaryButton}>Accept</button>
@@ -176,7 +175,6 @@ export const RelationshipNegotiation = ({
               <button type="button" onClick={propose} disabled={!draft.relType} className={primaryButton}>
                 Propose to {inv.name}
               </button>
-              <span className="font-serif italic text-base text-sepia">They can accept it or counter with a change.</span>
             </div>
           </div>
         )}

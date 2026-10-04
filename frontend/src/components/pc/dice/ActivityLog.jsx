@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { rulebookLogText } from '../../../game/outcomes';
+import { FormLine, PrinterMark } from '../../shared/PrintMarks';
 
 // ── Fallback styles when no ink_color is present (cream-paper log) ───────────
 // Rolls carry the seal green, danger the oxblood, chat the sepia hairline and field
@@ -92,7 +93,7 @@ export const ActivityLog = ({ logEntries, gm = false }) => {
     </h3>
     <div
       ref={logContainerRef}
-      className="h-[240px] overflow-y-auto space-y-3 text-base font-serif leading-normal px-3 py-2 custom-scrollbar"
+      className="h-[240px] 2xl:h-[320px] overflow-y-auto space-y-3 text-base font-serif leading-normal px-3 py-2 custom-scrollbar"
       style={{
         background: 'rgb(var(--c-cream))',
         boxShadow:
@@ -102,11 +103,12 @@ export const ActivityLog = ({ logEntries, gm = false }) => {
           'inset -8px 0 16px -12px rgb(var(--c-sepia) / 0.35)',
       }}
     >
-      {logEntries.length === 0 ? (
-        <p className="text-sepia italic text-center pt-6">Nothing yet. Rolls, marks and messages from the table appear here.</p>
-      ) : (
-        logEntries.map((entry, i) => <LogEntry key={i} entry={entry} />)
-      )}
+      {/* The sheet's printed head; an empty log is just the blank sheet */}
+      <div className="flex items-center justify-between gap-2 border-b border-sepia/25 pb-1" aria-hidden="true">
+        <FormLine>Form C.O. 9 · Table log</FormLine>
+        <PrinterMark size={12} />
+      </div>
+      {logEntries.map((entry, i) => <LogEntry key={i} entry={entry} />)}
     </div>
   </div>
   );

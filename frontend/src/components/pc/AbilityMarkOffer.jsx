@@ -154,11 +154,7 @@ export const AbilityMarkOffer = () => {
               {config.isIntercept ? 'Intercept' : 'Use'}
             </button>
           )}
-          {offer.action === 'info' && (
-            <p className="flex-1 font-serif text-sm text-parchment-deep italic text-center">
-              Ask the GM now.
-            </p>
-          )}
+          {offer.action === 'info' && <span className="flex-1" aria-hidden="true" />}
           <button
             onClick={dismissAbilityMarkOffer}
             className="min-h-[40px] px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-widest border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm"

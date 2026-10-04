@@ -40,9 +40,6 @@ export const InviteRejoinSection = () => {
       </button>
       {showForm && (
         <div className="mt-4 space-y-2">
-          <p className="font-serif text-sm text-moonlight-steel leading-relaxed">
-            For a player whose investigator died or left. Type their username. They see the invite at once if they are online, or the next time they sign in, and come back with a new investigator.
-          </p>
           <div className="flex gap-2">
             <input
               type="text"
@@ -50,6 +47,7 @@ export const InviteRejoinSection = () => {
               onChange={e => { setUsername(e.target.value); setError(''); }}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
               placeholder="Username"
+              aria-label="Player's username"
               className="flex-1 min-w-0 bg-gm-night border border-gm-slate text-cream font-mono text-sm px-3 py-2 placeholder-moonlight-steel/90 focus:border-moonlight-steel rounded-sm"
             />
             <button

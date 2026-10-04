@@ -8,6 +8,17 @@ import { getAvailableRollMods } from './DiceVault';
 import { ACTION_LABEL, scarDisplayText } from '../../game/actions';
 import { useMarkUndo, MARK_NAME } from './useMarkUndo';
 import { useDialog } from '../shared/useDialog';
+import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks';
+
+// A die face (three pips) on each action that rolls, so the row reads as something to press
+const DieGlyph = ({ className = '' }) => (
+  <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false" className={className}>
+    <rect x="1.25" y="1.25" width="13.5" height="13.5" rx="2.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <circle cx="4.9" cy="4.9" r="1.25" fill="currentColor" />
+    <circle cx="8" cy="8" r="1.25" fill="currentColor" />
+    <circle cx="11.1" cy="11.1" r="1.25" fill="currentColor" />
+  </svg>
+);
 
 const ROLE_ICONS = {
   'Face': 'GiDramaMasks',
@@ -142,21 +153,21 @@ const SPECIALTY_FROM_ABILITY = {
 };
 
 const DRIVE_FLAVOR = {
-  nerve: 'Raw physicality — force, endurance, and the will to act with your body.',
-  cunning: 'Subtle control — deception, concealment, and unseen manipulation.',
-  intuition: 'Heightened awareness — perception, empathy, and the supernatural sense.',
+  nerve: 'Raw physicality: force, endurance, and the will to act with your body.',
+  cunning: 'Subtle control: deception, concealment, and unseen manipulation.',
+  intuition: 'Heightened awareness: perception, empathy, and the supernatural sense.',
 };
 
 const ACTION_FLAVOR = {
-  move:    'Run, dodge, or navigate — raw movement through danger.',
-  strike:  'Punch, break, or knock down — direct physical force.',
-  control: 'Drive, shoot, or finesse — precise command of tools and situations.',
-  sway:    'Convince, command, or consort — social pressure and persuasion.',
+  move:    'Run, dodge, or navigate: raw movement through danger.',
+  strike:  'Punch, break, or knock down: direct physical force.',
+  control: 'Drive, shoot, or finesse: precise command of tools and situations.',
+  sway:    'Convince, command, or consort: social pressure and persuasion.',
   sneak:   'Interpret body language, spot lies, gather motives.',
-  hide:    'Sneak, distract, or sleight of hand — concealment and misdirection.',
-  survey:  'Search, track, or spot — reading an environment for detail.',
-  read:    'Inspect, analyze, or remember — focused mental examination.',
-  sense:   'Attune, channel, or reveal — perception of the supernatural.',
+  hide:    'Sneak, distract, or sleight of hand: concealment and misdirection.',
+  survey:  'Search, track, or spot: reading an environment for detail.',
+  read:    'Inspect, analyze, or remember: focused mental examination.',
+  sense:   'Attune, channel, or reveal: perception of the supernatural.',
 };
 
 const DRIVE_PIP_TOTAL = 9;
@@ -295,6 +306,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         </div>
       </div>
 
+      {/* The form's printed head: its number, and the registry's serial in red */}
+      <div className="flex items-center gap-2 md:w-2/3 -mt-1" aria-hidden="true">
+        <PrinterMark size={13} />
+        <FormLine>Form C.O. 7<span className="hidden sm:inline"> · Investigator record</span></FormLine>
+        <SerialNo value={serialFor(character.id)} className="ml-auto" />
+      </div>
+
       {/* Investigator Identity Headers */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 md:w-2/3 pb-2">
         <div className="sm:col-span-2 min-w-0">
@@ -382,7 +400,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-1">{character.role || 'Role'} ability</span>
                 <p className="leading-relaxed">
                   <span className="font-bold uppercase text-ink">{character.role_ability || "Ability"}:</span>{' '}
-                  {ABILITY_TEXTS[character.role_ability] || <span className="text-sepia italic">No role ability chosen.</span>}
+                  {ABILITY_TEXTS[character.role_ability] || <span className="text-sepia italic">None chosen</span>}
                 </p>
               </div>
             )}
@@ -391,7 +409,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-1">{character.specialty || 'Specialty'} ability</span>
                 <p className="leading-relaxed">
                   <span className="font-bold uppercase text-ink">{character.specialty_ability || "Specialty"}:</span>{' '}
-                  {ABILITY_TEXTS[character.specialty_ability] || <span className="text-sepia italic">No specialty ability chosen.</span>}
+                  {ABILITY_TEXTS[character.specialty_ability] || <span className="text-sepia italic">None chosen</span>}
                 </p>
               </div>
             )}
@@ -411,7 +429,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   </p>
                 ) : null}
                 {!character.catalyst && !character.question && (
-                  <span className="text-sepia italic">No catalyst or question written yet.</span>
+                  <span className="text-sepia italic">Not written</span>
                 )}
               </div>
             )}
@@ -427,11 +445,6 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           <SafeIcon name="GiCrossedSwords" size={15} /> Actions
         </h3>
       </div>
-      {!readOnly && (
-        <p className="font-serif italic text-base text-sepia -mt-3 leading-snug">
-          Tap an action to roll it. To add drive dice first, use the minus and plus beside the drive.
-        </p>
-      )}
 
       {/* Train bonus active indicator */}
       {character?.train_bonus && (
@@ -466,7 +479,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         aria-label={`Spend one less ${cat.name}`}
                         className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
                       >−</button>
-                      <span className="font-mono tabular-nums text-xs text-sepia font-black w-3 text-center">{preSpend[cat.driveKey] || 0}</span>
+                      <span className={`font-mono tabular-nums text-xs font-black w-7 text-center ${(preSpend[cat.driveKey] || 0) > 0 ? 'text-oxblood' : 'text-sepia'}`}>+{preSpend[cat.driveKey] || 0}d</span>
                       <button
                         onClick={() => setPreSpend(p => {
                           const maxSpend = Math.min(currentDrive, 6 - 1);
@@ -554,46 +567,60 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   const availMods = !readOnly ? getAvailableRollMods(character, act.key) : [];
                   const selectedMods = activeMods[act.key] || [];
 
+                  const ratingPips = (
+                    <span className="flex gap-1 shrink-0" role="img" aria-label={`${act.label} rating: ${actionValue} of 3`}>
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <span
+                          key={i}
+                          className={`block w-3 h-3 rounded-full border border-ink ${i < actionValue ? 'bg-oxblood' : 'bg-transparent'}`}
+                        />
+                      ))}
+                    </span>
+                  );
+                  const rollBlocked = !!pendingGildedChoice || !!isRolling;
+
                   return (
-                    <div key={act.key} className="py-0.5 group/action" title={ACTION_FLAVOR[act.key]}>
-                      <div className="flex justify-between items-center">
-                        {readOnly ? (
+                    <div key={act.key} className="group/action" title={ACTION_FLAVOR[act.key]}>
+                      {readOnly ? (
+                        <div className="flex justify-between items-center py-0.5">
                           <span className="font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-ink">
                             {isGilded && <span aria-hidden="true" className="w-2 h-2 bg-candle-gold border border-sepia rounded-full" />}
                             {act.label}
                             {isGilded && <span className="sr-only">(gilded)</span>}
                           </span>
-                        ) : (
-                          <button
-                            disabled={!!pendingGildedChoice || !!isRolling}
-                            onClick={() => {
-                              const spend = preSpend[cat.driveKey] || 0;
-                              const actionRating = character[act.key] || 0;
-                              const effectiveSpend = Math.min(spend, Math.max(0, 6 - actionRating));
-                              setPreSpend(p => ({ ...p, [cat.driveKey]: 0 }));
-                              setActiveMods(p => ({ ...p, [act.key]: [] }));
-                              rollAction(act.key, effectiveSpend, false, selectedMods);
-                            }}
-                            className={`font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-left transition-colors [@media(pointer:coarse)]:min-h-[40px] ${(pendingGildedChoice || isRolling) ? 'opacity-40 cursor-not-allowed' : 'hover:text-oxblood'}`}
-                            style={{ touchAction: 'manipulation' }}
-                            aria-label={`Roll ${act.label}${isGilded ? ', gilded' : ''}, rating ${actionValue}${preSpend[cat.driveKey] > 0 ? `, plus ${preSpend[cat.driveKey]} from ${cat.name}` : ''}`}
-                          >
-                            {isGilded && <span aria-hidden="true" className="w-2 h-2 bg-candle-gold border border-sepia rounded-full" />}
+                          {ratingPips}
+                        </div>
+                      ) : (
+                        // The whole row is the roll: a raised paper chit with a die on it
+                        <button
+                          disabled={rollBlocked}
+                          onClick={() => {
+                            const spend = preSpend[cat.driveKey] || 0;
+                            const actionRating = character[act.key] || 0;
+                            const effectiveSpend = Math.min(spend, Math.max(0, 6 - actionRating));
+                            setPreSpend(p => ({ ...p, [cat.driveKey]: 0 }));
+                            setActiveMods(p => ({ ...p, [act.key]: [] }));
+                            rollAction(act.key, effectiveSpend, false, selectedMods);
+                          }}
+                          className={`group/roll w-full flex items-center gap-2 pl-2 pr-2.5 py-1.5 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] text-left rounded-sm border transition-[color,background-color,border-color,box-shadow,transform] duration-150 ${
+                            rollBlocked
+                              ? 'opacity-40 cursor-not-allowed border-ink/15 bg-transparent'
+                              : 'border-ink/25 bg-cream shadow-[0_1px_0_rgb(var(--c-ink)/0.18),1px_2px_4px_rgb(var(--c-ink)/0.08)] hover:border-oxblood/70 hover:bg-oxblood/[0.04] hover:text-oxblood active:translate-y-px active:shadow-none'
+                          }`}
+                          style={{ touchAction: 'manipulation' }}
+                          aria-label={`Roll ${act.label}${isGilded ? ', gilded' : ''}, rating ${actionValue}${preSpend[cat.driveKey] > 0 ? `, plus ${preSpend[cat.driveKey]} from ${cat.name}` : ''}`}
+                        >
+                          <DieGlyph className={`shrink-0 transition-colors ${rollBlocked ? 'text-sepia' : 'text-sepia group-hover/roll:text-oxblood'}`} />
+                          <span className="flex-1 min-w-0 font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5">
+                            {isGilded && <span aria-hidden="true" className="w-2 h-2 shrink-0 bg-candle-gold border border-sepia rounded-full" />}
                             {act.label}
                             {preSpend[cat.driveKey] > 0 && (
                               <span className="font-mono tabular-nums text-xs text-oxblood font-black">+{preSpend[cat.driveKey]}d</span>
                             )}
-                          </button>
-                        )}
-                        <div className="flex gap-1" role="img" aria-label={`${act.label} rating: ${actionValue} of 3`}>
-                          {Array.from({ length: 3 }).map((_, i) => (
-                            <div
-                              key={i}
-                              className={`w-3 h-3 rounded-full border border-ink ${i < actionValue ? 'bg-oxblood' : 'bg-transparent'}`}
-                            />
-                          ))}
-                        </div>
-                      </div>
+                          </span>
+                          {ratingPips}
+                        </button>
+                      )}
                       {availMods.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {availMods.map(mod => {
@@ -608,7 +635,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                                   on ? 'bg-candle-gold/20 border-candle-gold/70 text-ink' : 'border-ink/20 text-sepia hover:border-ink/40 hover:text-ink'
                                 }`}
                               >
-                                {on && <span aria-hidden="true">✓ </span>}{mod.label}
+                                {on && (
+                                  <svg aria-hidden="true" viewBox="0 0 12 12" className="inline-block w-2.5 h-2.5 mr-1 -mt-px">
+                                    <path d="M2 6.4l2.6 2.6L10 3.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                )}{mod.label}
                               </button>
                             );
                           })}
@@ -702,8 +733,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-40">
                   {(character?.[`${heldMark.type}_marks`] || 0) >= 3
                     ? `${MARK_NAME[heldMark.type]} track is full: this mark brings a scar.`
-                    : `${MARK_NAME[heldMark.type]} mark taken.`}{' '}
-                  <span className="text-sepia">It goes to the table in a moment unless you undo it.</span>
+                    : `${MARK_NAME[heldMark.type]} mark taken.`}
                 </p>
                 <button
                   onClick={undoMark}
@@ -737,21 +767,21 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               onClick={reviveCharacter}
               className="mt-2 w-full py-1.5 font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
             >
-              Revive: clear marks and act again
+              Revive
             </button>
           )}
         </div>
 
         {/* Scars — editable textarea for players, list view for GM readOnly */}
-        <div className="md:col-span-7 bg-cream border-2 border-dashed border-ink/60 p-4 rounded-sm relative shadow-sm flex flex-col justify-between overflow-hidden">
-                    <div>
+        <div className="md:col-span-7 bg-cream border-2 border-dashed border-ink/60 p-4 pt-5 rounded-sm relative shadow-sm flex flex-col justify-between overflow-hidden">
+          <FormLine className="absolute top-1.5 right-3">Form C.O. 14 · Trauma record</FormLine>
+          <div>
             <div className="flex flex-wrap gap-2 justify-between items-center border-b border-ink/40 pb-1 mb-2 mt-3 sm:mt-0">
               <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
                 <SafeIcon name="GiQuillInk" size={18} /> Scars
               </h3>
-              <span className="font-sans text-xs font-bold bg-ink text-cream py-1 rounded-sm inline-flex items-center justify-between min-w-[9rem] px-3">
-                <span className="uppercase tracking-widest">Scars</span>
-                <span className="font-mono tabular-nums tracking-normal">{character?.scars_count || 0} / 4</span>
+              <span className="font-mono tabular-nums text-sm font-bold bg-ink text-cream px-2.5 py-0.5 rounded-sm" aria-label={`${character?.scars_count || 0} of 4 scars`}>
+                {character?.scars_count || 0} / 4
               </span>
             </div>
           </div>
@@ -767,7 +797,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 <p key={i} className="font-serif text-base text-ink italic pl-1">{scarDisplayText(scar)}</p>
               ))
             ) : (
-              <p className="font-serif text-base text-sepia italic">No scars. A scar comes when a mark track fills.</p>
+              <span className="sr-only">No scars</span>
             )}
           </div>
         </div>
@@ -795,16 +825,17 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {(character.gear || []).length > 0 ? (
-            (character.gear || []).map(item => (
-              <span key={item} className="flex items-center gap-1.5 font-sans text-xs font-bold uppercase tracking-tight bg-black/5 border border-ink/15 px-2.5 py-1.5 rounded-sm">
-                <SafeIcon name={GEAR_ICONS[item] || 'GiSuitcase'} size={13} />
-                {item}
-              </span>
-            ))
-          ) : (
-            <span className="font-serif text-base italic text-sepia">No gear yet.{!readOnly && ' Use Change Gear to pick up to 3 items.'}</span>
-          )}
+          {(character.gear || []).map(item => (
+            <span key={item} className="flex items-center gap-1.5 font-sans text-xs font-bold uppercase tracking-tight bg-black/5 border border-ink/15 px-2.5 py-1.5 rounded-sm">
+              <SafeIcon name={GEAR_ICONS[item] || 'GiSuitcase'} size={13} />
+              {item}
+            </span>
+          ))}
+          {/* The gear slots not yet filled, printed on the form and left blank */}
+          {Array.from({ length: Math.max(0, 3 - (character.gear || []).length) }).map((_, i) => (
+            <span key={`slot-${i}`} aria-hidden="true" className="w-28 h-[30px] border border-dashed border-ink/25 rounded-sm" />
+          ))}
+          {(character.gear || []).length === 0 && <span className="sr-only">No gear</span>}
         </div>
       </div>
 
@@ -815,8 +846,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           onClick={() => setShowGearModal(false)}>
           <div ref={gearDialogRef} role="dialog" aria-modal="true" aria-labelledby="gear-dialog-title" className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
             style={{ background: 'rgb(var(--c-parchment))', border: '3px double rgb(var(--c-sepia)/0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
-            <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-1">Change Gear</h2>
-            <p className="text-sm font-sans text-sepia mb-5">Pick up to 3 items. You can change gear between assignments.</p>
+            <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-5">Change Gear</h2>
 
             {character.specialty && SPECIALTY_GEAR[character.specialty] && (
               <div className="mb-4">

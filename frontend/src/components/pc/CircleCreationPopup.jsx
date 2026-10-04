@@ -4,6 +4,7 @@ import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
 import { useDialog } from '../shared/useDialog';
+import { FormLine, SerialNo, PrinterMark, RuledBox, serialFor } from '../shared/PrintMarks';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ function Section({ title, children, defaultOpen = true }) {
     <div className="border border-sepia/50 rounded-sm mb-6">
       <button
         onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
         className="w-full flex justify-between items-center px-5 py-3 bg-parchment-deep/60 hover:bg-parchment-deep text-left"
       >
         <span className="font-sans text-base uppercase tracking-widest font-bold text-sepia">
@@ -190,19 +192,17 @@ export const CircleCreationPopup = () => {
         <div className="relative z-10 p-7 pt-9">
           {/* Header */}
           <div className="border-b-2 border-ink pb-5 mb-6 text-center">
+            <div className="flex items-center justify-between gap-2 mb-3" aria-hidden="true">
+              <span className="flex items-center gap-2"><PrinterMark size={13} /><FormLine>Form C.O. 1 · Circle formation</FormLine></span>
+              <SerialNo value={serialFor(`formation-${circleId ?? ''}`)} />
+            </div>
             <h2 className="text-3xl font-black uppercase tracking-wider text-ink">
               Circle Formation Papers
             </h2>
-            <div className="font-serif italic text-sm text-sepia mt-1">
-              Fill these in together before your first assignment. The GM finalizes them.
-            </div>
           </div>
 
           {/* ── SECTION I: Circle Question ── */}
           <Section title="I. Circle Question">
-            <p className="font-serif text-base text-sepia mb-4 leading-relaxed">
-              Vote on one question to define your circle's shared history. Then write your personal answer below.
-            </p>
             <div className="space-y-3 mb-5">
               {CIRCLE_QUESTIONS.map((q) => {
                 const count = questionTally[q.key] || 0;
@@ -225,7 +225,7 @@ export const CircleCreationPopup = () => {
                           <span className="font-mono text-sm bg-ink text-cream px-2 py-0.5 rounded-full">{count}</span>
                         )}
                         {isLeading && count > 0 && (
-                          <span className="font-serif italic text-sm text-sepia mt-0.5">← leading</span>
+                          <span className="font-serif italic text-sm text-sepia mt-0.5">leading</span>
                         )}
                         {isMine && (
                           <span className="font-serif italic text-sm text-sepia mt-0.5">your vote</span>
@@ -250,12 +250,12 @@ export const CircleCreationPopup = () => {
                   onChange={e => setPersonalAnswer(e.target.value)}
                   onBlur={handlePersonalAnswerBlur}
                   rows={4}
-                  placeholder="Write your character's personal perspective…"
+                  aria-label="Your personal answer"
                   className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:border-sepia rounded-sm"
                   style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
                 />
                 <p className="font-serif italic text-sm text-sepia mt-1">
-                  Your answer appears on the Circle tab. The GM can read every answer.
+                  The GM reads every answer.
                 </p>
               </div>
             )}
@@ -263,17 +263,14 @@ export const CircleCreationPopup = () => {
 
           {/* ── SECTION II: Name the Circle ── */}
           <Section title="II. Name the Circle">
-            <p className="font-serif text-base text-sepia mb-4">
-              Suggest up to 5 names, then vote for the one that resonates.
-              <span className="ml-2 text-sepia">({mySuggestionCount}/5 suggestions used)</span>
-            </p>
-            <div className="flex gap-2 mb-5">
+            <div className="flex gap-2 mb-5 items-center">
               <input
                 type="text"
                 value={nameDraft}
                 onChange={e => setNameDraft(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleNameSuggest()}
-                placeholder="Suggest a circle name…"
+                placeholder="Circle name"
+                aria-label="Circle name to suggest"
                 disabled={mySuggestionCount >= 5}
                 className="flex-1 border border-sepia/40 bg-cream/70 px-4 py-2.5 font-serif text-lg text-ink focus:border-sepia rounded-sm disabled:opacity-40"
               />
@@ -284,11 +281,12 @@ export const CircleCreationPopup = () => {
               >
                 Suggest
               </button>
+              <span className="font-mono tabular-nums text-sm text-sepia shrink-0" aria-label={`${mySuggestionCount} of 5 suggestions used`}>{mySuggestionCount}/5</span>
             </div>
 
             {allSuggestedNames.length > 0 ? (
               <div className="space-y-2">
-                <p className="font-sans font-bold text-sm uppercase tracking-[0.15em] text-sepia mb-2">Vote for your favourite:</p>
+                <p className="font-sans font-bold text-sm uppercase tracking-[0.15em] text-sepia mb-2">Suggested names</p>
                 {allSuggestedNames
                   .sort((a, b) => (nameVoteTally[b] || 0) - (nameVoteTally[a] || 0))
                   .map((name) => {
@@ -319,30 +317,25 @@ export const CircleCreationPopup = () => {
                           {isMySuggestion && (
                             <span className="font-serif italic text-sm text-sepia">yours</span>
                           )}
-                          <span className="font-serif italic text-sm text-sepia">{suggestCount} suggest{suggestCount !== 1 ? '' : 'ed'}</span>
+                          {suggestCount > 1 && (
+                            <span className="font-serif italic text-sm text-sepia">suggested {suggestCount} times</span>
+                          )}
                           {voteCount > 0 && (
-                            <span className="font-mono text-sm bg-sepia text-cream px-2 py-0.5 rounded-full">{voteCount}v</span>
+                            <span className="font-mono text-sm bg-sepia text-cream px-2 py-0.5 rounded-full" aria-label={`${voteCount} ${voteCount === 1 ? 'vote' : 'votes'}`}>{voteCount}</span>
                           )}
                           {isLeading && (
-                            <span className="font-serif italic text-sm text-sepia">← leading</span>
+                            <span className="font-serif italic text-sm text-sepia">leading</span>
                           )}
                         </div>
                       </div>
                     );
                   })}
               </div>
-            ) : (
-              <p className="font-serif text-base text-sepia italic text-center py-4">
-                No names yet. Suggest one above.
-              </p>
-            )}
+            ) : null}
           </Section>
 
           {/* ── SECTION III: Chapter House Location ── */}
           <Section title="III. Chapter House Location">
-            <p className="font-serif text-base text-sepia mb-4 leading-relaxed">
-              Decide where your circle's chapter house is located, and what that looks like.
-            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               <div className="hand-placed bg-parchment/80 border border-sepia/30 p-4 rounded-sm" style={{ '--tilt': '-0.8deg' }}>
                 <p className="font-serif text-base text-sepia leading-snug italic">
@@ -365,14 +358,13 @@ export const CircleCreationPopup = () => {
                 defaultValue={backstoryAnswers.chapter_house || ''}
                 onBlur={handleLocationBlur}
                 rows={3}
-                placeholder="Describe your headquarters…"
                 className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:border-sepia rounded-sm"
                 style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
               />
             </div>
 
             <div className="space-y-2">
-              <p className="font-sans font-bold text-sm uppercase tracking-[0.15em] text-sepia mb-2">Or choose an example:</p>
+              <p className="font-sans font-bold text-sm uppercase tracking-[0.15em] text-sepia mb-2">Examples</p>
               {EXAMPLE_LOCATIONS.map(loc => (
                 <button
                   key={loc.name}
@@ -388,9 +380,6 @@ export const CircleCreationPopup = () => {
 
           {/* ── SECTION IV: Circle Ability ── */}
           <Section title="IV. Circle Ability">
-            <p className="font-serif text-base text-sepia mb-4">
-              Vote on one starting circle ability. The choice with the most votes is recorded when the GM finalizes the circle.
-            </p>
             <div className="space-y-3">
               {CIRCLE_ABILITIES.map((ability) => {
                 const count = abilityTally[ability.key] || 0;
@@ -416,7 +405,7 @@ export const CircleCreationPopup = () => {
                           <span className="font-mono text-sm bg-ink text-cream px-2 py-0.5 rounded-full">{count}</span>
                         )}
                         {isMine && <span className="font-serif italic text-sm text-sepia">your vote</span>}
-                        {isLeading && count > 0 && <span className="font-serif italic text-sm text-oxblood">← leading</span>}
+                        {isLeading && count > 0 && <span className="font-serif italic text-sm text-oxblood">leading</span>}
                       </div>
                     </div>
                   </button>
@@ -427,9 +416,6 @@ export const CircleCreationPopup = () => {
 
           {/* ── SECTION V: System Insignia ── */}
           <Section title="V. Insignia">
-            <p className="font-serif text-base text-sepia mb-4">
-              Vote on the symbol for your circle. The one with the most votes becomes its insignia.
-            </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {INSIGNIA_OPTIONS.map((ins) => {
                 const count = insigniaTally[ins.key] || 0;
@@ -459,13 +445,10 @@ export const CircleCreationPopup = () => {
 
           {/* ── SECTION VI: Relationship Matrix ── */}
           <Section title="VI. Circle Relationships">
-            <p className="font-serif text-base text-sepia mb-5 leading-relaxed">
-              Give each fellow investigator a relationship. One of you proposes, the other accepts or counters, until you both accept.
-            </p>
 
             {others.length === 0 ? (
               <p className="font-serif text-base text-sepia italic text-center py-5">
-                No one else is in the circle yet. Once the GM approves another investigator, they appear here.
+                No one else in the circle yet
               </p>
             ) : (
               <div className="space-y-4">
@@ -491,16 +474,15 @@ export const CircleCreationPopup = () => {
               Starting Resource Points
             </p>
             <p className="font-serif text-4xl font-bold text-ink">{resourcePoints}</p>
-            <p className="font-serif text-base text-sepia mt-2 leading-relaxed max-w-sm mx-auto">
-              1 + {memberCount} investigator{memberCount !== 1 ? 's' : ''}. Between assignments, each player may spend
-              up to two resources. Resources are not replenished until the Illumination Track fills.
+            <p className="font-mono tabular-nums text-sm text-sepia mt-2">
+              1 + {memberCount} investigator{memberCount !== 1 ? 's' : ''}
             </p>
           </div>
 
-          <div className="mt-5 text-center">
-            <p className="font-serif italic text-lg text-sepia">
-              When everyone is ready, the GM finalizes the circle and these papers close.
-            </p>
+          {/* The foot of the form: a box left blank for the Lightkeeper's seal */}
+          <div className="mt-6 flex items-end justify-between gap-4" aria-hidden="true">
+            <FormLine>Candela Obscura · Chapter registry</FormLine>
+            <RuledBox label="Lightkeeper's seal" lines={2} />
           </div>
         </div>
       </motion.div>
