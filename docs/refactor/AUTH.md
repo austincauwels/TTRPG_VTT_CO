@@ -4,15 +4,16 @@ Before this stage the server trusted whatever user id, character id or role the 
 
 ## Tokens
 
-- `POST /api/auth/login` and `POST /api/auth/register` return every field they returned before, plus `token`.
+- `POST /api/auth/login` and `POST /api/auth/register` return every field they returned before, plus `token`. The Google sign-in routes return the login shape with `token` too (see Sign in with Google below).
 - The token is a JWT signed with `SECRET_KEY`, algorithm HS256. Claims: `sub` (the user id as a string), `iat`, `exp` (30 days after `iat`). There is no refresh; after 30 days the user logs in again.
 - Decoding accepts HS256 only and requires `sub`, `iat` and `exp`. A token that is malformed, expired, signed with another key or algorithm, or whose user no longer exists counts as no token.
+- A token that carries a `purpose` claim is never a login token (Google link tokens have one).
 - Code: `vtt/security.py` (issue and decode), `vtt/auth.py` (the `get_current_user` dependency and the access helpers).
 - Changing `SECRET_KEY` logs everyone out. Anyone who knows it can mint a token for any user, so the server refuses to start when it is the `.env.example` placeholder (`your-secret-key-here`) or shorter than 32 characters (`vtt/config.py`). The test conftest stretches a shorter harness key with SHA-256.
 
 ## REST
 
-Every route except login and register takes `Authorization: Bearer <token>`. Without a valid token the answer is 401 `{"detail": "Not authenticated."}` with `WWW-Authenticate: Bearer`, before any other check.
+Every route except the sign-in routes (login, register, the three `/api/auth/google` routes and `GET /api/auth/config`) takes `Authorization: Bearer <token>`. Without a valid token the answer is 401 `{"detail": "Not authenticated."}` with `WWW-Authenticate: Bearer`, before any other check.
 
 After that, ids the client sends are checked against the caller:
 
@@ -111,6 +112,70 @@ Not changed: game rules that are not about who is acting (pending offers, `repor
 - A session persisted before this change has no token; on load it is cleared and the login screen is shown.
 - SceneManager sends the campaign's circle id instead of 1 (see gm_update_circle above).
 
+## Sign in with Google
+
+Players can sign in with their Google account alone. The login screen shows Google's standard "Sign in with Google" button; Google Identity Services gives the browser an ID token (the "credential"), which the browser posts to the server. Password login stays as a fallback that can be switched off.
+
+### Settings
+
+- `GOOGLE_CLIENT_ID` (backend) and `VITE_GOOGLE_CLIENT_ID` (frontend build): the public client ID of the Google OAuth web client. No client secret is used. When it is empty Google sign-in is off: the frontend loads nothing from Google and shows no button, and `POST /api/auth/google` answers 503 "Sign in with Google is not set up on this server."
+- `ALLOW_PASSWORD_LOGIN` (default true): when false, `POST /api/auth/login` and `POST /api/auth/register` answer 403 `{"detail": "Password sign-in is turned off. Please use Sign in with Google."}` (after body validation and the rate limit) and the login screen hides the password form. Login tokens already issued keep working. Accepted values are true, false, 1, 0, yes, no, on and off in any case; anything else stops the server, so a typo cannot leave password login on. With it off and no `GOOGLE_CLIENT_ID` nobody can log in, and startup logs a warning.
+- `GET /api/auth/config` is public and not rate limited: `{"google": <GOOGLE_CLIENT_ID is set>, "password_login": <ALLOW_PASSWORD_LOGIN>}`.
+- Code: `vtt/config.py` (settings), `vtt/google.py` (the token check), `vtt/security.py` (link tokens), `vtt/routers/auth.py` (routes).
+
+### Checking Google's token
+
+`verify_id_token` in `vtt/google.py` calls google-auth's `id_token.verify_oauth2_token` with audience `GOOGLE_CLIENT_ID`, which checks Google's signature, the expiry (10 seconds of clock skew allowed), the audience and the issuer (`accounts.google.com` or `https://accounts.google.com`). The wrapper then checks the audience and the issuer again itself and requires `email_verified` true, a subject and an email address. It refuses to run without a client ID, because google-auth skips the audience check when it gets none.
+
+- Google's certificates are kept in memory for the max-age in Google's Cache-Control header (5 minutes when there is none, at most a day). A failed download is not kept. A download times out after 10 seconds.
+- The check runs in a worker thread, so a slow download does not hold up the event loop and the game's WebSockets.
+- A token that is refused is 401 `{"detail": "Google could not confirm this sign-in. Please try again."}`; when Google cannot be reached the answer is 503 "Google could not be reached to check this sign-in. Please try again in a moment." The reason is logged, the token is not.
+
+### POST /api/auth/google `{credential}`
+
+Rate limited 10 per minute per IP, like login.
+
+1. A user whose `google_sub` is the token's subject is signed in. The answer is exactly what login answers for that user (GM or player shape), including `token`.
+2. Otherwise, if exactly one user without a `google_sub` has the Google email (compared ignoring case), the Google account is linked to that user (`google_sub` set) and they are signed in. This is how existing players move over: their first Google sign-in is the only step. Their username, email and password stay as they were. When two such users share the email, nobody is linked automatically.
+3. Otherwise the answer is `{"needs_account": true, "link_token": ..., "suggested_name": ..., "email": <the Google email>}` and nothing is written.
+
+`suggested_name` is the Google name cut down to the username rule of register (letters, digits, spaces, dots, dashes and underscores, 2 to 32 characters), else the local part of the email, else "Investigator". When it is taken, " 2" to " 9" (then 4 random hex digits) is added.
+
+### Link tokens
+
+A link token is a JWT signed with `SECRET_KEY` (HS256) with the claims `purpose` ("google_link"), `google_sub`, `email`, `name`, `iat` and `exp` (10 minutes after `iat`). It has no `sub`. `user_id_from_token` refuses any token with a `purpose`, and `identity_from_link_token` refuses any token whose `purpose` is not "google_link", so a login token never works as a link token and a link token never works as a login token (REST 401, WebSocket 4401). It is not stored anywhere. It stops being useful once its Google account is linked, because both routes below refuse a Google account that already has a user.
+
+A link token that is missing, malformed, expired, tampered with, signed with another key, of another purpose, or a login token, is 401 `{"detail": "This Google sign-in has expired. Please sign in with Google again."}`.
+
+### POST /api/auth/google/link `{link_token, username, password}`
+
+Rate limited 10 per minute per IP, because it checks a password. It works whether or not password login is on, so players whose Google email matches none of their accounts can still bring an account over.
+
+| Check, in order | Answer |
+|---|---|
+| bad link token | 401, as above |
+| the Google account is already linked to a user | 409 "This Google account is already linked to an account. Please sign in with Google again." |
+| unknown username or wrong password | 401 "Invalid credentials." (logged like a failed login) |
+| the account already has a `google_sub` | 409 "That account is already linked to a Google account." This comes after the password check, so only the account's owner learns it. |
+| otherwise | `google_sub` is set on the account and the answer is the login shape with `token` |
+
+### POST /api/auth/google/create `{link_token, username}`
+
+Rate limited 5 per minute per IP, like register. Status 201.
+
+| Check, in order | Answer |
+|---|---|
+| bad link token | 401, as above |
+| the Google account is already linked to a user | 409, as for link |
+| username breaks the register rule | 422 |
+| username taken (exact match, as in register) | 400 "That identification is already claimed." |
+| a user has the Google email, compared ignoring case (`users.email` is unique; this happens when two accounts share the email, which kept step 2 from linking) | 409 "An account with this email address already exists. Please use Link my existing account instead." |
+| otherwise | a new user with that username, the Google email, the `google_sub` and an unusable password (the bcrypt hash of a random value nobody is told); the answer is the login shape for a player with `token` |
+
+### Data
+
+`users.google_sub`: text, nullable, unique index `ix_users_google_sub` (several users may have none). `init_db` adds the column and the index to an older database. The admin seed reads only the user id, so it also works on a users table from before the column.
+
 ## Published passwords
 
 User 1 (`admin`) owns every character forged before tokens without a `user_id` (WEBSOCKET.md A4, A5), so a known admin password would hand all of them out. `init_db` seeds admin with a random password nobody is told. On every startup `retire_published_passwords` (`vtt/db.py`) also checks the accounts whose passwords are published in this repository: `admin` with password `admin`, and `elara_voss`, `rook_halcyon`, `sable_devereux`, `finn_ashcroft` and `keeper_test` with password `testpass` (`reset_seed.py`, `seed_test_players.py`). Any of them that still has that password gets a random one, and a warning names them in the log. Accounts with a password of their own are left alone. There is no reset flow, so whoever needs one of these accounts sets a new hash in the database.
@@ -133,6 +198,9 @@ User 1 (`admin`) owns every character forged before tokens without a `user_id` (
 - WebSocket: update_circle is GM only, so the non-GM "may lower but not raise resources" branch is gone, and a player's string resource no longer ends the socket.
 
 ## Known gaps
+
+- Sign in with Google links by email to the account that has that email, and register never checked that an email belongs to whoever registered it. Someone who registers a password account with another person's email before that person's first Google sign-in gets that person linked to an account whose password they know. Turning password login off ends that. The other way round is not possible: Google must have verified the email.
+- There is no password reset, so a player whose Google email matches none of their accounts and who has forgotten their password cannot claim their old account. Unlinking a Google account, or moving it to another user, is a database edit (`google_sub` set to NULL).
 
 - A token cannot be revoked before it expires, except by changing `SECRET_KEY` (which logs everyone out). Deleting a user does revoke it, because the user lookup fails.
 - An open WebSocket keeps working after its token expires; the token is only checked when the socket connects.

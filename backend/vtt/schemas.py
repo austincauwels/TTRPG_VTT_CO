@@ -20,6 +20,15 @@ class LoginRequest(BaseModel):
             raise ValueError("Username too long")
         return v
 
+def check_new_username(v):
+    """The rule for a username chosen at registration (and when creating an account
+    with Google): 2 to 32 letters, digits, spaces, dots, dashes or underscores."""
+    if len(v) < 2 or len(v) > 32:
+        raise ValueError("Username must be 2–32 characters")
+    if not _re.match(r"^[\w\-. ]+$", v):
+        raise ValueError("Username contains invalid characters")
+    return v
+
 class RegisterRequest(BaseModel):
     username: str
     email: str
@@ -28,11 +37,7 @@ class RegisterRequest(BaseModel):
     @field_validator("username")
     @classmethod
     def username_alphanum(cls, v):
-        if len(v) < 2 or len(v) > 32:
-            raise ValueError("Username must be 2–32 characters")
-        if not _re.match(r"^[\w\-. ]+$", v):
-            raise ValueError("Username contains invalid characters")
-        return v
+        return check_new_username(v)
 
     @field_validator("email")
     @classmethod
@@ -49,6 +54,53 @@ class RegisterRequest(BaseModel):
         if len(v) > 128:
             raise ValueError("Password too long")
         return v
+
+# Google ID tokens are about 1 KB and link tokens less; anything far longer is refused unread.
+_MAX_TOKEN_LENGTH = 8192
+
+def _check_token_length(v):
+    if len(v) > _MAX_TOKEN_LENGTH:
+        raise ValueError("Token too long")
+    return v
+
+class GoogleSignInRequest(BaseModel):
+    credential: str  # the ID token from Google Identity Services
+
+    @field_validator("credential")
+    @classmethod
+    def credential_length(cls, v):
+        return _check_token_length(v)
+
+class GoogleLinkRequest(BaseModel):
+    link_token: str
+    username: str
+    password: str
+
+    @field_validator("link_token")
+    @classmethod
+    def link_token_length(cls, v):
+        return _check_token_length(v)
+
+    @field_validator("username")
+    @classmethod
+    def username_length(cls, v):
+        if len(v) > 64:
+            raise ValueError("Username too long")
+        return v
+
+class GoogleCreateRequest(BaseModel):
+    link_token: str
+    username: str
+
+    @field_validator("link_token")
+    @classmethod
+    def link_token_length(cls, v):
+        return _check_token_length(v)
+
+    @field_validator("username")
+    @classmethod
+    def username_alphanum(cls, v):
+        return check_new_username(v)
 
 class CharacterBase(BaseModel):
     name: str

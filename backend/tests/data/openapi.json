@@ -820,6 +820,60 @@
         "title": "FinalizeRosterRequest",
         "type": "object"
       },
+      "GoogleCreateRequest": {
+        "properties": {
+          "link_token": {
+            "title": "Link Token",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_token",
+          "username"
+        ],
+        "title": "GoogleCreateRequest",
+        "type": "object"
+      },
+      "GoogleLinkRequest": {
+        "properties": {
+          "link_token": {
+            "title": "Link Token",
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_token",
+          "username",
+          "password"
+        ],
+        "title": "GoogleLinkRequest",
+        "type": "object"
+      },
+      "GoogleSignInRequest": {
+        "properties": {
+          "credential": {
+            "title": "Credential",
+            "type": "string"
+          }
+        },
+        "required": [
+          "credential"
+        ],
+        "title": "GoogleSignInRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1239,6 +1293,134 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/auth/config": {
+      "get": {
+        "description": "Which ways of signing in are on, for the login screen. Public.",
+        "operationId": "auth_config_api_auth_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auth Config"
+      }
+    },
+    "/api/auth/google": {
+      "post": {
+        "description": "Signs in the user linked to this Google account. A user with no Google account\nyet whose email is the Google email (ignoring case) is linked on the spot, if\nexactly one such user exists. Otherwise the answer is a link token for\n/api/auth/google/link or /api/auth/google/create.",
+        "operationId": "google_sign_in_api_auth_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleSignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Google Sign In"
+      }
+    },
+    "/api/auth/google/create": {
+      "post": {
+        "description": "Creates a user for the Google account in the link token, with the Google email\nand a password nobody knows, and signs them in.",
+        "operationId": "google_create_api_auth_google_create_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Google Create"
+      }
+    },
+    "/api/auth/google/link": {
+      "post": {
+        "description": "Links the Google account in the link token to an existing user, once, given\nthat user's username and password. Works whether or not password login is on,\nso players whose email differs can still bring their account over.",
+        "operationId": "google_link_api_auth_google_link_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Google Link"
+      }
+    },
     "/api/auth/login": {
       "post": {
         "operationId": "login_api_auth_login_post",

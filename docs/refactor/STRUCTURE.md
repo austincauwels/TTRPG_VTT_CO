@@ -19,8 +19,9 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 
 | Module | Contents | Old main.py lines |
 |---|---|---|
-| `vtt/config.py` | .env loading, logging (with the filter that hides `token=` query values), `SECRET_KEY` check, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES` (30 days), `SQLALCHEMY_DATABASE_URL`, `CORS_ORIGINS`, `_SAFE_FONT_NAMES`, `_ALLOWED_CAMPAIGN_CODE_RE` | 13 to 20, 48 to 53, 58, 248, 441 to 448 |
-| `vtt/security.py` | `pwd_context`, `limiter`, `create_access_token` and `user_id_from_token` (login tokens, see AUTH.md) | 28, 55, 56, 243 |
+| `vtt/config.py` | .env loading, logging (with the filter that hides `token=` query values), `SECRET_KEY` check, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES` (30 days), `LINK_TOKEN_EXPIRE_MINUTES`, `GOOGLE_CLIENT_ID`, `ALLOW_PASSWORD_LOGIN`, `SQLALCHEMY_DATABASE_URL`, `CORS_ORIGINS`, `_SAFE_FONT_NAMES`, `_ALLOWED_CAMPAIGN_CODE_RE` | 13 to 20, 48 to 53, 58, 248, 441 to 448 |
+| `vtt/security.py` | `pwd_context`, `limiter`, `create_access_token` and `user_id_from_token` (login tokens), `create_link_token` and `identity_from_link_token` (Google link tokens); see AUTH.md | 28, 55, 56, 243 |
+| `vtt/google.py` | `verify_id_token` (checks a Google ID token with google-auth) and `CachedCertsTransport` (keeps Google's certificates), see AUTH.md | new |
 | `vtt/auth.py` | `get_current_user` (the Bearer token dependency) and the REST access helpers (owner, GM, member checks) | new |
 | `vtt/db.py` | `db_engine`, `SessionLocal`, `get_db`, `init_db` | 58 to 240 |
 | `vtt/schemas.py` | all pydantic request and response models | 260 to 434, 564, 635, 694 to 715 |
@@ -29,7 +30,7 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 | `vtt/application.py` | `app`, limiter state and handler, CORS, router includes in the old route order | 244 to 255, 944 |
 | `vtt/routers/campaigns.py` | `/campaign/create` through `/campaign/{campaign_id}/roster` | 450 to 688 |
 | `vtt/routers/circles.py` | circle-creation-state, `/circle/vote`, `/circle/relationship/*`, `/campaign/finalize-roster` | 755 to 942 |
-| `vtt/routers/auth.py` | `/api/auth/login`, `/api/auth/register` | 950 to 1020 |
+| `vtt/routers/auth.py` | `/api/auth/login`, `/api/auth/register`; new: the Sign in with Google routes `/api/auth/google`, `/api/auth/google/link`, `/api/auth/google/create` and `GET /api/auth/config` | 950 to 1020 |
 | `vtt/routers/investigators.py` | `/api/investigators`, `/api/investigators/{id}`, `/api/investigators/forge` | 1022 to 1088 |
 | `vtt/routers/notebook.py` | the five `/api/notebook` routes | 1094 to 1245 |
 | `vtt/routers/users.py` | `/api/users/{user_id}/characters`, `/api/users/{user_id}/campaigns` | 1251 to 1280 |
