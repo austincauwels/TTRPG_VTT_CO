@@ -10,3 +10,20 @@ export const ACTION_LABEL = {
   sway: 'Sway', sneak: 'Read', hide: 'Hide',
   survey: 'Survey', read: 'Focus', sense: 'Sense',
 };
+
+// The note a scar adds to its description: which action went down and which went up.
+export const scarShiftNote = (down, up) =>
+  (down && up ? `(-1 ${ACTION_LABEL[down]}, +1 ${ACTION_LABEL[up]})` : '(Hardened: no action shift)');
+
+// Scars recorded before 2026-10-04 end in "[SCAR SHIFT: -1 SNEAK / +1 READ]", written with
+// the internal action keys. Show those in the rulebook's names; the stored text is unchanged.
+export const scarDisplayText = (text) => {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/\[SCAR SHIFT: -1 (\w+) \/ \+1 (\w+)\]/, (m, down, up) => {
+      const d = down.toLowerCase();
+      const u = up.toLowerCase();
+      return ACTION_LABEL[d] && ACTION_LABEL[u] ? scarShiftNote(d, u) : m;
+    })
+    .replace('[HARDENED — no action shift]', scarShiftNote(null, null));
+};

@@ -19,14 +19,14 @@ export const ActiveRegisterTome = ({ characters, gmCampaigns, onOpen }) => (
       <div className="w-12 h-[1px] bg-gold-leaf/30 my-2 sm:my-4 shadow-[0_1px_0_rgba(255,255,255,0.1)]" />
       <>
         <p className="hidden sm:block font-serif text-parchment-deep/75 text-lg lg:text-2xl italic max-w-[80%] leading-snug drop-shadow-md">
-          List of your current investigators and campaigns.
+          Your investigators and campaigns. Open to play or join.
         </p>
         <div className="w-full text-left space-y-1 sm:space-y-2 mt-1 sm:mt-3">
           {characters.filter(c => c.status === 'active').length > 0 && (
             <div className="flex items-center gap-1.5 sm:gap-2 pl-1">
               <span className="text-seal-green-lit text-sm sm:text-lg">●</span>
               <span className="font-serif text-sm sm:text-xl italic leading-snug text-cream/80">
-                {characters.filter(c => c.status === 'active').length} Profile{characters.filter(c => c.status === 'active').length !== 1 ? 's' : ''} Recorded
+                {characters.filter(c => c.status === 'active').length} in play
               </span>
             </div>
           )}
@@ -34,7 +34,7 @@ export const ActiveRegisterTome = ({ characters, gmCampaigns, onOpen }) => (
             <div className="flex items-center gap-1.5 sm:gap-2 pl-1">
               <span className="text-gold-leaf/80 text-sm sm:text-lg">◌</span>
               <span className="font-serif text-sm sm:text-xl italic leading-snug text-gold-leaf/90">
-                {characters.filter(c => c.status === 'pending').length} Awaiting Approval
+                {characters.filter(c => c.status === 'pending').length} waiting for approval
               </span>
             </div>
           )}
@@ -42,13 +42,13 @@ export const ActiveRegisterTome = ({ characters, gmCampaigns, onOpen }) => (
             <div className="flex items-center gap-1.5 sm:gap-2 pl-1">
               <span className="text-gold-leaf text-sm sm:text-lg">▶</span>
               <span className="font-serif text-sm sm:text-xl italic leading-snug text-gold-leaf">
-                {gmCampaigns.length} Investigation{gmCampaigns.length !== 1 ? 's' : ''} Recorded
+                {gmCampaigns.length} campaign{gmCampaigns.length !== 1 ? 's' : ''} you run
               </span>
             </div>
           )}
           {characters.length === 0 && gmCampaigns.length === 0 && (
             <span className="font-display text-xs sm:text-base tracking-[0.15em] uppercase text-gold-leaf/75">
-              ○ No Records
+              Nothing yet
             </span>
           )}
         </div>

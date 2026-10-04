@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import useGameStore from '../store/gameStore';
-import { createCampaign } from '../api/campaigns';
+import { campaignErrorText } from '../utils/campaignErrors';
 
 import { useCampaignEntry } from './campaignSelector/useCampaignEntry';
 import { useAutoLastPlayed } from './campaignSelector/useAutoLastPlayed';
@@ -38,12 +38,9 @@ export const CampaignSelector = () => {
   // Per-character inline join form state  { [charId]: { code, pen, error, loading } }
   const [joinForms, setJoinForms] = useState({});
 
-  // Campaign creation state (right page of book)
-  const [newCampName, setNewCampName] = useState('');
-  const [newCampCode, setNewCampCode] = useState('');
-  const [createError, setCreateError] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+  // The new-campaign form on the Lightkeeper Ledger page, and which page the book opens at
   const [showRegisterForm, setShowRegisterForm] = useState(false);
+  const [bookStartPage, setBookStartPage] = useState(null);
 
   // Fetch user data on mount so book covers show accurate counts without needing to open the book
   useEffect(() => {
@@ -59,28 +56,22 @@ export const CampaignSelector = () => {
     setStage('LOGIN');
   };
 
-  const handleCreateCampaign = async (e) => {
-    e.preventDefault();
-    if (!newCampName.trim() || !newCampCode.trim()) return;
-    setIsCreating(true);
-    setCreateError('');
-    try {
-      const res = await createCampaign(newCampName.trim(), newCampCode.trim(), accessSession?.userId);
-      if (res.ok) {
-        const camp = await res.json();
-        setNewCampName('');
-        setNewCampCode('');
-        await fetchUserData(accessSession?.userId);
-        enterAsGM({ campaign_code: camp.campaign_code, name: camp.name, id: camp.id });
-      } else {
-        const err = await res.json().catch(() => ({}));
-        setCreateError(err.detail || 'Failed to create campaign.');
-      }
-    } catch (err) {
-      setCreateError('Network error — try again.');
-    } finally {
-      setIsCreating(false);
-    }
+  // The tome opens the book at the page for the user's role; the GM pamphlet opens it at
+  // the Lightkeeper Ledger with the new-campaign form showing.
+  const openRoster = () => {
+    setBookStartPage(null);
+    handleOpenRoster();
+  };
+  const openNewCampaign = () => {
+    setBookStartPage('ledger');
+    setShowRegisterForm(true);
+    handleOpenRoster();
+  };
+
+  const handleCampaignCreated = async (camp) => {
+    setShowRegisterForm(false);
+    await fetchUserData(accessSession?.userId);
+    enterAsGM({ campaign_code: camp.campaign_code, name: camp.name, id: camp.id });
   };
 
   const handleJoinForChar = async (charId) => {
@@ -92,7 +83,8 @@ export const CampaignSelector = () => {
       await fetchUserData(accessSession?.userId);
       setJoinForms(f => ({ ...f, [charId]: { expanded: false, code: '', pen: 'Caveat', loading: false, error: '' } }));
     } else {
-      setJoinForms(f => ({ ...f, [charId]: { ...f[charId], loading: false, error: result.detail || 'Invalid code.' } }));
+      const error = campaignErrorText(result.detail, 'Could not send the request to join. Try again in a moment.');
+      setJoinForms(f => ({ ...f, [charId]: { ...f[charId], loading: false, error } }));
     }
   };
 
@@ -113,7 +105,7 @@ export const CampaignSelector = () => {
         {/* LEFT AREA: MASSIVE LEATHER TOMES */}
         <div className="grid grid-cols-2 items-start gap-6 sm:gap-10 w-full max-w-[680px] pr-3 sm:pr-4 lg:pr-0 lg:max-w-none lg:flex lg:gap-6 lg:items-center lg:justify-center lg:w-[50%] lg:ml-4 z-30">
           
-          <ActiveRegisterTome characters={characters} gmCampaigns={gmCampaigns} onOpen={handleOpenRoster} />
+          <ActiveRegisterTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
 
           {/* TOME II: LAST SESSION */}
           <LastSessionTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} />
@@ -133,7 +125,7 @@ export const CampaignSelector = () => {
             <NewInvestigatorPamphlet onOpen={() => setStage('CHARACTER_CREATION')} />
 
             {/* PAMPHLET II: GM OPERATIONS, flips to entry form */}
-            <GMAccessPamphlet accessSession={accessSession} fetchUserData={fetchUserData} enterAsGM={enterAsGM} />
+            <GMAccessPamphlet onOpen={openNewCampaign} />
           </div>
 
           <HalcyonHeraldStrip />
@@ -147,7 +139,7 @@ export const CampaignSelector = () => {
       {/* BOOK OVERLAY */}
       {showBook && (
         <RosterBook
-          defaultPage={accessSession?.role === 'GM' ? 'ledger' : 'registry'}
+          defaultPage={bookStartPage || (accessSession?.role === 'GM' ? 'ledger' : 'registry')}
           isClosingBook={isClosingBook}
           closeBook={closeBook}
           registryProps={{
@@ -156,7 +148,7 @@ export const CampaignSelector = () => {
           }}
           ledgerProps={{
             gmCampaigns, enterAsGM, isLoadingBook, showRegisterForm, setShowRegisterForm,
-            handleCreateCampaign, createError, newCampName, setNewCampName, newCampCode, setNewCampCode, isCreating,
+            userId: accessSession?.userId, onCampaignCreated: handleCampaignCreated,
           }}
         />
       )}

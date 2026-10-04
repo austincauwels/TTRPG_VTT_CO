@@ -58,7 +58,7 @@ export const RosterBook = ({ isClosingBook, closeBook, defaultPage = 'registry',
             className="ml-auto mb-1.5 shrink-0 font-sans font-bold text-xs tracking-widest uppercase text-parchment-deep hover:text-cream transition-colors px-2.5 min-h-[36px] whitespace-nowrap rounded"
             style={{ border: '1px solid rgb(var(--c-parchment-deep) / 0.35)' }}
           >
-            ✕ Close
+            Close book
           </button>
         </div>
 

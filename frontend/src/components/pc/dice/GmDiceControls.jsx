@@ -8,7 +8,8 @@ export const GmDiceControls = ({ rollAction }) => {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-2 bg-gm-slate/50 px-4 py-2.5 border border-gm-slate shadow-inner rounded-sm">
       <SafeIcon name="GiRollingDices" size={26} className="text-moonlight-steel shrink-0" />
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" role="group" aria-label="Number of dice">
+        <span className="font-sans text-xs uppercase tracking-widest text-moonlight-steel font-bold">Dice</span>
         <button
           onClick={() => setGmDiceCount(Math.max(1, gmDiceCount - 1))}
           aria-label="One die fewer"
@@ -21,7 +22,7 @@ export const GmDiceControls = ({ rollAction }) => {
           className="w-8 h-8 bg-gm-night border border-moonlight-steel/50 rounded-sm text-sm font-bold text-cream hover:bg-gm-slate transition-colors"
         >+</button>
       </div>
-      <label className="flex items-center gap-1.5 cursor-pointer ml-auto select-none" title="Secret roll — dice visible to Lightkeeper only, not logged">
+      <label className="flex items-center gap-1.5 cursor-pointer ml-auto select-none">
         <input
           type="checkbox"
           checked={gmSecretRoll}
@@ -34,7 +35,12 @@ export const GmDiceControls = ({ rollAction }) => {
       <button
         onClick={() => rollAction('Lightkeeper', gmDiceCount, gmSecretRoll)}
         className="px-5 py-2 bg-oxblood text-cream border border-ink hover:brightness-125 font-sans text-sm font-black uppercase tracking-widest transition rounded"
-      >Cast</button>
+      >Roll {gmDiceCount} {gmDiceCount === 1 ? 'die' : 'dice'}</button>
+      <p className="basis-full font-serif text-sm text-moonlight-steel leading-snug">
+        {gmSecretRoll
+          ? 'Secret roll: only you see the dice, and nothing goes in the log.'
+          : 'Everyone sees the result in the activity log. Tick Secret to roll in private.'}
+      </p>
     </div>
   );
 };

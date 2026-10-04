@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
+import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -34,130 +35,8 @@ const INSIGNIA_OPTIONS = [
   { key: 'GiCandleLight',  label: 'Candlelight' },
 ];
 
-export const RELATIONSHIP_DATA = {
-  Antagonist: [
-    "This person does something that makes your life more difficult. What do they do, and why do you think they treat you this way?",
-    "What do you admire about this person, but would never say?",
-    "You stand in the way of something this person wants. How has this changed their behavior toward you?",
-    "Despite the antagonism, your relationship with this person is the most constant of any connection in your life. What do they do that feels reliable?",
-    "Despite the nature of your relationship, you once did something very kind for this person. What happened, and do they know?",
-    "This person knows your weakness and how to manipulate it. What is it, and how does this change your behavior?",
-  ],
-  Champion: [
-    "This person protects you from something. What is the threat, and how do they help?",
-    "This person once spoke out on your behalf at great personal risk. What was the situation, and how did it affect you?",
-    "This person has told you that you are in danger. What are they protecting you from?",
-    "This person does something to help you in your everyday life. What is it, and how do you thank them?",
-    "You once did something very cruel to this person. Why do you believe they continue to protect you anyway?",
-    "This person makes you a better person. In what way are you different when they are with you?",
-  ],
-  Confidant: [
-    "This person keeps your dark secret. What is it?",
-    "You are very cautious around everyone but this person. Why?",
-    "What does this person do that lets you know you can trust them?",
-    "You two are planning something in the future. What is it, and why does it make you nervous?",
-    "To the outside eye, you two have a very different relationship. How do people assume you're connected?",
-    "You two once got away with something illicit. What was it, and how did it change your lives?",
-  ],
-  Coworker: [
-    "You've employed this person for years. Why did you hire them?",
-    "You both hate your outside job and find Candela Obscura a welcome distraction. What about your day job would you change?",
-    "You both stole money from your employer. How did you do it, and why?",
-    "Through the work you do together, you've discovered something wonderful about this person few people ever see. What is it, and do they know how you feel?",
-    "You had a new job opportunity, but didn't want to leave this person behind. What was the other job, and why did you stay?",
-    "You owe this person more loyalty than others would expect. What did they do for you?",
-  ],
-  Enemy: [
-    "You disagree on a fundamental belief. What is it?",
-    "Despite being enemies, you and this person share a secret. What is it, and how does it bring you together?",
-    "This person harmed someone you love. What did they do, and what retribution do you seek?",
-    "You were once allies. What tore you apart?",
-    "You two share a common enemy. Who is it, and why have you both reluctantly teamed up against them?",
-    "You're in love with your enemy. What caused these feelings to develop, and why do you keep it a secret?",
-  ],
-  Family: [
-    "You're related by blood, but don't like each other. Why?",
-    "This person has always been your closest family member. What do you rely on them for?",
-    "This person has chosen you to carry on a family legacy. What is it, and do you believe you are worthy?",
-    "You identify with your chosen family rather than your blood. What does this person do that affirms that belief?",
-    "Your other family doesn't trust this person. Why is this, and do you agree?",
-    "This person was a large part of your upbringing. What was their role in your life, and how did it make you into the person you are today?",
-  ],
-  Lover: [
-    "You two met in an unexpected way. Where were you, and what happened?",
-    "What personal difficulty have you two recently navigated together?",
-    "You love this person but they don't love you back. How has this affected your relationship?",
-    "You keep your love a secret. Why?",
-    "You once did something terrible to protect this person. What did you do, and do they know?",
-    "Your family doesn't approve of your relationship with this person. Why?",
-  ],
-  Mentor: [
-    "You admire this person above all others. What makes you feel this way?",
-    "This person once taught you a valuable lesson. How did they do it, and why?",
-    "This person brought you into Candela Obscura. How did they convince you to join?",
-    "You resent your membership in Candela Obscura. What does this person hold over you to keep you coming back?",
-    "This person once saved your life. What happened?",
-    "What lie did this person teach you about the world? Do they know you've uncovered the truth?",
-  ],
-  Muse: [
-    "What about this person drives you to pursue your dream?",
-    "This person lights up every room they walk into. What do they do that draws the attention of others?",
-    "You would do anything for this person. What history do you share that makes you so devoted?",
-    "This person has inspired you to change something specific about your life. What was it?",
-    "Something about this person fascinates you. What is it, and have you told them?",
-    "This person fuels an obsession of yours that you find dangerous. What is it, and why do you still keep them in your life?",
-  ],
-  'Old Friend': [
-    "Growing up together, what did you two always get in trouble for?",
-    "You've seen this person change over the years. How are they different from the person they once were?",
-    "You once had a terrible fight with this person. What from that fight still weighs on you today?",
-    "There once was a third person in your friendship. What happened to them?",
-    "You come from the same home or background. What drove you both away from that shared history?",
-    "There was a long period during which you two did not speak. What happened, and why are you interacting again?",
-  ],
-  Rival: [
-    "You've been in competition for years now. What drives you to best one another?",
-    "There is something you secretly admire about your rival. What is it, and why will you never tell them?",
-    "You both share an ally that seems in conflict with your rivalry. Who is it, and why are you tied to them?",
-    "Your rival is much better at a particular skill than you are. What is it, and how does this change your behavior?",
-    "If your rivalry ended, you would still want this person in your life. Why is that, and what do you do to stay tied to them?",
-    "You once grievously harmed each other. What harm did you inflict, and how did it change your relationship?",
-  ],
-  Sibling: [
-    "You're so close that you're practically of one mind. Still, what do you hide from them?",
-    "You two couldn't be more different. What's one thing you never agree on?",
-    "You two have another sibling. Why are you estranged from them?",
-    "You two share a number of secrets, but you protect one above all others. What are you hiding?",
-    "This person once asked you to do something against your morals. What was it, and did you fulfill their request?",
-    "You call yourselves siblings, but you're not related by blood. What is the true nature of your relationship, and why do you lie?",
-  ],
-  Soulmate: [
-    "What do you see in this person that they don't see in themselves?",
-    "What characteristic of this person do you find endearing, but others find odd?",
-    "Because of your closeness with this person, you've lost someone else you love. How has this affected your relationship?",
-    "You believe this person is your soulmate but they don't know. What keeps you from being open with them?",
-    "You and this person belong together, but something in your lives drives you apart. What is the cause of this opposition?",
-    "Time with this person feels like coming home. What about them makes you feel this way?",
-  ],
-  Stranger: [
-    "You have no history, but feel you can trust this person. Why?",
-    "A characteristic about this person seems so familiar. Who from your past do they remind you of?",
-    "What about this person feels magnetic to you?",
-    "Though you've never met, you share something with this person. What is the connection, and how do you feel about it?",
-    "You have a secret this person must not learn. What is it, and what do you do to protect it?",
-    "This person has something you want. What is it, and how do you plan to acquire it?",
-  ],
-  Ward: [
-    "Why did you decide to financially support this person?",
-    "You fundamentally disagree about something important. What is it, and why do you care for them anyway?",
-    "You feel the need to protect this person. What is the threat, and what actions do you take to ensure their safety?",
-    "You once had a different ward. What happened to them, and what does this person do that reminds you of them?",
-    "You can no longer support this person in the way you once did. What changed, and how have you reacted?",
-    "For all you provide, this person does something particularly wonderful for you. What is it, and how has it affected your life?",
-  ],
-};
-
-export const RELATIONSHIP_TYPES = Object.keys(RELATIONSHIP_DATA);
+// The relationship tables now live in game/relationships.js; these names stay importable here.
+export { RELATIONSHIP_DATA, RELATIONSHIP_TYPES } from '../../game/relationships';
 
 const EXAMPLE_LOCATIONS = [
   { name: 'The Empty Office', description: 'On the fourth floor of a medical building in Silverslip is an office that belongs to a Doctor Lygon, though no such person is known to work there.' },
@@ -260,33 +139,8 @@ export const CircleCreationPopup = () => {
   const myInsigniaVote = insigniaVotes.find(v => v.character_id === myId)?.value || null;
   const leadingInsignia = leadingValue(insigniaTally);
 
-  // ── Relationship local state (per-target) ──
-  const [relDrafts, setRelDrafts] = useState({});       // { toId: { relType, lore } }
-  const [counterDrafts, setCounterDrafts] = useState({});
-  const [showCounter, setShowCounter] = useState({});
-  const [selectedPrompt, setSelectedPrompt] = useState({}); // { toId: questionIndex }
-
-  const setRelDraft = useCallback((toId, field, value) => {
-    setRelDrafts(d => ({ ...d, [toId]: { ...d[toId], [field]: value } }));
-  }, []);
-
-  const setCounterDraft = useCallback((relId, field, value) => {
-    setCounterDrafts(d => ({ ...d, [relId]: { ...d[relId], [field]: value } }));
-  }, []);
-
-  const selectPrompt = useCallback((toId, idx, question) => {
-    setSelectedPrompt(s => ({ ...s, [toId]: idx }));
-    setRelDrafts(d => ({ ...d, [toId]: { ...d[toId], lore: question } }));
-  }, []);
-
-  // Returns the relationship row from ME to THEM (any direction)
-  const relFromMeTo = (toId) => relationships.find(
-    r => r.from_character_id === myId && r.to_character_id === toId
-  );
-  // Returns the relationship row from THEM to ME
-  const relFromThemToMe = (fromId) => relationships.find(
-    r => r.from_character_id === fromId && r.to_character_id === myId
-  );
+  // Relationship drafts (the shared form keeps them here so they survive a collapsed section)
+  const relForms = useRelationshipForms();
 
   const others = activeInvestigators.filter(inv => inv.id !== myId);
 
@@ -313,124 +167,6 @@ export const CircleCreationPopup = () => {
     updatePersonalAnswer(circleId, myId, personalAnswer);
   };
 
-  const handlePropose = (toId) => {
-    const draft = relDrafts[toId] || {};
-    if (!draft.relType) return;
-    proposeRelationship(circleId, myId, toId, draft.relType, draft.lore || '');
-  };
-
-  const handleAccept = (relId) => respondToRelationship(relId, 'accept');
-
-  const handleCounterSubmit = (relId) => {
-    const draft = counterDrafts[relId] || {};
-    if (!draft.relType) return;
-    respondToRelationship(relId, 'counter', draft.relType, draft.lore || '');
-    setShowCounter(s => ({ ...s, [relId]: false }));
-    setCounterDrafts(d => { const n = { ...d }; delete n[relId]; return n; });
-  };
-
-  // ─── Relationship row renderer ───────────────────────────────────────────────
-
-  const renderRelRow = (rel, label, theirName) => {
-    if (!rel) return null;
-    const canIRespond = rel.status !== 'accepted' && rel.last_actor_id !== myId;
-    const isAwaiting = rel.status !== 'accepted' && rel.last_actor_id === myId;
-
-    if (rel.status === 'accepted') {
-      return (
-        <div className="flex items-center gap-3 p-3 bg-seal-green/10 border border-seal-green-lit rounded-sm">
-          <span className="text-seal-green text-xl">✓</span>
-          <span className="font-serif text-lg text-ink">
-            <strong>{rel.rel_type}</strong>{rel.lore ? ` — ${rel.lore}` : ''}
-          </span>
-          <span className="font-serif italic text-sm text-seal-green ml-auto">Confirmed</span>
-        </div>
-      );
-    }
-
-    if (isAwaiting) {
-      return (
-        <div className="flex items-center gap-3 p-3 bg-cream border border-parchment-deep rounded-sm">
-          <span className="font-serif text-lg text-sepia">
-            <strong>{rel.rel_type}</strong>{rel.lore ? ` — ${rel.lore}` : ''}
-          </span>
-          <span className="font-serif italic text-sm text-sepia ml-auto">Awaiting {theirName}…</span>
-        </div>
-      );
-    }
-
-    if (canIRespond) {
-      return (
-        <div className="p-3 bg-parchment border border-sepia/40 rounded-sm space-y-3">
-          <p className="font-serif text-lg text-ink">
-            <strong>{rel.rel_type}</strong>{rel.lore ? ` — ${rel.lore}` : ''}
-          </p>
-          <p className="font-serif italic text-sm text-sepia">{theirName} proposes this. Accept or counter?</p>
-          <div className="flex gap-2 flex-wrap">
-            <button onClick={() => handleAccept(rel.id)} className="btn-gold text-sm">Accept</button>
-            <button
-              onClick={() => setShowCounter(s => ({ ...s, [rel.id]: !s[rel.id] }))}
-              className="font-sans font-black text-sm uppercase tracking-[0.1em] px-3 py-1.5 border border-sepia/60 text-sepia hover:border-ink rounded-sm"
-            >
-              Counter
-            </button>
-          </div>
-          <AnimatePresence>
-            {showCounter[rel.id] && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden space-y-2 pt-1"
-              >
-                <select
-                  value={counterDrafts[rel.id]?.relType || ''}
-                  onChange={e => {
-                    setCounterDraft(rel.id, 'relType', e.target.value);
-                    setCounterDraft(rel.id, 'lore', '');
-                  }}
-                  className="w-full border border-sepia/40 bg-cream/80 px-3 py-2 font-serif text-lg text-ink focus:outline-none rounded-sm"
-                >
-                  <option value="">— They are your… —</option>
-                  {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-                {counterDrafts[rel.id]?.relType && RELATIONSHIP_DATA[counterDrafts[rel.id].relType] && (
-                  <div className="space-y-1">
-                    <p className="font-serif italic text-sm text-sepia">Choose a question prompt:</p>
-                    {RELATIONSHIP_DATA[counterDrafts[rel.id].relType].map((q, qi) => (
-                      <button
-                        key={qi}
-                        type="button"
-                        onClick={() => setCounterDraft(rel.id, 'lore', q)}
-                        className={`w-full text-left text-base font-serif px-2.5 py-1.5 border rounded-sm transition-all leading-snug ${
-                          counterDrafts[rel.id]?.lore === q
-                            ? 'border-sepia bg-cream text-ink'
-                            : 'border-parchment-deep bg-cream/50 text-sepia hover:border-sepia/40'
-                        }`}
-                      >
-                        <span className="font-serif italic text-sm text-sepia mr-1">{qi + 1}.</span> {q}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <textarea
-                  value={counterDrafts[rel.id]?.lore || ''}
-                  onChange={e => setCounterDraft(rel.id, 'lore', e.target.value)}
-                  placeholder="Your answer or description…"
-                  rows={2}
-                  className="w-full border border-sepia/40 bg-cream/70 px-3 py-2 font-serif text-lg text-ink resize-none focus:outline-none rounded-sm"
-                />
-                <button onClick={() => handleCounterSubmit(rel.id)} className="btn-gold text-sm">Send Counter</button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      );
-    }
-
-    return null;
-  };
-
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -447,14 +183,11 @@ export const CircleCreationPopup = () => {
         <div className="relative z-10 p-7 pt-9">
           {/* Header */}
           <div className="border-b-2 border-ink pb-5 mb-6 text-center">
-            <div className="font-serif italic text-base text-sepia mb-1">
-              Candela Obscura — Official Registry Document
-            </div>
             <h2 className="text-3xl font-black uppercase tracking-wider text-ink">
               Circle Formation Papers
             </h2>
             <div className="font-serif italic text-sm text-sepia mt-1">
-              Complete collaboratively before your first assignment
+              Fill these in together before your first assignment. The GM finalizes them.
             </div>
           </div>
 
@@ -515,7 +248,7 @@ export const CircleCreationPopup = () => {
                   style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
                 />
                 <p className="font-serif italic text-sm text-sepia mt-1">
-                  Your answer will appear on your Circle Progress Report. All answers are visible to the Lightkeeper.
+                  Your answer appears on the Circle tab. The GM can read every answer.
                 </p>
               </div>
             )}
@@ -593,7 +326,7 @@ export const CircleCreationPopup = () => {
               </div>
             ) : (
               <p className="font-serif text-base text-sepia italic text-center py-4">
-                No names suggested yet. Be the first.
+                No names yet. Suggest one above.
               </p>
             )}
           </Section>
@@ -649,7 +382,7 @@ export const CircleCreationPopup = () => {
           {/* ── SECTION IV: Circle Ability ── */}
           <Section title="IV. Circle Ability">
             <p className="font-serif text-base text-sepia mb-4">
-              Vote on one starting group ability. The leading choice is recorded at Roster Finalization.
+              Vote on one starting circle ability. The choice with the most votes is recorded when the GM finalizes the circle.
             </p>
             <div className="space-y-3">
               {CIRCLE_ABILITIES.map((ability) => {
@@ -686,9 +419,9 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── SECTION V: System Insignia ── */}
-          <Section title="V. System Insignia">
+          <Section title="V. Insignia">
             <p className="font-serif text-base text-sepia mb-4">
-              Vote on the symbol that represents your circle. The leading insignia becomes your official seal.
+              Vote on the symbol for your circle. The one with the most votes becomes its insignia.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {INSIGNIA_OPTIONS.map((ins) => {
@@ -720,114 +453,28 @@ export const CircleCreationPopup = () => {
           {/* ── SECTION VI: Relationship Matrix ── */}
           <Section title="VI. Circle Relationships">
             <p className="font-serif text-base text-sepia mb-5 leading-relaxed">
-              Define your relationships with each fellow investigator. Propose, negotiate, and confirm before your first assignment. Both parties negotiate until they accept.
+              Give each fellow investigator a relationship. One of you proposes, the other accepts or counters, until you both accept.
             </p>
 
             {others.length === 0 ? (
               <p className="font-serif text-base text-sepia italic text-center py-5">
-                Awaiting additional investigators to be approved…
+                No one else is in the circle yet. Once the GM approves another investigator, they appear here.
               </p>
             ) : (
-              <AnimatePresence>
-                {others.map((inv) => {
-                  const myProposal = relFromMeTo(inv.id);
-                  const incoming = relFromThemToMe(inv.id);
-                  const draft = relDrafts[inv.id] || {};
-
-                  return (
-                    <motion.div
-                      key={inv.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="border border-parchment-deep rounded-sm p-4 mb-4 bg-cream/40"
-                    >
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: inv.ink_color || 'rgb(var(--c-oxblood))' }} />
-                        <span className="font-serif font-bold text-xl text-ink">{inv.name}</span>
-                        <span className="font-serif text-base text-sepia">{inv.role || inv.specialty || ''}</span>
-                      </div>
-
-                      {/* My outgoing proposal */}
-                      <div className="mb-4">
-                        <p className="font-sans font-bold text-base uppercase tracking-[0.12em] text-sepia mb-2">
-                          Your relationship to {inv.name}
-                        </p>
-                        {myProposal ? (
-                          renderRelRow(myProposal, `Your proposal to ${inv.name}`, inv.name)
-                        ) : (
-                          <div className="space-y-3">
-                            <select
-                              value={draft.relType || ''}
-                              onChange={e => {
-                                setRelDraft(inv.id, 'relType', e.target.value);
-                                setSelectedPrompt(s => ({ ...s, [inv.id]: null }));
-                                setRelDrafts(d => ({ ...d, [inv.id]: { ...d[inv.id], relType: e.target.value, lore: '' } }));
-                              }}
-                              className="w-full border border-sepia/40 bg-cream/80 px-3 py-2 font-serif text-lg text-ink focus:outline-none focus:border-sepia rounded-sm"
-                            >
-                              <option value="">— They are your… —</option>
-                              {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
-
-                            {draft.relType && RELATIONSHIP_DATA[draft.relType] && (
-                              <div className="space-y-1.5">
-                                <p className="font-serif italic text-sm text-sepia">Choose a question to ground your answer:</p>
-                                {RELATIONSHIP_DATA[draft.relType].map((q, qi) => (
-                                  <button
-                                    key={qi}
-                                    type="button"
-                                    onClick={() => selectPrompt(inv.id, qi, q)}
-                                    className={`w-full text-left text-base font-serif px-3 py-2 border rounded-sm transition-all leading-snug ${
-                                      selectedPrompt[inv.id] === qi
-                                        ? 'border-sepia bg-cream text-ink'
-                                        : 'border-parchment-deep bg-cream/50 text-sepia hover:border-sepia/40 hover:text-ink'
-                                    }`}
-                                  >
-                                    <span className="font-serif italic text-sm text-sepia mr-1">{qi + 1}.</span> {q}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-
-                            <div>
-                              <label className="font-sans font-bold text-sm text-sepia uppercase tracking-[0.1em] block mb-1.5">
-                                {selectedPrompt[inv.id] != null ? 'Your answer:' : 'Or write freely:'}
-                              </label>
-                              <textarea
-                                value={draft.lore || ''}
-                                onChange={e => setRelDraft(inv.id, 'lore', e.target.value)}
-                                placeholder={draft.relType ? "Write your answer to the selected question, or describe the relationship freely…" : "Select a relationship type above first…"}
-                                rows={3}
-                                disabled={!draft.relType}
-                                className="w-full border border-sepia/40 bg-cream/70 px-3 py-2 font-serif text-lg text-ink resize-none focus:outline-none focus:border-sepia rounded-sm disabled:opacity-40"
-                              />
-                            </div>
-
-                            <button
-                              onClick={() => handlePropose(inv.id)}
-                              disabled={!draft.relType}
-                              className="btn-gold disabled:opacity-40"
-                            >
-                              Propose Relationship
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Incoming proposal from this investigator */}
-                      {incoming && (
-                        <div className="mt-3 pt-3 border-t border-parchment-deep">
-                          <p className="font-sans font-bold text-base uppercase tracking-[0.12em] text-sepia mb-2">
-                            {inv.name}'s relationship to you
-                          </p>
-                          {renderRelRow(incoming, `${inv.name}'s proposal to you`, inv.name)}
-                        </div>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
+              <div className="space-y-4">
+                {others.map((inv) => (
+                  <RelationshipNegotiation
+                    key={inv.id}
+                    inv={inv}
+                    myId={myId}
+                    relationships={relationships}
+                    circleId={circleId}
+                    forms={relForms}
+                    proposeRelationship={proposeRelationship}
+                    respondToRelationship={respondToRelationship}
+                  />
+                ))}
+              </div>
             )}
           </Section>
 
@@ -845,7 +492,7 @@ export const CircleCreationPopup = () => {
 
           <div className="mt-5 text-center">
             <p className="font-serif italic text-lg text-sepia">
-              Awaiting Lightkeeper to finalize roster…
+              When everyone is ready, the GM finalizes the circle and these papers close.
             </p>
           </div>
         </div>

@@ -10,7 +10,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
       className="w-full flex items-center justify-between px-3 py-2.5 bg-gm-slate/60 border border-gm-slate text-left hover:bg-gm-slate transition-colors"
     >
       <span className="font-sans font-bold text-xs uppercase tracking-widest text-moonlight-steel">
-        Circle Formation Status
+        Circle formation so far
       </span>
       <span className="font-sans text-moonlight-steel text-xs">{showCircleStatus ? '▲' : '▼'}</span>
     </button>
@@ -35,7 +35,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
                 <div className="flex justify-between items-center">
                   <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Circle Name</span>
                   <span className="font-serif text-sm text-cream text-right">
-                    {leader ? `"${leader[0]}" (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : suggestCount > 0 ? `${suggestCount} suggest${suggestCount > 1 ? 'ions' : 'ion'}, no votes` : 'No suggestions yet'}
+                    {leader ? `"${leader[0]}" (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : suggestCount > 0 ? `${suggestCount} suggestion${suggestCount > 1 ? 's' : ''}, no votes yet` : 'No names suggested yet'}
                   </span>
                 </div>
               );
@@ -78,7 +78,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
                 <div className="flex justify-between items-center">
                   <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Question</span>
                   <span className="font-serif text-sm text-cream text-right">
-                    {leader ? `Q${leader[0].replace('q','')} selected (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : 'No votes yet'}
+                    {leader ? `Question ${leader[0].replace('q','')} leads (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : 'No votes yet'}
                   </span>
                 </div>
               );
@@ -92,7 +92,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
                 <div className="flex justify-between items-center">
                   <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Relationships</span>
                   <span className="font-serif text-sm text-cream text-right">
-                    {confirmed} confirmed / {total} proposed
+                    {confirmed} of {total} proposed are confirmed
                   </span>
                 </div>
               );
@@ -100,7 +100,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
             {/* Player personal answers */}
             {circleCreation.activeInvestigators?.some(inv => inv.personal_circle_answer) && (
               <div className="mt-2 pt-2 border-t border-gm-slate space-y-2">
-                <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest block">Player History Answers</span>
+                <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest block">Answers to the circle question</span>
                 {circleCreation.activeInvestigators.map(inv => inv.personal_circle_answer ? (
                   <div key={inv.id} className="bg-gm-slate/40 rounded-sm p-2">
                     <p className="font-serif font-bold text-sm text-moonlight-steel mb-1">{inv.name}</p>

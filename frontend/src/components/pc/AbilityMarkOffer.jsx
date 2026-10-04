@@ -24,7 +24,7 @@ const ABILITY_OFFER_CONFIG = {
   },
   "Death Defy": {
     icon: "💀",
-    description: "Escape unscathed — no marks taken from this enemy.",
+    description: "Escape unscathed: you take no marks from this enemy.",
     actionType: "escape",
   },
   "Let Them In": {

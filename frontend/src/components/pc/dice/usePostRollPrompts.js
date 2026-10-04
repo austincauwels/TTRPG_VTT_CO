@@ -18,13 +18,13 @@ export const usePostRollPrompts = ({ lastRoll, character, showGmControls }) => {
       // Auto-handled server side, show nothing
     }
     if (ability === 'Flourish' && (isMiss || isMixed) && (character.cunning_current || 0) >= 2) {
-      prompts.push({ key: 'Flourish', label: 'Flourish — spend 2 Cunning to push result up one tier', params: {} });
+      prompts.push({ key: 'Flourish', label: 'Flourish: spend 2 Cunning to push the result up one tier', params: {} });
     }
     if ((roleAbility === 'Learn from My Mistakes' || ability === 'Learn from My Mistakes') && isFail) {
-      prompts.push({ key: 'Learn from My Mistakes', label: 'Learn from My Mistakes — refresh 1 drive', params: {}, drivePicker: true });
+      prompts.push({ key: 'Learn from My Mistakes', label: 'Learn from My Mistakes: refresh 1 drive point', params: {}, drivePicker: true });
     }
     if (ability === 'Bending Spoons' && lastRoll.action === 'sense' && isMixed) {
-      prompts.push({ key: 'Bending Spoons', label: 'Bending Spoons — take 1 Bleed mark to upgrade to Full Success', params: {} });
+      prompts.push({ key: 'Bending Spoons', label: 'Bending Spoons: take 1 Bleed mark to make it a success', params: {} });
     }
     return prompts;
   }, [lastRoll?.id, character?.specialty_ability, character?.role_ability]);

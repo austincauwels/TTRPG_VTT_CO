@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
-import { RELATIONSHIP_DATA, RELATIONSHIP_TYPES } from './CircleCreationPopup';
+import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -285,7 +285,7 @@ export function AdvancementModal() {
                           onChange={e => setDetails(d => ({ ...d, [id]: e.target.value }))}
                           className="w-full border border-parchment-deep rounded-sm px-2 py-1.5 font-serif text-sm bg-cream focus:outline-none focus:border-oxblood text-ink"
                         >
-                          <option value="">— Select an ability —</option>
+                          <option value="">Choose an ability…</option>
                           {(() => {
                             const roleOpts = available.filter(a => a.source === character?.role);
                             const specOpts = available.filter(a => a.source === character?.specialty);
@@ -341,7 +341,7 @@ export const CircleView = () => {
   const {
     circle, character, updateCircle, spendCircleResource, accessSession,
     submitAssignmentReport, circleAdvancement, dismissCircleAdvancement, applyAdvancement,
-    circleCreation, respondToRelationship, proposeRelationship, openRelationshipPopup,
+    circleCreation, respondToRelationship, proposeRelationship,
   } = useGameStore();
 
   const isGM = accessSession?.role === 'GM';
@@ -352,12 +352,8 @@ export const CircleView = () => {
   const [keyChecks, setKeyChecks] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
-  // Relationship counter-proposal state
-  const [showCounter, setShowCounter] = useState({});
-  const [counterDrafts, setCounterDrafts] = useState({});
-  const setCounterDraft = useCallback((relId, field, value) => {
-    setCounterDrafts(d => ({ ...d, [relId]: { ...d[relId], [field]: value } }));
-  }, []);
+  // Relationship drafts for the shared relationship form
+  const relForms = useRelationshipForms();
 
   const myId = character?.id;
   const relationships = circleCreation?.relationships || [];
@@ -368,24 +364,7 @@ export const CircleView = () => {
     r => r.from_character_id === myId || r.to_character_id === myId
   );
   const pendingRels = myRelationships.filter(r => r.status !== 'accepted');
-  const acceptedRels = myRelationships.filter(r => r.status === 'accepted');
 
-  function invName(id) {
-    const inv = investigators.find(i => i.id === id);
-    return inv?.name || `Investigator #${id}`;
-  }
-
-  function handleAccept(relId) {
-    respondToRelationship(relId, 'accept');
-  }
-
-  function handleCounterSubmit(relId) {
-    const draft = counterDrafts[relId] || {};
-    if (!draft.relType) return;
-    respondToRelationship(relId, 'counter', draft.relType, draft.lore || '');
-    setShowCounter(s => ({ ...s, [relId]: false }));
-    setCounterDrafts(d => { const n = { ...d }; delete n[relId]; return n; });
-  }
 
   const illum     = circle?.illumination || 0;
   const maxCap    = circle?.max_capacity || 1;
@@ -446,7 +425,7 @@ export const CircleView = () => {
           <div className="flex-1 space-y-3">
             <div>
               <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
-                [ CIRCLE DESIGNATION ]
+                Circle name
               </span>
               <div className="text-2xl font-serif font-black text-ink uppercase mt-1 leading-tight">
                 {circle?.name || 'Unnamed Circle'}
@@ -454,12 +433,12 @@ export const CircleView = () => {
             </div>
             <div>
               <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
-                [ CHAPTER HOUSE ]
+                Chapter house
               </span>
               <div className="font-serif text-sm mt-0.5 italic leading-snug">
                 {circle?.chapter_house_location
                   ? <span className="text-oxblood">{circle.chapter_house_location}</span>
-                  : <span className="text-sepia">Not yet established…</span>
+                  : <span className="text-sepia">Not chosen yet. Your circle decides it in the formation papers.</span>
                 }
               </div>
             </div>
@@ -468,7 +447,7 @@ export const CircleView = () => {
           {/* Insignia Stamp */}
           <div className="shrink-0 flex flex-col items-center gap-2">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
-              [ SYSTEM INSIGNIA ]
+              Insignia
             </span>
             <div className="w-20 h-20 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
               <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
@@ -481,13 +460,13 @@ export const CircleView = () => {
         <div className="mt-4 pt-4 border-t border-ink/10">
           <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
-            Illumination Tracker
+            Illumination
           </h3>
           {trackFull && (
             <div className="mb-2 px-2 py-1.5 bg-candle-gold/20 border border-candle-gold rounded-sm flex items-center gap-2">
               <SafeIcon name="GiMedal" size={12} className="text-candle-gold" />
               <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">
-                Track Complete — Awaiting Lightkeeper
+                Track full: the GM advances the circle
               </span>
             </div>
           )}
@@ -506,7 +485,7 @@ export const CircleView = () => {
             })}
           </div>
           <div className="font-serif italic text-sm text-sepia">
-            {illum} / {TRACK_SIZE} — milestone every 3 pips
+            {illum} of {TRACK_SIZE}. A milestone every 3.
           </div>
         </div>
 
@@ -537,15 +516,12 @@ export const CircleView = () => {
 
           {/* III. End-of-Assignment Illumination Questions */}
           <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 p-5 shadow-md rounded-sm relative">
-            <div className="absolute top-1.5 right-2 font-sans font-bold text-xs text-sepia uppercase tracking-wider">
-              Form No. 84-Illum
-            </div>
             <h3 className="font-sans text-base font-black uppercase tracking-widest text-oxblood mb-1 flex items-center gap-1.5 border-b border-ink/10 pb-1">
               <SafeIcon name="GiQuillInk" size={12} />
               Illumination Questions & Keys
             </h3>
             <p className="font-serif italic text-sm text-sepia mb-4">
-              Evaluate at the end of each assignment.
+              At the end of each assignment, tick what your investigator did, then send the report to the GM.
             </p>
 
             {/* 3 Illumination Questions — checkboxes */}
@@ -593,13 +569,13 @@ export const CircleView = () => {
             <div className="flex items-center justify-between pt-3 border-t border-ink/10">
               {submitted ? (
                 <span className="font-sans text-xs text-seal-green uppercase tracking-widest font-black">
-                  ✓ Report submitted to Lightkeeper
+                  ✓ Report sent to the GM
                 </span>
               ) : (
                 <>
                   <div>
                     <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider block">
-                      {circle?.reports_open ? 'Lightkeeper is accepting reports' : 'Reports not yet open'}
+                      {circle?.reports_open ? 'The GM is taking reports now' : 'The GM opens reports at the end of an assignment'}
                     </span>
                   </div>
                   <button
@@ -611,7 +587,7 @@ export const CircleView = () => {
                         : 'bg-transparent text-sepia border-ink/20 cursor-not-allowed'
                     }`}
                   >
-                    Submit Assignment Report to Lightkeeper
+                    Send report
                   </button>
                 </>
               )}
@@ -627,18 +603,18 @@ export const CircleView = () => {
           </h3>
 
           <p className="font-serif italic text-sm text-sepia leading-relaxed">
-            Max = 1 + circle members. Spend up to 2 per assignment. Refills when the Illumination Track fills.
+            Each resource holds 1 more than the number of investigators. Each investigator may spend up to 2 per assignment. They refill when the Illumination track fills.
           </p>
 
           {!circle?.resources_editable && (
             <p className="font-serif italic text-sm text-sepia">
-              Resources locked — Lightkeeper controls spending.
+              Spending is locked. The GM unlocks it when you can spend.
             </p>
           )}
 
           {circle?.resources_editable && !isGM && (
             <p className="font-serif italic text-sm text-oxblood">
-              {character?.resources_spent_assignment || 0}/2 resources used this assignment
+              You have used {character?.resources_spent_assignment || 0} of 2 this assignment. Tap a filled square to spend one.
             </p>
           )}
 
@@ -667,11 +643,11 @@ export const CircleView = () => {
                         const titleText = !withinMax
                           ? 'Beyond current maximum'
                           : wouldAdd && !isGM
-                            ? 'Only the Lightkeeper can refill resources'
+                            ? 'Only the GM can refill resources'
                             : spentAll && !isGM
-                              ? '2/2 resources already used this assignment'
+                              ? 'You have used 2 of 2 this assignment'
                               : !circle?.resources_editable && !isGM
-                                ? 'Resources locked — Lightkeeper controls spending'
+                                ? 'Spending is locked by the GM'
                                 : filled
                                   ? `Spend ${label}`
                                   : `Add ${label} (set to ${i + 1})`;
@@ -679,6 +655,8 @@ export const CircleView = () => {
                           <div
                             key={i}
                             onClick={clickable ? () => handleResourceClick(key, i, avail) : undefined}
+                            role={clickable ? 'button' : undefined}
+                            aria-label={clickable ? titleText : undefined}
                             title={titleText}
                             className={`w-4 h-4 rounded-sm border transition-all ${
                               filled
@@ -729,7 +707,7 @@ export const CircleView = () => {
         {selQ ? (
           <div className="bg-cream border border-parchment-deep p-5 mb-5 rounded-sm shadow-sm border-l-4 border-l-oxblood">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-2">
-              Circle Formation Question
+              Circle question
             </span>
             <p className="font-serif text-base text-ink/90 leading-relaxed italic">
               "{selQ.text}"
@@ -737,7 +715,7 @@ export const CircleView = () => {
           </div>
         ) : (
           <p className="font-serif text-sm text-sepia italic mb-5">
-            No circle question selected. Complete the Circle Formation Papers to record your history.
+            No circle question yet. Your circle votes on one in the formation papers.
           </p>
         )}
 
@@ -750,7 +728,7 @@ export const CircleView = () => {
                 {character?.name || 'You'}
               </span>
               {character?.specialty && (
-                <span className="font-sans font-bold text-xs text-sepia uppercase">— {character.specialty}</span>
+                <span className="font-sans font-bold text-xs text-sepia uppercase">· {character.specialty}</span>
               )}
             </div>
             {character?.personal_circle_answer ? (
@@ -759,7 +737,7 @@ export const CircleView = () => {
               </p>
             ) : (
               <p className="font-serif text-sm text-sepia italic">
-                No account recorded yet. Add yours in the Circle Formation Papers.
+                No answer yet. Write yours in the formation papers once the circle has a question.
               </p>
             )}
           </div>
@@ -782,125 +760,18 @@ export const CircleView = () => {
             </h3>
 
             <div className="space-y-3">
-              {investigators.filter(i => i.id !== myId).map(inv => {
-                const rel = myRelationships.find(
-                  r => r.from_character_id === inv.id || r.to_character_id === inv.id
-                );
-                const isMine = rel?.from_character_id === myId;
-                const canRespond = rel && rel.status !== 'accepted' && rel.last_actor_id !== myId;
-                const isAwaiting = rel && rel.status !== 'accepted' && rel.last_actor_id === myId;
-
-                return (
-                  <div key={inv.id} className="bg-cream border border-parchment-deep p-4 rounded-sm shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                      {inv.ink_color && (
-                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: inv.ink_color }} />
-                      )}
-                      <span className="font-serif font-black text-sm text-ink">{inv.name}</span>
-                      {inv.specialty && (
-                        <span className="font-sans font-bold text-xs text-sepia uppercase">— {inv.specialty}</span>
-                      )}
-                      {/* Open full popup for this investigator */}
-                      <button
-                        onClick={() => openRelationshipPopup(inv)}
-                        className="ml-auto px-2.5 py-1 font-sans text-xs font-black uppercase tracking-wider border border-ink/20 text-sepia hover:border-oxblood/50 hover:text-oxblood transition-colors rounded-sm"
-                        title="Open relationship form"
-                      >
-                        {rel ? '✎ Revisit' : '+ Propose'}
-                      </button>
-                    </div>
-
-                    {rel ? (
-                      <>
-                        <p className="font-serif text-sm text-ink/90 mb-1">
-                          <span className="font-sans font-bold text-xs text-sepia uppercase mr-2">
-                            {isMine ? 'To them' : 'To you'}
-                          </span>
-                          <strong>{rel.rel_type}</strong>
-                          {rel.lore ? <span className="text-sepia"> — {rel.lore}</span> : ''}
-                        </p>
-
-                        <div className="flex items-center gap-2">
-                          {rel.status === 'accepted' && (
-                            <span className="font-sans font-bold text-xs text-seal-green uppercase tracking-wider">✓ Confirmed</span>
-                          )}
-                          {isAwaiting && (
-                            <span className="font-serif italic text-sm text-sepia">Awaiting {inv.name}…</span>
-                          )}
-                          {canRespond && (
-                            <span className="font-sans text-xs text-oxblood uppercase tracking-wider font-black">Response needed</span>
-                          )}
-                        </div>
-
-                        {canRespond && (
-                          <div className="mt-3 space-y-2">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleAccept(rel.id)}
-                                className="px-4 py-1.5 bg-seal-green/10 border border-seal-green text-seal-green font-sans font-black uppercase tracking-[0.1em] text-xs hover:bg-seal-green/15 transition-colors rounded-sm"
-                              >
-                                Accept
-                              </button>
-                              <button
-                                onClick={() => setShowCounter(s => ({ ...s, [rel.id]: !s[rel.id] }))}
-                                className="px-4 py-1.5 border border-ink/20 text-sepia font-sans font-black uppercase tracking-[0.1em] text-xs hover:border-ink/40 hover:text-ink transition-colors rounded-sm"
-                              >
-                                Counter
-                              </button>
-                            </div>
-                            {showCounter[rel.id] && (
-                              <div className="space-y-2 pt-1 border-t border-ink/10">
-                                <select
-                                  value={counterDrafts[rel.id]?.relType || ''}
-                                  onChange={e => { setCounterDraft(rel.id, 'relType', e.target.value); setCounterDraft(rel.id, 'lore', ''); }}
-                                  className="w-full border border-parchment-deep bg-cream px-3 py-2 font-serif text-sm text-ink/80 focus:outline-none focus:border-oxblood rounded-sm"
-                                >
-                                  <option value="">— They are your… —</option>
-                                  {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                                {counterDrafts[rel.id]?.relType && RELATIONSHIP_DATA[counterDrafts[rel.id].relType] && (
-                                  <div className="space-y-1">
-                                    {RELATIONSHIP_DATA[counterDrafts[rel.id].relType].map((q, qi) => (
-                                      <button key={qi} type="button"
-                                        onClick={() => setCounterDraft(rel.id, 'lore', q)}
-                                        className={`w-full text-left text-xs font-serif px-2.5 py-1.5 border rounded-sm transition-all leading-snug ${
-                                          counterDrafts[rel.id]?.lore === q
-                                            ? 'border-oxblood bg-oxblood/5 text-ink/90'
-                                            : 'border-ink/15 text-sepia hover:border-ink/30'
-                                        }`}
-                                      >
-                                        <span className="font-mono text-xs text-sepia mr-1">{qi + 1}.</span> {q}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                                <textarea
-                                  value={counterDrafts[rel.id]?.lore || ''}
-                                  onChange={e => setCounterDraft(rel.id, 'lore', e.target.value)}
-                                  placeholder="Your answer or description…"
-                                  rows={2}
-                                  className="w-full border border-parchment-deep bg-cream px-3 py-1.5 font-serif text-sm text-ink/80 resize-none focus:outline-none focus:border-oxblood rounded-sm"
-                                />
-                                <button
-                                  onClick={() => handleCounterSubmit(rel.id)}
-                                  disabled={!counterDrafts[rel.id]?.relType}
-                                  className="px-4 py-1.5 bg-oxblood text-cream font-sans font-black uppercase tracking-[0.1em] text-xs hover:bg-oxblood disabled:opacity-30 transition-colors rounded-sm"
-                                >
-                                  Send Counter
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <p className="font-serif italic text-sm text-sepia">
-                        No relationship proposed yet — use Propose to begin.
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
+              {investigators.filter(i => i.id !== myId).map(inv => (
+                <RelationshipNegotiation
+                  key={inv.id}
+                  inv={inv}
+                  myId={myId}
+                  relationships={relationships}
+                  circleId={circleId}
+                  forms={relForms}
+                  proposeRelationship={proposeRelationship}
+                  respondToRelationship={respondToRelationship}
+                />
+              ))}
             </div>
           </div>
         </>

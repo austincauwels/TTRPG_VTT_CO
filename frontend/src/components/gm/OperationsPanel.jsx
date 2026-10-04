@@ -24,6 +24,8 @@ export const OperationsPanel = () => {
   const [selectedInvestigator, setSelectedInvestigator] = useState(null);
   const [isFinalizingRoster, setIsFinalizingRoster] = useState(false);
   const [showCircleStatus, setShowCircleStatus] = useState(false);
+  const [requestError, setRequestError] = useState('');
+  const [finalizeError, setFinalizeError] = useState('');
   const { logout, setStage, accessSession, lastPlayedCampaign, campaignRoster, fetchRoster, approveInvestigator, rejectInvestigator, connect, socket,
           activityLog, circle, circleCreation, finalizeRoster, fetchCircleCreationState } = useGameStore();
 
@@ -31,6 +33,7 @@ export const OperationsPanel = () => {
 
   const activeCampaignId = lastPlayedCampaign?.campaignId || accessSession?.campaignId;
   const activeCampaignCode = lastPlayedCampaign?.campaignCode || accessSession?.campaignCode;
+  const activeCampaignName = lastPlayedCampaign?.type === 'gm' ? lastPlayedCampaign.campaignName : null;
 
   // Establish WebSocket for GM on mount using the real campaign code so broadcasts land
   useEffect(() => {
@@ -53,20 +56,29 @@ export const OperationsPanel = () => {
     if (pendingIndex >= count) setPendingIndex(count - 1);
   }, [campaignRoster.pending_investigators?.length]);
 
-  const handleStamp = (characterId) => {
-    approveInvestigator(characterId, activeCampaignId);
+  // The store actions resolve to false when the server refused or could not be reached
+  const REQUEST_FAILED = 'That did not go through. Check your connection, then try again.';
+
+  const handleStamp = async (characterId) => {
+    setRequestError('');
+    const p = approveInvestigator(characterId, activeCampaignId);
     setPendingIndex(0);
+    if ((await p) === false) setRequestError(`The investigator was not approved. ${REQUEST_FAILED}`);
   };
 
-  const handleReject = (characterId) => {
-    rejectInvestigator(characterId, activeCampaignId);
+  const handleReject = async (characterId) => {
+    setRequestError('');
+    const p = rejectInvestigator(characterId, activeCampaignId);
     setPendingIndex(0);
+    if ((await p) === false) setRequestError(`The request was not rejected. ${REQUEST_FAILED}`);
   };
 
   const handleFinalizeRoster = async () => {
     setIsFinalizingRoster(true);
-    await finalizeRoster(activeCampaignId, circle?.id || 1);
+    setFinalizeError('');
+    const ok = await finalizeRoster(activeCampaignId, circle?.id || 1);
     setIsFinalizingRoster(false);
+    if (!ok) setFinalizeError(`The circle was not finalized. ${REQUEST_FAILED}`);
   };
 
   const handleSelectInvestigator = (inv) => setSelectedInvestigator(inv);
@@ -85,7 +97,7 @@ export const OperationsPanel = () => {
   return (
     <div className="min-h-screen bg-gm-night text-cream font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 relative">
       
-      <GMDeskHeader activeCampaignId={activeCampaignId} setStage={setStage} />
+      <GMDeskHeader activeCampaignId={activeCampaignId} campaignName={activeCampaignName} campaignCode={activeCampaignCode} setStage={setStage} />
 
       {/* Below lg the three columns dissolve (display: contents) into one column, ordered
           by how often the GM reaches for each part during play: the tab strip, dice and
@@ -127,6 +139,8 @@ export const OperationsPanel = () => {
                       setPendingIndex={setPendingIndex}
                       handleStamp={handleStamp}
                       handleReject={handleReject}
+                      campaignCode={activeCampaignCode}
+                      error={requestError}
                     />
 
                     {/* Finalize Roster slip */}
@@ -134,6 +148,7 @@ export const OperationsPanel = () => {
                       handleFinalizeRoster={handleFinalizeRoster}
                       isFinalizingRoster={isFinalizingRoster}
                       campaignRoster={campaignRoster}
+                      error={finalizeError}
                     />
 
                     {/* Circle Formation Status summary */}

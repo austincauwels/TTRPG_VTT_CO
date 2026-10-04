@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
+import { rulebookLogText } from '../../../game/outcomes';
 
 // ── Fallback styles when no ink_color is present (cream-paper log) ───────────
 // Rolls carry the seal green, danger the oxblood, chat the sepia hairline and field
@@ -36,6 +37,9 @@ function hexCC(hex) {
 }
 
 function LogEntry({ entry }) {
+  // Players' own chat stays as written; the server's lines use the rulebook's names
+  const text = entry.type === 'chat' ? entry.text : rulebookLogText(entry.text);
+
   // environment type: bold all-caps, no ink override
   if (entry.type === 'environment') {
     return (
@@ -43,7 +47,7 @@ function LogEntry({ entry }) {
         <span className="font-mono tabular-nums font-bold text-xs tracking-tight mr-1.5">
           [{entry.time}]
         </span>
-        {entry.text}
+        {text}
       </p>
     );
   }
@@ -66,7 +70,7 @@ function LogEntry({ entry }) {
       >
         [{entry.time}]
       </span>
-      <span style={textStyle}>{entry.text}</span>
+      <span style={textStyle}>{text}</span>
     </p>
   );
 }
@@ -99,7 +103,7 @@ export const ActivityLog = ({ logEntries, gm = false }) => {
       }}
     >
       {logEntries.length === 0 ? (
-        <p className="text-sepia italic text-center pt-6">No activity recorded yet.</p>
+        <p className="text-sepia italic text-center pt-6">Nothing yet. Rolls, marks and messages from the table appear here.</p>
       ) : (
         logEntries.map((entry, i) => <LogEntry key={i} entry={entry} />)
       )}

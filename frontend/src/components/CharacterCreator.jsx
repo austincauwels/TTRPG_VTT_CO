@@ -1,12 +1,6 @@
 import React, { useState } from 'react';
 import * as Gi from "react-icons/gi";
-
-const PEN_FONTS = [
-  'Reenie Beenie', 'Caveat', 'Shadows Into Light', 'Zeyada', 'Sacramento',
-  'Homemade Apple', 'Alex Brush', 'Cedarville Cursive', 'La Belle Aurore',
-  'Charm', 'Dawning of a New Day', 'Gaegu', 'Grape Nuts', 'Moondance',
-  'Long Cang', 'Indie Flower', 'Kalam', 'Patrick Hand', 'Rock Salt', 'Gochi Hand'
-];
+import { JoinCampaignForm } from './shared/JoinCampaignForm';
 
 const ILLUMINATION_KEYS = {
   Journalist: ['Gather Statements', 'Hunt Down a Lead', 'Speak Truth to Power'],
@@ -521,7 +515,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
   // Finalize routing
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [campaignCode,  setCampaignCode]  = useState("");
-  const [penDropdownOpen, setPenDropdownOpen] = useState(false);
   const [selectedPen,   setSelectedPen]   = useState('Caveat');
 
   const handleImageUpload = (e) => {
@@ -676,7 +669,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <h2 className="font-display text-3xl sm:text-5xl uppercase tracking-[0.08em] text-cream"
               style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}>Choose Your Path</h2>
             <p className="text-base sm:text-lg font-serif italic text-cream/70 mt-2">
-              Flip through the deck — choose one specialty ability and one role ability to continue
+              Flip through the deck, then choose one specialty ability and one role ability to continue.
             </p>
           </div>
 
@@ -783,7 +776,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 <div className="px-4 sm:px-5 py-4 space-y-2 border-b md:border-b-0 md:border-r"
                   style={{ borderColor: `${currentColor.primary}18` }}>
                   <p className="text-sm font-sans font-black tracking-[0.14em] uppercase mb-3" style={{ color: roleInk(currentColor.primary) }}>
-                    Specialty Ability — Choose One
+                    Specialty Ability: choose one
                   </p>
                   {Object.entries(currentSpecData.abilities).map(([aN, aD]) => {
                     const picked = selectedSpecialtyAbility === aN;
@@ -811,7 +804,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 {/* Right col — role abilities + specialty gear */}
                 <div className="px-4 sm:px-5 py-4 space-y-2 flex flex-col">
                   <p className="text-sm font-sans font-black tracking-[0.14em] uppercase mb-3" style={{ color: roleInk(currentColor.primary) }}>
-                    {currentCard.roleName} Role Ability — Choose One
+                    {currentCard.roleName} Role Ability: choose one
                   </p>
                   {Object.entries(currentRoleData.baseAbilities).map(([aN, aD]) => {
                     const picked = selectedRoleAbility === aN;
@@ -885,7 +878,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <div className="text-center pb-4" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
               <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Investigator Profile</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
-                {specialty} · {role} — Complete identity and examination record
+                {specialty} · {role}. Who they are, and why they came to Candela Obscura.
               </p>
             </div>
 
@@ -915,7 +908,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                     <div>
                       <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Full Name *</label>
                       <input type="text" value={name} onChange={e => setName(e.target.value)}
-                        placeholder="Full Nomenclature Name…"
+                        placeholder="e.g. Ada Whitlock"
                         className="w-full bg-transparent font-serif font-bold text-lg focus:outline-none placeholder-sepia/70 placeholder:font-normal placeholder:italic pb-1"
                         style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
@@ -931,7 +924,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
 
                 {/* Identifying Characteristics */}
                 <div>
-                  <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Identifying Characteristics</label>
+                  <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Style</label>
                   <textarea rows={3} value={style} onChange={e => setStyle(e.target.value)}
                     placeholder="Detail apparel, distinguishing marks, tailored suits, or signature items that set this investigator apart…"
                     className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-sepia/70 placeholder:italic leading-7 paper-ruled"
@@ -950,7 +943,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 <div className="bg-parchment-deep/30 p-4 rounded-sm shadow-inner" style={{ border: '1px solid rgb(var(--c-sepia)/0.18)' }}>
                   <label className="block text-lg font-serif font-bold text-oxblood mb-2 pb-1.5"
                     style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.15)' }}>
-                    Catalyst — Why do you seek Candela Obscura? *
+                    Catalyst: why do you seek Candela Obscura? *
                   </label>
                   <textarea rows={4} value={catalyst} onChange={e => setCatalyst(e.target.value)}
                     placeholder="The specific event or rupture that drew you into the dark…"
@@ -960,7 +953,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 <div className="bg-parchment-deep/30 p-4 rounded-sm shadow-inner" style={{ border: '1px solid rgb(var(--c-sepia)/0.18)' }}>
                   <label className="block text-lg font-serif font-bold text-oxblood mb-2 pb-1.5"
                     style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.15)' }}>
-                    Curiosity — What answers are you demanding?
+                    Question: what answer do you seek?
                   </label>
                   <textarea rows={4} value={question} onChange={e => setQuestion(e.target.value)}
                     placeholder="The central question or haunting mystery your investigator pursues…"
@@ -985,7 +978,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <div className="text-center pb-5" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
               <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Action Ratings &amp; Drive</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
-                {specialty} starting values locked — raise one, add 3 free action points, assign 6 drive points
+                {specialty} starting values are set. Raise one action from 0, add 3 free action points, and assign 6 drive points.
               </p>
             </div>
 
@@ -993,7 +986,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <div className="rounded-sm p-4" style={{ background:'rgb(var(--c-parchment-deep)/0.2)', border:'1px solid rgb(var(--c-sepia)/0.18)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-serif font-bold text-oxblood">
-                  A — Raise One Starting-Zero Action to 1
+                  A. Raise One Starting-Zero Action to 1
                 </h3>
                 {freeRaiseKey
                   ? <span className="text-xs font-sans font-black uppercase tracking-widest text-seal-green">✓ {actionKeyLabel[freeRaiseKey]}</span>
@@ -1022,7 +1015,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-serif font-bold text-oxblood">
-                  B — Distribute 3 Free Action Points (max 2 per action)
+                  B. Distribute 3 Free Action Points (max 2 per action)
                 </h3>
                 <span className={`text-xs font-sans font-black uppercase tracking-widest ${freePtsUsed===3?'text-seal-green':'text-sepia'}`}>
                   {freePtsUsed}/3 placed
@@ -1097,7 +1090,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <div className="rounded-sm p-4" style={{ background:'rgb(var(--c-parchment-deep)/0.15)', border:'1px solid rgb(var(--c-sepia)/0.18)' }}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-serif font-bold text-oxblood">
-                  C — Distribute 6 Drive Points
+                  C. Distribute 6 Drive Points
                 </h3>
                 <span className={`text-xs font-sans font-black uppercase tracking-widest ${drivesPtsUsed===6?'text-seal-green':'text-sepia'}`}>
                   {drivesPtsUsed}/6 placed
@@ -1158,7 +1151,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             </div>
 
             <p className="text-base font-serif italic text-sepia text-center">
-              ★ Your specialty auto-gilds one action. Click ☆ beside any other action to add your free gild — gilded actions roll an extra die on their first result.
+              ★ Your specialty gilds one action. Click ☆ beside any other action to gild it too. When you roll a gilded action, one die is gold; if you keep its result, you refresh 1 drive.
             </p>
           </div>
         </PaperSheet>
@@ -1174,10 +1167,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <div className="text-center pb-5" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
               <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Specialty Gear &amp; Final Dossier</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
-                Select up to 3 items — then review and submit your dossier for Archive transmission
+                Pick up to 3 items, then check your investigator below and save.
               </p>
               <p className="text-base font-serif italic text-oxblood mt-2">
-                Starting gear can be changed at any time from your Investigator Dossier.
+                You can change gear later from your investigator's sheet.
               </p>
             </div>
 
@@ -1192,7 +1185,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
 
               {/* Specialty gear */}
               <div className="mb-4">
-                <p className="text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-2">Signature Equipment — {specialty}</p>
+                <p className="text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-2">{specialty} gear</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {ROLES[role]?.specialties[specialty]?.gear.map(item => (
                     <div key={item} onClick={() => toggleGear(item)}
@@ -1236,7 +1229,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
 
             {/* Dossier summary */}
             <div style={{ borderTop: '2px dashed rgb(var(--c-sepia)/0.2)' }} className="pt-5 space-y-4">
-              <h3 className="text-lg font-serif font-bold text-oxblood">Candela Archive Ledger — Investigator Summary</h3>
+              <h3 className="text-lg font-serif font-bold text-oxblood">Your investigator</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   { label: "Investigator", value: name },
@@ -1251,13 +1244,13 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 ))}
               </div>
               <div className="p-4 rounded-sm" style={{ background: 'rgb(var(--c-parchment-deep)/0.18)', border: '1px dashed rgb(var(--c-sepia)/0.22)' }}>
-                <span className="block text-xs sm:text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-1">Administrative Catalyst</span>
+                <span className="block text-xs sm:text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-1">Catalyst</span>
                 <p className="text-base italic text-ink/80 leading-relaxed">"{catalyst}"</p>
               </div>
             </div>
 
             <div className="text-center pt-1 text-base font-serif italic text-sepia">
-              ⚠ Pending final review — verify all fields before submission to the Archive
+              Check the details above. You can go back to any step before you save.
             </div>
           </div>
         </PaperSheet>
@@ -1284,22 +1277,21 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             </button>
           ) : rejoinContext ? (
             <div className="w-full bg-night border-2 border-oxblood p-5 shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
-              <p className="font-sans font-bold text-xs text-oxblood-lit uppercase tracking-widest mb-1">Lightkeeper Invitation</p>
-              <p className="text-parchment-deep font-serif text-base mb-4">
-                Rejoin <strong className="text-cream">{rejoinContext.campaignName}</strong> with this investigator?
+                            <p className="text-parchment-deep font-serif text-base mb-4">
+                Your GM invited you back to <strong className="text-cream">{rejoinContext.campaignName}</strong>. Rejoin it with this investigator?
               </p>
               <div className="flex gap-3 flex-wrap">
                 <button
                   onClick={() => handleComplete('rejoin')}
                   className="px-6 py-2.5 text-sm font-sans font-black uppercase tracking-widest border border-ink rounded hover:brightness-125 transition"
                   style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
-                  [ Rejoin {rejoinContext.campaignName} ]
+                  Save and rejoin {rejoinContext.campaignName}
                 </button>
                 <button
                   onClick={() => handleComplete('save')}
                   className="px-6 py-2.5 text-sm border border-cream/25 text-cream/75 hover:text-cream hover:bg-cream/5 rounded font-sans font-black uppercase tracking-widest transition-colors"
                   style={{ background: 'transparent' }}>
-                  [ Save for Later ]
+                  Save for later
                 </button>
               </div>
             </div>
@@ -1315,7 +1307,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 onClick={() => setShowJoinInput(true)}
                 className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border-2 border-ink font-sans font-black uppercase tracking-widest rounded shadow-md transition-all"
                 style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
-                Join a Campaign
+                Save and join a campaign
               </button>
             </div>
           )}
@@ -1325,9 +1317,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <div
               className="fixed inset-0 z-[500] flex items-center justify-center p-4"
               style={{ background: 'rgb(var(--c-night) / 0.85)' }}
-              onClick={() => { setShowJoinInput(false); setPenDropdownOpen(false); }}
+              onClick={() => setShowJoinInput(false)}
             >
               <div
+                role="dialog" aria-modal="true" aria-labelledby="join-campaign-title"
                 className="relative flex flex-col gap-5 rounded-sm w-full max-w-[480px] max-h-[calc(100dvh-32px)] overflow-y-auto px-5 pt-6 pb-5 sm:px-10 sm:pt-9 sm:pb-8"
                 style={{
                   background: 'rgb(var(--c-cream))',
@@ -1336,90 +1329,24 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 }}
                 onClick={e => e.stopPropagation()}
               >
-                {/* Header */}
                 <div style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.2)', paddingBottom: 16 }}>
-                  <p className="text-xs font-sans font-black uppercase tracking-widest text-oxblood mb-1">Chapter Admission</p>
-                  <h2 className="font-display text-4xl text-ink">Join a Circle</h2>
+                  <h2 id="join-campaign-title" className="font-display text-4xl text-ink">Join a Campaign</h2>
                   <p className="text-base font-serif text-ink/80 mt-1.5 leading-relaxed">
-                    Enter the campaign cipher provided by your Lightkeeper to request admission.
+                    {name || 'Your investigator'} is saved first, then asks to join. You can also join later from the Player Registry.
                   </p>
                 </div>
 
-                {/* Campaign Cipher input */}
-                <div>
-                  <label className="block text-xs font-sans font-black uppercase tracking-widest text-oxblood mb-2">Campaign Cipher</label>
-                  <input
-                    autoFocus
-                    type="text"
-                    value={campaignCode}
-                    onChange={e => setCampaignCode(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && campaignCode.trim() && handleComplete('join', campaignCode.trim())}
-                    placeholder="e.g. fairelands-01"
-                    className="w-full bg-parchment px-4 py-3 text-lg font-serif text-ink placeholder-sepia/70 placeholder:italic focus:outline-none"
-                    style={{ border: '1px solid rgba(0,0,0,0.2)', borderBottom: '2px solid rgb(var(--c-oxblood)/0.5)' }}
-                  />
-                </div>
-
-                {/* Pen font picker */}
-                <div>
-                  <label className="block text-xs font-sans font-black uppercase tracking-widest text-oxblood mb-2">Writing Instrument</label>
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setPenDropdownOpen(v => !v)}
-                      className="w-full bg-parchment px-4 py-3 flex items-center justify-between hover:bg-parchment-deep transition-colors"
-                      style={{ border: '1px solid rgba(0,0,0,0.2)', borderBottom: penDropdownOpen ? '1px solid rgba(0,0,0,0.2)' : '2px solid rgb(var(--c-oxblood)/0.5)' }}
-                    >
-                      <span className="text-xl text-ink" style={{ fontFamily: selectedPen }}>{selectedPen}</span>
-                      <span className="text-sm text-sepia ml-2 shrink-0">{penDropdownOpen ? '▲' : '▼'}</span>
-                    </button>
-                    {penDropdownOpen && (
-                      <div className="max-h-52 overflow-y-auto" style={{ border: '1px solid rgba(0,0,0,0.2)', borderTop: 'none', background: 'rgb(var(--c-parchment))' }}>
-                        {PEN_FONTS.map(font => (
-                          <button
-                            key={font}
-                            type="button"
-                            onClick={() => { setSelectedPen(font); setPenDropdownOpen(false); }}
-                            className="w-full px-4 py-2.5 text-left hover:bg-sepia/10 transition-colors"
-                            style={{
-                              fontFamily: font, fontSize: 20, color: 'rgb(var(--c-ink))',
-                              background: selectedPen === font ? 'rgb(var(--c-sepia)/0.12)' : undefined,
-                              borderBottom: '1px solid rgb(var(--c-sepia)/0.07)',
-                            }}
-                          >
-                            {font}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-2 text-base text-ink/75 italic" style={{ fontFamily: selectedPen }}>
-                    The quick brown fox jumps over the lazy dog.
-                  </p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center justify-end gap-3 pt-1" style={{ borderTop: '1px solid rgb(var(--c-sepia)/0.15)' }}>
-                  <button
-                    onClick={() => { setShowJoinInput(false); setPenDropdownOpen(false); }}
-                    className="px-5 py-2.5 text-sm font-sans font-black uppercase tracking-widest text-ink/75 hover:text-ink transition-colors border border-ink/25 hover:border-ink/50 rounded"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => campaignCode.trim() && handleComplete('join', campaignCode.trim())}
-                    disabled={!campaignCode.trim()}
-                    className="px-7 py-2.5 text-sm font-sans font-black uppercase tracking-widest rounded shadow transition-all"
-                    style={{
-                      background: campaignCode.trim() ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-ink)/0.25)',
-                      color: campaignCode.trim() ? 'rgb(var(--c-cream))' : 'rgb(var(--c-ink)/0.5)',
-                      cursor: campaignCode.trim() ? 'pointer' : 'not-allowed',
-                      border: '2px solid rgb(var(--c-ink)/0.15)',
-                    }}
-                  >
-                    Join Circle →
-                  </button>
-                </div>
+                <JoinCampaignForm
+                  idPrefix="creator-join"
+                  autoFocus
+                  code={campaignCode}
+                  onCodeChange={setCampaignCode}
+                  pen={selectedPen}
+                  onPenChange={setSelectedPen}
+                  onSubmit={(code) => handleComplete('join', code)}
+                  onCancel={() => setShowJoinInput(false)}
+                  submitLabel="Save and ask to join"
+                />
               </div>
             </div>
           )}

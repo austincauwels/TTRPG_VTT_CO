@@ -3,19 +3,20 @@ import React from 'react';
 // A printed intake form on parchment card stock, the twin of the Lightkeeper pamphlet.
 export const NewInvestigatorPamphlet = ({ onOpen }) => (
   <div
+    role="button"
+    tabIndex={0}
     onClick={onOpen}
-    className="pamphlet w-full h-[300px] sm:h-[390px] lg:w-[210px] rotate-[-2deg] lg:bottom-[40px] lg:left-[40px] lg:hover:-translate-y-3 lg:hover:-translate-x-2 lg:hover:rotate-[-3deg] z-30 p-1.5 sm:p-2"
+    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+    aria-label="Blank Intake: create an investigator"
+    className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-candle-gold pamphlet w-full h-[300px] sm:h-[390px] lg:w-[210px] rotate-[-2deg] lg:bottom-[40px] lg:left-[40px] lg:hover:-translate-y-3 lg:hover:-translate-x-2 lg:hover:rotate-[-3deg] z-30 p-1.5 sm:p-2"
   >
     {/* Ornate Inner Border */}
     <div className="w-full h-full border-[3px] border-double border-sepia/70 p-2 sm:p-3 flex flex-col items-center text-ink">
 
       <div className="w-full text-center border-b border-sepia/40 pb-1.5 sm:pb-2 mb-2 sm:mb-3">
         <span className="font-sans font-bold text-xs sm:text-sm uppercase tracking-widest text-sepia">
-          Registry Form
+          For players
         </span>
-        <div className="font-serif text-base sm:text-xl italic text-sepia sm:mt-1">
-          No. CO-102
-        </div>
       </div>
 
       <div className="flex-1 flex flex-col justify-center items-center text-center px-1">
@@ -34,12 +35,12 @@ export const NewInvestigatorPamphlet = ({ onOpen }) => (
         </div>
 
         <p className="font-serif text-lg sm:text-xl leading-snug italic px-1 sm:px-2 mt-2 sm:mt-4">
-          Create your Investigator
+          Create an investigator to play.
         </p>
       </div>
 
       <div className="w-full border-t border-sepia/40 pt-1.5 sm:pt-2 mt-2 sm:mt-3 text-center">
-         <span className="font-display text-base sm:text-xl uppercase tracking-[0.1em] text-oxblood">Join Today</span>
+         <span className="font-display text-base sm:text-xl uppercase tracking-[0.1em] text-oxblood">Start Here</span>
       </div>
     </div>
   </div>

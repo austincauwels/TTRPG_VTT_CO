@@ -654,8 +654,10 @@ const useGameStore = create(
           if (res.ok) {
             await get().fetchRoster(campaignId);
           }
+          return res.ok;
         } catch (err) {
           console.error("Failed to approve investigator:", err);
+          return false;
         }
       },
 
@@ -665,8 +667,10 @@ const useGameStore = create(
           if (res.ok) {
             await get().fetchRoster(campaignId);
           }
+          return res.ok;
         } catch (err) {
           console.error("Failed to reject investigator:", err);
+          return false;
         }
       },
 

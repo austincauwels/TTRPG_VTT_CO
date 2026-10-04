@@ -1,7 +1,8 @@
 import React from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
 
-export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, campaignRoster }) => (
+export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, campaignRoster, error }) => (
+  <>
   <button
     onClick={handleFinalizeRoster}
     disabled={isFinalizingRoster}
@@ -20,17 +21,19 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
           <div className="flex items-center gap-3">
             <SafeIcon name="GiWaxSeal" size={28} className="text-oxblood" />
             <span className="font-serif font-bold uppercase tracking-[0.12em] text-base text-ink">
-              {isFinalizingRoster ? 'Finalizing…' : 'Finalize Roster'}
+              {isFinalizingRoster ? 'Finalizing…' : 'Finalize the circle'}
             </span>
           </div>
           <span className="font-mono text-xs tabular-nums text-sepia">
-            {campaignRoster.active_investigators?.length || 0} / 5 investigators
+            {campaignRoster.active_investigators?.length || 0} of 5 investigators
           </span>
         </div>
         <p className="font-serif text-base text-sepia italic leading-snug text-left">
-          Warning: Finalizing the roster locks circle details and closes all player formation popups.
+          Locks the circle's name, question, ability and insignia, and closes every player's formation papers. Do this when the players have finished them.
         </p>
       </div>
     </div>
   </button>
+  {error && <p role="alert" className="font-serif text-base text-oxblood-lit mt-2">{error}</p>}
+  </>
 );

@@ -7,8 +7,8 @@ import { SafeIcon } from '../shared/SafeIcon';
 export const GMSidebar = ({ activeTab, setActiveTab }) => {
   const navItems = [
     { id: 'roster', label: 'Roster', icon: 'GiFiles' },
-    { id: 'circle', label: 'Circle View', icon: 'GiEyeShield' },
-    { id: 'archives', label: 'Archives', icon: 'GiScroll' },
+    { id: 'circle', label: 'Circle', icon: 'GiEyeShield' },
+    { id: 'archives', label: 'Notebook', icon: 'GiScroll' },
     { id: 'map', label: 'Map', icon: 'GiCompass' }
   ];
 

@@ -21,7 +21,10 @@ function RelationshipCard({ inv, myId, relationships, index }) {
         transition: 'height 0.4s ease 0.15s',
       }}
       onClick={() => hasAny && setFlipped(f => !f)}
-      title={hasAny ? 'Click to see relationship' : ''}
+      role={hasAny ? 'button' : undefined}
+      tabIndex={hasAny ? 0 : undefined}
+      aria-expanded={hasAny ? flipped : undefined}
+      onKeyDown={hasAny ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFlipped(f => !f); } } : undefined}
     >
       <div
         className="w-full h-full transition-transform duration-500"
@@ -53,10 +56,10 @@ function RelationshipCard({ inv, myId, relationships, index }) {
           </div>
           {hasAny ? (
             <p className="font-serif text-sm italic mt-1" style={{ color: inkColor }}>
-              {myRel?.status === 'accepted' ? `${myRel.rel_type}` : 'Relationship pending — tap to view'}
+              {myRel?.status === 'accepted' ? `${myRel.rel_type}` : 'Relationship not settled yet. Tap to see it.'}
             </p>
           ) : (
-            <p className="font-serif text-sm text-sepia italic mt-1">No relationship defined</p>
+            <p className="font-serif text-sm text-sepia italic mt-1">No relationship yet. Propose one on the Circle tab.</p>
           )}
         </div>
 
@@ -76,27 +79,27 @@ function RelationshipCard({ inv, myId, relationships, index }) {
           <p className="font-sans font-bold text-base text-sepia uppercase tracking-widest mb-2">{inv.name}</p>
           {myRel ? (
             <div className="mb-2">
-              <span className="font-sans font-bold text-xs text-sepia uppercase">You → them: </span>
+              <span className="font-sans font-bold text-xs text-sepia uppercase">You to them: </span>
               <span className="font-serif text-base text-ink font-bold">{myRel.rel_type}</span>
               {myRel.status !== 'accepted' && (
-                <span className="font-serif italic text-sm text-sepia ml-1">({myRel.status})</span>
+                <span className="font-serif italic text-sm text-sepia ml-1">(not yet accepted)</span>
               )}
               {myRel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1">{myRel.lore}</p> : null}
             </div>
           ) : (
-            <p className="font-serif text-base text-sepia italic">No outgoing relationship</p>
+            <p className="font-serif text-base text-sepia italic">You have not proposed one yet.</p>
           )}
           {theirRel ? (
             <div>
-              <span className="font-sans font-bold text-xs text-sepia uppercase">Them → you: </span>
+              <span className="font-sans font-bold text-xs text-sepia uppercase">Them to you: </span>
               <span className="font-serif text-base text-ink font-bold">{theirRel.rel_type}</span>
               {theirRel.status !== 'accepted' && (
-                <span className="font-serif italic text-sm text-sepia ml-1">({theirRel.status})</span>
+                <span className="font-serif italic text-sm text-sepia ml-1">(not yet accepted)</span>
               )}
               {theirRel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1">{theirRel.lore}</p> : null}
             </div>
           ) : (
-            <p className="font-serif text-base text-sepia italic">No incoming relationship</p>
+            <p className="font-serif text-base text-sepia italic">They have not proposed one yet.</p>
           )}
         </div>
       </div>
@@ -126,15 +129,15 @@ export const TactileSidebar = () => {
            style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.14) 24px)', backgroundSize: '100% 24px', lineHeight: '24px' }}>
         <div className="absolute top-0 bottom-0 left-6 w-[1.5px] bg-oxblood/20 pointer-events-none" />
         <div className="pl-6 pt-1 relative z-10">
-          <span className="block font-sans text-xs uppercase tracking-widest text-sepia font-black leading-none mb-2">Assignment Dispatch</span>
+          <span className="block font-sans text-xs uppercase tracking-widest text-sepia font-black leading-none mb-2">From the GM</span>
           <div className="space-y-2 font-bold font-serif">
             <p className="text-base font-black border-b border-ink/10 pb-1 leading-tight">
-              <span className="font-sans text-xs uppercase font-black text-sepia mr-1">Target:</span>
-              {circle?.location || "Awaiting Dispatch"}
+              <span className="font-sans text-xs uppercase font-black text-sepia mr-1">Location:</span>
+              {circle?.location || "No dispatch yet"}
             </p>
             <p className="text-sm leading-tight">
               <span className="font-sans text-xs uppercase font-black text-sepia mr-1">Conditions:</span>
-              {circle?.atmosphere || "No field report."}
+              {circle?.atmosphere || "Not described yet."}
             </p>
           </div>
         </div>
@@ -142,7 +145,7 @@ export const TactileSidebar = () => {
 
       {/* Active Circle Registry */}
       <div className="space-y-3 px-1">
-        <span className="block font-sans text-sm font-black text-cream/70 uppercase tracking-widest leading-none mb-1">Active Circle Registry</span>
+        <span className="block font-sans text-sm font-black text-cream/70 uppercase tracking-widest leading-none mb-1">Your Circle</span>
 
         {/* Current player — always first */}
         <div
@@ -182,7 +185,7 @@ export const TactileSidebar = () => {
         }
 
         {!character?.campaign_id && (
-          <p className="font-serif text-sm text-cream/70 italic text-center pt-1">Not enrolled in a campaign.</p>
+          <p className="font-serif text-sm text-cream/70 italic text-center pt-1">Not in a campaign. Join one from the chapter hub.</p>
         )}
       </div>
 

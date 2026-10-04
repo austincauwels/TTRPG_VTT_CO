@@ -26,7 +26,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
     setError(null);
     apiFetch(`/api/investigators/${rosterItem.id}`)
       .then(r => {
-        if (!r.ok) throw new Error('Not found');
+        if (!r.ok) throw new Error(r.status === 404 ? 'This investigator no longer exists.' : 'The sheet could not be loaded.');
         return r.json();
       })
       .then(data => { setFullChar(data); setLoading(false); })
@@ -48,7 +48,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
         onClick={onClose}
         className="mb-4 font-sans text-sm uppercase tracking-widest text-moonlight-steel hover:text-cream border border-moonlight-steel/40 hover:border-moonlight-steel rounded px-5 py-2.5 transition-colors font-bold"
       >
-        ← Roster
+        ← Back to roster
       </button>
 
       {/* Parchment panel — matches MainDeskView center column styling */}
@@ -58,13 +58,16 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
 
         {loading && (
           <div className="py-24 text-center font-serif italic text-base text-sepia">
-            Loading dossier…
+            Loading the investigator's sheet…
           </div>
         )}
 
         {error && (
-          <div className="py-24 text-center font-serif italic text-base text-oxblood">
-            Failed to retrieve dossier.
+          <div className="py-24 text-center font-serif text-base text-oxblood space-y-3">
+            <p>{error} Go back to the roster and open it again.</p>
+            <button onClick={onClose} className="font-sans text-xs font-black uppercase tracking-widest px-4 py-2 border border-oxblood/50 rounded hover:bg-oxblood/10 transition-colors">
+              Back to roster
+            </button>
           </div>
         )}
 
@@ -81,13 +84,13 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
                     : 'bg-transparent text-oxblood border-oxblood/50 hover:bg-oxblood/10'
                 }`}
               >
-                {resetConfirm ? '[ Confirm Reset ]' : '[ Reset Session Resources ]'}
+                {resetConfirm ? 'Yes, reset' : 'Reset drive and ability uses'}
               </button>
-              {resetConfirm && (
-                <span className="font-serif italic text-sm text-oxblood">
-                  Resets drive, resistance & ability uses
-                </span>
-              )}
+              <span className="font-serif italic text-base text-sepia">
+                {resetConfirm
+                  ? 'Press again to refill drive and resistance and clear ability uses for this investigator.'
+                  : 'Refills drive and resistance and clears ability uses. Asks you to confirm.'}
+              </span>
             </div>
           </>
         )}

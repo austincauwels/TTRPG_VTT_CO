@@ -1,18 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ACTION_LABEL } from '../../../game/actions';
-
-// The server's outcome names (engine.OUTCOME_LABELS).
-const OUTCOME_LABEL = {
-  critical_success: 'Critical Success',
-  full_success: 'Full Success',
-  mixed_success: 'Mixed Success',
-  failure: 'Failure',
-};
-
-// After a gilded choice the server scores the kept die alone (engine.calculate_outcome
-// with no dice list, so never a critical): 6 is a full success, 4 or 5 mixed, else failure.
-const outcomeForKept = (value) => (value === 6 ? 'full_success' : value >= 4 ? 'mixed_success' : 'failure');
+import { OUTCOME, outcomeForKept, rollPoolText } from '../../../game/outcomes';
 
 const MiniDie = ({ die, counts, dim, onClick }) => {
   const base = `font-serif font-black flex items-center justify-center rounded-sm border ${
@@ -54,20 +42,21 @@ export const RollResultBar = ({
   if (!lastRoll && !isRolling) return null;
 
   const dice = lastRoll?.dice || [];
-  const actionLabel = ACTION_LABEL[lastRoll?.action] || '';
+  const poolText = isRolling ? '' : rollPoolText(lastRoll);
   const outcomeKey = lastRoll?.outcome || (keptDie ? outcomeForKept(keptDie.value) : null);
-  const status = isRolling ? 'Casting Lots...'
+  const outcome = !isRolling && !gildedPending ? OUTCOME[outcomeKey] : null;
+  const status = isRolling ? 'Rolling…'
     : gildedPending ? 'Choose your die'
-    : (OUTCOME_LABEL[outcomeKey] || '');
+    : (outcome?.word || '');
   const keptIdx = keptDie ? keptDie.idx : null;
 
   const summary = (
     <span className="flex flex-col min-w-0">
       <span className="flex items-center gap-1.5 font-sans text-xs font-black uppercase tracking-[0.14em] text-cream/70 min-w-0">
         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: rollerInk || 'rgb(var(--c-candle-gold))' }} />
-        <span className="truncate">{rollerName}{actionLabel ? ` · ${actionLabel}` : ''}</span>
+        <span className="truncate">{rollerName}{poolText ? ` · ${poolText}` : ''}</span>
       </span>
-      <span className="font-serif text-lg font-bold leading-tight text-cream truncate">{status}</span>
+      <span className={`font-serif text-lg font-bold leading-tight truncate ${outcome?.className || 'text-cream'}`}>{status}</span>
     </span>
   );
 

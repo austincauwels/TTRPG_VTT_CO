@@ -10,13 +10,13 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
   // Use explicitly passed playerList (for GM) if non-empty, else fall back to circleCreation investigators (for PC)
   const investigators = (playerList && playerList.length > 0) ? playerList : (circleCreation?.activeInvestigators || []);
   const targetOptions = [
-    { value: '@Circle', label: '@Circle — all', inkColor: null },
+    { value: '@Circle', label: '@Circle (everyone)', inkColor: null },
     ...investigators.map(inv => ({
       value: `@${inv.name}`,
-      label: `@${inv.name} — private`,
+      label: `@${inv.name} (private)`,
       inkColor: inv.ink_color || null,
     })),
-    ...(showGmControls ? [{ value: '@Environment', label: '@Environment — broadcast', inkColor: 'rgb(var(--c-oxblood))' }] : []),
+    ...(showGmControls ? [{ value: '@Environment', label: '@Environment (shown to everyone)', inkColor: 'rgb(var(--c-oxblood))' }] : []),
   ];
 
   const handleSendChat = () => {
@@ -46,7 +46,6 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
           <SafeIcon name="GiDiscussion" size={14} className="text-sepia" />
           <span className="font-sans font-black text-sm uppercase tracking-widest text-ink">Pass Notes</span>
         </div>
-        <span className="font-sans font-bold text-xs uppercase tracking-widest text-sepia">Internal</span>
       </div>
 
       {/* To: row */}

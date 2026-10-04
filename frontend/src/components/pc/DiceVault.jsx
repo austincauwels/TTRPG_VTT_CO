@@ -84,6 +84,13 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     return () => io.disconnect();
   }, [showGmControls]);
 
+  // Who the tray's roll belongs to: the GM's socket only ever receives the GM's own rolls
+  const rollerName = showGmControls ? 'Lightkeeper' : (character?.name || 'You');
+  const rollerInk = showGmControls ? null : character?.ink_color;
+  const trayEmptyText = showGmControls
+    ? 'No rolls yet. Set the number of dice and press Roll.'
+    : 'No rolls yet. Tap an action on your sheet to roll it.';
+
   const showRollModifications = !showGmControls && (canResist || visiblePrompts.length > 0);
   const rollModifications = (
     <RollModifications
@@ -117,6 +124,10 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
         dieSkews={dieSkews}
         getIsCandidate={getIsCandidate}
         onDieClick={handleDieClick}
+        rollerName={rollerName}
+        rollerInk={rollerInk}
+        keptDie={keptDie}
+        emptyText={trayEmptyText}
       />
 
       {/* ROLL MODIFICATIONS */}
@@ -133,8 +144,8 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       {/* Phones: the latest roll pinned to the bottom of the screen, opening into the tray */}
       {!showGmControls && (
         <RollResultBar
-          rollerName={character?.name}
-          rollerInk={character?.ink_color}
+          rollerName={rollerName}
+          rollerInk={rollerInk}
           lastRoll={lastRoll}
           isRolling={isRolling}
           gildedPending={gildedPending}
@@ -150,6 +161,10 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
             dieSkews={dieSkews}
             getIsCandidate={getIsCandidate}
             onDieClick={handleDieClick}
+            rollerName={rollerName}
+            rollerInk={rollerInk}
+            keptDie={keptDie}
+            emptyText={trayEmptyText}
           />
           {showRollModifications && rollModifications}
         </RollResultBar>

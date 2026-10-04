@@ -90,10 +90,10 @@ export const TensionClock = ({ readOnly = false }) => {
         {/* GM +/- controls — always visible for GM */}
         {isGM && (
           <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center gap-3 z-10">
-            <button onClick={() => adjust(-1)} disabled={!socketReady}
+            <button onClick={() => adjust(-1)} disabled={!socketReady} aria-label="Lower tension by one"
               className="w-10 h-10 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait"
             >-</button>
-            <button onClick={() => adjust(1)} disabled={!socketReady}
+            <button onClick={() => adjust(1)} disabled={!socketReady} aria-label="Raise tension by one"
               className="w-10 h-10 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait"
             >+</button>
           </div>
@@ -104,7 +104,8 @@ export const TensionClock = ({ readOnly = false }) => {
       {isGM ? (
         <input type="text" defaultValue={label} key={label}
           onBlur={e => sendUpdate({ tension_label: e.target.value })}
-          placeholder="Clock label…"
+          placeholder="Name this clock"
+          aria-label="Tension clock name"
           className="text-center font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/70 focus:outline-none focus:border-oxblood transition-colors"
         />
       ) : (
@@ -169,7 +170,7 @@ export const SceneManager = () => {
       <div className="border-b-2 border-double border-sepia pb-4 mb-6 text-center relative">
         <SafeIcon name="GiEyeShield" size={32} className="mx-auto mb-2 text-sepia" />
         <h2 className="font-display uppercase tracking-[0.08em] text-xl leading-tight">Candela Obscura</h2>
-        <p className="font-serif italic text-base text-sepia leading-snug">Office of the Lightkeeper — Priority Dispatch</p>
+        <p className="font-serif italic text-base text-sepia leading-snug">Office of the Lightkeeper: Priority Dispatch</p>
       </div>
 
       {/* Typed body */}
@@ -179,8 +180,9 @@ export const SceneManager = () => {
           type="text"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
+          aria-label="Location"
           className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood outline-none px-2 mx-2 text-oxblood font-bold font-serif italic text-center w-full sm:w-auto placeholder-sepia/70"
-          placeholder="[ Insert Location ]"
+          placeholder="location"
           spellCheck="false"
         />.
         Be vigilant of strange activity. Scout Investigations report the area to be
@@ -189,38 +191,45 @@ export const SceneManager = () => {
           onChange={(e) => setAtmosphere(e.target.value)}
           className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood outline-none w-full mt-2 resize-none text-oxblood font-bold font-serif italic leading-[28px] placeholder-sepia/70"
           rows="2"
-          placeholder="[ Describe the environment... ]"
+          placeholder="what the place is like"
+          aria-label="Atmosphere"
           spellCheck="false"
         />
         <br />
         Secure the area. Light the Way.
       </div>
 
-      {/* Stamp buttons */}
-      <div className="mt-8 flex justify-between items-end relative">
-        {/* End Assignment — left stamp */}
-        <button
-          onClick={endAssignment}
-          className="relative group transform rotate-2 hover:rotate-0 transition-transform active:scale-95"
-          title="End assignment — clears scene and resets all player ability uses"
-        >
-          <div className="border-[3px] border-sepia rounded px-3 py-1.5 text-sepia font-sans font-black uppercase tracking-widest text-xs opacity-90 group-hover:opacity-100 group-hover:bg-sepia/5">
-            End Assignment
-          </div>
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-40 pointer-events-none mix-blend-overlay" />
-        </button>
+      {/* Stamp buttons, each with its effect written under it */}
+      <div className="mt-8 flex justify-between items-start gap-4 relative">
+        {/* End Assignment: left stamp */}
+        <div className="flex flex-col items-start gap-2 max-w-[11rem]">
+          <button
+            onClick={endAssignment}
+            className="relative group transform rotate-2 hover:rotate-0 transition-transform active:scale-95"
+            aria-describedby="end-assignment-effect"
+          >
+            <div className="border-[3px] border-sepia rounded px-3 py-1.5 text-sepia font-sans font-black uppercase tracking-widest text-xs opacity-90 group-hover:opacity-100 group-hover:bg-sepia/5">
+              End Assignment
+            </div>
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-40 pointer-events-none mix-blend-overlay" />
+          </button>
+          <p id="end-assignment-effect" className="font-serif italic text-sm leading-snug text-sepia">Clears the dispatch and resets every player's ability uses.</p>
+        </div>
 
-        {/* Dispatch — right stamp */}
-        <button
-          onClick={broadcastScene}
-          className="relative group transform -rotate-3 hover:rotate-0 transition-transform active:scale-95"
-          title="Dispatch orders to player cards"
-        >
-          <div className="border-[3px] border-oxblood rounded px-4 py-1.5 text-oxblood font-sans font-black uppercase tracking-[0.15em] text-sm opacity-90 group-hover:opacity-100 group-hover:bg-oxblood/5">
-            Dispatch
-          </div>
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-50 pointer-events-none mix-blend-overlay" />
-        </button>
+        {/* Dispatch: right stamp */}
+        <div className="flex flex-col items-end gap-2 max-w-[11rem] text-right">
+          <button
+            onClick={broadcastScene}
+            className="relative group transform -rotate-3 hover:rotate-0 transition-transform active:scale-95"
+            aria-describedby="dispatch-effect"
+          >
+            <div className="border-[3px] border-oxblood rounded px-4 py-1.5 text-oxblood font-sans font-black uppercase tracking-[0.15em] text-sm opacity-90 group-hover:opacity-100 group-hover:bg-oxblood/5">
+              Dispatch
+            </div>
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-50 pointer-events-none mix-blend-overlay" />
+          </button>
+          <p id="dispatch-effect" className="font-serif italic text-sm leading-snug text-sepia">Sends the location and atmosphere to every player's desk.</p>
+        </div>
       </div>
     </div>
   );

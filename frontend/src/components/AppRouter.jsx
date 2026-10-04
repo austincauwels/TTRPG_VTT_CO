@@ -60,7 +60,7 @@ export const AppRouter = () => {
         >
           <header className="max-w-6xl mx-auto mb-4 sm:mb-6 px-4 text-center">
             <h1 className="text-4xl sm:text-5xl mb-2 font-display tracking-[0.1em] text-cream">CANDELA OBSCURA</h1>
-            <p className="text-sm font-sans font-black tracking-widest text-oxblood-lit uppercase">Investigator Forging</p>
+            <p className="text-sm font-sans font-black tracking-widest text-oxblood-lit uppercase">New Investigator</p>
           </header>
 
           <CharacterCreator

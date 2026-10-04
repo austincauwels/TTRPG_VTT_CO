@@ -11,7 +11,7 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
         <div className="absolute inset-3 sm:inset-5 border-[3px] border-gold-leaf/40 embossed-stamp pointer-events-none rounded z-10" />
         <div className="z-20 flex flex-col items-center text-center relative w-full lg:w-auto">
           <span className="font-display text-xs sm:text-sm lg:text-lg tracking-[0.18em] text-gold-leaf/80 mb-2 sm:mb-4 lg:mb-6 uppercase drop-shadow-md">
-            {lastPlayedCampaign.type === 'gm' ? 'List of Campaigns' : 'Campaign Log'}
+            {lastPlayedCampaign.type === 'gm' ? 'Last run as GM' : 'Last played'}
           </span>
           <h2 className="font-display italic text-2xl sm:text-4xl md:text-5xl embossed-gold leading-[1.1] mb-1 sm:mb-4 break-words max-w-full group-hover:text-candle-gold transition-colors">
             {lastPlayedCampaign.campaignName || 'Last Session'}
@@ -25,8 +25,8 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
           </div>
           <p className="font-serif italic text-gold-leaf/90 text-sm sm:text-lg lg:text-2xl max-w-[90%] lg:max-w-[75%] leading-snug drop-shadow-md sm:mt-2">
             {lastPlayedCampaign.type === 'gm'
-              ? "Resume command of your active investigation."
-              : "Resume your circle's ongoing assignment."}
+              ? "Return to the Lightkeeper's desk for this campaign."
+              : "Return to your investigator's desk."}
           </p>
         </div>
       </div>
@@ -78,7 +78,7 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
 
         <div className="z-20 absolute bottom-4 sm:bottom-7 flex flex-col items-center gap-2 w-full px-3 sm:px-6">
           <p className="font-display text-xs sm:text-lg tracking-[0.15em] text-center leading-relaxed uppercase text-gold-leaf/75">
-            No Recent Sessions
+            No session yet
           </p>
         </div>
       </div>

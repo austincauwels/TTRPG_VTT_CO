@@ -87,9 +87,9 @@ function ReportFlipCard({ inv, report }) {
           {report ? (
             <span className="font-sans font-bold text-xs text-seal-green uppercase tracking-wider mt-1">Report filed ✓</span>
           ) : (
-            <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider mt-1">Pending…</span>
+            <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider mt-1">No report yet</span>
           )}
-          <span className="font-sans font-bold text-xs text-sepia uppercase mt-auto">Tap to review →</span>
+          <span className="font-sans font-bold text-xs text-sepia uppercase mt-auto">Tap to read →</span>
         </div>
 
         {/* Back */}
@@ -190,7 +190,7 @@ export const CirclePage = () => {
           <div className="flex-1 space-y-3">
             <div>
               <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
-                [ CIRCLE DESIGNATION ]
+                Circle name
               </span>
               {circle?.name ? (
                 <div className="flex items-center gap-2 mt-1">
@@ -199,14 +199,13 @@ export const CirclePage = () => {
                   </div>
                   <button
                     onClick={() => updateCircle({ circle_id: circId, name: '' })}
-                    className="text-sepia hover:text-ink text-sm font-sans shrink-0"
-                    title="Edit name"
-                  >✎</button>
+                    className="shrink-0 px-2 py-1 font-sans font-bold text-xs uppercase tracking-wider text-sepia hover:text-oxblood border border-ink/20 hover:border-oxblood/50 rounded-sm transition-colors"
+                  >Clear name</button>
                 </div>
               ) : (
                 <input
                   type="text"
-                  placeholder="Name not yet decided…"
+                  placeholder="No name yet. Type one and leave the field to save."
                   defaultValue=""
                   onBlur={e => e.target.value.trim() && updateCircle({ circle_id: circId, name: e.target.value.trim() })}
                   className="mt-1 w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-2xl px-3 py-1 focus:outline-none focus:border-oxblood uppercase"
@@ -215,7 +214,7 @@ export const CirclePage = () => {
             </div>
             <div>
               <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
-                [ CHAPTER HOUSE ]
+                Chapter house
               </span>
               {circle?.chapter_house_location ? (
                 <div className="flex items-start gap-2 mt-0.5">
@@ -224,13 +223,12 @@ export const CirclePage = () => {
                   </div>
                   <button
                     onClick={() => updateCircle({ circle_id: circId, chapter_house_location: '' })}
-                    className="text-sepia hover:text-ink text-sm font-sans mt-0.5 shrink-0"
-                    title="Edit chapter house"
-                  >✎</button>
+                    className="shrink-0 px-2 py-1 font-sans font-bold text-xs uppercase tracking-wider text-sepia hover:text-oxblood border border-ink/20 hover:border-oxblood/50 rounded-sm transition-colors"
+                  >Clear</button>
                 </div>
               ) : (
                 <textarea
-                  placeholder="No chapter house decided yet…"
+                  placeholder="No chapter house yet. Type one and leave the field to save."
                   defaultValue=""
                   onBlur={e => e.target.value.trim() && updateCircle({ circle_id: circId, chapter_house_location: e.target.value.trim() })}
                   rows={2}
@@ -243,7 +241,7 @@ export const CirclePage = () => {
           {/* Insignia Stamp */}
           <div className="shrink-0 flex flex-col items-center gap-2">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
-              [ SYSTEM INSIGNIA ]
+              Insignia
             </span>
             <div className="w-20 h-20 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
               <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
@@ -256,7 +254,7 @@ export const CirclePage = () => {
         <div className="mt-4 pt-4 border-t border-ink/10">
           <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
-            Illumination Tracker
+            Illumination
           </h3>
           {trackFull && (
             <button
@@ -265,7 +263,7 @@ export const CirclePage = () => {
             >
               <SafeIcon name="GiMedal" size={12} className="text-candle-gold" />
               <span className="font-sans text-xs font-black uppercase tracking-widest text-ink">
-                Track Complete — Advance Circle →
+                Track full: advance the circle →
               </span>
             </button>
           )}
@@ -277,6 +275,8 @@ export const CirclePage = () => {
                 <div
                   key={i}
                   onClick={() => setIllum(filled && illum === i + 1 ? i : i + 1)}
+                  role="button"
+                  aria-label={`Set Illumination to ${filled && illum === i + 1 ? i : i + 1}`}
                   title={`Illumination ${i + 1}`}
                   className={`w-5 h-5 rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
                     filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'
@@ -288,14 +288,14 @@ export const CirclePage = () => {
             })}
           </div>
           <div className="font-serif italic text-sm text-sepia">
-            {illum} / {TRACK_SIZE} — milestone every 3 pips
+            {illum} of {TRACK_SIZE}. A milestone every 3. Tap a pip to set the track.
           </div>
         </div>
 
         {/* Active Circle Ability */}
         <div className="mt-4 pt-4 border-t border-ink/10">
           <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">
-            Active Circle Ability
+            Circle ability
           </span>
           {circle?.circle_ability ? (
             <div className="mt-1 space-y-1">
@@ -309,18 +309,18 @@ export const CirclePage = () => {
                 onClick={() => updateCircle({ circle_id: circId, circle_ability: '' })}
                 className="mt-1 font-sans font-bold text-xs text-sepia hover:text-ink uppercase tracking-wider"
               >
-                ✎ Clear abilities
+                Clear circle ability
               </button>
             </div>
           ) : (
             <div className="mt-1">
-              <p className="font-serif text-sm text-sepia italic mb-2">No ability decided — select one:</p>
+              <p className="font-serif text-sm text-sepia italic mb-2">No circle ability yet. Choose one:</p>
               <select
                 defaultValue=""
                 onChange={e => e.target.value && updateCircle({ circle_id: circId, circle_ability: e.target.value })}
                 className="w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-base px-2 py-1.5 focus:outline-none focus:border-oxblood"
               >
-                <option value="">— Assign circle ability —</option>
+                <option value="">Choose a circle ability…</option>
                 {Object.keys(CIRCLE_ABILITY_DESCRIPTIONS).map(a => (
                   <option key={a}>{a}</option>
                 ))}
@@ -336,15 +336,12 @@ export const CirclePage = () => {
         {/* Left: Assignment Dispatch Reference */}
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 p-5 shadow-md rounded-sm relative">
-            <div className="absolute top-1.5 right-2 font-sans font-bold text-xs text-sepia uppercase tracking-wider">
-              Form No. 84-Illum
-            </div>
             <h3 className="font-sans text-base font-black uppercase tracking-widest text-oxblood mb-1 flex items-center gap-1.5 border-b border-ink/10 pb-1">
               <SafeIcon name="GiQuillInk" size={12} />
               Illumination Questions
             </h3>
             <p className="font-serif italic text-sm text-sepia mb-4">
-              Evaluate at the end of each assignment.
+              Players answer these at the end of each assignment. Open reports so they can send them.
             </p>
             <div className="space-y-3">
               {ILLUM_QUESTIONS.map((q, i) => (
@@ -357,7 +354,7 @@ export const CirclePage = () => {
             {/* GM Toggle: Open Reports */}
             <div className="mt-4 pt-3 border-t border-ink/10 flex items-center justify-between">
               <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider">
-                {circle?.reports_open ? 'Reports are open' : 'Reports are closed'}
+                {circle?.reports_open ? 'Players can send reports now' : 'Reports are closed'}
               </span>
               <button
                 onClick={() => gmToggleReports(circId)}
@@ -367,7 +364,7 @@ export const CirclePage = () => {
                     : 'bg-transparent border-ink/20 text-sepia hover:border-ink/40'
                 }`}
               >
-                {circle?.reports_open ? '✓ Reports Open' : 'Open Reports'}
+                {circle?.reports_open ? 'Close reports' : 'Open reports'}
               </button>
             </div>
           </div>
@@ -380,7 +377,10 @@ export const CirclePage = () => {
             Circle Resources
           </h3>
           <p className="font-serif italic text-sm text-sepia leading-relaxed">
-            Max = 1 + circle members. Spend up to 2 per assignment.
+            Each resource holds 1 more than the number of investigators. Each investigator may spend up to 2 per assignment. Tap a square to set the count.
+          </p>
+          <p className={`font-serif text-sm ${circle?.resources_editable ? 'text-seal-green' : 'text-sepia'}`}>
+            {circle?.resources_editable ? 'Players can spend resources now.' : 'Spending is locked: players cannot spend resources.'}
           </p>
 
           <div className="space-y-3">
@@ -437,7 +437,7 @@ export const CirclePage = () => {
               onClick={() => refillResources(circId)}
               className="flex-1 px-3 py-2 font-sans text-xs font-black uppercase tracking-widest border border-ink/20 text-sepia hover:bg-black/5 hover:text-ink hover:border-ink/40 rounded-sm transition-all"
             >
-              Refill All Resources
+              Refill every resource
             </button>
             <button
               onClick={() => gmToggleResourceEdit(circId)}
@@ -447,7 +447,7 @@ export const CirclePage = () => {
                   : 'border-ink/20 text-sepia hover:border-ink/40'
               }`}
             >
-              {circle?.resources_editable ? '✓ Spending Allowed' : 'Lock Spending'}
+              {circle?.resources_editable ? 'Lock spending' : 'Allow spending'}
             </button>
           </div>
         </div>
@@ -461,7 +461,7 @@ export const CirclePage = () => {
           <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1.5 mb-5 flex items-center gap-1.5">
             <SafeIcon name="GiPapers" size={14} className="text-oxblood" />
             Assignment Reports
-            <span className="font-serif italic text-sm text-sepia ml-2 normal-case tracking-normal">Tap a card to review</span>
+            <span className="font-serif italic text-sm text-sepia ml-2 normal-case tracking-normal">Tap a card to read it</span>
           </h3>
           <div className="flex flex-wrap gap-4">
             {investigators.map((inv, idx) => (
@@ -488,16 +488,16 @@ export const CirclePage = () => {
         {selQ ? (
           <div className="bg-cream border border-parchment-deep border-l-4 border-l-oxblood/60 p-4 mb-5 shadow-sm rounded-sm">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-2">
-              Circle Formation Question
+              Circle question
             </span>
             <p className="font-serif text-base text-ink/80 leading-relaxed italic">"{selQ.text}"</p>
           </div>
         ) : (
-          <p className="font-serif text-sm text-sepia italic mb-5">No circle question selected yet.</p>
+          <p className="font-serif text-sm text-sepia italic mb-5">No circle question yet. The players vote on one in the formation papers.</p>
         )}
 
         {playersWithAnswers.length === 0 ? (
-          <p className="font-serif text-sm text-sepia italic">No player history accounts recorded yet.</p>
+          <p className="font-serif text-sm text-sepia italic">No player has written an answer to the circle question yet.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {playersWithAnswers.map((inv, idx) => (
@@ -513,7 +513,7 @@ export const CirclePage = () => {
                     {inv.name}
                   </span>
                   {inv.specialty && (
-                    <span className="font-sans font-bold text-xs text-sepia uppercase">— {inv.specialty}</span>
+                    <span className="font-sans font-bold text-xs text-sepia uppercase">· {inv.specialty}</span>
                   )}
                 </div>
                 <p className="font-serif text-sm text-ink/80 leading-relaxed italic whitespace-pre-wrap">
@@ -539,7 +539,7 @@ export const CirclePage = () => {
             <div className="p-5 sm:p-8">
               <h2 className="text-2xl font-serif font-black text-ink mb-1">Circle Advancement</h2>
               <p className="font-serif italic text-base text-sepia mb-6">
-                Select the new circle ability. This will be broadcast to all investigators.
+                Choose the circle's new ability. Every investigator sees it as soon as you advance.
               </p>
 
               <div className="space-y-2 mb-6">
@@ -580,7 +580,7 @@ export const CirclePage = () => {
                   disabled={!selectedAbility}
                   className="flex-1 py-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:bg-oxblood disabled:opacity-30 rounded-sm transition-all"
                 >
-                  Advance Circle →
+                  Advance the circle
                 </button>
               </div>
             </div>

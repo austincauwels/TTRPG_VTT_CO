@@ -115,14 +115,14 @@ function EntryCard({ entry, isLast }) {
         <div className="border-b-2 border-ink/70 pb-2 mb-3 flex flex-wrap gap-2 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full border-2 border-ink/70 flex items-center justify-center text-lg font-serif font-black">✦</div>
-            <span className="font-serif italic text-sm sm:text-base text-sepia">Candela Obscura — Lightkeeper Correspondence</span>
+            <span className="font-serif italic text-sm sm:text-base text-sepia">From the Lightkeeper</span>
           </div>
           <span className="font-mono text-sm text-sepia">{formatDate(entry.created_at)}</span>
         </div>
         <h3 className="font-serif font-black text-[2rem] text-ink mb-2">{entry.title}</h3>
         <p className="font-serif text-[26px] leading-[2.8rem] whitespace-pre-wrap text-ink/85">{entry.content}</p>
         <div className="mt-3 pt-2 border-t border-ink/10 font-sans font-bold text-sm text-sepia uppercase tracking-widest">
-          {entry.author_name} — Lightkeeper
+          {entry.author_name}, Lightkeeper
         </div>
       </div>
     );
@@ -163,8 +163,9 @@ function EphemeralNote({ entry, onDelete }) {
     >
       <button
         onClick={onDelete}
-        className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center text-sepia hover:text-oxblood transition-colors text-sm font-black"
+        className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center text-sepia hover:text-oxblood transition-colors text-sm font-black"
         title="Delete note"
+        aria-label="Delete this private note"
       >✕</button>
       <p className="font-serif text-[22px] leading-[1.6] whitespace-pre-wrap text-ink/80" style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
         {entry.content || entry.title}
@@ -275,11 +276,11 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
   const handleSubmitEntry = async () => {
     if (!newEntryTitle.trim() || (!newEntryContent.trim() && !pendingImageFile)) {
-      setSubmitError('A title and content are required.');
+      setSubmitError('Give the entry a title, and write something or add an image.');
       return;
     }
-    if (!campaignId) { setSubmitError('No active campaign found.'); return; }
-    if (!isGM && !character?.name) { setSubmitError('Character not loaded yet — please wait.'); return; }
+    if (!campaignId) { setSubmitError('This notebook belongs to a campaign, and you are not in one. Join a campaign to write entries.'); return; }
+    if (!isGM && !character?.name) { setSubmitError('Your investigator is still loading. Wait a moment, then try again.'); return; }
     setIsSubmitting(true);
     setSubmitError('');
     setUploadError('');
@@ -298,9 +299,9 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
       setIsUploading(false);
       if (!result.success) {
         if (result.tooLarge) {
-          setUploadError('Image is too large. Please use a smaller file (under 5 MB).');
+          setUploadError('That image is larger than 5 MB. Choose a smaller file, or a smaller copy of it.');
         } else {
-          setSubmitError('Failed to upload image. Please try again.');
+          setSubmitError('The image did not upload, so the entry was not saved. Check your connection and try again.');
         }
         setIsSubmitting(false);
         return;
@@ -322,7 +323,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
       const newIdx = fieldEntries.length;
       setCurrentSpread(Math.floor(newIdx / perSpread) + 1);
     } else if (!result.tooLarge) {
-      setSubmitError('Failed to log entry. Please try again.');
+      setSubmitError('The entry was not saved. Check your connection and try again; your text is still here.');
     }
   };
 
@@ -462,7 +463,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
               onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleAddEphemeral(); } }}
             />
             <div className="flex justify-between items-center mt-2">
-              <span className="font-sans font-bold text-xs text-sepia uppercase">Ctrl+Enter to save</span>
+              <span className="font-sans font-bold text-xs text-sepia uppercase">Ctrl+Enter saves the note</span>
               <button
                 onClick={handleAddEphemeral}
                 disabled={!ephemeralText.trim() || isAddingEphemeral}
@@ -484,7 +485,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
             ))}
           </div>
           {ephemeralEntries.length === 0 && (
-            <p className="font-serif text-xl italic text-sepia text-center mt-8">No private notes yet.</p>
+            <p className="font-serif text-xl italic text-sepia text-center mt-8">No private notes yet. Write one above; only you can see it.</p>
           )}
         </div>
       )}
@@ -575,7 +576,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                   {filteredEntries.length === 0 ? (
-                    <p className="text-2xl font-serif italic text-sepia mt-4">No entries recorded yet.</p>
+                    <p className="text-2xl font-serif italic text-sepia mt-4">No entries yet. Write the first one on the facing page.</p>
                   ) : filteredEntries.map(entry => {
                     const canDelete = isGM
                       ? entry.author_type === 'gm'
@@ -631,24 +632,24 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                       className="w-full text-left flex items-center justify-between px-2 py-1 rounded-sm hover:bg-sepia/10 transition-all"
                     >
                       <span className="font-serif text-2xl text-ink">Lightkeeper Resources</span>
-                      <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood">Restricted →</span>
+                      <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood">GM only →</span>
                     </button>
                   </div>
                 )}
 
-                {pageFooter('CLASSIFIED', 'DO NOT DISTRIBUTE')}
+                {pageFooter('', '')}
               </div>
             ) : (
               <div className="p-4 pt-10 sm:p-8 lg:pr-10 relative flex flex-col h-full min-w-0 border-b lg:border-b-0 lg:border-r border-ink/20">
                 <div className="absolute top-3 left-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">
-                  Field Notes // Spread {currentSpread}
+                  Field Notes, page {currentSpread}
                 </div>
                 <div className="flex-1 overflow-y-auto relative mt-6" style={LINED_PAPER}>
                   {leftEntries.length === 0
-                    ? <p className="text-2xl font-serif italic text-sepia text-center mt-16">— No Records Found —</p>
+                    ? <p className="text-2xl font-serif italic text-sepia text-center mt-16">Nothing on this page.</p>
                     : leftEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === leftEntries.length - 1} />)}
                 </div>
-                {pageFooter(`SPREAD ${currentSpread}`, '')}
+                {pageFooter(`Page ${currentSpread}`, '')}
               </div>
             )}
 
@@ -662,7 +663,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                 <header className="border-b-2 border-ink/80 pb-4 mb-5">
                   <h3 className="text-3xl sm:text-4xl leading-tight font-display tracking-[0.04em] text-ink uppercase">Log a Field Entry</h3>
                   <p className="text-base sm:text-lg font-serif italic text-sepia mt-0.5">
-                    Record your observations for archival.
+                    Everyone in the campaign can read it.
                   </p>
                 </header>
 
@@ -670,19 +671,19 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                   <div>
                     <label className="block font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-sepia mb-1">Entry Title</label>
                     <input type="text" value={newEntryTitle} onChange={e => setNewEntryTitle(e.target.value)}
-                      placeholder="Name this record..."
+                      placeholder="e.g. The lighthouse keeper's diary"
                       className="w-full px-0 py-1 bg-transparent border-b-2 border-ink/30 focus:border-ink/60 outline-none text-[32px]"
                       style={{ fontFamily: authorFont, color: authorColor }} />
                   </div>
                   <div className="flex-1 flex flex-col">
-                    <label className="block font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-sepia mb-1">Field Observations</label>
+                    <label className="block font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-sepia mb-1">What you found</label>
                     <div className="flex-1 relative">
                       <div className="absolute inset-0 pointer-events-none" style={{
                         backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgba(0,0,0,0.08) 27px, rgba(0,0,0,0.08) 28px)',
                         backgroundSize: '100% 28px', backgroundPosition: '0 32px',
                       }} />
                       <textarea value={newEntryContent} onChange={e => setNewEntryContent(e.target.value)}
-                        placeholder="Record your observations here..."
+                        placeholder="Write what happened, or what you noticed."
                         className="w-full h-full min-h-[180px] bg-transparent border-none outline-none resize-none text-[28px] leading-[3.5rem] relative z-10 pt-1"
                         style={{ fontFamily: authorFont, color: authorColor }} />
                     </div>
@@ -712,16 +713,16 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                       <img src={pendingImagePreview} alt="preview" className="w-16 h-16 object-cover border border-ink/20 rounded-sm" style={{ mixBlendMode: pendingImageType === 'sketch' ? 'multiply' : 'normal' }} />
                       <div className="flex-1 min-w-0">
                         <p className="font-mono text-sm text-sepia truncate">{pendingImageFile?.name}</p>
-                        <p className="font-serif italic text-sm text-sepia">{pendingImageType} staged — will submit with entry</p>
+                        <p className="font-serif italic text-sm text-sepia">This {pendingImageType} is saved with the entry.</p>
                       </div>
-                      <button onClick={clearPendingImage} className="text-sepia hover:text-oxblood font-black text-lg transition-colors">✕</button>
+                      <button onClick={clearPendingImage} aria-label="Remove the image" className="min-w-[40px] min-h-[40px] text-sepia hover:text-oxblood font-black text-lg transition-colors">✕</button>
                     </div>
                   )}
 
                   {/* Font picker — player only */}
                   {!isGM && (
                     <div className="flex items-center gap-2">
-                      <span className="font-sans font-bold text-sm uppercase tracking-widest text-sepia">Pen Style</span>
+                      <span className="font-sans font-bold text-sm uppercase tracking-widest text-sepia">Handwriting</span>
                       <select
                         value={authorFont}
                         onChange={e => updatePenFont(e.target.value)}
@@ -736,14 +737,14 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                   )}
 
                   {(submitError || uploadError) && (
-                    <p className="font-serif text-base text-oxblood">{uploadError || submitError}</p>
+                    <p role="alert" className="font-serif text-base text-oxblood">{uploadError || submitError}</p>
                   )}
                   {isUploading && <p className="font-serif italic text-base text-sepia">Uploading image…</p>}
 
                   <button onClick={handleSubmitEntry}
                     disabled={isSubmitting || isUploading || !newEntryTitle.trim() || (!newEntryContent.trim() && !pendingImageFile)}
                     className="font-sans font-black uppercase tracking-widest text-sm sm:text-base px-4 py-2 border-2 border-ink/60 hover:bg-black/5 transition-all disabled:opacity-30 self-end">
-                    {isSubmitting || isUploading ? 'Sealing…' : 'Seal & Submit →'}
+                    {isSubmitting || isUploading ? 'Saving…' : 'Add entry'}
                   </button>
                 </div>
               </div>
@@ -761,7 +762,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                       </div>
                     : rightEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === rightEntries.length - 1} />)}
                 </div>
-                {pageFooter('', `VERSO ${currentSpread}`)}
+                {pageFooter('', `Page ${currentSpread}`)}
               </div>
             )}
           </div>
