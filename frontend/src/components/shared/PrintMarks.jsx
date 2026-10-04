@@ -28,8 +28,12 @@ export const stampDate = (value) => {
 };
 
 // Oversized faint print behind a strip or a sheet ("REGISTRY FILE // NO. 00843-CO").
-export const Watermark = ({ children, className = '', style }) => (
-  <span aria-hidden="true" className={`print-watermark ${className}`} style={style}>{children}</span>
+// misprint (owner's round 3 item 17) sets it the way a careless press would: a few degrees
+// off level, off register, its ink uneven, with a faint second impression beside the first.
+// The second impression is drawn from data-print, so misprint needs its text as a string.
+export const Watermark = ({ children, misprint = false, className = '', style }) => (
+  <span aria-hidden="true" className={`print-watermark ${misprint ? 'print-misprint' : ''} ${className}`}
+    data-print={misprint && typeof children === 'string' ? children : undefined} style={style}>{children}</span>
 );
 
 // A form number or a printer's line in small capitals ("Form C.O. 7 · Investigator record").

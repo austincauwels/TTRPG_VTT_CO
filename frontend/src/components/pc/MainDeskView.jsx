@@ -67,6 +67,7 @@ export const MainDeskView = () => {
   const [activeTab, setActiveTab] = useState('character');
   const deathDialogRef = useDialog({ open: !!character?.is_dead && !deathDismissed, onClose: () => setDeathDismissed(true) });
   const campaignName = lastPlayedCampaign?.type === 'player' ? lastPlayedCampaign.campaignName : null;
+  const registryNo = `Registry file // No. ${serialFor(character?.id)}-CO`;
 
   // Below xl the desk is a long page: the title header, the member ID strip, then the
   // columns. From xl (1280) it fits the screen (owner's item 24): the title header steps
@@ -119,15 +120,18 @@ export const MainDeskView = () => {
       {/* REGISTRY NAVIGATION: the investigator's member ID strip, sealed at its left end.
           From xl it is the desk's only header: a slim band across the top. */}
       <div className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto mt-6 px-4 2xl:px-10 relative z-30 xl:max-w-none 2xl:max-w-none xl:w-full xl:mx-0 xl:mt-2.5 xl:px-5 2xl:px-8 xl:shrink-0">
-        {/* On phones the seal sits beside the name, so the tabs below can use the full width */}
-        <div className="absolute left-2 sm:left-4 top-1 sm:top-1/2 sm:-translate-y-1/2 2xl:left-8 xl:left-3 z-40 select-none rotate-12 drop-shadow-[3px_9px_8px_rgba(0,0,0,0.75)] xl:drop-shadow-[2px_6px_5px_rgba(0,0,0,0.7)]" aria-hidden="true">
-          <WaxSeal size={128} minSize={64} className="w-[74px] h-[74px] sm:w-32 sm:h-32 xl:w-16 xl:h-16" />
+        {/* Her seal, pressed over the strip's left end (it carries her own 12 degree turn
+            and cast shadow). On phones it sits beside the name, so the tabs below can use
+            the full width. */}
+        <div className="absolute left-2 sm:left-4 top-1 sm:top-1/2 sm:-translate-y-1/2 2xl:left-8 xl:left-3 z-40 flex" aria-hidden="true">
+          <WaxSeal size={128} className="w-[74px] h-[74px] sm:w-32 sm:h-32 xl:w-16 xl:h-16" />
         </div>
 
         <div className="w-full bg-parchment border-4 border-double border-ink p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] xl:shadow-[0_8px_18px_rgba(0,0,0,0.85)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-ink pl-[4.5rem] sm:pl-32 xl:pl-[5.25rem] pr-3 sm:pr-6 xl:pr-2 py-3 sm:py-5 xl:py-1.5 rounded-sm overflow-hidden">
-          {/* The registry's number, printed large and faint across the strip */}
-          <Watermark className="lg:hidden right-3 top-1.5 text-[30px] text-ink/[0.06]">
-            Registry file // No. {serialFor(character?.id)}-CO
+          {/* The registry's number, printed large and faint across the strip, misprinted:
+              off level, off register, the start of the line running off the strip */}
+          <Watermark misprint className="lg:hidden right-3 top-1.5 text-[30px] text-ink/[0.08]" style={{ '--misprint-tilt': '-3deg' }}>
+            {registryNo}
           </Watermark>
 
           <div className="flex items-center gap-3 relative z-10 min-h-[3.75rem] sm:min-h-0 xl:shrink-0">
@@ -143,8 +147,8 @@ export const MainDeskView = () => {
           </div>
 
           <div className="hidden lg:block relative flex-1 self-stretch min-w-0" aria-hidden="true">
-            <Watermark className="right-2 top-1/2 -translate-y-1/2 text-5xl xl:text-4xl text-ink/[0.06]">
-              Registry file // No. {serialFor(character?.id)}-CO
+            <Watermark misprint className="right-2 top-1/2 -translate-y-1/2 text-5xl xl:text-4xl text-ink/[0.08]">
+              {registryNo}
             </Watermark>
           </div>
 
