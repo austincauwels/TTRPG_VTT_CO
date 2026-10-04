@@ -158,11 +158,11 @@ export function AdvancementModal() {
   if (submitted) {
     return (
       <div className="fixed inset-0 z-[600] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
-        <div className="relative bg-[#fefcf5] border-2 border-[#d4af37]/60 rounded-sm p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-full max-w-[480px]">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-[#d4af37]" />
-          <h2 className="text-xl font-serif font-black text-[#7a6000] mb-3">Advancement Applied</h2>
-          <p className="font-serif text-sm text-black/70 mb-6">Your choices have been recorded. Check your dossier for the updated values.</p>
-          <button onClick={dismissCircleAdvancement} className="w-full py-2 font-mono text-[10px] font-black uppercase tracking-widest bg-black text-white hover:bg-[#721c15] rounded-sm transition-all">
+        <div className="relative bg-cream border-2 border-candle-gold/60 rounded-sm p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-full max-w-[480px]">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-candle-gold" />
+          <h2 className="text-xl font-serif font-black text-oxblood mb-3">Advancement Applied</h2>
+          <p className="font-serif text-sm text-ink/70 mb-6">Your choices have been recorded. Check your dossier for the updated values.</p>
+          <button onClick={dismissCircleAdvancement} className="w-full py-2 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream hover:bg-oxblood rounded-sm transition-all">
             Close
           </button>
         </div>
@@ -172,22 +172,22 @@ export function AdvancementModal() {
 
   return (
     <div className="fixed inset-0 z-[600] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
-      <div className="relative bg-[#fefcf5] border-2 border-[#d4af37]/60 rounded-sm p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-full max-w-[520px] max-h-[90dvh] overflow-y-auto">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-[#d4af37]" />
-        <h2 className="text-2xl font-serif font-black text-[#7a6000] mb-1 flex items-center gap-2">
-          <SafeIcon name="GiMedal" size={20} className="text-[#d4af37]" />
+      <div className="relative bg-cream border-2 border-candle-gold/60 rounded-sm p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-full max-w-[520px] max-h-[90dvh] overflow-y-auto">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-candle-gold" />
+        <h2 className="text-2xl font-serif font-black text-oxblood mb-1 flex items-center gap-2">
+          <SafeIcon name="GiMedal" size={20} className="text-candle-gold" />
           Circle Advancement
         </h2>
-        <p className="font-mono text-[9px] text-black/40 uppercase tracking-wider mb-5">
+        <p className="font-serif italic text-base text-sepia mb-5">
           The Illumination Track has filled. Choose <strong>2</strong> of the following for {character?.name || 'your investigator'}:
         </p>
 
         {circleAdvancement?.circle?.circle_ability && (() => {
           const newAbility = circleAdvancement.circle.circle_ability.split('\n').filter(Boolean).at(-1);
           return newAbility ? (
-            <div className="mb-5 p-3 bg-[#d4af37]/10 border border-[#d4af37]/40 rounded-sm">
-              <span className="font-mono text-[8px] font-black uppercase tracking-widest text-[#7a6000]">New Circle Ability</span>
-              <p className="font-serif text-sm text-black/90 mt-1">
+            <div className="mb-5 p-3 bg-candle-gold/10 border border-candle-gold/40 rounded-sm">
+              <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">New Circle Ability</span>
+              <p className="font-serif text-sm text-ink/90 mt-1">
                 <span className="font-bold">{newAbility}: </span>
                 {CIRCLE_ABILITY_DESCRIPTIONS[newAbility] || ''}
               </p>
@@ -200,29 +200,29 @@ export function AdvancementModal() {
             const isSelected = selectedPicks.includes(id);
             const isDisabled = !isSelected && selectedPicks.length >= MAX_PICKS;
             return (
-              <div key={id} className={`border rounded-sm transition-all ${isSelected ? 'border-[#721c15] bg-[#721c15]/5' : 'border-[#d6cbbe]'} ${isDisabled ? 'opacity-40' : ''}`}>
+              <div key={id} className={`border rounded-sm transition-all ${isSelected ? 'border-oxblood bg-oxblood/5' : 'border-parchment-deep'} ${isDisabled ? 'opacity-40' : ''}`}>
                 <label className="flex items-start gap-3 p-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={isSelected}
                     disabled={isDisabled}
                     onChange={() => togglePick(id)}
-                    className="mt-0.5 w-4 h-4 accent-[#721c15] cursor-pointer flex-shrink-0"
+                    className="mt-0.5 w-4 h-4 accent-oxblood cursor-pointer flex-shrink-0"
                   />
                   <div className="flex-1">
-                    <span className="font-serif text-sm font-bold text-black">{label}</span>
-                    <span className="block font-mono text-[9px] text-black/40 mt-0.5">{desc}</span>
+                    <span className="font-serif text-sm font-bold text-ink">{label}</span>
+                    <span className="block font-serif text-sm text-sepia mt-0.5">{desc}</span>
                   </div>
                 </label>
 
                 {/* Detail selectors — only shown when this pick is selected */}
                 {isSelected && (id === 'add_action' || id === 'gild_action') && (
                   <div className="px-3 pb-3">
-                    <label className="block font-mono text-[9px] uppercase tracking-wider text-black/50 mb-1">Choose action:</label>
+                    <label className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">Choose action:</label>
                     <div className="grid grid-cols-3 gap-1">
                       {['Nerve', 'Cunning', 'Intuition'].map(group => (
                         <div key={group}>
-                          <div className="font-mono text-[8px] uppercase tracking-wider text-black/30 mb-0.5">{group}</div>
+                          <div className="font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-0.5">{group}</div>
                           {ALL_ACTIONS.filter(a => a.group === group).map(a => {
                             const currentRating = character?.[a.key] || 0;
                             const atMax = currentRating >= 3 && id === 'add_action';
@@ -235,10 +235,10 @@ export function AdvancementModal() {
                                 onClick={() => setDetails(d => ({ ...d, [id]: a.key }))}
                                 className={`w-full text-left px-2 py-0.5 rounded-sm font-serif text-xs transition-all ${
                                   details[id] === a.key
-                                    ? 'bg-[#721c15] text-white'
+                                    ? 'bg-oxblood text-cream'
                                     : unavailable
-                                      ? 'text-black/20 cursor-not-allowed'
-                                      : 'hover:bg-[#721c15]/10 text-black/70'
+                                      ? 'text-sepia cursor-not-allowed'
+                                      : 'hover:bg-oxblood/10 text-ink/70'
                                 }`}
                               >
                                 {a.label} {id === 'add_action' ? `(${currentRating})` : alreadyGilded ? '✦' : ''}
@@ -253,14 +253,14 @@ export function AdvancementModal() {
 
                 {isSelected && id === 'add_drive' && (
                   <div className="px-3 pb-3">
-                    <label className="block font-mono text-[9px] uppercase tracking-wider text-black/50 mb-1">Choose drive pool:</label>
+                    <label className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">Choose drive pool:</label>
                     <div className="flex gap-2">
                       {['nerve', 'cunning', 'intuition'].map(dk => (
                         <button
                           key={dk}
                           onClick={() => setDetails(d => ({ ...d, [id]: dk }))}
-                          className={`flex-1 py-1 rounded-sm font-mono text-[10px] uppercase tracking-wider transition-all ${
-                            details[id] === dk ? 'bg-[#721c15] text-white' : 'border border-[#d6cbbe] hover:border-[#721c15] text-black/60'
+                          className={`flex-1 py-1 rounded-sm font-sans font-bold text-xs uppercase tracking-wider transition-all ${
+                            details[id] === dk ? 'bg-oxblood text-cream' : 'border border-parchment-deep hover:border-oxblood text-sepia'
                           }`}
                         >
                           {dk} ({character?.[`${dk}_max`] || 0})
@@ -274,16 +274,16 @@ export function AdvancementModal() {
                   const available = getAvailableAbilities(character);
                   return (
                     <div className="px-3 pb-3">
-                      <label className="block font-mono text-[9px] uppercase tracking-wider text-black/50 mb-1">
+                      <label className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">
                         Choose ability ({character?.role} / {character?.specialty}):
                       </label>
                       {available.length === 0 ? (
-                        <p className="font-mono text-[9px] text-black/40 italic">All abilities for your role and specialty are already learned.</p>
+                        <p className="font-serif text-sm text-sepia italic">All abilities for your role and specialty are already learned.</p>
                       ) : (
                         <select
                           value={details[id] || ''}
                           onChange={e => setDetails(d => ({ ...d, [id]: e.target.value }))}
-                          className="w-full border border-[#d6cbbe] rounded-sm px-2 py-1.5 font-serif text-sm bg-[#fefcf5] focus:outline-none focus:border-[#721c15] text-black"
+                          className="w-full border border-parchment-deep rounded-sm px-2 py-1.5 font-serif text-sm bg-cream focus:outline-none focus:border-oxblood text-ink"
                         >
                           <option value="">— Select an ability —</option>
                           {(() => {
@@ -316,18 +316,18 @@ export function AdvancementModal() {
           <button
             onClick={handleConfirm}
             disabled={!isReady()}
-            className="flex-1 py-2 font-mono text-[10px] font-black uppercase tracking-widest bg-[#721c15] text-white hover:bg-[#8b2318] rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:bg-oxblood rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Confirm Advancement ({selectedPicks.length}/{MAX_PICKS})
           </button>
           <button
             onClick={dismissCircleAdvancement}
-            className="px-4 py-2 font-mono text-[10px] font-black uppercase tracking-widest border border-black/20 text-black/50 hover:text-black hover:border-black rounded-sm transition-all"
+            className="px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border border-ink/20 text-sepia hover:text-ink hover:border-ink rounded-sm transition-all"
           >
             Later
           </button>
         </div>
-        <p className="font-mono text-[8px] text-black/25 uppercase tracking-wider mt-3 text-center">
+        <p className="font-serif italic text-sm text-sepia mt-3 text-center">
           Choices are applied immediately to your dossier when confirmed.
         </p>
       </div>
@@ -436,30 +436,30 @@ export const CircleView = () => {
   }
 
   return (
-    <div className="relative z-10 animate-sheetDrop space-y-8 text-black">
+    <div className="relative z-10 animate-sheetDrop space-y-8 text-ink">
 
       {/* I. Circle Identity Header */}
-      <div className="bg-[#fefcf5] border border-[#d6cbbe] border-t-4 border-t-[#721c15]/80 p-5 shadow-md rounded-sm">
+      <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/80 p-5 shadow-md rounded-sm">
         <div className="flex flex-col lg:flex-row gap-6 items-start">
 
           {/* Name + Chapter House */}
           <div className="flex-1 space-y-3">
             <div>
-              <span className="block font-mono text-[9px] font-black uppercase tracking-widest text-black/40">
+              <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
                 [ CIRCLE DESIGNATION ]
               </span>
-              <div className="text-2xl font-serif font-black text-black uppercase mt-1 leading-tight">
+              <div className="text-2xl font-serif font-black text-ink uppercase mt-1 leading-tight">
                 {circle?.name || 'Unnamed Circle'}
               </div>
             </div>
             <div>
-              <span className="block font-mono text-[9px] font-black uppercase tracking-widest text-black/40">
+              <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
                 [ CHAPTER HOUSE ]
               </span>
               <div className="font-serif text-sm mt-0.5 italic leading-snug">
                 {circle?.chapter_house_location
-                  ? <span className="text-[#721c15]">{circle.chapter_house_location}</span>
-                  : <span className="text-black/25">Not yet established…</span>
+                  ? <span className="text-oxblood">{circle.chapter_house_location}</span>
+                  : <span className="text-sepia">Not yet established…</span>
                 }
               </div>
             </div>
@@ -467,26 +467,26 @@ export const CircleView = () => {
 
           {/* Insignia Stamp */}
           <div className="shrink-0 flex flex-col items-center gap-2">
-            <span className="font-mono text-[9px] font-black uppercase tracking-widest text-black/40">
+            <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
               [ SYSTEM INSIGNIA ]
             </span>
-            <div className="w-20 h-20 rounded-full border-2 border-black/70 flex items-center justify-center bg-[#ebdcb9]/40 relative shadow-inner transform -rotate-3">
-              <div className="absolute inset-0 rounded-full border border-black/20 m-1 border-dashed" />
-              <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={38} className="text-black/85" />
+            <div className="w-20 h-20 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
+              <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
+              <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={38} className="text-ink/85" />
             </div>
           </div>
         </div>
 
         {/* Illumination Tracker — under Circle Designation */}
-        <div className="mt-4 pt-4 border-t border-black/10">
-          <h3 className="font-mono text-[10px] font-black uppercase tracking-widest text-black/50 mb-2 flex items-center gap-1.5">
-            <SafeIcon name="GiCandleLight" size={11} className="text-[#d4af37]" />
+        <div className="mt-4 pt-4 border-t border-ink/10">
+          <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
+            <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
             Illumination Tracker
           </h3>
           {trackFull && (
-            <div className="mb-2 px-2 py-1.5 bg-[#d4af37]/20 border border-[#d4af37] rounded-sm flex items-center gap-2">
-              <SafeIcon name="GiMedal" size={12} className="text-[#d4af37]" />
-              <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#7a6000]">
+            <div className="mb-2 px-2 py-1.5 bg-candle-gold/20 border border-candle-gold rounded-sm flex items-center gap-2">
+              <SafeIcon name="GiMedal" size={12} className="text-candle-gold" />
+              <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">
                 Track Complete — Awaiting Lightkeeper
               </span>
             </div>
@@ -498,27 +498,27 @@ export const CircleView = () => {
               return (
                 <div key={i} title={`Illumination ${i + 1}`}
                   className={`w-5 h-5 rounded-full border flex items-center justify-center shadow-inner transition-all ${
-                    filled ? 'bg-black border-black text-white' : 'bg-transparent border-black/50'
-                  } ${milestone ? 'ring-2 ring-offset-1 ring-[#d4af37]' : ''}`}>
-                  {milestone && <div className={`w-1.5 h-1.5 rounded-full bg-[#d4af37] ${filled ? 'opacity-100' : 'opacity-30'}`} />}
+                    filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50'
+                  } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}>
+                  {milestone && <div className={`w-1.5 h-1.5 rounded-full bg-candle-gold ${filled ? 'opacity-100' : 'opacity-30'}`} />}
                 </div>
               );
             })}
           </div>
-          <div className="font-mono text-[9px] text-black/35">
+          <div className="font-serif italic text-sm text-sepia">
             {illum} / {TRACK_SIZE} — milestone every 3 pips
           </div>
         </div>
 
         {/* Active Circle Abilities (stacked) */}
         {circle?.circle_ability && (
-          <div className="mt-4 pt-4 border-t border-black/10">
-            <span className="font-mono text-[9px] font-black uppercase tracking-widest text-[#721c15]">
+          <div className="mt-4 pt-4 border-t border-ink/10">
+            <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">
               Circle {circle.circle_ability.split('\n').length > 1 ? 'Abilities' : 'Ability'}
             </span>
             <div className="space-y-1.5 mt-1">
               {circle.circle_ability.split('\n').filter(Boolean).map((ability, i) => (
-                <p key={i} className="font-serif text-sm text-black/90 leading-relaxed">
+                <p key={i} className="font-serif text-sm text-ink/90 leading-relaxed">
                   <span className="font-bold uppercase">{ability}: </span>
                   {CIRCLE_ABILITY_DESCRIPTIONS[ability] || ''}
                 </p>
@@ -536,15 +536,15 @@ export const CircleView = () => {
           <div>{/* spacer */}</div>
 
           {/* III. End-of-Assignment Illumination Questions */}
-          <div className="bg-[#fefcf5] border border-[#d6cbbe] border-t-4 border-t-[#721c15]/70 p-5 shadow-md rounded-sm relative transform -rotate-[0.3deg]">
-            <div className="absolute top-1.5 right-2 font-mono text-[7px] text-black/30 uppercase tracking-wider">
+          <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 p-5 shadow-md rounded-sm relative">
+            <div className="absolute top-1.5 right-2 font-sans font-bold text-xs text-sepia uppercase tracking-wider">
               Form No. 84-Illum
             </div>
-            <h3 className="font-mono text-[15px] font-black uppercase tracking-widest text-[#721c15] mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+            <h3 className="font-sans text-base font-black uppercase tracking-widest text-oxblood mb-1 flex items-center gap-1.5 border-b border-ink/10 pb-1">
               <SafeIcon name="GiQuillInk" size={12} />
               Illumination Questions & Keys
             </h3>
-            <p className="font-mono text-[8px] text-black/40 uppercase tracking-wider mb-4">
+            <p className="font-serif italic text-sm text-sepia mb-4">
               Evaluate at the end of each assignment.
             </p>
 
@@ -556,10 +556,10 @@ export const CircleView = () => {
                     type="checkbox"
                     checked={evalQ[i]}
                     onChange={() => setEvalQ(prev => { const n = [...prev]; n[i] = !n[i]; return n; })}
-                    className="mt-0.5 w-4 h-4 accent-[#721c15] cursor-pointer shrink-0"
+                    className="mt-0.5 w-4 h-4 accent-oxblood cursor-pointer shrink-0"
                     disabled={submitted}
                   />
-                  <p className="font-serif text-sm text-black/80 leading-snug italic group-hover:text-black transition-colors">
+                  <p className="font-serif text-sm text-ink/80 leading-snug italic group-hover:text-ink transition-colors">
                     "{q}"
                   </p>
                 </label>
@@ -568,8 +568,8 @@ export const CircleView = () => {
 
             {/* Illumination Keys — individual checkboxes */}
             {myKeys.length > 0 && (
-              <div className="border-t border-black/10 pt-4 mb-4">
-                <span className="font-mono text-[9px] font-black uppercase tracking-widest text-black/50 block mb-2">
+              <div className="border-t border-ink/10 pt-4 mb-4">
+                <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-2">
                   {character?.specialty} Illumination Keys
                 </span>
                 <div className="space-y-1.5">
@@ -579,10 +579,10 @@ export const CircleView = () => {
                         type="checkbox"
                         checked={!!keyChecks[i]}
                         onChange={() => setKeyChecks(prev => ({ ...prev, [i]: !prev[i] }))}
-                        className="w-3.5 h-3.5 accent-[#721c15] cursor-pointer"
+                        className="w-3.5 h-3.5 accent-oxblood cursor-pointer"
                         disabled={submitted}
                       />
-                      <span className="font-serif text-sm text-black/80 group-hover:text-black transition-colors">{k}</span>
+                      <span className="font-serif text-sm text-ink/80 group-hover:text-ink transition-colors">{k}</span>
                     </label>
                   ))}
                 </div>
@@ -590,25 +590,25 @@ export const CircleView = () => {
             )}
 
             {/* Submit Report Button */}
-            <div className="flex items-center justify-between pt-3 border-t border-black/10">
+            <div className="flex items-center justify-between pt-3 border-t border-ink/10">
               {submitted ? (
-                <span className="font-mono text-[10px] text-emerald-700 uppercase tracking-widest font-black">
+                <span className="font-sans text-xs text-seal-green uppercase tracking-widest font-black">
                   ✓ Report submitted to Lightkeeper
                 </span>
               ) : (
                 <>
                   <div>
-                    <span className="font-mono text-[9px] text-black/40 uppercase tracking-wider block">
+                    <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider block">
                       {circle?.reports_open ? 'Lightkeeper is accepting reports' : 'Reports not yet open'}
                     </span>
                   </div>
                   <button
                     onClick={handleSubmitReport}
                     disabled={!circle?.reports_open}
-                    className={`px-4 py-2 font-mono text-[10px] font-black uppercase tracking-widest border-2 rounded-sm transition-all ${
+                    className={`px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-all ${
                       circle?.reports_open
-                        ? 'bg-black text-white border-black hover:bg-[#721c15] hover:border-[#721c15]'
-                        : 'bg-transparent text-black/20 border-black/20 cursor-not-allowed'
+                        ? 'bg-ink text-cream border-ink hover:bg-oxblood hover:border-oxblood'
+                        : 'bg-transparent text-sepia border-ink/20 cursor-not-allowed'
                     }`}
                   >
                     Submit Assignment Report to Lightkeeper
@@ -621,23 +621,23 @@ export const CircleView = () => {
 
         {/* Right column: Resources */}
         <div className="lg:col-span-5 space-y-4">
-          <h3 className="font-mono text-[15px] font-black uppercase tracking-widest text-black border-b border-black/30 pb-1 mb-3 flex items-center gap-1.5">
-            <SafeIcon name="GiScroll" size={14} className="text-[#721c15]" />
+          <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-3 flex items-center gap-1.5">
+            <SafeIcon name="GiScroll" size={14} className="text-oxblood" />
             Circle Resources
           </h3>
 
-          <p className="font-mono text-xs text-black/40 uppercase tracking-wide leading-relaxed">
+          <p className="font-serif italic text-sm text-sepia leading-relaxed">
             Max = 1 + circle members. Spend up to 2 per assignment. Refills when the Illumination Track fills.
           </p>
 
           {!circle?.resources_editable && (
-            <p className="font-mono text-[9px] text-black/30 uppercase tracking-widest italic">
+            <p className="font-serif italic text-sm text-sepia">
               Resources locked — Lightkeeper controls spending.
             </p>
           )}
 
           {circle?.resources_editable && !isGM && (
-            <p className="font-mono text-[9px] text-[#721c15]/70 uppercase tracking-widest font-bold">
+            <p className="font-serif italic text-sm text-oxblood">
               {character?.resources_spent_assignment || 0}/2 resources used this assignment
             </p>
           )}
@@ -647,16 +647,16 @@ export const CircleView = () => {
               const avail = circle?.[key] ?? maxCap;
               const spentAll = !isGM && (character?.resources_spent_assignment || 0) >= 2;
               return (
-                <div key={key} className="bg-white/60 border border-black/20 p-3 rounded-sm shadow-sm">
-                  <span className="font-serif font-black text-sm uppercase tracking-wide text-black block">
+                <div key={key} className="bg-cream/60 border border-ink/20 p-3 rounded-sm shadow-sm">
+                  <span className="font-serif font-black text-sm uppercase tracking-wide text-ink block">
                     {label}
                   </span>
-                  <span className="font-mono text-[9px] text-black/35 block mb-2 leading-snug">
+                  <span className="font-serif text-sm text-sepia block mb-2 leading-snug">
                     {desc}
                   </span>
                   {/* Available row — always shows 9 pips; players spend (left-click filled pip), GM can add/remove freely */}
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-mono text-[9px] text-black/50 uppercase font-bold w-20">Available</span>
+                    <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Available</span>
                     <div className="flex gap-1">
                       {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => {
                         const withinMax = i < maxCap;
@@ -682,12 +682,12 @@ export const CircleView = () => {
                             title={titleText}
                             className={`w-4 h-4 rounded-sm border transition-all ${
                               filled
-                                ? 'bg-[#721c15] border-[#721c15]'
+                                ? 'bg-oxblood border-oxblood'
                                 : withinMax
                                   ? wouldAdd && !isGM
-                                    ? 'bg-transparent border-dashed border-black/20'
-                                    : 'bg-transparent border-black/40 hover:border-[#721c15]/50'
-                                  : 'bg-transparent border-dashed border-black/15'
+                                    ? 'bg-transparent border-dashed border-ink/20'
+                                    : 'bg-transparent border-ink/40 hover:border-oxblood/50'
+                                  : 'bg-transparent border-dashed border-ink/15'
                             } ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
                           />
                         );
@@ -696,15 +696,15 @@ export const CircleView = () => {
                   </div>
                   {/* Maximum row */}
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[9px] text-black/30 uppercase font-bold w-20">Maximum</span>
+                    <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Maximum</span>
                     <div className="flex gap-1">
                       {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => (
                         <div
                           key={i}
                           className={`w-4 h-4 rounded-sm border ${
                             i < maxCap
-                              ? 'border-black/40 bg-black/15'
-                              : 'border-dashed border-black/15 bg-transparent'
+                              ? 'border-ink/40 bg-black/15'
+                              : 'border-dashed border-ink/15 bg-transparent'
                           }`}
                         />
                       ))}
@@ -721,44 +721,44 @@ export const CircleView = () => {
 
       {/* V. Circle History */}
       <div>
-        <h3 className="font-mono text-[15px] font-black uppercase tracking-widest text-black border-b border-black/30 pb-1 mb-4 flex items-center gap-1.5">
-          <SafeIcon name="GiQuillInk" size={14} className="text-[#721c15]" />
+        <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-1.5">
+          <SafeIcon name="GiQuillInk" size={14} className="text-oxblood" />
           Circle History
         </h3>
 
         {selQ ? (
-          <div className="bg-[#fefcf5] border border-[#d6cbbe] p-5 mb-5 rounded-sm shadow-sm border-l-4 border-l-[#721c15]">
-            <span className="font-mono text-[8px] font-black uppercase tracking-widest text-black/30 block mb-2">
+          <div className="bg-cream border border-parchment-deep p-5 mb-5 rounded-sm shadow-sm border-l-4 border-l-oxblood">
+            <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-2">
               Circle Formation Question
             </span>
-            <p className="font-serif text-base text-black/90 leading-relaxed italic">
+            <p className="font-serif text-base text-ink/90 leading-relaxed italic">
               "{selQ.text}"
             </p>
           </div>
         ) : (
-          <p className="font-serif text-sm text-black/40 italic mb-5">
+          <p className="font-serif text-sm text-sepia italic mb-5">
             No circle question selected. Complete the Circle Formation Papers to record your history.
           </p>
         )}
 
         {/* Player account */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-[#fefcf5] border border-[#d6cbbe] p-4 rounded-sm shadow-sm relative transform rotate-[0.2deg]">
-            <div className="flex items-center gap-2 mb-2 border-b border-black/10 pb-1.5">
-              <SafeIcon name="GiQuillInk" size={12} className="text-[#721c15]" />
-              <span className="font-mono text-[9px] font-black uppercase tracking-wide text-black/70">
+          <div className="bg-cream border border-parchment-deep p-4 rounded-sm shadow-sm relative">
+            <div className="flex items-center gap-2 mb-2 border-b border-ink/10 pb-1.5">
+              <SafeIcon name="GiQuillInk" size={12} className="text-oxblood" />
+              <span className="font-sans text-xs font-black uppercase tracking-wide text-ink/70">
                 {character?.name || 'You'}
               </span>
               {character?.specialty && (
-                <span className="font-mono text-[8px] text-black/30 uppercase">— {character.specialty}</span>
+                <span className="font-sans font-bold text-xs text-sepia uppercase">— {character.specialty}</span>
               )}
             </div>
             {character?.personal_circle_answer ? (
-              <p className="font-serif text-sm text-black/85 leading-relaxed italic whitespace-pre-wrap">
+              <p className="font-serif text-sm text-ink/85 leading-relaxed italic whitespace-pre-wrap">
                 "{character.personal_circle_answer}"
               </p>
             ) : (
-              <p className="font-serif text-sm text-black/30 italic">
+              <p className="font-serif text-sm text-sepia italic">
                 No account recorded yet. Add yours in the Circle Formation Papers.
               </p>
             )}
@@ -771,11 +771,11 @@ export const CircleView = () => {
         <>
           <SheetDivider />
           <div>
-            <h3 className="font-mono text-[15px] font-black uppercase tracking-widest text-black border-b border-black/30 pb-1 mb-4 flex items-center gap-1.5">
-              <SafeIcon name="GiHeartInside" size={14} className="text-[#721c15]" />
+            <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-1.5">
+              <SafeIcon name="GiHeartInside" size={14} className="text-oxblood" />
               Circle Relationships
               {pendingRels.some(r => r.last_actor_id !== myId) && (
-                <span className="ml-2 px-2 py-0.5 bg-amber-100 border border-amber-400 text-amber-700 font-mono text-[9px] uppercase tracking-wider rounded-sm">
+                <span className="ml-2 px-2 py-0.5 bg-parchment-deep border border-candle-gold text-sepia font-sans font-bold text-xs uppercase tracking-wider rounded-sm">
                   Response needed
                 </span>
               )}
@@ -791,19 +791,19 @@ export const CircleView = () => {
                 const isAwaiting = rel && rel.status !== 'accepted' && rel.last_actor_id === myId;
 
                 return (
-                  <div key={inv.id} className="bg-[#fefcf5] border border-[#d6cbbe] p-4 rounded-sm shadow-sm">
+                  <div key={inv.id} className="bg-cream border border-parchment-deep p-4 rounded-sm shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       {inv.ink_color && (
                         <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: inv.ink_color }} />
                       )}
-                      <span className="font-serif font-black text-sm text-black">{inv.name}</span>
+                      <span className="font-serif font-black text-sm text-ink">{inv.name}</span>
                       {inv.specialty && (
-                        <span className="font-mono text-[9px] text-black/35 uppercase">— {inv.specialty}</span>
+                        <span className="font-sans font-bold text-xs text-sepia uppercase">— {inv.specialty}</span>
                       )}
                       {/* Open full popup for this investigator */}
                       <button
                         onClick={() => openRelationshipPopup(inv)}
-                        className="ml-auto px-2.5 py-1 font-mono text-[9px] font-black uppercase tracking-wider border border-black/20 text-black/40 hover:border-[#721c15]/50 hover:text-[#721c15] transition-colors rounded-sm"
+                        className="ml-auto px-2.5 py-1 font-sans text-xs font-black uppercase tracking-wider border border-ink/20 text-sepia hover:border-oxblood/50 hover:text-oxblood transition-colors rounded-sm"
                         title="Open relationship form"
                       >
                         {rel ? '✎ Revisit' : '+ Propose'}
@@ -812,23 +812,23 @@ export const CircleView = () => {
 
                     {rel ? (
                       <>
-                        <p className="font-serif text-sm text-black/90 mb-1">
-                          <span className="font-mono text-[9px] text-black/35 uppercase mr-2">
+                        <p className="font-serif text-sm text-ink/90 mb-1">
+                          <span className="font-sans font-bold text-xs text-sepia uppercase mr-2">
                             {isMine ? 'To them' : 'To you'}
                           </span>
                           <strong>{rel.rel_type}</strong>
-                          {rel.lore ? <span className="text-black/60"> — {rel.lore}</span> : ''}
+                          {rel.lore ? <span className="text-sepia"> — {rel.lore}</span> : ''}
                         </p>
 
                         <div className="flex items-center gap-2">
                           {rel.status === 'accepted' && (
-                            <span className="font-mono text-[9px] text-emerald-600 uppercase tracking-wider">✓ Confirmed</span>
+                            <span className="font-sans font-bold text-xs text-seal-green uppercase tracking-wider">✓ Confirmed</span>
                           )}
                           {isAwaiting && (
-                            <span className="font-mono text-[9px] text-amber-600 uppercase tracking-wider animate-pulse">Awaiting {inv.name}…</span>
+                            <span className="font-serif italic text-sm text-sepia">Awaiting {inv.name}…</span>
                           )}
                           {canRespond && (
-                            <span className="font-mono text-[9px] text-[#721c15] uppercase tracking-wider font-black">Response needed</span>
+                            <span className="font-sans text-xs text-oxblood uppercase tracking-wider font-black">Response needed</span>
                           )}
                         </div>
 
@@ -837,23 +837,23 @@ export const CircleView = () => {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleAccept(rel.id)}
-                                className="px-4 py-1.5 bg-emerald-50 border border-emerald-500 text-emerald-700 font-sans font-black uppercase tracking-[0.1em] text-xs hover:bg-emerald-100 transition-colors rounded-sm"
+                                className="px-4 py-1.5 bg-seal-green/10 border border-seal-green text-seal-green font-sans font-black uppercase tracking-[0.1em] text-xs hover:bg-seal-green/15 transition-colors rounded-sm"
                               >
                                 Accept
                               </button>
                               <button
                                 onClick={() => setShowCounter(s => ({ ...s, [rel.id]: !s[rel.id] }))}
-                                className="px-4 py-1.5 border border-black/20 text-black/50 font-sans font-black uppercase tracking-[0.1em] text-xs hover:border-black/40 hover:text-black transition-colors rounded-sm"
+                                className="px-4 py-1.5 border border-ink/20 text-sepia font-sans font-black uppercase tracking-[0.1em] text-xs hover:border-ink/40 hover:text-ink transition-colors rounded-sm"
                               >
                                 Counter
                               </button>
                             </div>
                             {showCounter[rel.id] && (
-                              <div className="space-y-2 pt-1 border-t border-black/10">
+                              <div className="space-y-2 pt-1 border-t border-ink/10">
                                 <select
                                   value={counterDrafts[rel.id]?.relType || ''}
                                   onChange={e => { setCounterDraft(rel.id, 'relType', e.target.value); setCounterDraft(rel.id, 'lore', ''); }}
-                                  className="w-full border border-[#d6cbbe] bg-white px-3 py-2 font-serif text-sm text-black/80 focus:outline-none focus:border-[#721c15] rounded-sm"
+                                  className="w-full border border-parchment-deep bg-cream px-3 py-2 font-serif text-sm text-ink/80 focus:outline-none focus:border-oxblood rounded-sm"
                                 >
                                   <option value="">— They are your… —</option>
                                   {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -865,11 +865,11 @@ export const CircleView = () => {
                                         onClick={() => setCounterDraft(rel.id, 'lore', q)}
                                         className={`w-full text-left text-xs font-serif px-2.5 py-1.5 border rounded-sm transition-all leading-snug ${
                                           counterDrafts[rel.id]?.lore === q
-                                            ? 'border-[#721c15] bg-[#721c15]/5 text-black/90'
-                                            : 'border-black/15 text-black/45 hover:border-black/30'
+                                            ? 'border-oxblood bg-oxblood/5 text-ink/90'
+                                            : 'border-ink/15 text-sepia hover:border-ink/30'
                                         }`}
                                       >
-                                        <span className="font-mono text-[9px] text-black/30 mr-1">{qi + 1}.</span> {q}
+                                        <span className="font-mono text-xs text-sepia mr-1">{qi + 1}.</span> {q}
                                       </button>
                                     ))}
                                   </div>
@@ -879,12 +879,12 @@ export const CircleView = () => {
                                   onChange={e => setCounterDraft(rel.id, 'lore', e.target.value)}
                                   placeholder="Your answer or description…"
                                   rows={2}
-                                  className="w-full border border-[#d6cbbe] bg-white px-3 py-1.5 font-serif text-sm text-black/80 resize-none focus:outline-none focus:border-[#721c15] rounded-sm"
+                                  className="w-full border border-parchment-deep bg-cream px-3 py-1.5 font-serif text-sm text-ink/80 resize-none focus:outline-none focus:border-oxblood rounded-sm"
                                 />
                                 <button
                                   onClick={() => handleCounterSubmit(rel.id)}
                                   disabled={!counterDrafts[rel.id]?.relType}
-                                  className="px-4 py-1.5 bg-[#721c15] text-white font-sans font-black uppercase tracking-[0.1em] text-xs hover:bg-[#8b2318] disabled:opacity-30 transition-colors rounded-sm"
+                                  className="px-4 py-1.5 bg-oxblood text-cream font-sans font-black uppercase tracking-[0.1em] text-xs hover:bg-oxblood disabled:opacity-30 transition-colors rounded-sm"
                                 >
                                   Send Counter
                                 </button>
@@ -894,7 +894,7 @@ export const CircleView = () => {
                         )}
                       </>
                     ) : (
-                      <p className="font-mono text-[10px] text-black/30 uppercase tracking-wider italic">
+                      <p className="font-serif italic text-sm text-sepia">
                         No relationship proposed yet — use Propose to begin.
                       </p>
                     )}

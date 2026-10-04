@@ -123,7 +123,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       {showRollModifications && rollModifications}
 
       {/* ACTIVITY LOG */}
-      <ActivityLog logEntries={logEntries} />
+      <ActivityLog logEntries={logEntries} gm={showGmControls} />
 
       {/* PASS NOTES (memo pad) */}
       <PassNotes playerList={playerList} circleCreation={circleCreation} showGmControls={showGmControls} sendChat={sendChat} />

@@ -273,25 +273,25 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     <div className="relative z-10 animate-fadeIn space-y-6">
 
       {/* Investigator Portrait Frame */}
-      <div className="relative float-right ml-3 mb-2 w-24 h-[120px] p-1.5 md:float-none md:m-0 md:absolute md:top-0 md:right-0 md:w-44 md:h-[220px] md:p-2 bg-[#fefcf7] border border-black/10 shadow-[4px_10px_24px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 hover:scale-105 duration-200 transition-all z-30 group">
-        <div className="absolute -top-3 md:-top-3.5 left-1/2 -translate-x-1/2 w-12 md:w-20 h-3 md:h-4 bg-[#d2b48c]/70 -rotate-3 border border-black/5 mix-blend-multiply shadow-sm" />
-        <div className="w-full h-full bg-black/5 border border-black/5 flex flex-col items-center justify-center overflow-hidden text-center">
+      <div className="relative float-right ml-3 mb-2 w-24 h-[120px] p-1.5 md:float-none md:m-0 md:absolute md:top-0 md:right-0 md:w-44 md:h-[220px] md:p-2 bg-cream border border-ink/10 shadow-[4px_10px_24px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 hover:scale-105 duration-200 transition-all z-30 group">
+        <div className="absolute -top-3 md:-top-3.5 left-1/2 -translate-x-1/2 w-12 md:w-20 h-3 md:h-4 bg-parchment-deep/80 -rotate-3 border border-ink/5 mix-blend-multiply shadow-sm" />
+        <div className="w-full h-full bg-black/5 border border-ink/5 flex flex-col items-center justify-center overflow-hidden text-center">
           {character.profilePic || character.profile_pic ? (
             <img src={character.profilePic || character.profile_pic} className="w-full h-full object-cover grayscale contrast-125 sepia-[0.25]" alt="Subject Manifest Photo" />
           ) : (
             <div className="opacity-25 p-1">
               <SafeIcon name="GiPerson" size={44} className="mx-auto" />
-              <span className="block text-[8px] font-mono font-black uppercase mt-1 tracking-tight">AFFIX PORTRAIT</span>
+              <span className="block text-xs font-sans font-black uppercase mt-1 tracking-tight">AFFIX PORTRAIT</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Investigator Identity Headers */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 md:w-2/3 pb-2 font-mono">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 md:w-2/3 pb-2">
         <div className="sm:col-span-2 min-w-0">
-          <span className="block font-sans text-[8px] font-black uppercase tracking-wider text-black/40 leading-none">[ INVESTIGATOR APPELLATION RECORD ]</span>
-          <div className="text-xl font-serif font-black border-b border-black pb-0.5 text-black uppercase mt-1 truncate">{character.name}</div>
+          <span className="block font-sans text-xs font-black uppercase tracking-normal text-sepia leading-tight">[ INVESTIGATOR APPELLATION RECORD ]</span>
+          <div className="text-xl font-serif font-black border-b border-ink pb-0.5 text-ink uppercase mt-1 truncate">{character.name}</div>
           {/* Role class + specialty badges */}
           {(() => {
             const displayRole = character.role || ROLE_FROM_ABILITY[character.role_ability] || '';
@@ -300,13 +300,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             return (displayRole || displaySpecialty) ? (
               <div className="flex flex-wrap gap-2 sm:gap-2.5 mt-2">
                 {displayRole && (
-                  <span className="font-mono text-sm font-black uppercase tracking-widest bg-[#1a1311] text-[#ebdcb9] px-2.5 py-1 flex items-center gap-1.5">
+                  <span className="font-sans text-sm font-black uppercase tracking-widest bg-ink text-parchment px-2.5 py-1 flex items-center gap-1.5">
                     <SafeIcon name={roleIcon} size={14} />
                     {displayRole}
                   </span>
                 )}
                 {displaySpecialty && (
-                  <span className="font-mono text-sm uppercase tracking-widest border border-black/30 text-black/60 px-2.5 py-1 flex items-center gap-1.5">
+                  <span className="font-sans font-bold text-sm uppercase tracking-widest border border-ink/30 text-sepia px-2.5 py-1 flex items-center gap-1.5">
                     <SafeIcon name="GiMagnifyingGlass" size={14} />
                     {displaySpecialty}
                   </span>
@@ -316,8 +316,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           })()}
         </div>
         <div>
-          <span className="block font-sans text-[8px] font-black uppercase tracking-wider text-black/40 leading-none">[ NOMENCLATURE PRONOUNS ]</span>
-          <div className="text-sm font-bold italic border-b border-black pb-1 text-black/70 mt-1.5 truncate">{character.pronouns || 'UNLISTED'}</div>
+          <span className="block font-sans text-xs font-black uppercase tracking-normal text-sepia leading-tight">[ NOMENCLATURE PRONOUNS ]</span>
+          <div className="text-sm font-bold italic border-b border-ink pb-1 text-ink/70 mt-1.5 truncate">{character.pronouns || 'UNLISTED'}</div>
         </div>
       </div>
 
@@ -325,22 +325,23 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       <div className="w-full md:pr-48 relative clear-both md:clear-none" style={{ perspective: '1000px' }}>
         {/* Tab row — index card style tabs sticking up from behind */}
         <div className="flex gap-0 mb-0 relative z-10">
+          {/* One scheme for every tab: the open one in oxblood, the others older paper */}
           {[
-            { key: 'role', label: 'Role Asset', color: '#721c15' },
-            { key: 'specialty', label: 'Specialty Asset', color: '#1a3a6a' },
-            { key: 'profile', label: 'Motivational Profile', color: '#2d4a2a' },
+            { key: 'role', label: 'Role Asset' },
+            { key: 'specialty', label: 'Specialty Asset' },
+            { key: 'profile', label: 'Motivational Profile' },
           ].map(tab => (
             <button
               key={tab.key}
               onClick={() => setInfoTab(tab.key)}
-              className="max-sm:flex-1 max-sm:min-h-[36px] leading-tight px-2 sm:px-3 py-1.5 text-[10px] font-mono font-black uppercase tracking-wider sm:tracking-widest transition-all duration-150 rounded-t-sm mr-0.5"
+              className="max-sm:flex-1 max-sm:min-h-[36px] leading-tight px-2 sm:px-3 py-1.5 text-xs font-sans font-black uppercase tracking-wider sm:tracking-widest transition-all duration-150 rounded-t-sm mr-0.5"
               style={{
-                background: infoTab === tab.key ? tab.color : `${tab.color}55`,
-                color: infoTab === tab.key ? '#fdfaf4' : `${tab.color}bb`,
+                background: infoTab === tab.key ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-parchment-deep))',
+                color: infoTab === tab.key ? 'rgb(var(--c-cream))' : 'rgb(var(--c-sepia))',
                 transform: infoTab === tab.key ? 'translateY(1px)' : 'translateY(3px)',
                 zIndex: infoTab === tab.key ? 20 : 10,
                 position: 'relative',
-                boxShadow: infoTab === tab.key ? 'inset 0 -2px 0 rgba(255,255,255,0.15)' : 'none',
+                boxShadow: infoTab === tab.key ? 'inset 0 -2px 0 rgb(var(--c-cream)/0.15)' : 'none',
               }}
             >
               {tab.label}
@@ -352,55 +353,55 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         <div
           className="relative rounded-sm rounded-tl-none"
           style={{
-            background: '#fdfaf4',
-            backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgba(0,0,100,0.07) 24px)',
+            background: 'rgb(var(--c-cream))',
+            backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.12) 24px)',
             backgroundSize: '100% 24px',
             lineHeight: '24px',
-            boxShadow: '3px 5px 18px rgba(0,0,0,0.28), inset 0 0 30px rgba(139,115,85,0.08)',
+            boxShadow: '3px 5px 18px rgba(0,0,0,0.28), inset 0 0 30px rgb(var(--c-sepia) / 0.08)',
             border: '1px solid rgba(0,0,0,0.12)',
             minHeight: '110px',
             padding: '12px 16px',
           }}
         >
           {/* Red margin line like a real index card */}
-          <div className="absolute top-0 bottom-0 left-8 sm:left-10 w-[1px] bg-red-400/25 pointer-events-none" />
+          <div className="absolute top-0 bottom-0 left-8 sm:left-10 w-[1px] bg-oxblood-lit/25 pointer-events-none" />
 
-          <div className="pl-4 sm:pl-6 font-mono text-sm text-black/85 break-words">
+          <div className="pl-4 sm:pl-6 font-serif text-base text-ink break-words">
             {infoTab === 'role' && (
               <div>
-                <span className="font-sans text-[10px] font-black uppercase tracking-widest text-[#721c15] block mb-1">I. Role Asset</span>
+                <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-1">I. Role Asset</span>
                 <p className="leading-relaxed">
-                  <span className="font-bold uppercase text-black">{character.role_ability || "Ability"}:</span>{' '}
-                  {ABILITY_TEXTS[character.role_ability] || <span className="text-black/30 italic">No ability recorded.</span>}
+                  <span className="font-bold uppercase text-ink">{character.role_ability || "Ability"}:</span>{' '}
+                  {ABILITY_TEXTS[character.role_ability] || <span className="text-sepia italic">No ability recorded.</span>}
                 </p>
               </div>
             )}
             {infoTab === 'specialty' && (
               <div>
-                <span className="font-sans text-[10px] font-black uppercase tracking-widest text-[#1a3a6a] block mb-1">II. Specialty Asset</span>
+                <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-1">II. Specialty Asset</span>
                 <p className="leading-relaxed">
-                  <span className="font-bold uppercase text-black">{character.specialty_ability || "Specialty"}:</span>{' '}
-                  {ABILITY_TEXTS[character.specialty_ability] || <span className="text-black/30 italic">No specialty recorded.</span>}
+                  <span className="font-bold uppercase text-ink">{character.specialty_ability || "Specialty"}:</span>{' '}
+                  {ABILITY_TEXTS[character.specialty_ability] || <span className="text-sepia italic">No specialty recorded.</span>}
                 </p>
               </div>
             )}
             {infoTab === 'profile' && (
               <div>
-                <span className="font-sans text-[10px] font-black uppercase tracking-widest text-[#2d4a2a] block mb-1">III. Motivational Profile</span>
+                <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-1">III. Motivational Profile</span>
                 {character.catalyst ? (
                   <p className="leading-relaxed">
-                    <span className="font-sans text-[10px] font-black uppercase tracking-widest text-black/50 mr-2">Catalyst</span>
+                    <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia mr-2">Catalyst</span>
                     {character.catalyst}
                   </p>
                 ) : null}
                 {character.question ? (
                   <p className="leading-relaxed mt-1">
-                    <span className="font-sans text-[10px] font-black uppercase tracking-widest text-black/50 mr-2">Question</span>
+                    <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia mr-2">Question</span>
                     {character.question}
                   </p>
                 ) : null}
                 {!character.catalyst && !character.question && (
-                  <span className="text-black/30 italic">No motivational profile recorded.</span>
+                  <span className="text-sepia italic">No motivational profile recorded.</span>
                 )}
               </div>
             )}
@@ -412,21 +413,21 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
       {/* Actions section header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-sans text-sm font-black uppercase tracking-widest text-black flex items-center gap-2">
+        <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
           <SafeIcon name="GiCrossedSwords" size={15} /> Actions
         </h3>
       </div>
 
       {/* Train bonus active indicator */}
       {character?.train_bonus && (
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#d4af37]/15 border border-[#d4af37]/50 text-[#7a5800] font-mono text-[9px] uppercase tracking-widest rounded-sm">
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-candle-gold/15 border border-candle-gold/50 text-ink font-sans font-bold text-xs uppercase tracking-widest rounded-sm">
           <SafeIcon name="GiD6" size={11} />
           Train +1d active — bonus die consumed on next roll
         </div>
       )}
 
       {/* Action and Drive Pools Grid */}
-      <div className="grid grid-cols-1 gap-4 bg-black/[0.02] border border-black/10 p-3 rounded-sm shadow-inner">
+      <div className="grid grid-cols-1 gap-4 bg-black/[0.02] border border-ink/10 p-3 rounded-sm shadow-inner">
         {domainCategories.map((cat) => {
           const currentDrive = character[`${cat.driveKey}_current`] || 0;
           const maxDrive = character[`${cat.driveKey}_max`] || 1;
@@ -434,35 +435,36 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           const resistSpent = character[`${cat.driveKey}_resistance_spent`] || 0;
 
           return (
-            <div key={cat.name} className="bg-white/40 border border-black/20 p-3 rounded-sm grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div key={cat.name} className="border p-3 rounded-sm grid grid-cols-1 sm:grid-cols-2 gap-3"
+              style={{ background: `rgb(var(--c-drive-${cat.driveKey}) / 0.07)`, borderColor: `rgb(var(--c-drive-${cat.driveKey}) / 0.3)` }}>
 
               {/* LEFT: Drive section */}
-              <div className="group/drive bg-white/60 border border-black/20 p-2.5 rounded-sm shadow-sm flex flex-col gap-2">
+              <div className="group/drive bg-cream/60 border border-ink/20 p-2.5 rounded-sm shadow-sm flex flex-col gap-2">
                 {/* Drive title + pre-spend buttons */}
                 <div className="flex items-center justify-between">
-                  <span className="font-serif font-black text-base uppercase tracking-wide text-black" title={DRIVE_FLAVOR[cat.driveKey]}>{cat.name}</span>
+                  <span className="font-serif font-bold text-lg uppercase tracking-wide" style={{ color: `rgb(var(--c-drive-${cat.driveKey}))` }} title={DRIVE_FLAVOR[cat.driveKey]}>{cat.name}</span>
                   {!readOnly && (
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setPreSpend(p => ({ ...p, [cat.driveKey]: Math.max(0, (p[cat.driveKey] || 0) - 1) }))}
                         disabled={(preSpend[cat.driveKey] || 0) <= 0}
-                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 bg-black/10 border border-black/20 text-[10px] font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
+                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
                       >−</button>
-                      <span className="font-mono text-[10px] text-[#b8860b] font-black w-3 text-center">{preSpend[cat.driveKey] || 0}</span>
+                      <span className="font-mono tabular-nums text-xs text-sepia font-black w-3 text-center">{preSpend[cat.driveKey] || 0}</span>
                       <button
                         onClick={() => setPreSpend(p => {
                           const maxSpend = Math.min(currentDrive, 6 - 1);
                           return { ...p, [cat.driveKey]: Math.min(maxSpend, (p[cat.driveKey] || 0) + 1) };
                         })}
                         disabled={(preSpend[cat.driveKey] || 0) >= Math.min(currentDrive, 5)}
-                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 bg-black/10 border border-black/20 text-[10px] font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
+                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
                       >+</button>
                     </div>
                   )}
                 </div>
                 {/* Available row */}
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs text-black/50 uppercase font-bold shrink-0 mr-2">Available</span>
+                  <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2">Available</span>
                   <div className="flex gap-0.5 flex-wrap justify-end">
                     {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
                       <button
@@ -470,11 +472,12 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         onClick={!readOnly && i < maxDrive && i >= currentDrive ? () => handleSpendDrive(cat.driveKey, i + 1) : undefined}
                         className={`w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all focus:outline-none ${
                           i < currentDrive
-                            ? 'bg-[#721c15] border-[#721c15]'
+                            ? ''
                             : i < maxDrive
-                              ? 'bg-transparent border-black/40 hover:border-[#721c15]/50'
-                              : 'bg-transparent border-black/15 opacity-30'
+                              ? 'bg-transparent border-ink/40 hover:border-oxblood/50'
+                              : 'bg-transparent border-ink/15 opacity-30'
                         } ${!readOnly && i < maxDrive && i >= currentDrive ? 'cursor-pointer' : 'cursor-default'}`}
+                        style={i < currentDrive ? { background: `rgb(var(--c-drive-${cat.driveKey}))`, borderColor: `rgb(var(--c-drive-${cat.driveKey}))` } : undefined}
                       />
                     ))}
                   </div>
@@ -482,15 +485,15 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
                 {/* Maximum row */}
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs text-black/30 uppercase font-bold shrink-0 mr-2">Maximum</span>
+                  <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2">Maximum</span>
                   <div className="flex gap-0.5 flex-wrap justify-end">
                     {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
                       <div
                         key={i}
                         className={`w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border ${
                           i < maxDrive
-                            ? 'border-dashed border-black/35 bg-black/8'
-                            : 'border-dotted border-black/10 bg-transparent'
+                            ? 'border-dashed border-ink/35 bg-ink/5'
+                            : 'border-dotted border-ink/10 bg-transparent'
                         }`}
                       />
                     ))}
@@ -498,21 +501,23 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 </div>
 
                 {/* Resistance pips */}
-                <div className="flex items-center justify-between pt-1.5 border-t border-black/10">
-                  <span className="font-mono text-xs text-black/50 uppercase font-bold">Resistance</span>
+                <div className="flex items-center justify-between pt-1.5 border-t border-ink/10">
+                  <span className="font-sans text-xs text-sepia uppercase font-bold">Resistance</span>
                   <div className="flex gap-2">
                     {Array.from({ length: resistMax }).map((_, i) => (
                       <svg key={i} width="14" height="12" viewBox="0 0 14 12" title={i < resistSpent ? 'Spent' : 'Available'}>
                         <polygon
                           points="7,1 1,11 13,11"
-                          fill={i < resistSpent ? '#721c15' : 'transparent'}
-                          stroke={i < resistSpent ? '#721c15' : '#1a1311'}
+                          style={{
+                            fill: i < resistSpent ? 'rgb(var(--c-oxblood))' : 'transparent',
+                            stroke: i < resistSpent ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-ink))',
+                          }}
                           strokeWidth="1.5"
                         />
                       </svg>
                     ))}
                     {resistMax === 0 && (
-                      <span className="font-mono text-xs text-black/25 italic">—</span>
+                      <span className="font-mono text-xs text-sepia italic">—</span>
                     )}
                   </div>
                 </div>
@@ -531,8 +536,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     <div key={act.key} className="py-0.5 group/action" title={ACTION_FLAVOR[act.key]}>
                       <div className="flex justify-between items-center">
                         {readOnly ? (
-                          <span className="font-mono text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-black/70">
-                            {isGilded && <div className="w-2 h-2 bg-[#d4af37] rounded-full" />}
+                          <span className="font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-ink/70">
+                            {isGilded && <div className="w-2 h-2 bg-candle-gold rounded-full" />}
                             {act.label}
                           </span>
                         ) : (
@@ -546,13 +551,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                               setActiveMods(p => ({ ...p, [act.key]: [] }));
                               rollAction(act.key, effectiveSpend, false, selectedMods);
                             }}
-                            className={`font-mono text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-left transition-colors [@media(pointer:coarse)]:min-h-[40px] ${(pendingGildedChoice || isRolling) ? 'opacity-40 cursor-not-allowed' : 'hover:text-red-800'}`}
+                            className={`font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-left transition-colors [@media(pointer:coarse)]:min-h-[40px] ${(pendingGildedChoice || isRolling) ? 'opacity-40 cursor-not-allowed' : 'hover:text-oxblood'}`}
                             style={{ touchAction: 'manipulation' }}
                           >
-                            {isGilded && <div className="w-2 h-2 bg-[#d4af37] rounded-full" />}
+                            {isGilded && <div className="w-2 h-2 bg-candle-gold rounded-full" />}
                             {act.label}
                             {preSpend[cat.driveKey] > 0 && (
-                              <span className="font-mono text-xs text-[#d4af37] font-black">+{preSpend[cat.driveKey]}d</span>
+                              <span className="font-mono tabular-nums text-xs text-oxblood font-black">+{preSpend[cat.driveKey]}d</span>
                             )}
                           </button>
                         )}
@@ -560,7 +565,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                           {Array.from({ length: 3 }).map((_, i) => (
                             <div
                               key={i}
-                              className={`w-3 h-3 rounded-full border border-black ${i < actionValue ? 'bg-[#721c15]' : 'bg-transparent'}`}
+                              className={`w-3 h-3 rounded-full border border-ink ${i < actionValue ? 'bg-oxblood' : 'bg-transparent'}`}
                             />
                           ))}
                         </div>
@@ -573,8 +578,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                               <button
                                 key={mod.key}
                                 onClick={() => toggleMod(act.key, mod.key)}
-                                className={`font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border transition-colors ${
-                                  on ? 'bg-[#d4af37]/20 border-[#d4af37]/70 text-[#7a5800]' : 'border-black/20 text-black/35 hover:border-black/40 hover:text-black/50'
+                                className={`font-sans font-bold text-xs uppercase tracking-wider px-1.5 py-0.5 border transition-colors ${
+                                  on ? 'bg-candle-gold/20 border-candle-gold/70 text-ink' : 'border-ink/20 text-sepia hover:border-ink/40 hover:text-ink'
                                 }`}
                               >
                                 {mod.label}
@@ -598,20 +603,20 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
 
         {/* Damage Tracks Column */}
-        <div className="md:col-span-5 bg-black/[0.02] border-2 border-black p-4 rounded-sm flex flex-col justify-between shadow-inner">
+        <div className="md:col-span-5 bg-black/[0.02] border-2 border-ink p-4 rounded-sm flex flex-col justify-between shadow-inner">
           <div>
-            <h3 className="font-sans text-sm font-black uppercase tracking-widest text-black border-b border-black/30 pb-1 mb-4 flex items-center gap-2">
-              <SafeIcon name="GiBleedingEye" size={22} className="text-[#721c15]" /> Marks
+            <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-2">
+              <SafeIcon name="GiBleedingEye" size={22} className="text-oxblood" /> Marks
             </h3>
             <div className="space-y-4">
               {['body', 'brain', 'bleed'].map((type) => (
                 <div key={type} className="flex justify-between items-center">
                   {readOnly ? (
-                    <span className="font-sans font-black uppercase tracking-widest text-sm text-black">{type}</span>
+                    <span className="font-sans font-black uppercase tracking-widest text-sm text-ink">{type}</span>
                   ) : (
                     <button
                       onClick={() => takeMark(type)}
-                      className="font-sans font-black uppercase tracking-widest text-sm text-black hover:text-red-800 transition-colors border-b border-dashed border-transparent hover:border-red-800"
+                      className="font-sans font-black uppercase tracking-widest text-sm text-ink hover:text-oxblood transition-colors border-b border-dashed border-transparent hover:border-oxblood"
                     >
                       {type} [+]
                     </button>
@@ -620,10 +625,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     {Array.from({ length: 3 }).map((_, i) => (
                       <div
                         key={i}
-                        className={`w-5 h-7 border-2 border-black shadow-inner rounded-sm transition-all duration-150 ${
+                        className={`w-5 h-7 border-2 border-ink shadow-inner rounded-sm transition-colors duration-150 ${
                           character && i < character[`${type}_marks`]
-                            ? 'bg-black transform rotate-3 scale-105'
-                            : readOnly ? 'bg-transparent' : 'bg-transparent group-hover:bg-black/20 group-hover:border-red-800/50'
+                            ? 'bg-oxblood'
+                            : readOnly ? 'bg-transparent' : 'bg-transparent group-hover:bg-oxblood/15 group-hover:border-oxblood'
                         }`}
                       />
                     ))}
@@ -633,16 +638,16 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             </div>
           </div>
 
-          <div className="mt-4 pt-2 border-t border-black/10 text-xs font-mono text-black/50 flex justify-between items-center uppercase">
+          <div className="mt-4 pt-2 border-t border-ink/10 text-xs font-sans font-bold text-sepia flex justify-between items-center uppercase">
             <span>Trauma Status:</span>
-            <span className={`font-bold ${character?.is_dead ? 'text-black' : character?.incapacitated ? 'text-[#721c15]' : 'text-black'}`}>
+            <span className={`font-bold ${character?.is_dead ? 'text-ink' : character?.incapacitated ? 'text-oxblood' : 'text-ink'}`}>
               {character?.is_dead ? "DECEASED" : character?.incapacitated ? "INCAPACITATED" : "OPERATIONAL"}
             </span>
           </div>
           {character?.is_dead && !readOnly && (
             <button
               onClick={() => setStage('CHARACTER_CREATION')}
-              className="mt-2 w-full py-1.5 font-mono text-[10px] font-black uppercase tracking-widest border-2 border-black text-black hover:bg-black hover:text-white transition-all rounded-sm"
+              className="mt-2 w-full py-1.5 font-sans text-xs font-black uppercase tracking-widest border-2 border-ink text-ink hover:bg-ink hover:text-cream transition-all rounded-sm"
             >
               Select New Investigator →
             </button>
@@ -650,7 +655,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           {character?.incapacitated && !character?.is_dead && !readOnly && (
             <button
               onClick={reviveCharacter}
-              className="mt-2 w-full py-1.5 font-mono text-[10px] font-black uppercase tracking-widest border border-[#721c15]/60 text-[#721c15] hover:bg-[#721c15] hover:text-white transition-all rounded-sm"
+              className="mt-2 w-full py-1.5 font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
             >
               Revive — Return to Operational
             </button>
@@ -658,32 +663,32 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         </div>
 
         {/* Scars — editable textarea for players, list view for GM readOnly */}
-        <div className="md:col-span-7 bg-[#fcf9f2] border-2 border-dashed border-black/60 p-4 rounded-sm relative shadow-sm flex flex-col justify-between overflow-hidden">
-          <div className="absolute top-1 right-2 font-mono text-[9px] text-black/30 tracking-tight uppercase">Official Worker Accident Form</div>
+        <div className="md:col-span-7 bg-cream border-2 border-dashed border-ink/60 p-4 rounded-sm relative shadow-sm flex flex-col justify-between overflow-hidden">
+          <div className="absolute top-1 right-2 font-sans font-bold text-xs text-sepia tracking-tight uppercase">Official Worker Accident Form</div>
           <div>
-            <div className="flex flex-wrap gap-2 justify-between items-center border-b border-black/40 pb-1 mb-2 mt-3 sm:mt-0">
-              <h3 className="font-sans text-sm font-black uppercase tracking-widest text-black flex items-center gap-2">
+            <div className="flex flex-wrap gap-2 justify-between items-center border-b border-ink/40 pb-1 mb-2 mt-3 sm:mt-0">
+              <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
                 <SafeIcon name="GiQuillInk" size={18} /> Medical Trauma Report
               </h3>
-              <span className="font-mono text-xs font-bold bg-black text-white py-1 rounded-sm inline-flex items-center justify-between min-w-[9rem] px-3">
+              <span className="font-sans text-xs font-bold bg-ink text-cream py-1 rounded-sm inline-flex items-center justify-between min-w-[9rem] px-3">
                 <span className="uppercase tracking-widest">Scars</span>
-                <span className="tracking-normal">{character?.scars_count || 0} / 4</span>
+                <span className="font-mono tabular-nums tracking-normal">{character?.scars_count || 0} / 4</span>
               </span>
             </div>
           </div>
 
           <div className="flex-1 space-y-1.5 pt-1"
                style={{
-                 backgroundImage: 'repeating-linear-gradient(transparent, transparent 19px, rgba(0, 0, 0, 0.08) 20px)',
-                 backgroundSize: '100% 20px',
-                 lineHeight: '20px'
+                 backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.14) 24px)',
+                 backgroundSize: '100% 24px',
+                 lineHeight: '24px'
                }}>
             {character?.scars_list?.length > 0 ? (
               character.scars_list.map((scar, i) => (
-                <p key={i} className="font-mono text-xs text-black/80 italic pl-1">— {scar}</p>
+                <p key={i} className="font-serif text-base text-ink italic pl-1">— {scar}</p>
               ))
             ) : (
-              <p className="font-mono text-xs text-black/30 italic">No accidents on record.</p>
+              <p className="font-serif text-base text-sepia italic">No accidents on record.</p>
             )}
           </div>
         </div>
@@ -694,7 +699,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       {/* Equipment Ledger */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-sans text-sm font-black uppercase tracking-widest text-black flex items-center gap-2">
+          <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
             <SafeIcon name="GiBriefcase" size={18} /> Equipment Ledger
           </h3>
           {!readOnly && (
@@ -704,7 +709,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             setPendingGear((character.gear || []).filter(item => available.includes(item)));
             setShowGearModal(true);
           }}
-              className="text-[10px] font-mono font-black uppercase tracking-wider border border-black/30 px-3 py-1.5 hover:bg-black/5 transition-colors rounded-sm"
+              className="text-xs font-sans font-black uppercase tracking-wider border border-ink/30 px-3 py-1.5 hover:bg-black/5 transition-colors rounded-sm"
             >
               Change Gear
             </button>
@@ -713,13 +718,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         <div className="flex flex-wrap gap-2">
           {(character.gear || []).length > 0 ? (
             (character.gear || []).map(item => (
-              <span key={item} className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-tight bg-black/5 border border-black/15 px-2.5 py-1.5 rounded-sm">
+              <span key={item} className="flex items-center gap-1.5 font-sans text-xs font-bold uppercase tracking-tight bg-black/5 border border-ink/15 px-2.5 py-1.5 rounded-sm">
                 <SafeIcon name={GEAR_ICONS[item] || 'GiSuitcase'} size={13} />
                 {item}
               </span>
             ))
           ) : (
-            <span className="font-mono text-xs italic text-black/30">No equipment on record.</span>
+            <span className="font-serif text-base italic text-sepia">No equipment on record.</span>
           )}
         </div>
       </div>
@@ -727,27 +732,27 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       {/* Gear Change Modal: in a portal, so the sheet's stacking context (z-10), its
           space-y margin and its overflow cannot place or clip it */}
       {showGearModal && createPortal(
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" style={{ background: 'rgba(10,6,4,0.82)' }}
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" style={{ background: 'rgb(var(--c-night) / 0.85)' }}
           onClick={() => setShowGearModal(false)}>
           <div className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
-            style={{ background: '#f5ead0', border: '3px double rgba(62,42,26,0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
-            <h2 className="text-2xl font-serif font-black text-[#1a1311] mb-1">Change Equipment</h2>
-            <p className="text-sm font-sans text-[#5a3a28]/60 mb-5">Select up to 3 items. Gear can be changed freely between assignments.</p>
+            style={{ background: 'rgb(var(--c-parchment))', border: '3px double rgb(var(--c-sepia)/0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
+            <h2 className="text-2xl font-serif font-black text-ink mb-1">Change Equipment</h2>
+            <p className="text-sm font-sans text-sepia mb-5">Select up to 3 items. Gear can be changed freely between assignments.</p>
 
             {character.specialty && SPECIALTY_GEAR[character.specialty] && (
               <div className="mb-4">
-                <p className="text-xs font-sans font-black uppercase tracking-wider text-[#721c15] mb-2">Signature Equipment — {character.specialty}</p>
+                <p className="text-xs font-sans font-black uppercase tracking-wider text-oxblood mb-2">Signature Equipment — {character.specialty}</p>
                 <div className="space-y-1.5">
                   {SPECIALTY_GEAR[character.specialty].map(item => {
                     const sel = pendingGear.includes(item);
                     return (
                       <div key={item} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
                         className="flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
-                        style={{ background: sel ? 'rgba(114,28,21,0.1)' : 'rgba(228,207,160,0.3)', border:`1px solid ${sel?'#721c15':'rgba(90,58,40,0.22)'}` }}>
-                        <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-[#721c15] border-[#721c15] text-white':'border-[#5a3a28]/40'}`}>{sel&&'✓'}</div>
-                        <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'#721c15':'#5a3a28', flexShrink:0 }} />
-                        <span className={`text-sm font-serif ${sel?'font-bold text-[#1a1311]':'text-[#1a1311]/75'}`}>{item}</span>
-                        <span className="ml-auto text-[9px] font-sans font-black uppercase text-[#721c15]/60 tracking-tight shrink-0">[Sig]</span>
+                        style={{ background: sel ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.3)', border:`1px solid ${sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia)/0.22)'}` }}>
+                        <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/40'}`}>{sel&&'✓'}</div>
+                        <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />
+                        <span className={`text-sm font-serif ${sel?'font-bold text-ink':'text-ink/75'}`}>{item}</span>
+                        <span className="ml-auto text-xs font-sans font-black uppercase text-oxblood/60 tracking-tight shrink-0">[Sig]</span>
                       </div>
                     );
                   })}
@@ -756,33 +761,33 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             )}
 
             <div className="mb-6">
-              <p className="text-xs font-sans font-black uppercase tracking-wider text-[#5a3a28]/55 mb-2">Standard Issue Equipment</p>
+              <p className="text-xs font-sans font-black uppercase tracking-wider text-sepia mb-2">Standard Issue Equipment</p>
               <div className="space-y-1.5">
                 {STANDARD_GEAR.map(item => {
                   const sel = pendingGear.includes(item);
                   return (
                     <div key={item} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
                       className="flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
-                      style={{ background: sel ? 'rgba(114,28,21,0.08)' : 'rgba(228,207,160,0.15)', border:`1px solid ${sel?'#721c1580':'rgba(90,58,40,0.15)'}` }}>
-                      <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-[#721c15] border-[#721c15] text-white':'border-[#5a3a28]/35'}`}>{sel&&'✓'}</div>
-                      <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'#721c15':'#5a3a28', flexShrink:0 }} />
-                      <span className={`text-sm font-serif ${sel?'font-bold text-[#1a1311]':'text-[#1a1311]/60'}`}>{item}</span>
+                      style={{ background: sel ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.15)', border:`1px solid ${sel?'rgb(var(--c-oxblood) / 0.5)':'rgb(var(--c-sepia)/0.15)'}` }}>
+                      <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/35'}`}>{sel&&'✓'}</div>
+                      <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />
+                      <span className={`text-sm font-serif ${sel?'font-bold text-ink':'text-sepia'}`}>{item}</span>
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-4" style={{ borderTop: '1px solid rgba(62,42,26,0.18)' }}>
-              <span className="text-sm font-sans font-black text-[#5a3a28]/60 whitespace-nowrap">{pendingGear.length} / 3 selected</span>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4" style={{ borderTop: '1px solid rgb(var(--c-sepia)/0.18)' }}>
+              <span className="text-sm font-sans font-black text-sepia whitespace-nowrap">{pendingGear.length} / 3 selected</span>
               <div className="flex gap-3 max-sm:flex-1 max-sm:justify-end">
                 <button onClick={() => setShowGearModal(false)}
-                  className="px-4 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-[#5a3a28]/25 hover:border-[#5a3a28]/50 text-[#5a3a28]/60 transition-colors rounded-sm">
+                  className="px-4 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-sepia/25 hover:border-sepia/50 text-sepia transition-colors rounded-sm">
                   Cancel
                 </button>
                 <button onClick={sendGearUpdate}
                   className="px-6 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest rounded-sm shadow transition-all"
-                  style={{ background: '#721c15', color: '#fdfaf4' }}>
+                  style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
                   Confirm →
                 </button>
               </div>

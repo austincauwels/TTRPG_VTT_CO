@@ -16,18 +16,18 @@ const outcomeForKept = (value) => (value === 6 ? 'full_success' : value >= 4 ? '
 
 const MiniDie = ({ die, counts, dim, onClick }) => {
   const base = `font-serif font-black flex items-center justify-center rounded-sm border ${
-    die.is_gilded ? 'border-[#d4af37] bg-[#d4af37] text-[#1a1311]' : 'border-[#1a1311]/20 bg-[#fdfaf4] text-[#1a1311]'}`;
+    die.is_gilded ? 'border-candle-gold bg-candle-gold text-ink' : 'border-ink/20 bg-cream text-ink'}`;
   if (onClick) {
     return (
       <button type="button" onClick={onClick}
-        className={`${base} w-11 h-11 text-xl ring-2 ring-white/60 active:scale-95 transition-transform`}
+        className={`${base} w-11 h-11 text-xl ring-2 ring-cream/70 active:scale-95 transition-transform`}
         aria-label={`Keep the ${die.is_gilded ? 'gilded' : 'highest'} die, ${die.value}`}>
         {die.value}
       </button>
     );
   }
   return (
-    <span className={`${base} w-7 h-7 text-sm ${counts ? 'ring-2 ring-emerald-400/80' : ''} ${dim ? 'opacity-40' : ''}`}>
+    <span className={`${base} w-7 h-7 text-sm ${counts ? 'ring-2 ring-seal-green-lit/80' : ''} ${dim ? 'opacity-40' : ''}`}>
       {die.value}
     </span>
   );
@@ -63,11 +63,11 @@ export const RollResultBar = ({
 
   const summary = (
     <span className="flex flex-col min-w-0">
-      <span className="flex items-center gap-1.5 font-sans text-[11px] font-black uppercase tracking-[0.14em] text-[#fdfaf4]/70 min-w-0">
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: rollerInk || '#d4af37' }} />
+      <span className="flex items-center gap-1.5 font-sans text-xs font-black uppercase tracking-[0.14em] text-cream/70 min-w-0">
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: rollerInk || 'rgb(var(--c-candle-gold))' }} />
         <span className="truncate">{rollerName}{actionLabel ? ` · ${actionLabel}` : ''}</span>
       </span>
-      <span className="font-serif text-lg font-bold leading-tight text-[#fdfaf4] truncate">{status}</span>
+      <span className="font-serif text-lg font-bold leading-tight text-cream truncate">{status}</span>
     </span>
   );
 
@@ -77,12 +77,12 @@ export const RollResultBar = ({
         <>
           <div className="fixed inset-0 z-[70] bg-black/60" onClick={() => setOpen(false)} />
           <div role="dialog" aria-modal="true" aria-label="Dice tray"
-            className="fixed inset-x-0 bottom-0 z-[71] max-h-[85dvh] overflow-y-auto bg-[#1a1311] border-t-[6px] border-[#2e1d15] shadow-[0_-12px_30px_rgba(0,0,0,0.85)] px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            className="fixed inset-x-0 bottom-0 z-[71] max-h-[85dvh] overflow-y-auto bg-ink border-t-[6px] border-[#2e1d15] shadow-[0_-12px_30px_rgba(0,0,0,0.85)] px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <div className="max-w-[640px] mx-auto space-y-4">
               <div className="flex items-center justify-between gap-3">
                 {summary}
                 <button type="button" onClick={() => setOpen(false)}
-                  className="shrink-0 min-h-[40px] px-3 font-mono text-xs font-black uppercase tracking-widest text-[#fdfaf4]/70 border border-[#fdfaf4]/25 rounded-sm">
+                  className="shrink-0 min-h-[40px] px-3 font-sans text-xs font-black uppercase tracking-widest text-cream/70 border border-cream/25 rounded-sm">
                   Close
                 </button>
               </div>

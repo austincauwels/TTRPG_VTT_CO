@@ -89,19 +89,19 @@ export const AbilityMarkOffer = () => {
 
   return (
     <div className="fixed bottom-24 left-4 right-4 sm:left-auto sm:w-72 lg:bottom-6 lg:right-6 z-[9998] animate-fadeIn">
-      <div className="bg-[#1a1311] border border-[#b8a060] rounded-sm shadow-[0_4px_24px_rgba(0,0,0,0.7)] px-4 py-3">
+      <div className="bg-ink border border-parchment-deep/40 rounded-sm shadow-[0_8px_24px_rgba(0,0,0,0.7)] px-4 py-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-base">{config.icon}</span>
-            <span className="font-mono text-xs font-black uppercase tracking-widest text-[#d4af37]">
+            <span className="font-sans text-xs font-black uppercase tracking-widest text-cream">
               {offer.ability}
             </span>
           </div>
-          <span className="font-mono text-[10px] text-[#a08040]/50">{timeLeft}s</span>
+          <span className="font-mono tabular-nums text-xs text-parchment-deep/80">{timeLeft}s</span>
         </div>
 
-        <p className="font-mono text-[11px] text-[#a08040]/80 mb-3 leading-relaxed">{desc}</p>
+        <p className="font-serif text-sm text-parchment-deep mb-3 leading-relaxed">{desc}</p>
 
         {/* Drive picker for Adrenaline Rush */}
         {offer.action === 'drive_refresh' && (
@@ -111,10 +111,10 @@ export const AbilityMarkOffer = () => {
                 key={d}
                 onClick={() => setDriveChoice(d)}
                 className={[
-                  'flex-1 py-1 font-mono text-[10px] font-black uppercase border rounded-sm transition-all',
+                  'flex-1 py-1.5 font-sans text-xs font-black uppercase border rounded-sm transition-all',
                   driveChoice === d
-                    ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#d4af37]'
-                    : 'border-[#a08040]/30 text-[#a08040]/50 hover:border-[#a08040]/60',
+                    ? 'border-candle-gold bg-candle-gold/20 text-candle-gold'
+                    : 'border-parchment-deep/30 text-parchment-deep/80 hover:border-parchment-deep/60',
                 ].join(' ')}
               >
                 {d[0].toUpperCase() + d.slice(1, 3)}
@@ -129,28 +129,28 @@ export const AbilityMarkOffer = () => {
             <button
               onClick={handleAccept}
               disabled={offer.action === 'drive_refresh' && !driveChoice}
-              className="flex-1 py-1 font-mono text-[10px] font-black uppercase tracking-widest bg-[#3a2010] border border-[#b8a060] text-[#d4af37] hover:bg-[#b8860b] hover:text-[#1a1311] transition-all rounded-sm disabled:opacity-30"
+              className="flex-1 py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-oxblood border border-ink text-cream hover:brightness-125 transition rounded-sm disabled:opacity-40"
             >
               {config.isIntercept ? 'Intercept' : 'Use'}
             </button>
           )}
           {offer.action === 'info' && (
-            <p className="flex-1 font-mono text-[10px] text-[#d4af37]/60 italic text-center">
+            <p className="flex-1 font-serif text-sm text-parchment-deep italic text-center">
               Ask the GM now.
             </p>
           )}
           <button
             onClick={dismissAbilityMarkOffer}
-            className="px-3 py-1 font-mono text-[10px] border border-[#5a3010]/40 text-[#a08040]/40 hover:text-[#a08040] transition-colors rounded-sm"
+            className="px-3 py-1.5 font-sans text-xs border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm" aria-label="Dismiss"
           >
             ✕
           </button>
         </div>
 
         {/* Progress bar */}
-        <div className="mt-2 h-[2px] bg-[#3a2a1a] rounded-full overflow-hidden">
+        <div className="mt-2 h-[2px] bg-parchment-deep/15 rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#d4af37]/40 transition-all"
+            className="h-full bg-parchment-deep/50 transition-all"
             style={{ width: `${(timeLeft / autoDismissSeconds) * 100}%` }}
           />
         </div>

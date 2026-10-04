@@ -54,29 +54,29 @@ export const MainDeskView = () => {
   const [activeTab, setActiveTab] = useState('character');
 
   return (
-    <div className="min-h-screen bg-[#160e0b] text-[#fdfaf4] font-serif selection:bg-[#721c15] selection:text-white antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-28 lg:pb-12 relative">
+    <div className="min-h-screen bg-night text-cream font-serif selection:bg-oxblood selection:text-cream antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-28 lg:pb-12 relative">
 
       {/* HEADER */}
-      <header className="w-full bg-[#090504] relative px-4 pt-4 pb-5 lg:px-6 lg:py-6 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-start gap-y-3 border-b border-black/40 shadow-xl">
+      <header className="w-full bg-night relative px-4 pt-4 pb-5 lg:px-6 lg:py-6 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-start gap-y-3 border-b border-ink/40 shadow-xl">
         <ArtDecoCorner position="top-left" />
         <ArtDecoCorner position="top-right" />
 
         <div className="hidden lg:block" aria-hidden="true" />
 
         <div className="flex flex-col items-center text-center">
-          <h1 className="text-[26px] sm:text-4xl md:text-5xl font-serif font-bold tracking-[0.15em] text-white uppercase drop-shadow-md">
+          <h1 className="font-display text-[28px] sm:text-4xl tracking-[0.1em] text-cream uppercase">
             CANDELA OBSCURA
           </h1>
-          <h2 className="text-[11px] font-sans font-black tracking-[0.25em] sm:tracking-[0.35em] text-[#a82222] uppercase mt-1.5">
+          <h2 className="text-xs font-sans font-bold tracking-widest text-oxblood-lit uppercase mt-1.5">
             Virtual Tabletop Staging Archive
           </h2>
 
           <div className="flex items-center gap-4 mt-3 w-56">
-            <div className="h-[1px] flex-1 bg-[#d4af37]/40" />
-            <div className="text-[#d4af37]/70 relative flex items-center justify-center">
+            <div className="h-[1px] flex-1 bg-parchment-deep/25" />
+            <div className="text-parchment-deep/60 relative flex items-center justify-center">
                <SafeIcon name="GiCompass" size={18} className="relative z-10" />
             </div>
-            <div className="h-[1px] flex-1 bg-[#d4af37]/40" />
+            <div className="h-[1px] flex-1 bg-parchment-deep/25" />
           </div>
         </div>
 
@@ -84,7 +84,7 @@ export const MainDeskView = () => {
         <div className="relative z-10 flex justify-center lg:justify-end lg:-mt-2">
           <button
             onClick={() => setStage('HOME')}
-            className="w-full sm:w-auto whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[#a82222] hover:text-white transition-colors bg-black/70 hover:bg-black/90 border border-[#a82222]/50 hover:border-[#a82222] px-4 py-2.5 lg:py-2"
+            className="w-full sm:w-auto whitespace-nowrap text-xs sm:text-sm font-sans font-bold uppercase tracking-widest text-parchment-deep hover:text-cream transition-colors bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2"
           >
             [ Sign Out of Campaign ]
           </button>
@@ -93,29 +93,29 @@ export const MainDeskView = () => {
 
       {/* REGISTRY NAVIGATION */}
       <div className="max-w-[1500px] mx-auto mt-6 px-4 relative z-30">
-        <div className="absolute left-0 sm:left-2 top-1/2 -translate-y-1/2 w-16 h-16 sm:w-28 sm:h-28 bg-gradient-to-br from-[#9c1c1c] via-[#7d1414] to-[#4a0808] rounded-[48%] shadow-[4px_10px_20px_rgba(0,0,0,0.85),inset_0_2px_4px_rgba(255,255,255,0.2)] flex items-center justify-center border border-[#5c0f0f] transform rotate-12 z-40 select-none cursor-help group" title="Official Seal of the Order">
-          <div className="w-11 h-11 sm:w-20 sm:h-20 rounded-full border border-dashed border-black/20 flex items-center justify-center p-0.5 shadow-inner">
-            <div className="text-[#641010] drop-shadow-[0_1.5px_1px_rgba(255,255,255,0.1)] shadow-inner transform -translate-y-[1px] scale-[0.55] sm:scale-100">
+        <div className="absolute left-0 sm:left-2 top-1/2 -translate-y-1/2 w-16 h-16 sm:w-28 sm:h-28 bg-oxblood rounded-[48%] shadow-[4px_10px_20px_rgba(0,0,0,0.85),inset_-4px_-6px_10px_rgba(0,0,0,0.35),inset_2px_2px_4px_rgb(var(--c-cream)/0.15)] flex items-center justify-center border border-ink transform rotate-12 z-40 select-none cursor-help group" title="Official Seal of the Order">
+          <div className="w-11 h-11 sm:w-20 sm:h-20 rounded-full border border-dashed border-ink/20 flex items-center justify-center p-0.5 shadow-inner">
+            <div className="text-oxblood drop-shadow-[0_1.5px_1px_rgb(var(--c-cream)/0.1)] shadow-inner transform -translate-y-[1px] scale-[0.55] sm:scale-100">
               <SafeIcon name="GiCandleHolder" size={62} />
             </div>
           </div>
         </div>
 
-        <div className="w-full bg-[#ebdcb9] border-4 border-double border-black p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-black pl-16 sm:pl-32 pr-3 sm:pr-6 py-3 sm:py-5 rounded-sm overflow-hidden">
-          <div className="absolute top-2 left-6 text-4xl font-mono font-black text-[#1a1311] opacity-5 tracking-tighter transform -rotate-2 select-none pointer-events-none">
+        <div className="w-full bg-parchment border-4 border-double border-ink p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-ink pl-16 sm:pl-32 pr-3 sm:pr-6 py-3 sm:py-5 rounded-sm overflow-hidden">
+          <div className="absolute top-2 left-6 text-4xl font-display text-ink opacity-5 select-none pointer-events-none">
             REGISTRY FILE // NO. 00843-CO
           </div>
 
           <div className="flex items-center gap-3 relative z-10">
             <div>
-              <span className="block font-sans text-[10px] font-black tracking-widest uppercase text-gray-600 leading-none">Candela Obscura Member ID</span>
-              <span className="block font-mono text-sm font-bold tracking-tight text-black mt-1.5">
+              <span className="block font-sans text-xs font-black tracking-widest uppercase text-sepia leading-none">Candela Obscura Member ID</span>
+              <span className="block font-mono text-sm font-bold tracking-tight text-ink mt-1.5">
                 {character?.id ? `ASSIGNED RECORD MATRIX: SEC #${character.id}` : "RANDOM ASSIGNMENT INDEX"}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 md:flex gap-1.5 md:gap-2 font-sans text-[11px] font-black uppercase tracking-wider relative z-10">
+          <div className="grid grid-cols-3 md:flex gap-1.5 md:gap-2 font-sans text-xs font-black uppercase tracking-wider relative z-10">
             {['character', 'circle', 'archives'].map((tabName) => {
               const labels = { character: "Investigator Dossier", circle: "Circle Progress Report", archives: "Archive" };
               return (
@@ -123,7 +123,7 @@ export const MainDeskView = () => {
                   key={tabName}
                   onClick={() => setActiveTab(tabName)}
                   className={`px-2 md:px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 leading-tight rounded transition-all duration-150 ${
-                    activeTab === tabName ? 'bg-black text-[#ebdcb9] shadow-md border border-black' : 'bg-transparent text-black/60 hover:bg-black/5 hover:text-black'
+                    activeTab === tabName ? 'bg-ink text-parchment shadow-md border border-ink' : 'bg-transparent text-sepia hover:bg-black/5 hover:text-ink'
                   }`}
                 >
                   {labels[tabName]}
@@ -142,7 +142,7 @@ export const MainDeskView = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <TactileSidebar />
             <div className="lg:col-span-6 order-1 lg:order-none min-w-0">
-              <div className="bg-[#fbf6eb] text-black px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] lg:min-h-[850px] border-2 border-black relative font-serif overflow-hidden">
+              <div className="bg-cream text-ink px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] lg:min-h-[850px] border-2 border-ink relative font-serif overflow-hidden">
                 <div className="absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
                 <BrassCornerFiligree />
                 {activeTab === 'character' && <InvestigatorDossier />}
@@ -161,22 +161,22 @@ export const MainDeskView = () => {
 
       {/* REJOIN INVITE BANNER — shown when Lightkeeper has sent an invite */}
       {rejoinInvite && !character?.is_dead && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[800] flex flex-wrap items-center gap-x-4 gap-y-2 bg-[#1a0505] border border-[#8b1a1a] px-4 py-3 sm:px-6 sm:py-4 shadow-[0_4px_30px_rgba(139,26,26,0.5)] max-w-xl w-[calc(100%-2rem)]">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[800] flex flex-wrap items-center gap-x-4 gap-y-2 bg-night border border-oxblood px-4 py-3 sm:px-6 sm:py-4 shadow-[0_10px_30px_rgba(0,0,0,0.8)] max-w-xl w-[calc(100%-2rem)]">
           <div className="flex-1 min-w-[12rem]">
-            <p className="font-mono text-xs text-[#8b4a4a] uppercase tracking-[0.2em] mb-0.5">Lightkeeper Invitation</p>
-            <p className="text-[#c9b89a] font-serif text-base leading-snug truncate">
-              Invited to rejoin <strong className="text-white">{rejoinInvite.campaign_name}</strong>
+            <p className="font-sans font-bold text-xs text-oxblood-lit uppercase tracking-widest mb-0.5">Lightkeeper Invitation</p>
+            <p className="text-parchment-deep font-serif text-base leading-snug truncate">
+              Invited to rejoin <strong className="text-cream">{rejoinInvite.campaign_name}</strong>
             </p>
           </div>
           <button
             onClick={() => setStage('CHARACTER_CREATION')}
-            className="shrink-0 px-4 py-2 bg-[#8b1a1a] hover:bg-[#a82222] text-white font-sans font-black uppercase tracking-[0.15em] text-xs border border-[#5c0f0f] transition-colors"
+            className="shrink-0 px-4 py-2 bg-oxblood hover:brightness-125 text-cream font-sans font-black uppercase tracking-widest text-xs border border-ink rounded transition"
           >
             Commission Investigator
           </button>
           <button
             onClick={() => setRejoinInvite(null)}
-            className="shrink-0 text-[#8b1a1a] hover:text-[#c9b89a] font-mono text-lg leading-none transition-colors"
+            className="shrink-0 text-oxblood-lit hover:text-parchment-deep font-sans text-lg leading-none transition-colors" aria-label="Dismiss invite"
           >✕</button>
         </div>
       )}
@@ -184,30 +184,30 @@ export const MainDeskView = () => {
       {/* DEATH MODAL — blocks desk when investigator has perished */}
       {character?.is_dead && !deathDismissed && (
         <div className="fixed inset-0 z-[900] bg-black/90 flex flex-col items-center justify-center text-center px-6">
-          <div className="max-w-lg w-full max-h-[calc(100dvh-32px)] overflow-y-auto bg-[#0d0807] border-2 border-[#5c1010] p-6 sm:p-10 shadow-[0_0_80px_rgba(120,10,10,0.6)]">
-            <div className="text-[#8b1a1a] text-6xl mb-4 font-serif">✝</div>
-            <h2 className="text-3xl font-serif font-bold tracking-widest text-white uppercase mb-3">
+          <div className="max-w-lg w-full max-h-[calc(100dvh-32px)] overflow-y-auto bg-night border-2 border-oxblood p-6 sm:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.9)]">
+            <div className="text-oxblood-lit text-6xl mb-4 font-serif">✝</div>
+            <h2 className="font-display text-3xl sm:text-4xl tracking-[0.08em] text-cream uppercase mb-3">
               Investigator Deceased
             </h2>
-            <p className="text-[#c9b89a] font-serif text-base leading-relaxed mb-8">
+            <p className="text-parchment-deep font-serif text-base leading-relaxed mb-8">
               Your investigator has perished in the field.<br />
               The Order requires a new operative.
             </p>
             {rejoinInvite && (
-              <p className="text-[#8b4a4a] font-mono text-xs uppercase tracking-widest mb-5">
+              <p className="text-oxblood-lit font-serif italic text-base mb-5">
                 Lightkeeper invitation waiting — {rejoinInvite.campaign_name}
               </p>
             )}
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => setStage('CHARACTER_CREATION')}
-                className="w-full py-3 px-6 bg-[#8b1a1a] hover:bg-[#a82222] text-white font-sans font-black uppercase tracking-[0.25em] text-sm transition-colors border border-[#5c0f0f]"
+                className="w-full py-3 px-6 bg-oxblood hover:brightness-125 text-cream font-sans font-black uppercase tracking-widest text-sm transition border border-ink rounded"
               >
                 [ Commission New Investigator ]
               </button>
               <button
                 onClick={() => setDeathDismissed(true)}
-                className="w-full py-2 px-6 bg-transparent hover:bg-zinc-800 text-[#8b1a1a] font-sans uppercase tracking-[0.2em] text-xs transition-colors border border-zinc-700"
+                className="w-full py-2.5 px-6 bg-transparent hover:bg-ink text-oxblood-lit font-sans font-bold uppercase tracking-widest text-xs transition-colors border border-oxblood-lit/40 rounded"
               >
                 [ Linger ]
               </button>

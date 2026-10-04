@@ -183,15 +183,15 @@ function leadingValue(tally) {
 function Section({ title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-stone-400/50 rounded-sm mb-6">
+    <div className="border border-sepia/50 rounded-sm mb-6">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex justify-between items-center px-5 py-3 bg-stone-200/60 hover:bg-stone-200 text-left"
+        className="w-full flex justify-between items-center px-5 py-3 bg-parchment-deep/60 hover:bg-parchment-deep text-left"
       >
-        <span className="font-mono text-base uppercase tracking-[0.2em] font-bold text-stone-700">
+        <span className="font-sans text-base uppercase tracking-widest font-bold text-sepia">
           {title}
         </span>
-        <span className="font-mono text-stone-500 text-lg">{open ? '▲' : '▼'}</span>
+        <span className="font-sans text-sepia text-lg">{open ? '▲' : '▼'}</span>
       </button>
       <AnimatePresence initial={false}>
         {open && (
@@ -338,39 +338,39 @@ export const CircleCreationPopup = () => {
 
     if (rel.status === 'accepted') {
       return (
-        <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-300 rounded-sm">
-          <span className="text-green-600 text-xl">✓</span>
-          <span className="font-serif text-lg text-stone-800">
+        <div className="flex items-center gap-3 p-3 bg-seal-green/10 border border-seal-green-lit rounded-sm">
+          <span className="text-seal-green text-xl">✓</span>
+          <span className="font-serif text-lg text-ink">
             <strong>{rel.rel_type}</strong>{rel.lore ? ` — ${rel.lore}` : ''}
           </span>
-          <span className="font-mono text-sm text-green-600 ml-auto">Confirmed</span>
+          <span className="font-serif italic text-sm text-seal-green ml-auto">Confirmed</span>
         </div>
       );
     }
 
     if (isAwaiting) {
       return (
-        <div className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-300 rounded-sm">
-          <span className="font-serif text-lg text-stone-700">
+        <div className="flex items-center gap-3 p-3 bg-cream border border-parchment-deep rounded-sm">
+          <span className="font-serif text-lg text-sepia">
             <strong>{rel.rel_type}</strong>{rel.lore ? ` — ${rel.lore}` : ''}
           </span>
-          <span className="font-mono text-sm text-amber-700 ml-auto animate-pulse">Awaiting {theirName}…</span>
+          <span className="font-serif italic text-sm text-sepia ml-auto">Awaiting {theirName}…</span>
         </div>
       );
     }
 
     if (canIRespond) {
       return (
-        <div className="p-3 bg-amber-50 border border-amber-400/60 rounded-sm space-y-3">
-          <p className="font-serif text-lg text-stone-800">
+        <div className="p-3 bg-parchment border border-sepia/40 rounded-sm space-y-3">
+          <p className="font-serif text-lg text-ink">
             <strong>{rel.rel_type}</strong>{rel.lore ? ` — ${rel.lore}` : ''}
           </p>
-          <p className="font-mono text-sm text-amber-700">{theirName} proposes this. Accept or counter?</p>
+          <p className="font-serif italic text-sm text-sepia">{theirName} proposes this. Accept or counter?</p>
           <div className="flex gap-2 flex-wrap">
             <button onClick={() => handleAccept(rel.id)} className="btn-gold text-sm">Accept</button>
             <button
               onClick={() => setShowCounter(s => ({ ...s, [rel.id]: !s[rel.id] }))}
-              className="font-sans font-black text-sm uppercase tracking-[0.1em] px-3 py-1.5 border border-stone-500 text-stone-600 hover:border-stone-800 rounded-sm"
+              className="font-sans font-black text-sm uppercase tracking-[0.1em] px-3 py-1.5 border border-sepia/60 text-sepia hover:border-ink rounded-sm"
             >
               Counter
             </button>
@@ -389,14 +389,14 @@ export const CircleCreationPopup = () => {
                     setCounterDraft(rel.id, 'relType', e.target.value);
                     setCounterDraft(rel.id, 'lore', '');
                   }}
-                  className="w-full border border-stone-400 bg-white/80 px-3 py-2 font-serif text-lg text-stone-800 focus:outline-none rounded-sm"
+                  className="w-full border border-sepia/40 bg-cream/80 px-3 py-2 font-serif text-lg text-ink focus:outline-none rounded-sm"
                 >
                   <option value="">— They are your… —</option>
                   {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
                 {counterDrafts[rel.id]?.relType && RELATIONSHIP_DATA[counterDrafts[rel.id].relType] && (
                   <div className="space-y-1">
-                    <p className="font-mono text-sm text-stone-500 uppercase tracking-[0.1em]">Choose a question prompt:</p>
+                    <p className="font-serif italic text-sm text-sepia">Choose a question prompt:</p>
                     {RELATIONSHIP_DATA[counterDrafts[rel.id].relType].map((q, qi) => (
                       <button
                         key={qi}
@@ -404,11 +404,11 @@ export const CircleCreationPopup = () => {
                         onClick={() => setCounterDraft(rel.id, 'lore', q)}
                         className={`w-full text-left text-base font-serif px-2.5 py-1.5 border rounded-sm transition-all leading-snug ${
                           counterDrafts[rel.id]?.lore === q
-                            ? 'border-stone-700 bg-stone-100 text-stone-900'
-                            : 'border-stone-200 bg-white/50 text-stone-600 hover:border-stone-400'
+                            ? 'border-sepia bg-cream text-ink'
+                            : 'border-parchment-deep bg-cream/50 text-sepia hover:border-sepia/40'
                         }`}
                       >
-                        <span className="font-mono text-sm text-stone-400 mr-1">{qi + 1}.</span> {q}
+                        <span className="font-serif italic text-sm text-sepia mr-1">{qi + 1}.</span> {q}
                       </button>
                     ))}
                   </div>
@@ -418,7 +418,7 @@ export const CircleCreationPopup = () => {
                   onChange={e => setCounterDraft(rel.id, 'lore', e.target.value)}
                   placeholder="Your answer or description…"
                   rows={2}
-                  className="w-full border border-stone-400 bg-white/70 px-3 py-2 font-serif text-lg text-stone-800 resize-none focus:outline-none rounded-sm"
+                  className="w-full border border-sepia/40 bg-cream/70 px-3 py-2 font-serif text-lg text-ink resize-none focus:outline-none rounded-sm"
                 />
                 <button onClick={() => handleCounterSubmit(rel.id)} className="btn-gold text-sm">Send Counter</button>
               </motion.div>
@@ -434,33 +434,33 @@ export const CircleCreationPopup = () => {
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9000] flex items-center justify-center p-4 font-serif">
+    <div className="fixed inset-0 bg-black/80 z-[9000] flex items-center justify-center p-4 font-serif">
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 30 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 280, damping: 28 }}
-        className="w-full max-w-3xl max-h-[90dvh] overflow-y-auto bg-[#f4f1ea] border-4 border-double border-stone-800 shadow-[0_25px_60px_rgba(0,0,0,0.85)] relative"
+        className="w-full max-w-3xl max-h-[90dvh] overflow-y-auto bg-parchment border-4 border-double border-ink shadow-[0_25px_60px_rgba(0,0,0,0.85)] relative"
       >
         <div className="absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
-        <div className="absolute -top-1 left-8 right-8 h-6 bg-amber-100/80 border border-amber-300/60 shadow-sm rotate-[0.3deg] z-20 pointer-events-none" />
+        <div className="absolute -top-1 left-8 right-8 h-6 bg-parchment-deep/80 border border-sepia/30 shadow-sm z-20 pointer-events-none" />
 
         <div className="relative z-10 p-7 pt-9">
           {/* Header */}
-          <div className="border-b-2 border-stone-800 pb-5 mb-6 text-center">
-            <div className="font-mono text-sm uppercase tracking-[0.3em] text-stone-500 mb-1">
+          <div className="border-b-2 border-ink pb-5 mb-6 text-center">
+            <div className="font-serif italic text-base text-sepia mb-1">
               Candela Obscura — Official Registry Document
             </div>
-            <h2 className="text-3xl font-black uppercase tracking-wider text-stone-900">
+            <h2 className="text-3xl font-black uppercase tracking-wider text-ink">
               Circle Formation Papers
             </h2>
-            <div className="font-mono text-sm text-stone-500 mt-1">
+            <div className="font-serif italic text-sm text-sepia mt-1">
               Complete collaboratively before your first assignment
             </div>
           </div>
 
           {/* ── SECTION I: Circle Question ── */}
           <Section title="I. Circle Question">
-            <p className="font-mono text-base text-stone-500 mb-4 leading-relaxed">
+            <p className="font-serif text-base text-sepia mb-4 leading-relaxed">
               Vote on one question to define your circle's shared history. Then write your personal answer below.
             </p>
             <div className="space-y-3 mb-5">
@@ -473,22 +473,22 @@ export const CircleCreationPopup = () => {
                     key={q.key}
                     onClick={() => handleQuestionVote(q.key)}
                     className={`w-full text-left p-4 border-2 rounded-sm transition-all ${
-                      isLeading ? 'border-stone-800 bg-stone-800/5'
-                      : isMine ? 'border-stone-500 bg-stone-100'
-                      : 'border-stone-300 bg-white/60 hover:border-stone-500'
+                      isLeading ? 'border-ink bg-ink/5'
+                      : isMine ? 'border-sepia/60 bg-cream'
+                      : 'border-parchment-deep bg-cream/60 hover:border-sepia/60'
                     }`}
                   >
                     <div className="flex justify-between items-start gap-3">
-                      <span className="font-serif text-lg text-stone-800 leading-snug">{q.text}</span>
+                      <span className="font-serif text-lg text-ink leading-snug">{q.text}</span>
                       <div className="flex flex-col items-end shrink-0">
                         {count > 0 && (
-                          <span className="font-mono text-sm bg-stone-800 text-[#fbf6eb] px-2 py-0.5 rounded-full">{count}</span>
+                          <span className="font-mono text-sm bg-ink text-cream px-2 py-0.5 rounded-full">{count}</span>
                         )}
                         {isLeading && count > 0 && (
-                          <span className="font-mono text-sm text-stone-600 mt-0.5">← leading</span>
+                          <span className="font-serif italic text-sm text-sepia mt-0.5">← leading</span>
                         )}
                         {isMine && (
-                          <span className="font-mono text-sm text-amber-700 mt-0.5">your vote</span>
+                          <span className="font-serif italic text-sm text-sepia mt-0.5">your vote</span>
                         )}
                       </div>
                     </div>
@@ -498,11 +498,11 @@ export const CircleCreationPopup = () => {
             </div>
 
             {leadingQuestion && (
-              <div className="mt-5 bg-white/50 border border-stone-400 rounded-sm p-4">
-                <label className="font-mono text-base uppercase tracking-[0.15em] text-stone-600 block mb-2">
+              <div className="mt-5 bg-cream/50 border border-sepia/40 rounded-sm p-4">
+                <label className="font-sans font-bold text-base uppercase tracking-[0.15em] text-sepia block mb-2">
                   Your Personal Answer
                 </label>
-                <p className="font-serif text-base text-stone-500 italic mb-2 leading-snug">
+                <p className="font-serif text-base text-sepia italic mb-2 leading-snug">
                   {CIRCLE_QUESTIONS.find(q => q.key === leadingQuestion)?.text}
                 </p>
                 <textarea
@@ -511,10 +511,10 @@ export const CircleCreationPopup = () => {
                   onBlur={handlePersonalAnswerBlur}
                   rows={4}
                   placeholder="Write your character's personal perspective…"
-                  className="w-full border border-stone-400 bg-white/70 p-3 font-serif text-lg text-stone-800 resize-none focus:outline-none focus:border-stone-700 rounded-sm"
-                  style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, #d6d3d1 27px, #d6d3d1 28px)' }}
+                  className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:outline-none focus:border-sepia rounded-sm"
+                  style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
                 />
-                <p className="font-mono text-sm text-stone-400 mt-1">
+                <p className="font-serif italic text-sm text-sepia mt-1">
                   Your answer will appear on your Circle Progress Report. All answers are visible to the Lightkeeper.
                 </p>
               </div>
@@ -523,9 +523,9 @@ export const CircleCreationPopup = () => {
 
           {/* ── SECTION II: Name the Circle ── */}
           <Section title="II. Name the Circle">
-            <p className="font-mono text-base text-stone-500 mb-4">
+            <p className="font-serif text-base text-sepia mb-4">
               Suggest up to 5 names, then vote for the one that resonates.
-              <span className="ml-2 text-stone-400">({mySuggestionCount}/5 suggestions used)</span>
+              <span className="ml-2 text-sepia">({mySuggestionCount}/5 suggestions used)</span>
             </p>
             <div className="flex gap-2 mb-5">
               <input
@@ -535,7 +535,7 @@ export const CircleCreationPopup = () => {
                 onKeyDown={e => e.key === 'Enter' && handleNameSuggest()}
                 placeholder="Suggest a circle name…"
                 disabled={mySuggestionCount >= 5}
-                className="flex-1 border border-stone-400 bg-white/70 px-4 py-2.5 font-serif text-lg text-stone-800 focus:outline-none focus:border-stone-700 rounded-sm disabled:opacity-40"
+                className="flex-1 border border-sepia/40 bg-cream/70 px-4 py-2.5 font-serif text-lg text-ink focus:outline-none focus:border-sepia rounded-sm disabled:opacity-40"
               />
               <button
                 onClick={handleNameSuggest}
@@ -548,7 +548,7 @@ export const CircleCreationPopup = () => {
 
             {allSuggestedNames.length > 0 ? (
               <div className="space-y-2">
-                <p className="font-mono text-sm uppercase tracking-[0.15em] text-stone-500 mb-2">Vote for your favourite:</p>
+                <p className="font-sans font-bold text-sm uppercase tracking-[0.15em] text-sepia mb-2">Vote for your favourite:</p>
                 {allSuggestedNames
                   .sort((a, b) => (nameVoteTally[b] || 0) - (nameVoteTally[a] || 0))
                   .map((name) => {
@@ -561,30 +561,30 @@ export const CircleCreationPopup = () => {
                       <div
                         key={name}
                         className={`flex items-center gap-3 p-3 border rounded-sm ${
-                          isLeading ? 'border-stone-700 bg-stone-800/5' : 'border-stone-300 bg-white/40'
+                          isLeading ? 'border-sepia bg-ink/5' : 'border-parchment-deep bg-cream/40'
                         }`}
                       >
                         <button
                           onClick={() => handleNameVote(name)}
                           className={`font-mono text-sm px-3 py-1 border rounded-full transition-colors shrink-0 ${
                             isMineVote
-                              ? 'bg-stone-800 text-[#fbf6eb] border-stone-800'
-                              : 'border-stone-400 text-stone-600 hover:border-stone-700'
+                              ? 'bg-ink text-cream border-ink'
+                              : 'border-sepia/40 text-sepia hover:border-sepia'
                           }`}
                         >
                           {isMineVote ? '✓ Voted' : 'Vote'}
                         </button>
-                        <span className="font-serif text-lg text-stone-800 flex-1">{name}</span>
+                        <span className="font-serif text-lg text-ink flex-1">{name}</span>
                         <div className="flex items-center gap-2 shrink-0">
                           {isMySuggestion && (
-                            <span className="font-mono text-sm text-amber-700">yours</span>
+                            <span className="font-serif italic text-sm text-sepia">yours</span>
                           )}
-                          <span className="font-mono text-sm text-stone-500">{suggestCount} suggest{suggestCount !== 1 ? '' : 'ed'}</span>
+                          <span className="font-serif italic text-sm text-sepia">{suggestCount} suggest{suggestCount !== 1 ? '' : 'ed'}</span>
                           {voteCount > 0 && (
-                            <span className="font-mono text-sm bg-stone-700 text-[#fbf6eb] px-2 py-0.5 rounded-full">{voteCount}v</span>
+                            <span className="font-mono text-sm bg-sepia text-cream px-2 py-0.5 rounded-full">{voteCount}v</span>
                           )}
                           {isLeading && (
-                            <span className="font-mono text-sm text-stone-600">← leading</span>
+                            <span className="font-serif italic text-sm text-sepia">← leading</span>
                           )}
                         </div>
                       </div>
@@ -592,7 +592,7 @@ export const CircleCreationPopup = () => {
                   })}
               </div>
             ) : (
-              <p className="font-mono text-base text-stone-400 italic text-center py-4">
+              <p className="font-serif text-base text-sepia italic text-center py-4">
                 No names suggested yet. Be the first.
               </p>
             )}
@@ -600,24 +600,24 @@ export const CircleCreationPopup = () => {
 
           {/* ── SECTION III: Chapter House Location ── */}
           <Section title="III. Chapter House Location">
-            <p className="font-mono text-base text-stone-500 mb-4 leading-relaxed">
+            <p className="font-serif text-base text-sepia mb-4 leading-relaxed">
               Decide where your circle's chapter house is located, and what that looks like.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-              <div className="bg-amber-50/80 border border-amber-300/60 p-4 rounded-sm rotate-[-0.4deg]">
-                <p className="font-serif text-base text-stone-700 leading-snug italic">
+              <div className="bg-parchment/80 border border-sepia/30 p-4 rounded-sm">
+                <p className="font-serif text-base text-sepia leading-snug italic">
                   "The Circle of Skull &amp; Sovereign maintains a small townhouse on the Eaves. Three out of the four members are highly educated and exceedingly wealthy."
                 </p>
               </div>
-              <div className="bg-amber-50/80 border border-amber-300/60 p-4 rounded-sm rotate-[0.3deg]">
-                <p className="font-serif text-base text-stone-700 leading-snug italic">
+              <div className="bg-parchment/80 border border-sepia/30 p-4 rounded-sm">
+                <p className="font-serif text-base text-sepia leading-snug italic">
                   "The Circle of Loyal Malefactors has a hideaway in the Bridleborne Mountains. All five members are also redrunners."
                 </p>
               </div>
             </div>
 
             <div className="mb-4">
-              <label className="font-mono text-base uppercase tracking-[0.15em] text-stone-600 block mb-2">
+              <label className="font-sans font-bold text-base uppercase tracking-[0.15em] text-sepia block mb-2">
                 Your Chapter House
               </label>
               <textarea
@@ -626,21 +626,21 @@ export const CircleCreationPopup = () => {
                 onBlur={handleLocationBlur}
                 rows={3}
                 placeholder="Describe your headquarters…"
-                className="w-full border border-stone-400 bg-white/70 p-3 font-serif text-lg text-stone-800 resize-none focus:outline-none focus:border-stone-700 rounded-sm"
-                style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, #d6d3d1 27px, #d6d3d1 28px)' }}
+                className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:outline-none focus:border-sepia rounded-sm"
+                style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
               />
             </div>
 
             <div className="space-y-2">
-              <p className="font-mono text-sm uppercase tracking-[0.15em] text-stone-500 mb-2">Or choose an example:</p>
+              <p className="font-sans font-bold text-sm uppercase tracking-[0.15em] text-sepia mb-2">Or choose an example:</p>
               {EXAMPLE_LOCATIONS.map(loc => (
                 <button
                   key={loc.name}
                   onClick={() => updateBackstoryAnswer(circleId, 'chapter_house', `${loc.name}: ${loc.description}`)}
-                  className="w-full text-left border border-stone-300 bg-white/60 hover:border-stone-600 hover:bg-stone-50 p-3 rounded-sm transition-all"
+                  className="w-full text-left border border-parchment-deep bg-cream/60 hover:border-sepia hover:bg-cream p-3 rounded-sm transition-all"
                 >
-                  <span className="font-serif font-bold text-lg text-stone-800 block">{loc.name}</span>
-                  <span className="font-serif text-base text-stone-600 leading-snug">{loc.description}</span>
+                  <span className="font-serif font-bold text-lg text-ink block">{loc.name}</span>
+                  <span className="font-serif text-base text-sepia leading-snug">{loc.description}</span>
                 </button>
               ))}
             </div>
@@ -648,7 +648,7 @@ export const CircleCreationPopup = () => {
 
           {/* ── SECTION IV: Circle Ability ── */}
           <Section title="IV. Circle Ability">
-            <p className="font-mono text-base text-stone-500 mb-4">
+            <p className="font-serif text-base text-sepia mb-4">
               Vote on one starting group ability. The leading choice is recorded at Roster Finalization.
             </p>
             <div className="space-y-3">
@@ -661,22 +661,22 @@ export const CircleCreationPopup = () => {
                     key={ability.key}
                     onClick={() => handleAbilityVote(ability.key)}
                     className={`w-full text-left p-4 border-2 rounded-sm transition-all ${
-                      isLeading ? 'border-[#721c15] bg-[#721c15]/5'
-                      : isMine ? 'border-stone-600 bg-stone-100'
-                      : 'border-stone-300 bg-white/60 hover:border-stone-500'
+                      isLeading ? 'border-oxblood bg-oxblood/5'
+                      : isMine ? 'border-sepia bg-cream'
+                      : 'border-parchment-deep bg-cream/60 hover:border-sepia/60'
                     }`}
                   >
                     <div className="flex justify-between items-start gap-3">
                       <div>
-                        <span className="font-serif font-bold text-xl text-stone-900 block">{ability.key}</span>
-                        <span className="font-serif text-base text-stone-600 leading-snug">{ability.description}</span>
+                        <span className="font-serif font-bold text-xl text-ink block">{ability.key}</span>
+                        <span className="font-serif text-base text-sepia leading-snug">{ability.description}</span>
                       </div>
                       <div className="flex flex-col items-end shrink-0 gap-1">
                         {count > 0 && (
-                          <span className="font-mono text-sm bg-stone-800 text-[#fbf6eb] px-2 py-0.5 rounded-full">{count}</span>
+                          <span className="font-mono text-sm bg-ink text-cream px-2 py-0.5 rounded-full">{count}</span>
                         )}
-                        {isMine && <span className="font-mono text-sm text-amber-700">your vote</span>}
-                        {isLeading && count > 0 && <span className="font-mono text-sm text-[#721c15]">← leading</span>}
+                        {isMine && <span className="font-serif italic text-sm text-sepia">your vote</span>}
+                        {isLeading && count > 0 && <span className="font-serif italic text-sm text-oxblood">← leading</span>}
                       </div>
                     </div>
                   </button>
@@ -687,7 +687,7 @@ export const CircleCreationPopup = () => {
 
           {/* ── SECTION V: System Insignia ── */}
           <Section title="V. System Insignia">
-            <p className="font-mono text-base text-stone-500 mb-4">
+            <p className="font-serif text-base text-sepia mb-4">
               Vote on the symbol that represents your circle. The leading insignia becomes your official seal.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -700,17 +700,17 @@ export const CircleCreationPopup = () => {
                     key={ins.key}
                     onClick={() => handleInsigniaVote(ins.key)}
                     className={`flex flex-col items-center gap-2 p-4 border-2 rounded-sm transition-all ${
-                      isLeading ? 'border-[#721c15] bg-[#721c15]/5'
-                      : isMine ? 'border-stone-600 bg-stone-100'
-                      : 'border-stone-300 bg-white/60 hover:border-stone-500'
+                      isLeading ? 'border-oxblood bg-oxblood/5'
+                      : isMine ? 'border-sepia bg-cream'
+                      : 'border-parchment-deep bg-cream/60 hover:border-sepia/60'
                     }`}
                   >
-                    <SafeIcon name={ins.key} size={36} className={isLeading ? 'text-[#721c15]' : isMine ? 'text-stone-700' : 'text-stone-500'} />
-                    <span className="font-serif text-sm text-stone-700 text-center">{ins.label}</span>
+                    <SafeIcon name={ins.key} size={36} className={isLeading ? 'text-oxblood' : isMine ? 'text-sepia' : 'text-sepia'} />
+                    <span className="font-serif text-sm text-sepia text-center">{ins.label}</span>
                     {count > 0 && (
-                      <span className="font-mono text-sm bg-stone-800 text-[#fbf6eb] px-2 py-0.5 rounded-full">{count}</span>
+                      <span className="font-mono text-sm bg-ink text-cream px-2 py-0.5 rounded-full">{count}</span>
                     )}
-                    {isMine && <span className="font-mono text-xs text-amber-700">your vote</span>}
+                    {isMine && <span className="font-serif italic text-sm text-sepia">your vote</span>}
                   </button>
                 );
               })}
@@ -719,12 +719,12 @@ export const CircleCreationPopup = () => {
 
           {/* ── SECTION VI: Relationship Matrix ── */}
           <Section title="VI. Circle Relationships">
-            <p className="font-mono text-base text-stone-500 mb-5 leading-relaxed">
+            <p className="font-serif text-base text-sepia mb-5 leading-relaxed">
               Define your relationships with each fellow investigator. Propose, negotiate, and confirm before your first assignment. Both parties negotiate until they accept.
             </p>
 
             {others.length === 0 ? (
-              <p className="font-mono text-base text-stone-400 italic text-center py-5">
+              <p className="font-serif text-base text-sepia italic text-center py-5">
                 Awaiting additional investigators to be approved…
               </p>
             ) : (
@@ -740,17 +740,17 @@ export const CircleCreationPopup = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="border border-stone-300 rounded-sm p-4 mb-4 bg-white/40"
+                      className="border border-parchment-deep rounded-sm p-4 mb-4 bg-cream/40"
                     >
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: inv.ink_color || '#8b1a1a' }} />
-                        <span className="font-serif font-bold text-xl text-stone-800">{inv.name}</span>
-                        <span className="font-mono text-base text-stone-500">{inv.role || inv.specialty || ''}</span>
+                        <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: inv.ink_color || 'rgb(var(--c-oxblood))' }} />
+                        <span className="font-serif font-bold text-xl text-ink">{inv.name}</span>
+                        <span className="font-serif text-base text-sepia">{inv.role || inv.specialty || ''}</span>
                       </div>
 
                       {/* My outgoing proposal */}
                       <div className="mb-4">
-                        <p className="font-mono text-base uppercase tracking-[0.12em] text-stone-500 mb-2">
+                        <p className="font-sans font-bold text-base uppercase tracking-[0.12em] text-sepia mb-2">
                           Your relationship to {inv.name}
                         </p>
                         {myProposal ? (
@@ -764,7 +764,7 @@ export const CircleCreationPopup = () => {
                                 setSelectedPrompt(s => ({ ...s, [inv.id]: null }));
                                 setRelDrafts(d => ({ ...d, [inv.id]: { ...d[inv.id], relType: e.target.value, lore: '' } }));
                               }}
-                              className="w-full border border-stone-400 bg-white/80 px-3 py-2 font-serif text-lg text-stone-800 focus:outline-none focus:border-stone-700 rounded-sm"
+                              className="w-full border border-sepia/40 bg-cream/80 px-3 py-2 font-serif text-lg text-ink focus:outline-none focus:border-sepia rounded-sm"
                             >
                               <option value="">— They are your… —</option>
                               {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -772,7 +772,7 @@ export const CircleCreationPopup = () => {
 
                             {draft.relType && RELATIONSHIP_DATA[draft.relType] && (
                               <div className="space-y-1.5">
-                                <p className="font-mono text-sm text-stone-500 uppercase tracking-[0.1em]">Choose a question to ground your answer:</p>
+                                <p className="font-serif italic text-sm text-sepia">Choose a question to ground your answer:</p>
                                 {RELATIONSHIP_DATA[draft.relType].map((q, qi) => (
                                   <button
                                     key={qi}
@@ -780,18 +780,18 @@ export const CircleCreationPopup = () => {
                                     onClick={() => selectPrompt(inv.id, qi, q)}
                                     className={`w-full text-left text-base font-serif px-3 py-2 border rounded-sm transition-all leading-snug ${
                                       selectedPrompt[inv.id] === qi
-                                        ? 'border-stone-700 bg-stone-100 text-stone-900'
-                                        : 'border-stone-200 bg-white/50 text-stone-600 hover:border-stone-400 hover:text-stone-800'
+                                        ? 'border-sepia bg-cream text-ink'
+                                        : 'border-parchment-deep bg-cream/50 text-sepia hover:border-sepia/40 hover:text-ink'
                                     }`}
                                   >
-                                    <span className="font-mono text-sm text-stone-400 mr-1">{qi + 1}.</span> {q}
+                                    <span className="font-serif italic text-sm text-sepia mr-1">{qi + 1}.</span> {q}
                                   </button>
                                 ))}
                               </div>
                             )}
 
                             <div>
-                              <label className="font-mono text-sm text-stone-500 uppercase tracking-[0.1em] block mb-1.5">
+                              <label className="font-sans font-bold text-sm text-sepia uppercase tracking-[0.1em] block mb-1.5">
                                 {selectedPrompt[inv.id] != null ? 'Your answer:' : 'Or write freely:'}
                               </label>
                               <textarea
@@ -800,7 +800,7 @@ export const CircleCreationPopup = () => {
                                 placeholder={draft.relType ? "Write your answer to the selected question, or describe the relationship freely…" : "Select a relationship type above first…"}
                                 rows={3}
                                 disabled={!draft.relType}
-                                className="w-full border border-stone-400 bg-white/70 px-3 py-2 font-serif text-lg text-stone-800 resize-none focus:outline-none focus:border-stone-700 rounded-sm disabled:opacity-40"
+                                className="w-full border border-sepia/40 bg-cream/70 px-3 py-2 font-serif text-lg text-ink resize-none focus:outline-none focus:border-sepia rounded-sm disabled:opacity-40"
                               />
                             </div>
 
@@ -817,8 +817,8 @@ export const CircleCreationPopup = () => {
 
                       {/* Incoming proposal from this investigator */}
                       {incoming && (
-                        <div className="mt-3 pt-3 border-t border-stone-200">
-                          <p className="font-mono text-base uppercase tracking-[0.12em] text-stone-500 mb-2">
+                        <div className="mt-3 pt-3 border-t border-parchment-deep">
+                          <p className="font-sans font-bold text-base uppercase tracking-[0.12em] text-sepia mb-2">
                             {inv.name}'s relationship to you
                           </p>
                           {renderRelRow(incoming, `${inv.name}'s proposal to you`, inv.name)}
@@ -832,19 +832,19 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── Footer: Resource Points ── */}
-          <div className="mt-5 p-5 bg-stone-800/5 border border-stone-400/40 rounded-sm text-center">
-            <p className="font-mono text-base uppercase tracking-[0.2em] text-stone-600 mb-1">
+          <div className="mt-5 p-5 bg-ink/5 border border-sepia/40 rounded-sm text-center">
+            <p className="font-sans font-bold text-base uppercase tracking-widest text-sepia mb-1">
               Starting Resource Points
             </p>
-            <p className="font-serif text-4xl font-bold text-stone-900">{resourcePoints}</p>
-            <p className="font-mono text-base text-stone-500 mt-2 leading-relaxed max-w-sm mx-auto">
+            <p className="font-serif text-4xl font-bold text-ink">{resourcePoints}</p>
+            <p className="font-serif text-base text-sepia mt-2 leading-relaxed max-w-sm mx-auto">
               1 + {memberCount} investigator{memberCount !== 1 ? 's' : ''}. Between assignments, each player may spend
               up to two resources. Resources are not replenished until the Illumination Track fills.
             </p>
           </div>
 
           <div className="mt-5 text-center">
-            <p className="font-mono text-base text-stone-400 uppercase tracking-[0.2em] animate-pulse">
+            <p className="font-serif italic text-lg text-sepia">
               Awaiting Lightkeeper to finalize roster…
             </p>
           </div>
