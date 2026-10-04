@@ -489,12 +489,15 @@ async def request_password_reset(request: Request, body: PasswordResetRequest, b
     """Emails a link to set a new password to every account with this email address
     (ignoring case), except seeded accounts and accounts whose email cannot receive
     mail. The answer is the same whether or not an account has the address, and the
-    emails go out after it. Limited per IP and per address."""
+    emails go out after it. Limited per IP and per address; the emails themselves
+    are capped overall and, for an address nobody has proven, per day (over a cap
+    nothing is sent and the answer is the same)."""
     require_password_login()
     if not password_reset.address_allowed(body.email):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=RESET_ADDRESS_LIMITED)
     password_reset.forget_expired(db)
-    emails = password_reset.issue_links(db, password_reset.accounts_for(db, body.email))
+    users = [u for u in password_reset.accounts_for(db, body.email) if password_reset.mail_allowed(u)]
+    emails = password_reset.issue_links(db, users)
     db.commit()
     for message in emails:
         background_tasks.add_task(password_reset.send_reset_email, message)

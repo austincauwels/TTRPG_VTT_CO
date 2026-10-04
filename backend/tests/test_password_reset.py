@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 import requests
+from limits import parse as parse_limit
 from sqlalchemy import inspect as sa_inspect, text
 
 import main
@@ -534,6 +535,54 @@ def test_confirm_is_limited_per_ip(client, outbox, limiter_on):
 def test_the_address_limit_is_off_with_the_limiter(client):
     email = address()
     assert all(password_reset.address_allowed(email) for _ in range(10))
+
+
+# --- caps on the emails themselves ---------------------------------------------------------------
+
+def test_the_real_mail_caps():
+    assert [str(x) for x in password_reset.MAIL_LIMITS] == ["20 per 1 hour", "50 per 1 day"]
+    assert str(password_reset.UNPROVEN_ADDRESS_MAIL_LIMIT) == "3 per 1 day"
+
+
+@pytest.mark.parametrize("hourly,daily", [("2/hour", "50/day"), ("50/hour", "2/day")])
+def test_reset_emails_are_capped_overall(client, outbox, limiter_on, monkeypatch, caplog, hourly, daily):
+    """The finding: no overall cap, so one client with a few registered addresses (and
+    any client with many IPs) could use up the Resend quota, after which every real
+    reset email failed while the answer stayed 202. Over the cap the answer is the
+    same and nothing is sent."""
+    monkeypatch.setattr(password_reset, "MAIL_LIMITS", (parse_limit(hourly), parse_limit(daily)))
+    players = [player() for _ in range(3)]
+    with caplog.at_level(logging.ERROR, logger="candela"):
+        answers = [ask(client, p.email) for p in players]
+    assert [(r.status_code, r.json()) for r in answers] == [(202, OK)] * 3
+    assert [m.to for m in outbox] == [players[0].email, players[1].email]
+    assert rows_of(players[2].id) == []  # no link was issued either
+    assert "overall cap on reset emails" in caplog.text
+    assert players[2].email not in caplog.text
+
+
+def test_an_unproven_address_gets_few_emails_a_day(client, outbox, limiter_on, monkeypatch):
+    """An address nobody has proven may be someone else's, typed by whoever registered
+    it. It still gets reset emails (AUTH.md says why), but only a few a day."""
+    monkeypatch.setattr(password_reset, "UNPROVEN_ADDRESS_MAIL_LIMIT", parse_limit("1/day"))
+    unproven, proven = player(), player(email_proven=True)
+    for p in (unproven, proven):
+        assert [ask(client, p.email).status_code for _ in range(2)] == [202, 202]
+    assert sorted(m.to for m in outbox) == sorted([unproven.email, proven.email, proven.email])
+
+
+def test_a_used_link_lifts_the_unproven_cap(client, outbox, limiter_on, monkeypatch):
+    monkeypatch.setattr(password_reset, "UNPROVEN_ADDRESS_MAIL_LIMIT", parse_limit("1/day"))
+    u = player()
+    assert confirm(client, reset_token(client, outbox, u)).status_code == 200
+    reset_token(client, outbox, u)  # one more email, although the unproven cap is used up
+
+
+def test_the_mail_caps_are_off_with_the_limiter(client, outbox, monkeypatch):
+    monkeypatch.setattr(password_reset, "MAIL_LIMITS", (parse_limit("1/hour"), parse_limit("1/day")))
+    for _ in range(3):
+        ask(client, player().email)
+    assert len(outbox) == 3
 
 
 # --- sending through Resend (vtt/mail.py) ---------------------------------------------------------

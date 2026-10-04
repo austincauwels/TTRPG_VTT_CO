@@ -48,6 +48,18 @@ ADDRESS_LIMIT_SCOPE = "password-reset-address"
 # ignoring case.
 MAX_ACCOUNTS_PER_ADDRESS = 5
 
+# Overall caps on the reset emails the server sends, whatever the address or IP. Over
+# a cap a request still answers 202, nothing is sent and the log says so. Without
+# them one client with many registered addresses (or many IPs) could use up the
+# Resend quota, after which every real reset email fails while the answer stays 202.
+MAIL_LIMITS = (parse_limit("20/hour"), parse_limit("50/day"))
+MAIL_LIMIT_SCOPE = "password-reset-mail"
+# An address nobody has proven (users.email_proven false: no used reset link, no
+# Google account with it) is one that whoever registered it typed, perhaps someone
+# else's. It gets at most this many reset emails a day, on top of the caps above.
+UNPROVEN_ADDRESS_MAIL_LIMIT = parse_limit("3/day")
+UNPROVEN_ADDRESS_SCOPE = "password-reset-unproven-address"
+
 # The accounts the seed scripts make (vtt/db.py). Their emails are seed data, not
 # anyone's address (admin@archive.com is on a real domain), so they never get a link.
 SEEDED_USERNAMES = tuple(PUBLISHED_PASSWORDS)
@@ -83,6 +95,31 @@ def address_allowed(address: str) -> bool:
     if not limiter.enabled:
         return True
     return limiter.limiter.hit(ADDRESS_LIMIT, ADDRESS_LIMIT_SCOPE, normalize_address(address))
+
+
+def mail_allowed(user: User) -> bool:
+    """Counts one reset email to this account against MAIL_LIMITS and, when its address
+    is unproven, against UNPROVEN_ADDRESS_MAIL_LIMIT for that address. False, counting
+    nothing, when one of them is used up. The counts live in the rate limiter's storage
+    (in memory: a restart clears them), and are off while the rate limiter is off."""
+    if not limiter.enabled:
+        return True
+    store = limiter.limiter
+    checks = [(limit, MAIL_LIMIT_SCOPE, "all") for limit in MAIL_LIMITS]
+    if not user.email_proven:
+        checks.append((UNPROVEN_ADDRESS_MAIL_LIMIT, UNPROVEN_ADDRESS_SCOPE, normalize_address(user.email)))
+    for limit, scope, key in checks:
+        if not store.test(limit, scope, key):
+            if scope == MAIL_LIMIT_SCOPE:
+                logger.error("The overall cap on reset emails (%s) is reached, so no reset email was sent "
+                             "for user id=%s", limit, user.id)
+            else:
+                logger.warning("No reset email was sent for user id=%s: its address is unproven and "
+                               "has had %s", user.id, limit)
+            return False
+    for limit, scope, key in checks:
+        store.hit(limit, scope, key)
+    return True
 
 
 def usable_email(address) -> bool:

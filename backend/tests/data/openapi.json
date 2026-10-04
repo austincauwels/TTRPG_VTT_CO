@@ -1595,7 +1595,7 @@
     },
     "/api/auth/password-reset": {
       "post": {
-        "description": "Emails a link to set a new password to every account with this email address\n(ignoring case), except seeded accounts and accounts whose email cannot receive\nmail. The answer is the same whether or not an account has the address, and the\nemails go out after it. Limited per IP and per address.",
+        "description": "Emails a link to set a new password to every account with this email address\n(ignoring case), except seeded accounts and accounts whose email cannot receive\nmail. The answer is the same whether or not an account has the address, and the\nemails go out after it. Limited per IP and per address; the emails themselves\nare capped overall and, for an address nobody has proven, per day (over a cap\nnothing is sent and the answer is the same).",
         "operationId": "request_password_reset_api_auth_password_reset_post",
         "requestBody": {
           "content": {
