@@ -195,7 +195,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **GET /api/investigators/{investigator_id}** (line 1040, `async def`, `response_model=CharacterResponse`)
 - Trusted ids: `investigator_id`.
 - Tables: characters. Parses `gear` and `scars_list` if stored as strings (mutates the ORM object, never committed).
-- Response fields are limited by `CharacterResponse` (no user_id or campaign_id). `circle_id` is a required int, so a character with NULL circle_id would fail response validation (500).
+- Response fields are limited by `CharacterResponse` (no user_id or campaign_id). `circle_id` is an optional int: a character with NULL circle_id is returned with `circle_id: null` (before the bug-fix stage it was a required int, and such a character failed response validation with a 500).
 
 **POST /api/investigators/forge** (line 1055, `async def`, status 201, `response_model=CharacterResponse`)
 - Inputs: JSON `CharacterCreate` (all `CharacterBase` fields plus optional `user_id`).

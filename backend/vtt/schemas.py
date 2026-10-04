@@ -176,7 +176,8 @@ class CampaignSummaryItem(BaseModel):
 
 class CharacterResponse(CharacterBase):
     id: int
-    circle_id: int
+    # None for a character with no circle (such a character used to fail with a 500).
+    circle_id: Optional[int] = None
     status: str = "unaffiliated"
     pen_font: str = "Caveat"
     ink_color: str = ""

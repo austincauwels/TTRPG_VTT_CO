@@ -143,13 +143,14 @@ def test_get_investigator_by_owner_or_the_campaigns_gm_only(client):
         assert r.json() == {"detail": "Not allowed."}
 
 
-def test_get_investigator_with_null_circle_is_500(client):
-    """QUIRK: circle_id is required by the response model, so a NULL circle fails."""
+def test_get_investigator_with_null_circle(client):
+    """Fixed: circle_id was required by the response model, so a character with no
+    circle failed with a 500. It is now returned with circle_id null."""
     made = support.forge(client)
     support.update(Character, made["id"], circle_id=None)
-    with support.server_errors_as_500(client):
-        r = client.get(f"/api/investigators/{made['id']}", headers=support.as_owner(made["id"]))
-    assert r.status_code == 500
+    r = client.get(f"/api/investigators/{made['id']}", headers=support.as_owner(made["id"]))
+    assert r.status_code == 200
+    assert (r.json()["id"], r.json()["name"], r.json()["circle_id"]) == (made["id"], made["name"], None)
 
 
 def test_list_investigators(client):
