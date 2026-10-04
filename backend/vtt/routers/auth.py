@@ -89,6 +89,13 @@ def username_taken(db: Session, username: str) -> bool:
     return db.query(User.id).filter(func.lower(User.username) == func.lower(username)).first() is not None
 
 
+def check_password(password: str, user) -> bool:
+    """True when the user exists and the password is theirs. For a missing user passlib
+    runs its dummy check, which takes as long as a real one, so the time taken does
+    not tell whether an account has that username."""
+    return pwd_context.verify(password, user.hashed_password if user is not None else None) and user is not None
+
+
 def require_password_login():
     if not config.ALLOW_PASSWORD_LOGIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PASSWORD_LOGIN_OFF)
@@ -100,7 +107,7 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
     require_password_login()
     user = db.query(User).filter(User.username == credentials.username).first()
 
-    if not user or not pwd_context.verify(credentials.password, user.hashed_password):
+    if not check_password(credentials.password, user):
         logger.warning("Failed login attempt for username=%r", credentials.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -280,7 +287,7 @@ async def google_link(request: Request, body: GoogleLinkRequest, db: Session = D
     refuse_linked_google_account(db, identity)
 
     user = db.query(User).filter(User.username == body.username).first()
-    if not user or not pwd_context.verify(body.password, user.hashed_password):
+    if not check_password(body.password, user):
         logger.warning("Failed Google link attempt for username=%r", body.username)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=LINK_WRONG_PASSWORD)
     if user.google_sub is not None:

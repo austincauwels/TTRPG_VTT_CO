@@ -221,6 +221,18 @@ def test_login_unknown_user(client):
     assert r.json() == {"detail": "Invalid credentials."}
 
 
+def test_login_checks_a_password_even_for_an_unknown_username(client, monkeypatch):
+    """Login answered an unknown username at once but spent a bcrypt check on a known
+    one, so the time taken told whether an account exists. passlib now runs its dummy
+    check (as slow as a real one) when there is no user."""
+    calls = []
+    real = main.pwd_context.dummy_verify
+    monkeypatch.setattr(main.pwd_context, "dummy_verify", lambda *a, **k: calls.append(1) or real(*a, **k))
+    r = client.post("/api/auth/login", json={"username": f"ghost_{support.uid()}", "password": "x"})
+    assert (r.status_code, r.json()) == (401, {"detail": "Invalid credentials."})
+    assert calls == [1]
+
+
 def test_login_username_is_case_sensitive(client):
     u = support.make_user(username=f"Case_{support.uid()}")
     r = client.post("/api/auth/login", json={"username": u.username.lower(), "password": support.PASSWORD})

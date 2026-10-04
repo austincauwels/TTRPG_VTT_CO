@@ -351,6 +351,18 @@ def test_link_to_an_unknown_username(client, google):
     assert r.json() == {"detail": "That username and password do not match."}
 
 
+def test_link_checks_a_password_even_for_an_unknown_username(client, google, monkeypatch):
+    """As for login: an unknown username used to skip the bcrypt check, so the time
+    taken told whether an account exists. The link works with password login off, so
+    it is the one place where that would still show."""
+    calls = []
+    real = security.pwd_context.dummy_verify
+    monkeypatch.setattr(security.pwd_context, "dummy_verify", lambda *a, **k: calls.append(1) or real(*a, **k))
+    r = link(client, needs_account(client, google), f"ghost_{support.uid()}")
+    assert (r.status_code, r.json()) == (401, {"detail": "That username and password do not match."})
+    assert calls == [1]
+
+
 def test_link_refuses_an_account_that_has_a_google_account(client, google):
     other_sub = f"g{support.uid(20)}"
     u = support.make_user(google_sub=other_sub)
