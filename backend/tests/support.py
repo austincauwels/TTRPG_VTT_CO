@@ -15,9 +15,11 @@ as_gm(campaign) and as_stranger() return the headers for a request, and the REST
 shortcuts below pick the rightful caller by default. Users made by make_user get a
 cheap bcrypt hash (4 rounds) so that logging in hundreds of them stays fast.
 """
+import asyncio
 import contextlib
 import json
 import time
+from types import SimpleNamespace
 import uuid
 
 import anyio
@@ -500,3 +502,31 @@ class FakeSocket:
             raise RuntimeError("socket is gone")
         self.texts.append(text)
         self.sent.append(json.loads(text))
+
+
+class StaleSocket:
+    """Stands in for a socket whose other end went away without a word: a phone that
+    went to sleep or changed networks. The server still holds it, sending to it fails,
+    and closing it waits for the other end to answer the close, which never comes: the
+    real close waits out its timeout (10 seconds in uvicorn), this one waits hang
+    seconds. A second close raises at once, as starlette's does once a close was sent.
+    close_codes holds the code of every close asked for."""
+
+    def __init__(self, hang=6.0, user_id=None):
+        self.hang = hang
+        self.close_codes = []
+        self.state = SimpleNamespace()
+        if user_id is not None:
+            self.state.candela_user_id = user_id
+
+    async def close(self, code=1000):
+        self.close_codes.append(code)
+        if len(self.close_codes) > 1:
+            raise RuntimeError('Cannot call "send" once a close message has been sent.')
+        await asyncio.sleep(self.hang)
+
+    async def send_text(self, text):
+        raise RuntimeError("socket is gone")
+
+    async def send_json(self, message):
+        raise RuntimeError("socket is gone")

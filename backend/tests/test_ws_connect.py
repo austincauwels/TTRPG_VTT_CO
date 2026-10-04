@@ -1,12 +1,16 @@
 """/ws/{game_id}: connecting, channel naming, the connection manager, malformed frames."""
 import asyncio
 import json
+import time
+import types
 
 import pytest
+from starlette.websockets import WebSocketDisconnect
 
 import main
 import support
 from models import Campaign, Character, Circle, User
+from vtt.ws import endpoint
 from vtt.ws.manager import campaign_key
 
 
@@ -558,3 +562,118 @@ def test_broadcast_all_drops_dead_sockets(client):
     asyncio.run(mgr.broadcast_all({"type": "x"}))
     assert ok.sent == [{"type": "x"}] and ok2.sent == [{"type": "x"}]
     assert mgr.active_connections == {"a": [ok], "b": [ok2]}
+
+
+# --- a socket left behind by a phone that slept ------------------------------------
+# A phone that sleeps or changes networks leaves its socket open on the server until the
+# pings time out (up to 40 seconds): the server cannot tell it is gone, and closing it
+# waits for an answer that never comes (support.StaleSocket). The phone's next socket on
+# the channel must not wait for that close, and must stay the socket the channel's
+# messages go to.
+
+def test_a_stale_socket_on_the_channel_does_not_hold_up_the_new_one(client, dice):
+    """It did: connect closed the older socket first, so the new one got its first
+    frames and had its messages read only once that close gave up (10 seconds live). A
+    roll sent at once came back after the tray had given up on it."""
+    ch = support.forge(client, sway=1)
+    key = str(ch["id"])
+    stale = support.StaleSocket(hang=6.0)
+    main.manager.active_connections[key] = [stale]
+    started = time.monotonic()
+    with support.ws_connect(client, key) as ws:
+        assert time.monotonic() - started < 2.0
+        assert support.types(ws.initial) == ["character_update", "circle_update"]
+        assert stale not in support.server_sockets(key)
+        assert len(support.server_sockets(key)) == 1
+        dice(4)
+        ws.send("roll", action="sway", drive_spent=0)
+        assert ws.recv_type("roll_result", timeout=2.0)["payload"]["roll"]["result"] == 4
+        assert support.wait_until(lambda: stale.close_codes == [1001])
+
+
+def test_a_socket_that_opens_while_an_older_one_waits_keeps_the_channel(client, dice):
+    """The owner's phone on beta (2026-10-04): with a stale socket on the channel, socket
+    A opened and waited for that socket's close; meanwhile the page opened B, which got
+    the channel at once (the close was already under way). When A's wait ended, A put
+    itself back as the channel's only socket. B's rolls were rolled, but their results
+    went to A, and B's tray said "Rolling..." and then nothing."""
+    ch = support.forge(client, sway=1)
+    key = str(ch["id"])
+    stale = support.StaleSocket(hang=2.0)
+    main.manager.active_connections[key] = [stale]
+    with client.websocket_connect(support.ws_url(key)):  # A: opened, never read
+        with support.ws_connect(client, key) as ws:      # B
+            time.sleep(2.5)  # the stale socket's close has run out by now
+            dice(4)
+            ws.send("roll", action="sway", drive_spent=0)
+            assert ws.recv_type("roll_result", timeout=3.0)["payload"]["roll"]["result"] == 4
+            assert len(support.server_sockets(key)) == 1
+
+
+def test_connects_that_finish_out_of_order_keep_the_socket_that_arrived_last(client):
+    """Two sockets on one channel whose accepts finish out of order: the one that
+    arrived last keeps the channel, and the other is closed with 1001 (replaced)."""
+    mgr = main.ConnectionManager()
+
+    class Sock:
+        def __init__(self, gate=None):
+            self.state = types.SimpleNamespace()
+            self.gate = gate
+            self.close_codes = []
+
+        async def accept(self):
+            if self.gate is not None:
+                await self.gate.wait()
+
+        async def close(self, code=1000):
+            self.close_codes.append(code)
+
+    async def scenario():
+        gate = asyncio.Event()
+        first, second = Sock(gate), Sock()
+        first_connect = asyncio.create_task(mgr.connect("k", first, user_id=1))
+        await asyncio.sleep(0)  # first has arrived and waits in accept
+        assert await mgr.connect("k", second, user_id=1) is True
+        gate.set()
+        assert await first_connect is False
+        for _ in range(3):
+            await asyncio.sleep(0)
+        return first, second
+
+    first, second = asyncio.run(scenario())
+    assert mgr.active_connections == {"k": [second]}
+    assert first.close_codes == [1001]
+    assert second.close_codes == []
+
+
+@pytest.mark.parametrize("failure", [WebSocketDisconnect(code=1006), RuntimeError("the database went away")])
+def test_a_socket_that_fails_while_it_starts_leaves_the_channel(client, monkeypatch, failure):
+    """A socket whose first frames could not be sent (its page had already closed it,
+    as A in the test above) or whose setup failed stayed on its channel, dead, and the
+    channel's messages went to it."""
+    ch = support.forge(client)
+    key = str(ch["id"])
+
+    def fail(*args, **kwargs):
+        raise failure
+
+    monkeypatch.setattr(endpoint, "get_char_dict", fail)
+    with client.websocket_connect(support.ws_url(key)):
+        assert support.wait_server_dropped(key)
+
+
+def test_close_user_does_not_wait_for_a_stale_socket(client):
+    """The routes that change a password close the user's sockets; a stale one held
+    the route up until its close gave up."""
+    ch = support.forge(client)
+    key = str(ch["id"])
+    user_id = support.owner_id(ch["id"])
+    stale = support.StaleSocket(hang=6.0, user_id=user_id)
+    main.manager.active_connections[key] = [stale]
+    other = support.forge(client)
+    with support.ws_connect(client, other["id"]) as wo:  # for the server's event loop
+        started = time.monotonic()
+        assert wo.session.portal.call(main.manager.close_user, user_id) == 1
+        assert time.monotonic() - started < 2.0
+        assert support.server_sockets(key) == []
+        assert support.wait_until(lambda: stale.close_codes == [4401])
