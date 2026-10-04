@@ -109,7 +109,7 @@ export const TensionClock = ({ readOnly = false }) => {
         <input type="text" defaultValue={label} key={label}
           onBlur={e => sendUpdate({ tension_label: e.target.value })}
           placeholder="Clock label…"
-          className="text-center font-mono text-[11px] uppercase tracking-widest text-[#2c1a0e] bg-[#f4ece0] border border-[#d2c9b9] px-2 py-0.5 w-36 shadow-sm focus:outline-none focus:border-[#8b6040] transition-colors"
+          className="text-center font-mono text-[11px] uppercase tracking-widest text-[#2c1a0e] bg-[#f4ece0] border border-[#d2c9b9] px-2 py-0.5 w-48 shadow-sm focus:outline-none focus:border-[#8b6040] transition-colors"
         />
       ) : (
         <div className="font-mono text-[11px] uppercase tracking-widest text-[#3d312b] bg-[#f4ece0] border border-[#d2c9b9] px-2 py-0.5 shadow-sm min-w-[9rem] text-center">
@@ -154,7 +154,7 @@ export const SceneManager = () => {
   const circleName = circle?.name || 'the Circle';
 
   return (
-    <div className="bg-[#f4ece0] text-[#2c2420] p-8 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-[#d2c9b9] relative"
+    <div className="bg-[#f4ece0] text-[#2c2420] p-5 sm:p-8 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-[#d2c9b9] relative"
          style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgba(0,0,0,0.04) 28px)', backgroundSize: '100% 28px', lineHeight: '28px' }}>
 
       {/* Masking tape strip */}
@@ -177,7 +177,7 @@ export const SceneManager = () => {
       </div>
 
       {/* Typed body */}
-      <div className="font-mono text-xs sm:text-sm leading-[28px] text-justify text-[#3d312b]">
+      <div className="font-mono text-xs sm:text-sm leading-[28px] text-left sm:text-justify text-[#3d312b]">
         To the investigators of {circleName}: proceed with haste to
         <input
           type="text"

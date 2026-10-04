@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import useGameStore from '../../store/gameStore';
 
@@ -71,22 +71,41 @@ export const OperationsPanel = () => {
 
   const handleSelectInvestigator = (inv) => setSelectedInvestigator(inv);
 
+  // Below lg the tab strip stays at the top while the page scrolls, so a new tab or an
+  // opened character sheet would start off screen. Bring the top of the desk back into view.
+  const mainRef = useRef(null);
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (firstView.current) { firstView.current = false; return; }
+    if (!mainRef.current || !window.matchMedia('(max-width: 1023.98px)').matches) return;
+    const top = mainRef.current.getBoundingClientRect().top + window.scrollY;
+    if (window.scrollY > top) window.scrollTo({ top });
+  }, [activeTab, selectedInvestigator?.id]);
+
   return (
     <div className="min-h-screen bg-[#020617] text-[#f1f5f9] font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 relative">
       
       <GMDeskHeader activeCampaignId={activeCampaignId} setStage={setStage} />
 
-      <main className="max-w-[1500px] mx-auto p-4 mt-6">
+      {/* Below lg the three columns dissolve (display: contents) into one column, ordered
+          by how often the GM reaches for each part during play: the tab strip, dice and
+          log, tension, the dispatch, the circle's investigators, then join requests and
+          Finalize. From lg up the three-column desk is unchanged. */}
+      <main ref={mainRef} className="max-w-[1500px] mx-auto p-4 mt-2 lg:mt-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
           {/* LEFT PANEL */}
-          <div className={`${activeTab === 'map' ? 'lg:col-span-2' : activeTab === 'archives' ? 'lg:col-span-3' : 'lg:col-span-3'} flex flex-col gap-6`}>
+          <div className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-2' : activeTab === 'archives' ? 'lg:col-span-3' : 'lg:col-span-3'} flex flex-col gap-6`}>
             <GMSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-            {activeTab === 'roster' && <SceneManager />}
+            {activeTab === 'roster' && (
+              <div className="order-3 lg:order-none">
+                <SceneManager />
+              </div>
+            )}
           </div>
 
           {/* CENTER PANEL */}
-          <div className={activeTab === 'map' ? 'lg:col-span-10' : activeTab === 'archives' ? 'lg:col-span-9' : 'lg:col-span-6'}>
+          <div className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-10' : activeTab === 'archives' ? 'lg:col-span-9' : 'lg:col-span-6'}`}>
             {activeTab === 'roster' && selectedInvestigator && (
               <AnimatePresence mode="wait">
                 <GMCharacterSheet
@@ -98,10 +117,10 @@ export const OperationsPanel = () => {
             )}
 
             {activeTab === 'roster' && !selectedInvestigator && (
-              <div className="bg-[#0c1c32] p-8 rounded-sm shadow-2xl border border-[#1e3a5f] min-h-[850px] flex flex-col gap-8">
+              <div className="max-lg:contents bg-[#0c1c32] p-8 rounded-sm shadow-2xl border border-[#1e3a5f] min-h-[850px] flex flex-col gap-8">
 
                 {!rosterFinalized && (
-                  <div>
+                  <div className="order-5 lg:order-none">
                     <CorrespondenceStack
                       campaignRoster={campaignRoster}
                       pendingIndex={pendingIndex}
@@ -127,17 +146,17 @@ export const OperationsPanel = () => {
                 )}
 
                 {/* ACTIVE CIRCLE MEMBERS */}
-                <ActiveCircleMembers campaignRoster={campaignRoster} onSelect={handleSelectInvestigator} />
+                <ActiveCircleMembers className="order-4 lg:order-none" campaignRoster={campaignRoster} onSelect={handleSelectInvestigator} />
 
-                {/* TENSION CLOCK — pinned to bottom */}
-                <TensionSection />
+                {/* TENSION CLOCK: pinned to the bottom on desktop, right after the dice on phones */}
+                <TensionSection className="order-2 lg:order-none" />
 
 
               </div>
             )}
             {activeTab === 'circle' && <CirclePage />}
             {activeTab === 'archives' && (
-              <div className="bg-[#0c1c32] p-8 rounded-sm shadow-2xl border border-[#1e3a5f] min-h-[850px]">
+              <div className="max-lg:contents bg-[#0c1c32] p-8 rounded-sm shadow-2xl border border-[#1e3a5f] min-h-[850px]">
                 <NotebookView isGM={true} />
               </div>
             )}
@@ -147,7 +166,7 @@ export const OperationsPanel = () => {
           </div>
 
           {!wideTab(activeTab) && (
-            <div className="lg:col-span-3">
+            <div className="order-1 lg:order-none lg:col-span-3">
               <div className="bg-[#0f172a] border border-slate-800 rounded-sm shadow-2xl overflow-hidden">
                 <div className="grayscale sepia-[.2] hue-rotate-[190deg] brightness-90">
                   <DiceVault showGmControls logEntries={activityLog} playerList={campaignRoster.active_investigators} />

@@ -52,7 +52,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
       </button>
 
       {/* Parchment panel — matches MainDeskView center column styling */}
-      <div className="bg-[#fbf6eb] text-black px-8 pt-8 pb-8 rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] border-2 border-black relative font-serif overflow-hidden">
+      <div className="bg-[#fbf6eb] text-black px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] border-2 border-black relative font-serif overflow-hidden">
         <div className="absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
         <BrassCornerFiligree />
 
@@ -71,7 +71,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
         {fullChar && !loading && (
           <>
             <InvestigatorDossier character={fullChar} readOnly />
-            <div className="mt-6 pt-4 border-t border-black/10 flex items-center gap-3">
+            <div className="mt-6 pt-4 border-t border-black/10 flex flex-wrap items-center gap-3">
               <button
                 onClick={handleReset}
                 onBlur={() => setResetConfirm(false)}
