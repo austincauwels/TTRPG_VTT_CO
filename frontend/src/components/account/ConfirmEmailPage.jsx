@@ -10,7 +10,8 @@ import { leaveEmailLink, showAccountPageInstead } from './accountAddress';
 // router shows the sign-in slip first when nobody is signed in. Opening the page only reads
 // what the link would change; the page shows the account and the new address, and the
 // link is used only when the owner presses Confirm new email. A link that reached the
-// owner from someone else (a mistyped address) never changes anything on its own.
+// owner from someone else (a mistyped address) never changes anything on its own. Cancel
+// change sends the link as its proof (a change needs one, a login alone is not enough).
 
 const errorTextClass = 'font-serif text-lg leading-snug text-oxblood';
 const noteClass = 'font-serif text-base leading-snug text-sepia';
@@ -62,7 +63,7 @@ export const ConfirmEmailPage = ({ token }) => {
   const cancel = () => {
     setState('cancelling');
     setMessage('');
-    cancelEmailChange()
+    cancelEmailChange({ token }) // the link is the proof that lets this reader drop the change
       .then(() => setState('cancelled'))
       .catch(fail(cancel));
   };

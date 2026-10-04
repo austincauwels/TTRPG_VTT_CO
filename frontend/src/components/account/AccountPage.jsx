@@ -102,7 +102,8 @@ const proofWays = (account, googleOn) => {
 // form). A refused proof marks the password field; fieldError(err) may take any other
 // refusal onto the change's own field (it answers true when it did).
 const ChangeForm = ({
-  id, account, googleOn, firstFieldId, check, send, fieldError, submitLabel, busyLabel, onCancel, children,
+  id, account, googleOn, firstFieldId, check = () => true, send, fieldError, submitLabel, busyLabel, onCancel,
+  dismissLabel = 'Cancel', children,
 }) => {
   const ways = proofWays(account, googleOn);
   const [way, setWay] = useState(ways.first);
@@ -186,7 +187,7 @@ const ChangeForm = ({
             {way === 'password' ? 'Use Google instead' : 'Use password instead'}
           </button>
         )}
-        <button type="button" onClick={onCancel} className={textButtonClass}>Cancel</button>
+        <button type="button" onClick={onCancel} className={textButtonClass}>{dismissLabel}</button>
       </div>
     </form>
   );
@@ -457,41 +458,41 @@ const AddGoogleForm = ({ account, onSaved, onCancel }) => {
 };
 
 // The change of address that waits for its link: where it went, a new link, or no change.
-const PendingEmail = ({ address, justSent, onChanged, onNotice }) => {
-  const [busy, setBusy] = useState('');
-  const [error, setError] = useState('');
-  const act = (what, request, notice) => async () => {
-    setBusy(what);
-    setError('');
-    try {
-      const account = await request();
-      onChanged(account);
-      onNotice(notice);
-    } catch (err) {
-      setError(err?.message || SOMETHING_WRONG);
-    } finally {
-      setBusy('');
-    }
-  };
-  return (
-    <div className="mt-3 flow-root rounded-sm border border-dashed border-oxblood/50 bg-parchment-deep/40 px-3 py-2.5">
-      {justSent && <DateStamp label="Link sent" date={stampDate(new Date())} tone="oxblood" tilt={4} className="float-right ml-3 mb-1" />}
-      <p className="font-serif text-base leading-snug text-ink">
-        Waiting for confirmation at
-        <span className="block font-mono [overflow-wrap:anywhere]">{address}</span>
-      </p>
-      {error && <p role="alert" className={`mt-1 ${errorTextClass}`}>{error}</p>}
+// Each of the two is a change like the others and ends in its proof (asking: 'resend' or
+// 'cancel' while that form is open, one form on the page at a time).
+const PendingEmail = ({ account, googleOn, justSent, asking, onAsk, onResent, onCancelled, onDismiss }) => (
+  <div className="mt-3 flow-root rounded-sm border border-dashed border-oxblood/50 bg-parchment-deep/40 px-3 py-2.5">
+    {justSent && <DateStamp label="Link sent" date={stampDate(new Date())} tone="oxblood" tilt={4} className="float-right ml-3 mb-1" />}
+    <p className="font-serif text-base leading-snug text-ink">
+      Waiting for confirmation at
+      <span className="block font-mono [overflow-wrap:anywhere]">{account.pendingEmail}</span>
+    </p>
+    {asking === 'resend' && (
+      <ChangeForm
+        id="account-email-resend" account={account} googleOn={googleOn}
+        submitLabel="Resend link" busyLabel="Sending…" onCancel={onDismiss}
+        send={async (proof) => onResent(await resendEmailChange(proof))}
+      />
+    )}
+    {asking === 'cancel' && (
+      <ChangeForm
+        id="account-email-cancel" account={account} googleOn={googleOn}
+        submitLabel="Cancel change" busyLabel="Cancelling…" dismissLabel="Back" onCancel={onDismiss}
+        send={async (proof) => onCancelled(await cancelEmailChange(proof))}
+      />
+    )}
+    {!asking && (
       <div className="mt-1 flex flex-wrap gap-x-1 -ml-3">
-        <button type="button" disabled={Boolean(busy)} onClick={act('resend', resendEmailChange, 'Link sent.')} className={textButtonClass}>
-          {busy === 'resend' ? 'Sending…' : 'Resend link'}
+        <button id="account-email-resend-action" type="button" onClick={() => onAsk('resend')} className={textButtonClass}>
+          Resend link
         </button>
-        <button type="button" disabled={Boolean(busy)} onClick={act('cancel', cancelEmailChange, 'Change cancelled.')} className={textButtonClass}>
-          {busy === 'cancel' ? 'Cancelling…' : 'Cancel change'}
+        <button id="account-email-cancel-action" type="button" onClick={() => onAsk('cancel')} className={textButtonClass}>
+          Cancel change
         </button>
       </div>
-    </div>
-  );
-};
+    )}
+  </div>
+);
 
 // returnTo: the stage the page was opened from, which names the way back.
 export const AccountPage = ({ returnTo }) => {
@@ -500,7 +501,8 @@ export const AccountPage = ({ returnTo }) => {
   const [loadFailed, setLoadFailed] = useState(false);
   const [googleOn, setGoogleOn] = useState(false);
   const [passwordLoginOn, setPasswordLoginOn] = useState(true);
-  const [openForm, setOpenForm] = useState(null); // username | email | password | google-add | google-remove
+  // username | email | email-resend | email-cancel | password | google-add | google-remove
+  const [openForm, setOpenForm] = useState(null);
   const [notice, setNotice] = useState(null);     // { at, text } after a change
   const [refusal, setRefusal] = useState(null);   // { at, text }: a change refused before its form
   const openFormRef = useRef(null);
@@ -593,10 +595,18 @@ export const AccountPage = ({ returnTo }) => {
           )}
           below={account.pendingEmail && (
             <PendingEmail
-              address={account.pendingEmail}
+              account={account} googleOn={googleOn}
               justSent={lineNotice('email') === 'Link sent.'}
-              onChanged={setAccount}
-              onNotice={(text) => setNotice({ at: 'email', text })}
+              asking={openForm?.startsWith('email-') ? openForm.slice('email-'.length) : null}
+              onAsk={(what) => open(`email-${what}`)}
+              onResent={saved('email', 'Link sent.')}
+              onCancelled={(next) => {
+                setAccount(next);
+                setNotice({ at: 'email', text: 'Change cancelled.' });
+                closeForm(false);
+                focusLater('account-email-action');
+              }}
+              onDismiss={() => closeForm()}
             />
           )}
           notice={lineNotice('email') === 'Change cancelled.' ? 'Change cancelled.' : null}

@@ -374,7 +374,9 @@ const ForgotPasswordForm = ({ onSent, onPasswordLoginOff }) => {
 };
 
 // /reset-password?token=...: the new password, twice, with the register rule. A link that
-// has run out (or a page without a token) offers a new one instead.
+// has run out (or a page without a token) offers a new one instead. The server's words
+// are shown as they come: a link that a newer one replaced answers "A newer link was sent.
+// Use the latest email."
 const RESET_LINK_DEAD = 'This link has expired or has already been used. Please ask for a new one.';
 const ResetPasswordForm = ({ token, onDone, onAskAgain, onPasswordLoginOff }) => {
   const [values, setValues] = useState({ password: '', confirm: '' });

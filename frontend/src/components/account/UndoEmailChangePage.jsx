@@ -11,7 +11,8 @@ import { leaveEmailLink } from './accountAddress';
 // reader presses Undo the change, so a mail scanner that opens links changes nothing.
 // Undoing puts the old address back, ends every sign-in to the account (this browser's
 // too, when it is signed in to that account) and mails the old address a link to set a
-// new password.
+// new password. The done sheet says how the account is signed in to now, and which
+// Google sign-in it kept.
 
 const errorTextClass = 'font-serif text-lg leading-snug text-oxblood';
 const noteClass = 'font-serif text-base leading-snug text-sepia';
@@ -22,11 +23,27 @@ const quietClass = `${buttonBase} bg-transparent text-ink border border-ink/30 h
 const LINK_DEAD = 'This link has expired or has already been used.';
 const SOMETHING_WRONG = 'Something went wrong. Please try again.';
 
+// After the undo: how the account is signed in to now. googleEmail is masked by the server.
+const afterUndo = ({ passwordReset, googleKept, googleEmail, googleOnlyWayIn }) => {
+  const ended = 'Every sign-in to it has ended.';
+  const withAddress = googleEmail ? ` with ${googleEmail}` : '';
+  if (passwordReset) {
+    return `${ended} A link to set a new password is on its way to this address.${googleKept ? ` Google sign-in${withAddress} still works.` : ''}`;
+  }
+  if (googleOnlyWayIn) {
+    return `${ended} Password sign-in is off on this site, so the account keeps its Google sign-in${withAddress}: without it there would be no way in.`;
+  }
+  if (googleKept) {
+    return `${ended} Password sign-in is off on this site, so sign in with Google${googleEmail ? ` using ${googleEmail}` : ''}.`;
+  }
+  return `${ended} Password sign-in is off on this site, so sign in with Google using this address.`;
+};
+
 export const UndoEmailChangePage = ({ token }) => {
   // ask | working | done | dead (used, expired or none) | stopped (refused for good) | refused (try again)
   const [state, setState] = useState(token ? 'ask' : 'dead');
   const [message, setMessage] = useState(token ? '' : LINK_DEAD);
-  const [result, setResult] = useState(null); // { userId, name, email, passwordReset }
+  const [result, setResult] = useState(null); // undoEmailChange's answer
   const actionRef = useRef(null);
 
   const undo = () => {
@@ -102,11 +119,7 @@ export const UndoEmailChangePage = ({ token }) => {
                     address again:
                     <span className="block mt-1 font-mono text-base [overflow-wrap:anywhere]">{result.email}</span>
                   </p>
-                  <p className={noteClass}>
-                    {result.passwordReset
-                      ? 'Every sign-in to it has ended. A link to set a new password is on its way to this address.'
-                      : 'Every sign-in to it has ended. Password sign-in is off on this site, so sign in with Google using this address.'}
-                  </p>
+                  <p className={noteClass}>{afterUndo(result)}</p>
                 </div>
                 <button ref={actionRef} type="button" onClick={leaveEmailLink} className={primaryClass}>Continue</button>
               </>

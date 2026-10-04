@@ -153,9 +153,12 @@ export const changePassword = (newPassword, proof) =>
 export const requestEmailChange = (email, proof) =>
   postAuth('/api/auth/me/email', { email, ...proof });
 
-export const resendEmailChange = () => postAuth('/api/auth/me/email/resend', {});
+// A new link for the change that waits. Takes a proof, as every change does.
+export const resendEmailChange = (proof) => postAuth('/api/auth/me/email/resend', { ...proof });
 
-export const cancelEmailChange = () => postAuth('/api/auth/me/email/cancel', {});
+// Drops the change that waits. Takes a proof, or { token }: the change's own link, which
+// the page at /confirm-email sends (refused as confirmEmailChange refuses a link).
+export const cancelEmailChange = (proof) => postAuth('/api/auth/me/email/cancel', { ...proof });
 
 // What the emailed link (/confirm-email?token=...) would change, without changing it:
 // { name, email, newEmail }. The page shows it and asks before it sends the link.
@@ -169,8 +172,11 @@ export const confirmEmailChange = (token) => postAuth('/api/auth/me/email/confir
 
 // The undo link mailed to the old address once a change went through
 // (/undo-email-change?token=...). Needs no session. Puts the old address back and ends
-// every sign-in to the account; resolves to { userId, name, email, passwordReset }, where
-// passwordReset says whether a link to set a new password went to that address.
+// every sign-in to the account; resolves to { userId, name, email, passwordReset,
+// googleKept, googleEmail, googleOnlyWayIn }: passwordReset says whether a link to set a
+// new password went to that address, googleKept whether the account kept a Google sign-in
+// (googleEmail its address, masked, or null), and googleOnlyWayIn whether it was kept only
+// because password sign-in is off and the account would have had no way in without it.
 export const undoEmailChange = (token) => postAuth('/api/auth/email-change/undo', { token });
 
 // Takes the current password; refused (409) for an account without a password of its own.
@@ -191,7 +197,7 @@ export const requestPasswordReset = (email) => postAuth('/api/auth/password-rese
 // Resolves to a session, the same as a password login, plus googleUnlinked: true when the
 // reset removed a Google account linked with another email address (the page should say
 // so). Every earlier session has ended. Throws with status 400 when the link has expired
-// or has been used.
+// or has been used, or a newer link replaced it (the message says which, to show as is).
 export const confirmPasswordReset = (token, password) =>
   postAuth('/api/auth/password-reset/confirm', { token, password });
 
