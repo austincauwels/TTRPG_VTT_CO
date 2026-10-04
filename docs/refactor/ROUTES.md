@@ -74,6 +74,8 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 | PUT | /api/notebook/entries/{entry_id} | update_notebook_entry | 1169 | yes | NotebookView.jsx (GM lk_main autosave) | author of the entry |
 | DELETE | /api/notebook/entries/{entry_id} | delete_notebook_entry | 1182 | yes (soft) | NotebookView.jsx | author of the entry (UI: GM deletes gm entries, player deletes own) |
 | POST | /api/notebook/{campaign_id}/upload | upload_notebook_image | 1190 | yes | NotebookView.jsx | GM or member of that campaign |
+| GET | /api/notebook/entries/{entry_id}/scene | get_sketch_scene | vtt/routers/notebook.py, added after the baseline | no | NotebookView.jsx (Keep drawing) | the sketch's author only (AUTH.md) |
+| PUT | /api/notebook/entries/{entry_id}/sketch | redraw_sketch | vtt/routers/notebook.py, added after the baseline | yes | NotebookView.jsx (the sketch sheet) | the sketch's author only (AUTH.md) |
 | GET | /api/users/{user_id}/characters | get_user_characters | 1251 | no | gameStore.fetchUserData | the logged-in user themself |
 | GET | /api/users/{user_id}/campaigns | get_user_gm_campaigns | 1275 | no | gameStore.fetchUserData | the logged-in user themself |
 | WS | /ws/{game_id} | websocket_endpoint | 1456 | yes | gameStore.connect | owner of character `game_id`, or GM of campaign code `game_id` |
@@ -230,6 +232,21 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: `campaign_id`, `character_id`; the client `content_type` goes straight into the stored data URI.
 - Tables: characters (read), notebook_entries (insert, visibility forced to `all`).
 - Response: hand-built dict (no `author_type` key, unlike the JSON route). No broadcast, unlike the JSON route.
+- Since the sketch sheet (after the baseline): an optional multipart `scene`, a drawn sketch's Excalidraw scene of at most 1 MB, read and cleaned by `vtt/sketch_scenes.py` and kept in `notebook_entries.sketch_scene`; sketch entries only (422 otherwise). The response carries `has_scene`, never the scene.
+
+The next two routes were added after the baseline, with the sketch sheet, in `vtt/routers/notebook.py`. They are the only notebook routes where reading is the author's alone (AUTH.md).
+
+**GET /api/notebook/entries/{entry_id}/scene** (`def`)
+- Inputs: path `entry_id`.
+- Access: the sketch's author; anyone else 403, before anything is said about the scene. 404 "Entry not found" for an unknown or deleted entry, or one of a deleted campaign.
+- Tables: notebook_entries (reads the deferred `sketch_scene` column).
+- Response: the stored scene as `application/json`, `{"type": "excalidraw", "version": 2, "elements": [...]}`; 404 "This sketch keeps no drawing." when there is none.
+
+**PUT /api/notebook/entries/{entry_id}/sketch** (`async def`, `response_model=NotebookEntryResponse`)
+- Inputs: multipart `file` (a PNG of at most 2 MB), optional `scene` (as for the upload route).
+- Access: the sketch's author; sketch entries only (422 "Only a sketch keeps a drawing.").
+- Tables: notebook_entries (replaces `image_data` and `sketch_scene` together; without `scene` the drawing is dropped and `has_scene` turns false).
+- No broadcast.
 
 ### User routes
 
