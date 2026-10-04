@@ -13,15 +13,19 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import sessionmaker
 
 import engine
 import main
 import restore_deleted
 import support
 from models import INCLUDE_DELETED, Campaign, Character, NotebookEntry, Relationship, User
-from vtt import deletion
+from vtt import application, deletion
+from vtt import db as vtt_db
 from vtt.auth import campaign_facts, character_facts
+from vtt.routers import campaigns as campaign_routes
 from vtt.ws import access
 
 NOT_ALLOWED = {"detail": "Not allowed."}
@@ -945,3 +949,197 @@ def test_two_restores_at_once_restore_once(client):
     assert http_error(second) == (404, NOTHING["detail"])
     row = support.fetch(Character, ch["id"])
     assert (row.status, row.campaign_id) == ("active", camp["id"])
+
+
+def rejoin_step(campaign, character, user_id):
+    """The rejoin's locked part (routers/campaigns.rejoin) for a Step's session."""
+    return lambda s: campaign_routes.rejoin(s, campaign["campaign_code"], character["id"], s.get(User, user_id))
+
+
+def test_a_rejoin_and_a_campaign_delete_do_not_cross(client):
+    """Rejoin locks as join does, but no test covered it."""
+    # the delete first: the rejoin then finds no campaign
+    camp = support.new_campaign(client)
+    u = support.make_user(pending_rejoin_campaign_id=camp["id"])
+    ch = support.forge(client, user_id=u.id)
+    _, rejoin = interleave(lambda s: deletion.delete_campaign(s, camp["id"]), rejoin_step(camp, ch, u.id))
+    assert http_error(rejoin) == (404, "Campaign not found")
+    row = support.fetch(Character, ch["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+    # the rejoin first: the delete waits for it and lets the character go too
+    other = support.new_campaign(client)
+    v = support.make_user(pending_rejoin_campaign_id=other["id"])
+    heir = support.forge(client, user_id=v.id)
+    _, delete = interleave(rejoin_step(other, heir, v.id), lambda s: deletion.delete_campaign(s, other["id"]))
+    assert delete.error is None
+    assert delete.result[1] == [{"id": heir["id"], "status": "active"}]
+    row = support.fetch(Character, heir["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+
+
+# --- an error lets go of the locks at once ------------------------------------------------------
+#
+# /campaign/rejoin used to raise its refusals (403, 409) with the campaign and the character
+# still locked. get_db let go of them only when it closed the session, after the response,
+# and the async route awaited on the way there. A request that ran meanwhile and needed one of
+# those rows waited for it on the event loop (the driver blocks), so the session was never
+# closed and the server hung. These tests look at the rows when get_db is about to close the
+# request's session: another session must be able to lock each of them at once (NOWAIT).
+
+def lockable_at_once(table, row_id) -> bool:
+    """Whether a session of its own can lock the row without waiting."""
+    with main.db_engine.connect() as conn:
+        try:
+            conn.execute(text(f"SELECT id FROM {table} WHERE id = :id FOR UPDATE NOWAIT"), {"id": row_id}).all()
+        except OperationalError as e:
+            if vtt_db.is_lock_timeout(e):
+                return False
+            raise
+    return True
+
+
+@pytest.fixture
+def locks_left(monkeypatch):
+    """watch(rows, request) makes the request and returns (its response, the rows (table,
+    id) that another session could not lock at once when get_db came to close the
+    request's session)."""
+    watched, held = [], []
+
+    def get_db():
+        db = main.SessionLocal()
+        try:
+            yield db
+        finally:
+            held.extend(row for row in watched if not lockable_at_once(*row))
+            db.close()
+
+    monkeypatch.setitem(main.app.dependency_overrides, vtt_db.get_db, get_db)
+
+    def watch(rows, request):
+        watched[:], held[:] = rows, []
+        try:
+            return request(), list(held)
+        finally:
+            watched.clear()
+
+    return watch
+
+
+def test_a_refused_rejoin_lets_go_of_its_locks_at_once(client, locks_left):
+    camp = support.new_campaign(client)
+    u = support.make_user(pending_rejoin_campaign_id=camp["id"])
+    elsewhere = support.new_campaign(client)
+    on_a_roster = support.active_member(client, elsewhere, user_id=u.id)
+    waiting = support.pending_member(client, elsewhere, user_id=u.id)
+    uninvited = support.forge(client)
+    retired = support.new_campaign(client)
+    w = support.make_user(pending_rejoin_campaign_id=retired["id"])
+    assert client.post(f"/campaign/{retired['id']}/retire", headers=support.as_gm(retired)).status_code == 200
+    invited_to_a_retired_one = support.forge(client, user_id=w.id)
+    cases = [
+        (camp, uninvited, 403, "Not allowed."),
+        (retired, invited_to_a_retired_one, 409, "This campaign has been retired."),
+        (camp, on_a_roster, 409, "This investigator is already in a campaign."),
+        (camp, waiting, 409, "This investigator is already waiting to join a campaign."),
+    ]
+    for campaign, ch, status, detail in cases:
+        rows = [("campaigns", campaign["id"]), ("characters", ch["id"])]
+        body = {"character_id": ch["id"], "campaign_code": campaign["campaign_code"]}
+        headers = support.as_owner(ch["id"])
+        r, held = locks_left(rows, lambda: client.post("/campaign/rejoin", json=body, headers=headers))
+        assert (r.status_code, r.json()) == (status, {"detail": detail})
+        assert held == [], f"{detail!r} left {held} locked"
+        assert all(lockable_at_once(*row) for row in rows)
+
+
+def test_every_other_refusal_under_a_lock_lets_go_of_it_at_once(client, locks_left):
+    """Join, the deletes and the undos already rolled back before refusing; this pins it
+    for each refusal they make while holding a lock."""
+    a = support.new_campaign(client)
+    b = support.new_campaign(client)
+    member = support.active_member(client, a)
+    player = support.as_owner(member["id"])
+    stranger = support.as_stranger()
+    r, held = locks_left([("campaigns", b["id"]), ("characters", member["id"])],
+                         lambda: support.join(client, member["id"], b["campaign_code"], headers=player))
+    assert (r.status_code, held) == (409, [])
+    r, held = locks_left([("characters", member["id"])], lambda: delete_character(client, member["id"], player))
+    assert (r.status_code, r.json(), held) == (409, IN_A_CAMPAIGN, [])
+
+    ch = support.forge(client)
+    owner = support.as_owner(ch["id"])
+    assert delete_character(client, ch["id"], owner).status_code == 200
+    undo = f"/api/investigators/{ch['id']}/restore"
+    r, held = locks_left([("characters", ch["id"])], lambda: client.post(undo, headers=stranger))
+    assert (r.status_code, r.json(), held) == (404, NOTHING, [])
+    age(Character, ch["id"], deletion.UNDO_SECONDS + 10)
+    r, held = locks_left([("characters", ch["id"])], lambda: client.post(undo, headers=owner))
+    assert (r.status_code, r.json(), held) == (409, TOO_LATE, [])
+
+    gm = support.as_gm(a)
+    assert delete_campaign(client, a["id"], gm).status_code == 200
+    undo = f"/campaign/{a['id']}/restore"
+    r, held = locks_left([("campaigns", a["id"])], lambda: client.post(undo, headers=stranger))
+    assert (r.status_code, r.json(), held) == (404, NOTHING, [])
+    age(Campaign, a["id"], deletion.UNDO_SECONDS + 10)
+    r, held = locks_left([("campaigns", a["id"])], lambda: client.post(undo, headers=gm))
+    assert (r.status_code, r.json(), held) == (409, TOO_LATE, [])
+
+
+def impatient_sessions(timeout_ms=200):
+    """(engine, sessionmaker) like the app's, with a much shorter lock_timeout."""
+    eng = create_engine(main.SQLALCHEMY_DATABASE_URL, connect_args={"options": f"-c lock_timeout={timeout_ms}"})
+    return eng, sessionmaker(autocommit=False, autoflush=False, bind=eng)
+
+
+def test_a_request_gives_up_waiting_for_a_lock(client, locks_left, monkeypatch):
+    """A lock wait had no limit, so a lock that was never let go hung the server (the
+    wait blocks the event loop). Every connection of the app's engine now has a
+    lock_timeout (vtt.db.LOCK_TIMEOUT_MS, 5 s). A request that runs into it answers 503
+    and changes nothing. Here the campaign delete has locked the campaign when it finds
+    a member's row locked; the failed statement ends the transaction's locks, so the
+    campaign is free again before get_db closes the session."""
+    with main.SessionLocal() as s:
+        assert s.execute(text("SHOW lock_timeout")).scalar() == "5s"
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    gm = support.as_gm(camp)
+    eng, impatient = impatient_sessions()
+    holder = main.db_engine.connect()
+    try:
+        holder.execute(text("SELECT id FROM characters WHERE id = :id FOR UPDATE"), {"id": member["id"]})
+        with monkeypatch.context() as m:
+            m.setattr(main, "SessionLocal", impatient)
+            started = time.monotonic()
+            r, held = locks_left([("campaigns", camp["id"])], lambda: delete_campaign(client, camp["id"], gm))
+            waited = time.monotonic() - started
+    finally:
+        holder.rollback()
+        holder.close()
+        eng.dispose()
+    assert (r.status_code, r.json(), r.headers.get("retry-after")) == (503, {"detail": application.BUSY}, "1")
+    assert held == []
+    assert waited < 3
+    row = support.fetch(Character, member["id"])
+    assert (row.status, row.campaign_id) == ("active", camp["id"])
+    assert support.fetch(Campaign, camp["id"]) is not None
+    assert delete_campaign(client, camp["id"], gm).status_code == 200
+
+
+def test_the_admin_restore_gives_up_waiting_for_a_lock(client, capsys, monkeypatch):
+    ch = support.forge(client)
+    assert delete_character(client, ch["id"], support.as_owner(ch["id"])).status_code == 200
+    eng, impatient = impatient_sessions()
+    holder = main.db_engine.connect()
+    try:
+        holder.execute(text("SELECT id FROM characters WHERE id = :id FOR UPDATE"), {"id": ch["id"]})
+        with monkeypatch.context() as m:
+            m.setattr(main, "SessionLocal", impatient)
+            assert restore_deleted.main(["character", str(ch["id"])]) == 1
+    finally:
+        holder.rollback()
+        holder.close()
+        eng.dispose()
+    assert "changing this character right now, so nothing was restored" in capsys.readouterr().out
+    assert fetch_any(Character, ch["id"]).deleted_at is not None
+    assert restore_deleted.main(["character", str(ch["id"])]) == 0

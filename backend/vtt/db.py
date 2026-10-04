@@ -4,17 +4,37 @@ Everything here reads db_engine and SessionLocal from this module at call time,
 so replacing them (main.py forwards main.db_engine and main.SessionLocal here,
 which the tests use) redirects init_db, get_db and the WebSocket handler.
 """
+import functools
 import secrets
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
 from models import Circle, PasswordResetToken, User
 from vtt.config import SQLALCHEMY_DATABASE_URL, logger
 from vtt.security import pwd_context
 
-_connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
-db_engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=_connect_args)
+# How long a statement waits for a lock before it fails (PostgreSQL lock_timeout, in
+# milliseconds), on every connection of the app's engine. The routes are async and the
+# driver blocks, so a request that waits for a row lock stops the event loop, and with it
+# every other request and socket, until it gets the lock. Without a limit a lock that is
+# never let go hangs the server; with one, the waiting request fails after this long
+# (503, vtt/application.py) and everything else carries on.
+LOCK_TIMEOUT_MS = 5000
+# PostgreSQL's lock_not_available, the error a lock_timeout or a NOWAIT raises.
+LOCK_NOT_AVAILABLE = "55P03"
+
+
+def _connect_args(url: str) -> dict:
+    if url.startswith("sqlite"):
+        return {"check_same_thread": False}
+    if make_url(url).get_backend_name() == "postgresql":
+        return {"options": f"-c lock_timeout={LOCK_TIMEOUT_MS}"}
+    return {}
+
+
+db_engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=_connect_args(SQLALCHEMY_DATABASE_URL))
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
 
 
@@ -24,6 +44,34 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def is_lock_timeout(error) -> bool:
+    """True for the error a statement gets when it could not have a lock in time."""
+    return getattr(getattr(error, "orig", None), "pgcode", None) == LOCK_NOT_AVAILABLE
+
+
+def releases_locks_on_error(fn):
+    """For a function that locks rows (SELECT ... FOR UPDATE or FOR SHARE) in the
+    session it gets as its first argument and commits when it succeeds. If it raises,
+    the session is rolled back before the error goes on, which lets go of the locks at
+    once. What this is for is a refusal (an HTTPException) raised while the transaction
+    is fine: PostgreSQL itself lets go of a transaction's locks when one of its
+    statements fails, but not of a healthy transaction's.
+
+    Left to get_db, the locks were held until it closed the session, after the
+    response. An async route awaits on the way there, so other requests ran in the
+    meantime, and one that needed a locked row waited for it on the event loop (the
+    driver blocks). That stopped the loop, so the session holding the lock was never
+    closed and the server hung."""
+    @functools.wraps(fn)
+    def wrapper(db, *args, **kwargs):
+        try:
+            return fn(db, *args, **kwargs)
+        except BaseException:
+            db.rollback()
+            raise
+    return wrapper
 
 # Seeded accounts whose passwords are published in this repository: init_db before
 # 2026-10-04 (admin), reset_seed.py and seed_test_players.py (testpass). Login tokens

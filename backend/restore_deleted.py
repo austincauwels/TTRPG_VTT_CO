@@ -20,6 +20,10 @@ undo does.
 
 Restoring a campaign does not tell anyone; its players see it again the next time they
 open the roster book. See docs/refactor/DELETION.md.
+
+A restore locks its rows as the app does, and waits for a lock no longer than the app
+(vtt.db.LOCK_TIMEOUT_MS): if a request holds one that long, it stops and says so, and
+nothing has changed.
 """
 import argparse
 import os
@@ -29,6 +33,7 @@ from datetime import timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import HTTPException  # noqa: E402
+from sqlalchemy.exc import OperationalError  # noqa: E402
 
 from models import Character  # noqa: E402
 from vtt import db as vtt_db  # noqa: E402  (loads .env and checks SECRET_KEY, as the app does)
@@ -115,6 +120,11 @@ def main(argv=None) -> int:
                 print(f"Restored campaign {campaign.id} {campaign.name!r}. Characters put back: {back}.")
         except HTTPException as e:
             print(f"No deleted {args.command} with id {args.id}." if e.status_code == 404 else e.detail)
+            return 1
+        except OperationalError as e:
+            if not vtt_db.is_lock_timeout(e):
+                raise
+            print(f"The app is changing this {args.command} right now, so nothing was restored. Try again.")
             return 1
         return 0
     finally:
