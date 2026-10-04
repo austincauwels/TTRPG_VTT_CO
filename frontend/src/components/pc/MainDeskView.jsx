@@ -19,6 +19,7 @@ import { useDialog } from '../shared/useDialog';
 import { WaxSeal } from '../shared/WaxSeal';
 import { ScarIcon } from '../shared/ScarIcon';
 import { Watermark, FormLine, EdgeLine, serialFor } from '../shared/PrintMarks';
+import { AccountMenu } from '../shared/AccountMenu';
 
 export const MainDeskView = () => {
   const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar } = useGameStore(useShallow(s => ({
@@ -106,13 +107,14 @@ export const MainDeskView = () => {
 
         {/* LOGOUT BUTTON: in normal flow, so it never covers the title. From xl the band
             below carries it. */}
-        <div className="relative z-10 flex justify-center lg:justify-end lg:-mt-2 xl:hidden">
+        <div className="relative z-10 flex gap-2 justify-center lg:justify-end lg:-mt-2 xl:hidden">
           <button
             onClick={() => setStage('HOME')}
-            className="w-full sm:w-auto whitespace-nowrap text-xs sm:text-sm font-sans font-bold uppercase tracking-widest text-parchment-deep hover:text-cream transition-colors bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2"
+            className="flex-1 sm:flex-none whitespace-nowrap text-xs sm:text-sm font-sans font-bold uppercase tracking-widest text-parchment-deep hover:text-cream transition-colors bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2"
           >
             Back to chapter hub
           </button>
+          <AccountMenu tone="desk" />
         </div>
         </div>
       </header>
@@ -176,13 +178,14 @@ export const MainDeskView = () => {
           </div>
 
           {/* The way out, at the band's end behind a printed rule (from xl) */}
-          <div className="hidden xl:flex items-center self-stretch shrink-0 pl-3 ml-1 border-l border-ink/25 relative z-10">
+          <div className="hidden xl:flex items-center gap-2 self-stretch shrink-0 pl-3 ml-1 border-l border-ink/25 relative z-10">
             <button
               onClick={() => setStage('HOME')}
               className="whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink hover:bg-black/5 border border-ink/25 hover:border-ink/50 rounded px-3 py-1.5 transition-colors"
             >
               Back to chapter hub
             </button>
+            <AccountMenu tone="paper" />
           </div>
         </div>
       </div>

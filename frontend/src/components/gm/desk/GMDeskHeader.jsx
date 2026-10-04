@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { apiFetch } from '../../../utils/api';
 import { ConfirmAction } from '../../shared/ConfirmAction';
+import { AccountMenu } from '../../shared/AccountMenu';
 
-// The title, then the Lightkeeper's Desk bar, which carries Retire and Sign Out in its
-// own flow: right-aligned on desktop, full-width rows of their own on phones.
+// The title, then the Lightkeeper's Desk bar, which carries Retire, the way back to the
+// hub and the account in its own flow: right-aligned on desktop, full-width rows of their
+// own on phones.
 export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, setStage }) => {
   const [retireBusy, setRetireBusy] = useState(false);
   const [retireError, setRetireError] = useState('');
@@ -91,6 +93,7 @@ export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, set
           >
             Back to chapter hub
           </button>
+          <AccountMenu tone="gm" className="w-full lg:w-auto" />
         </div>
         {retireError && <p role="alert" className="font-serif text-base text-oxblood-lit lg:text-right">{retireError}</p>}
       </div>
