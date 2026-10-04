@@ -462,6 +462,46 @@ def test_create_refuses_an_email_that_has_an_account(client, google):
                                   "Please use Link my existing account instead."}
 
 
+# --- bcrypt stays off the event loop ---------------------------------------------------------------
+
+def test_bcrypt_never_runs_on_the_event_loop(client, google, monkeypatch):
+    """The sign-in routes are async, and a bcrypt hash or check takes about a quarter of
+    a second. Run on the event loop it held up every game WebSocket of the single
+    worker that long, once per login, register or Google link or create, and once per
+    unknown username too since those get a dummy check. Every hash and check now runs
+    in a worker thread."""
+    import asyncio
+    on_loop = []
+
+    def spy(real):
+        def wrapper(*args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                on_loop.append(real.__name__)
+            except RuntimeError:
+                pass
+            return real(*args, **kwargs)
+        return wrapper
+
+    ctx = security.pwd_context
+    for name in ("hash", "verify", "dummy_verify"):
+        monkeypatch.setattr(ctx, name, spy(getattr(ctx, name)))
+
+    u = support.make_user()
+    assert support.login(client, u.username, support.PASSWORD).status_code == 200
+    assert support.login(client, f"ghost_{support.uid()}", "x").status_code == 401
+    r = client.post("/api/auth/register", json={"username": f"reg_{support.uid()}",
+                                                 "email": f"{support.uid()}@example.test", "password": "long-enough-pw"})
+    assert r.status_code == 201
+    linker = support.make_user()
+    assert_signed_in_as(link(client, needs_account(client, google), linker.username), linker.id)
+    assert create(client, needs_account(client, google), f"new_{support.uid()}").status_code == 201
+    local = f"loop.{support.uid()}"
+    by_email = support.make_user(email=f"{local}@example.test")
+    assert_signed_in_as(google_sign_in(client, google.credential(email=f"{local}@example.test")), by_email.id)
+    assert on_loop == []
+
+
 # --- two requests at once ------------------------------------------------------------------------
 # The routes check before they write, and the unique indexes catch what changes in
 # between. These tests skip the first check, as if another request got in after it.

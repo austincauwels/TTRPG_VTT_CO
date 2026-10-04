@@ -10,6 +10,7 @@ rules for linking a Google account to a user.
 """
 import re
 import secrets
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func
@@ -92,7 +93,11 @@ def username_taken(db: Session, username: str) -> bool:
 def check_password(password: str, user) -> bool:
     """True when the user exists and the password is theirs. For a missing user passlib
     runs its dummy check, which takes as long as a real one, so the time taken does
-    not tell whether an account has that username."""
+    not tell whether an account has that username.
+
+    bcrypt takes about a quarter of a second, and these routes are async: the routes
+    call this, and every other bcrypt hash, through run_in_threadpool, so that the
+    event loop (and every game WebSocket of the single worker) carries on meanwhile."""
     return pwd_context.verify(password, user.hashed_password if user is not None else None) and user is not None
 
 
@@ -107,7 +112,7 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
     require_password_login()
     user = db.query(User).filter(User.username == credentials.username).first()
 
-    if not check_password(credentials.password, user):
+    if not await run_in_threadpool(check_password, credentials.password, user):
         logger.warning("Failed login attempt for username=%r", credentials.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -130,7 +135,7 @@ async def register(request: Request, credentials: RegisterRequest, db: Session =
     new_user = User(
         username=credentials.username,
         email=credentials.email,
-        hashed_password=pwd_context.hash(credentials.password)
+        hashed_password=await run_in_threadpool(pwd_context.hash, credentials.password)
     )
     db.add(new_user)
     db.commit()
@@ -180,13 +185,15 @@ def refuse_linked_google_account(db: Session, identity: GoogleIdentity) -> None:
 
 
 def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: str,
-                        replace_password: bool = False) -> None:
-    """Links the Google account to the user. With replace_password the user's password
-    becomes one nobody knows, which also ends every login token issued before (they
-    carry a stamp of the password hash, see vtt/security.py)."""
+                        new_password_hash: Optional[str] = None) -> None:
+    """Links the Google account to the user. With new_password_hash (the hash of a
+    password nobody knows) the user's password is replaced, which also ends every
+    login token issued before (they carry a stamp of the password hash, see
+    vtt/security.py)."""
+    replace_password = new_password_hash is not None
     user.google_sub = identity.sub
     if replace_password:
-        user.hashed_password = unusable_password_hash()
+        user.hashed_password = new_password_hash
     try:
         db.commit()
     except IntegrityError:
@@ -266,7 +273,8 @@ async def google_sign_in(request: Request, body: GoogleSignInRequest, db: Sessio
         # Someone who registered this player's email first would know the password of
         # the account the player is about to use, so the password (and with it every
         # login token issued so far) ends here. The player signs in with Google.
-        link_google_account(db, user, identity, "matching email", replace_password=True)
+        link_google_account(db, user, identity, "matching email",
+                            new_password_hash=await run_in_threadpool(unusable_password_hash))
         return signed_in_response(db, user)
 
     return {
@@ -287,7 +295,7 @@ async def google_link(request: Request, body: GoogleLinkRequest, db: Session = D
     refuse_linked_google_account(db, identity)
 
     user = db.query(User).filter(User.username == body.username).first()
-    if not check_password(body.password, user):
+    if not await run_in_threadpool(check_password, body.password, user):
         logger.warning("Failed Google link attempt for username=%r", body.username)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=LINK_WRONG_PASSWORD)
     if user.google_sub is not None:
@@ -308,7 +316,7 @@ async def google_create(request: Request, body: GoogleCreateRequest, db: Session
     user = User(
         username=body.username,
         email=identity.email,
-        hashed_password=unusable_password_hash(),
+        hashed_password=await run_in_threadpool(unusable_password_hash),
         google_sub=identity.sub,
     )
     db.add(user)
