@@ -677,7 +677,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
         <div className={`bg-cream rounded-sm border border-ink/20 p-4 sm:p-8 min-h-[500px] sm:min-h-[700px] relative z-10 ${
           fit ? 'xl:flex-1 xl:min-h-0 xl:overflow-y-auto custom-scrollbar' : ''}`}>
           <div className="flex flex-wrap gap-x-4 gap-y-1 items-baseline justify-between mb-6 border-b border-ink/15 pb-3">
-            <h2 className="font-serif font-black text-2xl sm:text-3xl uppercase text-ink">Private Field Notes</h2>
+            <h2 className="font-hand font-bold text-3xl sm:text-4xl leading-tight text-ink">Private Field Notes</h2>
             <span className="font-sans font-bold text-xs text-sepia uppercase">Visible only to you</span>
           </div>
 
@@ -788,7 +788,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                 </div>
 
                 <header className="border-b-2 border-ink/80 pb-4 mb-5 shrink-0">
-                  <h2 className="text-4xl sm:text-5xl leading-tight font-display tracking-[0.04em] text-ink uppercase">Field Notes</h2>
+                  <h2 className="text-4xl sm:text-5xl leading-tight font-hand font-bold text-ink">Field Notes</h2>
                   <p className="text-sm sm:text-base font-sans uppercase tracking-widest text-oxblood font-black mt-1">Table of Contents</p>
                 </header>
 
@@ -924,7 +924,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                   <span className="print-small ml-auto">Section II</span>
                 </div>
                 <header className="border-b-2 border-ink/80 pb-4 mb-5">
-                  <h3 className="text-3xl sm:text-4xl leading-tight font-display tracking-[0.04em] text-ink uppercase">Log a Field Entry</h3>
+                  <h3 className="text-3xl sm:text-4xl leading-tight font-hand font-bold text-ink">Log a Field Entry</h3>
                   <p className="font-sans font-bold text-xs text-sepia uppercase tracking-widest mt-1.5">
                     Visible to everyone in the campaign
                   </p>

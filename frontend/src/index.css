@@ -33,9 +33,11 @@
     box-shadow: 0 0 0 2px rgb(var(--c-ink));
   }
 
-  /* IM Fell English has one weight: never let the browser fake a bold one */
-  .font-display {
-    font-synthesis: style;
+  /* Cinzel has every weight but no italic, and Charm is a hand: never let the browser
+     fake a slant or a weight on either */
+  .font-display,
+  .font-hand {
+    font-synthesis: none;
   }
 }
 

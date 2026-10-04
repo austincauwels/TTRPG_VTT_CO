@@ -33,7 +33,7 @@ export const LastPlayedTome = ({ lastPlayedCampaign, onResume }) => {
         overlay={<Strap />}
       >
         <span className="absolute inset-x-0 top-[7%] flex justify-center">
-          <span className="font-display italic embossed-gold leading-[1.05] text-[clamp(22px,13cqw,56px)]">Last<br />Played</span>
+          <span className="font-display embossed-gold text-center leading-[1.1] tracking-[0.04em] text-[clamp(20px,11cqw,48px)]">Last<br />Played</span>
         </span>
         <span aria-hidden="true" className="absolute bottom-[4%] left-1/2 -translate-x-1/2 block w-[58%] h-[9%] rounded-sm border border-gold-leaf/35 shadow-[inset_0_1px_3px_rgba(0,0,0,0.7)]" />
       </Tome>
@@ -53,7 +53,7 @@ export const LastPlayedTome = ({ lastPlayedCampaign, onResume }) => {
       <span className="flex flex-col items-center justify-between h-full w-full py-[4%]">
         <Head>{heading}</Head>
         <span className="flex-1 flex flex-col items-center justify-center gap-[7%] w-full min-h-0">
-          <span data-glow className="gilt-glow embossed-gold font-display italic leading-[1.1] break-words max-w-full text-[clamp(20px,11.5cqw,48px)]">
+          <span data-glow className="gilt-glow embossed-gold font-display leading-[1.15] tracking-[0.03em] [text-wrap:balance] break-words max-w-full text-[clamp(18px,9.5cqw,40px)]">
             {name}
           </span>
           <CampaignMark name={name} className="gilt-mark mark-emboss text-gold-leaf/80 w-[clamp(34px,19cqw,72px)] h-auto" />

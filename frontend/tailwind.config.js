@@ -62,8 +62,12 @@ export default {
       borderColor: { DEFAULT: 'rgb(var(--c-parchment-deep) / 0.6)' },
       ringColor: { DEFAULT: 'rgb(var(--c-candle-gold))' },
       fontFamily: {
-        // Display: the wordmark, tome and page titles, letterheads, the Herald's masthead.
-        display: ['"IM Fell English"', '"Crimson Text"', 'Georgia', 'serif'],
+        // Display: her original heading face, Cinzel. The wordmark, tome and page titles,
+        // letterheads, tickets, the Herald's masthead, everything on leather, wood or night.
+        display: ['Cinzel', '"Crimson Text"', 'Georgia', 'serif'],
+        // Hand: a heading written by hand on paper (the notebook's Field Notes and Log a
+        // Field Entry). Mixed case, normal tracking.
+        hand: ['Charm', '"Crimson Text"', 'Georgia', 'serif'],
         // Body and titles: everything read as prose or as a name.
         serif: ['"Crimson Text"', 'Georgia', 'serif'],
       },

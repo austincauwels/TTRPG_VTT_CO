@@ -200,7 +200,7 @@ export const AppRouter = () => {
           <header className="w-full mb-4 sm:mb-6 px-4 sm:px-6 lg:px-10 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-start gap-y-3">
             <div className="hidden lg:block" aria-hidden="true" />
             <div className="text-center">
-              <h1 className="text-4xl sm:text-5xl mb-2 font-display tracking-[0.1em] text-cream">CANDELA OBSCURA</h1>
+              <h1 className="text-[28px] sm:text-5xl mb-2 font-display tracking-[0.1em] text-cream">CANDELA OBSCURA</h1>
               <p className="text-sm font-sans font-black tracking-widest text-oxblood-lit uppercase">New Investigator</p>
             </div>
             <div className="flex justify-center lg:justify-end">

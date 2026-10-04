@@ -79,7 +79,7 @@ export const CaseLedgerTome = ({ characters, gmCampaigns, onOpen }) => {
         </>
       }
     >
-      <h2 data-glow className="gilt-glow embossed-gold font-display leading-[1.02] tracking-[0.02em] text-[clamp(22px,15cqw,58px)]">
+      <h2 data-glow className="gilt-glow embossed-gold font-display font-semibold leading-[1.08] tracking-[0.05em] text-[clamp(20px,13cqw,52px)]">
         Case<br />Ledger
       </h2>
       <span aria-hidden="true" className="block w-[22%] h-px bg-gold-leaf/35 my-[6%] shadow-[0_1px_0_rgba(255,255,255,0.08)]" />
