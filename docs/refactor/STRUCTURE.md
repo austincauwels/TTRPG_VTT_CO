@@ -23,10 +23,10 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 | `vtt/security.py` | `pwd_context`, `limiter`, `create_access_token`, `login_token_subject`, `user_id_from_token` and `password_stamp` (login tokens), `create_link_token` and `identity_from_link_token` (Google link tokens); see AUTH.md | 28, 55, 56, 243 |
 | `vtt/google.py` | `verify_id_token` (checks a Google ID token with google-auth) and `CachedCertsTransport` (keeps Google's certificates), see AUTH.md | new |
 | `vtt/auth.py` | `get_current_user` (the Bearer token dependency) and the REST access helpers (owner, GM, member checks) | new |
-| `vtt/db.py` | `db_engine`, `SessionLocal`, `get_db`, `init_db` | 58 to 240 |
+| `vtt/db.py` | `db_engine`, `SessionLocal`, `get_db`, `init_db`; `add_columns` and `run_migration`, which log any migration failure but a column that exists already | 58 to 240 |
 | `vtt/schemas.py` | all pydantic request and response models | 260 to 434, 564, 635, 694 to 715 |
 | `vtt/serializers.py` | `get_char_dict`, `get_circle_dict` | 1352 to 1445 |
-| `vtt/deletion.py` | deleting characters and campaigns (soft delete), the undo and the admin restore; `backend/restore_deleted.py` is the admin's command line for it (DELETION.md) | new |
+| `vtt/deletion.py` | deleting characters and campaigns (soft delete), the undo and the admin restore, each under row locks; `backend/restore_deleted.py` is the admin's command line for it (DELETION.md) | new |
 | `vtt/circle_queries.py` | `get_or_create_campaign_circle`, `votes_dict` and `relationships_list` (were `_votes_dict` and `_relationships_list`), `resolve_circle` | 721 to 753, 1447 to 1454 |
 | `vtt/application.py` | `app`, limiter state and handler, CORS, router includes in the old route order | 244 to 255, 944 |
 | `vtt/routers/campaigns.py` | `/campaign/create` through `/campaign/{campaign_id}/roster` | 450 to 688 |
