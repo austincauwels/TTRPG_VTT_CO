@@ -234,31 +234,41 @@ def test_intercept_behind_me(client):
     assert support.fetch(Character, guard["id"]).body_marks == 1
 
 
+def _allies(client, target_fields, guard_fields):
+    """A target and an interceptor in the same campaign (intercepts need that now)."""
+    camp = support.new_campaign(client)
+    return support.active_member(client, camp, **target_fields), support.active_member(client, camp, **guard_fields)
+
+
 def test_intercept_behind_me_needs_nerve(client):
-    target = support.forge(client, body_marks=2)
-    guard = support.forge(client, nerve_current=0, role_ability="Behind Me")
+    target, guard = _allies(client, dict(body_marks=2), dict(nerve_current=0, role_ability="Behind Me"))
     with support.ws_connect(client, guard["id"]) as wg:
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
         assert wg.sync() == []
     assert support.fetch(Character, target["id"]).body_marks == 2
 
 
-@pytest.mark.legacy_trust
-def test_intercept_target_in_any_campaign(client):
-    """The target is looked up by id with no campaign check."""
+def test_intercept_target_must_be_in_the_same_campaign(client):
+    """Before tokens the target was looked up by id with no campaign check, so an
+    intercept could change a character in any campaign."""
     camp_a = support.new_campaign(client)
     camp_b = support.new_campaign(client)
     guard = support.active_member(client, camp_a, nerve_current=1, role_ability="Behind Me")
     far_away = support.active_member(client, camp_b, brain_marks=1)
+    loner = support.forge(client, brain_marks=1)
     with support.ws_connect(client, guard["id"]) as wg:
-        wg.send("intercept_mark", ability="Behind Me", target_character_id=far_away["id"], mark_type="brain")
-        wg.sync()
-    assert support.fetch(Character, far_away["id"]).brain_marks == 0
+        for target in (far_away, loner):
+            wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="brain")
+            assert wg.sync() == [{"type": "action_rejected", "payload": {
+                "action": "intercept_mark", "status": 403, "detail": "Not allowed."}}]
+    assert support.fetch(Character, far_away["id"]).brain_marks == 1
+    assert support.fetch(Character, loner["id"]).brain_marks == 1
+    assert support.fetch(Character, guard["id"]).nerve_current == 1
 
 
 def test_intercept_can_incapacitate_interceptor(client):
-    target = support.forge(client, bleed_marks=1)
-    guard = support.forge(client, nerve_current=1, bleed_marks=3, role_ability="Behind Me")
+    target, guard = _allies(client, dict(bleed_marks=1),
+                            dict(nerve_current=1, bleed_marks=3, role_ability="Behind Me"))
     with support.ws_connect(client, guard["id"]) as wg:
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="bleed")
         msgs = wg.sync()
@@ -270,8 +280,7 @@ def test_intercept_can_incapacitate_interceptor(client):
 
 def test_intercept_premonitions_does_not_remove_target_mark(client):
     """QUIRK (bug D6): Premonitions spends the seer's resistance but the target keeps the mark."""
-    target = support.forge(client, body_marks=2)
-    seer = support.forge(client, intuition_max=3, specialty_ability="Premonitions")
+    target, seer = _allies(client, dict(body_marks=2), dict(intuition_max=3, specialty_ability="Premonitions"))
     with support.ws_connect(client, seer["id"]) as wsr:
         wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
         msgs = wsr.sync()
@@ -421,9 +430,9 @@ def test_intercept_offers_interceptor_a_soak_and_does_not_mark_them(client, soak
     """QUIRK: the interceptor's soak offer has no 'options' key and uses the
     interceptor's own id. The mark is not applied to the interceptor, but the nerve
     spend and the target's mark removal are already committed."""
-    target = support.forge(client, **{f"{mark_type}_marks": 2})
-    guard = support.forge(client, nerve_current=2, role_ability="Behind Me", specialty_ability=soak,
-                          **{"nerve_max": 3, **fields})
+    target, guard = _allies(client, {f"{mark_type}_marks": 2},
+                            dict(nerve_current=2, role_ability="Behind Me", specialty_ability=soak,
+                                 **{"nerve_max": 3, **fields}))
     with support.ws_connect(client, guard["id"]) as wg:
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type=mark_type)
         msgs = wg.sync()
@@ -437,9 +446,9 @@ def test_intercept_offers_interceptor_a_soak_and_does_not_mark_them(client, soak
 
 
 def test_intercept_soak_skipped_when_used(client):
-    target = support.forge(client, body_marks=2)
-    guard = support.forge(client, nerve_current=2, cunning_max=3, role_ability="Behind Me",
-                          specialty_ability="In the Trenches")
+    target, guard = _allies(client, dict(body_marks=2),
+                            dict(nerve_current=2, cunning_max=3, role_ability="Behind Me",
+                                 specialty_ability="In the Trenches"))
     support.update(Character, guard["id"], ability_uses={"In the Trenches": 1})
     with support.ws_connect(client, guard["id"]) as wg:
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
@@ -450,8 +459,8 @@ def test_intercept_soak_skipped_when_used(client):
 
 def test_intercept_back_against_the_wall_does_not_block_the_mark(client):
     """Unlike take_mark, the interceptor's soak map has no Back Against the Wall, so the brain mark lands."""
-    target = support.forge(client, brain_marks=1)
-    guard = support.forge(client, nerve_current=1, role_ability="Behind Me", specialty_ability="Back Against the Wall")
+    target, guard = _allies(client, dict(brain_marks=1),
+                            dict(nerve_current=1, role_ability="Behind Me", specialty_ability="Back Against the Wall"))
     with support.ws_connect(client, guard["id"]) as wg:
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="brain")
         msgs = wg.sync()
@@ -461,21 +470,21 @@ def test_intercept_back_against_the_wall_does_not_block_the_mark(client):
     assert support.fetch(Character, target["id"]).brain_marks == 0
 
 
-def test_intercept_unknown_target_still_marks_the_interceptor(client):
-    guard = support.forge(client, nerve_current=2, role_ability="Behind Me")
+def test_intercept_unknown_target_is_rejected(client):
+    """Before tokens an unknown target still cost the interceptor a nerve and a mark
+    ("intercept a mark for an ally!"); an unknown id is 404 now."""
+    camp = support.new_campaign(client)
+    guard = support.active_member(client, camp, nerve_current=2, role_ability="Behind Me")
     with support.ws_connect(client, guard["id"]) as wg:
         wg.send("intercept_mark", ability="Behind Me", target_character_id=987654321, mark_type="bleed")
-        msgs = wg.sync()
-        assert support.types(msgs) == ["activity_log", "character_update"]
-        assert msgs[0]["payload"]["message"] == f"{guard['name']} used Behind Me to intercept a mark for an ally!"
-        assert msgs[1]["payload"]["bleed_marks"] == 1
+        assert wg.sync() == [{"type": "action_rejected", "payload": {
+            "action": "intercept_mark", "status": 404, "detail": "Character not found"}}]
     row = support.fetch(Character, guard["id"])
-    assert (row.nerve_current, row.bleed_marks) == (1, 1)
+    assert (row.nerve_current, row.bleed_marks) == (2, 0)
 
 
 def test_intercept_without_mark_type_does_nothing(client):
-    target = support.forge(client, body_marks=2)
-    guard = support.forge(client, nerve_current=2, role_ability="Behind Me")
+    target, guard = _allies(client, dict(body_marks=2), dict(nerve_current=2, role_ability="Behind Me"))
     with support.ws_connect(client, guard["id"]) as wg:
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"])
         assert wg.sync() == []

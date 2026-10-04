@@ -1,6 +1,9 @@
-"""WebSocket chat_message and add_notebook_entry."""
-import pytest
+"""WebSocket chat_message and add_notebook_entry.
 
+The chat sender name comes from the socket: the character's name on a player socket,
+"Lightkeeper" on a GM socket. payload.sender_name is ignored (before tokens it was
+shown as sent).
+"""
 import engine
 import support
 from models import NotebookEntry
@@ -14,12 +17,16 @@ def _campaign_with(client, *names):
     return camp, chars
 
 
+def _rejected(action, status=403, detail="Not allowed."):
+    return {"type": "action_rejected", "payload": {"action": action, "status": status, "detail": detail}}
+
+
 def test_chat_to_circle(client):
     camp, (a, b) = _campaign_with(client, f"Ada {support.uid()}", f"Bo {support.uid()}")
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
         wa.send("chat_message", sender_name="Ada", message="  hello all  ")
-        expected = {"type": "activity_log", "payload": {"message": "Ada: hello all", "log_type": "chat",
+        expected = {"type": "activity_log", "payload": {"message": f"{a['name']}: hello all", "log_type": "chat",
                                                         "target": "@Circle", "ink_color": engine.INK_COLORS[0]}}
         assert wa.sync() == [expected]
         assert wb.drain() == [expected]
@@ -35,21 +42,22 @@ def test_chat_environment(client):
         assert wa.drain() == [expected]
 
 
-def test_chat_environment_from_player_is_allowed(client):
-    """Only the UI limits @Environment to the GM."""
+def test_chat_environment_from_player_is_rejected(client):
+    """Before tokens only the UI limited @Environment to the GM."""
     camp, (a,) = _campaign_with(client, f"Ada {support.uid()}")
-    with support.ws_connect(client, a["id"]) as wa:
-        wa.send("chat_message", sender_name="Ada", message="boo", target="@Environment")
-        assert wa.sync()[0]["payload"]["log_type"] == "environment"
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+        wa.send("chat_message", message="boo", target="@Environment")
+        assert wa.sync() == [_rejected("chat_message")]
+        assert gm.drain() == []
 
 
 def test_whisper_goes_to_sender_gm_and_target(client):
     camp, (a, b, c) = _campaign_with(client, f"Ada {support.uid()}", f"Wolfe {support.uid()}", f"Cy {support.uid()}")
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
             support.ws_connect(client, c["id"]) as wc, support.ws_connect(client, camp["campaign_code"]) as gm:
-        wa.send("chat_message", sender_name="Ada", message="psst", target=f"@{b['name'].upper()}")
+        wa.send("chat_message", message="psst", target=f"@{b['name'].upper()}")
         expected = {"type": "activity_log", "payload": {
-            "message": f"Ada {ARROW} @{b['name'].upper()}: psst", "log_type": "chat",
+            "message": f"{a['name']} {ARROW} @{b['name'].upper()}: psst", "log_type": "chat",
             "target": f"@{b['name'].upper()}", "ink_color": engine.INK_COLORS[0]}}
         assert wa.sync() == [expected]
         assert wb.drain() == [expected]
@@ -62,7 +70,7 @@ def test_whisper_target_matches_sql_wildcards(client):
     tag = support.uid()
     camp, (a, b) = _campaign_with(client, f"Ada {tag}", f"Wolfe Zed{tag}")
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
-        wa.send("chat_message", sender_name="Ada", message="hi", target="@wolfe%")
+        wa.send("chat_message", message="hi", target="@wolfe%")
         wa.sync()
         assert support.types(wb.drain()) == ["activity_log"]
 
@@ -71,40 +79,37 @@ def test_whisper_to_unknown_name(client):
     camp, (a, b) = _campaign_with(client, f"Ada {support.uid()}", f"Bo {support.uid()}")
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
-        wa.send("chat_message", sender_name="Ada", message="anyone?", target="@Nobody")
+        wa.send("chat_message", message="anyone?", target="@Nobody")
         expected = {"type": "activity_log", "payload": {
-            "message": f"Ada {ARROW} @Nobody: anyone?", "log_type": "chat",
+            "message": f"{a['name']} {ARROW} @Nobody: anyone?", "log_type": "chat",
             "target": "@Nobody", "ink_color": engine.INK_COLORS[0]}}
         assert wa.sync() == [expected]
         assert gm.drain() == [expected]
         assert wb.drain() == []
 
 
-def test_whisper_without_campaign_searches_every_campaign(client):
-    """QUIRK: on a socket with no campaign the target name is matched with ILIKE
-    across all characters, so a whisper can reach a member of any campaign (and not
-    that campaign's GM)."""
+def test_whisper_without_campaign_is_rejected(client):
+    """Before tokens a socket with no campaign matched the target name with ILIKE
+    across all characters, so a whisper could reach a member of any campaign. Chat
+    now needs a campaign."""
     tag = support.uid()
     camp, (target,) = _campaign_with(client, f"Wren {tag}")
     loner = support.forge(client)
     with support.ws_connect(client, loner["id"]) as wl, support.ws_connect(client, target["id"]) as wt, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
-        wl.send("chat_message", sender_name="Loner", message="psst", target=f"@wren {tag}")
-        expected = {"type": "activity_log", "payload": {
-            "message": f"Loner {ARROW} @wren {tag}: psst", "log_type": "chat",
-            "target": f"@wren {tag}", "ink_color": ""}}
-        assert wl.sync() == [expected]
-        assert wt.drain() == [expected]
+        wl.send("chat_message", message="psst", target=f"@wren {tag}")
+        assert wl.sync() == [_rejected("chat_message")]
+        assert wt.drain() == []
         assert gm.drain() == []
 
 
-def test_environment_without_campaign_echoes_to_own_channel(client):
+def test_environment_without_campaign_is_rejected(client):
     camp, (member,) = _campaign_with(client, f"Ada {support.uid()}")
     loner = support.forge(client)
     with support.ws_connect(client, loner["id"]) as wl, support.ws_connect(client, member["id"]) as wm, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
         wl.send("chat_message", message="thunder", target="@Environment")
-        assert wl.sync() == [{"type": "activity_log", "payload": {"message": "THUNDER", "log_type": "environment"}}]
+        assert wl.sync() == [_rejected("chat_message")]
         assert wm.drain() == [] and gm.drain() == []
 
 
@@ -112,9 +117,10 @@ def test_gm_whisper(client):
     camp, (a, b) = _campaign_with(client, f"Ada {support.uid()}", f"Bo {support.uid()}")
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa, \
             support.ws_connect(client, b["id"]) as wb:
-        gm.send("chat_message", sender_name="Lightkeeper", message="you hear it", target=f"@{a['name']}")
+        gm.send("chat_message", sender_name="Someone else", message="you hear it", target=f"@{a['name']}")
         msgs = gm.sync()
         assert len(msgs) == 1
+        assert msgs[0]["payload"]["message"] == f"Lightkeeper {ARROW} @{a['name']}: you hear it"
         assert msgs[0]["payload"]["ink_color"] == ""
         assert wa.drain() == msgs
         assert wb.drain() == []
@@ -123,17 +129,17 @@ def test_gm_whisper(client):
 def test_chat_empty_message_ignored(client):
     camp, (a,) = _campaign_with(client, f"Ada {support.uid()}")
     with support.ws_connect(client, a["id"]) as wa:
-        wa.send("chat_message", sender_name="Ada", message="   ")
-        wa.send("chat_message", sender_name="Ada")
+        wa.send("chat_message", message="   ")
+        wa.send("chat_message")
         assert wa.sync() == []
 
 
-def test_chat_without_campaign_echoes_to_own_channel(client):
+def test_chat_without_campaign_is_rejected(client):
+    """Before tokens an unaffiliated character's chat echoed to its own channel."""
     ch = support.forge(client)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("chat_message", message="alone")
-        assert ws.sync() == [{"type": "activity_log", "payload": {
-            "message": "Unknown: alone", "log_type": "chat", "target": "@Circle", "ink_color": ""}}]
+        assert ws.sync() == [_rejected("chat_message")]
 
 
 def test_chat_from_pending_member_not_echoed(client):
@@ -141,17 +147,21 @@ def test_chat_from_pending_member_not_echoed(client):
     camp = support.new_campaign(client)
     pending = support.pending_member(client, camp)
     with support.ws_connect(client, pending["id"]) as wp, support.ws_connect(client, camp["campaign_code"]) as gm:
-        wp.send("chat_message", sender_name="New", message="hello?")
+        wp.send("chat_message", message="hello?")
         assert wp.sync() == []
-        assert support.types(gm.drain()) == ["activity_log"]
+        [msg] = gm.drain()
+        assert msg["payload"]["message"] == f"{pending['name']}: hello?"
 
 
-@pytest.mark.legacy_trust
-def test_chat_sender_name_is_client_claimed(client):
+def test_chat_sender_name_comes_from_the_socket(client):
+    """Before tokens a player could post as "The Lightkeeper" by setting sender_name."""
     camp, (a,) = _campaign_with(client, f"Ada {support.uid()}")
-    with support.ws_connect(client, a["id"]) as wa:
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
         wa.send("chat_message", sender_name="The Lightkeeper", message="obey")
-        assert wa.sync()[0]["payload"]["message"] == "The Lightkeeper: obey"
+        assert wa.sync()[0]["payload"]["message"] == f"{a['name']}: obey"
+        gm.drain()
+        gm.send("chat_message", sender_name=a["name"], message="I am Ada")
+        assert gm.sync()[0]["payload"]["message"] == "Lightkeeper: I am Ada"
 
 
 # --- add_notebook_entry over the socket (unused by the frontend) -------------
@@ -187,14 +197,19 @@ def test_ws_add_notebook_entry_private_goes_to_sender_only(client):
         assert wa.sync() == []
 
 
-@pytest.mark.legacy_trust
-def test_ws_add_notebook_entry_into_another_campaign(client):
-    """The entry lands in the payload's campaign; the broadcast goes to the socket's campaign."""
+def test_ws_add_notebook_entry_only_into_the_senders_campaign(client):
+    """Before tokens the entry landed in the payload's campaign while the broadcast
+    went to the socket's campaign."""
     camp, (a,) = _campaign_with(client, f"Ada {support.uid()}")
     other = support.new_campaign(client)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, other["campaign_code"]) as other_gm:
         wa.send("add_notebook_entry", campaign_id=other["id"], title="Planted")
-        msgs = wa.sync()
-        assert msgs[0]["payload"]["campaign_id"] == other["id"]
+        wa.send("add_notebook_entry", campaign_id=987654321, title="Nowhere")
+        assert wa.sync() == [_rejected("add_notebook_entry"),
+                             _rejected("add_notebook_entry", 404, "Campaign not found")]
         assert other_gm.drain() == []
-    assert [e.title for e in support.fetch_all(NotebookEntry, campaign_id=other["id"])] == ["Planted"]
+        # Lightkeeper entries are for the GM
+        wa.send("add_notebook_entry", campaign_id=camp["id"], title="Secret", visibility="gm_only")
+        assert wa.sync() == [_rejected("add_notebook_entry")]
+    assert support.fetch_all(NotebookEntry, campaign_id=other["id"]) == []
+    assert support.fetch_all(NotebookEntry, campaign_id=camp["id"]) == []

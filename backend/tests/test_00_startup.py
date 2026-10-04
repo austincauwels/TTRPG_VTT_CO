@@ -11,7 +11,7 @@ from sqlalchemy import inspect as sa_inspect, text
 
 import main
 import support
-from models import Circle, User
+from models import Character, Circle, User
 from vtt import security
 
 
@@ -268,12 +268,21 @@ def test_forge_recreates_missing_circle_one(client, monkeypatch):
 
 
 def test_ws_connect_recreates_missing_circle_one(client, monkeypatch):
+    """An unaffiliated character's socket uses circle 1 and recreates it when it is
+    missing. (Before tokens any unknown channel did the same; those are refused now.)"""
     with support.isolated_schema() as (eng, Session, schema):
         monkeypatch.setattr(main, "SessionLocal", Session)
-        key = f"nothing-{support.uid()}"
-        with support.ws_connect(client, key) as ws:
-            assert support.types(ws.initial) == ["circle_update"]
-            p = ws.initial[0]["payload"]
+        with Session() as s:
+            u = User(username=f"iso_{support.uid()}", email=f"{support.uid()}@example.test", hashed_password="x")
+            s.add(u)
+            s.commit()
+            ch = Character(name=f"Iso {support.uid()}", user_id=u.id)
+            s.add(ch)
+            s.commit()
+            key, user_id = ch.id, u.id
+        with support.ws_connect(client, key, token=security.create_access_token(user_id)) as ws:
+            assert support.types(ws.initial) == ["character_update", "circle_update"]
+            p = ws.initial[1]["payload"]
             assert (p["id"], p["name"], p["stitch"]) == (1, "The Order of Light", 1)
         with Session() as s:
             assert s.get(Circle, 1).name == "The Order of Light"

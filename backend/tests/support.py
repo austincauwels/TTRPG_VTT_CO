@@ -285,6 +285,7 @@ class WS:
         self.session = session
         self.key = str(key)
         self.initial = []
+        self.is_gm = None  # set by ws_connect: a GM socket gets no character_update on connect
 
     def send(self, type_, **payload):
         self.session.send_json({"type": type_, "payload": payload})
@@ -326,11 +327,16 @@ class WS:
 
     def sync(self, timeout=5.0):
         """Barrier: the server handles one socket's frames in order, so once the
-        scene_transition answer to this marker arrives, every earlier frame from this
-        socket has been fully handled (and its broadcasts queued for other clients).
-        Returns the frames that arrived before the marker."""
+        answer to this marker arrives, every earlier frame from this socket has been
+        fully handled (and its broadcasts queued for other clients). Returns the
+        frames that arrived before the marker.
+
+        The marker is gm_transition_scene, which only echoes back to the sender. On a
+        GM socket the answer is scene_transition with the marker's scene name; on a
+        player socket it is the action_rejected frame for gm_transition_scene (tests
+        must not send gm_transition_scene from a player socket themselves)."""
         token = f"sync-{uid()}"
-        self.send("gm_transition_scene", role="GM", scene_name=token)
+        self.send("gm_transition_scene", scene_name=token)
         out = []
         deadline = time.monotonic() + timeout
         while True:
@@ -338,7 +344,10 @@ class WS:
             if left <= 0:
                 raise TimeoutError("sync marker never came back (socket closed by the server?)")
             msg = self.recv(left)
-            if msg["type"] == "scene_transition" and msg["payload"]["scene_name"] == token:
+            if self.is_gm and msg["type"] == "scene_transition" and msg["payload"]["scene_name"] == token:
+                return out
+            if not self.is_gm and msg["type"] == "action_rejected" \
+                    and msg["payload"]["action"] == "gm_transition_scene":
                 return out
             out.append(msg)
 
@@ -362,15 +371,42 @@ def wait_server_dropped(key, timeout=3.0):
     return wait_until(lambda: not server_sockets(key), timeout)
 
 
+def channel_owner(key):
+    """The user entitled to /ws/{key}: the owner of character key, else the GM of
+    the campaign whose code is key (None when neither exists)."""
+    key = str(key)
+    if key.isdigit() and int(key) < 2 ** 31:
+        user_id = owner_id(int(key))
+        if user_id is not None:
+            return user_id
+    with main.SessionLocal() as s:
+        campaign = s.query(Campaign).filter(Campaign.campaign_code == key).first()
+        return campaign.gm_user_id if campaign is not None else None
+
+
+AUTO = object()
+
+
+def ws_url(key, token=AUTO):
+    """/ws/{key} with the token of the user entitled to it (a stranger's when nobody
+    is), a given token, or no token at all when token is None."""
+    if token is AUTO:
+        user_id = channel_owner(key)
+        token = token_for(user_id if user_id is not None else make_user().id)
+    return f"/ws/{key}" if token is None else f"/ws/{key}?token={token}"
+
+
 @contextlib.contextmanager
-def ws_connect(client, key, wait_disconnect=True):
-    """Open /ws/{key}, read the frames the server sends on connect into ws.initial,
-    and on exit close the socket and wait for the server to forget it."""
-    with client.websocket_connect(f"/ws/{key}") as session:
+def ws_connect(client, key, wait_disconnect=True, token=AUTO):
+    """Open /ws/{key} as the user entitled to it (or with the given token), read the
+    frames the server sends on connect into ws.initial, and on exit close the socket
+    and wait for the server to forget it."""
+    with client.websocket_connect(ws_url(key, token)) as session:
         ws = WS(session, key)
         first = ws.recv()
         ws.initial.append(first)
-        if first["type"] == "character_update":
+        ws.is_gm = first["type"] != "character_update"
+        if not ws.is_gm:
             ws.initial.append(ws.recv())
         try:
             yield ws
@@ -378,6 +414,18 @@ def ws_connect(client, key, wait_disconnect=True):
             if wait_disconnect:
                 session.close(1000)
                 wait_server_dropped(key, timeout=2.0)
+
+
+def ws_close_code(client, key, token=AUTO):
+    """Open /ws/{key} and return the code the server closes it with before sending
+    anything (fails if the server sends a frame instead)."""
+    with client.websocket_connect(ws_url(key, token)) as session:
+        ws = WS(session, key)
+        try:
+            msg = ws.recv(timeout=5.0)
+        except Closed as closed:
+            return closed.code
+        raise AssertionError(f"the server sent {msg['type']} instead of closing the socket")
 
 
 def types(messages):

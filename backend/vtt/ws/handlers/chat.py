@@ -3,10 +3,18 @@ from engine import create_notebook_entry
 from models import Campaign, Character
 from vtt.ws.manager import manager
 
+# The name chat shows for the GM; the frontend used the same name when the client
+# still chose the sender name.
+GM_SENDER_NAME = "Lightkeeper"
+
 
 async def handle_chat_message(ctx):
     db, payload, character, game_id = ctx.db, ctx.payload, ctx.character, ctx.game_id
-    sender_name = payload.get("sender_name", "Unknown")
+    # The sender is who the socket belongs to; payload.sender_name is ignored.
+    if ctx.is_gm:
+        sender_name = GM_SENDER_NAME
+    else:
+        sender_name = (character.name if character is not None else None) or "Unknown"
     text = payload.get("message", "").strip()
     target = payload.get("target", "@Circle")
     if not text:

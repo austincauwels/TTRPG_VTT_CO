@@ -1,9 +1,11 @@
 """GM messages: tension, scene, the circle toggles, advancing the circle, refilling resources,
 ending an assignment, resetting a character, and update_circle.
 
-GM rights come only from payload role == "GM", which the client sets. update_circle
-is grouped here because only GM screens send it, but it has no role gate (a non-GM may
-not raise stitch, refresh or train). See docs/refactor/WEBSOCKET.md section 4.2.
+Only the campaign's GM may send these (vtt.ws.access rejects them from anyone else,
+and ctx.is_gm comes from the login token, never from the payload's "role"). The
+circle they name must be the GM's campaign circle. update_circle is grouped here
+because only GM screens send it. See docs/refactor/WEBSOCKET.md section 4.2 and
+docs/refactor/AUTH.md.
 """
 from models import Character, Circle
 from vtt.circle_queries import resolve_circle
@@ -13,7 +15,7 @@ from vtt.ws.manager import manager
 
 async def handle_gm_update_tension(ctx):
     db, payload, character, game_id = ctx.db, ctx.payload, ctx.character, ctx.game_id
-    if payload.get("role") != "GM": return
+    if not ctx.is_gm: return
 
     m_type = payload.get("mark_type")
     value = payload.get("value")
@@ -25,7 +27,7 @@ async def handle_gm_update_tension(ctx):
 
 async def handle_gm_update_circle(ctx):
     db, payload, camp_code, camp_id = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id
-    if payload.get("role") != "GM": return
+    if not ctx.is_gm: return
 
     circle_id = payload.get("circle_id") or 1
     target_circle = db.query(Circle).filter(Circle.id == circle_id).first()
@@ -40,7 +42,7 @@ async def handle_gm_update_circle(ctx):
 
 async def handle_gm_transition_scene(ctx):
     payload, game_id = ctx.payload, ctx.game_id
-    if payload.get("role") != "GM": return
+    if not ctx.is_gm: return
 
     await manager.broadcast(game_id, {
         "type": "scene_transition",
@@ -53,7 +55,7 @@ async def handle_gm_transition_scene(ctx):
 
 async def handle_gm_toggle_resource_edit(ctx):
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
-    if payload.get("role") != "GM": return
+    if not ctx.is_gm: return
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
@@ -64,7 +66,7 @@ async def handle_gm_toggle_resource_edit(ctx):
 
 async def handle_gm_toggle_reports(ctx):
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
-    if payload.get("role") != "GM": return
+    if not ctx.is_gm: return
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
@@ -75,7 +77,7 @@ async def handle_gm_toggle_reports(ctx):
 
 async def handle_gm_advance_circle(ctx):
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
-    if payload.get("role") != "GM": return
+    if not ctx.is_gm: return
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
@@ -102,7 +104,7 @@ async def handle_gm_advance_circle(ctx):
 
 async def handle_refill_resources(ctx):
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
-    if payload.get("role") != "GM": return
+    if not ctx.is_gm: return
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
@@ -116,7 +118,7 @@ async def handle_refill_resources(ctx):
 
 async def handle_gm_end_assignment(ctx):
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
-    if payload.get("role") != "GM": return
+    if not ctx.is_gm: return
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
@@ -144,7 +146,7 @@ async def handle_gm_end_assignment(ctx):
 
 async def handle_gm_reset_character(ctx):
     db, payload, camp_code, camp_id = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id
-    if payload.get("role") != "GM": return
+    if not ctx.is_gm: return
     target_id = payload.get("character_id")
     if target_id:
         target_char = db.query(Character).filter(
@@ -175,19 +177,15 @@ async def handle_gm_reset_character(ctx):
 
 async def handle_update_circle(ctx):
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
+    if not ctx.is_gm: return
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
         old_illum = getattr(target_circle, "illumination", 0) or 0
-        role = payload.get("role", "")
         for field in ["name", "stitch", "refresh", "train", "guard_patrol", "miasma_bleed", "location", "atmosphere",
                       "chapter_house_location", "circle_ability", "illumination",
                       "tension_clock", "tension_label"]:
             if field in payload:
-                if field in ("stitch", "refresh", "train"):
-                    current_val = getattr(target_circle, field, 0) or 0
-                    if payload[field] > current_val and role != "GM":
-                        continue
                 setattr(target_circle, field, payload[field])
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)

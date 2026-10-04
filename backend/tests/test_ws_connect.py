@@ -44,11 +44,12 @@ def test_unaffiliated_character_falls_back_to_circle_one(client):
         assert ws.initial[1]["payload"]["name"] == "The Order of Light"
 
 
-def test_unknown_numeric_and_text_keys_get_circle_one(client):
-    for key in ("987654321", f"nothing-{support.uid()}"):
-        with support.ws_connect(client, key) as ws:
-            assert support.types(ws.initial) == ["circle_update"]
-            assert ws.initial[0]["payload"]["id"] == 1
+def test_unknown_numeric_and_text_keys_are_closed_with_4404(client):
+    """Before tokens these opened a socket on circle 1 with no campaign. The
+    frontend's 'gm' fallback channel is one of them."""
+    for key in ("987654321", f"nothing-{support.uid()}", "gm"):
+        assert support.ws_close_code(client, key) == 4404
+        assert not support.server_sockets(key)
 
 
 def test_last_connection_wins(client):
@@ -64,37 +65,88 @@ def test_last_connection_wins(client):
             assert second.recv()["type"] == "character_update"
 
 
-@pytest.mark.legacy_trust
-def test_anyone_can_open_any_characters_channel(client):
-    """The path segment is the whole identity: no login is needed to act as a character."""
+def test_only_the_owner_can_open_a_characters_channel(client):
+    """Before tokens the path segment was the whole identity: anyone could open any
+    character's channel (and kick the owner off with the 1001 close)."""
     camp = support.new_campaign(client)
-    ch = support.active_member(client, camp, user_id=support.make_user().id)
-    with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("update_drive", pool="nerve", value=0)
-        assert ws.recv()["payload"]["nerve_current"] == 0
+    ch = support.active_member(client, camp, user_id=support.make_user().id, nerve_current=1)
+    fellow = support.active_member(client, camp)
+    with support.ws_connect(client, ch["id"]) as owner:
+        for user_id in (support.owner_id(fellow["id"]), support.gm_id(camp), support.make_user().id):
+            assert support.ws_close_code(client, ch["id"], token=support.token_for(user_id)) == 4403
+        assert len(support.server_sockets(ch["id"])) == 1  # the owner was not kicked off
+        owner.send("update_drive", pool="nerve", value=0)
+        assert owner.recv()["payload"]["nerve_current"] == 0
 
 
-@pytest.mark.legacy_trust
-def test_anyone_can_open_a_gm_channel(client):
+def test_only_the_gm_can_open_a_campaign_channel(client):
+    """Before tokens anyone could open a GM channel and use GM powers."""
     camp = support.new_campaign(client, gm_user_id=support.make_user().id)
+    member = support.active_member(client, camp)
+    for user_id in (support.owner_id(member["id"]), support.gm_id(support.new_campaign(client))):
+        assert support.ws_close_code(client, camp["campaign_code"], token=support.token_for(user_id)) == 4403
     with support.ws_connect(client, camp["campaign_code"]) as ws:
-        ws.send("gm_toggle_reports", role="GM")
+        ws.send("gm_toggle_reports")
         assert ws.recv()["payload"]["reports_open"] is True
 
 
-def test_numeric_campaign_code_shares_a_character_channel(client):
-    """QUIRK: a campaign whose code equals a character id makes that character's
-    socket resolve to the campaign (when the character has none of its own)."""
+@pytest.mark.parametrize("token", [None, "", "not-a-token", "expired", "deleted user", "other key"])
+def test_socket_without_a_valid_token_is_closed_with_4401(client, token):
+    """The socket is accepted and closed at once with 4401; no frame is sent and the
+    channel's real socket is left alone."""
+    import time
+    from jose import jwt
+    from vtt import config, security
+    now = int(time.time())
+    token = {
+        "expired": jwt.encode({"sub": "1", "iat": now - 120, "exp": now - 60}, config.SECRET_KEY, algorithm="HS256"),
+        "deleted user": security.create_access_token(987654321),
+        "other key": jwt.encode({"sub": "1", "iat": now, "exp": now + 60}, "not-the-key", algorithm="HS256"),
+    }.get(token, token)
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp)
+    with support.ws_connect(client, ch["id"]) as owner, support.ws_connect(client, camp["campaign_code"]):
+        for key in (ch["id"], camp["campaign_code"]):
+            assert support.ws_close_code(client, key, token=token) == 4401
+        assert len(support.server_sockets(ch["id"])) == 1
+        assert len(support.server_sockets(camp["campaign_code"])) == 1
+        owner.send("update_pen_font", pen_font="Kalam")
+        assert owner.recv()["type"] == "character_update"
+
+
+def test_token_in_the_query_string_is_not_logged(client, caplog):
+    import logging
+    ch = support.forge(client)
+    token = support.token_for(support.owner_id(ch["id"]))
+    with caplog.at_level(logging.INFO):
+        with support.ws_connect(client, ch["id"]):
+            pass
+        support.ws_close_code(client, f"nothing-{support.uid()}", token=token)
+    assert caplog.records
+    assert not any(token in r.getMessage() for r in caplog.records)
+
+
+def test_numeric_campaign_code_and_character_id_channels(client):
+    """A campaign whose all-digit code equals a character id: before tokens the
+    character's socket resolved to that campaign when the character had none of its
+    own. Now the character's owner gets the character channel with no campaign, and
+    the campaign's GM gets the campaign channel. QUIRK: both still share the channel
+    key, so the last one to connect closes the other with 1001."""
     # Codes need 3+ characters, so give the character a large explicit id
     # (far above anything the sequence hands out during a test run).
     char_id = 900_000_000 + int(support.uid(6), 16) % 90_000_000
+    owner = support.make_user()
     with main.SessionLocal() as s:
-        s.add(Character(id=char_id, name=f"Num {support.uid()}", user_id=1, circle_id=1))
+        s.add(Character(id=char_id, name=f"Num {support.uid()}", user_id=owner.id, circle_id=1))
         s.commit()
     camp = support.new_campaign(client, code=str(char_id))
-    with support.ws_connect(client, char_id) as ws:
+    with support.ws_connect(client, char_id, token=support.token_for(owner.id), wait_disconnect=False) as ws:
         assert support.types(ws.initial) == ["character_update", "circle_update"]
-        assert ws.initial[1]["payload"]["id"] == support.campaign_circle(camp["id"]).id
+        assert ws.initial[1]["payload"]["id"] == 1
+    with support.ws_connect(client, char_id, token=support.token_for(camp["gm_user_id"])) as gm:
+        assert support.types(gm.initial) == ["circle_update"]
+        assert gm.initial[0]["payload"]["id"] == support.campaign_circle(camp["id"]).id
+    assert support.ws_close_code(client, char_id, token=support.as_stranger()["Authorization"][7:]) == 4403
 
 
 def test_bad_json_and_unknown_types_are_ignored(client):
@@ -180,12 +232,12 @@ def test_character_actions_on_a_gm_socket_are_ignored(client, action, payload):
 
 # --- the per-message character lookup --------------------------------------------
 
-@pytest.mark.legacy_trust
 @pytest.mark.parametrize("bad", ["abc", {"a": 1}, [1], True], ids=["text", "object", "list", "bool"])
 def test_non_integer_character_id_drops_the_frame(client, bad):
     """The lookup raises on PostgreSQL; the handler rolls back and skips the frame,
     even for actions that need no character. The socket stays open."""
-    ch = support.forge(client, nerve_current=1)
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, nerve_current=1)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("chat_message", message="hi", character_id=bad)
         ws.send("update_drive", pool="nerve", value=0, character_id=bad)
@@ -196,24 +248,23 @@ def test_non_integer_character_id_drops_the_frame(client, bad):
     assert support.fetch(Character, ch["id"]).nerve_current == 1
 
 
-@pytest.mark.legacy_trust
-def test_fractional_character_id_finds_no_character(client):
-    """QUIRK: 1.5 is a valid SQL comparison that matches nothing, so the frame runs as
-    if no character were connected. A campaign member's chat then goes only to the
-    member's own channel, with no ink."""
+def test_fractional_character_id_is_an_unknown_character(client):
+    """1.5 is a valid SQL comparison that matches nothing. Before tokens the frame then
+    ran as if no character were connected (a member's chat went to its own channel
+    with no ink); now a character_id that matches no character is rejected with 404."""
     camp = support.new_campaign(client)
     a = support.active_member(client, camp, nerve_current=1)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
-        wa.send("chat_message", sender_name="Ada", message="hi", character_id=1.5)
-        assert wa.sync() == [{"type": "activity_log", "payload": {
-            "message": "Ada: hi", "log_type": "chat", "target": "@Circle", "ink_color": ""}}]
-        assert gm.drain() == []
+        wa.send("chat_message", message="hi", character_id=1.5)
         wa.send("update_drive", pool="nerve", value=0, character_id=1.5)
-        assert wa.sync() == []
+        assert wa.sync() == [
+            {"type": "action_rejected", "payload": {"action": "chat_message", "status": 404, "detail": "Character not found"}},
+            {"type": "action_rejected", "payload": {"action": "update_drive", "status": 404, "detail": "Character not found"}},
+        ]
+        assert gm.drain() == []
     assert support.fetch(Character, a["id"]).nerve_current == 1
 
 
-@pytest.mark.legacy_trust
 def test_failed_lookup_rollback_reloads_the_stale_circle(client):
     """The rollback after a failed lookup expires the session's objects the same way
     a commit does, so the connect-time circle is read fresh on the next frame."""
@@ -252,19 +303,24 @@ def test_campaign_context_is_fixed_when_the_socket_connects(client, dice):
     after the character joins and is approved, and keeps using circle 1. Only
     chat_message looks the campaign up again from character.campaign_id, and even
     that sees the join only after something on the socket commits, because until
-    then the session keeps the character it loaded at connect."""
+    then the session keeps the character it loaded at connect. (The access checks
+    read the character fresh, so the member may chat; the chat handler itself still
+    uses the stale copy.)"""
     camp = support.new_campaign(client)
     guard = support.active_member(client, camp, role_ability="Behind Me", nerve_current=1)
     late = support.forge(client, user_id=support.make_user().id)
     with support.ws_connect(client, late["id"]) as wl, support.ws_connect(client, camp["campaign_code"]) as gm, \
             support.ws_connect(client, guard["id"]) as wg:
         assert wl.initial[1]["payload"]["id"] == 1
+        # an unaffiliated character may not chat at all
+        wl.send("chat_message", message="zero")
+        assert support.types(wl.sync()) == ["action_rejected"]
         assert support.join(client, late["id"], camp["campaign_code"]).status_code == 200
         assert support.approve(client, late["id"]).status_code == 200
         gm.drain(), wg.drain(), wl.drain()
 
         # before anything on this socket commits, the character still has no campaign
-        wl.send("chat_message", sender_name="Late", message="one")
+        wl.send("chat_message", message="one")
         assert support.types(wl.sync()) == ["activity_log"]
         assert gm.drain() == [] and wg.drain() == []
 
@@ -276,9 +332,9 @@ def test_campaign_context_is_fixed_when_the_socket_connects(client, dice):
         assert support.types(wl.sync()) == ["roll_result", "activity_log"]
         assert gm.drain() == [] and wg.drain() == []
 
-        wl.send("chat_message", sender_name="Late", message="two")
+        wl.send("chat_message", message="two")
         msgs = wl.sync()
-        assert [m["payload"]["message"] for m in msgs] == ["Late: two"]
+        assert [m["payload"]["message"] for m in msgs] == [f"{late['name']}: two"]
         assert gm.drain() == msgs and wg.drain() == msgs
 
         # intercept candidates are looked up with campaign_id IS NULL
@@ -286,9 +342,10 @@ def test_campaign_context_is_fixed_when_the_socket_connects(client, dice):
         assert support.types(wl.sync()) == ["character_update"]
         assert wg.drain() == []
 
+        # before tokens a player's update_circle edited the connect-time circle 1;
+        # update_circle is GM only now
         wl.send("update_circle")
-        [msg] = wl.sync()
-        assert (msg["type"], msg["payload"]["id"]) == ("circle_update", 1)
+        assert support.types(wl.sync()) == ["action_rejected"]
         assert gm.drain() == []
 
 

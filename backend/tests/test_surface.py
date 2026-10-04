@@ -105,10 +105,12 @@ WS_MESSAGE_TYPES = [
 
 
 def _propose_first(ctx, ws):
-    ws.send("circle_relationship_propose", circle_id=ctx.circle_id,
-            from_character_id=ctx.other_id, to_character_id=ctx.char_id, rel_type="rival")
-    [msg] = ws.sync()
-    ctx.rel_id = msg["payload"]["relationships"][0]["id"]
+    """The other member proposes to the player's character (over REST, as its owner)."""
+    r = support.CLIENT.post("/circle/relationship/propose", json={
+        "circle_id": ctx.circle_id, "from_character_id": ctx.other_id, "to_character_id": ctx.char_id,
+        "rel_type": "rival"}, headers=support.as_owner(ctx.other_id))
+    assert r.status_code == 200, r.text
+    ctx.rel_id = r.json()["relationships"][0]["id"]
 
 
 def _resources_editable(client, ctx):

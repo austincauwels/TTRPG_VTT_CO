@@ -19,8 +19,9 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 
 | Module | Contents | Old main.py lines |
 |---|---|---|
-| `vtt/config.py` | .env loading, logging, `SECRET_KEY` check, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `SQLALCHEMY_DATABASE_URL`, `CORS_ORIGINS`, `_SAFE_FONT_NAMES`, `_ALLOWED_CAMPAIGN_CODE_RE` | 13 to 20, 48 to 53, 58, 248, 441 to 448 |
-| `vtt/security.py` | `pwd_context`, the unused `oauth2_scheme` and jose import, `limiter` | 28, 55, 56, 243 |
+| `vtt/config.py` | .env loading, logging (with the filter that hides `token=` query values), `SECRET_KEY` check, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES` (30 days), `SQLALCHEMY_DATABASE_URL`, `CORS_ORIGINS`, `_SAFE_FONT_NAMES`, `_ALLOWED_CAMPAIGN_CODE_RE` | 13 to 20, 48 to 53, 58, 248, 441 to 448 |
+| `vtt/security.py` | `pwd_context`, `limiter`, `create_access_token` and `user_id_from_token` (login tokens, see AUTH.md) | 28, 55, 56, 243 |
+| `vtt/auth.py` | `get_current_user` (the Bearer token dependency) and the REST access helpers (owner, GM, member checks) | new |
 | `vtt/db.py` | `db_engine`, `SessionLocal`, `get_db`, `init_db` | 58 to 240 |
 | `vtt/schemas.py` | all pydantic request and response models | 260 to 434, 564, 635, 694 to 715 |
 | `vtt/serializers.py` | `get_char_dict`, `get_circle_dict` | 1352 to 1445 |
@@ -35,6 +36,7 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 | `vtt/ws/manager.py` | `ConnectionManager`, the `manager` singleton | 1285 to 1350 |
 | `vtt/ws/endpoint.py` | `/ws/{game_id}`: connect, channel and campaign resolution, the receive loop, dispatch | 1456 to 1520, 2518 to 2525 |
 | `vtt/ws/context.py` | `WSContext`, the state passed to a handler | new |
+| `vtt/ws/access.py` | who may open which channel (`resolve_channel`, close codes 4401, 4403, 4404) and who may send which message (`check_target`, `check_message`) | new |
 | `vtt/ws/handlers/__init__.py` | `HANDLERS`: message type to (handler, needs_character) | new |
 | `vtt/ws/handlers/gm.py` | `gm_update_tension`, `gm_update_circle`, `gm_transition_scene`, `gm_toggle_resource_edit`, `gm_toggle_reports`, `gm_advance_circle`, `refill_resources`, `gm_end_assignment`, `gm_reset_character`, `update_circle` | WEBSOCKET.md 4.2 |
 | `vtt/ws/handlers/rolls.py` | `roll`, `resolve_gilded`, `use_post_roll_ability`, `burn_resistance` | WEBSOCKET.md 4.3 |
@@ -50,6 +52,7 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 The old receive loop was one if/elif chain. Now the endpoint resolves the target character for each message exactly as before, then looks the type up in `HANDLERS`:
 
 - Unknown types, and types that are not strings, are ignored, as before.
+- Since the login token stage, `vtt.ws.access.check_target` checks the character the message names, then `check_message` checks the type's own rule; a rejected message gets an `action_rejected` frame and its handler does not run (AUTH.md).
 - Types whose old branch had `and character` are marked `needs_character` and are ignored when no character was resolved.
 - Each handler is `async def handle_<type>(ctx)` and receives a `WSContext`. `game_id`, `db`, `circle`, `camp_code` and `camp_id` are fixed at connect time (as they were). `payload`, `character` and `target_char_id` are set per message.
 - A handler body is the old branch body. A `continue` that skipped to the next message is now `return`; a `continue` inside a loop of the handler is unchanged.

@@ -227,17 +227,19 @@ def test_roll_action_is_not_validated(client, dice):
         assert roll["drive_spent_key"] == "intuition"
 
 
-@pytest.mark.legacy_trust
-def test_roll_for_another_character(client, dice):
-    a = support.forge(client)
-    b = support.forge(client, user_id=support.make_user().id, move=1, nerve_max=3, nerve_current=3)
-    dice(2, 2)
-    with support.ws_connect(client, a["id"]) as wa:
+def test_roll_for_another_character_is_rejected(client):
+    """Before tokens a socket could roll (and spend drive) for any character id. Not
+    even the campaign's GM may roll for a player's character."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp)
+    b = support.active_member(client, camp, move=1, nerve_max=3, nerve_current=3)
+    rejected = {"type": "action_rejected", "payload": {"action": "roll", "status": 403, "detail": "Not allowed."}}
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
         wa.send("roll", action="move", drive_spent=1, character_id=b["id"])
-        msg = wa.sync()[0]
-        assert msg["payload"]["character_id"] == b["id"]
-        assert msg["payload"]["character"]["id"] == b["id"]
-    assert support.fetch(Character, b["id"]).nerve_current == 2
+        assert wa.sync() == [rejected]
+        gm.send("roll", action="move", drive_spent=1, character_id=b["id"])
+        assert gm.sync() == [rejected]
+    assert support.fetch(Character, b["id"]).nerve_current == 3
 
 
 def test_train_bonus_adds_a_die_once(client, dice):
@@ -546,21 +548,15 @@ def test_train_bonus_and_mod_dice_cap_at_six(client, dice):
 
 # --- which character a frame acts on ------------------------------------------
 
-@pytest.mark.legacy_trust
-def test_character_id_zero_makes_a_player_roll_a_lightkeeper_roll(client, dice):
-    """QUIRK: 0 is not None, so there is no fallback to the socket's character, and
-    then 0 is falsy, so no character is looked up and the roll is a Lightkeeper roll."""
+def test_character_id_zero_on_a_player_socket_is_rejected(client):
+    """0 is not None, so there is no fallback to the socket's character, and then 0 is
+    falsy, so no character is looked up. Before tokens that made a player's roll a
+    Lightkeeper roll; now a character_id that names no character is 404."""
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, move=2, nerve_max=3, nerve_current=3)
-    dice(2, 5)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         ws.send("roll", action="move", drive_spent=2, character_id=0)
-        msgs = ws.sync()
-        assert support.types(msgs) == ["roll_result", "activity_log"]
-        assert msgs[0]["payload"] == {"character_id": 0, "action": "move", "character": None, "roll": {
-            "type": "standard", "dice": _d(2, 5), "result": 5, "outcome": "mixed_success",
-            "needs_gilded_choice": False, "drive_spent_key": None, "action": "move"}}
-        assert msgs[1]["payload"] == {"message": f"Lightkeeper rolled {EM} 5 {DOT} Mixed Success.",
-                                      "log_type": "roll", "ink_color": ""}
-        assert support.types(gm.drain()) == ["activity_log"]
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "roll", "status": 404, "detail": "Character not found"}}]
+        assert gm.drain() == []
     assert support.fetch(Character, ch["id"]).nerve_current == 3

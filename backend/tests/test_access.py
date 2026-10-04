@@ -1,6 +1,8 @@
-"""Login tokens on the REST routes: every route except login and register answers 401
-without a valid token. Per-route ownership and GM checks (403 and 404) are tested
-next to each route's other tests."""
+"""Login tokens: every REST route except login and register answers 401 without a
+valid token, the WebSocket closes with 4401 without one, and the WebSocket access
+matrix (GM-only messages, acting for a character). Per-route ownership and GM
+checks (403 and 404) are also tested next to each route's and message type's other
+tests."""
 import time
 
 import pytest
@@ -9,7 +11,10 @@ from jose import jwt
 
 import main
 import support
+from models import Character, Circle
 from vtt import config, security
+from vtt.ws.access import GM_MAY_TARGET, GM_ONLY
+from vtt.ws.handlers import HANDLERS
 
 PUBLIC = {"/api/auth/login", "/api/auth/register"}
 
@@ -89,3 +94,108 @@ def test_a_registered_users_token_works(client):
     body = r.json()
     r = client.get(f"/api/users/{body['userId']}/campaigns", headers={"Authorization": f"Bearer {body['token']}"})
     assert r.status_code == 200
+
+
+# --- the WebSocket ---------------------------------------------------------------
+
+REJECTED = {"status": 403, "detail": "Not allowed."}
+
+
+def _rejected(action, **payload):
+    return {"type": "action_rejected", "payload": {"action": action, **(payload or REJECTED)}}
+
+
+def test_websocket_without_a_token_is_closed_with_4401(client):
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp)
+    for key in (ch["id"], camp["campaign_code"], "987654321"):
+        assert support.ws_close_code(client, key, token=None) == 4401
+
+
+def test_a_registered_users_token_opens_their_characters_socket(client):
+    """The round trip the frontend makes: register, forge, connect with ?token=."""
+    r = client.post("/api/auth/register", json={"username": f"ws_{support.uid()}",
+                                                "email": f"{support.uid()}@example.test", "password": "long-enough-pw"})
+    token = r.json()["token"]
+    ch = client.post("/api/investigators/forge", json={"name": "Wren"}, headers=support.bearer(token)).json()
+    with support.ws_connect(client, ch["id"], token=token) as ws:
+        assert support.types(ws.initial) == ["character_update", "circle_update"]
+        assert ws.initial[0]["payload"]["id"] == ch["id"]
+
+
+@pytest.mark.parametrize("msg_type", sorted(GM_ONLY))
+def test_a_player_cannot_send_gm_only_messages(client, msg_type):
+    """Even with role GM in the payload and its own character_id."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp, body_marks=0)
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp)).json()["circle_id"]
+    with support.ws_connect(client, member["id"]) as wm, support.ws_connect(client, camp["campaign_code"]) as gm:
+        wm.send(msg_type, role="GM", circle_id=cid, character_id=member["id"], mark_type="body", value=3,
+                scene_name="s", tension_label="mine", circle_ability="Stolen")
+        # read the answer directly: sync() on a player socket uses gm_transition_scene itself
+        assert wm.recv() == _rejected(msg_type)
+        assert wm.sync() == []
+        assert gm.drain() == []
+        assert support.server_sockets(member["id"])
+    assert support.fetch(Character, member["id"]).body_marks == 0
+    assert support.fetch(Circle, cid).tension_label in ("", None)
+
+
+ACTS_FOR_A_CHARACTER = sorted(t for t in HANDLERS if t not in GM_ONLY and t not in GM_MAY_TARGET)
+
+
+@pytest.mark.parametrize("msg_type", ACTS_FOR_A_CHARACTER)
+def test_the_gm_cannot_act_as_a_players_character(client, msg_type):
+    """Only the character's owner may roll, vote, chat or answer for it; a GM socket
+    that names a member's character_id is rejected."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send(msg_type, character_id=member["id"], action="move", pool="nerve", value=0, message="hi",
+                ability="Flourish", mark_type="body", responses={}, vote_type="ability", answer="x")
+        assert gm.sync() == [_rejected(msg_type)]
+        assert wm.drain() == []
+
+
+@pytest.mark.parametrize("msg_type", sorted(GM_MAY_TARGET - GM_ONLY))
+def test_the_gm_may_aim_some_messages_at_members_only(client, msg_type):
+    """update_drive, take_mark, revive_character and update_gear: the GM may name a
+    member of their campaign, not a character of another campaign or none."""
+    camp = support.new_campaign(client)
+    outsider = support.active_member(client, support.new_campaign(client), nerve_current=2)
+    loner = support.forge(client, nerve_current=2)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        for target in (outsider, loner):
+            gm.send(msg_type, character_id=target["id"], pool="nerve", value=0, mark_type="body", gear=["x"])
+            assert gm.sync() == [_rejected(msg_type)]
+        gm.send(msg_type, character_id=987654321, pool="nerve", value=0)
+        assert gm.sync() == [_rejected(msg_type, status=404, detail="Character not found")]
+    for target in (outsider, loner):
+        row = support.fetch(Character, target["id"])
+        assert (row.nerve_current, row.body_marks, row.gear) == (2, 0, [])
+
+
+def test_a_player_socket_acts_only_for_its_own_character(client):
+    """Two characters of the same user: each socket still acts only for its own."""
+    camp = support.new_campaign(client)
+    u = support.make_user()
+    first = support.active_member(client, camp, user_id=u.id, nerve_current=2)
+    second = support.forge(client, user_id=u.id, nerve_current=2)
+    with support.ws_connect(client, first["id"]) as ws:
+        ws.send("update_drive", pool="nerve", value=0, character_id=second["id"])
+        assert ws.sync() == [_rejected("update_drive")]
+    assert support.fetch(Character, second["id"]).nerve_current == 2
+
+
+def test_rejections_go_only_to_the_sender_and_keep_the_socket(client):
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp)
+    b = support.active_member(client, camp)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
+        for _ in range(3):
+            wa.send("gm_toggle_reports")
+        assert wa.sync() == [_rejected("gm_toggle_reports")] * 3
+        assert wb.drain() == [] and gm.drain() == []
+        wa.send("chat_message", message="still here")
+        assert support.types(wa.sync()) == ["activity_log"]

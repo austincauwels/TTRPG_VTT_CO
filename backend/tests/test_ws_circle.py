@@ -16,58 +16,72 @@ def _campaign(client, members=1, **char_fields):
 
 # --- gm_update_circle / gm_update_tension / gm_transition_scene ---------------
 
-def test_gm_update_circle_scene_manager_edits_shared_circle_one(client):
-    """QUIRK (bug D2): SceneManager sends circle_id 1, and the lookup is not scoped to
-    the campaign, so every campaign edits circle 1 and is shown circle 1's data."""
+REJECTED = {"status": 403, "detail": "Not allowed."}
+
+
+def _rejected(action, **payload):
+    return {"type": "action_rejected", "payload": {"action": action, **(payload or REJECTED)}}
+
+
+def test_gm_update_circle_on_the_shared_circle_one_is_rejected(client):
+    """Bug D2: SceneManager used to send circle_id 1, and the lookup was not scoped to
+    the campaign, so every campaign edited circle 1 and was shown its data. Circle 1
+    belongs to no campaign, so no GM may edit it now; the frontend sends the
+    campaign's own circle id instead."""
     camp, (member,), cid = _campaign(client)
     before = support.fetch(Circle, 1)
-    try:
-        with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
-            gm.send("gm_update_circle", role="GM", circle_id=1, tension_clock=2,
-                    tension_label="Watch", location="Docks", atmosphere="Fog")
-            [msg] = gm.sync()
-            assert msg["type"] == "circle_update"
-            assert msg["payload"]["id"] == 1
-            assert (msg["payload"]["tension_clock"], msg["payload"]["tension_label"]) == (2, "Watch")
-            assert (msg["payload"]["location"], msg["payload"]["atmosphere"]) == ("Docks", "Fog")
-            assert wm.drain() == [msg]
-        assert support.fetch(Circle, 1).location == "Docks"
-        assert support.fetch(Circle, cid).location in ("", None)
-    finally:
-        support.update(Circle, 1, tension_clock=before.tension_clock, tension_label=before.tension_label,
-                       location=before.location, atmosphere=before.atmosphere)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("gm_update_circle", circle_id=1, tension_clock=2, location="Docks")
+        assert gm.sync() == [_rejected("gm_update_circle")]
+        assert wm.drain() == []
+        gm.send("gm_update_circle", circle_id=cid, tension_clock=2,
+                tension_label="Watch", location="Docks", atmosphere="Fog")
+        [msg] = gm.sync()
+        assert msg["type"] == "circle_update"
+        assert msg["payload"]["id"] == cid
+        assert (msg["payload"]["tension_clock"], msg["payload"]["tension_label"]) == (2, "Watch")
+        assert (msg["payload"]["location"], msg["payload"]["atmosphere"]) == ("Docks", "Fog")
+        assert wm.drain() == [msg]
+    assert support.fetch(Circle, 1).location == before.location
+    assert support.fetch(Circle, cid).location == "Docks"
 
 
-def test_gm_update_circle_defaults_to_circle_one_and_needs_role(client):
+def test_gm_update_circle_defaults_to_circle_one_and_ignores_role(client):
+    """The GM is known from the token, so payload.role no longer matters; without a
+    circle_id the message still means circle 1, which is refused."""
     camp, _, cid = _campaign(client, members=0)
-    before = support.fetch(Circle, 1)
-    try:
-        with support.ws_connect(client, camp["campaign_code"]) as gm:
-            gm.send("gm_update_circle", location="Nowhere")
-            gm.send("gm_update_circle", role="player", location="Nowhere")
-            assert gm.sync() == []
-            gm.send("gm_update_circle", role="GM", atmosphere="Rain")
-            assert gm.sync()[0]["payload"]["id"] == 1
-            gm.send("gm_update_circle", role="GM", circle_id=cid, stitch=5, guard_patrol=2, name="ignored")
-            p = gm.sync()[0]["payload"]
-            assert (p["id"], p["stitch"], p["guard_patrol"]) == (cid, 5, 2)
-            assert p["name"] == "Unnamed Circle"
-    finally:
-        support.update(Circle, 1, atmosphere=before.atmosphere)
+    other_cid = _campaign(client, members=0)[2]
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_update_circle", role="GM", atmosphere="Rain")
+        gm.send("gm_update_circle", circle_id=other_cid, atmosphere="Rain")
+        gm.send("gm_update_circle", circle_id=987654321, atmosphere="Rain")
+        assert gm.sync() == [_rejected("gm_update_circle"), _rejected("gm_update_circle"),
+                             _rejected("gm_update_circle", status=404, detail="Circle not found")]
+        gm.send("gm_update_circle", role="player", circle_id=cid, stitch=5, guard_patrol=2, name="ignored")
+        p = gm.sync()[0]["payload"]
+        assert (p["id"], p["stitch"], p["guard_patrol"]) == (cid, 5, 2)
+        assert p["name"] == "Unnamed Circle"
+    assert support.fetch(Circle, other_cid).atmosphere in ("", None)
 
 
-@pytest.mark.legacy_trust
-def test_gm_role_is_client_claimed(client):
-    """A player socket that sends role GM gets GM powers."""
+def test_gm_messages_from_a_player_are_rejected(client):
+    """Before tokens a player socket that sent role GM got GM powers."""
     camp, (member,), cid = _campaign(client)
-    with support.ws_connect(client, member["id"]) as wm:
+    with support.ws_connect(client, member["id"]) as wm, support.ws_connect(client, camp["campaign_code"]) as gm:
         wm.send("gm_toggle_reports", role="GM")
-        assert wm.sync()[0]["payload"]["reports_open"] is True
-    assert support.fetch(Circle, cid).reports_open is True
+        wm.send("gm_update_circle", role="GM", circle_id=cid, location="Docks")
+        wm.send("gm_reset_character", role="GM", character_id=member["id"])
+        assert wm.sync() == [_rejected("gm_toggle_reports"), _rejected("gm_update_circle"),
+                             _rejected("gm_reset_character")]
+        assert gm.drain() == []
+        assert support.server_sockets(member["id"])
+    c = support.fetch(Circle, cid)
+    assert (c.reports_open, c.location) == (False, "")
 
 
 def test_gm_update_tension(client):
     camp, (member,), _ = _campaign(client)
+    outsider = support.active_member(client, support.new_campaign(client))
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("gm_update_tension", role="GM", mark_type="body", value=2, character_id=member["id"])
         msgs = gm.sync()
@@ -76,9 +90,13 @@ def test_gm_update_tension(client):
         assert msgs[0]["payload"]["body_marks"] == 2
         assert wm.drain() == []  # the player is not told
         gm.send("gm_update_tension", role="GM", mark_type="body", value=3)  # no character on a GM socket
-        gm.send("gm_update_tension", mark_type="body", value=3, character_id=member["id"])  # no role
         assert gm.sync() == []
-    assert support.fetch(Character, member["id"]).body_marks == 2
+        gm.send("gm_update_tension", mark_type="body", value=3, character_id=outsider["id"])
+        assert gm.sync() == [_rejected("gm_update_tension")]
+        gm.send("gm_update_tension", mark_type="body", value=1, character_id=member["id"])  # role not needed
+        assert gm.sync()[0]["payload"]["body_marks"] == 1
+    assert support.fetch(Character, member["id"]).body_marks == 1
+    assert support.fetch(Character, outsider["id"]).body_marks == 0
 
 
 def test_gm_transition_scene(client):
@@ -105,23 +123,28 @@ def test_gm_toggles(client):
         assert gm.sync()[0]["payload"]["resources_editable"] is False
         gm.send("gm_toggle_reports", role="GM")
         assert gm.sync()[0]["payload"]["reports_open"] is True
+        # payload.role is ignored now: these two toggle as well
         gm.send("gm_toggle_reports")
         gm.send("gm_toggle_resource_edit", role="player")
-        assert gm.sync() == []
-        assert support.types(wm.drain()) == ["circle_update"] * 3
+        assert support.types(gm.sync()) == ["circle_update"] * 2
+        assert support.types(wm.drain()) == ["circle_update"] * 5
     c = support.fetch(Circle, cid)
-    assert (c.resources_editable, c.reports_open) == (False, True)
+    assert (c.resources_editable, c.reports_open) == (True, False)
 
 
-@pytest.mark.legacy_trust
-def test_gm_toggle_reaches_another_campaigns_circle(client):
-    """resolve_circle falls back to an unscoped id lookup."""
+def test_gm_toggle_cannot_reach_another_campaigns_circle(client):
+    """Before tokens resolve_circle fell back to an unscoped id lookup, so one GM
+    could toggle another campaign's circle."""
     camp_a, _, cid_a = _campaign(client, members=0)
     camp_b, _, cid_b = _campaign(client, members=0)
     with support.ws_connect(client, camp_a["campaign_code"]) as gm:
-        gm.send("gm_toggle_reports", role="GM", circle_id=cid_b)
-        assert gm.sync()[0]["payload"]["id"] == cid_b
-    assert support.fetch(Circle, cid_b).reports_open is True
+        for action in ("gm_toggle_reports", "gm_toggle_resource_edit", "gm_advance_circle", "refill_resources",
+                       "gm_end_assignment", "update_circle"):
+            gm.send(action, circle_id=cid_b)
+            assert gm.sync() == [_rejected(action)]
+        gm.send("gm_toggle_reports", circle_id=1)
+        assert gm.sync() == [_rejected("gm_toggle_reports")]
+    assert support.fetch(Circle, cid_b).reports_open is False
     assert support.fetch(Circle, cid_a).reports_open is False
 
 
@@ -139,15 +162,20 @@ def test_submit_assignment_report(client):
     assert support.fetch(Circle, cid).backstory_answers == {"reports": {str(a["id"]): {"q0": True, "q1": False}}}
 
 
-@pytest.mark.legacy_trust
-def test_submit_report_for_any_character_id(client):
-    """No ownership or reports_open check; unknown ids are reported as Unknown."""
-    camp, (a,), cid = _campaign(client)
-    with support.ws_connect(client, a["id"]) as wa:
+def test_submit_report_only_for_own_character(client):
+    """Before tokens any character id was accepted, and unknown ids were reported as
+    Unknown. Now a player reports only for their own character (QUIRK kept: there is
+    still no reports_open check), and the GM cannot report for anyone."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
         wa.send("submit_assignment_report", character_id=987654321, responses={"x": 1})
-        [msg] = wa.sync()
-        assert msg["payload"]["character_name"] == "Unknown"
-    assert "987654321" in support.fetch(Circle, cid).backstory_answers["reports"]
+        wa.send("submit_assignment_report", character_id=b["id"], responses={"x": 1})
+        assert wa.sync() == [_rejected("submit_assignment_report", status=404, detail="Character not found"),
+                             _rejected("submit_assignment_report")]
+        gm.drain()
+        gm.send("submit_assignment_report", character_id=a["id"], responses={"x": 1})
+        assert gm.sync() == [_rejected("submit_assignment_report")]
+    assert support.fetch(Circle, cid).backstory_answers in ({}, None)
 
 
 def test_gm_advance_circle(client):
@@ -187,11 +215,9 @@ def test_refill_resources_counts_circle_members(client):
         gm.send("refill_resources", role="GM")
         p = gm.sync()[0]["payload"]
         assert (p["stitch"], p["max_capacity"]) == (1, 2)
-        gm.send("refill_resources", role="GM")
+        gm.send("refill_resources")  # payload.role is ignored now
         p = gm.sync()[0]["payload"]
         assert (p["stitch"], p["max_capacity"]) == (2, 2)
-        gm.send("refill_resources")
-        assert gm.sync() == []
 
 
 def test_gm_end_assignment(client):
@@ -233,10 +259,11 @@ def test_gm_reset_character(client):
         p = got[0]["payload"]
         assert (p["nerve_current"], p["cunning_current"], p["intuition_current"]) == (3, 6, 3)
         assert p["nerve_resistance_spent"] == 0
-        gm.send("gm_reset_character", role="GM", character_id=foreign["id"])  # other campaign: ignored
-        gm.send("gm_reset_character", role="GM")
-        gm.send("gm_reset_character", character_id=member["id"])
-        assert gm.sync() == []
+        gm.send("gm_reset_character", role="GM", character_id=foreign["id"])  # other campaign
+        gm.send("gm_reset_character", role="GM")  # no character: ignored
+        assert gm.sync() == [_rejected("gm_reset_character")]
+        gm.send("gm_reset_character", character_id=member["id"])  # payload.role is ignored now
+        assert support.types(gm.sync()) == ["activity_log"]
     assert support.fetch(Character, foreign["id"]).nerve_current == 0
 
 
@@ -254,14 +281,16 @@ def test_update_circle_as_gm(client):
         assert wm.drain() == [msg]
 
 
-def test_update_circle_player_may_lower_but_not_raise_resources(client):
-    """QUIRK: role is client-claimed, and a non-GM may still set every other field."""
+def test_update_circle_from_a_player_is_rejected(client):
+    """Before tokens a non-GM could lower stitch, refresh and train and set every
+    other field (only the GM screens send update_circle). It is GM only now."""
     camp, (member,), cid = _campaign(client)
     support.update(Circle, cid, stitch=2, refresh=2, train=2)
     with support.ws_connect(client, member["id"]) as wm:
         wm.send("update_circle", stitch=5, refresh=1, name="Player named it", illumination=7)
-        p = wm.sync()[0]["payload"]
-        assert (p["stitch"], p["refresh"], p["train"], p["name"], p["illumination"]) == (2, 1, 2, "Player named it", 7)
+        assert wm.sync() == [_rejected("update_circle")]
+    c = support.fetch(Circle, cid)
+    assert (c.stitch, c.refresh, c.train, c.name, c.illumination) == (2, 2, 2, "Unnamed Circle", 0)
 
 
 def test_update_circle_milestone_log(client):
@@ -278,12 +307,20 @@ def test_update_circle_milestone_log(client):
         assert support.types(gm.sync()) == ["circle_update"] * 3
 
 
-def test_update_circle_bad_type_closes_socket(client):
-    """QUIRK: comparing a string resource to the stored int raises and ends the socket."""
+def test_update_circle_string_resource(client):
+    """Before tokens a player's string resource was compared with the stored int,
+    which raised and ended the socket. A player is rejected before that now, and the
+    GM's update stores the string the way PostgreSQL casts it."""
     camp, (member,), cid = _campaign(client)
-    with support.ws_connect(client, member["id"]) as wm:
+    with support.ws_connect(client, member["id"]) as wm, support.ws_connect(client, camp["campaign_code"]) as gm:
         wm.send("update_circle", stitch="5")
-        assert support.wait_server_dropped(member["id"])
+        assert wm.sync() == [_rejected("update_circle")]
+        assert support.server_sockets(member["id"])
+        wm.drain()
+        gm.send("update_circle", stitch="5")
+        [msg] = gm.sync()
+        assert msg["type"] == "circle_update"
+    assert support.fetch(Circle, cid).stitch == 5
 
 
 # --- circle creation --------------------------------------------------------
@@ -345,9 +382,9 @@ def test_circle_personal_answer(client):
         wa.send("circle_personal_answer", character_id=a["id"], answer="For my sister")
         assert wa.sync() == [{"type": "personal_answer_update", "payload": {
             "character_id": a["id"], "answer": "For my sister"}}]
-        wa.send("circle_personal_answer", character_id=outsider["id"], answer="nope")  # other campaign
+        wa.send("circle_personal_answer", character_id=outsider["id"], answer="nope")  # someone else's
         wa.send("circle_personal_answer", answer="nope")
-        assert wa.sync() == []
+        assert wa.sync() == [_rejected("circle_personal_answer")]
     assert support.fetch(Character, a["id"]).personal_circle_answer == "For my sister"
     assert support.fetch(Character, outsider["id"]).personal_circle_answer in ("", None)
 
@@ -375,21 +412,46 @@ def test_circle_relationship_propose_and_respond(client):
         assert msg["payload"]["relationships"][0]["status"] == "accepted"
         assert msg["payload"]["relationships"][0]["last_actor_id"] == a["id"]
         wa.send("circle_relationship_respond", relationship_id=987654321, action="accept")
-        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"])
-        assert wa.sync() == []
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"])  # no type
+        assert wa.sync() == [_rejected("circle_relationship_respond", status=404, detail="Relationship not found")]
     row = support.fetch(Relationship, rel["id"])
     assert (row.status, row.counter_type, row.counter_lore) == ("accepted", None, None)
 
 
-def test_circle_relationship_respond_on_gm_socket_closes(client):
-    """QUIRK: the actor id is int(game_id), which fails on a campaign-code socket."""
+def test_relationship_messages_only_for_the_rightful_party(client):
+    """Before tokens a socket could propose as any character and answer any
+    relationship. Now a player proposes only from their own character to a fellow
+    member, and only the party that did not act last may answer."""
+    camp, (a, b, c), cid = _campaign(client, members=3)
+    outsider = support.active_member(client, support.new_campaign(client))
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
+            support.ws_connect(client, c["id"]) as wc:
+        wa.send("circle_relationship_propose", from_character_id=b["id"], to_character_id=c["id"], rel_type="X")
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=outsider["id"], rel_type="X")
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"], rel_type="X",
+                circle_id=1)
+        assert wa.sync() == [_rejected("circle_relationship_propose")] * 3
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"], rel_type="X")
+        rel_id = wa.sync()[0]["payload"]["relationships"][0]["id"]
+        wb.drain(), wc.drain()
+        wa.send("circle_relationship_respond", relationship_id=rel_id, action="accept")  # a acted last
+        assert wa.sync() == [_rejected("circle_relationship_respond")]
+        wc.send("circle_relationship_respond", relationship_id=rel_id, action="accept")  # not a party
+        assert wc.sync() == [_rejected("circle_relationship_respond")]
+    assert support.fetch(Relationship, rel_id).status == "proposed"
+
+
+def test_circle_relationship_respond_on_gm_socket_is_rejected(client):
+    """Before tokens the actor id was int(game_id), which raised on a campaign-code
+    socket and ended it (bug D9). The GM is not a party, so it is rejected first."""
     camp, (a, b), cid = _campaign(client, members=2)
     with support.ws_connect(client, a["id"]) as wa:
         wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"], rel_type="X")
         rel_id = wa.sync()[0]["payload"]["relationships"][0]["id"]
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("circle_relationship_respond", relationship_id=rel_id, action="accept")
-        assert support.wait_server_dropped(camp["campaign_code"])
+        assert gm.sync() == [_rejected("circle_relationship_respond")]
+        assert support.server_sockets(camp["campaign_code"])
     assert support.fetch(Relationship, rel_id).status == "proposed"
 
 
@@ -415,8 +477,15 @@ def test_ws_propose_again_resets_the_existing_relationship(client):
 
 
 def test_ws_respond_unknown_action_and_counter_without_terms(client):
-    """QUIRK: a response from a socket whose session still holds an older copy of the
-    relationship row can be silently lost (see the comments below)."""
+    """An unknown action commits and broadcasts with nothing changed, and a counter
+    without new terms keeps the old type and lore and reopens the proposal.
+
+    QUIRK (in QUIRKS.md, not pinned here): a socket whose session still holds an
+    older copy of the row can lose a response, because the counter sets the values
+    the stale copy already has. Whether that copy is still in the session depends on
+    when Python's garbage collector runs (the identity map holds weak references),
+    and the extra access-check queries changed that timing. So this test first makes
+    a's session reload its rows with a commit of its own."""
     camp, (a, b), cid = _campaign(client, members=2)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
         wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"],
@@ -429,38 +498,44 @@ def test_ws_respond_unknown_action_and_counter_without_terms(client):
         assert msg == {"type": "relationship_update", "payload": {"relationships": [rel]}}
         assert wa.drain() == [msg]
         wb.send("circle_relationship_respond", relationship_id=rel["id"], action="accept")
-        assert wb.sync()[0]["payload"]["relationships"] == [dict(rel, status="accepted", last_actor_id=b["id"])]
-        # QUIRK: a's session still holds the row as it was before b accepted. The
-        # counter sets the values that stale copy already has, so nothing is written.
-        wa.send("circle_relationship_respond", relationship_id=rel["id"], action="counter")
-        assert wa.sync()[0]["payload"]["relationships"] == [dict(rel, status="accepted", last_actor_id=b["id"])]
-        # That commit refreshed a's session; now a counter without new terms keeps
-        # the old type and lore and reopens the proposal.
+        accepted = dict(rel, status="accepted", last_actor_id=b["id"])
+        assert wb.sync()[0]["payload"]["relationships"] == [accepted]
+        assert wa.drain()[0]["payload"]["relationships"] == [accepted]
+        wa.send("update_pen_font", pen_font="Kalam")  # any commit reloads a's rows
+        wa.sync()
         wa.send("circle_relationship_respond", relationship_id=rel["id"], action="counter")
         assert wa.sync()[0]["payload"]["relationships"] == [rel]
     row = support.fetch(Relationship, rel["id"])
     assert (row.status, row.last_actor_id) == ("proposed", a["id"])
 
 
-# --- role gate on gm_advance_circle and gm_end_assignment ------------------------
+# --- the GM gate on gm_advance_circle and gm_end_assignment ----------------------
 
-@pytest.mark.parametrize("role", [None, "player", "gm"])
-def test_advance_and_end_assignment_need_role_gm(client, role):
+@pytest.mark.parametrize("role", [None, "player", "gm", "GM"])
+def test_advance_and_end_assignment_need_the_gm(client, role):
+    """Before tokens the gate was payload.role == "GM" (so a GM socket without it was
+    ignored and a player with it was obeyed). Now it is the socket: a player is
+    rejected whatever role it claims."""
     camp, (member,), cid = _campaign(client)
     support.update(Character, member["id"], ability_uses={"Steel Mind": 1}, resources_spent_assignment=2,
                    train_bonus=True)
     support.update(Circle, cid, illumination=14, circle_ability="Hunters", location="Docks", atmosphere="Fog")
     extra = {} if role is None else {"role": role}
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
-        for ws in (gm, wm):
-            ws.send("gm_advance_circle", circle_ability="Seekers", **extra)
-            ws.send("gm_end_assignment", **extra)
-        assert gm.sync() == []
-        assert wm.sync() == []
+        wm.send("gm_advance_circle", circle_ability="Seekers", **extra)
+        wm.send("gm_end_assignment", **extra)
+        assert wm.sync() == [_rejected("gm_advance_circle"), _rejected("gm_end_assignment")]
+        assert gm.drain() == []
     c = support.fetch(Circle, cid)
     assert (c.illumination, c.circle_ability, c.location, c.atmosphere) == (14, "Hunters", "Docks", "Fog")
     row = support.fetch(Character, member["id"])
     assert (row.ability_uses, row.resources_spent_assignment, row.train_bonus) == ({"Steel Mind": 1}, 2, True)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_advance_circle", circle_ability="Seekers", **extra)
+        gm.send("gm_end_assignment", **extra)
+        assert support.types(gm.sync()) == ["activity_log", "circle_advanced", "circle_update", "activity_log"]
+    c = support.fetch(Circle, cid)
+    assert (c.illumination, c.circle_ability, c.location, c.atmosphere) == (2, "Hunters\nSeekers", "", "")
 
 
 def test_gm_advance_circle_first_ability_and_unnamed_circle(client):
@@ -485,16 +560,15 @@ def test_milestone_log_for_unnamed_circle(client):
         assert msgs[1]["payload"] == {"message": "The Circle milestone reached!", "log_type": "field"}
 
 
-@pytest.mark.legacy_trust
-def test_update_circle_player_claiming_gm_may_raise_resources(client):
+def test_update_circle_player_claiming_gm_is_rejected(client):
+    """Before tokens a player that sent role GM could raise the circle's resources."""
     camp, (member,), cid = _campaign(client)
     support.update(Circle, cid, stitch=1, refresh=1, train=1)
     with support.ws_connect(client, member["id"]) as wm:
         wm.send("update_circle", role="GM", stitch=4, refresh=5, train=6)
-        p = wm.sync()[0]["payload"]
-        assert (p["stitch"], p["refresh"], p["train"]) == (4, 5, 6)
+        assert wm.sync() == [_rejected("update_circle")]
     c = support.fetch(Circle, cid)
-    assert (c.stitch, c.refresh, c.train) == (4, 5, 6)
+    assert (c.stitch, c.refresh, c.train) == (1, 1, 1)
 
 
 # --- submit_assignment_report when backstory_answers already holds data ----------
@@ -540,71 +614,56 @@ def test_report_after_circle_answers_is_not_saved(client):
     assert support.fetch(Circle, cid).backstory_answers == answers
 
 
-# --- a GM socket with no campaign (the frontend's 'gm' fallback channel) ---------
+# --- the frontend's 'gm' fallback channel is gone ---------------------------------
 
-@pytest.mark.legacy_trust
-def test_campaignless_gm_socket_defaults_to_circle_one(client):
-    with support.ws_connect(client, "gm") as gm:
-        assert gm.initial[0]["payload"]["id"] == 1
-        gm.send("gm_toggle_reports", role="GM")
-        first = gm.sync()[0]["payload"]
-        gm.send("gm_toggle_reports", role="GM")  # toggle back
-        second = gm.sync()[0]["payload"]
-    assert first["id"] == second["id"] == 1
-    assert first["reports_open"] is not second["reports_open"]
+def test_campaignless_gm_channel_is_refused(client):
+    """Before tokens the 'gm' channel (OperationsPanel's fallback with no campaign
+    code) was a GM socket with no campaign on circle 1, and could toggle circle 1's
+    reports. Nobody is the GM of it, so it is closed with 4404."""
+    before = support.fetch(Circle, 1).reports_open
+    for user_id in (support.make_user().id, support.gm_id(support.new_campaign(client))):
+        assert support.ws_close_code(client, "gm", token=support.token_for(user_id)) == 4404
+    assert support.fetch(Circle, 1).reports_open == before
 
 
-@pytest.mark.legacy_trust
-def test_campaignless_gm_socket_resets_unaffiliated_characters_only(client):
-    """QUIRK: on the 'gm' channel camp_id is None, so gm_reset_character's campaign
-    filter becomes campaign_id IS NULL. It can reset any unaffiliated character but no
-    campaign member, and its log goes only to the 'gm' channel."""
+def test_gm_cannot_reset_unaffiliated_or_foreign_characters(client):
+    """Before tokens the 'gm' channel could reset any unaffiliated character (its
+    campaign filter became campaign_id IS NULL). A GM may only reset members of
+    their own campaign."""
     loner = support.forge(client, nerve_max=3, nerve_current=0, cunning_max=3, cunning_current=1,
                           nerve_resistance_spent=1)
     camp = support.new_campaign(client)
     member = support.active_member(client, camp, nerve_max=3, nerve_current=0)
-    with support.ws_connect(client, "gm") as gm, support.ws_connect(client, loner["id"]) as wl, \
+    other_camp = support.new_campaign(client)
+    with support.ws_connect(client, other_camp["campaign_code"]) as gm, support.ws_connect(client, loner["id"]) as wl, \
             support.ws_connect(client, member["id"]) as wm, \
-            support.ws_connect(client, camp["campaign_code"]) as other_gm:
-        gm.send("gm_reset_character", role="GM", character_id=loner["id"])
-        assert gm.sync() == [{"type": "activity_log", "payload": {
-            "message": f"{EM} {loner['name']}'s session resources have been reset. {EM}", "log_type": "field"}}]
-        got = wl.drain()
-        assert support.types(got) == ["character_update"]
-        p = got[0]["payload"]
-        assert (p["nerve_current"], p["cunning_current"], p["nerve_resistance_spent"]) == (3, 3, 0)
-        gm.send("gm_reset_character", role="GM", character_id=member["id"])
-        assert gm.sync() == []
-        assert wm.drain() == [] and other_gm.drain() == []
-    assert support.fetch(Character, loner["id"]).nerve_current == 3
+            support.ws_connect(client, camp["campaign_code"]) as member_gm:
+        gm.send("gm_reset_character", character_id=loner["id"])
+        gm.send("gm_reset_character", character_id=member["id"])
+        assert gm.sync() == [_rejected("gm_reset_character")] * 2
+        assert wl.drain() == [] and wm.drain() == [] and member_gm.drain() == []
+    assert support.fetch(Character, loner["id"]).nerve_current == 0
     assert support.fetch(Character, member["id"]).nerve_current == 0
 
 
-@pytest.mark.legacy_trust
-def test_campaignless_gm_socket_end_assignment_resets_campaignless_actives(client):
-    """QUIRK: gm_end_assignment on the 'gm' channel clears the scene of whatever circle
-    id it is given (resolve_circle is not scoped without a campaign) and resets every
-    active character whose campaign_id is NULL, not that circle's members."""
+def test_gm_end_assignment_only_on_own_circle(client):
+    """Before tokens gm_end_assignment on the 'gm' channel cleared the scene of any
+    circle id and reset every active character with no campaign. A GM may only end
+    the assignment on their own campaign's circle, and it resets only their members."""
     camp, (member,), cid = _campaign(client)
     support.update(Character, member["id"], ability_uses={"Steel Mind": 1}, resources_spent_assignment=2)
     stray = support.forge(client)
     support.update(Character, stray["id"], status="active", ability_uses={"Steel Mind": 1},
                    resources_spent_assignment=2, train_bonus=True)
-    loner = support.forge(client)
-    support.update(Character, loner["id"], ability_uses={"Steel Mind": 1})
     support.update(Circle, cid, location="Docks", atmosphere="Fog")
-    with support.ws_connect(client, "gm") as gm, support.ws_connect(client, stray["id"]) as wst, \
-            support.ws_connect(client, member["id"]) as wm, \
-            support.ws_connect(client, camp["campaign_code"]) as other_gm:
-        gm.send("gm_end_assignment", role="GM", circle_id=cid)
-        msgs = gm.sync()
-        assert support.types(msgs) == ["circle_update", "activity_log"]
-        assert (msgs[0]["payload"]["id"], msgs[0]["payload"]["location"]) == (cid, "")
-        got = wst.drain()
-        assert support.types(got) == ["character_update"]
-        assert (got[0]["payload"]["ability_uses"], got[0]["payload"]["train_bonus"]) == ({}, False)
-        assert wm.drain() == [] and other_gm.drain() == []
+    other_camp, _, other_cid = _campaign(client, members=0)
+    with support.ws_connect(client, other_camp["campaign_code"]) as gm, support.ws_connect(client, stray["id"]) as wst, \
+            support.ws_connect(client, member["id"]) as wm:
+        gm.send("gm_end_assignment", circle_id=cid)
+        assert gm.sync() == [_rejected("gm_end_assignment")]
+        gm.send("gm_end_assignment", circle_id=other_cid)
+        assert support.types(gm.sync()) == ["circle_update", "activity_log"]
+        assert wst.drain() == [] and wm.drain() == []
     assert support.fetch(Character, member["id"]).ability_uses == {"Steel Mind": 1}
-    assert support.fetch(Character, stray["id"]).resources_spent_assignment == 0
-    assert support.fetch(Character, loner["id"]).ability_uses == {"Steel Mind": 1}
-    assert support.fetch(Circle, cid).location == ""
+    assert support.fetch(Character, stray["id"]).resources_spent_assignment == 2
+    assert support.fetch(Circle, cid).location == "Docks"

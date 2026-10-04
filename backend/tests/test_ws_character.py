@@ -1,7 +1,5 @@
 """WebSocket character actions: update_drive, update_pen_font, update_gear,
 apply_advancement, spend_resource."""
-import pytest
-
 import engine
 import main
 import support
@@ -63,18 +61,37 @@ def test_update_drive_on_gm_socket_without_character_is_ignored(client):
         assert gm.sync() == []
 
 
-@pytest.mark.legacy_trust
-def test_payload_character_id_redirects_the_action(client):
-    """Any socket can act on any character by sending its id; the update goes to the sender's channel."""
+def test_payload_character_id_of_someone_else_is_rejected(client):
+    """Before tokens any socket could act on any character by sending its id. A player
+    socket may now only act for its own character; anything else gets action_rejected."""
     camp, a, b = _member_pair(client)
     victim = support.forge(client, user_id=support.make_user().id, nerve_current=1)
+    support.update(Character, b["id"], nerve_current=1)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, victim["id"]) as wv:
-        wa.send("update_drive", pool="nerve", value=0, character_id=victim["id"])
-        msg = wa.recv()
-        assert msg["payload"]["id"] == victim["id"]
-        wa.sync()
+        for target in (victim["id"], b["id"]):
+            wa.send("update_drive", pool="nerve", value=0, character_id=target)
+            assert wa.sync() == [{"type": "action_rejected", "payload": {
+                "action": "update_drive", "status": 403, "detail": "Not allowed."}}]
         assert wv.drain() == []
-    assert support.fetch(Character, victim["id"]).nerve_current == 0
+        wa.send("update_drive", pool="nerve", value=0, character_id=a["id"])  # its own id is fine
+        assert support.types(wa.sync()) == ["character_update"]
+    assert support.fetch(Character, victim["id"]).nerve_current == 1
+    assert support.fetch(Character, b["id"]).nerve_current == 1
+
+
+def test_gm_may_set_a_members_drive_but_not_an_outsiders(client):
+    """update_drive is "owner (GM optional)": a GM socket may name a member of its
+    campaign; the character_update goes to the GM's own channel, as it always has."""
+    camp, a, b = _member_pair(client, nerve_current=2)
+    outsider = support.active_member(client, support.new_campaign(client), nerve_current=2)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+        gm.send("update_drive", pool="nerve", value=1, character_id=a["id"])
+        [msg] = gm.sync()
+        assert (msg["type"], msg["payload"]["id"], msg["payload"]["nerve_current"]) == ("character_update", a["id"], 1)
+        assert wa.drain() == []
+        gm.send("update_drive", pool="nerve", value=0, character_id=outsider["id"])
+        assert support.types(gm.sync()) == ["action_rejected"]
+    assert support.fetch(Character, outsider["id"]).nerve_current == 2
 
 
 # --- update_pen_font --------------------------------------------------------

@@ -48,6 +48,65 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 
 Not changed: the request and response shapes, `author_name` and `author_type` on notebook entries (still client text, within the rule above), and the quirks in QUIRKS.md that are not about who may call a route.
 
+## WebSocket
+
+The browser cannot set headers on a WebSocket, so it connects to `/ws/{game_id}?token=<token>`. nginx logs paths without query strings; uvicorn does log the query string of a WebSocket, so a log filter on the `uvicorn.error`, `uvicorn.access` and `candela` loggers replaces `token=...` with `token=<redacted>` (`vtt/config.py`).
+
+### Connecting
+
+The socket is accepted and then closed at once, before any message is read, with:
+
+| Code | When |
+|---|---|
+| 4401 | no token, or a token that is invalid, expired or names a user that no longer exists |
+| 4403 | the channel exists but is not the caller's: someone else's character, or a campaign the caller is not GM of |
+| 4404 | no character with that id and no campaign with that code (this includes the frontend's old `gm` fallback channel) |
+
+A refused connection never reaches the connection manager, so it does not kick the real user off with 1001.
+
+- A numeric `game_id` is a character channel, open only to the character's owner. Its campaign is the character's own; the old fallback to "the campaign whose code equals this number" is gone (it let a character socket join a campaign with an all-digit code).
+- Any other `game_id` is a campaign code, open only to `campaigns.gm_user_id`. When an all-digit code equals a character id, the owner gets the character channel and the GM gets the campaign channel (they still share the manager key, QUIRK D13).
+- GM or player is decided here, from the token and `campaigns.gm_user_id`. `payload.role` is ignored everywhere.
+
+### Messages
+
+A message that breaks a rule is answered with `{"type": "action_rejected", "payload": {"action": <type>, "status": 403 or 404, "detail": ...}}` to the sender only, and nothing else happens. The socket stays open. Code: `vtt/ws/access.py`.
+
+The character a message acts on is `payload.character_id`, or the player channel's own character when the payload has none (a GM channel has none).
+
+- A player channel may only act for its own character: any other `character_id` is 403, one that matches no character is 404 (this includes 0 and 1.5, which used to fall through to "no character").
+- A GM channel may name a character only for `gm_update_tension`, `gm_reset_character`, `update_drive`, `take_mark`, `revive_character` and `update_gear`, and only a character of its own campaign. Any other type with a `character_id` is 403; so the GM cannot roll, vote, chat or answer as a player's character.
+- Messages that need a character and have none are still ignored without a reply, as before.
+
+| Type | Who may send it |
+|---|---|
+| gm_update_tension, gm_transition_scene, gm_reset_character | the GM |
+| gm_update_circle | the GM, for the campaign's own circle (`circle_id` still defaults to 1, which belongs to no campaign, so the frontend now sends the real id) |
+| gm_toggle_resource_edit, gm_toggle_reports, gm_advance_circle, refill_resources, gm_end_assignment, update_circle | the GM, for the campaign's own circle (default: the circle loaded at connect) |
+| roll | the owner; on a GM channel without a character it is a Lightkeeper roll |
+| update_drive, take_mark, revive_character, update_gear | the owner, or the GM for a member |
+| resolve_gilded, use_post_roll_ability, update_pen_font, resolve_ability_mark, apply_scar, burn_resistance, apply_advancement, circle_personal_answer | the owner |
+| intercept_mark | the owner of the interceptor; `target_character_id` must exist (404) and be in the interceptor's campaign |
+| spend_resource | the owner, an active member, on their campaign's circle |
+| submit_assignment_report, circle_creation_vote | the owner of `character_id`, an active member, on their campaign's circle |
+| circle_backstory_update | an active member or the GM, on the campaign's circle |
+| circle_relationship_propose | a player for their own `from_character_id`, to a fellow member, on their campaign's circle |
+| circle_relationship_respond | the other party: the character that did not act last (for a proposal made over REST, which records no actor, the character it was made to); never the GM |
+| chat_message | a member (active or pending) or the GM; `@Environment` only from the GM. The sender name is the character's name, or "Lightkeeper" for the GM; `sender_name` is ignored |
+| add_notebook_entry | a member or the GM, into their own campaign only; Lightkeeper entries only from the GM |
+
+"Member" here is read fresh from the database for every message, so a player who joins or is approved while connected is a member at once (the handlers themselves still use the campaign fixed at connect, see QUIRKS.md).
+
+Not changed: game rules that are not about who is acting (pending offers, `reports_open`, finalize state, value bounds) are still the quirks listed in QUIRKS.md and WEBSOCKET.md section 8.
+
+## Frontend
+
+- The token is kept in the persisted session (`accessSession.token`, localStorage key `candela-vtt-storage`).
+- Every API call goes through `apiFetch` in `utils/api.js`, which adds `Authorization: Bearer`. A 401 on a call that carried a token logs the user out (session cleared, back to the login screen).
+- The WebSocket URL gets `?token=`. A 4401 close logs the user out the same way; `action_rejected` is logged to the console (and ends a pending roll).
+- A session persisted before this change has no token; on load it is cleared and the login screen is shown.
+- SceneManager sends the campaign's circle id instead of 1 (see gm_update_circle above).
+
 ## Behavior that changed because of these rules
 
 - Campaign create without `user_id` makes the caller the GM (it used to create a campaign with no GM). An unknown `user_id` is 403 (it was a 500 from the foreign key).
@@ -57,3 +116,16 @@ Not changed: the request and response shapes, `author_name` and `author_type` on
 - Notebook writes with an unknown character or campaign are 404 (they were 500).
 - Rejoin without an invite or a dead character in that campaign is 403 (it always succeeded).
 - `GET /api/investigators` lists only the caller's characters (it listed everyone's).
+- WebSocket: unknown channels (including `gm`) are closed with 4404 instead of opening on circle 1. A GM channel obeys GM messages without `role: "GM"` in the payload; a player channel is refused them whatever role it claims.
+- WebSocket: an unaffiliated character can no longer chat (its whispers used to match names in every campaign) or intercept a mark for a character outside its campaign.
+- WebSocket: chat sender names come from the server. The frontend already sent the same values.
+- WebSocket: gm_update_circle with circle 1 (the old SceneManager value) is 403, and the GM circle messages no longer reach another campaign's circle (bug D2 and the resolve_circle fallback).
+- WebSocket: circle_relationship_respond on a GM channel is 403 instead of ending the socket (bug D9).
+- WebSocket: update_circle is GM only, so the non-GM "may lower but not raise resources" branch is gone, and a player's string resource no longer ends the socket.
+
+## Known gaps
+
+- A token cannot be revoked before it expires, except by changing `SECRET_KEY` (which logs everyone out). Deleting a user does revoke it, because the user lookup fails.
+- An open WebSocket keeps working after its token expires; the token is only checked when the socket connects.
+- The token sits in localStorage, so a script injected into the page could read it. The app renders no user HTML as markup today.
+- `action_rejected` is a new server-to-client type; WEBSOCKET.md section 5 lists the types from before this stage.
