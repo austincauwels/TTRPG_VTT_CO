@@ -1,0 +1,62 @@
+/* The sketch sheet's Excalidraw (SketchPad.jsx): loaded with the sheet, never in the main
+   stylesheet. Excalidraw is only the canvas here. Its own toolbars, menus, library and
+   sidebar, help, hints, toasts, link editor, welcome screen and branding are hidden; the
+   sheet draws its own marks. Its canvas is clear (viewBackgroundColor transparent) and its
+   container takes no colour, so the sheet's paper is the ground. The text editor that
+   opens on the canvas (.excalidraw-wysiwyg) is left alone. */
+.sketch-pad .excalidraw .layer-ui__wrapper,
+.sketch-pad .excalidraw .App-top-bar,
+.sketch-pad .excalidraw .App-bottom-bar,
+.sketch-pad .excalidraw .App-mobile-menu,
+.sketch-pad .excalidraw .App-toolbar,
+.sketch-pad .excalidraw .App-menu,
+.sketch-pad .excalidraw .FixedSideContainer,
+.sketch-pad .excalidraw .HintViewer,
+.sketch-pad .excalidraw .context-menu,
+.sketch-pad .excalidraw .popover,
+.sketch-pad .excalidraw .sidebar,
+.sketch-pad .excalidraw .default-sidebar,
+.sketch-pad .excalidraw .sidebar-trigger,
+.sketch-pad .excalidraw .default-sidebar-trigger,
+.sketch-pad .excalidraw .help-icon,
+.sketch-pad .excalidraw .main-menu-trigger,
+.sketch-pad .excalidraw .Toast,
+.sketch-pad .excalidraw .excalidraw-hyperlinkContainer,
+.sketch-pad .excalidraw .welcome-screen-center,
+.sketch-pad .excalidraw .welcome-screen-decor,
+.sketch-pad .excalidraw .Modal,
+.sketch-pad .excalidraw .Dialog,
+.sketch-pad .excalidraw .ErrorSplash {
+  display: none !important;
+}
+
+.sketch-pad .excalidraw,
+.sketch-pad .excalidraw-container,
+.sketch-pad .excalidraw .excalidraw__canvas {
+  background: transparent !important;
+}
+
+/* Excalidraw takes the focus when the sheet opens, so the canvas would sit in the gold
+   focus ring all the time; the sheet is the frame. Selections are drawn in the notebook's
+   oxblood, not Excalidraw's violet. */
+.sketch-pad .excalidraw:focus,
+.sketch-pad .excalidraw:focus-visible,
+.sketch-pad .excalidraw-container:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.sketch-pad .excalidraw {
+  --color-selection: #721c15;
+  --color-primary: #721c15;
+  --color-primary-darker: #5a1611;
+  --color-primary-darkest: #3f0f0c;
+  --color-primary-light: #f0e2c0;
+}
+
+/* The writing cursor and the selection in the canvas's text editor, in the notebook's ink */
+.sketch-pad .excalidraw .excalidraw-wysiwyg {
+  caret-color: rgb(var(--c-ink));
+}
+.sketch-pad .excalidraw .excalidraw-wysiwyg::selection {
+  background: rgb(var(--c-oxblood) / 0.25);
+}

@@ -587,6 +587,19 @@
 /* The log is set in italic, so emphasis in a passed note stands upright */
 .italic .md-inline em { font-style: normal; }
 
+/* The sketch sheet's paper (sketch/SketchSheet.jsx), under Excalidraw's clear canvas: her
+   cream with the notebook's fibre, and a faint printed plate a finger's width inside the
+   edge. Here and not in the sheet's own stylesheet, so the sheet is paper while its
+   drawing code is still on its way. */
+.sketch-canvas {
+  background-color: rgb(var(--c-cream));
+  background-image:
+    linear-gradient(rgb(var(--c-cream) / 0.82), rgb(var(--c-cream) / 0.82)),
+    url('https://www.transparenttextures.com/patterns/cream-paper.png');
+  box-shadow: inset 0 0 0 10px rgb(var(--c-cream)), inset 0 0 0 11px rgb(var(--c-sepia) / 0.18),
+    inset 0 2px 10px rgb(0 0 0 / 0.08);
+}
+
 /* ================================================================= */
 /* PRINTED FORM FURNITURE (PrintMarks.jsx)                           */
 /* ================================================================= */

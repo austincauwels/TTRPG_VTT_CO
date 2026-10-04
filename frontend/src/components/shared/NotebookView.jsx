@@ -9,6 +9,7 @@ import { playPaperSound } from '../../game/rollSounds';
 import { TickMark } from './InkMarks';
 import { NoteMarkdown } from './NoteMarkdown';
 import { MarkdownMarks, PreviewToggle } from './MarkdownMarks';
+import { SketchSheet } from './sketch/SketchSheet';
 
 const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
@@ -20,6 +21,17 @@ const PEN_FONTS = [
   'Gaegu', 'Grape Nuts', 'Moondance', 'Long Cang', 'Rock Salt', 'Gochi Hand',
 ];
 const ENTRIES_PER_SIDE = 3;
+
+// Her ink colours on the sketch sheet: the notebook's black ink and the five players' inks
+// (backend engine.INK_COLORS). The writer's own pen comes first and is the stroke it starts with.
+const SKETCH_INKS = [
+  { color: '#1a1311', name: 'Black ink' },
+  { color: '#8b1a1a', name: 'Red ink' },
+  { color: '#4a1a8b', name: 'Violet ink' },
+  { color: '#1a5a1a', name: 'Green ink' },
+  { color: '#8b4a0a', name: 'Umber ink' },
+  { color: '#1a3a6a', name: 'Blue ink' },
+];
 
 const LINED_PAPER = {
   backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgba(0,0,0,0.07) 27px, rgba(0,0,0,0.07) 28px)',
@@ -135,8 +147,9 @@ function useLinesThatFit() {
   return [ref, count];
 }
 
-// Renders a single notebook entry — supports field_log, sketch, photo, lightkeeper
-function EntryCard({ entry, isLast }) {
+// Renders a single notebook entry — supports field_log, sketch, photo, lightkeeper.
+// onRedraw: given for a drawn sketch its reader wrote, who can take it up again.
+function EntryCard({ entry, isLast, onRedraw }) {
   const eType = entry.entry_type || 'field_log';
 
   // Sketch: rendered with mix-blend-mode multiply, slight rotation
@@ -146,7 +159,7 @@ function EntryCard({ entry, isLast }) {
         <h3 className="leading-tight mb-1 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2rem' }}>
           {entry.title}
         </h3>
-        <div className="relative mb-2" style={{ float: 'right', margin: '0 0 12px 16px' }}>
+        <div className="relative mb-2 flex flex-col items-end" style={{ float: 'right', margin: '0 0 12px 16px' }}>
           <img
             src={entry.image_data}
             alt={entry.title}
@@ -156,6 +169,16 @@ function EntryCard({ entry, isLast }) {
               mixBlendMode: 'multiply',
             }}
           />
+          {onRedraw && (
+            <button
+              type="button"
+              onClick={onRedraw}
+              aria-label={`Keep drawing ${entry.title}`}
+              className="mt-2 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2 inline-flex items-center gap-1.5 font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors"
+            >
+              <PencilIcon size={14} /> Keep drawing
+            </button>
+          )}
         </div>
         {entry.content && (
           <NoteMarkdown text={entry.content} className="text-[26px] leading-[2.8rem]" style={{ fontFamily: entry.pen_font, color: entry.ink_color }} />
@@ -308,6 +331,8 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
     updateNotebookEntry,
     deleteEphemeralNote,
     uploadNotebookImage,
+    fetchSketchScene,
+    redrawSketch,
     updatePenFont,
     notebookLoadError,
   } = useGameStore();
@@ -350,6 +375,11 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
   const [ephemeralPreview, setEphemeralPreview]         = useState(false);
   const [lkPreview, setLkPreview]                       = useState(false);
   const idBase = useId();
+  // The drawing sheet: { mode: 'new', elements } for the entry being written, or
+  // { mode: 'redraw', entry, loading, error, elements } when the author takes a sketch up
+  // again. A drawing made for a new entry waits, with its scene, beside the staged picture.
+  const [sketchSheet, setSketchSheet]                   = useState(null);
+  const [pendingScene, setPendingScene]                 = useState(null);
 
   useEffect(() => {
     if (campaignId) fetchNotebookEntries(campaignId);
@@ -428,11 +458,15 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
         authorName, isGM ? 'gm' : 'player',
         pendingImageType,
         isGM ? null : character?.id,
+        pendingImageType === 'sketch' ? pendingScene : null,
       );
       setIsUploading(false);
       if (!result.success) {
         if (result.tooLarge) {
-          setUploadError('That image is larger than 5 MB. Choose a smaller file, or a smaller copy of it.');
+          // The server takes pictures of up to 2 MB, and a drawing of up to 1 MB
+          setUploadError(pendingScene && /drawing/i.test(result.detail || '')
+            ? result.detail
+            : 'That image is larger than 2 MB. Choose a smaller file, or a smaller copy of it.');
         } else {
           setSubmitError('The image did not upload, so the entry was not saved. Check your connection and try again.');
         }
@@ -517,6 +551,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
       setPendingImageFile(file);
       setPendingImagePreview(e.target.result);
       setPendingImageType(type);
+      setPendingScene(null);
     };
     reader.readAsDataURL(file);
   };
@@ -525,7 +560,71 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
     setPendingImageFile(null);
     setPendingImagePreview(null);
     setPendingImageType(null);
+    setPendingScene(null);
     setUploadError('');
+  };
+
+  // --- The drawing sheet ---------------------------------------------------------
+  // Her ink colours, the writer's own pen first and the stroke it starts with
+  const penInk = isGM ? SKETCH_INKS[0].color : (character?.ink_color || '#8b1a1a');
+  const sketchInks = [
+    SKETCH_INKS.find(i => i.color.toLowerCase() === penInk.toLowerCase()) || { color: penInk, name: 'Your ink' },
+    ...SKETCH_INKS.filter(i => i.color.toLowerCase() !== penInk.toLowerCase()),
+  ];
+
+  // A drawn sketch can be taken up again by its author only (the server says the same)
+  const canRedraw = (entry) => entry.entry_type === 'sketch' && entry.has_scene && (isGM
+    ? entry.character_id == null && entry.author_type === 'gm'
+    : entry.character_id != null && entry.character_id === character?.id);
+
+  const openNewSketch = () => {
+    let elements = null;
+    try { elements = pendingScene ? JSON.parse(pendingScene).elements : null; } catch { elements = null; }
+    setSketchSheet({ mode: 'new', elements });
+  };
+
+  const openRedraw = async (entry) => {
+    setSketchSheet({ mode: 'redraw', entry, loading: true });
+    const res = await fetchSketchScene(entry.id);
+    setSketchSheet(s => (s?.entry?.id !== entry.id ? s : res.success
+      ? { ...s, loading: false, elements: res.scene?.elements || [] }
+      : { ...s, loading: false, error: 'The drawing could not be opened. Check your connection and try again.' }));
+  };
+
+  // A new drawing waits beside the entry, with its scene, until the entry is added
+  const stageDrawing = (png, scene) => new Promise((resolve) => {
+    if (png.size > 2 * 1024 * 1024) {
+      resolve({ ok: false, error: 'The sketch is larger than 2 MB. Draw it smaller, or with fewer strokes.' });
+      return;
+    }
+    const file = new File([png], 'sketch.png', { type: 'image/png' });
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setUploadError('');
+      setPendingImageFile(file);
+      setPendingImagePreview(e.target.result);
+      setPendingImageType('sketch');
+      setPendingScene(scene);
+      setSketchSheet(null);
+      resolve({ ok: true });
+    };
+    reader.onerror = () => resolve({ ok: false, error: 'The sketch could not be kept. Try again.' });
+    reader.readAsDataURL(file);
+  });
+
+  const saveRedraw = async (png, scene) => {
+    const entry = sketchSheet?.entry;
+    if (!entry) return { ok: false };
+    const res = await redrawSketch(entry.id, png, scene);
+    if (res.success) { setSketchSheet(null); return { ok: true }; }
+    if (res.tooLarge) return { ok: false, error: res.detail && /drawing/i.test(res.detail) ? res.detail : 'The sketch is larger than 2 MB. Draw it smaller, or with fewer strokes.' };
+    return { ok: false, error: 'The sketch was not saved. Check your connection and try again; your drawing is still here.' };
+  };
+
+  // "Upload a picture", the sheet's other way: the PNG picker, as Sketch was before
+  const uploadInstead = () => {
+    setSketchSheet(null);
+    sketchInputRef.current?.click();
   };
 
   const goToPrev = () => setCurrentSpread(s => Math.max(0, s - 1));
@@ -930,7 +1029,8 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                   Field Notes, page {currentSpread}
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative lg:mt-6" style={LINED_PAPER}>
-                  {leftEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === leftEntries.length - 1} />)}
+                  {leftEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === leftEntries.length - 1}
+                    onRedraw={canRedraw(entry) ? () => openRedraw(entry) : undefined} />)}
                 </div>
                 {pageFooter(`Page ${currentSpread}`, '', 'lg:pl-10')}
               </div>
@@ -989,7 +1089,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                     <input type="text" value={uploadCaption} onChange={e => setUploadCaption(e.target.value)}
                       placeholder="Caption (optional)"
                       className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 text-lg font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5" />
-                    <button onClick={() => sketchInputRef.current?.click()} disabled={isUploading || !!pendingImageFile}
+                    <button onClick={openNewSketch} disabled={isUploading || !!pendingImageFile}
                       className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
                       <span className="inline-flex items-center gap-1.5"><PencilIcon size={16} /> Sketch</span>
                     </button>
@@ -1005,9 +1105,16 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
 
                   {pendingImagePreview && (
                     <div className="flex items-center gap-3 p-2 border border-ink/20 rounded-sm bg-black/[0.03]">
-                      <img src={pendingImagePreview} alt="preview" className="w-16 h-16 object-cover border border-ink/20 rounded-sm" style={{ mixBlendMode: pendingImageType === 'sketch' ? 'multiply' : 'normal' }} />
+                      <img src={pendingImagePreview} alt="preview" className={`w-16 h-16 ${pendingScene ? 'object-contain' : 'object-cover'} border border-ink/20 rounded-sm`} style={{ mixBlendMode: pendingImageType === 'sketch' ? 'multiply' : 'normal' }} />
                       <div className="flex-1 min-w-0">
-                        <p className="font-mono text-sm text-sepia truncate">{pendingImageFile?.name}</p>
+                        {pendingScene ? (
+                          <button type="button" onClick={openNewSketch}
+                            className="min-h-[40px] px-2 -ml-2 inline-flex items-center gap-1.5 font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors">
+                            <PencilIcon size={14} /> Keep drawing
+                          </button>
+                        ) : (
+                          <p className="font-mono text-sm text-sepia truncate">{pendingImageFile?.name}</p>
+                        )}
                       </div>
                       <button onClick={clearPendingImage} aria-label="Remove the image" className="min-w-[40px] min-h-[40px] text-sepia hover:text-oxblood font-black text-lg transition-colors">✕</button>
                     </div>
@@ -1054,7 +1161,8 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                           <span className="text-sm font-sans font-black tracking-widest uppercase text-ink">Obscura</span>
                         </div>
                       </div>
-                    : rightEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === rightEntries.length - 1} />)}
+                    : rightEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === rightEntries.length - 1}
+                        onRedraw={canRedraw(entry) ? () => openRedraw(entry) : undefined} />)}
                 </div>
                 {pageFooter('', `Page ${currentSpread} of ${totalSpreads}`, 'pl-10 lg:pl-0 pr-10')}
               </div>
@@ -1070,6 +1178,21 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
             )}
           </div>
         </div>
+      )}
+
+      {sketchSheet && (
+        <SketchSheet
+          key={sketchSheet.mode === 'redraw' ? `redraw-${sketchSheet.entry.id}` : 'new'}
+          initialElements={sketchSheet.elements || null}
+          loading={!!sketchSheet.loading}
+          loadError={sketchSheet.error || ''}
+          ink={sketchInks[0].color}
+          inks={sketchInks}
+          onSave={sketchSheet.mode === 'redraw' ? saveRedraw : stageDrawing}
+          onCancel={() => setSketchSheet(null)}
+          onUploadPicture={sketchSheet.mode === 'new' && !pendingScene ? uploadInstead : undefined}
+          saveLabel={sketchSheet.mode === 'redraw' ? 'Save sketch' : 'Add to entry'}
+        />
       )}
     </div>
   );

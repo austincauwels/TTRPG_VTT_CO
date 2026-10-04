@@ -60,6 +60,16 @@ const sendRoll = (set, get, frame) => {
   }, ROLL_REPLY_MS);
 };
 
+// The server's own words for a refused request (its string detail), or null
+const errorDetail = async (res) => {
+  try {
+    const { detail } = await res.json();
+    return typeof detail === 'string' ? detail : null;
+  } catch {
+    return null;
+  }
+};
+
 // A delete or an undo from the roster book (docs/refactor/DELETION.md). Resolves to
 // { success, status, detail } plus the server's answer.
 const deletionRequest = async (path, method) => {
@@ -1147,7 +1157,9 @@ const useGameStore = create(
         }
       },
 
-      uploadNotebookImage: async (campaignId, file, title, content, authorName, authorType, entryType, characterId = null) => {
+      // scene: a drawn sketch's Excalidraw scene (JSON text), sent as a file part so the
+      // author can open the drawing again (backend vtt/sketch_scenes.py)
+      uploadNotebookImage: async (campaignId, file, title, content, authorName, authorType, entryType, characterId = null, scene = null) => {
         try {
           const formData = new FormData();
           formData.append('file', file);
@@ -1157,6 +1169,7 @@ const useGameStore = create(
           formData.append('author_type', authorType);
           formData.append('entry_type', entryType);
           if (characterId) formData.append('character_id', String(characterId));
+          if (scene) formData.append('scene', new Blob([scene], { type: 'application/json' }), 'scene.json');
           const res = await apiFetch(`/api/notebook/${campaignId}/upload`, { method: 'POST', body: formData });
           if (res.ok) {
             const entry = await res.json();
@@ -1164,10 +1177,41 @@ const useGameStore = create(
               ? state : { notebookEntries: [...state.notebookEntries, entry] }));
             return { success: true, entry };
           }
-          if (res.status === 413) return { success: false, tooLarge: true };
-          return { success: false };
+          if (res.status === 413) return { success: false, tooLarge: true, detail: await errorDetail(res) };
+          return { success: false, detail: await errorDetail(res) };
         } catch (err) {
           console.error('Failed to upload image:', err);
+          return { success: false };
+        }
+      },
+
+      // A drawn sketch's scene, for its author only: { success, scene } (scene parsed)
+      fetchSketchScene: async (entryId) => {
+        try {
+          const res = await apiFetch(`/api/notebook/entries/${entryId}/scene`);
+          if (!res.ok) return { success: false, status: res.status };
+          return { success: true, scene: await res.json() };
+        } catch (err) {
+          console.error('Failed to load the drawing:', err);
+          return { success: false };
+        }
+      },
+
+      // The author keeps drawing: the picture (a PNG blob) and the scene are replaced together
+      redrawSketch: async (entryId, png, scene) => {
+        try {
+          const formData = new FormData();
+          formData.append('file', png, 'sketch.png');
+          formData.append('scene', new Blob([scene], { type: 'application/json' }), 'scene.json');
+          const res = await apiFetch(`/api/notebook/entries/${entryId}/sketch`, { method: 'PUT', body: formData });
+          if (res.ok) {
+            const entry = await res.json();
+            set(state => ({ notebookEntries: state.notebookEntries.map(e => e.id === entryId ? entry : e) }));
+            return { success: true, entry };
+          }
+          return { success: false, tooLarge: res.status === 413, detail: await errorDetail(res) };
+        } catch (err) {
+          console.error('Failed to save the drawing:', err);
           return { success: false };
         }
       },
