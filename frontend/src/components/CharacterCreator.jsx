@@ -487,7 +487,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   // The record's red serial in the corner of each sheet, fixed for this player's draft
   const formSerial = serialFor(draftKey);
   const d = (field, fallback) => (draft && draft[field] !== undefined && draft[field] !== null ? draft[field] : fallback);
-  const [restoredDraft, setRestoredDraft] = useState(() => !!(draft && (draft.role || draft.name)));
 
   const [step, setStep] = useState(() => d('step', 1));
 
@@ -550,9 +549,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
     if (!savedCharacterId) writeDraftPortrait(draftKey, profilePic);
   }, [profilePic, savedCharacterId]);
 
+  // Something chosen that Start over would clear
+  const hasChoices = !!(role || name || currentIndex !== 0 || selectedRoleAbility || selectedSpecialtyAbility || profilePic);
   const startOver = () => {
     clearDraft(draftKey);
-    setRestoredDraft(false);
     setStep(1); setCurrentIndex(0); setAnimState('idle');
     setProfilePic(null); setName(''); setPronouns(''); setStyle(''); setCatalyst(''); setQuestion('');
     setRole(''); setSpecialty(''); setSelectedRoleAbility(''); setSelectedSpecialtyAbility('');
@@ -703,31 +703,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   return (
     <div className="w-full px-4 sm:px-6 lg:px-10 py-6 font-serif text-ink">
 
-      {restoredDraft && !savedCharacterId && (
-        <ConfirmAction
-          className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 bg-parchment border border-sepia/40 rounded-sm px-4 py-3 shadow-md"
-          hintClassName="basis-full"
-          onConfirm={startOver}
-          cancelLabel="Keep it"
-          armedHint="Press again to clear every choice and start from the first card."
-          renderButton={(armed, props) => (
-            <>
-              <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-60">
-                Unfinished investigator{name ? `: ${name}` : ''}
-              </p>
-              <button
-                {...props}
-                className={`shrink-0 min-h-[40px] px-4 font-sans text-xs font-black uppercase tracking-widest border rounded transition-colors ${
-                  armed ? 'bg-oxblood text-cream border-ink' : 'text-sepia border-sepia/50 hover:text-oxblood hover:border-oxblood/50'
-                }`}
-              >
-                {armed ? 'Yes, start over' : 'Start over'}
-              </button>
-            </>
-          )}
-        />
-      )}
-
       {/* ── PROGRESS NAV ── */}
       <nav aria-label="Steps" className="flex border border-sepia/50 bg-ink text-xs sm:text-sm lg:text-base font-sans font-black tracking-wider sm:tracking-widest text-center select-none rounded mb-6 sm:mb-8 shadow-md overflow-hidden">
         {STEP_LABELS.map((label, i) => {
@@ -832,6 +807,28 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               <p className="text-base font-serif italic text-cream/70 text-center leading-relaxed px-3 max-w-[280px]">
                 {currentRoleData.description}
               </p>
+
+              {/* The draft is kept for this account; this clears it, after a second press */}
+              {hasChoices && !savedCharacterId && (
+                <ConfirmAction
+                  tone="lamp"
+                  className="flex flex-col items-center gap-2 text-center max-w-[300px]"
+                  hintClassName="justify-center px-2"
+                  onConfirm={startOver}
+                  cancelLabel="Keep it"
+                  armedHint="Press again to clear every choice and start from the first card."
+                  renderButton={(armed, props) => (
+                    <button
+                      {...props}
+                      className={`min-h-[36px] px-3 font-sans text-xs font-bold uppercase tracking-widest border rounded transition-colors ${
+                        armed ? 'bg-oxblood text-cream border-ink' : 'text-cream/65 border-cream/15 hover:text-cream hover:border-cream/40'
+                      }`}
+                    >
+                      {armed ? 'Yes, start over' : 'Start over'}
+                    </button>
+                  )}
+                />
+              )}
             </div>
 
             {/* ── RIGHT: always-visible panel ── */}

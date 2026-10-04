@@ -37,6 +37,8 @@ export const useConfirmStep = () => {
 const TONES = {
   paper: { idle: 'text-sepia', armed: 'text-oxblood', cancel: 'text-sepia hover:text-ink border-sepia/40 hover:border-ink/50' },
   night: { idle: 'text-moonlight-steel', armed: 'text-parchment-deep', cancel: 'text-moonlight-steel hover:text-cream border-moonlight-steel/40 hover:border-moonlight-steel' },
+  // The warm night stage of the hub and the creator
+  lamp: { idle: 'text-cream/70', armed: 'text-parchment-deep', cancel: 'text-cream/75 hover:text-cream border-cream/25 hover:border-cream/50' },
 };
 
 // renderButton(armed, props) draws the button; spread props onto it (onClick,

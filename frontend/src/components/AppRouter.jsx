@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import useGameStore from '../store/gameStore';
 import { apiFetch } from '../utils/api';
 import { campaignErrorText, NETWORK_ERROR } from '../utils/campaignErrors';
+import { isEditableTarget, pageKeyBlocked } from './shared/a11y';
 
 import LoginScreen from './LoginScreen';
 import { CampaignSelector } from './CampaignSelector';
@@ -9,12 +10,57 @@ import { MainDeskView } from './pc/MainDeskView';
 import { OperationsPanel } from './gm/OperationsPanel';
 import { CharacterCreator } from './CharacterCreator';
 
+// The first time the creator opens after the page loads. A page brought back by the
+// browser's Back button with the creator still saved as the screen came back from the
+// creator's own history entry, so it goes to the chapter house instead.
+let firstCreatorVisit = true;
+
+// Three ways out of the character creator to the chapter house: the header link, Escape,
+// and the browser's Back button. The creator gets its own history entry for Back; leaving
+// any other way (the link, Escape, a save) takes that entry off again, so Back from the
+// hub does not land on it. The draft stays in this browser for the account either way.
+const useCreatorExits = (stage, setStage) => {
+  useEffect(() => {
+    if (stage !== 'CHARACTER_CREATION') return undefined;
+    const marked = !!window.history.state?.candelaCreator;
+    if (firstCreatorVisit) {
+      firstCreatorVisit = false;
+      const nav = window.performance?.getEntriesByType?.('navigation')?.[0];
+      if (!marked && nav?.type === 'back_forward') { setStage('HOME'); return undefined; }
+    }
+    if (!marked) {
+      try { window.history.pushState({ ...(window.history.state || {}), candelaCreator: true }, ''); } catch { /* no history */ }
+    }
+
+    const onPop = (e) => { if (!e.state?.candelaCreator) setStage('HOME'); };
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      // The first Escape in a field only leaves the field; the next one leaves the creator
+      if (isEditableTarget(e.target)) { e.target.blur(); return; }
+      if (pageKeyBlocked(e)) return;
+      setStage('HOME');
+    };
+    window.addEventListener('popstate', onPop);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      document.removeEventListener('keydown', onKey);
+      if (useGameStore.getState().stage !== 'CHARACTER_CREATION' && window.history.state?.candelaCreator) {
+        window.history.back();
+      }
+    };
+  }, [stage]);
+};
+
 export const AppRouter = () => {
   const {
     stage, setLocalCharacter, setStage, connect, accessSession, joinCampaign,
     fetchUserData, setLastPlayed, character, lastPlayedCampaign, characters,
     rejoinInvite, setRejoinInvite,
   } = useGameStore();
+
+  useCreatorExits(stage, setStage);
 
   // Compute rejoin context — either organic death path or GM invite path
   const deadCharRejoinCode = character?.is_dead && lastPlayedCampaign?.campaignCode
@@ -149,9 +195,23 @@ export const AppRouter = () => {
           className="min-h-screen bg-night py-6 sm:py-8 font-serif"
           style={{ color: accessSession?.pen?.color || 'rgb(var(--c-cream))', fontFamily: accessSession?.pen?.font || undefined }}
         >
-          <header className="max-w-6xl mx-auto mb-4 sm:mb-6 px-4 text-center">
-            <h1 className="text-4xl sm:text-5xl mb-2 font-display tracking-[0.1em] text-cream">CANDELA OBSCURA</h1>
-            <p className="text-sm font-sans font-black tracking-widest text-oxblood-lit uppercase">New Investigator</p>
+          {/* The way out sits where the desks keep theirs: right of the title from lg, under it
+              on phones and tablets, in normal flow so it never covers the title */}
+          <header className="w-full mb-4 sm:mb-6 px-4 sm:px-6 lg:px-10 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-start gap-y-3">
+            <div className="hidden lg:block" aria-hidden="true" />
+            <div className="text-center">
+              <h1 className="text-4xl sm:text-5xl mb-2 font-display tracking-[0.1em] text-cream">CANDELA OBSCURA</h1>
+              <p className="text-sm font-sans font-black tracking-widest text-oxblood-lit uppercase">New Investigator</p>
+            </div>
+            <div className="flex justify-center lg:justify-end">
+              <button
+                type="button"
+                onClick={() => setStage('HOME')}
+                className="w-full sm:w-auto whitespace-nowrap text-xs sm:text-sm font-sans font-bold uppercase tracking-widest text-parchment-deep hover:text-cream transition-colors bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2"
+              >
+                Back to the chapter house
+              </button>
+            </div>
           </header>
 
           <CharacterCreator
