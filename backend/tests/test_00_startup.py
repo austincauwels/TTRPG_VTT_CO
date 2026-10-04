@@ -104,10 +104,10 @@ def test_migrated_columns_exist(client):
             "circle_ability", "insignia", "backstory_answers", "is_finalized", "illumination",
             "tension_clock", "tension_label", "resources_editable", "reports_open",
             "campaign_id"} <= cols["circles"]
-    assert {"gm_user_id", "roster_finalized", "is_retired"} <= cols["campaigns"]
+    assert {"gm_user_id", "roster_finalized", "is_retired", "deleted_at", "released_characters"} <= cols["campaigns"]
     assert {"role", "specialty", "personal_circle_answer", "nerve_resistance_spent",
             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
-            "train_bonus", "resources_spent_assignment"} <= cols["characters"]
+            "train_bonus", "resources_spent_assignment", "deleted_at"} <= cols["characters"]
     assert "last_actor_id" in cols["relationships"]
     assert {"entry_type", "visibility", "image_data", "is_deleted"} <= cols["notebook_entries"]
     assert {"pending_rejoin_campaign_id", "google_sub", "google_email", "email_proven"} <= cols["users"]
@@ -186,6 +186,8 @@ def test_route_table_order(client):
         ("/campaign/approve/{character_id}", ["POST"]),
         ("/campaign/reject/{character_id}", ["POST"]),
         ("/campaign/{campaign_id}/retire", ["POST"]),
+        ("/campaign/{campaign_id}", ["DELETE"]),
+        ("/campaign/{campaign_id}/restore", ["POST"]),
         ("/campaign/rejoin", ["POST"]),
         ("/campaign/{campaign_id}/invite-rejoin", ["POST"]),
         ("/campaign/{campaign_id}/roster", ["GET"]),
@@ -208,6 +210,8 @@ def test_route_table_order(client):
         ("/api/investigators/{investigator_id}", ["GET"]),
         ("/api/investigators/forge", ["POST"]),
         ("/api/investigators/{investigator_id}/portrait", ["PUT"]),
+        ("/api/investigators/{investigator_id}", ["DELETE"]),
+        ("/api/investigators/{investigator_id}/restore", ["POST"]),
         ("/api/notebook/{campaign_id}/entries", ["GET"]),
         ("/api/notebook/{campaign_id}/entries", ["POST"]),
         ("/api/notebook/entries/{entry_id}", ["PUT"]),
@@ -264,6 +268,8 @@ MIGRATED_COLUMNS = {
     ("circles", "campaign_id"): ("integer", None),
     ("campaigns", "gm_user_id"): ("integer", None),
     ("campaigns", "roster_finalized"): ("boolean", "false"),
+    ("campaigns", "deleted_at"): ("timestamp without time zone", None),
+    ("campaigns", "released_characters"): ("json", None),
     ("characters", "role"): ("text", "''::text"),
     ("characters", "specialty"): ("text", "''::text"),
     ("characters", "personal_circle_answer"): ("text", "''::text"),
@@ -273,6 +279,7 @@ MIGRATED_COLUMNS = {
     ("characters", "ability_uses"): ("json", "'{}'::json"),
     ("characters", "train_bonus"): ("boolean", "false"),
     ("characters", "resources_spent_assignment"): ("integer", "0"),
+    ("characters", "deleted_at"): ("timestamp without time zone", None),
     ("relationships", "last_actor_id"): ("integer", None),
     ("notebook_entries", "entry_type"): ("text", "'field_log'::text"),
     ("notebook_entries", "visibility"): ("text", "'all'::text"),

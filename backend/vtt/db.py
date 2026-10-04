@@ -331,6 +331,20 @@ def init_db():
         except Exception:
             pass
 
+    # Deleting characters and campaigns (docs/refactor/DELETION.md). Existing rows get
+    # NULL: nothing was deleted before these columns existed, so every row stays visible.
+    for table, col, typedef in [
+        ("characters", "deleted_at",          "TIMESTAMP"),
+        ("campaigns",  "deleted_at",          "TIMESTAMP"),
+        ("campaigns",  "released_characters", "JSON"),
+    ]:
+        try:
+            with db_engine.connect() as conn:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {typedef}"))
+                conn.commit()
+        except Exception:
+            pass  # column already exists
+
     # Password reset links. main.py's create_all makes the table on a normal start; this
     # makes it (with its indexes) on a database that only init_db upgrades. checkfirst
     # leaves an existing table and its rows alone.
