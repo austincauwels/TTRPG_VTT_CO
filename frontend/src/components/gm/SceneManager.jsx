@@ -23,7 +23,7 @@ export const TensionClock = ({ readOnly = false }) => {
     if (socket?.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: 'gm_update_circle',
-        payload: { role: accessSession?.role, circle_id: 1, ...updates },
+        payload: { role: accessSession?.role, circle_id: circle?.id || 1, ...updates },
       }));
     }
   };
@@ -135,7 +135,7 @@ export const SceneManager = () => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: 'gm_update_circle',
-        payload: { role: accessSession?.role, circle_id: 1, location, atmosphere },
+        payload: { role: accessSession?.role, circle_id: circle?.id || 1, location, atmosphere },
       }));
     }
   };

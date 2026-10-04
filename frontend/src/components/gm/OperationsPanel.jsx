@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
-import { apiUrl } from '../../utils/api';
+import { apiFetch } from '../../utils/api';
 
 import { GMSidebar } from './GMSidebar';
 import { SceneManager, TensionClock } from './SceneManager';
@@ -135,7 +135,7 @@ export const OperationsPanel = () => {
 
   const handleRetireCampaign = async () => {
     if (!activeCampaignId) return;
-    const res = await fetch(apiUrl(`/campaign/${activeCampaignId}/retire`), { method: 'POST' });
+    const res = await apiFetch(`/campaign/${activeCampaignId}/retire`, { method: 'POST' });
     if (!res.ok) console.error("Failed to retire campaign");
     setRetireConfirm(false);
   };

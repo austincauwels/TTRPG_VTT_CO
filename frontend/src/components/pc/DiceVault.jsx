@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
-import { apiUrl } from '../../utils/api';
+import { apiFetch } from '../../utils/api';
 
 // ── Ability system ────────────────────────────────────────────────────────────
 
@@ -264,7 +264,7 @@ const InviteRejoinSection = () => {
     if (!username.trim() || !activeCampaignId) { setError('Enter a username.'); return; }
     setError('');
     try {
-      const res = await fetch(apiUrl(`/campaign/${activeCampaignId}/invite-rejoin`), {
+      const res = await apiFetch(`/campaign/${activeCampaignId}/invite-rejoin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim() }),

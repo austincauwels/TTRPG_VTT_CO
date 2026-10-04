@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import useGameStore from '../store/gameStore';
-import { apiUrl } from '../utils/api';
+import { apiFetch } from '../utils/api';
 
 const LoginScreen = () => {
   const officialMap = import.meta.env.VITE_MAP_OFFICIAL;
@@ -17,7 +17,7 @@ const LoginScreen = () => {
     const password = e.target.password.value;
 
     try {
-      const response = await fetch(apiUrl('/api/auth/login'), {
+      const response = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -47,7 +47,7 @@ const LoginScreen = () => {
     }
 
     try {
-      const response = await fetch(apiUrl('/api/auth/register'), {
+      const response = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password })

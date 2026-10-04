@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import useGameStore from '../store/gameStore';
-import { apiUrl } from '../utils/api';
+import { apiFetch } from '../utils/api';
 
 const PEN_FONTS = [
   'Reenie Beenie', 'Caveat', 'Shadows Into Light', 'Zeyada', 'Sacramento',
@@ -80,8 +80,8 @@ export const CampaignSelector = () => {
     setGmEntryError('');
     setIsGmCreating(true);
     try {
-      const res = await fetch(
-        apiUrl(`/campaign/create?name=${encodeURIComponent((gmCampaignName || gmCode).trim())}&code=${encodeURIComponent(gmCode.trim())}&user_id=${accessSession?.userId || ''}`),
+      const res = await apiFetch(
+        `/campaign/create?name=${encodeURIComponent((gmCampaignName || gmCode).trim())}&code=${encodeURIComponent(gmCode.trim())}&user_id=${accessSession?.userId || ''}`,
         { method: 'POST' }
       );
       if (res.ok) {
@@ -158,8 +158,8 @@ export const CampaignSelector = () => {
     setIsCreating(true);
     setCreateError('');
     try {
-      const res = await fetch(
-        apiUrl(`/campaign/create?name=${encodeURIComponent(newCampName.trim())}&code=${encodeURIComponent(newCampCode.trim())}&user_id=${accessSession?.userId || ''}`),
+      const res = await apiFetch(
+        `/campaign/create?name=${encodeURIComponent(newCampName.trim())}&code=${encodeURIComponent(newCampCode.trim())}&user_id=${accessSession?.userId || ''}`,
         { method: 'POST' }
       );
       if (res.ok) {

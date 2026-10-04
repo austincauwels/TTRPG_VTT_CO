@@ -4,6 +4,8 @@ This document maps the Vite React frontend in `frontend/src` as it stands on the
 
 Everything here was found by reading the source. Nothing was run. Line numbers refer to commit `2355d1b`.
 
+Since the login token stage, sections 2 and 5 are out of date on one point: every call now goes through `apiFetch` in `utils/api.js` with `Authorization: Bearer <token>`, the WebSocket URL carries `?token=`, and the server no longer trusts the ids the client sends. AUTH.md describes the change, including the frontend part.
+
 ## 1. Layout
 
 - Entry: `main.jsx` renders `App.jsx`, which renders `components/AppRouter.jsx`.

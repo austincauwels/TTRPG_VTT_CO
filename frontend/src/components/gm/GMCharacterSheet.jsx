@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { InvestigatorDossier } from '../pc/InvestigatorDossier';
 import { BrassCornerFiligree } from '../shared/Decorations';
-import { apiUrl } from '../../utils/api';
+import { apiFetch } from '../../utils/api';
 
 export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   const [fullChar, setFullChar] = useState(null);
@@ -24,7 +24,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
     if (!rosterItem?.id) return;
     setLoading(true);
     setError(null);
-    fetch(apiUrl(`/api/investigators/${rosterItem.id}`))
+    apiFetch(`/api/investigators/${rosterItem.id}`)
       .then(r => {
         if (!r.ok) throw new Error('Not found');
         return r.json();

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { apiUrl } from '../utils/api';
+import { apiFetch, configureApiAuth, WS_CLOSE_UNAUTHENTICATED } from '../utils/api';
 
 const useGameStore = create(
   persist(
@@ -96,12 +96,18 @@ const useGameStore = create(
         const apiBase = import.meta.env.VITE_API_URL || '';
         const wsProtocol = (apiBase.startsWith('https') || window.location.protocol === 'https:') ? 'wss:' : 'ws:';
         const wsHost = apiBase ? apiBase.replace(/^https?:\/\//, '') : window.location.host;
-        const wsUrl = `${wsProtocol}//${wsHost}/ws/${gameId}`;
+        // Browsers cannot set headers on a WebSocket, so the login token goes in the query string.
+        const token = get().accessSession?.token || '';
+        const wsUrl = `${wsProtocol}//${wsHost}/ws/${gameId}?token=${encodeURIComponent(token)}`;
 
         const socket = new WebSocket(wsUrl);
 
         socket.onopen = () => console.log(`Connected to Vault Websocket: ${gameId}`);
         socket.onerror = (err) => console.error("WebSocket connection error:", err);
+        socket.onclose = (event) => {
+          // 4401: the token is missing, expired or no longer valid. Back to the login screen.
+          if (event.code === WS_CLOSE_UNAUTHENTICATED) get().logout();
+        };
 
         socket.onmessage = (event) => {
           const message = JSON.parse(event.data);
@@ -167,6 +173,11 @@ const useGameStore = create(
           }
           else if (message.type === 'scene_transition') {
             console.log(`[SCENE SHIFT]: ${message.payload.scene_name} - ${message.payload.description}`);
+          }
+          else if (message.type === 'action_rejected') {
+            // The server refused a message this user may not send; nothing changed on the server.
+            console.warn(`Vault refused ${message.payload.action}: ${message.payload.detail}`);
+            if (message.payload.action === 'roll') set({ isRolling: false });
           }
           else if (message.type === 'notebook_entry') {
             set(state => {
@@ -363,8 +374,8 @@ const useGameStore = create(
         if (!userId) return;
         try {
           const [charsRes, campsRes] = await Promise.all([
-            fetch(apiUrl(`/api/users/${userId}/characters`)),
-            fetch(apiUrl(`/api/users/${userId}/campaigns`)),
+            apiFetch(`/api/users/${userId}/characters`),
+            apiFetch(`/api/users/${userId}/campaigns`),
           ]);
           if (charsRes.ok) set({ characters: await charsRes.json() });
           if (campsRes.ok) set({ gmCampaigns: await campsRes.json() });
@@ -627,7 +638,7 @@ const useGameStore = create(
         if (!campaignId) return;
         set({ campaignRoster: { pending_investigators: [], active_investigators: [], roster_finalized: false } });
         try {
-          const res = await fetch(apiUrl(`/campaign/${campaignId}/roster`));
+          const res = await apiFetch(`/campaign/${campaignId}/roster`);
           if (res.ok) {
             const data = await res.json();
             set({ campaignRoster: data });
@@ -639,7 +650,7 @@ const useGameStore = create(
 
       approveInvestigator: async (characterId, campaignId) => {
         try {
-          const res = await fetch(apiUrl(`/campaign/approve/${characterId}`), { method: 'POST' });
+          const res = await apiFetch(`/campaign/approve/${characterId}`, { method: 'POST' });
           if (res.ok) {
             await get().fetchRoster(campaignId);
           }
@@ -650,7 +661,7 @@ const useGameStore = create(
 
       rejectInvestigator: async (characterId, campaignId) => {
         try {
-          const res = await fetch(apiUrl(`/campaign/reject/${characterId}`), { method: 'POST' });
+          const res = await apiFetch(`/campaign/reject/${characterId}`, { method: 'POST' });
           if (res.ok) {
             await get().fetchRoster(campaignId);
           }
@@ -661,8 +672,8 @@ const useGameStore = create(
 
       joinCampaign: async (characterId, code, penFont = 'Caveat') => {
         try {
-          const res = await fetch(
-            apiUrl(`/campaign/join?character_id=${characterId}&code=${encodeURIComponent(code)}&pen_font=${encodeURIComponent(penFont)}`),
+          const res = await apiFetch(
+            `/campaign/join?character_id=${characterId}&code=${encodeURIComponent(code)}&pen_font=${encodeURIComponent(penFont)}`,
             { method: 'POST' }
           );
           if (res.ok) {
@@ -684,7 +695,7 @@ const useGameStore = create(
 
       refreshCharacterStatus: async (characterId) => {
         try {
-          const res = await fetch(apiUrl(`/api/investigators/${characterId}`));
+          const res = await apiFetch(`/api/investigators/${characterId}`);
           if (res.ok) {
             const char = await res.json();
             set(state => ({ character: { ...state.character, status: char.status } }));
@@ -705,7 +716,7 @@ const useGameStore = create(
           const { accessSession, character } = get();
           const role = accessSession?.role || 'player';
           const charId = character?.id || '';
-          const res = await fetch(apiUrl(`/api/notebook/${campaignId}/entries?role=${role}&character_id=${charId}`));
+          const res = await apiFetch(`/api/notebook/${campaignId}/entries?role=${role}&character_id=${charId}`);
           if (res.ok) {
             set({ notebookEntries: await res.json() });
           }
@@ -716,7 +727,7 @@ const useGameStore = create(
 
       submitNotebookEntry: async (campaignId, title, content, authorName, authorType, characterId = null, entryType = 'field_log', visibility = 'all', imageData = null) => {
         try {
-          const res = await fetch(apiUrl(`/api/notebook/${campaignId}/entries`), {
+          const res = await apiFetch(`/api/notebook/${campaignId}/entries`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -744,7 +755,7 @@ const useGameStore = create(
 
       updateNotebookEntry: async (entryId, title, content) => {
         try {
-          const res = await fetch(apiUrl(`/api/notebook/entries/${entryId}`), {
+          const res = await apiFetch(`/api/notebook/entries/${entryId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, content }),
@@ -765,7 +776,7 @@ const useGameStore = create(
 
       deleteEphemeralNote: async (entryId) => {
         try {
-          await fetch(apiUrl(`/api/notebook/entries/${entryId}`), { method: 'DELETE' });
+          await apiFetch(`/api/notebook/entries/${entryId}`, { method: 'DELETE' });
           set(state => ({
             notebookEntries: state.notebookEntries.filter(e => e.id !== entryId),
           }));
@@ -784,7 +795,7 @@ const useGameStore = create(
           formData.append('author_type', authorType);
           formData.append('entry_type', entryType);
           if (characterId) formData.append('character_id', String(characterId));
-          const res = await fetch(apiUrl(`/api/notebook/${campaignId}/upload`), { method: 'POST', body: formData });
+          const res = await apiFetch(`/api/notebook/${campaignId}/upload`, { method: 'POST', body: formData });
           if (res.ok) {
             const entry = await res.json();
             set(state => ({ notebookEntries: [...state.notebookEntries, entry] }));
@@ -825,7 +836,7 @@ const useGameStore = create(
       fetchCircleCreationState: async (campaignId) => {
         if (!campaignId) return;
         try {
-          const res = await fetch(apiUrl(`/campaign/${campaignId}/circle-creation-state`));
+          const res = await apiFetch(`/campaign/${campaignId}/circle-creation-state`);
           if (res.ok) {
             const data = await res.json();
             const rawAnswers = data.backstory_answers || {};
@@ -912,7 +923,7 @@ const useGameStore = create(
 
       finalizeRoster: async (campaignId, circleId) => {
         try {
-          const res = await fetch(apiUrl('/campaign/finalize-roster'), {
+          const res = await apiFetch('/campaign/finalize-roster', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ campaign_id: campaignId, circle_id: circleId }),
@@ -950,8 +961,33 @@ const useGameStore = create(
         circle: state.circle,
         rejoinInvite: state.rejoinInvite,
       }),
+
+      // A session saved before login tokens existed has no token, and the server
+      // refuses every call without one. Drop it, and what belonged to it, so the app
+      // starts on the login screen.
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted || {}) };
+        if (merged.accessSession?.token) return merged;
+        return {
+          ...merged,
+          accessSession: null,
+          stage: 'LOGIN',
+          character: null,
+          characters: [],
+          gmCampaigns: [],
+          lastPlayedCampaign: null,
+          circle: null,
+          rejoinInvite: null,
+        };
+      },
     }
   )
 );
+
+// Every API call sends the session's token; a 401 means it is gone or expired.
+configureApiAuth({
+  getToken: () => useGameStore.getState().accessSession?.token || null,
+  onUnauthorized: () => useGameStore.getState().logout(),
+});
 
 export default useGameStore;

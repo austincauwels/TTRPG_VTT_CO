@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import useGameStore from '../store/gameStore';
-import { apiUrl } from '../utils/api';
+import { apiFetch } from '../utils/api';
 
 import LoginScreen from './LoginScreen';
 import { CampaignSelector } from './CampaignSelector';
@@ -23,7 +23,7 @@ export const AppRouter = () => {
 
   const handleRejoinWithChar = async (char) => {
     try {
-      const res = await fetch(apiUrl('/campaign/rejoin'), {
+      const res = await apiFetch('/campaign/rejoin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ character_id: char.id, campaign_code: rejoinCode }),
@@ -106,7 +106,7 @@ export const AppRouter = () => {
                   intuition_current: characterData.intuition_max || 1,
                 };
 
-                const response = await fetch(apiUrl('/api/investigators/forge'), {
+                const response = await apiFetch('/api/investigators/forge', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(payload)
