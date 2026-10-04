@@ -103,7 +103,7 @@ def test_propose_relationship(client):
     [rel] = body["relationships"]
     assert rel == {"id": rel["id"], "from_character_id": a["id"], "to_character_id": b["id"],
                    "rel_type": "Rivals", "lore": "old feud", "status": "proposed",
-                   "last_actor_id": None}  # unlike the WebSocket version
+                   "last_actor_id": a["id"]}  # None before the token fixes
 
 
 def test_propose_only_for_own_character_with_a_fellow_member(client):
@@ -151,10 +151,39 @@ def test_respond_accept_and_counter(client):
     # the WebSocket counter rewrites the terms and sets status back to proposed.
     assert (row.rel_type, row.counter_type, row.counter_lore) == ("Rivals", "Allies", "truce")
 
-    r = _respond(client, rel_id, b["id"], action="accept")
+    # b acted last, so now only a may answer
+    assert _respond(client, rel_id, b["id"], action="accept").status_code == 403
+    r = _respond(client, rel_id, a["id"], action="accept")
     assert r.json()["relationships"][0]["status"] == "accepted"
+    assert r.json()["relationships"][0]["last_actor_id"] == a["id"]
     row = support.fetch(Relationship, rel_id)
     assert (row.counter_type, row.counter_lore) == (None, None)
+
+
+def test_respond_cannot_accept_ones_own_counter_or_proposal(client):
+    """Reviewer probe: REST respond used to check only the to-character's owner and
+    ignore last_actor_id, and REST propose did not set it. So b could counter over the
+    WebSocket and accept its own counter over REST, and a REST re-proposal left a
+    stale actor that let the proposer accept its own proposal over the WebSocket."""
+    camp, (a, b), cid = _setup(client)
+    body = {"circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"], "rel_type": "Rivals"}
+    rel_id = _propose(client, body).json()["relationships"][0]["id"]
+    with support.ws_connect(client, b["id"]) as wb:
+        wb.send("circle_relationship_respond", relationship_id=rel_id, action="counter",
+                counter_type="Nemesis", counter_lore="")
+        wb.sync()
+    assert _respond(client, rel_id, b["id"], action="accept").status_code == 403
+    row = support.fetch(Relationship, rel_id)
+    assert (row.status, row.rel_type, row.last_actor_id) == ("proposed", "Nemesis", b["id"])
+
+    _propose(client, body)  # a proposes again over REST, so b is the one to answer
+    with support.ws_connect(client, a["id"]) as wa:
+        wa.send("circle_relationship_respond", relationship_id=rel_id, action="accept")
+        [rejected] = wa.sync()
+        assert rejected["type"] == "action_rejected"
+    row = support.fetch(Relationship, rel_id)
+    assert (row.status, row.rel_type, row.last_actor_id) == ("proposed", "Rivals", a["id"])
+    assert _respond(client, rel_id, b["id"], action="accept").status_code == 200
 
 
 def test_respond_unknown_action_changes_nothing(client):

@@ -35,7 +35,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | GET /campaign/{campaign_id}/circle-creation-state | GM or member (unknown campaign is now 404, not 500) |
 | POST /circle/vote | owner of `character_id`; the character must be an active or pending member of the circle's campaign |
 | POST /circle/relationship/propose | owner of `from_character_id`; both characters members of the circle's campaign |
-| POST /circle/relationship/respond | owner of the relationship's to-character |
+| POST /circle/relationship/respond | the owner of the party that did not act last (for a row with no recorded actor, the to-character), as on the WebSocket; propose and respond record `last_actor_id` |
 | POST /campaign/finalize-roster | GM of that campaign |
 | GET /api/investigators | any logged-in user; lists only their own characters |
 | GET /api/investigators/{id} | owner, or GM of the character's campaign |

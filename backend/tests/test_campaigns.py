@@ -554,5 +554,5 @@ def test_circle_creation_state_with_content(client):
     }
     assert body["relationships"] == [{
         "id": rel["id"], "from_character_id": a["id"], "to_character_id": b["id"],
-        "rel_type": "Rivals", "lore": "feud", "status": "proposed", "last_actor_id": None}]
+        "rel_type": "Rivals", "lore": "feud", "status": "proposed", "last_actor_id": a["id"]}]
     assert body["backstory_answers"] == {"chapter_house": "Mill", "reports": {str(a["id"]): {"q0": True}}}
