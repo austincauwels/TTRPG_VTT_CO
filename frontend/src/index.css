@@ -324,6 +324,129 @@
   100% { transform: perspective(2400px) rotateY(180deg); opacity: 0; }
 }
 
+/* ================================================================= */
+/* PRINTED FORM FURNITURE (PrintMarks.jsx)                           */
+/* ================================================================= */
+/* The small print on the paper objects: registry and serial numbers, form numbers, edge
+   lines, printer's marks, rubber date stamps, ruled boxes and watermarks (owner's
+   request, 2026-10-04). Decoration only: aria-hidden, faint on purpose, never an
+   instruction, never over a control, and it takes no clicks. The Twelve Pixel Floor makes
+   an exception for it, as it does for the Herald's print. In the components layer, so a
+   utility on the element (a size, a position) still wins. */
+@layer components {
+  .print-watermark,
+  .print-small,
+  .print-serial,
+  .print-mark,
+  .print-edge,
+  .print-stamp,
+  .print-box {
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Oversized faint print behind a strip or a sheet, as if the form were printed on paper
+     that already carried the registry's number */
+  .print-watermark {
+    position: absolute;
+    white-space: nowrap;
+    font-family: theme('fontFamily.mono');
+    font-weight: 700;
+    font-size: 2.5rem;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: rgb(var(--c-ink) / 0.075);
+  }
+
+  /* A form number or a printer's line: tiny letterpress capitals */
+  .print-small {
+    font-family: theme('fontFamily.serif');
+    font-size: 10.5px;
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgb(var(--c-sepia) / 0.62);
+    white-space: nowrap;
+  }
+
+  /* A numbering machine's figures, in red ink */
+  .print-serial {
+    font-family: theme('fontFamily.mono');
+    font-size: 12px;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--c-oxblood) / 0.68);
+    white-space: nowrap;
+  }
+
+  /* A printer's registration mark in the margin of a proof */
+  .print-mark {
+    color: rgb(var(--c-sepia) / 0.45);
+    flex-shrink: 0;
+  }
+
+  /* Small print running along one edge of the paper; the paper clips it */
+  .print-edge {
+    position: absolute;
+    overflow: hidden;
+    white-space: nowrap;
+    font-family: theme('fontFamily.serif');
+    font-size: 9.5px;
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgb(var(--c-sepia) / 0.42);
+  }
+  .print-edge-vertical {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
+
+  /* A rubber date stamp in worn ink: a word over a date, a little crooked */
+  .print-stamp {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 7px 2px;
+    border: 1.5px solid currentColor;
+    border-radius: 2px;
+    font-family: theme('fontFamily.sans');
+    font-weight: 900;
+    font-size: 10px;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0.72;
+  }
+  .print-stamp.ink-stamp { display: inline-flex; }
+  .print-stamp[data-tone='oxblood'] { color: rgb(var(--c-oxblood)); }
+  .print-stamp[data-tone='green'] { color: rgb(var(--c-seal-green)); }
+  .print-stamp[data-tone='sepia'] { color: rgb(var(--c-sepia)); }
+  .print-stamp-date {
+    font-family: theme('fontFamily.mono');
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  /* A ruled box printed in the margin of a form and left blank */
+  .print-box {
+    display: inline-block;
+    min-width: 7.5rem;
+    padding: 4px 6px 6px;
+    border: 1px solid rgb(var(--c-sepia) / 0.32);
+  }
+  .print-box-line {
+    display: block;
+    height: 14px;
+    border-bottom: 1px dotted rgb(var(--c-sepia) / 0.4);
+  }
+}
+
 /* Keyboard focus ring. Outside the layers and marked important so no utility (such as a
    leftover focus:outline-none) can hide it. */
 :focus-visible {

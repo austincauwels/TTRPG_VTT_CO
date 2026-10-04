@@ -32,3 +32,11 @@ export const BrassCornerFiligree = () => (
 export const SheetDivider = () => (
   <div className="w-full h-0.5 border-t border-ink/20 my-6 border-dashed" />
 );
+
+// Two curved arrows chasing each other: this card has a back and turns over when pressed
+export const TurnOverMark = ({ className = '' }) => (
+  <svg aria-hidden="true" focusable="false" viewBox="0 0 16 16" className={`w-4 h-4 ${className}`}>
+    <path d="M2.5 8a5.5 5.5 0 0 1 9.6-3.7M13.5 8a5.5 5.5 0 0 1-9.6 3.7" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    <path d="M12.6 1.6v3.2H9.4M3.4 14.4v-3.2h3.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);

@@ -1,11 +1,14 @@
 import React from 'react';
 import { GiWaxSeal } from 'react-icons/gi';
+import { FormLine, SerialNo } from './PrintMarks';
 
 // The creator's paper stock: parchment with a double sepia rule, tea stains, two fold
 // lines, corner brackets and faint CANDELA OBSCURA and seal watermarks. The creator's
 // Profile, Actions and Circle sheets use it, and so does the login screen's admission
 // slip, so both are cut from the same sheet. bodyClassName sets the padding inside.
-export const PaperSheet = ({ children, className = '', bodyClassName = 'p-4 sm:p-8', ...rest }) => (
+// printLine and serial put the form's printed number and its red serial in the top
+// corners (from sm up, where the padding leaves room for them).
+export const PaperSheet = ({ children, className = '', bodyClassName = 'p-4 sm:p-8', printLine, serial, ...rest }) => (
   <div className={`paper-bg paper-texture relative ${className}`}
     style={{ border: '3px double rgb(var(--c-sepia))', boxShadow: '0 14px 36px rgba(0,0,0,0.65), inset 0 0 80px rgb(var(--c-sepia)/0.07)' }}
     {...rest}>
@@ -37,6 +40,8 @@ export const PaperSheet = ({ children, className = '', bodyClassName = 'p-4 sm:p
         <span className="text-[7px] font-sans font-black tracking-[0.35em] text-sepia uppercase">Archive</span>
       </div>
     </div>
+    {printLine && <FormLine className="hidden sm:inline absolute top-3.5 left-11 z-10">{printLine}</FormLine>}
+    {serial && <SerialNo value={serial} className="hidden sm:inline absolute top-3.5 right-11 z-10" />}
     <div className={`relative z-10 ${bodyClassName}`}>{children}</div>
   </div>
 );
