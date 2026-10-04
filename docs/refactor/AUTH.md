@@ -30,7 +30,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /campaign/approve/{character_id} | GM of the character's campaign (a character with no campaign has no GM: 403) |
 | POST /campaign/reject/{character_id} | GM of the character's campaign |
 | POST /campaign/{campaign_id}/retire | GM of that campaign |
-| POST /campaign/rejoin | owner of `character_id`, and only when the user has a pending rejoin invite to that campaign or has a dead character in it (rejoin skips GM approval) |
+| POST /campaign/rejoin | owner of `character_id`, and only when the user has a pending rejoin invite to that campaign or an approved character there that died and has not been replaced yet (dead, status active; the rejoin retires it, so one death opens the way once). Rejoin skips GM approval, so a dead pending character does not count |
 | POST /campaign/{campaign_id}/invite-rejoin | GM of that campaign |
 | GET /campaign/{campaign_id}/roster | GM or member |
 | GET /campaign/{campaign_id}/circle-creation-state | GM or member (unknown campaign is now 404, not 500) |
@@ -199,7 +199,7 @@ User 1 (`admin`) owns every character forged before tokens without a `user_id` (
 - Approve and reject of an unknown character are 404 (they were 400).
 - Roster, notebook list and circle creation state for an unknown campaign are 404 (they were 200 with empty data, or 500).
 - Notebook writes with an unknown character or campaign are 404 (they were 500).
-- Rejoin without an invite or a dead character in that campaign is 403 (it always succeeded).
+- Rejoin without an invite or a dead character in that campaign is 403 (it always succeeded). Since the security review only an approved character that died counts: any dead character used to, and a player can kill their own pending character with four scars, so anyone with the campaign code could join, die and rejoin as an active member without the GM.
 - `GET /api/investigators` lists only the caller's characters (it listed everyone's).
 - WebSocket: unknown channels (including `gm`) are closed with 4404 instead of opening on circle 1. A GM channel obeys GM messages without `role: "GM"` in the payload; a player channel is refused them whatever role it claims.
 - WebSocket: an unaffiliated character can no longer chat (its whispers used to match names in every campaign) or intercept a mark for a character outside its campaign.

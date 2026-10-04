@@ -194,12 +194,17 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="Character not found")
     require_owner(user, new_char)
     # Rejoining skips GM approval, so it is only open to a user the GM invited back
-    # to this campaign, or one whose character there has died.
+    # to this campaign, or one whose approved character there has died and is still
+    # on the roster (dead characters keep status active until they are replaced; this
+    # rejoin retires it, so one death opens the path once). A pending character does
+    # not count: its owner can kill it on its own socket, so anyone with the campaign
+    # code could join, die and come back active without the GM.
     invited = user.pending_rejoin_campaign_id == campaign.id
     lost_a_character = db.query(Character.id).filter(
         Character.user_id == user.id,
         Character.campaign_id == campaign.id,
         Character.is_dead == True,
+        Character.status == "active",
     ).first() is not None
     if not (invited or lost_a_character):
         raise forbidden()

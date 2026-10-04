@@ -385,6 +385,47 @@ def test_rejoin_after_a_death_needs_no_invite(client):
     assert support.fetch(Character, new["id"]).status == "active"
 
 
+def test_rejoin_after_a_death_needs_an_approved_character(client):
+    """Rejoin skips GM approval. The death path used to count any dead character of the
+    user tagged with the campaign, so anyone with the campaign code could join it
+    (pending), kill that character with four scars on its own socket, and rejoin with
+    another character as an active member the GM never approved. Now only an approved
+    character that died and is still on the roster (status active) counts, so a death
+    opens the path once: the rejoin retires the dead character."""
+    camp = support.new_campaign(client)
+    u = support.make_user()
+    bait = support.pending_member(client, camp, user_id=u.id)
+    with support.ws_connect(client, bait["id"]) as ws:
+        for n in range(4):
+            ws.send("apply_scar", scar_text=f"scar {n}", skip_shifts=True)
+        ws.sync()
+    assert support.fetch(Character, bait["id"]).is_dead is True
+    sneak = support.forge(client, user_id=u.id)
+    body = {"character_id": sneak["id"], "campaign_code": camp["campaign_code"]}
+    r = client.post("/campaign/rejoin", json=body, headers=support.as_user(u.id))
+    assert r.status_code == 403
+    assert r.json() == {"detail": "Not allowed."}
+    row = support.fetch(Character, sneak["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+    assert support.fetch(Character, bait["id"]).status == "pending"
+
+    # An approved character that died opens the path, once.
+    v = support.make_user()
+    fallen = support.active_member(client, camp, user_id=v.id)
+    support.update(Character, fallen["id"], is_dead=True)
+    heir = support.forge(client, user_id=v.id)
+    r = client.post("/campaign/rejoin", json={"character_id": heir["id"], "campaign_code": camp["campaign_code"]},
+                    headers=support.as_user(v.id))
+    assert r.status_code == 200
+    assert support.fetch(Character, fallen["id"]).status == "retired"
+    support.update(Character, heir["id"], campaign_id=None, status="unaffiliated")  # the heir leaves again
+    another = support.forge(client, user_id=v.id)
+    r = client.post("/campaign/rejoin", json={"character_id": another["id"], "campaign_code": camp["campaign_code"]},
+                    headers=support.as_user(v.id))
+    assert r.status_code == 403
+    assert support.fetch(Character, another["id"]).status == "unaffiliated"
+
+
 def test_rejoin_retires_living_active_character_of_same_user(client):
     camp = support.new_campaign(client)
     u = support.make_user(pending_rejoin_campaign_id=camp["id"])

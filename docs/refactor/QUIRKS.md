@@ -93,3 +93,9 @@ Each fix has its own commit, and its test was flipped or added in that commit.
 - GET circle-creation-state for an unknown campaign: already 404 since the login token stage, with no code change here. The test now also checks that no circle is created, for an unknown campaign or for a refused caller (403), and covers an id too large for an integer column: test_circle_creation_state_unknown_campaign_is_404. For the GM and members the GET still creates the campaign's circle the first time.
 
 The game rules were not changed. Places where the app's mechanics may differ from the rulebook (the zero-rating critical, Back Against the Wall, Premonitions and others) are listed in docs/refactor/RULES_CHECK.md for the game's owner to confirm.
+
+## Fixed by the security review (2026-10-04)
+
+A hand review of the sign-in and campaign access code (routers/auth.py, routers/campaigns.py, schemas.py). Each fix has its own commit and test.
+
+- Rejoin after a death: the death path counted any dead character of the user tagged with the campaign. A player can kill their own pending character (four scars on its own socket), so anyone with the campaign code could join, die and rejoin with another character as an active member the GM never approved. Only an approved character that died and has not been replaced yet (status active) counts now, so one death opens the path once. Test: test_rejoin_after_a_death_needs_an_approved_character.
