@@ -147,7 +147,7 @@ function useLinesThatFit() {
   return [ref, count];
 }
 
-// Renders a single notebook entry — supports field_log, sketch, photo, lightkeeper.
+// Renders a single notebook entry: a field log, sketch, photo or Lightkeeper entry.
 // onRedraw: given for a drawn sketch its reader wrote, who can take it up again.
 function EntryCard({ entry, isLast, onRedraw }) {
   const eType = entry.entry_type || 'field_log';
