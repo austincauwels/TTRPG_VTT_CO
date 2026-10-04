@@ -9,7 +9,7 @@ import secrets
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from models import Circle, User
+from models import Circle, PasswordResetToken, User
 from vtt.config import SQLALCHEMY_DATABASE_URL, logger
 from vtt.security import pwd_context
 
@@ -122,7 +122,9 @@ def init_db():
     passwords. Each migration is idempotent; the except block silently ignores columns
     that already exist. The ALTERs add the types the models declare, and flag columns
     that older ALTERs added as INTEGER are converted to BOOLEAN (convert_integer_flags). The seeded admin (user 1, which owns characters forged before
-    login tokens) gets a random password nobody knows."""
+    login tokens) gets a random password nobody knows. Tables added after the first
+    release (password_reset_tokens) are created here when missing, so init_db alone
+    brings an older database up to date."""
     db = SessionLocal()
     try:
         circle = db.query(Circle).filter(Circle.id == 1).first()
@@ -306,6 +308,14 @@ def init_db():
             conn.commit()
     except Exception as e:
         logger.error("Could not create the unique index on users.google_sub: %s", e)
+
+    # Password reset links. main.py's create_all makes the table on a normal start; this
+    # makes it (with its indexes) on a database that only init_db upgrades. checkfirst
+    # leaves an existing table and its rows alone.
+    try:
+        PasswordResetToken.__table__.create(bind=db_engine, checkfirst=True)
+    except Exception as e:
+        logger.error("Could not create the password_reset_tokens table: %s", e)
 
     convert_integer_flags()
     retire_published_passwords()

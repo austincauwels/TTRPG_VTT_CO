@@ -98,3 +98,79 @@ export const linkGoogleAccount = (linkToken, username, password) =>
 
 export const createGoogleAccount = (linkToken, username) =>
   postAuth('/api/auth/google/create', { link_token: linkToken, username });
+
+// ==========================================
+// THE SIGNED-IN USER'S ACCOUNT (docs/refactor/AUTH.md)
+// ==========================================
+
+// { userId, name, email, googleLinked } for the signed-in user, or null when it cannot
+// be read. The account menu offers "Link Google account" while googleLinked is false.
+export const fetchAccount = async () => {
+  try {
+    const response = await apiFetch('/api/auth/me');
+    return response.ok ? await response.json() : null;
+  } catch {
+    return null;
+  }
+};
+
+// Links the Google account of a credential from Google Identity Services to the
+// signed-in user. Resolves to the updated account ({ ..., googleLinked: true }); the
+// session and the password stay as they are. Throws like the sign-in calls: 409 when
+// this account or that Google account is linked already, 400 when Google refused.
+export const linkGoogleToAccount = (credential) => postAuth('/api/auth/me/google', { credential });
+
+// ==========================================
+// PASSWORD RESET BY EMAIL (docs/refactor/AUTH.md)
+// ==========================================
+
+// Asks for a reset email. Resolves to { ok: true } whether or not an account uses the
+// address, so the page shows the same text either way.
+export const requestPasswordReset = async (email) => {
+  try {
+    return await postAuth('/api/auth/password-reset', { email });
+  } catch (error) {
+    // Limited per address (3 an hour) as well as per connection.
+    if (error.status === 429) error.message = 'Too many reset emails have been asked for. Please try again in an hour.';
+    throw error;
+  }
+};
+
+// Sets the new password with the token from the emailed link (/reset-password?token=...).
+// Resolves to a session, the same as a password login; every earlier session has ended.
+// Throws with status 400 when the link has expired or has been used.
+export const confirmPasswordReset = (token, password) =>
+  postAuth('/api/auth/password-reset/confirm', { token, password });
+
+// ==========================================
+// PORTRAITS
+// ==========================================
+
+// The largest picture the server takes as a portrait (backend/vtt/portraits.py), in
+// bytes, as File.size counts them. Forge takes the same pictures.
+export const PORTRAIT_MAX_BYTES = 10 * 1024 * 1024;
+
+// Sets a character's portrait to a data URL (FileReader.readAsDataURL of the picture),
+// or clears it with null. Allowed for the owner and for the campaign's GM. Resolves to
+// the character as the WebSocket sends it; throws an Error with .status (413 too large,
+// 422 not a picture, 403 not allowed) and a message that can be shown as is.
+export const setCharacterPortrait = async (characterId, profilePic) => {
+  let response;
+  try {
+    response = await apiFetch(`/api/investigators/${characterId}/portrait`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile_pic: profilePic ?? null }),
+    });
+  } catch {
+    throw new Error('The server could not be reached. Please check your connection and try again.');
+  }
+  if (!response.ok) {
+    const error = new Error(response.status === 413
+      ? 'The portrait is too large. Choose a picture of at most 10 MB.'
+      : await authErrorMessage(response));
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
+};

@@ -1,30 +1,35 @@
 """Signing in: password login and registration (POST /api/auth/login, /api/auth/register),
 Sign in with Google (POST /api/auth/google, /api/auth/google/link,
 /api/auth/google/create), and GET /api/auth/config, which tells the login screen
-which of the two is on.
+which of the two is on. Password reset by email (POST /api/auth/password-reset and
+/api/auth/password-reset/confirm, see vtt/password_reset.py). The signed-in user's
+own account: GET /api/auth/me, and POST /api/auth/me/google, which links a Google
+account to it.
 
 Every route that signs someone in answers with the user's details plus "token", a
 login token (see vtt/security.py) that every other route and the WebSocket require.
-These routes are the only ones that work without one. docs/refactor/AUTH.md has the
-rules for linking a Google account to a user.
+These routes and the reset request are the only ones that work without one.
+docs/refactor/AUTH.md has the rules for linking a Google account to a user and for
+reset links.
 """
 import re
 import secrets
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from models import Campaign, User
-from vtt import config, google
+from vtt import config, google, password_reset
+from vtt.auth import get_current_user
 from vtt.config import logger
 from vtt.db import PUBLISHED_PASSWORDS, get_db, unusable_password_hash
 from vtt.google import GoogleIdentity
 from vtt.schemas import (GoogleCreateRequest, GoogleLinkRequest, GoogleSignInRequest, LoginRequest,
-                         RegisterRequest)
+                         PasswordResetConfirm, PasswordResetRequest, RegisterRequest)
 from vtt.security import create_access_token, create_link_token, identity_from_link_token, limiter, pwd_context
 
 router = APIRouter()
@@ -41,6 +46,9 @@ GOOGLE_ALREADY_LINKED = "This Google account is already linked to an account. Pl
 ACCOUNT_ALREADY_LINKED = "That account is already linked to a Google account."
 EMAIL_TAKEN = ("An account with this email address already exists. "
                "Please use Link my existing account instead.")
+GOOGLE_LINKED_ELSEWHERE = "This Google account is already linked to another account."
+RESET_ADDRESS_LIMITED = "Too many reset emails were asked for this address. Please wait an hour and try again."
+RESET_LINK_INVALID = "This link has expired or has already been used. Please ask for a new one."
 
 
 def signed_in_response(db: Session, user: User) -> dict:
@@ -185,11 +193,13 @@ def refuse_linked_google_account(db: Session, identity: GoogleIdentity) -> None:
 
 
 def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: str,
-                        new_password_hash: Optional[str] = None) -> None:
+                        new_password_hash: Optional[str] = None,
+                        taken_detail: str = GOOGLE_ALREADY_LINKED) -> None:
     """Links the Google account to the user. With new_password_hash (the hash of a
     password nobody knows) the user's password is replaced, which also ends every
     login token issued before (they carry a stamp of the password hash, see
-    vtt/security.py)."""
+    vtt/security.py). When another user has the Google account by now, the answer is
+    409 with taken_detail."""
     replace_password = new_password_hash is not None
     user.google_sub = identity.sub
     if replace_password:
@@ -198,9 +208,9 @@ def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: 
         db.commit()
     except IntegrityError:
         # google_sub is the only unique column that changed, so another request linked
-        # this Google account to someone else after refuse_linked_google_account looked.
+        # this Google account to someone else after the route's check looked.
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=GOOGLE_ALREADY_LINKED)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=taken_detail)
     db.refresh(user)
     logger.info("Linked a Google account to user id=%s (%s%s)", user.id, how,
                 ", password replaced" if replace_password else "")
@@ -338,3 +348,87 @@ async def google_create(request: Request, body: GoogleCreateRequest, db: Session
 async def auth_config():
     """Which ways of signing in are on, for the login screen. Public."""
     return {"google": bool(config.GOOGLE_CLIENT_ID), "password_login": config.ALLOW_PASSWORD_LOGIN}
+
+
+# --- the signed-in user's own account ------------------------------------------------
+
+def account_view(user: User) -> dict:
+    """The signed-in user's account, as GET /api/auth/me and POST /api/auth/me/google answer."""
+    return {"userId": user.id, "name": user.username, "email": user.email,
+            "googleLinked": user.google_sub is not None}
+
+
+@router.get("/api/auth/me")
+async def current_account(user: User = Depends(get_current_user)):
+    """The caller's account, including whether a Google account is linked to it."""
+    return account_view(user)
+
+
+def refuse_google_linked_elsewhere(db: Session, identity: GoogleIdentity) -> None:
+    if db.query(User.id).filter(User.google_sub == identity.sub).first() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=GOOGLE_LINKED_ELSEWHERE)
+
+
+@router.post("/api/auth/me/google")
+@limiter.limit("10/minute")
+async def link_google_to_account(request: Request, body: GoogleSignInRequest, db: Session = Depends(get_db),
+                                 user: User = Depends(get_current_user)):
+    """Links the Google account of a Google ID token (the credential, as for
+    /api/auth/google) to the signed-in user, who has none yet. The login token proves
+    the account, so the password stays as it is and so do the login tokens. From then
+    on Sign in with Google signs in to this account."""
+    try:
+        identity = await verified_google_identity(body.credential)
+    except HTTPException as exc:
+        # Elsewhere a refused credential is 401, but this caller is signed in, and the
+        # browser ends the session on any 401 (apiFetch in utils/api.js).
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.detail)
+        raise
+    if user.google_sub == identity.sub:
+        return account_view(user)  # linked already, for example by a second click
+    if user.google_sub is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ACCOUNT_ALREADY_LINKED)
+    refuse_google_linked_elsewhere(db, identity)
+    link_google_account(db, user, identity, "signed in", taken_detail=GOOGLE_LINKED_ELSEWHERE)
+    return account_view(user)
+
+
+# --- password reset by email (vtt/password_reset.py) -----------------------------------
+
+@router.post("/api/auth/password-reset", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("5/minute;20/hour")
+async def request_password_reset(request: Request, body: PasswordResetRequest, background_tasks: BackgroundTasks,
+                                 db: Session = Depends(get_db)):
+    """Emails a link to set a new password to every account with this email address
+    (ignoring case), except seeded accounts and accounts whose email cannot receive
+    mail. The answer is the same whether or not an account has the address, and the
+    emails go out after it. Limited per IP and per address."""
+    require_password_login()
+    if not password_reset.address_allowed(body.email):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=RESET_ADDRESS_LIMITED)
+    password_reset.forget_expired(db)
+    emails = password_reset.issue_links(db, password_reset.accounts_for(db, body.email))
+    db.commit()
+    for message in emails:
+        background_tasks.add_task(password_reset.send_reset_email, message)
+    return {"ok": True}
+
+
+@router.post("/api/auth/password-reset/confirm")
+@limiter.limit("10/minute")
+async def confirm_password_reset(request: Request, body: PasswordResetConfirm, db: Session = Depends(get_db)):
+    """Sets a new password with the token from a reset link, once. The new password ends
+    every login token issued before; the answer is what login answers, with a new one."""
+    require_password_login()
+    found = password_reset.find_token(db, body.token)
+    if found is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=RESET_LINK_INVALID)
+    row, user = found
+    new_hash = await run_in_threadpool(pwd_context.hash, body.password)
+    if not password_reset.use_token(db, row, user, new_hash):
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=RESET_LINK_INVALID)
+    db.commit()
+    logger.info("Set a new password with a reset link for user id=%s", user.id)
+    return signed_in_response(db, user)

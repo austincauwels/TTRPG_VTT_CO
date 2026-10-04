@@ -724,3 +724,163 @@ def test_create_rate_limit_five_per_minute(client, google, limiter_on):
 def test_config_is_not_rate_limited(client, limiter_on):
     assert all(client.get("/api/auth/config").status_code == 200 for _ in range(30))
 
+
+# --- the signed-in user's account: GET /api/auth/me, POST /api/auth/me/google ------------------
+
+def me(client, headers):
+    return client.get("/api/auth/me", headers=headers)
+
+
+def link_signed_in(client, credential, headers):
+    return client.post("/api/auth/me/google", json={"credential": credential}, headers=headers)
+
+
+def test_me_shows_the_account(client):
+    u = support.make_user()
+    r = me(client, support.as_user(u.id))
+    assert r.status_code == 200
+    assert r.json() == {"userId": u.id, "name": u.username, "email": u.email, "googleLinked": False}
+
+
+def test_me_shows_a_linked_google_account(client):
+    u = support.make_user(google_sub=f"g{support.uid(20)}")
+    assert me(client, support.as_user(u.id)).json()["googleLinked"] is True
+
+
+def test_me_needs_a_token(client):
+    r = client.get("/api/auth/me")
+    assert r.status_code == 401
+    assert r.json() == {"detail": "Not authenticated."}
+
+
+def test_a_signed_in_user_links_google(client, google):
+    u = support.make_user()
+    headers = support.as_user(u.id)
+    credential = google.credential()
+    r = link_signed_in(client, credential, headers)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"userId": u.id, "name": u.username, "email": u.email, "googleLinked": True}
+    sub = google.identity(credential).sub
+    assert google_sub_of(u.id) == sub
+    # the password and the session stay as they were
+    assert support.login(client, u.username, support.PASSWORD).status_code == 200
+    assert me(client, headers).json()["googleLinked"] is True
+    # and from now on Google signs in to this account
+    assert_signed_in_as(google_sign_in(client, google.credential(sub=sub)), u.id)
+
+
+def test_linking_while_signed_in_keeps_the_account_email(client, google):
+    u = support.make_user()
+    r = link_signed_in(client, google.credential(email=f"other.{support.uid()}@gmail.test"), support.as_user(u.id))
+    assert r.status_code == 200
+    assert support.fetch(User, u.id).email == u.email
+
+
+def test_linking_the_same_google_account_again_changes_nothing(client, google):
+    """A second click, or a second tab, gets the account back."""
+    u = support.make_user()
+    headers = support.as_user(u.id)
+    credential = google.credential()
+    assert link_signed_in(client, credential, headers).status_code == 200
+    sub = google.identity(credential).sub
+    r = link_signed_in(client, google.credential(sub=sub), headers)
+    assert r.status_code == 200
+    assert r.json()["googleLinked"] is True
+    assert google_sub_of(u.id) == sub
+
+
+def test_an_account_with_another_google_account_is_409(client, google):
+    sub = f"g{support.uid(20)}"
+    u = support.make_user(google_sub=sub)
+    r = link_signed_in(client, google.credential(), support.as_user(u.id))
+    assert r.status_code == 409
+    assert r.json() == {"detail": "That account is already linked to a Google account."}
+    assert google_sub_of(u.id) == sub
+
+
+def test_a_google_account_linked_to_someone_else_is_409(client, google):
+    sub = f"g{support.uid(20)}"
+    other = support.make_user(google_sub=sub)
+    u = support.make_user()
+    r = link_signed_in(client, google.credential(sub=sub), support.as_user(u.id))
+    assert r.status_code == 409
+    assert r.json() == {"detail": "This Google account is already linked to another account."}
+    assert google_sub_of(u.id) is None
+    assert google_sub_of(other.id) == sub
+
+
+def test_signed_in_link_when_another_request_linked_the_google_account_first(client, google, monkeypatch):
+    """The unique index catches what the check before the write missed."""
+    sub = f"g{support.uid(20)}"
+    support.make_user(google_sub=sub)
+    u = support.make_user()
+    monkeypatch.setattr(auth_router, "refuse_google_linked_elsewhere", lambda db, identity: None)
+    r = link_signed_in(client, google.credential(sub=sub), support.as_user(u.id))
+    assert r.status_code == 409
+    assert r.json() == {"detail": "This Google account is already linked to another account."}
+    assert google_sub_of(u.id) is None
+
+
+def test_a_refused_credential_is_400_and_keeps_the_session(client, google):
+    """Not 401 as on the sign-in routes: the browser ends the session on any 401."""
+    u = support.make_user()
+    headers = support.as_user(u.id)
+    r = link_signed_in(client, "a-credential-google-never-issued", headers)
+    assert r.status_code == 400
+    assert r.json() == {"detail": "Google could not confirm this sign-in. Please try again."}
+    assert me(client, headers).status_code == 200
+    assert google_sub_of(u.id) is None
+
+
+def test_signed_in_link_with_google_out_of_reach_is_503(client, google):
+    google.error = GoogleUnavailableError("Could not fetch certificates")
+    u = support.make_user()
+    r = link_signed_in(client, google.credential(), support.as_user(u.id))
+    assert r.status_code == 503
+    assert google_sub_of(u.id) is None
+
+
+def test_signed_in_link_without_a_client_id_is_503(client, google, monkeypatch):
+    monkeypatch.setattr(config, "GOOGLE_CLIENT_ID", "")
+    r = link_signed_in(client, google.credential(), support.as_user(support.make_user().id))
+    assert r.status_code == 503
+    assert r.json() == {"detail": "Sign in with Google is not set up on this server."}
+    assert google.calls == 0
+
+
+@pytest.mark.parametrize("token", [None, "not-a-token", "link token"])
+def test_signed_in_link_needs_a_login_token(client, google, token):
+    if token == "link token":
+        token = needs_account(client, google)
+    headers = support.bearer(token) if token else {}
+    calls = google.calls
+    r = link_signed_in(client, google.credential(), headers)
+    assert r.status_code == 401
+    assert r.json() == {"detail": "Not authenticated."}
+    assert google.calls == calls  # Google is not asked before the token is checked
+
+
+def test_signed_in_link_works_with_password_login_off(client, google, monkeypatch):
+    u = support.make_user()
+    headers = support.as_user(u.id)
+    monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", False)
+    assert link_signed_in(client, google.credential(), headers).status_code == 200
+
+
+@pytest.mark.parametrize("body", [{}, {"credential": None}, {"credential": "x" * 8193}])
+def test_signed_in_link_body_validation(client, google, body):
+    r = client.post("/api/auth/me/google", json=body, headers=support.as_user(support.make_user().id))
+    assert r.status_code == 422
+    assert google.calls == 0
+
+
+def test_signed_in_link_rate_limit_ten_per_minute(client, google, limiter_on):
+    headers = support.as_user(support.make_user().id)
+    codes = [link_signed_in(client, "never-issued", headers).status_code for _ in range(11)]
+    assert codes == [400] * 10 + [429]
+
+
+def test_me_is_not_rate_limited(client, limiter_on):
+    headers = support.as_user(support.make_user().id)
+    assert all(me(client, headers).status_code == 200 for _ in range(30))
+

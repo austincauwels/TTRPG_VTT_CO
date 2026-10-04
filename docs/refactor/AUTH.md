@@ -7,7 +7,7 @@ Before this stage the server trusted whatever user id, character id or role the 
 - `POST /api/auth/login` and `POST /api/auth/register` return every field they returned before, plus `token`. The Google sign-in routes return the login shape with `token` too (see Sign in with Google below).
 - The token is a JWT signed with `SECRET_KEY`, algorithm HS256. Claims: `sub` (the user id as a string), `pwh` (the password stamp, below), `iat`, `exp` (30 days after `iat`). There is no refresh; after 30 days the user logs in again.
 - Decoding accepts HS256 only and requires `sub`, `pwh`, `iat` and `exp`. A token that is malformed, expired, signed with another key or algorithm, whose user no longer exists, or whose password stamp no longer matches the user counts as no token.
-- The password stamp is a keyed hash (HMAC-SHA256 with `SECRET_KEY`, 32 hex digits) of the user's password hash at the time the token was issued (`password_stamp` in `vtt/security.py`). When the password is replaced, every login token issued before stops working (REST 401, WebSocket 4401). That happens when Sign in with Google links an account by email (step 2 below), when `retire_published_passwords` replaces a published password, and when someone sets a new hash in the database. Tokens issued before the stamp existed have no `pwh` and no longer work, so everyone logs in once more after this change.
+- The password stamp is a keyed hash (HMAC-SHA256 with `SECRET_KEY`, 32 hex digits) of the user's password hash at the time the token was issued (`password_stamp` in `vtt/security.py`). When the password is replaced, every login token issued before stops working (REST 401, WebSocket 4401). That happens when Sign in with Google links an account by email (step 2 below), when a password reset link is used (Password reset by email below), when `retire_published_passwords` replaces a published password, and when someone sets a new hash in the database. Tokens issued before the stamp existed have no `pwh` and no longer work, so everyone logs in once more after this change.
 - A token that carries a `purpose` claim is never a login token (Google link tokens have one).
 - Every bcrypt hash and password check of the sign-in routes runs in a worker thread (`run_in_threadpool`), so a sign-in does not hold up the event loop and the game's WebSockets for the quarter of a second bcrypt takes. A login or link with an unknown username runs passlib's dummy check, so it takes as long as a wrong password (`check_password` in `vtt/routers/auth.py`).
 - Code: `vtt/security.py` (issue and decode), `vtt/auth.py` (the `get_current_user` dependency and the access helpers).
@@ -15,7 +15,7 @@ Before this stage the server trusted whatever user id, character id or role the 
 
 ## REST
 
-Every route except the sign-in routes (login, register, the three `/api/auth/google` routes and `GET /api/auth/config`) takes `Authorization: Bearer <token>`. Without a valid token the answer is 401 `{"detail": "Not authenticated."}` with `WWW-Authenticate: Bearer`, before any other check.
+Every route except the sign-in routes (login, register, the three `/api/auth/google` routes, `GET /api/auth/config`, and the two `/api/auth/password-reset` routes) takes `Authorization: Bearer <token>`. Without a valid token the answer is 401 `{"detail": "Not authenticated."}` with `WWW-Authenticate: Bearer`, before any other check.
 
 After that, ids the client sends are checked against the caller:
 
@@ -42,7 +42,10 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /campaign/finalize-roster | GM of that campaign |
 | GET /api/investigators | any logged-in user; lists only their own characters |
 | GET /api/investigators/{id} | owner, or GM of the character's campaign |
-| POST /api/investigators/forge | any logged-in user; the character is theirs |
+| POST /api/investigators/forge | any logged-in user; the character is theirs. `profile_pic` follows the portrait rule (Portraits below) |
+| PUT /api/investigators/{id}/portrait | owner, or GM of the character's campaign while the character is on its roster (active or pending; a retired character still tagged with the campaign is 403 for that GM) |
+| GET /api/auth/me | any logged-in user; their own account |
+| POST /api/auth/me/google | any logged-in user; links a Google account to their own account (Linking Google while signed in below) |
 | GET /api/notebook/{campaign_id}/entries | GM or member; `role=GM` only for the GM (403 otherwise); `character_id` must be the caller's own character (an empty `character_id=` means none) |
 | POST /api/notebook/{campaign_id}/entries | GM or member; a player must send `character_id`, and it must be the caller's own character and an active member of this campaign (the GM may leave it out); Lightkeeper entries (author_type gm, entry_type lightkeeper or visibility gm_only) only for the GM. The server sets `author_name` (the character's name, or the GM's username), pen and ink |
 | PUT, DELETE /api/notebook/entries/{entry_id} | the author: the owner of the entry's character, or the campaign's GM for an entry without a character |
@@ -187,12 +190,92 @@ Two requests at once: the checks above run before the write, so another request 
 - It reads `GET /api/auth/config` on load: no button when the server has no client ID, no password form when password login is off. Until the answer comes (or if it never does) both are offered. A 403 from login or register also hides the form and shows the server's message.
 - After Google: a session is stored exactly like a password login's. `needs_account` shows a choice between "Link my existing account" (username and password, once) and "Create a new account" (the name prefilled with `suggested_name`). Errors show inline in the server's words; a 429 shows "Too many attempts. Please wait a minute and try again."
 - The calls are `fetchAuthConfig`, `signInWithGoogle`, `linkGoogleAccount` and `createGoogleAccount` in `utils/api.js`.
+- For the account menu, the reset page and portraits, `utils/api.js` also has `fetchAccount` (GET /api/auth/me, null on failure), `linkGoogleToAccount(credential)`, `requestPasswordReset(email)` (a 429 reads "Too many reset emails have been asked for. Please try again in an hour."), `confirmPasswordReset(token, password)` (resolves to a session), `setCharacterPortrait(characterId, dataUrlOrNull)` and `PORTRAIT_MAX_BYTES`. No component calls them yet.
 - Google's button opens a popup. A `Cross-Origin-Opener-Policy: same-origin` header on the page would break it, and a Content-Security-Policy would have to allow `https://accounts.google.com/gsi/` for scripts, frames, styles and connections. The site sends neither today.
 - The Google OAuth client must list every origin the site is served from (and `http://localhost:5173` for development) under Authorized JavaScript origins.
 
+## Linking Google while signed in
+
+A player who signed in with a password can link a Google account from the desk's account menu. The browser runs Google's sign-in, then posts the credential with its login token.
+
+### GET /api/auth/me
+
+Needs a login token (401 otherwise); not rate limited. Answers the caller's own account: `{"userId": 12, "name": "mira", "email": "mira@example.org", "googleLinked": false}`. The account menu shows "Link Google account" while `googleLinked` is false.
+
+### POST /api/auth/me/google `{credential}`
+
+Needs a login token, checked first (401 `{"detail": "Not authenticated."}`, and Google is not asked). Rate limited 10 per minute per IP. Body as for `POST /api/auth/google` (a missing credential, or one over 8192 characters, is 422). It works whether or not password login is on.
+
+| Check, in order | Answer |
+|---|---|
+| no `GOOGLE_CLIENT_ID` | 503 "Sign in with Google is not set up on this server." |
+| Google refuses the credential | **400** "Google could not confirm this sign-in. Please try again." It is 401 on the sign-in routes, but this caller is signed in, and `apiFetch` ends the session on any 401 |
+| Google cannot be reached | 503, as for sign-in |
+| the account is linked to this Google account already | 200 with the account, nothing changes (a second click) |
+| the account is linked to another Google account | 409 "That account is already linked to a Google account." |
+| another user has this Google account | 409 "This Google account is already linked to another account." (also when another request linked it in between and the unique index refuses the write) |
+| otherwise | `google_sub` is set and the answer is the account, as `GET /api/auth/me` gives it, with `googleLinked: true` |
+
+The login token proves the account, so nothing else changes: the password stays (password login keeps working), every login token keeps working, and the account's email stays as it was even when the Google email differs. From then on `POST /api/auth/google` signs in to this account by the Google subject (step 1).
+
+## Portraits
+
+`PUT /api/investigators/{id}/portrait` with `{"profile_pic": "data:image/jpeg;base64,..."}` sets a character's portrait; `{"profile_pic": null}` (or `""`) clears it. The field is required: `{}` is 422. Who may call it is in the table above; 401, then 404 "Investigator dossier not found.", then 403, then the picture checks, so nobody learns anything about a character they may not touch.
+
+- The picture is what the character creator already sends to forge: the result of `FileReader.readAsDataURL`, `data:image/<type>;base64,<bytes>`. `<type>` is one of png, jpeg, jpg, gif, webp, avif, heic, heif, bmp, tiff or apng (any case). SVG is refused because it can carry script, and so is anything that is not such a data URL (a link to an image elsewhere would make every viewer's browser fetch it). Bad base64 or an empty picture is refused too. All of these are 422 "The portrait must be a picture (PNG, JPEG, GIF, WebP, AVIF, HEIC, BMP or TIFF)."
+- Size: at most 10 MB (10 × 1024 × 1024 bytes of picture, about 13.4 MB as base64), else 413 "The portrait is too large. Choose a picture of at most 10 MB." `PORTRAIT_MAX_BYTES` in `vtt/portraits.py`, mirrored as `PORTRAIT_MAX_BYTES` in `utils/api.js` for a check before upload. nginx takes API requests up to 25 MB.
+- Forge (`POST /api/investigators/forge`) now applies the same rule to `profile_pic` (it stored any string before, so its only limit was nginx's 25 MB). The creator's existing 413 message covers a picture that is too large.
+- The answer is 200 with the character as the WebSocket sends it (`get_char_dict`, the `character_update` payload).
+- Broadcast after the write: the character's own channel gets `character_update` with the whole sheet, as for every sheet change. A character on a campaign's roster also gets a new type, `portrait_update` `{"character_id", "campaign_id", "profile_pic"}`: for an active character it goes to the campaign (`broadcast_campaign`: the GM and every active member, so rosters and Circle cards update), for a pending character to the GM's channel only. Unaffiliated and retired characters reach their own channel only. `character_update` is not sent to the campaign because the store replaces its own `character` with any `character_update`. The frontend does not handle `portrait_update` yet (the UI stage wires it).
+- Code: `vtt/portraits.py` (the rule), `vtt/routers/investigators.py` (the route and `broadcast_portrait`), `require_owner_or_roster_gm` in `vtt/auth.py`.
+
+## Password reset by email
+
+A player who forgot their password asks for a link by email, then sets a new password with it. Code: `vtt/password_reset.py` (who gets a link, the tokens, the email), `vtt/mail.py` (sending), the two routes in `vtt/routers/auth.py`.
+
+### Settings
+
+- `RESEND_API_KEY`: the Resend API key (sending only). It goes into CT210's `/etc/candela/candela.env`, never into git. Without it a reset request still answers 202 and the log says `RESEND_API_KEY is not set, so the email 'Set a new Candela Obscura password' was not sent`; the link is never logged.
+- `RESET_URL_BASE` (default `https://candela-beta.gatergrid.com`): the link in the email is `RESET_URL_BASE` + `/reset-password?token=<token>`. A trailing slash is dropped. Live needs `RESET_URL_BASE=https://candela.gatergrid.com`. Both nginx sites already answer any path with `index.html`, so the app has to show the reset page at `/reset-password`.
+- The reset routes follow `ALLOW_PASSWORD_LOGIN`: when it is off both answer 403 "Password sign-in is turned off. Please use Sign in with Google." (after body validation and the per-IP limit).
+
+### POST /api/auth/password-reset `{email}`
+
+Status 202, body `{"ok": true}`, the same whether or not an account has the address.
+
+- Body: `email` is stripped of surrounding spaces, at most 254 characters and must look like `x@y` with no spaces (422 otherwise; this depends on the typed text only).
+- Rate limits: 5 per minute and 20 per hour per IP (slowapi, as for login), then 3 per hour per address (lower case, spaces stripped), counted for every request whether or not an account has the address. Over the address limit the answer is 429 `{"detail": "Too many reset emails were asked for this address. Please wait an hour and try again."}`, the same with or without an account. Over the IP limit it is slowapi's 429. The counts live in the limiter's memory, so a restart clears them.
+- Who gets a link: every account whose `users.email` equals the address ignoring case (at most 5; several accounts share an address only as emails that differ in case, from before register compared them ignoring case), except the seeded accounts (`SEEDED_USERNAMES`, the list Google's email linking skips: `admin@archive.com` is on a real domain) and accounts whose email cannot receive mail (`usable_email`: one plain ASCII address, at most 254 characters, a domain with a top-level domain, and not a reserved name such as `.test`, `.example`, `.invalid`, `.localhost`, `.local` or `example.com/.net/.org`). The email goes to the address stored on the account, not the one typed. Accounts linked to Google get a link too; their email is the Google one or the one they registered.
+- Each such account gets a new token, and its older tokens are deleted. Tokens past their expiry are deleted on every request.
+- The emails are sent after the answer (a FastAPI background task), so the time the answer takes does not show whether an account matched. A failed send is logged and changes nothing.
+
+### POST /api/auth/password-reset/confirm `{token, password}`
+
+Rate limited 10 per minute per IP. `password` follows the register rule (8 to 128 characters; 422 "Password must be at least 8 characters" or "Password too long"); `token` is at most 256 characters.
+
+| Check, in order | Answer |
+|---|---|
+| no token row with that hash, expired, its user gone, or the user's password changed since the link was issued | 400 "This link has expired or has already been used. Please ask for a new one." |
+| another request used the token, or changed the password, while this one hashed the new password | 400, the same |
+| otherwise | the new password is set and the answer is what login answers for the user (GM or player shape) with a new `token` |
+
+It is 400, not 401: a browser that still has a session sends its token along, and `apiFetch` would end that session on a 401.
+
+Setting the password changes the password stamp, so every login token issued before stops working (REST 401, WebSocket 4401 on the next connect); an open WebSocket stays open until it closes, as after any password change. The answer's token is the only one that works.
+
+### Tokens
+
+- 32 random bytes (`secrets.token_urlsafe`, 43 characters). Only its SHA-256 is stored.
+- Table `password_reset_tokens`: `id`, `user_id` (foreign key to `users.id`, ON DELETE CASCADE, indexed), `token_hash` (64 hex digits, unique index), `password_stamp` (the user's password stamp when the link was issued), `created_at` and `expires_at` (Unix seconds; `expires_at` is one hour after `created_at`, `PASSWORD_RESET_EXPIRE_MINUTES` in `vtt/config.py`). `main.py`'s `create_all` makes it on start, and `init_db` makes it too when it is missing (`checkfirst`, so a second start changes nothing and keeps the rows).
+- A token works once and for one hour. Using it deletes its row and every other row of the user, with conditional statements, so of two requests with the same token only one gets through. A newer request for the same user deletes the older rows. Any other change of the password (Google linking by email, `retire_published_passwords`, a hash set in the database) changes the stamp, so an older token no longer matches.
+
+### The email
+
+From `Candela Obscura <no-reply@mail.gatergrid.com>`, subject "Set a new Candela Obscura password", plain text plus a simple HTML version in the site's palette (a parchment sheet on the night background, ink text, sepia small print, an oxblood "Set a new password" button, Georgia). It names the account, gives the link, says the link works once and expires in one hour and that every earlier sign-in ends, and that the email can be ignored. `vtt/mail.py` posts it to `https://api.resend.com/emails` with `Authorization: Bearer <RESEND_API_KEY>` and a 10 second timeout; it logs the subject and Resend's status, never the address or the body. The tests replace `vtt.mail.send_email` with a fake, and conftest makes any real request to Resend fail the test.
+
 ## Published passwords
 
-User 1 (`admin`) owns every character forged before tokens without a `user_id` (WEBSOCKET.md A4, A5), so a known admin password would hand all of them out. `init_db` seeds admin with a random password nobody is told. On every startup `retire_published_passwords` (`vtt/db.py`) also checks the accounts whose passwords are published in this repository: `admin` with password `admin`, and `elara_voss`, `rook_halcyon`, `sable_devereux`, `finn_ashcroft` and `keeper_test` with password `testpass` (`reset_seed.py`, `seed_test_players.py`). Any of them that still has that password gets a random one, and a warning names them in the log. Accounts with a password of their own are left alone. There is no reset flow, so whoever needs one of these accounts sets a new hash in the database.
+User 1 (`admin`) owns every character forged before tokens without a `user_id` (WEBSOCKET.md A4, A5), so a known admin password would hand all of them out. `init_db` seeds admin with a random password nobody is told. On every startup `retire_published_passwords` (`vtt/db.py`) also checks the accounts whose passwords are published in this repository: `admin` with password `admin`, and `elara_voss`, `rook_halcyon`, `sable_devereux`, `finn_ashcroft` and `keeper_test` with password `testpass` (`reset_seed.py`, `seed_test_players.py`). Any of them that still has that password gets a random one, and a warning names them in the log. Accounts with a password of their own are left alone. Password reset by email skips these accounts, so whoever needs one of them sets a new hash in the database.
 
 ## Behavior that changed because of these rules
 
@@ -214,8 +297,11 @@ User 1 (`admin`) owns every character forged before tokens without a `user_id` (
 ## Known gaps
 
 - Sign in with Google links by email to the account that has that email, and register never checked that an email belongs to whoever registered it. Someone who registers a password account with another person's email before that person's first Google sign-in used to get that person linked to an account whose password they knew. Since the security review the link replaces the password and ends every earlier login token, so they lose the account at that moment. What they put in it before (characters, a campaign they run) stays with the account, and a WebSocket they still have open keeps working until it closes, because the token is only checked when a socket connects. The other way round is not possible: Google must have verified the email.
-- There is no password reset, so a player whose Google email matches none of their accounts and who has forgotten their password cannot claim their old account. Unlinking a Google account, or moving it to another user, is a database edit (`google_sub` set to NULL).
+- Password reset trusts the email on the account, and register never checked that an address belongs to whoever registered it. Whoever controls an account's registered address can set its password by reset; the other way round (someone who registered another person's address) they cannot, because the link goes to that address. A player whose account has an address that cannot receive mail (the reserved test domains) cannot reset it.
+- A stolen login token can link the thief's Google account through `POST /api/auth/me/google`, and that link outlives a password reset. Nothing in the app shows or removes a link: unlinking a Google account, or moving it to another user, is a database edit (`google_sub` set to NULL).
+- Two reset requests for one account at the same moment can leave two working links. Each still works once, and both end when either is used.
+- Someone who keeps asking for resets for another person's address uses up its 3 an hour, so that person waits for the hour too. The per-IP and per-address counts are in memory and reset when the server restarts.
 - A token cannot be revoked on its own before it expires. Replacing the user's password hash revokes all of that user's tokens (the password stamp), changing `SECRET_KEY` logs everyone out, and deleting a user revokes theirs, because the user lookup fails.
 - An open WebSocket keeps working after its token expires; the token is only checked when the socket connects.
 - The token sits in localStorage, so a script injected into the page could read it. The app renders no user HTML as markup today.
-- `action_rejected` is a new server-to-client type; WEBSOCKET.md section 5 lists the types from before this stage.
+- `action_rejected` and `portrait_update` are new server-to-client types; WEBSOCKET.md section 5 lists the types from before this stage.

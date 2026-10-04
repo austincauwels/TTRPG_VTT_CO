@@ -15,6 +15,10 @@ Sign in with Google: no test reaches Google. The route tests replace
 vtt.google.verify_id_token, the tests of that function give google-auth a fake
 transport or mock it, and any other request to Google fails the test.
 
+Email: no test sends any. RESEND_API_KEY is removed from the environment, the
+password reset tests replace vtt.mail.send_email with a fake, the tests of send_email
+replace vtt.mail.post, and any other request to Resend fails the test.
+
 Importing main has side effects (create_all, seed rows, ALTER TABLE statements),
 so it must only ever run against a throwaway database. The beta test harness
 provides one per run in DATABASE_URL.
@@ -37,6 +41,7 @@ if len(os.environ["SECRET_KEY"]) < 32:
     # The app refuses keys shorter than 32 characters. Stretch the harness's test key
     # (it only has to be the same for the whole run, subprocesses included).
     os.environ["SECRET_KEY"] = hashlib.sha256(os.environ["SECRET_KEY"].encode()).hexdigest()
+os.environ.pop("RESEND_API_KEY", None)
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
@@ -45,6 +50,7 @@ import main  # noqa: E402  (imported once; seeds user 1 and circle 1)
 import engine  # noqa: E402
 import support  # noqa: E402
 import vtt.google  # noqa: E402
+import vtt.mail  # noqa: E402
 
 TABLES = ["users", "circles", "characters", "campaigns", "notebook_entries",
           "circle_votes", "relationships", "games"]
@@ -85,6 +91,15 @@ def _no_google(url, *args, **kwargs):
 # vtt.google.certs_transport a fake that serves a test certificate; anything that
 # gets past both ends here.
 vtt.google.certs_transport = vtt.google.CachedCertsTransport(_no_google)
+
+
+def _no_resend(url, *args, **kwargs):
+    raise AssertionError(f"a test tried to reach Resend: {url}")
+
+
+# Tests never send email. send_email only catches requests' own errors, so this
+# AssertionError fails the test.
+vtt.mail.post = _no_resend
 support.FRESH_DB["sequences_at_import"] = _sequence_state()
 
 

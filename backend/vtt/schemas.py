@@ -63,11 +63,15 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strength(cls, v):
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        if len(v) > 128:
-            raise ValueError("Password too long")
-        return v
+        return check_new_password(v)
+
+def check_new_password(v):
+    """The rule for a new password (register and password reset): 8 to 128 characters."""
+    if len(v) < 8:
+        raise ValueError("Password must be at least 8 characters")
+    if len(v) > 128:
+        raise ValueError("Password too long")
+    return v
 
 # Google ID tokens are about 1 KB and link tokens less; anything far longer is refused unread.
 _MAX_TOKEN_LENGTH = 8192
@@ -120,6 +124,43 @@ class GoogleCreateRequest(BaseModel):
     @classmethod
     def username_alphanum(cls, v):
         return check_new_username(v)
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def email_shape(cls, v):
+        v = v.strip()
+        if len(v) > 254:
+            raise ValueError("Email too long")
+        if not _re.fullmatch(r"[^\s@]+@[^\s@]+", v):
+            raise ValueError("That does not look like an email address")
+        return v
+
+# A reset token is 43 characters (secrets.token_urlsafe(32)).
+_MAX_RESET_TOKEN_LENGTH = 256
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    password: str
+
+    @field_validator("token")
+    @classmethod
+    def token_length(cls, v):
+        if len(v) > _MAX_RESET_TOKEN_LENGTH:
+            raise ValueError("Token too long")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v):
+        return check_new_password(v)
+
+class PortraitUpdate(BaseModel):
+    # A data URL as the character creator makes it (vtt/portraits.py), or null to clear
+    # the portrait. Required, so that a body without it changes nothing.
+    profile_pic: Optional[str]
 
 class CharacterBase(BaseModel):
     name: str

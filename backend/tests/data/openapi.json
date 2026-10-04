@@ -1108,6 +1108,57 @@
         "title": "NotebookEntryUpdate",
         "type": "object"
       },
+      "PasswordResetConfirm": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ],
+        "title": "PasswordResetConfirm",
+        "type": "object"
+      },
+      "PasswordResetRequest": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "PasswordResetRequest",
+        "type": "object"
+      },
+      "PortraitUpdate": {
+        "properties": {
+          "profile_pic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Pic"
+          }
+        },
+        "required": [
+          "profile_pic"
+        ],
+        "title": "PortraitUpdate",
+        "type": "object"
+      },
       "RegisterRequest": {
         "properties": {
           "email": {
@@ -1463,6 +1514,134 @@
         "summary": "Login"
       }
     },
+    "/api/auth/me": {
+      "get": {
+        "description": "The caller's account, including whether a Google account is linked to it.",
+        "operationId": "current_account_api_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Current Account"
+      }
+    },
+    "/api/auth/me/google": {
+      "post": {
+        "description": "Links the Google account of a Google ID token (the credential, as for\n/api/auth/google) to the signed-in user, who has none yet. The login token proves\nthe account, so the password stays as it is and so do the login tokens. From then\non Sign in with Google signs in to this account.",
+        "operationId": "link_google_to_account_api_auth_me_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleSignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Link Google To Account"
+      }
+    },
+    "/api/auth/password-reset": {
+      "post": {
+        "description": "Emails a link to set a new password to every account with this email address\n(ignoring case), except seeded accounts and accounts whose email cannot receive\nmail. The answer is the same whether or not an account has the address, and the\nemails go out after it. Limited per IP and per address.",
+        "operationId": "request_password_reset_api_auth_password_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Password Reset"
+      }
+    },
+    "/api/auth/password-reset/confirm": {
+      "post": {
+        "description": "Sets a new password with the token from a reset link, once. The new password ends\nevery login token issued before; the answer is what login answers, with a new one.",
+        "operationId": "confirm_password_reset_api_auth_password_reset_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Password Reset"
+      }
+    },
     "/api/auth/register": {
       "post": {
         "operationId": "register_api_auth_register_post",
@@ -1596,6 +1775,54 @@
           }
         },
         "summary": "Get Investigator"
+      }
+    },
+    "/api/investigators/{investigator_id}/portrait": {
+      "put": {
+        "description": "Sets the character's portrait to a picture data URL, or clears it (profile_pic\nnull). Allowed for the owner, and for the GM of the character's campaign while it\nis active or pending. Answers with the character as the WebSocket sends it.",
+        "operationId": "set_portrait_api_investigators__investigator_id__portrait_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "investigator_id",
+            "required": true,
+            "schema": {
+              "title": "Investigator Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortraitUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Portrait"
       }
     },
     "/api/notebook/entries/{entry_id}": {

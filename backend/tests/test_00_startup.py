@@ -113,6 +113,8 @@ def test_migrated_columns_exist(client):
     assert {"pending_rejoin_campaign_id", "google_sub"} <= cols["users"]
     google_sub_index = [i for i in insp.get_indexes("users") if i["column_names"] == ["google_sub"]]
     assert [(i["name"], bool(i["unique"])) for i in google_sub_index] == [("ix_users_google_sub", True)]
+    assert {c["name"] for c in insp.get_columns("password_reset_tokens")} == {
+        "id", "user_id", "token_hash", "password_stamp", "created_at", "expires_at"}
 
 
 def _run_import(env):
@@ -198,9 +200,14 @@ def test_route_table_order(client):
         ("/api/auth/google/link", ["POST"]),
         ("/api/auth/google/create", ["POST"]),
         ("/api/auth/config", ["GET"]),
+        ("/api/auth/me", ["GET"]),
+        ("/api/auth/me/google", ["POST"]),
+        ("/api/auth/password-reset", ["POST"]),
+        ("/api/auth/password-reset/confirm", ["POST"]),
         ("/api/investigators", ["GET"]),
         ("/api/investigators/{investigator_id}", ["GET"]),
         ("/api/investigators/forge", ["POST"]),
+        ("/api/investigators/{investigator_id}/portrait", ["PUT"]),
         ("/api/notebook/{campaign_id}/entries", ["GET"]),
         ("/api/notebook/{campaign_id}/entries", ["POST"]),
         ("/api/notebook/entries/{entry_id}", ["PUT"]),

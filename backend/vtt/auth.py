@@ -139,3 +139,14 @@ def require_owner_or_gm(db: Session, user: User, character) -> None:
     if character.user_id == user.id:
         return
     require_gm_of_character(db, user, character)
+
+
+def require_owner_or_roster_gm(db: Session, user: User, character) -> None:
+    """The character's owner, or the GM of its campaign while the character is on the
+    roster (active or pending), as for the GM's WebSocket messages. A retired character
+    stays tagged with its old campaign, and that GM may no longer change it."""
+    if character.user_id == user.id:
+        return
+    if character.status not in ROSTER_STATUSES:
+        raise forbidden()
+    require_gm_of_character(db, user, character)
