@@ -3,6 +3,7 @@ import useGameStore from '../../store/gameStore';
 import { ACTION_LABEL, scarShiftNote } from '../../game/actions';
 import { useDialog } from '../shared/useDialog';
 import { FormLine } from '../shared/PrintMarks';
+import { ScarIcon } from '../shared/ScarIcon';
 
 // The nine actions in the dossier's order, with the rulebook's names (the keys sneak and
 // read are Read and Focus).
@@ -133,7 +134,8 @@ const ScarModal = () => {
 
         <div className="relative z-10 border-b-2 border-ink pb-4 mb-5">
           <FormLine className="block mb-2">Form C.O. 14 · Trauma record</FormLine>
-          <h2 id="scar-title" className="font-display text-2xl uppercase tracking-[0.06em] text-ink">
+          <h2 id="scar-title" className="font-display text-2xl uppercase tracking-[0.06em] text-ink flex items-center gap-3">
+            <ScarIcon size={38} className="text-ink -mt-1" />
             A New Scar
           </h2>
           <p className="font-serif text-base text-ink mt-2 leading-snug">
