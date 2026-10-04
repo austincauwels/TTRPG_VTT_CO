@@ -17,12 +17,34 @@ logging.basicConfig(
 )
 logger = logging.getLogger("candela")
 
+
+class _RedactTokenFilter(logging.Filter):
+    """Replaces the value of any token=... query parameter in a log record.
+
+    The WebSocket sends its login token in the query string, and uvicorn writes the
+    path with its query string when it logs an accepted or rejected WebSocket.
+    """
+    _pattern = _re.compile(r"(token=)[^&\s\"']+")
+
+    def _redact(self, value):
+        return self._pattern.sub(r"\1<redacted>", value) if isinstance(value, str) else value
+
+    def filter(self, record):
+        record.msg = self._redact(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(self._redact(a) for a in record.args)
+        return True
+
+
+for _name in ("uvicorn.error", "uvicorn.access", "candela"):
+    logging.getLogger(_name).addFilter(_RedactTokenFilter())
+
 _secret = os.getenv("SECRET_KEY")
 if not _secret:
     raise RuntimeError("SECRET_KEY environment variable must be set. Generate one with: openssl rand -hex 32")
 SECRET_KEY = _secret
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # login tokens last 30 days
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./candela_obscura.db")
 

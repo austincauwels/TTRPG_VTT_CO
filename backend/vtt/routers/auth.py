@@ -1,6 +1,8 @@
 """Login and registration (POST /api/auth/login, POST /api/auth/register).
 
-No token or cookie is issued; the client keeps the returned userId.
+Both answer with the user's details plus "token", a login token (see vtt/security.py)
+that every other route and the WebSocket require. These two are the only routes
+that work without one.
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -9,7 +11,7 @@ from models import Campaign, User
 from vtt.config import logger
 from vtt.db import get_db
 from vtt.schemas import LoginRequest, RegisterRequest
-from vtt.security import limiter, pwd_context
+from vtt.security import create_access_token, limiter, pwd_context
 
 router = APIRouter()
 
@@ -37,6 +39,7 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
             "userId": user.id,
             "campaignCode": gm_campaign.campaign_code,
             "campaignId": gm_campaign.id,
+            "token": create_access_token(user.id),
         }
 
     pending_invite = None
@@ -56,6 +59,7 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
         "campaignCode": None,
         "campaignId": None,
         "pendingRejoinInvite": pending_invite,
+        "token": create_access_token(user.id),
     }
 
 @router.post("/api/auth/register", status_code=201)
@@ -82,5 +86,6 @@ async def register(request: Request, credentials: RegisterRequest, db: Session =
         "name": new_user.username,
         "userId": new_user.id,
         "campaignCode": "fairelands-01",
-        "campaignId": campaign.id if campaign else None
+        "campaignId": campaign.id if campaign else None,
+        "token": create_access_token(new_user.id),
     }

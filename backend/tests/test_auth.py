@@ -1,9 +1,25 @@
-"""POST /api/auth/register and POST /api/auth/login."""
+"""POST /api/auth/register and POST /api/auth/login, and the login token they return."""
+import base64
+import json
+import time
+
 import pytest
+from jose import jwt
 
 import main
 import support
 from models import Campaign, User
+from vtt import config, security
+
+THIRTY_DAYS = 30 * 24 * 60 * 60
+
+
+def _assert_token_for(token, user_id):
+    claims = jwt.decode(token, config.SECRET_KEY, algorithms=["HS256"])
+    assert claims["sub"] == str(user_id)
+    assert claims["exp"] - claims["iat"] == THIRTY_DAYS
+    assert abs(claims["iat"] - time.time()) < 60
+    assert security.user_id_from_token(token) == user_id
 
 
 def _register(client, username=None, email=None, password="long-enough-pw"):
@@ -24,7 +40,8 @@ def test_register_happy_path(client):
     r = _register(client, username=name, password="hunter22-ok")
     assert r.status_code == 201
     body = r.json()
-    assert set(body) == {"role", "name", "userId", "campaignCode", "campaignId"}
+    assert set(body) == {"role", "name", "userId", "campaignCode", "campaignId", "token"}
+    _assert_token_for(body["token"], body["userId"])
     assert body["role"] == "PLAYER"
     assert body["name"] == name
     assert isinstance(body["userId"], int)
@@ -104,7 +121,9 @@ def test_login_player(client):
     u = support.make_user()
     r = client.post("/api/auth/login", json={"username": u.username, "password": support.PASSWORD})
     assert r.status_code == 200
-    assert r.json() == {
+    body = r.json()
+    _assert_token_for(body.pop("token"), u.id)
+    assert body == {
         "role": "PLAYER",
         "name": u.username,
         "userId": u.id,
@@ -114,13 +133,15 @@ def test_login_player(client):
     }
 
 
-def test_login_issues_no_token_or_cookie(client):
-    """Login answers with ids only; nothing identifies the session afterwards."""
+def test_login_issues_a_bearer_token_and_no_cookie(client):
+    """The token is an HS256 JWT signed with SECRET_KEY; nothing is set as a cookie."""
     u = support.make_user()
     r = client.post("/api/auth/login", json={"username": u.username, "password": support.PASSWORD})
     assert r.status_code == 200
     assert "set-cookie" not in r.headers
-    assert not any("token" in k.lower() for k in r.json())
+    token = r.json()["token"]
+    assert jwt.get_unverified_header(token)["alg"] == "HS256"
+    _assert_token_for(token, u.id)
 
 
 def test_login_gm(client):
@@ -128,7 +149,9 @@ def test_login_gm(client):
     camp = support.new_campaign(client, gm_user_id=u.id)
     r = client.post("/api/auth/login", json={"username": u.username, "password": support.PASSWORD})
     assert r.status_code == 200
-    assert r.json() == {
+    body = r.json()
+    _assert_token_for(body.pop("token"), u.id)
+    assert body == {
         "role": "GM",
         "name": u.username,
         "userId": u.id,
@@ -218,3 +241,74 @@ def test_rate_limit_does_not_count_validation_errors(client, limiter_on):
         assert client.post("/api/auth/login", json={"username": "x" * 65, "password": "x"}).status_code == 422
     r = client.post("/api/auth/login", json={"username": f"ghost_{support.uid()}", "password": "x"})
     assert r.status_code == 401
+
+
+# --- the token itself -------------------------------------------------------------
+
+def _signed(claims, key=None, algorithm="HS256"):
+    return jwt.encode(claims, key or config.SECRET_KEY, algorithm=algorithm)
+
+
+def _fresh_claims(**changes):
+    now = int(time.time())
+    claims = {"sub": "1", "iat": now, "exp": now + 60}
+    claims.update(changes)
+    return claims
+
+
+def test_token_round_trip():
+    assert security.user_id_from_token(security.create_access_token(42)) == 42
+
+
+@pytest.mark.parametrize("token", [None, "", "not-a-jwt", "a.b.c", 12345])
+def test_garbage_tokens_are_rejected(token):
+    assert security.user_id_from_token(token) is None
+
+
+def test_token_signed_with_another_key_is_rejected():
+    assert security.user_id_from_token(_signed(_fresh_claims(), key="some-other-secret")) is None
+
+
+def test_expired_token_is_rejected():
+    now = int(time.time())
+    assert security.user_id_from_token(_signed(_fresh_claims(iat=now - 120, exp=now - 60))) is None
+
+
+@pytest.mark.parametrize("missing", ["sub", "iat", "exp"])
+def test_token_missing_a_claim_is_rejected(missing):
+    claims = _fresh_claims()
+    del claims[missing]
+    assert security.user_id_from_token(_signed(claims)) is None
+
+
+def test_token_with_non_numeric_subject_is_rejected():
+    assert security.user_id_from_token(_signed(_fresh_claims(sub="admin"))) is None
+
+
+@pytest.mark.parametrize("algorithm", ["HS384", "HS512"])
+def test_only_hs256_is_accepted(algorithm):
+    assert security.user_id_from_token(_signed(_fresh_claims(), algorithm=algorithm)) is None
+
+
+def test_unsigned_token_is_rejected():
+    """A token with alg "none" and an empty signature."""
+    def part(obj):
+        return base64.urlsafe_b64encode(json.dumps(obj).encode()).rstrip(b"=").decode()
+
+    token = f'{part({"alg": "none", "typ": "JWT"})}.{part(_fresh_claims())}.'
+    assert security.user_id_from_token(token) is None
+
+
+@pytest.mark.parametrize("logger_name", ["uvicorn.error", "uvicorn.access", "candela"])
+def test_token_query_parameter_is_redacted_from_logs(logger_name):
+    """uvicorn logs a WebSocket's path with its query string, which carries the token."""
+    import logging
+    logger = logging.getLogger(logger_name)
+    token = security.create_access_token(7)
+    record = logger.makeRecord(logger_name, logging.INFO, __file__, 1, '%s - "WebSocket %s" [accepted]',
+                               ("10.0.0.1:5000", f"/ws/12?token={token}&x=1"), None)
+    assert all(f.filter(record) for f in logger.filters)
+    assert record.getMessage() == '10.0.0.1:5000 - "WebSocket /ws/12?token=<redacted>&x=1" [accepted]'
+    record = logger.makeRecord(logger_name, logging.INFO, __file__, 1, f"plain /ws/12?token={token}", None, None)
+    assert all(f.filter(record) for f in logger.filters)
+    assert token not in record.getMessage()
