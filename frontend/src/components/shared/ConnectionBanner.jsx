@@ -13,7 +13,9 @@ export const ConnectionBanner = () => {
   })));
 
   const message = {
-    reconnecting: 'The connection to the table dropped. Reconnecting… Rolls and marks wait until it is back.',
+    // A roll made now waits a few seconds for the connection, then the tray says it was
+    // not thrown; marks are not sent until the desk is back
+    reconnecting: 'The connection to the table dropped. Reconnecting…',
     replaced: 'This desk is open in another tab or on another device, so this one stopped updating.',
     refused: 'The server would not open this desk.',
   }[connectionState];

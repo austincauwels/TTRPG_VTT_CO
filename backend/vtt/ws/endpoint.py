@@ -20,6 +20,12 @@ handled. The routes that change a password also close the user's sockets at once
 
 An exception from a handler (other than inside roll, which catches its own) leaves
 the loop, is logged as "WebSocket fatal error" and ends the connection.
+
+A new socket replaces the channel's older one at once (manager.connect closes the
+older one on its own, without waiting for it), and whatever ends a socket from then on,
+its client leaving before its first frames are sent included, takes it off its
+channel. A socket that a newer one on the channel overtook while it was being accepted
+is closed with 1001 and not served.
 """
 import json
 
@@ -87,36 +93,42 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
     # The manager key: a character channel and a campaign channel never share one,
     # even when an all-digit campaign code equals a character id (QUIRK D13).
     channel = character_key(own_char_id) if character is not None else campaign_key(campaign.campaign_code)
-    await manager.connect(channel, websocket, user_id=user_id)
+    if not await manager.connect(channel, websocket, user_id=user_id):
+        # A newer socket on this channel got in while this one was being accepted
+        logger.info("WebSocket replaced while it opened: game_id=%s", game_id)
+        return
 
-    # Load this campaign's circle (create one if this campaign has none yet)
-    circle = None
-    if campaign:
-        circle = get_or_create_campaign_circle(db, campaign.id)
-    if not circle:
-        circle = _shared_circle(db)
-
-    # Camp context for this connection. It is fixed for the life of the socket, not re-resolved per message.
-    # Without a campaign, camp_code is the socket's own channel key, so broadcast_campaign
-    # sends campaign messages back to this socket only.
-    camp_code = campaign.campaign_code if campaign else channel
-    camp_id = campaign.id if campaign else None
-
-    # A pending or retired character's socket keeps its campaign (an approval while
-    # connected makes it a member at once), but only the GM and members see the
-    # campaign's circle. The others get the shared circle 1, like an unaffiliated one.
-    shown_circle = circle
-    if character is not None and campaign is not None and character.status not in MEMBER_STATUSES:
-        shown_circle = _shared_circle(db)
-
-    if character:
-        await websocket.send_json({"type": "character_update", "payload": get_char_dict(character)})
-    await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(shown_circle)})
-
-    ctx = WSContext(game_id=game_id, db=db, circle=circle, camp_code=camp_code, camp_id=camp_id,
-                    user_id=user_id, is_gm=is_gm, own_char_id=own_char_id, channel=channel)
-
+    # From here the socket is the channel's. Whatever ends it, the client leaving before
+    # its first frames are sent included, takes it off the channel again (finally), so
+    # the channel's messages never go to a socket nobody serves.
     try:
+        # Load this campaign's circle (create one if this campaign has none yet)
+        circle = None
+        if campaign:
+            circle = get_or_create_campaign_circle(db, campaign.id)
+        if not circle:
+            circle = _shared_circle(db)
+
+        # Camp context for this connection. It is fixed for the life of the socket, not re-resolved per message.
+        # Without a campaign, camp_code is the socket's own channel key, so broadcast_campaign
+        # sends campaign messages back to this socket only.
+        camp_code = campaign.campaign_code if campaign else channel
+        camp_id = campaign.id if campaign else None
+
+        # A pending or retired character's socket keeps its campaign (an approval while
+        # connected makes it a member at once), but only the GM and members see the
+        # campaign's circle. The others get the shared circle 1, like an unaffiliated one.
+        shown_circle = circle
+        if character is not None and campaign is not None and character.status not in MEMBER_STATUSES:
+            shown_circle = _shared_circle(db)
+
+        if character:
+            await websocket.send_json({"type": "character_update", "payload": get_char_dict(character)})
+        await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(shown_circle)})
+
+        ctx = WSContext(game_id=game_id, db=db, circle=circle, camp_code=camp_code, camp_id=camp_id,
+                        user_id=user_id, is_gm=is_gm, own_char_id=own_char_id, channel=channel)
+
         while True:
             data = await websocket.receive_text()
             try:
@@ -186,7 +198,7 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: game_id=%s", game_id)
-        manager.disconnect(channel, websocket)
     except Exception as exc:
         logger.error("WebSocket fatal error: game_id=%s error=%s", game_id, exc, exc_info=True)
+    finally:
         manager.disconnect(channel, websocket)

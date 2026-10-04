@@ -12,7 +12,18 @@ process, which is how candela.service runs uvicorn.
 Each socket also remembers the user whose login token opened it (connect's user_id,
 kept in the socket's state), so that close_user can end every socket of a user whose
 password has just changed.
+
+Closing a socket the manager lets go of (replaced, or its user's password changed)
+never holds anything up: the close runs on its own (close_later). Closing waits for the
+other end to answer, and a socket whose other end went away without a word, which is
+what a phone that slept or changed networks leaves behind until the pings time out,
+never answers: the wait lasts uvicorn's close timeout, 10 seconds. connect used to wait
+for that before it registered the new socket, so the new socket was deaf for those 10
+seconds, and a second socket opened meanwhile was registered first and then pushed
+out by the first one when its wait ended: the channel's messages (a roll's result
+among them) went to a socket nobody listened on (beta, 2026-10-04).
 """
+import asyncio
 import json
 from typing import List, Optional
 
@@ -45,17 +56,52 @@ def encode(message: dict) -> str:
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, List[WebSocket]] = {}
+        # Sockets are numbered in the order they arrive at connect, so that the last
+        # to arrive keeps its channel even when an earlier accept finishes later.
+        self._arrivals = 0
+        # Closes running on their own (close_later), kept so they are not collected
+        self._closing: set = set()
 
-    async def connect(self, key: str, websocket: WebSocket, user_id: Optional[int] = None):
+    async def connect(self, key: str, websocket: WebSocket, user_id: Optional[int] = None) -> bool:
+        """Accepts the socket and makes it the channel's only one: the last connection
+        wins, and the sockets it replaces are closed with 1001 without waiting. Returns
+        False, after closing it with 1001, for a socket that a newer one on the channel
+        overtook while it was being accepted (its caller must not serve it)."""
+        self._arrivals += 1
+        number = self._arrivals
+        websocket.state.candela_arrival = number
         await websocket.accept()
         if user_id is not None:
             websocket.state.candela_user_id = user_id
-        for old_conn in self.active_connections.get(key, []):
-            try:
-                await old_conn.close(code=1001)
-            except Exception:
-                pass
+        current = self.active_connections.get(key, [])
+        if any(self._arrival_of(c) > number for c in current):
+            await self._close_quietly(websocket, 1001)
+            return False
+        # Registered before anything else is awaited, so no other connect can come between
         self.active_connections[key] = [websocket]
+        for old_conn in current:
+            if old_conn is not websocket:
+                self.close_later(old_conn, 1001)
+        return True
+
+    @staticmethod
+    def _arrival_of(websocket) -> int:
+        state = getattr(websocket, "state", None)
+        return getattr(state, "candela_arrival", 0) if state is not None else 0
+
+    @staticmethod
+    async def _close_quietly(websocket, code: int):
+        try:
+            await websocket.close(code=code)
+        except Exception:
+            pass
+
+    def close_later(self, websocket, code: int):
+        """Closes the socket with code on its own, without waiting for the other end to
+        answer (see the module docstring). Must be called on the server's event loop."""
+        task = asyncio.get_running_loop().create_task(self._close_quietly(websocket, code))
+        self._closing.add(task)
+        task.add_done_callback(self._closing.discard)
 
     @staticmethod
     def user_of(websocket) -> Optional[int]:
@@ -68,7 +114,8 @@ class ConnectionManager:
         with no longer works) and forgets them, wherever they are. Called when the
         user's password changes (a reset, or Sign in with Google replacing it), which
         ends every earlier login token; a socket only checks its token when it
-        connects, so it would otherwise stay open. Returns how many it closed."""
+        connects, so it would otherwise stay open. Returns how many it closed. The
+        closes run on their own, so a stale socket does not hold up the route."""
         closed = 0
         for key, connections in list(self.active_connections.items()):
             theirs = [c for c in connections if self.user_of(c) == user_id]
@@ -76,10 +123,7 @@ class ConnectionManager:
                 continue
             self.active_connections[key] = [c for c in connections if not any(c is t for t in theirs)]
             for conn in theirs:
-                try:
-                    await conn.close(code=code)
-                except Exception:
-                    pass
+                self.close_later(conn, code)
                 closed += 1
         return closed
 
