@@ -17,6 +17,7 @@ import secrets
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from limits import parse as parse_limit
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -30,7 +31,8 @@ from vtt.db import PUBLISHED_PASSWORDS, get_db, unusable_password_hash
 from vtt.google import GoogleIdentity
 from vtt.schemas import (AccountGoogleLinkRequest, GoogleCreateRequest, GoogleLinkRequest, GoogleSignInRequest,
                          LoginRequest, PasswordResetConfirm, PasswordResetRequest, RegisterRequest)
-from vtt.security import create_access_token, create_link_token, identity_from_link_token, limiter, pwd_context
+from vtt.security import (client_key, create_access_token, create_link_token, identity_from_link_token, limiter,
+                          pwd_context)
 
 router = APIRouter()
 
@@ -51,6 +53,13 @@ RELINK_WRONG_PASSWORD = "That is not this account's password."
 RELINK_NEEDS_PASSWORD = ("This Google account has another email address than your account. "
                          "Enter your account's password to link it.")
 RESET_ADDRESS_LIMITED = "Too many reset emails were asked for this address. Please wait an hour and try again."
+# Register's one answer for a taken username and a taken email (it used to say which).
+REGISTER_REFUSED = ("That username or email address cannot be used for a new account. "
+                    "Choose another username, or sign in if you already have an account.")
+REGISTER_REFUSALS_LIMITED = "Too many accounts could not be created from here. Please try again in an hour."
+# Refused registrations per client (client_key) before register answers 429.
+REGISTER_REFUSAL_LIMIT = parse_limit("10/hour")
+REGISTER_REFUSAL_SCOPE = "register-refused"
 RESET_LINK_INVALID = "This link has expired or has already been used. Please ask for a new one."
 
 
@@ -132,16 +141,35 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
 
     return signed_in_response(db, user)
 
+def register_refusals_left(request: Request) -> bool:
+    """False once this client (client_key: its IP, or its IPv6 /64) has had
+    REGISTER_REFUSAL_LIMIT refusals. Off while the rate limiter is off."""
+    return not limiter.enabled or limiter.limiter.test(
+        REGISTER_REFUSAL_LIMIT, REGISTER_REFUSAL_SCOPE, client_key(request))
+
+
+def count_register_refusal(request: Request) -> None:
+    if limiter.enabled:
+        limiter.limiter.hit(REGISTER_REFUSAL_LIMIT, REGISTER_REFUSAL_SCOPE, client_key(request))
+
+
 @router.post("/api/auth/register", status_code=201)
 @limiter.limit("5/minute")
 async def register(request: Request, credentials: RegisterRequest, db: Session = Depends(get_db)):
+    """Creates a password account and signs it in. A username or email that another
+    account has (ignoring case) gets one answer for both, so the answer does not say
+    which of the two is taken. Since the request names the username, a free one still
+    shows that the email has an account; the refusals are limited per IP to make that
+    slow (AUTH.md)."""
     require_password_login()
-    if username_taken(db, credentials.username):
-        raise HTTPException(status_code=400, detail=USERNAME_TAKEN)
+    if not register_refusals_left(request):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=REGISTER_REFUSALS_LIMITED)
     # Ignoring case: two users whose emails differ only in case keep Sign in with Google
     # from linking either of them by email.
-    if db.query(User.id).filter(func.lower(User.email) == func.lower(credentials.email)).first() is not None:
-        raise HTTPException(status_code=400, detail="That correspondence address is already registered.")
+    if username_taken(db, credentials.username) or db.query(User.id).filter(
+            func.lower(User.email) == func.lower(credentials.email)).first() is not None:
+        count_register_refusal(request)
+        raise HTTPException(status_code=400, detail=REGISTER_REFUSED)
 
     new_user = User(
         username=credentials.username,

@@ -1,4 +1,5 @@
-"""Password hashing, login and link tokens, and the per-IP rate limiter.
+"""Password hashing, login and link tokens, and the per-IP rate limiter (an IPv6 client
+counts by its /64 network, see client_key).
 
 Every route that signs a user in (login, register and the Google sign-in routes)
 hands out a login token: a JWT signed with SECRET_KEY (HS256). Its "sub" claim is
@@ -18,6 +19,7 @@ and identity_from_link_token refuses login tokens.
 """
 import hashlib
 import hmac
+import ipaddress
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
@@ -31,7 +33,27 @@ from vtt.google import GoogleIdentity
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-limiter = Limiter(key_func=get_remote_address)
+
+def client_key(request) -> str:
+    """The key the per-IP rate limits count under: the client's address (behind nginx
+    and uvicorn --proxy-headers, the real client's), but for IPv6 its /64 network.
+    Any machine with IPv6 gets a whole /64 (2^64 addresses), so counting each address
+    on its own let one client start a fresh count with every request. An IPv4 address
+    mapped into IPv6 counts as that IPv4 address; anything that is not an address
+    (the tests' "testclient") is used as it is."""
+    address = get_remote_address(request)
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return address
+    if ip.version == 6:
+        if ip.ipv4_mapped is not None:
+            return str(ip.ipv4_mapped)
+        return str(ipaddress.IPv6Network((int(ip) >> 64 << 64, 64)))
+    return str(ip)
+
+
+limiter = Limiter(key_func=client_key)
 
 # A token that lacks one of these claims is rejected (and one without "pwh", below).
 _DECODE_OPTIONS = {"require_sub": True, "require_iat": True, "require_exp": True}

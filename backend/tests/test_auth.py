@@ -3,15 +3,23 @@ import base64
 import json
 import time
 
+from types import SimpleNamespace
+
 import pytest
+from fastapi.testclient import TestClient
 from jose import jwt
+from limits import parse as parse_limit
 
 import main
 import support
 from models import Campaign, User
 from vtt import config, security
+from vtt.routers import auth as auth_router
 
 THIRTY_DAYS = 30 * 24 * 60 * 60
+# Register's one answer for a taken username and a taken email.
+REFUSED = {"detail": "That username or email address cannot be used for a new account. "
+                     "Choose another username, or sign in if you already have an account."}
 
 
 def _assert_token_for(token, user_id):
@@ -70,7 +78,7 @@ def test_register_duplicate_username(client):
     assert _register(client, username=name).status_code == 201
     r = _register(client, username=name)
     assert r.status_code == 400
-    assert r.json() == {"detail": "That identification is already claimed."}
+    assert r.json() == REFUSED
 
 
 def test_register_duplicate_email(client):
@@ -78,7 +86,45 @@ def test_register_duplicate_email(client):
     assert _register(client, email=email).status_code == 201
     r = _register(client, email=email)
     assert r.status_code == 400
-    assert r.json() == {"detail": "That correspondence address is already registered."}
+    assert r.json() == REFUSED
+
+
+def test_register_gives_one_answer_for_a_taken_username_and_a_taken_email(client):
+    """It used to say "That correspondence address is already registered." for an email
+    and something else for a username, which told anyone which addresses have an
+    account (and undid the reset route's identical answer). Both clashes now get the
+    same answer, headers included."""
+    taken = support.make_user()
+    by_name = _register(client, username=taken.username)
+    by_email = _register(client, email=taken.email.upper())
+    by_both = _register(client, username=taken.username, email=taken.email)
+    for r in (by_name, by_email, by_both):
+        assert (r.status_code, r.json()) == (400, REFUSED)
+        assert r.headers.get("content-type") == by_name.headers.get("content-type")
+
+
+def test_register_refusals_are_limited_per_client(client, limiter_on, monkeypatch):
+    """A free username still shows that the email has an account, so a client gets only
+    REGISTER_REFUSAL_LIMIT refusals an hour (10), then 429 for anything, which makes
+    trying address after address slow. Another client is not affected."""
+    monkeypatch.setattr(auth_router, "REGISTER_REFUSAL_LIMIT", parse_limit("2/hour"))
+    taken = support.make_user()
+    assert [_register(client, email=taken.email).status_code for _ in range(2)] == [400, 400]
+    r = _register(client)  # a free name and a free email
+    assert r.status_code == 429
+    assert r.json() == {"detail": "Too many accounts could not be created from here. Please try again in an hour."}
+    other = TestClient(main.app, client=("198.51.100.7", 50000))
+    assert _register(other).status_code == 201
+
+
+def test_the_real_register_refusal_limit():
+    assert str(auth_router.REGISTER_REFUSAL_LIMIT) == "10 per 1 hour"
+
+
+def test_register_refusals_are_not_limited_with_the_limiter_off(client):
+    taken = support.make_user()
+    assert all(_register(client, username=taken.username).status_code == 400 for _ in range(12))
+    assert _register(client).status_code == 201
 
 
 def test_register_email_must_differ_in_more_than_case(client):
@@ -89,7 +135,7 @@ def test_register_email_must_differ_in_more_than_case(client):
     assert _register(client, email=f"{local}@example.test").status_code == 201
     r = _register(client, email=f"{local.upper()}@Example.TEST")
     assert r.status_code == 400
-    assert r.json() == {"detail": "That correspondence address is already registered."}
+    assert r.json() == REFUSED
     assert support.fetch_all(User, email=f"{local.upper()}@Example.TEST") == []
 
 
@@ -103,7 +149,7 @@ def test_register_username_must_differ_in_more_than_case(client):
     for variant in (base.upper(), base.capitalize()):
         r = _register(client, username=variant)
         assert r.status_code == 400
-        assert r.json() == {"detail": "That identification is already claimed."}
+        assert r.json() == REFUSED
     assert support.fetch_all(User, username=base.upper()) == []
 
 
@@ -277,6 +323,33 @@ def test_register_rate_limit_five_per_minute(client, limiter_on):
     codes = [client.post("/api/auth/register", json=body).status_code for _ in range(6)]
     assert codes[:5] == [400] * 5
     assert codes[5] == 429
+
+
+@pytest.mark.parametrize("address,key", [
+    ("203.0.113.9", "203.0.113.9"),
+    ("2001:db8:1:2:aaaa:bbbb:cccc:dddd", "2001:db8:1:2::/64"),
+    ("2001:db8:1:2::1", "2001:db8:1:2::/64"),
+    ("2001:DB8:1:3::1", "2001:db8:1:3::/64"),
+    ("::ffff:203.0.113.9", "203.0.113.9"),
+    ("testclient", "testclient"),
+])
+def test_rate_limit_key(address, key):
+    """Per-IP limits count an IPv6 client by its /64 network (security.client_key)."""
+    assert security.client_key(SimpleNamespace(client=SimpleNamespace(host=address))) == key
+
+
+def test_an_ipv6_client_is_limited_by_its_64(client, limiter_on):
+    """The finding: every IPv6 address had a count of its own, and any machine with
+    IPv6 has 2^64 of them, so the register, reset and confirm limits stopped nothing."""
+    taken = support.make_user()
+
+    def register_from(address):
+        body = {"username": taken.username, "email": f"{support.uid()}@example.test", "password": "long-enough-pw"}
+        return TestClient(main.app, client=(address, 50000)).post("/api/auth/register", json=body).status_code
+
+    codes = [register_from(f"2001:db8:aa:bb::{n:x}") for n in range(1, 7)]
+    assert codes == [400] * 5 + [429]
+    assert register_from("2001:db8:aa:bc::1") == 400  # another /64 has its own count
 
 
 def test_rate_limit_does_not_count_validation_errors(client, limiter_on):
