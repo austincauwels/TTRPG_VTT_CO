@@ -4,6 +4,8 @@ Everything here reads db_engine and SessionLocal from this module at call time,
 so replacing them (main.py forwards main.db_engine and main.SessionLocal here,
 which the tests use) redirects init_db, get_db and the WebSocket handler.
 """
+import secrets
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -23,8 +25,58 @@ def get_db():
     finally:
         db.close()
 
+# Seeded accounts whose passwords are published in this repository: init_db before
+# 2026-10-04 (admin), reset_seed.py and seed_test_players.py (testpass). Login tokens
+# give real ownership, so init_db replaces these passwords wherever they still work.
+PUBLISHED_PASSWORDS = {
+    "admin": "admin",
+    "elara_voss": "testpass",
+    "rook_halcyon": "testpass",
+    "sable_devereux": "testpass",
+    "finn_ashcroft": "testpass",
+    "keeper_test": "testpass",
+}
+
+
+def unusable_password_hash():
+    """A hash of a random password nobody is told, so the account cannot log in."""
+    return pwd_context.hash(secrets.token_urlsafe(32))
+
+
+def retire_published_passwords():
+    """Give every account in PUBLISHED_PASSWORDS that still has its published password
+    an unusable one. Returns the usernames it changed. Uses column queries, so it also
+    runs on a database whose users table predates some model columns."""
+    db = SessionLocal()
+    changed = []
+    try:
+        rows = db.query(User.id, User.username, User.hashed_password).filter(
+            User.username.in_(list(PUBLISHED_PASSWORDS))).all()
+        for row in rows:
+            try:
+                published = pwd_context.verify(PUBLISHED_PASSWORDS[row.username], row.hashed_password)
+            except (ValueError, TypeError):
+                published = False  # not a hash passlib can read, so not the published password
+            if published:
+                db.query(User).filter(User.id == row.id).update(
+                    {User.hashed_password: unusable_password_hash()}, synchronize_session=False)
+                changed.append(row.username)
+        db.commit()
+        if changed:
+            logger.warning("Replaced the published password of: %s", ", ".join(sorted(changed)))
+    except Exception as e:
+        db.rollback()
+        logger.error("Error replacing published passwords: %s", e)
+    finally:
+        db.close()
+    return changed
+
+
 def init_db():
-    """Seed required rows and run additive ALTER TABLE migrations. Each migration is idempotent — the except block silently ignores columns that already exist."""
+    """Seed required rows, run additive ALTER TABLE migrations, then retire published
+    passwords. Each migration is idempotent; the except block silently ignores columns
+    that already exist. The seeded admin (user 1, which owns characters forged before
+    login tokens) gets a random password nobody knows."""
     db = SessionLocal()
     try:
         circle = db.query(Circle).filter(Circle.id == 1).first()
@@ -38,7 +90,7 @@ def init_db():
                 id=1,
                 username="admin",
                 email="admin@archive.com",
-                hashed_password=pwd_context.hash("admin")
+                hashed_password=unusable_password_hash()
             )
             db.add(new_admin)
 
@@ -192,3 +244,5 @@ def init_db():
                 conn.commit()
         except Exception:
             pass
+
+    retire_published_passwords()

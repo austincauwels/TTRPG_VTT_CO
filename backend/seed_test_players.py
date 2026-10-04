@@ -4,9 +4,13 @@ Run AFTER starting the server at least once (to create the campaign).
 
   python3 backend/seed_test_players.py
 
+Every account gets the same password: SEED_PASSWORD from the environment, or a random
+one printed at the end. (It used to be testpass, which the server now replaces at
+startup because it is published here.)
+
 All characters created with correct ability key names that match the roll modifier system.
 """
-import sys, os
+import sys, os, secrets
 sys.path.insert(0, os.path.dirname(__file__))
 
 from passlib.context import CryptContext
@@ -18,12 +22,12 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///./candela_obscura.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+SEED_PASSWORD = os.getenv("SEED_PASSWORD") or secrets.token_urlsafe(12)
 
 PLAYERS = [
     {
         "username": "elara_voss",
         "email": "elara@candela.test",
-        "password": "testpass",
         "character": {
             "name": "Elara Voss",
             "pronouns": "She/Her",
@@ -49,7 +53,6 @@ PLAYERS = [
     {
         "username": "rook_halcyon",
         "email": "rook@candela.test",
-        "password": "testpass",
         "character": {
             "name": "Rook Halcyon",
             "pronouns": "He/Him",
@@ -75,7 +78,6 @@ PLAYERS = [
     {
         "username": "sable_devereux",
         "email": "sable@candela.test",
-        "password": "testpass",
         "character": {
             "name": "Sable Devereux",
             "pronouns": "They/Them",
@@ -101,7 +103,6 @@ PLAYERS = [
     {
         "username": "finn_ashcroft",
         "email": "finn@candela.test",
-        "password": "testpass",
         "character": {
             "name": "Finn Ashcroft",
             "pronouns": "He/They",
@@ -143,7 +144,7 @@ def run():
         user = User(
             username=p["username"],
             email=p["email"],
-            hashed_password=pwd_context.hash(p["password"]),
+            hashed_password=pwd_context.hash(SEED_PASSWORD),
         )
         db.add(user)
         db.flush()
@@ -169,7 +170,7 @@ def run():
     db.close()
 
     if created:
-        print(f"\nCreated {len(created)} test players:")
+        print(f"\nCreated {len(created)} test players (password: {SEED_PASSWORD}):")
         print(f"  {'Username':<22} {'Role/Specialty':<26} {'Role Ability':<22} Specialty Ability")
         print(f"  {'-'*22} {'-'*26} {'-'*22} {'-'*20}")
         for p in PLAYERS:

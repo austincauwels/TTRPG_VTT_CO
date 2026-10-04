@@ -21,7 +21,7 @@ def test_seeded_admin_user(client):
     assert admin.username == "admin"
     assert admin.email == "admin@archive.com"
     assert admin.pending_rejoin_campaign_id is None
-    assert main.pwd_context.verify("admin", admin.hashed_password)
+    assert not main.pwd_context.verify("admin", admin.hashed_password)
     assert len(support.fetch_all(User, username="admin")) == 1
 
 
@@ -33,13 +33,40 @@ def test_seeded_circle_one(client):
     assert c.campaign_id is None
 
 
-def test_admin_can_log_in_with_default_password(client):
-    """QUIRK: the seeded admin/admin account works on every new database."""
+def test_admin_cannot_log_in_with_the_published_password(client):
+    """Fixed QUIRK: the seeded admin/admin account used to work on every new database.
+    Admin now gets a random password nobody is told."""
     r = client.post("/api/auth/login", json={"username": "admin", "password": "admin"})
-    assert r.status_code == 200
-    body = r.json()
-    assert body["name"] == "admin"
-    assert body["userId"] == 1
+    assert r.status_code == 401
+
+
+def test_init_db_replaces_published_passwords(client):
+    """An existing database keeps whatever init_db or the seed scripts wrote. Startup
+    replaces the published passwords (admin/admin and the seed scripts' testpass);
+    other accounts, and seed accounts with a password of their own, are left alone."""
+    from vtt import db as vtt_db
+    published = main.pwd_context.handler("bcrypt").using(rounds=4)
+    support.update(User, 1, hashed_password=published.hash("admin"))
+    keeper = support.fetch_all(User, username="keeper_test")
+    keeper = keeper[0] if keeper else support.make_user(username="keeper_test")
+    support.update(User, keeper.id, hashed_password=published.hash("testpass"))
+    rook = support.fetch_all(User, username="rook_halcyon")
+    rook = rook[0] if rook else support.make_user(username="rook_halcyon")
+    support.update(User, rook.id, hashed_password=published.hash("my own password"))
+    bystander = support.make_user()
+    support.update(User, bystander.id, hashed_password=published.hash("admin"))
+    assert client.post("/api/auth/login", json={"username": "admin", "password": "admin"}).status_code == 200
+
+    main.init_db()
+
+    assert not main.pwd_context.verify("admin", support.fetch(User, 1).hashed_password)
+    assert not main.pwd_context.verify("testpass", support.fetch(User, keeper.id).hashed_password)
+    assert main.pwd_context.verify("my own password", support.fetch(User, rook.id).hashed_password)
+    assert main.pwd_context.verify("admin", support.fetch(User, bystander.id).hashed_password)
+    for username, password in (("admin", "admin"), ("keeper_test", "testpass")):
+        r = client.post("/api/auth/login", json={"username": username, "password": password})
+        assert r.status_code == 401
+    assert vtt_db.retire_published_passwords() == []
 
 
 def test_fresh_postgres_sequences_collide_with_seeded_ids(client):

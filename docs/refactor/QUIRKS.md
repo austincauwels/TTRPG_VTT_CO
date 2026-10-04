@@ -54,6 +54,7 @@ does not change them by accident. Each fix later gets its own commit and flips i
 
 The list above is kept as it was found. These entries no longer hold, or hold only in part, because access is now checked (docs/refactor/AUTH.md has the rules); their tests were rewritten to pin the new behavior. Everything else above is unchanged and still pinned.
 
+- Seeded admin/admin (A5): init_db now gives admin a random password nobody is told. On every startup it also replaces the password of admin (if it is still "admin") and of the seed scripts' accounts (if it is still "testpass"), and logs a warning naming them. The seed scripts take SEED_PASSWORD from the environment or print a random one.
 - Forge: a missing user_id gives the character to the caller; user_id 0 or an unknown id is 403. Stats and circle 1 are unchanged.
 - create_campaign: the caller is the GM; an unknown user_id is 403, not a 500. The duplicate-code 500 remains. A code that reads as a number ("123", "-12", "1_000") is 422 "Campaign code must not be a number" (D13); codes like that already in the data still work, with their own channel key.
 - join: still no status check, but only the character's owner can do it.

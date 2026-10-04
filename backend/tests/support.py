@@ -39,7 +39,7 @@ _password_hash = None
 CLIENT = None
 # user id -> (username, password) for every user the tests can log in as, and the
 # login token once it has been fetched.
-_CREDENTIALS = {1: ("admin", "admin")}
+_CREDENTIALS = {}
 _TOKENS = {}
 
 # Filled in once per run by the session fixture in conftest.py before any test runs.
@@ -138,7 +138,7 @@ def login(client, username, password):
 
 
 def token_for(user_id):
-    """The login token of a user made by make_user (or admin), logging in on first use."""
+    """The login token of a user made by make_user, logging in on first use."""
     if user_id not in _TOKENS:
         username, password = _CREDENTIALS[user_id]
         r = login(CLIENT, username, password)

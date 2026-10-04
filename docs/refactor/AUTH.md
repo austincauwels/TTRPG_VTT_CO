@@ -109,6 +109,10 @@ Not changed: game rules that are not about who is acting (pending offers, `repor
 - A session persisted before this change has no token; on load it is cleared and the login screen is shown.
 - SceneManager sends the campaign's circle id instead of 1 (see gm_update_circle above).
 
+## Published passwords
+
+User 1 (`admin`) owns every character forged before tokens without a `user_id` (WEBSOCKET.md A4, A5), so a known admin password would hand all of them out. `init_db` seeds admin with a random password nobody is told. On every startup `retire_published_passwords` (`vtt/db.py`) also checks the accounts whose passwords are published in this repository: `admin` with password `admin`, and `elara_voss`, `rook_halcyon`, `sable_devereux`, `finn_ashcroft` and `keeper_test` with password `testpass` (`reset_seed.py`, `seed_test_players.py`). Any of them that still has that password gets a random one, and a warning names them in the log. Accounts with a password of their own are left alone. There is no reset flow, so whoever needs one of these accounts sets a new hash in the database.
+
 ## Behavior that changed because of these rules
 
 - Campaign create without `user_id` makes the caller the GM (it used to create a campaign with no GM). An unknown `user_id` is 403 (it was a 500 from the foreign key).

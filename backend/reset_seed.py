@@ -1,20 +1,24 @@
 """
 Full database reset and re-seed for playtesting.
 
-State after running:
-  admin / admin          — Scholar/Professor investigator (Adrian Voss)
-  elara_voss / testpass  — Scholar/Doctor (Meticulous Notes + Dissection)
-  rook_halcyon / testpass — Muscle/Soldier (Behind Me + Sharpshooter)
-  sable_devereux / testpass — Face/Journalist (Sweet Talk + Lie Detector)
-  finn_ashcroft / testpass  — Weird/Medium (Let Them In + Premonitions)
-  keeper_test / testpass — Lightkeeper of "The Veilhaven Chapter"
+State after running (every account gets the same password: SEED_PASSWORD from the
+environment, or a random one printed at the end):
+  admin          — Scholar/Professor investigator (Adrian Voss)
+  elara_voss     — Scholar/Doctor (Meticulous Notes + Dissection)
+  rook_halcyon   — Muscle/Soldier (Behind Me + Sharpshooter)
+  sable_devereux — Face/Journalist (Sweet Talk + Lie Detector)
+  finn_ashcroft  — Weird/Medium (Let Them In + Premonitions)
+  keeper_test    — Lightkeeper of "The Veilhaven Chapter"
+
+The passwords used to be admin and testpass. Those are published in this repository,
+so the server replaces them at startup (vtt.db.retire_published_passwords).
 
 All investigators are unaffiliated — players join the keeper's campaign normally.
 
 Usage:
   python3 backend/reset_seed.py
 """
-import sys, os
+import sys, os, secrets
 sys.path.insert(0, os.path.dirname(__file__))
 
 from passlib.context import CryptContext
@@ -26,6 +30,7 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///./candela_obscura.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+SEED_PASSWORD = os.getenv("SEED_PASSWORD") or secrets.token_urlsafe(12)
 
 
 def reset():
@@ -54,7 +59,7 @@ def reset():
 
     # ── Admin — Scholar/Professor ─────────────────────────────────────────────────
     admin = User(id=1, username="admin", email="admin@archive.com",
-                 hashed_password=pwd_context.hash("admin"))
+                 hashed_password=pwd_context.hash(SEED_PASSWORD))
     db.add(admin)
     db.flush()
 
@@ -87,7 +92,7 @@ def reset():
 
     # ── Elara Voss — Scholar/Doctor ───────────────────────────────────────────────
     elara_user = User(username="elara_voss", email="elara@candela.test",
-                      hashed_password=pwd_context.hash("testpass"))
+                      hashed_password=pwd_context.hash(SEED_PASSWORD))
     db.add(elara_user)
     db.flush()
 
@@ -120,7 +125,7 @@ def reset():
 
     # ── Rook Halcyon — Muscle/Soldier ─────────────────────────────────────────────
     rook_user = User(username="rook_halcyon", email="rook@candela.test",
-                     hashed_password=pwd_context.hash("testpass"))
+                     hashed_password=pwd_context.hash(SEED_PASSWORD))
     db.add(rook_user)
     db.flush()
 
@@ -153,7 +158,7 @@ def reset():
 
     # ── Sable Devereux — Face/Journalist ──────────────────────────────────────────
     sable_user = User(username="sable_devereux", email="sable@candela.test",
-                      hashed_password=pwd_context.hash("testpass"))
+                      hashed_password=pwd_context.hash(SEED_PASSWORD))
     db.add(sable_user)
     db.flush()
 
@@ -186,7 +191,7 @@ def reset():
 
     # ── Finn Ashcroft — Weird/Medium ──────────────────────────────────────────────
     finn_user = User(username="finn_ashcroft", email="finn@candela.test",
-                     hashed_password=pwd_context.hash("testpass"))
+                     hashed_password=pwd_context.hash(SEED_PASSWORD))
     db.add(finn_user)
     db.flush()
 
@@ -219,7 +224,7 @@ def reset():
 
     # ── keeper_test — Lightkeeper, no investigator ────────────────────────────────
     keeper_user = User(username="keeper_test", email="keeper@candela.test",
-                       hashed_password=pwd_context.hash("testpass"))
+                       hashed_password=pwd_context.hash(SEED_PASSWORD))
     db.add(keeper_user)
     db.flush()
 
@@ -236,13 +241,13 @@ def reset():
     db.close()
 
     print("\nDatabase reset complete.")
-    print("\nAccounts:")
-    print("  admin / admin              — Scholar/Professor (Adrian Voss)")
-    print("  elara_voss / testpass      — Scholar/Doctor    (Meticulous Notes + Dissection)")
-    print("  rook_halcyon / testpass    — Muscle/Soldier    (Behind Me + Sharpshooter)")
-    print("  sable_devereux / testpass  — Face/Journalist   (Sweet Talk + Lie Detector)")
-    print("  finn_ashcroft / testpass   — Weird/Medium      (Let Them In + Premonitions)")
-    print("  keeper_test / testpass     — Lightkeeper of 'The Veilhaven Chapter' (code: veilhaven-01)")
+    print(f"\nAccounts (password for all of them: {SEED_PASSWORD}):")
+    print("  admin           — Scholar/Professor (Adrian Voss)")
+    print("  elara_voss      — Scholar/Doctor    (Meticulous Notes + Dissection)")
+    print("  rook_halcyon    — Muscle/Soldier    (Behind Me + Sharpshooter)")
+    print("  sable_devereux  — Face/Journalist   (Sweet Talk + Lie Detector)")
+    print("  finn_ashcroft   — Weird/Medium      (Let Them In + Premonitions)")
+    print("  keeper_test     — Lightkeeper of 'The Veilhaven Chapter' (code: veilhaven-01)")
     print("\nAll investigators are unaffiliated. Players join keeper_test's campaign to begin.")
 
 
