@@ -3,15 +3,18 @@ name: Candela Obscura VTT
 description: A real-time virtual tabletop for one Candela Obscura group, dressed as the papers, tomes and dice on a Lightkeeper's desk.
 colors:
   oxblood: "#721c15"
+  oxblood-lit: "#d4705f"
   candle-gold: "#d4af37"
   gold-leaf: "#c49d47"
   register-green: "#0b1f12"
-  seal-green: "#047857"
+  seal-green: "#065f46"
+  seal-green-lit: "#5fae8b"
   gm-night: "#0c1c32"
   gm-slate: "#1e3a5f"
-  moonlight-steel: "#8aa4c8"
+  moonlight-steel: "#93adcf"
   night: "#120b0a"
   ink: "#1a1311"
+  mahogany: "#2b170c"
   sepia: "#5a3a28"
   parchment: "#f0e2c0"
   parchment-deep: "#e4cfa0"
@@ -21,26 +24,29 @@ colors:
   role-scholar: "#1e4f72"
   role-slink: "#2a4d25"
   role-weird: "#4a2870"
+  drive-nerve: "#7a4822"
+  drive-cunning: "#2a4d25"
+  drive-intuition: "#4a2870"
 typography:
   display:
-    fontFamily: "Crimson Text, serif"
-    fontSize: "3rem"
-    fontWeight: 900
+    fontFamily: "IM Fell English, Crimson Text, Georgia, serif"
+    fontSize: "2.25rem"
+    fontWeight: 400
     lineHeight: 1
-    letterSpacing: "-0.025em"
+    letterSpacing: "0.1em"
   headline:
-    fontFamily: "Crimson Text, serif"
-    fontSize: "1.875rem"
-    fontWeight: 900
-    lineHeight: 1.2
-    letterSpacing: "0.025em"
+    fontFamily: "IM Fell English, Crimson Text, Georgia, serif"
+    fontSize: "2.25rem"
+    fontWeight: 400
+    lineHeight: 1.1
+    letterSpacing: "0.06em"
   title:
-    fontFamily: "Crimson Text, serif"
+    fontFamily: "Crimson Text, Georgia, serif"
     fontSize: "1.125rem"
     fontWeight: 700
-    lineHeight: 1.4
+    lineHeight: 1.3
   body:
-    fontFamily: "Crimson Text, serif"
+    fontFamily: "Crimson Text, Georgia, serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.5
@@ -52,10 +58,10 @@ typography:
     letterSpacing: "0.1em"
   data:
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace"
-    fontSize: "0.625rem"
+    fontSize: "0.75rem"
     fontWeight: 400
     lineHeight: 1.4
-    letterSpacing: "0.1em"
+    letterSpacing: "0"
   pen:
     fontFamily: "Caveat, cursive"
     fontSize: "1.125rem"
@@ -136,7 +142,7 @@ components:
     size: "13px"
 ---
 
-<!-- Scan-mode record of the incumbent system, 2026-10-04. Source of truth: frontend/tailwind.config.js, frontend/src/index.css, inline styles in frontend/src/components, and the before-tour screenshots in /home/gater/projects/candela-ui-review/2026-10-04-before. The Overview language and color character names are a draft pending owner confirmation. -->
+<!-- Colors and Typography updated after the colorize and typeset stage, 2026-10-04 (beta-ui). Scan-mode record of the incumbent system, 2026-10-04. Source of truth: frontend/tailwind.config.js, frontend/src/index.css, inline styles in frontend/src/components, and the before-tour screenshots in /home/gater/projects/candela-ui-review/2026-10-04-before. The Overview language and color character names are a draft pending owner confirmation. -->
 
 # Design System: Candela Obscura VTT
 
@@ -162,72 +168,86 @@ The GM's side of the desk is cooler on purpose (owner decision, 2026-10-04): the
 
 ## Colors
 
-A candlelit palette: near-black warm brown for the room, aged paper for the objects, oxblood ink for action, gold for anything gilded.
+A candlelit palette: near-black warm brown for the room, aged paper for the objects, oxblood ink for action, gold for anything gilded, emerald for the seal on what is confirmed. Every value is defined once, in `frontend/tailwind.config.js`, which publishes each color as a Tailwind color (`bg-oxblood`, `text-sepia/70`) and as a CSS variable of RGB channels on `:root` (`rgb(var(--c-oxblood))`, `rgb(var(--c-sepia) / 0.15)`) for CSS rules and inline styles. Stock Tailwind palettes (slate, blue, stone, zinc, amber, red, emerald, green) are no longer used in the bundled app (2026-10-04).
 
 ### Primary
-- **Sealing-Wax Oxblood**: the one action color. The creator's active step tab and Advance button, section headings on parchment, filled mark boxes and action pips, the selected drive button, focus borders on ledger inputs, the custom scrollbar thumb. By far the most used color in the build (171 literal uses).
+- **Sealing-Wax Oxblood** (#721c15): the one action color. Primary buttons, active tabs and slips, filled mark boxes and action pips, section headings on paper, focus borders on ledger inputs, the selection highlight, the scrollbar thumb, error text on paper. On the night stage it never sets small text.
+- **Oxblood, lamp-lit** (#d4705f): the same ink lifted so it reads on the dark grounds (5.8:1 on Night, 5.1:1 on GM Night). Only for text and thin rules on dark: header subtitles, the Retire hover, errors and the death notice on dark modals. Never a fill.
 
 ### Secondary
-- **Candle Gold**: gilded dice and gilded action pips, selected ability rings in the creator, chip tags, the dice tray accents, the brass button. Meaning: special, gilded, chosen.
-- **Gold Leaf**: the hub's tome lettering and borders (Cinzel and Playfair titles stamped on leather). A duller, browner gold that only the chapter hub uses.
+- **Candle Gold** (#d4af37): gilded dice and gilded pips, the selected ability, drive or question, brass details (the pocket-watch case and crown, the brass button), milestone rings on the Illumination track. It is not used for headings, labels or borders that are not gilded or selected. Gold text never sits on paper (1.6:1).
+- **Gold Leaf** (#c49d47): the chapter hub's tome lettering and frames only (`.embossed-gold`, the padlock).
 
 ### Tertiary
-- **Register Green**: the leather of the first hub tome (Active Register). This is where the README's "emerald green" lands in the build.
-- **Seal Green**: confirmation and success state only ("Saved", "Report filed", "Confirmed", "3/3 placed"). Tailwind emerald-700.
+- **Register Green** (#0b1f12): the leather of the Active Register tome.
+- **Seal Green** (#065f46): confirmed and successful states on paper ("Report filed", "3/3 placed", "Confirmed", active campaigns in the roster book, roll entries in the log). Tuned from Tailwind emerald-700 so small text passes on parchment (6.0:1).
+- **Seal Green, lamp-lit** (#5fae8b): the same seal on dark grounds (status dots on the tomes, dice that count on the felt, confirmed relationships, sent invites).
 
 ### Neutral
-- **Night** ("Candle-Out Black"): the page background behind every screen (body, creator stage).
-- **Ink** ("Iron-Gall Ink"): body text on parchment, hard borders, inactive step tabs, dark wells.
-- **Sepia**: hairlines, input underlines and pip borders on parchment, used through alpha (rgba(90,58,40,0.12 to 0.4)) far more than solid.
-- **Parchment**: the creator's ledger panel and the base of all paper surfaces.
-- **Deep Parchment**: inset wells and upload targets on parchment, usually at 30% to 55% alpha.
-- **Cream**: text and button labels on dark surfaces; the brightest paper (notebook pages, GM circle sheet).
+- **Night** (#120b0a): the stage behind every screen and the headers.
+- **Ink** (#1a1311): text on paper, dark wells, inactive step tabs, hard rules.
+- **Mahogany** (#2b170c): the desk wood's own color under its texture, the notebook binder and the login card.
+- **Sepia** (#5a3a28): hairlines, underlines, pip rings and secondary text on paper (7.9:1 on parchment). Secondary text on paper is full sepia, not faded ink.
+- **Parchment** (#f0e2c0): the base of every paper object (creator sheet, book pages, slips, pamphlets, dispatch letter, memo pad).
+- **Deep Parchment** (#e4cfa0): inset wells, older paper (the Herald, the cryptid mounts), inactive tabs, and text on dark grounds (12.7:1 on Night).
+- **Cream** (#fdfaf4): the brightest paper (dossier, notebook pages, cards) and text and labels on dark grounds.
 
-### Game-semantic colors
-- **Role colors** (Face, Muscle, Scholar, Slink, Weird): tint the role card deck, its frame lines and the ability selection state in the creator. Each role also carries a darker `secondary` and a near-black `cardBg` in CharacterCreator.jsx. These are data colors, not brand accents.
-- **Drive tints** (Nerve brown, Cunning green, Intuition purple): tint the three drive columns in Action Ratings and the dossier. Muted, low-alpha washes over parchment.
+### Game colors
+- **Role colors** (Face #9a8235, Muscle #7a4822, Scholar #1e4f72, Slink #2a4d25, Weird #4a2870): the creator's card deck, its frames and the ability selection state. On the dark stage, role-colored text and icons are mixed 60/40 with Cream (`roleInk` in CharacterCreator.jsx) so they keep their hue and pass 4.5:1. The creator's darker `secondary` and `cardBg` shades stay as role data next to them.
+- **Drive tints** (Nerve #7a4822, Cunning #2a4d25, Intuition #4a2870): the three drive columns in the creator and in the dossier (a 7% wash, a 30% rule, the drive name and its filled drive squares).
+- **Player ink colors**: each player's `ink_color` from the server (business-card stripes, roster names, log entries, notebook). Data, never replaced by a token.
+
+### Material literals (kept on purpose)
+Physical objects keep their own local shading, drawn in CSS: the candles' wax, the Last Session tome's plum leather, strap and brass padlock, the book spine and page edges, the dice tray's green felt (#12241b) and wood rim (#2e1d15). They are renderings of materials, not interface colors, and are not to be reused as chrome.
 
 ### Named Rules
-**The One Ink Rule.** Oxblood is the only color that means "act" or "this matters". Primary buttons, active tabs and filled marks are oxblood; nothing else competes for that role.
+**The One Ink Rule.** Oxblood is the only color that means "act" or "this matters". Primary buttons (Advance, Select this Path, Cast, Dispatch, Join, Commission Investigator), active tabs and filled marks are oxblood; nothing else competes for that role.
 
-**The Gilded Means Gilded Rule.** Gold signals the game's gilded state or a deliberate selection. It is not a general decoration color for text or borders.
+**The Gilded Means Gilded Rule.** Gold signals the game's gilded state, a deliberate selection or brass. It is not a general decoration color for text or borders.
 
 **The Art Stays Whole Rule.** Official Darrington Press art (Fairelands map, role portraits) is shown as published: no tinting, no hue shifts, credit kept visible.
 
-### GM night side
-The owner chose to keep a cool, distinct look for the GM's screens (2026-10-04), toned down and made consistent. Today they use five slate navies (#020617, #0f172a, #1e293b, #1e3a5f, #0c1c32) and Tailwind's stock bright blues (#3b82f6, #60a5fa, blue-300/400). They consolidate to three:
-- **GM Night** (#0c1c32): the GM desk's ground, behind the paper objects.
-- **GM Slate** (#1e3a5f): raised panels and wells on the GM desk.
-- **Moonlight Steel** (#8aa4c8, starting value, tune for 4.5:1 on GM Night): GM headings, links, icons and rules. It replaces every stock Tailwind blue.
-The paper objects on the GM desk (dispatch letter, tabs, business cards, pocket watch, circle ledger) keep parchment, oxblood and gold; only the ground and the chrome around them are cool. The GM's dice are shown in their real colors (no grayscale or hue filter).
+**The Lamp-Lit Ink Rule.** A color that is too dark to read on the night stage gets a lifted twin (oxblood-lit, seal-green-lit, role ink); the dark original is never used for small text on dark.
 
-### Incumbent drift (recorded, not canonized)
-- **Stock Tailwind blues** (#3b82f6, #60a5fa, blue-300/400) on the GM desk, and the slate and blue hub header. The hub is shared by players and the GM and follows the warm palette; the GM desk uses the three GM night tokens above.
-- Large parts of the GM and player views use Tailwind stone, slate and zinc grays instead of the warm neutrals above.
+### GM night side
+The GM's screens keep a cool, deliberate night look (owner decision, 2026-10-04) built from exactly three tokens:
+- **GM Night** (#0c1c32): the GM desk's ground and header, the sticky tab strip and the map frame.
+- **GM Slate** (#1e3a5f): the Lightkeeper's Desk bar, raised panels and wells (Active Circle Members, the dice controls, Invite Player to Rejoin, Circle Formation Status).
+- **Moonlight Steel** (#93adcf, tuned from #8aa4c8 to 7.4:1 on GM Night and 5.0:1 on GM Slate): GM section labels, icons, rules, pagers, empty states and ghost buttons. It replaced every stock Tailwind blue.
+The paper objects on the GM desk (dispatch letter, nav slips, join-request cards, business cards, Finalize slip, pocket watch, circle ledger, memo pad, activity log) keep parchment, oxblood and gold; only the ground and the chrome around them are cool. The GM's dice are shown in their real colors: the grayscale and hue-rotate filter on the GM dice tray is gone. The chapter hub is shared by players and the GM and follows the warm palette.
+
+### Effects removed in this stage
+Glow box-shadows (gilded die, pips, rejoin banner, death modal, creator path button), the candles' blurred radial glow (the flames keep a small halo and a slow flicker that stops under `prefers-reduced-motion`), `animate-pulse` on static text, accidental backdrop blur on the scar, circle and relationship modals, the GM dice filter, the pocket watch's metal gradient and glass glare (now a flat brass case), the gilded die's metal gradient, and sub-degree or alternating tilts used as texture (sidebar cards, circle forms, history cards, business cards reduced to at most 2 degrees). The login card's blur is out of scope (LoginScreen.jsx is reserved). Every CSS animation and transition stops under `prefers-reduced-motion` (index.css).
 
 ## Typography
 
-**Display Font:** Crimson Text, declared in tailwind.config.js as `serif` (with generic `serif` fallback). It is not loaded anywhere, so every `font-serif` element currently renders in the platform's default serif.
-**Body Font:** the same declared serif.
-**Label Font:** system sans (ui-sans-serif, system-ui) at weight 900, uppercase, tracked.
-**Data Font:** system monospace (Tailwind default mono), uppercase and tracked, for IDs, counters, form numbers and status lines.
-**Hub faces (chapter hub only):** Cinzel (stamped titles), Cormorant Garamond (italic prose on tomes and pamphlets), Playfair Display (newspaper masthead, tome titles), IBM Plex Mono (`font-mono-data`, register labels). Loaded by an inline style block in CampaignSelector.jsx.
-**Pen fonts (notebook and signatures):** 20 handwriting families (Caveat as default, plus Reenie Beenie, Kalam, Indie Flower, Patrick Hand and others). A player picks a pen when joining a campaign and their notebook entries render in it. This is a feature, not decoration.
+**Display Font:** IM Fell English (regular and italic), loaded from Google Fonts in `index.html`, Tailwind `font-display`. It sets the CANDELA OBSCURA wordmark on every header, step and page titles, tome and pamphlet titles, the dispatch letterhead, the Lightkeeper's Desk bar and the Halcyon Herald. It has one weight, so display text is never bold (`font-synthesis: style` stops a faked bold).
+**Body Font:** Crimson Text (400, 600, 700 and italics), loaded in `index.html`, Tailwind `font-serif` and the body default. Prose, names, rule text, ability text, form values, empty states and in-world copy.
+**Label Font:** system sans (`font-sans`), bold or black, uppercase, tracked 0.1em (`tracking-widest`; up to 0.18em on the creator's few short heads). Buttons, tabs, field labels and status chips.
+**Data Font:** system monospace (`font-mono`, usually `tabular-nums`), only for numbers and identifiers: counts, dice totals, timers, scar counts, campaign codes, usernames, dates, page numbers.
+**Pen fonts:** the 20 handwriting families in `index.html` (Caveat by default). A player picks one when joining a campaign; their notebook entries, signature and business-card name render in it.
 
-**Character:** A bookish serif for anything read or named, against tiny, heavy, widely tracked labels that read like stamped form fields.
+The chapter hub no longer loads its own faces: Cinzel, Cormorant Garamond, Playfair Display and IBM Plex Mono (the runtime `@import` in DeskStyles.jsx) and the duplicate pen `@import`s in DeskStyles.jsx and CharacterCreator.jsx are gone, and the unused Playwrite NO load was dropped.
 
-### Hierarchy
-- **Display** (900, 48px, line-height 1): the CANDELA OBSCURA wordmark at the top of the creator and app shell. Elsewhere the wordmark appears at 36px bold with 0.15em tracking.
-- **Headline** (900, 30px, uppercase, 0.025em): step and section headings on parchment ("Action Ratings & Drive"), oxblood on parchment or cream on night.
-- **Title** (700, 18px): ability names, character name input, card titles.
-- **Body** (400, 14px to 16px, line-height 1.5): rule text and descriptions; italic serif for flavor lines and empty states.
-- **Label** (900, 10px to 14px, uppercase, 0.1em to 0.35em): buttons, tabs, field labels, column heads. The single most repeated text treatment in the build (415 `uppercase` uses).
-- **Data** (400, 9px to 11px, uppercase, tracked): counters ("3/3 placed"), form numbers, timestamps.
+**Character:** a bookish Crimson for anything read or named, Fell capitals for titles stamped on paper and leather, and small heavy tracked sans labels that read like stamped form fields.
+
+### Hierarchy and scale
+The scale is Tailwind's: 12, 14, 16, 18, 20, 24, 30, 36, 48px (`text-xs` to `text-5xl`). Arbitrary pixel sizes remain only for pen-font text (handwriting needs its own sizes), the Herald's newspaper print and a few large serif notebook lines tied to the ruled paper.
+- **Display** (Fell, 400, 28px phone / 36px desktop, uppercase, 0.1em): the wordmark on the hub, creator, player and GM headers.
+- **Headline** (Fell, 30 to 36px, uppercase, 0.06em): step titles in the creator ("Action Ratings & Drive"), the death notice, Join a Circle, Field Notes; oxblood on paper, cream on night.
+- **Title** (Crimson 700, 18 to 24px): ability and character names, sub-section heads in the creator ("A — Raise One Starting-Zero Action to 1"), field questions (Catalyst, Curiosity).
+- **Body** (Crimson 400, 16px, line-height 1.5): rule text, descriptions, the dispatch letter, roster names; italic for instructions, flavor lines and empty states.
+- **Label** (sans 700 to 900, 12 to 14px, uppercase, 0.1em): buttons, tabs, field labels, status chips.
+- **Data** (mono 400, 12 to 16px, tabular): numbers and identifiers.
 
 ### Named Rules
-**The Read in Serif Rule.** Anything a player reads as prose or as a name is serif. Sans and mono are for labels and numbers only.
+**The Read in Serif Rule.** Anything a player reads as prose or as a name is serif. Sans is for labels, mono for numbers and identifiers only (never for sentences, rule text or the dispatch letter).
 
-**The Pen Belongs to the Player Rule.** Handwriting fonts appear only for text a person wrote (notebook entries, signatures, pen previews). Interface copy never uses them.
+**The Twelve Pixel Floor.** No visible label or text under 12px. Decorative newspaper print (the Herald) and watermarks at a few percent opacity are the only exceptions.
+
+**The Short Caps Rule.** Uppercase with wide tracking is for short labels only. Sentences, instructions and letterhead lines are set in sentence case, usually Crimson italic.
+
+**The Pen Belongs to the Player Rule.** Handwriting fonts appear only for text a person wrote (notebook entries, signatures, pen previews, business-card names). Interface copy never uses them.
 
 ## Layout
 
@@ -247,11 +267,11 @@ Depth is literal and physical. Objects cast heavy, dark, offset shadows onto the
 - **Paper on desk** (`box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3)`): parchment panels resting on the night stage.
 - **Object lift** (`box-shadow: 4px 6px 15px rgba(0,0,0,0.7)`): cards, pamphlets and tabs resting on the desk; the deepest objects (tomes) go to `15px 25px 40px rgba(0,0,0,0.95)` with inner leather shading.
 - **Inset well** (`box-shadow: inset 0 2px 4px rgba(0,0,0,0.15)`): mark boxes and recessed areas on parchment.
-- **Ember glow** (`box-shadow: 0 0 4px rgba(114,28,21,0.55)` / `0 0 5px rgba(212,175,55,0.7)`): filled and gilded pips, glowing with their own color.
+- **No glows.** Filled and gilded pips, gilded dice and banners are flat fills with a cast shadow at most (removed 2026-10-04).
 - **Modal** (`box-shadow: 0 20px 60px rgba(0,0,0,0.9)`): dialogs over the desk.
 
 ### Named Rules
-**The One Lamp Rule.** All cast shadows fall the same way (down and right) because the desk has one light. Glows are only for things that are lit by their own state (filled, gilded, rolling).
+**The One Lamp Rule.** All cast shadows fall the same way (down and right) because the desk has one light. Nothing glows; the candle flames keep only a small halo.
 
 ## Shapes
 
@@ -264,7 +284,7 @@ Tactile and stamped: small, heavy, uppercase, tracked.
 - **Shape:** gently squared (4px).
 - **Primary:** oxblood fill, cream label, label type at 16px with widest tracking, 8px by 28px padding, standard shadow. Disabled drops to ink at 60% with cream at 20%.
 - **Ghost / Back:** transparent with a cream hairline at 18% alpha and cream text at 50%; hover adds a 5% white wash and raises text to 75%.
-- **Brass (btn-gold):** candle gold fill, ink label at 10px, 1px ink border. Used for accept and counter actions in circle creation. Its `:active` state presses in by 2px.
+- **Brass (btn-gold):** candle gold fill, ink label at 12px, 1px ink border, a soft cast shadow. Used for accept and counter actions in circle creation. Its `:active` state presses in by 1px.
 - **Stamp buttons (GM dispatch):** outlined, slightly rotated, oxblood or sepia ink, as if rubber-stamped onto the dispatch.
 
 ### Chips
@@ -288,7 +308,7 @@ Tactile and stamped: small, heavy, uppercase, tracked.
 - **Notebook tabs:** folder tabs on the book's top edge; active tab is cream paper, inactive tabs are dark brown with gold text.
 
 ### Action Pips and Mark Boxes (signature)
-The game's numbers are drawn as physical marks. Action pips are 13px circles with a 1.5px sepia ring; filled pips are solid oxblood with an ember glow; gilded pips are candle gold with a gold glow. Drive points are small squares tinted by drive. Mark boxes are 20px squares with a 2px ink border and an inset shadow, filling with oxblood. The illumination track is a row of ink dots with gold-ringed milestones every third pip.
+The game's numbers are drawn as physical marks. Action pips are 13px circles with a 1.5px sepia ring; filled pips are solid oxblood; gilded pips are candle gold with a sepia ring. Drive points are small squares filled with their drive's tint. Mark boxes are 20px squares with a 2px ink border and an inset shadow, filling with oxblood. The illumination track is a row of ink dots with gold-ringed milestones every third pip.
 
 ### Role Card Deck (signature)
 The creator's left column: an official role portrait in a gold-lined card frame with corner ornaments, the role name in serif at top and the role label in gold at the bottom, stacked over two offset card backs, with prev/next controls and a "1 / 10" counter.
