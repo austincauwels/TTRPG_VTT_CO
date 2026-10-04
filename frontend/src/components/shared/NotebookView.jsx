@@ -301,7 +301,9 @@ function EphemeralNote({ entry, onDelete }) {
   );
 }
 
-export const NotebookView = ({ isGM: isGMProp = null }) => {
+// `fit`: on a desk that fits the screen (xl and up), the binder fills its column's height
+// and the book takes what the tabs leave, instead of its fixed 800px spread.
+export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
   const {
     notebookEntries,
     character,
@@ -607,11 +609,12 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
   return (
     <div
-      className="bg-mahogany p-2 sm:p-6 rounded-sm shadow-[0_25px_55px_rgba(0,0,0,0.95)] border-[8px] sm:border-[14px] border-night relative min-h-[600px] sm:min-h-[850px] animate-fadeIn"
+      className={`bg-mahogany p-2 sm:p-6 rounded-sm shadow-[0_25px_55px_rgba(0,0,0,0.95)] border-[8px] sm:border-[14px] border-night relative min-h-[600px] sm:min-h-[850px] animate-fadeIn ${
+        fit ? 'xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:p-4 xl:border-[10px]' : ''}`}
       style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/dark-leather.png')" }}
     >
       {/* Manila folder tabs */}
-      <div className="flex items-end gap-1 relative z-10 pr-1 sm:pr-0" style={{ marginBottom: '-2px' }}>
+      <div className="flex items-end gap-1 relative z-10 pr-1 sm:pr-0 xl:shrink-0" style={{ marginBottom: '-2px' }}>
         {[
           {
             label: 'Field Notes',
@@ -671,7 +674,8 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
       {/* ═══════════════ EPHEMERAL NOTES VIEW ═══════════════ */}
       {showEphemeral && (
-        <div className="bg-cream rounded-sm border border-ink/20 p-4 sm:p-8 min-h-[500px] sm:min-h-[700px] relative z-10">
+        <div className={`bg-cream rounded-sm border border-ink/20 p-4 sm:p-8 min-h-[500px] sm:min-h-[700px] relative z-10 ${
+          fit ? 'xl:flex-1 xl:min-h-0 xl:overflow-y-auto custom-scrollbar' : ''}`}>
           <div className="flex flex-wrap gap-x-4 gap-y-1 items-baseline justify-between mb-6 border-b border-ink/15 pb-3">
             <h2 className="font-serif font-black text-2xl sm:text-3xl uppercase text-ink">Private Field Notes</h2>
             <span className="font-sans font-bold text-xs text-sepia uppercase">Visible only to you</span>
@@ -722,7 +726,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
       {/* ═══════════════ LIGHTKEEPER RESOURCES VIEW ═══════════════ */}
       {isLKView && (
-        <div className="relative z-10">
+        <div className={`relative z-10 ${fit ? 'xl:flex-1 xl:min-h-0 xl:overflow-y-auto custom-scrollbar' : ''}`}>
           <div
             className="w-full bg-cream text-ink relative shadow-inner border border-ink/30 rounded-sm"
             style={{ minHeight: '780px' }}
@@ -763,10 +767,11 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
       {/* ═══════════════ FIELD NOTES VIEW ═══════════════ */}
       {!showEphemeral && !isLKView && (
-        <div className="relative z-10">
+        <div className={`relative z-10 ${fit ? 'xl:flex-1 xl:min-h-0' : ''}`}>
           {/* The book is one size whatever it holds: from lg the spread has a fixed height and
-              a long page scrolls inside itself; on phones the contents page has a fixed height */}
-          <div className="w-full grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-1 lg:h-[800px] bg-cream text-ink relative shadow-inner border border-ink/30 overflow-hidden rounded-sm">
+              a long page scrolls inside itself; on phones the contents page has a fixed height.
+              On a desk that fits the screen the spread is as tall as the binder allows. */}
+          <div className={`w-full grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-1 lg:h-[800px] ${fit ? 'xl:h-full' : ''} bg-cream text-ink relative shadow-inner border border-ink/30 overflow-hidden rounded-sm`}>
             <div className="absolute inset-0 opacity-20 pointer-events-none"
               style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cream-paper.png')" }} />
             {leaf && (

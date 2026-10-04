@@ -83,7 +83,10 @@ const LEDGER_ROWS = {
     'repeating-linear-gradient(to bottom, transparent 0, transparent 27px, rgb(var(--c-sepia) / 0.2) 27px, rgb(var(--c-sepia) / 0.2) 28px)',
 };
 
-// `gm` sets the heading in the GM desk's moonlit chrome; the log paper stays warm.
+// The table log is a ruled notepad lying on the desk: a glued binding along its top, its
+// name and form number printed on the first sheet, then the entries on the ruled rows.
+// From xl it takes the height the rail leaves it and scrolls inside itself. The pad is the
+// same warm paper on the GM desk; `gm` stays in the signature for its caller.
 export const ActivityLog = ({ logEntries, gm = false }) => {
   const logContainerRef = useRef(null);
 
@@ -94,27 +97,31 @@ export const ActivityLog = ({ logEntries, gm = false }) => {
   }, [logEntries.length]);
 
   return (
-  <div className="font-sans">
-    <h3 className={`text-sm font-sans font-black uppercase tracking-widest border-b pb-2 mb-3 flex items-center gap-2 ${gm ? 'text-moonlight-steel border-moonlight-steel/25' : 'text-parchment-deep border-parchment-deep/25'}`}>
-      <SafeIcon name="GiScrollUnfurled" size={18} /> Activity Log
-    </h3>
+  <div data-desk="log" data-gm={gm || undefined} className="font-sans flex flex-col xl:flex-1 xl:min-h-0 shadow-[3px_8px_18px_rgba(0,0,0,0.6)]"
+    style={{ background: 'rgb(var(--c-cream))' }}>
+    {/* The pad's glued binding */}
+    <div aria-hidden="true" className="h-2.5 shrink-0 border-b border-black/40"
+      style={{ background: 'linear-gradient(to bottom, rgb(var(--c-mahogany)), rgb(var(--c-ink)))', boxShadow: 'inset 0 1px 0 rgb(255 255 255 / 0.08)' }} />
+    <div className="shrink-0 flex items-center justify-between gap-2 px-3 pt-2 pb-1.5 border-b border-sepia/25">
+      <h3 className="shrink-0 whitespace-nowrap text-sm font-sans font-black uppercase tracking-widest text-ink flex items-center gap-2">
+        <SafeIcon name="GiScrollUnfurled" size={16} className="text-sepia" /> Activity Log
+      </h3>
+      <span className="flex items-center gap-1.5 min-w-0" aria-hidden="true">
+        <FormLine className="block truncate">Form C.O. 9 · Table log</FormLine>
+        <PrinterMark size={12} />
+      </span>
+    </div>
     <div
       ref={logContainerRef}
-      className="h-[240px] 2xl:h-[320px] overflow-y-auto flex flex-col gap-3 [&>*]:shrink-0 text-base font-serif leading-normal px-3 py-2 custom-scrollbar"
+      className="h-[240px] 2xl:h-[320px] xl:h-auto 2xl:h-auto xl:flex-1 xl:min-h-[6rem] overflow-y-auto flex flex-col gap-3 [&>*]:shrink-0 text-base font-serif leading-normal px-3 py-2 custom-scrollbar"
       style={{
-        background: 'rgb(var(--c-cream))',
         boxShadow:
-          'inset 0 14px 22px -12px rgb(var(--c-sepia) / 0.55), ' +
           'inset 0 -14px 22px -12px rgb(var(--c-sepia) / 0.55), ' +
           'inset 8px 0 16px -12px rgb(var(--c-sepia) / 0.35), ' +
           'inset -8px 0 16px -12px rgb(var(--c-sepia) / 0.35)',
       }}
     >
-      {/* The sheet's printed head; an empty log is just the blank sheet */}
-      <div className="flex items-center justify-between gap-2 border-b border-sepia/25 pb-1" aria-hidden="true">
-        <FormLine>Form C.O. 9 · Table log</FormLine>
-        <PrinterMark size={12} />
-      </div>
+      {/* An empty log is just the blank ruled sheet */}
       {logEntries.map((entry, i) => <LogEntry key={i} entry={entry} />)}
       <div aria-hidden="true" className="!shrink !grow basis-0 min-h-0 -mx-1 pointer-events-none" style={LEDGER_ROWS} />
     </div>

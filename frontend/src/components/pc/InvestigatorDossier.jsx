@@ -4,13 +4,16 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
+import { ScarIcon } from '../shared/ScarIcon';
 import { getAvailableRollMods } from './DiceVault';
 import { ACTION_LABEL, scarDisplayText } from '../../game/actions';
 import { useMarkUndo, MARK_NAME } from './useMarkUndo';
 import { useDialog } from '../shared/useDialog';
+import { tiltFor } from '../shared/handPlaced';
 import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks';
 
-// A die face (three pips) on each action that rolls, so the row reads as something to press
+// A die face (three pips). The whole action row is the roll; this die only shows on hover
+// or keyboard focus (.action-die in index.css), never as a standing icon on every row.
 const DieGlyph = ({ className = '' }) => (
   <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false" className={className}>
     <rect x="1.25" y="1.25" width="13.5" height="13.5" rx="2.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
@@ -288,11 +291,25 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
   if (!character) return null;
 
+  const gear = character.gear || [];
+  const openGearModal = () => {
+    const available = [...STANDARD_GEAR, ...(character.specialty ? (SPECIALTY_GEAR[character.specialty] || []) : [])];
+    setPendingGear(gear.filter(item => available.includes(item)));
+    setShowGearModal(true);
+  };
+  const displayRole = character.role || ROLE_FROM_ABILITY[character.role_ability] || '';
+  const displaySpecialty = character.specialty || SPECIALTY_FROM_ABILITY[character.specialty_ability] || '';
+  const roleIcon = ROLE_ICONS[displayRole] || 'GiEyeShield';
+
+  // The sheet is one column on a phone and a ledger page from 44rem of its own width; the
+  // .dossier rules in index.css place the parts (container query, so the GM's copy of the
+  // sheet follows its own column, not the window).
   return (
-    <div className="relative z-10 animate-fadeIn space-y-6">
+    <div className="dossier-c relative z-10 animate-fadeIn">
+    <div className="dossier space-y-6">
 
       {/* Investigator Portrait Frame */}
-      <div className="relative float-right ml-3 mb-2 w-24 h-[120px] p-1.5 md:float-none md:m-0 md:absolute md:top-0 md:right-0 md:w-44 md:h-[220px] md:p-2 bg-cream border border-ink/10 shadow-[4px_10px_24px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 hover:scale-105 duration-200 transition-all z-30 group">
+      <div className="dossier-photo relative float-right ml-3 mb-2 w-24 h-[120px] p-1.5 md:float-none md:m-0 md:absolute md:top-0 md:right-0 md:w-44 md:h-[220px] md:p-2 bg-cream border border-ink/10 shadow-[4px_10px_24px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 hover:scale-105 duration-200 transition-all z-30 group">
         <div className="absolute -top-3 md:-top-3.5 left-1/2 -translate-x-1/2 w-12 md:w-20 h-3 md:h-4 bg-parchment-deep/80 -rotate-3 border border-ink/5 mix-blend-multiply shadow-sm" />
         <div className="w-full h-full bg-black/5 border border-ink/5 flex flex-col items-center justify-center overflow-hidden text-center">
           {character.profilePic || character.profile_pic ? (
@@ -307,48 +324,82 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       </div>
 
       {/* The form's printed head: its number, and the registry's serial in red */}
-      <div className="flex items-center gap-2 md:w-2/3 -mt-1" aria-hidden="true">
+      <div className="dossier-form flex items-center gap-2 md:w-2/3 -mt-1" aria-hidden="true">
         <PrinterMark size={13} />
         <FormLine>Form C.O. 7<span className="hidden sm:inline"> · Investigator record</span></FormLine>
         <SerialNo value={serialFor(character.id)} className="ml-auto" />
       </div>
 
-      {/* Investigator Identity Headers */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 md:w-2/3 pb-2">
+      {/* Investigator Identity Headers: the name with the role and specialty under it,
+          the pronouns beside them */}
+      <div data-desk="identity" className="dossier-ident grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-x-6 sm:gap-y-2 md:w-2/3 pb-2">
         <div className="sm:col-span-2 min-w-0">
           <span className="block font-sans text-xs font-black uppercase tracking-normal text-sepia leading-tight">Investigator</span>
           <div className="text-xl font-serif font-black border-b border-ink pb-0.5 text-ink uppercase mt-1 truncate">{character.name}</div>
-          {/* Role class + specialty badges */}
-          {(() => {
-            const displayRole = character.role || ROLE_FROM_ABILITY[character.role_ability] || '';
-            const displaySpecialty = character.specialty || SPECIALTY_FROM_ABILITY[character.specialty_ability] || '';
-            const roleIcon = ROLE_ICONS[displayRole] || 'GiEyeShield';
-            return (displayRole || displaySpecialty) ? (
-              <div className="flex flex-wrap gap-2 sm:gap-2.5 mt-2">
-                {displayRole && (
-                  <span className="font-sans text-sm font-black uppercase tracking-widest bg-ink text-parchment px-2.5 py-1 flex items-center gap-1.5">
-                    <SafeIcon name={roleIcon} size={14} />
-                    {displayRole}
-                  </span>
-                )}
-                {displaySpecialty && (
-                  <span className="font-sans font-bold text-sm uppercase tracking-widest border border-ink/30 text-sepia px-2.5 py-1 flex items-center gap-1.5">
-                    <SafeIcon name="GiMagnifyingGlass" size={14} />
-                    {displaySpecialty}
-                  </span>
-                )}
-              </div>
-            ) : null;
-          })()}
         </div>
-        <div>
+        {/* Role class + specialty badges */}
+        {(displayRole || displaySpecialty) ? (
+          <div className="sm:col-span-2 sm:row-start-2 flex flex-wrap gap-2 sm:gap-2.5">
+            {displayRole && (
+              <span className="dossier-badge font-sans text-sm font-black uppercase tracking-widest bg-ink text-parchment px-2.5 py-1 flex items-center gap-1.5">
+                <SafeIcon name={roleIcon} size={14} />
+                {displayRole}
+              </span>
+            )}
+            {displaySpecialty && (
+              <span className="dossier-badge font-sans font-bold text-sm uppercase tracking-widest border border-ink/30 text-sepia px-2.5 py-1 flex items-center gap-1.5">
+                <SafeIcon name="GiMagnifyingGlass" size={14} />
+                {displaySpecialty}
+              </span>
+            )}
+          </div>
+        ) : null}
+        <div className="min-w-0 sm:col-start-3 sm:row-start-1">
           <span className="block font-sans text-xs font-black uppercase tracking-normal text-sepia leading-tight">Pronouns</span>
           <div className="text-sm font-bold italic border-b border-ink pb-1 text-ink/70 mt-1.5 truncate">{character.pronouns || 'Not given'}</div>
         </div>
       </div>
 
+      {/* Gear: a requisition slip from the chapter stores laid on the sheet under the name,
+          a little crooked, its bottom edge torn off the pad. Each item is drawn large. */}
+      <div data-desk="gear" className="dossier-gear md:w-2/3 clear-both md:clear-none"
+        style={{ filter: 'drop-shadow(2px 5px 5px rgba(0,0,0,0.22))' }}>
+        <div
+          className="hand-placed deckle-bottom bg-parchment border-x border-t border-sepia/25 px-3 pt-2 pb-4"
+          style={{ '--tilt': `${tiltFor(`gear-${character.id ?? ''}`, { min: 0.5, max: 1.2, sign: 1 })}deg` }}
+        >
+          <div className="flex items-center gap-2 border-b border-dashed border-sepia/45 pb-1.5 mb-2">
+            <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
+              <SafeIcon name="GiBriefcase" size={18} /> Gear
+            </h3>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={openGearModal}
+                className="ml-auto whitespace-nowrap min-h-[32px] [@media(pointer:coarse)]:min-h-[40px] text-xs font-sans font-black uppercase tracking-wider border border-ink/30 px-2.5 py-1 hover:bg-black/5 hover:border-ink/50 transition-colors rounded-sm"
+              >
+                Change gear
+              </button>
+            )}
+          </div>
+          <ul className="grid grid-cols-3 gap-1.5">
+            {gear.map(item => (
+              <li key={item} className="flex flex-col items-center gap-1 text-center px-1 pt-1.5 pb-1 min-h-[4.75rem] min-w-0">
+                <SafeIcon name={GEAR_ICONS[item] || 'GiSuitcase'} size={30} className="text-ink shrink-0" />
+                <span className="font-serif font-semibold text-sm leading-tight text-ink break-words">{item}</span>
+              </li>
+            ))}
+            {/* The gear slots not yet filled, printed on the slip and left blank */}
+            {Array.from({ length: Math.max(0, 3 - gear.length) }).map((_, i) => (
+              <li key={`slot-${i}`} aria-hidden="true" className="min-h-[4.75rem] border border-dashed border-sepia/35 rounded-sm" />
+            ))}
+          </ul>
+          {gear.length === 0 && <span className="sr-only">No gear</span>}
+        </div>
+      </div>
+
       {/* Index card: the role ability, the specialty ability, then catalyst and question */}
-      <div className="w-full md:pr-48 relative clear-both md:clear-none" style={{ perspective: '1000px' }}>
+      <div data-desk="abilities" className="dossier-ability w-full md:pr-48 relative clear-both md:clear-none" style={{ perspective: '1000px' }}>
         {/* Tab row — index card style tabs sticking up from behind */}
         <div className="flex gap-0 mb-0 relative z-10">
           {/* One scheme for every tab: the open one in oxblood, the others older paper */}
@@ -379,7 +430,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
         {/* Card body — looks like an index card sitting on the desk */}
         <div
-          className="relative rounded-sm rounded-tl-none"
+          className="dossier-ability-card relative rounded-sm rounded-tl-none"
           style={{
             background: 'rgb(var(--c-cream))',
             backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.12) 24px)',
@@ -437,25 +488,25 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         </div>
       </div>
 
-      <SheetDivider />
+      <SheetDivider className="dossier-divider" />
 
+      <section className="dossier-actions space-y-4" aria-labelledby={`actions-${character.id ?? 'sheet'}`}>
       {/* Actions section header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
+        <h3 id={`actions-${character.id ?? 'sheet'}`} className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
           <SafeIcon name="GiCrossedSwords" size={15} /> Actions
         </h3>
+        {/* Train bonus active indicator */}
+        {character?.train_bonus && (
+          <span className="flex items-center gap-1.5 px-2.5 py-1 bg-candle-gold/15 border border-candle-gold/50 text-ink font-sans font-bold text-xs uppercase tracking-widest rounded-sm">
+            <SafeIcon name="GiDiceSixFacesSix" size={11} />
+            Train: +1d on your next roll
+          </span>
+        )}
       </div>
 
-      {/* Train bonus active indicator */}
-      {character?.train_bonus && (
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-candle-gold/15 border border-candle-gold/50 text-ink font-sans font-bold text-xs uppercase tracking-widest rounded-sm">
-          <SafeIcon name="GiDiceSixFacesSix" size={11} />
-          Train: +1d on your next roll
-        </div>
-      )}
-
       {/* Action and Drive Pools Grid */}
-      <div className="grid grid-cols-1 gap-4 bg-black/[0.02] border border-ink/10 p-3 rounded-sm shadow-inner">
+      <div data-desk="drives" className="dossier-drives grid grid-cols-1 gap-4 bg-black/[0.02] border border-ink/10 p-3 rounded-sm shadow-inner">
         {domainCategories.map((cat) => {
           const currentDrive = character[`${cat.driveKey}_current`] || 0;
           const maxDrive = character[`${cat.driveKey}_max`] || 1;
@@ -463,11 +514,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           const resistSpent = character[`${cat.driveKey}_resistance_spent`] || 0;
 
           return (
-            <div key={cat.name} className="border p-3 rounded-sm grid grid-cols-1 sm:grid-cols-2 gap-3"
+            <div key={cat.name} className="dossier-drive border p-3 rounded-sm grid grid-cols-1 sm:grid-cols-2 gap-3"
               style={{ background: `rgb(var(--c-drive-${cat.driveKey}) / 0.07)`, borderColor: `rgb(var(--c-drive-${cat.driveKey}) / 0.3)` }}>
 
               {/* LEFT: Drive section */}
-              <div className="group/drive bg-cream/60 border border-ink/20 p-2.5 rounded-sm shadow-sm flex flex-col gap-2">
+              <div className="dossier-drive-panel group/drive bg-cream/60 border border-ink/20 p-2.5 rounded-sm shadow-sm flex flex-col gap-2">
                 {/* Drive title + pre-spend buttons */}
                 <div className="flex items-center justify-between">
                   <span className="font-serif font-bold text-lg uppercase tracking-wide" style={{ color: `rgb(var(--c-drive-${cat.driveKey}))` }} title={DRIVE_FLAVOR[cat.driveKey]}>{cat.name}</span>
@@ -495,7 +546,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 {/* Available row */}
                 <div className="flex items-center justify-between">
                   <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2" id={`drive-avail-${cat.driveKey}`}>Available</span>
-                  <div className="flex gap-0.5 flex-wrap justify-end" role="group" aria-labelledby={`drive-avail-${cat.driveKey}`}>
+                  <div className="drive-pips flex gap-0.5 flex-wrap justify-end" role="group" aria-labelledby={`drive-avail-${cat.driveKey}`}>
                     <span className="sr-only">{cat.name}: {currentDrive} of {maxDrive} available.</span>
                     {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
                       <button
@@ -505,7 +556,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         aria-label={`Set ${cat.name} available to ${i + 1}`}
                         aria-hidden={!readOnly && i < maxDrive && i >= currentDrive ? undefined : true}
                         onClick={!readOnly && i < maxDrive && i >= currentDrive ? () => handleSpendDrive(cat.driveKey, i + 1) : undefined}
-                        className={`w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all ${
+                        className={`drive-pip w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all ${
                           i < currentDrive
                             ? ''
                             : i < maxDrive
@@ -521,11 +572,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 {/* Maximum row */}
                 <div className="flex items-center justify-between">
                   <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2">Maximum</span>
-                  <div className="flex gap-0.5 flex-wrap justify-end" role="img" aria-label={`${cat.name} maximum: ${maxDrive}`}>
+                  <div className="drive-pips flex gap-0.5 flex-wrap justify-end" role="img" aria-label={`${cat.name} maximum: ${maxDrive}`}>
                     {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
                       <div
                         key={i}
-                        className={`w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border ${
+                        className={`drive-pip w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border ${
                           i < maxDrive
                             ? 'border-dashed border-ink/35 bg-ink/5'
                             : 'border-dotted border-ink/10 bg-transparent'
@@ -559,7 +610,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               </div>
 
               {/* RIGHT: Actions section */}
-              <div className="space-y-2 flex flex-col justify-center">
+              <div className="space-y-1.5 flex flex-col justify-center">
                 {cat.actions.map((act) => {
                   const actionValue = character[act.key] || 0;
                   const isGilded = character[`gilded_${act.key}`] === true || character[`gilded_${act.key}`] === 1 || character[`gilded_${act.key}`] === "true";
@@ -591,7 +642,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                           {ratingPips}
                         </div>
                       ) : (
-                        // The whole row is the roll: a raised paper chit with a die on it
+                        // The whole row is the roll: a paper chit that lifts and gets a pen
+                        // underline under its name on hover, and sinks when pressed
                         <button
                           disabled={rollBlocked}
                           onClick={() => {
@@ -602,22 +654,22 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             setActiveMods(p => ({ ...p, [act.key]: [] }));
                             rollAction(act.key, effectiveSpend, false, selectedMods);
                           }}
-                          className={`group/roll w-full flex items-center gap-2 pl-2 pr-2.5 py-1.5 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] text-left rounded-sm border transition-[color,background-color,border-color,box-shadow,transform] duration-150 ${
+                          className={`action-chit pen-host group/roll w-full flex items-center gap-2 pl-2.5 pr-2.5 py-1.5 min-h-[34px] [@media(pointer:coarse)]:min-h-[44px] text-left rounded-sm border transition-[color,background-color,border-color,box-shadow,transform] duration-150 ${
                             rollBlocked
                               ? 'opacity-40 cursor-not-allowed border-ink/15 bg-transparent'
-                              : 'border-ink/25 bg-cream shadow-[0_1px_0_rgb(var(--c-ink)/0.18),1px_2px_4px_rgb(var(--c-ink)/0.08)] hover:border-oxblood/70 hover:bg-oxblood/[0.04] hover:text-oxblood active:translate-y-px active:shadow-none'
+                              : 'border-ink/25 bg-cream shadow-[0_1px_0_rgb(var(--c-ink)/0.18),1px_2px_4px_rgb(var(--c-ink)/0.08)] [@media(hover:hover)]:hover:-translate-y-px [@media(hover:hover)]:hover:border-oxblood/60 [@media(hover:hover)]:hover:text-oxblood [@media(hover:hover)]:hover:shadow-[0_1px_0_rgb(var(--c-ink)/0.2),2px_5px_9px_rgb(var(--c-ink)/0.16)] active:translate-y-px active:shadow-none active:bg-oxblood/[0.05]'
                           }`}
                           style={{ touchAction: 'manipulation' }}
                           aria-label={`Roll ${act.label}${isGilded ? ', gilded' : ''}, rating ${actionValue}${preSpend[cat.driveKey] > 0 ? `, plus ${preSpend[cat.driveKey]} from ${cat.name}` : ''}`}
                         >
-                          <DieGlyph className={`shrink-0 transition-colors ${rollBlocked ? 'text-sepia' : 'text-sepia group-hover/roll:text-oxblood'}`} />
                           <span className="flex-1 min-w-0 font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5">
                             {isGilded && <span aria-hidden="true" className="w-2 h-2 shrink-0 bg-candle-gold border border-sepia rounded-full" />}
-                            {act.label}
+                            <span className={rollBlocked ? undefined : 'pen-underline'}>{act.label}</span>
                             {preSpend[cat.driveKey] > 0 && (
                               <span className="font-mono tabular-nums text-xs text-oxblood font-black">+{preSpend[cat.driveKey]}d</span>
                             )}
                           </span>
+                          {!rollBlocked && <DieGlyph className="action-die shrink-0 text-oxblood" />}
                           {ratingPips}
                         </button>
                       )}
@@ -653,16 +705,17 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           );
         })}
       </div>
+      </section>
 
-      <SheetDivider />
+      <SheetDivider className="dossier-divider" />
 
       {/* Vital Damage & Post-Mortem Ledger */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+      <div className="dossier-trauma grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
 
         {/* Damage Tracks Column */}
-        <div className="md:col-span-5 bg-black/[0.02] border-2 border-ink p-4 rounded-sm flex flex-col justify-between shadow-inner">
+        <div data-desk="marks" className="dossier-marks md:col-span-5 bg-black/[0.02] border-2 border-ink p-4 rounded-sm flex flex-col justify-between shadow-inner">
           <div>
-            <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-2">
+            <h3 className="mark-head font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-2">
               <SafeIcon name="GiBleedingEye" size={22} className="text-oxblood" /> Marks
             </h3>
             {/* Each box is its own target: only the next empty box takes a mark. A mark is
@@ -678,16 +731,16 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 // label on one line beside three boxes.
                 const cell = readOnly ? 'w-7 h-9' : 'w-11 h-11 md:w-9';
                 return (
-                  <div key={type} className="flex justify-between items-center gap-2">
+                  <div key={type} className="mark-row flex justify-between items-center gap-2">
                     {readOnly ? (
-                      <span className="font-sans font-black uppercase tracking-widest text-sm text-ink">{name}</span>
+                      <span className="mark-label font-sans font-black uppercase tracking-widest text-sm text-ink">{name}</span>
                     ) : (
                       <button
                         onClick={() => holdMark(type)}
                         aria-label={trackFull
                           ? `Take a ${name} mark. The track is full, so this mark brings a scar.`
                           : `Take a ${name} mark`}
-                        className="min-h-[44px] whitespace-nowrap font-sans font-black uppercase tracking-widest text-sm text-ink hover:text-oxblood transition-colors border-b border-dashed border-transparent hover:border-oxblood"
+                        className="mark-label min-h-[44px] whitespace-nowrap font-sans font-black uppercase tracking-widest text-sm text-ink hover:text-oxblood transition-colors border-b border-dashed border-transparent hover:border-oxblood"
                       >
                         {name} <span aria-hidden="true">+</span>
                       </button>
@@ -715,12 +768,12 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             key={i}
                             onClick={() => holdMark(type)}
                             aria-label={`Take ${name} mark ${i + 1} of 3`}
-                            className={`group/box ${cell} flex items-center justify-center rounded-sm`}
+                            className={`mark-cell group/box ${cell} flex items-center justify-center rounded-sm`}
                           >
                             {box}
                           </button>
                         ) : (
-                          <span key={i} className={`${cell} flex items-center justify-center`}>{box}</span>
+                          <span key={i} className={`mark-cell ${cell} flex items-center justify-center`}>{box}</span>
                         );
                       })}
                     </div>
@@ -748,7 +801,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             )}
           </div>
 
-          <div className="mt-4 pt-2 border-t border-ink/10 text-xs font-sans font-bold text-sepia flex justify-between items-center uppercase">
+          <div className="mark-status mt-4 pt-2 border-t border-ink/10 text-xs font-sans font-bold text-sepia flex justify-between items-center uppercase">
             <span>Status</span>
             <span className={`font-bold ${character?.is_dead ? 'text-ink' : character?.incapacitated ? 'text-oxblood' : 'text-ink'}`}>
               {character?.is_dead ? "Dead" : character?.incapacitated ? "Incapacitated" : "Able to act"}
@@ -773,12 +826,12 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         </div>
 
         {/* Scars — editable textarea for players, list view for GM readOnly */}
-        <div className="md:col-span-7 bg-cream border-2 border-dashed border-ink/60 p-4 pt-5 rounded-sm relative shadow-sm flex flex-col justify-between overflow-hidden">
+        <div data-desk="scars" className="dossier-scars md:col-span-7 bg-cream border-2 border-dashed border-ink/60 p-4 pt-5 rounded-sm relative shadow-sm flex flex-col justify-between overflow-hidden">
           <FormLine className="absolute top-1.5 right-3">Form C.O. 14 · Trauma record</FormLine>
           <div>
             <div className="flex flex-wrap gap-2 justify-between items-center border-b border-ink/40 pb-1 mb-2 mt-3 sm:mt-0">
               <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
-                <SafeIcon name="GiQuillInk" size={18} /> Scars
+                <ScarIcon size={22} className="text-ink" /> Scars
               </h3>
               <span className="font-mono tabular-nums text-sm font-bold bg-ink text-cream px-2.5 py-0.5 rounded-sm" aria-label={`${character?.scars_count || 0} of 4 scars`}>
                 {character?.scars_count || 0} / 4
@@ -800,42 +853,6 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <span className="sr-only">No scars</span>
             )}
           </div>
-        </div>
-      </div>
-
-      <SheetDivider />
-
-      {/* Equipment Ledger */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
-            <SafeIcon name="GiBriefcase" size={18} /> Gear
-          </h3>
-          {!readOnly && (
-            <button
-              onClick={() => {
-            const available = [...STANDARD_GEAR, ...(character.specialty ? (SPECIALTY_GEAR[character.specialty] || []) : [])];
-            setPendingGear((character.gear || []).filter(item => available.includes(item)));
-            setShowGearModal(true);
-          }}
-              className="text-xs font-sans font-black uppercase tracking-wider border border-ink/30 px-3 py-1.5 hover:bg-black/5 transition-colors rounded-sm"
-            >
-              Change Gear
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {(character.gear || []).map(item => (
-            <span key={item} className="flex items-center gap-1.5 font-sans text-xs font-bold uppercase tracking-tight bg-black/5 border border-ink/15 px-2.5 py-1.5 rounded-sm">
-              <SafeIcon name={GEAR_ICONS[item] || 'GiSuitcase'} size={13} />
-              {item}
-            </span>
-          ))}
-          {/* The gear slots not yet filled, printed on the form and left blank */}
-          {Array.from({ length: Math.max(0, 3 - (character.gear || []).length) }).map((_, i) => (
-            <span key={`slot-${i}`} aria-hidden="true" className="w-28 h-[30px] border border-dashed border-ink/25 rounded-sm" />
-          ))}
-          {(character.gear || []).length === 0 && <span className="sr-only">No gear</span>}
         </div>
       </div>
 
@@ -905,6 +922,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         document.body
       )}
 
+    </div>
     </div>
   );
 };

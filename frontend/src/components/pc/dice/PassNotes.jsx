@@ -34,11 +34,13 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
     chatInputRef.current?.focus();
   };
 
+  // A memo pad dropped at the foot of the log, a little crooked, its edge over the log's
   return (
-  <div className="font-sans">
+  <div data-desk="passnotes" className="font-sans xl:shrink-0 xl:-mt-4 relative z-10">
     <div
-      className="relative shadow-[2px_5px_18px_rgba(0,0,0,0.65)] border border-sepia/40"
+      className="hand-placed relative shadow-[2px_5px_18px_rgba(0,0,0,0.65)] border border-sepia/40"
       style={{
+        '--tilt': showGmControls ? '-0.7deg' : '0.8deg',
         background: 'rgb(var(--c-parchment))',
         backgroundImage: [
           'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.14) 27px, rgb(var(--c-sepia) / 0.14) 28px)',

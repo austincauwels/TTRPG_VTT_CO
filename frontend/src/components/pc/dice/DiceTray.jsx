@@ -27,7 +27,8 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
   const outcome = OUTCOME[outcomeKey];
   const key = rollKey(lastRoll);
   return (
-    <div role="status" className="relative -mt-1 mx-2 bg-parchment text-ink px-4 pt-2.5 pb-3 shadow-[2px_6px_12px_rgba(0,0,0,0.6)] border border-sepia/30 rounded-sm">
+    <div role="status" className="hand-placed relative -mt-1 mx-2 bg-parchment text-ink px-4 pt-2.5 pb-3 shadow-[2px_6px_12px_rgba(0,0,0,0.6)] border border-sepia/30 rounded-sm"
+      style={{ '--tilt': `${tiltFor(`slip-${key}`, { min: 0.4, max: 1 })}deg` }}>
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-serif font-bold text-lg leading-snug truncate" style={{ color: rollerInk || 'rgb(var(--c-ink))' }}>{rollerName}</span>
         <SerialNo value={serialFor(key)} className="shrink-0" />
@@ -92,8 +93,8 @@ export const DiceTray = forwardRef(({
   lastRoll, isRolling, gildedPending, dieSkews, getIsCandidate, onDieClick,
   rollerName, rollerInk, keptDie, rating = null,
 }, ref) => (
-  <div ref={ref}>
-  <div className="bg-[#12241b] p-5 shadow-[0_15px_30px_rgba(0,0,0,0.95),inset_0_10px_20px_rgba(0,0,0,0.95)] relative h-[270px] 2xl:h-[330px] flex flex-col justify-between border-[12px] border-[#2e1d15] rounded-sm before:absolute before:inset-0 before:bg-[url('https://www.transparenttextures.com/patterns/fabric-of-squares.png')] before:opacity-20 before:pointer-events-none">
+  <div ref={ref} className="xl:shrink-0">
+  <div className="bg-[#12241b] p-5 shadow-[0_15px_30px_rgba(0,0,0,0.95),inset_0_10px_20px_rgba(0,0,0,0.95)] relative h-[270px] xl:h-[clamp(11rem,22dvh,20rem)] flex flex-col justify-between border-[12px] border-[#2e1d15] rounded-sm before:absolute before:inset-0 before:bg-[url('https://www.transparenttextures.com/patterns/fabric-of-squares.png')] before:opacity-20 before:pointer-events-none">
     <SoundToggle />
     <div className="flex-1 flex flex-col items-center justify-center relative z-10 py-2">
       {isRolling ? (

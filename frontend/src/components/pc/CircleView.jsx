@@ -416,7 +416,7 @@ export const CircleView = () => {
   }
 
   return (
-    <div className="relative z-10 animate-sheetDrop space-y-8 text-ink">
+    <div className="circleview-c relative z-10 animate-sheetDrop space-y-8 text-ink">
 
       {/* I. Circle Identity Header */}
       <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/80 p-5 shadow-md rounded-sm">
@@ -703,6 +703,9 @@ export const CircleView = () => {
 
       <SheetDivider />
 
+      {/* V and VI: the circle's history, then its relationships; side by side on a wide
+          sheet (.circleview-lower in index.css) */}
+      <div className="circleview-lower space-y-8">
       {/* V. Circle History */}
       <div>
         <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-1.5">
@@ -754,7 +757,7 @@ export const CircleView = () => {
       {/* VI. Circle Relationships */}
       {investigators.filter(i => i.id !== myId).length > 0 && (
         <>
-          <SheetDivider />
+          <SheetDivider className="circleview-divider" />
           <div>
             <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-1.5">
               <SafeIcon name="GiHeartInside" size={14} className="text-oxblood" />
@@ -783,6 +786,7 @@ export const CircleView = () => {
           </div>
         </>
       )}
+      </div>
 
     </div>
   );

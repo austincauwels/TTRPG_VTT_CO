@@ -1,20 +1,70 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { TensionClock } from '../gm/SceneManager';
-import { SafeIcon } from '../shared/SafeIcon';
 import { tiltFor } from '../shared/handPlaced';
 import { useTypedText } from '../shared/useTypedText';
 import { SerialNo, BlankEntry, serialFor } from '../shared/PrintMarks';
-import { TurnOverMark } from '../shared/Decorations';
+import { TurnOverMark, PushPin } from '../shared/Decorations';
+
+// The investigator's photograph, small, pinned to the corner of their card. Only when
+// there is one: a card without a photograph shows no empty frame.
+function PinnedPhoto({ src, name, index = 0 }) {
+  if (!src) return null;
+  return (
+    <div
+      className="relative shrink-0 w-11 h-14 bg-cream p-[3px] shadow-[1px_3px_5px_rgba(0,0,0,0.35)] mt-1"
+      style={{ transform: `rotate(${tiltFor(`photo-${name}`, { min: 2, max: 4, sign: index % 2 ? 1 : -1 })}deg)` }}
+    >
+      <img src={src} alt={`Photograph of ${name}`} className="w-full h-full object-cover" draggable={false} />
+      <PushPin size={16} className="absolute -top-2 left-1/2 -translate-x-1/2" />
+    </div>
+  );
+}
+
+// The natural height of each face, so a card is exactly as tall as the face that is up:
+// no scroll bar inside a card, ever (owner's item 13). Faces are measured, not guessed.
+function useFaceHeights() {
+  const frontRef = useRef(null);
+  const backRef = useRef(null);
+  const [heights, setHeights] = useState({ front: 0, back: 0 });
+  useLayoutEffect(() => {
+    const measure = () => setHeights({
+      front: frontRef.current?.offsetHeight || 0,
+      back: backRef.current?.offsetHeight || 0,
+    });
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    if (frontRef.current) ro.observe(frontRef.current);
+    if (backRef.current) ro.observe(backRef.current);
+    return () => ro.disconnect();
+  }, []);
+  return { frontRef, backRef, heights };
+}
+
+// The face of a card: parchment with the investigator's ink along its top edge
+const faceStyle = (inkColor, back = false) => ({
+  backfaceVisibility: 'hidden',
+  ...(back ? { transform: 'rotateY(180deg)' } : null),
+  background: 'rgb(var(--c-parchment))',
+  border: '1px solid rgb(var(--c-ink) / 0.12)',
+  borderTopColor: inkColor,
+  borderTopWidth: '3px',
+});
 
 function RelationshipCard({ inv, myId, relationships, index }) {
   const [flipped, setFlipped] = useState(false);
   const inkColor = inv.ink_color || 'rgb(var(--c-oxblood))';
+  const { frontRef, backRef, heights } = useFaceHeights();
 
   const myRel = relationships.find(r => r.from_character_id === myId && r.to_character_id === inv.id);
   const theirRel = relationships.find(r => r.from_character_id === inv.id && r.to_character_id === myId);
   const hasAny = myRel || theirRel;
+  const turn = () => setFlipped(f => !f);
+  // The card is as tall as the face that is up; the borders (3px top, 1px bottom) sit on
+  // the face, outside the measured content
+  const height = (flipped ? heights.back : heights.front) + 4;
 
   return (
     <div
@@ -22,14 +72,15 @@ function RelationshipCard({ inv, myId, relationships, index }) {
       style={{
         '--tilt': `${tiltFor(inv.id, { sign: index % 2 ? 1 : -1 })}deg`,
         perspective: '800px',
-        height: flipped ? '220px' : '110px',
+        height: height > 4 ? `${height}px` : undefined,
+        minHeight: height > 4 ? undefined : '96px',
         transition: 'height 0.4s ease 0.15s',
       }}
-      onClick={() => hasAny && setFlipped(f => !f)}
+      onClick={() => hasAny && turn()}
       role={hasAny ? 'button' : undefined}
       tabIndex={hasAny ? 0 : undefined}
       aria-expanded={hasAny ? flipped : undefined}
-      onKeyDown={hasAny ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFlipped(f => !f); } } : undefined}
+      onKeyDown={hasAny ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); turn(); } } : undefined}
     >
       <div
         className="w-full h-full transition-transform duration-500"
@@ -39,81 +90,67 @@ function RelationshipCard({ inv, myId, relationships, index }) {
         }}
       >
         {/* Front */}
-        <div
-          className="absolute inset-0 px-4 py-3 shadow-md overflow-hidden"
-          style={{
-            backfaceVisibility: 'hidden',
-            background: 'rgb(var(--c-parchment))',
-            borderTop: `3px solid ${inkColor}`,
-            border: '1px solid rgb(var(--c-ink) / 0.12)',
-            borderTopColor: inkColor,
-            borderTopWidth: '3px',
-          }}
-        >
-          <p className="font-serif font-bold text-lg leading-tight text-ink truncate">{inv.name}</p>
-          <div className="flex gap-2 mt-0.5">
-            {(inv.role_class || inv.role) && (
-              <p className="font-sans font-bold text-sm uppercase tracking-tighter truncate" style={{ color: inkColor }}>{inv.role_class || inv.role}</p>
-            )}
-            {inv.specialty && (
-              <p className="font-sans font-bold text-sm text-sepia uppercase tracking-tighter truncate">· {inv.specialty}</p>
-            )}
+        <div className="absolute inset-0 shadow-md overflow-hidden" style={faceStyle(inkColor)} aria-hidden={flipped || undefined}>
+          <div ref={frontRef} className="flex items-start gap-3 px-4 py-3">
+            <PinnedPhoto src={inv.profile_pic} name={inv.name} index={index} />
+            <div className="min-w-0 flex-1">
+              <p className="font-serif font-bold text-lg leading-tight text-ink truncate">{inv.name}</p>
+              <div className="flex flex-wrap gap-x-2 mt-0.5 min-w-0">
+                {(inv.role_class || inv.role) && (
+                  <p className="font-sans font-bold text-sm uppercase tracking-tighter" style={{ color: inkColor }}>{inv.role_class || inv.role}</p>
+                )}
+                {inv.specialty && (
+                  <p className="font-sans font-bold text-sm text-sepia uppercase tracking-tighter">· {inv.specialty}</p>
+                )}
+              </div>
+              {/* Settled: the relationship in their ink. Proposed: its name in pencil beside
+                  the empty outline of the stamp it is waiting for. None: a blank rule. */}
+              {myRel?.status === 'accepted' ? (
+                <p className="font-serif text-sm italic mt-1 pr-6" style={{ color: inkColor }}>{myRel.rel_type}</p>
+              ) : hasAny ? (
+                <p className="flex items-center gap-2 font-serif text-sm italic text-sepia mt-1 pr-6">
+                  <span className="truncate">{(myRel || theirRel)?.rel_type}</span>
+                  <span aria-hidden="true" className="print-stamp-empty !w-10 !h-4 shrink-0" style={{ '--tilt': '-3deg' }} />
+                  <span className="sr-only">(not yet accepted)</span>
+                </p>
+              ) : (
+                <p className="text-sepia mt-2"><BlankEntry label="No relationship" className="!w-24" /></p>
+              )}
+            </div>
           </div>
-          {/* Settled: the relationship in their ink. Proposed: its name in pencil beside
-              the empty outline of the stamp it is waiting for. None: a blank rule. */}
-          {myRel?.status === 'accepted' ? (
-            <p className="font-serif text-sm italic mt-1 pr-6" style={{ color: inkColor }}>{myRel.rel_type}</p>
-          ) : hasAny ? (
-            <p className="flex items-center gap-2 font-serif text-sm italic text-sepia mt-1 pr-6">
-              <span className="truncate">{(myRel || theirRel)?.rel_type}</span>
-              <span aria-hidden="true" className="print-stamp-empty !w-10 !h-4 shrink-0" style={{ '--tilt': '-3deg' }} />
-              <span className="sr-only">(not yet accepted)</span>
-            </p>
-          ) : (
-            <p className="text-sepia mt-2"><BlankEntry label="No relationship" className="!w-24" /></p>
-          )}
           {/* A card with a back can be turned over: the turned corner says so */}
           {hasAny && <TurnOverMark className="absolute bottom-1.5 right-1.5 text-sepia/70" />}
         </div>
 
-        {/* Back */}
-        <div
-          className="absolute inset-0 px-3 py-2 shadow-md overflow-y-auto"
-          style={{
-            backfaceVisibility: 'hidden',
-            transform: 'rotateY(180deg)',
-            background: 'rgb(var(--c-parchment))',
-            borderTop: `3px solid ${inkColor}`,
-            border: '1px solid rgb(var(--c-ink) / 0.15)',
-            borderTopColor: inkColor,
-            borderTopWidth: '3px',
-          }}
-        >
-          <p className="font-sans font-bold text-base text-sepia uppercase tracking-widest mb-2">{inv.name}</p>
-          {myRel ? (
-            <div className="mb-2">
-              <span className="font-sans font-bold text-xs text-sepia uppercase">You to them: </span>
-              <span className="font-serif text-base text-ink font-bold">{myRel.rel_type}</span>
-              {myRel.status !== 'accepted' && (
-                <span className="font-serif italic text-sm text-sepia ml-1">(not yet accepted)</span>
-              )}
-              {myRel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1">{myRel.lore}</p> : null}
-            </div>
-          ) : (
-            <p className="font-serif text-base text-sepia italic"><span className="font-sans not-italic font-bold text-xs uppercase">You to them: </span>none</p>
-          )}
-          {theirRel ? (
-            <div>
-              <span className="font-sans font-bold text-xs text-sepia uppercase">Them to you: </span>
-              <span className="font-serif text-base text-ink font-bold">{theirRel.rel_type}</span>
-              {theirRel.status !== 'accepted' && (
-                <span className="font-serif italic text-sm text-sepia ml-1">(not yet accepted)</span>
-              )}
-              {theirRel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1">{theirRel.lore}</p> : null}
-            </div>
-          ) : (
-            <p className="font-serif text-base text-sepia italic"><span className="font-sans not-italic font-bold text-xs uppercase">Them to you: </span>none</p>
-          )}
+        {/* Back: as long as what is written on it */}
+        <div className="absolute inset-0 shadow-md overflow-hidden" style={faceStyle(inkColor, true)} aria-hidden={!flipped || undefined}>
+          <div ref={backRef} className="px-3 pt-2 pb-3">
+            <p className="font-sans font-bold text-base text-sepia uppercase tracking-widest mb-2">{inv.name}</p>
+            {myRel ? (
+              <div className="mb-2">
+                <span className="font-sans font-bold text-xs text-sepia uppercase">You to them: </span>
+                <span className="font-serif text-base text-ink font-bold">{myRel.rel_type}</span>
+                {myRel.status !== 'accepted' && (
+                  <span className="font-serif italic text-sm text-sepia ml-1">(not yet accepted)</span>
+                )}
+                {myRel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1">{myRel.lore}</p> : null}
+              </div>
+            ) : (
+              <p className="font-serif text-base text-sepia italic mb-2"><span className="font-sans not-italic font-bold text-xs uppercase">You to them: </span>none</p>
+            )}
+            {theirRel ? (
+              <div>
+                <span className="font-sans font-bold text-xs text-sepia uppercase">Them to you: </span>
+                <span className="font-serif text-base text-ink font-bold">{theirRel.rel_type}</span>
+                {theirRel.status !== 'accepted' && (
+                  <span className="font-serif italic text-sm text-sepia ml-1">(not yet accepted)</span>
+                )}
+                {theirRel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1">{theirRel.lore}</p> : null}
+              </div>
+            ) : (
+              <p className="font-serif text-base text-sepia italic"><span className="font-sans not-italic font-bold text-xs uppercase">Them to you: </span>none</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -132,21 +169,26 @@ export const TactileSidebar = () => {
   const location = circle?.location || '';
   const atmosphere = circle?.atmosphere || '';
   const typed = useTypedText([location, atmosphere]);
+  const myPhoto = character?.profile_pic || character?.profilePic || null;
 
   useEffect(() => {
     if (character?.campaign_id) fetchRoster(character.campaign_id);
   }, [character?.campaign_id]);
 
+  // From xl the rail is as tall as the window: the GM's note at the top and the pocket
+  // watch at the foot always show, and only the circle's cards between them scroll if a
+  // large circle ever runs longer than the screen.
   return (
-    <div className="lg:col-span-3 2xl:col-span-1 space-y-6 mt-2 relative order-3 lg:order-none">
+    <div className="lg:col-span-3 xl:col-span-1 space-y-6 mt-2 xl:mt-0 relative order-3 lg:order-none xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:space-y-0 xl:gap-2">
 
       {/* The GM's dispatch, a library index card pinned to the desk a little crooked, its
           bottom edge torn. A new dispatch types in while the desk is open. */}
-      <div className="hand-placed lg:hover:rotate-0 transition-transform duration-200 relative"
+      <div className="hand-placed lg:hover:rotate-0 transition-transform duration-200 relative xl:shrink-0"
            style={{ '--tilt': '-1.2deg', filter: 'drop-shadow(5px 8px 9px rgba(0,0,0,0.6))' }}>
-        <div className="deckle-bottom bg-cream text-ink border border-parchment-deep p-6 pb-7 relative"
+        <PushPin size={22} className="absolute -top-2 left-1/2 -translate-x-1/2 z-20" />
+        <div className="deckle-bottom bg-cream text-ink border border-parchment-deep p-6 pb-7 xl:px-5 xl:pt-4 xl:pb-6 relative"
              style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.14) 24px)', backgroundSize: '100% 24px', lineHeight: '24px' }}>
-          <div className="absolute top-0 bottom-0 left-6 w-[1.5px] bg-oxblood/20 pointer-events-none" />
+          <div className="absolute top-0 bottom-0 left-6 xl:left-5 w-[1.5px] bg-oxblood/20 pointer-events-none" />
           <div className="pl-6 pt-1 relative z-10">
             <div className="flex items-baseline justify-between gap-2 mb-2">
               <span className="block font-sans text-xs uppercase tracking-widest text-sepia font-black leading-none">From the GM</span>
@@ -170,13 +212,15 @@ export const TactileSidebar = () => {
         </div>
       </div>
 
-      {/* Active Circle Registry */}
-      <div className="space-y-3 px-1">
-        <span className="block font-sans text-sm font-black text-cream/70 uppercase tracking-widest leading-none mb-1">Your Circle</span>
+      {/* Active Circle Registry: the members' cards pinned to the desk, each as tall as
+          what is written on it. On a wide rail they lie two across. */}
+      <div data-desk="circle" className="px-1 xl:flex-1 xl:min-h-0 xl:overflow-y-auto xl:overflow-x-hidden xl:-mx-3 xl:px-3 xl:pt-1 xl:pb-2 custom-scrollbar">
+        <span className="block font-sans text-sm font-black text-cream/70 uppercase tracking-widest leading-none mb-4 xl:mb-2.5">Your Circle</span>
 
+        <div className="grid grid-cols-1 xl:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3 xl:gap-x-4 items-start">
         {/* Current player — always first */}
         <div
-          className="hand-placed px-4 py-3 shadow-md relative select-none overflow-hidden"
+          className="hand-placed shadow-md relative select-none overflow-hidden"
           style={{
             '--tilt': `${tiltFor(`self-${character?.id ?? ''}`, { sign: 1 })}deg`,
             background: 'rgb(var(--c-parchment))',
@@ -185,16 +229,21 @@ export const TactileSidebar = () => {
             borderTopColor: character?.ink_color || 'rgb(var(--c-oxblood))',
           }}
         >
-          <p className="font-serif font-bold text-lg leading-tight text-ink truncate">{character?.name || 'Unknown Investigator'}</p>
-          <div className="flex gap-2 mt-0.5">
-            {character?.role && (
-              <p className="font-sans font-bold text-sm uppercase tracking-tighter truncate" style={{ color: character?.ink_color || 'rgb(var(--c-oxblood))' }}>{character.role}</p>
-            )}
-            {character?.specialty && (
-              <p className="font-sans font-bold text-sm text-sepia uppercase tracking-tighter truncate">· {character.specialty}</p>
-            )}
+          <div className="flex items-start gap-3 px-4 py-3">
+            <PinnedPhoto src={myPhoto} name={character?.name || 'you'} index={1} />
+            <div className="min-w-0 flex-1">
+              <p className="font-serif font-bold text-lg leading-tight text-ink truncate">{character?.name || 'Unknown Investigator'}</p>
+              <div className="flex flex-wrap gap-x-2 mt-0.5 min-w-0">
+                {character?.role && (
+                  <p className="font-sans font-bold text-sm uppercase tracking-tighter" style={{ color: character?.ink_color || 'rgb(var(--c-oxblood))' }}>{character.role}</p>
+                )}
+                {character?.specialty && (
+                  <p className="font-sans font-bold text-sm text-sepia uppercase tracking-tighter">· {character.specialty}</p>
+                )}
+              </div>
+              <p className="font-serif text-sm text-sepia italic mt-1">You</p>
+            </div>
           </div>
-          <p className="font-serif text-sm text-sepia italic mt-1">You</p>
           <div className="absolute bottom-2 right-2 w-2 h-2 rounded-full bg-seal-green shadow-sm" />
         </div>
 
@@ -211,14 +260,16 @@ export const TactileSidebar = () => {
             />
           ))
         }
+        </div>
 
         {!character?.campaign_id && (
           <p className="font-serif text-sm text-cream/70 italic text-center pt-1">Not in a campaign</p>
         )}
       </div>
 
-      {/* Tension Clock (Synced with GM, read-only for players) */}
-      <div className="pt-6 pb-4 px-1 flex justify-center items-center relative z-20">
+      {/* Tension Clock (Synced with GM, read-only for players): the pocket watch lying at
+          the foot of the rail */}
+      <div data-desk="watch" className="pt-6 pb-4 px-1 xl:pt-1 xl:pb-1 xl:shrink-0 flex justify-center items-center relative z-20">
         <TensionClock readOnly />
       </div>
     </div>

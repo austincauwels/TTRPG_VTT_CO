@@ -17,6 +17,7 @@ import { ConnectionBanner } from '../shared/ConnectionBanner';
 import { MARK_NAME } from './useMarkUndo';
 import { useDialog } from '../shared/useDialog';
 import { WaxSeal } from '../shared/WaxSeal';
+import { ScarIcon } from '../shared/ScarIcon';
 import { Watermark, FormLine, EdgeLine, serialFor } from '../shared/PrintMarks';
 
 export const MainDeskView = () => {
@@ -67,13 +68,18 @@ export const MainDeskView = () => {
   const deathDialogRef = useDialog({ open: !!character?.is_dead && !deathDismissed, onClose: () => setDeathDismissed(true) });
   const campaignName = lastPlayedCampaign?.type === 'player' ? lastPlayedCampaign.campaignName : null;
 
+  // Below xl the desk is a long page: the title header, the member ID strip, then the
+  // columns. From xl (1280) it fits the screen (owner's item 24): the title header steps
+  // aside (kept for screen readers), the member ID strip becomes one slim band with the way
+  // out at its end, and the three columns run to the bottom of the window, each scrolling
+  // inside itself if its papers ever run longer than the screen.
   return (
-    <div className="min-h-screen bg-night text-cream font-serif selection:bg-oxblood selection:text-cream antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-28 lg:pb-12 relative">
+    <div className="min-h-screen xl:h-[100dvh] xl:min-h-0 xl:flex xl:flex-col xl:overflow-hidden bg-night text-cream font-serif selection:bg-oxblood selection:text-cream antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-28 lg:pb-12 xl:pb-0 relative">
 
       <ConnectionBanner />
 
       {/* HEADER */}
-      <header className="w-full bg-night relative border-b border-ink/40 shadow-xl">
+      <header className="w-full bg-night relative border-b border-ink/40 shadow-xl xl:sr-only">
         <ArtDecoCorner position="top-left" />
         <ArtDecoCorner position="top-right" />
 
@@ -97,8 +103,9 @@ export const MainDeskView = () => {
           </div>
         </div>
 
-        {/* LOGOUT BUTTON: in normal flow, so it never covers the title */}
-        <div className="relative z-10 flex justify-center lg:justify-end lg:-mt-2">
+        {/* LOGOUT BUTTON: in normal flow, so it never covers the title. From xl the band
+            below carries it. */}
+        <div className="relative z-10 flex justify-center lg:justify-end lg:-mt-2 xl:hidden">
           <button
             onClick={() => setStage('HOME')}
             className="w-full sm:w-auto whitespace-nowrap text-xs sm:text-sm font-sans font-bold uppercase tracking-widest text-parchment-deep hover:text-cream transition-colors bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2"
@@ -109,37 +116,40 @@ export const MainDeskView = () => {
         </div>
       </header>
 
-      {/* REGISTRY NAVIGATION: the investigator's member ID strip, sealed at its left end */}
-      <div className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto mt-6 px-4 2xl:px-10 relative z-30">
+      {/* REGISTRY NAVIGATION: the investigator's member ID strip, sealed at its left end.
+          From xl it is the desk's only header: a slim band across the top. */}
+      <div className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto mt-6 px-4 2xl:px-10 relative z-30 xl:max-w-none 2xl:max-w-none xl:w-full xl:mx-0 xl:mt-2.5 xl:px-5 2xl:px-8 xl:shrink-0">
         {/* On phones the seal sits beside the name, so the tabs below can use the full width */}
-        <div className="absolute left-2 sm:left-4 top-1 sm:top-1/2 sm:-translate-y-1/2 2xl:left-8 z-40 select-none rotate-12 drop-shadow-[3px_9px_8px_rgba(0,0,0,0.75)]" aria-hidden="true">
-          <WaxSeal size={128} minSize={74} className="w-[74px] h-[74px] sm:w-32 sm:h-32" />
+        <div className="absolute left-2 sm:left-4 top-1 sm:top-1/2 sm:-translate-y-1/2 2xl:left-8 xl:left-3 z-40 select-none rotate-12 drop-shadow-[3px_9px_8px_rgba(0,0,0,0.75)] xl:drop-shadow-[2px_6px_5px_rgba(0,0,0,0.7)]" aria-hidden="true">
+          <WaxSeal size={128} minSize={64} className="w-[74px] h-[74px] sm:w-32 sm:h-32 xl:w-16 xl:h-16" />
         </div>
 
-        <div className="w-full bg-parchment border-4 border-double border-ink p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-ink pl-[4.5rem] sm:pl-32 pr-3 sm:pr-6 py-3 sm:py-5 rounded-sm overflow-hidden">
+        <div className="w-full bg-parchment border-4 border-double border-ink p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] xl:shadow-[0_8px_18px_rgba(0,0,0,0.85)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-ink pl-[4.5rem] sm:pl-32 xl:pl-[5.25rem] pr-3 sm:pr-6 xl:pr-2 py-3 sm:py-5 xl:py-1.5 rounded-sm overflow-hidden">
           {/* The registry's number, printed large and faint across the strip */}
           <Watermark className="lg:hidden right-3 top-1.5 text-[30px] text-ink/[0.06]">
             Registry file // No. {serialFor(character?.id)}-CO
           </Watermark>
 
-          <div className="flex items-center gap-3 relative z-10 min-h-[3.75rem] sm:min-h-0">
+          <div className="flex items-center gap-3 relative z-10 min-h-[3.75rem] sm:min-h-0 xl:shrink-0">
             <div>
-              <FormLine className="block mb-1">Candela Obscura Member ID</FormLine>
-              <span className="block font-serif font-bold text-xl leading-tight text-ink">{character?.name || 'Your investigator'}</span>
+              <FormLine className="block mb-1 xl:mb-0.5">Candela Obscura Member ID</FormLine>
+              <span className="block xl:inline font-serif font-bold text-xl xl:text-lg leading-tight text-ink">{character?.name || 'Your investigator'}</span>
               {campaignName && (
-                <span className="block font-serif italic text-base text-sepia leading-snug mt-0.5">{campaignName}</span>
+                <span className="block xl:inline font-serif italic text-base text-sepia leading-snug mt-0.5 xl:mt-0 xl:ml-3">
+                  <span aria-hidden="true" className="hidden xl:inline mr-3 not-italic text-sepia/60">·</span>{campaignName}
+                </span>
               )}
             </div>
           </div>
 
           <div className="hidden lg:block relative flex-1 self-stretch min-w-0" aria-hidden="true">
-            <Watermark className="right-2 top-1/2 -translate-y-1/2 text-5xl text-ink/[0.06]">
+            <Watermark className="right-2 top-1/2 -translate-y-1/2 text-5xl xl:text-4xl text-ink/[0.06]">
               Registry file // No. {serialFor(character?.id)}-CO
             </Watermark>
           </div>
 
           {/* uppercase sits on each button: Tailwind's base resets text-transform on buttons */}
-          <div className="flex gap-1 md:gap-2 -ml-12 sm:ml-0 font-sans text-xs font-black relative z-10">
+          <div className="flex gap-1 md:gap-2 -ml-12 sm:ml-0 font-sans text-xs font-black relative z-10 xl:shrink-0">
             {['character', 'circle', 'archives'].map((tabName) => {
               const labels = { character: "Investigator", circle: "Circle", archives: "Notebook" };
               return (
@@ -157,16 +167,27 @@ export const MainDeskView = () => {
               );
             })}
           </div>
+
+          {/* The way out, at the band's end behind a printed rule (from xl) */}
+          <div className="hidden xl:flex items-center self-stretch shrink-0 pl-3 ml-1 border-l border-ink/25 relative z-10">
+            <button
+              onClick={() => setStage('HOME')}
+              className="whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink hover:bg-black/5 border border-ink/25 hover:border-ink/50 rounded px-3 py-1.5 transition-colors"
+            >
+              Back to chapter hub
+            </button>
+          </div>
         </div>
       </div>
 
       {/* DYNAMIC VIEW ROUTING */}
-      <main className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto p-4 2xl:px-10 mt-2">
+      <main className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto p-4 2xl:px-10 mt-2 xl:max-w-none 2xl:max-w-none xl:w-full xl:mx-0 xl:mt-0 xl:px-5 2xl:px-8 xl:pt-4 xl:pb-3 xl:flex-1 xl:min-h-0 xl:flex xl:flex-col">
         {scarWaiting && (
-          <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-oxblood rounded-sm px-4 py-3 shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
-            <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60">
-              <strong className="font-bold">A scar is waiting.</strong>{' '}
-              {character?.name || 'Your investigator'}'s {MARK_NAME[pendingScar.type] || 'mark'} track is full.
+          <div role="status" className="mb-4 xl:mb-3 xl:shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-oxblood rounded-sm px-4 py-3 xl:py-2 shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
+            <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60 flex items-center gap-2.5">
+              <ScarIcon size={26} className="text-ink" />
+              <span><strong className="font-bold">A scar is waiting.</strong>{' '}
+              {character?.name || 'Your investigator'}'s {MARK_NAME[pendingScar.type] || 'mark'} track is full.</span>
             </p>
             <button
               onClick={reopenScar}
@@ -177,19 +198,24 @@ export const MainDeskView = () => {
           </div>
         )}
         {activeTab === 'archives' ? (
-          <NotebookView isGM={false} />
+          <div className="xl:flex-1 xl:min-h-0">
+            <NotebookView isGM={false} fit />
+          </div>
         ) : (
-          // From 2xl the desk takes the width: the rails sit out at the edges, the dice tray
-          // column grows, and the sheet between them stays at a reading width.
-          <div className="grid grid-cols-1 lg:grid-cols-12 2xl:grid-cols-[minmax(0,23rem)_minmax(0,1fr)_minmax(0,27rem)] gap-6 2xl:gap-x-14 items-start">
+          // From xl the desk fills the width: the circle and the GM's note on the left, the
+          // sheet in the middle, the dice, the log and the pass notes on the right. Each
+          // column is as tall as the window and keeps its papers in view.
+          <div className="grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-[minmax(15rem,1fr)_minmax(0,3.1fr)_minmax(19rem,1.3fr)] gap-6 xl:gap-x-6 2xl:gap-x-8 items-start xl:items-stretch xl:flex-1 xl:min-h-0">
             <TactileSidebar />
-            <div className="lg:col-span-6 2xl:col-span-1 order-1 lg:order-none min-w-0">
-              <div className="bg-cream text-ink px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] lg:min-h-[850px] border-2 border-ink relative font-serif overflow-hidden">
+            <div className="lg:col-span-6 xl:col-span-1 order-1 lg:order-none min-w-0 xl:min-h-0">
+              <div className="bg-cream text-ink rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] lg:min-h-[850px] xl:min-h-0 xl:h-full border-2 border-ink relative font-serif overflow-hidden">
                 <div className="absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
                 <BrassCornerFiligree />
                 <EdgeLine text="Candela Obscura · Chapter registry · Printed in Newfaire" className="bottom-2 left-10 right-10" />
-                {activeTab === 'character' && <InvestigatorDossier />}
-                {activeTab === 'circle' && <CircleView />}
+                <div data-desk="sheet" className="relative px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 xl:px-6 xl:pt-5 xl:pb-8 xl:h-full xl:overflow-y-auto custom-scrollbar">
+                  {activeTab === 'character' && <InvestigatorDossier />}
+                  {activeTab === 'circle' && <CircleView />}
+                </div>
               </div>
             </div>
             <DiceVault />

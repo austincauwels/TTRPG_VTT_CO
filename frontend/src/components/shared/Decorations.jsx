@@ -29,8 +29,21 @@ export const BrassCornerFiligree = () => (
   </>
 );
 
-export const SheetDivider = () => (
-  <div className="w-full h-0.5 border-t border-ink/20 my-6 border-dashed" />
+export const SheetDivider = ({ className = '' }) => (
+  <div className={`w-full h-0.5 border-t border-ink/20 my-6 border-dashed ${className}`} />
+);
+
+// A push pin seen from above: a round oxblood head with the lamp's glint on it, its point
+// leaning down and right (the One Lamp Rule). Place it with className (absolute).
+export const PushPin = ({ size = 18, className = '' }) => (
+  <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width={size} height={size}
+    className={`pointer-events-none ${className}`} style={{ filter: 'drop-shadow(1px 2px 1.5px rgba(0,0,0,0.45))' }}>
+    <path d="M12.8 13.4l2.6 6.2" stroke="rgb(var(--c-sepia))" strokeWidth="1.4" strokeLinecap="round" />
+    <circle cx="12" cy="11" r="7" style={{ fill: 'rgb(var(--c-oxblood))' }} />
+    <circle cx="12" cy="11" r="7" fill="none" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
+    <circle cx="12.6" cy="11.7" r="4.2" fill="rgba(0,0,0,0.18)" />
+    <path d="M8.4 9.2c.7-1.6 2-2.6 3.6-2.9" stroke="rgba(255,236,224,0.6)" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+  </svg>
 );
 
 // Two curved arrows chasing each other: this card has a back and turns over when pressed

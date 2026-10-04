@@ -14,14 +14,21 @@ export function TargetDropdown({ value, onChange, options, darkMode = false }) {
   const updateMenuPosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
+    // On a desk that fits the screen the pad lies at the foot of the window, where the
+    // page cannot scroll: there the list opens upward from the field instead
+    const below = window.innerHeight - rect.bottom;
+    const wanted = Math.min(options.length * 36 + 6, 320);
+    const upward = below < wanted && rect.top > below;
     setMenuStyle({
       position: 'fixed',
-      top: rect.bottom,
+      ...(upward ? { bottom: window.innerHeight - rect.top } : { top: rect.bottom }),
       left: rect.left,
       width: rect.width,
+      maxHeight: Math.max(120, (upward ? rect.top : below) - 8),
+      overflowY: 'auto',
       zIndex: 9999,
     });
-  }, []);
+  }, [options.length]);
 
   useEffect(() => {
     if (!open) return;

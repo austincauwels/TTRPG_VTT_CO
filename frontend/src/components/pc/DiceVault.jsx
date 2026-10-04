@@ -118,7 +118,10 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   );
 
   return (
-    <div className="lg:col-span-3 2xl:col-span-1 space-y-6 mt-2 order-2 lg:order-none">
+    // From xl the right rail is as tall as the window: the felt and its slip on top, the
+    // pass-notes pad at the foot, and the log between them takes what is left, scrolling
+    // inside itself.
+    <div data-desk="dice" className="lg:col-span-3 xl:col-span-1 space-y-6 mt-2 xl:mt-0 order-2 lg:order-none xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:space-y-0 xl:gap-3">
 
 
       {showGmControls && <GmDiceControls rollAction={rollAction} />}

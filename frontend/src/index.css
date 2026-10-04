@@ -538,6 +538,109 @@
   }
 }
 
+/* ================================================================= */
+/* DESKS THAT FIT THE SCREEN (owner's item 24, 2026-10-04)           */
+/* ================================================================= */
+/* From xl (1280px) the player and GM desks are one screen tall: a slim band on top, then
+   three columns that run to the bottom of the window. The page itself never scrolls; a
+   column whose papers are taller than the screen scrolls inside itself. The utilities for
+   that sit on the components (xl:h-full, xl:min-h-0, xl:overflow-y-auto); the rules below
+   are the ones Tailwind cannot write. Tailwind prints its responsive utilities (md:, lg:)
+   at the very end of the stylesheet, so every rule here starts from its container class
+   (.dossier-c, .circleview-c) to outrank them where both apply. */
+
+/* The investigator sheet lays itself out by its own width, not the window's, so the same
+   sheet works on the player's desk, the GM's desk, a tablet and a phone. Below 44rem it is
+   one column, as on a phone. From 44rem it is a ledger page: the photograph with the marks
+   under it on the right, the name and the gear slip beside it, the ability card under
+   them, then the three drives side by side with their actions, then the scars. */
+.dossier-c { container: dossier / inline-size; }
+
+@container dossier (min-width: 44rem) {
+  .dossier-c .dossier {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) 10.5rem;
+    grid-template-areas:
+      "form    form    form"
+      "ident   gear    photo"
+      "ability ability photo"
+      "ability ability marks"
+      "actions actions actions"
+      "scars   scars   scars";
+    column-gap: 1.25rem;
+    row-gap: 0.75rem;
+    align-items: start;
+  }
+  .dossier-c .dossier > * { margin: 0 !important; }
+  .dossier-c .dossier-form { grid-area: form; width: auto; }
+  .dossier-c .dossier-ident { grid-area: ident; width: auto; padding-bottom: 0; grid-template-columns: minmax(0, 1fr); row-gap: 0.5rem; }
+  .dossier-c .dossier-ident > * { grid-column: auto; grid-row: auto; }
+  .dossier-c .dossier-badge { font-size: 0.75rem; line-height: 1rem; letter-spacing: 0.08em; padding: 0.25rem 0.5rem; }
+  .dossier-c .dossier-gear { grid-area: gear; width: auto; padding-right: 0; }
+  .dossier-c .dossier-photo {
+    grid-area: photo;
+    position: relative;
+    float: none;
+    inset: auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    margin-top: 0.375rem !important;
+  }
+  .dossier-c .dossier-ability { grid-area: ability; padding-right: 0; align-self: stretch; display: flex; flex-direction: column; }
+  .dossier-c .dossier-ability-card { flex: 1 1 auto; }
+  .dossier-c .dossier-trauma { display: contents; }
+  .dossier-c .dossier-marks { grid-area: marks; padding: 0.5rem 0.75rem 0.625rem; }
+  .dossier-c .dossier-marks .mark-head { margin-bottom: 0.25rem; }
+  .dossier-c .dossier-marks .mark-head svg { width: 18px; height: 18px; }
+  .dossier-c .dossier-marks .mark-label { min-height: 1.75rem; letter-spacing: 0.05em; font-size: 0.75rem; }
+  .dossier-c .dossier-marks .mark-cell { width: 1.5rem; height: 1.75rem; }
+  .dossier-c .dossier-marks .mark-cell > span { width: 1.125rem; height: 1.375rem; }
+  .dossier-c .dossier-marks .mark-status { margin-top: 0.375rem; column-gap: 0.5rem; white-space: nowrap; }
+  .dossier-c .dossier-scars { grid-area: scars; }
+  .dossier-c .dossier-actions { grid-area: actions; }
+  .dossier-c .dossier-actions > * + * { margin-top: 0.625rem !important; }
+  .dossier-c .dossier-drives { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.625rem; padding: 0.5rem; }
+  .dossier-c .dossier-drive { grid-template-columns: minmax(0, 1fr); align-content: start; gap: 0.5rem; padding: 0.5rem; }
+  .dossier-c .dossier-drive-panel { padding: 0.5rem 0.375rem 0.375rem; gap: 0.375rem; }
+  .dossier-c .drive-pips { flex-wrap: nowrap; gap: 2px; }
+  .dossier-c .drive-pip { width: 0.6875rem; height: 0.6875rem; }
+  .dossier-c .action-chit { min-height: 2rem; padding-top: 0.25rem; padding-bottom: 0.25rem; }
+  .dossier-c .dossier-divider { display: none; }
+}
+
+/* On a wide sheet (the 1920 and 2560 desks) the parts get room to breathe */
+@container dossier (min-width: 60rem) {
+  .dossier-c .dossier { row-gap: 1rem; column-gap: 1.75rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) 11.5rem; }
+  .dossier-c .dossier-drives { gap: 1rem; padding: 0.875rem; }
+  .dossier-c .dossier-drive { gap: 0.625rem; padding: 0.625rem; }
+  .dossier-c .drive-pip { width: 0.875rem; height: 0.875rem; }
+  .dossier-c .action-chit { min-height: 2.25rem; }
+}
+
+/* The Circle tab's sheet: from 60rem of its own width the circle's history and its
+   relationships lie side by side instead of one under the other */
+.circleview-c { container: circleview / inline-size; }
+@container circleview (min-width: 60rem) {
+  .circleview-c .circleview-lower { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); column-gap: 2rem; align-items: start; }
+  .circleview-c .circleview-lower > * { margin-top: 0 !important; }
+  .circleview-c .circleview-lower .circleview-divider { display: none; }
+}
+
+/* A roll chit's die: only on hover where a pointer can hover, and on keyboard focus */
+.action-die { opacity: 0; transition: opacity 0.15s ease; }
+@media (hover: hover) {
+  .action-chit:hover:not(:disabled) .action-die { opacity: 0.75; }
+}
+.action-chit:focus-visible .action-die { opacity: 0.75; }
+
+/* The Fairelands map on a desk that fits the screen: as large as the column allows, in its
+   own proportions (3:2), with the "Open full size" line under it */
+@media (min-width: 1280px) {
+  .map-fit { container-type: size; height: 100%; }
+  .map-fit-frame { width: min(100%, calc((100cqh - 3.5rem) * 1.5)); margin-inline: auto; }
+}
+
 /* Keyboard focus ring. Outside the layers and marked important so no utility (such as a
    leftover focus:outline-none) can hide it. */
 :focus-visible {
