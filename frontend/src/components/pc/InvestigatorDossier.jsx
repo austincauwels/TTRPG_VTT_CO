@@ -801,7 +801,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             )}
           </div>
 
-          <div className="mark-status mt-4 pt-2 border-t border-ink/10 text-xs font-sans font-bold text-sepia flex justify-between items-center uppercase">
+          <div className="mark-status mt-4 pt-2 border-t border-ink/10 text-xs font-sans font-bold text-sepia flex flex-wrap gap-x-2 justify-between items-center uppercase">
             <span>Status</span>
             <span className={`font-bold ${character?.is_dead ? 'text-ink' : character?.incapacitated ? 'text-oxblood' : 'text-ink'}`}>
               {character?.is_dead ? "Dead" : character?.incapacitated ? "Incapacitated" : "Able to act"}
