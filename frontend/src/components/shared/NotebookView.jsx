@@ -7,6 +7,8 @@ import { FormLine, PrinterMark } from './PrintMarks';
 import { pageKeyBlocked } from './a11y';
 import { playPaperSound } from '../../game/rollSounds';
 import { TickMark } from './InkMarks';
+import { NoteMarkdown } from './NoteMarkdown';
+import { MarkdownMarks, PreviewToggle } from './MarkdownMarks';
 
 const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
@@ -156,9 +158,7 @@ function EntryCard({ entry, isLast }) {
           />
         </div>
         {entry.content && (
-          <p className="text-[26px] leading-[2.8rem] whitespace-pre-wrap" style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
-            {entry.content}
-          </p>
+          <NoteMarkdown text={entry.content} className="text-[26px] leading-[2.8rem]" style={{ fontFamily: entry.pen_font, color: entry.ink_color }} />
         )}
         <div className="clear-both" />
         <div className="text-[18px] mt-2" style={{ fontFamily: entry.pen_font, color: entry.ink_color, opacity: 0.5 }}>
@@ -195,9 +195,7 @@ function EntryCard({ entry, isLast }) {
           </div>
         </div>
         {entry.content && (
-          <p className="text-[26px] leading-[2.8rem] whitespace-pre-wrap" style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
-            {entry.content}
-          </p>
+          <NoteMarkdown text={entry.content} className="text-[26px] leading-[2.8rem]" style={{ fontFamily: entry.pen_font, color: entry.ink_color }} />
         )}
         <div className="clear-both" />
         <div className="text-[18px] mt-2" style={{ fontFamily: entry.pen_font, color: entry.ink_color, opacity: 0.5 }}>
@@ -219,7 +217,7 @@ function EntryCard({ entry, isLast }) {
           <span className="font-mono text-sm text-sepia">{formatDate(entry.created_at)}</span>
         </div>
         <h3 className="font-serif font-black text-[2rem] text-ink mb-2">{entry.title}</h3>
-        <p className="font-serif text-[26px] leading-[2.8rem] whitespace-pre-wrap text-ink/85">{entry.content}</p>
+        <NoteMarkdown text={entry.content} className="font-serif text-[26px] leading-[2.8rem] text-ink/85" />
         <div className="mt-3 pt-2 border-t border-ink/10 font-sans font-bold text-sm text-sepia uppercase tracking-widest">
           {entry.author_name}, Lightkeeper
         </div>
@@ -236,9 +234,7 @@ function EntryCard({ entry, isLast }) {
       <div className="text-[20px] mb-3" style={{ fontFamily: entry.pen_font, color: entry.ink_color, opacity: 0.55 }}>
         — {entry.author_name} · {formatDate(entry.created_at)}
       </div>
-      <p className="text-[28px] leading-[3rem] whitespace-pre-wrap" style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
-        {entry.content}
-      </p>
+      <NoteMarkdown text={entry.content} className="text-[28px] leading-[3rem]" style={{ fontFamily: entry.pen_font, color: entry.ink_color }} />
     </div>
   );
 }
@@ -276,9 +272,7 @@ function EphemeralNote({ entry, onDelete }) {
         borderBottom: '1px solid rgba(0,0,0,0.08)',
       }}
     >
-      <p className="font-serif text-[22px] leading-[1.6] whitespace-pre-wrap break-words text-ink/80 pr-2" style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
-        {entry.content || entry.title}
-      </p>
+      <NoteMarkdown text={entry.content || entry.title} className="font-serif text-[22px] leading-[1.6] break-words text-ink/80 pr-2" style={{ fontFamily: entry.pen_font, color: entry.ink_color }} />
       <ConfirmAction
         className="mt-3 mb-3 flex flex-wrap items-center gap-2"
         onConfirm={onDelete}
@@ -348,6 +342,14 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
   const [pendingImagePreview, setPendingImagePreview]   = useState(null);
   const [pendingImageType, setPendingImageType]         = useState(null);
   const [uploadError, setUploadError]                   = useState('');
+  // Markdown: each writing field has its marks and a Preview that shows the note in its place
+  const entryTextRef     = useRef(null);
+  const ephemeralTextRef = useRef(null);
+  const lkTextRef        = useRef(null);
+  const [entryPreview, setEntryPreview]                 = useState(false);
+  const [ephemeralPreview, setEphemeralPreview]         = useState(false);
+  const [lkPreview, setLkPreview]                       = useState(false);
+  const idBase = useId();
 
   useEffect(() => {
     if (campaignId) fetchNotebookEntries(campaignId);
@@ -451,6 +453,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
       setNewEntryTitle('');
       setNewEntryContent('');
       setUploadCaption('');
+      setEntryPreview(false);
       const newIdx = fieldEntries.length;
       setCurrentSpread(Math.floor(newIdx / perSpread) + 1);
     } else if (!result.tooLarge) {
@@ -470,7 +473,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
       'ephemeral', 'self',
     );
     setIsAddingEphemeral(false);
-    if (result?.success) setEphemeralText('');
+    if (result?.success) { setEphemeralText(''); setEphemeralPreview(false); }
     else setEphemeralError('The note was not saved. Check your connection and try again; your text is still here.');
   };
 
@@ -689,20 +692,28 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
             clipPath: 'polygon(0% 4%, 8% 0%, 20% 3%, 35% 0%, 50% 4%, 65% 0%, 80% 3%, 92% 0%, 100% 3%, 100% 100%, 0% 100%)',
             padding: '24px 20px 20px',
           }}>
-            <textarea
-              value={ephemeralText}
-              onChange={e => setEphemeralText(e.target.value)}
-              placeholder="Private note"
-              aria-label="Private note"
-              className="w-full bg-transparent border-none resize-none font-serif text-[24px] leading-[1.7] text-ink/80 placeholder-sepia/90 min-h-[80px]"
-              style={{ fontFamily: authorFont, color: authorColor }}
-              onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleAddEphemeral(); } }}
-            />
-            <div className="flex justify-end items-center mt-2">
+            {ephemeralPreview ? (
+              <NoteMarkdown text={ephemeralText} className="font-serif text-[24px] leading-[1.7] text-ink/80 min-h-[80px] py-0.5"
+                style={{ fontFamily: authorFont, color: authorColor }} />
+            ) : (
+              <textarea
+                ref={ephemeralTextRef}
+                value={ephemeralText}
+                onChange={e => setEphemeralText(e.target.value)}
+                placeholder="Private note"
+                aria-label="Private note"
+                className="w-full bg-transparent border-none resize-none font-serif text-[24px] leading-[1.7] text-ink/80 placeholder-sepia/90 min-h-[80px]"
+                style={{ fontFamily: authorFont, color: authorColor }}
+                onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleAddEphemeral(); } }}
+              />
+            )}
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <MarkdownMarks targetRef={ephemeralTextRef} preview={ephemeralPreview} label="Private note formatting" className="-ml-1.5" />
+              <PreviewToggle preview={ephemeralPreview} onPreview={setEphemeralPreview} />
               <button
                 onClick={handleAddEphemeral}
                 disabled={!ephemeralText.trim() || isAddingEphemeral}
-                className="min-h-[40px] font-sans font-black text-sm uppercase tracking-widest text-ink px-3 py-1 border border-ink/30 hover:bg-black/5 disabled:opacity-50 transition-all"
+                className="ml-auto min-h-[40px] font-sans font-black text-sm uppercase tracking-widest text-ink px-3 py-1 border border-ink/30 hover:bg-black/5 disabled:opacity-50 transition-all"
               >
                 {isAddingEphemeral ? 'Saving…' : 'Pin note'}
               </button>
@@ -752,15 +763,26 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
               </div>
             </div>
 
+            <div className="px-4 sm:px-8 pt-2 flex flex-wrap items-center gap-2">
+              <MarkdownMarks targetRef={lkTextRef} preview={lkPreview} label="Lightkeeper notes formatting" className="-ml-1.5" />
+              <PreviewToggle preview={lkPreview} onPreview={setLkPreview} className="ml-auto" />
+            </div>
+
             {/* Continuous note area */}
             <div className="px-4 sm:px-8 py-4" style={LINED_PAPER}>
-              <textarea
-                value={lkContent}
-                onChange={e => handleLKContentChange(e.target.value)}
-                aria-label="Lightkeeper notes"
-                className="w-full bg-transparent border-none resize-none text-[26px] leading-[3.5rem] font-serif text-ink placeholder-sepia/90"
-                style={{ backgroundImage: 'none', minHeight: '700px' }}
-              />
+              {lkPreview ? (
+                <NoteMarkdown text={lkContent} className="text-[26px] leading-[3.5rem] font-serif text-ink py-0.5"
+                  style={{ minHeight: '700px' }} />
+              ) : (
+                <textarea
+                  ref={lkTextRef}
+                  value={lkContent}
+                  onChange={e => handleLKContentChange(e.target.value)}
+                  aria-label="Lightkeeper notes"
+                  className="w-full bg-transparent border-none resize-none text-[26px] leading-[3.5rem] font-serif text-ink placeholder-sepia/90"
+                  style={{ backgroundImage: 'none', minHeight: '700px' }}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -939,15 +961,26 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                       style={{ fontFamily: authorFont, color: authorColor }} />
                   </div>
                   <div className="flex-1 flex flex-col">
-                    <label className="block font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-sepia mb-1">What you found</label>
+                    {/* On a phone the label and Preview share a line and the marks take the next */}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+                      <label htmlFor={`${idBase}-found`} className="order-1 flex-1 block font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-sepia">What you found</label>
+                      <MarkdownMarks targetRef={entryTextRef} preview={entryPreview} label="Entry formatting"
+                        className="order-3 basis-full -ml-1.5 sm:order-2 sm:basis-auto sm:ml-0" />
+                      <PreviewToggle preview={entryPreview} onPreview={setEntryPreview} className="order-2 sm:order-3" />
+                    </div>
                     <div className="flex-1 relative">
                       <div className="absolute inset-0 pointer-events-none" style={{
                         backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgba(0,0,0,0.08) 27px, rgba(0,0,0,0.08) 28px)',
                         backgroundSize: '100% 28px', backgroundPosition: '0 32px',
                       }} />
-                      <textarea value={newEntryContent} onChange={e => setNewEntryContent(e.target.value)}
-                        className="w-full h-full min-h-[180px] bg-transparent border-none resize-none text-[28px] leading-[3.5rem] relative z-10 pt-1"
-                        style={{ fontFamily: authorFont, color: authorColor }} />
+                      {entryPreview ? (
+                        <NoteMarkdown text={newEntryContent} className="w-full h-full min-h-[180px] text-[28px] leading-[3.5rem] relative z-10 pt-1"
+                          style={{ fontFamily: authorFont, color: authorColor }} />
+                      ) : (
+                        <textarea id={`${idBase}-found`} ref={entryTextRef} value={newEntryContent} onChange={e => setNewEntryContent(e.target.value)}
+                          className="w-full h-full min-h-[180px] bg-transparent border-none resize-none text-[28px] leading-[3.5rem] relative z-10 pt-1"
+                          style={{ fontFamily: authorFont, color: authorColor }} />
+                      )}
                     </div>
                   </div>
 

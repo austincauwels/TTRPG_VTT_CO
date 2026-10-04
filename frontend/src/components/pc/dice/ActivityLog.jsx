@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { rulebookLogText } from '../../../game/outcomes';
 import { FormLine, PrinterMark } from '../../shared/PrintMarks';
+import { InlineMarkdown } from '../../shared/NoteMarkdown';
 
 // ── Fallback styles when no ink_color is present (cream-paper log) ───────────
 // Rolls carry the seal green, danger the oxblood, chat the sepia hairline and field
@@ -71,9 +72,18 @@ function LogEntry({ entry }) {
       >
         [{entry.time}]
       </span>
-      <span style={textStyle}>{text}</span>
+      <span style={textStyle}>{entry.type === 'chat' ? <PassNoteText text={text} /> : text}</span>
     </p>
   );
+}
+
+// A passed note reads "Name: message" or "Name → @Someone: message". The sender's part
+// stays as the server wrote it; the message is the writer's, in inline Markdown only
+// (bold, italic, strike, code, links).
+function PassNoteText({ text }) {
+  const at = text.indexOf(': ');
+  if (at === -1) return <InlineMarkdown text={text} />;
+  return <>{text.slice(0, at + 2)}<InlineMarkdown text={text.slice(at + 2)} /></>;
 }
 
 // The blank rows of the ledger: ruled every 28px, with the time column's red rule
