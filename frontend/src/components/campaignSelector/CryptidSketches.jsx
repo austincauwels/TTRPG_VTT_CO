@@ -2,7 +2,7 @@ import React from 'react';
 
 // Official cryptid field sketches (cryp1-3), kept whole under the aged-paper treatment.
 export const CryptidSketches = () => (
-  <div className="absolute bottom-[5%] left-[10%] w-[850px] h-[750px] pointer-events-none z-10">
+  <div className="absolute bottom-[5%] left-0 sm:left-[4%] lg:left-[10%] w-[850px] h-[750px] pointer-events-none z-10 origin-bottom-left scale-[0.5] sm:scale-75 lg:scale-100">
     
     {/* Cryptid Sheet 1 (Bottom Left) - Scaled Up */}
     <div className="absolute bottom-[10%] left-[5%] w-[320px] aspect-[1/1.4] bg-[#e6d8bc] rotate-[-12deg] shadow-[4px_6px_15px_rgba(0,0,0,0.9)] border border-[#c4b599] p-2 flex flex-col">

@@ -3,8 +3,8 @@ import React from 'react';
 export const RejoinInviteBanner = ({ rejoinInvite, setStage, setRejoinInvite }) => {
   if (!rejoinInvite) return null;
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[500] flex items-center gap-4 bg-[#1a0505] border border-[#8b1a1a] px-6 py-4 shadow-[0_4px_30px_rgba(139,26,26,0.5)] max-w-xl w-[calc(100%-2rem)]">
-      <div className="flex-1 min-w-0">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[500] flex flex-wrap items-center gap-x-4 gap-y-2 bg-[#1a0505] border border-[#8b1a1a] px-4 py-3 sm:px-6 sm:py-4 shadow-[0_4px_30px_rgba(139,26,26,0.5)] max-w-xl w-[calc(100%-2rem)]">
+      <div className="flex-1 min-w-[12rem]">
         <p className="font-mono text-xs text-[#8b4a4a] uppercase tracking-[0.2em] mb-0.5">Lightkeeper Invitation</p>
         <p className="text-[#c9b89a] font-serif text-base leading-snug truncate">
           You have been invited to rejoin <strong className="text-white">{rejoinInvite.campaign_name}</strong>

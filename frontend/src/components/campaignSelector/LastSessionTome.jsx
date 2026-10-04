@@ -5,25 +5,25 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
   lastPlayedCampaign ? (
       <div
         onClick={onResume}
-        className="thick-book group w-[30vw] max-w-[440px] aspect-[1/1.3] bg-[#1e0624] p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-6 translate-x-4 hover:-translate-y-1 hover:rotate-[1deg] cursor-pointer"
+        className="thick-book group w-full lg:w-[30vw] max-w-[440px] aspect-[1/1.4] lg:aspect-[1/1.3] bg-[#1e0624] p-3 sm:p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-3 lg:translate-y-6 lg:translate-x-4 lg:hover:-translate-y-1 lg:hover:rotate-[1deg] cursor-pointer"
       >
         <div className="leather-texture" />
-        <div className="absolute inset-5 border-[3px] border-[#c49d47]/40 embossed-stamp pointer-events-none rounded z-10" />
-        <div className="z-20 flex flex-col items-center text-center relative">
-          <span className="font-mono-data text-xl font-bold tracking-[0.5em] text-[#c49d47]/60 mb-6 uppercase drop-shadow-md">
+        <div className="absolute inset-3 sm:inset-5 border-[3px] border-[#c49d47]/40 embossed-stamp pointer-events-none rounded z-10" />
+        <div className="z-20 flex flex-col items-center text-center relative w-full lg:w-auto">
+          <span className="font-mono-data text-[10px] sm:text-sm lg:text-xl font-bold tracking-[0.3em] lg:tracking-[0.5em] text-[#c49d47]/60 mb-2 sm:mb-4 lg:mb-6 uppercase drop-shadow-md">
             {lastPlayedCampaign.type === 'gm' ? 'List of Campaigns' : 'Campaign Log'}
           </span>
-          <h2 className="font-playfair italic font-bold text-4xl md:text-5xl embossed-gold tracking-tight leading-[1.1] mb-4 group-hover:text-[#e8c678] transition-colors">
+          <h2 className="font-playfair italic font-bold text-2xl sm:text-4xl md:text-5xl embossed-gold tracking-tight leading-[1.1] mb-1 sm:mb-4 break-words max-w-full group-hover:text-[#e8c678] transition-colors">
             {lastPlayedCampaign.campaignName || 'Last Session'}
           </h2>
-          <div className="flex items-center gap-3 my-4">
+          <div className="flex items-center gap-3 my-2 sm:my-4">
             <div className="w-6 h-[1px] bg-[#c49d47]/30" />
             <svg className="w-5 h-5 text-[#c49d47]/50" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
               <path strokeLinecap="square" strokeLinejoin="miter" d="M12 2l2 4h-4l2-4zm-3 4h6v14H9V6zm1.5 3h3M10.5 12h3M10.5 15h3M5 21h14" />
             </svg>
             <div className="w-6 h-[1px] bg-[#c49d47]/30" />
           </div>
-          <p className="font-garamond text-[#c49d47]/80 text-[26px] tracking-wider max-w-[70%] leading-relaxed drop-shadow-md uppercase mt-2">
+          <p className="font-garamond text-[#c49d47]/80 text-[11px] sm:text-base lg:text-[26px] tracking-wider max-w-[90%] lg:max-w-[70%] leading-snug sm:leading-relaxed drop-shadow-md uppercase sm:mt-2">
             {lastPlayedCampaign.type === 'gm'
               ? "Resume command of your active investigation."
               : "Resume your circle's ongoing assignment."}
@@ -31,13 +31,13 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
         </div>
       </div>
   ) : (
-      <div className="thick-book w-[30vw] max-w-[440px] aspect-[1/1.3] bg-[#120614] p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-6 translate-x-4 cursor-not-allowed">
+      <div className="thick-book w-full lg:w-[30vw] max-w-[440px] aspect-[1/1.4] lg:aspect-[1/1.3] bg-[#120614] p-3 sm:p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-3 lg:translate-y-6 lg:translate-x-4 cursor-not-allowed">
         <div className="leather-texture" />
-        <div className="absolute inset-5 border-[3px] border-[#c49d47]/20 embossed-stamp pointer-events-none rounded z-10" />
+        <div className="absolute inset-3 sm:inset-5 border-[3px] border-[#c49d47]/20 embossed-stamp pointer-events-none rounded z-10" />
 
-        <div className="z-20 flex flex-col items-center text-center relative w-full" style={{ marginBottom: '60px' }}>
-          <span className="font-mono-data text-xl font-bold tracking-[0.5em] text-[#c49d47]/50 mb-4 uppercase drop-shadow-md">Campaign Log</span>
-          <h2 className="font-playfair italic font-bold text-5xl md:text-6xl embossed-gold tracking-tight leading-[1.05]">
+        <div className="z-20 flex flex-col items-center text-center relative w-full mb-7 sm:mb-[60px]">
+          <span className="font-mono-data text-[10px] sm:text-sm lg:text-xl font-bold tracking-[0.3em] lg:tracking-[0.5em] text-[#c49d47]/50 mb-2 lg:mb-4 uppercase drop-shadow-md">Campaign Log</span>
+          <h2 className="font-playfair italic font-bold text-3xl sm:text-5xl md:text-6xl embossed-gold tracking-tight leading-[1.05]">
             Last<br/>Session
           </h2>
         </div>
@@ -52,7 +52,7 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
           }} />
           <div className="absolute inset-x-3" style={{ top: '7px', height: '1px', backgroundImage: 'repeating-linear-gradient(to right, rgba(210,165,75,0.5) 0px, rgba(210,165,75,0.5) 5px, transparent 5px, transparent 11px)' }} />
           <div className="absolute inset-x-3" style={{ bottom: '7px', height: '1px', backgroundImage: 'repeating-linear-gradient(to right, rgba(210,165,75,0.5) 0px, rgba(210,165,75,0.5) 5px, transparent 5px, transparent 11px)' }} />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ zIndex: 40 }}>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-75 sm:scale-100" style={{ zIndex: 40 }}>
             <svg width="42" height="56" viewBox="0 0 42 56" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 24V14C12 8.48 16.48 4 22 4C27.52 4 32 8.48 32 14V24" stroke="#1a0e04" strokeWidth="7" strokeLinecap="round" fill="none"/>
               <path d="M12 24V14C12 8.48 16.48 4 22 4C27.52 4 32 8.48 32 14V24" stroke="#c49d47" strokeWidth="4" strokeLinecap="round" fill="none"/>
@@ -76,8 +76,8 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
           </div>
         </div>
 
-        <div className="z-20 absolute bottom-7 flex flex-col items-center gap-2 w-full px-6">
-          <p className="font-garamond text-[#c49d47]/55 text-2xl tracking-wider text-center leading-relaxed uppercase">
+        <div className="z-20 absolute bottom-4 sm:bottom-7 flex flex-col items-center gap-2 w-full px-3 sm:px-6">
+          <p className="font-garamond text-[#c49d47]/55 text-xs sm:text-2xl tracking-wider text-center leading-relaxed uppercase">
             No Recent Sessions
           </p>
         </div>

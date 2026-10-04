@@ -92,6 +92,9 @@ export const DeskStyles = () => (
       border-top: 1px solid rgba(0,0,0,0.4); border-bottom: 1px solid rgba(0,0,0,0.4);
       box-shadow: inset -5px 0 15px rgba(0,0,0,0.8); transform: translateZ(-2px); z-index: -1;
     }
+    @media (max-width: 639px) {
+      .thick-book::before { right: -10px; width: 10px; }
+    }
 
     .embossed-gold { color: #c49d47; text-shadow: -1px -1px 1px rgba(0,0,0,0.9), 1px 1px 1px rgba(255,255,255,0.2), inset 0 0 2px rgba(0,0,0,0.5); }
     .embossed-silver { color: #a8a8a8; text-shadow: -1px -1px 1px rgba(0,0,0,0.9), 1px 1px 1px rgba(255,255,255,0.15); }
@@ -104,7 +107,25 @@ export const DeskStyles = () => (
       box-shadow: 4px 6px 15px rgba(0,0,0,0.7), inset 0 0 40px rgba(139, 115, 85, 0.4);
       cursor: pointer;
       transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
-      position: absolute; 
+      position: relative;
+    }
+    /* Pamphlets lie loose on the desk only in the wide composition; below it they sit in a row */
+    @media (min-width: 1024px) {
+      .pamphlet { position: absolute; }
+    }
+
+    /* Folded Herald strip for narrow screens: same paper stock, folded to its masthead */
+    .newspaper-strip {
+      position: relative;
+      background-color: #dcd2b8;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.1 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23dcd2b8' filter='url(%23paper)'/%3E%3C/svg%3E");
+      box-shadow: 2px 8px 20px rgba(0,0,0,0.9), inset 0 -18px 24px -12px rgba(0,0,0,0.45);
+      color: #2b251e;
+    }
+    .newspaper-strip::after {
+      content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 10px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.16), transparent);
+      pointer-events: none;
     }
 
     /* Top-Fold Horizontal Newspaper Emulation */

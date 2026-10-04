@@ -3,7 +3,7 @@ import React from 'react';
 // Static in-world newspaper. The advertisement's corner marks are absolute inside a box
 // with no `relative`, so they position against the newspaper: keep the nesting.
 export const HalcyonHerald = () => (
-  <div className="newspaper-top-fold w-[960px] h-[700px] p-7 rotate-[-8deg] top-[-40px] left-[-100px] flex flex-col overflow-hidden">
+  <div className="newspaper-top-fold w-[960px] h-[700px] p-7 rotate-[-8deg] top-[-40px] left-[-100px] hidden lg:flex flex-col overflow-hidden">
     
     {/* Elaborate Broadsheet Header */}
     <div className="border-b-[4px] border-double border-[#2b251e] pb-2 mb-3 text-center relative z-20">
@@ -60,5 +60,26 @@ export const HalcyonHerald = () => (
         </p>
       </div>
     </div>
+  </div>
+);
+
+// Narrow screens: the same paper folded down to its masthead and headline, set at the foot
+// of the desk so it never covers the tomes or pamphlets.
+export const HalcyonHeraldStrip = () => (
+  <div className="newspaper-strip lg:hidden w-full max-w-[560px] rotate-[-1.5deg] px-4 pt-3 pb-4 text-center">
+    <div className="border-b-[3px] border-double border-[#2b251e] pb-1.5 mb-2">
+      <p className="font-cinzel text-[22px] sm:text-[30px] font-black tracking-tight text-[#1f1b15] leading-tight">THE HALCYON HERALD</p>
+      <div className="flex justify-between items-center font-mono-data text-[9px] uppercase tracking-widest font-bold border-t border-[#2b251e] pt-1 mt-1">
+        <span>Vol. XCIV, No. 212</span>
+        <span>The Fairelands</span>
+        <span>Two Pence</span>
+      </div>
+    </div>
+    <p className="font-playfair text-lg sm:text-2xl font-black leading-none uppercase tracking-wide text-[#1a1611]">
+      TERROR IN THE SIDLE!
+    </p>
+    <p className="font-garamond text-sm sm:text-[15px] italic font-semibold mt-1 text-[#3b3227]">
+      Authorities Baffled by Midnight Disappearances
+    </p>
   </div>
 );

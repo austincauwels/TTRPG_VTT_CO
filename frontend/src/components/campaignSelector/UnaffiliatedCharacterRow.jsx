@@ -18,7 +18,7 @@ export const UnaffiliatedCharacterRow = ({ char, form, setJoinForms, handleJoinF
             value={form.code || ''}
             onChange={e => setJoinForms(f => ({ ...f, [char.id]: { ...f[char.id], code: e.target.value } }))}
             placeholder="Campaign Cipher…"
-            className="w-full bg-white/60 border border-[#5a3a28]/30 px-2 py-1.5 font-garamond text-[28px] text-[#2b1a0e] placeholder-[#5a3a28]/30 outline-none focus:border-[#8b1a1a]/50 mt-2"
+            className="w-full bg-white/60 border border-[#5a3a28]/30 px-2 py-1.5 font-garamond text-xl lg:text-[28px] text-[#2b1a0e] placeholder-[#5a3a28]/30 outline-none focus:border-[#8b1a1a]/50 mt-2"
           />
           <div>
             <button
@@ -27,7 +27,7 @@ export const UnaffiliatedCharacterRow = ({ char, form, setJoinForms, handleJoinF
               className="w-full bg-white/60 border border-[#5a3a28]/30 px-3 py-2 flex items-center justify-between hover:bg-white/80 transition-colors"
               style={{ borderColor: form.dropdownOpen ? 'rgba(139,26,26,0.5)' : undefined }}
             >
-              <span className="text-[28px] text-[#2b1a0e]" style={{ fontFamily: form.pen || 'Caveat' }}>
+              <span className="text-xl lg:text-[28px] text-[#2b1a0e]" style={{ fontFamily: form.pen || 'Caveat' }}>
                 {form.pen || 'Caveat'}
               </span>
               <span className="text-base text-[#5a3a28]/50 ml-2 shrink-0">{form.dropdownOpen ? '▲' : '▼'}</span>
