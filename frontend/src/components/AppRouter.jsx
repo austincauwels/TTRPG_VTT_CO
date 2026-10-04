@@ -9,6 +9,9 @@ import { CampaignSelector } from './CampaignSelector';
 import { MainDeskView } from './pc/MainDeskView';
 import { OperationsPanel } from './gm/OperationsPanel';
 import { CharacterCreator } from './CharacterCreator';
+import { AccountPage } from './account/AccountPage';
+import { ConfirmEmailPage } from './account/ConfirmEmailPage';
+import { accountPageOpen, emailTokenFromAddress, watchAddress } from './account/accountAddress';
 
 // The first time the creator opens after the page loads. A page brought back by the
 // browser's Back button with the creator still saved as the screen came back from the
@@ -77,7 +80,17 @@ export const AppRouter = () => {
     setResetToken(null);
   };
 
-  useCreatorExits(resetToken === null ? stage : null, setStage);
+  // The account page (/account) and the link that confirms a new email address
+  // (/confirm-email?token=...) have addresses of their own (account/accountAddress.js).
+  const [accountOpen, setAccountOpen] = useState(accountPageOpen);
+  const [emailToken, setEmailToken] = useState(emailTokenFromAddress);
+  useEffect(() => watchAddress(() => {
+    setAccountOpen(accountPageOpen());
+    setEmailToken(emailTokenFromAddress());
+  }), []);
+  const onOwnAddress = resetToken !== null || emailToken !== null || (accountOpen && !!accessSession);
+
+  useCreatorExits(onOwnAddress ? null : stage, setStage);
 
   // Compute rejoin context — either organic death path or GM invite path
   const deadCharRejoinCode = character?.is_dead && lastPlayedCampaign?.campaignCode
@@ -208,6 +221,11 @@ export const AppRouter = () => {
   // signs this browser out and becomes the sign-in slip; both are the same LoginScreen
   // in the same place, so the slip carries its state across.
   if (resetToken !== null) return <LoginScreen resetToken={resetToken} onLeaveReset={leaveResetPage} />;
+
+  // Both need someone signed in; until then the stage (the sign-in slip) shows and the
+  // address stays, so the page opens once they are.
+  if (emailToken !== null && accessSession) return <ConfirmEmailPage key={emailToken} token={emailToken} />;
+  if (accountOpen && accessSession && stage !== 'LOGIN') return <AccountPage returnTo={stage} />;
 
   switch (stage) {
   case 'LOGIN':

@@ -111,8 +111,10 @@ export const createGoogleAccount = (linkToken, username) =>
 // THE SIGNED-IN USER'S ACCOUNT (docs/refactor/AUTH.md)
 // ==========================================
 
-// { userId, name, email, googleLinked } for the signed-in user, or null when it cannot
-// be read. The account menu offers "Link Google account" while googleLinked is false.
+// { userId, name, email, googleLinked, googleEmail, hasPassword, pendingEmail } for the
+// signed-in user, or null when it cannot be read. hasPassword is true, false (an account
+// made with Google: nobody knows its password) or null (not known); pendingEmail is the
+// new address of a change that waits for its link, or null.
 export const fetchAccount = async () => {
   try {
     const response = await apiFetch('/api/auth/me');
@@ -131,6 +133,35 @@ export const fetchAccount = async () => {
 // or that Google account is linked already, 400 when Google refused.
 export const linkGoogleToAccount = (credential, password) =>
   postAuth('/api/auth/me/google', password ? { credential, password } : { credential });
+
+// The account page's changes. Each carries a proof: { password } (the current password)
+// or { credential } (a Google sign-in of the account's own Google account, made just
+// now). Each resolves to the account as fetchAccount reads it, or throws like the
+// sign-in calls (error.status, and a message that can be shown as is): 403 for a wrong
+// or missing proof, 429 when the account has changed too often.
+export const changeUsername = (username, proof) =>
+  postAuth('/api/auth/me/username', { username, ...proof });
+
+// Every other sign-in of the account ends and its sockets close; the answer carries a
+// new token for this browser ({ ...account, token }).
+export const changePassword = (newPassword, proof) =>
+  postAuth('/api/auth/me/password', { new_password: newPassword, ...proof });
+
+// Mails a link to the new address and a notice to the old one; the address changes
+// when the link is used (confirmEmailChange). The answer has pendingEmail set.
+export const requestEmailChange = (email, proof) =>
+  postAuth('/api/auth/me/email', { email, ...proof });
+
+export const resendEmailChange = () => postAuth('/api/auth/me/email/resend', {});
+
+export const cancelEmailChange = () => postAuth('/api/auth/me/email/cancel', {});
+
+// The token from the emailed link (/confirm-email?token=...), used by the account that
+// asked for the change: 400 when the link is used or expired, 403 for another account.
+export const confirmEmailChange = (token) => postAuth('/api/auth/me/email/confirm', { token });
+
+// Takes the current password; refused (409) for an account without a password of its own.
+export const removeGoogleSignIn = (password) => postAuth('/api/auth/me/google/remove', { password });
 
 // ==========================================
 // PASSWORD RESET BY EMAIL (docs/refactor/AUTH.md)
