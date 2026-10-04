@@ -28,8 +28,9 @@ const ClearButton = ({ label, armedHint, onConfirm, className = '' }) => (
     )}
   />
 );
-import { SheetDivider, TurnOverMark } from '../shared/Decorations';
+import { TurnOverMark } from '../shared/Decorations';
 import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
+import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 
 const CIRCLE_QUESTIONS = [
   { key: 'q1', text: 'You have all known one another for a long time, but your circle was recently formed. Why were you brought together, and how do you each feel about it?' },
@@ -103,12 +104,13 @@ function ReportFlipCard({ inv, report }) {
         {/* Front */}
         <div
           style={{ backfaceVisibility: 'hidden', ...(flipped ? { position: 'absolute', inset: 0 } : { position: 'relative' }) }}
-          className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 shadow-md px-4 pt-5 pb-3 min-h-[13rem] flex flex-col items-center gap-2.5"
+          className="bg-cream border border-sepia/25 shadow-[2px_6px_14px_rgba(0,0,0,0.38)] px-4 pt-3 pb-2.5 min-h-[9.5rem] flex flex-col items-center gap-2"
         >
           {inv.ink_color && (
             <div className="w-5 h-5 rounded-full" style={{ background: inv.ink_color }} />
           )}
-          <span className="font-sans text-xl font-black uppercase tracking-wide text-ink text-center leading-tight break-words max-w-full">
+          <FormLine className="self-stretch text-center" aria-hidden="true">Form C.O. 11 · Assignment report</FormLine>
+          <span className="font-sans text-lg font-black uppercase tracking-wide text-ink text-center leading-tight break-words max-w-full">
             {inv.name}
           </span>
           {inv.specialty && (
@@ -128,7 +130,7 @@ function ReportFlipCard({ inv, report }) {
         {/* Back */}
         <div
           style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', ...(flipped ? { position: 'relative' } : { position: 'absolute', inset: 0 }) }}
-          className={`bg-cream border border-parchment-deep p-4 min-h-[13rem] flex flex-col gap-3 ${flipped ? '' : 'overflow-hidden'}`}
+          className={`bg-cream border border-sepia/25 shadow-[2px_6px_14px_rgba(0,0,0,0.38)] p-4 min-h-[9.5rem] flex flex-col gap-3 ${flipped ? '' : 'overflow-hidden'}`}
         >
           <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood border-b border-ink/10 pb-1.5">
             {inv.name}'s Report
@@ -214,26 +216,29 @@ export const CirclePage = () => {
   }
 
   return (
-    <div className="relative z-10 animate-sheetDrop space-y-8 text-ink bg-parchment min-h-[850px] xl:min-h-full px-8 py-8 xl:px-6 xl:py-6 rounded-sm shadow-inner" style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.08) 27px, rgb(var(--c-sepia) / 0.08) 28px)', backgroundSize: '100% 28px', backgroundPosition: '0 4px' }}>
+    // The circle's file, as on the player's Circle tab: its papers side by side. Below xl
+    // they lie on a ruled sheet; from xl they lie on the desk itself.
+    <div className="relative z-10 animate-sheetDrop text-ink bg-parchment min-h-[850px] px-4 py-6 sm:px-8 sm:py-8 xl:min-h-0 xl:bg-none xl:bg-transparent xl:shadow-none xl:p-2 xl:pb-3 rounded-sm shadow-inner paper-ruled">
+    <CirclePapers>
 
-      {/* I. Circle Identity Header, as on the player's Circle tab */}
-      <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/80 p-5 shadow-md rounded-sm">
+      {/* I. The circle's charter */}
+      <CirclePaper kind="charter" tilt={-0.4} aria-label="Circle charter">
         <div className="flex items-center gap-2 -mt-1 mb-3" aria-hidden="true">
           <PrinterMark size={13} />
           <FormLine>Form C.O. 3 · Circle charter</FormLine>
           <SerialNo value={serialFor(`circle-${circle?.id ?? ''}`)} className="ml-auto" />
         </div>
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="flex gap-4 items-start">
 
           {/* Name + Chapter House (editable for GM) */}
-          <div className="flex-1 space-y-3">
+          <div className="flex-1 min-w-0 space-y-2.5">
             <div>
               <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
                 Circle name
               </span>
               {circle?.name ? (
-                <div className="flex flex-wrap items-center gap-2 mt-1">
-                  <div className="text-2xl font-serif font-black text-ink uppercase leading-tight flex-1 min-w-0 break-words">
+                <div className="flex flex-col items-start gap-1.5 mt-0.5">
+                  <div className="text-xl font-serif font-black text-ink uppercase leading-tight max-w-full [overflow-wrap:anywhere]">
                     {circle.name}
                   </div>
                   <ClearButton
@@ -257,8 +262,8 @@ export const CirclePage = () => {
                 Chapter house
               </span>
               {circle?.chapter_house_location ? (
-                <div className="flex flex-wrap items-start gap-2 mt-0.5">
-                  <div className="font-serif text-sm text-oxblood italic leading-snug flex-1 min-w-0 break-words">
+                <div className="flex flex-col items-start gap-1.5 mt-0.5">
+                  <div className="font-serif text-sm text-oxblood italic leading-snug max-w-full">
                     {circle.chapter_house_location}
                   </div>
                   <ClearButton
@@ -284,18 +289,19 @@ export const CirclePage = () => {
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
               Insignia
             </span>
-            <div className="w-20 h-20 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
+            <div className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
               <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
-              <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={38} className="text-ink/85" />
+              <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={30} className="text-ink/85" />
             </div>
           </div>
         </div>
 
         {/* Illumination Tracker */}
-        <div className="mt-4 pt-4 border-t border-ink/10">
+        <div className="mt-3 pt-3 border-t border-ink/10">
           <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
             Illumination
+            <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">{illum} / {TRACK_SIZE}</span>
           </h3>
           {trackFull && (
             <button
@@ -308,7 +314,7 @@ export const CirclePage = () => {
               </span>
             </button>
           )}
-          <div className="flex gap-1.5 flex-wrap mb-1">
+          <div className="flex gap-1.5 flex-wrap">
             {Array.from({ length: TRACK_SIZE }).map((_, i) => {
               const filled    = i < illum;
               const milestone = (i + 1) % 3 === 0;
@@ -321,7 +327,7 @@ export const CirclePage = () => {
                   role="button"
                   aria-label={`Set Illumination to ${filled && illum === i + 1 ? i : i + 1}`}
                   title={`Illumination ${i + 1}`}
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
+                  className={`w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
                     filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'
                   } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}
                 >
@@ -330,20 +336,17 @@ export const CirclePage = () => {
               );
             })}
           </div>
-          <div className="font-mono tabular-nums text-sm text-sepia">
-            {illum} / {TRACK_SIZE}
-          </div>
         </div>
 
         {/* Active Circle Ability */}
-        <div className="mt-4 pt-4 border-t border-ink/10">
+        <div className="mt-3 pt-3 border-t border-ink/10">
           <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">
             Circle ability
           </span>
           {circle?.circle_ability ? (
             <div className="mt-1 space-y-1">
               {circle.circle_ability.split('\n').filter(Boolean).map((ability, i) => (
-                <p key={i} className="font-serif text-sm text-ink/90 leading-relaxed">
+                <p key={i} className="font-serif text-sm text-ink/90 leading-snug">
                   <span className="font-bold uppercase">{ability}: </span>
                   {CIRCLE_ABILITY_DESCRIPTIONS[ability] || ''}
                 </p>
@@ -372,29 +375,25 @@ export const CirclePage = () => {
             </div>
           )}
         </div>
-      </div>
+      </CirclePaper>
 
-      {/* II. Main grid: Illumination Questions + Resources */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        {/* Left: Assignment Dispatch Reference */}
-        <div className="lg:col-span-7 space-y-6">
-          <div className="hand-placed bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 p-5 shadow-md rounded-sm relative" style={{ '--tilt': '-0.6deg' }}>
-            <h3 className="font-sans text-base font-black uppercase tracking-widest text-oxblood mb-1 flex items-center gap-1.5 border-b border-ink/10 pb-1">
+      {/* II. The assignment report form: its questions, and reports open or closed */}
+      <CirclePaper kind="ruled" tilt={0.5} tape aria-label="Illumination questions">
+            <h3 className="font-sans text-sm font-black uppercase tracking-widest text-oxblood flex items-center gap-1.5 border-b border-ink/10 pb-1">
               <SafeIcon name="GiQuillInk" size={12} />
               Illumination Questions
             </h3>
-            <FormLine className="block mb-4">Form C.O. 11 · Assignment report</FormLine>
-            <div className="space-y-3">
+            <FormLine className="block mt-1 mb-2.5">Form C.O. 11 · Assignment report</FormLine>
+            <div className="space-y-2">
               {ILLUM_QUESTIONS.map((q, i) => (
-                <p key={i} className="font-serif text-sm text-ink/80 leading-snug italic border-b border-ink/10 pb-2 last:border-0">
+                <p key={i} className="font-serif text-sm text-ink/80 leading-snug italic border-b border-ink/10 pb-1.5 last:border-0">
                   <span className="font-mono text-xs text-sepia not-italic mr-2">{i + 1}.</span>"{q}"
                 </p>
               ))}
             </div>
 
             {/* GM Toggle: Open Reports */}
-            <div className="mt-4 pt-3 border-t border-ink/10 flex items-center justify-between">
+            <div className="mt-3 pt-2.5 border-t border-ink/10 flex items-center justify-between">
               <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider">
                 {circle?.reports_open ? 'Reports open' : 'Reports closed'}
               </span>
@@ -409,26 +408,37 @@ export const CirclePage = () => {
                 {circle?.reports_open ? 'Close reports' : 'Open reports'}
               </button>
             </div>
-          </div>
+      </CirclePaper>
+
+      {/* III. Each investigator's report, a card that turns over (her original flip) */}
+      {investigators.map((inv, idx) => (
+        <div key={inv.id || idx} className="hand-placed min-w-0" style={tiltStyle(`report-${inv.id ?? idx}`, { max: 1.4, sign: idx % 2 ? 1 : -1 })}>
+          <ReportFlipCard
+            inv={inv}
+            report={reports[inv.id] || reports[String(inv.id)] || null}
+          />
         </div>
+      ))}
 
-        {/* Right: Circle Resources */}
-        <div className="lg:col-span-5 space-y-4">
-          <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-3 flex items-center gap-1.5">
-            <SafeIcon name="GiScrollUnfurled" size={14} className="text-oxblood" />
-            Circle Resources
-          </h3>
-          <p className={`flex items-center gap-1.5 font-sans text-xs font-bold uppercase tracking-wider ${circle?.resources_editable ? 'text-seal-green' : 'text-sepia'}`}>
-            {!circle?.resources_editable && <SafeIcon name="GiPadlock" size={13} />}
-            {circle?.resources_editable ? 'Spending open' : 'Spending locked'}
-          </p>
+      {/* IV. The stores' ledger card: the circle's resources */}
+      <CirclePaper kind="manila" tilt={-0.6} aria-label="Circle resources">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-ink/25 pb-1 mb-2.5">
+            <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-1.5">
+              <SafeIcon name="GiScrollUnfurled" size={14} className="text-oxblood" />
+              Circle Resources
+            </h3>
+            <span className={`flex items-center gap-1.5 font-sans text-xs font-bold uppercase tracking-wider ${circle?.resources_editable ? 'text-seal-green' : 'text-sepia'}`}>
+              {!circle?.resources_editable && <SafeIcon name="GiPadlock" size={13} />}
+              {circle?.resources_editable ? 'Spending open' : 'Spending locked'}
+            </span>
+          </div>
 
-          <div className="space-y-3">
+          <div className="divide-y divide-dashed divide-sepia/35">
             {RESOURCES.map(({ label, key }) => {
               const avail = circle?.[key] ?? maxCap;
               return (
-                <div key={key} className="bg-cream/60 border border-ink/20 p-3 rounded-sm shadow-sm">
-                  <span className="font-serif font-black text-sm uppercase tracking-wide text-ink block mb-2">{label}</span>
+                <div key={key} className="py-2 first:pt-0">
+                  <span className="font-serif font-black text-sm uppercase tracking-wide text-ink block mb-1">{label}</span>
                   <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-1.5">
                     <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Available</span>
                     <div className="flex flex-wrap gap-1">
@@ -478,7 +488,7 @@ export const CirclePage = () => {
           </div>
 
           {/* Resource controls */}
-          <div className="flex gap-2 flex-wrap pt-1">
+          <div className="flex gap-2 flex-wrap pt-2.5 mt-1 border-t border-ink/25">
             <button
               onClick={() => refillResources(circId)}
               className="flex-1 px-3 py-2 font-sans text-xs font-black uppercase tracking-widest border border-ink/20 text-sepia hover:bg-black/5 hover:text-ink hover:border-ink/40 rounded-sm transition-all"
@@ -496,60 +506,31 @@ export const CirclePage = () => {
               {circle?.resources_editable ? 'Lock spending' : 'Allow spending'}
             </button>
           </div>
-        </div>
-      </div>
+      </CirclePaper>
 
-      <SheetDivider />
-
-      {/* III. Assignment Report Cards */}
-      {investigators.length > 0 && (
-        <div>
-          <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1.5 mb-5 flex items-center gap-1.5">
-            <SafeIcon name="GiPapers" size={14} className="text-oxblood" />
-            Assignment Reports
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
-            {investigators.map((inv, idx) => (
-              <div key={inv.id || idx} className="hand-placed min-w-0" style={tiltStyle(`report-${inv.id ?? idx}`, { max: 1.4, sign: idx % 2 ? 1 : -1 })}>
-                <ReportFlipCard
-                  inv={inv}
-                  report={reports[inv.id] || reports[String(inv.id)] || null}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <SheetDivider />
-
-      {/* IV. Circle History */}
-      <div>
-        <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1.5 mb-5 flex items-center gap-1.5">
+      {/* V. The circle's history: its question, and each investigator's answer */}
+      <CirclePaper kind="laid" tilt={0.7} aria-label="Circle history">
+        <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-2.5 flex items-center gap-1.5">
           <SafeIcon name="GiQuillInk" size={14} className="text-oxblood" />
           Circle History
         </h3>
 
         {selQ ? (
-          <div className="bg-cream border border-parchment-deep p-4 mb-5 shadow-sm rounded-sm">
-            <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-2">
+          <div className="mb-2.5">
+            <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1">
               Circle question
             </span>
-            <p className="font-serif text-base text-ink/80 leading-relaxed italic">"{selQ.text}"</p>
+            <p className="font-serif text-base text-ink/85 leading-snug italic">"{selQ.text}"</p>
           </div>
         ) : (
-          <BlankQuestionCard />
+          <BlankQuestionCard className="mb-2.5" />
         )}
 
         {playersWithAnswers.length === 0 ? null : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="divide-y divide-dashed divide-sepia/40 border-t border-dashed border-sepia/40">
             {playersWithAnswers.map((inv, idx) => (
-              <div
-                key={inv.id || idx}
-                className="hand-placed bg-cream border border-parchment-deep p-4 shadow-sm rounded-sm"
-                style={tiltStyle(`history-${inv.id ?? idx}`, { max: 1, sign: idx % 2 ? -1 : 1 })}
-              >
-                <div className="flex items-center gap-2 mb-2 border-b border-ink/10 pb-1.5">
+              <div key={inv.id || idx} className="py-2">
+                <div className="flex items-center gap-2 mb-1">
                   {inv.ink_color && (
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ background: inv.ink_color }} />
                   )}
@@ -560,15 +541,16 @@ export const CirclePage = () => {
                     <span className="font-sans font-bold text-xs text-sepia uppercase">· {inv.specialty}</span>
                   )}
                 </div>
-                <p className="font-serif text-sm text-ink/80 leading-relaxed italic whitespace-pre-wrap">
+                <p className="font-serif text-sm text-ink/80 leading-snug italic whitespace-pre-wrap">
                   "{inv.personal_circle_answer}"
                 </p>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </CirclePaper>
 
+    </CirclePapers>
       {/* Circle Advancement Modal */}
       {showAdvanceModal && (
         <div

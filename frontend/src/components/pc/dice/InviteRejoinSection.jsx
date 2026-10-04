@@ -29,14 +29,16 @@ export const InviteRejoinSection = () => {
   };
 
   return (
-    <div className="rounded-sm border border-gm-slate bg-gm-slate/30 p-4 shadow-inner">
-      <button onClick={() => setShowForm(v => !v)} aria-expanded={showForm} className="w-full flex items-center gap-3">
-        <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
-        <h3 className="font-sans font-bold text-xs uppercase tracking-widest text-moonlight-steel whitespace-nowrap">
-          Invite a Player Back
+    // A small slip from the Lightkeeper's pad, lying under the notes
+    <div className="hand-placed bg-parchment text-ink border border-sepia/30 rounded-sm px-4 py-2.5 shadow-[2px_6px_12px_rgba(0,0,0,0.55)] xl:shrink-0" style={{ '--tilt': '-0.6deg' }}>
+      <button onClick={() => setShowForm(v => !v)} aria-expanded={showForm} className="pen-host w-full min-h-[32px] flex items-center gap-3">
+        <h3 className="font-sans font-black text-xs uppercase tracking-widest text-sepia whitespace-nowrap">
+          <span className="pen-underline">Invite a Player Back</span>
         </h3>
-        <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
-        <span className="font-sans text-moonlight-steel text-xs ml-1">{showForm ? '▲' : '▼'}</span>
+        <span aria-hidden="true" className="flex-1 border-b border-dotted border-sepia/40" />
+        <svg aria-hidden="true" viewBox="0 0 12 12" width="11" height="11" className={`shrink-0 text-sepia transition-transform duration-200 ${showForm ? 'rotate-180' : ''}`}>
+          <path d="M2 4.2 6 8l4-3.8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
       {showForm && (
         <div className="mt-4 space-y-2">
@@ -48,7 +50,7 @@ export const InviteRejoinSection = () => {
               onKeyDown={e => e.key === 'Enter' && handleSend()}
               placeholder="Username"
               aria-label="Player's username"
-              className="flex-1 min-w-0 bg-gm-night border border-gm-slate text-cream font-mono text-sm px-3 py-2 placeholder-moonlight-steel/90 focus:border-moonlight-steel rounded-sm"
+              className="flex-1 min-w-0 bg-transparent border-0 border-b border-sepia/45 text-ink font-mono text-sm px-1 py-2 placeholder-sepia/80 focus:border-oxblood rounded-none"
             />
             <button
               onClick={handleSend}
@@ -57,8 +59,8 @@ export const InviteRejoinSection = () => {
               Send invite
             </button>
           </div>
-          {error && <p className="font-serif text-sm text-oxblood-lit">{error}</p>}
-          {success && <p className="font-serif text-sm text-seal-green-lit">Invite sent.</p>}
+          {error && <p className="font-serif text-sm text-oxblood">{error}</p>}
+          {success && <p className="font-serif text-sm text-seal-green">Invite sent.</p>}
         </div>
       )}
     </div>

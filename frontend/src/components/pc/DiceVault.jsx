@@ -17,12 +17,13 @@ export { MAX_ABILITY_USES, ABILITY_ROLL_MODS, getAvailableRollMods } from '../..
 
 export const DiceVault = ({ showGmControls = false, logEntries: externalLog, playerList }) => {
   const {
-    character, lastRoll, isRolling, activityLog, rollAction,
+    character, lastRoll: ownRoll, tableRoll, isRolling, activityLog, rollAction,
     pendingGildedChoice, resolveGildedChoice, sendChat, circleCreation,
     burnResistance, usePostRollAbility,
   } = useGameStore(useShallow(s => ({
     character: s.character,
     lastRoll: s.lastRoll,
+    tableRoll: s.tableRoll,
     isRolling: s.isRolling,
     activityLog: s.activityLog,
     rollAction: s.rollAction,
@@ -35,10 +36,16 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   })));
 
   const logEntries = externalLog ?? activityLog;
+  // The GM's felt shows the table's newest roll: the GM's own, or a player's as its dice
+  // start tumbling at that player's desk (with the die they kept). A player's felt shows
+  // their own rolls only.
+  const shownTable = showGmControls && tableRoll?.roll?.dice ? tableRoll : null;
+  const lastRoll = shownTable ? shownTable.roll : ownRoll;
   // The roller's rating in the rolled action, so the slip can show dice added to it
-  const rawRating = !showGmControls && lastRoll?.action && character ? Number(character[lastRoll.action]) : NaN;
+  const rawRating = shownTable ? Number(shownTable.rating ?? NaN)
+    : !showGmControls && lastRoll?.action && character ? Number(character[lastRoll.action]) : NaN;
   const rollRating = Number.isFinite(rawRating) ? rawRating : null;
-  const gildedPending = !!(pendingGildedChoice && lastRoll?.needs_gilded_choice);
+  const gildedPending = !shownTable && !!(pendingGildedChoice && lastRoll?.needs_gilded_choice);
 
   const { visiblePrompts, setDismissedPrompts, drivePickerPrompt, setDrivePickerPrompt } =
     usePostRollPrompts({ lastRoll, character, showGmControls });
@@ -53,12 +60,14 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   const dieSkews = useMemo(() => {
     const count = lastRoll?.dice?.length || 0;
     return Array.from({ length: count }, () => `${Math.floor(Math.random() * 40) - 20}deg`);
-  }, [lastRoll?.id, lastRoll?.dice?.length]);
+  }, [lastRoll]);
 
   // The die kept in a gilded choice, remembered for the result and the phone roll bar until
-  // the next roll
+  // the next roll. On the GM's felt a player's kept die comes with their dice.
   const [kept, setKept] = useState(null);
-  const keptDie = kept && kept.roll === lastRoll ? kept : null;
+  const tableKept = shownTable?.kept && Number.isInteger(shownTable.kept.index)
+    ? { roll: lastRoll, value: shownTable.kept.value, idx: shownTable.kept.index } : null;
+  const keptDie = shownTable ? tableKept : (kept && kept.roll === lastRoll ? kept : null);
 
   const getIsCandidate = (die, idx) => {
     if (!lastRoll?.dice) return false;
@@ -92,9 +101,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     return () => io.disconnect();
   }, [showGmControls]);
 
-  // Who the tray's roll belongs to: the GM's socket only ever receives the GM's own rolls
-  const rollerName = showGmControls ? 'Lightkeeper' : (character?.name || 'You');
-  const rollerInk = showGmControls ? null : character?.ink_color;
+  // Who the tray's roll belongs to
+  const rollerName = shownTable ? (shownTable.name || 'Investigator') : showGmControls ? 'Lightkeeper' : (character?.name || 'You');
+  const rollerInk = shownTable ? (shownTable.ink_color || null) : showGmControls ? null : character?.ink_color;
 
   // Load the roll sounds while the desk is open, so the first one plays on time
   useEffect(() => { primeRollSounds(); }, []);
@@ -124,22 +133,23 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     <div data-desk="dice" className="lg:col-span-3 xl:col-span-1 space-y-6 mt-2 xl:mt-0 order-2 lg:order-none xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:space-y-0 xl:gap-3">
 
 
-      {showGmControls && <GmDiceControls rollAction={rollAction} />}
-
-      {/* DICE TRAY */}
-      <DiceTray
-        ref={trayRef}
-        lastRoll={lastRoll}
-        isRolling={isRolling}
-        gildedPending={gildedPending}
-        dieSkews={dieSkews}
-        getIsCandidate={getIsCandidate}
-        onDieClick={handleDieClick}
-        rollerName={rollerName}
-        rollerInk={rollerInk}
-        keptDie={keptDie}
-        rating={rollRating}
-      />
+      {/* DICE TRAY, with the Lightkeeper's controls along its top rail on the GM's desk */}
+      <div className="xl:shrink-0">
+        {showGmControls && <GmDiceControls rollAction={rollAction} />}
+        <DiceTray
+          ref={trayRef}
+          lastRoll={lastRoll}
+          isRolling={isRolling && !shownTable}
+          gildedPending={gildedPending}
+          dieSkews={dieSkews}
+          getIsCandidate={getIsCandidate}
+          onDieClick={handleDieClick}
+          rollerName={rollerName}
+          rollerInk={rollerInk}
+          keptDie={keptDie}
+          rating={rollRating}
+        />
+      </div>
 
       {/* ROLL MODIFICATIONS */}
       {showRollModifications && rollModifications}

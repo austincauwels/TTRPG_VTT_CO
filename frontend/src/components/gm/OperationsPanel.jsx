@@ -15,9 +15,11 @@ import { CircleFormationStatus } from './desk/CircleFormationStatus';
 import { ActiveCircleMembers } from './desk/ActiveCircleMembers';
 import { TensionSection } from './desk/TensionSection';
 import { FairelandsMap } from './desk/FairelandsMap';
+import { CircleLedger } from './desk/CircleLedger';
 import { ConnectionBanner } from '../shared/ConnectionBanner';
 
-const wideTab = (tab) => tab === 'archives' || tab === 'map';
+// The notebook, the map and the circle's file take the dice rail's width from xl too
+const wideTab = (tab) => tab === 'archives' || tab === 'map' || tab === 'circle';
 
 export const OperationsPanel = () => {
   const [activeTab, setActiveTab] = useState('roster');
@@ -139,7 +141,7 @@ export const OperationsPanel = () => {
 
           {/* CENTER PANEL */}
           <div data-desk="gm-center" className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-10' : activeTab === 'archives' ? 'lg:col-span-9' : 'lg:col-span-6'} xl:col-span-1 xl:min-h-0 ${
-            wideTab(activeTab) ? '' : 'xl:overflow-y-auto custom-scrollbar'}`}>
+            activeTab === 'archives' || activeTab === 'map' ? '' : 'xl:overflow-y-auto custom-scrollbar'}`}>
             {activeTab === 'roster' && selectedInvestigator && (
               <AnimatePresence mode="wait">
                 <GMCharacterSheet
@@ -151,12 +153,15 @@ export const OperationsPanel = () => {
             )}
 
             {activeTab === 'roster' && !selectedInvestigator && (
-              // From xl the roster lies in two parts: the investigators' cards across the
-              // top, then the requests or the sealed slip with the pocket watch beside them
-              <div className="max-lg:contents bg-gm-night p-8 xl:p-5 rounded-sm shadow-2xl border border-gm-slate min-h-[850px] xl:min-h-0 flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:content-start xl:gap-x-8 xl:gap-y-5">
+              // The roster is not a panel: its objects lie on the desk itself. From xl the
+              // investigators' business cards lie across the top; under them the requests or
+              // the sealed slip, with the circle's ledger card running to the foot of the
+              // desk, and the pocket watch beside them.
+              <div className={`max-lg:contents p-2 lg:min-h-[850px] xl:min-h-0 xl:h-full flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:gap-x-8 xl:gap-y-5 xl:px-2 xl:pt-1 xl:pb-2 ${
+                rosterFinalized ? 'xl:grid-rows-[auto_auto_minmax(0,1fr)]' : 'xl:grid-rows-[auto_minmax(0,1fr)]'}`}>
 
                 {!rosterFinalized && (
-                  <div className="order-5 lg:order-none xl:row-start-2 xl:col-start-1 min-w-0">
+                  <div className="order-5 lg:order-none xl:row-start-2 xl:col-start-1 min-w-0 xl:flex xl:flex-col xl:gap-5">
                     <CorrespondenceStack
                       campaignRoster={campaignRoster}
                       pendingIndex={pendingIndex}
@@ -188,18 +193,24 @@ export const OperationsPanel = () => {
                 {/* ACTIVE CIRCLE MEMBERS */}
                 <ActiveCircleMembers className="order-4 lg:order-none xl:row-start-1 xl:col-span-2" campaignRoster={campaignRoster} onSelect={handleSelectInvestigator} />
 
-                {/* Once finalized, the sealed slip below the investigators */}
-                {rosterFinalized && <FinalizedSlip className="order-5 lg:order-none xl:row-start-2 xl:col-start-1 xl:self-start" pressed={sealedNow} />}
+                {/* Once finalized, the sealed slip below the investigators, and the circle's
+                    ledger card under it */}
+                {rosterFinalized && (
+                  <FinalizedSlip className="order-5 lg:order-none xl:row-start-2 xl:col-span-2 xl:w-full xl:max-w-[40rem]" pressed={sealedNow} />
+                )}
+                {rosterFinalized && (
+                  <CircleLedger className="hidden xl:block xl:row-start-3 xl:col-start-1 xl:min-h-0 xl:h-full" onOpen={() => setActiveTab('circle')} />
+                )}
 
-                {/* TENSION CLOCK: pinned to the bottom on desktop, right after the dice on phones */}
-                <TensionSection className="order-2 lg:order-none xl:row-start-2 xl:col-start-2 xl:mt-0 xl:self-start" />
+                {/* TENSION CLOCK: lying beside them on desktop, right after the dice on phones */}
+                <TensionSection className={`order-2 lg:order-none xl:col-start-2 xl:mt-0 xl:self-center ${rosterFinalized ? 'xl:row-start-3' : 'xl:row-start-2'}`} />
 
 
               </div>
             )}
             {activeTab === 'circle' && <CirclePage />}
             {activeTab === 'archives' && (
-              <div className="max-lg:contents bg-gm-night p-8 xl:p-3 rounded-sm shadow-2xl border border-gm-slate min-h-[850px] xl:min-h-0 xl:h-full">
+              <div className="max-lg:contents lg:min-h-[850px] xl:min-h-0 xl:h-full xl:p-1">
                 <NotebookView isGM={true} fit />
               </div>
             )}
@@ -208,10 +219,11 @@ export const OperationsPanel = () => {
             )}
           </div>
 
-          {!wideTab(activeTab) && (
-            <div className="order-1 lg:order-none lg:col-span-3 xl:col-span-1 xl:min-h-0">
-              {/* The GM's dice in their real colors: felt, wood, gold gilded dice */}
-              <div className="bg-gm-night border border-gm-slate rounded-sm shadow-2xl overflow-hidden px-3 pb-3 xl:pt-3 xl:h-full xl:flex xl:flex-col">
+          {(!wideTab(activeTab) || activeTab === 'circle') && (
+            <div className={`order-1 lg:order-none lg:col-span-3 xl:col-span-1 xl:min-h-0 ${activeTab === 'circle' ? 'xl:hidden' : ''}`}>
+              {/* The GM's dice in their real colors: felt, wood, gold gilded dice. The tray,
+                  the log and the notes lie on the desk, no panel around them. */}
+              <div className="xl:h-full xl:flex xl:flex-col xl:pt-1">
                 <div className="xl:flex-1 xl:min-h-0">
                   <DiceVault showGmControls logEntries={activityLog} playerList={campaignRoster.active_investigators} />
                 </div>
