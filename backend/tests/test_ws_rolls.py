@@ -1,5 +1,6 @@
 """WebSocket dice: roll, resolve_gilded, burn_resistance, use_post_roll_ability.
-The dice fixture fixes the faces engine.roll_dice will produce."""
+The dice fixture fixes the faces engine.roll_dice will produce. The rest of the table
+gets dice_thrown when the dice start tumbling on the roller's felt (vtt/ws/handlers/rolls.py)."""
 import pytest
 
 import engine
@@ -33,8 +34,15 @@ def test_roll_basic(client, dice):
         assert result["character"]["nerve_current"] == 2
         assert msgs[1]["payload"] == {"message": f"{ch['name']} rolled move {EM} 5 {DOT} Mixed Success.",
                                       "log_type": "roll", "ink_color": engine.INK_COLORS[0]}
-        assert support.types(wo.drain()) == ["activity_log"]
-        assert support.types(gm.drain()) == ["activity_log"]
+        # The rest of the table: the dice as they start tumbling, then the line
+        for other_socket in (wo, gm):
+            seen = other_socket.drain()
+            assert support.types(seen) == ["dice_thrown", "activity_log"]
+            assert seen[0]["payload"] == {
+                "character_id": ch["id"], "campaign_id": camp["id"], "name": ch["name"],
+                "ink_color": engine.INK_COLORS[0], "action": "move", "rating": 2,
+                "roll": result["roll"], "kept": None}
+            assert seen[1] == msgs[1]
     assert support.fetch(Character, ch["id"]).nerve_current == 2
 
 
@@ -123,12 +131,72 @@ def test_gilded_pool_needs_choice_then_resolve(client, dice):
             "message": f"{ch['name']} rolled move {EM} 3 {DOT} Failure. [gilded {EM} nerve Drive refreshed]",
             "log_type": "roll", "ink_color": engine.INK_COLORS[0]}
         assert msgs[1]["payload"]["nerve_current"] == 3
+        # The kept die starts the tumble: the GM's tray is shown the dice and which counts
+        seen = gm.drain()
+        assert support.types(seen) == ["dice_thrown", "activity_log"]
+        thrown = seen[0]["payload"]
+        assert thrown["kept"] == {"index": 0, "is_gilded": True, "value": 3}
+        assert thrown["rating"] == 2
+        assert thrown["roll"]["dice"] == _d(3, 5, gilded_first=True)
+        assert (thrown["roll"]["needs_gilded_choice"], thrown["roll"]["result"], thrown["roll"]["outcome"]) == (
+            False, 3, "failure")
+
+
+def test_keeping_the_regular_die_names_it(client, dice):
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, sneak=3, gilded_sneak=True, cunning_max=3, cunning_current=1)
+    dice(2, 4, 6)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        ws.send("roll", action="sneak", drive_spent=0)
+        ws.sync()
+        assert gm.drain() == []
+        ws.send("resolve_gilded", action="sneak", chosen_type="regular", chosen_value=6)
+        ws.sync()
+        [thrown, line] = gm.drain()
+        assert (thrown["type"], line["type"]) == ("dice_thrown", "activity_log")
+        assert thrown["payload"]["kept"] == {"index": 2, "is_gilded": False, "value": 6}
+        assert thrown["payload"]["roll"]["outcome"] == "full_success"
+
+
+def test_a_kept_die_shows_dice_once(client, dice):
+    """The held dice are the roll's: a second resolve, or a resolve after a newer roll,
+    sends the line (as before) but no dice."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=2, gilded_move=True, strike=1, nerve_max=3)
+    dice(3, 5)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        ws.send("roll", action="move", drive_spent=0)
+        ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value=3)
+        ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value=3)
+        ws.sync()
+        assert support.types(gm.drain()) == ["dice_thrown", "activity_log", "activity_log"]
+        dice(3, 5)
+        ws.send("roll", action="move", drive_spent=0)
+        dice(2)
+        ws.send("roll", action="strike", drive_spent=0)
+        ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=5)
+        ws.sync()
+        assert support.types(gm.drain()) == ["dice_thrown", "activity_log", "activity_log"]
+
+
+def test_a_secret_roll_shows_no_dice(client, dice):
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=2, gilded_move=True, strike=2, nerve_max=3)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        dice(4, 2)
+        ws.send("roll", action="strike", drive_spent=0, is_secret=True)
+        dice(3, 5)
+        ws.send("roll", action="move", drive_spent=0, is_secret=True)
+        ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=5)
+        ws.sync()
+        # QUIRK: resolve_gilded logs even a secret roll's choice; it sends no dice
         assert support.types(gm.drain()) == ["activity_log"]
 
 
 def test_resolve_gilded_trusts_client_value_and_can_be_replayed(client):
-    """QUIRK: no pending roll is stored; any value can be claimed at any time, and a
-    6 is a full success, never critical."""
+    """QUIRK: the value is not checked against the roll (the held dice only show the
+    table which die was kept); any value can be claimed at any time, and a 6 is a
+    full success, never critical."""
     ch = support.forge(client, nerve_max=3, nerve_current=0)
     with support.ws_connect(client, ch["id"]) as ws:
         for _ in range(2):
@@ -187,7 +255,11 @@ def test_lightkeeper_roll_on_gm_socket(client, dice):
             "needs_gilded_choice": False, "drive_spent_key": None, "action": "lk"}}
         assert msgs[1]["payload"] == {"message": f"Lightkeeper rolled {EM} 4 {DOT} Mixed Success.",
                                       "log_type": "roll", "ink_color": ""}
-        assert support.types(wm.drain()) == ["activity_log"]
+        seen = wm.drain()
+        assert support.types(seen) == ["dice_thrown", "activity_log"]
+        assert seen[0]["payload"] == {
+            "character_id": None, "campaign_id": camp["id"], "name": "Lightkeeper", "ink_color": "",
+            "action": "lk", "rating": None, "roll": msgs[0]["payload"]["roll"], "kept": None}
 
 
 def test_roll_without_action_sends_roll_error(client):
@@ -333,7 +405,9 @@ def test_burn_resistance(client, dice):
             "needs_gilded_choice": False, "action": "move", "is_resistance_roll": True}
         assert msgs[0]["payload"]["character"]["nerve_resistance_spent"] == 1
         assert msgs[1]["payload"]["message"] == f"{ch['name']} burned resistance on move {EM} 6 {DOT} Critical Success."
-        assert support.types(gm.drain()) == ["activity_log"]
+        seen = gm.drain()
+        assert support.types(seen) == ["dice_thrown", "activity_log"]
+        assert seen[0]["payload"]["roll"] == msgs[0]["payload"]["roll"]
         ws.send("burn_resistance", action="move", drive_key="nerve")  # no pips left
         ws.send("burn_resistance", action="move")
         assert ws.sync() == []

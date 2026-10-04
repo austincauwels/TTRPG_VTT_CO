@@ -1,8 +1,65 @@
-"""Dice messages: roll, resolve_gilded, use_post_roll_ability and burn_resistance."""
+"""Dice messages: roll, resolve_gilded, use_post_roll_ability and burn_resistance.
+
+The roller's own socket gets roll_result with the dice. The rest of the table (the
+campaign's GM and active members, not the roller) gets dice_thrown at the moment the
+dice start tumbling on the roller's felt, so every desk hears them then and the GM's
+tray can show them: when a roll or a resistance reroll lands, or, for a gilded roll,
+when a die is kept (the roll's dice wait for that choice). Its payload:
+{"character_id" (None for the Lightkeeper), "campaign_id", "name", "ink_color",
+"action", "rating" (the roller's rating in the action, or None), "roll" (the dice,
+result and outcome, as in roll_result) and "kept" (None, or {"index", "is_gilded",
+"value"} for the die kept in a gilded choice)}. A secret roll sends none.
+"""
 from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, roll_dice
 from vtt.config import logger
 from vtt.serializers import get_char_dict
 from vtt.ws.manager import manager
+
+ACTION_KEYS = ("move", "strike", "control", "sway", "sneak", "hide", "survey", "read", "sense")
+
+# The dice of a gilded roll waiting for its choice, per character id, so that the table
+# can be shown them when a die is kept. In memory only: after a restart a kept die
+# sends no dice_thrown, and the other desks hear the dice when the roll's log line comes.
+# The choice itself is still taken as the client sends it (see handle_resolve_gilded).
+_pending_gilded: dict = {}
+
+
+def _rating(character, action):
+    if character is None or action not in ACTION_KEYS:
+        return None
+    return getattr(character, action, None)
+
+
+async def _dice_thrown(ctx, character, action, roll, rating, kept=None):
+    """Tells the rest of the table that these dice are tumbling now (dice_thrown)."""
+    await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
+        "type": "dice_thrown",
+        "payload": {
+            "character_id": character.id if character is not None else None,
+            "campaign_id": ctx.camp_id,
+            "name": character.name if character is not None else "Lightkeeper",
+            "ink_color": (getattr(character, "ink_color", "") or "") if character is not None else "",
+            "action": action,
+            "rating": rating,
+            "roll": roll,
+            "kept": kept,
+        },
+    }, ctx.db, exclude=ctx.channel)
+
+
+def _hold_or_throw(character, action, roll, is_secret):
+    """For a roll that has just landed on the roller's felt: True when its dice tumble
+    now and the table is told; False for a secret roll, which is never shown, and for
+    a gilded choice, whose dice are held until a die is kept."""
+    if character is not None:
+        _pending_gilded.pop(character.id, None)
+    if is_secret:
+        return False
+    if roll.get("needs_gilded_choice"):
+        if character is not None:
+            _pending_gilded[character.id] = {"action": action, "roll": dict(roll), "rating": _rating(character, action)}
+        return False
+    return True
 
 
 async def handle_roll(ctx):
@@ -109,6 +166,8 @@ async def handle_roll(ctx):
             "type": "roll_result",
             "payload": {"character_id": target_char_id, "action": act, "roll": res, "character": get_char_dict(character) if character else None}
         })
+        if _hold_or_throw(character, act, res, is_secret):
+            await _dice_thrown(ctx, character, act, res, _rating(character, act))
 
         if not res.get("needs_gilded_choice") and not is_secret:
             result_val = res.get("result")
@@ -167,6 +226,21 @@ async def handle_resolve_gilded(ctx):
     if drive_refreshed:
         log_msg += f" [gilded — {r_cat} Drive refreshed]"
 
+    # The kept die starts the dice tumbling on the roller's felt: the table sees them now
+    pending = _pending_gilded.pop(character.id, None)
+    if pending is not None and pending["action"] == r_act:
+        roll = pending["roll"]
+        dice = roll.get("dice") or []
+        want_gilded = chosen_type == "gilded"
+        index = roll.get("gilded_idx") if want_gilded else roll.get("highest_regular_idx")
+        if not (isinstance(index, int) and 0 <= index < len(dice)
+                and dice[index].get("value") == chosen_value and bool(dice[index].get("is_gilded")) == want_gilded):
+            index = next((i for i, d in enumerate(dice)
+                          if bool(d.get("is_gilded")) == want_gilded and d.get("value") == chosen_value), None)
+        shown = {**roll, "needs_gilded_choice": False, "result": chosen_value, "outcome": outcome_key}
+        await _dice_thrown(ctx, character, r_act, shown, pending["rating"],
+                           kept={"index": index, "is_gilded": want_gilded, "value": chosen_value})
+
     await manager.broadcast_campaign(camp_code, camp_id, {
         "type": "activity_log",
         "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
@@ -215,6 +289,8 @@ async def handle_burn_resistance(ctx):
                 "type": "roll_result",
                 "payload": {"character_id": target_char_id, "action": act, "roll": result, "character": get_char_dict(character)}
             })
+            if _hold_or_throw(character, act, result, False):
+                await _dice_thrown(ctx, character, act, result, _rating(character, act))
             log_msg = f"{character.name} burned resistance on {act} — {result.get('result', '?')} · {outcome_label}."
             await manager.broadcast_campaign(camp_code, camp_id, {
                 "type": "activity_log",

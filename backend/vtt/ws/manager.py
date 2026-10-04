@@ -117,8 +117,11 @@ class ConnectionManager:
         for key in list(self.active_connections):
             await self._send_text(key, text)
 
-    async def broadcast_campaign(self, campaign_code: str, campaign_id, message: dict, db):
-        """Broadcast to the campaign's GM channel and its active members' channels.
+    async def broadcast_campaign(self, campaign_code: str, campaign_id, message: dict, db,
+                                 exclude: Optional[str] = None):
+        """Broadcast to the campaign's GM channel and its active members' channels,
+        except the channel key exclude (the sender's, for a message it has had its own
+        way).
 
         Without a campaign_id, campaign_code is taken as a channel key and only that
         channel gets the message. A WebSocket with no campaign passes its own key
@@ -127,13 +130,15 @@ class ConnectionManager:
         The members are read as ids only (a full Character row carries its
         portrait), and the message is serialized once for every socket."""
         if not campaign_id:
-            await self.broadcast(campaign_code, message)
+            if campaign_code != exclude:
+                await self.broadcast(campaign_code, message)
             return
         member_ids = db.query(Character.id).filter(
             Character.campaign_id == campaign_id,
             Character.status == "active",
         ).all()
         keys = {campaign_key(campaign_code)} | {character_key(row.id) for row in member_ids}
+        keys.discard(exclude)
         text = encode(message)
         for key in keys:
             await self._send_text(key, text)
