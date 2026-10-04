@@ -2,22 +2,24 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDialog } from '../../shared/useDialog';
 import { OUTCOME, outcomeForKept, rollPoolText } from '../../../game/outcomes';
+import { DieFace, DIE_BODY } from './Die';
 
+// The same dice as the tray, small: her ivory and gold bodies, standard pips
 const MiniDie = ({ die, counts, dim, onClick }) => {
-  const base = `font-serif font-black flex items-center justify-center rounded-sm border ${
-    die.is_gilded ? 'border-candle-gold bg-candle-gold text-ink' : 'border-ink/20 bg-cream text-ink'}`;
+  const base = `flex items-center justify-center rounded ${die.is_gilded ? DIE_BODY.gilded : DIE_BODY.regular}`;
   if (onClick) {
     return (
       <button type="button" onClick={onClick}
-        className={`${base} w-11 h-11 text-xl ring-2 ring-cream/70 active:scale-95 transition-transform`}
+        className={`${base} w-11 h-11 p-0.5 ring-2 ring-cream/70 active:scale-95 transition-transform`}
         aria-label={`Keep the ${die.is_gilded ? 'gilded' : 'highest'} die, ${die.value}`}>
-        {die.value}
+        <DieFace value={die.value} />
       </button>
     );
   }
   return (
-    <span className={`${base} w-7 h-7 text-sm ${counts ? 'ring-2 ring-seal-green-lit/80' : ''} ${dim ? 'opacity-40' : ''}`}>
-      {die.value}
+    <span className={`${base} w-7 h-7 p-px ${counts ? 'ring-2 ring-seal-green-lit/80' : ''} ${dim ? 'opacity-40' : ''}`}>
+      <DieFace value={die.value} />
+      <span className="sr-only">{die.value}{die.is_gilded ? ', gilded' : ''}</span>
     </span>
   );
 };

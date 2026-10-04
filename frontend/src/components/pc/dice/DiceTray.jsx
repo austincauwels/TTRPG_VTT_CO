@@ -4,6 +4,7 @@ import { useRollSounds } from '../../../game/rollSounds';
 import { onActivateKey } from '../../shared/a11y';
 import { tiltFor } from '../../shared/handPlaced';
 import { SerialNo, serialFor } from '../../shared/PrintMarks';
+import { DieFace, DIE_BODY } from './Die';
 
 // Each outcome is a stamp on the result slip: its word, plus its own ink. Critical success
 // is the one gold stamp (gold fill, ink letters), since gold text cannot be read on paper.
@@ -84,34 +85,9 @@ const SoundToggle = () => {
   );
 };
 
-// The pips of a die face on a 24 by 24 face. The resting dice on the empty felt and every
-// rolled die show their faces this way, so a result is as physical as the idle tray.
-const PIPS = {
-  1: [[12, 12]],
-  2: [[6.5, 17.5], [17.5, 6.5]],
-  3: [[6, 18], [12, 12], [18, 6]],
-  4: [[6, 6], [18, 6], [6, 18], [18, 18]],
-  5: [[6, 6], [18, 6], [12, 12], [6, 18], [18, 18]],
-  6: [[6, 5.5], [6, 12], [6, 18.5], [18, 5.5], [18, 12], [18, 18.5]],
-};
-
-// A rolled die's face: ink pips on the die's own color (ivory, or gold for the gilded die)
-const DieFace = ({ value }) => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="w-full h-full">
-    {(PIPS[value] || []).map(([cx, cy], i) => <circle key={i} cx={cx} cy={cy} r="2.3" fill="currentColor" />)}
-  </svg>
-);
-const RestingDie = ({ face, tilt }) => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"
-    className="w-9 h-9 2xl:w-11 2xl:h-11 drop-shadow-[2px_4px_3px_rgba(0,0,0,0.6)]"
-    style={{ transform: `rotate(${tilt}deg)` }}>
-    <rect x="0.75" y="0.75" width="22.5" height="22.5" rx="3.5" fill="rgb(var(--c-cream))" stroke="rgb(var(--c-ink) / 0.25)" strokeWidth="0.8" />
-    {PIPS[face].map(([cx, cy], i) => <circle key={i} cx={cx} cy={cy} r="2.1" fill="rgb(var(--c-ink))" />)}
-  </svg>
-);
-
-// The felt tray. dieSkews, getIsCandidate and onDieClick come from DiceVault, so every
-// tray that shows the same roll lands its dice at the same angles.
+// The felt tray. It stays empty until the first roll lands on it. dieSkews, getIsCandidate
+// and onDieClick come from DiceVault, so every tray that shows the same roll lands its dice
+// at the same angles.
 export const DiceTray = forwardRef(({
   lastRoll, isRolling, gildedPending, dieSkews, getIsCandidate, onDieClick,
   rollerName, rollerInk, keptDie, rating = null,
@@ -160,10 +136,8 @@ export const DiceTray = forwardRef(({
                   } : { 'aria-hidden': true })}
                   onClick={clickHandler}
                   onTouchEnd={clickHandler ? (e) => { e.preventDefault(); clickHandler(); } : undefined}
-                  className={`w-11 h-11 2xl:w-14 2xl:h-14 p-0.5 border rounded-[5px] flex items-center justify-center shadow-[2px_5px_6px_rgba(0,0,0,0.7)] ${tumbleClass}
-                    ${die.is_gilded
-                      ? 'border-2 border-sepia bg-candle-gold text-ink scale-105'
-                      : 'border border-ink/20 bg-cream text-ink'}
+                  className={`w-11 h-11 2xl:w-14 2xl:h-14 p-0.5 rounded flex items-center justify-center ${tumbleClass}
+                    ${die.is_gilded ? `${DIE_BODY.gilded} scale-105` : `${DIE_BODY.regular} shadow-2xl`}
                     ${extraClasses}`}
                   style={{ animationDelay: gildedPending ? '0ms' : `${delayMs}ms`, '--random-skew': randomSkew }}
                 >
@@ -174,10 +148,7 @@ export const DiceTray = forwardRef(({
           </div>
         </div>
       ) : (
-        <div className="flex items-end gap-4 opacity-70" aria-hidden="true">
-          <RestingDie face={5} tilt={-14} />
-          <RestingDie face={2} tilt={9} />
-        </div>
+        <span className="sr-only">No dice thrown yet</span>
       )}
     </div>
   </div>

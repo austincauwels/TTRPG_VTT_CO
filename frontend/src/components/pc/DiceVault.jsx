@@ -55,11 +55,19 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     return Array.from({ length: count }, () => `${Math.floor(Math.random() * 40) - 20}deg`);
   }, [lastRoll?.id, lastRoll?.dice?.length]);
 
+  // The die kept in a gilded choice, remembered for the result and the phone roll bar until
+  // the next roll
+  const [kept, setKept] = useState(null);
+  const keptDie = kept && kept.roll === lastRoll ? kept : null;
+
   const getIsCandidate = (die, idx) => {
     if (!lastRoll?.dice) return false;
     if (gildedPending) {
       return idx === lastRoll.gilded_idx || idx === lastRoll.highest_regular_idx;
     }
+    // After a gilded choice the die that was kept is the one that counts, even when a
+    // regular die shows more
+    if (keptDie) return idx === keptDie.idx;
     if (lastRoll.type === 'zero') {
       const minVal = Math.min(...lastRoll.dice.map(d => d.value));
       return die.value === minVal;
@@ -67,10 +75,6 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     const maxVal = Math.max(...lastRoll.dice.map(d => d.value));
     return die.value === maxVal;
   };
-
-  // The die kept in a gilded choice, remembered for the phone roll bar until the next roll
-  const [kept, setKept] = useState(null);
-  const keptDie = kept && kept.roll === lastRoll ? kept : null;
 
   const handleDieClick = (die, idx) => {
     if (!gildedPending) return;

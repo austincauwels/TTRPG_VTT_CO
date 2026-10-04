@@ -196,6 +196,14 @@
   animation: liftShimmy 1.5s ease-in-out infinite;
 }
 
+/* The gilded die, as her original tray drew it: gold leaf from light to dark across the
+   face, with a gold edge and a soft gold halo on the felt (DIE_BODY in dice/Die.jsx, as
+   utilities so a ring still shows around it). The two golds are material literals of the
+   die, like the felt's own green. */
+.die-gilded {
+  background-image: linear-gradient(to bottom right, #e5c158, #b8860b);
+}
+
 /* Global utility handles to safely call keyframes via React state hooks */
 /* Fill mode backwards, not forwards: a transform animation that stays in effect after it
    ends keeps an identity matrix on the wrapper (a "none" keyframe interpolates to
