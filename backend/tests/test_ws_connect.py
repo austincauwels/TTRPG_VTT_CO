@@ -236,14 +236,38 @@ def test_frame_without_payload_works(client):
     assert (row.body_marks, row.bleed_marks, row.incapacitated) == (0, 0, False)
 
 
-@pytest.mark.parametrize("frame", ['[1, 2]', '"text"', '{"type": "update_drive", "payload": [1]}'])
-def test_non_object_frame_closes_the_connection(client, frame):
-    """QUIRK: frames that are valid JSON but not objects raise outside any handler
-    and end the connection without a close frame."""
-    ch = support.forge(client)
+@pytest.mark.parametrize("frame", ['[1, 2]', '"text"', '7', 'null', '{"type": "no_such_action", "payload": [1]}'])
+def test_non_object_frame_is_ignored(client, frame):
+    """Fixed: frames that are valid JSON but not objects raised outside any handler and
+    ended the connection without a close frame. They are ignored now, like invalid
+    JSON, and the socket keeps working."""
+    ch = support.forge(client, nerve_max=3, nerve_current=3)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send_text(frame)
-        assert support.wait_server_dropped(ch["id"])
+        assert ws.sync() == []
+        ws.send("update_drive", pool="nerve", value=2)
+        assert ws.sync()[0]["payload"]["nerve_current"] == 2
+    assert support.fetch(Character, ch["id"]).nerve_current == 2
+
+
+@pytest.mark.parametrize("payload", [[1], "text", 7, True])
+def test_non_object_payload_is_rejected(client, payload):
+    """Fixed: a payload that is not an object ended the connection. It now gets an
+    action_rejected frame (422) and nothing happens."""
+    ch = support.forge(client, nerve_max=3, nerve_current=3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send_text(json.dumps({"type": "update_drive", "payload": payload}))
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "update_drive", "status": 422, "detail": "The payload must be an object."}}]
+        ws.send("update_drive", pool="nerve", value=1)
+        assert ws.sync()[0]["payload"]["nerve_current"] == 1
+
+
+def test_null_payload_is_an_empty_one(client):
+    ch = support.forge(client, body_marks=2, incapacitated=True)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send_text(json.dumps({"type": "revive_character", "payload": None}))
+        assert ws.recv()["payload"]["incapacitated"] is False
 
 
 def test_disconnect_removes_socket_but_keeps_key(client):

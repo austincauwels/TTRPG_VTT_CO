@@ -33,6 +33,11 @@ from vtt.ws.manager import campaign_key, character_key, manager
 router = APIRouter()
 
 
+async def _reject(websocket: WebSocket, action: str, status: int, detail: str):
+    await websocket.send_json({"type": "action_rejected", "payload": {
+        "action": action, "status": status, "detail": detail}})
+
+
 async def _refuse(websocket: WebSocket, game_id: str, code: int):
     logger.info("WebSocket refused: game_id=%s code=%s", game_id, code)
     await websocket.accept()
@@ -95,8 +100,18 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character
                 message = json.loads(data)
             except json.JSONDecodeError:
                 continue
+            # Valid JSON that is not an object names no action, so it is ignored like
+            # invalid JSON. It used to raise here and end the connection.
+            if not isinstance(message, dict):
+                continue
             action = message.get("type")
-            payload = message.get("payload", {})
+            payload = message.get("payload")
+            if payload is None:
+                payload = {}
+            if not isinstance(payload, dict):
+                if isinstance(action, str) and action in HANDLERS:
+                    await _reject(websocket, action, 422, "The payload must be an object.")
+                continue
 
             # The character this message acts on: payload.character_id, else the
             # player channel's own character (a GM channel has none).
@@ -126,8 +141,7 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character
                     continue
                 check_message(ctx, action, payload, character)
             except Rejected as rejected:
-                await websocket.send_json({"type": "action_rejected", "payload": {
-                    "action": action, "status": rejected.status, "detail": rejected.detail}})
+                await _reject(websocket, action, rejected.status, rejected.detail)
                 continue
             ctx.payload = payload
             ctx.character = character

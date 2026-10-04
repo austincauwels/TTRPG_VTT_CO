@@ -24,7 +24,7 @@ Receive loop (main.py:1496-2516):
 - `receive_text()`, then `json.loads`. Text that is not JSON is skipped.
 - `type` and `payload` (default `{}`) are read from the message. Unknown types are ignored with no reply.
 - Target character for the message: `payload.character_id` when present, otherwise `int(game_id)` when the path is numeric, otherwise None. The `character` variable is reassigned on every message. Any message carrying a `character_id` therefore acts on that character, whichever socket sent it.
-- Only the `roll` handler has its own try/except. An exception in any other handler (wrong type in a field, KeyError, NameError, a database error on commit) leaves the loop, is logged as "WebSocket fatal error", removes the socket from the manager and ends the connection. A JSON message that is not an object (a list, a number) or a payload that is not an object also ends the connection, because `.get` is called on it.
+- Only the `roll` handler has its own try/except. An exception in any other handler (wrong type in a field, KeyError, NameError, a database error on commit) leaves the loop, is logged as "WebSocket fatal error", removes the socket from the manager and ends the connection. Since the bug-fix stage, a JSON message that is not an object (a list, a number) is ignored like invalid JSON, a null payload counts as `{}`, and a payload that is not an object gets `action_rejected` with status 422 (for a known type; an unknown type is ignored). Before, both ended the connection, because `.get` was called on them.
 - `WebSocketDisconnect` calls `manager.disconnect`. The session is closed in `finally`.
 
 ## 2. ConnectionManager (in-memory state)

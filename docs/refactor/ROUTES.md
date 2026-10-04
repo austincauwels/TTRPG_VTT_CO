@@ -255,7 +255,7 @@ Intended: a numeric channel only for the owner of that character; a code channel
 
 ### Per message
 
-- Message is `{type, payload}`; invalid JSON is ignored.
+- Message is `{type, payload}`; invalid JSON and JSON that is not an object are ignored, and a payload that is not an object gets `action_rejected` 422.
 - `target_char_id = payload.character_id`, else `int(game_id)`, else None. `character` is reloaded from that id on every message. So any action guarded by "and character" can be aimed at any character id by putting `character_id` in the payload.
 - `broadcast(game_id)` reaches only the sender's own channel. `broadcast_campaign(camp_code, camp_id)` reaches the GM channel (campaign code) plus every active character channel in the campaign; with no `camp_id` it reaches only `camp_code`.
 - Only the `roll` branch has its own try/except (rollback and `roll_error`). An exception in any other branch ends the receive loop and closes the connection.
