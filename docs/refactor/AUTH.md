@@ -172,6 +172,8 @@ Rate limited 5 per minute per IP, like register. Status 201.
 | a user has the Google email, compared ignoring case (`users.email` is unique; this happens when two accounts share the email, which kept step 2 from linking) | 409 "An account with this email address already exists. Please use Link my existing account instead." |
 | otherwise | a new user with that username, the Google email, the `google_sub` and an unusable password (the bcrypt hash of a random value nobody is told); the answer is the login shape for a player with `token` |
 
+Two requests at once: the checks above run before the write, so another request can take the Google account, the username or the email in between. The unique indexes on `google_sub`, `username` and `email` then refuse the write, and the answer is what the check would now give: 409 "This Google account is already linked..." when a link or a sign-in by email loses the race, and for create the first check in the table that now fails. Any other refused write is still a 500.
+
 ### Data
 
 `users.google_sub`: text, nullable, unique index `ix_users_google_sub` (several users may have none). `init_db` adds the column and the index to an older database. The admin seed reads only the user id, so it also works on a users table from before the column.

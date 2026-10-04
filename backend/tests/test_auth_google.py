@@ -16,6 +16,7 @@ from models import User
 from vtt import config, security
 from vtt import google as vtt_google
 from vtt.google import GoogleIdentity, GoogleTokenError, GoogleUnavailableError
+from vtt.routers import auth as auth_router
 from vtt.schemas import check_new_username
 
 CLIENT_ID = "test-client-id.apps.googleusercontent.com"
@@ -391,6 +392,58 @@ def test_create_refuses_an_email_that_has_an_account(client, google):
     assert r.status_code == 409
     assert r.json() == {"detail": "An account with this email address already exists. "
                                   "Please use Link my existing account instead."}
+
+
+# --- two requests at once ------------------------------------------------------------------------
+# The routes check before they write, and the unique indexes catch what changes in
+# between. These tests skip the first check, as if another request got in after it.
+
+GOOGLE_ALREADY_LINKED = {"detail": "This Google account is already linked to an account. "
+                                   "Please sign in with Google again."}
+
+
+def test_link_when_another_request_linked_the_google_account_first(client, google, monkeypatch):
+    first, second = support.make_user(), support.make_user()
+    token = needs_account(client, google)
+    assert_signed_in_as(link(client, token, first.username), first.id)
+    monkeypatch.setattr(auth_router, "refuse_linked_google_account", lambda db, identity: None)
+    r = link(client, token, second.username)
+    assert r.status_code == 409
+    assert r.json() == GOOGLE_ALREADY_LINKED
+    assert google_sub_of(second.id) is None
+    assert google_sub_of(first.id) == security.identity_from_link_token(token).sub
+
+
+@pytest.mark.parametrize("taken,status,detail", [
+    ("google account", 409, GOOGLE_ALREADY_LINKED["detail"]),
+    ("username", 400, "That identification is already claimed."),
+    ("email", 409, "An account with this email address already exists. "
+                   "Please use Link my existing account instead."),
+])
+def test_create_when_another_request_took_it_first(client, google, monkeypatch, taken, status, detail):
+    token = needs_account(client, google)
+    identity = security.identity_from_link_token(token)
+    username = f"race_{support.uid()}"
+    if taken == "google account":
+        support.make_user(google_sub=identity.sub)
+    elif taken == "username":
+        support.make_user(username=username)
+    else:
+        support.make_user(email=identity.email)
+    real_checks, calls = auth_router.refuse_new_google_user, []
+
+    def checks_after_the_first(*args):
+        calls.append(args)
+        if len(calls) > 1:
+            real_checks(*args)
+
+    monkeypatch.setattr(auth_router, "refuse_new_google_user", checks_after_the_first)
+    users_before = len(support.fetch_all(User))
+    r = create(client, token, username)
+    assert r.status_code == status
+    assert r.json() == {"detail": detail}
+    assert len(calls) == 2  # checked again after the unique index refused the row
+    assert len(support.fetch_all(User)) == users_before
 
 
 # --- link tokens are only link tokens ------------------------------------------------------------

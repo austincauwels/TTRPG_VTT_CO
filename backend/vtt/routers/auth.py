@@ -13,6 +13,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -163,9 +164,24 @@ def refuse_linked_google_account(db: Session, identity: GoogleIdentity) -> None:
 
 def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: str) -> None:
     user.google_sub = identity.sub
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Only google_sub changed, so another request linked this Google account to
+        # someone else after refuse_linked_google_account looked.
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=GOOGLE_ALREADY_LINKED)
     db.refresh(user)
     logger.info("Linked a Google account to user id=%s (%s)", user.id, how)
+
+
+def refuse_new_google_user(db: Session, identity: GoogleIdentity, username: str) -> None:
+    """The checks before a new user for a Google account, in the order AUTH.md gives."""
+    refuse_linked_google_account(db, identity)
+    if db.query(User.id).filter(User.username == username).first() is not None:
+        raise HTTPException(status_code=400, detail=USERNAME_TAKEN)
+    if db.query(User.id).filter(func.lower(User.email) == identity.email.lower()).first() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_TAKEN)
 
 
 # The accounts the seed scripts make (admin and the test players). Their emails are
@@ -258,12 +274,7 @@ async def google_create(request: Request, body: GoogleCreateRequest, db: Session
     """Creates a user for the Google account in the link token, with the Google email
     and a password nobody knows, and signs them in."""
     identity = identity_or_401(body.link_token)
-    refuse_linked_google_account(db, identity)
-
-    if db.query(User.id).filter(User.username == body.username).first() is not None:
-        raise HTTPException(status_code=400, detail=USERNAME_TAKEN)
-    if db.query(User.id).filter(func.lower(User.email) == identity.email.lower()).first() is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_TAKEN)
+    refuse_new_google_user(db, identity, body.username)
 
     user = User(
         username=body.username,
@@ -272,7 +283,15 @@ async def google_create(request: Request, body: GoogleCreateRequest, db: Session
         google_sub=identity.sub,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Another request took the Google account, the username or the email after
+        # the checks looked. Answer as the checks now would; anything else (such as
+        # the fresh-database sequence clash in ROUTES.md) stays a server error.
+        db.rollback()
+        refuse_new_google_user(db, identity, body.username)
+        raise
     db.refresh(user)
     logger.info("Created user id=%s with a Google account", user.id)
     return signed_in_response(db, user)
