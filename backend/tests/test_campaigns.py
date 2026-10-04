@@ -463,6 +463,39 @@ def test_invite_rejoin(client):
     assert support.fetch(User, u.id).pending_rejoin_campaign_id == camp["id"]
 
 
+def test_invite_rejoin_case_variants(client):
+    """The username was matched ignoring case with .first() and no order. With "mira"
+    and "Mira" both registered, the invite (which lets its holder rejoin without GM
+    approval) could land on the other user, whichever row the database returned
+    first. An exact match now wins; a name that matches only ignoring case must match
+    one user, otherwise the answer is 409 and nobody is invited."""
+    camp = support.new_campaign(client)
+    gm = support.as_gm(camp)
+    base = f"mira_{support.uid()}"
+    first = support.make_user(username=base)
+    second = support.make_user(username=base.capitalize())
+    url = f"/campaign/{camp['id']}/invite-rejoin"
+
+    r = client.post(url, json={"username": second.username}, headers=gm)
+    assert r.status_code == 200
+    assert support.fetch(User, second.id).pending_rejoin_campaign_id == camp["id"]
+    assert support.fetch(User, first.id).pending_rejoin_campaign_id is None
+    support.update(User, second.id, pending_rejoin_campaign_id=None)
+
+    r = client.post(url, json={"username": f" {base} "}, headers=gm)
+    assert r.status_code == 200
+    assert support.fetch(User, first.id).pending_rejoin_campaign_id == camp["id"]
+    assert support.fetch(User, second.id).pending_rejoin_campaign_id is None
+    support.update(User, first.id, pending_rejoin_campaign_id=None)
+
+    r = client.post(url, json={"username": base.upper()}, headers=gm)
+    assert r.status_code == 409
+    assert r.json() == {"detail": "More than one player has that username. Please type it exactly, "
+                                  "with the same capital letters."}
+    assert support.fetch(User, first.id).pending_rejoin_campaign_id is None
+    assert support.fetch(User, second.id).pending_rejoin_campaign_id is None
+
+
 def test_invite_rejoin_only_by_the_gm(client):
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)

@@ -125,7 +125,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Notes: skips GM approval entirely and does not check that an invite exists or that a predecessor died. Imports `INK_COLORS` from engine inside the function.
 
 **POST /campaign/{campaign_id}/invite-rejoin** (line 638, `async def`)
-- Inputs: path `campaign_id`, JSON body `InviteRejoinRequest {username}` (case-insensitive match).
+- Inputs: path `campaign_id`, JSON body `InviteRejoinRequest {username}` (case-insensitive match; since the security review an exact match wins and a name that matches more than one user ignoring case is 409).
 - Trusted ids: `campaign_id`.
 - Tables: campaigns (read), users (set pending_rejoin_campaign_id), characters (read the user's characters).
 - Broadcast: `gm_rejoin_invite` `{campaign_id, campaign_name, campaign_code}` to every character channel of that user.

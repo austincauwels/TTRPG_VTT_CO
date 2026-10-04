@@ -266,6 +266,26 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     return {"success": True, "character": get_char_dict(new_char)}
 
 
+AMBIGUOUS_USERNAME = ("More than one player has that username. Please type it exactly, "
+                      "with the same capital letters.")
+
+
+def _invitee(db: Session, typed: str) -> User:
+    """The user a GM means by a typed username. An invite lets its holder rejoin without
+    GM approval, so it must never land on the wrong user: an exact match wins, and a
+    name that matches only ignoring case must match exactly one user (409 otherwise)."""
+    name = typed.strip()
+    exact = db.query(User).filter(User.username == name).first()
+    if exact is not None:
+        return exact
+    matches = db.query(User).filter(func.lower(User.username) == name.lower()).limit(2).all()
+    if not matches:
+        raise HTTPException(status_code=404, detail="No player found with that username.")
+    if len(matches) > 1:
+        raise HTTPException(status_code=409, detail=AMBIGUOUS_USERNAME)
+    return matches[0]
+
+
 @router.post("/campaign/{campaign_id}/invite-rejoin")
 async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session = Depends(get_db),
                         user: User = Depends(get_current_user)):
@@ -273,15 +293,13 @@ async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session
     campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    user = db.query(User).filter(func.lower(User.username) == body.username.strip().lower()).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No player found with that username.")
+    invitee = _invitee(db, body.username)
 
-    user.pending_rejoin_campaign_id = campaign_id
+    invitee.pending_rejoin_campaign_id = campaign_id
     db.commit()
 
     # Attempt live delivery to any character websocket this user owns
-    chars = db.query(Character).filter(Character.user_id == user.id).all()
+    chars = db.query(Character).filter(Character.user_id == invitee.id).all()
     for c in chars:
         await manager.broadcast(character_key(c.id), {
             "type": "gm_rejoin_invite",
