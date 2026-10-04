@@ -1,0 +1,51 @@
+# Quirks and suspected bugs found while pinning behavior (2026-10-04)
+
+The characterization tests in backend/tests pin these AS THEY ARE, so the refactor
+does not change them by accident. Each fix later gets its own commit and flips its test.
+
+- On a fresh PostgreSQL database, users_id_seq and circles_id_seq start at (1, not called) because init_db inserts user 1 and circle 1 with explicit ids. The first register and the first auto-created campaign circle both return 500. The failed insert consumes the value, so the second attempt works.
+- Seeded admin/admin can log in on every new database.
+- Register always returns campaignCode 'fairelands-01' (hard-coded). Usernames are case-sensitive for register and login, but invite-rejoin matches them case-insensitively.
+- Forge: a missing user_id, user_id 0, or an unknown user_id makes the character belong to user 1. The client sets every stat with no bounds. The character is always placed on circle 1.
+- GET /api/investigators always reports is_dead False, pen_font 'Caveat' and ink_color '' (those fields are never filled in). GET /api/investigators/{id} returns 500 for a character whose circle_id is NULL.
+- create_campaign: a duplicate code returns an unhandled 500, an unknown gm_user_id returns 500 (FK), all-digit codes are accepted, and the code is validated before the name.
+- join has no status check, so it moves an active character out of its campaign and into pending in another one (the character keeps its old ink).
+- rejoin needs no invite and no GM approval. Because the session does not autoflush, a dead predecessor that is being retired in the same request still counts when the ink color is picked (the new character gets INK_COLORS[1]).
+- GET /campaign/{id}/circle-creation-state is a GET that writes, and for an unknown campaign it returns 500 (FK violation on PostgreSQL).
+- REST /circle/vote with an unknown vote_type commits the vote, then returns 500 (KeyError). REST relationship counter sets status 'countered' and keeps the original terms, while the WebSocket counter rewrites the terms and sets status back to 'proposed'. REST propose does not set last_actor_id.
+- Members stay on circle 1, so a campaign circle's max_capacity and refill_resources count 0 members (finalize still uses 1 + active members).
+- Notebook: an unknown character_id or campaign_id returns 500 (FK). role=GM and character_id in the query are trusted. A soft-deleted entry can still be edited and deleted again, and it still counts for page numbers. Upload stores the client's content type in the data URI and its response has no author_type key. A self entry with no character, or an unknown visibility value, is never shown to anyone.
+- campaign_retired reaches only the GM, and released pending characters never receive roster_finalized, because statuses change before the broadcast.
+- Valid JSON that is not an object (a list, a string, or a list payload) ends the socket without a close frame.
+- update_drive stores any value (99, -5). The character dict clamps negatives to 0 on output. An unknown pool still sends character_update.
+- update_gear with a non-string item commits the gear, then the log join raises and ends the socket.
+- apply_advancement has no gate. new_ability appends the text to specialty_ability with '; ', which breaks exact-name ability checks.
+- spend_resource reads the circle object loaded at connect time. If the GM enables spending after the player connected, the spend is silently ignored until the player's session commits something. The GM socket likewise counts a cached member list in refill_resources: after a rejoin it sets stitch to 1 while the circle_update it sends already reports max_capacity 2.
+- A zero-dice roll with two sixes counts as critical even though the lower die is the result. resolve_gilded trusts the client's value, can be replayed at any time, and can never give a critical. A non-numeric chosen_value ends the socket.
+- A negative drive_spent raises the drive above its max, commits that, and then the empty pool raises roll_error. The roll action is not validated (for example action='nerve_max' uses nerve_max as the rating). The roll's ability-use counter never counts anything.
+- burn_resistance with a pending gilded choice logs 'burned resistance on X - ? . .' (blank outcome label).
+- take_mark: when a soak ability is available the mark is not applied (it is lost if the offer is declined). Back Against the Wall is always offered as a soak and has no resolve branch, so such a character never takes a brain mark. An unknown mark_type sends character_update and stores nothing.
+- The Endurance branch calls secrets.randbelow but main.py never imports secrets. The NameError ends the socket and the mark is not applied (bug D1).
+- Premonitions intercept spends the seer's resistance but does not remove the target's mark. Behind Me can target a character in any campaign. The resolve soak branches do not check remaining resistance pips.
+- apply_scar shift names can be any numeric column (nerve_max and body_marks were shifted in the test).
+- SceneManager's gm_update_circle with circle_id 1 edits the shared circle 1 and pushes circle 1's data to the campaign. The circle name is not settable through gm_update_circle (bug D2).
+- GM powers rest on a client-claimed role: a player socket that sends role GM can toggle reports. resolve_circle falls back to an unscoped lookup, so one GM can toggle another campaign's circle.
+- gm_update_tension's character_update goes only to the GM key, not to the player.
+- submit_assignment_report has no ownership or reports_open check. Unknown ids are stored and reported as 'Unknown', and every player receives every report.
+- update_circle: a non-GM may lower stitch, refresh and train and may set every other field. A string value for a resource ends the socket. The milestone log fires at illumination 3, 6 and 9 (not 12, and not when the value goes down).
+- circle_creation_vote with an unknown vote_type commits the vote, then the KeyError ends the socket. circle_backstory_update can overwrite the reserved 'reports' key. circle_relationship_respond on a GM code socket raises (int(game_id)) and ends the socket.
+- Chat: the whisper target is an ILIKE pattern (% and _ act as wildcards, case-insensitive). A pending sender does not get their own message echoed. sender_name is client-claimed. @Environment is not restricted to the GM.
+- WS add_notebook_entry writes into the payload's campaign_id, but broadcasts to the socket's own campaign. Its activity_log payload has no log_type.
+- A campaign whose all-digit code equals a character id makes that character's socket resolve to the campaign's circle.
+- Likely live bug: submit_assignment_report loses every report once backstory_answers is not empty. It changes the loaded dict in place and assigns the same object back, so SQLAlchemy writes nothing. The report is broadcast but is gone after a reload. Reports from sockets that loaded an empty dict at connect each write a new dict holding only their own report, so the last report replaces the earlier ones. Any stored chapter house or selected question means even the first report is lost.
+- New: WS circle_relationship_respond from a socket whose session still holds an older copy of the row can be silently lost. A counter after the other player accepted sets the values the stale copy already has, so no UPDATE runs and the relationship stays accepted. A second, identical counter then works. The same stale-session cause affects other handlers.
+- The comment at main.py 1488 says the context is re-resolved per message, but camp_id, camp_code and the circle are fixed at connect. Even chat's per-message campaign lookup sees a REST join only after something on that socket commits, because the identity map keeps the character loaded at connect.
+- A character_id of 0 turns a player's roll into a Lightkeeper roll. A character_id of 1.5 matches no character, so a campaign member's chat goes only to its own channel with no ink. A bad character_id ('abc', object, list, true) drops the whole frame, even for actions that need no character.
+- intercept_mark's soak offer to the interceptor has no 'options' key and does not apply the mark, after the nerve spend and the target's mark removal are already committed. Its soak map has no Back Against the Wall, unlike take_mark.
+- On the 'gm' fallback channel, gm_reset_character can reset any unaffiliated character (campaign_id IS NULL). gm_end_assignment resets every active character with a NULL campaign, not the members of the circle it was given, and clears the scene of any circle id (no scoping).
+- finalize_roster ties go to the first vote stored, because the vote query has no ORDER BY.
+- A whisper from a socket with no campaign matches names with ILIKE across every campaign.
+- get_char_dict sends a string ability_uses through unparsed, while gear and scars are parsed. dict() on a string ability_uses closes the socket in take_mark and resolve_ability_mark. The dict() call in roll is unreachable.
+- On a database that grew through init_db, the added columns are TEXT and INTEGER (backstory_answers and ability_uses are TEXT DEFAULT '{}', and the booleans are INTEGER DEFAULT 0). On such a database the seed rows (admin, circle 1) are never written, because the seed query runs before the ALTERs and fails on the missing columns.
+- A roll mod listed twice in ability_mods is applied twice. An overspent drive floors at 0 but the whole spend still goes into the pool.
+- Not testable without changing app code: the elif order between extra_dice_fn/extra_dice and extra_gild/extra_gild_condition. ABILITY_MOD_DEFS is a local dict in the handler, and no current entry has both keys, so the order has no visible effect today. The real column types on the beta data copy were not checked either, because psql is not allowed here; the legacy-schema test pins what init_db produces instead.
