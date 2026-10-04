@@ -13,9 +13,11 @@ import ScarModal from './ScarModal';
 import { AbilityMarkOffer } from './AbilityMarkOffer';
 import { CircleCreationPopup } from './CircleCreationPopup';
 import { RelationshipIntroPopup } from './RelationshipIntroPopup';
+import { ConnectionBanner } from '../shared/ConnectionBanner';
+import { MARK_NAME } from './useMarkUndo';
 
 export const MainDeskView = () => {
-  const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign } = useGameStore(useShallow(s => ({
+  const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar } = useGameStore(useShallow(s => ({
     character: s.character,
     circle: s.circle,
     circleCreation: s.circleCreation,
@@ -29,7 +31,13 @@ export const MainDeskView = () => {
     rejoinInvite: s.rejoinInvite,
     setRejoinInvite: s.setRejoinInvite,
     lastPlayedCampaign: s.lastPlayedCampaign,
+    pendingScar: s.pendingScar,
+    showScarModal: s.showScarModal,
+    reopenScar: s.reopenScar,
   })));
+  // A scar the player chose to decide later, for the investigator on this desk
+  const scarWaiting = pendingScar && !showScarModal && !character?.is_dead &&
+    (pendingScar.characterId == null || pendingScar.characterId === character?.id);
 
   const [deathDismissed, setDeathDismissed] = useState(false);
 
@@ -57,6 +65,8 @@ export const MainDeskView = () => {
 
   return (
     <div className="min-h-screen bg-night text-cream font-serif selection:bg-oxblood selection:text-cream antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-28 lg:pb-12 relative">
+
+      <ConnectionBanner />
 
       {/* HEADER */}
       <header className="w-full bg-night relative px-4 pt-4 pb-5 lg:px-6 lg:py-6 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-start gap-y-3 border-b border-ink/40 shadow-xl">
@@ -135,6 +145,20 @@ export const MainDeskView = () => {
 
       {/* DYNAMIC VIEW ROUTING */}
       <main className="max-w-[1500px] mx-auto p-4 mt-2">
+        {scarWaiting && (
+          <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-oxblood rounded-sm px-4 py-3 shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
+            <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60">
+              <strong className="font-bold">A scar is waiting.</strong>{' '}
+              {character?.name || 'Your investigator'}'s {MARK_NAME[pendingScar.type] || 'mark'} track filled. Record the scar to finish taking it.
+            </p>
+            <button
+              onClick={reopenScar}
+              className="shrink-0 min-h-[40px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition"
+            >
+              Record the scar
+            </button>
+          </div>
+        )}
         {activeTab === 'archives' ? (
           <NotebookView isGM={false} />
         ) : (

@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
+import { ConfirmAction } from '../shared/ConfirmAction';
+
+const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reconnects by itself; try again in a moment.';
 
 // ── Single labeled 4-slice tension clock ──────────────────────────────────────
 // Replaces the two GMThreatWatch gauges. Starts fully filled (4/4 red slices).
@@ -128,12 +132,18 @@ export const SceneManager = () => {
   useEffect(() => { setLocation(circle?.location   || ""); }, [circle?.location]);
   useEffect(() => { setAtmosphere(circle?.atmosphere || ""); }, [circle?.atmosphere]);
 
+  // A short receipt under the stamps: what went out and when, or why it did not.
+  const [receipt, setReceipt] = useState(null); // { ok, text }
+
   const broadcastScene = () => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: 'gm_update_circle',
         payload: { role: accessSession?.role, circle_id: circle?.id || 1, location, atmosphere },
       }));
+      setReceipt({ ok: true, text: `Dispatched at ${clockTime()}.` });
+    } else {
+      setReceipt({ ok: false, text: NOT_CONNECTED });
     }
   };
 
@@ -145,6 +155,9 @@ export const SceneManager = () => {
       }));
       setLocation("");
       setAtmosphere("");
+      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. Ability uses are reset.` });
+    } else {
+      setReceipt({ ok: false, text: NOT_CONNECTED });
     }
   };
 
@@ -202,19 +215,29 @@ export const SceneManager = () => {
       {/* Stamp buttons, each with its effect written under it */}
       <div className="mt-8 flex justify-between items-start gap-4 relative">
         {/* End Assignment: left stamp */}
-        <div className="flex flex-col items-start gap-2 max-w-[11rem]">
-          <button
-            onClick={endAssignment}
-            className="relative group transform rotate-2 hover:rotate-0 transition-transform active:scale-95"
-            aria-describedby="end-assignment-effect"
-          >
-            <div className="border-[3px] border-sepia rounded px-3 py-1.5 text-sepia font-sans font-black uppercase tracking-widest text-xs opacity-90 group-hover:opacity-100 group-hover:bg-sepia/5">
-              End Assignment
-            </div>
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-40 pointer-events-none mix-blend-overlay" />
-          </button>
-          <p id="end-assignment-effect" className="font-serif italic text-sm leading-snug text-sepia">Clears the dispatch and resets every player's ability uses.</p>
-        </div>
+        <ConfirmAction
+          className="flex flex-col items-start gap-2 max-w-[11rem]"
+          onConfirm={endAssignment}
+          cancelLabel="Keep going"
+          idleHint="Clears the dispatch and resets every player's ability uses."
+          armedHint="Press again to end it: the dispatch clears and every player's ability uses reset."
+          hintClassName="[&>p]:text-sm"
+          renderButton={(armed, props) => (
+            <button
+              {...props}
+              className="relative group transform rotate-2 hover:rotate-0 transition-transform active:scale-95"
+            >
+              <div className={`border-[3px] rounded px-3 py-1.5 font-sans font-black uppercase tracking-widest text-xs ${
+                armed
+                  ? 'border-oxblood bg-oxblood text-cream'
+                  : 'border-sepia text-sepia opacity-90 group-hover:opacity-100 group-hover:bg-sepia/5'
+              }`}>
+                {armed ? 'Yes, end it' : 'End Assignment'}
+              </div>
+              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-40 pointer-events-none mix-blend-overlay" />
+            </button>
+          )}
+        />
 
         {/* Dispatch: right stamp */}
         <div className="flex flex-col items-end gap-2 max-w-[11rem] text-right">
@@ -231,6 +254,11 @@ export const SceneManager = () => {
           <p id="dispatch-effect" className="font-serif italic text-sm leading-snug text-sepia">Sends the location and atmosphere to every player's desk.</p>
         </div>
       </div>
+      {receipt && (
+        <p role={receipt.ok ? 'status' : 'alert'} className={`mt-4 font-serif text-base leading-snug ${receipt.ok ? 'text-seal-green' : 'text-oxblood'}`}>
+          {receipt.text}
+        </p>
+      )}
     </div>
   );
 };

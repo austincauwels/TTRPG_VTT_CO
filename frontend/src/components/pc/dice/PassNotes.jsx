@@ -19,9 +19,16 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
     ...(showGmControls ? [{ value: '@Environment', label: '@Environment (shown to everyone)', inkColor: 'rgb(var(--c-oxblood))' }] : []),
   ];
 
+  const [sendError, setSendError] = useState('');
+
   const handleSendChat = () => {
     if (!chatMessage.trim()) return;
-    sendChat(chatTarget, chatMessage.trim());
+    // A note that cannot go out stays in the field.
+    if (sendChat(chatTarget, chatMessage.trim()) === false) {
+      setSendError('Not sent: the desk is not connected to the table. Your note is kept; send it again once the connection is back.');
+      return;
+    }
+    setSendError('');
     setChatMessage('');
     chatInputRef.current?.focus();
   };
@@ -78,6 +85,9 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
           Send ›
         </button>
       </div>
+      {sendError && (
+        <p role="alert" className="px-3 pb-3 pl-[44px] font-serif text-base text-oxblood leading-snug">{sendError}</p>
+      )}
 
       {/* Perforated tear edge */}
       <div

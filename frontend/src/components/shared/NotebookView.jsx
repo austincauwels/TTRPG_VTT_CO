@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useGameStore from '../../store/gameStore';
+import { ConfirmAction } from './ConfirmAction';
+import { CameraIcon, PencilIcon } from './NotebookIcons';
 
 const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
@@ -146,7 +148,6 @@ function EntryCard({ entry, isLast }) {
 
 // Ephemeral note — ripped paper aesthetic
 function EphemeralNote({ entry, onDelete }) {
-  const [editing, setEditing] = useState(false);
   return (
     <div
       className="relative"
@@ -161,15 +162,26 @@ function EphemeralNote({ entry, onDelete }) {
         borderBottom: '1px solid rgba(0,0,0,0.08)',
       }}
     >
-      <button
-        onClick={onDelete}
-        className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center text-sepia hover:text-oxblood transition-colors text-sm font-black"
-        title="Delete note"
-        aria-label="Delete this private note"
-      >✕</button>
-      <p className="font-serif text-[22px] leading-[1.6] whitespace-pre-wrap text-ink/80" style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
+      <p className="font-serif text-[22px] leading-[1.6] whitespace-pre-wrap break-words text-ink/80 pr-2" style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
         {entry.content || entry.title}
       </p>
+      <ConfirmAction
+        className="mt-3 mb-3 flex flex-wrap items-center gap-2"
+        onConfirm={onDelete}
+        cancelLabel="Keep"
+        armedHint="Press again to delete this note for good."
+        renderButton={(armed, props) => (
+          <button
+            {...props}
+            aria-label={armed ? 'Yes, delete this private note' : 'Delete this private note'}
+            className={`min-h-[36px] px-3 font-sans text-xs font-bold uppercase tracking-widest border rounded-sm transition-colors ${
+              armed ? 'bg-oxblood text-cream border-ink' : 'text-sepia hover:text-oxblood border-sepia/30 hover:border-oxblood/50'
+            }`}
+          >
+            {armed ? 'Yes, delete' : 'Delete'}
+          </button>
+        )}
+      />
       <div className="absolute bottom-2 right-3 font-mono text-xs text-sepia">{formatDate(entry.created_at)}</div>
     </div>
   );
@@ -186,6 +198,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
     deleteEphemeralNote,
     uploadNotebookImage,
     updatePenFont,
+    notebookLoadError,
   } = useGameStore();
 
   const isGM      = isGMProp !== null ? isGMProp : accessSession?.role === 'GM';
@@ -201,7 +214,8 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
   const [showEphemeral, setShowEphemeral]               = useState(false);
   const [ephemeralText, setEphemeralText]               = useState('');
   const [isAddingEphemeral, setIsAddingEphemeral]       = useState(false);
-  const [deleteConfirm, setDeleteConfirm]               = useState(null);
+  const [ephemeralError, setEphemeralError]             = useState('');
+  const [deleteError, setDeleteError]                   = useState('');
   // Lightkeeper resources — single continuous note
   const [showLKResources, setShowLKResources]           = useState(false);
   const [lkContent, setLkContent]                       = useState('');
@@ -328,38 +342,51 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
   };
 
   const handleAddEphemeral = async () => {
-    if (!ephemeralText.trim() || !campaignId) return;
+    if (!ephemeralText.trim() || isAddingEphemeral) return;
+    if (!campaignId) { setEphemeralError('Notes belong to a campaign, and you are not in one. Join a campaign to keep notes.'); return; }
     setIsAddingEphemeral(true);
-    await submitNotebookEntry(
+    setEphemeralError('');
+    const result = await submitNotebookEntry(
       campaignId, 'Private Note', ephemeralText.trim(),
       authorName, isGM ? 'gm' : 'player',
       isGM ? null : character?.id,
       'ephemeral', 'self',
     );
-    setEphemeralText('');
     setIsAddingEphemeral(false);
+    if (result?.success) setEphemeralText('');
+    else setEphemeralError('The note was not saved. Check your connection and try again; your text is still here.');
+  };
+
+  const handleDelete = async (entryId) => {
+    setDeleteError('');
+    const ok = await deleteEphemeralNote(entryId);
+    if (!ok) setDeleteError('That was not deleted. Check your connection and try again.');
   };
 
   const handleLKContentChange = (value) => {
     setLkContent(value);
     setLkSaveStatus('saving');
     clearTimeout(lkSaveTimer.current);
-    lkSaveTimer.current = setTimeout(async () => {
-      if (!campaignId) return;
-      if (lkEntryId.current) {
-        await updateNotebookEntry(lkEntryId.current, 'lk_main', value);
-      } else {
-        const result = await submitNotebookEntry(
-          campaignId, 'lk_main', value,
-          'Lightkeeper', 'gm',
-          null, 'lightkeeper', 'gm_only',
-        );
-        if (result?.entry?.id) {
-          lkEntryId.current = result.entry.id;
-        }
-      }
-      setLkSaveStatus('saved');
-    }, 1200);
+    lkSaveTimer.current = setTimeout(() => saveLkContent(value), 1200);
+  };
+
+  // The text stays in the page whatever happens; a failed save says so and offers a retry.
+  const saveLkContent = async (value) => {
+    if (!campaignId) return;
+    setLkSaveStatus('saving');
+    let ok;
+    if (lkEntryId.current) {
+      ok = (await updateNotebookEntry(lkEntryId.current, 'lk_main', value))?.success;
+    } else {
+      const result = await submitNotebookEntry(
+        campaignId, 'lk_main', value,
+        'Lightkeeper', 'gm',
+        null, 'lightkeeper', 'gm_only',
+      );
+      if (result?.entry?.id) lkEntryId.current = result.entry.id;
+      ok = result?.success;
+    }
+    setLkSaveStatus(ok ? 'saved' : 'error');
   };
 
   const handleStageImage = (file, type) => {
@@ -438,6 +465,21 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
         ))}
       </div>
 
+      {/* A failed load must not look like an empty notebook */}
+      {notebookLoadError && (
+        <div role="alert" className="relative z-20 mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment border-2 border-oxblood rounded-sm px-4 py-3">
+          <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-60">
+            The notebook could not be loaded, so entries may be missing below.
+          </p>
+          <button
+            onClick={() => campaignId && fetchNotebookEntries(campaignId)}
+            className="shrink-0 min-h-[40px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       {/* ═══════════════ EPHEMERAL NOTES VIEW ═══════════════ */}
       {showEphemeral && (
         <div className="bg-cream rounded-sm border border-ink/20 p-4 sm:p-8 min-h-[500px] sm:min-h-[700px] relative z-10">
@@ -467,12 +509,14 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
               <button
                 onClick={handleAddEphemeral}
                 disabled={!ephemeralText.trim() || isAddingEphemeral}
-                className="font-sans font-black text-sm uppercase tracking-widest px-3 py-1 border border-ink/30 hover:bg-black/5 disabled:opacity-30 transition-all"
+                className="min-h-[40px] font-sans font-black text-sm uppercase tracking-widest px-3 py-1 border border-ink/30 hover:bg-black/5 disabled:opacity-50 transition-all"
               >
-                Pin Note →
+                {isAddingEphemeral ? 'Saving…' : 'Pin Note →'}
               </button>
             </div>
+            {ephemeralError && <p role="alert" className="mt-2 font-serif text-base text-oxblood">{ephemeralError}</p>}
           </div>
+          {deleteError && <p role="alert" className="-mt-4 mb-6 font-serif text-base text-oxblood">{deleteError}</p>}
 
           {/* Existing ephemeral notes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -480,7 +524,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
               <EphemeralNote
                 key={entry.id}
                 entry={entry}
-                onDelete={() => deleteEphemeralNote(entry.id)}
+                onDelete={() => handleDelete(entry.id)}
               />
             ))}
           </div>
@@ -503,6 +547,14 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
               <div className="flex items-center gap-1.5 font-sans font-bold text-xs text-sepia uppercase tracking-wider">
                 {lkSaveStatus === 'saving' ? (
                   <><span className="inline-block w-3 h-3 border-2 border-ink/30 border-t-ink/70 rounded-full animate-spin" /> Saving…</>
+                ) : lkSaveStatus === 'error' ? (
+                  <span role="alert" className="flex flex-wrap items-center gap-2 normal-case tracking-normal">
+                    <span className="font-serif text-base font-normal text-oxblood">Not saved. Your notes are still here.</span>
+                    <button
+                      onClick={() => saveLkContent(lkContent)}
+                      className="min-h-[32px] px-2 font-sans text-xs font-black uppercase tracking-widest text-oxblood border border-oxblood/50 rounded-sm hover:bg-oxblood/10"
+                    >Try again</button>
+                  </span>
                 ) : (
                   <><span className="text-seal-green">✓</span> Saved</>
                 )}
@@ -581,19 +633,18 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                     const canDelete = isGM
                       ? entry.author_type === 'gm'
                       : entry.author_name === authorName;
-                    const isPendingDelete = deleteConfirm === entry.id;
                     return (
                       <div key={entry.id}
-                        className="w-full flex items-center gap-1 rounded-sm border border-black/[0.08] hover:bg-black/[0.03] transition-all group"
+                        className="w-full flex flex-wrap items-center gap-1 rounded-sm border border-black/[0.08] hover:bg-black/[0.03] transition-all group"
                         style={{ background: 'rgba(0,0,0,0.015)' }}
                       >
-                        <button onClick={() => { setDeleteConfirm(null); setCurrentSpread(entrySpread(entry)); }}
+                        <button onClick={() => setCurrentSpread(entrySpread(entry))}
                           className="flex-1 min-w-0 text-left flex items-center justify-between px-3 py-2"
                         >
                           <span className="text-[22px] sm:text-[26px] leading-tight flex items-center gap-2 min-w-0 break-words"
                             style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
-                            {entry.entry_type === 'sketch' && <span className="text-sm">✏</span>}
-                            {entry.entry_type === 'photo' && <span className="text-sm">📷</span>}
+                            {entry.entry_type === 'sketch' && <PencilIcon size={16} className="text-sepia" />}
+                            {entry.entry_type === 'photo' && <CameraIcon size={16} className="text-sepia" />}
                             {entry.title}
                           </span>
                           <span className="font-mono tabular-nums text-base text-sepia shrink-0 ml-2 group-hover:text-ink">
@@ -601,24 +652,22 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                           </span>
                         </button>
                         {canDelete && (
-                          isPendingDelete ? (
-                            <div className="flex items-center gap-1 pr-2 shrink-0">
+                          <ConfirmAction
+                            className="contents"
+                            hintClassName="basis-full px-3 pb-2"
+                            onConfirm={() => handleDelete(entry.id)}
+                            cancelLabel="Keep"
+                            armedHint={`Press again to delete "${entry.title}" for everyone.`}
+                            renderButton={(armed, props) => (
                               <button
-                                onClick={() => { deleteEphemeralNote(entry.id); setDeleteConfirm(null); }}
-                                className="font-sans text-sm font-black uppercase tracking-widest px-2 py-1 bg-oxblood text-cream hover:brightness-125 transition rounded-sm"
-                              >Delete</button>
-                              <button
-                                onClick={() => setDeleteConfirm(null)}
-                                className="font-mono text-sm text-sepia hover:text-ink px-1 transition-colors"
-                              >Cancel</button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={e => { e.stopPropagation(); setDeleteConfirm(entry.id); }}
-                              className="shrink-0 pr-3 min-h-[40px] font-sans text-lg text-sepia hover:text-oxblood transition-colors opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
-                              title="Delete this entry"
-                            >×</button>
-                          )
+                                {...props}
+                                aria-label={armed ? `Yes, delete ${entry.title}` : `Delete ${entry.title}`}
+                                className={armed
+                                  ? 'shrink-0 mr-2 min-h-[36px] px-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:brightness-125 transition rounded-sm'
+                                  : 'shrink-0 pr-3 min-h-[40px] font-sans text-lg text-sepia hover:text-oxblood transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'}
+                              >{armed ? 'Yes, delete' : '×'}</button>
+                            )}
+                          />
                         )}
                       </div>
                     );
@@ -628,7 +677,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                 {/* GM-only: Lightkeeper Resources link in TOC */}
                 {isGM && (
                   <div className="mt-4 pt-3 border-t border-sepia/30">
-                    <button onClick={() => { setShowLKResources(true); setShowEphemeral(false); setLkSpreadIdx(0); }}
+                    <button onClick={() => { setShowLKResources(true); setShowEphemeral(false); }}
                       className="w-full text-left flex items-center justify-between px-2 py-1 rounded-sm hover:bg-sepia/10 transition-all"
                     >
                       <span className="font-serif text-2xl text-ink">Lightkeeper Resources</span>
@@ -696,11 +745,11 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                       className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 outline-none text-lg font-serif text-ink placeholder-sepia/70 placeholder:italic py-0.5" />
                     <button onClick={() => sketchInputRef.current?.click()} disabled={isUploading || !!pendingImageFile}
                       className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
-                      ✏ Sketch
+                      <span className="inline-flex items-center gap-1.5"><PencilIcon size={16} /> Sketch</span>
                     </button>
                     <button onClick={() => photoInputRef.current?.click()} disabled={isUploading || !!pendingImageFile}
                       className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
-                      📷 Photo
+                      <span className="inline-flex items-center gap-1.5"><CameraIcon size={16} /> Photo</span>
                     </button>
                     <input ref={sketchInputRef} type="file" accept="image/png" className="hidden"
                       onChange={e => { if (e.target.files[0]) handleStageImage(e.target.files[0], 'sketch'); e.target.value = ''; }} />

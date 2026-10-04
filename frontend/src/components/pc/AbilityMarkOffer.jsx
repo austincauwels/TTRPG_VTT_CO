@@ -1,45 +1,50 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import useGameStore from '../../store/gameStore';
+import { SafeIcon } from '../shared/SafeIcon';
+
+// Offers stay up long enough to read and decide during play, and the countdown pauses
+// while the pointer is over the offer or focus is inside it.
+const MIN_OFFER_SECONDS = 20;
 
 const ABILITY_OFFER_CONFIG = {
   "Adrenaline Rush": {
-    icon: "⚡",
+    icon: "GiHeartInside",
     description: "Refresh a drive point of your choice.",
     actionType: "drive_refresh",
   },
   "Compartmentalization": {
-    icon: "🧠",
+    icon: "GiFrontalLobe",
     description: "Burn 1 Nerve resistance to soak this Brain mark.",
     actionType: "soak",
   },
   "Steel Mind": {
-    icon: "🧠",
+    icon: "GiFrontalLobe",
     description: "Burn 1 Intuition resistance to soak this Brain mark.",
     actionType: "soak",
   },
   "In the Trenches": {
-    icon: "🛡",
+    icon: "GiShield",
     description: "Burn 1 Cunning resistance to soak this Body mark.",
     actionType: "soak",
   },
   "Death Defy": {
-    icon: "💀",
+    icon: "GiHalfDead",
     description: "Escape unscathed: you take no marks from this enemy.",
     actionType: "escape",
   },
   "Let Them In": {
-    icon: "👁",
+    icon: "GiThirdEye",
     description: "Ask the GM one question about the source of the bleed.",
     actionType: "info",
   },
   "Behind Me": {
-    icon: "🛡",
+    icon: "GiShield",
     description: (name) => `Take ${name}'s mark instead (spend 1 Nerve).`,
     actionType: "intercept",
     isIntercept: true,
   },
   "Premonitions": {
-    icon: "🌫",
+    icon: "GiCrystalBall",
     description: (name) => `Soak ${name}'s mark (burn 1 Intuition resistance).`,
     actionType: "soak",
     isIntercept: true,
@@ -50,17 +55,24 @@ export const AbilityMarkOffer = () => {
   const { abilityMarkOffer, resolveAbilityMark, interceptMark, dismissAbilityMarkOffer } = useGameStore();
   const [driveChoice, setDriveChoice] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const paused = hovered || focused;
+  const pausedRef = useRef(false);
+  pausedRef.current = paused;
 
   const offer = abilityMarkOffer;
   const config = offer ? ABILITY_OFFER_CONFIG[offer.ability] : null;
 
-  const autoDismissSeconds = offer?.action === 'info' ? 8 : config?.isIntercept ? 8 : 15;
+  const autoDismissSeconds = offer?.action === 'info' || config?.isIntercept ? MIN_OFFER_SECONDS : 30;
 
   useEffect(() => {
     if (!offer) { setTimeLeft(null); setDriveChoice(null); return; }
     setTimeLeft(autoDismissSeconds);
     const interval = setInterval(() => {
+      if (pausedRef.current) return;
       setTimeLeft(prev => {
+        if (prev == null) return prev;
         if (prev <= 1) { dismissAbilityMarkOffer(); return null; }
         return prev - 1;
       });
@@ -88,17 +100,25 @@ export const AbilityMarkOffer = () => {
   };
 
   return (
-    <div className="fixed bottom-24 left-4 right-4 sm:left-auto sm:w-72 lg:bottom-6 lg:right-6 z-[9998] animate-fadeIn">
+    <div
+      role="dialog"
+      aria-label={`${offer.ability} offer`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false); }}
+      className="fixed bottom-24 left-4 right-4 sm:left-auto sm:w-80 lg:bottom-6 lg:right-6 z-[9998] animate-fadeIn"
+    >
       <div className="bg-ink border border-parchment-deep/40 rounded-sm shadow-[0_8px_24px_rgba(0,0,0,0.7)] px-4 py-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <span className="text-base">{config.icon}</span>
+            <SafeIcon name={config.icon} size={18} className="text-parchment-deep shrink-0" />
             <span className="font-sans text-xs font-black uppercase tracking-widest text-cream">
               {offer.ability}
             </span>
           </div>
-          <span className="font-mono tabular-nums text-xs text-parchment-deep/80">{timeLeft}s</span>
+          <span className="font-mono tabular-nums text-xs text-parchment-deep/80">{paused ? `Paused · ${timeLeft}s` : `${timeLeft}s`}</span>
         </div>
 
         <p className="font-serif text-sm text-parchment-deep mb-3 leading-relaxed">{desc}</p>
@@ -129,7 +149,7 @@ export const AbilityMarkOffer = () => {
             <button
               onClick={handleAccept}
               disabled={offer.action === 'drive_refresh' && !driveChoice}
-              className="flex-1 py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-oxblood border border-ink text-cream hover:brightness-125 transition rounded-sm disabled:opacity-40"
+              className="flex-1 min-h-[40px] py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-oxblood border border-ink text-cream hover:brightness-125 transition rounded-sm disabled:opacity-40"
             >
               {config.isIntercept ? 'Intercept' : 'Use'}
             </button>
@@ -141,9 +161,9 @@ export const AbilityMarkOffer = () => {
           )}
           <button
             onClick={dismissAbilityMarkOffer}
-            className="px-3 py-1.5 font-sans text-xs border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm" aria-label="Dismiss"
+            className="min-h-[40px] px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-widest border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm"
           >
-            ✕
+            {offer.action === 'info' ? 'Close' : 'Not now'}
           </button>
         </div>
 

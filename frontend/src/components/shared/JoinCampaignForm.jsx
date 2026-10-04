@@ -12,7 +12,7 @@ const labelClass = 'block font-sans font-bold text-xs tracking-widest uppercase 
 // whether the pen list is open.
 export const JoinCampaignForm = ({
   idPrefix, code, onCodeChange, pen, onPenChange, error, busy = false,
-  onSubmit, onCancel, autoFocus = false, submitLabel = 'Ask to join',
+  onSubmit, onCancel, autoFocus = false, submitLabel = 'Ask to join', busyLabel = 'Sending…',
 }) => {
   const [penListOpen, setPenListOpen] = useState(false);
   const currentPen = pen || 'Caveat';
@@ -100,7 +100,7 @@ export const JoinCampaignForm = ({
         )}
         <button type="submit" disabled={!canSubmit}
           className="flex-1 sm:flex-none px-6 py-2.5 bg-oxblood text-cream font-sans font-black text-sm tracking-widest uppercase rounded border border-ink hover:brightness-125 transition disabled:opacity-40">
-          {busy ? 'Sending…' : submitLabel}
+          {busy ? busyLabel : submitLabel}
         </button>
       </div>
     </form>

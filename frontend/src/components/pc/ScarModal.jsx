@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { ACTION_LABEL, scarShiftNote } from '../../game/actions';
 
@@ -7,7 +7,7 @@ import { ACTION_LABEL, scarShiftNote } from '../../game/actions';
 const ACTION_KEYS = ['move', 'strike', 'control', 'sway', 'sneak', 'hide', 'survey', 'read', 'sense'];
 
 const ScarModal = () => {
-  const { showScarModal, scarModalData, applyScar, character, closeScarModal } = useGameStore();
+  const { showScarModal, scarModalData, pendingScar, applyScar, character, deferScar } = useGameStore();
   const [medicalNotes, setMedicalNotes] = useState('');
 
   const [degradeAction, setDegradeAction] = useState('');
@@ -17,9 +17,17 @@ const ScarModal = () => {
 
   const isHardened = character?.specialty_ability === 'Hardened';
 
+  // Escape is "Decide later", like the button: the scar stays pending, nothing is lost.
+  useEffect(() => {
+    if (!showScarModal) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') deferScar(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showScarModal]);
+
   if (!showScarModal) return null;
 
-  const rawType = scarModalData?.type || '';
+  const rawType = scarModalData?.type || pendingScar?.type || '';
   const markName = rawType ? rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase() : 'Mark';
   // The fourth scar kills the investigator (FAQ, Death)
   const isFourthScar = (character?.scars_count || 0) >= 3;
@@ -63,12 +71,17 @@ const ScarModal = () => {
     const shiftNote = skipShifts ? scarShiftNote(null, null) : scarShiftNote(degradeAction, advanceAction);
     const finalNotes = `${medicalNotes.trim()} ${shiftNote}`;
 
-    applyScar({
+    const sent = applyScar({
       scar_text: finalNotes,
       shift_down: skipShifts ? null : degradeAction,
       shift_up: skipShifts ? null : advanceAction,
       skip_shifts: skipShifts,
     });
+    if (sent === false) {
+      // The form stays open with everything the player chose and wrote.
+      setErrorMessage('The scar was not recorded: the desk is not connected to the table. Your description is kept; press Record scar again once the connection is back.');
+      return;
+    }
 
     setMedicalNotes('');
     setDegradeAction('');
@@ -193,13 +206,16 @@ const ScarModal = () => {
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <button
-              type="button"
-              onClick={closeScarModal}
-              className="min-h-[40px] px-3 font-sans text-xs font-bold uppercase tracking-widest text-sepia hover:text-oxblood border border-sepia/40 hover:border-oxblood/50 rounded-sm transition-colors"
-            >
-              Close without recording
-            </button>
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={deferScar}
+                className="min-h-[40px] px-3 font-sans text-xs font-bold uppercase tracking-widest text-sepia hover:text-oxblood border border-sepia/40 hover:border-oxblood/50 rounded-sm transition-colors self-start"
+              >
+                Decide later
+              </button>
+              <span className="font-serif italic text-sm text-sepia leading-snug">The scar waits on your sheet; what you wrote is kept.</span>
+            </div>
             <button type="submit" className="px-5 py-2.5 bg-ink text-cream hover:bg-oxblood font-sans font-black text-xs uppercase tracking-widest rounded-sm transition-colors shadow-md">
               Record scar
             </button>

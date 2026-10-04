@@ -1,6 +1,29 @@
 import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
+import { ConfirmAction } from '../shared/ConfirmAction';
+
+// A small Clear button on the circle sheet. Clearing erases the value on the server, so
+// it takes the shared two-step confirm.
+const ClearButton = ({ label, armedHint, onConfirm, className = '' }) => (
+  <ConfirmAction
+    className={`contents ${className}`}
+    hintClassName="basis-full"
+    onConfirm={onConfirm}
+    cancelLabel="Keep it"
+    armedHint={armedHint}
+    renderButton={(armed, props) => (
+      <button
+        {...props}
+        className={`shrink-0 min-h-[36px] px-2 py-1 font-sans font-bold text-xs uppercase tracking-wider border rounded-sm transition-colors ${
+          armed ? 'bg-oxblood text-cream border-ink hover:brightness-125' : 'text-sepia hover:text-oxblood border-ink/20 hover:border-oxblood/50'
+        }`}
+      >
+        {armed ? 'Yes, clear' : label}
+      </button>
+    )}
+  />
+);
 import { SheetDivider } from '../shared/Decorations';
 
 const CIRCLE_QUESTIONS = [
@@ -193,14 +216,15 @@ export const CirclePage = () => {
                 Circle name
               </span>
               {circle?.name ? (
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="text-2xl font-serif font-black text-ink uppercase leading-tight flex-1">
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <div className="text-2xl font-serif font-black text-ink uppercase leading-tight flex-1 min-w-0 break-words">
                     {circle.name}
                   </div>
-                  <button
-                    onClick={() => updateCircle({ circle_id: circId, name: '' })}
-                    className="shrink-0 px-2 py-1 font-sans font-bold text-xs uppercase tracking-wider text-sepia hover:text-oxblood border border-ink/20 hover:border-oxblood/50 rounded-sm transition-colors"
-                  >Clear name</button>
+                  <ClearButton
+                    label="Clear name"
+                    armedHint="Press again to erase the circle's name for everyone. You can type a new one after."
+                    onConfirm={() => updateCircle({ circle_id: circId, name: '' })}
+                  />
                 </div>
               ) : (
                 <input
@@ -217,14 +241,15 @@ export const CirclePage = () => {
                 Chapter house
               </span>
               {circle?.chapter_house_location ? (
-                <div className="flex items-start gap-2 mt-0.5">
-                  <div className="font-serif text-sm text-oxblood italic leading-snug flex-1">
+                <div className="flex flex-wrap items-start gap-2 mt-0.5">
+                  <div className="font-serif text-sm text-oxblood italic leading-snug flex-1 min-w-0 break-words">
                     {circle.chapter_house_location}
                   </div>
-                  <button
-                    onClick={() => updateCircle({ circle_id: circId, chapter_house_location: '' })}
-                    className="shrink-0 px-2 py-1 font-sans font-bold text-xs uppercase tracking-wider text-sepia hover:text-oxblood border border-ink/20 hover:border-oxblood/50 rounded-sm transition-colors"
-                  >Clear</button>
+                  <ClearButton
+                    label="Clear"
+                    armedHint="Press again to erase the chapter house for everyone. You can type a new one after."
+                    onConfirm={() => updateCircle({ circle_id: circId, chapter_house_location: '' })}
+                  />
                 </div>
               ) : (
                 <textarea
@@ -305,12 +330,13 @@ export const CirclePage = () => {
                   {CIRCLE_ABILITY_DESCRIPTIONS[ability] || ''}
                 </p>
               ))}
-              <button
-                onClick={() => updateCircle({ circle_id: circId, circle_ability: '' })}
-                className="mt-1 font-sans font-bold text-xs text-sepia hover:text-ink uppercase tracking-wider"
-              >
-                Clear circle ability
-              </button>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <ClearButton
+                  label={circle.circle_ability.includes('\n') ? 'Clear circle abilities' : 'Clear circle ability'}
+                  armedHint="Press again to remove every circle ability listed above, including ones gained by advancing. You then choose one again from the list."
+                  onConfirm={() => updateCircle({ circle_id: circId, circle_ability: '' })}
+                />
+              </div>
             </div>
           ) : (
             <div className="mt-1">

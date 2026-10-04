@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { apiFetch } from '../../../utils/api';
+import { ConfirmAction } from '../../shared/ConfirmAction';
 
 // The title, then the Lightkeeper's Desk bar, which carries Retire and Sign Out in its
 // own flow: right-aligned on desktop, full-width rows of their own on phones.
 export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, setStage }) => {
-  const [retireConfirm, setRetireConfirm] = useState(false);
+  const [retireBusy, setRetireBusy] = useState(false);
   const [retireError, setRetireError] = useState('');
 
   const handleRetireCampaign = async () => {
-    if (!activeCampaignId) return;
+    if (!activeCampaignId || retireBusy) return;
+    setRetireBusy(true);
     setRetireError('');
     try {
       const res = await apiFetch(`/campaign/${activeCampaignId}/retire`, { method: 'POST' });
@@ -20,7 +22,7 @@ export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, set
     } catch {
       setRetireError('Could not reach the server, so the campaign was not retired. Check your connection and try again.');
     }
-    setRetireConfirm(false);
+    setRetireBusy(false);
   };
 
   return (
@@ -50,24 +52,27 @@ export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, set
 
         {/* HEADER CONTROLS */}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {retireConfirm ? (
-            <>
-              <span className="basis-full lg:basis-auto lg:max-w-[22rem] font-serif text-base text-parchment-deep leading-snug">Retire this campaign? Every investigator leaves it and no one can join. Nothing is deleted.</span>
-              <button onClick={handleRetireCampaign} className="flex-1 lg:flex-none min-h-[44px] lg:min-h-0 text-sm font-sans font-bold uppercase tracking-widest text-cream bg-oxblood hover:brightness-125 border border-oxblood-lit/50 rounded px-3 py-2 transition">
-                Retire campaign
+          <ConfirmAction
+            className="contents"
+            hintClassName="order-first basis-full lg:max-w-[26rem] lg:justify-end lg:text-right"
+            tone="night"
+            disabled={retireBusy || !activeCampaignId}
+            onConfirm={handleRetireCampaign}
+            cancelLabel="Keep campaign"
+            armedHint={`Press again to retire ${campaignName || 'this campaign'}. Every investigator leaves it and no one can join. Nothing is deleted.`}
+            renderButton={(armed, props) => (
+              <button
+                {...props}
+                className={`w-full lg:w-auto min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest rounded px-4 py-2 transition disabled:opacity-50 disabled:cursor-wait ${
+                  armed
+                    ? 'text-cream bg-oxblood hover:brightness-125 border border-oxblood-lit/50'
+                    : 'text-moonlight-steel hover:text-oxblood-lit bg-gm-night/80 border border-moonlight-steel/30 hover:border-oxblood-lit/60'
+                }`}
+              >
+                {retireBusy ? 'Retiring…' : armed ? 'Yes, retire campaign' : 'Retire campaign…'}
               </button>
-              <button onClick={() => setRetireConfirm(false)} className="flex-1 lg:flex-none min-h-[44px] lg:min-h-0 text-sm font-sans font-bold uppercase tracking-widest text-moonlight-steel hover:text-cream bg-gm-night/80 border border-moonlight-steel/40 rounded px-3 py-2 transition-colors">
-                Keep campaign
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setRetireConfirm(true)}
-              className="w-full lg:w-auto min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest text-moonlight-steel hover:text-oxblood-lit transition-colors bg-gm-night/80 border border-moonlight-steel/30 hover:border-oxblood-lit/60 rounded px-4 py-2"
-            >
-              Retire campaign…
-            </button>
-          )}
+            )}
+          />
           <button
             onClick={() => setStage('HOME')}
             className="w-full lg:w-auto min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest text-cream hover:bg-gm-night transition-colors bg-gm-night/80 border border-moonlight-steel/60 hover:border-moonlight-steel rounded px-4 py-2"

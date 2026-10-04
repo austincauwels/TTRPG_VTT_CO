@@ -15,6 +15,7 @@ import { CircleFormationStatus } from './desk/CircleFormationStatus';
 import { ActiveCircleMembers } from './desk/ActiveCircleMembers';
 import { TensionSection } from './desk/TensionSection';
 import { FairelandsMap } from './desk/FairelandsMap';
+import { ConnectionBanner } from '../shared/ConnectionBanner';
 
 const wideTab = (tab) => tab === 'archives' || tab === 'map';
 
@@ -25,6 +26,7 @@ export const OperationsPanel = () => {
   const [isFinalizingRoster, setIsFinalizingRoster] = useState(false);
   const [showCircleStatus, setShowCircleStatus] = useState(false);
   const [requestError, setRequestError] = useState('');
+  const [requestBusy, setRequestBusy] = useState(false);
   const [finalizeError, setFinalizeError] = useState('');
   const { logout, setStage, accessSession, lastPlayedCampaign, campaignRoster, fetchRoster, approveInvestigator, rejectInvestigator, connect, socket,
           activityLog, circle, circleCreation, finalizeRoster, fetchCircleCreationState } = useGameStore();
@@ -59,21 +61,31 @@ export const OperationsPanel = () => {
   // The store actions resolve to false when the server refused or could not be reached
   const REQUEST_FAILED = 'That did not go through. Check your connection, then try again.';
 
+  // One request at a time, so a double tap cannot approve or reject twice.
   const handleStamp = async (characterId) => {
+    if (requestBusy) return;
+    setRequestBusy(true);
     setRequestError('');
     const p = approveInvestigator(characterId, activeCampaignId);
     setPendingIndex(0);
-    if ((await p) === false) setRequestError(`The investigator was not approved. ${REQUEST_FAILED}`);
+    const ok = await p;
+    setRequestBusy(false);
+    if (ok === false) setRequestError(`The investigator was not approved. ${REQUEST_FAILED}`);
   };
 
   const handleReject = async (characterId) => {
+    if (requestBusy) return;
+    setRequestBusy(true);
     setRequestError('');
     const p = rejectInvestigator(characterId, activeCampaignId);
     setPendingIndex(0);
-    if ((await p) === false) setRequestError(`The request was not rejected. ${REQUEST_FAILED}`);
+    const ok = await p;
+    setRequestBusy(false);
+    if (ok === false) setRequestError(`The request was not rejected. ${REQUEST_FAILED}`);
   };
 
   const handleFinalizeRoster = async () => {
+    if (isFinalizingRoster) return;
     setIsFinalizingRoster(true);
     setFinalizeError('');
     const ok = await finalizeRoster(activeCampaignId, circle?.id || 1);
@@ -97,6 +109,7 @@ export const OperationsPanel = () => {
   return (
     <div className="min-h-screen bg-gm-night text-cream font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 relative">
       
+      <ConnectionBanner />
       <GMDeskHeader activeCampaignId={activeCampaignId} campaignName={activeCampaignName} campaignCode={activeCampaignCode} setStage={setStage} />
 
       {/* Below lg the three columns dissolve (display: contents) into one column, ordered
@@ -141,6 +154,7 @@ export const OperationsPanel = () => {
                       handleReject={handleReject}
                       campaignCode={activeCampaignCode}
                       error={requestError}
+                      busy={requestBusy}
                     />
 
                     {/* Finalize Roster slip */}

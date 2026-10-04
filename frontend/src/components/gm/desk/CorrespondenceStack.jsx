@@ -3,7 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { PlayerRosterCard } from '../PlayerRosterCard';
 
 // Join requests, one card at a time with a pager.
-export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIndex, handleStamp, handleReject, campaignCode, error }) => (
+export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIndex, handleStamp, handleReject, campaignCode, error, busy = false }) => (
   <>
     <div className="flex items-center gap-3 mb-4">
       <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
@@ -34,6 +34,7 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
                 investigator={current}
                 onStamp={() => handleStamp(current.id)}
                 onReject={() => handleReject(current.id)}
+                busy={busy}
               />
             )}
           </AnimatePresence>

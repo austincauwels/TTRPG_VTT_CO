@@ -6,6 +6,7 @@ import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
 import { getAvailableRollMods } from './DiceVault';
 import { ACTION_LABEL, scarDisplayText } from '../../game/actions';
+import { useMarkUndo, MARK_NAME } from './useMarkUndo';
 
 const ROLE_ICONS = {
   'Face': 'GiDramaMasks',
@@ -211,6 +212,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     isRolling: s.isRolling,
   })));
   const character = charProp || storeChar;
+  const { held: heldMark, hold: holdMark, undo: undoMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
   const [infoTab, setInfoTab] = useState('role'); // 'role' | 'specialty' | 'profile'
   const [showGearModal, setShowGearModal] = useState(false);
   const [pendingGear, setPendingGear] = useState([]);
@@ -617,35 +619,86 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-2">
               <SafeIcon name="GiBleedingEye" size={22} className="text-oxblood" /> Marks
             </h3>
-            <div className="space-y-4">
-              {['body', 'brain', 'bleed'].map((type) => (
-                <div key={type} className="flex justify-between items-center">
-                  {readOnly ? (
-                    <span className="font-sans font-black uppercase tracking-widest text-sm text-ink">{type}</span>
-                  ) : (
-                    <button
-                      onClick={() => takeMark(type)}
-                      aria-label={`Take a ${type} mark`}
-                      className="font-sans font-black uppercase tracking-widest text-sm text-ink hover:text-oxblood transition-colors border-b border-dashed border-transparent hover:border-oxblood"
-                    >
-                      {type} <span aria-hidden="true">+</span>
-                    </button>
-                  )}
-                  <div className={`flex gap-2 ${!readOnly ? 'cursor-pointer group' : ''}`} onClick={readOnly ? undefined : () => takeMark(type)}>
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={`w-5 h-7 border-2 border-ink shadow-inner rounded-sm transition-colors duration-150 ${
-                          character && i < character[`${type}_marks`]
-                            ? 'bg-oxblood'
-                            : readOnly ? 'bg-transparent' : 'bg-transparent group-hover:bg-oxblood/15 group-hover:border-oxblood'
-                        }`}
-                      />
-                    ))}
+            {/* Each box is its own target: only the next empty box takes a mark. A mark is
+                held for a few seconds with an Undo before it goes to the table. */}
+            <div className={readOnly ? 'space-y-4' : 'space-y-1'}>
+              {['body', 'brain', 'bleed'].map((type) => {
+                const name = MARK_NAME[type];
+                const marked = character?.[`${type}_marks`] || 0;
+                const heldHere = !readOnly && heldMark?.type === type;
+                const next = marked + (heldHere ? 1 : 0); // index of the box the next tap fills
+                const trackFull = next >= 3;
+                // 44px targets on phones; in the two-column sheet (md up) 36px keeps the
+                // label on one line beside three boxes.
+                const cell = readOnly ? 'w-7 h-9' : 'w-11 h-11 md:w-9';
+                return (
+                  <div key={type} className="flex justify-between items-center gap-2">
+                    {readOnly ? (
+                      <span className="font-sans font-black uppercase tracking-widest text-sm text-ink">{name}</span>
+                    ) : (
+                      <button
+                        onClick={() => holdMark(type)}
+                        aria-label={trackFull
+                          ? `Take a ${name} mark. The track is full, so this mark brings a scar.`
+                          : `Take a ${name} mark`}
+                        className="min-h-[44px] whitespace-nowrap font-sans font-black uppercase tracking-widest text-sm text-ink hover:text-oxblood transition-colors border-b border-dashed border-transparent hover:border-oxblood"
+                      >
+                        {name} <span aria-hidden="true">+</span>
+                      </button>
+                    )}
+                    <div className="flex" role="group" aria-label={`${name} marks: ${marked} of 3`}>
+                      {[0, 1, 2].map((i) => {
+                        const filled = i < marked;
+                        const isHeld = heldHere && i === marked;
+                        const isNext = !readOnly && i === next;
+                        const box = (
+                          <span
+                            aria-hidden="true"
+                            className={`block w-5 h-7 border-2 shadow-inner rounded-sm transition-colors duration-150 ${
+                              filled ? 'bg-oxblood border-ink'
+                                : isHeld ? 'bg-oxblood/45 border-oxblood border-dashed'
+                                : isNext ? 'border-ink group-hover/box:bg-oxblood/15 group-hover/box:border-oxblood'
+                                : 'border-ink/70'
+                            }`}
+                          />
+                        );
+                        return isNext ? (
+                          <button
+                            key={i}
+                            onClick={() => holdMark(type)}
+                            aria-label={`Take ${name} mark ${i + 1} of 3`}
+                            className={`group/box ${cell} flex items-center justify-center rounded-sm`}
+                          >
+                            {box}
+                          </button>
+                        ) : (
+                          <span key={i} className={`${cell} flex items-center justify-center`}>{box}</span>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+            {!readOnly && heldMark && (
+              <div role="status" className="mt-3 flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 px-3 py-2 rounded-sm">
+                <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-40">
+                  {(character?.[`${heldMark.type}_marks`] || 0) >= 3
+                    ? `${MARK_NAME[heldMark.type]} track is full: this mark brings a scar.`
+                    : `${MARK_NAME[heldMark.type]} mark taken.`}{' '}
+                  <span className="text-sepia">It goes to the table in a moment unless you undo it.</span>
+                </p>
+                <button
+                  onClick={undoMark}
+                  className="shrink-0 min-h-[40px] px-3 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood hover:bg-oxblood hover:text-cream rounded-sm transition-colors"
+                >
+                  Undo <span className="font-mono tabular-nums">{markSecondsLeft}s</span>
+                </button>
+              </div>
+            )}
+            {!readOnly && markSendError && (
+              <p role="alert" className="mt-3 font-serif text-base text-oxblood leading-snug">{markSendError}</p>
+            )}
           </div>
 
           <div className="mt-4 pt-2 border-t border-ink/10 text-xs font-sans font-bold text-sepia flex justify-between items-center uppercase">

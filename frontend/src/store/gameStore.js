@@ -2,6 +2,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { apiFetch, configureApiAuth, WS_CLOSE_UNAUTHENTICATED } from '../utils/api';
 
+// Reconnecting after a dropped connection. The server closes an older socket on the same
+// channel with 1001 when a newer one opens (another tab or device), so 1001 never
+// reconnects by itself: two tabs would keep closing each other. 4401 logs out; 4403 and
+// 4404 mean this channel is not the user's, which retrying will not change.
+const WS_CLOSE_REPLACED = 1001;
+const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
+let reconnectTimer = null;
+let reconnectAttempts = 0;
+
 const useGameStore = create(
   persist(
     (set, get) => ({
@@ -16,6 +25,9 @@ const useGameStore = create(
       // ==========================================
       accessSession: null,
       socket: null,
+      socketGameId: null,        // the channel the socket was opened for (character id or campaign code)
+      // 'idle' | 'connecting' | 'open' | 'reconnecting' | 'replaced' | 'refused'
+      connectionState: 'idle',
       character: null,
       characters: [],          // all characters belonging to the logged-in user
       gmCampaigns: [],         // campaigns the user manages as GM
@@ -25,9 +37,11 @@ const useGameStore = create(
       pendingGildedChoice: null,
       showScarModal: false,
       scarModalData: null,
+      pendingScar: null,         // { type, characterId }: a scar the player chose to decide later
       isRolling: false,
       campaignRoster: { pending_investigators: [], active_investigators: [] },
       notebookEntries: [],
+      notebookLoadError: false,
       lastActivityLog: null,
       activityLog: [],
       pendingRoll: null,         // { action, driveSpend } — set before roll to show spend selector
@@ -57,13 +71,13 @@ const useGameStore = create(
 
       // Safely close the connection and wipe the local session data
       logout: () => {
-        const { socket } = get();
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.close();
-        }
+        get().disconnect();
 
         set({
           accessSession: null,
+          pendingScar: null,
+          showScarModal: false,
+          scarModalData: null,
           character: null,
           characters: [],
           gmCampaigns: [],
@@ -91,8 +105,45 @@ const useGameStore = create(
       // ==========================================
       // WEBSOCKET CONNECTION & EVENT HANDLERS
       // ==========================================
-      connect: (gameId) => {
-        set({ activityLog: [], lastActivityLog: null, isRolling: false, pendingRoll: null });
+      // Close the current socket on purpose: its handlers go first, so the close neither
+      // logs out nor schedules a reconnect, and a late frame from it cannot change state.
+      disconnect: () => {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+        reconnectAttempts = 0;
+        const { socket } = get();
+        if (socket) {
+          socket.onopen = null;
+          socket.onclose = null;
+          socket.onmessage = null;
+          socket.onerror = null;
+          try { socket.close(1000); } catch { /* already closed */ }
+        }
+        set({ socket: null, socketGameId: null, connectionState: 'idle' });
+      },
+
+      // Open the same channel again. The server fixes a socket's campaign when it opens, so
+      // after a join, a rejection or a retirement only a new socket sees the new state.
+      reconnect: () => {
+        const { socketGameId } = get();
+        if (socketGameId == null) return;
+        get().connect(socketGameId, { keepLog: true });
+      },
+
+      connect: (gameId, { keepLog = false } = {}) => {
+        // One socket at a time: an older one would keep writing its own character into the store.
+        const { socket: previous } = get();
+        if (previous) {
+          previous.onopen = null;
+          previous.onclose = null;
+          previous.onmessage = null;
+          previous.onerror = null;
+          try { previous.close(1000); } catch { /* already closed */ }
+        }
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+        if (keepLog) set({ isRolling: false });
+        else set({ activityLog: [], lastActivityLog: null, isRolling: false, pendingRoll: null });
         const apiBase = import.meta.env.VITE_API_URL || '';
         const wsProtocol = (apiBase.startsWith('https') || window.location.protocol === 'https:') ? 'wss:' : 'ws:';
         const wsHost = apiBase ? apiBase.replace(/^https?:\/\//, '') : window.location.host;
@@ -102,11 +153,25 @@ const useGameStore = create(
 
         const socket = new WebSocket(wsUrl);
 
-        socket.onopen = () => console.log(`Connected to Vault Websocket: ${gameId}`);
+        socket.onopen = () => {
+          reconnectAttempts = 0;
+          if (get().socket === socket) set({ connectionState: 'open' });
+        };
         socket.onerror = (err) => console.error("WebSocket connection error:", err);
         socket.onclose = (event) => {
+          if (get().socket !== socket) return;
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
-          if (event.code === WS_CLOSE_UNAUTHENTICATED) get().logout();
+          if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
+          if (event.code === WS_CLOSE_REPLACED) { set({ connectionState: 'replaced' }); return; }
+          if (event.code === 4403 || event.code === 4404) { set({ connectionState: 'refused' }); return; }
+          // Anything else is a dropped connection (sleep, network change, server restart).
+          set({ connectionState: 'reconnecting' });
+          const delay = RECONNECT_DELAYS_MS[Math.min(reconnectAttempts, RECONNECT_DELAYS_MS.length - 1)];
+          reconnectAttempts += 1;
+          clearTimeout(reconnectTimer);
+          reconnectTimer = setTimeout(() => {
+            if (get().socket === socket) get().connect(gameId, { keepLog: true });
+          }, delay);
         };
 
         socket.onmessage = (event) => {
@@ -168,7 +233,11 @@ const useGameStore = create(
             set({
               character: message.payload.character,
               showScarModal: true,
-              scarModalData: { type: message.payload.mark_type }
+              scarModalData: { type: message.payload.mark_type },
+              pendingScar: {
+                type: message.payload.mark_type,
+                characterId: message.payload.character_id ?? message.payload.character?.id ?? null,
+              },
             });
           }
           else if (message.type === 'scene_transition') {
@@ -274,6 +343,11 @@ const useGameStore = create(
           }
           else if (message.type === 'investigator_rejected') {
             const { character_id, pending_investigators } = message.payload;
+            // This player's socket still carries the campaign it opened with; open a new one.
+            if (character_id != null && character_id === get().character?.id &&
+                String(get().socketGameId) === String(character_id)) {
+              setTimeout(() => get().reconnect(), 0);
+            }
             set(state => {
               const isMyCharacter = character_id === state.character?.id;
               return {
@@ -294,6 +368,10 @@ const useGameStore = create(
           else if (message.type === 'roster_finalized') {
             if (!isForThisCampaign(message.payload)) return;
             const rejectedIds = message.payload.rejected_character_ids || [];
+            if (get().character?.id != null && rejectedIds.includes(get().character.id) &&
+                String(get().socketGameId) === String(get().character.id)) {
+              setTimeout(() => get().reconnect(), 0);
+            }
             set(state => {
               const myCharId = state.character?.id;
               const iAmRejected = rejectedIds.includes(myCharId);
@@ -337,6 +415,12 @@ const useGameStore = create(
           }
           else if (message.type === 'campaign_retired') {
             if (!isForThisCampaign(message.payload)) return;
+            // A player's channel stays open (a GM can still invite them back), on a new
+            // socket that no longer carries the retired campaign. The GM's campaign channel
+            // closes; opening another campaign connects again.
+            const { character: myChar, socketGameId } = get();
+            const onCharacterChannel = myChar?.id != null && String(socketGameId) === String(myChar.id);
+            setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
             set({ stage: 'HOME', character: null, circle: null, activityLog: [], lastActivityLog: null });
           }
           else if (message.type === 'ability_mark_offer') {
@@ -364,7 +448,12 @@ const useGameStore = create(
           }
         };
 
-        set({ socket });
+        set(state => ({
+          socket,
+          socketGameId: gameId,
+          // A reconnect keeps the banner up until the new socket opens.
+          connectionState: state.connectionState === 'reconnecting' ? 'reconnecting' : 'connecting',
+        }));
       },
 
       // ==========================================
@@ -486,6 +575,7 @@ const useGameStore = create(
         }
       },
 
+      // Resolves to whether the mark went out, so the sheet can say when it did not.
       takeMark: (markType) => {
         const { socket } = get();
         if (socket && socket.readyState === WebSocket.OPEN) {
@@ -493,7 +583,9 @@ const useGameStore = create(
             type: 'take_mark',
             payload: { mark_type: markType }
           }));
+          return true;
         }
+        return false;
       },
 
       reviveCharacter: () => {
@@ -518,8 +610,11 @@ const useGameStore = create(
             type: 'apply_scar',
             payload: outPayload
           }));
+          set({ showScarModal: false, scarModalData: null, pendingScar: null });
+          return true;
         }
-        set({ showScarModal: false, scarModalData: null });
+        // Not sent: keep the scar pending and the form open so nothing typed is lost.
+        return false;
       },
 
       sendChat: (target, message) => {
@@ -533,7 +628,9 @@ const useGameStore = create(
             type: 'chat_message',
             payload: { sender_name: senderName, target, message },
           }));
+          return true;
         }
+        return false;
       },
 
       updateCircle: (updates) => {
@@ -687,6 +784,8 @@ const useGameStore = create(
                 c.id === characterId ? { ...c, status: 'pending' } : c
               ),
             }));
+            // An open socket for this character still carries its old campaign.
+            if (String(get().socketGameId) === String(characterId)) get().reconnect();
             return { success: true };
           }
           const err = await res.json().catch(() => ({}));
@@ -719,13 +818,20 @@ const useGameStore = create(
         try {
           const { accessSession, character } = get();
           const role = accessSession?.role || 'player';
-          const charId = character?.id || '';
-          const res = await apiFetch(`/api/notebook/${campaignId}/entries?role=${role}&character_id=${charId}`);
+          // Only a player's own character goes in the query. The GM has none (an empty
+          // character_id is a 422 on servers older than the beta), and a character left in
+          // the store from playing would show that character's private notes on the GM desk.
+          const params = new URLSearchParams({ role });
+          if (role !== 'GM' && character?.id != null) params.set('character_id', String(character.id));
+          const res = await apiFetch(`/api/notebook/${campaignId}/entries?${params}`);
           if (res.ok) {
-            set({ notebookEntries: await res.json() });
+            set({ notebookEntries: await res.json(), notebookLoadError: false });
+          } else {
+            set({ notebookLoadError: true });
           }
         } catch (err) {
           console.error("Failed to fetch notebook entries:", err);
+          set({ notebookLoadError: true });
         }
       },
 
@@ -778,14 +884,18 @@ const useGameStore = create(
         }
       },
 
+      // Resolves to true when the server deleted it; the entry stays on the page otherwise.
       deleteEphemeralNote: async (entryId) => {
         try {
-          await apiFetch(`/api/notebook/entries/${entryId}`, { method: 'DELETE' });
+          const res = await apiFetch(`/api/notebook/entries/${entryId}`, { method: 'DELETE' });
+          if (!res.ok) return false;
           set(state => ({
             notebookEntries: state.notebookEntries.filter(e => e.id !== entryId),
           }));
+          return true;
         } catch (err) {
           console.error('Failed to delete note:', err);
+          return false;
         }
       },
 
@@ -832,7 +942,13 @@ const useGameStore = create(
         }
       },
 
-      closeScarModal: () => set({ showScarModal: false, scarModalData: null }),
+      // "Decide later": the form closes, the scar stays pending (a banner reopens it).
+      deferScar: () => set({ showScarModal: false }),
+      reopenScar: () => set(state => ({
+        showScarModal: true,
+        scarModalData: state.scarModalData || (state.pendingScar ? { type: state.pendingScar.type } : null),
+      })),
+      closeScarModal: () => set({ showScarModal: false }),
 
       // ==========================================
       // CIRCLE CREATION ACTIONS
@@ -964,6 +1080,7 @@ const useGameStore = create(
         lastPlayedCampaign: state.lastPlayedCampaign,
         circle: state.circle,
         rejoinInvite: state.rejoinInvite,
+        pendingScar: state.pendingScar,
       }),
 
       // A session saved before login tokens existed has no token, and the server
@@ -982,6 +1099,7 @@ const useGameStore = create(
           lastPlayedCampaign: null,
           circle: null,
           rejoinInvite: null,
+          pendingScar: null,
         };
       },
     }
@@ -993,5 +1111,17 @@ configureApiAuth({
   getToken: () => useGameStore.getState().accessSession?.token || null,
   onUnauthorized: () => useGameStore.getState().logout(),
 });
+
+// A phone that wakes up or a network that comes back should not wait out the backoff.
+if (typeof window !== 'undefined') {
+  const retryNow = () => {
+    const { connectionState, socketGameId, connect } = useGameStore.getState();
+    if (connectionState === 'reconnecting' && socketGameId != null) connect(socketGameId, { keepLog: true });
+  };
+  window.addEventListener('online', retryNow);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') retryNow();
+  });
+}
 
 export default useGameStore;

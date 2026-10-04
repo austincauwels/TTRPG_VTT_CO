@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import * as Gi from "react-icons/gi";
 import { JoinCampaignForm } from './shared/JoinCampaignForm';
+import { ConfirmAction } from './shared/ConfirmAction';
 
 const ILLUMINATION_KEYS = {
   Journalist: ['Gather Statements', 'Hunt Down a Lead', 'Speak Truth to Power'],
@@ -477,45 +478,120 @@ const CardFace = ({ roleName, specialtyName }) => {
   );
 };
 
+// ── Draft ──────────────────────────────────────────────────────────────────────
+// The investigator in progress is kept in this browser, so a reload or a phone call does
+// not lose it. Storage can be full, blocked or missing (private windows), so every access
+// is wrapped and the creator works the same without it. The portrait has its own key: it
+// is large, and a portrait that does not fit must not cost the rest of the draft.
+const DRAFT_VERSION = 1;
+const readDraft = (key) => {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const draft = JSON.parse(raw);
+    if (!draft || draft.v !== DRAFT_VERSION) return null;
+    draft.profilePic = window.localStorage.getItem(`${key}:portrait`) || null;
+    return draft;
+  } catch {
+    return null;
+  }
+};
+const writeDraft = (key, data) => {
+  try { window.localStorage.setItem(key, JSON.stringify({ v: DRAFT_VERSION, ...data })); } catch { /* the draft is a convenience */ }
+};
+const writeDraftPortrait = (key, dataUrl) => {
+  try {
+    if (dataUrl) window.localStorage.setItem(`${key}:portrait`, dataUrl);
+    else window.localStorage.removeItem(`${key}:portrait`);
+  } catch { /* too large for storage: the rest of the draft is still kept */ }
+};
+const clearDraft = (key) => {
+  try {
+    window.localStorage.removeItem(key);
+    window.localStorage.removeItem(`${key}:portrait`);
+  } catch { /* nothing to clear */ }
+};
+
 // ── Main component ─────────────────────────────────────────────────────────────
-export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
-  const [step, setStep] = useState(1);
+export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-creator-draft' }) => {
+  // Read once, on the first render
+  const [draft] = useState(() => readDraft(draftKey));
+  const d = (field, fallback) => (draft && draft[field] !== undefined && draft[field] !== null ? draft[field] : fallback);
+  const [restoredDraft, setRestoredDraft] = useState(() => !!(draft && (draft.role || draft.name)));
+
+  const [step, setStep] = useState(() => d('step', 1));
 
   // Card deck state
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(() => d('currentIndex', 0));
   // 'idle' | 'out-forward' | 'in-forward' | 'out-backward' | 'in-backward'
   const [animState, setAnimState] = useState('idle');
 
   // Identity
-  const [profilePic, setProfilePic] = useState(null);
-  const [name,       setName]       = useState("");
-  const [pronouns,   setPronouns]   = useState("");
-  const [style,      setStyle]      = useState("");
-  const [catalyst,   setCatalyst]   = useState("");
-  const [question,   setQuestion]   = useState("");
+  const [profilePic, setProfilePic] = useState(() => d('profilePic', null));
+  const [name,       setName]       = useState(() => d('name', ""));
+  const [pronouns,   setPronouns]   = useState(() => d('pronouns', ""));
+  const [style,      setStyle]      = useState(() => d('style', ""));
+  const [catalyst,   setCatalyst]   = useState(() => d('catalyst', ""));
+  const [question,   setQuestion]   = useState(() => d('question', ""));
 
   // Chosen role/specialty (locked in when "Choose This Specialty" clicked)
-  const [role,     setRole]     = useState("");
-  const [specialty,setSpecialty]= useState("");
+  const [role,     setRole]     = useState(() => d('role', ""));
+  const [specialty,setSpecialty]= useState(() => d('specialty', ""));
 
   // Abilities — chosen in Step 1 panel
-  const [selectedRoleAbility,      setSelectedRoleAbility]      = useState("");
-  const [selectedSpecialtyAbility, setSelectedSpecialtyAbility] = useState("");
+  const [selectedRoleAbility,      setSelectedRoleAbility]      = useState(() => d('selectedRoleAbility', ""));
+  const [selectedSpecialtyAbility, setSelectedSpecialtyAbility] = useState(() => d('selectedSpecialtyAbility', ""));
 
   // Actions & drives — step 3 state
-  const [lockedActions, setLockedActions] = useState({ ...EMPTY_ACTIONS });
-  const [freeRaiseKey,  setFreeRaiseKey]  = useState(null);
-  const [freeAdditions, setFreeAdditions] = useState({ ...EMPTY_ACTIONS });
-  const [lockedDrives,  setLockedDrives]  = useState({ ...EMPTY_DRIVES });
-  const [driveDistrib,  setDriveDistrib]  = useState({ ...EMPTY_DRIVES });
-  const [lockedGilded, setLockedGilded] = useState('');
-  const [freeGilded,   setFreeGilded]   = useState('');
-  const [selectedGear, setSelectedGear] = useState([]);
+  const [lockedActions, setLockedActions] = useState(() => ({ ...EMPTY_ACTIONS, ...d('lockedActions', {}) }));
+  const [freeRaiseKey,  setFreeRaiseKey]  = useState(() => d('freeRaiseKey', null));
+  const [freeAdditions, setFreeAdditions] = useState(() => ({ ...EMPTY_ACTIONS, ...d('freeAdditions', {}) }));
+  const [lockedDrives,  setLockedDrives]  = useState(() => ({ ...EMPTY_DRIVES, ...d('lockedDrives', {}) }));
+  const [driveDistrib,  setDriveDistrib]  = useState(() => ({ ...EMPTY_DRIVES, ...d('driveDistrib', {}) }));
+  const [lockedGilded, setLockedGilded] = useState(() => d('lockedGilded', ''));
+  const [freeGilded,   setFreeGilded]   = useState(() => d('freeGilded', ''));
+  const [selectedGear, setSelectedGear] = useState(() => d('selectedGear', []));
 
   // Finalize routing
   const [showJoinInput, setShowJoinInput] = useState(false);
-  const [campaignCode,  setCampaignCode]  = useState("");
-  const [selectedPen,   setSelectedPen]   = useState('Caveat');
+  const [campaignCode,  setCampaignCode]  = useState(() => d('campaignCode', ""));
+  const [selectedPen,   setSelectedPen]   = useState(() => d('selectedPen', 'Caveat'));
+
+  // Saving: which button is saving, the last error, and the id of an investigator that was
+  // saved even though joining or rejoining afterwards failed (a retry then skips the save).
+  const [savingMode, setSavingMode] = useState(null);
+  const [saveError, setSaveError] = useState('');
+  const [savedCharacterId, setSavedCharacterId] = useState(null);
+  const [lastAttempt, setLastAttempt] = useState(null);
+
+  // Keep the draft up to date. Nothing chosen yet means nothing to keep.
+  useEffect(() => {
+    if (savedCharacterId) return;
+    if (!role && !name && currentIndex === 0) { clearDraft(draftKey); return; }
+    writeDraft(draftKey, {
+      step, currentIndex, name, pronouns, style, catalyst, question, role, specialty,
+      selectedRoleAbility, selectedSpecialtyAbility, lockedActions, freeRaiseKey, freeAdditions,
+      lockedDrives, driveDistrib, lockedGilded, freeGilded, selectedGear, campaignCode, selectedPen,
+    });
+  }, [step, currentIndex, name, pronouns, style, catalyst, question, role, specialty,
+      selectedRoleAbility, selectedSpecialtyAbility, lockedActions, freeRaiseKey, freeAdditions,
+      lockedDrives, driveDistrib, lockedGilded, freeGilded, selectedGear, campaignCode, selectedPen, savedCharacterId]);
+  useEffect(() => {
+    if (!savedCharacterId) writeDraftPortrait(draftKey, profilePic);
+  }, [profilePic, savedCharacterId]);
+
+  const startOver = () => {
+    clearDraft(draftKey);
+    setRestoredDraft(false);
+    setStep(1); setCurrentIndex(0); setAnimState('idle');
+    setProfilePic(null); setName(''); setPronouns(''); setStyle(''); setCatalyst(''); setQuestion('');
+    setRole(''); setSpecialty(''); setSelectedRoleAbility(''); setSelectedSpecialtyAbility('');
+    setLockedActions({ ...EMPTY_ACTIONS }); setFreeRaiseKey(null); setFreeAdditions({ ...EMPTY_ACTIONS });
+    setLockedDrives({ ...EMPTY_DRIVES }); setDriveDistrib({ ...EMPTY_DRIVES });
+    setLockedGilded(''); setFreeGilded(''); setSelectedGear([]);
+    setShowJoinInput(false); setCampaignCode(''); setSelectedPen('Caveat');
+    setSaveError(''); setLastAttempt(null);
+  };
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
@@ -592,23 +668,43 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
 
   const step3Complete = freeRaiseKey !== null && freePtsUsed === 3 && drivesPtsUsed === 6 && freeGilded !== '';
 
-  const handleComplete = (mode, code) => {
+  const handleComplete = async (mode, code) => {
+    if (savingMode || !onSubmit) return;
     const computedActions = Object.fromEntries(
       Object.keys(EMPTY_ACTIONS).map(k => [k, getActionTotal(k)])
     );
-    if (onSubmit) onSubmit({
-      name, pronouns, style, catalyst, question, role, specialty,
-      roleAbility: selectedRoleAbility, specialtyAbility: selectedSpecialtyAbility,
-      gear: selectedGear, profilePic, actions: computedActions,
-      gildedActions: [lockedGilded, freeGilded].filter(Boolean),
-      nerve_max:     getDriveValue('nerve'),
-      cunning_max:   getDriveValue('cunning'),
-      intuition_max: getDriveValue('intuition'),
-      mode: mode || 'save',
-      campaignCode: code || '',
-      penFont: selectedPen,
-    });
+    setSavingMode(mode || 'save');
+    setSaveError('');
+    setLastAttempt({ mode, code });
+    let result;
+    try {
+      result = await onSubmit({
+        name, pronouns, style, catalyst, question, role, specialty,
+        roleAbility: selectedRoleAbility, specialtyAbility: selectedSpecialtyAbility,
+        gear: selectedGear, profilePic, actions: computedActions,
+        gildedActions: [lockedGilded, freeGilded].filter(Boolean),
+        nerve_max:     getDriveValue('nerve'),
+        cunning_max:   getDriveValue('cunning'),
+        intuition_max: getDriveValue('intuition'),
+        mode: mode || 'save',
+        campaignCode: code || '',
+        penFont: selectedPen,
+        existingCharacterId: savedCharacterId || undefined,
+      });
+    } catch {
+      result = { ok: false, error: 'Something went wrong while saving. Your choices are kept; try again.' };
+    }
+    // Saved, and the app has moved on to the hub or the desk
+    if (!result || result.ok) { clearDraft(draftKey); return; }
+    if (result.savedCharacterId) {
+      setSavedCharacterId(result.savedCharacterId);
+      clearDraft(draftKey);
+    }
+    setSaveError(result.error || 'The investigator was not saved. Your choices are kept; try again.');
+    setSavingMode(null);
   };
+  const retrySave = () => lastAttempt && handleComplete(lastAttempt.mode, lastAttempt.code);
+  const savedNote = savedCharacterId ? `${name || 'Your investigator'} is saved. ` : '';
 
   // Step unlock logic
   const step2Unlocked = !!(role && specialty && selectedRoleAbility && selectedSpecialtyAbility);
@@ -630,8 +726,36 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
   const STEP_LABELS = ["1. CHOOSE PATH", "2. PROFILE", "3. ACTION RATINGS", "4. GEAR & DOSSIER"];
   const STEP_UNLOCKED = [true, step2Unlocked, step3Unlocked, step4Unlocked];
 
+  // A draft from an older build could name a step its choices no longer unlock.
+  useEffect(() => { if (!STEP_UNLOCKED[step - 1]) setStep(1); }, []);
+
   return (
     <div className="w-full px-4 sm:px-6 lg:px-10 py-6 font-serif text-ink">
+
+      {restoredDraft && !savedCharacterId && (
+        <ConfirmAction
+          className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 bg-parchment border border-sepia/40 rounded-sm px-4 py-3 shadow-md"
+          hintClassName="basis-full"
+          onConfirm={startOver}
+          cancelLabel="Keep it"
+          armedHint="Press again to clear every choice and start from the first card."
+          renderButton={(armed, props) => (
+            <>
+              <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-60">
+                This is the investigator you were making{name ? `, ${name}` : ''}. Your choices were kept in this browser.
+              </p>
+              <button
+                {...props}
+                className={`shrink-0 min-h-[40px] px-4 font-sans text-xs font-black uppercase tracking-widest border rounded transition-colors ${
+                  armed ? 'bg-oxblood text-cream border-ink' : 'text-sepia border-sepia/50 hover:text-oxblood hover:border-oxblood/50'
+                }`}
+              >
+                {armed ? 'Yes, start over' : 'Start over'}
+              </button>
+            </>
+          )}
+        />
+      )}
 
       {/* ── PROGRESS NAV ── */}
       <div className="flex border border-sepia/50 bg-ink text-xs sm:text-sm lg:text-base font-sans font-black tracking-wider sm:tracking-widest text-center select-none rounded mb-6 sm:mb-8 shadow-md overflow-hidden">
@@ -1283,15 +1407,17 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
               <div className="flex gap-3 flex-wrap">
                 <button
                   onClick={() => handleComplete('rejoin')}
-                  className="px-6 py-2.5 text-sm font-sans font-black uppercase tracking-widest border border-ink rounded hover:brightness-125 transition"
+                  disabled={!!savingMode}
+                  className="px-6 py-2.5 text-sm font-sans font-black uppercase tracking-widest border border-ink rounded hover:brightness-125 transition disabled:opacity-60 disabled:cursor-wait"
                   style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
-                  Save and rejoin {rejoinContext.campaignName}
+                  {savingMode === 'rejoin' ? 'Saving…' : savedCharacterId ? `Rejoin ${rejoinContext.campaignName}` : `Save and rejoin ${rejoinContext.campaignName}`}
                 </button>
                 <button
                   onClick={() => handleComplete('save')}
-                  className="px-6 py-2.5 text-sm border border-cream/25 text-cream/75 hover:text-cream hover:bg-cream/5 rounded font-sans font-black uppercase tracking-widest transition-colors"
+                  disabled={!!savingMode}
+                  className="px-6 py-2.5 text-sm border border-cream/25 text-cream/75 hover:text-cream hover:bg-cream/5 rounded font-sans font-black uppercase tracking-widest transition-colors disabled:opacity-60 disabled:cursor-wait"
                   style={{ background: 'transparent' }}>
-                  Save for later
+                  {savingMode === 'save' ? 'Saving…' : savedCharacterId ? 'Go to the chapter hub' : 'Save for later'}
                 </button>
               </div>
             </div>
@@ -1299,16 +1425,36 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <button
                 onClick={() => handleComplete('save')}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border border-sepia font-sans font-black uppercase tracking-widest rounded transition-all"
+                disabled={!!savingMode}
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border border-sepia font-sans font-black uppercase tracking-widest rounded transition-all disabled:opacity-60 disabled:cursor-wait"
                 style={{ background: 'rgb(var(--c-parchment)/0.6)', color: 'rgb(var(--c-sepia))' }}>
-                Save for Later
+                {savingMode === 'save' ? 'Saving…' : savedCharacterId ? 'Go to the chapter hub' : 'Save for Later'}
               </button>
               <button
-                onClick={() => setShowJoinInput(true)}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border-2 border-ink font-sans font-black uppercase tracking-widest rounded shadow-md transition-all"
+                onClick={() => { setSaveError(''); setShowJoinInput(true); }}
+                disabled={!!savingMode}
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border-2 border-ink font-sans font-black uppercase tracking-widest rounded shadow-md transition-all disabled:opacity-60 disabled:cursor-wait"
                 style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
-                Save and join a campaign
+                {savedCharacterId ? 'Join a campaign' : 'Save and join a campaign'}
               </button>
+            </div>
+          )}
+
+          {/* A failed save: the reason, what is kept, and a retry */}
+          {step === 4 && saveError && !showJoinInput && (
+            <div role="alert" className="w-full flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-oxblood rounded-sm px-4 py-3 shadow-md">
+              <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60">
+                {savedNote && <strong className="font-bold">{savedNote}</strong>}{saveError}
+              </p>
+              {lastAttempt?.mode !== 'join' && (
+                <button
+                  onClick={retrySave}
+                  disabled={!!savingMode}
+                  className="shrink-0 min-h-[40px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition disabled:opacity-60"
+                >
+                  {savingMode ? 'Saving…' : 'Try again'}
+                </button>
+              )}
             </div>
           )}
 
@@ -1317,7 +1463,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <div
               className="fixed inset-0 z-[500] flex items-center justify-center p-4"
               style={{ background: 'rgb(var(--c-night) / 0.85)' }}
-              onClick={() => setShowJoinInput(false)}
+              onClick={() => { if (!savingMode) setShowJoinInput(false); }}
             >
               <div
                 role="dialog" aria-modal="true" aria-labelledby="join-campaign-title"
@@ -1332,7 +1478,9 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 <div style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.2)', paddingBottom: 16 }}>
                   <h2 id="join-campaign-title" className="font-display text-4xl text-ink">Join a Campaign</h2>
                   <p className="text-base font-serif text-ink/80 mt-1.5 leading-relaxed">
-                    {name || 'Your investigator'} is saved first, then asks to join. You can also join later from the Player Registry.
+                    {savedCharacterId
+                      ? `${name || 'Your investigator'} is saved. Check the code and ask again, or join later from the chapter hub.`
+                      : `${name || 'Your investigator'} is saved first, then asks to join. You can also join later from the chapter hub.`}
                   </p>
                 </div>
 
@@ -1344,8 +1492,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                   pen={selectedPen}
                   onPenChange={setSelectedPen}
                   onSubmit={(code) => handleComplete('join', code)}
-                  onCancel={() => setShowJoinInput(false)}
-                  submitLabel="Save and ask to join"
+                  onCancel={() => { if (!savingMode) setShowJoinInput(false); }}
+                  error={saveError ? `${savedNote}${saveError}` : ''}
+                  busy={savingMode === 'join'}
+                  busyLabel="Saving…"
+                  submitLabel={savedCharacterId ? 'Ask to join' : 'Save and ask to join'}
                 />
               </div>
             </div>
