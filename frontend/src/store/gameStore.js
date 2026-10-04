@@ -194,6 +194,12 @@ const useGameStore = create(
             const incoming = message.payload;
             const prevChar = get().character;
             set({ character: incoming });
+            // A pending scar that was recorded elsewhere (another tab) must not be recorded twice.
+            const waiting = get().pendingScar;
+            if (waiting && incoming?.id === waiting.characterId && waiting.scarsAtTrigger != null &&
+                (incoming.scars_count ?? 0) > waiting.scarsAtTrigger) {
+              set({ pendingScar: null, showScarModal: false, scarModalData: null });
+            }
             // If this player is now active and the circle isn't finalized, fetch creation state
             if (incoming.status === 'active' && incoming.campaign_id) {
               const { circle, circleCreation } = get();
@@ -237,6 +243,7 @@ const useGameStore = create(
               pendingScar: {
                 type: message.payload.mark_type,
                 characterId: message.payload.character_id ?? message.payload.character?.id ?? null,
+                scarsAtTrigger: message.payload.character?.scars_count ?? 0,
               },
             });
           }
