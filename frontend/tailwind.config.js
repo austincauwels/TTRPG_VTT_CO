@@ -57,6 +57,12 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      // framed: a screen with room for a sheet laid on the desk with the desk showing round
+      // it (sm wide and more than 500 tall). A phone held sideways is sm wide but short, so
+      // the sketch sheet takes its whole screen instead (sketch/SketchSheet.jsx).
+      screens: {
+        framed: { raw: '(min-width: 640px) and (min-height: 501px)' },
+      },
       colors,
       // Bare `border` and `ring` classes take palette colors instead of Tailwind's gray and blue.
       borderColor: { DEFAULT: 'rgb(var(--c-parchment-deep) / 0.6)' },

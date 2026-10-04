@@ -8,8 +8,9 @@ characters in the campaign, and the server sets the author name, pen and ink.
 
 A drawn sketch (the notebook's drawing sheet) is uploaded with its scene as a second
 file part and keeps it in sketch_scene (vtt/sketch_scenes.py). Only the entry's author
-reads the scene back (GET .../scene) or redraws the sketch (PUT .../sketch); everyone
-else sees the picture, and responses carry has_scene, never the scene.
+reads the scene back (GET .../scene) or redraws the sketch (PUT .../sketch, where a
+picture without a scene drops the drawing); everyone else sees the picture, and responses
+carry has_scene, never the scene.
 """
 import base64
 from typing import Annotated, List, Optional
@@ -279,12 +280,14 @@ def get_sketch_scene(entry_id: int, db: Session = Depends(get_db), user: User = 
 
 
 # The author keeps drawing: the sketch's picture (a PNG) and its scene are replaced
-# together. Sketch entries only (422); the author only (403).
+# together. A picture sent without a scene (a drawing too large to keep) replaces the
+# picture, and the sketch keeps no drawing after it. Sketch entries only (422); the author
+# only (403).
 @router.put("/api/notebook/entries/{entry_id}/sketch", response_model=NotebookEntryResponse)
 async def redraw_sketch(
     entry_id: int,
     file: UploadFile = File(...),
-    scene: UploadFile = File(...),
+    scene: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -293,7 +296,7 @@ async def redraw_sketch(
     if entry.entry_type != "sketch":
         raise HTTPException(status_code=422, detail=NOT_A_SKETCH)
     raw = await read_png(file)
-    sketch_scene = await read_scene(scene)
+    sketch_scene = await read_scene(scene) if scene is not None else None
     entry.image_data = "data:image/png;base64," + base64.b64encode(raw).decode("ascii")
     entry.sketch_scene = sketch_scene
     db.commit()

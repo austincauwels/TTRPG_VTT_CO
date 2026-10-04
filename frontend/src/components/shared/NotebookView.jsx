@@ -591,7 +591,8 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
       : { ...s, loading: false, error: 'The drawing could not be opened. Check your connection and try again.' }));
   };
 
-  // A new drawing waits beside the entry, with its scene, until the entry is added
+  // A new drawing waits beside the entry, with its scene, until the entry is added. A
+  // drawing too large to keep comes without one (scene null) and goes as a plain picture.
   const stageDrawing = (png, scene) => new Promise((resolve) => {
     if (png.size > 2 * 1024 * 1024) {
       resolve({ ok: false, error: 'The sketch is larger than 2 MB. Draw it smaller, or with fewer strokes.' });
@@ -1192,6 +1193,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
           onCancel={() => setSketchSheet(null)}
           onUploadPicture={sketchSheet.mode === 'new' && !pendingScene ? uploadInstead : undefined}
           saveLabel={sketchSheet.mode === 'redraw' ? 'Save sketch' : 'Add to entry'}
+          pictureOnlyLabel={sketchSheet.mode === 'redraw' ? 'Save picture only' : 'Add picture only'}
         />
       )}
     </div>

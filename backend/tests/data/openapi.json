@@ -34,14 +34,20 @@
             "type": "string"
           },
           "scene": {
-            "contentMediaType": "application/octet-stream",
-            "title": "Scene",
-            "type": "string"
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scene"
           }
         },
         "required": [
-          "file",
-          "scene"
+          "file"
         ],
         "title": "Body_redraw_sketch_api_notebook_entries__entry_id__sketch_put",
         "type": "object"

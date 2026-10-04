@@ -1197,12 +1197,14 @@ const useGameStore = create(
         }
       },
 
-      // The author keeps drawing: the picture (a PNG blob) and the scene are replaced together
+      // The author keeps drawing: the picture (a PNG blob) and the scene are replaced together.
+      // Without a scene (a drawing too large to keep) the picture is replaced and the sketch
+      // keeps no drawing after it.
       redrawSketch: async (entryId, png, scene) => {
         try {
           const formData = new FormData();
           formData.append('file', png, 'sketch.png');
-          formData.append('scene', new Blob([scene], { type: 'application/json' }), 'scene.json');
+          if (scene) formData.append('scene', new Blob([scene], { type: 'application/json' }), 'scene.json');
           const res = await apiFetch(`/api/notebook/entries/${entryId}/sketch`, { method: 'PUT', body: formData });
           if (res.ok) {
             const entry = await res.json();

@@ -21,8 +21,21 @@ const { Excalidraw, exportToBlob } = ExcalidrawLib;
 const CAPTURE_NOW = ExcalidrawLib.CaptureUpdateAction?.IMMEDIATELY;
 
 const ELEMENT_TYPES = new Set(['freedraw', 'line', 'arrow', 'rectangle', 'ellipse', 'text']);
-const SCENE_MAX = 1024 * 1024;  // as the server reads it
+const SCENE_MAX = 1024 * 1024;  // bytes of UTF-8, as the server reads it
 const NIBS = [{ width: 1, label: 'Fine nib' }, { width: 3, label: 'Broad nib' }];
+
+// The scene as it is kept. Excalidraw writes a stroke's points and pen pressures with every
+// decimal a number has; a tenth of a pixel and a hundredth of a pressure are finer than any
+// pen draws, and keep a busy sheet well inside the limit. The picture is made from the
+// drawing as it is on the sheet, before this.
+const round = (value, places) => (typeof value === 'number' ? Number(value.toFixed(places)) : value);
+const keptElement = (el) => ({
+  ...el,
+  ...(Array.isArray(el.points) ? { points: el.points.map(p => (Array.isArray(p) ? p.map(v => round(v, 1)) : p)) } : {}),
+  ...(Array.isArray(el.pressures) ? { pressures: el.pressures.map(v => round(v, 2)) } : {}),
+});
+const sceneText = (elements) => JSON.stringify({ type: 'excalidraw', version: 2, elements: elements.map(keptElement) });
+const sceneBytes = (text) => new Blob([text]).size;
 
 const svg = { 'aria-hidden': true, focusable: 'false', fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 1.6 };
 const TOOLS = [
@@ -65,7 +78,9 @@ const NibMark = ({ width }) => (
   </svg>
 );
 
-const markBtn = (on) => `w-10 h-10 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 shrink-0 flex items-center justify-center rounded-sm transition-colors ${
+// 44 tall on a touch screen; 44 wide only from 400 across, so the eight tools fit one row
+// on a 360 phone
+const markBtn = (on) => `w-10 h-10 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)_and_(min-width:400px)]:w-11 shrink-0 flex items-center justify-center rounded-sm transition-colors ${
   on ? 'bg-ink text-cream' : 'text-sepia [@media(hover:hover)]:hover:text-ink [@media(hover:hover)]:hover:bg-ink/[0.06]'}`;
 
 const UI_OPTIONS = {
@@ -85,10 +100,11 @@ const signature = (elements) => elements.filter(e => !e.isDeleted).map(e => `${e
 /**
  * initialElements: the drawing to keep working on, or none for a new sheet.
  * ink: the writer's pen colour, the default stroke. inks: [{ color, name }] to choose from.
- * onSave(pngBlob, sceneJson): resolves to { ok } or { ok: false, error }.
+ * onSave(pngBlob, sceneJson): resolves to { ok } or { ok: false, error }. sceneJson is null
+ * when the drawing was too large to keep and the picture is saved alone.
  * onCancel(), onUploadPicture() (a new sketch only), onDirtyChange(dirty).
  */
-export default function SketchPad({ initialElements = null, ink, inks, onSave, onCancel, onUploadPicture, onDirtyChange, saveLabel = 'Save sketch' }) {
+export default function SketchPad({ initialElements = null, ink, inks, onSave, onCancel, onUploadPicture, onDirtyChange, saveLabel = 'Save sketch', pictureOnlyLabel = 'Save picture only' }) {
   const [api, setApi] = useState(null);
   const [tool, setTool] = useState('freedraw');
   const [stroke, setStroke] = useState(ink);
@@ -97,6 +113,10 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // The drawing was too large to keep: the picture alone can still be saved, until the
+  // drawing changes (tooLargeAt holds its signature at the time)
+  const [tooLarge, setTooLarge] = useState(false);
+  const tooLargeAt = useRef(null);
   const wrapRef = useRef(null);
   const baseline = useRef(initialElements?.length ? null : '');
   const lastTool = useRef('freedraw');
@@ -130,6 +150,12 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
     if (baseline.current === null && (!initialElements?.length || elements.some(e => !e.isDeleted))) baseline.current = live;
     setDirty(baseline.current !== null && live !== baseline.current);
     setHasDrawing(elements.some(e => !e.isDeleted && ELEMENT_TYPES.has(e.type)));
+    // A changed drawing is measured again when it is saved
+    if (tooLargeAt.current !== null && live !== tooLargeAt.current) {
+      tooLargeAt.current = null;
+      setTooLarge(false);
+      setError('');
+    }
     if (!api) return;
     const now = appState.activeTool?.type;
     if (now && !TOOL_TYPES.has(now)) {
@@ -176,16 +202,21 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
     }));
   };
 
-  const save = async () => {
+  // pictureOnly: the drawing was too large to keep, so the picture goes without it (no
+  // "Keep drawing" later). A drawing that fits again by then is kept after all.
+  const save = async (pictureOnly = false) => {
     if (!api || saving) return;
     const elements = api.getSceneElements().filter(e => ELEMENT_TYPES.has(e.type));
     if (!elements.length) return;
     setSaving(true);
     setError('');
     try {
-      const scene = JSON.stringify({ type: 'excalidraw', version: 2, elements });
-      if (scene.length > SCENE_MAX) {
-        setError('The drawing is too large to keep. Save a simpler one.');
+      const scene = sceneText(elements);
+      const fits = sceneBytes(scene) <= SCENE_MAX;
+      if (!fits && !pictureOnly) {
+        tooLargeAt.current = signature(api.getSceneElements());
+        setTooLarge(true);
+        setError('This drawing is too large to keep for more drawing later.');
         return;
       }
       const png = await exportToBlob({
@@ -200,7 +231,7 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
           return { width: Math.round(w * scale), height: Math.round(h * scale), scale };
         },
       });
-      const result = await onSave(png, scene);
+      const result = await onSave(png, fits ? scene : null);
       if (result && result.ok === false) setError(result.error || 'The sketch was not saved. Check your connection and try again; your drawing is still here.');
     } catch (e) {
       console.error('Sketch not saved:', e);
@@ -226,16 +257,17 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
 
   return (
     <div className="sketch-pad flex flex-col h-full min-h-0">
-      {/* The sheet's head: leave, undo and redo, keep */}
-      <div className="shrink-0 flex items-center gap-2 px-2 sm:px-3 py-2 border-b border-sepia/25">
+      {/* The sheet's head: leave, undo and redo, keep. Labels stay on one line: the head
+          fits a 360 phone, and only a narrower one carries the keep button to a second line */}
+      <div className="shrink-0 flex flex-wrap items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 border-b border-sepia/25">
         <div ref={cancelStep.ref} className="contents">
           <button
             type="button"
             onClick={cancel}
-            className={`min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest rounded-sm border transition-colors ${
+            className={`min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest rounded-sm border transition-colors ${
               cancelStep.armed ? 'bg-oxblood text-cream border-ink' : 'text-sepia border-sepia/45 hover:text-ink hover:border-ink/60'}`}
           >
-            {cancelStep.armed ? 'Discard drawing' : 'Cancel'}
+            {cancelStep.armed ? 'Discard' : 'Cancel'}
           </button>
         </div>
         <div className="flex-1" />
@@ -244,9 +276,9 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
         <div className="flex-1" />
         <button
           type="button"
-          onClick={save}
+          onClick={() => save()}
           disabled={!api || !hasDrawing || saving}
-          className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded shadow-[1px_2px_4px_rgba(0,0,0,0.3)] hover:brightness-125 disabled:bg-ink/60 disabled:text-cream/40 disabled:shadow-none transition"
+          className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 sm:px-4 whitespace-nowrap font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded shadow-[1px_2px_4px_rgba(0,0,0,0.3)] hover:brightness-125 disabled:bg-ink/60 disabled:text-cream/40 disabled:shadow-none transition"
         >
           {saving ? 'Saving…' : saveLabel}
         </button>
@@ -254,7 +286,7 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
 
       {/* Tools, inks and nibs */}
       <div className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 sm:px-3 py-1.5 border-b border-sepia/20">
-        <div role="toolbar" aria-label="Drawing tools" className="flex items-center gap-0.5">
+        <div role="toolbar" aria-label="Drawing tools" className="flex flex-wrap items-center gap-0.5">
           {TOOLS.map(t => (
             <button key={t.type} type="button" aria-label={t.label} title={t.label} aria-pressed={tool === t.type}
               onClick={() => pickTool(t.type)} className={markBtn(tool === t.type)}>
@@ -299,12 +331,20 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
             aiEnabled={false}
             autoFocus
             renderTopRightUI={() => null}
+            // Modes the hidden menus would be needed to leave again (Alt+R view mode, the
+            // grid, zen mode) stay off, and a pasted video link stays text: an embedded
+            // frame would load another site on the sheet and be missing from the picture
+            viewModeEnabled={false}
+            gridModeEnabled={false}
+            zenModeEnabled={false}
+            validateEmbeddable={false}
           />
         </div>
       </div>
 
-      {/* The foot: another way in, and the form's small print */}
-      <div className={`shrink-0 ${onUploadPicture || error ? 'flex' : 'hidden sm:flex'} flex-wrap items-center gap-x-4 gap-y-1 px-2 sm:px-3 py-2 border-t border-sepia/25`}>
+      {/* The foot: another way in, what went wrong, and the form's small print. On a short
+          screen only when it has something to say */}
+      <div className={`shrink-0 ${onUploadPicture || error ? 'flex' : 'hidden framed:flex'} flex-wrap items-center gap-x-4 gap-y-1 px-2 sm:px-3 py-2 border-t border-sepia/25`}>
         {onUploadPicture && (
           <div ref={uploadStep.ref} className="contents">
             <button
@@ -318,7 +358,17 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
           </div>
         )}
         {error && <p role="alert" className="font-serif text-base text-oxblood leading-snug min-w-0 flex-1 basis-48">{error}</p>}
-        <span className="ml-auto hidden sm:flex items-center gap-2" aria-hidden="true">
+        {tooLarge && (
+          <button
+            type="button"
+            onClick={() => save(true)}
+            disabled={saving}
+            className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest rounded-sm border text-oxblood border-oxblood/60 hover:bg-oxblood hover:text-cream disabled:opacity-50 transition-colors"
+          >
+            {pictureOnlyLabel}
+          </button>
+        )}
+        <span className="ml-auto hidden framed:flex items-center gap-2" aria-hidden="true">
           <PrinterMark size={11} />
           <FormLine>Field register · Field sketch · Form C.O. 5</FormLine>
         </span>

@@ -576,8 +576,8 @@ def test_drawing_at_the_size_limit_is_kept(client):
 
 def test_a_drawing_belongs_to_a_live_sketch(client):
     """Only a sketch takes a drawing (422 for a photo or a written entry), a redrawn
-    picture must be a PNG of at most 2 MB, both parts are required, and a deleted
-    sketch's drawing is gone with it (404)."""
+    picture must be a PNG of at most 2 MB and is required, and a deleted sketch's
+    drawing is gone with it (404)."""
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
     me = support.as_owner(member["id"])
@@ -595,14 +595,41 @@ def test_a_drawing_belongs_to_a_live_sketch(client):
     assert (r.status_code, r.json()) == (422, {"detail": "The sketch must be a PNG picture."})
     r = client.put(url, files=_redraw_files(PNG + b"0" * (2 * 1024 * 1024)), headers=me)
     assert (r.status_code, r.json()) == (413, {"detail": "Image too large (max 2MB)"})
-    assert client.put(url, files={"file": ("s.png", PNG, "image/png")}, headers=me).status_code == 422
     assert client.put(url, files={"scene": ("s.json", _scene_bytes(), "application/json")},
                       headers=me).status_code == 422
     assert support.fetch(NotebookEntry, sketch["id"]).image_data == sketch["image_data"]
+    assert _stored_scene(sketch["id"]) is not None
     assert client.delete(f"/api/notebook/entries/{sketch['id']}", headers=me).status_code == 204
     r = client.get(f"/api/notebook/entries/{sketch['id']}/scene", headers=me)
     assert (r.status_code, r.json()) == (404, {"detail": "Entry not found"})
     assert client.put(url, files=_redraw_files(), headers=me).status_code == 404
+
+
+def test_redraw_with_the_picture_alone_drops_the_drawing(client):
+    """A drawing too large to keep is saved as its picture alone: a redraw without a
+    scene replaces the picture, and the sketch keeps no drawing after it (has_scene
+    false, the scene 404). Only the author, as for every redraw."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    me = support.as_owner(member["id"])
+    entry = _draw(client, camp, member).json()
+    url = f"/api/notebook/entries/{entry['id']}/sketch"
+    picture_only = {"file": ("sketch.png", PNG + b"picture only", "image/png")}
+    for headers in (support.as_gm(camp), support.as_owner(support.active_member(client, camp)["id"])):
+        assert client.put(url, files=picture_only, headers=headers).status_code == 403
+    assert _stored_scene(entry["id"]) is not None
+    r = client.put(url, files=picture_only, headers=me)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert set(body) == ENTRY_KEYS
+    assert body["image_data"] == "data:image/png;base64," + base64.b64encode(PNG + b"picture only").decode()
+    assert (body["has_scene"], body["title"], body["page_number"]) == (False, entry["title"], entry["page_number"])
+    assert _stored_scene(entry["id"]) is None
+    r = client.get(f"/api/notebook/entries/{entry['id']}/scene", headers=me)
+    assert (r.status_code, r.json()) == (404, {"detail": "This sketch keeps no drawing."})
+    (listed,) = [e for e in client.get(f"/api/notebook/{camp['id']}/entries", headers=me).json()
+                 if e["id"] == entry["id"]]
+    assert listed["has_scene"] is False
 
 
 def test_drawn_sketch_and_redraw_do_not_broadcast(client):

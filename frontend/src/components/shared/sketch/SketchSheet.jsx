@@ -9,10 +9,49 @@ import { loadSketchPad } from './loadSketchPad';
 // Excalidraw) arrives when the sheet opens.
 //
 // Escape and Cancel close it; once something is drawn, Escape does nothing and Cancel
-// asks a second press, so a drawing is never lost by accident. A phone gets the whole
-// screen; from sm it is a large sheet on the dimmed desk.
+// asks a second press, so a drawing is never lost by accident. A phone, upright or held
+// sideways, gets the whole screen; a screen at least 640 wide and over 500 tall (framed,
+// tailwind.config.js) gets a large sheet on the dimmed desk.
 
-const SketchPad = lazy(loadSketchPad);
+// The drawing code, kept once it has come. A failed load is not kept, so the next opening
+// of the sheet asks again: one lazy component for the whole page would keep the failure
+// until a reload. After the site is updated, the drawing code an open page knows of is
+// gone from the server and only a reload finds the new one (Chrome also keeps a script
+// that failed to load as failed until a reload). The sheet says so and never reloads by
+// itself, which would lose an entry being written.
+let drawingCode = null;
+
+// Vite's loader asks for the drawing code's stylesheet once per page and fires
+// vite:preloadError when it fails. A later try asks for it again here; without it the
+// sheet would open with Excalidraw's own menus showing and none of the sheet's look.
+const failedStyles = new Set();
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', (event) => {
+    const href = /Unable to preload CSS for (\S+)/.exec(event.payload?.message || '')?.[1];
+    if (href) failedStyles.add(href);
+  });
+}
+const loadStyle = (href) => new Promise((resolve, reject) => {
+  document.querySelectorAll('link[rel="stylesheet"]').forEach((l) => { if (l.getAttribute('href') === href) l.remove(); });
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  link.onload = () => { failedStyles.delete(href); resolve(); };
+  link.onerror = () => { link.remove(); reject(new Error(`Unable to load ${href}`)); };
+  document.head.appendChild(link);
+});
+
+const loadDrawingCode = () => {
+  if (!drawingCode) {
+    drawingCode = Promise.all([...failedStyles].map(loadStyle))
+      .then(loadSketchPad)
+      .catch((error) => {
+        drawingCode = null;
+        throw error;
+      });
+  }
+  return drawingCode;
+};
 
 class LoadBoundary extends Component {
   constructor(props) { super(props); this.state = { failed: false }; }
@@ -34,7 +73,9 @@ const Waiting = ({ onCancel, children }) => (
   </div>
 );
 
-export function SketchSheet({ initialElements = null, loading = false, loadError = '', ink, inks, onSave, onCancel, onUploadPicture, saveLabel }) {
+export function SketchSheet({ initialElements = null, loading = false, loadError = '', ink, inks, onSave, onCancel, onUploadPicture, saveLabel, pictureOnlyLabel }) {
+  // Made for this opening of the sheet, so a load that failed before is tried again
+  const [SketchPad] = useState(() => lazy(loadDrawingCode));
   const [dirty, setDirty] = useState(false);
   const ref = useDialog({ onClose: dirty ? undefined : onCancel });
 
@@ -63,17 +104,17 @@ export function SketchSheet({ initialElements = null, loading = false, loadError
   }, [dirty, onCancel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return createPortal(
-    <div className="fixed inset-0 z-[650] flex items-stretch sm:items-center justify-center sm:p-6" style={{ background: 'rgb(var(--c-night) / 0.82)' }}>
+    <div className="fixed inset-0 z-[650] flex items-stretch framed:items-center justify-center framed:p-6" style={{ background: 'rgb(var(--c-night) / 0.82)' }}>
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label="Field sketch"
-        className="sketch-sheet relative w-full h-[100dvh] sm:h-[min(820px,calc(100dvh-48px))] sm:max-w-[1120px] bg-cream text-ink sm:rounded-sm sm:border sm:border-sepia/40 shadow-[0_20px_60px_rgba(0,0,0,0.9)] overflow-hidden overscroll-contain"
+        className="sketch-sheet relative w-full h-[100dvh] framed:h-[min(820px,calc(100dvh-48px))] framed:max-w-[1120px] bg-cream text-ink framed:rounded-sm framed:border framed:border-sepia/40 shadow-[0_20px_60px_rgba(0,0,0,0.9)] overflow-hidden overscroll-contain"
       >
         <LoadBoundary fallback={(
           <Waiting onCancel={onCancel}>
-            <p role="alert" className="font-serif text-lg text-oxblood max-w-md">The sketch sheet could not be opened. Check your connection and try again.</p>
+            <p role="alert" className="font-serif text-lg text-oxblood max-w-md">The sketch sheet could not be opened. Reload the page to draw. Anything not yet added to the notebook is lost on a reload.</p>
           </Waiting>
         )}>
           {loading || loadError ? (
@@ -93,6 +134,7 @@ export function SketchSheet({ initialElements = null, loading = false, loadError
                 onUploadPicture={onUploadPicture}
                 onDirtyChange={setDirty}
                 saveLabel={saveLabel}
+                pictureOnlyLabel={pictureOnlyLabel}
               />
             </Suspense>
           )}
