@@ -185,7 +185,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: JSON `RegisterRequest {username (2 to 32, `^[\w\-. ]+$`), email (max 254, not validated as an address), password (8 to 128)}`.
 - Tables: users (insert), campaigns (read code `fairelands-01`).
 - Response: `{role: "PLAYER", name, userId, campaignCode: "fairelands-01", campaignId: <id or null>}`. The hard-coded campaign code is a leftover; the frontend ignores it.
-- Errors: 400 for a taken username or email; 422 validation.
+- Errors: 400 for a taken username or email (since the security review both are compared ignoring case); 422 validation.
 
 ### Investigator routes
 

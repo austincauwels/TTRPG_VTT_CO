@@ -184,7 +184,8 @@ def test_a_matching_email_of_a_user_linked_to_another_google_account_is_not_link
 
 
 def test_two_users_with_the_email_are_not_linked(client, google):
-    """register compares emails exactly, so two users can differ only in case."""
+    """Register used to compare emails exactly, so older data can hold two users whose
+    emails differ only in case (it compares them ignoring case now)."""
     local = f"twin.{support.uid()}"
     a = support.make_user(email=f"{local}@example.test")
     b = support.make_user(email=f"{local.upper()}@example.test")

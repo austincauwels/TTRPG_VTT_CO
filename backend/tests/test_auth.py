@@ -80,6 +80,18 @@ def test_register_duplicate_email(client):
     assert r.json() == {"detail": "That correspondence address is already registered."}
 
 
+def test_register_email_must_differ_in_more_than_case(client):
+    """Register compared emails exactly. A case variant of someone's email made a second
+    user with that email (ignoring case), and then Sign in with Google no longer linked
+    the owner's account by email, because nobody is linked when two users share it."""
+    local = f"Case.{support.uid()}"
+    assert _register(client, email=f"{local}@example.test").status_code == 201
+    r = _register(client, email=f"{local.upper()}@Example.TEST")
+    assert r.status_code == 400
+    assert r.json() == {"detail": "That correspondence address is already registered."}
+    assert support.fetch_all(User, email=f"{local.upper()}@Example.TEST") == []
+
+
 def test_register_username_must_differ_in_more_than_case(client):
     """'Bob' and 'bob' used to be two accounts, so one player could pass for another
     where a name is typed or read (the GM's invite to rejoin matches names ignoring

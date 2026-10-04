@@ -115,7 +115,9 @@ async def register(request: Request, credentials: RegisterRequest, db: Session =
     require_password_login()
     if username_taken(db, credentials.username):
         raise HTTPException(status_code=400, detail=USERNAME_TAKEN)
-    if db.query(User).filter(User.email == credentials.email).first():
+    # Ignoring case: two users whose emails differ only in case keep Sign in with Google
+    # from linking either of them by email.
+    if db.query(User.id).filter(func.lower(User.email) == func.lower(credentials.email)).first() is not None:
         raise HTTPException(status_code=400, detail="That correspondence address is already registered.")
 
     new_user = User(
