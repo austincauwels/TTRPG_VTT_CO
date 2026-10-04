@@ -89,7 +89,6 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
             <ConfirmAction
               className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-3"
               onConfirm={() => gmResetCharacter(rosterItem.id)}
-              idleHint="Refills drive and resistance and clears ability uses. Asks you to confirm."
               armedHint={`Press again to refill drive and resistance and clear ability uses for ${fullChar.name || 'this investigator'}.`}
               renderButton={(armed, props) => (
                 <button

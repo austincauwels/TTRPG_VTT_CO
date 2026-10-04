@@ -35,6 +35,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   })));
 
   const logEntries = externalLog ?? activityLog;
+  // The roller's rating in the rolled action, so the slip can show dice added to it
+  const rawRating = !showGmControls && lastRoll?.action && character ? Number(character[lastRoll.action]) : NaN;
+  const rollRating = Number.isFinite(rawRating) ? rawRating : null;
   const gildedPending = !!(pendingGildedChoice && lastRoll?.needs_gilded_choice);
 
   const { visiblePrompts, setDismissedPrompts, drivePickerPrompt, setDrivePickerPrompt } =
@@ -128,6 +131,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
         rollerName={rollerName}
         rollerInk={rollerInk}
         keptDie={keptDie}
+        rating={rollRating}
       />
 
       {/* ROLL MODIFICATIONS */}
@@ -153,6 +157,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
           getIsCandidate={getIsCandidate}
           onDieClick={handleDieClick}
           trayInView={trayInView}
+          rating={rollRating}
         >
           <DiceTray
             lastRoll={lastRoll}
@@ -164,6 +169,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
             rollerName={rollerName}
             rollerInk={rollerInk}
             keptDie={keptDie}
+            rating={rollRating}
           />
           {showRollModifications && rollModifications}
         </RollResultBar>

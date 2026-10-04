@@ -6,7 +6,6 @@ import { FormLine } from '../../shared/PrintMarks';
 const SLIP_PAPER = {
   clipPath: 'polygon(0% 2%, 99% 0%, 100% 98%, 1% 100%)',
   background: 'linear-gradient(135deg, rgb(var(--c-parchment)) 55%, rgb(var(--c-parchment-deep)) 88%, rgb(var(--c-sepia)) 100%)',
-  borderLeft: '3px solid rgb(var(--c-oxblood))',
 };
 
 // The slip is torn by its clip-path, so its shadow is a drop-shadow on the button, which
@@ -48,7 +47,7 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
                   {activeCount} of 5 investigators
                 </span>
               </div>
-              <FormLine className="text-left">Form C.O. 1 · Circle charter</FormLine>
+              <FormLine className="text-left">Form C.O. 3 · Circle charter</FormLine>
             </div>
           </div>
           {/* The seal comes down on the slip while the circle is finalized */}
@@ -73,7 +72,7 @@ export const FinalizedSlip = ({ pressed = false, className = '' }) => (
       <WaxSeal size={44} pressed={pressed} />
       <div className="min-w-0">
         <p className="font-serif font-bold uppercase tracking-[0.12em] text-base text-ink">The circle is finalized</p>
-        <FormLine className="block mt-1">Form C.O. 1 · Circle charter · Sealed</FormLine>
+        <FormLine className="block mt-1">Form C.O. 3 · Circle charter · Sealed</FormLine>
       </div>
     </div>
   </div>

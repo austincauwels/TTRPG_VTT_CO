@@ -28,7 +28,7 @@ const ClearButton = ({ label, armedHint, onConfirm, className = '' }) => (
   />
 );
 import { SheetDivider, TurnOverMark } from '../shared/Decorations';
-import { FormLine, SerialNo, PrinterMark, DateStamp, serialFor, stampDate } from '../shared/PrintMarks';
+import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 
 const CIRCLE_QUESTIONS = [
   { key: 'q1', text: 'You have all known one another for a long time, but your circle was recently formed. Why were you brought together, and how do you each feel about it?' },
@@ -84,15 +84,16 @@ function ReportFlipCard({ inv, report }) {
   return (
     <div
       className="cursor-pointer select-none"
-      style={{ perspective: '1200px', height: '320px', width: '100%' }}
+      style={{ perspective: '1200px', width: '100%' }}
       {...pressable(() => setFlipped(f => !f), flipped ? `${inv.name}'s report: turn back to the front` : `${inv.name}: ${report ? 'read the report' : 'no report yet, turn the card'}`)}
       aria-pressed={flipped}
     >
+      {/* The face that is up sits in the flow and sets the card's height; the other one
+          lies under it, so the card is only as tall as what it shows */}
       <div
         style={{
           position: 'relative',
           width: '100%',
-          height: '100%',
           transformStyle: 'preserve-3d',
           transition: 'transform 0.4s ease',
           transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
@@ -100,13 +101,13 @@ function ReportFlipCard({ inv, report }) {
       >
         {/* Front */}
         <div
-          style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0 }}
-          className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 shadow-md p-6 flex flex-col items-center justify-center gap-3"
+          style={{ backfaceVisibility: 'hidden', ...(flipped ? { position: 'absolute', inset: 0 } : { position: 'relative' }) }}
+          className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 shadow-md px-4 pt-5 pb-3 min-h-[13rem] flex flex-col items-center gap-2.5"
         >
           {inv.ink_color && (
             <div className="w-5 h-5 rounded-full" style={{ background: inv.ink_color }} />
           )}
-          <span className="font-sans text-xl font-black uppercase tracking-wide text-ink text-center leading-tight">
+          <span className="font-sans text-xl font-black uppercase tracking-wide text-ink text-center leading-tight break-words max-w-full">
             {inv.name}
           </span>
           {inv.specialty && (
@@ -118,15 +119,15 @@ function ReportFlipCard({ inv, report }) {
               <DateStamp label="Report filed" date={stampDate(report.submitted_at || report.created_at || report.updated_at)} tone="green" tilt={-2} />
             </span>
           ) : (
-            <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider mt-1">No report yet</span>
+            <EmptyStamp label="No report yet" tilt={-2} className="mt-1" />
           )}
           <TurnOverMark className="mt-auto text-sepia/70" />
         </div>
 
         {/* Back */}
         <div
-          style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0, transform: 'rotateY(180deg)' }}
-          className="bg-cream border border-parchment-deep p-4 flex flex-col gap-3 overflow-y-auto"
+          style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', ...(flipped ? { position: 'relative' } : { position: 'absolute', inset: 0 }) }}
+          className={`bg-cream border border-parchment-deep p-4 min-h-[13rem] flex flex-col gap-3 ${flipped ? '' : 'overflow-hidden'}`}
         >
           <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood border-b border-ink/10 pb-1.5">
             {inv.name}'s Report
@@ -355,14 +356,14 @@ export const CirclePage = () => {
               </div>
             </div>
           ) : (
-            <div className="mt-1">
-              <p className="font-serif text-sm text-sepia italic mb-2">No circle ability yet</p>
+            <div className="mt-2">
               <select
                 defaultValue=""
+                aria-label="Circle ability"
                 onChange={e => e.target.value && updateCircle({ circle_id: circId, circle_ability: e.target.value })}
-                className="w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-base px-2 py-1.5 focus:border-oxblood"
+                className="w-full bg-cream border border-dashed border-sepia/50 text-ink font-serif text-base px-2 py-1.5 focus:border-oxblood"
               >
-                <option value="">Choose a circle ability…</option>
+                <option value="" aria-label="None"></option>
                 {Object.keys(CIRCLE_ABILITY_DESCRIPTIONS).map(a => (
                   <option key={a}>{a}</option>
                 ))}
@@ -506,9 +507,9 @@ export const CirclePage = () => {
             <SafeIcon name="GiPapers" size={14} className="text-oxblood" />
             Assignment Reports
           </h3>
-          <div className="flex flex-wrap gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
             {investigators.map((inv, idx) => (
-              <div key={inv.id || idx} className="hand-placed w-[360px] max-w-full" style={tiltStyle(`report-${inv.id ?? idx}`, { max: 1.4, sign: idx % 2 ? 1 : -1 })}>
+              <div key={inv.id || idx} className="hand-placed min-w-0" style={tiltStyle(`report-${inv.id ?? idx}`, { max: 1.4, sign: idx % 2 ? 1 : -1 })}>
                 <ReportFlipCard
                   inv={inv}
                   report={reports[inv.id] || reports[String(inv.id)] || null}
@@ -536,12 +537,10 @@ export const CirclePage = () => {
             <p className="font-serif text-base text-ink/80 leading-relaxed italic">"{selQ.text}"</p>
           </div>
         ) : (
-          <p className="font-serif text-sm text-sepia italic mb-5">No circle question yet</p>
+          <BlankQuestionCard />
         )}
 
-        {playersWithAnswers.length === 0 ? (
-          <p className="font-serif text-sm text-sepia italic">No answers yet</p>
-        ) : (
+        {playersWithAnswers.length === 0 ? null : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {playersWithAnswers.map((inv, idx) => (
               <div

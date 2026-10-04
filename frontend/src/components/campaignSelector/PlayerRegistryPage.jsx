@@ -1,6 +1,6 @@
 import React from 'react';
 import { UnaffiliatedCharacterRow } from './UnaffiliatedCharacterRow';
-import { FormLine } from '../shared/PrintMarks';
+import { FormLine, BlankRows } from '../shared/PrintMarks';
 
 export const PlayerRegistryPage = ({
   isLoadingBook, characters, enterAsPlayer, refreshBook,
@@ -93,9 +93,7 @@ export const PlayerRegistryPage = ({
             </div>
           )}
 
-          {characters.length === 0 && (
-            <p className="font-serif text-xl italic text-sepia">No investigators yet</p>
-          )}
+          {characters.length === 0 && <BlankRows rows={4} label="No investigators" />}
         </>
       )}
     </div>

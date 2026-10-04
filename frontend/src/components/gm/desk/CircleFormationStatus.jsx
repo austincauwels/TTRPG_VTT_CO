@@ -1,5 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { BlankEntry } from '../../shared/PrintMarks';
 
 // Vote leaders and answers while the circle is forming. The open state lives in
 // OperationsPanel so it survives tab changes.
@@ -35,7 +36,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
                 <div className="flex justify-between items-center">
                   <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Circle Name</span>
                   <span className="font-serif text-sm text-cream text-right">
-                    {leader ? `"${leader[0]}" (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : suggestCount > 0 ? `${suggestCount} suggestion${suggestCount > 1 ? 's' : ''}, no votes yet` : 'No names suggested yet'}
+                    {leader ? `"${leader[0]}" (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : suggestCount > 0 ? `${suggestCount} suggested, 0 votes` : <BlankEntry label="None suggested" />}
                   </span>
                 </div>
               );
@@ -50,7 +51,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
                 <div className="flex justify-between items-center">
                   <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Circle Ability</span>
                   <span className="font-serif text-sm text-cream text-right">
-                    {leader ? `${leader[0]} (${leader[1]})` : 'No votes yet'}
+                    {leader ? `${leader[0]} (${leader[1]})` : <BlankEntry label="No votes" />}
                   </span>
                 </div>
               );
@@ -78,7 +79,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
                 <div className="flex justify-between items-center">
                   <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Question</span>
                   <span className="font-serif text-sm text-cream text-right">
-                    {leader ? `Question ${leader[0].replace('q','')} leads (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : 'No votes yet'}
+                    {leader ? `Question ${leader[0].replace('q','')} leads (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : <BlankEntry label="No votes" />}
                   </span>
                 </div>
               );

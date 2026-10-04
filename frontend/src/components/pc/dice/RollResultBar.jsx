@@ -29,7 +29,7 @@ const MiniDie = ({ die, counts, dim, onClick }) => {
 // transform or filter can move it.
 export const RollResultBar = ({
   rollerName, rollerInk, lastRoll, isRolling, gildedPending, keptDie,
-  getIsCandidate, onDieClick, trayInView, children,
+  getIsCandidate, onDieClick, trayInView, children, rating = null,
 }) => {
   const [open, setOpen] = useState(false);
   const sheetRef = useDialog({ open, onClose: () => setOpen(false) });
@@ -37,7 +37,7 @@ export const RollResultBar = ({
   if (!lastRoll && !isRolling) return null;
 
   const dice = lastRoll?.dice || [];
-  const poolText = isRolling ? '' : rollPoolText(lastRoll, keptDie);
+  const poolText = isRolling ? '' : rollPoolText(lastRoll, keptDie, rating);
   const outcomeKey = lastRoll?.outcome || (keptDie ? outcomeForKept(keptDie.value) : null);
   const outcome = !isRolling && !gildedPending ? OUTCOME[outcomeKey] : null;
   const status = isRolling ? 'Rolling…'

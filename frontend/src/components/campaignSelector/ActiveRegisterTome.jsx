@@ -45,9 +45,7 @@ export const ActiveRegisterTome = ({ characters, gmCampaigns, onOpen }) => (
             </div>
           )}
           {characters.length === 0 && gmCampaigns.length === 0 && (
-            <span className="font-display text-xs sm:text-base tracking-[0.15em] uppercase text-gold-leaf">
-              Nothing yet
-            </span>
+            <span className="sr-only">Nothing in it</span>
           )}
         </div>
       </>

@@ -21,7 +21,7 @@ const rollKey = (roll) =>
 // The paper slip under the felt: who rolled (in their ink), what was thrown and which die
 // counts, then the outcome stamp. Player inks are dark by design, so the name sits on
 // paper, not on the felt. The red number is a numbering machine's, for the look only.
-const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie }) => {
+const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, rating }) => {
   const outcomeKey = lastRoll.outcome || (keptDie ? outcomeForKept(keptDie.value) : null);
   const outcome = OUTCOME[outcomeKey];
   const key = rollKey(lastRoll);
@@ -31,7 +31,7 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie })
         <span className="font-serif font-bold text-lg leading-snug truncate" style={{ color: rollerInk || 'rgb(var(--c-ink))' }}>{rollerName}</span>
         <SerialNo value={serialFor(key)} className="shrink-0" />
       </div>
-      <p className="font-serif text-base leading-snug">{rollPoolText(lastRoll, keptDie)}</p>
+      <p className="font-serif text-base leading-snug">{rollPoolText(lastRoll, keptDie, rating)}</p>
       {gildedPending ? (
         <p className="mt-2 mb-0.5">
           <span className="inline-block font-sans text-xs font-black uppercase tracking-widest text-sepia border border-dashed border-sepia/70 rounded-sm px-2 py-1">
@@ -84,11 +84,23 @@ const SoundToggle = () => {
   );
 };
 
-// Two ivory dice resting on the empty felt. They show pips; a rolled die shows a numeral.
+// The pips of a die face on a 24 by 24 face. The resting dice on the empty felt and every
+// rolled die show their faces this way, so a result is as physical as the idle tray.
 const PIPS = {
-  5: [[6, 6], [18, 6], [12, 12], [6, 18], [18, 18]],
+  1: [[12, 12]],
   2: [[6.5, 17.5], [17.5, 6.5]],
+  3: [[6, 18], [12, 12], [18, 6]],
+  4: [[6, 6], [18, 6], [6, 18], [18, 18]],
+  5: [[6, 6], [18, 6], [12, 12], [6, 18], [18, 18]],
+  6: [[6, 5.5], [6, 12], [6, 18.5], [18, 5.5], [18, 12], [18, 18.5]],
 };
+
+// A rolled die's face: ink pips on the die's own color (ivory, or gold for the gilded die)
+const DieFace = ({ value }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="w-full h-full">
+    {(PIPS[value] || []).map(([cx, cy], i) => <circle key={i} cx={cx} cy={cy} r="2.3" fill="currentColor" />)}
+  </svg>
+);
 const RestingDie = ({ face, tilt }) => (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"
     className="w-9 h-9 2xl:w-11 2xl:h-11 drop-shadow-[2px_4px_3px_rgba(0,0,0,0.6)]"
@@ -102,7 +114,7 @@ const RestingDie = ({ face, tilt }) => (
 // tray that shows the same roll lands its dice at the same angles.
 export const DiceTray = forwardRef(({
   lastRoll, isRolling, gildedPending, dieSkews, getIsCandidate, onDieClick,
-  rollerName, rollerInk, keptDie,
+  rollerName, rollerInk, keptDie, rating = null,
 }, ref) => (
   <div ref={ref}>
   <div className="bg-[#12241b] p-5 shadow-[0_15px_30px_rgba(0,0,0,0.95),inset_0_10px_20px_rgba(0,0,0,0.95)] relative h-[270px] 2xl:h-[330px] flex flex-col justify-between border-[12px] border-[#2e1d15] rounded-sm before:absolute before:inset-0 before:bg-[url('https://www.transparenttextures.com/patterns/fabric-of-squares.png')] before:opacity-20 before:pointer-events-none">
@@ -148,14 +160,14 @@ export const DiceTray = forwardRef(({
                   } : { 'aria-hidden': true })}
                   onClick={clickHandler}
                   onTouchEnd={clickHandler ? (e) => { e.preventDefault(); clickHandler(); } : undefined}
-                  className={`w-11 h-11 2xl:w-14 2xl:h-14 border rounded font-serif font-black text-xl 2xl:text-2xl flex items-center justify-center shadow-2xl ${tumbleClass}
+                  className={`w-11 h-11 2xl:w-14 2xl:h-14 p-0.5 border rounded-[5px] flex items-center justify-center shadow-[2px_5px_6px_rgba(0,0,0,0.7)] ${tumbleClass}
                     ${die.is_gilded
                       ? 'border-2 border-sepia bg-candle-gold text-ink scale-105'
                       : 'border border-ink/20 bg-cream text-ink'}
                     ${extraClasses}`}
                   style={{ animationDelay: gildedPending ? '0ms' : `${delayMs}ms`, '--random-skew': randomSkew }}
                 >
-                  {die.value}
+                  <DieFace value={die.value} />
                 </div>
               );
             })}
@@ -170,7 +182,7 @@ export const DiceTray = forwardRef(({
     </div>
   </div>
   {!isRolling && lastRoll?.dice && (
-    <ResultSlip lastRoll={lastRoll} rollerName={rollerName} rollerInk={rollerInk} gildedPending={gildedPending} keptDie={keptDie} />
+    <ResultSlip lastRoll={lastRoll} rollerName={rollerName} rollerInk={rollerInk} gildedPending={gildedPending} keptDie={keptDie} rating={rating} />
   )}
   </div>
 ));

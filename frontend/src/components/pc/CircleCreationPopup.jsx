@@ -193,7 +193,7 @@ export const CircleCreationPopup = () => {
           {/* Header */}
           <div className="border-b-2 border-ink pb-5 mb-6 text-center">
             <div className="flex items-center justify-between gap-2 mb-3" aria-hidden="true">
-              <span className="flex items-center gap-2"><PrinterMark size={13} /><FormLine>Form C.O. 1 · Circle formation</FormLine></span>
+              <span className="flex items-center gap-2"><PrinterMark size={13} /><FormLine>Form C.O. 4 · Circle formation</FormLine></span>
               <SerialNo value={serialFor(`formation-${circleId ?? ''}`)} />
             </div>
             <h2 className="text-3xl font-black uppercase tracking-wider text-ink">
@@ -447,9 +447,7 @@ export const CircleCreationPopup = () => {
           <Section title="VI. Circle Relationships">
 
             {others.length === 0 ? (
-              <p className="font-serif text-base text-sepia italic text-center py-5">
-                No one else in the circle yet
-              </p>
+              <div className="h-24 rounded-sm border border-dashed border-sepia/40"><span className="sr-only">No one else in the circle</span></div>
             ) : (
               <div className="space-y-4">
                 {others.map((inv) => (

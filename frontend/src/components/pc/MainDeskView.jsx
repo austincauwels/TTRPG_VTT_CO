@@ -73,10 +73,11 @@ export const MainDeskView = () => {
       <ConnectionBanner />
 
       {/* HEADER */}
-      <header className="w-full bg-night relative px-4 pt-4 pb-5 lg:px-6 lg:py-6 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-start gap-y-3 border-b border-ink/40 shadow-xl">
+      <header className="w-full bg-night relative border-b border-ink/40 shadow-xl">
         <ArtDecoCorner position="top-left" />
         <ArtDecoCorner position="top-right" />
 
+        <div className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto px-4 2xl:px-10 pt-4 pb-5 lg:py-6 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-start gap-y-3">
         <div className="hidden lg:block" aria-hidden="true" />
 
         <div className="flex flex-col items-center text-center">
@@ -105,6 +106,7 @@ export const MainDeskView = () => {
             Back to chapter hub
           </button>
         </div>
+        </div>
       </header>
 
       {/* REGISTRY NAVIGATION: the investigator's member ID strip, sealed at its left end */}
@@ -116,7 +118,7 @@ export const MainDeskView = () => {
 
         <div className="w-full bg-parchment border-4 border-double border-ink p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-ink pl-[4.5rem] sm:pl-32 pr-3 sm:pr-6 py-3 sm:py-5 rounded-sm overflow-hidden">
           {/* The registry's number, printed large and faint across the strip */}
-          <Watermark className="left-14 sm:left-48 top-1.5 sm:top-1/2 sm:-translate-y-1/2 text-[30px] sm:text-5xl text-ink/[0.06]">
+          <Watermark className="lg:hidden right-3 top-1.5 text-[30px] text-ink/[0.06]">
             Registry file // No. {serialFor(character?.id)}-CO
           </Watermark>
 
@@ -130,6 +132,12 @@ export const MainDeskView = () => {
             </div>
           </div>
 
+          <div className="hidden lg:block relative flex-1 self-stretch min-w-0" aria-hidden="true">
+            <Watermark className="right-2 top-1/2 -translate-y-1/2 text-5xl text-ink/[0.06]">
+              Registry file // No. {serialFor(character?.id)}-CO
+            </Watermark>
+          </div>
+
           {/* uppercase sits on each button: Tailwind's base resets text-transform on buttons */}
           <div className="flex gap-1 md:gap-2 -ml-12 sm:ml-0 font-sans text-xs font-black relative z-10">
             {['character', 'circle', 'archives'].map((tabName) => {
@@ -140,7 +148,7 @@ export const MainDeskView = () => {
                   onClick={() => setActiveTab(tabName)}
                   aria-current={activeTab === tabName ? 'page' : undefined}
                   className={`pen-host flex-auto md:flex-none px-1.5 md:px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 leading-tight uppercase tracking-normal md:tracking-widest rounded transition-all duration-150 ${
-                    activeTab === tabName ? 'bg-ink text-parchment shadow-md border border-ink' : 'bg-transparent text-sepia hover:bg-black/5 hover:text-ink'
+                    activeTab === tabName ? 'bg-ink text-parchment shadow-md border border-ink' : 'bg-transparent text-sepia [@media(hover:hover)]:hover:bg-black/5 [@media(hover:hover)]:hover:text-ink'
                   }`}
                 >
                   {/* The pen underline draws under a tab that is not open yet */}

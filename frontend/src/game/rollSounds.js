@@ -49,14 +49,65 @@ const audioFor = (key) => {
   return players[key];
 };
 
-// Load both files when a desk opens, so the first sound is not late
-export const primeRollSounds = () => { Object.keys(SOURCES).forEach(audioFor); };
+// Phones (iOS Safari above all) only let an audio element play from script once it has
+// been started inside a tap or a key press. A roll's sound is started by a server
+// message, never by a tap, so on the first tap or key press anywhere on the page each
+// element is started muted and stopped at once. That unlocks it for the rest of the
+// visit; until then a sound fails silently. The listeners go once both are unlocked.
+const unlocked = new Set();
+const UNLOCK_EVENTS = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
+let listening = false;
+// Counts the real plays of each sound, so an unlock that settles late never stops a roll's
+// sound that started in the meantime
+const realPlays = {};
+
+const unlockAll = () => {
+  Object.keys(SOURCES).forEach((key) => {
+    if (unlocked.has(key)) return;
+    const audio = audioFor(key);
+    if (!audio) return;
+    const ticket = realPlays[key] || 0;
+    try {
+      audio.muted = true;
+      const started = audio.play();
+      const settle = (ok) => {
+        if ((realPlays[key] || 0) === ticket) {
+          try { audio.pause(); audio.currentTime = 0; } catch { /* not loaded yet */ }
+        }
+        audio.muted = false;
+        if (ok) unlocked.add(key);
+        if (unlocked.size === Object.keys(SOURCES).length) stopListening();
+      };
+      if (started && typeof started.then === 'function') started.then(() => settle(true), () => settle(false));
+      else settle(true);
+    } catch { audio.muted = false; }
+  });
+};
+
+function stopListening() {
+  if (!listening || typeof document === 'undefined') return;
+  UNLOCK_EVENTS.forEach((type) => document.removeEventListener(type, unlockAll, true));
+  listening = false;
+}
+
+const listenForUnlock = () => {
+  if (listening || typeof document === 'undefined') return;
+  if (unlocked.size === Object.keys(SOURCES).length) return;
+  UNLOCK_EVENTS.forEach((type) => document.addEventListener(type, unlockAll, { capture: true, passive: true }));
+  listening = true;
+};
+
+// Load both files when a desk opens, so the first sound is not late, and unlock them on
+// the next tap or key press
+export const primeRollSounds = () => { Object.keys(SOURCES).forEach(audioFor); listenForUnlock(); };
 
 const play = (key) => {
   if (!enabled) return;
   try {
     const audio = audioFor(key);
     if (!audio) return;
+    realPlays[key] = (realPlays[key] || 0) + 1;
+    audio.muted = false;
     audio.currentTime = 0;
     const started = audio.play();
     if (started && typeof started.catch === 'function') started.catch(() => {});

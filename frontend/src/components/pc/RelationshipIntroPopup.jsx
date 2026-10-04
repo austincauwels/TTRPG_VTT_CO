@@ -62,9 +62,7 @@ export const RelationshipIntroPopup = () => {
 
         <div className="p-6 space-y-4">
           {targets.length === 0 ? (
-            <p className="font-serif text-base text-sepia italic text-center py-6">
-              No one else in the circle yet
-            </p>
+            <div className="h-24 rounded-sm border border-dashed border-sepia/40"><span className="sr-only">No one else in the circle</span></div>
           ) : (
             targets.map((inv) => (
               <RelationshipNegotiation

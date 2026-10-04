@@ -5,7 +5,7 @@ import { TensionClock } from '../gm/SceneManager';
 import { SafeIcon } from '../shared/SafeIcon';
 import { tiltFor } from '../shared/handPlaced';
 import { useTypedText } from '../shared/useTypedText';
-import { SerialNo, serialFor } from '../shared/PrintMarks';
+import { SerialNo, BlankEntry, serialFor } from '../shared/PrintMarks';
 import { TurnOverMark } from '../shared/Decorations';
 
 function RelationshipCard({ inv, myId, relationships, index }) {
@@ -59,12 +59,18 @@ function RelationshipCard({ inv, myId, relationships, index }) {
               <p className="font-sans font-bold text-sm text-sepia uppercase tracking-tighter truncate">· {inv.specialty}</p>
             )}
           </div>
-          {hasAny ? (
-            <p className="font-serif text-sm italic mt-1 pr-6" style={{ color: inkColor }}>
-              {myRel?.status === 'accepted' ? `${myRel.rel_type}` : 'Not settled yet'}
+          {/* Settled: the relationship in their ink. Proposed: its name in pencil beside
+              the empty outline of the stamp it is waiting for. None: a blank rule. */}
+          {myRel?.status === 'accepted' ? (
+            <p className="font-serif text-sm italic mt-1 pr-6" style={{ color: inkColor }}>{myRel.rel_type}</p>
+          ) : hasAny ? (
+            <p className="flex items-center gap-2 font-serif text-sm italic text-sepia mt-1 pr-6">
+              <span className="truncate">{(myRel || theirRel)?.rel_type}</span>
+              <span aria-hidden="true" className="print-stamp-empty !w-10 !h-4 shrink-0" style={{ '--tilt': '-3deg' }} />
+              <span className="sr-only">(not yet accepted)</span>
             </p>
           ) : (
-            <p className="font-serif text-sm text-sepia italic mt-1">No relationship</p>
+            <p className="text-sepia mt-2"><BlankEntry label="No relationship" className="!w-24" /></p>
           )}
           {/* A card with a back can be turned over: the turned corner says so */}
           {hasAny && <TurnOverMark className="absolute bottom-1.5 right-1.5 text-sepia/70" />}

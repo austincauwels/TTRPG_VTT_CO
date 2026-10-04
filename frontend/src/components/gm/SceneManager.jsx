@@ -196,7 +196,9 @@ export const SceneManager = () => {
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           aria-label="Location"
-          className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood px-2 mx-2 text-oxblood font-bold font-serif italic text-center w-full sm:w-auto placeholder-sepia/90"
+          size={Math.max(8, (location || '').length + 2)}
+          style={{ fieldSizing: 'content', minWidth: '6rem' }}
+          className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood px-2 mx-2 text-oxblood font-bold font-serif italic text-center w-full sm:w-auto max-w-[calc(100%-1rem)] placeholder-sepia/90"
           placeholder="location"
           spellCheck="false"
         />.

@@ -76,9 +76,7 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
         </div>
 
         <div className="z-20 absolute bottom-4 sm:bottom-7 flex flex-col items-center gap-2 w-full px-3 sm:px-6">
-          <p className="font-display text-xs sm:text-lg tracking-[0.15em] text-center leading-relaxed uppercase text-gold-leaf">
-            No session yet
-          </p>
+          <span aria-hidden="true" className="block w-28 sm:w-44 h-6 sm:h-9 rounded-sm border border-gold-leaf/35 shadow-[inset_0_1px_3px_rgba(0,0,0,0.7)]" />
         </div>
       </div>
   )

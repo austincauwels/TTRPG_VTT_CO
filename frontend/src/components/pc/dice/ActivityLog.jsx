@@ -76,6 +76,13 @@ function LogEntry({ entry }) {
   );
 }
 
+// The blank rows of the ledger: ruled every 28px, with the time column's red rule
+const LEDGER_ROWS = {
+  backgroundImage:
+    'linear-gradient(to right, transparent 3.85rem, rgb(var(--c-oxblood) / 0.22) 3.85rem, rgb(var(--c-oxblood) / 0.22) calc(3.85rem + 1px), transparent calc(3.85rem + 1px)), ' +
+    'repeating-linear-gradient(to bottom, transparent 0, transparent 27px, rgb(var(--c-sepia) / 0.2) 27px, rgb(var(--c-sepia) / 0.2) 28px)',
+};
+
 // `gm` sets the heading in the GM desk's moonlit chrome; the log paper stays warm.
 export const ActivityLog = ({ logEntries, gm = false }) => {
   const logContainerRef = useRef(null);
@@ -93,7 +100,7 @@ export const ActivityLog = ({ logEntries, gm = false }) => {
     </h3>
     <div
       ref={logContainerRef}
-      className="h-[240px] 2xl:h-[320px] overflow-y-auto space-y-3 text-base font-serif leading-normal px-3 py-2 custom-scrollbar"
+      className="h-[240px] 2xl:h-[320px] overflow-y-auto flex flex-col gap-3 [&>*]:shrink-0 text-base font-serif leading-normal px-3 py-2 custom-scrollbar"
       style={{
         background: 'rgb(var(--c-cream))',
         boxShadow:
@@ -109,6 +116,7 @@ export const ActivityLog = ({ logEntries, gm = false }) => {
         <PrinterMark size={12} />
       </div>
       {logEntries.map((entry, i) => <LogEntry key={i} entry={entry} />)}
+      <div aria-hidden="true" className="!shrink !grow basis-0 min-h-0 -mx-1 pointer-events-none" style={LEDGER_ROWS} />
     </div>
   </div>
   );

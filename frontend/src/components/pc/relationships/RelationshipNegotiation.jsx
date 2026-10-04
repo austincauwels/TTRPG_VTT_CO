@@ -24,7 +24,7 @@ const RelationshipFields = ({ idPrefix, relType, lore, onType, onPrompt, onLore 
     <div>
       <label htmlFor={`${idPrefix}-type`} className={labelClass}>Relationship</label>
       <select id={`${idPrefix}-type`} value={relType || ''} onChange={e => onType(e.target.value)} className={fieldClass}>
-        <option value="">Choose a relationship…</option>
+        <option value="" aria-label="None"></option>
         {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
     </div>

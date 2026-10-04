@@ -21,11 +21,15 @@ export const outcomeForKept = (value) => (value === 6 ? 'full_success' : value >
 //   a gilded pool, before and after the choice    "Survey: 3 dice, 1 gilded"
 //                                                 "Survey: 3 dice, 1 gilded, kept the gilded 5"
 //                                                 "Survey: 3 dice, 1 gilded, kept the 4"
+//   dice added to the rating                      "Sway +2d: 3 dice, highest counts"
 //   a resistance reroll                           "Move, resistance burned: 2 dice, highest counts"
 //   the Lightkeeper's roll (no action)            "4 dice, highest counts"
-// Drive spent and ability dice are already in the count the server threw (capped at 6).
+// The count is what the server threw (capped at 6). rating is the roller's rating in the
+// action when this desk knows it (the player's own desk): dice thrown beyond it (drive
+// spent, an ability, a Train bonus) show as "+2d" after the action, the way the sheet's
+// drive stepper writes them. A resistance reroll throws the rating alone.
 // keptDie is the die kept in a gilded choice ({ value, idx }), when there was one.
-export const rollPoolText = (roll, keptDie = null) => {
+export const rollPoolText = (roll, keptDie = null, rating = null) => {
   if (!roll) return '';
   const dice = roll.dice || [];
   const count = dice.length;
@@ -50,7 +54,8 @@ export const rollPoolText = (roll, keptDie = null) => {
 
   const label = ACTION_LABEL[roll.action];
   if (!label) return thrown;
-  return `${label}${roll.is_resistance_roll ? ', resistance burned' : ''}: ${thrown}`;
+  const added = !roll.is_resistance_roll && roll.type !== 'zero' && Number.isFinite(rating) ? count - rating : 0;
+  return `${label}${added > 0 ? ` +${added}d` : ''}${roll.is_resistance_roll ? ', resistance burned' : ''}: ${thrown}`;
 };
 
 const ACTION_KEYS = Object.keys(ACTION_LABEL).join('|');

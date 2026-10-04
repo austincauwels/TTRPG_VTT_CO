@@ -88,3 +88,44 @@ export const BlankFields = ({ labels, className = '' }) => (
     ))}
   </span>
 );
+
+// A blank on a form where nothing has been entered: a short dotted rule, no words.
+// Screen readers hear `label` ("Not chosen") so the state is not lost to them.
+export const BlankEntry = ({ label, className = '' }) => (
+  <span className={`print-blank ${className}`}>
+    {label && <span className="sr-only">{label}</span>}
+  </span>
+);
+
+// A question card printed with its label and left blank: dotted lines to write on, in
+// place of a sentence saying nothing has been chosen.
+export const BlankQuestionCard = ({ label = 'Circle question', srText = 'Not chosen', lines = 2, className = 'mb-5' }) => (
+  <div className={`bg-cream/60 border border-dashed border-sepia/40 px-4 pt-3 pb-4 rounded-sm ${className}`}>
+    <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block">{label}</span>
+    {Array.from({ length: lines }).map((_, i) => (
+      <span key={i} aria-hidden="true" className="block h-7 border-b border-dotted border-sepia/45" />
+    ))}
+    <span className="sr-only">{srText}</span>
+  </div>
+);
+
+// Empty rows of a register page, ruled and not yet written in (a ledger with no entries)
+export const BlankRows = ({ rows = 3, label, className = '' }) => (
+  <div className={`space-y-1.5 ${className}`}>
+    {Array.from({ length: rows }).map((_, i) => (
+      <span key={i} aria-hidden="true" className="flex items-end h-14 px-3 pb-3"
+        style={{ border: '1px solid rgb(var(--c-sepia) / 0.15)' }}>
+        <span className="flex-1 border-b border-dotted border-sepia/35" />
+      </span>
+    ))}
+    {label && <span className="sr-only">{label}</span>}
+  </div>
+);
+
+// The dashed outline where a stamp has not been pressed yet (a report not filed). The
+// stamp itself is a DateStamp, set in the same spot once there is something to stamp.
+export const EmptyStamp = ({ label, tilt = -2, className = '' }) => (
+  <span className={`print-stamp-empty ${className}`} style={{ '--tilt': `${tilt}deg` }}>
+    {label && <span className="sr-only">{label}</span>}
+  </span>
+);

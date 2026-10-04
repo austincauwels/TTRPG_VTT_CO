@@ -5,7 +5,7 @@ import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey } from '../shared/a11y';
-import { FormLine, SerialNo, DateStamp, PrinterMark, serialFor, stampDate } from '../shared/PrintMarks';
+import { FormLine, SerialNo, DateStamp, PrinterMark, BlankEntry, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -182,7 +182,7 @@ export function AdvancementModal() {
           Circle Advancement
         </h2>
         <p className="font-serif italic text-base text-sepia mb-5">
-          The Illumination track is full. Choose <strong>2</strong> for {character?.name || 'your investigator'}.
+          The Illumination track is full: <strong>2</strong> advancements for {character?.name || 'your investigator'}.
         </p>
 
         {circleAdvancement?.circle?.circle_ability && (() => {
@@ -221,8 +221,8 @@ export function AdvancementModal() {
                 {/* Detail selectors — only shown when this pick is selected */}
                 {isSelected && (id === 'add_action' || id === 'gild_action') && (
                   <div className="px-3 pb-3">
-                    <label className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">Choose action:</label>
-                    <div className="grid grid-cols-3 gap-1">
+                    <p id={`adv-${id}-label`} className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">Action</p>
+                    <div className="grid grid-cols-3 gap-1" role="group" aria-labelledby={`adv-${id}-label`}>
                       {['Nerve', 'Cunning', 'Intuition'].map(group => (
                         <div key={group}>
                           <div className="font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-0.5">{group}</div>
@@ -256,8 +256,8 @@ export function AdvancementModal() {
 
                 {isSelected && id === 'add_drive' && (
                   <div className="px-3 pb-3">
-                    <label className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">Choose drive pool:</label>
-                    <div className="flex gap-2">
+                    <p id={`adv-${id}-label`} className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">Drive</p>
+                    <div className="flex gap-2" role="group" aria-labelledby={`adv-${id}-label`}>
                       {['nerve', 'cunning', 'intuition'].map(dk => (
                         <button
                           key={dk}
@@ -277,18 +277,19 @@ export function AdvancementModal() {
                   const available = getAvailableAbilities(character);
                   return (
                     <div className="px-3 pb-3">
-                      <label className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">
-                        Choose ability ({character?.role} / {character?.specialty}):
+                      <label htmlFor="adv-new-ability" className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">
+                        Ability
                       </label>
                       {available.length === 0 ? (
                         <p className="font-serif text-sm text-sepia italic">All abilities for your role and specialty are already learned.</p>
                       ) : (
                         <select
+                          id="adv-new-ability"
                           value={details[id] || ''}
                           onChange={e => setDetails(d => ({ ...d, [id]: e.target.value }))}
                           className="w-full border border-parchment-deep rounded-sm px-2 py-1.5 font-serif text-sm bg-cream focus:border-oxblood text-ink"
                         >
-                          <option value="">Choose an ability…</option>
+                          <option value="" aria-label="None"></option>
                           {(() => {
                             const roleOpts = available.filter(a => a.source === character?.role);
                             const specOpts = available.filter(a => a.source === character?.specialty);
@@ -443,7 +444,7 @@ export const CircleView = () => {
               <div className="font-serif text-sm mt-0.5 italic leading-snug">
                 {circle?.chapter_house_location
                   ? <span className="text-oxblood">{circle.chapter_house_location}</span>
-                  : <span className="text-sepia">Not chosen yet</span>
+                  : <span className="text-sepia"><BlankEntry label="Not chosen" className="!w-40" /></span>
                 }
               </div>
             </div>
@@ -719,9 +720,7 @@ export const CircleView = () => {
             </p>
           </div>
         ) : (
-          <p className="font-serif text-sm text-sepia italic mb-5">
-            No circle question yet
-          </p>
+          <BlankQuestionCard className="mb-5" />
         )}
 
         {/* Player account */}
@@ -741,9 +740,12 @@ export const CircleView = () => {
                 "{character.personal_circle_answer}"
               </p>
             ) : (
-              <p className="font-serif text-sm text-sepia italic">
-                No answer yet
-              </p>
+              // The answer lines, left blank
+              <>
+                <span aria-hidden="true" className="block h-6 border-b border-dotted border-sepia/45" />
+                <span aria-hidden="true" className="block h-6 border-b border-dotted border-sepia/45" />
+                <span className="sr-only">No answer</span>
+              </>
             )}
           </div>
         </div>

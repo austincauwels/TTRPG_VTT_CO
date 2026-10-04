@@ -1,6 +1,6 @@
 import React from 'react';
 import { CreateCampaignForm } from './CreateCampaignForm';
-import { FormLine } from '../shared/PrintMarks';
+import { FormLine, BlankRows } from '../shared/PrintMarks';
 
 export const LightkeeperLedgerPage = ({
   closeBook, gmCampaigns, enterAsGM, isLoadingBook, showRegisterForm, setShowRegisterForm,
@@ -44,11 +44,7 @@ export const LightkeeperLedgerPage = ({
         </div>
       )}
 
-      {gmCampaigns.length === 0 && !isLoadingBook && (
-        <p className="font-serif text-xl italic text-sepia">
-          No campaigns yet
-        </p>
-      )}
+      {gmCampaigns.length === 0 && !isLoadingBook && <BlankRows rows={3} label="No campaigns" />}
     </div>
 
     {showRegisterForm ? (

@@ -12,11 +12,14 @@ export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }
       <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
     </div>
     {campaignRoster.active_investigators?.length === 0 ? (
-      <p className="font-serif text-base text-moonlight-steel text-center py-6 italic">
-        No investigators in play yet
-      </p>
+      // An empty place on the desk where the first card will lie
+      <div className="flex justify-center py-3">
+        <span className="block w-64 max-w-full h-[140px] rounded-sm border border-dashed border-moonlight-steel/35 -rotate-1">
+          <span className="sr-only">No investigators in play</span>
+        </span>
+      </div>
     ) : (
-      <div className="flex flex-wrap gap-4 pt-2 pb-2">
+      <div className="flex flex-wrap 2xl:grid 2xl:grid-cols-3 gap-4 2xl:gap-5 pt-2 pb-2">
         <AnimatePresence>
           {campaignRoster.active_investigators.map((inv, i) => (
             <InvestigatorBusinessCard key={inv.id} inv={inv} index={i} onClick={() => onSelect(inv)} />

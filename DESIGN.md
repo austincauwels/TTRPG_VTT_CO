@@ -249,7 +249,7 @@ The scale is Tailwind's: 12, 14, 16, 18, 20, 24, 30, 36, 48px (`text-xs` to `tex
 
 **The Short Caps Rule.** Uppercase with wide tracking is for short labels only. Sentences and letterhead lines are set in sentence case, usually Crimson italic.
 
-**The No Instructions Rule** (Robert Gater, 2026-10-04). No sentence explains a control ("Tap an action to roll it", "No rolls yet", "Use Change Gear to pick up to 3 items"). The layout carries the action: a roll is a raised chit with a die on it, a card that turns over shows a turn-over mark, a field has a plain label, a limit shows as a counter ("0 / 3 selected"), a choice as filled or open marks. An empty area stays quietly empty or shows an object (two resting dice on the felt, blank gear slots, a blank ruled sheet). What stays in words: rulebook ability text, game state ("Spending locked", "Reports open", "Waiting for Iris"), the outcome of a roll, errors that say what to do next, and the second-press warnings on actions that cannot be undone.
+**The No Instructions Rule** (Robert Gater, 2026-10-04). No sentence explains a control ("Tap an action to roll it", "No rolls yet", "Use Change Gear to pick up to 3 items"). The layout carries the action: a roll is a raised chit with a die on it, a card that turns over shows a turn-over mark, a field has a plain label, a limit shows as a counter ("0 / 3 selected"), a choice as filled or open marks. An empty area stays quietly empty or shows an object (two resting dice on the felt, blank gear slots, a blank ruled sheet): a value not given yet is a dotted blank (`BlankEntry`), a report not filed is the dashed outline of its stamp (`EmptyStamp`), an unchosen circle question is its card with blank ruled lines (`BlankQuestionCard`), an empty register page has blank rows (`BlankRows`), the table log runs its ledger rows to the foot of the sheet, and an empty investigators panel shows the dashed place where the first card will lie. Each keeps the state for screen readers in an `sr-only` word. A select starts on a blank option under its plain label, never on "Choose ...". What stays in words: rulebook ability text, game state ("Spending locked", "Reports open", "Waiting for Iris"), the outcome of a roll, errors that say what to do next, and the second-press warnings on actions that cannot be undone.
 
 **The Pen Belongs to the Player Rule.** Handwriting fonts appear only for text a person wrote (notebook entries, signatures, pen previews, business-card names). Interface copy never uses them.
 
@@ -263,7 +263,7 @@ Spacing follows Tailwind's 4px grid. The working steps are 4, 8, 12, 16 and 24px
 
 Breakpoints are Tailwind defaults (sm 640, md 768, lg 1024, xl 1280, 2xl 1536). `lg:` carries most of the responsive switching. Phones (390) and tablets (768) stack the desks into one column.
 
-**Wide desks (2xl, owner's request 2026-10-04).** From 1536px the player and GM desks stop being a 1500px column in the middle of the screen. Their container grows to 1840px with 40px side margins, and the 12-column grid gives way to three explicit tracks: the left rail (22 to 23rem) and the right rail with the dice tray (27rem) sit out at the edges with 56px gutters, and the sheet or work surface between them takes the rest, about 850px at 1920, which keeps the dossier's prose at a comfortable measure. The felt tray grows to 330px with larger dice, the activity log to 320px, the roster book's spread to 1320px, and the notebook spread follows the container. The map and notebook tabs on the GM desk drop the right rail and use two tracks. 1440 keeps the lg layout.
+**Wide desks (2xl, owner's request 2026-10-04).** From 1536px the player and GM desks stop being a 1500px column in the middle of the screen. Their container grows to 1840px with 40px side margins, and the 12-column grid gives way to three explicit tracks: the left rail (22 to 23rem) and the right rail with the dice tray (27rem) sit out at the edges with 56px gutters, and the sheet or work surface between them takes the rest, about 850px at 1920, which keeps the dossier's prose at a comfortable measure. The felt tray grows to 330px with larger dice, the activity log to 320px, the roster book's spread to 1320px, and the notebook spread follows the container. The map and notebook tabs on the GM desk drop the right rail and use two tracks. The player desk's header sits in the same container, so "Back to chapter hub" ends on the desk's right edge (1424px at 1440, 1840px at 1920). On the GM desk the investigators' business cards lie in one row of three from 2xl, and the Assignment Reports on the circle page are a grid, three across from xl, each card as tall as the face that is up. 1440 keeps the lg layout otherwise.
 
 ## Elevation & Depth
 
@@ -344,8 +344,23 @@ Small, meaningful responses drawn in CSS or SVG; each one stops or shows at once
 
 ### Printed form furniture (owner's request, 2026-10-04)
 The paper objects carry the small print of forms that came off a press, drawn in code by `components/shared/PrintMarks.jsx` with the `.print-*` rules in index.css. All of it is decoration: `aria-hidden`, faint on purpose, never an instruction, never over a control, no clicks.
-- **Watermark**: oversized faint mono print behind a strip, at about 6% ink. The member ID strip on the player desk carries "REGISTRY FILE // NO. 00000-CO", its number fixed per investigator.
-- **Form line**: tiny letterpress capitals in sepia at about 60% ("Form C.O. 7 · Investigator record", "Form C.O. 14 · Trauma record", "Memo · Form C.O. 22", "Office of the Lightkeeper · Vol. II"). Each kind of paper keeps one form number everywhere it appears.
+- **Watermark**: oversized faint mono print behind a strip, at about 6% ink. The member ID strip on the player desk carries "REGISTRY FILE // NO. 00000-CO", its number fixed per investigator. The print is anchored by its right end, so the number always reads whole: from lg it ends in the open paper just before the tabs and its first words run under the name and the seal; on phones and tablets, where there is no open paper between the name and the tabs, it is printed along the top of the strip and ends at its right edge, clear of the tabs.
+- **Form line**: tiny letterpress capitals in sepia at about 60% ("Form C.O. 7 · Investigator record", "Form C.O. 14 · Trauma record", "Memo · Form C.O. 22", "Office of the Lightkeeper · Vol. II"). Each kind of paper keeps one form number everywhere it appears, and each number names one kind of paper:
+
+  | Form | Paper |
+  |---|---|
+  | C.O. 0 | Admission (login slip) |
+  | C.O. 1 | Lightkeeper's commission (the hub's Lightkeeper Access pamphlet) |
+  | C.O. 2 | Dispatch (the GM's dispatch letter) |
+  | C.O. 3 | Circle charter (the Circle tab, the GM's circle page, the Finalize and sealed slips) |
+  | C.O. 4 | Circle formation papers |
+  | C.O. 5 | Field register (the notebook) |
+  | C.O. 7 | Investigator record (creator sheets, dossier, the hub's intake pamphlet) |
+  | C.O. 9 | Table log |
+  | C.O. 11 | Assignment report |
+  | C.O. 14 | Trauma record (scars) |
+  | C.O. 22 | Memo (pass notes) |
+- **Running head**: the notebook's opening spread carries "Section I" and "Section II" in the top outer corner of each page over a hairline, in the form line's capitals, clear of the page heading.
 - **Serial number**: a numbering machine's red figures ("No. 89206") in the corner of the dossier, the GM's dispatch, the From the GM card, the circle charter, business cards and each roll's result slip. `serialFor(key)` hashes a stable key, so a sheet keeps its number across reloads.
 - **Printer's mark**: a registration circle and cross beside a form line.
 - **Edge line**: small print repeated along the bottom edge of the investigator sheet and clipped by it.
@@ -354,12 +369,12 @@ The paper objects carry the small print of forms that came off a press, drawn in
 `PaperSheet` takes `printLine` and `serial` for its top corners (creator sheets, login slip).
 
 ### Dice tray and roll line
-- **Result slip**: the roller's name in their ink and the slip's serial; then what was thrown, in the rulebook's terms, for every pool: "Move: 2 dice, lowest counts" (zero rating), "Sense: 1 die", "Sway: 3 dice, highest counts", "Survey: 2 dice, 1 gilded" and, after the choice, "... kept the gilded 5"; a resistance reroll reads "Move, resistance burned: ...". Drive and ability dice are already in the count. Then the outcome stamp, or a dashed "Keep one die" while a gilded choice is open.
-- **Empty tray**: two ivory dice resting on the felt, drawn with pips (a rolled die shows a numeral).
+- **Result slip**: the roller's name in their ink and the slip's serial; then what was thrown, in the rulebook's terms, for every pool: "Move: 2 dice, lowest counts" (zero rating), "Sense: 1 die", "Sway: 3 dice, highest counts", "Survey: 2 dice, 1 gilded" and, after the choice, "... kept the gilded 5"; a resistance reroll reads "Move, resistance burned: ...". Dice thrown beyond the rating (drive spent, an ability, a Train bonus) show after the action the way the sheet's drive stepper writes them: "Sneak +2d: 4 dice, highest counts". The count is what the server threw (capped at 6). Then the outcome stamp, or a dashed "Keep one die" while a gilded choice is open.
+- **Dice**: two ivory dice rest on the empty felt, and every rolled die shows its face the same way, as ink pips on ivory (gold for the gilded die) with a cast shadow, so a result is as physical as the idle tray. The dice that count carry a green ring.
 - **Actions on the sheet**: each action that rolls is a raised paper chit with a die face, its label and its rating pips; hover inks it oxblood, pressing sinks it. The drive stepper beside each drive reads "+0d" and goes up as drive is added.
 
 ### Roll sounds
-`game/rollSounds.js` plays `public/sounds/full-success.mp3` (a vibraphone chord) when a roll's final result is a Full Success (a counting 6 that is not a Critical) and `failure.mp3` when the counting result is exactly 1; nothing for Mixed, Critical, or a Failure of 2 or 3. Both come from Pixabay's free library (no attribution required). The cue is the roll's line in the activity log, which reaches every desk at the table once, when the result is final; a secret roll writes no line, and a reconnect replays nothing. A loudspeaker in the corner of the felt turns the sounds off or on for that browser (`localStorage`, default on); a browser that has not had a click yet stays silent.
+`game/rollSounds.js` plays `public/sounds/full-success.mp3` (a vibraphone chord) when a roll's final result is a Full Success (a counting 6 that is not a Critical) and `failure.mp3` when the counting result is exactly 1; nothing for Mixed, Critical, or a Failure of 2 or 3. Both come from Pixabay's free library (no attribution required). The cue is the roll's line in the activity log, which reaches every desk at the table once, when the result is final; a secret roll writes no line, and a reconnect replays nothing. A loudspeaker in the corner of the felt turns the sounds off or on for that browser (`localStorage`, default on); a browser that has not had a click yet stays silent. Phones, iOS Safari above all, only let an audio element play from script once it has been started inside a tap, so on the first tap or key press anywhere on the page each sound is started muted and stopped at once; that unlocks it for the visit, and an unlock that settles late never stops a roll's sound that started meanwhile.
 
 ## Do's and Don'ts
 

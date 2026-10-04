@@ -629,8 +629,11 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
             {/* LEFT PAGE */}
             {currentSpread === 0 ? (
-              <div className="p-4 pt-10 sm:p-8 lg:pr-10 relative flex flex-col h-full min-w-0 border-b lg:border-b-0 lg:border-r border-ink/20">
-                <div className="absolute top-3 left-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">Section I</div>
+              <div className="p-4 pt-12 sm:p-8 sm:pt-14 lg:pr-10 relative flex flex-col h-full min-w-0 border-b lg:border-b-0 lg:border-r border-ink/20">
+                <div aria-hidden="true" className="absolute top-3 left-4 right-4 sm:left-5 sm:right-6 flex items-center gap-2 pb-1 border-b border-sepia/25">
+                  <span className="print-small">Section I</span>
+                  <span className="print-small ml-auto hidden sm:inline">Field register</span>
+                </div>
 
                 <header className="border-b-2 border-ink/80 pb-4 mb-5">
                   <h2 className="text-4xl sm:text-5xl leading-tight font-display tracking-[0.04em] text-ink uppercase">Field Notes</h2>
@@ -743,8 +746,11 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
             {/* RIGHT PAGE */}
             {currentSpread === 0 ? (
-              <div className="p-4 pt-10 sm:p-8 lg:pl-10 relative flex flex-col h-full min-w-0 bg-cream">
-                <div className="absolute top-3 right-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">Section II</div>
+              <div className="p-4 pt-12 sm:p-8 sm:pt-14 lg:pl-10 relative flex flex-col h-full min-w-0 bg-cream">
+                <div aria-hidden="true" className="absolute top-3 left-4 right-4 sm:left-6 sm:right-5 flex items-center gap-2 pb-1 border-b border-sepia/25">
+                  <span className="print-small hidden sm:inline">Field register</span>
+                  <span className="print-small ml-auto">Section II</span>
+                </div>
                 <header className="border-b-2 border-ink/80 pb-4 mb-5">
                   <h3 className="text-3xl sm:text-4xl leading-tight font-display tracking-[0.04em] text-ink uppercase">Log a Field Entry</h3>
                   <p className="font-sans font-bold text-xs text-sepia uppercase tracking-widest mt-1.5">
