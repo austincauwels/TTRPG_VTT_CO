@@ -17,7 +17,7 @@ export const GmDiceControls = ({ rollAction }) => {
         >−</button>
         <span className="font-mono tabular-nums text-cream text-base w-5 text-center">{gmDiceCount}</span>
         <button
-          onClick={() => setGmDiceCount(Math.min(10, gmDiceCount + 1))}
+          onClick={() => setGmDiceCount(Math.min(6, gmDiceCount + 1))}
           aria-label="One die more"
           className="w-8 h-8 bg-gm-night border border-moonlight-steel/50 rounded-sm text-sm font-bold text-cream hover:bg-gm-slate transition-colors"
         >+</button>
@@ -35,12 +35,7 @@ export const GmDiceControls = ({ rollAction }) => {
       <button
         onClick={() => rollAction('Lightkeeper', gmDiceCount, gmSecretRoll)}
         className="px-5 py-2 bg-oxblood text-cream border border-ink hover:brightness-125 font-sans text-sm font-black uppercase tracking-widest transition rounded"
-      >Roll {gmDiceCount} {gmDiceCount === 1 ? 'die' : 'dice'}</button>
-      <p className="basis-full font-serif text-sm text-moonlight-steel leading-snug">
-        {gmSecretRoll
-          ? 'Secret roll: only you see the dice, and nothing goes in the log.'
-          : 'Everyone sees the result in the activity log. Tick Secret to roll in private.'}
-      </p>
+      >Roll {gmDiceCount} {gmDiceCount === 1 ? 'die' : 'dice'}{gmSecretRoll ? ' in secret' : ''}</button>
     </div>
   );
 };

@@ -11,28 +11,43 @@ export const RollModifications = ({
         <SafeIcon name="GiDiceSixFacesFive" size={15} className="text-parchment-deep/80" />
         <span className="font-sans text-xs font-black uppercase tracking-widest text-parchment-deep/80">After the roll</span>
       </div>
-      {canResist && (
-        <div className="flex items-center justify-between gap-3">
-          <p className="font-serif text-sm text-parchment-deep">
-            Burn 1 {lastRollDriveKey ? lastRollDriveKey.charAt(0).toUpperCase() + lastRollDriveKey.slice(1) : ''} resistance to reroll {ACTION_LABEL[lastRoll?.action] || 'the action'}
-            {(lastRoll?.action && (character?.[lastRoll.action] || 0) === 0)
-              ? ' (rating 0: two dice, take the lowest)'
-              : ` with ${lastRoll?.action ? (character?.[lastRoll.action] || 0) : 0} dice`}.
-            {' '}{resistMax - resistSpent} left.
-          </p>
-          <button
-            onClick={() => burnResistance(lastRoll.action, lastRollDriveKey)}
-            className="shrink-0 px-3 py-1 font-sans text-xs font-black uppercase tracking-widest border border-oxblood-lit/60 text-oxblood-lit hover:bg-oxblood hover:text-cream transition-all rounded-sm"
-          >
-            Burn and reroll
-          </button>
-        </div>
-      )}
+      {canResist && (() => {
+        const drive = lastRollDriveKey ? lastRollDriveKey.charAt(0).toUpperCase() + lastRollDriveKey.slice(1) : '';
+        const action = ACTION_LABEL[lastRoll?.action] || '';
+        const rating = lastRoll?.action ? (character?.[lastRoll.action] || 0) : 0;
+        // A reroll throws the action rating alone, without drive
+        const pool = rating === 0 ? '2 dice, lowest counts' : `${rating} ${rating === 1 ? 'die' : 'dice'}`;
+        const left = resistMax - resistSpent;
+        return (
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <div className="min-w-0">
+              <p className="font-sans text-xs font-black uppercase tracking-widest text-parchment-deep flex items-center gap-2">
+                {drive} resistance
+                <span className="flex items-center gap-1" role="img" aria-label={`${left} of ${resistMax} left`}>
+                  {Array.from({ length: resistMax }).map((_, i) => (
+                    <svg key={i} aria-hidden="true" width="12" height="10" viewBox="0 0 14 12">
+                      <polygon points="7,1 1,11 13,11" strokeWidth="1.5"
+                        style={{ fill: i < resistSpent ? 'rgb(var(--c-oxblood-lit))' : 'transparent', stroke: i < resistSpent ? 'rgb(var(--c-oxblood-lit))' : 'rgb(var(--c-parchment-deep))' }} />
+                    </svg>
+                  ))}
+                </span>
+              </p>
+              <p className="font-serif text-sm text-parchment-deep mt-0.5">{action}: {pool}</p>
+            </div>
+            <button
+              onClick={() => burnResistance(lastRoll.action, lastRollDriveKey)}
+              className="shrink-0 min-h-[36px] px-3 py-1 font-sans text-xs font-black uppercase tracking-widest border border-oxblood-lit/60 text-oxblood-lit hover:bg-oxblood hover:text-cream transition-all rounded-sm"
+            >
+              Burn and reroll
+            </button>
+          </div>
+        );
+      })()}
 
       {/* POST-ROLL ABILITY PROMPTS */}
       {visiblePrompts.map(prompt => (
         <div key={prompt.key} className="flex items-center justify-between gap-3 border-t border-parchment-deep/20 pt-2">
-          <p className="font-serif text-sm text-parchment-deep flex-1">◈ {prompt.label}</p>
+          <p className="font-serif text-sm text-parchment-deep flex-1">{prompt.label}</p>
           <div className="flex gap-1.5 shrink-0">
             {prompt.drivePicker ? (
               drivePickerPrompt === prompt.key ? (

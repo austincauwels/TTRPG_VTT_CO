@@ -10,6 +10,7 @@ import { RollModifications } from './dice/RollModifications';
 import { usePostRollPrompts } from './dice/usePostRollPrompts';
 import { PassNotes } from './dice/PassNotes';
 import { RollResultBar } from './dice/RollResultBar';
+import { primeRollSounds } from '../../game/rollSounds';
 
 // The roll modifier tables now live in game/rollMods.js; these names stay importable here.
 export { MAX_ABILITY_USES, ABILITY_ROLL_MODS, getAvailableRollMods } from '../../game/rollMods';
@@ -87,9 +88,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   // Who the tray's roll belongs to: the GM's socket only ever receives the GM's own rolls
   const rollerName = showGmControls ? 'Lightkeeper' : (character?.name || 'You');
   const rollerInk = showGmControls ? null : character?.ink_color;
-  const trayEmptyText = showGmControls
-    ? 'No rolls yet. Set the number of dice and press Roll.'
-    : 'No rolls yet. Tap an action on your sheet to roll it.';
+
+  // Load the roll sounds while the desk is open, so the first one plays on time
+  useEffect(() => { primeRollSounds(); }, []);
 
   const showRollModifications = !showGmControls && (canResist || visiblePrompts.length > 0);
   const rollModifications = (
@@ -110,7 +111,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   );
 
   return (
-    <div className="lg:col-span-3 space-y-6 mt-2 order-2 lg:order-none">
+    <div className="lg:col-span-3 2xl:col-span-1 space-y-6 mt-2 order-2 lg:order-none">
 
 
       {showGmControls && <GmDiceControls rollAction={rollAction} />}
@@ -127,7 +128,6 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
         rollerName={rollerName}
         rollerInk={rollerInk}
         keptDie={keptDie}
-        emptyText={trayEmptyText}
       />
 
       {/* ROLL MODIFICATIONS */}
@@ -164,7 +164,6 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
             rollerName={rollerName}
             rollerInk={rollerInk}
             keptDie={keptDie}
-            emptyText={trayEmptyText}
           />
           {showRollModifications && rollModifications}
         </RollResultBar>

@@ -37,11 +37,11 @@ export const RollResultBar = ({
   if (!lastRoll && !isRolling) return null;
 
   const dice = lastRoll?.dice || [];
-  const poolText = isRolling ? '' : rollPoolText(lastRoll);
+  const poolText = isRolling ? '' : rollPoolText(lastRoll, keptDie);
   const outcomeKey = lastRoll?.outcome || (keptDie ? outcomeForKept(keptDie.value) : null);
   const outcome = !isRolling && !gildedPending ? OUTCOME[outcomeKey] : null;
   const status = isRolling ? 'Rolling…'
-    : gildedPending ? 'Choose your die'
+    : gildedPending ? 'Keep one die'
     : (outcome?.word || '');
   const keptIdx = keptDie ? keptDie.idx : null;
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { apiFetch, configureApiAuth, WS_CLOSE_UNAUTHENTICATED } from '../utils/api';
+import { playRollSound } from '../game/rollSounds';
 
 // Reconnecting after a dropped connection. The server closes an older socket on the same
 // channel with 1001 when a newer one opens (another tab or device), so 1001 never
@@ -275,6 +276,8 @@ const useGameStore = create(
               lastActivityLog: payload,
               activityLog: [...state.activityLog, { text, type: logType, time, inkColor }].slice(-50),
             }));
+            // A roll's final result reaches every desk at the table once, as this line
+            if (logType === 'roll') playRollSound(text);
           }
           else if (message.type === 'vote_update') {
             const { vote_type, votes } = message.payload;
