@@ -99,7 +99,7 @@ export const GMAccessPamphlet = ({ userId, onCreated }) => {
         <div
           ref={backRef}
           onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); turn(false, true); } }}
-          className="pamphlet-face pamphlet-back border-[3px] border-double border-sepia/70 p-2 sm:p-3 flex flex-col text-ink overflow-y-auto"
+          className="pamphlet-face pamphlet-back border-[3px] border-double border-sepia/70 p-2 sm:p-3 flex flex-col text-ink"
           style={FACE_STYLE}
         >
           <div className="flex items-center justify-between gap-1 border-b border-sepia/40 pb-1 mb-2 sm:mb-3 shrink-0">
@@ -117,8 +117,13 @@ export const GMAccessPamphlet = ({ userId, onCreated }) => {
               <CloseMark />
             </button>
           </div>
-          <div className="flex-1 flex flex-col justify-center">
-            <CreateCampaignForm variant="card" userId={userId} onCreated={onCreated} />
+          {/* A long error can outgrow the card: this box scrolls, not the face itself
+              (Safari can show a scrolling face from behind). my-auto centres the form
+              without cutting off its top when it overflows. */}
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+            <div className="my-auto">
+              <CreateCampaignForm variant="card" userId={userId} onCreated={onCreated} />
+            </div>
           </div>
         </div>
       </div>
