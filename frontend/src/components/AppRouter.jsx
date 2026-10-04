@@ -11,7 +11,8 @@ import { OperationsPanel } from './gm/OperationsPanel';
 import { CharacterCreator } from './CharacterCreator';
 import { AccountPage } from './account/AccountPage';
 import { ConfirmEmailPage } from './account/ConfirmEmailPage';
-import { accountPageOpen, emailTokenFromAddress, watchAddress } from './account/accountAddress';
+import { UndoEmailChangePage } from './account/UndoEmailChangePage';
+import { accountPageOpen, emailTokenFromAddress, undoTokenFromAddress, watchAddress } from './account/accountAddress';
 
 // The first time the creator opens after the page loads. A page brought back by the
 // browser's Back button with the creator still saved as the screen came back from the
@@ -80,15 +81,19 @@ export const AppRouter = () => {
     setResetToken(null);
   };
 
-  // The account page (/account) and the link that confirms a new email address
-  // (/confirm-email?token=...) have addresses of their own (account/accountAddress.js).
+  // The account page (/account), the link that confirms a new email address
+  // (/confirm-email?token=...) and the link that undoes a change of address
+  // (/undo-email-change?token=...) have addresses of their own (account/accountAddress.js).
   const [accountOpen, setAccountOpen] = useState(accountPageOpen);
   const [emailToken, setEmailToken] = useState(emailTokenFromAddress);
+  const [undoToken, setUndoToken] = useState(undoTokenFromAddress);
   useEffect(() => watchAddress(() => {
     setAccountOpen(accountPageOpen());
     setEmailToken(emailTokenFromAddress());
+    setUndoToken(undoTokenFromAddress());
   }), []);
-  const onOwnAddress = resetToken !== null || emailToken !== null || (accountOpen && !!accessSession);
+  const onOwnAddress = resetToken !== null || emailToken !== null || undoToken !== null
+    || (accountOpen && !!accessSession);
 
   useCreatorExits(onOwnAddress ? null : stage, setStage);
 
@@ -221,6 +226,10 @@ export const AppRouter = () => {
   // signs this browser out and becomes the sign-in slip; both are the same LoginScreen
   // in the same place, so the slip carries its state across.
   if (resetToken !== null) return <LoginScreen resetToken={resetToken} onLeaveReset={leaveResetPage} />;
+
+  // The undo link works signed in or not: whoever made the change may have changed the
+  // password, and the undo ends every sign-in to the account anyway.
+  if (undoToken !== null) return <UndoEmailChangePage key={undoToken} token={undoToken} />;
 
   // Both need someone signed in; until then the stage (the sign-in slip) shows and the
   // address stays, so the page opens once they are.

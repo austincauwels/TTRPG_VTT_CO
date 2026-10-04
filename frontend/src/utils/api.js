@@ -138,7 +138,8 @@ export const linkGoogleToAccount = (credential, password) =>
 // or { credential } (a Google sign-in of the account's own Google account, made just
 // now). Each resolves to the account as fetchAccount reads it, or throws like the
 // sign-in calls (error.status, and a message that can be shown as is): 403 for a wrong
-// or missing proof, 429 when the account has changed too often.
+// or missing proof, 429 once the account has had too many failed proofs (a right proof
+// still goes through then).
 export const changeUsername = (username, proof) =>
   postAuth('/api/auth/me/username', { username, ...proof });
 
@@ -156,11 +157,25 @@ export const resendEmailChange = () => postAuth('/api/auth/me/email/resend', {})
 
 export const cancelEmailChange = () => postAuth('/api/auth/me/email/cancel', {});
 
-// The token from the emailed link (/confirm-email?token=...), used by the account that
-// asked for the change: 400 when the link is used or expired, 403 for another account.
+// What the emailed link (/confirm-email?token=...) would change, without changing it:
+// { name, email, newEmail }. The page shows it and asks before it sends the link.
+// Throws as confirmEmailChange does.
+export const checkEmailChange = (token) => postAuth('/api/auth/me/email/check', { token });
+
+// The token from the emailed link, used by the account that asked for the change: 400
+// when the link is used or expired, 403 for another account. The old address gets a
+// notice with an undo link.
 export const confirmEmailChange = (token) => postAuth('/api/auth/me/email/confirm', { token });
 
+// The undo link mailed to the old address once a change went through
+// (/undo-email-change?token=...). Needs no session. Puts the old address back and ends
+// every sign-in to the account; resolves to { userId, name, email, passwordReset }, where
+// passwordReset says whether a link to set a new password went to that address.
+export const undoEmailChange = (token) => postAuth('/api/auth/email-change/undo', { token });
+
 // Takes the current password; refused (409) for an account without a password of its own.
+// Every other sign-in of the account ends and its sockets close; the answer carries a new
+// token for this browser ({ ...account, token }), unless no Google account was linked.
 export const removeGoogleSignIn = (password) => postAuth('/api/auth/me/google/remove', { password });
 
 // ==========================================

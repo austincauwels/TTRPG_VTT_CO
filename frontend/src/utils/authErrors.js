@@ -3,8 +3,10 @@
 // A message we do not recognise is shown as the server wrote it.
 
 // The server's rules for a new account (check_new_username and RegisterRequest), shown
-// before submit. Only the length is checked here; the server checks the characters.
-export const USERNAME_RULE = '2 to 32 characters: letters, digits, spaces, dots, dashes or underscores.';
+// before submit and checked here too. The server drops spaces at either end and makes
+// runs of spaces one, and takes the letters A to Z only (no accents, no other scripts).
+export const USERNAME_RULE = '2 to 32 characters: letters A to Z, digits, spaces, dots, dashes or underscores.';
+const USERNAME_CHARACTERS = /^[A-Za-z0-9_. -]+$/;
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
 export const PASSWORD_RULE = `At least ${PASSWORD_MIN_LENGTH} characters.`;
@@ -17,7 +19,7 @@ const KNOWN = [
   [/cannot be used for a new account/i, 'That username or email address cannot be used for a new account. Choose another username, or sign in if you already have an account.'],
   [/too many accounts could not be created/i, 'Too many accounts could not be created from here. Please try again in an hour.'],
   [/username must be 2.32/i, 'A username needs 2 to 32 characters.'],
-  [/username contains invalid characters/i, 'A username can only use letters, digits, spaces, dots, dashes and underscores.'],
+  [/username contains invalid characters/i, 'A username can only use the letters A to Z, digits, spaces, dots, dashes and underscores.'],
   [/password must be at least 8/i, `A password needs at least ${PASSWORD_MIN_LENGTH} characters.`],
   [/^password too long/i, 'That password is too long.'],
   [/^username too long/i, 'That username is too long.'],
@@ -34,9 +36,11 @@ export const authErrorText = (detail) => {
 const length = (value) => [...value].length;
 
 export const usernameProblem = (username) => {
-  if (!username.trim()) return 'Choose a username.';
-  const n = length(username);
-  return n < 2 || n > 32 ? 'A username needs 2 to 32 characters.' : '';
+  const name = username.trim().replace(/ {2,}/g, ' ');
+  if (!name) return 'Choose a username.';
+  const n = length(name);
+  if (n < 2 || n > 32) return 'A username needs 2 to 32 characters.';
+  return USERNAME_CHARACTERS.test(name) ? '' : authErrorText('Username contains invalid characters');
 };
 
 export const newPasswordProblem = (password) => {

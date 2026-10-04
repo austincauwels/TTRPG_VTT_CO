@@ -79,6 +79,12 @@ const AccountNameForManagers = ({ name }) => (
 
 const focusLater = (id) => requestAnimationFrame(() => document.getElementById(id)?.focus());
 
+// Whether a refusal is about the value typed into a change's own field, so it belongs under
+// that field: its status is one of the field's and its message names the field. Anything
+// else (Google refusing a sign-in, also 400; "The account changed while this was being
+// saved", 409; too many attempts) belongs to the whole form.
+const aboutField = (err, statuses, words) => statuses.includes(err?.status) && words.test(err?.message || '');
+
 // Which proofs this account can give: the current password unless it has none of its own,
 // and Google when a Google account is linked and Google sign-in is on. An account whose
 // password is not known to the server (hasPassword null) and has Google starts on Google.
@@ -215,8 +221,8 @@ const UsernameForm = ({ account, googleOn, onSaved, onCancel }) => {
     return !problem;
   };
   const fieldError = (err) => {
-    if (![400, 409, 422].includes(err?.status)) return false;
-    setError(err.message || SOMETHING_WRONG);
+    if (!aboutField(err, [400, 422], /username/i)) return false;
+    setError(err.message);
     focusLater('account-new-username');
     return true;
   };
@@ -246,8 +252,8 @@ const EmailForm = ({ account, googleOn, onSaved, onCancel }) => {
     return !problem;
   };
   const fieldError = (err) => {
-    if (![400, 409, 422].includes(err?.status)) return false;
-    setError(err.message || SOMETHING_WRONG);
+    if (!aboutField(err, [400, 409, 422], /email address/i)) return false;
+    setError(err.message);
     focusLater('account-new-email');
     return true;
   };
@@ -319,23 +325,26 @@ const PasswordForm = ({ account, googleOn, setting, onSaved, onCancel }) => {
   );
 };
 
-// A new password ends every other sign-in of the account, and the server closes the
-// account's sockets, this browser's too (4401, which the store takes for a logout). So
-// this browser's socket is put down first and opened again afterwards, with the new
-// token once there is one.
-const savePassword = async (newPassword, proof) => {
+// A new password, and removing Google sign-in, end every other sign-in of the account,
+// and the server closes the account's sockets, this browser's too (4401, which the store
+// takes for a logout). So this browser's socket is put down first and opened again
+// afterwards, with the new token the answer carries once there is one.
+const withNewSession = async (request) => {
   const channel = useGameStore.getState().socketGameId;
   if (channel != null) useGameStore.getState().disconnect();
   try {
-    const answer = await changePassword(newPassword, proof);
-    useGameStore.setState((s) => ({ accessSession: s.accessSession ? { ...s.accessSession, token: answer.token } : s.accessSession }));
-    const { token, ...account } = answer;
+    const { token, ...account } = await request();
+    if (token) {
+      useGameStore.setState((s) => ({ accessSession: s.accessSession ? { ...s.accessSession, token } : s.accessSession }));
+    }
     return account;
   } finally {
     const { accessSession, socketGameId, connect } = useGameStore.getState();
     if (channel != null && accessSession?.token && socketGameId == null) connect(channel, { keepLog: true });
   }
 };
+
+const savePassword = (newPassword, proof) => withNewSession(() => changePassword(newPassword, proof));
 
 const RemoveGoogleForm = ({ account, onSaved, onCancel }) => {
   const [password, setPassword] = useState('');
@@ -353,7 +362,7 @@ const RemoveGoogleForm = ({ account, onSaved, onCancel }) => {
     setError('');
     setFormError('');
     try {
-      onSaved(await removeGoogleSignIn(password));
+      onSaved(await withNewSession(() => removeGoogleSignIn(password)));
     } catch (err) {
       setBusy(false);
       if (err?.status === 403) { setError(err.message || SOMETHING_WRONG); focusLater('account-remove-google-password'); }
@@ -363,6 +372,10 @@ const RemoveGoogleForm = ({ account, onSaved, onCancel }) => {
 
   return (
     <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
+      <p className={noteClass}>
+        This also signs the account out everywhere else, including every browser that signed in with Google.
+        This one stays signed in.
+      </p>
       <AccountNameForManagers name={account.name} />
       <Field
         id="account-remove-google-password" label="Current password" type="password" autoComplete="current-password"
@@ -633,12 +646,21 @@ export const AccountPage = ({ returnTo }) => {
               <button id="account-google-action" type="button" onClick={() => open('google-add')} className={lineActionClass}>Add Google sign-in</button>
             )
           )}
+          below={account.googleLinked && !canRemoveGoogle && (
+            <p className={`mt-2 ${noteClass}`}>
+              Password sign-in is turned off on this site, so Google sign-in cannot be removed: it is how this
+              account signs in.
+            </p>
+          )}
           notice={lineNotice('google')}
           form={(
             <>
               {refusal?.at === 'google' && <p role="alert" className={`mt-2 ${errorTextClass}`}>{refusal.text}</p>}
               {openForm === 'google-remove' && (
-                <RemoveGoogleForm account={account} onSaved={saved('google', 'Google sign-in removed.')} onCancel={() => closeForm()} />
+                <RemoveGoogleForm
+                  account={account} onSaved={saved('google', 'Google sign-in removed. Every other sign-in has ended.')}
+                  onCancel={() => closeForm()}
+                />
               )}
               {openForm === 'google-add' && (
                 <AddGoogleForm account={account} onSaved={saved('google', 'Google sign-in added.')} onCancel={() => closeForm()} />
