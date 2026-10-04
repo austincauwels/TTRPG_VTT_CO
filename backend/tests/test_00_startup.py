@@ -110,11 +110,16 @@ def test_migrated_columns_exist(client):
             "train_bonus", "resources_spent_assignment", "deleted_at"} <= cols["characters"]
     assert "last_actor_id" in cols["relationships"]
     assert {"entry_type", "visibility", "image_data", "is_deleted", "sketch_scene"} <= cols["notebook_entries"]
-    assert {"pending_rejoin_campaign_id", "google_sub", "google_email", "email_proven"} <= cols["users"]
+    assert {"pending_rejoin_campaign_id", "google_sub", "google_email", "email_proven",
+            "has_password", "session_epoch"} <= cols["users"]
     google_sub_index = [i for i in insp.get_indexes("users") if i["column_names"] == ["google_sub"]]
     assert [(i["name"], bool(i["unique"])) for i in google_sub_index] == [("ix_users_google_sub", True)]
     assert {c["name"] for c in insp.get_columns("password_reset_tokens")} == {
-        "id", "user_id", "token_hash", "password_stamp", "created_at", "expires_at"}
+        "id", "user_id", "token_hash", "password_stamp", "created_at", "expires_at", "replaced_at"}
+    assert {c["name"] for c in insp.get_columns("email_change_tokens")} == {
+        "id", "user_id", "token_hash", "new_email", "old_email", "password_stamp", "created_at", "expires_at"}
+    assert {c["name"] for c in insp.get_columns("email_change_undos")} == {
+        "id", "user_id", "token_hash", "old_email", "new_email", "google_sub", "created_at", "expires_at"}
 
 
 def _run_import(env):
@@ -206,6 +211,15 @@ def test_route_table_order(client):
         ("/api/auth/me/google", ["POST"]),
         ("/api/auth/password-reset", ["POST"]),
         ("/api/auth/password-reset/confirm", ["POST"]),
+        ("/api/auth/me/username", ["POST"]),
+        ("/api/auth/me/password", ["POST"]),
+        ("/api/auth/me/email", ["POST"]),
+        ("/api/auth/me/email/resend", ["POST"]),
+        ("/api/auth/me/email/cancel", ["POST"]),
+        ("/api/auth/me/email/check", ["POST"]),
+        ("/api/auth/me/email/confirm", ["POST"]),
+        ("/api/auth/email-change/undo", ["POST"]),
+        ("/api/auth/me/google/remove", ["POST"]),
         ("/api/investigators", ["GET"]),
         ("/api/investigators/{investigator_id}", ["GET"]),
         ("/api/investigators/forge", ["POST"]),
@@ -292,6 +306,7 @@ MIGRATED_COLUMNS = {
     ("users", "google_sub"): ("text", None),
     ("users", "google_email"): ("text", None),
     ("users", "email_proven"): ("boolean", "false"),
+    ("users", "has_password"): ("boolean", None),
 }
 
 

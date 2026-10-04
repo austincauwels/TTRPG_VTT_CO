@@ -25,13 +25,19 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 | `vtt/auth.py` | `get_current_user` (the Bearer token dependency) and the REST access helpers (owner, GM, member checks) | new |
 | `vtt/db.py` | `db_engine`, `SessionLocal`, `get_db`, `init_db`; `add_columns` and `run_migration`, which log any migration failure but a column that exists already | 58 to 240 |
 | `vtt/schemas.py` | all pydantic request and response models | 260 to 434, 564, 635, 694 to 715 |
+| `vtt/usernames.py` | how two usernames are compared (`username_key`, `name_taken`), the names held for 90 days after a rename (`hold_freed_name`), and the caps on renames (`rename_refusal`, `count_rename`: 3 a day, 5 held names per user); see AUTH.md, The account page | new |
+| `vtt/password_reset.py` | password reset by email: who gets a link, the tokens (`issue_links`, `find_token`, `replaced_link`, `use_token`), the email and its subject with the Pacific time; see AUTH.md | new |
+| `vtt/email_change.py` | changing the email address by a link to the new address, the undo link to the old one, their emails and their mail caps; see AUTH.md, The account page | new |
+| `vtt/mail.py` | `send_email`, through Resend's HTTP API | new |
+| `vtt/portraits.py` | which portraits a character may have (`check_portrait`, `served_portrait`) and how often they may change | new |
 | `vtt/serializers.py` | `get_char_dict`, `get_circle_dict` | 1352 to 1445 |
 | `vtt/deletion.py` | deleting characters and campaigns (soft delete), the undo and the admin restore, each under row locks; `backend/restore_deleted.py` is the admin's command line for it (DELETION.md) | new |
 | `vtt/circle_queries.py` | `get_or_create_campaign_circle`, `votes_dict` and `relationships_list` (were `_votes_dict` and `_relationships_list`), `resolve_circle` | 721 to 753, 1447 to 1454 |
 | `vtt/application.py` | `app`, limiter state and handler, CORS, router includes in the old route order | 244 to 255, 944 |
 | `vtt/routers/campaigns.py` | `/campaign/create` through `/campaign/{campaign_id}/roster` | 450 to 688 |
 | `vtt/routers/circles.py` | circle-creation-state, `/circle/vote`, `/circle/relationship/*`, `/campaign/finalize-roster` | 755 to 942 |
-| `vtt/routers/auth.py` | `/api/auth/login`, `/api/auth/register`; new: the Sign in with Google routes `/api/auth/google`, `/api/auth/google/link`, `/api/auth/google/create` and `GET /api/auth/config` | 950 to 1020 |
+| `vtt/routers/auth.py` | `/api/auth/login`, `/api/auth/register`; new: the Sign in with Google routes `/api/auth/google`, `/api/auth/google/link`, `/api/auth/google/create` and `GET /api/auth/config`, the password reset routes, `GET /api/auth/me` and `POST /api/auth/me/google` | 950 to 1020 |
+| `vtt/routers/account.py` | the account page's changes under `/api/auth/me/` (username, password, email and its link, Google remove) and the undo link `/api/auth/email-change/undo` | new |
 | `vtt/routers/investigators.py` | `/api/investigators`, `/api/investigators/{id}`, `/api/investigators/forge` | 1022 to 1088 |
 | `vtt/routers/notebook.py` | the five `/api/notebook` routes | 1094 to 1245 |
 | `vtt/routers/users.py` | `/api/users/{user_id}/characters`, `/api/users/{user_id}/campaigns` | 1251 to 1280 |

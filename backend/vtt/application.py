@@ -12,7 +12,7 @@ from sqlalchemy.exc import OperationalError
 
 from vtt.config import CORS_ORIGINS, logger
 from vtt.db import is_lock_timeout
-from vtt.routers import auth, campaigns, circles, investigators, notebook, users
+from vtt.routers import account, auth, campaigns, circles, investigators, notebook, users
 from vtt.security import limiter
 from vtt.ws import endpoint as ws_endpoint
 
@@ -46,6 +46,7 @@ app.add_middleware(
 app.include_router(campaigns.router)       # /campaign/... (create to roster)
 app.include_router(circles.router)         # circle creation and finalize-roster
 app.include_router(auth.router)            # /api/auth/...
+app.include_router(account.router)         # /api/auth/me/... (the account page)
 app.include_router(investigators.router)   # /api/investigators...
 app.include_router(notebook.router)        # /api/notebook/...
 app.include_router(users.router)           # /api/users/...

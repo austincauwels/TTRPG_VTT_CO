@@ -4,7 +4,7 @@ Sign in with Google (POST /api/auth/google, /api/auth/google/link,
 which of the two is on. Password reset by email (POST /api/auth/password-reset and
 /api/auth/password-reset/confirm, see vtt/password_reset.py). The signed-in user's
 own account: GET /api/auth/me, and POST /api/auth/me/google, which links a Google
-account to it.
+account to it (the account page's other changes are in vtt/routers/account.py).
 
 Every route that signs someone in answers with the user's details plus "token", a
 login token (see vtt/security.py) that every other route and the WebSocket require.
@@ -14,6 +14,7 @@ reset links.
 """
 import re
 import secrets
+import unicodedata
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -24,7 +25,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from models import Campaign, User
-from vtt import config, google, password_reset
+from vtt import config, email_change, google, password_reset, usernames
 from vtt.auth import get_current_user
 from vtt.config import logger
 from vtt.db import PUBLISHED_PASSWORDS, get_db, unusable_password_hash
@@ -62,6 +63,8 @@ REGISTER_REFUSALS_LIMITED = "Too many accounts could not be created from here. P
 REGISTER_REFUSAL_LIMIT = parse_limit("10/hour")
 REGISTER_REFUSAL_SCOPE = "register-refused"
 RESET_LINK_INVALID = "This link has expired or has already been used. Please ask for a new one."
+# Only to whoever holds a link that a newer one replaced (password_reset.replaced_link).
+RESET_LINK_REPLACED = "A newer link was sent. Use the latest email."
 
 
 def signed_in_response(db: Session, user: User) -> dict:
@@ -79,7 +82,7 @@ def signed_in_response(db: Session, user: User) -> dict:
             "userId": user.id,
             "campaignCode": gm_campaign.campaign_code,
             "campaignId": gm_campaign.id,
-            "token": create_access_token(user.id, user.hashed_password),
+            "token": create_access_token(user.id, user.hashed_password, user.session_epoch),
         }
 
     pending_invite = None
@@ -99,16 +102,17 @@ def signed_in_response(db: Session, user: User) -> dict:
         "campaignCode": None,
         "campaignId": None,
         "pendingRejoinInvite": pending_invite,
-        "token": create_access_token(user.id, user.hashed_password),
+        "token": create_access_token(user.id, user.hashed_password, user.session_epoch),
     }
 
 
 def username_taken(db: Session, username: str) -> bool:
-    """True when a user has this name, ignoring case. Login compares names exactly, but
-    a new name must differ from every existing one in more than case, so that nobody
-    can pass for another player ("Mira" next to "mira") where people type or read a
-    name, such as the GM's invite to rejoin."""
-    return db.query(User.id).filter(func.lower(User.username) == func.lower(username)).first() is not None
+    """True when a user has this name, or holds it after a rename, compared the way
+    vtt/usernames.py compares names (case, and spaces at the ends or doubled, do not
+    count). Login compares names exactly, but a new name must differ from every existing
+    one in more than that, so that nobody can pass for another player ("Mira" next to
+    "mira ") where people type or read a name, such as the GM's invite to rejoin."""
+    return usernames.name_taken(db, username)
 
 
 def check_password(password: str, user) -> bool:
@@ -127,6 +131,17 @@ def require_password_login():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PASSWORD_LOGIN_OFF)
 
 
+def note_password_known(db: Session, user: User) -> None:
+    """A password that was just checked and worked is one somebody knows: has_password
+    becomes true (it is NULL for accounts from before the column). Only while the hash
+    is still the one checked."""
+    if user.has_password is True:
+        return
+    db.query(User).filter(User.id == user.id, User.hashed_password == user.hashed_password).update(
+        {User.has_password: True}, synchronize_session=False)
+    db.commit()
+
+
 @router.post("/api/auth/login")
 @limiter.limit("10/minute")
 async def login(request: Request, credentials: LoginRequest, db: Session = Depends(get_db)):
@@ -140,6 +155,7 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
             detail=INVALID_CREDENTIALS
         )
 
+    note_password_known(db, user)
     return signed_in_response(db, user)
 
 def register_refusals_left(request: Request) -> bool:
@@ -167,15 +183,19 @@ async def register(request: Request, credentials: RegisterRequest, db: Session =
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=REGISTER_REFUSALS_LIMITED)
     # Ignoring case: two users whose emails differ only in case keep Sign in with Google
     # from linking either of them by email.
+    # An address an undo link can still put back on its account (vtt/email_change.py)
+    # counts as taken.
     if username_taken(db, credentials.username) or db.query(User.id).filter(
-            func.lower(User.email) == func.lower(credentials.email)).first() is not None:
+            func.lower(User.email) == func.lower(credentials.email)).first() is not None \
+            or email_change.address_held(db, credentials.email):
         count_register_refusal(request)
         raise HTTPException(status_code=400, detail=REGISTER_REFUSED)
 
     new_user = User(
         username=credentials.username,
         email=credentials.email,
-        hashed_password=await run_in_threadpool(pwd_context.hash, credentials.password)
+        hashed_password=await run_in_threadpool(pwd_context.hash, credentials.password),
+        has_password=True,
     )
     db.add(new_user)
     db.commit()
@@ -189,7 +209,7 @@ async def register(request: Request, credentials: RegisterRequest, db: Session =
         "userId": new_user.id,
         "campaignCode": "fairelands-01",
         "campaignId": campaign.id if campaign else None,
-        "token": create_access_token(new_user.id, new_user.hashed_password),
+        "token": create_access_token(new_user.id, new_user.hashed_password, new_user.session_epoch),
     }
 
 
@@ -244,7 +264,8 @@ def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: 
     that is the account's email, ignoring case, the account's email counts as proven.
     With new_password_hash (the hash of a password nobody knows) the user's password is
     replaced too, which ends every login token issued before (they carry a stamp of the
-    password hash, see vtt/security.py).
+    password hash, see vtt/security.py), and has_password becomes false. With
+    expect_hash (a password the route checked) has_password becomes true.
 
     One conditional UPDATE, so a route that checked an older copy of the row cannot
     overwrite what another request wrote since: it writes only while google_sub is
@@ -257,6 +278,9 @@ def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: 
         values[User.email_proven] = True
     if new_password_hash is not None:
         values[User.hashed_password] = new_password_hash
+        values[User.has_password] = False
+    elif expect_hash is not None:
+        values[User.has_password] = True  # the route just checked that password
     conditions = [User.id == user.id,
                   User.google_sub.is_(None) if expect_sub is None else User.google_sub == expect_sub]
     if expect_hash is not None:
@@ -285,7 +309,8 @@ def refuse_new_google_user(db: Session, identity: GoogleIdentity, username: str)
     refuse_linked_google_account(db, identity)
     if username_taken(db, username):
         raise HTTPException(status_code=400, detail=USERNAME_TAKEN)
-    if db.query(User.id).filter(func.lower(User.email) == identity.email.lower()).first() is not None:
+    if db.query(User.id).filter(func.lower(User.email) == identity.email.lower()).first() is not None \
+            or email_change.address_held(db, identity.email):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_TAKEN)
 
 
@@ -296,11 +321,14 @@ def refuse_new_google_user(db: Session, identity: GoogleIdentity, username: str)
 # knows one of their passwords can still link it through /api/auth/google/link.
 SEEDED_USERNAMES = tuple(PUBLISHED_PASSWORDS)
 
-_NOT_IN_USERNAMES = re.compile(r"[^\w\-. ]+")
+_NOT_IN_USERNAMES = re.compile(r"[^A-Za-z0-9_\-. ]+")
 
 
 def _username_from(text: str) -> str:
-    return " ".join(_NOT_IN_USERNAMES.sub(" ", text or "").split())[:32].strip()
+    """The text in the characters a username may use: accents dropped ("Zo\u00eb" is "Zoe"),
+    anything else that is not one of them a space."""
+    plain = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode("ascii")
+    return " ".join(_NOT_IN_USERNAMES.sub(" ", plain).split())[:32].strip()
 
 
 def suggest_username(db: Session, identity: GoogleIdentity) -> str:
@@ -421,6 +449,7 @@ async def google_create(request: Request, body: GoogleCreateRequest, db: Session
         username=body.username,
         email=identity.email,
         hashed_password=await run_in_threadpool(unusable_password_hash),
+        has_password=False,
         google_sub=identity.sub,
         google_email=identity.email,
         email_proven=True,  # Google verified it
@@ -448,16 +477,68 @@ async def auth_config():
 
 # --- the signed-in user's own account ------------------------------------------------
 
-def account_view(user: User) -> dict:
-    """The signed-in user's account, as GET /api/auth/me and POST /api/auth/me/google answer."""
+def account_view(db: Session, user: User) -> dict:
+    """The signed-in user's account, as GET /api/auth/me and the account page's routes
+    answer: hasPassword is true, false, or null when it is not known (an account from
+    before it was recorded); pendingEmail is the new address of a change that waits for
+    its link, or null."""
+    linked = user.google_sub is not None
     return {"userId": user.id, "name": user.username, "email": user.email,
-            "googleLinked": user.google_sub is not None}
+            "googleLinked": linked, "googleEmail": user.google_email if linked else None,
+            "hasPassword": user.has_password, "pendingEmail": email_change.pending_address(db, user)}
 
 
 @router.get("/api/auth/me")
-async def current_account(user: User = Depends(get_current_user)):
+async def current_account(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """The caller's account, including whether a Google account is linked to it."""
-    return account_view(user)
+    return account_view(db, user)
+
+
+# Failed proofs on the account page (a wrong password, a Google sign-in that is refused,
+# of another Google account or too old, an email link that does not work) and when
+# linking Google while signed in count against this, per user, on top of the per-IP
+# limit of each route (AUTH.md, The account page). Only failures count, once the proof
+# was checked, and a right proof always goes through: a stolen session that uses the
+# limit up cannot keep the owner from changing the password, which ends that session.
+FAILED_PROOF_LIMIT = parse_limit("10/hour")
+FAILED_PROOF_SCOPE = "account-failed-proof"
+# Over the limit the right password, Google sign-in or link still goes through, so the
+# words do not tell the owner to wait.
+FAILED_PROOFS_LIMITED = ("This account has reached its limit of failed attempts. "
+                         "The right password, Google sign-in or link still works.")
+
+
+def refused_proof(user: User, status_code: int, detail: str) -> HTTPException:
+    """The answer to a failed proof, to raise: it counts the failure for the user and is
+    the refusal itself (status_code, detail) until FAILED_PROOF_LIMIT is used up, then
+    429. Off while the rate limiter is off."""
+    if limiter.enabled and not limiter.limiter.hit(FAILED_PROOF_LIMIT, FAILED_PROOF_SCOPE, str(user.id)):
+        logger.warning("Too many failed proofs on the account page for user id=%s", user.id)
+        return HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=FAILED_PROOFS_LIMITED)
+    return HTTPException(status_code=status_code, detail=detail)
+
+
+async def proof_google_identity(user: User, credential: str) -> GoogleIdentity:
+    """signed_in_google_identity for a credential sent as (or with) a proof: one that
+    Google refuses (400) counts as a failed proof."""
+    try:
+        return await signed_in_google_identity(credential)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_400_BAD_REQUEST:
+            raise refused_proof(user, exc.status_code, exc.detail)
+        raise
+
+
+async def signed_in_google_identity(credential: str) -> GoogleIdentity:
+    """verified_google_identity for a caller who is signed in. Elsewhere a refused
+    credential is 401, but the browser ends the session on any 401 (apiFetch in
+    utils/api.js), so here it is 400."""
+    try:
+        return await verified_google_identity(credential)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.detail)
+        raise
 
 
 def refuse_google_linked_elsewhere(db: Session, identity: GoogleIdentity) -> None:
@@ -470,7 +551,8 @@ def refuse_google_linked_elsewhere(db: Session, identity: GoogleIdentity) -> Non
 async def link_google_to_account(request: Request, body: AccountGoogleLinkRequest, db: Session = Depends(get_db),
                                  user: User = Depends(get_current_user)):
     """Links the Google account of a Google ID token (the credential, as for
-    /api/auth/google) to the signed-in user, who has none yet.
+    /api/auth/google) to the signed-in user, who has none yet. This is "Add Google
+    sign-in" on the account page.
 
     A login token alone is not enough: whoever stole one could link their own Google
     account and keep signing in after the owner changed the password. The request
@@ -478,24 +560,18 @@ async def link_google_to_account(request: Request, body: AccountGoogleLinkReques
     account whose email is the account's email (ignoring case), which is how an
     account whose password nobody knows proves itself. The password stays as it is
     and so do the login tokens. From then on Sign in with Google signs in to this
-    account."""
-    try:
-        identity = await verified_google_identity(body.credential)
-    except HTTPException as exc:
-        # Elsewhere a refused credential is 401, but this caller is signed in, and the
-        # browser ends the session on any 401 (apiFetch in utils/api.js).
-        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.detail)
-        raise
+    account. A wrong password or a credential Google refuses counts as a failed proof
+    (refused_proof)."""
+    identity = await proof_google_identity(user, body.credential)
     if user.google_sub == identity.sub:
-        return account_view(user)  # linked already, for example by a second click
+        return account_view(db, user)  # linked already, for example by a second click
     if user.google_sub is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ACCOUNT_ALREADY_LINKED)
     checked_hash = None
     if body.password:
         if not await run_in_threadpool(check_password, body.password, user):
             logger.warning("Wrong password to link a Google account for user id=%s", user.id)
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=RELINK_WRONG_PASSWORD)
+            raise refused_proof(user, status.HTTP_403_FORBIDDEN, RELINK_WRONG_PASSWORD)
         checked_hash = user.hashed_password
     elif not same_email(identity.email, user.email):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=RELINK_NEEDS_PASSWORD)
@@ -505,11 +581,11 @@ async def link_google_to_account(request: Request, body: AccountGoogleLinkReques
         # Another request changed the account after the checks above (user is read
         # again after the rollback). Answer as the checks now would.
         if user.google_sub == identity.sub:
-            return account_view(user)
+            return account_view(db, user)
         if user.google_sub is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ACCOUNT_ALREADY_LINKED)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=RELINK_WRONG_PASSWORD)
-    return account_view(user)
+    return account_view(db, user)
 
 
 # --- password reset by email (vtt/password_reset.py) -----------------------------------
@@ -547,11 +623,14 @@ async def confirm_password_reset(request: Request, body: PasswordResetConfirm, d
     every login token issued before. An unproven Google link (one made with another
     Google email, or from before the Google email was recorded) is removed, because
     whoever reads the address owns the account. The answer is what login answers, with
-    a new token, plus googleUnlinked: whether a Google link was removed."""
+    a new token, plus googleUnlinked: whether a Google link was removed. A link that a
+    newer one replaced says so, while the newer one works."""
     require_password_login()
     found = password_reset.find_token(db, body.token)
     if found is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=RESET_LINK_INVALID)
+        replaced = password_reset.replaced_link(db, body.token)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=RESET_LINK_REPLACED if replaced else RESET_LINK_INVALID)
     row, user = found
     new_hash = await run_in_threadpool(pwd_context.hash, body.password)
     outcome = password_reset.use_token(db, row, user, new_hash)

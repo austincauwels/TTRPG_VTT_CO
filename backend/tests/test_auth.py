@@ -175,7 +175,7 @@ def test_register_accepts_spaces_dots_dashes(client):
     r = _register(client, username=name)
     assert r.status_code == 201
     assert r.json()["name"] == name
-    assert support.fetch(User, r.json()["userId"]).username == name  # stored as sent, not trimmed or lowered
+    assert support.fetch(User, r.json()["userId"]).username == name  # stored as sent (nothing to strip), not lowered
 
 
 def test_register_missing_field(client):

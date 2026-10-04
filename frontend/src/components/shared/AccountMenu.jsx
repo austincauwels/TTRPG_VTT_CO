@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useGameStore from '../../store/gameStore';
-import { fetchAccount, fetchAuthConfig, linkGoogleToAccount } from '../../utils/api';
+import { fetchAccount } from '../../utils/api';
 import { FormLine, SerialNo, serialFor } from './PrintMarks';
-import { GOOGLE_CLIENT_ID, GoogleButton } from './googleSignIn';
+import { accountHref, openAccountPage } from '../account/accountAddress';
 
 // The signed-in account: a member's card that opens from "Account" on the hub and on both
-// desks (owner's round 3 item 22). It names the account, offers "Link Google account" to
-// an account without Google (then shows "Google linked"), and holds Sign out. The card is
-// paper on every desk; only the button that opens it takes the colours of where it sits.
+// desks (owner's round 3 item 22). It names the account (name, email, member number), leads
+// to the account page, where the username, the password, the email and the Google sign-in
+// change (owner's request, 2026-10-04), and holds Sign out. The card is paper on every desk;
+// only the button that opens it takes the colours of where it sits.
 
 const TRIGGER = {
   // the hub's night header
@@ -26,12 +27,9 @@ const TRIGGER = {
 const CARD_WIDTH = 304; // px; narrower on a phone, where it keeps 8px from each edge
 const EDGE = 8;
 
-const buttonBase = 'w-full min-h-[44px] px-4 py-2 rounded font-sans font-black text-xs uppercase tracking-widest transition disabled:opacity-60 disabled:cursor-wait';
-const primaryClass = `${buttonBase} bg-oxblood text-cream border border-ink hover:brightness-125`;
-const outlineClass = `${buttonBase} bg-transparent text-oxblood border-2 border-oxblood hover:bg-oxblood hover:text-cream`;
+const buttonBase = 'w-full min-h-[44px] px-4 py-2 rounded font-sans font-black text-xs uppercase tracking-widest transition';
+const outlineClass = `${buttonBase} inline-flex items-center justify-center bg-transparent text-oxblood border-2 border-oxblood hover:bg-oxblood hover:text-cream`;
 const quietClass = `${buttonBase} bg-transparent text-ink border border-ink/30 hover:bg-ink hover:text-parchment`;
-const textButtonClass = 'min-h-[40px] px-2 font-sans font-bold text-xs uppercase tracking-widest text-sepia hover:text-oxblood underline-offset-4 hover:underline transition-colors';
-const errorTextClass = 'font-serif text-base leading-snug text-oxblood';
 
 const Chevron = ({ open }) => (
   <svg aria-hidden="true" focusable="false" viewBox="0 0 12 12" width="10" height="10"
@@ -40,95 +38,6 @@ const Chevron = ({ open }) => (
   </svg>
 );
 
-// A tick drawn with a pen, for "Google linked"
-const Tick = () => (
-  <svg aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="16" height="16" className="shrink-0">
-    <path d="M2.5 8.6 6.3 12 13.6 3.6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-// "Link Google account": Google's own button, then the account's password if Google's
-// email is not the account's. Calls onLinked with the account once the server says so.
-const LinkGoogleStep = ({ accountName, onLinked, onCancel }) => {
-  const [credential, setCredential] = useState(null);
-  const [askPassword, setAskPassword] = useState('');   // the server's reason, once it asks
-  const [password, setPassword] = useState('');
-  const [fieldError, setFieldError] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const passwordRef = useRef(null);
-
-  const send = async (cred, pass) => {
-    setBusy(true);
-    setError('');
-    setFieldError('');
-    try {
-      onLinked(await linkGoogleToAccount(cred, pass));
-    } catch (err) {
-      setBusy(false);
-      const message = err.message || 'Something went wrong. Please try again.';
-      if (err.status === 403 && /enter your account's password/i.test(message)) {
-        // Google's email is not the account's: the password proves the account
-        setAskPassword(message);
-      } else if (err.status === 403 && pass) {
-        setFieldError(message);
-        passwordRef.current?.focus();
-      } else {
-        setError(message);
-        if (err.status === 400 || err.status === 503) { setCredential(null); setAskPassword(''); }
-      }
-    }
-  };
-
-  useEffect(() => { if (askPassword) passwordRef.current?.focus(); }, [askPassword]);
-
-  const onCredential = ({ credential: cred }) => {
-    setCredential(cred);
-    send(cred, null);
-  };
-
-  const submitPassword = (e) => {
-    e.preventDefault();
-    if (!password) { setFieldError('Enter your password.'); passwordRef.current?.focus(); return; }
-    send(credential, password);
-  };
-
-  return (
-    <div className="space-y-3">
-      <h3 className="font-sans text-xs font-black uppercase tracking-[0.18em] text-oxblood">Link Google account</h3>
-      {askPassword ? (
-        <form onSubmit={submitPassword} noValidate className="space-y-3">
-          <p className="font-serif text-base leading-snug text-ink">{askPassword}</p>
-          {/* For a password manager: whose password this is */}
-          <input type="text" name="username" autoComplete="username" value={accountName || ''} readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
-          <div>
-            <label htmlFor="account-link-password" className="block font-sans font-black text-xs uppercase tracking-[0.18em] text-oxblood mb-0.5">Password</label>
-            <input
-              ref={passwordRef} id="account-link-password" type="password" autoComplete="current-password"
-              value={password} onChange={(e) => { setPassword(e.target.value); setFieldError(''); }}
-              aria-invalid={fieldError ? true : undefined}
-              aria-describedby={fieldError ? 'account-link-password-error' : undefined}
-              className="w-full bg-transparent border-0 border-b border-sepia/40 rounded-none px-0 py-1.5 font-serif font-bold text-lg text-ink caret-oxblood hover:border-sepia/70 focus:border-oxblood aria-[invalid=true]:border-oxblood"
-            />
-            {fieldError && <p id="account-link-password-error" className={`mt-1 ${errorTextClass}`}>{fieldError}</p>}
-          </div>
-          {error && <p role="alert" className={errorTextClass}>{error}</p>}
-          <button type="submit" disabled={busy} className={primaryClass}>{busy ? 'Linking…' : 'Link'}</button>
-        </form>
-      ) : (
-        <>
-          <GoogleButton text="continue_with" maxWidth={272} onCredential={onCredential} onLoadError={setError} />
-          <p role="status" className={busy ? 'font-serif italic text-base text-sepia text-center' : 'sr-only'}>{busy ? 'Linking…' : ''}</p>
-          {error && <p role="alert" className={errorTextClass}>{error}</p>}
-        </>
-      )}
-      <div className="text-center">
-        <button type="button" onClick={onCancel} className={textButtonClass}>Cancel</button>
-      </div>
-    </div>
-  );
-};
-
 // extra: more of the desk's own controls, laid on the card above Sign out (the GM bar puts
 // Retire there on phones, so its band keeps to one row).
 export const AccountMenu = ({ tone = 'night', className = '', onSignOut, extra = null }) => {
@@ -136,9 +45,6 @@ export const AccountMenu = ({ tone = 'night', className = '', onSignOut, extra =
   const logout = useGameStore((s) => s.logout);
   const [open, setOpen] = useState(false);
   const [account, setAccount] = useState(null);      // GET /api/auth/me, once it answers
-  const [googleOn, setGoogleOn] = useState(false);   // the server and this build offer Google
-  const [linking, setLinking] = useState(false);
-  const [justLinked, setJustLinked] = useState(false);
   const [place, setPlace] = useState(null);
   const triggerRef = useRef(null);
   const cardRef = useRef(null);
@@ -146,7 +52,6 @@ export const AccountMenu = ({ tone = 'night', className = '', onSignOut, extra =
 
   const close = useCallback((returnFocus) => {
     setOpen(false);
-    setLinking(false);
     if (returnFocus) triggerRef.current?.focus({ preventScroll: true });
   }, []);
 
@@ -154,10 +59,8 @@ export const AccountMenu = ({ tone = 'night', className = '', onSignOut, extra =
   useEffect(() => {
     if (!open) return undefined;
     let cancelled = false;
-    Promise.all([fetchAccount(), fetchAuthConfig()]).then(([me, config]) => {
-      if (cancelled) return;
-      if (me) setAccount(me);
-      setGoogleOn(Boolean(GOOGLE_CLIENT_ID) && config?.google !== false);
+    fetchAccount().then((me) => {
+      if (!cancelled && me) setAccount(me);
     });
     return () => { cancelled = true; };
   }, [open]);
@@ -184,8 +87,7 @@ export const AccountMenu = ({ tone = 'night', className = '', onSignOut, extra =
       e.preventDefault();
       close(true);
     };
-    // Tabbing out of the card closes it. Google's sign-in window takes the focus away from
-    // the whole page while it is open; that is not leaving the card.
+    // Tabbing out of the card closes it.
     let focusTimer = null;
     const onFocusOut = () => {
       clearTimeout(focusTimer);
@@ -224,6 +126,14 @@ export const AccountMenu = ({ tone = 'night', className = '', onSignOut, extra =
   const name = account?.name || accessSession.name || '';
   const userKey = account?.userId ?? accessSession.userId;
 
+  // A real link, so it can open in a new tab; a plain click opens the page here.
+  const goToAccount = (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    close(false);
+    openAccountPage();
+  };
+
   const card = open && place && createPortal(
     <div
       ref={cardRef}
@@ -248,26 +158,11 @@ export const AccountMenu = ({ tone = 'night', className = '', onSignOut, extra =
           {userKey != null && <SerialNo value={serialFor(`member-${userKey}`)} />}
         </div>
         <p className="mt-1.5 font-serif font-bold text-xl leading-tight text-ink break-words">{name}</p>
-        {account?.email && <p className="font-mono text-sm text-sepia break-all leading-snug">{account.email}</p>}
+        {account?.email && <p className="font-mono text-sm text-sepia [overflow-wrap:anywhere] leading-snug">{account.email}</p>}
 
-        {account && (googleOn || account.googleLinked) && (
-          <div className="mt-3 pt-3 border-t border-dashed border-sepia/45">
-            {account.googleLinked ? (
-              <p className="flex items-center gap-2 font-serif text-base font-semibold text-seal-green">
-                <Tick /> Google linked
-              </p>
-            ) : linking ? (
-              <LinkGoogleStep
-                accountName={name}
-                onCancel={() => setLinking(false)}
-                onLinked={(me) => { setAccount((current) => ({ ...current, ...me, googleLinked: true })); setLinking(false); setJustLinked(true); }}
-              />
-            ) : (
-              <button type="button" onClick={() => setLinking(true)} className={outlineClass}>Link Google account</button>
-            )}
-          </div>
-        )}
-        <p role="status" className="sr-only">{justLinked && account?.googleLinked ? 'Google linked.' : ''}</p>
+        <div className="mt-3 pt-3 border-t border-dashed border-sepia/45">
+          <a href={accountHref} onClick={goToAccount} className={outlineClass}>Account</a>
+        </div>
 
         {extra}
 
@@ -287,7 +182,7 @@ export const AccountMenu = ({ tone = 'night', className = '', onSignOut, extra =
         aria-expanded={open}
         aria-controls={open ? cardId : undefined}
         aria-haspopup="dialog"
-        onClick={() => (open ? close(false) : (setJustLinked(false), setOpen(true)))}
+        onClick={() => (open ? close(false) : setOpen(true))}
         className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${TRIGGER[tone] || TRIGGER.night} ${className}`}
       >
         Account <Chevron open={open} />

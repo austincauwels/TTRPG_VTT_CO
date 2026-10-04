@@ -24,6 +24,8 @@ from vtt.google import GoogleIdentity, GoogleTokenError
 
 OK = {"ok": True}
 LINK_INVALID = {"detail": "This link has expired or has already been used. Please ask for a new one."}
+LINK_REPLACED = {"detail": "A newer link was sent. Use the latest email."}
+_SUBJECT = re.compile(r"Set a new Candela Obscura password \((1[0-2]|[1-9]):[0-5]\d [AP]M\)")
 ADDRESS_LIMITED = {"detail": "Too many reset emails were asked for this address. Please wait an hour and try again."}
 # What a used link answers: what login answers, plus googleUnlinked.
 LOGIN_KEYS = {"PLAYER": {"role", "name", "userId", "campaignCode", "campaignId", "pendingRejoinInvite", "token",
@@ -92,7 +94,10 @@ def test_a_reset_email_goes_to_the_account(client, outbox):
     assert r.json() == OK
     [message] = outbox
     assert message.to == u.email
-    assert message.subject == "Set a new Candela Obscura password"
+    [row] = rows_of(u.id)
+    assert message.subject == password_reset.subject(row.created_at)
+    assert _SUBJECT.fullmatch(message.subject), message.subject
+    assert f"<title>{message.subject}</title>" in message.html
     token = token_in(message)
     link = f"{config.RESET_URL_BASE}/reset-password?token={token}"
     assert link in message.text
@@ -100,6 +105,60 @@ def test_a_reset_email_goes_to_the_account(client, outbox):
     assert u.username in message.text and u.username in message.html
     assert "works once and expires in one hour" in message.text
     assert "—" not in message.text + message.html  # no em dashes in the copy
+
+
+def _at(*fields):
+    """Unix seconds of a UTC date and time."""
+    from datetime import datetime, timezone
+    return int(datetime(*fields, tzinfo=timezone.utc).timestamp())
+
+
+# (UTC instant, the Pacific clock): daylight time is UTC-7, standard time UTC-8. In 2026
+# daylight time starts at 10:00 UTC on March 8 and ends at 09:00 UTC on November 1.
+PACIFIC_TIMES = [
+    (_at(2026, 10, 4, 17, 0), "10:00 AM"),
+    (_at(2026, 10, 5, 4, 30), "9:30 PM"),
+    (_at(2026, 10, 4, 7, 0), "12:00 AM"),
+    (_at(2026, 10, 4, 19, 5), "12:05 PM"),
+    (_at(2026, 12, 1, 18, 5), "10:05 AM"),
+    (_at(2026, 3, 8, 9, 59), "1:59 AM"),
+    (_at(2026, 3, 8, 10, 0), "3:00 AM"),
+    (_at(2026, 11, 1, 8, 59), "1:59 AM"),
+    (_at(2026, 11, 1, 9, 0), "1:00 AM"),
+]
+
+
+@pytest.mark.parametrize("at,clock", PACIFIC_TIMES)
+def test_the_subject_carries_the_pacific_time(at, clock, monkeypatch):
+    """Owner's item 18: each reset email has its own subject, so Gmail does not stack them
+    in one thread with the oldest link first. Pacific time, where the players are, with
+    or without time zone data on the server."""
+    assert password_reset.subject(at) == f"Set a new Candela Obscura password ({clock})"
+    monkeypatch.setattr(password_reset, "_PACIFIC", None)
+    assert password_reset.subject(at) == f"Set a new Candela Obscura password ({clock})"
+
+
+def test_the_rule_agrees_with_the_time_zone_data():
+    try:
+        from zoneinfo import ZoneInfo
+        from datetime import datetime
+        pacific = ZoneInfo("America/Los_Angeles")
+    except Exception:
+        pytest.skip("no time zone data here")
+    for at in range(_at(2025, 1, 1, 0, 0), _at(2031, 1, 1, 0, 0), 3 * 3600 + 17 * 60):
+        local, by_rule = datetime.fromtimestamp(at, pacific), password_reset.pacific_by_rule(at)
+        assert (local.hour, local.minute) == (by_rule.hour, by_rule.minute), at
+
+
+def test_each_request_gets_its_own_subject(client, outbox, monkeypatch):
+    u = player()
+    clock = {"now": _at(2026, 10, 4, 17, 0)}
+    monkeypatch.setattr(password_reset, "now", lambda: clock["now"])
+    reset_token(client, outbox, u)
+    clock["now"] += 20 * 60
+    reset_token(client, outbox, u)
+    assert [m.subject for m in outbox] == ["Set a new Candela Obscura password (10:00 AM)",
+                                           "Set a new Candela Obscura password (10:20 AM)"]
 
 
 def test_the_link_uses_reset_url_base(client, outbox, monkeypatch):
@@ -337,12 +396,57 @@ def test_expired_links_are_forgotten(client, outbox):
 
 
 def test_a_newer_link_replaces_the_older_one(client, outbox):
+    """Owner's item 18: an older link says that a newer one was sent, not that it expired.
+    The older row stays, marked replaced, and expires with the newer link."""
     u = player()
     first = reset_token(client, outbox, u)
     second = reset_token(client, outbox, u)
-    assert len(rows_of(u.id)) == 1
-    assert (confirm(client, first).status_code, confirm(client, first).json()) == (400, LINK_INVALID)
+    rows = sorted(rows_of(u.id), key=lambda row: row.id)
+    assert [row.replaced_at is not None for row in rows] == [True, False]
+    assert rows[0].expires_at == rows[1].expires_at
+    for _ in range(2):
+        r = confirm(client, first)
+        assert (r.status_code, r.json()) == (400, LINK_REPLACED)
+    assert support.login(client, u.username, support.PASSWORD).status_code == 200
     assert confirm(client, second).status_code == 200
+    # once the newest link is used, the older one is simply dead
+    assert (confirm(client, first).status_code, confirm(client, first).json()) == (400, LINK_INVALID)
+    assert rows_of(u.id) == []
+
+
+def test_every_older_link_points_to_the_latest(client, outbox):
+    u = player()
+    first, second, third = (reset_token(client, outbox, u) for _ in range(3))
+    for token in (first, second):
+        assert confirm(client, token).json() == LINK_REPLACED
+    assert confirm(client, third).status_code == 200
+
+
+def test_an_older_link_says_newer_only_while_the_newer_one_works(client, outbox):
+    """When the newest link has expired, or the password changed another way (which ends
+    every link), "use the latest email" would send the reader to a dead link too."""
+    u = player()
+    first = reset_token(client, outbox, u)
+    reset_token(client, outbox, u)
+    newest = max(rows_of(u.id), key=lambda row: row.id)
+    support.update(PasswordResetToken, newest.id, expires_at=int(time.time()) - 1)
+    assert confirm(client, first).json() == LINK_INVALID
+    v = player()
+    first = reset_token(client, outbox, v)
+    reset_token(client, outbox, v)
+    support.update(User, v.id, hashed_password=support.cheap_hash("changed-elsewhere"))
+    assert confirm(client, first).json() == LINK_INVALID
+
+
+def test_only_the_holder_of_an_old_link_hears_of_a_newer_one(client, outbox):
+    """Unknown tokens, and asking for an address with or without an account, answer as
+    before, so the new words say nothing about which addresses have accounts."""
+    u = player()
+    reset_token(client, outbox, u)
+    reset_token(client, outbox, u)
+    for token in ("no-such-link", "A" * 43):
+        assert confirm(client, token).json() == LINK_INVALID
+    assert ask(client, u.email).json() == ask(client, address()).json() == OK
 
 
 def test_old_links_stop_working_after_a_reset(client, outbox):
@@ -716,7 +820,7 @@ def test_a_request_succeeds_when_resend_fails(client, monkeypatch, caplog):
     assert (r.status_code, r.json()) == (202, OK)
     [call] = resend.calls
     assert call.json["to"] == [u.email]
-    assert call.json["subject"] == "Set a new Candela Obscura password"
+    assert _SUBJECT.fullmatch(call.json["subject"])
     assert "/reset-password?token=" in call.json["text"] and "/reset-password?token=" in call.json["html"]
     assert "Could not reach Resend" in caplog.text
     token = _LINK.search(call.json["text"]).group(1)
@@ -744,7 +848,7 @@ def test_init_db_creates_the_table_on_an_older_database(client, monkeypatch):
         main.init_db()
         insp = sa_inspect(eng)
         assert {c["name"] for c in insp.get_columns("password_reset_tokens")} == {
-            "id", "user_id", "token_hash", "password_stamp", "created_at", "expires_at"}
+            "id", "user_id", "token_hash", "password_stamp", "created_at", "expires_at", "replaced_at"}
         indexes = {i["name"]: (i["column_names"], bool(i["unique"])) for i in insp.get_indexes("password_reset_tokens")}
         assert indexes["ix_password_reset_tokens_token_hash"] == (["token_hash"], True)
         assert indexes["ix_password_reset_tokens_user_id"] == (["user_id"], False)
@@ -760,3 +864,21 @@ def test_init_db_creates_the_table_on_an_older_database(client, monkeypatch):
         main.init_db()
         with Session() as s:
             assert s.query(PasswordResetToken).count() == 1
+
+
+def test_init_db_adds_replaced_at_to_an_older_table(client, monkeypatch):
+    """The table came before replaced_at; init_db adds it, and rows from before count as
+    not replaced."""
+    with support.isolated_schema() as (eng, Session, schema):
+        with eng.begin() as conn:
+            conn.execute(text("ALTER TABLE password_reset_tokens DROP COLUMN replaced_at"))
+            conn.execute(text("INSERT INTO users (id, username, email, hashed_password) "
+                              "VALUES (6, 'u6', 'u6@candela-players.org', 'x')"))
+            conn.execute(text("INSERT INTO password_reset_tokens (user_id, token_hash, password_stamp, created_at, "
+                              "expires_at) VALUES (6, :h, :s, 1, 2)"), {"h": "h" * 64, "s": "s" * 32})
+        monkeypatch.setattr(main, "db_engine", eng)
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        main.init_db()
+        assert "replaced_at" in {c["name"] for c in sa_inspect(eng).get_columns("password_reset_tokens")}
+        with Session() as s:
+            assert s.query(PasswordResetToken.replaced_at).filter(PasswordResetToken.user_id == 6).all() == [(None,)]

@@ -12,10 +12,11 @@ access checks in vtt.ws.access; a rejected message gets an action_rejected frame
 back and nothing else happens. See docs/refactor/WEBSOCKET.md for every message
 type and docs/refactor/AUTH.md for who may send it.
 
-The token's password stamp is checked again before every message that names a
+The token's session stamp is checked again before every message that names a
 handler: once the user's password has changed (a reset, Sign in with Google replacing
-it, a hash set in the database), the socket is closed with 4401 and the message is not
-handled. The routes that change a password also close the user's sockets at once
+it, a hash set in the database) or every session was ended (removing the Google
+sign-in raises the session epoch), the socket is closed with 4401 and the message is
+not handled. The routes that do either also close the user's sockets at once
 (manager.close_user), so a socket that only listens ends too.
 
 An exception from a handler (other than inside roll, which catches its own) leaves
@@ -34,7 +35,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from models import Character, Circle
 from vtt import db as _db
 from vtt.auth import MEMBER_STATUSES, stamp_still_valid, user_for_token
-from vtt.security import password_stamp
+from vtt.security import session_stamp
 from vtt.circle_queries import get_or_create_campaign_circle
 from vtt.config import logger
 from vtt.serializers import get_char_dict, get_circle_dict
@@ -70,7 +71,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
             await _refuse(websocket, game_id, channel)
             return
         # The stamp the token carries (user_for_token checked that it matches).
-        await _serve(websocket, db, game_id, user.id, password_stamp(user.hashed_password), *channel)
+        await _serve(websocket, db, game_id, user.id, session_stamp(user.hashed_password, user.session_epoch),
+                     *channel)
     finally:
         db.close()
 
@@ -170,7 +172,7 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
             if entry is None:
                 continue
             handler, needs_character = entry
-            # The token this socket was opened with ends when the password changes.
+            # The token this socket was opened with ends when the password or the session epoch changes.
             try:
                 token_still_good = stamp_still_valid(db, user_id, stamp)
             except Exception as exc:

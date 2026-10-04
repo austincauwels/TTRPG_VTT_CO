@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for all game entities: users, password reset links, campaigns, circles, characters, notebook entries, and relationship votes."""
+"""SQLAlchemy ORM models for all game entities: users, password reset links, email change links and their undo links, held usernames, campaigns, circles, characters, notebook entries, and relationship votes."""
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Float, Boolean, Text, Index, DateTime, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, column_property, deferred, relationship, with_loader_criteria
@@ -54,12 +54,23 @@ class User(Base):
     # True once someone showed they read the account's email: a used reset link, or a
     # Google account with that address (made with Google, or linked with the same email).
     email_proven = Column(Boolean, default=False)
+    # True when someone chose the account's password (register, a reset link, the account
+    # page, or any password that was checked and worked); False when the server set one
+    # nobody knows (made with Google, replaced by Google's sign-in by email, a retired
+    # published password). NULL for accounts from before the column: not known.
+    has_password = Column(Boolean, nullable=True)
+    # Raised by one to end every session without a new password (removing the Google
+    # sign-in). Login tokens carry it in their stamp (vtt/security.py session_stamp).
+    # NULL for rows from before the column counts as 0.
+    session_epoch = Column(Integer, default=0, nullable=True)
 
 class PasswordResetToken(Base):
     """An outstanding password reset link (vtt/password_reset.py). Only the SHA-256 of
-    the link's token is kept. A row is deleted when its link is used, when the user asks
-    for a newer link, and when the user's password is reset; password_stamp (see
-    vtt/security.py) makes it useless once the password changes any other way."""
+    the link's token is kept. A row is deleted when its link is used and when the user's
+    password is reset; password_stamp (see vtt/security.py) makes it useless once the
+    password changes any other way. When the user asks for a newer link the row stays,
+    marked replaced_at, so that its link can say that a newer one was sent; it never works
+    again, and it expires with the newer link."""
     __tablename__ = "password_reset_tokens"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -67,6 +78,50 @@ class PasswordResetToken(Base):
     password_stamp = Column(String(32), nullable=False)
     created_at = Column(Integer, nullable=False)  # Unix time, seconds
     expires_at = Column(Integer, nullable=False)  # Unix time, seconds
+    replaced_at = Column(Integer, nullable=True)  # Unix time, seconds: when a newer link replaced it
+
+class EmailChangeToken(Base):
+    """A pending change of a user's email address (vtt/email_change.py): the link mailed
+    to the new address. Only the SHA-256 of the link's token is kept. A row is deleted
+    when its link is used, when the user asks again or cancels, and when the password
+    changes on the account page; password_stamp and old_email make it useless once the
+    password or the email changes any other way."""
+    __tablename__ = "email_change_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    new_email = Column(String, nullable=False)
+    old_email = Column(String, nullable=True)     # the account's email when the change was asked for
+    password_stamp = Column(String(32), nullable=False)
+    created_at = Column(Integer, nullable=False)  # Unix time, seconds
+    expires_at = Column(Integer, nullable=False)  # Unix time, seconds
+
+class EmailChangeUndo(Base):
+    """The undo link mailed to the old address when a change of address went through
+    (vtt/email_change.py). Only the SHA-256 of the link's token is kept. It works once,
+    for EMAIL_UNDO_EXPIRE_DAYS, whatever happened to the account since: a new password,
+    a new Google link or another change of address do not end it. Using it deletes it
+    and every undo link of the user issued after it. google_sub is the Google link the
+    account had when the change went through (NULL: none), which the undo keeps."""
+    __tablename__ = "email_change_undos"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    old_email = Column(String, nullable=False)    # the address the undo puts back
+    new_email = Column(String, nullable=False)    # the address the change set
+    google_sub = Column(String, nullable=True)    # the Google link when the change went through
+    created_at = Column(Integer, nullable=False)  # Unix time, seconds
+    expires_at = Column(Integer, nullable=False)  # Unix time, seconds
+
+class UsernameHold(Base):
+    """A name freed by a rename, held for the user who had it until held_until
+    (vtt/usernames.py): nobody else may take it meanwhile. name_key is the name as
+    usernames.username_key compares it."""
+    __tablename__ = "username_holds"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name_key = Column(String, nullable=False, index=True)
+    held_until = Column(Integer, nullable=False)  # Unix time, seconds
 
 class Game(Base):
     __tablename__ = "games"
