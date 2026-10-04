@@ -57,7 +57,7 @@ function ReportFlipCard({ inv, report }) {
   return (
     <div
       className="cursor-pointer select-none"
-      style={{ perspective: '1200px', height: '320px', width: '360px' }}
+      style={{ perspective: '1200px', height: '320px', width: '100%' }}
       onClick={() => setFlipped(f => !f)}
     >
       <div
@@ -465,7 +465,7 @@ export const CirclePage = () => {
           </h3>
           <div className="flex flex-wrap gap-4">
             {investigators.map((inv, idx) => (
-              <div key={inv.id || idx} style={{ transform: `rotate(${idx % 2 === 0 ? '-0.5' : '0.5'}deg)` }}>
+              <div key={inv.id || idx} className="w-[360px] max-w-full" style={{ transform: `rotate(${idx % 2 === 0 ? '-0.5' : '0.5'}deg)` }}>
                 <ReportFlipCard
                   inv={inv}
                   report={reports[inv.id] || reports[String(inv.id)] || null}
@@ -529,16 +529,15 @@ export const CirclePage = () => {
       {/* Circle Advancement Modal */}
       {showAdvanceModal && (
         <div
-          className="fixed inset-0 z-[600] flex items-center justify-center"
+          className="fixed inset-0 z-[600] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.6)' }}
           onClick={() => setShowAdvanceModal(false)}
         >
           <div
-            className="relative bg-[#fefcf5] border border-[#d6cbbe] border-t-4 border-t-[#721c15] shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
-            style={{ width: 480 }}
+            className="relative w-full max-w-[480px] max-h-[90dvh] overflow-y-auto bg-[#fefcf5] border border-[#d6cbbe] border-t-4 border-t-[#721c15] shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
             onClick={e => e.stopPropagation()}
           >
-            <div className="p-8">
+            <div className="p-5 sm:p-8">
               <h2 className="text-2xl font-serif font-black text-black mb-1">Circle Advancement</h2>
               <p className="font-mono text-[9px] text-black/40 uppercase tracking-wider mb-6">
                 Select the new circle ability. This will be broadcast to all investigators.
