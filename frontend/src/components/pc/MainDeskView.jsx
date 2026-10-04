@@ -129,8 +129,11 @@ export const MainDeskView = () => {
 
         <div className="w-full bg-parchment border-4 border-double border-ink p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] xl:shadow-[0_8px_18px_rgba(0,0,0,0.85)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-ink pl-[4.5rem] sm:pl-32 xl:pl-[5.25rem] pr-3 sm:pr-6 xl:pr-2 py-3 sm:py-5 xl:py-1.5 rounded-sm overflow-hidden">
           {/* The registry's number, printed large and faint across the strip, misprinted:
-              off level, off register, the start of the line running off the strip */}
-          <Watermark misprint className="lg:hidden right-3 top-1.5 text-[30px] text-ink/[0.08]" style={{ '--misprint-tilt': '-3deg' }}>
+              off level, off register. Along the top of the strip it tilts up from its right
+              end, so the start of the line climbs off the top edge and never drops into
+              the tabs; on tablets, where the tabs share the strip's row, it is also set
+              smaller and higher. */}
+          <Watermark misprint className="lg:hidden right-3 top-1.5 md:top-0.5 text-[30px] md:text-[24px] text-ink/[0.08]" style={{ '--misprint-tilt': '2.5deg' }}>
             {registryNo}
           </Watermark>
 
