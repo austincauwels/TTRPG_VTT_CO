@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { tiltFor } from '../../shared/handPlaced';
+import { SerialNo, serialFor } from '../../shared/PrintMarks';
 
 // Each card lies where the GM dropped it: a lean of 0.8 to 2 degrees, fixed per
 // investigator, neighbours leaning opposite ways. Gentle enough that the pen-font names
@@ -37,8 +38,9 @@ export const InvestigatorBusinessCard = ({ inv, onClick, index = 0 }) => {
             </div>
           )}
 
-          {/* Text content */}
-          <div className="px-4 py-3 flex-1 min-w-0">
+          {/* Text content, and the member's number struck in red at the corner */}
+          <div className="px-4 py-3 flex-1 min-w-0 relative">
+            <SerialNo value={serialFor(inv.id ?? inv.name)} className="absolute bottom-2 right-3 text-[11px]" />
             <p
               className="text-2xl font-bold leading-tight mb-2 truncate text-ink"
               style={{ fontFamily: penFont }}

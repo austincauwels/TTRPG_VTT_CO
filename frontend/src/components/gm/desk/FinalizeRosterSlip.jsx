@@ -1,6 +1,7 @@
 import React from 'react';
 import { ConfirmAction } from '../../shared/ConfirmAction';
 import { WaxSeal } from '../../shared/WaxSeal';
+import { FormLine } from '../../shared/PrintMarks';
 
 const SLIP_PAPER = {
   clipPath: 'polygon(0% 2%, 99% 0%, 100% 98%, 1% 100%)',
@@ -25,7 +26,7 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
       disabled={isFinalizingRoster || noOneYet}
       onConfirm={handleFinalizeRoster}
       cancelLabel="Not yet"
-      armedHint={`Press again to finalize with ${activeCount} of 5 investigators. This cannot be undone.`}
+      armedHint={`Press again to finalize with ${activeCount} of 5 investigators. Every player's formation papers close, and this cannot be undone.`}
       renderButton={(armed, props) => (
         <button
           {...props}
@@ -47,11 +48,7 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
                   {activeCount} of 5 investigators
                 </span>
               </div>
-              <p className="font-serif text-base text-sepia italic leading-snug text-left">
-                {noOneYet
-                  ? 'Approve at least one investigator before you finalize the circle.'
-                  : "Locks the circle's name, question, ability and insignia, and closes every player's formation papers. Do this when the players have finished them."}
-              </p>
+              <FormLine className="text-left">Form C.O. 1 · Circle charter</FormLine>
             </div>
           </div>
           {/* The seal comes down on the slip while the circle is finalized */}
@@ -76,7 +73,7 @@ export const FinalizedSlip = ({ pressed = false, className = '' }) => (
       <WaxSeal size={44} pressed={pressed} />
       <div className="min-w-0">
         <p className="font-serif font-bold uppercase tracking-[0.12em] text-base text-ink">The circle is finalized</p>
-        <p className="font-serif text-base text-sepia italic leading-snug">Its name, question, ability and insignia are locked.</p>
+        <FormLine className="block mt-1">Form C.O. 1 · Circle charter · Sealed</FormLine>
       </div>
     </div>
   </div>

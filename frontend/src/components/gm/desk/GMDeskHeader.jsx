@@ -35,14 +35,13 @@ export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, set
       {campaignCode && (
         <p className="font-serif text-base text-parchment-deep mt-1">
           Campaign code <span className="font-mono text-cream">{campaignCode}</span>
-          <span className="text-moonlight-steel">: share it with players so they can ask to join.</span>
         </p>
       )}
     </header>
 
     {/* GM CONTROL BAR */}
     <div className="w-full bg-gm-slate border-b border-moonlight-steel/20 py-3 lg:py-4 shadow-md z-40 flex justify-center">
-      <div className="w-full max-w-[1500px] px-4 lg:px-8 lg:pl-[40px] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-8">
+      <div className="w-full max-w-[1500px] 2xl:max-w-[1840px] px-4 lg:px-8 lg:pl-[40px] 2xl:px-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-8">
         <div className="flex items-center gap-3 text-moonlight-steel">
           <SafeIcon name="GiEyeShield" size={45} className="shrink-0 w-8 h-8 lg:w-[45px] lg:h-[45px]" />
           <span className="font-display text-xl lg:text-2xl tracking-[0.08em] uppercase text-cream">

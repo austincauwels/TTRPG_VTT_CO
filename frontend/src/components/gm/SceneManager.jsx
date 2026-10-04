@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ConfirmAction } from '../shared/ConfirmAction';
+import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks';
 
 const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reconnects by itself; try again in a moment.';
@@ -108,7 +109,7 @@ export const TensionClock = ({ readOnly = false }) => {
       {isGM ? (
         <input type="text" defaultValue={label} key={label}
           onBlur={e => sendUpdate({ tension_label: e.target.value })}
-          placeholder="Name this clock"
+          placeholder="Clock name"
           aria-label="Tension clock name"
           className="text-center font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/90 focus:border-oxblood transition-colors"
         />
@@ -181,6 +182,7 @@ export const SceneManager = () => {
 
       {/* Letterhead */}
       <div className="border-b-2 border-double border-sepia pb-4 mb-6 text-center relative">
+        <SerialNo value={serialFor(`dispatch-${circle?.id ?? ''}`, 4)} className="absolute top-0 right-0" />
         <SafeIcon name="GiEyeShield" size={32} className="mx-auto mb-2 text-sepia" />
         <h2 className="font-display uppercase tracking-[0.08em] text-xl leading-tight">Candela Obscura</h2>
         <p className="font-serif italic text-base text-sepia leading-snug">Office of the Lightkeeper: Priority Dispatch</p>
@@ -212,14 +214,13 @@ export const SceneManager = () => {
         Secure the area. Light the Way.
       </div>
 
-      {/* Stamp buttons, each with its effect written under it */}
+      {/* Stamp buttons; End Assignment asks for a second press and says what it clears */}
       <div className="mt-8 flex justify-between items-start gap-4 relative">
         {/* End Assignment: left stamp */}
         <ConfirmAction
           className="flex flex-col items-start gap-2 max-w-[11rem]"
           onConfirm={endAssignment}
           cancelLabel="Keep going"
-          idleHint="Clears the dispatch and resets every player's ability uses."
           armedHint="Press again to end it: the dispatch clears and every player's ability uses reset."
           hintClassName="[&>p]:text-sm"
           renderButton={(armed, props) => (
@@ -251,8 +252,12 @@ export const SceneManager = () => {
             </div>
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-50 pointer-events-none mix-blend-overlay" />
           </button>
-          <p id="dispatch-effect" className="font-serif italic text-sm leading-snug text-sepia">Sends the location and atmosphere to every player's desk.</p>
+          <p id="dispatch-effect" className="sr-only">Sends the location and atmosphere to every player's desk.</p>
         </div>
+      </div>
+      <div className="mt-6 flex items-center gap-2" aria-hidden="true">
+        <PrinterMark size={12} />
+        <FormLine>Form C.O. 2 · Dispatch</FormLine>
       </div>
       {receipt && (
         <p role={receipt.ok ? 'status' : 'alert'} className={`mt-4 font-serif text-base leading-snug ${receipt.ok ? 'text-seal-green' : 'text-oxblood'}`}>

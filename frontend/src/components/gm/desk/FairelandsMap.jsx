@@ -51,9 +51,12 @@ export const FairelandsMap = () => {
         />
       </div>
       <div className="mt-2 px-1 flex flex-wrap items-center justify-between gap-x-4 font-sans font-bold text-xs uppercase tracking-widest text-moonlight-steel">
-        <span className="[@media(hover:hover)]:hidden">
-          {tapZoom ? 'Tap again to zoom out' : 'Tap the map to zoom in'}
-        </span>
+        {/* On touch screens a tap zooms: a magnifier says which way the next tap goes */}
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" className="w-5 h-5 [@media(hover:hover)]:hidden">
+          <circle cx="8.5" cy="8.5" r="5.6" fill="none" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M12.6 12.6l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <path d={tapZoom ? 'M6 8.5h5' : 'M6 8.5h5M8.5 6v5'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
         <a
           href={MAP_SRC}
           target="_blank"

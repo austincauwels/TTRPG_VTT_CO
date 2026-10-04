@@ -27,7 +27,8 @@ const ClearButton = ({ label, armedHint, onConfirm, className = '' }) => (
     )}
   />
 );
-import { SheetDivider } from '../shared/Decorations';
+import { SheetDivider, TurnOverMark } from '../shared/Decorations';
+import { FormLine, SerialNo, PrinterMark, DateStamp, serialFor, stampDate } from '../shared/PrintMarks';
 
 const CIRCLE_QUESTIONS = [
   { key: 'q1', text: 'You have all known one another for a long time, but your circle was recently formed. Why were you brought together, and how do you each feel about it?' },
@@ -112,11 +113,14 @@ function ReportFlipCard({ inv, report }) {
             <span className="font-sans font-bold text-xs text-sepia uppercase">{inv.specialty}</span>
           )}
           {report ? (
-            <span className="font-sans font-bold text-xs text-seal-green uppercase tracking-wider mt-1">Report filed ✓</span>
+            <span className="mt-1">
+              <span className="sr-only">Report filed</span>
+              <DateStamp label="Report filed" date={stampDate(report.submitted_at || report.created_at || report.updated_at)} tone="green" tilt={-2} />
+            </span>
           ) : (
             <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider mt-1">No report yet</span>
           )}
-          <span className="font-sans font-bold text-xs text-sepia uppercase mt-auto">Tap to read →</span>
+          <TurnOverMark className="mt-auto text-sepia/70" />
         </div>
 
         {/* Back */}
@@ -210,8 +214,13 @@ export const CirclePage = () => {
   return (
     <div className="relative z-10 animate-sheetDrop space-y-8 text-ink bg-parchment min-h-[850px] px-8 py-8 rounded-sm shadow-inner" style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.08) 27px, rgb(var(--c-sepia) / 0.08) 28px)', backgroundSize: '100% 28px', backgroundPosition: '0 4px' }}>
 
-      {/* I. Circle Identity Header — matches player CircleView */}
+      {/* I. Circle Identity Header, as on the player's Circle tab */}
       <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/80 p-5 shadow-md rounded-sm">
+        <div className="flex items-center gap-2 -mt-1 mb-3" aria-hidden="true">
+          <PrinterMark size={13} />
+          <FormLine>Form C.O. 3 · Circle charter</FormLine>
+          <SerialNo value={serialFor(`circle-${circle?.id ?? ''}`)} className="ml-auto" />
+        </div>
         <div className="flex flex-col lg:flex-row gap-6 items-start">
 
           {/* Name + Chapter House (editable for GM) */}
@@ -234,7 +243,7 @@ export const CirclePage = () => {
               ) : (
                 <input
                   type="text"
-                  placeholder="No name yet. Type one and leave the field to save."
+                  placeholder="Circle name"
                   defaultValue=""
                   onBlur={e => e.target.value.trim() && updateCircle({ circle_id: circId, name: e.target.value.trim() })}
                   className="mt-1 w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-2xl px-3 py-1 focus:border-oxblood uppercase"
@@ -258,7 +267,7 @@ export const CirclePage = () => {
                 </div>
               ) : (
                 <textarea
-                  placeholder="No chapter house yet. Type one and leave the field to save."
+                  placeholder="Chapter house"
                   defaultValue=""
                   onBlur={e => e.target.value.trim() && updateCircle({ circle_id: circId, chapter_house_location: e.target.value.trim() })}
                   rows={2}
@@ -319,8 +328,8 @@ export const CirclePage = () => {
               );
             })}
           </div>
-          <div className="font-serif italic text-sm text-sepia">
-            {illum} of {TRACK_SIZE}. A milestone every 3. Tap a pip to set the track.
+          <div className="font-mono tabular-nums text-sm text-sepia">
+            {illum} / {TRACK_SIZE}
           </div>
         </div>
 
@@ -347,7 +356,7 @@ export const CirclePage = () => {
             </div>
           ) : (
             <div className="mt-1">
-              <p className="font-serif text-sm text-sepia italic mb-2">No circle ability yet. Choose one:</p>
+              <p className="font-serif text-sm text-sepia italic mb-2">No circle ability yet</p>
               <select
                 defaultValue=""
                 onChange={e => e.target.value && updateCircle({ circle_id: circId, circle_ability: e.target.value })}
@@ -373,9 +382,7 @@ export const CirclePage = () => {
               <SafeIcon name="GiQuillInk" size={12} />
               Illumination Questions
             </h3>
-            <p className="font-serif italic text-sm text-sepia mb-4">
-              Players answer these at the end of each assignment. Open reports so they can send them.
-            </p>
+            <FormLine className="block mb-4">Form C.O. 11 · Assignment report</FormLine>
             <div className="space-y-3">
               {ILLUM_QUESTIONS.map((q, i) => (
                 <p key={i} className="font-serif text-sm text-ink/80 leading-snug italic border-b border-ink/10 pb-2 last:border-0">
@@ -387,7 +394,7 @@ export const CirclePage = () => {
             {/* GM Toggle: Open Reports */}
             <div className="mt-4 pt-3 border-t border-ink/10 flex items-center justify-between">
               <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider">
-                {circle?.reports_open ? 'Players can send reports now' : 'Reports are closed'}
+                {circle?.reports_open ? 'Reports open' : 'Reports closed'}
               </span>
               <button
                 onClick={() => gmToggleReports(circId)}
@@ -409,11 +416,9 @@ export const CirclePage = () => {
             <SafeIcon name="GiScrollUnfurled" size={14} className="text-oxblood" />
             Circle Resources
           </h3>
-          <p className="font-serif italic text-sm text-sepia leading-relaxed">
-            Each resource holds 1 more than the number of investigators. Each investigator may spend up to 2 per assignment. Tap a square to set the count.
-          </p>
-          <p className={`font-serif text-sm ${circle?.resources_editable ? 'text-seal-green' : 'text-sepia'}`}>
-            {circle?.resources_editable ? 'Players can spend resources now.' : 'Spending is locked: players cannot spend resources.'}
+          <p className={`flex items-center gap-1.5 font-sans text-xs font-bold uppercase tracking-wider ${circle?.resources_editable ? 'text-seal-green' : 'text-sepia'}`}>
+            {!circle?.resources_editable && <SafeIcon name="GiPadlock" size={13} />}
+            {circle?.resources_editable ? 'Spending open' : 'Spending locked'}
           </p>
 
           <div className="space-y-3">
@@ -500,7 +505,6 @@ export const CirclePage = () => {
           <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1.5 mb-5 flex items-center gap-1.5">
             <SafeIcon name="GiPapers" size={14} className="text-oxblood" />
             Assignment Reports
-            <span className="font-serif italic text-sm text-sepia ml-2 normal-case tracking-normal">Tap a card to read it</span>
           </h3>
           <div className="flex flex-wrap gap-4">
             {investigators.map((inv, idx) => (
@@ -525,18 +529,18 @@ export const CirclePage = () => {
         </h3>
 
         {selQ ? (
-          <div className="bg-cream border border-parchment-deep border-l-4 border-l-oxblood/60 p-4 mb-5 shadow-sm rounded-sm">
+          <div className="bg-cream border border-parchment-deep p-4 mb-5 shadow-sm rounded-sm">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-2">
               Circle question
             </span>
             <p className="font-serif text-base text-ink/80 leading-relaxed italic">"{selQ.text}"</p>
           </div>
         ) : (
-          <p className="font-serif text-sm text-sepia italic mb-5">No circle question yet. The players vote on one in the formation papers.</p>
+          <p className="font-serif text-sm text-sepia italic mb-5">No circle question yet</p>
         )}
 
         {playersWithAnswers.length === 0 ? (
-          <p className="font-serif text-sm text-sepia italic">No player has written an answer to the circle question yet.</p>
+          <p className="font-serif text-sm text-sepia italic">No answers yet</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {playersWithAnswers.map((inv, idx) => (
@@ -581,10 +585,7 @@ export const CirclePage = () => {
             onClick={e => e.stopPropagation()}
           >
             <div className="p-5 sm:p-8">
-              <h2 id="gm-advance-title" className="text-2xl font-serif font-black text-ink mb-1">Circle Advancement</h2>
-              <p className="font-serif italic text-base text-sepia mb-6">
-                Choose the circle's new ability. Every investigator sees it as soon as you advance.
-              </p>
+              <h2 id="gm-advance-title" className="text-2xl font-serif font-black text-ink mb-6">Circle Advancement</h2>
 
               <div className="space-y-2 mb-6">
                 {Object.keys(CIRCLE_ABILITY_DESCRIPTIONS).filter(a => {

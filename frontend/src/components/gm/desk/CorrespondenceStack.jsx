@@ -17,16 +17,13 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
       if (pending.length === 0) {
         return (
           <p className="font-serif text-base text-moonlight-steel text-center py-6 italic">
-            No one is waiting to join.{campaignCode ? <> Share the campaign code <span className="font-mono not-italic text-cream">{campaignCode}</span> with your players; their requests appear here.</> : ' Requests appear here when players ask to join.'}
+            No one waiting to join
           </p>
         );
       }
       const current = pending[pendingIndex];
       return (
         <div className="flex flex-col items-center gap-4">
-          <p className="font-serif text-base text-parchment-deep text-center leading-snug">
-            Approve to bring this investigator into the circle. Reject sends them back to the player, out of the campaign.
-          </p>
           <AnimatePresence mode="wait">
             {current && (
               <PlayerRosterCard

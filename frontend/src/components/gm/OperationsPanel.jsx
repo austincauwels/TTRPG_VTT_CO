@@ -118,12 +118,16 @@ export const OperationsPanel = () => {
       {/* Below lg the three columns dissolve (display: contents) into one column, ordered
           by how often the GM reaches for each part during play: the tab strip, dice and
           log, tension, the dispatch, the circle's investigators, then join requests and
-          Finalize. From lg up the three-column desk is unchanged. */}
-      <main ref={mainRef} className="max-w-[1500px] mx-auto p-4 mt-2 lg:mt-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          Finalize. From lg up the three-column desk is unchanged. From 2xl the desk takes the
+          width: the rails sit out at the edges and the work surface between them grows. */}
+      <main ref={mainRef} className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto p-4 2xl:px-10 mt-2 lg:mt-6">
+        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 2xl:gap-x-14 items-start ${
+          wideTab(activeTab)
+            ? '2xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]'
+            : '2xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,27rem)]'}`}>
 
           {/* LEFT PANEL */}
-          <div className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-2' : activeTab === 'archives' ? 'lg:col-span-3' : 'lg:col-span-3'} flex flex-col gap-6`}>
+          <div className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-2' : 'lg:col-span-3'} 2xl:col-span-1 flex flex-col gap-6`}>
             <GMSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
             {activeTab === 'roster' && (
               <div className="order-3 lg:order-none">
@@ -133,7 +137,7 @@ export const OperationsPanel = () => {
           </div>
 
           {/* CENTER PANEL */}
-          <div className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-10' : activeTab === 'archives' ? 'lg:col-span-9' : 'lg:col-span-6'}`}>
+          <div className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-10' : activeTab === 'archives' ? 'lg:col-span-9' : 'lg:col-span-6'} 2xl:col-span-1`}>
             {activeTab === 'roster' && selectedInvestigator && (
               <AnimatePresence mode="wait">
                 <GMCharacterSheet
@@ -201,7 +205,7 @@ export const OperationsPanel = () => {
           </div>
 
           {!wideTab(activeTab) && (
-            <div className="order-1 lg:order-none lg:col-span-3">
+            <div className="order-1 lg:order-none lg:col-span-3 2xl:col-span-1">
               {/* The GM's dice in their real colors: felt, wood, gold gilded dice */}
               <div className="bg-gm-night border border-gm-slate rounded-sm shadow-2xl overflow-hidden px-3 pb-3">
                 <div>

@@ -13,7 +13,7 @@ export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }
     </div>
     {campaignRoster.active_investigators?.length === 0 ? (
       <p className="font-serif text-base text-moonlight-steel text-center py-6 italic">
-        No investigators in play yet. They appear here once you approve their join requests.
+        No investigators in play yet
       </p>
     ) : (
       <div className="flex flex-wrap gap-4 pt-2 pb-2">

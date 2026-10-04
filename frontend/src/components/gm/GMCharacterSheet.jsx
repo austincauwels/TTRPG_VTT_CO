@@ -5,6 +5,7 @@ import useGameStore from '../../store/gameStore';
 import { InvestigatorDossier } from '../pc/InvestigatorDossier';
 import { BrassCornerFiligree } from '../shared/Decorations';
 import { apiFetch } from '../../utils/api';
+import { EdgeLine } from '../shared/PrintMarks';
 import { ConfirmAction } from '../shared/ConfirmAction';
 
 export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
@@ -60,6 +61,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
       <div className="bg-cream text-ink px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] border-2 border-black relative font-serif overflow-hidden">
         <div className="absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
         <BrassCornerFiligree />
+        <EdgeLine text="Candela Obscura · Chapter registry · Lightkeeper's copy" className="bottom-2 left-10 right-10" />
 
         {loading && (
           <div className="py-24 text-center font-serif italic text-base text-sepia">
