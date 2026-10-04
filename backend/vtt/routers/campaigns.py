@@ -43,6 +43,15 @@ def _code_taken(db: Session, code: str) -> bool:
     return db.query(Campaign.id).filter(Campaign.campaign_code == code).first() is not None
 
 
+CAMPAIGN_RETIRED = "This campaign has been retired."
+
+
+def _refuse_retired(is_retired) -> None:
+    """A retired campaign takes no new members: no join, rejoin or invite to rejoin."""
+    if is_retired:
+        raise HTTPException(status_code=409, detail=CAMPAIGN_RETIRED)
+
+
 @router.post("/campaign/create")
 def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Session = Depends(get_db),
                     user: User = Depends(get_current_user)):
@@ -72,6 +81,9 @@ async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', 
     if not _ALLOWED_CAMPAIGN_CODE_RE.match(code):
         raise HTTPException(status_code=422, detail="Invalid campaign code format")
     require_owner(user, character_or_404(db, character_id))
+    target = db.query(Campaign.is_retired).filter(Campaign.campaign_code == code).first()
+    if target is not None:
+        _refuse_retired(target.is_retired)
     if pen_font not in _SAFE_FONT_NAMES:
         pen_font = "Caveat"
     result = request_join_campaign(db, character_id, code, pen_font)
@@ -208,6 +220,7 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     ).first() is not None
     if not (invited or lost_a_character):
         raise forbidden()
+    _refuse_retired(campaign.is_retired)
 
     # Retire any active or dead characters this user had in this campaign
     old_chars = db.query(Character).filter(
@@ -293,6 +306,7 @@ async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session
     campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
+    _refuse_retired(campaign.is_retired)
     invitee = _invitee(db, body.username)
 
     invitee.pending_rejoin_campaign_id = campaign_id

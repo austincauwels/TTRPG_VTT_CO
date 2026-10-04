@@ -26,12 +26,12 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | Route | Who may call it |
 |---|---|
 | POST /campaign/create | any logged-in user; they become the GM |
-| POST /campaign/join | owner of `character_id` |
+| POST /campaign/join | owner of `character_id`; a retired campaign is 409 "This campaign has been retired." |
 | POST /campaign/approve/{character_id} | GM of the character's campaign (a character with no campaign has no GM: 403) |
 | POST /campaign/reject/{character_id} | GM of the character's campaign |
 | POST /campaign/{campaign_id}/retire | GM of that campaign |
-| POST /campaign/rejoin | owner of `character_id`, and only when the user has a pending rejoin invite to that campaign or an approved character there that died and has not been replaced yet (dead, status active; the rejoin retires it, so one death opens the way once). Rejoin skips GM approval, so a dead pending character does not count |
-| POST /campaign/{campaign_id}/invite-rejoin | GM of that campaign. The invite lets its holder skip GM approval, so the username must name one user: an exact match wins, a name that matches only ignoring case must match exactly one user (409 "More than one player has that username..." otherwise) |
+| POST /campaign/rejoin | owner of `character_id`, and only when the user has a pending rejoin invite to that campaign or an approved character there that died and has not been replaced yet (dead, status active; the rejoin retires it, so one death opens the way once). Rejoin skips GM approval, so a dead pending character does not count. A retired campaign is 409, after these checks |
+| POST /campaign/{campaign_id}/invite-rejoin | GM of that campaign. The invite lets its holder skip GM approval, so the username must name one user: an exact match wins, a name that matches only ignoring case must match exactly one user (409 "More than one player has that username..." otherwise). A retired campaign is 409 |
 | GET /campaign/{campaign_id}/roster | GM or member |
 | GET /campaign/{campaign_id}/circle-creation-state | GM or member (unknown campaign is now 404, not 500) |
 | POST /circle/vote | owner of `character_id`; the character must be an active or pending member of the circle's campaign |

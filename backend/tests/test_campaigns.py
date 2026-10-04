@@ -451,6 +451,40 @@ def test_rejoin_errors(client):
     assert client.post("/campaign/rejoin", json={"character_id": ch["id"]}, headers=owner).status_code == 422
 
 
+def test_a_retired_campaign_takes_no_new_members(client):
+    """A retired campaign used to take joins (the character waited as pending in a
+    campaign nobody runs any more), rejoins (an invite sent before the retirement
+    still made the character active in it) and new invites. All three are 409 now,
+    after the caller's own checks."""
+    camp = support.new_campaign(client)
+    gm = support.as_gm(camp)
+    u = support.make_user(pending_rejoin_campaign_id=camp["id"])
+    assert client.post(f"/campaign/{camp['id']}/retire", headers=gm).status_code == 200
+    retired = {"detail": "This campaign has been retired."}
+
+    ch = support.forge(client, user_id=u.id)
+    r = support.join(client, ch["id"], camp["campaign_code"])
+    assert (r.status_code, r.json()) == (409, retired)
+    r = client.post("/campaign/rejoin", json={"character_id": ch["id"], "campaign_code": camp["campaign_code"]},
+                    headers=support.as_user(u.id))
+    assert (r.status_code, r.json()) == (409, retired)
+    row = support.fetch(Character, ch["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+    assert support.fetch(User, u.id).pending_rejoin_campaign_id == camp["id"]
+
+    other = support.make_user()
+    r = client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": other.username}, headers=gm)
+    assert (r.status_code, r.json()) == (409, retired)
+    assert support.fetch(User, other.id).pending_rejoin_campaign_id is None
+
+    # Callers the campaign would refuse anyway still get 403: their checks come first.
+    outsider = support.forge(client)
+    body = {"character_id": outsider["id"], "campaign_code": camp["campaign_code"]}
+    assert client.post("/campaign/rejoin", json=body, headers=support.as_owner(outsider["id"])).status_code == 403
+    assert client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": other.username},
+                       headers=support.as_stranger()).status_code == 403
+
+
 # --- invite-rejoin ----------------------------------------------------------
 
 def test_invite_rejoin(client):
