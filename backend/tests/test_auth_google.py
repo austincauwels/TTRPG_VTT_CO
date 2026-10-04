@@ -194,6 +194,34 @@ def test_two_users_with_the_email_are_not_linked(client, google):
     assert google_sub_of(b.id) is None
 
 
+def test_the_seeded_admin_is_never_linked_by_email(client, google):
+    """Admin's email is seed data on a real domain, and admin owns every character forged
+    before login tokens. A Google account with that address gets no shortcut to it."""
+    admin = support.fetch(User, 1)
+    assert admin.username == "admin"
+    for email in (admin.email, admin.email.upper()):
+        r = google_sign_in(client, google.credential(email=email))
+        assert r.status_code == 200
+        assert r.json()["needs_account"] is True
+    assert google_sub_of(1) is None
+    r = create(client, needs_account(client, google, email=admin.email), f"not_admin_{support.uid()}")
+    assert r.status_code == 409
+
+
+@pytest.mark.parametrize("username", ["keeper_test", "elara_voss"])
+def test_seeded_test_players_are_never_linked_by_email(client, google, username):
+    rows = support.fetch_all(User, username=username)
+    user = rows[0] if rows else support.make_user(username=username)
+    support.update(User, user.id, email=f"{username}.{support.uid()}@example.test",
+                   hashed_password=support.password_hash())
+    email = support.fetch(User, user.id).email
+    token = needs_account(client, google, email=email)
+    assert google_sub_of(user.id) is None
+    # whoever knows the account's password can still link it
+    assert_signed_in_as(link(client, token, username), user.id)
+    assert google_sub_of(user.id) is not None
+
+
 def test_of_two_users_with_the_email_the_one_without_google_is_linked(client, google):
     email = f"{support.uid()}@example.test"
     support.make_user(email=email.upper(), google_sub=f"g{support.uid(20)}")

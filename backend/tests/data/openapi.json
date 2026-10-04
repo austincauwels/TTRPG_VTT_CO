@@ -1312,7 +1312,7 @@
     },
     "/api/auth/google": {
       "post": {
-        "description": "Signs in the user linked to this Google account. A user with no Google account\nyet whose email is the Google email (ignoring case) is linked on the spot, if\nexactly one such user exists. Otherwise the answer is a link token for\n/api/auth/google/link or /api/auth/google/create.",
+        "description": "Signs in the user linked to this Google account. A user with no Google account\nyet whose email is the Google email (ignoring case) is linked on the spot, if\nexactly one such user exists. Seeded accounts are never linked this way. Otherwise\nthe answer is a link token for /api/auth/google/link or /api/auth/google/create.",
         "operationId": "google_sign_in_api_auth_google_post",
         "requestBody": {
           "content": {

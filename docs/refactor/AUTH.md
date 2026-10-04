@@ -136,7 +136,7 @@ Players can sign in with their Google account alone. The login screen shows Goog
 Rate limited 10 per minute per IP, like login.
 
 1. A user whose `google_sub` is the token's subject is signed in. The answer is exactly what login answers for that user (GM or player shape), including `token`.
-2. Otherwise, if exactly one user without a `google_sub` has the Google email (compared ignoring case), the Google account is linked to that user (`google_sub` set) and they are signed in. This is how existing players move over: their first Google sign-in is the only step. Their username, email and password stay as they were. When two such users share the email, nobody is linked automatically.
+2. Otherwise, if exactly one user without a `google_sub` has the Google email (compared ignoring case), the Google account is linked to that user (`google_sub` set) and they are signed in. This is how existing players move over: their first Google sign-in is the only step. Their username, email and password stay as they were. When two such users share the email, nobody is linked automatically. The accounts the seed scripts make (`admin` and the test players listed under Published passwords) are never linked by email. Their emails are seed data, not anyone's address; `admin@archive.com` is on a real domain whose owner could make a Google account for it, and admin owns every character forged before login tokens. Whoever knows one of their passwords can still link it with `/api/auth/google/link`. The list is `SEEDED_USERNAMES` in `vtt/routers/auth.py`, taken from `PUBLISHED_PASSWORDS`.
 3. Otherwise the answer is `{"needs_account": true, "link_token": ..., "suggested_name": ..., "email": <the Google email>}` and nothing is written.
 
 `suggested_name` is the Google name cut down to the username rule of register (letters, digits, spaces, dots, dashes and underscores, 2 to 32 characters), else the local part of the email, else "Investigator". When it is taken, " 2" to " 9" (then 4 random hex digits) is added.
@@ -210,7 +210,6 @@ User 1 (`admin`) owns every character forged before tokens without a `user_id` (
 
 - Sign in with Google links by email to the account that has that email, and register never checked that an email belongs to whoever registered it. Someone who registers a password account with another person's email before that person's first Google sign-in gets that person linked to an account whose password they know. Turning password login off ends that. The other way round is not possible: Google must have verified the email.
 - There is no password reset, so a player whose Google email matches none of their accounts and who has forgotten their password cannot claim their old account. Unlinking a Google account, or moving it to another user, is a database edit (`google_sub` set to NULL).
-
 - A token cannot be revoked before it expires, except by changing `SECRET_KEY` (which logs everyone out). Deleting a user does revoke it, because the user lookup fails.
 - An open WebSocket keeps working after its token expires; the token is only checked when the socket connects.
 - The token sits in localStorage, so a script injected into the page could read it. The app renders no user HTML as markup today.

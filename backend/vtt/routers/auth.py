@@ -19,7 +19,7 @@ from starlette.concurrency import run_in_threadpool
 from models import Campaign, User
 from vtt import config, google
 from vtt.config import logger
-from vtt.db import get_db, unusable_password_hash
+from vtt.db import PUBLISHED_PASSWORDS, get_db, unusable_password_hash
 from vtt.google import GoogleIdentity
 from vtt.schemas import (GoogleCreateRequest, GoogleLinkRequest, GoogleSignInRequest, LoginRequest,
                          RegisterRequest)
@@ -168,6 +168,13 @@ def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: 
     logger.info("Linked a Google account to user id=%s (%s)", user.id, how)
 
 
+# The accounts the seed scripts make (admin and the test players). Their emails are
+# seed data, not anyone's real address, and admin (user 1) owns every character forged
+# before login tokens, so none of them is ever linked by email. admin@archive.com is
+# on a real domain whose owner could make a Google account for that address. Whoever
+# knows one of their passwords can still link it through /api/auth/google/link.
+SEEDED_USERNAMES = tuple(PUBLISHED_PASSWORDS)
+
 _NOT_IN_USERNAMES = re.compile(r"[^\w\-. ]+")
 
 
@@ -199,8 +206,8 @@ def suggest_username(db: Session, identity: GoogleIdentity) -> str:
 async def google_sign_in(request: Request, body: GoogleSignInRequest, db: Session = Depends(get_db)):
     """Signs in the user linked to this Google account. A user with no Google account
     yet whose email is the Google email (ignoring case) is linked on the spot, if
-    exactly one such user exists. Otherwise the answer is a link token for
-    /api/auth/google/link or /api/auth/google/create."""
+    exactly one such user exists. Seeded accounts are never linked this way. Otherwise
+    the answer is a link token for /api/auth/google/link or /api/auth/google/create."""
     identity = await verified_google_identity(body.credential)
 
     user = db.query(User).filter(User.google_sub == identity.sub).first()
@@ -210,6 +217,7 @@ async def google_sign_in(request: Request, body: GoogleSignInRequest, db: Sessio
     same_email = db.query(User).filter(
         User.google_sub.is_(None),
         func.lower(User.email) == identity.email.lower(),
+        User.username.notin_(SEEDED_USERNAMES),
     ).limit(2).all()
     if len(same_email) == 1:
         user = same_email[0]
