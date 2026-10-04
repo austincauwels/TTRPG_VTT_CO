@@ -26,6 +26,7 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 | `vtt/db.py` | `db_engine`, `SessionLocal`, `get_db`, `init_db` | 58 to 240 |
 | `vtt/schemas.py` | all pydantic request and response models | 260 to 434, 564, 635, 694 to 715 |
 | `vtt/serializers.py` | `get_char_dict`, `get_circle_dict` | 1352 to 1445 |
+| `vtt/deletion.py` | deleting characters and campaigns (soft delete), the undo and the admin restore; `backend/restore_deleted.py` is the admin's command line for it (DELETION.md) | new |
 | `vtt/circle_queries.py` | `get_or_create_campaign_circle`, `votes_dict` and `relationships_list` (were `_votes_dict` and `_relationships_list`), `resolve_circle` | 721 to 753, 1447 to 1454 |
 | `vtt/application.py` | `app`, limiter state and handler, CORS, router includes in the old route order | 244 to 255, 944 |
 | `vtt/routers/campaigns.py` | `/campaign/create` through `/campaign/{campaign_id}/roster` | 450 to 688 |

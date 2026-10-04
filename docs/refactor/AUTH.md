@@ -19,7 +19,7 @@ Every route except the sign-in routes (login, register, the three `/api/auth/goo
 
 After that, ids the client sends are checked against the caller:
 
-- An id that does not exist is 404. The routes keep their existing messages ("Campaign not found", "Character not found", "Investigator dossier not found.", "Entry not found", "Relationship not found"); a circle is "Circle not found".
+- An id that does not exist is 404. A deleted character or campaign counts as one that does not exist (DELETION.md). The routes keep their existing messages ("Campaign not found", "Character not found", "Investigator dossier not found.", "Entry not found", "Relationship not found"); a circle is "Circle not found".
 - An id that exists but that the caller may not use is 403 `{"detail": "Not allowed."}`.
 - Where the client still sends its own user id (`user_id` on campaign create and forge, the path of the two user routes), the server uses the token's user. A matching value is accepted and ignored; anything else is 403.
 
@@ -32,6 +32,8 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /campaign/approve/{character_id} | GM of the character's campaign (a character with no campaign has no GM: 403) |
 | POST /campaign/reject/{character_id} | GM of the character's campaign |
 | POST /campaign/{campaign_id}/retire | GM of that campaign |
+| DELETE /campaign/{campaign_id} | GM of that campaign; its characters go back to their owners (DELETION.md) |
+| POST /campaign/{campaign_id}/restore | GM of that campaign, within two minutes of deleting it; anyone else, or a campaign that is not deleted, is 404 (DELETION.md) |
 | POST /campaign/rejoin | owner of `character_id`, and only when the user has a pending rejoin invite to that campaign or an approved character there that died and has not been replaced yet (dead, status active; the rejoin retires it, so one death opens the way once). Rejoin skips GM approval, so a dead pending character does not count. A retired campaign is 409, after these checks |
 | POST /campaign/{campaign_id}/invite-rejoin | GM of that campaign. The invite lets its holder skip GM approval, so the username must name one user: an exact match wins, a name that matches only ignoring case must match exactly one user (409 "More than one player has that username..." otherwise). A retired campaign is 409 |
 | GET /campaign/{campaign_id}/roster | GM or member |
@@ -43,6 +45,8 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | GET /api/investigators | any logged-in user; lists only their own characters |
 | GET /api/investigators/{id} | owner, or GM of the character's campaign |
 | POST /api/investigators/forge | any logged-in user; the character is theirs. `profile_pic` follows the portrait rule (Portraits below) |
+| DELETE /api/investigators/{id} | owner only (not the GM of its campaign), and only while the character is on no roster: 409 while it is active or pending (DELETION.md) |
+| POST /api/investigators/{id}/restore | owner, within two minutes of deleting it; anyone else, or a character that is not deleted, is 404 (DELETION.md) |
 | PUT /api/investigators/{id}/portrait | owner, or GM of the character's campaign while the character is on its roster (active or pending; a retired character still tagged with the campaign is 403 for that GM) |
 | GET /api/auth/me | any logged-in user; their own account |
 | POST /api/auth/me/google | any logged-in user who also sends the account's password, or a Google account with the account's email; links it to their own account (Linking Google while signed in below) |

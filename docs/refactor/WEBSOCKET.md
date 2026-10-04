@@ -212,7 +212,7 @@ There is no length limit. The sender name is whatever the client sends; the UI u
 
 ## 5. Outgoing messages
 
-All 23 types the server emits have a handler in `gameStore.js`, and the store handles no type the server never emits.
+All 25 types the server emits have a handler in `gameStore.js`, and the store handles no type the server never emits.
 
 | Type | Emitted by | Recipients | Frontend effect |
 |---|---|---|---|
@@ -236,6 +236,8 @@ All 23 types the server emits have a handler in `gameStore.js`, and the store ha
 | `investigator_approved` | REST approve, REST rejoin | Campaign | Campaign-checked; updates roster and own character |
 | `investigator_rejected` | REST reject | Campaign, plus the rejected character's key | Resets that character to unaffiliated |
 | `campaign_retired` | REST retire | Campaign (but see D3) | Campaign-checked; sends the user to HOME |
+| `campaign_deleted` | REST delete campaign | The GM's key and the key of every character the campaign let go (active, pending or retired); the GM's channel is then closed with 4404 (DELETION.md) | Sends the user to the hub with a notice; a player's channel opens again, the GM's closes |
+| `character_deleted` | REST delete investigator | That character's key, which is then closed with 4404 | Sends a tab that had the character open to the hub |
 | `character_joined_mid_campaign` | REST rejoin | Campaign | Campaign-checked; opens the relationship intro |
 | `gm_rejoin_invite` | REST invite-rejoin | Every character key owned by the invited user | Sets `rejoinInvite` |
 | `roster_finalized` | REST finalize-roster | Campaign (but see D4) | Campaign-checked; sets `circle`, hides circle creation, unaffiliates rejected ids |
