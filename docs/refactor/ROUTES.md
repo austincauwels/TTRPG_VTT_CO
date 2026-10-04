@@ -174,7 +174,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 ### Auth routes (on `app`)
 
 **POST /api/auth/login** (line 950, `async def`, `@limiter.limit("10/minute")`)
-- Inputs: JSON `LoginRequest {username (max 64), password}`; `request: Request` is required by slowapi.
+- Inputs: JSON `LoginRequest {username (max 64), password (max 1024 since the security review; a longer one was a 500 from passlib)}`; `request: Request` is required by slowapi.
 - Tables: users, campaigns (read).
 - Response, GM (user has a non-retired campaign with `gm_user_id` = user): `{role: "GM", name, userId, campaignCode, campaignId}`.
 - Response, player: `{role: "PLAYER", name, userId, campaignCode: null, campaignId: null, pendingRejoinInvite: {campaign_id, campaign_name, campaign_code} | null}`.

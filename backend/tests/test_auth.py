@@ -226,6 +226,18 @@ def test_login_username_is_case_sensitive(client):
     assert r.status_code == 401
 
 
+def test_login_with_a_very_long_password_is_422(client):
+    """passlib refuses to check a password over 4096 characters, and the exception was a
+    500. Login now refuses a password over 1024 characters (register allows 128)."""
+    u = support.make_user()
+    with support.server_errors_as_500(client):
+        for length in (1025, 5000):
+            r = client.post("/api/auth/login", json={"username": u.username, "password": "p" * length})
+            assert r.status_code == 422
+    r = client.post("/api/auth/login", json={"username": u.username, "password": "p" * 1024})
+    assert r.status_code == 401
+
+
 def test_login_username_too_long(client):
     r = client.post("/api/auth/login", json={"username": "x" * 65, "password": "x"})
     assert r.status_code == 422

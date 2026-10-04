@@ -9,6 +9,15 @@ class NotebookEntryUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
 
+# Register allows 128 characters. passlib refuses to check more than 4096 and raises,
+# which was a 500, so login and the Google link refuse anything over this unread.
+_MAX_LOGIN_PASSWORD_LENGTH = 1024
+
+def _check_login_password(v):
+    if len(v) > _MAX_LOGIN_PASSWORD_LENGTH:
+        raise ValueError("Password too long")
+    return v
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -19,6 +28,11 @@ class LoginRequest(BaseModel):
         if len(v) > 64:
             raise ValueError("Username too long")
         return v
+
+    @field_validator("password")
+    @classmethod
+    def password_length(cls, v):
+        return _check_login_password(v)
 
 def check_new_username(v):
     """The rule for a username chosen at registration (and when creating an account
@@ -87,6 +101,11 @@ class GoogleLinkRequest(BaseModel):
         if len(v) > 64:
             raise ValueError("Username too long")
         return v
+
+    @field_validator("password")
+    @classmethod
+    def password_length(cls, v):
+        return _check_login_password(v)
 
 class GoogleCreateRequest(BaseModel):
     link_token: str

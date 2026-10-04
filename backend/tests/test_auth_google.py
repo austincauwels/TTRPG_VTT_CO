@@ -571,6 +571,16 @@ def test_link_and_create_body_validation(client, route, body):
     assert client.post(f"/api/auth/google/{route}", json=body).status_code == 422
 
 
+def test_link_with_a_very_long_password_is_422(client, google):
+    """As for login: passlib's PasswordSizeError over 4096 characters was a 500."""
+    u = support.make_user()
+    token = needs_account(client, google)
+    with support.server_errors_as_500(client):
+        r = link(client, token, u.username, password="p" * 5000)
+    assert r.status_code == 422
+    assert google_sub_of(u.id) is None
+
+
 # --- ALLOW_PASSWORD_LOGIN ----------------------------------------------------------------------
 
 def test_password_login_off(client, google, monkeypatch):
