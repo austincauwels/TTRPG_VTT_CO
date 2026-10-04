@@ -5,6 +5,7 @@ import { ConfirmAction } from './shared/ConfirmAction';
 import { radioArrows } from './shared/a11y';
 import { useDialog } from './shared/useDialog';
 import { PaperSheet } from './shared/PaperSheet';
+import { serialFor } from './shared/PrintMarks';
 
 const ILLUMINATION_KEYS = {
   Journalist: ['Gather Statements', 'Hunt Down a Lead', 'Speak Truth to Power'],
@@ -33,21 +34,21 @@ const SPECIALTY_GILDED = {
 };
 
 const DRIVE_FLAVOR = {
-  nerve:     'Raw physicality — force, endurance, and the will to act with your body.',
-  cunning:   'Subtle control — deception, concealment, and unseen manipulation.',
-  intuition: 'Heightened awareness — perception, empathy, and the supernatural sense.',
+  nerve:     'Raw physicality: force, endurance, and the will to act with your body.',
+  cunning:   'Subtle control: deception, concealment, and unseen manipulation.',
+  intuition: 'Heightened awareness: perception, empathy, and the supernatural sense.',
 };
 
 const ACTION_FLAVOR = {
-  move:    'Run, dodge, or navigate — raw movement through danger.',
-  strike:  'Punch, break, or knock down — direct physical force.',
-  control: 'Drive, shoot, or finesse — precise command of tools and situations.',
-  sway:    'Convince, command, or consort — social pressure and persuasion.',
+  move:    'Run, dodge, or navigate: raw movement through danger.',
+  strike:  'Punch, break, or knock down: direct physical force.',
+  control: 'Drive, shoot, or finesse: precise command of tools and situations.',
+  sway:    'Convince, command, or consort: social pressure and persuasion.',
   sneak:   'Interpret body language, spot lies, gather motives.',
-  hide:    'Sneak, distract, or sleight of hand — concealment and misdirection.',
-  survey:  'Search, track, or spot — reading an environment for detail.',
-  read:    'Inspect, analyze, or remember — focused mental examination.',
-  sense:   'Attune, channel, or reveal — perception of the supernatural.',
+  hide:    'Sneak, distract, or sleight of hand: concealment and misdirection.',
+  survey:  'Search, track, or spot: reading an environment for detail.',
+  read:    'Inspect, analyze, or remember: focused mental examination.',
+  sense:   'Attune, channel, or reveal: perception of the supernatural.',
 };
 
 const STANDARD_GEAR = [
@@ -483,6 +484,8 @@ const clearDraft = (key) => {
 export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-creator-draft' }) => {
   // Read once, on the first render
   const [draft] = useState(() => readDraft(draftKey));
+  // The record's red serial in the corner of each sheet, fixed for this player's draft
+  const formSerial = serialFor(draftKey);
   const d = (field, fallback) => (draft && draft[field] !== undefined && draft[field] !== null ? draft[field] : fallback);
   const [restoredDraft, setRestoredDraft] = useState(() => !!(draft && (draft.role || draft.name)));
 
@@ -710,7 +713,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           renderButton={(armed, props) => (
             <>
               <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-60">
-                This is the investigator you were making{name ? `, ${name}` : ''}. Your choices were kept in this browser.
+                Unfinished investigator{name ? `: ${name}` : ''}
               </p>
               <button
                 {...props}
@@ -764,9 +767,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           <div className="text-center mb-6">
             <h2 className="font-display text-3xl sm:text-5xl uppercase tracking-[0.08em] text-cream"
               style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}>Choose Your Path</h2>
-            <p className="text-base sm:text-lg font-serif italic text-cream/70 mt-2">
-              Flip through the deck, then choose one specialty ability and one role ability to continue.
-            </p>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 items-center lg:items-start">
@@ -955,8 +955,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               <div className="fixed inset-x-0 bottom-0 z-40 bg-night shadow-[0_-10px_24px_rgba(0,0,0,0.75)] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:static lg:z-auto lg:bg-transparent lg:shadow-none lg:px-6 lg:py-4 shrink-0"
                 style={{ borderTop: `1px solid ${currentColor.primary}20` }}>
                 <div className="flex items-center justify-between gap-3 max-w-[1500px] mx-auto">
-                  <p className="text-sm sm:text-base italic text-cream/70">
-                    {(!selectedSpecialtyAbility || !selectedRoleAbility) ? 'Select one ability from each column to continue' : 'Ready to proceed'}
+                  {/* What is chosen so far: a filled mark for each ability picked */}
+                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-xs font-black uppercase tracking-widest text-cream/70">
+                    {[['Specialty ability', selectedSpecialtyAbility], ['Role ability', selectedRoleAbility]].map(([label, chosen]) => (
+                      <span key={label} className="flex items-center gap-1.5">
+                        <span aria-hidden="true" className={`w-2.5 h-2.5 rounded-full border ${chosen ? 'bg-candle-gold border-candle-gold' : 'border-cream/50'}`} />
+                        {label}<span className="sr-only">{chosen ? ': chosen' : ': not chosen yet'}</span>
+                      </span>
+                    ))}
                   </p>
                   <button onClick={chooseSpecialty} disabled={!selectedRoleAbility || !selectedSpecialtyAbility}
                     className="px-4 sm:px-6 py-3 lg:py-2.5 text-sm sm:text-base font-sans font-black uppercase tracking-wider rounded transition-all shrink-0"
@@ -979,12 +985,12 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           STEP 2 — INVESTIGATOR PROFILE (Registration + Interview combined)
           ══════════════════════════════════════════════════════════════════════ */}
       {step === 2 && (
-        <PaperSheet>
+        <PaperSheet printLine="Form C.O. 7 · Investigator record" serial={formSerial}>
           <div className="animate-fadeIn space-y-6">
             <div className="text-center pb-4" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
               <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Investigator Profile</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
-                {specialty} · {role}. Who they are, and why they came to Candela Obscura.
+                {specialty} · {role}
               </p>
             </div>
 
@@ -1014,14 +1020,13 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                     <div>
                       <label htmlFor="creator-name" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Full Name *</label>
                       <input id="creator-name" type="text" required aria-required="true" value={name} onChange={e => setName(e.target.value)}
-                        placeholder="e.g. Ada Whitlock"
                         className="w-full bg-transparent font-serif font-bold text-lg placeholder-sepia/90 placeholder:font-normal placeholder:italic pb-1"
                         style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
                     <div>
                       <label htmlFor="creator-pronouns" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Gender / Pronouns</label>
                       <input id="creator-pronouns" type="text" value={pronouns} onChange={e => setPronouns(e.target.value)}
-                        placeholder="e.g., He/They, She/Her…"
+                        placeholder="She/her, he/they"
                         className="w-full bg-transparent font-serif italic text-lg placeholder-sepia/90 pb-1"
                         style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
@@ -1032,7 +1037,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 <div>
                   <label htmlFor="creator-style" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Style</label>
                   <textarea id="creator-style" rows={3} value={style} onChange={e => setStyle(e.target.value)}
-                    placeholder="Detail apparel, distinguishing marks, tailored suits, or signature items that set this investigator apart…"
                     className="w-full bg-transparent font-serif text-base resize-none placeholder-sepia/90 placeholder:italic leading-7 paper-ruled"
                     style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.25)' }} />
                 </div>
@@ -1052,7 +1056,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                     Catalyst: why do you seek Candela Obscura? *
                   </label>
                   <textarea id="creator-catalyst" required aria-required="true" rows={4} value={catalyst} onChange={e => setCatalyst(e.target.value)}
-                    placeholder="The specific event or rupture that drew you into the dark…"
                     className="w-full bg-transparent font-serif text-base resize-none placeholder-sepia/90 placeholder:italic leading-7 paper-ruled" />
                 </div>
 
@@ -1062,7 +1065,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                     Question: what answer do you seek?
                   </label>
                   <textarea id="creator-question" rows={4} value={question} onChange={e => setQuestion(e.target.value)}
-                    placeholder="The central question or haunting mystery your investigator pursues…"
                     className="w-full bg-transparent font-serif text-base resize-none placeholder-sepia/90 placeholder:italic leading-7 paper-ruled" />
                 </div>
               </div>
@@ -1079,12 +1081,12 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
         const actionKeyLabel = {};
         ACTION_DRIVES.forEach(di => di.actions.forEach(({key,label}) => { actionKeyLabel[key]=label; }));
         return (
-        <PaperSheet>
+        <PaperSheet printLine="Form C.O. 7 · Investigator record" serial={formSerial}>
           <div className="animate-fadeIn space-y-6">
             <div className="text-center pb-5" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
               <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Action Ratings &amp; Drive</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
-                {specialty} starting values are set. Raise one action from 0, add 3 free action points, and assign 6 drive points.
+                {specialty} · {role}
               </p>
             </div>
 
@@ -1258,8 +1260,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               ))}
             </div>
 
-            <p className="text-base font-serif italic text-sepia text-center">
-              ★ Your specialty gilds one action. Click ☆ beside any other action to gild it too. When you roll a gilded action, one die is gold; if you keep its result, you refresh 1 drive.
+            {/* Which actions are gilded: the specialty's, and the free one once it is chosen */}
+            <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-sans text-xs font-black uppercase tracking-widest text-sepia">
+              <Gi.GiStarFormation aria-hidden="true" size={13} style={{ color: 'rgb(var(--c-candle-gold))' }} />
+              <span>Gilded: {[lockedGilded, freeGilded].filter(Boolean).map(k => actionKeyLabel[k]).join(', ') || 'none'}</span>
             </p>
           </div>
         </PaperSheet>
@@ -1270,15 +1274,12 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           STEP 4 — GEAR & DOSSIER
           ══════════════════════════════════════════════════════════════════════ */}
       {step === 4 && (
-        <PaperSheet>
+        <PaperSheet printLine="Form C.O. 7 · Investigator record" serial={formSerial}>
           <div className="animate-fadeIn space-y-7">
             <div className="text-center pb-5" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
               <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Specialty Gear &amp; Final Dossier</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
-                Pick up to 3 items, then check your investigator below and save.
-              </p>
-              <p className="text-base font-serif italic text-oxblood mt-2">
-                You can change gear later from your investigator's sheet.
+                {specialty} · {role}
               </p>
             </div>
 
@@ -1357,9 +1358,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               </div>
             </div>
 
-            <div className="text-center pt-1 text-base font-serif italic text-sepia">
-              Check the details above. You can go back to any step before you save.
-            </div>
           </div>
         </PaperSheet>
       )}
@@ -1462,11 +1460,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               >
                 <div style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.2)', paddingBottom: 16 }}>
                   <h2 id="join-campaign-title" className="font-display text-4xl text-ink">Join a Campaign</h2>
-                  <p className="text-base font-serif text-ink/80 mt-1.5 leading-relaxed">
-                    {savedCharacterId
-                      ? `${name || 'Your investigator'} is saved. Check the code and ask again, or join later from the chapter hub.`
-                      : `${name || 'Your investigator'} is saved first, then asks to join. You can also join later from the chapter hub.`}
-                  </p>
+                  {savedCharacterId && (
+                    <p className="text-base font-serif text-ink/80 mt-1.5 leading-relaxed">
+                      {name || 'Your investigator'} is saved.
+                    </p>
+                  )}
                 </div>
 
                 <JoinCampaignForm

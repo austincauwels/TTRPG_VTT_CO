@@ -1,5 +1,6 @@
 import React from 'react';
 import { CreateCampaignForm } from './CreateCampaignForm';
+import { FormLine } from '../shared/PrintMarks';
 
 export const LightkeeperLedgerPage = ({
   closeBook, gmCampaigns, enterAsGM, isLoadingBook, showRegisterForm, setShowRegisterForm,
@@ -9,7 +10,7 @@ export const LightkeeperLedgerPage = ({
     <div className="px-4 pt-4 lg:px-7 lg:pt-6 pb-3 shrink-0 flex items-start justify-between gap-3" style={{ borderBottom: '2px solid rgb(var(--c-sepia) / 0.18)' }}>
       <div>
         <h2 className="font-display text-3xl lg:text-4xl leading-tight text-oxblood">Lightkeeper Ledger</h2>
-        <p className="font-serif italic text-base text-sepia mt-0.5">The campaigns you run as GM.</p>
+        <FormLine className="block mt-1">Office of the Lightkeeper · Vol. II</FormLine>
       </div>
       <button
         onClick={closeBook}
@@ -45,7 +46,7 @@ export const LightkeeperLedgerPage = ({
 
       {gmCampaigns.length === 0 && !isLoadingBook && (
         <p className="font-serif text-xl italic text-sepia">
-          You are not running a campaign. Start one with New campaign below, then share its code with your players.
+          No campaigns yet
         </p>
       )}
     </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { FormLine, PrinterMark, BlankFields } from '../shared/PrintMarks';
 
 const PAPER = "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.08 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23f0e2c0' filter='url(%23paper)'/%3E%3C/svg%3E\")";
 
@@ -37,9 +38,11 @@ export const GMAccessPamphlet = ({ onOpen }) => (
           <div className="w-1.5 h-1.5 rounded-full border border-sepia" />
           <div className="w-6 h-[1px] bg-sepia" />
         </div>
-        <p className="font-serif text-lg sm:text-xl leading-snug italic px-1 sm:px-2 mt-2 sm:mt-4">
-          Start and run a campaign as GM.
-        </p>
+        <BlankFields labels={['Campaign', 'Code']} className="mt-2 sm:mt-4 px-1 text-left" />
+        <span className="mt-3 sm:mt-4 flex items-center gap-1.5" aria-hidden="true">
+          <PrinterMark size={11} />
+          <FormLine>Form C.O. 1</FormLine>
+        </span>
       </div>
 
       <div className="w-full border-t border-sepia/40 pt-1.5 sm:pt-2 mt-2 sm:mt-3 text-center">

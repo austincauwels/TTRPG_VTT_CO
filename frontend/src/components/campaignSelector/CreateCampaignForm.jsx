@@ -48,7 +48,7 @@ export const CreateCampaignForm = ({ userId, onCreated, onCancel }) => {
         <div>
           <label htmlFor="new-campaign-name" className="font-sans font-bold text-xs tracking-widest uppercase text-sepia block mb-1">Campaign name</label>
           <input id="new-campaign-name" type="text" value={name} onChange={e => setName(e.target.value)}
-            maxLength={80} placeholder="e.g. The Fairelands" className={inputClass} />
+            maxLength={80} className={inputClass} />
         </div>
         <div>
           <label htmlFor="new-campaign-code" className="font-sans font-bold text-xs tracking-widest uppercase text-sepia block mb-1">Campaign code</label>
@@ -58,7 +58,7 @@ export const CreateCampaignForm = ({ userId, onCreated, onCancel }) => {
           <p id="new-campaign-code-help" className={`font-serif text-base mt-1 leading-snug ${codeLooksWrong ? 'text-oxblood' : 'text-sepia'}`}>
             {codeAllDigits
               ? 'A campaign code needs at least one letter.'
-              : `Players type this code to ask to join. Use ${CAMPAIGN_CODE_RULE}`}
+              : CAMPAIGN_CODE_RULE}
           </p>
         </div>
         {error && <p role="alert" className="font-serif text-base text-oxblood">{error}</p>}

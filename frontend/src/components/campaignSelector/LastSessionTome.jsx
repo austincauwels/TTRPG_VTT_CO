@@ -24,10 +24,8 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
             </svg>
             <div className="w-6 h-[1px] bg-gold-leaf/30" />
           </div>
-          <p className="font-serif italic text-gold-leaf/90 text-sm sm:text-lg lg:text-2xl max-w-[90%] lg:max-w-[75%] leading-snug drop-shadow-md sm:mt-2">
-            {lastPlayedCampaign.type === 'gm'
-              ? "Return to the Lightkeeper's desk for this campaign."
-              : "Return to your investigator's desk."}
+          <p className="font-sans font-bold text-xs sm:text-sm uppercase tracking-[0.2em] text-gold-leaf/80 sm:mt-2">
+            {lastPlayedCampaign.type === 'gm' ? "Lightkeeper's desk" : "Investigator's desk"}
           </p>
         </div>
       </div>

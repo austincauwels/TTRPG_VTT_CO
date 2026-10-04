@@ -37,14 +37,14 @@ export const JoinCampaignForm = ({
           onChange={e => onCodeChange(e.target.value)}
           autoCapitalize="none" autoCorrect="off" spellCheck="false"
           placeholder="e.g. fairelands-01"
-          aria-describedby={`${idPrefix}-code-help`}
+          aria-describedby={codeLooksWrong ? `${idPrefix}-code-help` : undefined}
           className={`${fieldClass} font-mono text-lg placeholder-sepia/90`}
         />
-        <p id={`${idPrefix}-code-help`} className={`font-serif text-base mt-1 leading-snug ${codeLooksWrong ? 'text-oxblood' : 'text-sepia'}`}>
-          {codeLooksWrong
-            ? `That does not look like a campaign code. Codes are ${CAMPAIGN_CODE_RULE}`
-            : 'Your GM gives you this code. Once you ask, the GM approves you before you join play.'}
-        </p>
+        {codeLooksWrong && (
+          <p id={`${idPrefix}-code-help`} className="font-serif text-base mt-1 leading-snug text-oxblood">
+            That does not look like a campaign code. Codes are {CAMPAIGN_CODE_RULE}
+          </p>
+        )}
       </div>
 
       <div>
@@ -83,7 +83,6 @@ export const JoinCampaignForm = ({
             ))}
           </div>
         )}
-        <p className="font-serif text-base text-sepia mt-1 leading-snug">Your notebook entries and signature are written in this hand.</p>
         <p className="mt-1 text-xl text-ink/80" style={{ fontFamily: currentPen }}>
           The quick brown fox jumps over the lazy dog.
         </p>

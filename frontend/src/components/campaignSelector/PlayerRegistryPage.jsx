@@ -1,5 +1,6 @@
 import React from 'react';
 import { UnaffiliatedCharacterRow } from './UnaffiliatedCharacterRow';
+import { FormLine } from '../shared/PrintMarks';
 
 export const PlayerRegistryPage = ({
   isLoadingBook, characters, enterAsPlayer, refreshBook,
@@ -8,7 +9,7 @@ export const PlayerRegistryPage = ({
   <div className={`book-page flex flex-col overflow-hidden min-w-0 max-lg:rounded-r-xl ${hiddenOnNarrow ? 'max-lg:hidden' : ''}`} style={{ flex: 1, borderRight: '2px solid rgb(var(--c-sepia) / 0.25)' }}>
     <div className="px-4 pt-4 lg:px-7 lg:pt-6 pb-3 shrink-0" style={{ borderBottom: '2px solid rgb(var(--c-sepia) / 0.18)' }}>
       <h2 className="font-display text-3xl lg:text-4xl leading-tight text-oxblood">Player Registry</h2>
-      <p className="font-serif italic text-base text-sepia mt-0.5">Your investigators and the campaigns they play in.</p>
+      <FormLine className="block mt-1">Candela Obscura · Chapter registry · Vol. I</FormLine>
     </div>
 
     <div className="flex-1 overflow-y-auto px-4 lg:px-7 py-4 space-y-5">
@@ -93,7 +94,7 @@ export const PlayerRegistryPage = ({
           )}
 
           {characters.length === 0 && (
-            <p className="font-serif text-xl italic text-sepia">You have no investigators yet. Create one below, then join a campaign with the code your GM gives you.</p>
+            <p className="font-serif text-xl italic text-sepia">No investigators yet</p>
           )}
         </>
       )}

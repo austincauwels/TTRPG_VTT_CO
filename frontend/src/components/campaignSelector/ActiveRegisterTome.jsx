@@ -19,13 +19,10 @@ export const ActiveRegisterTome = ({ characters, gmCampaigns, onOpen }) => (
       </h2>
       <div className="w-12 h-[1px] bg-gold-leaf/30 my-2 sm:my-4 shadow-[0_1px_0_rgba(255,255,255,0.1)]" />
       <>
-        <p className="hidden sm:block font-serif text-parchment-deep/75 text-lg lg:text-2xl italic max-w-[80%] leading-snug drop-shadow-md">
-          Your investigators and campaigns. Open to play or join.
-        </p>
         <div className="w-full text-left space-y-1 sm:space-y-2 mt-1 sm:mt-3">
           {characters.filter(c => c.status === 'active').length > 0 && (
             <div className="flex items-center gap-1.5 sm:gap-2 pl-1">
-              <span aria-hidden="true" className="text-seal-green-lit text-sm sm:text-lg">●</span>
+              <span aria-hidden="true" className="w-2 h-2 sm:w-2.5 sm:h-2.5 shrink-0 rounded-full bg-seal-green-lit" />
               <span className="font-serif text-sm sm:text-xl italic leading-snug text-cream/80">
                 {characters.filter(c => c.status === 'active').length} in play
               </span>
@@ -33,7 +30,7 @@ export const ActiveRegisterTome = ({ characters, gmCampaigns, onOpen }) => (
           )}
           {characters.filter(c => c.status === 'pending').length > 0 && (
             <div className="flex items-center gap-1.5 sm:gap-2 pl-1">
-              <span aria-hidden="true" className="text-gold-leaf text-sm sm:text-lg">◌</span>
+              <span aria-hidden="true" className="w-2 h-2 sm:w-2.5 sm:h-2.5 shrink-0 rounded-full border border-dashed border-gold-leaf" />
               <span className="font-serif text-sm sm:text-xl italic leading-snug text-gold-leaf/90">
                 {characters.filter(c => c.status === 'pending').length} waiting for approval
               </span>
@@ -41,7 +38,7 @@ export const ActiveRegisterTome = ({ characters, gmCampaigns, onOpen }) => (
           )}
           {gmCampaigns.length > 0 && (
             <div className="flex items-center gap-1.5 sm:gap-2 pl-1">
-              <span aria-hidden="true" className="text-gold-leaf text-sm sm:text-lg">▶</span>
+              <span aria-hidden="true" className="w-2 h-2 sm:w-2.5 sm:h-2.5 shrink-0 rounded-full bg-gold-leaf" />
               <span className="font-serif text-sm sm:text-xl italic leading-snug text-gold-leaf">
                 {gmCampaigns.length} campaign{gmCampaigns.length !== 1 ? 's' : ''} you run
               </span>

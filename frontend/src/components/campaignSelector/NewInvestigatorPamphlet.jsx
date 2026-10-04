@@ -1,4 +1,5 @@
 import React from 'react';
+import { FormLine, PrinterMark, BlankFields } from '../shared/PrintMarks';
 
 // A printed intake form on parchment card stock, the twin of the Lightkeeper pamphlet.
 export const NewInvestigatorPamphlet = ({ onOpen }) => (
@@ -33,9 +34,12 @@ export const NewInvestigatorPamphlet = ({ onOpen }) => (
           <div className="w-6 h-[1px] bg-sepia" />
         </div>
 
-        <p className="font-serif text-lg sm:text-xl leading-snug italic px-1 sm:px-2 mt-2 sm:mt-4">
-          Create an investigator to play.
-        </p>
+        {/* The intake form's own blanks, printed and waiting */}
+        <BlankFields labels={['Name', 'Role', 'Specialty']} className="mt-2 sm:mt-4 px-1 text-left" />
+        <span className="mt-3 sm:mt-4 flex items-center gap-1.5" aria-hidden="true">
+          <PrinterMark size={11} />
+          <FormLine>Form C.O. 7</FormLine>
+        </span>
       </div>
 
       <div className="w-full border-t border-sepia/40 pt-1.5 sm:pt-2 mt-2 sm:mt-3 text-center">

@@ -27,7 +27,7 @@ export const RosterBook = ({ isClosingBook, closeBook, defaultPage = 'registry',
         role="dialog"
         aria-modal="true"
         aria-label="Roster book"
-        className={`roster-book${isClosingBook ? ' closing' : ''} relative flex w-[calc(100vw-32px)] h-[calc(100dvh-84px)] lg:w-[90vw] lg:max-w-[1100px] lg:h-[85vh]`}
+        className={`roster-book${isClosingBook ? ' closing' : ''} relative flex w-[calc(100vw-32px)] h-[calc(100dvh-84px)] lg:w-[90vw] lg:max-w-[1100px] 2xl:max-w-[1320px] lg:h-[85vh]`}
         style={{
           borderRadius: '4px 12px 12px 4px',
           boxShadow: '0 30px 80px rgba(0,0,0,0.98), 0 0 0 2px rgba(0,0,0,0.9)',

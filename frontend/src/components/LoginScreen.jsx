@@ -8,6 +8,7 @@ import {
   PASSWORD_RULE, USERNAME_RULE, emailProblem, newPasswordProblem, usernameProblem,
 } from '../utils/authErrors';
 import { PaperSheet } from './shared/PaperSheet';
+import { serialFor } from './shared/PrintMarks';
 
 // Sign in with Google (docs/refactor/AUTH.md). Without a client ID in the build the
 // screen loads nothing from Google and shows only the password form.
@@ -175,10 +176,6 @@ const GoogleAccountChoice = ({ pending, onSignedIn, onBack }) => {
 
       {choice === 'link' ? (
         <form onSubmit={handleLink} noValidate className="space-y-4">
-          <p className={noteClass}>
-            Enter the username and password of the account you already have, this one time.
-            After that, Google signs you in.
-          </p>
           <Field
             id="linkUsername" label="Username" type="text" autoComplete="username" {...usernameInputProps}
             value={link.username} onChange={editLink('username', 'linkUsername')} error={fieldErrors.linkUsername}
@@ -194,7 +191,6 @@ const GoogleAccountChoice = ({ pending, onSignedIn, onBack }) => {
         </form>
       ) : (
         <form onSubmit={handleCreate} noValidate className="space-y-4">
-          <p className={noteClass}>Choose the name other players will see. You will sign in with Google.</p>
           <Field
             id="newUsername" label="Username" type="text" autoComplete="username" maxLength={32}
             value={newName} help={USERNAME_RULE} error={fieldErrors.newUsername}
@@ -318,7 +314,7 @@ const PasswordForms = ({ registering, setRegistering, googleShown, onSignedIn, o
           </button>
         </div>
 
-        {googleShown && !registering && (
+        {googleShown && !registering && formError && (
           <p className={`${noteClass} italic text-center`}>
             An account linked to Google by its email address signs in with Google only; its old
             password no longer works.
@@ -453,18 +449,10 @@ const LoginScreen = () => {
   let lead;
   if (pendingGoogle) {
     lead = pendingGoogle.email
-      ? <><span className="not-italic font-semibold text-ink break-all">{pendingGoogle.email}</span> is not linked to an account here yet. Link the account you already have, or create a new one.</>
-      : 'This Google account is not linked to an account here yet. Link the account you already have, or create a new one.';
+      ? <><span className="not-italic font-semibold text-ink break-all">{pendingGoogle.email}</span> is not linked to an account here yet.</>
+      : 'This Google account is not linked to an account here yet.';
   } else if (noWayIn) {
     lead = 'Signing in is not available right now. Please try again later.';
-  } else if (registering) {
-    lead = showGoogle
-      ? 'Sign in with Google and choose your name in the next step, or make an account with a password below.'
-      : 'Choose a username and password for your account.';
-  } else {
-    lead = showPassword
-      ? 'Sign in to reach your investigators and campaigns.'
-      : 'Sign in with your Google account to reach your investigators and campaigns.';
   }
 
   return (
@@ -491,7 +479,9 @@ const LoginScreen = () => {
           {/* Laid on the map by hand: a little crooked, taped down at the two top corners. */}
           <div className={`relative ${SLIP_TILT}`}>
             <PaperSheet
-              bodyClassName="px-5 pt-7 pb-6 sm:px-9 sm:pt-9 sm:pb-8"
+              bodyClassName="px-5 pt-7 pb-6 sm:px-9 sm:pt-10 sm:pb-8"
+              printLine="Form C.O. 0 · Admission"
+              serial={serialFor(new Date().toDateString())}
               role="region"
               aria-labelledby="login-heading"
             >
@@ -508,7 +498,7 @@ const LoginScreen = () => {
                 >
                   {title}
                 </h2>
-                <p className="mt-1.5 font-serif italic text-base sm:text-lg leading-snug text-sepia">{lead}</p>
+                {lead && <p className="mt-1.5 font-serif italic text-base sm:text-lg leading-snug text-sepia">{lead}</p>}
               </header>
 
               {/* Sign in with Google. Kept mounted (hidden) during the account step so Google's button survives it. */}
