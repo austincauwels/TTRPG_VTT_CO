@@ -1,0 +1,493 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-04T00:59:32.832694+00:00",
+  "title": "Design System: Candela Obscura VTT",
+  "extensions": {
+    "colorMeta": {
+      "oxblood": {
+        "role": "primary",
+        "displayName": "Sealing-Wax Oxblood (draft)",
+        "canonical": "oklch(36.9% 0.121 29.0)",
+        "tonalRamp": [
+          "#280000",
+          "#4c0000",
+          "#721c15",
+          "#914238",
+          "#b0665b",
+          "#d18e83",
+          "#f2b7ad",
+          "#ffe1d9"
+        ]
+      },
+      "candle-gold": {
+        "role": "secondary",
+        "displayName": "Candle Gold (draft)",
+        "canonical": "oklch(76.7% 0.139 91.1)",
+        "tonalRamp": [
+          "#150800",
+          "#322100",
+          "#513d00",
+          "#735a00",
+          "#977a0f",
+          "#c09e2b",
+          "#e7c459",
+          "#ffec91"
+        ]
+      },
+      "gold-leaf": {
+        "role": "secondary",
+        "displayName": "Gold Leaf (draft, hub only)",
+        "canonical": "oklch(71.5% 0.114 84.6)",
+        "tonalRamp": [
+          "#160800",
+          "#332000",
+          "#533b00",
+          "#755914",
+          "#99782c",
+          "#c29b46",
+          "#e6c278",
+          "#ffeaa9"
+        ]
+      },
+      "register-green": {
+        "role": "tertiary",
+        "displayName": "Register Green (draft)",
+        "canonical": "oklch(21.8% 0.037 153.6)",
+        "tonalRamp": [
+          "#010f05",
+          "#16291c",
+          "#334538",
+          "#526256",
+          "#738277",
+          "#98a59c",
+          "#c0cbc2",
+          "#e8f1eb"
+        ]
+      },
+      "seal-green": {
+        "role": "tertiary",
+        "displayName": "Seal Green (draft, success state)",
+        "canonical": "oklch(50.8% 0.105 165.6)",
+        "tonalRamp": [
+          "#001304",
+          "#002f1a",
+          "#004e34",
+          "#006f50",
+          "#398f6f",
+          "#6bb395",
+          "#99d7bc",
+          "#c7fde5"
+        ]
+      },
+      "night": {
+        "role": "neutral",
+        "displayName": "Candle-Out Black (draft)",
+        "canonical": "oklch(15.9% 0.013 27.8)",
+        "tonalRamp": [
+          "#100908",
+          "#292221",
+          "#453e3d",
+          "#635c5b",
+          "#827c7b",
+          "#a5a09f",
+          "#cac6c5",
+          "#f1eded"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Iron-Gall Ink (draft)",
+        "canonical": "oklch(19.5% 0.012 36.5)",
+        "tonalRamp": [
+          "#100908",
+          "#292220",
+          "#453e3c",
+          "#635c5a",
+          "#827c7a",
+          "#a5a09f",
+          "#cbc6c5",
+          "#f1eeed"
+        ]
+      },
+      "sepia": {
+        "role": "neutral",
+        "displayName": "Sepia",
+        "canonical": "oklch(38.1% 0.054 49.9)",
+        "tonalRamp": [
+          "#190500",
+          "#361c0d",
+          "#573725",
+          "#755645",
+          "#937666",
+          "#b69b8d",
+          "#dac2b5",
+          "#feeadf"
+        ]
+      },
+      "parchment": {
+        "role": "neutral",
+        "displayName": "Parchment",
+        "canonical": "oklch(91.5% 0.047 88.3)",
+        "tonalRamp": [
+          "#0e0b05",
+          "#282419",
+          "#453f31",
+          "#645d4b",
+          "#857d67",
+          "#aba187",
+          "#d3c6a8",
+          "#fbeecc"
+        ]
+      },
+      "parchment-deep": {
+        "role": "neutral",
+        "displayName": "Deep Parchment",
+        "canonical": "oklch(86.0% 0.066 86.7)",
+        "tonalRamp": [
+          "#0f0a02",
+          "#2a2312",
+          "#483f29",
+          "#685c41",
+          "#8a7c5b",
+          "#b1a079",
+          "#d9c598",
+          "#ffedc1"
+        ]
+      },
+      "cream": {
+        "role": "neutral",
+        "displayName": "Cream",
+        "canonical": "oklch(98.6% 0.009 84.6)",
+        "tonalRamp": [
+          "#0c0b0a",
+          "#252422",
+          "#41403d",
+          "#5f5d5b",
+          "#7f7d7a",
+          "#a3a19d",
+          "#c9c7c2",
+          "#f1eee8"
+        ]
+      },
+      "role-face": {
+        "role": "semantic",
+        "displayName": "Face role",
+        "canonical": "oklch(61.4% 0.100 91.8)",
+        "tonalRamp": [
+          "#140900",
+          "#302200",
+          "#4f3e00",
+          "#705b17",
+          "#927b30",
+          "#b6a05c",
+          "#dac68b",
+          "#ffeeb9"
+        ]
+      },
+      "role-muscle": {
+        "role": "semantic",
+        "displayName": "Muscle role",
+        "canonical": "oklch(45.3% 0.086 55.5)",
+        "tonalRamp": [
+          "#1d0200",
+          "#3d1800",
+          "#5f330f",
+          "#81502c",
+          "#a07151",
+          "#c2977a",
+          "#e5bea5",
+          "#ffe7d1"
+        ]
+      },
+      "role-scholar": {
+        "role": "semantic",
+        "displayName": "Scholar role",
+        "canonical": "oklch(41.2% 0.079 243.1)",
+        "tonalRamp": [
+          "#000c22",
+          "#002642",
+          "#144364",
+          "#366284",
+          "#5a82a2",
+          "#83a6c3",
+          "#adcce5",
+          "#d8f2ff"
+        ]
+      },
+      "role-slink": {
+        "role": "semantic",
+        "displayName": "Slink role",
+        "canonical": "oklch(38.3% 0.077 141.3)",
+        "tonalRamp": [
+          "#001100",
+          "#0e2c09",
+          "#274922",
+          "#476842",
+          "#698764",
+          "#8faa8b",
+          "#b7cfb4",
+          "#e1f5de"
+        ]
+      },
+      "role-weird": {
+        "role": "semantic",
+        "displayName": "Weird role",
+        "canonical": "oklch(36.0% 0.120 302.5)",
+        "tonalRamp": [
+          "#14002c",
+          "#2f0f4e",
+          "#4d2b73",
+          "#6a4d8f",
+          "#886fac",
+          "#ab95cd",
+          "#d0bded",
+          "#f5e6ff"
+        ]
+      },
+      "gm-night": {
+        "role": "neutral",
+        "displayName": "GM Night",
+        "canonical": "#0c1c32"
+      },
+      "gm-slate": {
+        "role": "neutral",
+        "displayName": "GM Slate",
+        "canonical": "#1e3a5f"
+      },
+      "moonlight-steel": {
+        "role": "secondary",
+        "displayName": "Moonlight Steel",
+        "canonical": "#8aa4c8"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "CANDELA OBSCURA wordmark. Declared Crimson Text is not loaded; renders in the platform serif today."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Step and section headings on parchment, oxblood, uppercase."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Ability names, character name, card titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Rule text and descriptions; italic for flavor and empty states."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, tabs, field labels. Heavy uppercase tracked system sans."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Counters, form numbers, timestamps in tracked mono."
+      },
+      "pen": {
+        "displayName": "Pen",
+        "purpose": "Player-written notebook text in the player's chosen handwriting font (Caveat default, 20 options)."
+      }
+    },
+    "shadows": [
+      {
+        "name": "paper-on-desk",
+        "value": "0 10px 15px -3px rgba(0,0,0,0.3)",
+        "purpose": "Parchment panels on the night stage."
+      },
+      {
+        "name": "object-lift",
+        "value": "4px 6px 15px rgba(0,0,0,0.7)",
+        "purpose": "Cards, pamphlets and tabs resting on the desk."
+      },
+      {
+        "name": "tome",
+        "value": "15px 25px 40px rgba(0,0,0,0.95), inset 8px 0 20px rgba(0,0,0,0.9), inset -2px 0 5px rgba(255,255,255,0.05)",
+        "purpose": "Leather tomes on the chapter hub."
+      },
+      {
+        "name": "inset-well",
+        "value": "inset 0 2px 4px rgba(0,0,0,0.15)",
+        "purpose": "Mark boxes and recessed wells on parchment."
+      },
+      {
+        "name": "ember-oxblood",
+        "value": "0 0 4px rgba(114,28,21,0.55)",
+        "purpose": "Filled pips and marks."
+      },
+      {
+        "name": "ember-gold",
+        "value": "0 0 5px rgba(212,175,55,0.7)",
+        "purpose": "Gilded pips and dice."
+      },
+      {
+        "name": "modal",
+        "value": "0 20px 60px rgba(0,0,0,0.9)",
+        "purpose": "Dialogs over the desk."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "fadeIn entrance (0.35s, scale 0.96 and 4px rise)."
+      },
+      {
+        "name": "die-drop",
+        "value": "cubic-bezier(0.25, 1, 0.5, 1)",
+        "purpose": "dieTumble (0.5s) when dice land in the tray."
+      },
+      {
+        "name": "state-quick",
+        "value": "0.15s ease",
+        "purpose": "Button and pip state changes."
+      },
+      {
+        "name": "lift-shimmy",
+        "value": "1.5s ease-in-out infinite",
+        "purpose": "Selected die lifting in the tray."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button (Advance)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single oxblood action per screen, as on the creator's Advance button.",
+      "html": "<button class=\"ds-btn-primary\">Advance &rarr;</button>",
+      "css": ".ds-btn-primary{background:#721c15;color:#fdfaf4;font-family:ui-sans-serif,system-ui,sans-serif;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;font-size:16px;padding:8px 28px;border:none;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.1),0 1px 2px rgba(0,0,0,0.06);cursor:pointer;transition:all 0.15s ease}.ds-btn-primary:hover{filter:brightness(1.12)}.ds-btn-primary:focus-visible{outline:2px solid #d4af37;outline-offset:2px}.ds-btn-primary:disabled{background:rgba(26,19,17,0.6);color:rgba(253,250,244,0.2);cursor:not-allowed}"
+    },
+    {
+      "name": "Ghost Button (Back)",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary navigation on the night stage.",
+      "html": "<div style=\"background:#120b0a;padding:16px\"><button class=\"ds-btn-ghost\">&larr; Back</button></div>",
+      "css": ".ds-btn-ghost{background:transparent;color:rgba(253,250,244,0.5);border:1px solid rgba(253,250,244,0.18);font-family:ui-sans-serif,system-ui,sans-serif;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;font-size:16px;padding:8px 20px;border-radius:4px;cursor:pointer;transition:all 0.15s ease}.ds-btn-ghost:hover{background:rgba(255,255,255,0.05);color:rgba(253,250,244,0.75)}.ds-btn-ghost:focus-visible{outline:2px solid #d4af37;outline-offset:2px}"
+    },
+    {
+      "name": "Brass Button",
+      "kind": "button",
+      "refersTo": "button-gold",
+      "description": "btn-gold from index.css; accept and counter actions in circle creation. Its hard 2px offset shadow is not carried here (see DESIGN.md drift).",
+      "html": "<button class=\"ds-btn-gold\">Accept</button>",
+      "css": ".ds-btn-gold{background:#e5c158;color:#1a1311;border:1px solid #1a1311;font-family:ui-sans-serif,system-ui,sans-serif;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;font-size:10px;padding:6px 12px;border-radius:4px;cursor:pointer;transition:all 0.15s ease}.ds-btn-gold:hover{background:#d4af37}.ds-btn-gold:focus-visible{outline:2px solid #721c15;outline-offset:2px}"
+    },
+    {
+      "name": "Creator Step Bar",
+      "kind": "nav",
+      "refersTo": "step-tab-active",
+      "description": "Four numbered steps; the active one is oxblood.",
+      "html": "<nav class=\"ds-steps\"><span class=\"ds-step ds-step-on\">1. Choose Path</span><span class=\"ds-step\">2. Profile</span><span class=\"ds-step\">3. Action Ratings</span></nav>",
+      "css": ".ds-steps{display:flex;background:#1a1311;border:1px solid #3e2f29;border-radius:4px;overflow:hidden;font-family:ui-sans-serif,system-ui,sans-serif;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;font-size:14px}.ds-step{flex:1;text-align:center;padding:16px 12px;color:rgba(253,250,244,0.45);border-right:1px solid #3e2f29;cursor:pointer;transition:background 0.15s}.ds-step:hover{background:rgba(255,255,255,0.04)}.ds-step-on{background:#721c15;color:#fdfaf4}"
+    },
+    {
+      "name": "Ledger Input",
+      "kind": "input",
+      "refersTo": "input-ledger",
+      "description": "Underlined serif field on parchment.",
+      "html": "<div style=\"background:#f0e2c0;padding:20px\"><label class=\"ds-label\">Full Name *</label><input class=\"ds-input\" placeholder=\"Full name\"></div>",
+      "css": ".ds-label{display:block;color:#721c15;font-family:ui-sans-serif,system-ui,sans-serif;font-weight:900;font-size:14px;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:4px}.ds-input{width:100%;background:transparent;border:none;border-bottom:1px solid rgba(90,58,40,0.38);font-family:'Crimson Text',serif;font-weight:700;font-size:18px;color:#1a1311;padding:0 0 4px 0;outline:none}.ds-input::placeholder{color:rgba(0,0,0,0.2)}.ds-input:focus-visible{border-bottom-color:#721c15}"
+    },
+    {
+      "name": "Parchment Panel",
+      "kind": "card",
+      "refersTo": "parchment-panel",
+      "description": "The creator's ledger page: textured parchment on the night stage.",
+      "html": "<div class=\"ds-panel\"><h3 class=\"ds-panel-h\">Action Ratings &amp; Drive</h3><p class=\"ds-panel-p\">Raise one action, then assign drive points.</p></div>",
+      "css": ".ds-panel{position:relative;background-color:#f0e2c0;background-image:radial-gradient(rgba(100,60,20,0.04) 1px,transparent 0),linear-gradient(rgba(139,90,43,0.03) 1px,transparent 1px);background-size:22px 22px,100% 28px;border:1px solid rgba(90,58,40,0.3);border-radius:2px;padding:32px;color:#1a1311;box-shadow:0 10px 15px -3px rgba(0,0,0,0.3)}.ds-panel-h{margin:0 0 8px;color:#721c15;font-family:'Crimson Text',serif;font-weight:900;font-size:30px;letter-spacing:0.025em;text-transform:uppercase;text-align:center}.ds-panel-p{margin:0;font-family:'Crimson Text',serif;font-size:16px;text-align:center}"
+    },
+    {
+      "name": "Keyword Chip",
+      "kind": "chip",
+      "refersTo": "chip-tag",
+      "description": "Ability keywords under a role, tinted by the role color (Face shown).",
+      "html": "<div style=\"background:#0a0705;padding:12px\"><span class=\"ds-chip\">Gather Statements</span></div>",
+      "css": ".ds-chip{display:inline-block;background:rgba(154,130,53,0.22);border:1px solid rgba(154,130,53,0.33);color:#9a8235;font-family:ui-sans-serif,system-ui,sans-serif;font-weight:900;font-size:12px;letter-spacing:0.05em;text-transform:uppercase;padding:2px 8px;border-radius:2px}"
+    },
+    {
+      "name": "Action Pips",
+      "kind": "custom",
+      "refersTo": "action-pip",
+      "description": "Action ratings as filled (oxblood), gilded (gold) and empty pips.",
+      "html": "<div style=\"background:#f0e2c0;padding:12px;display:flex;gap:4px\"><span class=\"ds-pip ds-pip-filled\"></span><span class=\"ds-pip ds-pip-gilded\"></span><span class=\"ds-pip\"></span></div>",
+      "css": ".ds-pip{width:13px;height:13px;border-radius:50%;border:1.5px solid #5a3a28;display:inline-block;transition:background-color 0.15s ease,box-shadow 0.15s ease}.ds-pip-filled{background:#721c15;border-color:#721c15;box-shadow:0 0 4px rgba(114,28,21,0.55)}.ds-pip-gilded{background:#d4af37;border-color:#a07c1a;box-shadow:0 0 5px rgba(212,175,55,0.7)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Candlelit Desk",
+    "overview": "The app is a desk at night. Every surface is a physical object a Candela Obscura investigator would handle: leather tomes on the chapter hub, a deck of role cards and a tea-stained ledger in the character creator, torn paper tabs and a pinned dispatch on the GM desk, a ruled notebook with handwritten entries, dice that tumble onto a felt tray. Dark lamp-black space surrounds pale parchment, and the only saturated color is oxblood ink with gold for anything gilded or chosen.\n\nDensity is moderate to high. Rule text and mechanics sit close together on parchment panels, separated by thin sepia hairlines and inset wells rather than whitespace. The character creator is the internal reference for the whole app (PRODUCT.md): its dark stage, oxblood step tabs, parchment panel with corner brackets, sepia hairlines, role-tinted card deck and oxblood Advance button are the patterns the rest of the app should converge on.\n\nThe identity is Dark Academia (parchment, emerald green, gold) and uses the official Darrington Press art: the Fairelands map on login and the investigator role portraits on the card deck. Both are binding brand commitments from PRODUCT.md. The current build carries emerald green much more thinly than parchment and gold (one leather tome and the success color); see Colors.",
+    "keyCharacteristics": [
+      "Lamp-black stage (night) with parchment objects placed on it.",
+      "Oxblood is the single action and emphasis color; gold marks gilded, selected or brass details.",
+      "Serif for reading and names, small tracked uppercase sans or mono for labels and data.",
+      "Physical-object metaphors with real depth: tomes, cards, paper tabs, pinned notes, a felt dice tray.",
+      "Official art is shown whole and never recolored.",
+      "Tight corners (2px to 4px); round shapes are reserved for pips, seals and dials."
+    ],
+    "rules": [
+      {
+        "name": "The One Ink Rule",
+        "body": "Oxblood is the only color that means \"act\" or \"this matters\". Primary buttons, active tabs and filled marks are oxblood; nothing else competes for that role.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gilded Means Gilded Rule",
+        "body": "Gold signals the game's gilded state or a deliberate selection. It is not a general decoration color for text or borders.",
+        "section": "colors"
+      },
+      {
+        "name": "The Art Stays Whole Rule",
+        "body": "Official Darrington Press art (Fairelands map, role portraits) is shown as published: no tinting, no hue shifts, credit kept visible.",
+        "section": "colors"
+      },
+      {
+        "name": "The Read in Serif Rule",
+        "body": "Anything a player reads as prose or as a name is serif. Sans and mono are for labels and numbers only.",
+        "section": "typography"
+      },
+      {
+        "name": "The Pen Belongs to the Player Rule",
+        "body": "Handwriting fonts appear only for text a person wrote (notebook entries, signatures, pen previews). Interface copy never uses them.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Lamp Rule",
+        "body": "All cast shadows fall the same way (down and right) because the desk has one light. Glows are only for things that are lit by their own state (filled, gilded, rolling).",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use oxblood (#721c15) for the single primary action on a screen and for active tabs, filled marks and pips.",
+      "**Do** place parchment objects on the night stage, with the shadow falling down and right.",
+      "**Do** set prose, names and rule text in the serif, and labels in small heavy uppercase with at least 0.1em tracking.",
+      "**Do** reserve candle gold for gilded dice, gilded actions and deliberate selection.",
+      "**Do** show official art whole, with its credit, and use the role portraits on role surfaces.",
+      "**Do** use the character creator's panel, tab bar and button patterns as the reference when restyling other screens.",
+      "**Do** keep handwriting fonts for player-written text in the player's chosen pen."
+    ],
+    "donts": [
+      "**Don't** introduce colors outside the Dark Academia palette for brand or chrome; the GM desk's slate navy and bright blue are drift, not precedent.",
+      "**Don't** use rounding above 4px on rectangles; round shapes are for pips, seals and dials.",
+      "**Don't** recolor, crop away the credit of, or replace the official art.",
+      "**Don't** use handwriting fonts for interface labels or buttons.",
+      "**Don't** use gold as general text or border decoration where nothing is gilded or selected."
+    ]
+  }
+}

@@ -11,3 +11,5 @@ venv/
 env/
 # fair use images
 /public/images/The_Fairelands_map.png
+# impeccable critique snapshots stay local (they describe the private beta)
+.impeccable/critique/
