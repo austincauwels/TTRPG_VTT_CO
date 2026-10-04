@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useId, useCallback } from 'react';
 import useGameStore from '../../store/gameStore';
 import { ConfirmAction } from './ConfirmAction';
 import { CameraIcon, PencilIcon } from './NotebookIcons';
 import { tiltFor } from './handPlaced';
 import { FormLine, PrinterMark } from './PrintMarks';
+import { pageKeyBlocked } from './a11y';
+import { playPaperSound } from '../../game/rollSounds';
 
 const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
@@ -20,7 +22,13 @@ const LINED_PAPER = {
   backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgba(0,0,0,0.07) 27px, rgba(0,0,0,0.07) 28px)',
   backgroundSize: '100% 28px',
   backgroundPosition: '0 4px',
+  // The ruling scrolls with the writing when a page holds more than it shows
+  backgroundAttachment: 'local',
 };
+
+// The contents' lines: each entry is one line of this height, with this gap
+const TOC_ROW = 40;
+const TOC_GAP = 6;
 
 function formatDate(isoStr) {
   if (!isoStr) return '';
@@ -29,10 +37,11 @@ function formatDate(isoStr) {
   } catch { return isoStr; }
 }
 
-// The foot of a page: the page number, and the register's printed line between
-function pageFooter(left, right) {
+// The foot of a page: the page number, and the register's printed line between. A page
+// with a turned-up corner keeps its number clear of the corner.
+function pageFooter(left, right, clearCorners = '') {
   return (
-    <div className="pt-4 border-t border-ink/10 flex justify-between items-center gap-3 font-sans font-bold text-xs uppercase tracking-widest text-sepia">
+    <div className={`pt-4 border-t border-ink/10 flex justify-between items-center gap-3 font-sans font-bold text-xs uppercase tracking-widest text-sepia ${clearCorners}`}>
       <span className="min-w-[4rem]">{left}</span>
       <span className="hidden sm:flex items-center gap-2" aria-hidden="true">
         <PrinterMark size={11} />
@@ -41,6 +50,86 @@ function pageFooter(left, right) {
       <span className="min-w-[4rem] text-right font-bold">{right}</span>
     </div>
   );
+}
+
+// A page's outer bottom corner, turned up: press it to turn the page. It lifts further under
+// the pointer or the keyboard focus. 'next' is the right-hand corner, 'prev' the left-hand
+// one (the same drawing, mirrored). The lamp is above left, so the curl's shadow always
+// falls down and to the right.
+function PageCorner({ side, onTurn, label }) {
+  const next = side === 'next';
+  const gradId = useId();
+  return (
+    <button
+      type="button"
+      onClick={onTurn}
+      aria-label={label}
+      title={label}
+      className={`page-corner page-corner-${side} absolute bottom-0 ${next ? 'right-0' : 'left-0'} z-30 w-16 h-16 [outline-offset:-6px]`}
+    >
+      <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false" className="w-full h-full overflow-visible">
+        <defs>
+          <linearGradient id={gradId} gradientUnits="userSpaceOnUse" x1="44" y1="44" x2="22" y2="22">
+            <stop offset="0" stopColor="rgb(var(--c-cream))" />
+            <stop offset="1" stopColor="rgb(var(--c-parchment-deep))" />
+          </linearGradient>
+        </defs>
+        <g transform={next ? undefined : 'translate(64 0) scale(-1 1)'}>
+          {/* The next leaf, where the corner has lifted off it */}
+          <path d="M22 64 L64 22 L64 64 Z" fill="rgb(var(--c-parchment-deep))" />
+          {/* The turned-up corner: the back of the same paper, with its shadow */}
+          <path className="page-corner-flap" d="M22 64 L64 22 L22 22 Z" fill={`url(#${gradId})`}
+            stroke="rgb(var(--c-ink) / 0.14)" strokeWidth="0.8" strokeLinejoin="round" />
+          <path d="M33.5 30 L40 36.5 L33.5 43" fill="none" stroke="rgb(var(--c-oxblood))"
+            strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+      </svg>
+    </button>
+  );
+}
+
+// The ribbon marker sewn into the spine, left at the contents: pull it to go back there.
+// It hangs from the top of the book on every page of entries.
+function ContentsRibbon({ onOpen }) {
+  return (
+    <button type="button" onClick={onOpen} className="contents-ribbon absolute top-0 z-30 right-4 lg:right-auto lg:left-[calc(50%-50px)]">
+      <span className="contents-ribbon-band">
+        <span className="contents-ribbon-label">Contents</span>
+      </span>
+    </button>
+  );
+}
+
+// An engraved arrow, the kind printed at the foot of a contents page
+const PrintArrow = ({ dir }) => (
+  <svg viewBox="0 0 30 14" width="30" height="14" aria-hidden="true" focusable="false"
+    style={dir === 'prev' ? { transform: 'scaleX(-1)' } : undefined}>
+    <path d="M2 7h24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M20 2l7 5-7 5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M2 4v6M5 5v4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+  </svg>
+);
+
+// How many contents lines fit the list as it is laid out now. The page has a fixed size, so
+// this is fixed too; it is measured so a wrapped row of author names never pushes a line
+// off the page.
+function useLinesThatFit() {
+  const [count, setCount] = useState(8);
+  const observer = useRef(null);
+  const ref = useCallback((node) => {
+    if (observer.current) { observer.current.disconnect(); observer.current = null; }
+    if (!node) return;
+    const measure = () => {
+      const fits = Math.floor((node.clientHeight + TOC_GAP) / (TOC_ROW + TOC_GAP));
+      setCount(Math.max(3, fits));
+    };
+    measure();
+    if (typeof ResizeObserver !== 'undefined') {
+      observer.current = new ResizeObserver(measure);
+      observer.current.observe(node);
+    }
+  }, []);
+  return [ref, count];
 }
 
 // Renders a single notebook entry — supports field_log, sketch, photo, lightkeeper
@@ -435,10 +524,17 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
   const goToPrev = () => setCurrentSpread(s => Math.max(0, s - 1));
   const goToNext = () => setCurrentSpread(s => Math.min(totalSpreads, s + 1));
+  const goToContents = () => setCurrentSpread(0);
 
-  // A page turns whenever the spread changes (Previous, Next, or a contents line): a blank
-  // leaf lifts from the spine and turns over the new pages, which are already there under
-  // it. Decorative and short; none under reduced motion (index.css).
+  // A deleted entry can leave the book open past its last page
+  useEffect(() => {
+    if (currentSpread > totalSpreads) setCurrentSpread(totalSpreads);
+  }, [currentSpread, totalSpreads]);
+
+  // A page turns whenever the spread changes (a corner, the ribbon, an arrow key, a contents
+  // line, a new entry): a blank leaf lifts from the spine and turns over the new pages,
+  // which are already there under it, and the paper sounds. Decorative and short; no leaf
+  // under reduced motion (index.css).
   const [leaf, setLeaf] = useState(null); // { key, dir }
   const shownSpread = useRef(currentSpread);
   useEffect(() => {
@@ -446,10 +542,61 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
     const dir = currentSpread > shownSpread.current ? 'forward' : 'back';
     shownSpread.current = currentSpread;
     setLeaf({ key: `${currentSpread}-${Date.now()}`, dir });
+    playPaperSound();
     // Clear it even if the animation never ends here (another tab opened mid-turn)
     const done = setTimeout(() => setLeaf(null), 800);
     return () => clearTimeout(done);
   }, [currentSpread]);
+
+  // The left and right arrow keys turn the pages while the field notes are open, unless
+  // the key belongs to a field or another control
+  const fieldNotesOpen = !showEphemeral && !(showLKResources && isGM);
+  useEffect(() => {
+    if (!fieldNotesOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if (pageKeyBlocked(e)) return;
+      if (e.key === 'ArrowLeft' && currentSpread > 0) { e.preventDefault(); goToPrev(); }
+      if (e.key === 'ArrowRight' && currentSpread < totalSpreads) { e.preventDefault(); goToNext(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [fieldNotesOpen, currentSpread, totalSpreads]);
+
+  // The contents, a fixed number of lines to a page. The author filter narrows the list
+  // first, and the contents start again at their first page.
+  const [tocListRef, tocPerPage] = useLinesThatFit();
+  const [tocPage, setTocPage] = useState(0);
+  const [tocTurn, setTocTurn] = useState(null); // { key, dir }
+  const tocPages = Math.max(1, Math.ceil(filteredEntries.length / tocPerPage));
+  const shownTocPage = Math.min(tocPage, tocPages - 1);
+  const tocLines = filteredEntries.slice(shownTocPage * tocPerPage, (shownTocPage + 1) * tocPerPage);
+  useEffect(() => { setTocPage(0); }, [selectedAuthorFilter]);
+  const turnToc = (delta) => {
+    const nextPage = Math.min(tocPages - 1, Math.max(0, shownTocPage + delta));
+    if (nextPage === shownTocPage) return;
+    setTocPage(nextPage);
+    setTocTurn({ key: `${nextPage}-${Date.now()}`, dir: delta > 0 ? 'forward' : 'back' });
+    playPaperSound();
+  };
+  // An arrow in a corner of the contents' foot; with a single page of contents, an empty
+  // place of the same size, so the foot never moves
+  const tocTurnButton = (dir) => {
+    if (tocPages < 2) return <span aria-hidden="true" className="w-11 h-11 shrink-0" />;
+    const back = dir === 'prev';
+    const disabled = back ? shownTocPage === 0 : shownTocPage >= tocPages - 1;
+    return (
+      <button
+        type="button"
+        onClick={() => turnToc(back ? -1 : 1)}
+        disabled={disabled}
+        aria-label={back ? 'Previous page of the contents' : 'Next page of the contents'}
+        className="w-11 h-11 shrink-0 flex items-center justify-center rounded-sm text-sepia hover:text-oxblood hover:bg-ink/[0.04] disabled:opacity-25 disabled:pointer-events-none transition-colors"
+      >
+        <PrintArrow dir={dir} />
+      </button>
+    );
+  };
 
   const { left: leftEntries, right: rightEntries } = currentSpread > 0
     ? getSpreadEntries(currentSpread)
@@ -617,38 +764,38 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
       {/* ═══════════════ FIELD NOTES VIEW ═══════════════ */}
       {!showEphemeral && !isLKView && (
         <div className="relative z-10">
-          <div
-            className="w-full grid grid-cols-1 lg:grid-cols-2 bg-cream text-ink relative shadow-inner border border-ink/30 overflow-hidden rounded-sm"
-            style={{ minHeight: '800px' }}
-          >
+          {/* The book is one size whatever it holds: from lg the spread has a fixed height and
+              a long page scrolls inside itself; on phones the contents page has a fixed height */}
+          <div className="w-full grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-1 lg:h-[800px] bg-cream text-ink relative shadow-inner border border-ink/30 overflow-hidden rounded-sm">
             <div className="absolute inset-0 opacity-20 pointer-events-none"
               style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cream-paper.png')" }} />
             {leaf && (
               <div key={leaf.key} aria-hidden="true" className={`page-leaf ${leaf.dir}`} onAnimationEnd={() => setLeaf(null)} />
             )}
+            {currentSpread > 0 && <ContentsRibbon onOpen={goToContents} />}
 
             {/* LEFT PAGE */}
             {currentSpread === 0 ? (
-              <div className="p-4 pt-12 sm:p-8 sm:pt-14 lg:pr-10 relative flex flex-col h-full min-w-0 border-b lg:border-b-0 lg:border-r border-ink/20">
+              <div className="p-4 pt-12 sm:p-8 sm:pt-14 lg:pr-10 relative flex flex-col h-[720px] lg:h-full min-h-0 min-w-0 border-b lg:border-b-0 lg:border-r border-ink/20">
                 <div aria-hidden="true" className="absolute top-3 left-4 right-4 sm:left-5 sm:right-6 flex items-center gap-2 pb-1 border-b border-sepia/25">
                   <span className="print-small">Section I</span>
                   <span className="print-small ml-auto hidden sm:inline">Field register</span>
                 </div>
 
-                <header className="border-b-2 border-ink/80 pb-4 mb-5">
+                <header className="border-b-2 border-ink/80 pb-4 mb-5 shrink-0">
                   <h2 className="text-4xl sm:text-5xl leading-tight font-display tracking-[0.04em] text-ink uppercase">Field Notes</h2>
                   <p className="text-sm sm:text-base font-sans uppercase tracking-widest text-oxblood font-black mt-1">Table of Contents</p>
                 </header>
 
                 {authorKeys.length > 0 && (
-                  <div className="mb-4">
+                  <div className="mb-4 shrink-0">
                     <span className="block font-sans text-xs sm:text-sm font-black text-sepia uppercase tracking-widest mb-2">Filter by Author</span>
                     <div className="flex flex-wrap gap-1.5">
                       <button
                         type="button"
                         aria-pressed={activeFilter === null}
                         onClick={() => setSelectedAuthorFilter(null)}
-                        className={`px-2.5 py-1.5 text-sm rounded-sm border transition-all font-sans font-black uppercase tracking-widest ${
+                        className={`px-2.5 py-1 text-sm rounded-sm border transition-all font-sans font-black uppercase tracking-widest ${
                           activeFilter === null ? 'bg-ink text-cream border-ink' : 'bg-transparent text-sepia border-sepia/60'}`}
                       >All</button>
                       {authorKeys.map(name => {
@@ -656,7 +803,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                         const isActive = activeFilter === name;
                         return (
                           <button key={name} type="button" aria-pressed={isActive} onClick={() => setSelectedAuthorFilter(name)}
-                            className="px-2 py-1 text-[26px] rounded-sm border transition-all"
+                            className="px-2 py-0.5 text-[22px] leading-snug rounded-sm border transition-all"
                             style={{
                               fontFamily: info.pen_font, color: isActive ? 'rgb(var(--c-cream))' : info.ink_color,
                               borderColor: info.ink_color, background: isActive ? info.ink_color : 'transparent',
@@ -668,26 +815,33 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                   </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                  {filteredEntries.map(entry => {
+                {/* One line per entry, title to page number along a dotted leader, as many
+                    lines as the page holds; the corners at the foot turn the contents */}
+                <ol
+                  key={tocTurn?.key || 'contents'}
+                  ref={tocListRef}
+                  aria-label={tocPages > 1 ? `Contents, page ${shownTocPage + 1} of ${tocPages}` : 'Contents'}
+                  className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col pr-1 ${tocTurn ? `toc-turn toc-turn-${tocTurn.dir}` : ''}`}
+                  style={{ gap: TOC_GAP }}
+                >
+                  {tocLines.map(entry => {
                     const canDelete = isGM
                       ? entry.author_type === 'gm'
                       : entry.author_name === authorName;
                     return (
-                      <div key={entry.id}
-                        className="w-full flex flex-wrap items-center gap-1 rounded-sm border border-black/[0.08] hover:bg-black/[0.03] transition-all group"
-                        style={{ background: 'rgba(0,0,0,0.015)' }}
-                      >
+                      <li key={entry.id} className="group shrink-0 w-full flex flex-wrap items-center gap-x-1" style={{ minHeight: TOC_ROW }}>
                         <button onClick={() => setCurrentSpread(entrySpread(entry))}
-                          className="flex-1 min-w-0 text-left flex items-center justify-between px-3 py-2"
+                          className="flex-1 min-w-0 flex items-center gap-2 px-2 text-left rounded-sm hover:bg-ink/[0.04] transition-colors"
+                          style={{ height: TOC_ROW }}
                         >
-                          <span className="text-[22px] sm:text-[26px] leading-tight flex items-center gap-2 min-w-0 break-words"
+                          {entry.entry_type === 'sketch' && <PencilIcon size={16} className="text-sepia shrink-0" />}
+                          {entry.entry_type === 'photo' && <CameraIcon size={16} className="text-sepia shrink-0" />}
+                          <span className="min-w-0 truncate text-[20px] sm:text-[22px] leading-normal"
                             style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
-                            {entry.entry_type === 'sketch' && <PencilIcon size={16} className="text-sepia" />}
-                            {entry.entry_type === 'photo' && <CameraIcon size={16} className="text-sepia" />}
                             {entry.title}
                           </span>
-                          <span className="font-mono tabular-nums text-base text-sepia shrink-0 ml-2 group-hover:text-ink">
+                          <span aria-hidden="true" className="flex-1 min-w-[0.75rem] sm:min-w-[1.5rem] self-end mb-3 border-b-2 border-dotted border-sepia/35" />
+                          <span className="font-mono tabular-nums text-base text-sepia shrink-0 group-hover:text-ink">
                             p.{entry.page_number}
                           </span>
                         </button>
@@ -710,14 +864,14 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                           />
                         )}
                         {!canDelete && <span aria-hidden="true" className="shrink-0 w-9" />}
-                      </div>
+                      </li>
                     );
                   })}
-                </div>
+                </ol>
 
                 {/* GM-only: Lightkeeper Resources link in TOC */}
                 {isGM && (
-                  <div className="mt-4 pt-3 border-t border-sepia/30">
+                  <div className="mt-3 pt-2 border-t border-sepia/30 shrink-0">
                     <button onClick={() => { setShowLKResources(true); setShowEphemeral(false); }}
                       className="w-full text-left flex items-center justify-between px-2 py-1 rounded-sm hover:bg-sepia/10 transition-all"
                     >
@@ -727,17 +881,30 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                   </div>
                 )}
 
-                {pageFooter('', '')}
+                {/* The contents' foot: an engraved arrow in each corner when there is more */}
+                <div className="mt-2 pt-2 border-t border-ink/10 flex justify-between items-center gap-2 shrink-0 font-sans font-bold text-xs uppercase tracking-widest text-sepia">
+                  {tocTurnButton('prev')}
+                  <span className="hidden sm:flex items-center gap-2" aria-hidden="true">
+                    <PrinterMark size={11} />
+                    <FormLine>Candela Obscura · Field register · Form C.O. 5</FormLine>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    {tocPages > 1 && (
+                      <span className="font-mono tabular-nums text-sm normal-case tracking-normal" aria-hidden="true">{shownTocPage + 1} / {tocPages}</span>
+                    )}
+                    {tocTurnButton('next')}
+                  </span>
+                </div>
               </div>
             ) : (
-              <div className="p-4 pt-10 sm:p-8 lg:pr-10 relative flex flex-col h-full min-w-0 border-b lg:border-b-0 lg:border-r border-ink/20">
+              <div className="p-4 pt-28 sm:p-8 sm:pt-28 lg:pt-8 lg:pr-14 relative flex flex-col min-h-[360px] lg:min-h-0 lg:h-full min-w-0 border-b lg:border-b-0 lg:border-r border-ink/20">
                 <div className="absolute top-3 left-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">
                   Field Notes, page {currentSpread}
                 </div>
-                <div className="flex-1 overflow-y-auto relative mt-6" style={LINED_PAPER}>
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative lg:mt-6" style={LINED_PAPER}>
                   {leftEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === leftEntries.length - 1} />)}
                 </div>
-                {pageFooter(`Page ${currentSpread}`, '')}
+                {pageFooter(`Page ${currentSpread}`, '', 'lg:pl-10')}
               </div>
             )}
 
@@ -746,7 +913,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
             {/* RIGHT PAGE */}
             {currentSpread === 0 ? (
-              <div className="p-4 pt-12 sm:p-8 sm:pt-14 lg:pl-10 relative flex flex-col h-full min-w-0 bg-cream">
+              <div className="p-4 pt-12 pb-20 sm:p-8 sm:pt-14 sm:pb-20 lg:pl-10 relative flex flex-col lg:h-full lg:min-h-0 lg:overflow-y-auto custom-scrollbar min-w-0 bg-cream">
                 <div aria-hidden="true" className="absolute top-3 left-4 right-4 sm:left-6 sm:right-5 flex items-center gap-2 pb-1 border-b border-sepia/25">
                   <span className="print-small hidden sm:inline">Field register</span>
                   <span className="print-small ml-auto">Section II</span>
@@ -837,9 +1004,9 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                 </div>
               </div>
             ) : (
-              <div className="p-4 pt-10 sm:p-8 lg:pl-10 relative flex flex-col h-full min-w-0 bg-cream">
+              <div className="p-4 pt-10 sm:p-8 lg:pl-10 relative flex flex-col min-h-[360px] lg:min-h-0 lg:h-full min-w-0 bg-cream">
                 <div className="absolute top-3 right-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">Field Notes</div>
-                <div className="flex-1 overflow-y-auto relative mt-6" style={LINED_PAPER}>
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative mt-6" style={LINED_PAPER}>
                   {rightEntries.length === 0
                     ? <div className="h-full flex flex-col items-center justify-center gap-4 opacity-[0.055] pointer-events-none select-none">
                         <div className="w-32 h-32 rounded-full border-4 border-ink flex flex-col items-center justify-center">
@@ -850,24 +1017,18 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                       </div>
                     : rightEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === rightEntries.length - 1} />)}
                 </div>
-                {pageFooter('', `Page ${currentSpread}`)}
+                {pageFooter('', `Page ${currentSpread} of ${totalSpreads}`, 'pl-10 lg:pl-0 pr-10')}
               </div>
             )}
-          </div>
 
-          {/* Navigation */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 px-1 sm:px-2">
-            <button onClick={goToPrev} disabled={currentSpread === 0}
-              className="font-sans font-black uppercase tracking-widest text-sm sm:text-base px-3 sm:px-5 py-2 min-h-[44px] text-parchment-deep border border-parchment-deep/30 rounded-sm hover:bg-cream/5 transition-all disabled:opacity-20">
-              ← Previous
-            </button>
-            <span className="order-first sm:order-none basis-full sm:basis-auto text-center font-mono tabular-nums text-base sm:text-xl text-parchment-deep/80 tracking-wider sm:tracking-widest">
-              {currentSpread === 0 ? 'TABLE OF CONTENTS' : `SPREAD ${currentSpread} OF ${totalSpreads}`}
-            </span>
-            <button onClick={goToNext} disabled={currentSpread >= totalSpreads}
-              className="font-sans font-black uppercase tracking-widest text-sm sm:text-base px-3 sm:px-5 py-2 min-h-[44px] text-parchment-deep border border-parchment-deep/30 rounded-sm hover:bg-cream/5 transition-all disabled:opacity-20">
-              Next →
-            </button>
+            {/* The outer corners turn the pages: back from the left, on from the right */}
+            {currentSpread > 0 && (
+              <PageCorner side="prev" onTurn={goToPrev}
+                label={currentSpread === 1 ? 'Turn back to the contents' : `Turn back to page ${currentSpread - 1}`} />
+            )}
+            {currentSpread < totalSpreads && (
+              <PageCorner side="next" onTurn={goToNext} label={`Turn to page ${currentSpread + 1}`} />
+            )}
           </div>
         </div>
       )}

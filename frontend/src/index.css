@@ -324,6 +324,67 @@
   100% { transform: perspective(2400px) rotateY(180deg); opacity: 0; }
 }
 
+/* The notebook's turned-up page corners (NotebookView PageCorner). The corner lifts further
+   from its own corner under the pointer or the keyboard focus. The curl's shadow falls down
+   and right on both corners (the left one is drawn mirrored, so its shadow is too). */
+.page-corner svg {
+  transform-origin: 100% 100%;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.page-corner-prev svg { transform-origin: 0 100%; }
+.page-corner:hover svg,
+.page-corner:focus-visible svg { transform: scale(1.2); }
+.page-corner-flap { filter: drop-shadow(1.5px 2px 1.5px rgb(0 0 0 / 0.28)); }
+.page-corner-prev .page-corner-flap { filter: drop-shadow(-1.5px 2px 1.5px rgb(0 0 0 / 0.28)); }
+
+/* The notebook's ribbon marker: oxblood satin with a sheen down its length, gold-leaf
+   lettering and a swallowtail end, hanging from the top of the book. The clip-path cuts the
+   tail, so the shadow is a drop-shadow on the button (Torn paper keeps its shadow). A pull
+   on hover or focus draws it a little further out. */
+.contents-ribbon {
+  width: 26px;
+  height: 104px;
+  padding: 0;
+  filter: drop-shadow(2px 4px 3px rgb(0 0 0 / 0.35));
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (min-width: 1024px) {
+  .contents-ribbon { height: 132px; }
+}
+.contents-ribbon:hover,
+.contents-ribbon:focus-visible { transform: translateY(7px); }
+.contents-ribbon-band {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  height: 100%;
+  padding-top: 9px;
+  background:
+    linear-gradient(to right, rgb(0 0 0 / 0.3), transparent 24%, rgb(255 236 224 / 0.14) 48%, transparent 66%, rgb(0 0 0 / 0.24)),
+    rgb(var(--c-oxblood));
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 13px), 0 100%);
+}
+.contents-ribbon-label {
+  writing-mode: vertical-rl;
+  font-family: theme('fontFamily.sans');
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(var(--c-gold-leaf));
+}
+
+/* The next or previous page of the notebook's contents slides in from its side */
+.toc-turn { animation: tocTurnIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.toc-turn-forward { --toc-from: 14px; }
+.toc-turn-back { --toc-from: -14px; }
+@keyframes tocTurnIn {
+  from { opacity: 0; transform: translateX(var(--toc-from, 0)); }
+  to   { opacity: 1; transform: none; }
+}
+
 /* ================================================================= */
 /* PRINTED FORM FURNITURE (PrintMarks.jsx)                           */
 /* ================================================================= */

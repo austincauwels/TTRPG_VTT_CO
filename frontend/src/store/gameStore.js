@@ -863,7 +863,9 @@ const useGameStore = create(
           });
           if (res.ok) {
             const entry = await res.json();
-            set(state => ({ notebookEntries: [...state.notebookEntries, entry] }));
+            // The table's socket can bring the same entry back before this reply arrives
+            set(state => (state.notebookEntries.some(e => e.id === entry.id)
+              ? state : { notebookEntries: [...state.notebookEntries, entry] }));
             return { success: true, entry };
           }
           return { success: false };
@@ -922,7 +924,8 @@ const useGameStore = create(
           const res = await apiFetch(`/api/notebook/${campaignId}/upload`, { method: 'POST', body: formData });
           if (res.ok) {
             const entry = await res.json();
-            set(state => ({ notebookEntries: [...state.notebookEntries, entry] }));
+            set(state => (state.notebookEntries.some(e => e.id === entry.id)
+              ? state : { notebookEntries: [...state.notebookEntries, entry] }));
             return { success: true, entry };
           }
           if (res.status === 413) return { success: false, tooLarge: true };
