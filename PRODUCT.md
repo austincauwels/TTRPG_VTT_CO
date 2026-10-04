@@ -35,7 +35,7 @@ Built around Candela Obscura's own mechanics rather than a generic dice roller: 
 
 ## Brand Commitments
 
-- The game is Candela Obscura by Darrington Press; the app uses the official art (maps and investigator portraits in frontend/public/images, including The_Fairelands_map.png credited to Marc Moreau). Keep the official art (confirmed by Robert Gater, 2026-10-04).
+- The game is Candela Obscura by Darrington Press. Art rule (Robert Gater, 2026-10-04): do NOT add any new art taken from Candela Obscura source material (rulebooks, Darrington Press assets). The art already in the app stays exactly as it is: the maps and investigator portraits in frontend/public/images (including The_Fairelands_map.png credited to Marc Moreau) and every open-source asset already used, such as the paper, leather and wood textures. Never remove any of it. New visual elements must be drawn in code (CSS, SVG) or come from properly licensed open-source sources.
 - The look is Dark Academia: parchment, emerald green and gold (README.md; kept as binding, confirmed 2026-10-04).
 - The character creator is the best-designed part of the app (Robert, 2026-10-04) and is the internal reference for the rest; it gets refinement only.
 - The chapter hub's book theme stays (Robert, 2026-10-04): each campaign is a leather-bound tome that opens, with its open and close animation, into a two-page spread for the roster and campaign creation (frontend/src/components/CampaignSelector.jsx). It is a model for the app's physical-object feel; refinement may clean up what sits around it.
@@ -52,5 +52,5 @@ Built around Candela Obscura's own mechanics rather than a generic dice roller: 
 
 1. The rules are the product: anything on screen that shows a mechanic must match the rulebook and the server's result.
 2. The table comes first: during a session, what a player or GM needs right now (the roll outcome, marks, drives, whose turn it is) must read at a glance.
-3. Her game, her look: refinement removes generic noise and keeps the Dark Academia identity and the official art.
+3. Her game, her look: refinement removes generic noise and keeps the Dark Academia identity and every piece of art already in the app; it adds no new Candela Obscura source art.
 4. Beta before the table: every visual change is tried on candela-beta with real data before players see it.
