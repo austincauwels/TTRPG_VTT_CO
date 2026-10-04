@@ -76,7 +76,7 @@ A message that breaks a rule is answered with `{"type": "action_rejected", "payl
 The character a message acts on is `payload.character_id`, or the player channel's own character when the payload has none (a GM channel has none).
 
 - A player channel may only act for its own character: any other `character_id` is 403, one that matches no character is 404 (this includes 0 and 1.5, which used to fall through to "no character").
-- A GM channel may name a character only for `gm_update_tension`, `gm_reset_character`, `update_drive`, `take_mark`, `revive_character` and `update_gear`, and only a character of its own campaign. Any other type with a `character_id` is 403; so the GM cannot roll, vote, chat or answer as a player's character.
+- A GM channel may name a character only for `gm_update_tension`, `gm_reset_character`, `update_drive`, `take_mark`, `revive_character` and `update_gear`, and only a member (active or pending) of its own campaign, not a retired character still tagged with it. Any other type with a `character_id` is 403; so the GM cannot roll, vote, chat or answer as a player's character.
 - Messages that need a character and have none are still ignored without a reply, as before.
 
 | Type | Who may send it |

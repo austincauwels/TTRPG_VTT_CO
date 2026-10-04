@@ -84,8 +84,9 @@ def check_target(ctx, action, character, named_in_payload):
     """The character a message acts on (payload.character_id, else the socket's own).
 
     A player socket may only act for its own character. A GM socket may only aim the
-    GM_MAY_TARGET types at a character of its own campaign. A character_id that
-    matches no character is 404.
+    GM_MAY_TARGET types at a member (active or pending) of its own campaign, not at a
+    retired character still tagged with it. A character_id that matches no character
+    is 404.
     """
     if character is None:
         if named_in_payload:
@@ -94,7 +95,7 @@ def check_target(ctx, action, character, named_in_payload):
     if ctx.is_gm:
         facts = character_facts(ctx.db, character.id)
         if action not in GM_MAY_TARGET or facts is None or facts.campaign_id is None \
-                or facts.campaign_id != ctx.camp_id:
+                or facts.campaign_id != ctx.camp_id or facts.status not in MEMBER_STATUSES:
             _forbid()
     elif character.id != ctx.own_char_id:
         _forbid()

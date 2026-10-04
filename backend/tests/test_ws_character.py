@@ -94,6 +94,21 @@ def test_gm_may_set_a_members_drive_but_not_an_outsiders(client):
     assert support.fetch(Character, outsider["id"]).nerve_current == 2
 
 
+def test_gm_may_not_target_a_retired_character_of_its_campaign(client):
+    """Reviewer probe: the GM check compared only campaign_id, so a GM could still
+    change a retired character tagged with its campaign."""
+    camp, a, b = _member_pair(client, nerve_current=2)
+    support.update(Character, a["id"], status="retired")
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        for msg_type in ("update_drive", "take_mark", "revive_character", "update_gear", "gm_reset_character"):
+            gm.send(msg_type, character_id=a["id"], pool="nerve", value=0, mark_type="body", gear=["x"])
+            assert support.types(gm.sync()) == ["action_rejected"], msg_type
+        gm.send("update_drive", pool="nerve", value=1, character_id=b["id"])
+        assert support.types(gm.sync()) == ["character_update"]
+    row = support.fetch(Character, a["id"])
+    assert (row.nerve_current, row.body_marks, row.gear) == (2, 0, [])
+
+
 # --- update_pen_font --------------------------------------------------------
 
 def test_update_pen_font(client):
