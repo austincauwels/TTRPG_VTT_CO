@@ -1,0 +1,2274 @@
+{
+  "components": {
+    "schemas": {
+      "Body_upload_notebook_image_api_notebook__campaign_id__upload_post": {
+        "properties": {
+          "author_name": {
+            "default": "Unknown",
+            "title": "Author Name",
+            "type": "string"
+          },
+          "author_type": {
+            "default": "player",
+            "title": "Author Type",
+            "type": "string"
+          },
+          "character_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Id"
+          },
+          "content": {
+            "default": "",
+            "title": "Content",
+            "type": "string"
+          },
+          "entry_type": {
+            "default": "sketch",
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "title": {
+            "default": "Attached Image",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_notebook_image_api_notebook__campaign_id__upload_post",
+        "type": "object"
+      },
+      "CampaignSummaryItem": {
+        "properties": {
+          "campaign_code": {
+            "title": "Campaign Code",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "campaign_code"
+        ],
+        "title": "CampaignSummaryItem",
+        "type": "object"
+      },
+      "CharacterCreate": {
+        "properties": {
+          "bleed_marks": {
+            "default": 0,
+            "title": "Bleed Marks",
+            "type": "integer"
+          },
+          "body_marks": {
+            "default": 0,
+            "title": "Body Marks",
+            "type": "integer"
+          },
+          "brain_marks": {
+            "default": 0,
+            "title": "Brain Marks",
+            "type": "integer"
+          },
+          "catalyst": {
+            "default": "",
+            "title": "Catalyst",
+            "type": "string"
+          },
+          "control": {
+            "default": 0,
+            "title": "Control",
+            "type": "integer"
+          },
+          "cunning_current": {
+            "default": 1,
+            "title": "Cunning Current",
+            "type": "integer"
+          },
+          "cunning_max": {
+            "default": 1,
+            "title": "Cunning Max",
+            "type": "integer"
+          },
+          "cunning_resistance_spent": {
+            "default": 0,
+            "title": "Cunning Resistance Spent",
+            "type": "integer"
+          },
+          "gear": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Gear",
+            "type": "array"
+          },
+          "gilded_control": {
+            "default": false,
+            "title": "Gilded Control",
+            "type": "boolean"
+          },
+          "gilded_hide": {
+            "default": false,
+            "title": "Gilded Hide",
+            "type": "boolean"
+          },
+          "gilded_move": {
+            "default": false,
+            "title": "Gilded Move",
+            "type": "boolean"
+          },
+          "gilded_read": {
+            "default": false,
+            "title": "Gilded Read",
+            "type": "boolean"
+          },
+          "gilded_sense": {
+            "default": false,
+            "title": "Gilded Sense",
+            "type": "boolean"
+          },
+          "gilded_sneak": {
+            "default": false,
+            "title": "Gilded Sneak",
+            "type": "boolean"
+          },
+          "gilded_strike": {
+            "default": false,
+            "title": "Gilded Strike",
+            "type": "boolean"
+          },
+          "gilded_survey": {
+            "default": false,
+            "title": "Gilded Survey",
+            "type": "boolean"
+          },
+          "gilded_sway": {
+            "default": false,
+            "title": "Gilded Sway",
+            "type": "boolean"
+          },
+          "hide": {
+            "default": 0,
+            "title": "Hide",
+            "type": "integer"
+          },
+          "incapacitated": {
+            "default": false,
+            "title": "Incapacitated",
+            "type": "boolean"
+          },
+          "intuition_current": {
+            "default": 1,
+            "title": "Intuition Current",
+            "type": "integer"
+          },
+          "intuition_max": {
+            "default": 1,
+            "title": "Intuition Max",
+            "type": "integer"
+          },
+          "intuition_resistance_spent": {
+            "default": 0,
+            "title": "Intuition Resistance Spent",
+            "type": "integer"
+          },
+          "move": {
+            "default": 0,
+            "title": "Move",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nerve_current": {
+            "default": 1,
+            "title": "Nerve Current",
+            "type": "integer"
+          },
+          "nerve_max": {
+            "default": 1,
+            "title": "Nerve Max",
+            "type": "integer"
+          },
+          "nerve_resistance_spent": {
+            "default": 0,
+            "title": "Nerve Resistance Spent",
+            "type": "integer"
+          },
+          "profile_pic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Pic"
+          },
+          "pronouns": {
+            "default": "Unlisted",
+            "title": "Pronouns",
+            "type": "string"
+          },
+          "question": {
+            "default": "",
+            "title": "Question",
+            "type": "string"
+          },
+          "read": {
+            "default": 0,
+            "title": "Read",
+            "type": "integer"
+          },
+          "role": {
+            "default": "",
+            "title": "Role",
+            "type": "string"
+          },
+          "role_ability": {
+            "default": "None",
+            "title": "Role Ability",
+            "type": "string"
+          },
+          "scars_count": {
+            "default": 0,
+            "title": "Scars Count",
+            "type": "integer"
+          },
+          "scars_list": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Scars List",
+            "type": "array"
+          },
+          "sense": {
+            "default": 0,
+            "title": "Sense",
+            "type": "integer"
+          },
+          "sneak": {
+            "default": 0,
+            "title": "Sneak",
+            "type": "integer"
+          },
+          "specialty": {
+            "default": "",
+            "title": "Specialty",
+            "type": "string"
+          },
+          "specialty_ability": {
+            "default": "None",
+            "title": "Specialty Ability",
+            "type": "string"
+          },
+          "strike": {
+            "default": 0,
+            "title": "Strike",
+            "type": "integer"
+          },
+          "style": {
+            "default": "",
+            "title": "Style",
+            "type": "string"
+          },
+          "survey": {
+            "default": 0,
+            "title": "Survey",
+            "type": "integer"
+          },
+          "sway": {
+            "default": 0,
+            "title": "Sway",
+            "type": "integer"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CharacterCreate",
+        "type": "object"
+      },
+      "CharacterResponse": {
+        "properties": {
+          "bleed_marks": {
+            "default": 0,
+            "title": "Bleed Marks",
+            "type": "integer"
+          },
+          "body_marks": {
+            "default": 0,
+            "title": "Body Marks",
+            "type": "integer"
+          },
+          "brain_marks": {
+            "default": 0,
+            "title": "Brain Marks",
+            "type": "integer"
+          },
+          "catalyst": {
+            "default": "",
+            "title": "Catalyst",
+            "type": "string"
+          },
+          "circle_id": {
+            "title": "Circle Id",
+            "type": "integer"
+          },
+          "control": {
+            "default": 0,
+            "title": "Control",
+            "type": "integer"
+          },
+          "cunning_current": {
+            "default": 1,
+            "title": "Cunning Current",
+            "type": "integer"
+          },
+          "cunning_max": {
+            "default": 1,
+            "title": "Cunning Max",
+            "type": "integer"
+          },
+          "cunning_resistance_spent": {
+            "default": 0,
+            "title": "Cunning Resistance Spent",
+            "type": "integer"
+          },
+          "gear": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Gear",
+            "type": "array"
+          },
+          "gilded_control": {
+            "default": false,
+            "title": "Gilded Control",
+            "type": "boolean"
+          },
+          "gilded_hide": {
+            "default": false,
+            "title": "Gilded Hide",
+            "type": "boolean"
+          },
+          "gilded_move": {
+            "default": false,
+            "title": "Gilded Move",
+            "type": "boolean"
+          },
+          "gilded_read": {
+            "default": false,
+            "title": "Gilded Read",
+            "type": "boolean"
+          },
+          "gilded_sense": {
+            "default": false,
+            "title": "Gilded Sense",
+            "type": "boolean"
+          },
+          "gilded_sneak": {
+            "default": false,
+            "title": "Gilded Sneak",
+            "type": "boolean"
+          },
+          "gilded_strike": {
+            "default": false,
+            "title": "Gilded Strike",
+            "type": "boolean"
+          },
+          "gilded_survey": {
+            "default": false,
+            "title": "Gilded Survey",
+            "type": "boolean"
+          },
+          "gilded_sway": {
+            "default": false,
+            "title": "Gilded Sway",
+            "type": "boolean"
+          },
+          "hide": {
+            "default": 0,
+            "title": "Hide",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "incapacitated": {
+            "default": false,
+            "title": "Incapacitated",
+            "type": "boolean"
+          },
+          "ink_color": {
+            "default": "",
+            "title": "Ink Color",
+            "type": "string"
+          },
+          "intuition_current": {
+            "default": 1,
+            "title": "Intuition Current",
+            "type": "integer"
+          },
+          "intuition_max": {
+            "default": 1,
+            "title": "Intuition Max",
+            "type": "integer"
+          },
+          "intuition_resistance_spent": {
+            "default": 0,
+            "title": "Intuition Resistance Spent",
+            "type": "integer"
+          },
+          "move": {
+            "default": 0,
+            "title": "Move",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nerve_current": {
+            "default": 1,
+            "title": "Nerve Current",
+            "type": "integer"
+          },
+          "nerve_max": {
+            "default": 1,
+            "title": "Nerve Max",
+            "type": "integer"
+          },
+          "nerve_resistance_spent": {
+            "default": 0,
+            "title": "Nerve Resistance Spent",
+            "type": "integer"
+          },
+          "pen_font": {
+            "default": "Caveat",
+            "title": "Pen Font",
+            "type": "string"
+          },
+          "profile_pic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Pic"
+          },
+          "pronouns": {
+            "default": "Unlisted",
+            "title": "Pronouns",
+            "type": "string"
+          },
+          "question": {
+            "default": "",
+            "title": "Question",
+            "type": "string"
+          },
+          "read": {
+            "default": 0,
+            "title": "Read",
+            "type": "integer"
+          },
+          "role": {
+            "default": "",
+            "title": "Role",
+            "type": "string"
+          },
+          "role_ability": {
+            "default": "None",
+            "title": "Role Ability",
+            "type": "string"
+          },
+          "scars_count": {
+            "default": 0,
+            "title": "Scars Count",
+            "type": "integer"
+          },
+          "scars_list": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Scars List",
+            "type": "array"
+          },
+          "sense": {
+            "default": 0,
+            "title": "Sense",
+            "type": "integer"
+          },
+          "sneak": {
+            "default": 0,
+            "title": "Sneak",
+            "type": "integer"
+          },
+          "specialty": {
+            "default": "",
+            "title": "Specialty",
+            "type": "string"
+          },
+          "specialty_ability": {
+            "default": "None",
+            "title": "Specialty Ability",
+            "type": "string"
+          },
+          "status": {
+            "default": "unaffiliated",
+            "title": "Status",
+            "type": "string"
+          },
+          "strike": {
+            "default": 0,
+            "title": "Strike",
+            "type": "integer"
+          },
+          "style": {
+            "default": "",
+            "title": "Style",
+            "type": "string"
+          },
+          "survey": {
+            "default": 0,
+            "title": "Survey",
+            "type": "integer"
+          },
+          "sway": {
+            "default": 0,
+            "title": "Sway",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "id",
+          "circle_id"
+        ],
+        "title": "CharacterResponse",
+        "type": "object"
+      },
+      "CharacterRosterItem": {
+        "properties": {
+          "circle_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Circle Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ink_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "title": "Ink Color"
+          },
+          "is_dead": {
+            "default": false,
+            "title": "Is Dead",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pen_font": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "Caveat",
+            "title": "Pen Font"
+          },
+          "profile_pic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Pic"
+          },
+          "role_ability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Ability"
+          },
+          "role_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Class"
+          },
+          "specialty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specialty"
+          },
+          "specialty_ability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specialty Ability"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ],
+        "title": "CharacterRosterItem",
+        "type": "object"
+      },
+      "CharacterSummaryItem": {
+        "properties": {
+          "campaign_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Code"
+          },
+          "campaign_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Id"
+          },
+          "campaign_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role_ability": {
+            "default": "None",
+            "title": "Role Ability",
+            "type": "string"
+          },
+          "specialty_ability": {
+            "default": "None",
+            "title": "Specialty Ability",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ],
+        "title": "CharacterSummaryItem",
+        "type": "object"
+      },
+      "CircleVoteSubmit": {
+        "properties": {
+          "character_id": {
+            "title": "Character Id",
+            "type": "integer"
+          },
+          "circle_id": {
+            "title": "Circle Id",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          },
+          "vote_type": {
+            "title": "Vote Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "circle_id",
+          "character_id",
+          "vote_type",
+          "value"
+        ],
+        "title": "CircleVoteSubmit",
+        "type": "object"
+      },
+      "FinalizeRosterRequest": {
+        "properties": {
+          "campaign_id": {
+            "title": "Campaign Id",
+            "type": "integer"
+          },
+          "circle_id": {
+            "title": "Circle Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "campaign_id",
+          "circle_id"
+        ],
+        "title": "FinalizeRosterRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InviteRejoinRequest": {
+        "properties": {
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "InviteRejoinRequest",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "NotebookEntryCreate": {
+        "properties": {
+          "author_name": {
+            "title": "Author Name",
+            "type": "string"
+          },
+          "author_type": {
+            "title": "Author Type",
+            "type": "string"
+          },
+          "character_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Id"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "entry_type": {
+            "default": "field_log",
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "image_data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Data"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "visibility": {
+            "default": "all",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "content",
+          "author_name",
+          "author_type"
+        ],
+        "title": "NotebookEntryCreate",
+        "type": "object"
+      },
+      "NotebookEntryResponse": {
+        "properties": {
+          "author_name": {
+            "title": "Author Name",
+            "type": "string"
+          },
+          "author_type": {
+            "title": "Author Type",
+            "type": "string"
+          },
+          "campaign_id": {
+            "title": "Campaign Id",
+            "type": "integer"
+          },
+          "character_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Id"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "entry_type": {
+            "default": "field_log",
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "image_data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Data"
+          },
+          "ink_color": {
+            "title": "Ink Color",
+            "type": "string"
+          },
+          "is_deleted": {
+            "default": false,
+            "title": "Is Deleted",
+            "type": "boolean"
+          },
+          "page_number": {
+            "title": "Page Number",
+            "type": "integer"
+          },
+          "pen_font": {
+            "title": "Pen Font",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "visibility": {
+            "default": "all",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "campaign_id",
+          "character_id",
+          "author_name",
+          "author_type",
+          "pen_font",
+          "ink_color",
+          "title",
+          "content",
+          "created_at",
+          "page_number"
+        ],
+        "title": "NotebookEntryResponse",
+        "type": "object"
+      },
+      "NotebookEntryUpdate": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "NotebookEntryUpdate",
+        "type": "object"
+      },
+      "RegisterRequest": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "email",
+          "password"
+        ],
+        "title": "RegisterRequest",
+        "type": "object"
+      },
+      "RejoinRequest": {
+        "properties": {
+          "campaign_code": {
+            "title": "Campaign Code",
+            "type": "string"
+          },
+          "character_id": {
+            "title": "Character Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "character_id",
+          "campaign_code"
+        ],
+        "title": "RejoinRequest",
+        "type": "object"
+      },
+      "RelationshipPropose": {
+        "properties": {
+          "circle_id": {
+            "title": "Circle Id",
+            "type": "integer"
+          },
+          "from_character_id": {
+            "title": "From Character Id",
+            "type": "integer"
+          },
+          "lore": {
+            "default": "",
+            "title": "Lore",
+            "type": "string"
+          },
+          "rel_type": {
+            "title": "Rel Type",
+            "type": "string"
+          },
+          "to_character_id": {
+            "title": "To Character Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "circle_id",
+          "from_character_id",
+          "to_character_id",
+          "rel_type"
+        ],
+        "title": "RelationshipPropose",
+        "type": "object"
+      },
+      "RelationshipRespond": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "counter_lore": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counter Lore"
+          },
+          "counter_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counter Type"
+          },
+          "relationship_id": {
+            "title": "Relationship Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "relationship_id",
+          "action"
+        ],
+        "title": "RelationshipRespond",
+        "type": "object"
+      },
+      "RosterResponse": {
+        "properties": {
+          "active_investigators": {
+            "items": {
+              "$ref": "#/components/schemas/CharacterRosterItem"
+            },
+            "title": "Active Investigators",
+            "type": "array"
+          },
+          "pending_investigators": {
+            "items": {
+              "$ref": "#/components/schemas/CharacterRosterItem"
+            },
+            "title": "Pending Investigators",
+            "type": "array"
+          },
+          "roster_finalized": {
+            "default": false,
+            "title": "Roster Finalized",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pending_investigators",
+          "active_investigators"
+        ],
+        "title": "RosterResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "FastAPI",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login"
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "register_api_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register"
+      }
+    },
+    "/api/investigators": {
+      "get": {
+        "operationId": "list_investigators_api_investigators_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CharacterRosterItem"
+                  },
+                  "title": "Response List Investigators Api Investigators Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Investigators"
+      }
+    },
+    "/api/investigators/forge": {
+      "post": {
+        "operationId": "forge_investigator_api_investigators_forge_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CharacterCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forge Investigator"
+      }
+    },
+    "/api/investigators/{investigator_id}": {
+      "get": {
+        "operationId": "get_investigator_api_investigators__investigator_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "investigator_id",
+            "required": true,
+            "schema": {
+              "title": "Investigator Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Investigator"
+      }
+    },
+    "/api/notebook/entries/{entry_id}": {
+      "delete": {
+        "operationId": "delete_notebook_entry_api_notebook_entries__entry_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Notebook Entry"
+      },
+      "put": {
+        "operationId": "update_notebook_entry_api_notebook_entries__entry_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotebookEntryUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Notebook Entry"
+      }
+    },
+    "/api/notebook/{campaign_id}/entries": {
+      "get": {
+        "operationId": "fetch_notebook_entries_api_notebook__campaign_id__entries_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "required": false,
+            "schema": {
+              "default": "player",
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "character_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotebookEntryResponse"
+                  },
+                  "title": "Response Fetch Notebook Entries Api Notebook  Campaign Id  Entries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fetch Notebook Entries"
+      },
+      "post": {
+        "operationId": "add_notebook_entry_api_notebook__campaign_id__entries_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotebookEntryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Notebook Entry"
+      }
+    },
+    "/api/notebook/{campaign_id}/upload": {
+      "post": {
+        "operationId": "upload_notebook_image_api_notebook__campaign_id__upload_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_notebook_image_api_notebook__campaign_id__upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Notebook Image"
+      }
+    },
+    "/api/users/{user_id}/campaigns": {
+      "get": {
+        "operationId": "get_user_gm_campaigns_api_users__user_id__campaigns_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CampaignSummaryItem"
+                  },
+                  "title": "Response Get User Gm Campaigns Api Users  User Id  Campaigns Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get User Gm Campaigns"
+      }
+    },
+    "/api/users/{user_id}/characters": {
+      "get": {
+        "operationId": "get_user_characters_api_users__user_id__characters_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CharacterSummaryItem"
+                  },
+                  "title": "Response Get User Characters Api Users  User Id  Characters Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get User Characters"
+      }
+    },
+    "/campaign/approve/{character_id}": {
+      "post": {
+        "operationId": "approve_character_campaign_approve__character_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Character"
+      }
+    },
+    "/campaign/create": {
+      "post": {
+        "operationId": "create_campaign_campaign_create_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Campaign"
+      }
+    },
+    "/campaign/finalize-roster": {
+      "post": {
+        "operationId": "finalize_roster_campaign_finalize_roster_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizeRosterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize Roster"
+      }
+    },
+    "/campaign/join": {
+      "post": {
+        "operationId": "join_campaign_campaign_join_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pen_font",
+            "required": false,
+            "schema": {
+              "default": "Caveat",
+              "title": "Pen Font",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Join Campaign"
+      }
+    },
+    "/campaign/reject/{character_id}": {
+      "post": {
+        "operationId": "reject_character_campaign_reject__character_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Character"
+      }
+    },
+    "/campaign/rejoin": {
+      "post": {
+        "operationId": "rejoin_campaign_campaign_rejoin_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejoinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rejoin Campaign"
+      }
+    },
+    "/campaign/{campaign_id}/circle-creation-state": {
+      "get": {
+        "operationId": "get_circle_creation_state_campaign__campaign_id__circle_creation_state_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Circle Creation State"
+      }
+    },
+    "/campaign/{campaign_id}/invite-rejoin": {
+      "post": {
+        "operationId": "invite_rejoin_campaign__campaign_id__invite_rejoin_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteRejoinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invite Rejoin"
+      }
+    },
+    "/campaign/{campaign_id}/retire": {
+      "post": {
+        "operationId": "retire_campaign_campaign__campaign_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Campaign"
+      }
+    },
+    "/campaign/{campaign_id}/roster": {
+      "get": {
+        "operationId": "get_roster_campaign__campaign_id__roster_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Roster"
+      }
+    },
+    "/circle/relationship/propose": {
+      "post": {
+        "operationId": "propose_relationship_circle_relationship_propose_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelationshipPropose"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Relationship"
+      }
+    },
+    "/circle/relationship/respond": {
+      "post": {
+        "operationId": "respond_relationship_circle_relationship_respond_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelationshipRespond"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Respond Relationship"
+      }
+    },
+    "/circle/vote": {
+      "post": {
+        "operationId": "submit_circle_vote_circle_vote_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CircleVoteSubmit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Circle Vote"
+      }
+    }
+  }
+}
