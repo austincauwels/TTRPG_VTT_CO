@@ -213,7 +213,7 @@ export const CirclePage = () => {
   }
 
   return (
-    <div className="relative z-10 animate-sheetDrop space-y-8 text-ink bg-parchment min-h-[850px] px-8 py-8 rounded-sm shadow-inner" style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.08) 27px, rgb(var(--c-sepia) / 0.08) 28px)', backgroundSize: '100% 28px', backgroundPosition: '0 4px' }}>
+    <div className="relative z-10 animate-sheetDrop space-y-8 text-ink bg-parchment min-h-[850px] xl:min-h-full px-8 py-8 xl:px-6 xl:py-6 rounded-sm shadow-inner" style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.08) 27px, rgb(var(--c-sepia) / 0.08) 28px)', backgroundSize: '100% 28px', backgroundPosition: '0 4px' }}>
 
       {/* I. Circle Identity Header, as on the player's Circle tab */}
       <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/80 p-5 shadow-md rounded-sm">

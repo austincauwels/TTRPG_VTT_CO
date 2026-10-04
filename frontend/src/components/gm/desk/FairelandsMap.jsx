@@ -28,9 +28,10 @@ export const FairelandsMap = () => {
   const scale = mapHover ? 4 : tapZoom ? 3 : 1;
 
   return (
-    <div>
+    // From xl the map is as large as its column allows in its own proportions (.map-fit)
+    <div className="map-fit">
       <div
-        className="rounded-sm shadow-2xl border border-gm-slate overflow-hidden bg-gm-night cursor-crosshair"
+        className="map-fit-frame rounded-sm shadow-2xl border border-gm-slate overflow-hidden bg-gm-night cursor-crosshair"
         style={{ touchAction: 'manipulation' }}
         onPointerDown={e => { lastPointer.current = e.pointerType; }}
         onPointerEnter={e => { if (e.pointerType === 'mouse') setMapHover(true); }}
@@ -50,7 +51,7 @@ export const FairelandsMap = () => {
           }}
         />
       </div>
-      <div className="mt-2 px-1 flex flex-wrap items-center justify-between gap-x-4 font-sans font-bold text-xs uppercase tracking-widest text-moonlight-steel">
+      <div className="map-fit-frame mt-2 px-1 flex flex-wrap items-center justify-between gap-x-4 font-sans font-bold text-xs uppercase tracking-widest text-moonlight-steel">
         {/* On touch screens a tap zooms: a magnifier says which way the next tap goes */}
         <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" className="w-5 h-5 [@media(hover:hover)]:hidden">
           <circle cx="8.5" cy="8.5" r="5.6" fill="none" stroke="currentColor" strokeWidth="1.6" />

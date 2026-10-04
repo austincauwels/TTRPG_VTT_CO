@@ -110,24 +110,25 @@ export const OperationsPanel = () => {
   }, [activeTab, selectedInvestigator?.id]);
 
   return (
-    <div className="min-h-screen bg-gm-night text-cream font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 relative">
-      
+    <div className="min-h-screen xl:h-[100dvh] xl:min-h-0 xl:flex xl:flex-col xl:overflow-hidden bg-gm-night text-cream font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 xl:pb-0 relative">
+
       <ConnectionBanner />
       <GMDeskHeader activeCampaignId={activeCampaignId} campaignName={activeCampaignName} campaignCode={activeCampaignCode} setStage={setStage} />
 
       {/* Below lg the three columns dissolve (display: contents) into one column, ordered
           by how often the GM reaches for each part during play: the tab strip, dice and
           log, tension, the dispatch, the circle's investigators, then join requests and
-          Finalize. From lg up the three-column desk is unchanged. From 2xl the desk takes the
-          width: the rails sit out at the edges and the work surface between them grows. */}
-      <main ref={mainRef} className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto p-4 2xl:px-10 mt-2 lg:mt-6">
-        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 2xl:gap-x-14 items-start ${
+          Finalize. At lg the three-column desk scrolls as a page. From xl it fits the
+          screen (owner's item 24): the desk fills the width, every column is as tall as the
+          window, and a column whose papers run longer scrolls inside itself. */}
+      <main ref={mainRef} className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto p-4 mt-2 lg:mt-6 xl:max-w-none 2xl:max-w-none xl:w-full xl:mx-0 xl:mt-0 xl:px-5 2xl:px-8 xl:pt-4 xl:pb-3 xl:flex-1 xl:min-h-0">
+        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-x-6 2xl:gap-x-8 items-start xl:items-stretch xl:h-full ${
           wideTab(activeTab)
-            ? '2xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]'
-            : '2xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,27rem)]'}`}>
+            ? 'xl:grid-cols-[minmax(14rem,0.9fr)_minmax(0,4.4fr)]'
+            : 'xl:grid-cols-[minmax(17rem,1.3fr)_minmax(0,2.9fr)_minmax(19rem,1.3fr)]'}`}>
 
           {/* LEFT PANEL */}
-          <div className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-2' : 'lg:col-span-3'} 2xl:col-span-1 flex flex-col gap-6`}>
+          <div className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-2' : 'lg:col-span-3'} xl:col-span-1 flex flex-col gap-6 xl:gap-4 xl:min-h-0 xl:overflow-y-auto xl:overflow-x-hidden xl:-mx-3 xl:px-3 xl:pb-3 custom-scrollbar`}>
             <GMSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
             {activeTab === 'roster' && (
               <div className="order-3 lg:order-none">
@@ -137,7 +138,8 @@ export const OperationsPanel = () => {
           </div>
 
           {/* CENTER PANEL */}
-          <div className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-10' : activeTab === 'archives' ? 'lg:col-span-9' : 'lg:col-span-6'} 2xl:col-span-1`}>
+          <div data-desk="gm-center" className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-10' : activeTab === 'archives' ? 'lg:col-span-9' : 'lg:col-span-6'} xl:col-span-1 xl:min-h-0 ${
+            wideTab(activeTab) ? '' : 'xl:overflow-y-auto custom-scrollbar'}`}>
             {activeTab === 'roster' && selectedInvestigator && (
               <AnimatePresence mode="wait">
                 <GMCharacterSheet
@@ -149,10 +151,12 @@ export const OperationsPanel = () => {
             )}
 
             {activeTab === 'roster' && !selectedInvestigator && (
-              <div className="max-lg:contents bg-gm-night p-8 rounded-sm shadow-2xl border border-gm-slate min-h-[850px] flex flex-col gap-8">
+              // From xl the roster lies in two parts: the investigators' cards across the
+              // top, then the requests or the sealed slip with the pocket watch beside them
+              <div className="max-lg:contents bg-gm-night p-8 xl:p-5 rounded-sm shadow-2xl border border-gm-slate min-h-[850px] xl:min-h-0 flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:content-start xl:gap-x-8 xl:gap-y-5">
 
                 {!rosterFinalized && (
-                  <div className="order-5 lg:order-none">
+                  <div className="order-5 lg:order-none xl:row-start-2 xl:col-start-1 min-w-0">
                     <CorrespondenceStack
                       campaignRoster={campaignRoster}
                       pendingIndex={pendingIndex}
@@ -182,21 +186,21 @@ export const OperationsPanel = () => {
                 )}
 
                 {/* ACTIVE CIRCLE MEMBERS */}
-                <ActiveCircleMembers className="order-4 lg:order-none" campaignRoster={campaignRoster} onSelect={handleSelectInvestigator} />
+                <ActiveCircleMembers className="order-4 lg:order-none xl:row-start-1 xl:col-span-2" campaignRoster={campaignRoster} onSelect={handleSelectInvestigator} />
 
                 {/* Once finalized, the sealed slip below the investigators */}
-                {rosterFinalized && <FinalizedSlip className="order-5 lg:order-none" pressed={sealedNow} />}
+                {rosterFinalized && <FinalizedSlip className="order-5 lg:order-none xl:row-start-2 xl:col-start-1 xl:self-start" pressed={sealedNow} />}
 
                 {/* TENSION CLOCK: pinned to the bottom on desktop, right after the dice on phones */}
-                <TensionSection className="order-2 lg:order-none" />
+                <TensionSection className="order-2 lg:order-none xl:row-start-2 xl:col-start-2 xl:mt-0 xl:self-start" />
 
 
               </div>
             )}
             {activeTab === 'circle' && <CirclePage />}
             {activeTab === 'archives' && (
-              <div className="max-lg:contents bg-gm-night p-8 rounded-sm shadow-2xl border border-gm-slate min-h-[850px]">
-                <NotebookView isGM={true} />
+              <div className="max-lg:contents bg-gm-night p-8 xl:p-3 rounded-sm shadow-2xl border border-gm-slate min-h-[850px] xl:min-h-0 xl:h-full">
+                <NotebookView isGM={true} fit />
               </div>
             )}
             {activeTab === 'map' && (
@@ -205,10 +209,10 @@ export const OperationsPanel = () => {
           </div>
 
           {!wideTab(activeTab) && (
-            <div className="order-1 lg:order-none lg:col-span-3 2xl:col-span-1">
+            <div className="order-1 lg:order-none lg:col-span-3 xl:col-span-1 xl:min-h-0">
               {/* The GM's dice in their real colors: felt, wood, gold gilded dice */}
-              <div className="bg-gm-night border border-gm-slate rounded-sm shadow-2xl overflow-hidden px-3 pb-3">
-                <div>
+              <div className="bg-gm-night border border-gm-slate rounded-sm shadow-2xl overflow-hidden px-3 pb-3 xl:pt-3 xl:h-full xl:flex xl:flex-col">
+                <div className="xl:flex-1 xl:min-h-0">
                   <DiceVault showGmControls logEntries={activityLog} playerList={campaignRoster.active_investigators} />
                 </div>
               </div>

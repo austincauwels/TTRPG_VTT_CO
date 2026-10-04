@@ -19,7 +19,7 @@ export const GMSidebar = ({ activeTab, setActiveTab }) => {
     <nav
       aria-label="Desk sections"
       className="sticky top-0 z-40 -mx-4 px-3 py-2 bg-gm-night shadow-[0_6px_12px_rgba(0,0,0,0.6)] flex gap-1.5
-                 lg:static lg:z-auto lg:mx-0 lg:px-0 lg:py-0 lg:bg-transparent lg:shadow-none lg:flex-col lg:gap-4 lg:w-full lg:pt-4"
+                 lg:static lg:z-auto lg:mx-0 lg:px-0 lg:py-0 lg:bg-transparent lg:shadow-none lg:flex-col lg:gap-4 xl:gap-2.5 lg:w-full lg:pt-4 xl:pt-2 xl:shrink-0"
     >
       {navItems.map((item, index) => {
         const active = activeTab === item.id;
@@ -47,7 +47,7 @@ export const GMSidebar = ({ activeTab, setActiveTab }) => {
             {/* Burnt, Ripped, Full-Width Slip (its shadow is the button's drop-shadow, which
                 follows the torn clip-path) */}
             <div
-              className="hidden lg:block w-full px-6 py-5 bg-parchment text-ink"
+              className="hidden lg:block w-full px-6 py-5 xl:py-3.5 bg-parchment text-ink"
               style={{
                 clipPath: 'polygon(0% 2%, 99% 0%, 100% 98%, 2% 100%)',
                 background: 'linear-gradient(135deg, rgb(var(--c-parchment)) 60%, rgb(var(--c-parchment-deep)) 90%, rgb(var(--c-sepia)) 100%)',

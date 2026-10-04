@@ -165,7 +165,7 @@ export const SceneManager = () => {
   const circleName = circle?.name || 'the Circle';
 
   return (
-    <div className="bg-parchment text-ink p-5 sm:p-8 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
+    <div className="bg-parchment text-ink p-5 sm:p-8 xl:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
          style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.1) 28px)', backgroundSize: '100% 28px', lineHeight: '28px' }}>
 
       {/* Masking tape strip */}
@@ -181,7 +181,7 @@ export const SceneManager = () => {
       />
 
       {/* Letterhead */}
-      <div className="border-b-2 border-double border-sepia pb-4 mb-6 text-center relative">
+      <div className="border-b-2 border-double border-sepia pb-4 mb-6 xl:pb-3 xl:mb-4 text-center relative">
         <SerialNo value={serialFor(`dispatch-${circle?.id ?? ''}`, 4)} className="absolute top-0 right-0" />
         <SafeIcon name="GiEyeShield" size={32} className="mx-auto mb-2 text-sepia" />
         <h2 className="font-display uppercase tracking-[0.08em] text-xl leading-tight">Candela Obscura</h2>
@@ -217,7 +217,7 @@ export const SceneManager = () => {
       </div>
 
       {/* Stamp buttons; End Assignment asks for a second press and says what it clears */}
-      <div className="mt-8 flex justify-between items-start gap-4 relative">
+      <div className="mt-8 xl:mt-5 flex justify-between items-start gap-4 relative">
         {/* End Assignment: left stamp */}
         <ConfirmAction
           className="flex flex-col items-start gap-2 max-w-[11rem]"
@@ -257,7 +257,7 @@ export const SceneManager = () => {
           <p id="dispatch-effect" className="sr-only">Sends the location and atmosphere to every player's desk.</p>
         </div>
       </div>
-      <div className="mt-6 flex items-center gap-2" aria-hidden="true">
+      <div className="mt-6 xl:mt-4 flex items-center gap-2" aria-hidden="true">
         <PrinterMark size={12} />
         <FormLine>Form C.O. 2 · Dispatch</FormLine>
       </div>

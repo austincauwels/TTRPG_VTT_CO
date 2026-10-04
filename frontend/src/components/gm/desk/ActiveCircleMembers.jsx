@@ -19,7 +19,7 @@ export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }
         </span>
       </div>
     ) : (
-      <div className="flex flex-wrap 2xl:grid 2xl:grid-cols-3 gap-4 2xl:gap-5 pt-2 pb-2">
+      <div className="flex flex-wrap xl:grid xl:grid-cols-3 gap-4 2xl:gap-5 pt-2 pb-2">
         <AnimatePresence>
           {campaignRoster.active_investigators.map((inv, i) => (
             <InvestigatorBusinessCard key={inv.id} inv={inv} index={i} onClick={() => onSelect(inv)} />

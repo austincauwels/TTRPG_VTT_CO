@@ -32,7 +32,7 @@ export const InvestigatorBusinessCard = ({ inv, onClick, index = 0 }) => {
               <img
                 src={inv.profile_pic}
                 alt={inv.name}
-                className="w-24 2xl:w-20 object-cover"
+                className="w-24 xl:w-20 object-cover"
                 style={{ minHeight: '128px', height: '100%' }}
               />
             </div>
@@ -42,7 +42,7 @@ export const InvestigatorBusinessCard = ({ inv, onClick, index = 0 }) => {
           <div className="px-4 pt-3 pb-7 flex-1 min-w-0 relative">
             <SerialNo value={serialFor(inv.id ?? inv.name)} className="absolute bottom-2 right-3 text-[11px]" />
             <p
-              className="text-2xl font-bold leading-tight mb-2 break-words text-ink"
+              className="text-2xl xl:text-xl 2xl:text-2xl font-bold leading-tight mb-2 break-words text-ink"
               style={{ fontFamily: penFont }}
             >
               {inv.name}
