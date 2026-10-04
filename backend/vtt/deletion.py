@@ -8,11 +8,21 @@ docs/refactor/DELETION.md.
 - A character can be deleted by its owner while it is on no campaign's roster (not
   active, not pending). A retired character, still tagged with its old campaign, can be.
 - A campaign can be deleted by its GM, the Lightkeeper. Its characters are not deleted:
-  every character tagged with it (active, pending or retired) goes back to its owner
-  as unaffiliated, with no campaign. The campaign keeps a list of them as they were
-  (released_characters), so an undo or a restore can put back the ones still free.
+  every character on its roster (active or pending, RELEASED_STATUSES) goes back to its
+  owner as unaffiliated, with no campaign. The campaign keeps a list of them as they
+  were (released_characters), so an undo or a restore can put back the ones still free.
+  A retired character stays tagged with the campaign: it is hidden with it (the
+  registry leaves it out, hidden_with_their_campaign) and comes back with it.
 - The same user can undo a delete for UNDO_SECONDS. After that only an admin can
   restore it (restore_character and restore_campaign without a user), within KEEP_DAYS.
+
+Every function here that changes rows first locks the rows it decides on (SELECT ...
+FOR UPDATE, _locked) and reads them as they are once the lock is held. /campaign/join
+(engine.request_join_campaign) and /campaign/rejoin lock too: the campaign row FOR
+SHARE, then the character row. So two deletes of one campaign, a delete and a
+join, a delete and a restore, or a restore and a join cannot cross: the second waits
+for the first to commit and then sees what it did (a second delete finds nothing to
+delete, a join finds the campaign gone or the character back on a roster).
 """
 from datetime import datetime, timedelta, timezone
 
@@ -22,14 +32,19 @@ from sqlalchemy.orm import Session
 from models import INCLUDE_DELETED, Campaign, Character
 from vtt.auth import ROSTER_STATUSES
 
-# How long the user who deleted something can undo it themself. The roster book offers
-# Undo for a few seconds; the server allows longer so a slow connection still makes it.
+# How long the user who deleted something can undo it themself. The roster book keeps
+# each delete's Undo for this long, less a few seconds for the request to get there.
 UNDO_SECONDS = 120
 # How long deleted rows are kept for an admin to restore. Nothing removes them yet; a
 # later purge job would remove rows deleted longer ago than this (DELETION.md).
 KEEP_DAYS = 30
+# The characters a campaign delete lets go: those on its roster. The Lightkeeper
+# Ledger's count (investigator_count) counts the same ones.
+RELEASED_STATUSES = ROSTER_STATUSES
 
 IN_A_CAMPAIGN = "An investigator in a campaign cannot be deleted."
+CHARACTER_NOT_FOUND = "Investigator dossier not found."
+CAMPAIGN_NOT_FOUND = "Campaign not found"
 NOTHING_TO_RESTORE = "Nothing to restore."
 TOO_LATE = "It is too late to undo this."
 
@@ -37,6 +52,21 @@ TOO_LATE = "It is too late to undo this."
 def utcnow() -> datetime:
     """Now in UTC without a time zone, as deleted_at is stored."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _locked(query):
+    """The query's rows, locked until the commit (FOR UPDATE) and read as they are once
+    the lock is held: a row this session already has gets its values refreshed
+    (populate_existing), and PostgreSQL checks the query's conditions again against a
+    row that another transaction changed while this one waited."""
+    return query.populate_existing().with_for_update()
+
+
+def _refuse(db: Session, status: int, detail: str) -> HTTPException:
+    """Ends the transaction, which lets go of any lock taken so far, and returns the
+    error to raise."""
+    db.rollback()
+    return HTTPException(status_code=status, detail=detail)
 
 
 def deleted_query(db: Session, model):
@@ -68,26 +98,41 @@ def receipt(row, **extra) -> dict:
             "undo_until": undo_until(row.deleted_at).isoformat() + "Z", **extra}
 
 
+def hidden_with_their_campaign(db: Session, characters) -> set:
+    """The ids of those characters that are tagged with a deleted campaign: the retired
+    characters a campaign delete left with it. Lists of a user's characters leave them
+    out until the campaign comes back."""
+    tagged = {c.campaign_id for c in characters if c.campaign_id is not None}
+    if not tagged:
+        return set()
+    live = {row.id for row in db.query(Campaign.id).filter(Campaign.id.in_(tagged))}
+    return {c.id for c in characters if c.campaign_id is not None and c.campaign_id not in live}
+
+
 # --- characters -------------------------------------------------------------------
 
-def delete_character(db: Session, character: Character) -> None:
-    """Soft-deletes a character that is on no roster (409 otherwise). The caller checks
-    that the user owns it. Commits."""
+def delete_character(db: Session, character_id) -> Character:
+    """Soft-deletes a character that is on no roster (409 otherwise; 404 when it is
+    gone already). The caller checks that the user owns it. Commits and returns it."""
+    character = _locked(db.query(Character).filter(Character.id == character_id)).first()
+    if character is None:
+        raise _refuse(db, 404, CHARACTER_NOT_FOUND)
     if character.status in ROSTER_STATUSES:
-        raise HTTPException(status_code=409, detail=IN_A_CAMPAIGN)
+        raise _refuse(db, 409, IN_A_CAMPAIGN)
     character.deleted_at = utcnow()
     db.commit()
+    return character
 
 
 def restore_character(db: Session, character_id, user_id=None) -> Character:
     """Brings back a deleted character as it was. With user_id (the undo) only its owner
     may, and only within UNDO_SECONDS; anyone else gets 404, as if nothing were there.
     Without user_id (an admin) there is no time limit. Commits."""
-    character = deleted_character(db, character_id)
+    character = _locked(deleted_query(db, Character).filter(Character.id == character_id)).first()
     if character is None or (user_id is not None and character.user_id != user_id):
-        raise HTTPException(status_code=404, detail=NOTHING_TO_RESTORE)
+        raise _refuse(db, 404, NOTHING_TO_RESTORE)
     if user_id is not None and not within_undo(character.deleted_at):
-        raise HTTPException(status_code=409, detail=TOO_LATE)
+        raise _refuse(db, 409, TOO_LATE)
     character.deleted_at = None
     db.commit()
     db.refresh(character)
@@ -96,12 +141,19 @@ def restore_character(db: Session, character_id, user_id=None) -> Character:
 
 # --- campaigns --------------------------------------------------------------------
 
-def delete_campaign(db: Session, campaign: Campaign) -> list:
-    """Soft-deletes a campaign and lets its characters go: each one tagged with it
-    (active, pending or retired) becomes unaffiliated with no campaign. Returns the
-    released characters as they were ({"id", "status"}), which the campaign also keeps.
-    The caller checks that the user is its GM. Commits."""
-    released = db.query(Character).filter(Character.campaign_id == campaign.id).order_by(Character.id).all()
+def delete_campaign(db: Session, campaign_id):
+    """Soft-deletes a campaign and lets the characters on its roster go: each active or
+    pending one becomes unaffiliated with no campaign. Retired characters stay tagged
+    with it. Returns (campaign, the released characters as they were: {"id", "status"}),
+    and the campaign keeps that list. 404 when it is gone already (a second delete that
+    waited for the first). The caller checks that the user is its GM. Commits."""
+    campaign = _locked(db.query(Campaign).filter(Campaign.id == campaign_id)).first()
+    if campaign is None:
+        raise _refuse(db, 404, CAMPAIGN_NOT_FOUND)
+    released = _locked(db.query(Character).filter(
+        Character.campaign_id == campaign.id,
+        Character.status.in_(RELEASED_STATUSES),
+    ).order_by(Character.id)).all()
     snapshot = [{"id": c.id, "status": c.status} for c in released]
     for c in released:
         c.status = "unaffiliated"
@@ -109,29 +161,42 @@ def delete_campaign(db: Session, campaign: Campaign) -> list:
     campaign.released_characters = snapshot
     campaign.deleted_at = utcnow()
     db.commit()
-    return snapshot
+    return campaign, snapshot
 
 
-def restore_campaign(db: Session, campaign_id, user_id=None):
+def _free_query(db: Session, campaign: Campaign):
+    """The characters the campaign let go that are still free: not deleted,
+    unaffiliated, in no campaign."""
+    ids = [entry["id"] for entry in (campaign.released_characters or [])]
+    return db.query(Character).filter(
+        Character.id.in_(ids),
+        Character.campaign_id.is_(None),
+        Character.status == "unaffiliated",
+    ).order_by(Character.id)
+
+
+def still_free(db: Session, campaign: Campaign) -> list:
+    """The characters a restore of this deleted campaign would put back, as they are
+    now (restore_deleted.py shows them before it asks)."""
+    return _free_query(db, campaign).all() if campaign.released_characters else []
+
+
+def restore_campaign(db: Session, campaign_id, user_id=None, put_back=True):
     """Brings back a deleted campaign, and puts each character it let go back the way
     it was, if that character is still free: not deleted, unaffiliated, in no campaign
     (one that joined another campaign or was deleted meanwhile stays where it is). With
-    user_id (the undo) only its GM may, within UNDO_SECONDS; anyone else gets 404.
+    put_back=False (an admin's choice) the characters stay free. With user_id (the
+    undo) only its GM may, within UNDO_SECONDS; anyone else gets 404.
     Returns (campaign, ids of the characters put back). Commits."""
-    campaign = deleted_campaign(db, campaign_id)
+    campaign = _locked(deleted_query(db, Campaign).filter(Campaign.id == campaign_id)).first()
     if campaign is None or (user_id is not None and campaign.gm_user_id != user_id):
-        raise HTTPException(status_code=404, detail=NOTHING_TO_RESTORE)
+        raise _refuse(db, 404, NOTHING_TO_RESTORE)
     if user_id is not None and not within_undo(campaign.deleted_at):
-        raise HTTPException(status_code=409, detail=TOO_LATE)
+        raise _refuse(db, 409, TOO_LATE)
     before = {entry["id"]: entry["status"] for entry in (campaign.released_characters or [])}
     restored = []
-    if before:
-        free = db.query(Character).filter(
-            Character.id.in_(list(before)),
-            Character.campaign_id.is_(None),
-            Character.status == "unaffiliated",
-        ).order_by(Character.id).all()
-        for c in free:
+    if put_back and before:
+        for c in _locked(_free_query(db, campaign)).all():
             c.campaign_id = campaign.id
             c.status = before[c.id]
             restored.append(c.id)

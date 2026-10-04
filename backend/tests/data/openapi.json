@@ -2525,7 +2525,7 @@
     },
     "/campaign/{campaign_id}": {
       "delete": {
-        "description": "Deletes a campaign; only its GM may. Its characters are not deleted: each one\ntagged with it goes back to its owner as unaffiliated (vtt/deletion.py). Everyone\nconnected to it is told with campaign_deleted: the GM's channel and the channel of\nevery character it let go (active, pending or retired). The GM's channel is then\nclosed with 4404; the players' channels stay open, as after a retire. A soft delete:\nthe GM can undo it for a short while (POST .../restore) and an admin can restore it\nlater (docs/refactor/DELETION.md).",
+        "description": "Deletes a campaign; only its GM may. Its characters are not deleted: each one on\nits roster (active or pending) goes back to its owner as unaffiliated, and retired\nones stay with it (vtt/deletion.py). Everyone connected to it is told with\ncampaign_deleted: the GM's channel and the channel of every character it let go.\nThe GM's channel is then closed with 4404; the players' channels stay open, as\nafter a retire. A soft delete: the GM can undo it for a short while (POST\n.../restore) and an admin can restore it later (docs/refactor/DELETION.md).",
         "operationId": "delete_campaign_campaign__campaign_id__delete",
         "parameters": [
           {
@@ -2647,7 +2647,7 @@
     },
     "/campaign/{campaign_id}/restore": {
       "post": {
-        "description": "Undoes the caller's delete of their campaign, within deletion.UNDO_SECONDS (409\nafter that), and puts back each character it let go that is still free. A campaign\nthat is not deleted, or not the caller's, is 404.",
+        "description": "Undoes the caller's delete of their campaign, within deletion.UNDO_SECONDS (409\nafter that), and puts back each character it let go that is still free. A campaign\nthat is not deleted, or not the caller's, is 404. Every open socket of the GM and\nof the owners of the characters put back gets campaign_restored, so those clients\nread their roster book again.",
         "operationId": "restore_campaign_campaign__campaign_id__restore_post",
         "parameters": [
           {

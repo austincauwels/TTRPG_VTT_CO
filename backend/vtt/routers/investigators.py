@@ -27,7 +27,10 @@ router = APIRouter()
 @router.get("/api/investigators", response_model=List[CharacterRosterItem])
 async def list_investigators(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     # Nothing in the frontend needs every user's characters, so this lists the caller's own.
+    # A retired character left with a deleted campaign is hidden with it (vtt/deletion.py).
     characters = db.query(Character).filter(Character.user_id == user.id).all()
+    hidden = deletion.hidden_with_their_campaign(db, characters)
+    characters = [c for c in characters if c.id not in hidden]
     return [
         CharacterRosterItem(
             id=c.id,
@@ -149,9 +152,8 @@ async def delete_investigator(investigator_id: int, db: Session = Depends(get_db
     .../restore) and an admin can restore it later (docs/refactor/DELETION.md). A
     socket still open on the character's channel gets character_deleted and is closed
     with 4404."""
-    require_owner(user, character_or_404(db, investigator_id, detail="Investigator dossier not found."))
-    character = db.query(Character).filter(Character.id == investigator_id).first()
-    deletion.delete_character(db, character)
+    require_owner(user, character_or_404(db, investigator_id, detail=deletion.CHARACTER_NOT_FOUND))
+    character = deletion.delete_character(db, investigator_id)
     key = character_key(character.id)
     await manager.broadcast(key, {"type": "character_deleted", "payload": {"character_id": character.id}})
     manager.close_channel(key, CLOSE_NOT_FOUND)

@@ -165,6 +165,30 @@ class ConnectionManager:
             return
         await self._send_text(key, encode(message))
 
+    async def broadcast_users(self, user_ids, message: dict) -> int:
+        """Sends the message to every open socket of these users, whatever channel it is
+        on (the user each socket was opened by, as for close_user). Used when something
+        changes a user's own lists, such as a campaign restored, rather than one
+        channel. Returns how many sockets it reached."""
+        wanted = {u for u in user_ids if u is not None}
+        if not wanted:
+            return 0
+        text = encode(message)
+        sent = 0
+        for key, connections in list(self.active_connections.items()):
+            dead = []
+            for conn in list(connections):
+                if self.user_of(conn) not in wanted:
+                    continue
+                try:
+                    await conn.send_text(text)
+                    sent += 1
+                except Exception:
+                    dead.append(conn)
+            for conn in dead:
+                self.disconnect(key, conn)
+        return sent
+
     async def broadcast_all(self, message: dict):
         text = encode(message)
         for key in list(self.active_connections):

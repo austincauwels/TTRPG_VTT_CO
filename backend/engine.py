@@ -21,15 +21,35 @@ def create_new_campaign(db: Session, name: str, code: str, gm_user_id: int = Non
     db.refresh(new_campaign)
     return new_campaign
 
+# Why a join is refused for a character that is on a roster already (409). Joining used
+# to move an active or pending character out of its campaign without a word.
+ALREADY_ON_A_ROSTER = {
+    "active": "This investigator is already in a campaign.",
+    "pending": "This investigator is already waiting to join a campaign.",
+}
+
+
 def request_join_campaign(db: Session, character_id: int, campaign_code: str, pen_font: str = 'Caveat'):
-    """Binds a character to a campaign, saves their pen font, and sets status to pending."""
-    campaign = db.query(Campaign).filter(Campaign.campaign_code == campaign_code).first()
+    """Binds a character to a campaign, saves their pen font, and sets status to pending.
+    A character that is active or pending in a campaign is refused (an error with
+    status 409). The campaign row is locked FOR SHARE and the character row FOR UPDATE
+    before anything is decided, so a delete of either, or a restore that puts the
+    character back on a roster, waits for the join or the join for it
+    (vtt/deletion.py). On an error the transaction is rolled back."""
+    campaign = db.query(Campaign).filter(Campaign.campaign_code == campaign_code) \
+        .populate_existing().with_for_update(read=True).first()
     if not campaign:
+        db.rollback()
         return {"error": "Campaign code not found"}
 
-    character = db.query(Character).filter(Character.id == character_id).first()
+    character = db.query(Character).filter(Character.id == character_id) \
+        .populate_existing().with_for_update().first()
     if not character:
+        db.rollback()
         return {"error": "Character not found"}
+    if character.status in ALREADY_ON_A_ROSTER:
+        db.rollback()
+        return {"error": ALREADY_ON_A_ROSTER[character.status], "status": 409}
 
     character.campaign_id = campaign.id
     character.status = "pending"

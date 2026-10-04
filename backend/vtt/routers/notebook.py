@@ -62,13 +62,23 @@ def _require_writer(db: Session, user: User, campaign_id: int, character_id, gm_
 
 
 def _require_author(db: Session, user: User, entry: NotebookEntry):
-    """A character's entry belongs to that character's owner; any other entry to the campaign's GM."""
+    """A character's entry belongs to that character's owner; any other entry to the campaign's GM.
+
+    The same checks as for reading and writing the notebook: an entry of a deleted
+    campaign is gone with it ("Entry not found"), and a character's entry can only be
+    changed while that character is an active member of the campaign (a character that
+    was let go, moved or retired no longer reaches it)."""
+    campaign = campaign_facts(db, entry.campaign_id)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Entry not found")
     if entry.character_id is not None:
         author = character_facts(db, entry.character_id)
-        if author is not None and author.user_id == user.id:
-            return
-        raise forbidden()
-    if not is_gm(user.id, campaign_facts(db, entry.campaign_id)):
+        if author is None or author.user_id != user.id:
+            raise forbidden()
+        if author.campaign_id != entry.campaign_id or author.status not in MEMBER_STATUSES:
+            raise forbidden()
+        return
+    if not is_gm(user.id, campaign):
         raise forbidden()
 
 

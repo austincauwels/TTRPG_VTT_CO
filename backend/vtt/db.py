@@ -117,10 +117,50 @@ def convert_integer_flags():
     return converted
 
 
+def _is_duplicate_column(error) -> bool:
+    """True for the error ALTER TABLE ... ADD COLUMN gets when the column is there
+    already: PostgreSQL's duplicate_column (SQLSTATE 42701), SQLite's "duplicate column
+    name"."""
+    if getattr(getattr(error, "orig", None), "pgcode", None) == "42701":
+        return True
+    return "duplicate column" in str(error).lower()
+
+
+def add_columns(table: str, columns) -> list:
+    """ALTER TABLE table ADD COLUMN for each (name, type and default), each in its own
+    transaction. A column that is there already is skipped without a word; any other
+    failure is logged, because the models then read a column the table lacks and every
+    query of that table fails. Returns the names it added."""
+    added = []
+    for col, typedef in columns:
+        try:
+            with db_engine.connect() as conn:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {typedef}"))
+                conn.commit()
+            added.append(col)
+        except Exception as e:
+            if not _is_duplicate_column(e):
+                logger.error("Could not add the column %s.%s: %s", table, col, e)
+    return added
+
+
+def run_migration(sql: str, failure: str) -> bool:
+    """Runs one migration statement in its own transaction; logs failure and the error
+    if it fails. Returns whether it ran."""
+    try:
+        with db_engine.connect() as conn:
+            conn.execute(text(sql))
+            conn.commit()
+        return True
+    except Exception as e:
+        logger.error("%s: %s", failure, e)
+        return False
+
+
 def init_db():
     """Seed required rows, run additive ALTER TABLE migrations, then retire published
-    passwords. Each migration is idempotent; the except block silently ignores columns
-    that already exist. The ALTERs add the types the models declare, and flag columns
+    passwords. Each migration is idempotent: add_columns skips a column that exists
+    already and logs any other failure. The ALTERs add the types the models declare, and flag columns
     that older ALTERs added as INTEGER are converted to BOOLEAN (convert_integer_flags). The seeded admin (user 1, which owns characters forged before
     login tokens) gets a random password nobody knows. Tables added after the first
     release (password_reset_tokens) are created here when missing, so init_db alone
@@ -149,168 +189,60 @@ def init_db():
     finally:
         db.close()
 
-    for col, typedef in [
+    # The additive migrations, in the order they were written. add_columns skips a
+    # column that exists already and logs any other failure.
+    add_columns("circles", [
         ("guard_patrol", "INTEGER DEFAULT 0"),
         ("miasma_bleed", "INTEGER DEFAULT 0"),
         ("location",     "TEXT DEFAULT ''"),
         ("atmosphere",   "TEXT DEFAULT ''"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE circles ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass  # column already exists
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE campaigns ADD COLUMN gm_user_id INTEGER"))
-            conn.commit()
-    except Exception:
-        pass  # column already exists
-
-    for col in [("role", "TEXT DEFAULT ''"), ("specialty", "TEXT DEFAULT ''")]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE characters ADD COLUMN {col[0]} {col[1]}"))
-                conn.commit()
-        except Exception:
-            pass  # column already exists
-
-    for col, typedef in [
+    ])
+    add_columns("campaigns", [("gm_user_id", "INTEGER")])
+    add_columns("characters", [("role", "TEXT DEFAULT ''"), ("specialty", "TEXT DEFAULT ''")])
+    add_columns("circles", [
         ("chapter_house_location", "TEXT"),
         ("circle_ability",         "TEXT"),
         ("insignia",               "TEXT"),
         ("backstory_answers",      "JSON DEFAULT '{}'"),
         ("is_finalized",           "BOOLEAN DEFAULT FALSE"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE circles ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE campaigns ADD COLUMN roster_finalized BOOLEAN DEFAULT FALSE"))
-            conn.commit()
-    except Exception:
-        pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE characters ADD COLUMN personal_circle_answer TEXT DEFAULT ''"))
-            conn.commit()
-    except Exception:
-        pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE relationships ADD COLUMN last_actor_id INTEGER"))
-            conn.commit()
-    except Exception:
-        pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE circles ADD COLUMN illumination INTEGER DEFAULT 0"))
-            conn.commit()
-    except Exception:
-        pass
-
-    for col, typedef in [
+    ])
+    add_columns("campaigns", [("roster_finalized", "BOOLEAN DEFAULT FALSE")])
+    add_columns("characters", [("personal_circle_answer", "TEXT DEFAULT ''")])
+    add_columns("relationships", [("last_actor_id", "INTEGER")])
+    add_columns("circles", [("illumination", "INTEGER DEFAULT 0")])
+    add_columns("circles", [
         ("tension_clock", "INTEGER DEFAULT 0"),
         ("tension_label", "TEXT DEFAULT ''"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE circles ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
+    ])
 
     # The tension clock used to start full (4 of 4); new circles now start it empty.
     # Existing circles keep whatever value their GM left them at.
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE circles ALTER COLUMN tension_clock SET DEFAULT 0"))
-            conn.commit()
-    except Exception:
-        pass
+    run_migration("ALTER TABLE circles ALTER COLUMN tension_clock SET DEFAULT 0",
+                  "Could not set the default of circles.tension_clock")
 
-    for col in ["nerve_resistance_spent", "cunning_resistance_spent", "intuition_resistance_spent"]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE characters ADD COLUMN {col} INTEGER DEFAULT 0"))
-                conn.commit()
-        except Exception:
-            pass
-
-    for col, typedef in [
+    add_columns("characters", [(col, "INTEGER DEFAULT 0") for col in
+                               ("nerve_resistance_spent", "cunning_resistance_spent", "intuition_resistance_spent")])
+    add_columns("notebook_entries", [
         ("entry_type", "TEXT DEFAULT 'field_log'"),
         ("visibility",  "TEXT DEFAULT 'all'"),
         ("image_data",  "TEXT"),
         ("is_deleted",  "BOOLEAN DEFAULT FALSE"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE notebook_entries ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
-
-    for col, typedef in [
+    ])
+    add_columns("circles", [
         ("resources_editable", "BOOLEAN DEFAULT FALSE"),
         ("reports_open",       "BOOLEAN DEFAULT FALSE"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE circles ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE circles ADD COLUMN campaign_id INTEGER REFERENCES campaigns(id)"))
-            conn.commit()
-    except Exception:
-        pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE characters ADD COLUMN ability_uses JSON DEFAULT '{}'"))
-            conn.commit()
-    except Exception:
-        pass
-
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE users ADD COLUMN pending_rejoin_campaign_id INTEGER"))
-            conn.commit()
-    except Exception:
-        pass
-
-    for col, typedef in [
+    ])
+    add_columns("circles", [("campaign_id", "INTEGER REFERENCES campaigns(id)")])
+    add_columns("characters", [("ability_uses", "JSON DEFAULT '{}'")])
+    add_columns("users", [("pending_rejoin_campaign_id", "INTEGER")])
+    add_columns("characters", [
         ("train_bonus",                "BOOLEAN DEFAULT FALSE"),
         ("resources_spent_assignment", "INTEGER DEFAULT 0"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE characters ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
+    ])
 
     # Sign in with Google. The index has the name create_all gives it, so a database
     # made either way ends up with the same one.
-    try:
-        with db_engine.connect() as conn:
-            conn.execute(text("ALTER TABLE users ADD COLUMN google_sub TEXT"))
-            conn.commit()
-    except Exception:
-        pass
+    add_columns("users", [("google_sub", "TEXT")])
     try:
         with db_engine.connect() as conn:
             conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_sub ON users (google_sub)"))
@@ -320,30 +252,20 @@ def init_db():
     # Which Google email a link was made with, and whether the account's email has been
     # proven (docs/refactor/AUTH.md). Existing rows get NULL and false: their links
     # count as unproven.
-    for col, typedef in [
+    add_columns("users", [
         ("google_email", "TEXT"),
         ("email_proven", "BOOLEAN DEFAULT FALSE"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass
+    ])
 
     # Deleting characters and campaigns (docs/refactor/DELETION.md). Existing rows get
     # NULL: nothing was deleted before these columns existed, so every row stays visible.
-    for table, col, typedef in [
-        ("characters", "deleted_at",          "TIMESTAMP"),
-        ("campaigns",  "deleted_at",          "TIMESTAMP"),
-        ("campaigns",  "released_characters", "JSON"),
-    ]:
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {typedef}"))
-                conn.commit()
-        except Exception:
-            pass  # column already exists
+    # Every Character and Campaign query reads deleted_at, so if adding it fails for any
+    # reason but "already there", every one of them fails: the log says why.
+    add_columns("characters", [("deleted_at", "TIMESTAMP")])
+    add_columns("campaigns", [
+        ("deleted_at",          "TIMESTAMP"),
+        ("released_characters", "JSON"),
+    ])
 
     # Password reset links. main.py's create_all makes the table on a normal start; this
     # makes it (with its indexes) on a database that only init_db upgrades. checkfirst

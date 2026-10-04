@@ -9,7 +9,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from models import Campaign, Character, User
-from vtt.auth import ROSTER_STATUSES, get_current_user, require_self
+from vtt import deletion
+from vtt.auth import get_current_user, require_self
 from vtt.db import get_db
 from vtt.schemas import CampaignSummaryItem, CharacterSummaryItem
 
@@ -18,7 +19,10 @@ router = APIRouter()
 @router.get("/api/users/{user_id}/characters", response_model=List[CharacterSummaryItem])
 def get_user_characters(user_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     require_self(user, user_id)
-    chars =db.query(Character).filter(Character.user_id == user_id).all()
+    chars = db.query(Character).filter(Character.user_id == user_id).all()
+    # A retired character left with a deleted campaign is hidden with it (vtt/deletion.py).
+    hidden = deletion.hidden_with_their_campaign(db, chars)
+    chars = [c for c in chars if c.id not in hidden]
     campaign_ids = list({c.campaign_id for c in chars if c.campaign_id})
     campaigns_by_id = {}
     if campaign_ids:
@@ -49,11 +53,13 @@ def get_user_gm_campaigns(user_id: int, db: Session = Depends(get_db), user: Use
         Campaign.gm_user_id == user_id,
         Campaign.is_retired == False,
     ).all()
+    # investigator_count is exactly what deleting the campaign would let go: the same
+    # statuses deletion.delete_campaign releases (retired characters stay with it).
     counts = {}
     if campaigns:
         counts = dict(db.query(Character.campaign_id, func.count(Character.id)).filter(
             Character.campaign_id.in_([c.id for c in campaigns]),
-            Character.status.in_(ROSTER_STATUSES),
+            Character.status.in_(deletion.RELEASED_STATUSES),
         ).group_by(Character.campaign_id).all())
     return [
         CampaignSummaryItem(id=c.id, name=c.name, campaign_code=c.campaign_code,

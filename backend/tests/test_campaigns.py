@@ -174,18 +174,31 @@ def test_join_someone_elses_character_is_403(client):
     assert support.fetch(Character, ch["id"]).status == "unaffiliated"
 
 
-def test_join_moves_an_active_character_out_of_its_campaign(client):
-    """QUIRK: join has no status check, so an active member of one campaign becomes
-    pending in another when its owner joins it elsewhere. Before tokens any caller
-    could do this to any character id; now another user gets 403."""
+def test_join_refuses_a_character_on_a_roster(client):
+    """Join used to have no status check, so an active member of one campaign (or one
+    waiting for a Lightkeeper) became pending in another when its owner joined it
+    elsewhere, leaving its campaign without a word. Now that is 409, after the
+    ownership check (another user still gets 403), and the character stays put."""
     a = support.new_campaign(client)
     b = support.new_campaign(client)
-    ch = support.active_member(client, a)
-    assert support.join(client, ch["id"], b["campaign_code"], headers=support.as_stranger()).status_code == 403
-    assert support.join(client, ch["id"], b["campaign_code"]).status_code == 200
-    row = support.fetch(Character, ch["id"])
+    active = support.active_member(client, a)
+    pending = support.pending_member(client, a)
+    dead = support.active_member(client, a)
+    support.update(Character, dead["id"], is_dead=True)  # dead stays active until replaced
+    assert support.join(client, active["id"], b["campaign_code"], headers=support.as_stranger()).status_code == 403
+    for ch, detail in ((active, "This investigator is already in a campaign."),
+                       (dead, "This investigator is already in a campaign."),
+                       (pending, "This investigator is already waiting to join a campaign.")):
+        r = support.join(client, ch["id"], b["campaign_code"])
+        assert (r.status_code, r.json()) == (409, {"detail": detail})
+    for ch, status in ((active, "active"), (dead, "active"), (pending, "pending")):
+        row = support.fetch(Character, ch["id"])
+        assert (row.status, row.campaign_id) == (status, a["id"])
+    # rejected, it is free again and may join elsewhere
+    assert support.reject(client, pending["id"]).status_code == 200
+    assert support.join(client, pending["id"], b["campaign_code"]).status_code == 200
+    row = support.fetch(Character, pending["id"])
     assert (row.status, row.campaign_id) == ("pending", b["id"])
-    assert row.ink_color == engine.INK_COLORS[0]  # keeps the old ink
 
 
 # --- approve / reject -------------------------------------------------------
