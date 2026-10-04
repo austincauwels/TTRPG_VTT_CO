@@ -29,13 +29,13 @@ colors:
   drive-intuition: "#4a2870"
 typography:
   display:
-    fontFamily: "IM Fell English, Crimson Text, Georgia, serif"
+    fontFamily: "Cinzel, Crimson Text, Georgia, serif"
     fontSize: "2.25rem"
     fontWeight: 400
     lineHeight: 1
     letterSpacing: "0.1em"
   headline:
-    fontFamily: "IM Fell English, Crimson Text, Georgia, serif"
+    fontFamily: "Cinzel, Crimson Text, Georgia, serif"
     fontSize: "2.25rem"
     fontWeight: 400
     lineHeight: 1.1
@@ -67,6 +67,12 @@ typography:
     fontSize: "1.125rem"
     fontWeight: 400
     lineHeight: 1.5
+  hand:
+    fontFamily: "Charm, Crimson Text, Georgia, serif"
+    fontSize: "3rem"
+    fontWeight: 700
+    lineHeight: 1.25
+    letterSpacing: "0"
 rounded:
   sm: "2px"
   md: "4px"
@@ -142,7 +148,7 @@ components:
     size: "13px"
 ---
 
-<!-- Colors and Typography updated after the colorize and typeset stage, 2026-10-04 (beta-ui). Scan-mode record of the incumbent system, 2026-10-04. Source of truth: frontend/tailwind.config.js, frontend/src/index.css, inline styles in frontend/src/components, and the before-tour screenshots in /home/gater/projects/candela-ui-review/2026-10-04-before. The Overview language and color character names are a draft pending owner confirmation. -->
+<!-- Colors and Typography updated after the colorize and typeset stage, 2026-10-04 (beta-ui). Scan-mode record of the incumbent system, 2026-10-04. Source of truth: frontend/tailwind.config.js, frontend/src/index.css, inline styles in frontend/src/components, and the before-tour screenshots in /home/gater/projects/candela-ui-review/2026-10-04-before. The Overview language and color character names are a draft pending owner confirmation. Round 3 (2026-10-04) updated Typography, the seal, the watermark, the sounds, the desk layout, the hub and the dice. -->
 
 # Design System: Candela Obscura VTT
 
@@ -179,7 +185,7 @@ A candlelit palette: near-black warm brown for the room, aged paper for the obje
 - **Gold Leaf** (#c49d47): the chapter hub's tome lettering and frames only (`.embossed-gold`, the padlock).
 
 ### Tertiary
-- **Register Green** (#0b1f12): the leather of the Active Register tome.
+- **Register Green** (#0b1f12): the leather of the Case Ledger tome on the chapter hub.
 - **Seal Green** (#065f46): confirmed and successful states on paper ("Report filed", "3/3 placed", "Confirmed", active campaigns in the roster book, roll entries in the log). Tuned from Tailwind emerald-700 so small text passes on parchment (6.0:1).
 - **Seal Green, lamp-lit** (#5fae8b): the same seal on dark grounds (status dots on the tomes, dice that count on the felt, confirmed relationships, sent invites).
 
@@ -198,7 +204,7 @@ A candlelit palette: near-black warm brown for the room, aged paper for the obje
 - **Player ink colors**: each player's `ink_color` from the server (business-card stripes, roster names, log entries, notebook). Data, never replaced by a token.
 
 ### Material literals (kept on purpose)
-Physical objects keep their own local shading, drawn in CSS or SVG: the candles' wax and flames (ivory wax, an orange-to-yellow mantle, a white core, a faint blue base) and their warm light, the Last Session tome's plum leather, strap and brass padlock, the book spine and page edges, the dice tray's green felt (#12241b) and wood rim (#2e1d15). They are renderings of materials, not interface colors, and are not to be reused as chrome.
+Physical objects keep their own local shading, drawn in CSS or SVG: the candles' wax tops, pools and flames and their warm light; the hub's drawn desk wood and its dark oxblood leather writing inset (#210a09) with a tooled gilt border; the Last Played tome's plum leather (#1e0624), strap and brass padlock; the book spines and page edges (the Case Ledger's edges sprinkled red); the railway tickets' company bands in her original pamphlet colors (sage #5f7267 on the player's ticket, ink on the Lightkeeper's); her wax seal's reds (#9c1c1c, #7d1414 and #4a0808, a #5c0f0f rim, the mark in #641010); the dice tray's green felt (#12241b) and wood rim (#2e1d15); and the gilded die's gold leaf (#e5c158 to #b8860b). They are renderings of materials, not interface colors, and are not to be reused as chrome.
 
 ### Named Rules
 **The One Ink Rule.** Oxblood is the only color that means "act" or "this matters". Primary buttons (Advance, Select this Path, Cast, Dispatch, Join, Commission Investigator), active tabs and filled marks are oxblood; nothing else competes for that role.
@@ -217,26 +223,31 @@ The GM's screens keep a cool, deliberate night look (owner decision, 2026-10-04)
 The paper objects on the GM desk (dispatch letter, nav slips, join-request cards, business cards, Finalize slip, pocket watch, circle ledger, memo pad, activity log) keep parchment, oxblood and gold; only the ground and the chrome around them are cool. The GM's dice are shown in their real colors: the grayscale and hue-rotate filter on the GM dice tray is gone. The chapter hub is shared by players and the GM and follows the warm palette.
 
 ### Effects removed in this stage
-Glow box-shadows (gilded die, pips, rejoin banner, death modal, creator path button), the candles' blurred radial glow (replaced by the candle cluster and its lit pool, see Elevation & Depth), `animate-pulse` on static text, accidental backdrop blur on the scar, circle and relationship modals, the GM dice filter, the pocket watch's metal gradient and glass glare (now a flat brass case) and the gilded die's metal gradient. The login slip has no blur. Every CSS animation and transition stops under `prefers-reduced-motion` (index.css).
+Glow box-shadows (pips, rejoin banner, death modal, creator path button), the candles' blurred radial glow (replaced by the candle cluster and its lit pool, see Elevation & Depth), `animate-pulse` on static text, accidental backdrop blur on the scar, circle and relationship modals, the GM dice filter, and the pocket watch's metal gradient and glass glare (now a flat brass case). The login slip has no blur. Every CSS animation and transition stops under `prefers-reduced-motion` (index.css).
+
+Round 3 brought back two glows on purpose (owner's items 5 and 10): the gilded die is her original again, gold leaf from light to dark with a candle-gold edge and a soft gold halo on the felt, and on the hub, hover and keyboard focus make the tome titles and the tickets' action line catch the candlelight (see Elevation & Depth).
 
 Round 1 of this stage also straightened the hand-placed objects (sidebar cards, circle forms, history and report cards, the dispatch note). That was a mistake: the crooked, hand-placed look is part of the owner's design (Robert Gater, 2026-10-04), and it is back. See "Hand-placed objects" under Shapes.
 
 ## Typography
 
-**Display Font:** IM Fell English (regular and italic), loaded from Google Fonts in `index.html`, Tailwind `font-display`. It sets the CANDELA OBSCURA wordmark on every header, step and page titles, tome and pamphlet titles, the dispatch letterhead, the Lightkeeper's Desk bar and the Halcyon Herald. It has one weight, so display text is never bold (`font-synthesis: style` stops a faked bold).
+**Display Font:** Cinzel (400 to 900), her original heading face (the first CampaignSelector's `font-cinzel`), loaded from Google Fonts in `index.html`, Tailwind `font-display` (owner's round 3 item 18). It sets the CANDELA OBSCURA wordmark on every header, the creator's step titles, the login slip, the tome titles, the railway tickets, the roster book's page titles, the dispatch letterhead, the Lightkeeper's Desk bar, the Halcyon Herald and the roll's outcome stamp: everything on leather, wood or the night stage, and every printed heading on paper. Its capitals keep her open tracking (0.04em to 0.1em); the Herald's masthead keeps her black, tight setting. Cinzel has no italic and sets lowercase as small capitals, so display text is never slanted (`font-synthesis: none`).
+**Hand Font:** Charm (400 and 700, loaded with the pens), Tailwind `font-hand`, for a heading a hand writes on paper: the notebook's Field Notes, Log a Field Entry and Private Field Notes, in mixed case with normal tracking. A printed heading on paper (the Herald, a form's letterhead, the dispatch) is Cinzel, not Charm.
+IM Fell English is gone (owner, 2026-10-04: "I don't want this font anywhere"): nothing loads it and nothing renders in it.
 **Body Font:** Crimson Text (400, 600, 700 and italics), loaded in `index.html`, Tailwind `font-serif` and the body default. Prose, names, rule text, ability text, form values, empty states and in-world copy.
 **Label Font:** system sans (`font-sans`), bold or black, uppercase, tracked 0.1em (`tracking-widest`; up to 0.18em on the creator's few short heads). Buttons, tabs, field labels and status chips.
 **Data Font:** system monospace (`font-mono`, usually `tabular-nums`), only for numbers and identifiers: counts, dice totals, timers, scar counts, campaign codes, usernames, dates, page numbers.
 **Pen fonts:** the 20 handwriting families in `index.html` (Caveat by default). A player picks one when joining a campaign; their notebook entries, signature and business-card name render in it.
 
-The chapter hub no longer loads its own faces: Cinzel, Cormorant Garamond, Playfair Display and IBM Plex Mono (the runtime `@import` in DeskStyles.jsx) and the duplicate pen `@import`s in DeskStyles.jsx and CharacterCreator.jsx are gone, and the unused Playwrite NO load was dropped.
+The chapter hub loads no faces of its own: the runtime `@import` in DeskStyles.jsx (Cinzel, Cormorant Garamond, Playfair Display, IBM Plex Mono) and the duplicate pen `@import`s in DeskStyles.jsx and CharacterCreator.jsx are gone, Cinzel comes from `index.html` with the other faces, and the unused Playwrite NO load was dropped.
 
-**Character:** a bookish Crimson for anything read or named, Fell capitals for titles stamped on paper and leather, and small heavy tracked sans labels that read like stamped form fields.
+**Character:** a bookish Crimson for anything read or named, Cinzel capitals for titles stamped on paper and leather, Charm where a hand wrote a heading, and small heavy tracked sans labels that read like stamped form fields.
 
 ### Hierarchy and scale
 The scale is Tailwind's: 12, 14, 16, 18, 20, 24, 30, 36, 48px (`text-xs` to `text-5xl`). Arbitrary pixel sizes remain only for pen-font text (handwriting needs its own sizes), the Herald's newspaper print and a few large serif notebook lines tied to the ruled paper.
-- **Display** (Fell, 400, 28px phone / 36px desktop, uppercase, 0.1em): the wordmark on the hub, creator, player and GM headers.
-- **Headline** (Fell, 30 to 36px, uppercase, 0.06em): step titles in the creator ("Action Ratings & Drive"), the death notice, Join a Circle, Field Notes; oxblood on paper, cream on night.
+- **Display** (Cinzel 400, 28px phone / 36px desktop, uppercase, 0.1em): the wordmark on the hub, creator, player and GM headers.
+- **Headline** (Cinzel 400, 30 to 36px, uppercase, 0.06em): step titles in the creator ("Action Ratings & Drive"), the death notice, Join a Campaign, the roster book's Player Registry and Lightkeeper Ledger; oxblood on paper, cream on night.
+- **Hand** (Charm 700, 30 to 48px, mixed case): the notebook's own headings (Field Notes, Log a Field Entry, Private Field Notes).
 - **Title** (Crimson 700, 18 to 24px): ability and character names, sub-section heads in the creator ("A — Raise One Starting-Zero Action to 1"), field questions (Catalyst, Curiosity).
 - **Body** (Crimson 400, 16px, line-height 1.5): rule text, descriptions, the dispatch letter, roster names; italic for game state and short empty states.
 - **Label** (sans 700 to 900, 12 to 14px, uppercase, 0.1em): buttons, tabs, field labels, status chips.
@@ -249,9 +260,9 @@ The scale is Tailwind's: 12, 14, 16, 18, 20, 24, 30, 36, 48px (`text-xs` to `tex
 
 **The Short Caps Rule.** Uppercase with wide tracking is for short labels only. Sentences and letterhead lines are set in sentence case, usually Crimson italic.
 
-**The No Instructions Rule** (Robert Gater, 2026-10-04). No sentence explains a control ("Tap an action to roll it", "No rolls yet", "Use Change Gear to pick up to 3 items"). The layout carries the action: a roll is a raised chit with a die on it, a card that turns over shows a turn-over mark, a field has a plain label, a limit shows as a counter ("0 / 3 selected"), a choice as filled or open marks. An empty area stays quietly empty or shows an object (two resting dice on the felt, blank gear slots, a blank ruled sheet): a value not given yet is a dotted blank (`BlankEntry`), a report not filed is the dashed outline of its stamp (`EmptyStamp`), an unchosen circle question is its card with blank ruled lines (`BlankQuestionCard`), an empty register page has blank rows (`BlankRows`), the table log runs its ledger rows to the foot of the sheet, and an empty investigators panel shows the dashed place where the first card will lie. Each keeps the state for screen readers in an `sr-only` word. A select starts on a blank option under its plain label, never on "Choose ...". What stays in words: rulebook ability text, game state ("Spending locked", "Reports open", "Waiting for Iris"), the outcome of a roll, errors that say what to do next, and the second-press warnings on actions that cannot be undone.
+**The No Instructions Rule** (Robert Gater, 2026-10-04). No sentence explains a control ("Tap an action to roll it", "No rolls yet", "Use Change Gear to pick up to 3 items"). The layout carries the action: a roll is a raised chit that lifts and shows a faint die on hover or keyboard focus, a card that turns over shows a turn-over mark, a field has a plain label, a limit shows as a counter ("0 / 3 selected"), a choice as filled or open marks. An empty area stays quietly empty or shows an object (the empty felt, blank gear slots, a blank ruled sheet): a value not given yet is a dotted blank (`BlankEntry`), a report not filed is the dashed outline of its stamp (`EmptyStamp`), an unchosen circle question is its card with blank ruled lines (`BlankQuestionCard`), an empty register page has blank rows (`BlankRows`), the table log runs its ledger rows to the foot of the sheet, and an empty investigators panel shows the dashed place where the first card will lie. Each keeps the state for screen readers in an `sr-only` word. A select starts on a blank option under its plain label, never on "Choose ...". What stays in words: rulebook ability text, game state ("Spending locked", "Reports open", "Waiting for Iris"), the outcome of a roll, errors that say what to do next, and the second-press warnings on actions that cannot be undone.
 
-**The Pen Belongs to the Player Rule.** Handwriting fonts appear only for text a person wrote (notebook entries, signatures, pen previews, business-card names). Interface copy never uses them.
+**The Pen Belongs to the Player Rule.** Handwriting fonts appear only for text a person wrote (notebook entries, signatures, pen previews, business-card names). Interface copy never uses them. The one exception is `font-hand`, the notebook's own hand for its headings (owner's round 3 item 18); it never sets a label, a button or a sentence.
 
 ## Layout
 
@@ -263,7 +274,7 @@ Spacing follows Tailwind's 4px grid. The working steps are 4, 8, 12, 16 and 24px
 
 Breakpoints are Tailwind defaults (sm 640, md 768, lg 1024, xl 1280, 2xl 1536). `lg:` carries most of the responsive switching. Phones (390) and tablets (768) stack the desks into one column.
 
-**Wide desks (2xl, owner's request 2026-10-04).** From 1536px the player and GM desks stop being a 1500px column in the middle of the screen. Their container grows to 1840px with 40px side margins, and the 12-column grid gives way to three explicit tracks: the left rail (22 to 23rem) and the right rail with the dice tray (27rem) sit out at the edges with 56px gutters, and the sheet or work surface between them takes the rest, about 850px at 1920, which keeps the dossier's prose at a comfortable measure. The felt tray grows to 330px with larger dice, the activity log to 320px, the roster book's spread to 1320px, and the notebook spread follows the container. The map and notebook tabs on the GM desk drop the right rail and use two tracks. The player desk's header sits in the same container, so "Back to chapter hub" ends on the desk's right edge (1424px at 1440, 1840px at 1920). On the GM desk the investigators' business cards lie in one row of three from 2xl, and the Assignment Reports on the circle page are a grid, three across from xl, each card as tall as the face that is up. 1440 keeps the lg layout otherwise.
+**Desks fit the screen (xl, owner's round 3 item 24).** From 1280px the player and GM desks are one window tall and the page never scrolls. The tall title header steps aside (kept for screen readers) and the member ID strip, or on the GM desk the Lightkeeper's Desk bar, becomes one slim band: on the player desk her seal, the name and campaign, the misprinted registry number, the tabs, and Back to chapter hub behind a printed rule; on the GM desk the campaign's name and code. Three columns fill the width with about 16px edge gutters (player desk 1fr / 3.1fr / 1.3fr): on the left the GM's pinned note, Your Circle and the pocket watch at the foot; in the middle the sheet; on the right the felt with its tilted result slip, the log notepad and the pass-notes pad lying over the log's foot. A column whose papers run longer than the window scrolls inside itself, never the page. The sheet lays itself out by its own width (a container query), so the GM's copy follows its column: from 44rem it is a ledger page with the taped photo and the marks box on the right, the name with the gear slip beside it, the ability index card, then Nerve, Cunning and Intuition side by side with their actions under them, then the scars. The GM desk follows the same idea: a wider left rail of nav slips and the dispatch letter, the investigators' business cards three across with the join requests or the sealed slip and the pocket watch under them, and the dice controls, felt, log, notes and Invite back on the right; the circle page, notebook and a sheet open in the middle column, and the map fills it at 3:2. Every object stays a distinct physical thing with its own paper, tilt, pin or tape: a desk of scattered papers, never a tidy grid. Phones and tablets keep the stacked layout. The Circle tabs do not fit one screen yet: their paper scrolls inside its column.
 
 ## Elevation & Depth
 
@@ -273,13 +284,13 @@ Depth is literal and physical. Objects cast heavy, dark, offset shadows onto the
 - **Paper on desk** (`box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3)`): parchment panels resting on the night stage.
 - **Object lift** (`box-shadow: 4px 6px 15px rgba(0,0,0,0.7)`): cards, pamphlets and tabs resting on the desk; the deepest objects (tomes) go to `15px 25px 40px rgba(0,0,0,0.95)` with inner leather shading.
 - **Inset well** (`box-shadow: inset 0 2px 4px rgba(0,0,0,0.15)`): mark boxes and recessed areas on parchment.
-- **No glows.** Filled and gilded pips, gilded dice and banners are flat fills with a cast shadow at most (removed 2026-10-04).
+- **No glows**, with the owner's two exceptions. Filled and gilded pips and banners are flat fills with a cast shadow at most. The gilded die keeps her soft gold halo on the felt; on the hub, hover and keyboard focus warm the tome titles, the campaign's name and mark like gilt catching candlelight and the tickets' action line in its red ink, with a faint flicker (owner's round 3 items 5 and 10; lit at once and still under reduced motion).
 - **Modal** (`box-shadow: 0 20px 60px rgba(0,0,0,0.9)`): dialogs over the desk.
 
 ### Named Rules
-**The One Lamp Rule.** All cast shadows fall the same way (down and right) because the desk has one light. Nothing glows; the candle flames keep only a small halo.
+**The One Lamp Rule.** On the desks all cast shadows fall the same way (down and right), because the desk has one light. On the chapter hub the light is the candles themselves: every object (tomes, tickets, Herald, sketches) casts its shadow away from the flames, measured per object (`useCastShadows.js`, with `data-cast` for its height above the desk), so a tilted object still casts straight away from the light, and on wide screens one flicker moves the light, the candles' shadows and the objects' shadows together. The candle flames keep only a small halo.
 
-**The Lit Pool Rule.** Candlelight is light falling on things, not a haze in the air. The chapter hub's candles light the desk around them with one wide, soft radial gradient in `soft-light` blending above the objects (`.candle-light` in DeskStyles.jsx), so the wood, the tomes and the papers near them warm in their own colors. No blur filter, no glow blob. It sits in the hub's own stacking context (no z-index, opacity or transform on its box), or the blend has nothing to light.
+**The Lit Pool Rule.** Candlelight is light falling on things, not a haze in the air. The chapter hub's candles light a small warm pool that falls off fast into the room's shade (`.desk-glow` under the objects, `.hub-light` in `soft-light` blending above them and `.hub-shade` beyond it, in DeskStyles.jsx), so whatever lies near the flames warms in its own colors on the side that faces them and the corners fall dark. The hub stays at or below her original's brightness (mean luma 59.5 against her 59.9 at 1440). No blur filter, no glow blob. The light sits in the hub's own stacking context (no z-index, opacity or transform on its boxes), or the blend has nothing to light.
 
 **Torn paper keeps its shadow.** A clip-path or mask cuts away a box-shadow, so torn or deckled paper (nav slips, the Finalize slip, pinned notes, the From the GM note) casts its shadow with `filter: drop-shadow()` on a wrapper, which follows the torn edge. These are small objects; never put a filter on a large area.
 
@@ -288,7 +299,7 @@ Depth is literal and physical. Objects cast heavy, dark, offset shadows onto the
 Corners are tight. Small radius (2px) is the default for panels, wells, chips and tags; medium (4px) for buttons and the step bar. Full rounding is reserved for things that are round in the physical world: action pips, illumination dots, wax seals, dials and the pocket-watch tension clock. Paper objects add their own silhouettes: torn and slightly rotated tabs, corner brackets on the creator panel, double rules (`border-style: double`) on formal frames, dashed borders for empty slots and upload targets. Borders are 1px hairlines in sepia or ink at low alpha; 2px is used for frames and selected cards.
 
 ### Hand-placed objects
-**Hand-placed objects sit slightly crooked; tilts of about 0.5 to 2 degrees, fixed per object.** Cards, notes, slips and forms lie as if someone put them down: the player's circle cards and the From the GM note on the player desk, the GM's investigator business cards, nav slips, Finalize and finalized slips, report and history cards on the circle pages, the chapter-house examples and tape in the formation papers, pinned private notes, and filled mark boxes (inked by hand). The angle comes from `tiltFor(key)` in `components/shared/handPlaced.js`, a hash of the object's id, so an object keeps its angle across renders, reloads and list changes; lists alternate the lean so neighbours never match. The `.hand-placed` class (index.css) applies `--tilt` and eases it to 70% on phones. Text inside stays level enough to read, a tilt never moves an object over a control, and an object a person picks up (hover) may straighten. Tomes and pamphlets on the hub keep their larger, older angles; the creator's card deck keeps its own.
+**Hand-placed objects sit slightly crooked; tilts of about 0.5 to 2 degrees, fixed per object.** Cards, notes, slips and forms lie as if someone put them down: the player's circle cards and the From the GM note on the player desk, the GM's investigator business cards, nav slips, Finalize and finalized slips, report and history cards on the circle pages, the chapter-house examples and tape in the formation papers, pinned private notes, the gear slip, the roll's result slip, the pass-notes pad, the pinned photos on the circle cards, and filled mark boxes (inked by hand). The angle comes from `tiltFor(key)` in `components/shared/handPlaced.js`, a hash of the object's id, so an object keeps its angle across renders, reloads and list changes; lists alternate the lean so neighbours never match. The `.hand-placed` class (index.css) applies `--tilt` and eases it to 70% on phones. Text inside stays level enough to read, a tilt never moves an object over a control, and an object a person picks up (hover) may straighten. Tomes and tickets on the hub keep their larger, older angles; the creator's card deck keeps its own.
 
 ## Components
 
@@ -328,34 +339,38 @@ The game's numbers are drawn as physical marks. Action pips are 13px circles wit
 The creator's left column: an official role portrait in a gold-lined card frame with corner ornaments, the role name in serif at top and the role label in gold at the bottom, stacked over two offset card backs, with prev/next controls and a "1 / 10" counter.
 
 ### Chapter Hub Tomes (signature, kept by owner)
-Leather-bound books (register green, deep purple) with embossed double frames, gold-leaf Cinzel and Playfair lettering, page-block edges and an open/close animation into a two-page ruled spread. PRODUCT.md marks this as the model for the app's physical-object feel.
+Two leather-bound books of one size, seen from above (`Tome.jsx`), with an open/close animation into a two-page ruled spread; PRODUCT.md marks them as the model for the app's physical-object feel. Under the front board lie the text block's fore edge and tail, mitred at the corner, and the back board just beyond them, so the pages read as part of the book; the cover's frames start clear of the spine's hinge groove.
+- **Case Ledger** (register green, edges sprinkled red): its title in embossed gold-leaf Cinzel, and the counts ("In play", "Awaiting approval", "Campaigns you run") as entries on an aged paper label pasted a little crooked on the cover, with dotted leaders and hand-drawn tally marks (pencil while awaiting approval). An empty ledger shows blank ruled lines. It opens into the roster book.
+- **Last Played** ("Last Played (GM)" for the GM; plum leather): the campaign's name and its own mark (`CampaignMark.jsx`: the campaign's initials in a gilt roundel, lozenge, shield or octagon with a small ornament, both fixed by a hash of the name). Without a session it lies strapped and locked with a brass padlock.
 
 ### Chapter Hub Candles (signature)
-Three pillar candles drawn in SVG (`CandleCluster.jsx`, `candlePaths.js`), standing behind the tomes in the top left of the hub, seen from slightly above: ivory wax with swollen sides, a melted rim and a hollow with a pool of liquid wax, drips over the lip ending in beads, a dark wick with an ember, and a layered flame (orange tip, yellow mantle, white core, faint blue base) with a small halo. Each flame sways from its base on its own uneven rhythm (about 2.6 to 3.7 seconds) while its core brightens and dims on a shorter one, and the wicks catch one after another when the hub opens. The light falls on the desk as a lit pool (The Lit Pool Rule). One candle burns for the chapter and one more for each investigator in play or campaign the person runs, up to three; an unlit candle shows its wick and a thread of smoke, and the pool dims with fewer flames. Everything holds still under `prefers-reduced-motion`. Phones and tablets give the candles a strip of desk above the tomes.
+Three pillar candles drawn in SVG (`CandleCluster.jsx`) in her tight cluster at the top left of the hub, seen from above as the desk is (owner's round 3 item 25): round wax tops with uneven rims glowing where they are thin, melted pools, drips over the lip, small bright flames with a soft halo, and long soft shadows that each lit flame throws of the other candles, stretching and shortening with the room's flicker. The light falls on the desk as a lit pool (The Lit Pool Rule). One candle burns for the chapter and one more for each investigator in play or campaign the person runs, up to three; an unlit candle shows its wick and a thread of smoke, and the pool dims with fewer flames. Everything holds still under `prefers-reduced-motion`. Phones and tablets give the candles a strip of desk above the tomes.
 
 ### Physical touches
 Small, meaningful responses drawn in CSS or SVG; each one stops or shows at once under `prefers-reduced-motion`.
-- **Wax seal** (`WaxSeal.jsx`): an oxblood seal in raised relief: a recessed field inside a raised rim, and a candle in its holder standing up from the field. Every raised edge has a lit side to the upper left and a dark side to the lower right (the One Lamp Rule), offset about one screen pixel at the smallest size the seal is shown (`minSize`), so the mark reads at 32px as well as on the 128px seal on the player's member ID strip. It sits on the Finalize slip. Pressing Approve on a join request, or confirming Finalize, presses a large seal onto the request or slip while it goes to the server (an approved request then fades off the desk), and a finalized circle shows a sealed slip ("The circle is finalized") below the investigators.
+- **Wax seal** (`WaxSeal.jsx`, `.wax-seal-*` in index.css): her original seal from the first MainDeskView (owner's round 3 item 16): a round seal in her three reds, darkest at the lower right, with a soft light at its upper edge, a dashed ring pressed into it and the candle-holder mark pressed into the middle in a darker red, turned 12 degrees, with her heavy cast shadow. Its measures are shares of its width (container units), so it keeps her proportions at 32px on the Finalize slip and at 128px on the player's member ID strip; the mark's light edge never drops under a pixel. It sits on the member ID strip and the Finalize slip. Pressing Approve on a join request, or confirming Finalize, presses a large seal onto the request or slip while it goes to the server (an approved request then fades off the desk), and a finalized circle shows a sealed slip ("The circle is finalized") below the investigators.
 - **Ink stamp on roll outcomes**: the outcome word on the result slip is a rubber stamp, a little crooked (fixed per roll), its ink worn by pinholes (a mask), pressed down once when the result lands.
 - **Pinned notes**: private notes carry an oxblood push pin and a drop-shadow that follows their torn top edge.
-- **Page turn**: changing spreads in the notebook turns a blank leaf over from the spine (forward or back), over pages that are already there.
+- **Page turn**: changing spreads in the notebook turns a blank leaf over from the spine (forward or back), over pages that are already there, with the paper sound. Every entry spread has an oxblood satin ribbon lettered "Contents" in gold leaf that turns back to the contents, and its outer bottom corners are turned up with an arrow (back on the left, on on the right); the left and right arrow keys turn too, unless a field, a widget or a dialog has the key. The contents page holds as many one-line entries (title, dotted leader, page number) as fit it, and pages with small engraved arrows in its bottom corners; the book keeps one size.
+- **Flips**: the GM's railway ticket turns over in 3D to the new campaign form (her original pamphlet flip), the creator's role cards turn, and the circle and report cards turn over to their backs, each with the paper sound; under reduced motion the faces swap in place without spinning.
+- **Dispatch going out**: when the GM presses Dispatch the letter shifts under the stamp, with the paper sound (the sound alone under reduced motion).
 - **Dispatch typing in**: when the GM sends a new dispatch while a player's desk is open, the From the GM note types it in with a carriage mark at the end of the line. What is there when the desk opens shows whole; screen readers get the whole text at once.
 - **Deckled edge** (`.deckle-bottom`): the From the GM note's bottom edge is torn by hand.
 
 ### Printed form furniture (owner's request, 2026-10-04)
 The paper objects carry the small print of forms that came off a press, drawn in code by `components/shared/PrintMarks.jsx` with the `.print-*` rules in index.css. All of it is decoration: `aria-hidden`, faint on purpose, never an instruction, never over a control, no clicks.
-- **Watermark**: oversized faint mono print behind a strip, at about 6% ink. The member ID strip on the player desk carries "REGISTRY FILE // NO. 00000-CO", its number fixed per investigator. The print is anchored by its right end, so the number always reads whole: from lg it ends in the open paper just before the tabs and its first words run under the name and the seal; on phones and tablets, where there is no open paper between the name and the tabs, it is printed along the top of the strip and ends at its right edge, clear of the tabs.
+- **Watermark**: oversized faint mono print behind a strip, at about 8% ink before its mask thins it. The member ID strip on the player desk carries "REGISTRY FILE // NO. 00000-CO", its number fixed per investigator, as a misprint (owner's round 3 item 17, `<Watermark misprint>`, `.print-misprint`): two or three degrees off level about its right end, struck a little off register, its ink uneven (a noise mask over a pressure gradient) with a faint second impression a hair up and to the right, and the start of the line running off the strip's edge. The print is anchored by its right end, so the number always reads whole: from lg it ends in the open paper just before the tabs and its first words run under the name and the seal; on phones and tablets, where there is no open paper between the name and the tabs, it is printed along the top of the strip and ends at its right edge, clear of the tabs.
 - **Form line**: tiny letterpress capitals in sepia at about 60% ("Form C.O. 7 · Investigator record", "Form C.O. 14 · Trauma record", "Memo · Form C.O. 22", "Office of the Lightkeeper · Vol. II"). Each kind of paper keeps one form number everywhere it appears, and each number names one kind of paper:
 
   | Form | Paper |
   |---|---|
   | C.O. 0 | Admission (login slip) |
-  | C.O. 1 | Lightkeeper's commission (the hub's Lightkeeper Access pamphlet) |
+  | C.O. 1 | Lightkeeper's commission (the hub's first-class ticket, Lightkeeper's Pass) |
   | C.O. 2 | Dispatch (the GM's dispatch letter) |
   | C.O. 3 | Circle charter (the Circle tab, the GM's circle page, the Finalize and sealed slips) |
   | C.O. 4 | Circle formation papers |
   | C.O. 5 | Field register (the notebook) |
-  | C.O. 7 | Investigator record (creator sheets, dossier, the hub's intake pamphlet) |
+  | C.O. 7 | Investigator record (creator sheets, dossier, the hub's third-class ticket) |
   | C.O. 9 | Table log |
   | C.O. 11 | Assignment report |
   | C.O. 14 | Trauma record (scars) |
@@ -370,11 +385,16 @@ The paper objects carry the small print of forms that came off a press, drawn in
 
 ### Dice tray and roll line
 - **Result slip**: the roller's name in their ink and the slip's serial; then what was thrown, in the rulebook's terms, for every pool: "Move: 2 dice, lowest counts" (zero rating), "Sense: 1 die", "Sway: 3 dice, highest counts", "Survey: 2 dice, 1 gilded" and, after the choice, "... kept the gilded 5"; a resistance reroll reads "Move, resistance burned: ...". Dice thrown beyond the rating (drive spent, an ability, a Train bonus) show after the action the way the sheet's drive stepper writes them: "Sneak +2d: 4 dice, highest counts". The count is what the server threw (capped at 6). Then the outcome stamp, or a dashed "Keep one die" while a gilded choice is open.
-- **Dice**: two ivory dice rest on the empty felt, and every rolled die shows its face the same way, as ink pips on ivory (gold for the gilded die) with a cast shadow, so a result is as physical as the idle tray. The dice that count carry a green ring.
-- **Actions on the sheet**: each action that rolls is a raised paper chit with a die face, its label and its rating pips; hover inks it oxblood, pressing sinks it. The drive stepper beside each drive reads "+0d" and goes up as drive is added.
+- **Dice**: the felt is empty until the first roll. Every die is her original from the first DiceVault, drawn by one component (`dice/Die.jsx`) with standard pip layouts: ivory with a hairline edge and a 4px corner, and the gilded die in gold leaf (#e5c158 to #b8860b) with a candle-gold edge and her soft gold halo. The die that counts carries a green ring; after a gilded choice it is the die that was kept.
+- **Actions on the sheet**: the whole row is the roll: a paper chit with its label and its rating pips that lifts and gets the pen underline on hover and sinks when pressed; a faint die shows only on hover or keyboard focus. The gilded dot stays. The drive stepper beside each drive reads "+0d" and goes up as drive is added.
 
-### Roll sounds
-`game/rollSounds.js` plays `public/sounds/full-success.mp3` (a vibraphone chord) when a roll's final result is a Full Success (a counting 6 that is not a Critical) and `failure.mp3` when the counting result is exactly 1; nothing for Mixed, Critical, or a Failure of 2 or 3. Both come from Pixabay's free library (no attribution required). The cue is the roll's line in the activity log, which reaches every desk at the table once, when the result is final; a secret roll writes no line, and a reconnect replays nothing. A loudspeaker in the corner of the felt turns the sounds off or on for that browser (`localStorage`, default on); a browser that has not had a click yet stays silent. Phones, iOS Safari above all, only let an audio element play from script once it has been started inside a tap, so on the first tap or key press anywhere on the page each sound is started muted and stopped at once; that unlocks it for the visit, and an unlock that settles late never stops a roll's sound that started meanwhile.
+### Sounds
+`game/rollSounds.js` plays five files from `public/sounds`, all under one switch: a loudspeaker in the corner of the felt ("Sounds") turns them off or on for that browser (`localStorage`, default on); a browser that has not had a click yet stays silent.
+- **Results**: `full-success.mp3` (a vibraphone chord) when a roll's final result is a Full Success (a counting 6 that is not a Critical) and `failure.mp3` when the counting result is exactly 1; nothing for Mixed, Critical, or a Failure of 2 or 3. Both come from Pixabay's free library (no attribution required). The cue is the roll's line in the activity log, which reaches every desk at the table once, when the result is final; a secret roll writes no line, and a reconnect replays nothing.
+- **Dice** (`dice-roll.mp3`, owner's round 3 item 19), for everyone at the table: on the roller's own desk the dice clatter as they start to tumble (the roll lands, or a gilded die is kept); the other desks, which only get the roll's log line, hear them when it arrives. The result sound waits until the dice have landed (560ms), so the two never sound at once.
+- **The watch** (`tension-tick.mp3`, item 20): when the GM raises the tension every desk hears the pocket watch tick, once for each slice now filled (the file's four ticks, cut short in the quiet after the last one needed); lowering it is silent. The first circle after a desk opens or reconnects only sets the baseline, so a change made while away never ticks.
+- **Paper** (`paper.mp3`, item 21), only on the screen that moves the paper: the hub's book opening and closing (not when it closes because you leave for a desk), the GM ticket's flip, notebook page turns, the creator's role cards, the circle and report cards, and the dispatch going out. Softer than the others, and a turn within 260ms of the last stays quiet, so fast turns never pile up.
+The two round 3 files are free to use or the owner's own (his decision, 2026-10-04). Phones, iOS Safari above all, only let an audio element play from script once it has been started inside a tap, so on the first tap or key press anywhere on the page each sound is started muted and stopped at once; that unlocks it for the visit, and an unlock that settles late never stops a sound that started meanwhile.
 
 ## Do's and Don'ts
 
@@ -387,12 +407,13 @@ The paper objects carry the small print of forms that came off a press, drawn in
 - **Do** reserve candle gold for gilded dice, gilded actions and deliberate selection.
 - **Do** show official art whole, with its credit, and use the role portraits on role surfaces.
 - **Do** use the character creator's panel, tab bar and button patterns as the reference when restyling other screens.
-- **Do** keep handwriting fonts for player-written text in the player's chosen pen.
+- **Do** keep handwriting fonts for player-written text in the player's chosen pen; the notebook's own headings are the one place for `font-hand`.
+- **Do** set display headings in Cinzel and never in IM Fell English, which the owner removed from the app.
 - **Do** lay hand-placed objects (cards, notes, slips) slightly crooked: 0.5 to 2 degrees, fixed per object with `tiltFor()`.
 
 ### Don't:
 - **Don't** write a sentence that explains a control or fills an empty area ("Tap an action to roll it", "No rolls yet", "Appears here once ...").
-- **Don't** keep the desks in a narrow column on wide screens; from 2xl the rails go to the edges.
+- **Don't** let a desk page scroll from xl, or leave it a narrow column on wide screens; the columns fill the width and a long paper scrolls inside its own column.
 - **Don't** introduce colors outside the Dark Academia palette and the three GM night tokens; stock Tailwind blues, slates and stones are drift, not precedent.
 - **Don't** add art taken from Candela Obscura source material, and never remove art the app already has (official or open-source).
 - **Don't** use rounding above 4px on rectangles; round shapes are for pips, seals and dials.
