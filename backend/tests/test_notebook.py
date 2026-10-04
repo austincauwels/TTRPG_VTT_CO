@@ -362,3 +362,29 @@ def test_upload_requires_file(client):
     camp = support.new_campaign(client)
     r = client.post(f"/api/notebook/{camp['id']}/upload", data={"title": "x"}, headers=support.as_gm(camp))
     assert r.status_code == 422
+
+
+@pytest.mark.parametrize("unknown", [987654321, 2 ** 31, 10 ** 12])
+def test_unknown_ids_are_404_on_every_notebook_call(client, unknown):
+    """Before the login token stage an unknown character_id or campaign_id reached the
+    foreign key and answered 500. Every notebook call now answers 404 for an id that
+    names nothing, including ids too large for the database's integer columns."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    gm, player = support.as_gm(camp), support.as_owner(member["id"])
+    png = {"file": ("a.png", b"\x89PNG", "image/png")}
+    with support.server_errors_as_500(client):
+        calls = {
+            "list, campaign": client.get(f"/api/notebook/{unknown}/entries", headers=gm),
+            "list, character": client.get(f"/api/notebook/{camp['id']}/entries",
+                                          params={"character_id": unknown}, headers=player),
+            "add, campaign": _post(client, unknown, gm),
+            "add, character": _post(client, camp["id"], player, character_id=unknown),
+            "edit": client.put(f"/api/notebook/entries/{unknown}", json={"title": "x"}, headers=gm),
+            "delete": client.delete(f"/api/notebook/entries/{unknown}", headers=gm),
+            "upload, campaign": client.post(f"/api/notebook/{unknown}/upload", files=png, headers=gm),
+            "upload, character": client.post(f"/api/notebook/{camp['id']}/upload", files=png,
+                                             data={"character_id": str(unknown)}, headers=player),
+        }
+    assert {name: r.status_code for name, r in calls.items()} == {name: 404 for name in calls}
+    assert support.fetch_all(NotebookEntry, campaign_id=camp["id"]) == []
