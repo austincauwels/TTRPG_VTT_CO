@@ -1,4 +1,5 @@
-"""Campaign and roster routes: create, join, approve, reject, retire, rejoin, invite to rejoin, roster.
+"""Campaign and roster routes: create, join, approve, reject, retire, delete (and undo
+that), rejoin, invite to rejoin, roster.
 
 Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
 """
@@ -10,18 +11,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from engine import (
-    create_new_campaign, request_join_campaign,
+    ALREADY_ON_A_ROSTER, INK_COLORS, create_new_campaign, request_join_campaign,
     approve_investigator, reject_investigator, get_campaign_roster,
 )
-from models import Campaign, Character, Circle, User
+from models import INCLUDE_DELETED, Campaign, Character, Circle, User
+from vtt import deletion
 from vtt.auth import (
     campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
     require_gm_of_character, require_gm_or_member, require_owner, require_self,
 )
 from vtt.config import _ALLOWED_CAMPAIGN_CODE_RE, _SAFE_FONT_NAMES
-from vtt.db import get_db
+from vtt.db import get_db, releases_locks_on_error
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
 from vtt.serializers import get_char_dict
+from vtt.ws.access import CLOSE_NOT_FOUND
 from vtt.ws.manager import campaign_key, character_key, manager
 
 router = APIRouter()
@@ -37,10 +40,23 @@ def _reads_as_number(code: str) -> bool:
 
 
 CODE_IN_USE = "Campaign code is already in use"
+# For the Lightkeeper who deleted the campaign that holds the code. Anyone else gets
+# CODE_IN_USE, so nobody learns that someone else's campaign was deleted.
+CODE_KEPT_FOR_RESTORE = ("A campaign you deleted still holds this code, so that it can be brought back. "
+                         "Choose a different code.")
 
 
-def _code_taken(db: Session, code: str) -> bool:
-    return db.query(Campaign.id).filter(Campaign.campaign_code == code).first() is not None
+def _code_taken(db: Session, code: str):
+    """The campaign that holds the code, as (gm_user_id, deleted_at), or None. A deleted
+    campaign keeps its code (the unique index still holds it, and a restore needs it
+    back), so its code counts as taken."""
+    return db.query(Campaign.gm_user_id, Campaign.deleted_at).execution_options(**{INCLUDE_DELETED: True}).filter(
+        Campaign.campaign_code == code).first()
+
+
+def _code_refused(holder, user: User) -> HTTPException:
+    mine_and_deleted = holder.deleted_at is not None and holder.gm_user_id == user.id
+    return HTTPException(status_code=409, detail=CODE_KEPT_FOR_RESTORE if mine_and_deleted else CODE_IN_USE)
 
 
 CAMPAIGN_RETIRED = "This campaign has been retired."
@@ -65,14 +81,16 @@ def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Ses
     if len(name) < 1 or len(name) > 80:
         raise HTTPException(status_code=422, detail="Campaign name must be 1–80 characters")
     # A taken code used to reach the unique index and answer 500.
-    if _code_taken(db, code):
-        raise HTTPException(status_code=409, detail=CODE_IN_USE)
+    holder = _code_taken(db, code)
+    if holder:
+        raise _code_refused(holder, user)
     try:
         return create_new_campaign(db, name, code, gm_user_id=user.id)
     except IntegrityError:
         db.rollback()
-        if _code_taken(db, code):  # another request took the code after the check
-            raise HTTPException(status_code=409, detail=CODE_IN_USE)
+        holder = _code_taken(db, code)
+        if holder:  # another request took the code after the check
+            raise _code_refused(holder, user)
         raise
 
 @router.post("/campaign/join")
@@ -86,9 +104,13 @@ async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', 
         _refuse_retired(target.is_retired)
     if pen_font not in _SAFE_FONT_NAMES:
         pen_font = "Caveat"
+    # 409 for a character that is active or pending in a campaign; the join locks the
+    # campaign and the character first, so it cannot cross a delete or a restore.
     result = request_join_campaign(db, character_id, code, pen_font)
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise HTTPException(status_code=result.get("status", 404), detail=result["error"])
+    if result.pop("unchanged", False):
+        return result  # a retry of a join that went through: nothing changed, nobody to tell
     char = result.get("character")
     if char:
         campaign = db.query(Campaign).filter(Campaign.id == char.campaign_id).first()
@@ -193,18 +215,73 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
     return {"ok": True}
 
 
-@router.post("/campaign/rejoin")
-async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
+@router.delete("/campaign/{campaign_id}")
+async def delete_campaign(campaign_id: int, db: Session = Depends(get_db),
                           user: User = Depends(get_current_user)):
-    from engine import INK_COLORS
-    campaign = db.query(Campaign).filter(Campaign.campaign_code == body.campaign_code).first()
+    """Deletes a campaign; only its GM may. Its characters are not deleted: each one on
+    its roster (active or pending) goes back to its owner as unaffiliated, and retired
+    ones stay with it (vtt/deletion.py). Everyone connected to it is told with
+    campaign_deleted: the GM's channel and the channel of every character it let go.
+    The GM's channel is then closed with 4404; the players' channels stay open, as
+    after a retire. A soft delete: the GM can undo it for a short while (POST
+    .../restore) and an admin can restore it later (docs/refactor/DELETION.md)."""
+    require_gm(user, campaign_or_404(db, campaign_id))
+    campaign, released = deletion.delete_campaign(db, campaign_id)
+    message = {"type": "campaign_deleted", "payload": {
+        "campaign_id": campaign.id, "campaign_code": campaign.campaign_code, "campaign_name": campaign.name}}
+    gm_key = campaign_key(campaign.campaign_code)
+    for key in [gm_key] + [character_key(entry["id"]) for entry in released]:
+        await manager.broadcast(key, message)
+    manager.close_channel(gm_key, CLOSE_NOT_FOUND)
+    return deletion.receipt(campaign, released_character_ids=[entry["id"] for entry in released])
+
+
+@router.post("/campaign/{campaign_id}/restore")
+async def restore_campaign(campaign_id: int, db: Session = Depends(get_db),
+                           user: User = Depends(get_current_user)):
+    """Undoes the caller's delete of their campaign, within deletion.UNDO_SECONDS (409
+    after that), and puts back each character it let go that is still free. A campaign
+    that is not deleted, or not the caller's, is 404. Every open socket of the GM and
+    of the owners of the characters put back gets campaign_restored, so those clients
+    read their roster book again."""
+    campaign, restored = deletion.restore_campaign(db, campaign_id, user_id=user.id)
+    owners = {row.user_id for row in db.query(Character.user_id).filter(Character.id.in_(restored))} \
+        if restored else set()
+    await manager.broadcast_users(owners | {campaign.gm_user_id}, {"type": "campaign_restored", "payload": {
+        "campaign_id": campaign.id, "campaign_code": campaign.campaign_code, "campaign_name": campaign.name,
+        "restored_character_ids": restored}})
+    return {"ok": True, "id": campaign.id, "name": campaign.name, "campaign_code": campaign.campaign_code,
+            "restored_character_ids": restored}
+
+
+@releases_locks_on_error
+def rejoin(db: Session, campaign_code: str, character_id: int, user: User):
+    """Makes the user's character an active member of the campaign without the GM's
+    approval, retiring the user's other active or dead characters there, and uses up
+    the user's rejoin invite. Returns (campaign, character, changed). Commits.
+
+    Locks as a join locks (engine.request_join_campaign): the campaign row FOR SHARE,
+    then the character row FOR UPDATE, so a delete of either cannot cross the rejoin.
+    Every check runs under the locks; an error rolls back on its way out
+    (releases_locks_on_error), which lets go of them at once.
+
+    A character that is already a living active member of this campaign is a retry of
+    a rejoin that went through (its answer was lost): the same answer, nothing changes
+    (changed is False). Any other character on a roster is refused as a join refuses
+    it (409, engine.ALREADY_ON_A_ROSTER), after the caller's own checks."""
+    campaign = db.query(Campaign).filter(Campaign.campaign_code == campaign_code) \
+        .populate_existing().with_for_update(read=True).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    new_char = db.query(Character).filter(Character.id == body.character_id).first()
+    new_char = db.query(Character).filter(Character.id == character_id) \
+        .populate_existing().with_for_update().first()
     if not new_char:
         raise HTTPException(status_code=404, detail="Character not found")
     require_owner(user, new_char)
+    if new_char.status == "active" and new_char.campaign_id == campaign.id and not new_char.is_dead:
+        db.rollback()
+        return campaign, new_char, False
     # Rejoining skips GM approval, so it is only open to a user the GM invited back
     # to this campaign, or one whose approved character there has died and is still
     # on the roster (dead characters keep status active until they are replaced; this
@@ -221,6 +298,10 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     if not (invited or lost_a_character):
         raise forbidden()
     _refuse_retired(campaign.is_retired)
+    # Rejoin used to have no status check, so it moved an active character (one an
+    # undo had just put back included) or a pending one out of its campaign.
+    if new_char.status in ALREADY_ON_A_ROSTER:
+        raise HTTPException(status_code=409, detail=ALREADY_ON_A_ROSTER[new_char.status])
 
     # Retire any active or dead characters this user had in this campaign
     old_chars = db.query(Character).filter(
@@ -247,14 +328,22 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     if campaign_circle:
         new_char.circle_id = campaign_circle.id
 
+    # Clear any pending rejoin invite for this user, in the same transaction
+    user.pending_rejoin_campaign_id = None
     db.commit()
     db.refresh(new_char)
+    return campaign, new_char, True
 
-    # Clear any pending rejoin invite for this user
-    rejoining_user = db.query(User).filter(User.id == new_char.user_id).first()
-    if rejoining_user:
-        rejoining_user.pending_rejoin_campaign_id = None
-        db.commit()
+
+@router.post("/campaign/rejoin")
+async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
+                          user: User = Depends(get_current_user)):
+    # The owner check comes before any lock, as for a join, so nobody can make the
+    # server lock someone else's character.
+    require_owner(user, character_or_404(db, body.character_id))
+    campaign, new_char, changed = rejoin(db, body.campaign_code, body.character_id, user)
+    if not changed:
+        return {"success": True, "character": get_char_dict(new_char)}
 
     active = db.query(Character).filter(
         Character.campaign_id == campaign.id,

@@ -36,7 +36,7 @@ def _url(path):
 
 
 def test_every_route_but_the_sign_in_routes_is_protected():
-    assert len(PROTECTED) == 26
+    assert len(PROTECTED) == 30
     assert PUBLIC | ACCOUNT == {r.path for r in main.app.routes
                                 if isinstance(r, APIRoute) and r.path.startswith("/api/auth/")}
 
@@ -236,7 +236,8 @@ def test_a_player_who_left_the_campaign_no_longer_posts_to_it(client, how):
         assert support.types(ws.sync()) == ["character_update", "activity_log"]
         assert support.types(gm.sync()) == ["activity_log"]
         if how == "moved":
-            assert support.join(client, ch["id"], other["campaign_code"]).status_code == 200
+            # join now refuses a character on a roster (409), so the move is made directly
+            support.update(Character, ch["id"], campaign_id=other["id"], status="pending")
         else:
             support.update(Character, ch["id"], status="retired")
         gm.drain()

@@ -60,6 +60,56 @@ const sendRoll = (set, get, frame) => {
   }, ROLL_REPLY_MS);
 };
 
+// A delete or an undo from the roster book (docs/refactor/DELETION.md). Resolves to
+// { success, status, detail } plus the server's answer.
+const deletionRequest = async (path, method) => {
+  try {
+    const res = await apiFetch(path, { method });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) return { success: true, status: res.status, ...body };
+    return { success: false, status: res.status, detail: body.detail || 'Unknown error' };
+  } catch (err) {
+    return { success: false, status: 0, detail: err.message };
+  }
+};
+
+// The characters a campaign delete lets go (the server's deletion.RELEASED_STATUSES);
+// retired ones stay with the campaign and are hidden with it.
+const RELEASED_STATUSES = ['active', 'pending'];
+
+// What a campaign's deletion changes in the store: the campaign leaves the ledger, the
+// user's characters on its roster go back to the registry, its retired ones go with it,
+// and a last played record or rejoin invite pointing at it goes.
+const withoutCampaign = (state, campaignId, campaignCode) => {
+  const taggedIds = state.characters.filter(c => c.campaign_id === campaignId).map(c => c.id);
+  const last = state.lastPlayedCampaign;
+  const lastWasIt = last && (last.campaignId === campaignId
+    || (last.type === 'gm' && last.campaignCode === campaignCode)
+    || (last.type === 'player' && taggedIds.includes(last.characterId)));
+  return {
+    gmCampaigns: state.gmCampaigns.filter(c => c.id !== campaignId),
+    characters: state.characters
+      .filter(c => c.campaign_id !== campaignId || RELEASED_STATUSES.includes(c.status))
+      .map(c => (c.campaign_id === campaignId
+        ? { ...c, status: 'unaffiliated', campaign_id: null, campaign_name: null, campaign_code: null }
+        : c)),
+    lastPlayedCampaign: lastWasIt ? null : last,
+    rejoinInvite: state.rejoinInvite?.campaign_id === campaignId ? null : state.rejoinInvite,
+  };
+};
+
+// Closes this tab's socket when it is open on the channel about to be deleted (the
+// server would close it), and returns a function that opens it again, for a delete that
+// did not go through. Nothing to reopen when another socket has been opened meanwhile.
+const closeSocketOn = (get, channel) => {
+  const open = get().socketGameId;
+  if (open == null || String(open) !== String(channel)) return () => {};
+  get().disconnect();
+  return () => {
+    if (get().socket == null && get().socketGameId == null) get().connect(open, { keepLog: true });
+  };
+};
+
 const useGameStore = create(
   persist(
     (set, get) => ({
@@ -105,6 +155,7 @@ const useGameStore = create(
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
+      hubNotice: null,                // a line the hub shows once, such as a deleted campaign
       circleCreation: {
         isVisible: false,
         circleId: null,
@@ -531,6 +582,51 @@ const useGameStore = create(
             setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
             set({ stage: 'HOME', character: null, circle: null, activityLog: [], lastActivityLog: null });
           }
+          else if (message.type === 'campaign_deleted') {
+            if (!isForThisCampaign(message.payload)) return;
+            // Its Lightkeeper deleted the campaign. Back to the hub, which says so. A player's
+            // character is in their registry again, and its channel opens again without the
+            // campaign; the server closes the Lightkeeper's channel.
+            const { campaign_id: id, campaign_code: code, campaign_name: name } = message.payload;
+            const { character: myChar, socketGameId } = get();
+            const onCharacterChannel = myChar?.id != null && String(socketGameId) === String(myChar.id);
+            setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
+            set(state => ({
+              ...withoutCampaign(state, id, code),
+              stage: 'HOME', character: null, circle: null, activityLog: [], lastActivityLog: null,
+              hubNotice: onCharacterChannel ? `The Lightkeeper deleted campaign ${name}.` : `Campaign ${name} was deleted.`,
+            }));
+            get().fetchUserData(get().accessSession?.userId);
+          }
+          else if (message.type === 'campaign_restored') {
+            // The Lightkeeper undid the delete. Sent to every socket of the Lightkeeper and of
+            // the owners of the characters it put back, whatever channel it is on, so not
+            // campaign-checked. The roster book is read again, so a character it shows as free
+            // is back in the campaign (Join and Delete refuse it otherwise). A socket on one
+            // of those characters opens again to carry the campaign.
+            const { campaign_name: name, restored_character_ids: ids = [] } = message.payload || {};
+            const { socketGameId, stage, characters } = get();
+            if (socketGameId != null && ids.some(id => String(id) === String(socketGameId))) {
+              setTimeout(() => get().reconnect(), 0);
+            }
+            if (stage === 'HOME' && characters.some(c => ids.includes(c.id))) {
+              set({ hubNotice: `The Lightkeeper restored campaign ${name}.` });
+            }
+            get().fetchUserData(get().accessSession?.userId);
+          }
+          else if (message.type === 'character_deleted') {
+            // This investigator was deleted in another tab; the server closes its channel.
+            const id = message.payload?.character_id;
+            const name = get().character?.name;
+            setTimeout(() => get().disconnect(), 0);
+            set(state => ({
+              stage: state.stage === 'DESK' ? 'HOME' : state.stage,
+              character: state.character?.id === id ? null : state.character,
+              characters: state.characters.filter(c => c.id !== id),
+              lastPlayedCampaign: state.lastPlayedCampaign?.characterId === id ? null : state.lastPlayedCampaign,
+              hubNotice: name ? `${name} was deleted.` : state.hubNotice,
+            }));
+          }
           else if (message.type === 'ability_mark_offer') {
             set({ abilityMarkOffer: message.payload });
           }
@@ -939,10 +1035,10 @@ const useGameStore = create(
             return { success: true };
           }
           const err = await res.json().catch(() => ({}));
-          return { success: false, detail: err.detail || 'Unknown error' };
+          return { success: false, status: res.status, detail: err.detail || 'Unknown error' };
         } catch (err) {
           console.error("Failed to join campaign:", err);
-          return { success: false, detail: err.message };
+          return { success: false, status: 0, detail: err.message };
         }
       },
 
@@ -1209,6 +1305,57 @@ const useGameStore = create(
       },
 
       setRejoinInvite: (invite) => set({ rejoinInvite: invite }),
+      setHubNotice: (notice) => set({ hubNotice: notice }),
+
+      // ==========================================
+      // DELETING FROM THE ROSTER BOOK (docs/refactor/DELETION.md)
+      // ==========================================
+      // Each resolves to { success, status, detail }. A socket this tab still has open on
+      // what is deleted goes first (the server would close it), and opens again when the
+      // delete does not go through. A 404 or 409 means the roster book is out of date (the
+      // character is back in a campaign, or already gone), so it is read again.
+      deleteCharacter: async (characterId) => {
+        const reopen = closeSocketOn(get, characterId);
+        const result = await deletionRequest(`/api/investigators/${characterId}`, 'DELETE');
+        if (result.success) {
+          set(state => ({
+            characters: state.characters.filter(c => c.id !== characterId),
+            character: state.character?.id === characterId ? null : state.character,
+            lastPlayedCampaign: state.lastPlayedCampaign?.characterId === characterId ? null : state.lastPlayedCampaign,
+          }));
+        } else {
+          reopen();
+          if (result.status === 404 || result.status === 409) await get().fetchUserData(get().accessSession?.userId);
+        }
+        return result;
+      },
+
+      restoreCharacter: async (characterId) => {
+        const result = await deletionRequest(`/api/investigators/${characterId}/restore`, 'POST');
+        if (result.success) await get().fetchUserData(get().accessSession?.userId);
+        return result;
+      },
+
+      deleteCampaign: async (campaignId) => {
+        const camp = get().gmCampaigns.find(c => c.id === campaignId);
+        const reopen = camp ? closeSocketOn(get, camp.campaign_code) : () => {};
+        const result = await deletionRequest(`/campaign/${campaignId}`, 'DELETE');
+        if (result.success) {
+          set(state => withoutCampaign(state, campaignId, camp?.campaign_code));
+          await get().fetchUserData(get().accessSession?.userId);
+        } else {
+          reopen();
+          if (result.status === 404) await get().fetchUserData(get().accessSession?.userId);
+        }
+        return result;
+      },
+
+      restoreCampaign: async (campaignId) => {
+        const result = await deletionRequest(`/campaign/${campaignId}/restore`, 'POST');
+        if (result.success) await get().fetchUserData(get().accessSession?.userId);
+        return result;
+      },
+
       clearRelationshipIntro: () => set({ pendingRelationshipIntro: null }),
       openRelationshipPopup: (targetInvestigator) => {
         const { circleCreation } = get();

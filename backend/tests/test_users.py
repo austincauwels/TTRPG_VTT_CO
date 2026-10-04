@@ -48,7 +48,8 @@ def test_user_gm_campaigns(client):
     support.new_campaign(client)  # someone else's
     r = client.get(f"/api/users/{u.id}/campaigns", headers=support.as_user(u.id))
     assert r.status_code == 200
-    assert r.json() == [{"id": live["id"], "name": live["name"], "campaign_code": live["campaign_code"]}]
+    assert r.json() == [{"id": live["id"], "name": live["name"], "campaign_code": live["campaign_code"],
+                         "investigator_count": 0}]
 
 
 def test_user_gm_campaigns_of_someone_else_is_403(client):

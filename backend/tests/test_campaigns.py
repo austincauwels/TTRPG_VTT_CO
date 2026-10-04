@@ -174,18 +174,59 @@ def test_join_someone_elses_character_is_403(client):
     assert support.fetch(Character, ch["id"]).status == "unaffiliated"
 
 
-def test_join_moves_an_active_character_out_of_its_campaign(client):
-    """QUIRK: join has no status check, so an active member of one campaign becomes
-    pending in another when its owner joins it elsewhere. Before tokens any caller
-    could do this to any character id; now another user gets 403."""
+def test_join_refuses_a_character_on_a_roster(client):
+    """Join used to have no status check, so an active member of one campaign (or one
+    waiting for a Lightkeeper) became pending in another when its owner joined it
+    elsewhere, leaving its campaign without a word. Now that is 409, after the
+    ownership check (another user still gets 403), and the character stays put."""
     a = support.new_campaign(client)
     b = support.new_campaign(client)
-    ch = support.active_member(client, a)
-    assert support.join(client, ch["id"], b["campaign_code"], headers=support.as_stranger()).status_code == 403
-    assert support.join(client, ch["id"], b["campaign_code"]).status_code == 200
-    row = support.fetch(Character, ch["id"])
+    active = support.active_member(client, a)
+    pending = support.pending_member(client, a)
+    dead = support.active_member(client, a)
+    support.update(Character, dead["id"], is_dead=True)  # dead stays active until replaced
+    assert support.join(client, active["id"], b["campaign_code"], headers=support.as_stranger()).status_code == 403
+    for ch, detail in ((active, "This investigator is already in a campaign."),
+                       (dead, "This investigator is already in a campaign."),
+                       (pending, "This investigator is already waiting to join a campaign.")):
+        r = support.join(client, ch["id"], b["campaign_code"])
+        assert (r.status_code, r.json()) == (409, {"detail": detail})
+    for ch, status in ((active, "active"), (dead, "active"), (pending, "pending")):
+        row = support.fetch(Character, ch["id"])
+        assert (row.status, row.campaign_id) == (status, a["id"])
+    # rejected, it is free again and may join elsewhere
+    assert support.reject(client, pending["id"]).status_code == 200
+    assert support.join(client, pending["id"], b["campaign_code"]).status_code == 200
+    row = support.fetch(Character, pending["id"])
     assert (row.status, row.campaign_id) == ("pending", b["id"])
-    assert row.ink_color == engine.INK_COLORS[0]  # keeps the old ink
+
+
+def test_a_join_retried_after_it_went_through_answers_the_same(client):
+    """The creator's save-and-join retries a join whose answer was lost. Once join
+    refused pending characters, that retry got 409 "already waiting to join a campaign"
+    every time. A character already pending in the same campaign now gets the first
+    join's answer again, and nothing changes or is broadcast. Another campaign is still
+    409, and someone else's character still 403."""
+    camp = support.new_campaign(client)
+    other = support.new_campaign(client)
+    ch = support.forge(client)
+    first = support.join(client, ch["id"], camp["campaign_code"], pen_font="Kalam")
+    assert first.status_code == 200, first.text
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        again = support.join(client, ch["id"], camp["campaign_code"], pen_font="Kalam")
+        assert again.status_code == 200, again.text
+        assert again.json() == first.json()
+        assert gm.drain() == []
+    r = support.join(client, ch["id"], other["campaign_code"])
+    assert (r.status_code, r.json()) == (409, {"detail": "This investigator is already waiting to join a campaign."})
+    r = support.join(client, ch["id"], camp["campaign_code"], headers=support.as_stranger())
+    assert (r.status_code, r.json()) == (403, {"detail": "Not allowed."})
+    row = support.fetch(Character, ch["id"])
+    assert (row.status, row.campaign_id, row.pen_font) == ("pending", camp["id"], "Kalam")
+    # once approved it is in the campaign, and a join is 409 there too
+    assert support.approve(client, ch["id"]).status_code == 200
+    r = support.join(client, ch["id"], camp["campaign_code"])
+    assert (r.status_code, r.json()) == (409, {"detail": "This investigator is already in a campaign."})
 
 
 # --- approve / reject -------------------------------------------------------
@@ -449,6 +490,80 @@ def test_rejoin_errors(client):
     assert r.status_code == 404
     assert r.json() == {"detail": "Character not found"}
     assert client.post("/campaign/rejoin", json={"character_id": ch["id"]}, headers=owner).status_code == 422
+
+
+IN_A_CAMPAIGN = {"detail": "This investigator is already in a campaign."}
+WAITING = {"detail": "This investigator is already waiting to join a campaign."}
+
+
+def test_rejoin_refuses_a_character_on_a_roster(client):
+    """Rejoin had no status check, so a direct API call moved an active character (one
+    an undo had just put back included) or a pending one out of its campaign and into
+    this one as active. It now refuses them as join does: 409, after the caller's own
+    checks, and nothing changes."""
+    camp = support.new_campaign(client)
+    elsewhere = support.new_campaign(client)
+    u = support.make_user(pending_rejoin_campaign_id=camp["id"])
+
+    def rejoin(ch, headers=None):
+        return client.post("/campaign/rejoin", json={"character_id": ch["id"], "campaign_code": camp["campaign_code"]},
+                           headers=headers or support.as_user(u.id))
+
+    active = support.active_member(client, elsewhere, user_id=u.id)
+    pending = support.pending_member(client, elsewhere, user_id=u.id)
+    waiting_here = support.pending_member(client, camp, user_id=u.id)
+    for ch, refused in ((active, IN_A_CAMPAIGN), (pending, WAITING), (waiting_here, WAITING)):
+        assert rejoin(ch, headers=support.as_stranger()).status_code == 403
+        r = rejoin(ch)
+        assert (r.status_code, r.json()) == (409, refused)
+    for ch, status, campaign in ((active, "active", elsewhere), (pending, "pending", elsewhere),
+                                 (waiting_here, "pending", camp)):
+        row = support.fetch(Character, ch["id"])
+        assert (row.status, row.campaign_id) == (status, campaign["id"])
+    assert support.fetch(User, u.id).pending_rejoin_campaign_id == camp["id"]
+
+    # a character the Lightkeeper's undo has just put back in its campaign
+    restored_camp = support.new_campaign(client)
+    restored = support.active_member(client, restored_camp, user_id=u.id)
+    gm = support.as_gm(restored_camp)
+    assert client.delete(f"/campaign/{restored_camp['id']}", headers=gm).status_code == 200
+    assert client.post(f"/campaign/{restored_camp['id']}/restore", headers=gm).status_code == 200
+    r = rejoin(restored)
+    assert (r.status_code, r.json()) == (409, IN_A_CAMPAIGN)
+    row = support.fetch(Character, restored["id"])
+    assert (row.status, row.campaign_id) == ("active", restored_camp["id"])
+
+    # a dead character opens the way back, but is not itself the one that comes back
+    v = support.make_user()
+    fallen = support.active_member(client, camp, user_id=v.id)
+    support.update(Character, fallen["id"], is_dead=True)
+    r = rejoin(fallen, headers=support.as_user(v.id))
+    assert (r.status_code, r.json()) == (409, IN_A_CAMPAIGN)
+    heir = support.forge(client, user_id=v.id)
+    assert rejoin(heir, headers=support.as_user(v.id)).status_code == 200
+    assert support.fetch(Character, fallen["id"]).status == "retired"
+
+
+def test_a_rejoin_retried_after_it_went_through_answers_the_same(client):
+    """A rejoin whose answer was lost had already made the character active and used up
+    the invite, so a retry got 403 and the creator showed an error for a rejoin that had
+    worked. A living active member of this campaign now gets the same answer again, and
+    nothing changes or is broadcast. Someone else's character is still 403."""
+    camp = support.new_campaign(client)
+    u = support.make_user(pending_rejoin_campaign_id=camp["id"])
+    ch = support.forge(client, user_id=u.id)
+    body = {"character_id": ch["id"], "campaign_code": camp["campaign_code"]}
+    first = client.post("/campaign/rejoin", json=body, headers=support.as_user(u.id))
+    assert first.status_code == 200, first.text
+    assert support.fetch(User, u.id).pending_rejoin_campaign_id is None
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        again = client.post("/campaign/rejoin", json=body, headers=support.as_user(u.id))
+        assert again.status_code == 200, again.text
+        assert again.json() == first.json()
+        assert gm.drain() == []
+    assert client.post("/campaign/rejoin", json=body, headers=support.as_stranger()).status_code == 403
+    row = support.fetch(Character, ch["id"])
+    assert (row.status, row.campaign_id, row.ink_color) == ("active", camp["id"], first.json()["character"]["ink_color"])
 
 
 def test_a_retired_campaign_takes_no_new_members(client):

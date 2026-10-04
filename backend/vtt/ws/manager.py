@@ -127,6 +127,15 @@ class ConnectionManager:
                 closed += 1
         return closed
 
+    def close_channel(self, key: str, code: int) -> int:
+        """Closes every socket on the channel with code and forgets them. Used when what
+        the channel belongs to is deleted (a character, or a campaign for its GM's
+        channel). Returns how many it closed. Like close_user, the closes run on their own."""
+        connections = self.active_connections.pop(key, [])
+        for conn in connections:
+            self.close_later(conn, code)
+        return len(connections)
+
     def disconnect(self, key: str, websocket: WebSocket):
         if key in self.active_connections:
             try:
@@ -155,6 +164,30 @@ class ConnectionManager:
         if key not in self.active_connections:
             return
         await self._send_text(key, encode(message))
+
+    async def broadcast_users(self, user_ids, message: dict) -> int:
+        """Sends the message to every open socket of these users, whatever channel it is
+        on (the user each socket was opened by, as for close_user). Used when something
+        changes a user's own lists, such as a campaign restored, rather than one
+        channel. Returns how many sockets it reached."""
+        wanted = {u for u in user_ids if u is not None}
+        if not wanted:
+            return 0
+        text = encode(message)
+        sent = 0
+        for key, connections in list(self.active_connections.items()):
+            dead = []
+            for conn in list(connections):
+                if self.user_of(conn) not in wanted:
+                    continue
+                try:
+                    await conn.send_text(text)
+                    sent += 1
+                except Exception:
+                    dead.append(conn)
+            for conn in dead:
+                self.disconnect(key, conn)
+        return sent
 
     async def broadcast_all(self, message: dict):
         text = encode(message)

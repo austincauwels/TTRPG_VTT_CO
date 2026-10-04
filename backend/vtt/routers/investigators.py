@@ -1,5 +1,5 @@
-"""Investigator (character) routes: list, fetch one, forge a new one, and set or clear
-a portrait.
+"""Investigator (character) routes: list, fetch one, forge a new one, set or clear a
+portrait, and delete one (and undo that).
 
 Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
 """
@@ -10,14 +10,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from models import Character, Circle, User
+from vtt import deletion
 from vtt.auth import (
     MEMBER_STATUSES, ROSTER_STATUSES, campaign_facts, character_or_404, get_current_user,
-    require_owner_or_gm, require_owner_or_roster_gm, require_self,
+    require_owner, require_owner_or_gm, require_owner_or_roster_gm, require_self,
 )
 from vtt.db import get_db
 from vtt.portraits import check_portrait, refuse_too_many_portrait_changes, served_portrait
 from vtt.schemas import CharacterCreate, CharacterResponse, CharacterRosterItem, PortraitUpdate
 from vtt.serializers import get_char_dict
+from vtt.ws.access import CLOSE_NOT_FOUND
 from vtt.ws.manager import campaign_key, character_key, manager
 
 router = APIRouter()
@@ -25,7 +27,10 @@ router = APIRouter()
 @router.get("/api/investigators", response_model=List[CharacterRosterItem])
 async def list_investigators(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     # Nothing in the frontend needs every user's characters, so this lists the caller's own.
+    # A retired character left with a deleted campaign is hidden with it (vtt/deletion.py).
     characters = db.query(Character).filter(Character.user_id == user.id).all()
+    hidden = deletion.hidden_with_their_campaign(db, characters)
+    characters = [c for c in characters if c.id not in hidden]
     return [
         CharacterRosterItem(
             id=c.id,
@@ -136,3 +141,30 @@ async def set_portrait(investigator_id: int, body: PortraitUpdate, db: Session =
     db.refresh(character)
     await broadcast_portrait(db, character)
     return get_char_dict(character)
+
+
+@router.delete("/api/investigators/{investigator_id}")
+async def delete_investigator(investigator_id: int, db: Session = Depends(get_db),
+                              user: User = Depends(get_current_user)):
+    """Deletes the caller's own character, which must be on no campaign's roster (409
+    while it is active or pending in one). Nobody else may, the GM of its campaign
+    included. A soft delete: the owner can undo it for a short while (POST
+    .../restore) and an admin can restore it later (docs/refactor/DELETION.md). A
+    socket still open on the character's channel gets character_deleted and is closed
+    with 4404."""
+    require_owner(user, character_or_404(db, investigator_id, detail=deletion.CHARACTER_NOT_FOUND))
+    character = deletion.delete_character(db, investigator_id)
+    key = character_key(character.id)
+    await manager.broadcast(key, {"type": "character_deleted", "payload": {"character_id": character.id}})
+    manager.close_channel(key, CLOSE_NOT_FOUND)
+    return deletion.receipt(character)
+
+
+@router.post("/api/investigators/{investigator_id}/restore")
+def restore_investigator(investigator_id: int, db: Session = Depends(get_db),
+                         user: User = Depends(get_current_user)):
+    """Undoes the caller's delete of their own character, within deletion.UNDO_SECONDS
+    (409 after that). A character that is not deleted, or not the caller's, is 404."""
+    character = deletion.restore_character(db, investigator_id, user_id=user.id)
+    return {"ok": True, "id": character.id, "name": character.name, "status": character.status,
+            "campaign_id": character.campaign_id}

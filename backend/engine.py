@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from models import Campaign, Character, NotebookEntry
+from vtt.db import releases_locks_on_error
 
 INK_COLORS = [
     '#8b1a1a',  # Player 1 — dark saturated red
@@ -21,15 +22,43 @@ def create_new_campaign(db: Session, name: str, code: str, gm_user_id: int = Non
     db.refresh(new_campaign)
     return new_campaign
 
+# Why a join is refused for a character that is on a roster already (409). Joining used
+# to move an active or pending character out of its campaign without a word.
+ALREADY_ON_A_ROSTER = {
+    "active": "This investigator is already in a campaign.",
+    "pending": "This investigator is already waiting to join a campaign.",
+}
+
+
+@releases_locks_on_error
 def request_join_campaign(db: Session, character_id: int, campaign_code: str, pen_font: str = 'Caveat'):
-    """Binds a character to a campaign, saves their pen font, and sets status to pending."""
-    campaign = db.query(Campaign).filter(Campaign.campaign_code == campaign_code).first()
+    """Binds a character to a campaign, saves their pen font, and sets status to pending.
+    A character that is active or pending in a campaign is refused (an error with
+    status 409), except one already pending in this campaign: that is a retry of a
+    join that went through (its answer was lost), so it gets the same answer and
+    nothing changes ("unchanged": True, which the route takes out). The campaign row is
+    locked FOR SHARE and the character row FOR UPDATE before anything is decided, so a
+    delete of either, or a restore that puts the character back on a roster, waits for
+    the join or the join for it (vtt/deletion.py). Every way out that does not commit
+    rolls back, an exception included, which lets go of the locks at once."""
+    campaign = db.query(Campaign).filter(Campaign.campaign_code == campaign_code) \
+        .populate_existing().with_for_update(read=True).first()
     if not campaign:
+        db.rollback()
         return {"error": "Campaign code not found"}
 
-    character = db.query(Character).filter(Character.id == character_id).first()
+    character = db.query(Character).filter(Character.id == character_id) \
+        .populate_existing().with_for_update().first()
     if not character:
+        db.rollback()
         return {"error": "Character not found"}
+    if character.status == "pending" and character.campaign_id == campaign.id:
+        db.rollback()
+        db.refresh(character)
+        return {"success": True, "character": character, "unchanged": True}
+    if character.status in ALREADY_ON_A_ROSTER:
+        db.rollback()
+        return {"error": ALREADY_ON_A_ROSTER[character.status], "status": 409}
 
     character.campaign_id = campaign.id
     character.status = "pending"

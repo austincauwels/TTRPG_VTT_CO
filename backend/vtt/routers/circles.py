@@ -149,7 +149,15 @@ def respond_relationship(body: RelationshipRespond, db: Session = Depends(get_db
     rel = db.query(Relationship).filter(Relationship.id == body.relationship_id).first()
     if not rel:
         raise HTTPException(status_code=404, detail="Relationship not found")
+    # The checks every other circle route makes, as the WebSocket's respond does: the
+    # circle of a deleted campaign is gone (404, as if the relationship were), and only
+    # an active member of the circle's campaign answers, so a player whose character
+    # was let go or retired no longer reads the circle's relationships.
+    circle_campaign = _circle_campaign_or_404(db, rel.circle_id)
+    if circle_campaign is not None:
+        campaign_or_404(db, circle_campaign, detail="Relationship not found")
     responder_id = _relationship_responder(db, user, rel)
+    _require_member_of(character_or_404(db, responder_id), circle_campaign)
     if body.action == "accept":
         rel.status = "accepted"
         rel.counter_type = None

@@ -1,9 +1,42 @@
 """SQLAlchemy ORM models for all game entities: users, password reset links, campaigns, circles, characters, notebook entries, and relationship votes."""
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Float, Boolean, Text, Index
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Float, Boolean, Text, Index, DateTime, event
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Session, relationship, with_loader_criteria
 
 Base = declarative_base()
+
+
+class SoftDeleted:
+    """A row its owner can delete and get back: characters and campaigns.
+
+    Deleting sets deleted_at (UTC, no time zone) and keeps the row. Every ORM query in
+    every session leaves such rows out (_hide_deleted_rows below), so the app and the
+    API never list or find them: lookups by id answer 404, and lists and relationship
+    loads skip them. Code that has to see them
+    (the undo and admin restore in vtt/deletion.py, the campaign code check that keeps
+    a deleted campaign's code reserved) asks for them with
+    .execution_options(include_deleted=True). Raw SQL (text()) is not filtered.
+    See docs/refactor/DELETION.md."""
+    deleted_at = Column(DateTime, nullable=True)
+
+
+# The execution option that lets one query see deleted rows.
+INCLUDE_DELETED = "include_deleted"
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _hide_deleted_rows(state):
+    # Every SELECT gets the criteria, relationship loads included, except the loads that
+    # refresh a row already in the session (an expired attribute after a commit,
+    # Session.refresh): those fetch one known row by its primary key and must still find
+    # it after it was deleted. propagate_to_loaders=False keeps the criteria off the
+    # loaded objects, so it never reaches those refreshes.
+    if (state.is_select and not state.is_column_load
+            and not state.execution_options.get(INCLUDE_DELETED, False)):
+        state.statement = state.statement.options(with_loader_criteria(
+            SoftDeleted, lambda cls: cls.deleted_at.is_(None),
+            include_aliases=True, propagate_to_loaders=False))
+
 
 class User(Base):
     __tablename__ = "users"
@@ -89,7 +122,7 @@ class Circle(Base):
     game = relationship("Game", back_populates="circles")
     characters = relationship("Character", back_populates="circle")
 
-class Character(Base):
+class Character(SoftDeleted, Base):
     __tablename__ = "characters"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
@@ -182,7 +215,7 @@ class Character(Base):
     circle = relationship("Circle", back_populates="characters")
     campaign = relationship("Campaign", back_populates="characters")
 
-class Campaign(Base):
+class Campaign(SoftDeleted, Base):
     __tablename__ = "campaigns"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -191,6 +224,10 @@ class Campaign(Base):
     gm_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     roster_finalized = Column(Boolean, default=False)
     is_retired = Column(Boolean, default=False)
+    # Set when the campaign is deleted: the characters it let go, as they were
+    # ([{"id": 12, "status": "active"}, ...]), so that an undo or an admin restore can
+    # put back the ones that are still free (vtt/deletion.py). None otherwise.
+    released_characters = Column(JSON, nullable=True)
 
     characters = relationship("Character", back_populates="campaign")
     notebook_entries = relationship("NotebookEntry", back_populates="campaign", order_by="NotebookEntry.page_number")

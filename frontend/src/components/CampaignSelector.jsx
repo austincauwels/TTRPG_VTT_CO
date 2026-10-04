@@ -5,6 +5,7 @@ import { campaignErrorText } from '../utils/campaignErrors';
 import { useCampaignEntry } from './campaignSelector/useCampaignEntry';
 import { useAutoLastPlayed } from './campaignSelector/useAutoLastPlayed';
 import { RejoinInviteBanner } from './campaignSelector/RejoinInviteBanner';
+import { HubNotice } from './campaignSelector/HubNotice';
 import { DeskStyles } from './campaignSelector/DeskStyles';
 import { DeskBackdrop } from './campaignSelector/DeskBackdrop';
 import { CandleCluster, CandleLight } from './campaignSelector/CandleCluster';
@@ -24,7 +25,7 @@ export const CampaignSelector = () => {
   const {
     setStage, connect, logout, accessSession, character, characters, gmCampaigns,
     lastPlayedCampaign, joinCampaign, refreshCharacterStatus, fetchUserData,
-    setLastPlayed, setLocalCharacter, rejoinInvite, setRejoinInvite,
+    setLastPlayed, setLocalCharacter, rejoinInvite, setRejoinInvite, hubNotice, setHubNotice,
   } = useGameStore();
 
   // Book overlay state and the ways into a campaign
@@ -93,6 +94,9 @@ export const CampaignSelector = () => {
     } else {
       const error = campaignErrorText(result.detail, 'Could not send the request to join. Try again in a moment.');
       setJoinForms(f => ({ ...f, [charId]: { ...f[charId], loading: false, error } }));
+      // 409: the investigator is in a campaign or waiting for one after all (a delete was
+      // undone, or another tab joined). Read the registry again so its row shows where it is.
+      if (result.status === 409) await fetchUserData(accessSession?.userId);
     }
   };
 
@@ -103,6 +107,7 @@ export const CampaignSelector = () => {
     // the room under it holds still (.hub-still), so the book moves alone.
     <div className={`scene-container${showBook ? ' hub-still' : ''} h-[100dvh] lg:h-auto lg:min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night`}>
       <RejoinInviteBanner rejoinInvite={rejoinInvite} setStage={setStage} setRejoinInvite={setRejoinInvite} />
+      <HubNotice notice={hubNotice} onDismiss={() => setHubNotice(null)} />
 
       <DeskStyles />
       <HubHeader onLogout={handleLogout} />
