@@ -74,13 +74,33 @@ def test_create_campaign_missing_params(client):
     assert client.post("/campaign/create", params={"code": f"c-{support.uid()}"}, headers=headers).status_code == 422
 
 
-def test_create_campaign_duplicate_code_is_500(client):
-    """QUIRK: duplicate codes are not checked; the unique index raises (unhandled 500)."""
+def test_create_campaign_duplicate_code_is_409(client):
+    """Fixed: duplicate codes were not checked, so the unique index raised (unhandled 500)."""
     code = f"c-{support.uid()}"
     support.new_campaign(client, code=code)
-    with support.server_errors_as_500(client):
-        r = client.post("/campaign/create", params={"name": "again", "code": code}, headers=support.as_stranger())
-    assert r.status_code == 500
+    r = client.post("/campaign/create", params={"name": "again", "code": code}, headers=support.as_stranger())
+    assert r.status_code == 409
+    assert r.json() == {"detail": "Campaign code is already in use"}
+    assert len(support.fetch_all(Campaign, campaign_code=code)) == 1
+
+
+def test_create_campaign_when_another_request_took_the_code_first(client, monkeypatch):
+    """Two requests for one code can both pass the check; the one that loses at the
+    unique index gets the same 409."""
+    from vtt.routers import campaigns
+    code = f"c-{support.uid()}"
+    support.new_campaign(client, code=code)
+    real = campaigns._code_taken
+    calls = []
+
+    def taken_after_the_first_check(db, c):
+        calls.append(c)
+        return len(calls) > 1 and real(db, c)
+
+    monkeypatch.setattr(campaigns, "_code_taken", taken_after_the_first_check)
+    r = client.post("/campaign/create", params={"name": "again", "code": code}, headers=support.as_stranger())
+    assert (r.status_code, r.json()) == (409, {"detail": "Campaign code is already in use"})
+    assert calls == [code, code]
     assert len(support.fetch_all(Campaign, campaign_code=code)) == 1
 
 

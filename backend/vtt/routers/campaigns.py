@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from engine import (
@@ -35,6 +36,13 @@ def _reads_as_number(code: str) -> bool:
     return True
 
 
+CODE_IN_USE = "Campaign code is already in use"
+
+
+def _code_taken(db: Session, code: str) -> bool:
+    return db.query(Campaign.id).filter(Campaign.campaign_code == code).first() is not None
+
+
 @router.post("/campaign/create")
 def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Session = Depends(get_db),
                     user: User = Depends(get_current_user)):
@@ -47,7 +55,16 @@ def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Ses
         raise HTTPException(status_code=422, detail="Campaign code must not be a number")
     if len(name) < 1 or len(name) > 80:
         raise HTTPException(status_code=422, detail="Campaign name must be 1–80 characters")
-    return create_new_campaign(db, name, code, gm_user_id=user.id)
+    # A taken code used to reach the unique index and answer 500.
+    if _code_taken(db, code):
+        raise HTTPException(status_code=409, detail=CODE_IN_USE)
+    try:
+        return create_new_campaign(db, name, code, gm_user_id=user.id)
+    except IntegrityError:
+        db.rollback()
+        if _code_taken(db, code):  # another request took the code after the check
+            raise HTTPException(status_code=409, detail=CODE_IN_USE)
+        raise
 
 @router.post("/campaign/join")
 async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', db: Session = Depends(get_db),

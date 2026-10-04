@@ -85,7 +85,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: `user_id` becomes `campaigns.gm_user_id`.
 - Tables: campaigns (insert) via `engine.create_new_campaign`.
 - Response: the ORM Campaign object serialized by FastAPI (id, name, campaign_code, gm_user_id, roster_finalized, is_retired).
-- Notes: a duplicate code raises an unhandled IntegrityError (500). Without `user_id` the campaign has no GM and is unreachable from the UI. A code made only of digits is allowed and collides with character-id WebSocket channels (see WebSocket section).
+- Notes: a duplicate code is 409 "Campaign code is already in use", also when another request takes the code between the check and the insert (before the bug-fix stage it raised an unhandled IntegrityError, a 500). Without `user_id` the campaign has no GM and is unreachable from the UI. A code made only of digits is allowed and collides with character-id WebSocket channels (see WebSocket section).
 
 **POST /campaign/join** (line 458, `async def`)
 - Inputs: query `character_id` (int), `code`, `pen_font` (default Caveat, replaced by Caveat if not in `_SAFE_FONT_NAMES`).
