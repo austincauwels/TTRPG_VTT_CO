@@ -19,6 +19,8 @@ const TRIGGER = {
   paper: 'font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink hover:bg-black/5 border border-ink/25 hover:border-ink/50 rounded px-3 py-1.5',
   // the Lightkeeper's Desk bar
   gm: 'min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest text-cream hover:bg-gm-night bg-gm-night/80 border border-moonlight-steel/60 hover:border-moonlight-steel rounded px-4 py-2',
+  // the hub: a small paper tag lying at the edge of the desk, a little crooked
+  tag: 'min-h-[36px] lg:min-h-[40px] -rotate-2 text-xs uppercase tracking-widest font-sans font-black text-ink bg-parchment hover:bg-parchment-deep border border-sepia/50 rounded-sm px-2.5 py-1.5 shadow-[1px_3px_7px_rgba(0,0,0,0.65)]',
 };
 
 const CARD_WIDTH = 304; // px; narrower on a phone, where it keeps 8px from each edge
@@ -127,7 +129,9 @@ const LinkGoogleStep = ({ accountName, onLinked, onCancel }) => {
   );
 };
 
-export const AccountMenu = ({ tone = 'night', className = '', onSignOut }) => {
+// extra: more of the desk's own controls, laid on the card above Sign out (the GM bar puts
+// Retire there on phones, so its band keeps to one row).
+export const AccountMenu = ({ tone = 'night', className = '', onSignOut, extra = null }) => {
   const accessSession = useGameStore((s) => s.accessSession);
   const logout = useGameStore((s) => s.logout);
   const [open, setOpen] = useState(false);
@@ -264,6 +268,8 @@ export const AccountMenu = ({ tone = 'night', className = '', onSignOut }) => {
           </div>
         )}
         <p role="status" className="sr-only">{justLinked && account?.googleLinked ? 'Google linked.' : ''}</p>
+
+        {extra}
 
         <div className="mt-3 pt-3 border-t border-dashed border-sepia/45">
           <button type="button" onClick={() => { close(false); (onSignOut || logout)(); }} className={quietClass}>Sign out</button>

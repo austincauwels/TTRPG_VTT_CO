@@ -89,7 +89,10 @@ export const CampaignSelector = () => {
   };
 
   return (
-    <div className="scene-container min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night">
+    // Below lg the hub is exactly one screen tall and never scrolls (owner's round 3 item
+    // 28): the slim band, then the desk, whose tomes take the height the tickets and the
+    // folded Herald leave them (.hub-tomes in DeskStyles.jsx)
+    <div className="scene-container h-[100dvh] lg:h-auto lg:min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night">
       <RejoinInviteBanner rejoinInvite={rejoinInvite} setStage={setStage} setRejoinInvite={setRejoinInvite} />
 
       <DeskStyles />
@@ -99,30 +102,30 @@ export const CampaignSelector = () => {
           left corner, and the light and shade of the room over everything on it. None of the
           boxes between the light and the desk may form a stacking context (no z-index,
           transform, opacity or perspective), or the light has nothing to blend with. */}
-      <div ref={deskRef} className="hub-room relative flex-1 flex flex-col">
+      <div ref={deskRef} className="hub-room relative flex-1 min-h-0 flex flex-col">
         <DeskBackdrop />
 
         {/* From lg a free composition; below it the desk stacks in one column (tomes side by
             side, tickets in a row, the Herald folded at the foot) */}
-        <main className="relative flex-1 w-full max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center lg:justify-center gap-10 lg:gap-12 px-4 pt-[5.5rem] pb-12 sm:px-8 sm:pt-[7.5rem] lg:p-12">
+        <main className="hub-main relative flex-1 min-h-0 w-full max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center lg:justify-center gap-3 sm:gap-6 lg:gap-12 px-4 sm:px-8 lg:p-12">
           <CandleCluster lit={litCandles} />
 
           {/* LEFT: THE TOMES, with sketches tucked under their corners */}
-          <div className="relative grid grid-cols-2 items-start gap-6 sm:gap-10 w-full max-w-[680px] pr-3 sm:pr-4 lg:pr-0 lg:max-w-none lg:flex lg:gap-[2.2vw] lg:items-center lg:justify-center lg:w-[50%] lg:ml-[3.5vw] z-30">
-            <CryptidSketch which="candles" className="z-0 right-[-2%] top-[-40%] w-[30%] rotate-[9deg] lg:right-auto lg:left-[-9%] lg:top-[6%] lg:w-[30%] lg:rotate-[-8deg]" />
-            <CryptidSketch which="tomes" className="z-0 left-[24%] bottom-[-15%] w-[44%] rotate-[5deg] lg:left-[29%] lg:bottom-[-25%] lg:w-[42%] lg:rotate-[7deg]" />
+          <div className="hub-tomes relative grid grid-cols-2 items-center justify-items-center gap-5 sm:gap-10 w-full max-w-[680px] pr-2 sm:pr-4 lg:pr-0 lg:max-w-none lg:flex lg:gap-[2.2vw] lg:items-center lg:justify-center lg:w-[50%] lg:ml-[3.5vw] z-30">
+            <CryptidSketch which="candles" className="z-0 right-[3%] top-[-2.6rem] w-[22%] rotate-[9deg] lg:right-auto lg:left-[-9%] lg:top-[6%] lg:w-[30%] lg:rotate-[-8deg]" />
+            <CryptidSketch which="tomes" className="z-0 left-[30%] bottom-[1%] w-[38%] rotate-[5deg] lg:left-[29%] lg:bottom-[-25%] lg:w-[42%] lg:rotate-[7deg]" />
             <CaseLedgerTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
             <LastPlayedTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} />
           </div>
 
           {/* RIGHT: THE HERALD AND THE TICKETS lying on it */}
-          <div className="relative w-full lg:w-[50%] lg:min-w-[550px] lg:h-[600px] flex flex-col lg:flex-row items-center gap-10 lg:gap-0">
-            <CryptidSketch which="herald" className="z-0 right-[-3%] bottom-[-18px] w-[30%] rotate-[12deg] lg:right-auto lg:bottom-auto lg:left-[-17%] lg:top-[-9%] lg:w-[29%] lg:rotate-[-13deg]" />
+          <div className="relative shrink-0 w-full lg:w-[50%] lg:min-w-[550px] lg:h-[600px] flex flex-col lg:flex-row items-center gap-3 sm:gap-6 lg:gap-0">
+            <CryptidSketch which="herald" className="z-0 right-[4%] bottom-[0.6rem] w-[19%] rotate-[12deg] lg:right-auto lg:bottom-auto lg:left-[-17%] lg:top-[-9%] lg:w-[29%] lg:rotate-[-13deg]" />
             <HalcyonHerald />
 
             {/* The tickets share a row below lg and never overlap; from lg up this wrapper
                 steps aside (display: contents) and they lie loose on the desk */}
-            <div className="grid grid-cols-2 gap-6 sm:gap-10 w-full max-w-[540px] lg:contents">
+            <div className="grid grid-cols-2 gap-5 sm:gap-10 w-full max-w-[540px] lg:contents">
               <NewCharacterTicket onOpen={() => setStage('CHARACTER_CREATION')} />
               <NewCampaignTicket userId={accessSession?.userId} onCreated={handleCampaignCreated} />
             </div>

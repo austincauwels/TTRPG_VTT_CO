@@ -71,19 +71,19 @@ export const HalcyonHerald = () => (
 // Narrow screens: the same paper folded down to its masthead and headline, set at the foot
 // of the desk so it never covers the tomes or tickets.
 export const HalcyonHeraldStrip = () => (
-  <div className="newspaper-strip lg:hidden w-full max-w-[560px] rotate-[-1.5deg] px-4 pt-3 pb-4 text-center">
-    <div className="border-b-[3px] border-double border-ink pb-1.5 mb-2">
-      <p className="font-display font-black tracking-tight text-[23px] sm:text-[32px] text-ink leading-tight">THE HALCYON HERALD</p>
-      <div className="flex justify-between items-center font-display text-[11px] uppercase tracking-widest border-t border-ink pt-1 mt-1">
+  <div className="newspaper-strip lg:hidden w-[94%] max-w-[560px] rotate-[-1.5deg] px-3 pt-2 pb-2.5 sm:px-4 sm:pt-3 sm:pb-4 text-center">
+    <div className="border-b-[3px] border-double border-ink pb-1 mb-1.5 sm:pb-1.5 sm:mb-2">
+      <p className="font-display font-black tracking-tight text-[clamp(18px,5.6vw,32px)] text-ink leading-tight">THE HALCYON HERALD</p>
+      <div className="flex justify-between items-center gap-2 whitespace-nowrap font-display text-[9.5px] sm:text-[11px] uppercase tracking-normal sm:tracking-widest border-t border-ink pt-1 mt-1">
         <span>Vol. XCIV, No. 212</span>
         <span>The Fairelands</span>
         <span>Two Pence</span>
       </div>
     </div>
-    <p className="font-display font-bold text-lg sm:text-2xl leading-none uppercase tracking-wide text-ink">
+    <p className="font-display font-bold text-base sm:text-2xl leading-none uppercase tracking-wide text-ink">
       TERROR IN THE SIDLE!
     </p>
-    <p className="font-serif text-sm sm:text-base italic font-semibold mt-1 text-ink/85">
+    <p className="font-serif text-sm sm:text-base italic font-semibold mt-0.5 sm:mt-1 text-ink/85 leading-snug">
       Authorities Baffled by Midnight Disappearances
     </p>
   </div>

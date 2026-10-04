@@ -48,7 +48,7 @@ export const NewCampaignTicket = ({ userId, onCreated }) => {
     <div
       data-hub="ticket"
       data-cast="0.35"
-      className={`ticket relative lg:absolute w-full h-[250px] sm:h-[310px] lg:w-[230px] lg:h-[330px] rotate-[2deg] lg:rotate-[3deg] lg:top-[70px] lg:right-[112px] z-40 ${
+      className={`ticket hub-ticket relative lg:absolute w-full lg:w-[230px] lg:h-[330px] rotate-[2deg] lg:rotate-[3deg] lg:top-[70px] lg:right-[112px] z-40 ${
         flipped ? 'cursor-default' : 'lg:hover:-translate-y-4 lg:hover:translate-x-3 lg:hover:rotate-[4deg]'}`}
       style={{ perspective: '1200px' }}
     >

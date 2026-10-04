@@ -5,11 +5,14 @@ import { ConfirmAction } from '../../shared/ConfirmAction';
 import { AccountMenu } from '../../shared/AccountMenu';
 
 // The title, then the Lightkeeper's Desk bar, which carries Retire, the way back to the
-// hub and the account in its own flow: right-aligned on desktop, full-width rows of their
-// own on phones.
+// hub and the account in its own flow, right-aligned on desktop. On phones the bar keeps
+// to one row (owner's round 3 item 28): Back to chapter hub and Account side by side, and
+// Retire lies on the account card, above Sign out.
 export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, setStage }) => {
   const [retireBusy, setRetireBusy] = useState(false);
   const [retireError, setRetireError] = useState('');
+  const retireHint = `Press again to retire ${campaignName || 'this campaign'}. Every investigator leaves it and no one can join. Nothing is deleted.`;
+  const retireLabel = (armed) => (retireBusy ? 'Retiring…' : armed ? 'Yes, retire campaign' : 'Retire campaign…');
 
   const handleRetireCampaign = async () => {
     if (!activeCampaignId || retireBusy) return;
@@ -66,34 +69,61 @@ export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, set
 
         {/* HEADER CONTROLS */}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <ConfirmAction
-            className="contents"
-            hintClassName="order-first basis-full lg:max-w-[26rem] lg:justify-end lg:text-right"
-            tone="night"
-            disabled={retireBusy || !activeCampaignId}
-            onConfirm={handleRetireCampaign}
-            cancelLabel="Keep campaign"
-            armedHint={`Press again to retire ${campaignName || 'this campaign'}. Every investigator leaves it and no one can join. Nothing is deleted.`}
-            renderButton={(armed, props) => (
-              <button
-                {...props}
-                className={`w-full lg:w-auto min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest rounded px-4 py-2 transition disabled:opacity-50 disabled:cursor-wait ${
-                  armed
-                    ? 'text-cream bg-oxblood hover:brightness-125 border border-oxblood-lit/50'
-                    : 'text-moonlight-steel hover:text-oxblood-lit bg-gm-night/80 border border-moonlight-steel/30 hover:border-oxblood-lit/60'
-                }`}
-              >
-                {retireBusy ? 'Retiring…' : armed ? 'Yes, retire campaign' : 'Retire campaign…'}
-              </button>
-            )}
-          />
+          <div className="hidden lg:contents">
+            <ConfirmAction
+              className="contents"
+              hintClassName="order-first basis-full lg:max-w-[26rem] lg:justify-end lg:text-right"
+              tone="night"
+              disabled={retireBusy || !activeCampaignId}
+              onConfirm={handleRetireCampaign}
+              cancelLabel="Keep campaign"
+              armedHint={retireHint}
+              renderButton={(armed, props) => (
+                <button
+                  {...props}
+                  className={`w-full lg:w-auto min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest rounded px-4 py-2 transition disabled:opacity-50 disabled:cursor-wait ${
+                    armed
+                      ? 'text-cream bg-oxblood hover:brightness-125 border border-oxblood-lit/50'
+                      : 'text-moonlight-steel hover:text-oxblood-lit bg-gm-night/80 border border-moonlight-steel/30 hover:border-oxblood-lit/60'
+                  }`}
+                >
+                  {retireLabel(armed)}
+                </button>
+              )}
+            />
+          </div>
           <button
             onClick={() => setStage('HOME')}
-            className="w-full lg:w-auto min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest text-cream hover:bg-gm-night transition-colors bg-gm-night/80 border border-moonlight-steel/60 hover:border-moonlight-steel rounded px-4 py-2"
+            className="flex-1 lg:flex-none min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest text-cream hover:bg-gm-night transition-colors bg-gm-night/80 border border-moonlight-steel/60 hover:border-moonlight-steel rounded px-4 py-2"
           >
             Back to chapter hub
           </button>
-          <AccountMenu tone="gm" className="w-full lg:w-auto" />
+          <AccountMenu
+            tone="gm"
+            className="flex-1 lg:flex-none"
+            extra={(
+              // On phones Retire lies on the account card, so the bar keeps to one row
+              <div className="lg:hidden mt-3 pt-3 border-t border-dashed border-sepia/45">
+                <ConfirmAction
+                  className="flex flex-col gap-2"
+                  disabled={retireBusy || !activeCampaignId}
+                  onConfirm={handleRetireCampaign}
+                  cancelLabel="Keep campaign"
+                  armedHint={retireHint}
+                  renderButton={(armed, props) => (
+                    <button
+                      {...props}
+                      className={`w-full min-h-[44px] px-4 py-2 rounded font-sans font-black text-xs uppercase tracking-widest transition disabled:opacity-60 disabled:cursor-wait ${
+                        armed ? 'bg-oxblood text-cream border border-ink hover:brightness-125' : 'bg-transparent text-oxblood border border-oxblood/60 hover:bg-oxblood hover:text-cream'
+                      }`}
+                    >
+                      {retireLabel(armed)}
+                    </button>
+                  )}
+                />
+              </div>
+            )}
+          />
         </div>
         {retireError && <p role="alert" className="font-serif text-base text-oxblood-lit lg:text-right">{retireError}</p>}
       </div>

@@ -92,8 +92,29 @@ export const DeskStyles = () => (
     /* ── The candle cluster (CandleCluster.jsx), seen from above ──
        The box sits in the top left of the desk, just above the tomes. The desk glow, the
        light pool and the shade are centered on the flames' middle (.candle-center). */
-    .candle-box { top: 2px; left: 6px; width: 96px; aspect-ratio: 230 / 190; }
+    .candle-box { top: 2px; left: 6px; width: clamp(70px, 10.5dvh, 96px); aspect-ratio: 230 / 190; }
     @media (min-width: 640px) { .candle-box { top: 4px; left: 14px; width: 128px; } }
+
+    /* ── Phones and tablets: the hub is one screen tall (owner's round 3 item 28) ──
+       The candles keep a strip at the top of the desk; the tomes take whatever height the
+       tickets and the folded Herald leave (the tomes' row is a size container), each as
+       large as its column and that height allow; the tickets are only as tall as their
+       print; the folded Herald sits at the foot, clear of the home bar. */
+    @media (max-width: 1023px) {
+      .hub-main { padding-top: calc(clamp(70px, 10.5dvh, 96px) * 0.83 + 0.25rem); padding-bottom: max(0.625rem, env(safe-area-inset-bottom)); }
+      .hub-tomes { flex: 1 1 0; min-height: 0; container-type: size; }
+      .hub-tomes .tome { width: min(100%, calc(100cqh * 0.735 - 14px)); max-width: 400px; }
+      .hub-ticket { height: clamp(164px, 23dvh, 196px); }
+      /* Turned over, the Lightkeeper's ticket is as tall as its form needs, growing upward
+         over the tomes, so its fields sit above the phone's keyboard */
+      .hub-ticket .ticket-back { top: auto; height: max(100%, 18.75rem); }
+    }
+    /* On a short phone the ticket keeps its route and drops the number line above it */
+    @media (max-width: 1023px) and (max-height: 720px) { .hub-ticket .ticket-meta { display: none; } }
+    @media (min-width: 640px) and (max-width: 1023px) {
+      .hub-main { padding-top: 7rem; }
+      .hub-ticket { height: clamp(180px, 24dvh, 300px); }
+    }
     @media (min-width: 1024px) { .candle-box { top: 4px; left: 0.5%; width: clamp(190px, 15.5vw, 270px); } }
     .candle-center { position: absolute; left: 52.5%; top: 53%; width: 0; height: 0; }
 
