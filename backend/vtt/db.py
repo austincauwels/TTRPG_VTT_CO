@@ -308,6 +308,19 @@ def init_db():
             conn.commit()
     except Exception as e:
         logger.error("Could not create the unique index on users.google_sub: %s", e)
+    # Which Google email a link was made with, and whether the account's email has been
+    # proven (docs/refactor/AUTH.md). Existing rows get NULL and false: their links
+    # count as unproven.
+    for col, typedef in [
+        ("google_email", "TEXT"),
+        ("email_proven", "BOOLEAN DEFAULT FALSE"),
+    ]:
+        try:
+            with db_engine.connect() as conn:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {typedef}"))
+                conn.commit()
+        except Exception:
+            pass
 
     # Password reset links. main.py's create_all makes the table on a normal start; this
     # makes it (with its indexes) on a database that only init_db upgrades. checkfirst

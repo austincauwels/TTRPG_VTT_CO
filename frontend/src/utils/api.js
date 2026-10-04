@@ -141,8 +141,10 @@ export const requestPasswordReset = async (email) => {
 };
 
 // Sets the new password with the token from the emailed link (/reset-password?token=...).
-// Resolves to a session, the same as a password login; every earlier session has ended.
-// Throws with status 400 when the link has expired or has been used.
+// Resolves to a session, the same as a password login, plus googleUnlinked: true when the
+// reset removed a Google account linked with another email address (the page should say
+// so). Every earlier session has ended. Throws with status 400 when the link has expired
+// or has been used.
 export const confirmPasswordReset = (token, password) =>
   postAuth('/api/auth/password-reset/confirm', { token, password });
 

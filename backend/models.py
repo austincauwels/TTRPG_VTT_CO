@@ -14,6 +14,13 @@ class User(Base):
     pending_rejoin_campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
     # Sign in with Google: the Google account's subject id, once linked (unique index ix_users_google_sub)
     google_sub = Column(String, unique=True, index=True, nullable=True)
+    # The email of that Google account when it was linked. A link whose Google email is
+    # not the account's email (or was never recorded) is unproven: a password reset
+    # removes it, and so does the address owner's Google sign-in (docs/refactor/AUTH.md).
+    google_email = Column(String, nullable=True)
+    # True once someone showed they read the account's email: a used reset link, or a
+    # Google account with that address (made with Google, or linked with the same email).
+    email_proven = Column(Boolean, default=False)
 
 class PasswordResetToken(Base):
     """An outstanding password reset link (vtt/password_reset.py). Only the SHA-256 of

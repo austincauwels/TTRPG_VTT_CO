@@ -110,7 +110,7 @@ def test_migrated_columns_exist(client):
             "train_bonus", "resources_spent_assignment"} <= cols["characters"]
     assert "last_actor_id" in cols["relationships"]
     assert {"entry_type", "visibility", "image_data", "is_deleted"} <= cols["notebook_entries"]
-    assert {"pending_rejoin_campaign_id", "google_sub"} <= cols["users"]
+    assert {"pending_rejoin_campaign_id", "google_sub", "google_email", "email_proven"} <= cols["users"]
     google_sub_index = [i for i in insp.get_indexes("users") if i["column_names"] == ["google_sub"]]
     assert [(i["name"], bool(i["unique"])) for i in google_sub_index] == [("ix_users_google_sub", True)]
     assert {c["name"] for c in insp.get_columns("password_reset_tokens")} == {
@@ -280,6 +280,8 @@ MIGRATED_COLUMNS = {
     ("notebook_entries", "is_deleted"): ("boolean", "false"),
     ("users", "pending_rejoin_campaign_id"): ("integer", None),
     ("users", "google_sub"): ("text", None),
+    ("users", "google_email"): ("text", None),
+    ("users", "email_proven"): ("boolean", "false"),
 }
 
 

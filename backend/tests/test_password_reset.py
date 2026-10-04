@@ -18,12 +18,16 @@ import main
 import support
 from models import PasswordResetToken, User
 from vtt import config, mail, password_reset, security
+from vtt import google as vtt_google
+from vtt.google import GoogleIdentity, GoogleTokenError
 
 OK = {"ok": True}
 LINK_INVALID = {"detail": "This link has expired or has already been used. Please ask for a new one."}
 ADDRESS_LIMITED = {"detail": "Too many reset emails were asked for this address. Please wait an hour and try again."}
-LOGIN_KEYS = {"PLAYER": {"role", "name", "userId", "campaignCode", "campaignId", "pendingRejoinInvite", "token"},
-              "GM": {"role", "name", "userId", "campaignCode", "campaignId", "token"}}
+# What a used link answers: what login answers, plus googleUnlinked.
+LOGIN_KEYS = {"PLAYER": {"role", "name", "userId", "campaignCode", "campaignId", "pendingRejoinInvite", "token",
+                         "googleUnlinked"},
+              "GM": {"role", "name", "userId", "campaignCode", "campaignId", "token", "googleUnlinked"}}
 NEW_PASSWORD = "a-new-password-1"
 _LINK = re.compile(r"/reset-password\?token=([A-Za-z0-9_-]+)")
 
@@ -327,13 +331,81 @@ def test_linking_google_by_email_ends_the_link(client, outbox, monkeypatch):
     assert (r.status_code, r.json()) == (400, LINK_INVALID)
 
 
-def test_a_google_linked_account_can_reset_its_password(client, outbox):
-    """Its email is its own (Google checked it, or its owner registered it), and the
-    Google sign-in keeps working."""
-    u = player(google_sub=f"g{support.uid(20)}")
-    assert confirm(client, reset_token(client, outbox, u)).status_code == 200
+@pytest.fixture
+def google_accounts(monkeypatch):
+    """Sign in with Google, stubbed: the credential c signs in as google_accounts[c]."""
+    accounts = {}
+
+    def fake_verify(credential):
+        if credential not in accounts:
+            raise GoogleTokenError("not a test credential")
+        return accounts[credential]
+
+    monkeypatch.setattr(config, "GOOGLE_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
+    monkeypatch.setattr(vtt_google, "verify_id_token", fake_verify)
+    return accounts
+
+
+def google_sign_in(client, google_accounts, sub, email):
+    credential = f"credential-{support.uid(16)}"
+    google_accounts[credential] = GoogleIdentity(sub=sub, email=email, name="P")
+    return client.post("/api/auth/google", json={"credential": credential})
+
+
+def test_a_proven_google_link_survives_a_reset(client, outbox, google_accounts):
+    """Made with a Google account whose email is the account's: the same person reads
+    that address, so the Google sign-in keeps working."""
+    sub = f"g{support.uid(20)}"
+    u = player(google_sub=sub)
+    support.update(User, u.id, google_email=u.email.upper())
+    r = confirm(client, reset_token(client, outbox, u))
+    assert (r.status_code, r.json()["googleUnlinked"]) == (200, False)
     assert support.login(client, u.username, NEW_PASSWORD).status_code == 200
-    assert support.fetch(User, u.id).google_sub is not None
+    assert support.fetch(User, u.id).google_sub == sub
+    assert google_sign_in(client, google_accounts, sub, u.email).json()["userId"] == u.id
+
+
+@pytest.mark.parametrize("google_email", [None, "someone.else.{uid}@gmail.test"])
+def test_a_reset_removes_an_unproven_google_link(client, outbox, google_accounts, google_email):
+    """A link made with another Google email, or from before the Google email was
+    recorded, may be the work of someone who registered this address or stole a login
+    token. It used to outlive the reset, so they kept signing in with Google."""
+    sub = f"g{support.uid(20)}"
+    u = player(google_sub=sub, google_email=google_email.format(uid=support.uid()) if google_email else None)
+    r = confirm(client, reset_token(client, outbox, u))
+    assert r.status_code == 200, r.text
+    assert r.json()["googleUnlinked"] is True
+    row = support.fetch(User, u.id)
+    assert (row.google_sub, row.google_email) == (None, None)
+    other = google_sign_in(client, google_accounts, sub, f"someone.{support.uid()}@gmail.test")
+    assert other.json()["needs_account"] is True
+
+
+def test_the_squatters_google_link_ends_with_the_owners_reset(client, outbox, google_accounts):
+    """Someone registers another person's address and links their own Google account
+    with the password they chose. The owner of the address resets the password."""
+    email = address()
+    squatter = f"squatter_{support.uid()}"
+    r = client.post("/api/auth/register", json={"username": squatter, "email": email, "password": "squatters-pw"})
+    user_id, squatter_token = r.json()["userId"], r.json()["token"]
+    google_accounts["squatter"] = GoogleIdentity(sub=f"g{support.uid(20)}",
+                                                 email=f"squatter.{support.uid()}@gmail.test", name="S")
+    r = client.post("/api/auth/me/google", json={"credential": "squatter", "password": "squatters-pw"},
+                    headers=support.bearer(squatter_token))
+    assert r.status_code == 200, r.text
+    body = confirm(client, reset_token(client, outbox, support.fetch(User, user_id))).json()
+    assert (body["userId"], body["googleUnlinked"]) == (user_id, True)
+    assert client.post("/api/auth/google", json={"credential": "squatter"}).json()["needs_account"] is True
+    assert support.login(client, squatter, "squatters-pw").status_code == 401
+    assert client.get("/api/auth/me", headers=support.bearer(squatter_token)).status_code == 401
+
+
+def test_a_used_link_proves_the_email(client, outbox):
+    u = player()
+    assert support.fetch(User, u.id).email_proven is False
+    body = confirm(client, reset_token(client, outbox, u)).json()
+    assert body["googleUnlinked"] is False  # there was no link
+    assert support.fetch(User, u.id).email_proven is True
 
 
 @pytest.mark.parametrize("token", ["", "x", "not-a-real-token-at-all-0123456789abcdefghij", "A" * 256])

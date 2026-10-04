@@ -14,7 +14,8 @@ password, and deletes the user's other rows with it. A newer request for the sam
 deletes the older rows. Any other change of the password (Sign in with Google linking
 by email, retire_published_passwords, a hash set in the database) changes the stamp,
 so an older token no longer matches. The new password changes the stamp that login
-tokens carry too, which ends every earlier session.
+tokens carry too, which ends every earlier session. Using a token also marks the
+account's email as proven and removes an unproven Google link (use_token).
 """
 import hashlib
 import hmac
@@ -27,7 +28,7 @@ from typing import List, Optional, Tuple
 
 from limits import parse as parse_limit
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import and_, case, func
 
 from models import PasswordResetToken, User
 from vtt import config, mail
@@ -154,23 +155,42 @@ def find_token(db: Session, token: Optional[str]) -> Optional[Tuple[PasswordRese
     return row, user
 
 
-def use_token(db: Session, row: PasswordResetToken, user: User, new_password_hash: str) -> bool:
+@dataclass
+class ResetOutcome:
+    google_unlinked: bool  # the reset removed an unproven Google link
+
+
+def use_token(db: Session, row: PasswordResetToken, user: User, new_password_hash: str) -> Optional[ResetOutcome]:
     """Deletes the token's row, sets the new password hash and deletes the user's other
     tokens. Each step is conditional, so of two requests with the same token only one
-    gets through, and a password changed since find_token is not overwritten. False
-    when that happens; the caller then rolls back. The caller commits."""
+    gets through, and a password changed since find_token is not overwritten. None
+    when that happens; the caller then rolls back. The caller commits.
+
+    The same UPDATE marks the account's email as proven (the link reached whoever
+    reads it) and removes the Google link unless it was made with a Google account
+    whose email is the account's email (ignoring case). An unproven link may belong to
+    someone who registered this address or stole a login token, and whoever reads the
+    address owns the account."""
     claimed = db.query(PasswordResetToken).filter(PasswordResetToken.id == row.id).delete(
         synchronize_session=False)
     if claimed != 1:
-        return False
+        return None
+    linked_before = db.query(User.google_sub).filter(User.id == user.id).scalar()
+    proven_link = and_(User.google_email.isnot(None), func.lower(User.google_email) == func.lower(User.email))
     changed = db.query(User).filter(
         User.id == user.id, User.hashed_password == user.hashed_password,
-    ).update({User.hashed_password: new_password_hash}, synchronize_session=False)
+    ).update({
+        User.hashed_password: new_password_hash,
+        User.email_proven: True,
+        User.google_sub: case((proven_link, User.google_sub), else_=None),
+        User.google_email: case((proven_link, User.google_email), else_=None),
+    }, synchronize_session=False)
     if changed != 1:
-        return False
+        return None
+    linked_after = db.query(User.google_sub).filter(User.id == user.id).scalar()
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete(
         synchronize_session=False)
-    return True
+    return ResetOutcome(google_unlinked=linked_before is not None and linked_after is None)
 
 
 # --- the email ------------------------------------------------------------------------

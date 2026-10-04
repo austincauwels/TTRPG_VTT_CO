@@ -172,7 +172,9 @@ def test_a_matching_email_links_the_existing_user(client, google):
     assert support.login(client, u.username, support.PASSWORD).status_code == 401
     sub = google.identity(credential).sub
     assert google_sub_of(u.id) == sub
-    assert support.fetch(User, u.id).email == f"{local}@Example.test"  # left as it was
+    row = support.fetch(User, u.id)
+    assert row.email == f"{local}@Example.test"  # left as it was
+    assert (row.google_email, row.email_proven) == (f"{local.lower()}@example.test", True)
     # from now on the Google account signs in by its sub, whatever its email
     assert_signed_in_as(google_sign_in(client, google.credential(sub=sub, email="new@gmail.test")), u.id)
 
@@ -213,14 +215,79 @@ def test_linking_with_the_password_keeps_the_password(client, google):
     assert support.login(client, u.username, support.PASSWORD).status_code == 200
 
 
-def test_a_matching_email_of_a_user_linked_to_another_google_account_is_not_linked(client, google):
+def test_a_matching_email_of_a_user_with_a_proven_google_link_is_not_linked(client, google):
+    """A proven link: made with a Google account whose email is the account's email."""
     email = f"{support.uid()}@example.test"
-    u = support.make_user(email=email, google_sub=f"g{support.uid(20)}")
+    u = support.make_user(email=email, google_sub=f"g{support.uid(20)}", google_email=email.upper())
     before = google_sub_of(u.id)
     r = google_sign_in(client, google.credential(email=email))
     assert r.status_code == 200
     assert r.json()["needs_account"] is True
     assert google_sub_of(u.id) == before
+
+
+def test_a_matching_email_of_a_user_whose_email_was_proven_is_not_linked(client, google):
+    """The owner of the address linked another Google account themselves."""
+    email = f"{support.uid()}@example.test"
+    u = support.make_user(email=email, google_sub=f"g{support.uid(20)}",
+                          google_email=f"other.{support.uid()}@gmail.test", email_proven=True)
+    before = google_sub_of(u.id)
+    assert google_sign_in(client, google.credential(email=email)).json()["needs_account"] is True
+    assert google_sub_of(u.id) == before
+
+
+@pytest.mark.parametrize("google_email", [None, "squatter.{uid}@gmail.test"])
+def test_the_address_owner_takes_over_an_unproven_google_link(client, google, google_email):
+    """An account whose email was never proven, linked to a Google account with another
+    email (or one linked before the Google email was recorded): the link may be the
+    work of whoever registered the address, so the address owner's Google sign-in
+    replaces it, with the password, as step 2 does for an account with no link."""
+    email = f"owner.{support.uid()}@gmail.test"
+    squatter_sub = f"g{support.uid(20)}"
+    u = support.make_user(email=email, google_sub=squatter_sub,
+                          google_email=google_email.format(uid=support.uid()) if google_email else None)
+    old_token = support.token_for(u.id)
+    credential = google.credential(email=email.upper())
+    body = assert_signed_in_as(google_sign_in(client, credential), u.id)
+    row = support.fetch(User, u.id)
+    assert (row.google_sub, row.google_email, row.email_proven) == (
+        google.identity(credential).sub, email.upper(), True)
+    assert support.login(client, u.username, support.PASSWORD).status_code == 401
+    assert me(client, support.bearer(old_token)).status_code == 401
+    assert me(client, support.bearer(body["token"])).status_code == 200
+    assert google_sign_in(client, google.credential(sub=squatter_sub)).json()["needs_account"] is True
+
+
+def test_an_email_squatter_loses_the_account_to_the_address_owner(client, google, monkeypatch):
+    """The finding: register never checks an address, and a squatter who linked their own
+    Google account first kept the account (step 2 skipped it, create was 409
+    EMAIL_TAKEN, link 409). With password login off the owner could never get in."""
+    email = f"victim.{support.uid()}@gmail.test"
+    squatter = f"squatter_{support.uid()}"
+    r = client.post("/api/auth/register", json={"username": squatter, "email": email, "password": "squatters-pw"})
+    assert r.status_code == 201
+    user_id, squatter_token = r.json()["userId"], r.json()["token"]
+    squatter_google = google.credential(email=f"squatter.{support.uid()}@gmail.test")
+    r = link_signed_in(client, squatter_google, support.bearer(squatter_token), password="squatters-pw")
+    assert r.status_code == 200
+    assert support.fetch(User, user_id).email_proven is False
+    monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", False)
+
+    body = assert_signed_in_as(google_sign_in(client, google.credential(email=email)), user_id)
+    assert google_sign_in(client, squatter_google).json()["needs_account"] is True
+    assert me(client, support.bearer(squatter_token)).status_code == 401
+    monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", True)
+    assert support.login(client, squatter, "squatters-pw").status_code == 401
+    assert me(client, support.bearer(body["token"])).json()["googleLinked"] is True
+
+
+def test_linking_by_email_keeps_a_password_the_address_owner_set(client, google):
+    """A proven email (a used reset link) means the address owner chose the password."""
+    u = support.make_user(email_proven=True)
+    assert_signed_in_as(google_sign_in(client, google.credential(email=u.email)), u.id)
+    assert support.login(client, u.username, support.PASSWORD).status_code == 200
+    row = support.fetch(User, u.id)
+    assert (row.google_email, row.email_proven) == (u.email, True)
 
 
 def test_two_users_with_the_email_are_not_linked(client, google):
@@ -323,6 +390,9 @@ def test_link_with_the_right_password(client, google):
     assert body == login_body(client, u)
     sub = google.identity(credential).sub
     assert google_sub_of(u.id) == sub
+    # the Google email is recorded; it differs from the account's, so it proves nothing
+    row = support.fetch(User, u.id)
+    assert (row.google_email, row.email_proven) == (google.identity(credential).email, False)
     # next time, Google alone signs them in
     assert_signed_in_as(google_sign_in(client, google.credential(sub=sub)), u.id)
 
@@ -411,6 +481,7 @@ def test_create_an_account(client, google):
         "pendingRejoinInvite": None}
     user = support.fetch(User, user_id)
     assert (user.username, user.email, user.google_sub) == (name, identity.email, identity.sub)
+    assert (user.google_email, user.email_proven) == (identity.email, True)  # Google verified it
     # a random password nobody knows: the account works through Google only
     assert user.hashed_password.startswith("$2b$")
     for guess in ("", name, identity.email, identity.sub):
@@ -552,6 +623,101 @@ def test_create_when_another_request_took_it_first(client, google, monkeypatch, 
     assert r.json() == {"detail": detail}
     assert len(calls) == 2  # checked again after the unique index refused the row
     assert len(support.fetch_all(User)) == users_before
+
+
+# Two different Google accounts written to one user: the unique index cannot catch that,
+# so the link is one conditional UPDATE (google_sub still empty, and for a password link
+# the hash still the one checked). The tests write the other request's change to the
+# database in the middle of the route, after its checks have read the row.
+
+def test_signed_in_link_after_another_request_linked_the_account(client, google, monkeypatch):
+    """Both used to answer 200; only the last write was kept."""
+    u = support.make_user()
+    headers = support.as_user(u.id)
+    first_sub = f"g{support.uid(20)}"
+    real = auth_router.refuse_google_linked_elsewhere
+
+    def another_request_links_first(db, identity):
+        real(db, identity)
+        support.update(User, u.id, google_sub=first_sub)
+
+    monkeypatch.setattr(auth_router, "refuse_google_linked_elsewhere", another_request_links_first)
+    r = link_signed_in(client, google.credential(), headers)
+    assert r.status_code == 409
+    assert r.json() == {"detail": "That account is already linked to a Google account."}
+    assert google_sub_of(u.id) == first_sub
+
+
+def test_signed_in_link_after_the_same_link_by_another_request(client, google, monkeypatch):
+    """Two clicks at once with the same Google account: both get the account."""
+    u = support.make_user()
+    credential = google.credential()
+    real = auth_router.refuse_google_linked_elsewhere
+
+    def another_click_links_first(db, identity):
+        real(db, identity)
+        support.update(User, u.id, google_sub=identity.sub)
+
+    monkeypatch.setattr(auth_router, "refuse_google_linked_elsewhere", another_click_links_first)
+    r = link_signed_in(client, credential, support.as_user(u.id))
+    assert (r.status_code, r.json()["googleLinked"]) == (200, True)
+    assert google_sub_of(u.id) == google.identity(credential).sub
+
+
+def test_password_link_after_a_sign_in_by_email_replaced_the_password(client, google, monkeypatch):
+    """The finding's second example: a squatter's /google/link (the account's password)
+    racing the owner's first Google sign-in, which links by email and replaces the
+    password. The squatter's write used to put their Google account in place of the
+    owner's and hand them a token valid for the new password."""
+    u = support.make_user()
+    owner_sub = f"g{support.uid(20)}"
+    token = needs_account(client, google)
+    real = auth_router.check_password
+
+    def owner_signs_in_meanwhile(password, user):
+        ok = real(password, user)
+        support.update(User, u.id, google_sub=owner_sub, hashed_password=support.cheap_hash("nobody-knows"))
+        return ok
+
+    monkeypatch.setattr(auth_router, "check_password", owner_signs_in_meanwhile)
+    r = link(client, token, u.username)
+    assert r.status_code == 409
+    assert r.json() == {"detail": "That account is already linked to a Google account."}
+    assert "token" not in r.json()
+    assert google_sub_of(u.id) == owner_sub
+
+
+def test_password_link_after_the_password_changed(client, google, monkeypatch):
+    u = support.make_user()
+    token = needs_account(client, google)
+    real = auth_router.check_password
+
+    def password_reset_meanwhile(password, user):
+        ok = real(password, user)
+        support.update(User, u.id, hashed_password=support.cheap_hash("a-new-password"))
+        return ok
+
+    monkeypatch.setattr(auth_router, "check_password", password_reset_meanwhile)
+    r = link(client, token, u.username)
+    assert (r.status_code, r.json()) == (401, {"detail": "That username and password do not match."})
+    assert google_sub_of(u.id) is None
+
+
+def test_sign_in_by_email_after_another_request_linked_the_account(client, google, monkeypatch):
+    """Step 2 writes only while the account still has the link it read (none here)."""
+    u = support.make_user()
+    other_sub = f"g{support.uid(20)}"
+
+    def linked_meanwhile():
+        support.update(User, u.id, google_sub=other_sub, google_email=u.email, email_proven=True)
+        return support.cheap_hash("unused")
+
+    monkeypatch.setattr(auth_router, "unusable_password_hash", linked_meanwhile)
+    r = google_sign_in(client, google.credential(email=u.email))
+    assert r.status_code == 200
+    assert r.json()["needs_account"] is True
+    assert google_sub_of(u.id) == other_sub
+    assert support.login(client, u.username, support.PASSWORD).status_code == 200  # password untouched
 
 
 # --- link tokens are only link tokens ------------------------------------------------------------
@@ -822,6 +988,8 @@ def test_a_google_account_with_the_account_email_needs_no_password(client, googl
     assert r.status_code == 200, r.text
     assert google_sub_of(u.id) == google.identity(credential).sub
     assert support.login(client, u.username, support.PASSWORD).status_code == 200
+    row = support.fetch(User, u.id)
+    assert (row.google_email, row.email_proven) == (f"{local.lower()}@example.test", True)
 
 
 def test_an_account_whose_password_nobody_knows_links_with_its_own_email(client, google):
