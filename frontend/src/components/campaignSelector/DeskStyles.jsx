@@ -15,24 +15,73 @@ export const DeskStyles = () => (
     /* Faces and pens are loaded once in index.html. */
 
     /* ── The flicker ──
-       Two numbers move on the room: --flk-s (the flames flaring and dipping: the light
-       reaches further and the shadows shorten) and --flk-x (a sideways sway). The light,
-       the shade and every cast shadow read them, so they move as one. Wide screens only;
-       phones and reduced motion hold still. */
-    @property --flk-s { syntax: '<number>'; inherits: true; initial-value: 1; }
-    @property --flk-x { syntax: '<number>'; inherits: true; initial-value: 0; }
-    @keyframes hubFlicker {
-      0%, 100% { --flk-s: 1; --flk-x: 0; }
-      9%  { --flk-s: 1.03; --flk-x: 0.5; }
-      21% { --flk-s: 0.975; --flk-x: -0.35; }
-      34% { --flk-s: 1.018; --flk-x: 0.15; }
-      47% { --flk-s: 0.962; --flk-x: -0.7; }
-      61% { --flk-s: 1.036; --flk-x: 0.45; }
-      74% { --flk-s: 0.985; --flk-x: -0.15; }
-      88% { --flk-s: 1.012; --flk-x: 0.3; }
+       One rhythm of 4.3s moves the room: the flames flare and dip (the light reaches
+       further and the shadows shorten) and sway a little sideways. The light, the shade,
+       the candles' shadows and every object's cast shadow each run the same keyframes, so
+       they move as one. Each keyframe is a transform on its own layer, so the flicker runs
+       on the compositor and never repaints the room (round 4 item 3; the old flicker
+       animated two inherited custom properties and repainted the room every frame). Wide screens only; phones and reduced motion hold still, and it pauses
+       while the roster book is open (.hub-still).
+       At each step the flames' strength s and sway x were:
+       9% 1.03/0.5, 21% 0.975/-0.35, 34% 1.018/0.15, 47% 0.962/-0.7, 61% 1.036/0.45,
+       74% 0.985/-0.15, 88% 1.012/0.3. The light moves by (5x, -40(s-1)) px and scales by s;
+       the shade by (4x, 0) px and s; a candle's shadows scale by 2-s; an object's shadow
+       moves 2.4(1-s) of its own offset and -1.6x px (see .cast). */
+    @keyframes hubLightSway {
+      0%, 100% { transform: translate(-50%, -50%); }
+      9%  { transform: translate(-50%, -50%) translate(2.5px, -1.2px) scale(1.03); }
+      21% { transform: translate(-50%, -50%) translate(-1.75px, 1px) scale(0.975); }
+      34% { transform: translate(-50%, -50%) translate(0.75px, -0.72px) scale(1.018); }
+      47% { transform: translate(-50%, -50%) translate(-3.5px, 1.52px) scale(0.962); }
+      61% { transform: translate(-50%, -50%) translate(2.25px, -1.44px) scale(1.036); }
+      74% { transform: translate(-50%, -50%) translate(-0.75px, 0.6px) scale(0.985); }
+      88% { transform: translate(-50%, -50%) translate(1.5px, -0.48px) scale(1.012); }
+    }
+    @keyframes hubShadeSway {
+      0%, 100% { transform: translate(-50%, -50%); }
+      9%  { transform: translate(-50%, -50%) translate(2px, 0) scale(1.03); }
+      21% { transform: translate(-50%, -50%) translate(-1.4px, 0) scale(0.975); }
+      34% { transform: translate(-50%, -50%) translate(0.6px, 0) scale(1.018); }
+      47% { transform: translate(-50%, -50%) translate(-2.8px, 0) scale(0.962); }
+      61% { transform: translate(-50%, -50%) translate(1.8px, 0) scale(1.036); }
+      74% { transform: translate(-50%, -50%) translate(-0.6px, 0) scale(0.985); }
+      88% { transform: translate(-50%, -50%) translate(1.2px, 0) scale(1.012); }
+    }
+    @keyframes candleShadowSway {
+      0%, 100% { transform: none; }
+      9% { transform: scale(0.97); } 21% { transform: scale(1.025); } 34% { transform: scale(0.982); }
+      47% { transform: scale(1.038); } 61% { transform: scale(0.964); } 74% { transform: scale(1.015); }
+      88% { transform: scale(0.988); }
+    }
+    /* An object's shadow: a scale of 1 + 0.24(1-s) about a point ten offsets back toward
+       the flames moves the shadow by 2.4(1-s) of its offset (and grows it by under 1%) */
+    @keyframes castSway {
+      0%, 100% { transform: none; }
+      9%  { transform: translate(-0.8px, 0) scale(0.9928); }
+      21% { transform: translate(0.56px, 0) scale(1.006); }
+      34% { transform: translate(-0.24px, 0) scale(0.99568); }
+      47% { transform: translate(1.12px, 0) scale(1.00912); }
+      61% { transform: translate(-0.72px, 0) scale(0.99136); }
+      74% { transform: translate(0.24px, 0) scale(1.0036); }
+      88% { transform: translate(-0.48px, 0) scale(0.99712); }
     }
     @media (min-width: 1024px) {
-      .hub-room { animation: hubFlicker 4.3s ease-in-out infinite; }
+      .hub-light { animation: hubLightSway 4.3s ease-in-out infinite; will-change: transform; }
+      .hub-shade { animation: hubShadeSway 4.3s ease-in-out infinite; will-change: transform; }
+      .candle-shadow { animation: candleShadowSway 4.3s ease-in-out infinite; }
+      .cast { animation: castSway 4.3s ease-in-out infinite; will-change: transform; }
+      /* Each object's cast shadow is a layer of its own under the object, so the object's
+         body is a layer too, with its blends, clips and paper drawn into it once. While a
+         tome is hovered its glowing words get a small layer of their own, so the glow's
+         flicker repaints only them (not at rest: inside the cover's rounded clip a layer
+         costs the compositor two extra passes every frame). */
+      .tome-body, .ticket-body, .herald-sheet, .sketch-paper { will-change: transform; }
+      .tome:hover .gilt-glow, .tome:focus-visible .gilt-glow { will-change: transform; }
+    }
+    /* The roster book is open: the room holds still under it */
+    .hub-still .hub-light, .hub-still .hub-shade, .hub-still .candle-shadow, .hub-still .cast,
+    .hub-still .flame, .hub-still .flame-core, .hub-still .flame-halo, .hub-still .gilt-glow {
+      animation-play-state: paused;
     }
 
     /* ── The desk: wood with a tooled leather writing inset ── */
@@ -150,8 +199,8 @@ export const DeskStyles = () => (
       55%  { opacity: 1; transform: scale(1.12); }
       100% { opacity: 1; transform: scale(1); }
     }
-    /* The candles' own shadows stretch and shorten with the room's flicker */
-    .candle-shadow { transform: scale(calc(2 - var(--flk-s, 1))); }
+    /* The candles' own shadows stretch and shorten with the room's flicker (candleShadowSway
+       on the group that holds each flame's blurred shadows, so the blur is drawn once) */
 
     /* The flames' warm light on the desk under them (below the books and papers): a
        screen blend, so the wood and leather near the cluster brighten in their own colors
@@ -172,7 +221,7 @@ export const DeskStyles = () => (
        blend has nothing to light. */
     .hub-light {
       position: absolute; left: 0; top: 0; width: 920px; height: 700px;
-      transform: translate(-50%, -50%) translate(calc(var(--flk-x, 0) * 5px), calc((var(--flk-s, 1) - 1) * -40px)) scale(var(--flk-s, 1));
+      transform: translate(-50%, -50%);
       background: radial-gradient(closest-side, rgba(255,176,92,0.66), rgba(255,160,80,0.32) 17%, rgba(255,150,70,0.08) 40%, rgba(255,140,60,0) 62%);
       mix-blend-mode: soft-light;
       opacity: var(--light, 1);
@@ -180,7 +229,7 @@ export const DeskStyles = () => (
     @media (max-width: 1023px) { .hub-light { width: 760px; height: 620px; } }
     .hub-shade {
       position: absolute; left: 0; top: 0; width: 440vmax; height: 440vmax;
-      transform: translate(-50%, -50%) translate(calc(var(--flk-x, 0) * 4px), 0) scale(var(--flk-s, 1));
+      transform: translate(-50%, -50%);
       /* wider than tall: the light runs further along the desk than down it, and its
          reach grows with the screen, so the tickets stay legible and the corners dark */
       background: radial-gradient(ellipse 220vmax 169vmax at center,
@@ -197,22 +246,21 @@ export const DeskStyles = () => (
        Every object on the desk carries a .cast child: a soft dark copy of its outline,
        thrown away from the candles. CampaignSelector measures each object's place against
        the flames and sets --sx, --sy (the offset) and --sb (the blur) on it; the flicker
-       shortens and sways it. Lifting an object (hover) throws its shadow further (--lift).
+       (castSway, a transform) shortens and sways it about a point ten offsets back toward
+       the flames. Lifting an object (hover) throws its shadow further (--lift, on the
+       separate translate property). The blur is drawn once inside the shadow's own layer.
        The object itself has no background, so the shadow can sit under its surface. */
     .cast {
       position: absolute; inset: 0; z-index: -1; pointer-events: none;
       border-radius: inherit;
-      transform: translate(calc(var(--sx, 5px) * var(--lift, 1)), calc(var(--sy, 9px) * var(--lift, 1)));
-      transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+      translate: calc(var(--sx, 5px) * var(--lift, 1)) calc(var(--sy, 9px) * var(--lift, 1));
+      transform-origin: calc(50% - var(--sx, 5px) * 10) calc(50% - var(--sy, 9px) * 10);
+      transition: translate 0.4s cubic-bezier(0.22, 1, 0.36, 1);
     }
     .cast::before {
       content: ''; position: absolute; inset: 1px; border-radius: inherit;
       background: rgb(0 0 0 / var(--so, 0.86));
       filter: blur(var(--sb, 11px));
-      transform: translate(
-        calc(var(--sx, 5px) * (1 - var(--flk-s, 1)) * 2.4 - var(--flk-x, 0) * 1.6px),
-        calc(var(--sy, 9px) * (1 - var(--flk-s, 1)) * 2.4));
-      will-change: transform;
     }
 
     /* ── Tomes ──
@@ -229,6 +277,8 @@ export const DeskStyles = () => (
     }
     @media (max-width: 639px) { .tome { --er: 6px; --eb: 5px; --bd: 2px; } }
     .tome:hover, .tome:focus-visible { --lift: 1.5; }
+    /* Everything of the book but its shadow: one layer on wide screens */
+    .tome-body { position: absolute; inset: 0; border-radius: inherit; }
     .tome-board {
       position: absolute; top: 6px; left: 6px; right: 0; bottom: 0;
       border-radius: 4px 10px 10px 4px;
@@ -389,6 +439,8 @@ export const DeskStyles = () => (
       transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
     }
     .ticket:hover, .ticket:focus-within { --lift: 1.7; }
+    /* The player's ticket card, over its shadow: one layer on wide screens */
+    .ticket-body { position: absolute; inset: 0; border-radius: inherit; }
     .ticket-card {
       position: absolute; inset: 0;
       display: flex; flex-direction: column;
@@ -514,7 +566,8 @@ export const DeskStyles = () => (
 
     /* Reduced motion: steady light, no flicker, a flip without a spin */
     @media (prefers-reduced-motion: reduce) {
-      .hub-room, .flame, .flame-core, .flame-halo, .flame-light, .cast-turn.is-turning,
+      .hub-light, .hub-shade, .candle-shadow, .cast,
+      .flame, .flame-core, .flame-halo, .flame-light, .cast-turn.is-turning,
       .tome:hover .gilt-glow, .tome:focus-visible .gilt-glow { animation: none !important; }
       .gilt-glow, .gilt-mark, .ink-glow, .cast { transition: none !important; }
       .ticket-flip,
@@ -525,7 +578,10 @@ export const DeskStyles = () => (
       .ticket-flip.is-flipped .ticket-back { visibility: visible; }
     }
 
-    /* ── Book open/close animation ── */
+    /* ── Book open/close animation ──
+       Transform and opacity only, on the compositor: the book is its own layer while it
+       moves (will-change until it settles, again when it closes). The room's flicker
+       pauses while it is open (.hub-still). */
     @keyframes bookOpen {
       0%   { transform: perspective(1800px) scale(0.12) rotateX(58deg) translateY(130px); opacity: 0; }
       55%  { opacity: 1; }
@@ -536,8 +592,9 @@ export const DeskStyles = () => (
       45%  { opacity: 1; }
       100% { transform: perspective(1800px) scale(0.12) rotateX(58deg) translateY(130px); opacity: 0; }
     }
-    .roster-book { animation: bookOpen 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-    .roster-book.closing { animation: bookClose 0.4s cubic-bezier(0.36, 0, 0.66, 0) forwards; }
+    .roster-book { animation: bookOpen 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards; will-change: transform, opacity; }
+    .roster-book.is-settled { will-change: auto; }
+    .roster-book.closing { animation: bookClose 0.4s cubic-bezier(0.36, 0, 0.66, 0) forwards; will-change: transform, opacity; }
 
     .book-page {
       background-color: rgb(var(--c-parchment));

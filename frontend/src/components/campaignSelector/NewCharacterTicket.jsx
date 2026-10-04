@@ -3,7 +3,8 @@ import { pressable } from '../shared/a11y';
 import { TicketFront } from './RailwayTicket';
 
 // The player's railway ticket, Newfaire to the Chapter House: pressed, it opens the
-// character creator.
+// character creator. The card lies in .ticket-body, which wide screens draw as one layer
+// over the flickering shadow, so the card's cut edges are drawn into it once.
 export const NewCharacterTicket = ({ onOpen }) => (
   <div
     {...pressable(onOpen, 'New character')}
@@ -12,8 +13,10 @@ export const NewCharacterTicket = ({ onOpen }) => (
     className="ticket hub-ticket cursor-pointer relative lg:absolute w-full lg:w-[230px] lg:h-[330px] rotate-[-2deg] lg:rotate-[-4deg] lg:bottom-[56px] lg:left-[64px] lg:hover:-translate-y-3 lg:hover:-translate-x-1 lg:hover:rotate-[-5deg] z-30"
   >
     <span className="cast" aria-hidden="true" />
-    <span className="ticket-card ticket-front">
-      <TicketFront kind="player" />
+    <span className="ticket-body">
+      <span className="ticket-card ticket-front">
+        <TicketFront kind="player" />
+      </span>
     </span>
   </div>
 );

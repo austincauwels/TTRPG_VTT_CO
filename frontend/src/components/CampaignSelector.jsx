@@ -18,6 +18,7 @@ import { NewCampaignTicket } from './campaignSelector/NewCampaignTicket';
 import { ForegroundAtmosphere } from './campaignSelector/ForegroundAtmosphere';
 import { RosterBook } from './campaignSelector/RosterBook';
 import { useCastShadows } from './campaignSelector/useCastShadows';
+import { warmPaperSound } from '../game/rollSounds';
 
 export const CampaignSelector = () => {
   const {
@@ -50,6 +51,13 @@ export const CampaignSelector = () => {
   }, [accessSession?.userId]);
 
   useAutoLastPlayed({ lastPlayedCampaign, characters, gmCampaigns, setLastPlayed });
+
+  // Load the paper sound while the desk is idle, not on the first turn of the book
+  useEffect(() => {
+    const idle = typeof window !== 'undefined' && window.requestIdleCallback;
+    const id = idle ? window.requestIdleCallback(warmPaperSound, { timeout: 2000 }) : setTimeout(warmPaperSound, 1200);
+    return () => (idle ? window.cancelIdleCallback(id) : clearTimeout(id));
+  }, []);
 
   // Every object on the desk throws its shadow away from the candles
   const deskRef = useRef(null);
@@ -91,8 +99,9 @@ export const CampaignSelector = () => {
   return (
     // Below lg the hub is exactly one screen tall and never scrolls (owner's round 3 item
     // 28): the slim band, then the desk, whose tomes take the height the tickets and the
-    // folded Herald leave them (.hub-tomes in DeskStyles.jsx)
-    <div className="scene-container h-[100dvh] lg:h-auto lg:min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night">
+    // folded Herald leave them (.hub-tomes in DeskStyles.jsx). While the roster book is open
+    // the room under it holds still (.hub-still), so the book moves alone.
+    <div className={`scene-container${showBook ? ' hub-still' : ''} h-[100dvh] lg:h-auto lg:min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night`}>
       <RejoinInviteBanner rejoinInvite={rejoinInvite} setStage={setStage} setRejoinInvite={setRejoinInvite} />
 
       <DeskStyles />

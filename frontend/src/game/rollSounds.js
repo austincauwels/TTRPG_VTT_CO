@@ -133,6 +133,10 @@ const listenForUnlock = () => {
 // the next tap or key press
 export const primeRollSounds = () => { Object.keys(SOURCES).forEach(audioFor); listenForUnlock(); };
 
+// The hub loads the paper sound while it is idle, so the first book or ticket turn does not
+// set up the audio element in the middle of its animation
+export const warmPaperSound = () => { if (enabled) audioFor('paper'); };
+
 // A sound cut short (the watch's ticks) stops at its own time; a new play cancels that
 const stopTimers = {};
 

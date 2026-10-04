@@ -12,8 +12,10 @@ const PAGE_TABS = [
 // From lg up the book lies open on both pages. Below lg it shows one page at a time, with
 // folder tabs on its top edge to turn between them and Close beside the tabs, so Close is
 // always inside the viewport. The open and close animation is the same at every width.
+// The book keeps will-change only while it moves (.is-settled once it has opened).
 export const RosterBook = ({ isClosingBook, closeBook, defaultPage = 'registry', registryProps, ledgerProps }) => {
   const [page, setPage] = useState(defaultPage);
+  const [settled, setSettled] = useState(false);
   const bookRef = useDialog({ onClose: closeBook });
 
   return (
@@ -27,12 +29,13 @@ export const RosterBook = ({ isClosingBook, closeBook, defaultPage = 'registry',
         role="dialog"
         aria-modal="true"
         aria-label="Roster book"
-        className={`roster-book${isClosingBook ? ' closing' : ''} relative flex w-[calc(100vw-32px)] h-[calc(100dvh-84px)] lg:w-[90vw] lg:max-w-[1100px] 2xl:max-w-[1320px] lg:h-[85vh]`}
+        className={`roster-book${isClosingBook ? ' closing' : settled ? ' is-settled' : ''} relative flex w-[calc(100vw-32px)] h-[calc(100dvh-84px)] lg:w-[90vw] lg:max-w-[1100px] 2xl:max-w-[1320px] lg:h-[85vh]`}
         style={{
           borderRadius: '4px 12px 12px 4px',
           boxShadow: '0 30px 80px rgba(0,0,0,0.98), 0 0 0 2px rgba(0,0,0,0.9)',
         }}
         onClick={e => e.stopPropagation()}
+        onAnimationEnd={e => { if (e.target === e.currentTarget && !isClosingBook) setSettled(true); }}
       >
         {/* Page tabs and Close, on the book's top edge (one page at a time) */}
         <div className="lg:hidden absolute bottom-full left-[30px] right-0 flex items-end gap-1">

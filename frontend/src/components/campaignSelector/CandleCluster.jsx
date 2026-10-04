@@ -166,16 +166,20 @@ export const CandleCluster = ({ lit = 3 }) => (
           </radialGradient>
         </defs>
 
-        {/* Shadows: each lit flame throws every other candle's shadow away from itself */}
+        {/* Shadows: each lit flame throws every other candle's shadow away from itself. The
+            outer group flickers (a transform) and the blur sits on the inner one, so the
+            blur is drawn once and the flicker never repaints it. */}
         {CANDLES.map((f, j) => (j < lit ? (
-          <g key={`s${j}`} className="candle-shadow" filter="url(#cc-soft)"
+          <g key={`s${j}`} className="candle-shadow"
             style={{ transformBox: 'view-box', transformOrigin: `${f.x}px ${f.y}px` }}>
-            {CANDLES.map((c, i) => {
-              if (i === j) return null;
-              const s = shadowOf(c, f);
-              return <rect key={i} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} fill="url(#cc-shadow)"
-                transform={`rotate(${s.ang.toFixed(1)} ${c.x} ${c.y})`} />;
-            })}
+            <g filter="url(#cc-soft)">
+              {CANDLES.map((c, i) => {
+                if (i === j) return null;
+                const s = shadowOf(c, f);
+                return <rect key={i} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} fill="url(#cc-shadow)"
+                  transform={`rotate(${s.ang.toFixed(1)} ${c.x} ${c.y})`} />;
+              })}
+            </g>
           </g>
         ) : null))}
         {/* Where each candle stands on the desk */}
