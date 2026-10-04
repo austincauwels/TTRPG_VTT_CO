@@ -14,6 +14,7 @@ reset links.
 """
 import re
 import secrets
+import unicodedata
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -24,7 +25,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from models import Campaign, User
-from vtt import config, email_change, google, password_reset
+from vtt import config, email_change, google, password_reset, usernames
 from vtt.auth import get_current_user
 from vtt.config import logger
 from vtt.db import PUBLISHED_PASSWORDS, get_db, unusable_password_hash
@@ -79,7 +80,7 @@ def signed_in_response(db: Session, user: User) -> dict:
             "userId": user.id,
             "campaignCode": gm_campaign.campaign_code,
             "campaignId": gm_campaign.id,
-            "token": create_access_token(user.id, user.hashed_password),
+            "token": create_access_token(user.id, user.hashed_password, user.session_epoch),
         }
 
     pending_invite = None
@@ -99,16 +100,17 @@ def signed_in_response(db: Session, user: User) -> dict:
         "campaignCode": None,
         "campaignId": None,
         "pendingRejoinInvite": pending_invite,
-        "token": create_access_token(user.id, user.hashed_password),
+        "token": create_access_token(user.id, user.hashed_password, user.session_epoch),
     }
 
 
 def username_taken(db: Session, username: str) -> bool:
-    """True when a user has this name, ignoring case. Login compares names exactly, but
-    a new name must differ from every existing one in more than case, so that nobody
-    can pass for another player ("Mira" next to "mira") where people type or read a
-    name, such as the GM's invite to rejoin."""
-    return db.query(User.id).filter(func.lower(User.username) == func.lower(username)).first() is not None
+    """True when a user has this name, or holds it after a rename, compared the way
+    vtt/usernames.py compares names (case, and spaces at the ends or doubled, do not
+    count). Login compares names exactly, but a new name must differ from every existing
+    one in more than that, so that nobody can pass for another player ("Mira" next to
+    "mira ") where people type or read a name, such as the GM's invite to rejoin."""
+    return usernames.name_taken(db, username)
 
 
 def check_password(password: str, user) -> bool:
@@ -179,8 +181,11 @@ async def register(request: Request, credentials: RegisterRequest, db: Session =
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=REGISTER_REFUSALS_LIMITED)
     # Ignoring case: two users whose emails differ only in case keep Sign in with Google
     # from linking either of them by email.
+    # An address an undo link can still put back on its account (vtt/email_change.py)
+    # counts as taken.
     if username_taken(db, credentials.username) or db.query(User.id).filter(
-            func.lower(User.email) == func.lower(credentials.email)).first() is not None:
+            func.lower(User.email) == func.lower(credentials.email)).first() is not None \
+            or email_change.address_held(db, credentials.email):
         count_register_refusal(request)
         raise HTTPException(status_code=400, detail=REGISTER_REFUSED)
 
@@ -202,7 +207,7 @@ async def register(request: Request, credentials: RegisterRequest, db: Session =
         "userId": new_user.id,
         "campaignCode": "fairelands-01",
         "campaignId": campaign.id if campaign else None,
-        "token": create_access_token(new_user.id, new_user.hashed_password),
+        "token": create_access_token(new_user.id, new_user.hashed_password, new_user.session_epoch),
     }
 
 
@@ -302,7 +307,8 @@ def refuse_new_google_user(db: Session, identity: GoogleIdentity, username: str)
     refuse_linked_google_account(db, identity)
     if username_taken(db, username):
         raise HTTPException(status_code=400, detail=USERNAME_TAKEN)
-    if db.query(User.id).filter(func.lower(User.email) == identity.email.lower()).first() is not None:
+    if db.query(User.id).filter(func.lower(User.email) == identity.email.lower()).first() is not None \
+            or email_change.address_held(db, identity.email):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_TAKEN)
 
 
@@ -313,11 +319,14 @@ def refuse_new_google_user(db: Session, identity: GoogleIdentity, username: str)
 # knows one of their passwords can still link it through /api/auth/google/link.
 SEEDED_USERNAMES = tuple(PUBLISHED_PASSWORDS)
 
-_NOT_IN_USERNAMES = re.compile(r"[^\w\-. ]+")
+_NOT_IN_USERNAMES = re.compile(r"[^A-Za-z0-9_\-. ]+")
 
 
 def _username_from(text: str) -> str:
-    return " ".join(_NOT_IN_USERNAMES.sub(" ", text or "").split())[:32].strip()
+    """The text in the characters a username may use: accents dropped ("Zo\u00eb" is "Zoe"),
+    anything else that is not one of them a space."""
+    plain = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode("ascii")
+    return " ".join(_NOT_IN_USERNAMES.sub(" ", plain).split())[:32].strip()
 
 
 def suggest_username(db: Session, identity: GoogleIdentity) -> str:
@@ -483,20 +492,36 @@ async def current_account(db: Session = Depends(get_db), user: User = Depends(ge
     return account_view(db, user)
 
 
-# Every change on the account page (and linking Google while signed in) counts against
-# this, per user, on top of the per-IP limit of its route (AUTH.md, The account page).
-ACCOUNT_CHANGE_LIMIT = parse_limit("10/hour")
-ACCOUNT_CHANGE_SCOPE = "account-change"
-ACCOUNT_CHANGES_LIMITED = "Too many account changes. Please try again in an hour."
+# Failed proofs on the account page (a wrong password, a Google sign-in that is refused,
+# of another Google account or too old, an email link that does not work) and when
+# linking Google while signed in count against this, per user, on top of the per-IP
+# limit of each route (AUTH.md, The account page). Only failures count, once the proof
+# was checked, and a right proof always goes through: a stolen session that uses the
+# limit up cannot keep the owner from changing the password, which ends that session.
+FAILED_PROOF_LIMIT = parse_limit("10/hour")
+FAILED_PROOF_SCOPE = "account-failed-proof"
+FAILED_PROOFS_LIMITED = "Too many failed attempts on this account. Please try again in an hour."
 
 
-def count_account_change(user: User) -> None:
-    """Counts one change for the user; 429 once ACCOUNT_CHANGE_LIMIT is used up. Every
-    request counts, a refused one too, so a stolen session cannot guess the password
-    faster here. Off while the rate limiter is off."""
-    if limiter.enabled and not limiter.limiter.hit(ACCOUNT_CHANGE_LIMIT, ACCOUNT_CHANGE_SCOPE, str(user.id)):
-        logger.warning("Too many account changes for user id=%s", user.id)
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=ACCOUNT_CHANGES_LIMITED)
+def refused_proof(user: User, status_code: int, detail: str) -> HTTPException:
+    """The answer to a failed proof, to raise: it counts the failure for the user and is
+    the refusal itself (status_code, detail) until FAILED_PROOF_LIMIT is used up, then
+    429. Off while the rate limiter is off."""
+    if limiter.enabled and not limiter.limiter.hit(FAILED_PROOF_LIMIT, FAILED_PROOF_SCOPE, str(user.id)):
+        logger.warning("Too many failed proofs on the account page for user id=%s", user.id)
+        return HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=FAILED_PROOFS_LIMITED)
+    return HTTPException(status_code=status_code, detail=detail)
+
+
+async def proof_google_identity(user: User, credential: str) -> GoogleIdentity:
+    """signed_in_google_identity for a credential sent as (or with) a proof: one that
+    Google refuses (400) counts as a failed proof."""
+    try:
+        return await signed_in_google_identity(credential)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_400_BAD_REQUEST:
+            raise refused_proof(user, exc.status_code, exc.detail)
+        raise
 
 
 async def signed_in_google_identity(credential: str) -> GoogleIdentity:
@@ -530,9 +555,9 @@ async def link_google_to_account(request: Request, body: AccountGoogleLinkReques
     account whose email is the account's email (ignoring case), which is how an
     account whose password nobody knows proves itself. The password stays as it is
     and so do the login tokens. From then on Sign in with Google signs in to this
-    account."""
-    count_account_change(user)
-    identity = await signed_in_google_identity(body.credential)
+    account. A wrong password or a credential Google refuses counts as a failed proof
+    (refused_proof)."""
+    identity = await proof_google_identity(user, body.credential)
     if user.google_sub == identity.sub:
         return account_view(db, user)  # linked already, for example by a second click
     if user.google_sub is not None:
@@ -541,7 +566,7 @@ async def link_google_to_account(request: Request, body: AccountGoogleLinkReques
     if body.password:
         if not await run_in_threadpool(check_password, body.password, user):
             logger.warning("Wrong password to link a Google account for user id=%s", user.id)
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=RELINK_WRONG_PASSWORD)
+            raise refused_proof(user, status.HTTP_403_FORBIDDEN, RELINK_WRONG_PASSWORD)
         checked_hash = user.hashed_password
     elif not same_email(identity.email, user.email):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=RELINK_NEEDS_PASSWORD)

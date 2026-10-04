@@ -18,7 +18,10 @@ tokens carry too, which ends every earlier session. Using a token also marks the
 account's email as proven, records that someone chose the password (has_password),
 removes an unproven Google link and ends a change of address that waits for its link
 (use_token). A change of address that is used ends the user's reset links
-(vtt/email_change.py), because they went to the old address.
+(vtt/email_change.py), because they went to the old address. A reset leaves the undo
+links of earlier changes of address alone: whoever made such a change may be the one
+resetting, from the new address, and the undo link is how the old address takes the
+account back.
 """
 import hashlib
 import hmac

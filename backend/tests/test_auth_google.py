@@ -381,7 +381,8 @@ def test_an_unknown_google_account_needs_an_account(client, google):
 
 
 @pytest.mark.parametrize("name,email_local,expected", [
-    ("Zoë O'Brien!", "x", "Zoë O Brien"),
+    ("Zoë O'Brien!", "x", "Zoe O Brien"),       # accents dropped: a username is ASCII
+    ("Борис", "boris.k", "boris.k"),            # no ASCII letters at all: the email's local part
     ("  Lots   of   space  ", "x", "Lots of space"),
     ("A" * 40, "x", "A" * 32),
     ("", "jane.doe+vtt", "jane.doe vtt"),

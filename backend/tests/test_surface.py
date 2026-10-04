@@ -60,7 +60,9 @@ HTTP_ROUTES = [
     (["POST"], "/api/auth/me/email", "request_email_change", None, 202),
     (["POST"], "/api/auth/me/email/resend", "resend_email_change", None, 202),
     (["POST"], "/api/auth/me/email/cancel", "cancel_email_change", None, None),
+    (["POST"], "/api/auth/me/email/check", "check_email_change", None, None),
     (["POST"], "/api/auth/me/email/confirm", "confirm_email_change", None, None),
+    (["POST"], "/api/auth/email-change/undo", "undo_email_change", None, None),
     (["POST"], "/api/auth/me/google/remove", "remove_google_sign_in", None, None),
     (["GET"], "/api/investigators", "list_investigators", "list[CharacterRosterItem]", None),
     (["GET"], "/api/investigators/{investigator_id}", "get_investigator", "CharacterResponse", None),
@@ -95,7 +97,8 @@ def test_only_the_sign_in_routes_are_rate_limited(client):
     sends email, so it has an hourly limit too (and one per address, which
     test_password_reset.py checks). The account page's routes check a password or a
     Google token, or send email, so they are limited like login (and per user, which
-    test_account.py checks). /api/auth/config and /api/auth/me are not limited."""
+    test_account.py checks for failed proofs). The undo link mailed to an old address
+    is limited the same way. /api/auth/config and /api/auth/me are not limited."""
     limits = {k.rsplit(".", 1)[-1]: [str(x.limit) for x in v] for k, v in main.limiter._route_limits.items()}
     assert limits == {
         "login": ["10 per 1 minute"],
@@ -111,7 +114,9 @@ def test_only_the_sign_in_routes_are_rate_limited(client):
         "request_email_change": ["10 per 1 minute"],
         "resend_email_change": ["10 per 1 minute"],
         "cancel_email_change": ["10 per 1 minute"],
+        "check_email_change": ["10 per 1 minute"],
         "confirm_email_change": ["10 per 1 minute"],
+        "undo_email_change": ["10 per 1 minute"],
         "remove_google_sign_in": ["10 per 1 minute"],
     }
 

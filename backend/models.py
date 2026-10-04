@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for all game entities: users, password reset links, email change links, campaigns, circles, characters, notebook entries, and relationship votes."""
+"""SQLAlchemy ORM models for all game entities: users, password reset links, email change links and their undo links, held usernames, campaigns, circles, characters, notebook entries, and relationship votes."""
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Float, Boolean, Text, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -26,6 +26,10 @@ class User(Base):
     # nobody knows (made with Google, replaced by Google's sign-in by email, a retired
     # published password). NULL for accounts from before the column: not known.
     has_password = Column(Boolean, nullable=True)
+    # Raised by one to end every session without a new password (removing the Google
+    # sign-in). Login tokens carry it in their stamp (vtt/security.py session_stamp).
+    # NULL for rows from before the column counts as 0.
+    session_epoch = Column(Integer, default=0, nullable=True)
 
 class PasswordResetToken(Base):
     """An outstanding password reset link (vtt/password_reset.py). Only the SHA-256 of
@@ -55,6 +59,31 @@ class EmailChangeToken(Base):
     password_stamp = Column(String(32), nullable=False)
     created_at = Column(Integer, nullable=False)  # Unix time, seconds
     expires_at = Column(Integer, nullable=False)  # Unix time, seconds
+
+class EmailChangeUndo(Base):
+    """The undo link mailed to the old address when a change of address went through
+    (vtt/email_change.py). Only the SHA-256 of the link's token is kept. It works once,
+    for EMAIL_UNDO_EXPIRE_DAYS, whatever happened to the account since: a new password,
+    a new Google link or another change of address do not end it. Using it deletes it
+    and every undo link of the user issued after it."""
+    __tablename__ = "email_change_undos"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    old_email = Column(String, nullable=False)    # the address the undo puts back
+    new_email = Column(String, nullable=False)    # the address the change set
+    created_at = Column(Integer, nullable=False)  # Unix time, seconds
+    expires_at = Column(Integer, nullable=False)  # Unix time, seconds
+
+class UsernameHold(Base):
+    """A name freed by a rename, held for the user who had it until held_until
+    (vtt/usernames.py): nobody else may take it meanwhile. name_key is the name as
+    usernames.username_key compares it."""
+    __tablename__ = "username_holds"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name_key = Column(String, nullable=False, index=True)
+    held_until = Column(Integer, nullable=False)  # Unix time, seconds
 
 class Game(Base):
     __tablename__ = "games"

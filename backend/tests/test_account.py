@@ -1,6 +1,7 @@
 """The account page: POST /api/auth/me/username, /api/auth/me/password, /api/auth/me/email
-(with /resend, /cancel and /confirm), /api/auth/me/google/remove, users.has_password, and
-the email_change_tokens table (vtt/email_change.py).
+(with /resend, /cancel, /check and /confirm), /api/auth/me/google/remove, the undo link
+POST /api/auth/email-change/undo, users.has_password and users.session_epoch, held
+usernames, and the email_change_tokens and email_change_undos tables (vtt/email_change.py).
 
 vtt.mail.send_email is replaced by a fake (the outbox fixture) and vtt.google.verify_id_token
 by a stub (the google fixture): nothing here reaches Resend or Google. Most requests carry a
@@ -18,8 +19,8 @@ from limits import parse as parse_limit
 
 import main
 import support
-from models import EmailChangeToken, PasswordResetToken, User
-from vtt import config, email_change, mail, password_reset
+from models import EmailChangeToken, EmailChangeUndo, PasswordResetToken, User, UsernameHold
+from vtt import config, email_change, mail, password_reset, security, usernames
 from vtt import db as vtt_db
 from vtt import google as vtt_google
 from vtt.google import GoogleIdentity, GoogleTokenError, GoogleUnavailableError
@@ -33,6 +34,7 @@ NEW_PASSWORD = "a-new-password-1"
 ACCOUNT_KEYS = {"userId", "name", "email", "googleLinked", "googleEmail", "hasPassword", "pendingEmail"}
 _CONFIRM_LINK = re.compile(r"/confirm-email\?token=([A-Za-z0-9_-]+)")
 _RESET_LINK = re.compile(r"/reset-password\?token=([A-Za-z0-9_-]+)")
+_UNDO_LINK = re.compile(r"/undo-email-change\?token=([A-Za-z0-9_-]+)")
 AUTO = object()
 
 
@@ -46,7 +48,7 @@ GOOGLE_NOT_THIS_ACCOUNT = detail("That Google account is not the one linked to t
 GOOGLE_PROOF_OLD = detail("That Google sign-in is too old. Please confirm with Google again.")
 GOOGLE_REFUSED = detail("Google could not confirm this sign-in. Please try again.")
 ACCOUNT_CHANGED = detail("The account changed while this was being saved. Please try again.")
-CHANGES_LIMITED = detail("Too many account changes. Please try again in an hour.")
+CHANGES_LIMITED = detail("Too many failed attempts on this account. Please try again in an hour.")
 USERNAME_TAKEN = detail("That identification is already claimed.")
 USERNAME_FIXED = detail("This account's username cannot be changed.")
 EMAIL_SAME = detail("That is already your email address.")
@@ -58,6 +60,8 @@ LINK_INVALID = detail("This link has expired or has already been used.")
 LINK_OTHER_ACCOUNT = detail("This link is for another account.")
 MAIL_LIMITED = detail("Too many confirmation emails. Please try again in an hour.")
 MAIL_PAUSED = detail("Too many emails were sent from this site. Please try again later.")
+MAIL_ADDRESS_LIMITED = detail("Too many confirmation emails went to that address today. Please try again tomorrow.")
+UNDO_ADDRESS_TAKEN = detail("Another account has that address now, so the change cannot be undone.")
 REMOVE_NO_PASSWORD = detail("Set a password before you remove Google sign-in.")
 REMOVE_LOGIN_OFF = detail("Password sign-in is turned off, so Google sign-in cannot be removed.")
 PASSWORD_NEEDED = detail("Enter your current password.")
@@ -157,6 +161,15 @@ def confirm(client, headers, token):
     return call(client, "email/confirm", headers, token=token)
 
 
+def check(client, headers, token):
+    return call(client, "email/check", headers, token=token)
+
+
+def undo(client, token, headers=None):
+    """The undo link's request: no login needed."""
+    return client.post("/api/auth/email-change/undo", json={"token": token}, headers=headers or {})
+
+
 def remove_google(client, headers, password=support.PASSWORD):
     return call(client, "google/remove", headers, password=password)
 
@@ -171,6 +184,10 @@ def link_token_in(message):
     return _CONFIRM_LINK.search(message.text).group(1)
 
 
+def undo_token_in(message):
+    return _UNDO_LINK.search(message.text).group(1)
+
+
 def asked(client, outbox, user, headers, new_email=None):
     """Asks for a change of the user's address; (new address, token from the link email)."""
     new_email = new_email or address()
@@ -183,6 +200,22 @@ def asked(client, outbox, user, headers, new_email=None):
 
 def rows_of(user_id):
     return support.fetch_all(EmailChangeToken, user_id=user_id)
+
+
+def undo_rows_of(user_id):
+    return support.fetch_all(EmailChangeUndo, user_id=user_id)
+
+
+def changed(client, outbox, user, headers, new_email=None):
+    """Asks for a change of the user's address and uses its link; (new address, token of
+    the undo link mailed to the old address)."""
+    old_email = support.fetch(User, user.id).email
+    new_email, token = asked(client, outbox, user, headers, new_email=new_email)
+    before = len(outbox)
+    r = confirm(client, headers, token)
+    assert r.status_code == 200, r.text
+    [notice] = [m for m in outbox[before:] if m.to == old_email]
+    return new_email, undo_token_in(notice)
 
 
 # --- GET /api/auth/me: what the page shows --------------------------------------------------
@@ -232,12 +265,22 @@ def test_init_db_adds_has_password_and_the_table_to_an_older_database(client, mo
     with support.isolated_schema() as (eng, Session, schema):
         with eng.begin() as conn:
             conn.execute(text("DROP TABLE email_change_tokens"))
+            conn.execute(text("DROP TABLE email_change_undos"))
+            conn.execute(text("DROP TABLE username_holds"))
             conn.execute(text("ALTER TABLE users DROP COLUMN has_password"))
+            conn.execute(text("ALTER TABLE users DROP COLUMN session_epoch"))
         monkeypatch.setattr(main, "db_engine", eng)
         monkeypatch.setattr(main, "SessionLocal", Session)
         main.init_db()
         insp = sa_inspect(eng)
-        assert "has_password" in {c["name"] for c in insp.get_columns("users")}
+        assert {"has_password", "session_epoch"} <= {c["name"] for c in insp.get_columns("users")}
+        undo_indexes = {i["name"]: (i["column_names"], bool(i["unique"])) for i in insp.get_indexes("email_change_undos")}
+        assert undo_indexes["ix_email_change_undos_token_hash"] == (["token_hash"], True)
+        hold_indexes = {i["name"]: (i["column_names"], bool(i["unique"])) for i in insp.get_indexes("username_holds")}
+        assert hold_indexes["ix_username_holds_name_key"] == (["name_key"], False)
+        for table in ("email_change_undos", "username_holds"):
+            [fk] = insp.get_foreign_keys(table)
+            assert (fk["referred_table"], fk["options"].get("ondelete")) == ("users", "CASCADE")
         indexes = {i["name"]: (i["column_names"], bool(i["unique"])) for i in insp.get_indexes("email_change_tokens")}
         assert indexes["ix_email_change_tokens_token_hash"] == (["token_hash"], True)
         assert indexes["ix_email_change_tokens_user_id"] == (["user_id"], False)
@@ -346,6 +389,7 @@ def test_a_google_proof_without_google(client, google, monkeypatch):
     ("email", {"email": "someone@candela-players.org"}),
     ("email/resend", {}),
     ("email/cancel", {}),
+    ("email/check", {"token": "t"}),
     ("email/confirm", {"token": "t"}),
     ("google/remove", {"password": "p"}),
 ])
@@ -361,6 +405,10 @@ def test_every_route_needs_a_login_token_before_anything_else(client, google, ro
     ("username", {"username": "x"}),
     ("username", {"username": "n" * 33}),
     ("username", {"username": "bad/name"}),
+    ("username", {"username": "mi\u0456ra"}),       # a Cyrillic i
+    ("username", {"username": "Jos\u00e9"}),
+    ("username", {"username": "tab\there"}),
+    ("username", {"username": " \n x \n "}),          # one character once stripped
     ("username", {"username": "Fine Name", "password": "p" * 1025}),
     ("username", {"username": "Fine Name", "credential": "c" * 8193}),
     ("password", {}),
@@ -372,6 +420,8 @@ def test_every_route_needs_a_login_token_before_anything_else(client, google, ro
     ("email", {"email": "x" * 250 + "@c.org"}),
     ("email/confirm", {}),
     ("email/confirm", {"token": "t" * 257}),
+    ("email/check", {}),
+    ("email/check", {"token": "t" * 257}),
     ("google/remove", {}),
     ("google/remove", {"password": "p" * 1025}),
 ])
@@ -944,7 +994,9 @@ def test_the_log_names_no_address_token_or_password(client, outbox, caplog):
 def test_the_emails_escape_the_username():
     link = email_change.link_email("a@b.org", "<b>Mallory</b> & co", "https://x.org/confirm-email?token=abc")
     notice = email_change.notice_email("a@b.org", "<b>Mallory</b> & co", "new@b.org")
-    for message in (link, notice):
+    done = email_change.changed_email("a@b.org", "<b>Mallory</b> & co", "new@b.org",
+                                      "https://x.org/undo-email-change?token=abc")
+    for message in (link, notice, done):
         assert "<b>Mallory</b>" not in message.html
         assert "&lt;b&gt;Mallory&lt;/b&gt; &amp; co" in message.html
 
@@ -963,10 +1015,12 @@ def test_remove_google_sign_in(client, google):
     headers = signed_in(u)
     r = remove_google(client, headers)
     assert r.status_code == 200, r.text
+    assert set(r.json()) == ACCOUNT_KEYS | {"token"}
     assert (r.json()["googleLinked"], r.json()["googleEmail"], r.json()["hasPassword"]) == (False, None, True)
     row = support.fetch(User, u.id)
-    assert (row.google_sub, row.google_email) == (None, None)
-    assert me(client, headers)["userId"] == u.id  # sessions stay
+    assert (row.google_sub, row.google_email, row.session_epoch) == (None, None, 1)
+    assert client.get("/api/auth/me", headers=headers).status_code == 401  # every other session ended
+    assert me(client, support.bearer(r.json()["token"]))["userId"] == u.id  # this browser's new one works
     assert client.post("/api/auth/google", json={"credential": google.credential(sub=sub)}).json()["needs_account"]
     assert support.login(client, u.username, support.PASSWORD).status_code == 200
 
@@ -999,6 +1053,7 @@ def test_removing_google_from_an_account_without_a_password_is_refused(client, g
     headers = support.bearer(r.json()["token"])
     r = remove_google(client, headers, password=NEW_PASSWORD)
     assert (r.status_code, r.json()["googleLinked"]) == (200, False)
+    assert me(client, support.bearer(r.json()["token"]))["userId"] == u.id
 
 
 def test_removing_google_with_password_sign_in_off_is_refused(client, google, monkeypatch):
@@ -1014,8 +1069,11 @@ def test_removing_google_with_password_sign_in_off_is_refused(client, google, mo
 
 def test_removing_google_where_none_is_linked_changes_nothing(client):
     u = player()
-    r = remove_google(client, signed_in(u))
+    headers = signed_in(u)
+    r = remove_google(client, headers)
     assert (r.status_code, r.json()["googleLinked"]) == (200, False)
+    assert "token" not in r.json()
+    assert me(client, headers)["userId"] == u.id  # nothing ended
 
 
 def test_remove_google_after_the_account_changed_meanwhile(client, monkeypatch):
@@ -1049,10 +1107,14 @@ def test_add_google_sign_in_still_needs_a_proof(client, google):
 # --- rate limits ------------------------------------------------------------------------------
 
 def test_the_real_limits():
-    assert str(auth_router.ACCOUNT_CHANGE_LIMIT) == "10 per 1 hour"
+    assert str(auth_router.FAILED_PROOF_LIMIT) == "10 per 1 hour"
     assert str(email_change.EMAIL_CHANGE_MAIL_LIMIT) == "3 per 1 hour"
+    assert str(email_change.EMAIL_CHANGE_ADDRESS_LIMIT) == "3 per 1 day"
+    assert [str(limit) for limit in email_change.EMAIL_CHANGE_MAIL_LIMITS] == ["15 per 1 hour", "30 per 1 day"]
     assert account_router.GOOGLE_PROOF_MAX_AGE_SECONDS == 300
     assert email_change.EMAIL_CHANGE_EXPIRE_MINUTES == 60
+    assert email_change.EMAIL_UNDO_EXPIRE_DAYS == 7
+    assert usernames.USERNAME_HOLD_DAYS == 90
 
 
 def test_each_route_is_limited_per_ip(client, outbox, limiter_on):
@@ -1063,13 +1125,16 @@ def test_each_route_is_limited_per_ip(client, outbox, limiter_on):
     assert codes == [403] * 10 + [429]
 
 
-def test_changes_are_limited_per_user(client, outbox, google, limiter_on, monkeypatch):
-    """Counted for every request, refused ones too, on every route that changes the
-    account (linking Google included), so a stolen session cannot guess the password
-    faster by spreading over routes or clients."""
-    monkeypatch.setattr(auth_router, "ACCOUNT_CHANGE_LIMIT", parse_limit("5/hour"))
+def test_failed_proofs_are_limited_per_user(client, outbox, google, limiter_on, monkeypatch):
+    """Counted for every failed proof on every route that takes one (linking Google
+    included), so a stolen session cannot spread its guesses over routes or clients
+    without a 429. A request with no proof at all counts nothing."""
+    monkeypatch.setattr(auth_router, "FAILED_PROOF_LIMIT", parse_limit("5/hour"))
     u = player(google_sub=f"g{support.uid(20)}")
     headers = signed_in(u)
+    for _ in range(3):
+        r = change_username(client, headers, f"n_{support.uid()}", password=None)
+        assert (r.status_code, r.json()) == (403, PROOF_NEEDED)
     answers = [
         change_username(client, headers, f"n_{support.uid()}", password="a-guess"),
         change_password(client, headers, password="a-guess"),
@@ -1077,13 +1142,67 @@ def test_changes_are_limited_per_user(client, outbox, google, limiter_on, monkey
         remove_google(client, headers, password="a-guess"),
         client.post("/api/auth/me/google", json={"credential": "never-issued"}, headers=headers),
         confirm(client, headers, "no-such-link"),
+        check(client, headers, "no-such-link"),
     ]
-    assert [r.status_code for r in answers] == [403, 403, 403, 403, 400, 429]
+    assert [r.status_code for r in answers] == [403, 403, 403, 403, 400, 429, 429]
     assert answers[-1].json() == CHANGES_LIMITED
-    r = change_username(client, headers, f"n_{support.uid()}")  # even with the right password
-    assert (r.status_code, r.json()) == (429, CHANGES_LIMITED)
     other = player()
-    assert change_username(client, signed_in(other), f"n_{support.uid()}").status_code == 200
+    r = change_username(client, signed_in(other), f"n_{support.uid()}", password="a-guess")
+    assert (r.status_code, r.json()) == (403, WRONG_PASSWORD)  # another user's count
+
+
+def test_a_right_proof_goes_through_when_the_limit_is_used_up(client, outbox, google, limiter_on, monkeypatch):
+    """Only failures count, after the proof was checked, and a right proof is never
+    refused for the limit: a stolen session cannot keep the owner from the changes."""
+    monkeypatch.setattr(auth_router, "FAILED_PROOF_LIMIT", parse_limit("1/hour"))
+    u, sub, _ = google_only()
+    support.update(User, u.id, hashed_password=support.password_hash(), has_password=True)
+    headers = signed_in(u)
+    for guess in ("guess-1", "guess-2"):
+        change_username(client, headers, f"n_{support.uid()}", password=guess)
+    r = change_username(client, headers, f"n_{support.uid()}", password="guess-3")
+    assert (r.status_code, r.json()) == (429, CHANGES_LIMITED)
+    name = f"Right {support.uid()}"
+    assert change_username(client, headers, name).json()["name"] == name
+    r = change_username(client, headers, f"G {support.uid()}", password=None, credential=google.credential(sub=sub))
+    assert r.status_code == 200, r.text
+    new_email, _ = changed(client, outbox, u, headers)
+    assert support.fetch(User, u.id).email == new_email
+    r = remove_google(client, headers)
+    assert r.status_code == 200, r.text
+
+
+def test_a_stolen_session_cannot_keep_the_owner_from_changing_the_password(client, outbox, limiter_on, monkeypatch):
+    """The review's case: with password sign-in off both reset routes are 403, so a new
+    password on the account page is the only way to end a stolen login token. Empty
+    requests and wrong guesses from the thief used to use up the owner's limit."""
+    monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", False)
+    monkeypatch.setattr(auth_router, "FAILED_PROOF_LIMIT", parse_limit("2/hour"))
+    u = player()
+    stolen = signed_in(u)  # the thief's copy of the owner's token
+    for _ in range(5):
+        assert call(client, "username", stolen, username=f"n_{support.uid()}").status_code == 403
+    for n in range(3):
+        change_username(client, stolen, f"n_{support.uid()}", password=f"guess-{n}")
+    r = change_username(client, stolen, f"n_{support.uid()}", password="one-more-guess")
+    assert (r.status_code, r.json()) == (429, CHANGES_LIMITED)
+    r = change_password(client, stolen)  # the owner, who knows the password
+    assert r.status_code == 200, r.text
+    assert client.get("/api/auth/me", headers=stolen).status_code == 401
+    assert me(client, support.bearer(r.json()["token"]))["userId"] == u.id
+
+
+def test_a_working_email_link_goes_through_when_the_limit_is_used_up(client, outbox, limiter_on, monkeypatch):
+    monkeypatch.setattr(auth_router, "FAILED_PROOF_LIMIT", parse_limit("1/hour"))
+    u = player()
+    headers = signed_in(u)
+    new_email, token = asked(client, outbox, u, headers)
+    for guess in ("guess-1", "guess-2"):
+        confirm(client, headers, guess)
+    assert confirm(client, headers, "guess-3").status_code == 429
+    assert check(client, headers, token).json()["newEmail"] == new_email
+    r = confirm(client, headers, token)
+    assert (r.status_code, r.json()["email"]) == (200, new_email)
 
 
 def test_confirmation_emails_are_limited_per_user(client, outbox, limiter_on):
@@ -1102,22 +1221,62 @@ def test_confirmation_emails_are_limited_per_user(client, outbox, limiter_on):
     asked(client, outbox, v, signed_in(v))  # another user's emails go on
 
 
-def test_the_overall_mail_caps_are_shared_with_reset_emails(client, outbox, limiter_on, monkeypatch, caplog):
-    """The same Resend quota, so the same caps: one email change (a link and a notice)
-    and one reset email use up three."""
-    monkeypatch.setattr(password_reset, "MAIL_LIMITS", (parse_limit("3/hour"), parse_limit("50/day")))
+def test_email_changes_have_overall_mail_caps_of_their_own(client, outbox, limiter_on, monkeypatch, caplog):
+    """They used to share the reset emails' caps, so a few throwaway accounts asking for
+    changes could stop every reset email for an hour. A request counts three emails
+    (the link, this notice and the notice with the undo link) against caps of its own."""
+    monkeypatch.setattr(email_change, "EMAIL_CHANGE_MAIL_LIMITS", (parse_limit("3/hour"), parse_limit("30/day")))
     u = player()
-    asked(client, outbox, u, signed_in(u))
-    reset_target = player()
-    assert client.post("/api/auth/password-reset", json={"email": reset_target.email}).status_code == 202
-    assert len(outbox) == 3
+    headers = signed_in(u)
+    new_email, token = asked(client, outbox, u, headers)
     v = player()
     with caplog.at_level(logging.ERROR, logger="candela"):
         r = request_email(client, signed_in(v), address())
     assert (r.status_code, r.json()) == (429, MAIL_PAUSED)
-    assert "overall cap on emails" in caplog.text
+    assert "overall cap on email change emails" in caplog.text
+    assert rows_of(v.id) == []
+    # reset emails go on
+    target = player()
+    before = len(outbox)
+    assert client.post("/api/auth/password-reset", json={"email": target.email}).status_code == 202
+    assert [m.to for m in outbox[before:]] == [target.email]
+    # and the notice with the undo link was counted with the request, so it still goes out
+    before = len(outbox)
+    assert confirm(client, headers, token).status_code == 200
+    assert [(m.to, m.subject) for m in outbox[before:]] == [(u.email, email_change.CHANGED_SUBJECT)]
+
+
+def test_used_up_reset_email_caps_do_not_stop_email_changes(client, outbox, limiter_on, monkeypatch):
+    monkeypatch.setattr(password_reset, "MAIL_LIMITS", (parse_limit("1/hour"), parse_limit("50/day")))
     assert client.post("/api/auth/password-reset", json={"email": player().email}).status_code == 202
-    assert len(outbox) == 3 and rows_of(v.id) == []
+    u = player()
+    asked(client, outbox, u, signed_in(u))
+
+
+def test_one_address_gets_few_confirmation_links(client, outbox, limiter_on):
+    """Anyone can type any address, so one address gets at most three links a day,
+    whoever asks for them (the per-user limit counts each asker on their own)."""
+    target = address()
+    for _ in range(3):
+        u = player()
+        asked(client, outbox, u, signed_in(u), new_email=target)
+    u = player()
+    for typed in (target, f"  {target.upper()} "):
+        r = request_email(client, signed_in(u), typed)
+        assert (r.status_code, r.json()) == (429, MAIL_ADDRESS_LIMITED)
+    assert rows_of(u.id) == []
+    asked(client, outbox, u, signed_in(u))  # another address goes on
+
+
+def test_resend_counts_against_the_new_address(client, outbox, limiter_on):
+    target = address()
+    for _ in range(2):
+        u = player()
+        asked(client, outbox, u, signed_in(u), new_email=target)
+    assert call(client, "email/resend", signed_in(u)).status_code == 202
+    v = player()
+    r = request_email(client, signed_in(v), target)
+    assert (r.status_code, r.json()) == (429, MAIL_ADDRESS_LIMITED)
 
 
 def test_taken_addresses_count_as_register_refusals(client, outbox, limiter_on, monkeypatch):
@@ -1142,18 +1301,437 @@ def test_confirm_is_limited_per_ip(client, limiter_on):
 
 def test_cancel_is_not_limited_per_user(client, limiter_on, monkeypatch):
     """The owner can always drop a change someone else asked for."""
-    monkeypatch.setattr(auth_router, "ACCOUNT_CHANGE_LIMIT", parse_limit("1/hour"))
+    monkeypatch.setattr(auth_router, "FAILED_PROOF_LIMIT", parse_limit("1/hour"))
     u = player()
     headers = signed_in(u)
-    change_username(client, headers, f"n_{support.uid()}", password="a-guess")
-    assert change_username(client, headers, f"n_{support.uid()}").status_code == 429
+    for guess in ("guess-1", "guess-2"):
+        change_username(client, headers, f"n_{support.uid()}", password=guess)
+    assert change_username(client, headers, f"n_{support.uid()}", password="guess-3").status_code == 429
     assert call(client, "email/cancel", headers).status_code == 200
 
 
 def test_the_per_user_limits_are_off_with_the_limiter(client, outbox, monkeypatch):
-    monkeypatch.setattr(auth_router, "ACCOUNT_CHANGE_LIMIT", parse_limit("1/hour"))
+    monkeypatch.setattr(auth_router, "FAILED_PROOF_LIMIT", parse_limit("1/hour"))
     monkeypatch.setattr(email_change, "EMAIL_CHANGE_MAIL_LIMIT", parse_limit("1/hour"))
     u = player()
     headers = signed_in(u)
     for _ in range(3):
         asked(client, outbox, u, headers)
+
+
+# --- the link's page asks first (POST /api/auth/me/email/check) -------------------------------
+
+def test_check_shows_what_the_link_would_change_and_changes_nothing(client, outbox):
+    """The page at /confirm-email shows the new address and the account's name, and sends
+    the link only when the owner clicks Confirm new email: someone who got the link for a
+    mistyped address cannot make the change go through just by having the owner open it."""
+    u = player()
+    headers = signed_in(u)
+    new_email, token = asked(client, outbox, u, headers)
+    for _ in range(2):
+        r = check(client, headers, token)
+        assert r.status_code == 200, r.text
+        assert r.json() == {"name": u.username, "email": u.email, "newEmail": new_email}
+    assert support.fetch(User, u.id).email == u.email
+    assert len(rows_of(u.id)) == 1 and undo_rows_of(u.id) == []
+    assert confirm(client, headers, token).json()["email"] == new_email
+
+
+def test_check_refuses_as_confirm_does(client, outbox):
+    u, other = player(), player()
+    headers = signed_in(u)
+    _, token = asked(client, outbox, u, headers)
+    r = check(client, signed_in(other), token)
+    assert (r.status_code, r.json()) == (403, LINK_OTHER_ACCOUNT)
+    for bad in ("", "no-such-link"):
+        r = check(client, headers, bad)
+        assert (r.status_code, r.json()) == (400, LINK_INVALID)
+    headers = support.bearer(change_password(client, headers).json()["token"])  # ends the waiting change
+    r = check(client, headers, token)
+    assert (r.status_code, r.json()) == (400, LINK_INVALID)
+
+
+# --- the undo link mailed to the old address (POST /api/auth/email-change/undo) ---------------
+
+def test_the_old_address_gets_an_undo_link_once_the_change_goes_through(client, outbox):
+    u = player()
+    headers = signed_in(u)
+    new_email, token = asked(client, outbox, u, headers)
+    before, created = len(outbox), int(time.time())
+    assert confirm(client, headers, token).status_code == 200
+    [notice] = outbox[before:]
+    assert (notice.to, notice.subject) == (u.email, "Your Candela Obscura email address was changed")
+    undo_token = undo_token_in(notice)
+    assert f"{SITE}/undo-email-change?token={undo_token}" in notice.text
+    assert f'href="{SITE}/undo-email-change?token={undo_token}"' in notice.html
+    assert u.username in notice.text and "p***@candela-players.org" in notice.text
+    assert "within 7 days" in notice.text and "set a new password" in notice.text
+    assert new_email not in notice.text + notice.html
+    assert "\u2014" not in notice.text + notice.html
+    [row] = undo_rows_of(u.id)
+    assert row.token_hash == hashlib.sha256(undo_token.encode()).hexdigest()
+    assert (row.old_email, row.new_email) == (u.email, new_email)
+    assert created <= row.created_at and row.expires_at - row.created_at == 7 * 24 * 60 * 60
+    # the notice when the change was asked for says this one will come
+    asked_notice = [m for m in outbox[:before] if m.to == u.email][-1]
+    assert "another email with a link to undo the change" in asked_notice.text
+
+
+def test_the_undo_link_takes_the_account_back(client, outbox):
+    """Someone with the password moves the address to one they read, then changes the
+    password. The undo link needs no login: the old address comes back, every session
+    ends, and a link to set a new password goes to the old address."""
+    u = player()
+    thief = signed_in(u)
+    _, undo_token = changed(client, outbox, u, thief)
+    thief = support.bearer(change_password(client, thief).json()["token"])
+    before = len(outbox)
+    r = undo(client, undo_token)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"userId": u.id, "name": u.username, "email": u.email, "passwordReset": True}
+    row = support.fetch(User, u.id)
+    assert (row.email, row.email_proven, row.has_password) == (u.email, True, False)
+    assert client.get("/api/auth/me", headers=thief).status_code == 401
+    assert support.login(client, u.username, NEW_PASSWORD).status_code == 401
+    assert undo_rows_of(u.id) == []
+    [reset] = outbox[before:]
+    assert (reset.to, reset.subject) == (u.email, password_reset.SUBJECT)
+    reset_token = _RESET_LINK.search(reset.text).group(1)
+    r = client.post("/api/auth/password-reset/confirm", json={"token": reset_token, "password": "mine-again-1"})
+    assert r.status_code == 200, r.text
+    assert support.login(client, u.username, "mine-again-1").status_code == 200
+
+
+def test_the_undo_link_works_once_and_for_seven_days(client, outbox):
+    u = player()
+    _, first = changed(client, outbox, u, signed_in(u))
+    assert undo(client, first).status_code == 200
+    r = undo(client, first)
+    assert (r.status_code, r.json()) == (400, LINK_INVALID)
+    v = player()
+    v_new, second = changed(client, outbox, v, signed_in(v))
+    [row] = undo_rows_of(v.id)
+    support.update(EmailChangeUndo, row.id, expires_at=int(time.time()) - 1)
+    r = undo(client, second)
+    assert (r.status_code, r.json()) == (400, LINK_INVALID)
+    assert support.fetch(User, v.id).email == v_new
+
+
+@pytest.mark.parametrize("token", ["", "x", "A" * 256])
+def test_an_unknown_undo_link_is_400(client, token):
+    r = undo(client, token)
+    assert (r.status_code, r.json()) == (400, LINK_INVALID)
+
+
+def test_the_undo_body_is_checked(client):
+    assert client.post("/api/auth/email-change/undo", json={}).status_code == 422
+    assert undo(client, "t" * 257).status_code == 422
+
+
+def test_a_new_password_or_a_reset_leaves_the_undo_link_working(client, outbox):
+    """Whoever made the change may change the password, or reset it from the new address."""
+    u = player()
+    headers = signed_in(u)
+    new_email, undo_token = changed(client, outbox, u, headers)
+    change_password(client, headers)
+    assert client.post("/api/auth/password-reset", json={"email": new_email}).status_code == 202
+    reset = _RESET_LINK.search(outbox[-1].text).group(1)
+    r = client.post("/api/auth/password-reset/confirm", json={"token": reset, "password": "thiefs-own-1"})
+    assert r.status_code == 200
+    assert undo(client, undo_token).json()["email"] == u.email
+
+
+def test_an_undo_removes_a_google_link_the_old_address_does_not_prove(client, outbox, google):
+    u = player()
+    headers = signed_in(u)
+    _, undo_token = changed(client, outbox, u, headers)
+    theirs = google.credential(email=f"someone.{support.uid()}@gmail.test")
+    r = client.post("/api/auth/me/google", json={"credential": theirs, "password": support.PASSWORD}, headers=headers)
+    assert r.json()["googleLinked"] is True
+    assert undo(client, undo_token).status_code == 200
+    row = support.fetch(User, u.id)
+    assert (row.google_sub, row.google_email) == (None, None)
+    assert client.post("/api/auth/google", json={"credential": theirs}).json()["needs_account"] is True
+
+
+def test_an_undo_keeps_a_google_link_of_the_old_address(client, outbox, google):
+    u, sub, _ = google_only()
+    support.update(User, u.id, hashed_password=support.password_hash(), has_password=True)
+    _, undo_token = changed(client, outbox, u, signed_in(u))
+    assert undo(client, undo_token).status_code == 200
+    assert support.fetch(User, u.id).google_sub == sub
+    assert client.post("/api/auth/google", json={"credential": google.credential(sub=sub)}).json()["userId"] == u.id
+
+
+def test_an_undo_ends_the_undo_links_of_later_changes(client, outbox):
+    """A to B, then B to C: whoever reads A takes the account back, and the link B got for
+    the second change can no longer take it away again."""
+    u = player()
+    headers = signed_in(u)
+    _, undo_to_a = changed(client, outbox, u, headers)
+    _, undo_to_b = changed(client, outbox, u, headers)
+    assert undo(client, undo_to_a).json()["email"] == u.email
+    r = undo(client, undo_to_b)
+    assert (r.status_code, r.json()) == (400, LINK_INVALID)
+    assert support.fetch(User, u.id).email == u.email
+
+
+def test_an_undo_leaves_the_undo_links_of_earlier_changes(client, outbox):
+    u = player()
+    headers = signed_in(u)
+    b, undo_to_a = changed(client, outbox, u, headers)
+    _, undo_to_b = changed(client, outbox, u, headers)
+    assert undo(client, undo_to_b).json()["email"] == b
+    assert undo(client, undo_to_a).json()["email"] == u.email
+
+
+def test_an_address_an_undo_link_can_put_back_is_held(client, outbox, google):
+    """Nobody else may take the old address while its undo link works, or the undo could
+    not put it back."""
+    u = player()
+    old = u.email
+    changed(client, outbox, u, signed_in(u))
+    v = player()
+    r = request_email(client, signed_in(v), old.upper())
+    assert (r.status_code, r.json()) == (409, EMAIL_UNAVAILABLE)
+    r = client.post("/api/auth/register", json={"username": f"r_{support.uid()}", "email": old,
+                                                "password": "registered-1"})
+    assert r.status_code == 400
+    r = client.post("/api/auth/google", json={"credential": google.credential(email=old)})
+    r = client.post("/api/auth/google/create", json={"link_token": r.json()["link_token"],
+                                                       "username": f"g_{support.uid()}"})
+    assert r.status_code == 409
+    # once the link has expired the address is free
+    [row] = undo_rows_of(u.id)
+    support.update(EmailChangeUndo, row.id, expires_at=int(time.time()) - 1)
+    asked(client, outbox, v, signed_in(v), new_email=old)
+
+
+def test_an_undo_when_another_account_has_the_address(client, outbox):
+    """Only an account that had it before the hold (or a race) can; nothing changes."""
+    u = player()
+    old = u.email
+    new_email, undo_token = changed(client, outbox, u, signed_in(u))
+    support.update(User, player().id, email=old.upper())
+    r = undo(client, undo_token)
+    assert (r.status_code, r.json()) == (409, UNDO_ADDRESS_TAKEN)
+    assert support.fetch(User, u.id).email == new_email
+    assert len(undo_rows_of(u.id)) == 1
+
+
+def test_an_undo_with_password_sign_in_off_sends_no_reset_link(client, outbox, monkeypatch):
+    """The reset routes are off then; the old address signs in with Google (step 2 links
+    an account by its address)."""
+    u = player()
+    _, undo_token = changed(client, outbox, u, signed_in(u))
+    monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", False)
+    before = len(outbox)
+    r = undo(client, undo_token)
+    assert (r.status_code, r.json()["passwordReset"]) == (200, False)
+    assert outbox[before:] == [] and support.fetch_all(PasswordResetToken, user_id=u.id) == []
+
+
+def test_an_undo_closes_the_users_sockets(client, outbox):
+    u = player()
+    ch = support.forge(client, user_id=u.id)
+    _, undo_token = changed(client, outbox, u, signed_in(u))
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert undo(client, undo_token).status_code == 200
+        with pytest.raises(support.Closed) as closed:
+            ws.recv()
+        assert closed.value.code == 4401
+
+
+def test_no_undo_link_where_no_notice_goes(client, outbox):
+    reserved = support.make_user(email=f"someone.{support.uid()}@example.test")
+    headers = signed_in(reserved)
+    _, token = asked(client, outbox, reserved, headers)
+    before = len(outbox)
+    assert confirm(client, headers, token).status_code == 200
+    assert outbox[before:] == [] and undo_rows_of(reserved.id) == []
+
+
+def test_confirm_needs_the_site_address_for_the_undo_link(client, outbox, monkeypatch):
+    u = player()
+    headers = signed_in(u)
+    _, token = asked(client, outbox, u, headers)
+    monkeypatch.setattr(config, "RESET_URL_BASE", "")
+    r = confirm(client, headers, token)
+    assert (r.status_code, r.json()) == (503, EMAIL_CHANGE_OFF)
+    assert support.fetch(User, u.id).email == u.email
+
+
+def test_the_undo_log_names_no_address_or_token(client, outbox, caplog):
+    u = player()
+    new_email, undo_token = changed(client, outbox, u, signed_in(u))
+    with caplog.at_level(logging.INFO, logger="candela"):
+        assert undo(client, undo_token).status_code == 200
+    assert f"Undid a change of the email address of user id={u.id}" in caplog.text
+    for secret in (new_email, u.email, undo_token):
+        assert secret not in caplog.text
+
+
+# --- removing Google ends every session -------------------------------------------------------
+
+def test_removing_google_ends_the_sessions_signed_in_with_it(client, outbox, google):
+    """Login tokens were stamped with the password only, so a session from a Google
+    sign-in outlived the link by up to 30 days. Now the session epoch goes up."""
+    sub = f"g{support.uid(20)}"
+    u = player(google_sub=sub, google_email=f"g.{support.uid()}@gmail.test")
+    via_google = support.bearer(client.post("/api/auth/google", json={"credential": google.credential(sub=sub)})
+                                .json()["token"])
+    page = signed_in(u)
+    ch = support.forge(client, user_id=u.id)
+    asked(client, outbox, u, page)
+    with support.ws_connect(client, ch["id"]) as ws:
+        r = remove_google(client, page)
+        assert r.status_code == 200, r.text
+        with pytest.raises(support.Closed) as closed:
+            ws.recv()
+        assert closed.value.code == 4401
+    for headers in (via_google, page):
+        assert client.get("/api/auth/me", headers=headers).status_code == 401
+    token = r.json()["token"]
+    assert me(client, support.bearer(token))["googleLinked"] is False
+    assert rows_of(u.id) == [] and me(client, support.bearer(token))["pendingEmail"] is None
+    with support.ws_connect(client, ch["id"], token=token) as ws:
+        assert support.types(ws.initial) == ["character_update", "circle_update"]
+    login = support.login(client, u.username, support.PASSWORD).json()["token"]
+    assert me(client, support.bearer(login))["userId"] == u.id
+
+
+def test_tokens_from_before_the_session_epoch_keep_working():
+    h = support.password_hash()
+    assert security.session_stamp(h, 0) == security.session_stamp(h, None) == security.password_stamp(h)
+    assert security.session_stamp(h, 1) not in (security.password_stamp(h), security.session_stamp(h, 2))
+
+
+def test_a_socket_checks_the_session_epoch_before_each_message(client):
+    """A socket that close_user missed (the epoch raised in the database) ends at its
+    next message."""
+    u = player()
+    ch = support.forge(client, user_id=u.id)
+    with support.ws_connect(client, ch["id"]) as ws:
+        support.update(User, u.id, session_epoch=5)
+        ws.send("update_pen_font", pen_font="Kalam")
+        with pytest.raises(support.Closed) as closed:
+            ws.recv()
+        assert closed.value.code == 4401
+
+
+# --- usernames: look-alikes and freed names ---------------------------------------------------
+
+@pytest.mark.parametrize("typed", ["{name} ", " {name}", "{name}\n", "{upper}", "  {upper}  "])
+def test_a_look_alike_of_another_players_name_is_refused(client, typed):
+    """"mira " and "mira\n" passed the old check ($ matches before a final newline) and
+    were stored as sent, next to "mira"."""
+    other = player(username=f"mira_{support.uid()}")
+    u = player()
+    r = change_username(client, signed_in(u), typed.format(name=other.username, upper=other.username.upper()))
+    assert (r.status_code, r.json()) == (400, USERNAME_TAKEN)
+    assert support.fetch(User, u.id).username == u.username
+
+
+def test_a_name_is_stored_stripped_with_single_spaces(client):
+    u = player()
+    base = f"Mira  Bell {support.uid(4)}"
+    r = change_username(client, signed_in(u), f"  {base}\n")
+    assert r.status_code == 200, r.text
+    assert r.json()["name"] == support.fetch(User, u.id).username == " ".join(base.split())
+
+
+@pytest.mark.parametrize("legacy", ["{base} ", "{base}\n", "{spaced}"])
+def test_names_from_before_the_rule_are_compared_the_same_way(client, legacy):
+    """Register used to store such names as they came. A new name that differs from one
+    only in case or spaces is refused, on the account page and at register."""
+    base = f"legacy {support.uid()}"
+    player(username=legacy.format(base=base, spaced=base.replace(" ", "   ")))
+    u = player()
+    r = change_username(client, signed_in(u), base.upper())
+    assert (r.status_code, r.json()) == (400, USERNAME_TAKEN)
+    r = client.post("/api/auth/register", json={"username": base, "email": address(), "password": "registered-1"})
+    assert r.status_code == 400
+
+
+@pytest.mark.parametrize("typed", ["admin ", " Admin", "admin\n", "KEEPER_TEST "])
+def test_a_seeded_name_with_stray_spaces_is_refused(client, typed):
+    u = player()
+    r = change_username(client, signed_in(u), typed)
+    assert (r.status_code, r.json()) == (400, USERNAME_TAKEN)
+
+
+def test_register_strips_the_name_and_takes_ascii_letters_only(client):
+    name = f"Reg Name {support.uid(4)}"
+    r = client.post("/api/auth/register", json={"username": f" {name}  ", "email": address(), "password": "registered-1"})
+    assert (r.status_code, r.json()["name"]) == (201, name)
+    for bad in (f"Jos\u00e9 {support.uid(4)}", f"mi\u0456ra {support.uid(4)}"):
+        r = client.post("/api/auth/register", json={"username": bad, "email": address(), "password": "registered-1"})
+        assert r.status_code == 422
+
+
+def test_a_freed_name_is_held_for_its_former_owner(client, google):
+    """A GM may still invite a player to rejoin by the name they knew, and the invite skips
+    the GM's approval, so nobody else may take a freed name for USERNAME_HOLD_DAYS."""
+    u = player(username=f"Old Name {support.uid(6)}")
+    old, new = u.username, f"New Name {support.uid(6)}"
+    before = int(time.time())
+    assert change_username(client, signed_in(u), new).status_code == 200
+    [hold] = support.fetch_all(UsernameHold, user_id=u.id)
+    assert hold.name_key == old.lower()
+    assert 90 * 24 * 60 * 60 <= hold.held_until - before <= 90 * 24 * 60 * 60 + 60
+    v = player()
+    for typed in (old, old.upper(), f" {old} "):
+        r = change_username(client, signed_in(v), typed)
+        assert (r.status_code, r.json()) == (400, USERNAME_TAKEN)
+    r = client.post("/api/auth/register", json={"username": old, "email": address(), "password": "registered-1"})
+    assert r.status_code == 400
+    r = client.post("/api/auth/google", json={"credential": google.credential()})
+    r = client.post("/api/auth/google/create", json={"link_token": r.json()["link_token"], "username": old})
+    assert (r.status_code, r.json()) == (400, USERNAME_TAKEN)
+    # its former owner may take it back, and then the other name is held
+    assert change_username(client, signed_in(u), old).json()["name"] == old
+    assert [h.name_key for h in support.fetch_all(UsernameHold, user_id=u.id)] == [new.lower()]
+    r = change_username(client, signed_in(v), new)
+    assert (r.status_code, r.json()) == (400, USERNAME_TAKEN)
+
+
+def test_a_held_name_is_free_once_the_hold_ends(client):
+    u = player(username=f"Held {support.uid(6)}")
+    old = u.username
+    assert change_username(client, signed_in(u), f"Other {support.uid(6)}").status_code == 200
+    [hold] = support.fetch_all(UsernameHold, user_id=u.id)
+    support.update(UsernameHold, hold.id, held_until=int(time.time()) - 1)
+    v = player()
+    assert change_username(client, signed_in(v), old).json()["name"] == old
+
+
+def test_a_rejoin_invite_by_a_freed_name_reaches_nobody(client):
+    gm = player()
+    camp = support.new_campaign(client, gm_user_id=gm.id)
+    u = player(username=f"Invitee {support.uid(6)}")
+    old = u.username
+    assert change_username(client, signed_in(u), f"Renamed {support.uid(6)}").status_code == 200
+    r = client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": old}, headers=support.as_user(gm.id))
+    assert r.status_code == 404
+    assert support.fetch(User, u.id).pending_rejoin_campaign_id is None
+
+
+# --- password sign-in turned off later --------------------------------------------------------
+
+def test_startup_counts_the_accounts_without_google_while_password_sign_in_is_off(client, monkeypatch, caplog):
+    """An account that removed Google while password sign-in was on cannot sign in
+    directly once it is turned off; the log says how many such accounts there are."""
+    player()  # no Google link
+    monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", True)
+    with caplog.at_level(logging.WARNING, logger="candela"):
+        assert vtt_db.warn_password_only_accounts() is None
+    assert "have no Google sign-in" not in caplog.text
+    monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", False)
+    with main.SessionLocal() as s:
+        expected = s.query(User).filter(User.google_sub.is_(None),
+                                        User.username.notin_(list(vtt_db.PUBLISHED_PASSWORDS))).count()
+    assert expected >= 1
+    with caplog.at_level(logging.WARNING, logger="candela"):
+        assert vtt_db.warn_password_only_accounts() == expected
+        main.init_db()
+    assert caplog.text.count(f"{expected} account(s) have no Google sign-in") == 2

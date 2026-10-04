@@ -3,12 +3,13 @@ counts by its /64 network, see client_key).
 
 Every route that signs a user in (login, register and the Google sign-in routes)
 hands out a login token: a JWT signed with SECRET_KEY (HS256). Its "sub" claim is
-the user id as a string, its "pwh" claim is the password stamp (a keyed hash of the
-user's password hash, see password_stamp), and it expires ACCESS_TOKEN_EXPIRE_MINUTES
-after it was issued. REST calls send it as "Authorization: Bearer <token>"; the
+the user id as a string, its "pwh" claim is the session stamp (a keyed hash of the
+user's password hash and session epoch, see session_stamp), and it expires
+ACCESS_TOKEN_EXPIRE_MINUTES after it was issued. REST calls send it as "Authorization: Bearer <token>"; the
 WebSocket sends it as the "token" query parameter, because browsers cannot set
 headers on a WebSocket. vtt/auth.py turns a token back into a user, and refuses it
-when the user's password has been replaced since the token was issued.
+when the user's password has been replaced, or the session epoch raised, since the
+token was issued.
 
 Sign in with Google hands out a second kind of token, a link token, when a Google
 account belongs to no user yet. It is signed with the same key but has
@@ -71,12 +72,28 @@ def password_stamp(password_hash: Optional[str]) -> str:
     return digest.hexdigest()[:32]
 
 
-def create_access_token(user_id: int, password_hash: Optional[str]) -> str:
-    """A login token for the user, stamped with their current password hash."""
+def session_stamp(password_hash: Optional[str], session_epoch: Optional[int] = None) -> str:
+    """What a login token's "pwh" claim must equal: the password stamp while the user's
+    session epoch (users.session_epoch) is 0 or NULL, so tokens from before the epoch
+    keep working, and otherwise a keyed hash of the password hash and the epoch. Raising
+    the epoch ends every login token issued before, as a new password does, but keeps
+    the password (removing the Google sign-in does that). Reset and email change links
+    carry the plain password stamp: a new epoch leaves them alone."""
+    if not session_epoch:
+        return password_stamp(password_hash)
+    material = f"{password_hash or ''}#session-{int(session_epoch)}"
+    digest = hmac.new(SECRET_KEY.encode(), material.encode(), hashlib.sha256)
+    return digest.hexdigest()[:32]
+
+
+def create_access_token(user_id: int, password_hash: Optional[str], session_epoch: Optional[int] = None) -> str:
+    """A login token for the user, stamped with their current password hash and session
+    epoch (session_stamp). Every caller passes the user's epoch: a token without it
+    stops working once the epoch is raised."""
     now = datetime.now(timezone.utc)
     claims = {
         "sub": str(user_id),
-        "pwh": password_stamp(password_hash),
+        "pwh": session_stamp(password_hash, session_epoch),
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).timestamp()),
     }
@@ -84,10 +101,10 @@ def create_access_token(user_id: int, password_hash: Optional[str]) -> str:
 
 
 def login_token_subject(token: Optional[str]) -> Optional[Tuple[int, str]]:
-    """(user id, password stamp) of a login token, or None when the token is missing,
+    """(user id, session stamp) of a login token, or None when the token is missing,
     malformed, signed with another key or algorithm, expired, a link token, or lacks
     a claim. Only HS256 is accepted. The caller compares the stamp with the user's
-    current password hash (vtt.auth.user_for_token)."""
+    current password hash and session epoch (vtt.auth.user_for_token)."""
     if not token or not isinstance(token, str):
         return None
     try:

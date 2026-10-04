@@ -1,6 +1,6 @@
 """Login tokens: every REST route except the sign-in routes (login, register, the
-Google ones, /api/auth/config and the two password reset routes) answers 401 without a
-valid token, the WebSocket closes with 4401 without one, and the WebSocket access
+Google ones, /api/auth/config, the two password reset routes and the email change undo
+link) answers 401 without a valid token, the WebSocket closes with 4401 without one, and the WebSocket access
 matrix (GM-only messages, acting for a character). Per-route ownership and GM
 checks (403 and 404) are also tested next to each route's and message type's other
 tests."""
@@ -19,11 +19,11 @@ from vtt.ws.handlers import HANDLERS
 
 PUBLIC = {"/api/auth/login", "/api/auth/register", "/api/auth/google", "/api/auth/google/link",
           "/api/auth/google/create", "/api/auth/config", "/api/auth/password-reset",
-          "/api/auth/password-reset/confirm"}
+          "/api/auth/password-reset/confirm", "/api/auth/email-change/undo"}
 # The signed-in user's own account is under /api/auth/ too, and needs a token.
 ACCOUNT = {"/api/auth/me", "/api/auth/me/google", "/api/auth/me/username", "/api/auth/me/password",
            "/api/auth/me/email", "/api/auth/me/email/resend", "/api/auth/me/email/cancel",
-           "/api/auth/me/email/confirm", "/api/auth/me/google/remove"}
+           "/api/auth/me/email/check", "/api/auth/me/email/confirm", "/api/auth/me/google/remove"}
 
 PROTECTED = sorted(
     (method, route.path)
@@ -38,7 +38,7 @@ def _url(path):
 
 
 def test_every_route_but_the_sign_in_routes_is_protected():
-    assert len(PROTECTED) == 33
+    assert len(PROTECTED) == 34
     assert PUBLIC | ACCOUNT == {r.path for r in main.app.routes
                                 if isinstance(r, APIRoute) and r.path.startswith("/api/auth/")}
 

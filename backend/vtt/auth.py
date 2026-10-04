@@ -3,7 +3,8 @@
 get_current_user is the FastAPI dependency every REST route uses except login and
 register. It reads "Authorization: Bearer <token>" and answers 401 when the header
 is missing, the token is invalid or expired, its user no longer exists, or the
-user's password has been replaced since the token was issued.
+user's password has been replaced (or the session epoch raised) since the token was
+issued.
 
 The helpers below implement the access rules in docs/refactor/AUTH.md. They raise
 HTTPException: 404 when an id the client sent does not exist, 403 when it exists but
@@ -18,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from models import Campaign, Character, User
 from vtt.db import get_db
-from vtt.security import login_token_subject, password_stamp
+from vtt.security import login_token_subject, session_stamp
 
 NOT_AUTHENTICATED = "Not authenticated."
 NOT_ALLOWED = "Not allowed."
@@ -42,24 +43,25 @@ def bearer_token(request: Request) -> Optional[str]:
 
 
 def user_for_token(db: Session, token: Optional[str]) -> Optional[User]:
-    """The user a login token names, or None. A token whose password stamp no longer
-    matches the user's password hash (the password was replaced) counts as none."""
+    """The user a login token names, or None. A token whose stamp no longer matches the
+    user's password hash and session epoch (the password was replaced, or every session
+    was ended) counts as none."""
     subject = login_token_subject(token)
     if subject is None:
         return None
     user_id, stamp = subject
     user = db.query(User).filter(User.id == user_id).first()
-    if user is None or not hmac.compare_digest(stamp, password_stamp(user.hashed_password)):
+    if user is None or not hmac.compare_digest(stamp, session_stamp(user.hashed_password, user.session_epoch)):
         return None
     return user
 
 
 def stamp_still_valid(db: Session, user_id: int, stamp: str) -> bool:
-    """True while the user exists and their password hash still has this stamp, so a
-    token carrying it still works. A column query, so the WebSocket's long-lived
-    session reads the row as it is now."""
-    row = db.query(User.hashed_password).filter(User.id == user_id).first()
-    return row is not None and hmac.compare_digest(stamp, password_stamp(row[0]))
+    """True while the user exists and their password hash and session epoch still have
+    this stamp, so a token carrying it still works. A column query, so the WebSocket's
+    long-lived session reads the row as it is now."""
+    row = db.query(User.hashed_password, User.session_epoch).filter(User.id == user_id).first()
+    return row is not None and hmac.compare_digest(stamp, session_stamp(row[0], row[1]))
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:

@@ -36,12 +36,19 @@ class LoginRequest(BaseModel):
     def password_length(cls, v):
         return _check_login_password(v)
 
+_USERNAME_CHARACTERS = _re.compile(r"[A-Za-z0-9_.\- ]+")
+
 def check_new_username(v):
-    """The rule for a username chosen at registration (and when creating an account
-    with Google): 2 to 32 letters, digits, spaces, dots, dashes or underscores."""
+    """The rule for a username chosen at registration, when creating an account with
+    Google, and on the account page. Whitespace at either end is dropped and runs of
+    spaces become one, then: 2 to 32 of the ASCII letters, digits, spaces, dots, dashes
+    and underscores. The name is stored as it comes out of this (vtt/usernames.py
+    compares names the same way). Letters from other scripts are refused, since some of
+    them look like ASCII ones (a Cyrillic "i" in "mira")."""
+    v = _re.sub(r" {2,}", " ", v.strip())
     if len(v) < 2 or len(v) > 32:
         raise ValueError("Username must be 2–32 characters")
-    if not _re.match(r"^[\w\-. ]+$", v):
+    if not _USERNAME_CHARACTERS.fullmatch(v):
         raise ValueError("Username contains invalid characters")
     return v
 
@@ -224,6 +231,18 @@ class EmailChange(AccountProof):
         return check_email_shape(v)
 
 class EmailChangeConfirm(BaseModel):
+    token: str
+
+    @field_validator("token")
+    @classmethod
+    def token_length(cls, v):
+        if len(v) > _MAX_RESET_TOKEN_LENGTH:
+            raise ValueError("Token too long")
+        return v
+
+class EmailChangeUndo(BaseModel):
+    """POST /api/auth/email-change/undo: the token from the undo link mailed to the old
+    address once a change of address went through."""
     token: str
 
     @field_validator("token")
