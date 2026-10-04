@@ -16,6 +16,12 @@ served_portrait applies the same type and size rule when a portrait is read, so 
 value stored before the rule (a link to another site, an SVG, a picture over the
 cap) is served as no portrait. The stored value is left alone.
 
+The one other value taken is a path to one of the app's own pictures, such as
+"/images/Journalist.png" (frontend/public/images, served by the same site): the role
+portraits the seeded and demo characters carry. A browser loads it from the site it
+is already on, so it reaches nobody else. Both check_portrait and served_portrait take
+it, so a portrait shown from such a path can be set back (the dossier's Undo).
+
 portrait_change_allowed limits how often each user may set a portrait.
 """
 import base64
@@ -39,6 +45,13 @@ PORTRAIT_CHANGE_LIMITS = (parse_limit("10/minute"), parse_limit("50/day"))
 PORTRAIT_CHANGE_SCOPE = "portrait-change"
 
 _DATA_URL_PREFIX = re.compile(r"data:image/(png|jpeg|webp);base64,")
+# The app's own pictures: one file name straight under /images/, no other path parts.
+_OWN_IMAGE_PATH = re.compile(r"/images/[A-Za-z0-9_-]{1,80}\.(?:png|jpe?g|webp)")
+
+
+def is_own_image_path(value) -> bool:
+    """True for a path to one of the app's own pictures, such as "/images/Journalist.png"."""
+    return isinstance(value, str) and _OWN_IMAGE_PATH.fullmatch(value) is not None
 
 
 def _looks_like_a_picture(raw: bytes) -> bool:
@@ -49,12 +62,15 @@ def _looks_like_a_picture(raw: bytes) -> bool:
 
 
 def check_portrait(value):
-    """None or "" is no portrait and gives None. Anything else must be a data URL of a
+    """None or "" is no portrait and gives None. A path to one of the app's own pictures
+    (is_own_image_path) is returned unchanged. Anything else must be a data URL of a
     PNG, JPEG or WebP picture (the type, and bytes that start like one of the three),
     valid base64, and at most PORTRAIT_MAX_LENGTH characters in all; it is returned
     unchanged. Otherwise HTTPException 422 (not a picture) or 413 (too large)."""
     if value is None or value == "":
         return None
+    if is_own_image_path(value):
+        return value
     match = _DATA_URL_PREFIX.match(value)
     if match is None:
         raise HTTPException(status_code=422, detail=PORTRAIT_NOT_A_PICTURE)
@@ -71,10 +87,13 @@ def check_portrait(value):
 
 def served_portrait(value):
     """A stored portrait as the API serves it: the value when it is a PNG, JPEG or WebP
-    data URL of at most PORTRAIT_MAX_LENGTH characters, else None (no portrait). It
-    looks at the type and the length only; every write since the rule was checked in
-    full, and older bytes behind a valid prefix are inert in an <img>."""
+    data URL of at most PORTRAIT_MAX_LENGTH characters, or a path to one of the app's
+    own pictures, else None (no portrait). It looks at the type and the length only;
+    every write since the rule was checked in full, and older bytes behind a valid
+    prefix are inert in an <img>."""
     if isinstance(value, str) and len(value) <= PORTRAIT_MAX_LENGTH and _DATA_URL_PREFIX.match(value):
+        return value
+    if is_own_image_path(value):
         return value
     return None
 

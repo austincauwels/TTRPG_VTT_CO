@@ -288,6 +288,12 @@ def test_the_change_limit_counts_the_caller(client, limiter_on, monkeypatch):
 
 LEGACY_VALUES = [
     "https://tracker.example.org/me.png",  # a link: every viewer's browser would fetch it
+    "//tracker.example.org/images/me.png",  # a link to another site that only looks like a path
+    "/images/../secret.png",               # only one file name under /images/
+    "/images/portraits/me.png",
+    "/images/me.svg",
+    "/images/me.png?track=1",
+    "/IMAGES/Journalist.png",
     "data:image/svg+xml;base64," + base64.b64encode(b"<svg/>").decode(),
     "data:image/gif;base64," + base64.b64encode(b"GIF89a....").decode(),
     "data:image/PNG;base64," + base64.b64encode(SIGNATURES["png"]).decode(),
@@ -324,6 +330,45 @@ def test_a_stored_value_that_follows_the_rule_is_served(client):
     assert client.get(f"/api/investigators/{ch['id']}", headers=support.as_owner(ch["id"])).json()["profile_pic"] == pic
     with support.ws_connect(client, ch["id"]) as ws:
         assert ws.initial[0]["payload"]["profile_pic"] == pic
+
+
+# The app's own pictures (frontend/public/images): the role portraits the seeded and demo
+# characters carry as paths. They come from the site the browser is already on.
+OWN_IMAGE_PATHS = ["/images/Journalist.png", "/images/doctor.png", "/images/criminal.webp",
+                   "/images/magician.jpg", "/images/cryp1.jpg", "/images/some_other-file.jpeg"]
+
+
+@pytest.mark.parametrize("path", OWN_IMAGE_PATHS)
+def test_a_path_to_one_of_the_apps_own_pictures_is_served(client, path):
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp)
+    support.update(Character, ch["id"], profile_pic=path)
+    assert client.get(f"/api/investigators/{ch['id']}", headers=support.as_owner(ch["id"])).json()["profile_pic"] == path
+    roster = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
+    assert [c["profile_pic"] for c in roster["active_investigators"] if c["id"] == ch["id"]] == [path]
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert ws.initial[0]["payload"]["profile_pic"] == path
+
+
+def test_a_path_to_one_of_the_apps_own_pictures_can_be_set_back(client):
+    """The dossier's Undo sends the earlier portrait back, which for a demo character is
+    a path such as /images/Journalist.png."""
+    ch = support.forge(client)
+    support.update(Character, ch["id"], profile_pic="/images/Journalist.png")
+    assert put(client, ch["id"], picture()).status_code == 200
+    r = put(client, ch["id"], "/images/Journalist.png")
+    assert r.status_code == 200
+    assert r.json()["profile_pic"] == "/images/Journalist.png"
+    assert stored(ch["id"]) == "/images/Journalist.png"
+
+
+@pytest.mark.parametrize("value", LEGACY_VALUES[1:7])
+def test_other_paths_are_refused_when_set(client, value):
+    ch = support.forge(client)
+    r = put(client, ch["id"], value)
+    assert r.status_code == 422
+    assert r.json() == NOT_A_PICTURE
+    assert stored(ch["id"]) is None
 
 
 # --- campaign broadcasts ---------------------------------------------------------------------------

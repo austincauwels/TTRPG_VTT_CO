@@ -44,6 +44,7 @@ def outbox(monkeypatch):
 
     monkeypatch.setattr(mail, "send_email", fake_send)
     monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", True)
+    monkeypatch.setattr(config, "RESET_URL_BASE", "https://candela-site.example-site.org")
     return sent
 
 
@@ -107,11 +108,39 @@ def test_the_link_uses_reset_url_base(client, outbox, monkeypatch):
     assert "https://candela.example-site.org/reset-password?token=" in outbox[0].text
 
 
-def test_reset_url_base_default():
-    """The setting is read at startup: RESET_URL_BASE, else beta, without a trailing slash."""
+def test_reset_url_base_has_no_default():
+    """The setting is read at startup, without a trailing slash, and has no default: a
+    site that does not set it must not mail links to another site."""
     import os
-    expected = (os.environ.get("RESET_URL_BASE", "").strip() or "https://candela-beta.gatergrid.com").rstrip("/")
-    assert config.RESET_URL_BASE == expected
+    assert config.RESET_URL_BASE == config._reset_url_base(os.environ.get("RESET_URL_BASE", ""))
+    assert config._reset_url_base("") == ""
+    assert config._reset_url_base(None) == ""
+    assert config._reset_url_base("  https://candela.gatergrid.com/ ") == "https://candela.gatergrid.com"
+    assert config._reset_url_base("https://candela-beta.gatergrid.com") == "https://candela-beta.gatergrid.com"
+    assert config._reset_url_base("http://localhost:5173") == "http://localhost:5173"
+
+
+@pytest.mark.parametrize("value", [
+    "candela.gatergrid.com",                       # no scheme
+    "javascript:alert(1)",
+    "ftp://candela.gatergrid.com",
+    "https://candela.gatergrid.com/?next=x",
+    "https://user@candela.gatergrid.com",
+    "https://candela.gatergrid.com/a b",
+    "https://",
+])
+def test_a_reset_url_base_that_is_no_address_turns_links_off(value):
+    assert config._reset_url_base(value) == ""
+
+
+def test_without_reset_url_base_no_link_is_issued_or_sent(client, outbox, monkeypatch):
+    """Same answer, but no token and no email."""
+    monkeypatch.setattr(config, "RESET_URL_BASE", "")
+    u = player()
+    r = ask(client, u.email)
+    assert (r.status_code, r.json()) == (202, OK)
+    assert outbox == []
+    assert support.fetch_all(PasswordResetToken, user_id=u.id) == []
 
 
 def test_the_address_is_matched_ignoring_case_and_spaces(client, outbox):
@@ -666,6 +695,7 @@ def test_a_request_succeeds_without_a_key(client, monkeypatch, caplog):
     """The real send_email runs: no key, so it logs and sends nothing."""
     monkeypatch.setattr(config, "RESEND_API_KEY", "")
     monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", True)
+    monkeypatch.setattr(config, "RESET_URL_BASE", "https://candela-site.example-site.org")
     u = player()
     with caplog.at_level(logging.WARNING, logger="candela"):
         r = ask(client, u.email)
@@ -677,6 +707,7 @@ def test_a_request_succeeds_without_a_key(client, monkeypatch, caplog):
 def test_a_request_succeeds_when_resend_fails(client, monkeypatch, caplog):
     monkeypatch.setattr(config, "RESEND_API_KEY", "re_test_key")
     monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", True)
+    monkeypatch.setattr(config, "RESET_URL_BASE", "https://candela-site.example-site.org")
     resend = FakeResend(error=requests.ConnectionError("no route"))
     monkeypatch.setattr(mail, "post", resend)
     u = player()

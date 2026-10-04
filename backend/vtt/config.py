@@ -86,8 +86,26 @@ if not ALLOW_PASSWORD_LOGIN and not GOOGLE_CLIENT_ID:
 # out through Resend's HTTP API with this key (vtt/mail.py). Without a key a reset
 # request still succeeds, and the log says that the email was not sent.
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
-# Where the link in the email points: RESET_URL_BASE + "/reset-password?token=...".
-RESET_URL_BASE = (os.getenv("RESET_URL_BASE", "").strip() or "https://candela-beta.gatergrid.com").rstrip("/")
+# Where the link in the email points: RESET_URL_BASE + "/reset-password?token=...". There
+# is no default: each site sets its own address (live https://candela.gatergrid.com, beta
+# https://candela-beta.gatergrid.com). Without it, or with a value that is not an http(s)
+# address, no reset link is issued or sent and the log says why, so a deploy that misses
+# it can never mail one site's links (and send their tokens) to the other site.
+_RESET_URL_BASE_RE = _re.compile(r"https?://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~/-]*)?")
+
+
+def _reset_url_base(raw):
+    value = (raw or "").strip().rstrip("/")
+    if value and not _RESET_URL_BASE_RE.fullmatch(value):
+        logger.error("RESET_URL_BASE is not an http(s) address (%r), so password reset links are off", value)
+        return ""
+    return value
+
+
+RESET_URL_BASE = _reset_url_base(os.getenv("RESET_URL_BASE", ""))
+if ALLOW_PASSWORD_LOGIN and not RESET_URL_BASE:
+    logger.error("RESET_URL_BASE is not set, so password reset emails are off: a reset request "
+                 "answers as usual but issues and sends no link")
 PASSWORD_RESET_EXPIRE_MINUTES = 60  # a reset link works once, within this time
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./candela_obscura.db")

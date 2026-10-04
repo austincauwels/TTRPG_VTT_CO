@@ -527,6 +527,10 @@ async def request_password_reset(request: Request, body: PasswordResetRequest, b
     require_password_login()
     if not password_reset.address_allowed(body.email):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=RESET_ADDRESS_LIMITED)
+    if not config.RESET_URL_BASE:
+        # This site has no address for its links (vtt/config.py), so it issues none
+        logger.error("No password reset link was issued: RESET_URL_BASE is not set")
+        return {"ok": True}
     password_reset.forget_expired(db)
     users = [u for u in password_reset.accounts_for(db, body.email) if password_reset.mail_allowed(u)]
     emails = password_reset.issue_links(db, users)
