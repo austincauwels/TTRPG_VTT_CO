@@ -13,12 +13,14 @@ export const useConfirmStep = () => {
     const onPointerDown = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setArmed(false);
     };
-    const onKeyDown = (e) => { if (e.key === 'Escape') setArmed(false); };
+    // Capture phase, and the key is marked handled, so Escape disarms the button without
+    // also closing the dialog the button sits in (useDialog skips handled keys).
+    const onKeyDown = (e) => { if (e.key === 'Escape') { e.preventDefault(); setArmed(false); } };
     document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keydown', onKeyDown, true);
     return () => {
       document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('keydown', onKeyDown, true);
     };
   }, [armed]);
 

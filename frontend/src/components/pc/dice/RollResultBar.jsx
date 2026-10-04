@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useDialog } from '../../shared/useDialog';
 import { OUTCOME, outcomeForKept, rollPoolText } from '../../../game/outcomes';
 
 const MiniDie = ({ die, counts, dim, onClick }) => {
@@ -31,13 +32,7 @@ export const RollResultBar = ({
   getIsCandidate, onDieClick, trayInView, children,
 }) => {
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
+  const sheetRef = useDialog({ open, onClose: () => setOpen(false) });
 
   if (!lastRoll && !isRolling) return null;
 
@@ -53,7 +48,7 @@ export const RollResultBar = ({
   const summary = (
     <span className="flex flex-col min-w-0">
       <span className="flex items-center gap-1.5 font-sans text-xs font-black uppercase tracking-[0.14em] text-cream/70 min-w-0">
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: rollerInk || 'rgb(var(--c-candle-gold))' }} />
+        <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ background: rollerInk || 'rgb(var(--c-candle-gold))' }} />
         <span className="truncate">{rollerName}{poolText ? ` · ${poolText}` : ''}</span>
       </span>
       <span className={`font-serif text-lg font-bold leading-tight truncate ${outcome?.className || 'text-cream'}`}>{status}</span>
@@ -65,7 +60,7 @@ export const RollResultBar = ({
       {open ? (
         <>
           <div className="fixed inset-0 z-[70] bg-black/60" onClick={() => setOpen(false)} />
-          <div role="dialog" aria-modal="true" aria-label="Dice tray"
+          <div ref={sheetRef} role="dialog" aria-modal="true" aria-label="Dice tray"
             className="fixed inset-x-0 bottom-0 z-[71] max-h-[85dvh] overflow-y-auto bg-ink border-t-[6px] border-[#2e1d15] shadow-[0_-12px_30px_rgba(0,0,0,0.85)] px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <div className="max-w-[640px] mx-auto space-y-4">
               <div className="flex items-center justify-between gap-3">

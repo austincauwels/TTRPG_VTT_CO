@@ -15,6 +15,7 @@ import { CircleCreationPopup } from './CircleCreationPopup';
 import { RelationshipIntroPopup } from './RelationshipIntroPopup';
 import { ConnectionBanner } from '../shared/ConnectionBanner';
 import { MARK_NAME } from './useMarkUndo';
+import { useDialog } from '../shared/useDialog';
 
 export const MainDeskView = () => {
   const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar } = useGameStore(useShallow(s => ({
@@ -61,6 +62,7 @@ export const MainDeskView = () => {
     circleCreation.isVisible;
 
   const [activeTab, setActiveTab] = useState('character');
+  const deathDialogRef = useDialog({ open: !!character?.is_dead && !deathDismissed, onClose: () => setDeathDismissed(true) });
   const campaignName = lastPlayedCampaign?.type === 'player' ? lastPlayedCampaign.campaignName : null;
 
   return (
@@ -206,9 +208,9 @@ export const MainDeskView = () => {
       {/* DEATH MODAL — blocks desk when investigator has perished */}
       {character?.is_dead && !deathDismissed && (
         <div className="fixed inset-0 z-[900] bg-black/90 flex flex-col items-center justify-center text-center px-6">
-          <div className="max-w-lg w-full max-h-[calc(100dvh-32px)] overflow-y-auto bg-night border-2 border-oxblood p-6 sm:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.9)]">
-            <div className="text-oxblood-lit text-6xl mb-4 font-serif">✝</div>
-            <h2 className="font-display text-3xl sm:text-4xl tracking-[0.08em] text-cream uppercase mb-3">
+          <div ref={deathDialogRef} role="dialog" aria-modal="true" aria-labelledby="death-title" className="max-w-lg w-full max-h-[calc(100dvh-32px)] overflow-y-auto bg-night border-2 border-oxblood p-6 sm:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.9)]">
+            <div aria-hidden="true" className="text-oxblood-lit text-6xl mb-4 font-serif">✝</div>
+            <h2 id="death-title" className="font-display text-3xl sm:text-4xl tracking-[0.08em] text-cream uppercase mb-3">
               {character?.name || 'Your investigator'} has died
             </h2>
             <p className="text-parchment-deep font-serif text-base leading-relaxed mb-8">

@@ -1,4 +1,5 @@
 import React from 'react';
+import { MotionConfig } from 'framer-motion';
 import { AppRouter } from './components/AppRouter';
 
 function App() {
@@ -13,9 +14,13 @@ function App() {
     <div className="w-full min-h-screen bg-night text-parchment font-serif antialiased selection:bg-oxblood selection:text-parchment flex flex-col">
       
       {/* ROUTING ENGINE: The router assumes full control of the screen real estate from here. */}
-      <div className="flex-grow flex flex-col relative w-full h-full">
-        <AppRouter />
-      </div>
+      {/* Framer Motion springs and slides follow the reader's reduced-motion setting: under
+          it, movement is dropped and only opacity changes remain. */}
+      <MotionConfig reducedMotion="user">
+        <div className="flex-grow flex flex-col relative w-full h-full">
+          <AppRouter />
+        </div>
+      </MotionConfig>
 
     </div>
   );

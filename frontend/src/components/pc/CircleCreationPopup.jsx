@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
+import { useDialog } from '../shared/useDialog';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -167,11 +168,17 @@ export const CircleCreationPopup = () => {
     updatePersonalAnswer(circleId, myId, personalAnswer);
   };
 
+  const dialogRef = useDialog({});
+
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="fixed inset-0 bg-black/80 z-[9000] flex items-center justify-center p-4 font-serif">
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Circle formation papers"
         initial={{ opacity: 0, scale: 0.96, y: 30 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 280, damping: 28 }}
@@ -244,7 +251,7 @@ export const CircleCreationPopup = () => {
                   onBlur={handlePersonalAnswerBlur}
                   rows={4}
                   placeholder="Write your character's personal perspective…"
-                  className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:outline-none focus:border-sepia rounded-sm"
+                  className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:border-sepia rounded-sm"
                   style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
                 />
                 <p className="font-serif italic text-sm text-sepia mt-1">
@@ -268,7 +275,7 @@ export const CircleCreationPopup = () => {
                 onKeyDown={e => e.key === 'Enter' && handleNameSuggest()}
                 placeholder="Suggest a circle name…"
                 disabled={mySuggestionCount >= 5}
-                className="flex-1 border border-sepia/40 bg-cream/70 px-4 py-2.5 font-serif text-lg text-ink focus:outline-none focus:border-sepia rounded-sm disabled:opacity-40"
+                className="flex-1 border border-sepia/40 bg-cream/70 px-4 py-2.5 font-serif text-lg text-ink focus:border-sepia rounded-sm disabled:opacity-40"
               />
               <button
                 onClick={handleNameSuggest}
@@ -359,7 +366,7 @@ export const CircleCreationPopup = () => {
                 onBlur={handleLocationBlur}
                 rows={3}
                 placeholder="Describe your headquarters…"
-                className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:outline-none focus:border-sepia rounded-sm"
+                className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:border-sepia rounded-sm"
                 style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
               />
             </div>

@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import { OUTCOME, outcomeForKept, rollPoolText } from '../../../game/outcomes';
+import { onActivateKey } from '../../shared/a11y';
 
 // Each outcome is a stamp on the result slip: its word, plus its own ink. Critical success
 // is the one gold stamp (gold fill, ink letters), since gold text cannot be read on paper.
@@ -53,7 +54,8 @@ export const DiceTray = forwardRef(({
         </div>
       ) : lastRoll && lastRoll.dice ? (
         <div className="flex flex-col items-center justify-center gap-3 animate-fadeIn">
-          <div className="flex flex-wrap justify-center gap-3 max-w-[190px]">
+          <div className="flex flex-wrap justify-center gap-3 max-w-[190px]" role="group"
+            aria-label={gildedPending ? 'Choose your die' : `Dice: ${lastRoll.dice.map((d, i) => `${d.value}${d.is_gilded ? ' gilded' : ''}${getIsCandidate(d, i) ? ' (counts)' : ''}`).join(', ')}`}>
             {lastRoll.dice.map((die, idx) => {
               const isCandidate = getIsCandidate(die, idx);
               const delayMs = idx * 75;
@@ -78,6 +80,12 @@ export const DiceTray = forwardRef(({
               return (
                 <div
                   key={`${lastRoll.id || idx}-${idx}`}
+                  {...(clickHandler ? {
+                    role: 'button',
+                    tabIndex: 0,
+                    onKeyDown: onActivateKey(clickHandler),
+                    'aria-label': `Keep the ${die.is_gilded ? 'gilded' : 'highest regular'} die, ${die.value}`,
+                  } : { 'aria-hidden': true })}
                   onClick={clickHandler}
                   onTouchEnd={clickHandler ? (e) => { e.preventDefault(); clickHandler(); } : undefined}
                   className={`w-11 h-11 border rounded font-serif font-black text-xl flex items-center justify-center shadow-2xl ${tumbleClass}

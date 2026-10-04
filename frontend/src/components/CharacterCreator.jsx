@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import * as Gi from "react-icons/gi";
 import { JoinCampaignForm } from './shared/JoinCampaignForm';
 import { ConfirmAction } from './shared/ConfirmAction';
+import { radioArrows } from './shared/a11y';
+import { useDialog } from './shared/useDialog';
 
 const ILLUMINATION_KEYS = {
   Journalist: ['Gather Statements', 'Hunt Down a Lead', 'Speak Truth to Power'],
@@ -399,7 +401,7 @@ const PaperSheet = ({ children, className = "" }) => (
         style={{ opacity: 0.032, letterSpacing: '0.08em' }}>CANDELA OBSCURA</span>
     </div>
     {/* Circular seal watermark */}
-    <div className="absolute bottom-8 right-8 pointer-events-none z-0" style={{ opacity: 0.06 }}>
+    <div aria-hidden="true" className="absolute bottom-8 right-8 pointer-events-none z-0" style={{ opacity: 0.06 }}>
       <div className="w-28 h-28 rounded-full flex flex-col items-center justify-center"
         style={{ border: '3px solid rgb(var(--c-sepia))' }}>
         <span className="text-[7px] font-sans font-black tracking-[0.35em] text-sepia uppercase">Candela</span>
@@ -704,6 +706,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
     setSavingMode(null);
   };
   const retrySave = () => lastAttempt && handleComplete(lastAttempt.mode, lastAttempt.code);
+  const joinDialogRef = useDialog({ open: showJoinInput, onClose: () => { if (!savingMode) setShowJoinInput(false); } });
   const savedNote = savedCharacterId ? `${name || 'Your investigator'} is saved. ` : '';
 
   // Step unlock logic
@@ -758,24 +761,28 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
       )}
 
       {/* ── PROGRESS NAV ── */}
-      <div className="flex border border-sepia/50 bg-ink text-xs sm:text-sm lg:text-base font-sans font-black tracking-wider sm:tracking-widest text-center select-none rounded mb-6 sm:mb-8 shadow-md overflow-hidden">
+      <nav aria-label="Steps" className="flex border border-sepia/50 bg-ink text-xs sm:text-sm lg:text-base font-sans font-black tracking-wider sm:tracking-widest text-center select-none rounded mb-6 sm:mb-8 shadow-md overflow-hidden">
         {STEP_LABELS.map((label, i) => {
           const n = i + 1;
           const unlocked = STEP_UNLOCKED[i];
           const active = step === n;
           const [num, ...words] = label.split(' ');
           return (
-            <div key={n} onClick={() => unlocked && setStep(n)}
-              className={`${active ? 'flex-[3] sm:flex-1' : 'flex-1'} py-3 sm:py-4 px-1 border-r border-sepia/50 last:border-r-0 transition-colors ${
+            <button key={n} type="button" onClick={() => unlocked && setStep(n)}
+              disabled={!unlocked}
+              aria-current={active ? 'step' : undefined}
+              aria-label={`Step ${n}, ${words.join(' ').toLowerCase()}${unlocked ? '' : ', locked until the earlier steps are done'}`}
+              className={`${active ? 'flex-[3] sm:flex-1' : 'flex-1'} py-3 sm:py-4 px-1 border-r border-sepia/50 last:border-r-0 transition-colors font-black tracking-wider sm:tracking-widest uppercase ${
                 active   ? 'bg-oxblood text-cream' :
-                unlocked ? 'text-cream/70 hover:bg-black/20 hover:text-cream cursor-pointer' :
-                           'opacity-25 cursor-not-allowed text-cream/20'
+                unlocked ? 'text-cream/75 hover:bg-black/20 hover:text-cream cursor-pointer' :
+                           'cursor-not-allowed text-cream/55'
               }`}>
+              {!unlocked && <Gi.GiPadlock aria-hidden="true" size={12} className="inline-block mr-1 -mt-0.5" />}
               {num}<span className={active ? '' : 'hidden sm:inline'}> {words.join(' ')}</span>
-            </div>
+            </button>
           );
         })}
-      </div>
+      </nav>
 
       {/* ══════════════════════════════════════════════════════════════════════
           STEP 1 — CHOOSE YOUR PATH
@@ -841,7 +848,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
 
               {/* Prev / counter / Next */}
               <div className="flex items-center gap-5">
-                <button onClick={() => flip('backward')} disabled={currentIndex === 0 || animState !== 'idle'}
+                <button type="button" aria-label="Previous card" onClick={() => flip('backward')} disabled={currentIndex === 0 || animState !== 'idle'}
                   className="w-11 h-11 flex items-center justify-center rounded-full font-black text-2xl transition-all disabled:opacity-20 hover:bg-white/10"
                   style={{ border: '1px solid rgb(var(--c-cream)/0.2)', color: 'rgb(var(--c-cream))' }}>
                   ‹
@@ -849,7 +856,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 <span className="text-sm font-mono tabular-nums text-cream/70 min-w-[56px] text-center">
                   {currentIndex + 1} / {allCards.length}
                 </span>
-                <button onClick={() => flip('forward')} disabled={currentIndex >= allCards.length - 1 || animState !== 'idle'}
+                <button type="button" aria-label="Next card" onClick={() => flip('forward')} disabled={currentIndex >= allCards.length - 1 || animState !== 'idle'}
                   className="w-11 h-11 flex items-center justify-center rounded-full font-black text-2xl transition-all disabled:opacity-20 hover:bg-white/10"
                   style={{ border: '1px solid rgb(var(--c-cream)/0.2)', color: 'rgb(var(--c-cream))' }}>
                   ›
@@ -899,14 +906,18 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 {/* Left col — specialty abilities */}
                 <div className="px-4 sm:px-5 py-4 space-y-2 border-b md:border-b-0 md:border-r"
                   style={{ borderColor: `${currentColor.primary}18` }}>
-                  <p className="text-sm font-sans font-black tracking-[0.14em] uppercase mb-3" style={{ color: roleInk(currentColor.primary) }}>
+                  <p id="creator-specialty-abilities" className="text-sm font-sans font-black tracking-[0.14em] uppercase mb-3" style={{ color: roleInk(currentColor.primary) }}>
                     Specialty Ability: choose one
                   </p>
-                  {Object.entries(currentSpecData.abilities).map(([aN, aD]) => {
+                  <div role="radiogroup" aria-labelledby="creator-specialty-abilities" className="space-y-2">
+                  {Object.entries(currentSpecData.abilities).map(([aN, aD], idx, all) => {
                     const picked = selectedSpecialtyAbility === aN;
                     return (
-                      <div key={aN} onClick={() => setSelectedSpecialtyAbility(aN)}
-                        className="flex items-start gap-2.5 p-3 rounded cursor-pointer transition-all"
+                      <button type="button" key={aN} role="radio" aria-checked={picked}
+                        tabIndex={picked || (!selectedSpecialtyAbility && idx === 0) ? 0 : -1}
+                        onClick={() => setSelectedSpecialtyAbility(aN)}
+                        onKeyDown={e => radioArrows(e, i => setSelectedSpecialtyAbility(all[i][0]))}
+                        className="w-full text-left flex items-start gap-2.5 p-3 rounded cursor-pointer transition-all"
                         style={{
                           background: picked ? `rgba(${currentColor.rgb},0.22)` : 'rgb(var(--c-cream)/0.03)',
                           border: `1px solid ${picked ? currentColor.primary : `rgba(${currentColor.rgb},0.18)`}`,
@@ -919,22 +930,27 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           <p className="text-lg font-black text-cream leading-tight">{aN}</p>
                           <p className="text-base text-cream/75 leading-snug mt-0.5">{aD.text}</p>
                         </div>
-                        {picked && <Gi.GiCheckMark size={14} className="ml-auto shrink-0 mt-1" style={{ color: roleInk(currentColor.primary) }} />}
-                      </div>
+                        {picked && <Gi.GiCheckMark aria-hidden="true" size={14} className="ml-auto shrink-0 mt-1" style={{ color: roleInk(currentColor.primary) }} />}
+                      </button>
                     );
                   })}
+                  </div>
                 </div>
 
                 {/* Right col — role abilities + specialty gear */}
                 <div className="px-4 sm:px-5 py-4 space-y-2 flex flex-col">
-                  <p className="text-sm font-sans font-black tracking-[0.14em] uppercase mb-3" style={{ color: roleInk(currentColor.primary) }}>
+                  <p id="creator-role-abilities" className="text-sm font-sans font-black tracking-[0.14em] uppercase mb-3" style={{ color: roleInk(currentColor.primary) }}>
                     {currentCard.roleName} Role Ability: choose one
                   </p>
-                  {Object.entries(currentRoleData.baseAbilities).map(([aN, aD]) => {
+                  <div role="radiogroup" aria-labelledby="creator-role-abilities" className="space-y-2">
+                  {Object.entries(currentRoleData.baseAbilities).map(([aN, aD], idx, all) => {
                     const picked = selectedRoleAbility === aN;
                     return (
-                      <div key={aN} onClick={() => setSelectedRoleAbility(aN)}
-                        className="flex items-start gap-2.5 p-3 rounded cursor-pointer transition-all"
+                      <button type="button" key={aN} role="radio" aria-checked={picked}
+                        tabIndex={picked || (!selectedRoleAbility && idx === 0) ? 0 : -1}
+                        onClick={() => setSelectedRoleAbility(aN)}
+                        onKeyDown={e => radioArrows(e, i => setSelectedRoleAbility(all[i][0]))}
+                        className="w-full text-left flex items-start gap-2.5 p-3 rounded cursor-pointer transition-all"
                         style={{
                           background: picked ? `rgba(${currentColor.rgb},0.22)` : 'rgb(var(--c-cream)/0.03)',
                           border: `1px solid ${picked ? currentColor.primary : `rgba(${currentColor.rgb},0.18)`}`,
@@ -947,10 +963,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           <p className="text-lg font-black text-cream leading-tight">{aN}</p>
                           <p className="text-base text-cream/75 leading-snug mt-0.5">{aD.text}</p>
                         </div>
-                        {picked && <Gi.GiCheckMark size={14} className="ml-auto shrink-0 mt-1" style={{ color: roleInk(currentColor.primary) }} />}
-                      </div>
+                        {picked && <Gi.GiCheckMark aria-hidden="true" size={14} className="ml-auto shrink-0 mt-1" style={{ color: roleInk(currentColor.primary) }} />}
+                      </button>
                     );
                   })}
+                  </div>
 
                   {/* Specialty Gear — under role abilities */}
                   <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${currentColor.primary}20` }}>
@@ -1015,32 +1032,32 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 <div className="flex gap-3 sm:gap-4 items-start">
                   <div className="shrink-0">
                     <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1.5">Portrait</label>
-                    <label className="flex flex-col items-center justify-center cursor-pointer hover:bg-parchment-deep/55 hover:border-oxblood/50 transition-all relative overflow-hidden shadow-inner group rounded w-[112px] h-[140px] sm:w-[160px] sm:h-[200px]"
+                    <label className="flex flex-col items-center justify-center cursor-pointer hover:bg-parchment-deep/55 hover:border-oxblood/50 transition-all relative overflow-hidden shadow-inner group rounded w-[112px] h-[140px] sm:w-[160px] sm:h-[200px] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-candle-gold"
                       style={{ border: '2px dashed rgb(var(--c-sepia)/0.4)', background: 'rgb(var(--c-parchment-deep)/0.3)' }}>
                       {profilePic
-                        ? <img src={profilePic} alt="Portrait" className="w-full h-full object-cover" />
+                        ? <img src={profilePic} alt={`Portrait of ${name || 'your investigator'}`} className="w-full h-full object-cover" />
                         : <div className="text-center px-3">
                             <Gi.GiIdCard size={36} className="mx-auto text-sepia/50 mb-2 group-hover:scale-110 transition-transform" />
                             <span className="block text-xs font-sans font-black tracking-wider text-sepia uppercase leading-tight">[+] Affix Portrait</span>
                           </div>
                       }
-                      <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                      <input type="file" accept="image/*" onChange={handleImageUpload} className="sr-only" aria-label={profilePic ? 'Change the portrait' : 'Add a portrait'} />
                     </label>
                   </div>
 
                   <div className="flex-1 min-w-0 space-y-3 pt-5">
                     <div>
-                      <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Full Name *</label>
-                      <input type="text" value={name} onChange={e => setName(e.target.value)}
+                      <label htmlFor="creator-name" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Full Name *</label>
+                      <input id="creator-name" type="text" required aria-required="true" value={name} onChange={e => setName(e.target.value)}
                         placeholder="e.g. Ada Whitlock"
-                        className="w-full bg-transparent font-serif font-bold text-lg focus:outline-none placeholder-sepia/70 placeholder:font-normal placeholder:italic pb-1"
+                        className="w-full bg-transparent font-serif font-bold text-lg placeholder-sepia/90 placeholder:font-normal placeholder:italic pb-1"
                         style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
                     <div>
-                      <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Gender / Pronouns</label>
-                      <input type="text" value={pronouns} onChange={e => setPronouns(e.target.value)}
+                      <label htmlFor="creator-pronouns" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Gender / Pronouns</label>
+                      <input id="creator-pronouns" type="text" value={pronouns} onChange={e => setPronouns(e.target.value)}
                         placeholder="e.g., He/They, She/Her…"
-                        className="w-full bg-transparent font-serif italic text-lg focus:outline-none placeholder-sepia/70 pb-1"
+                        className="w-full bg-transparent font-serif italic text-lg placeholder-sepia/90 pb-1"
                         style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
                   </div>
@@ -1048,10 +1065,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
 
                 {/* Identifying Characteristics */}
                 <div>
-                  <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Style</label>
-                  <textarea rows={3} value={style} onChange={e => setStyle(e.target.value)}
+                  <label htmlFor="creator-style" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Style</label>
+                  <textarea id="creator-style" rows={3} value={style} onChange={e => setStyle(e.target.value)}
                     placeholder="Detail apparel, distinguishing marks, tailored suits, or signature items that set this investigator apart…"
-                    className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-sepia/70 placeholder:italic leading-7 paper-ruled"
+                    className="w-full bg-transparent font-serif text-base resize-none placeholder-sepia/90 placeholder:italic leading-7 paper-ruled"
                     style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.25)' }} />
                 </div>
               </div>
@@ -1065,23 +1082,23 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 </div>
 
                 <div className="bg-parchment-deep/30 p-4 rounded-sm shadow-inner" style={{ border: '1px solid rgb(var(--c-sepia)/0.18)' }}>
-                  <label className="block text-lg font-serif font-bold text-oxblood mb-2 pb-1.5"
+                  <label htmlFor="creator-catalyst" className="block text-lg font-serif font-bold text-oxblood mb-2 pb-1.5"
                     style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.15)' }}>
                     Catalyst: why do you seek Candela Obscura? *
                   </label>
-                  <textarea rows={4} value={catalyst} onChange={e => setCatalyst(e.target.value)}
+                  <textarea id="creator-catalyst" required aria-required="true" rows={4} value={catalyst} onChange={e => setCatalyst(e.target.value)}
                     placeholder="The specific event or rupture that drew you into the dark…"
-                    className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-sepia/70 placeholder:italic leading-7 paper-ruled" />
+                    className="w-full bg-transparent font-serif text-base resize-none placeholder-sepia/90 placeholder:italic leading-7 paper-ruled" />
                 </div>
 
                 <div className="bg-parchment-deep/30 p-4 rounded-sm shadow-inner" style={{ border: '1px solid rgb(var(--c-sepia)/0.18)' }}>
-                  <label className="block text-lg font-serif font-bold text-oxblood mb-2 pb-1.5"
+                  <label htmlFor="creator-question" className="block text-lg font-serif font-bold text-oxblood mb-2 pb-1.5"
                     style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.15)' }}>
                     Question: what answer do you seek?
                   </label>
-                  <textarea rows={4} value={question} onChange={e => setQuestion(e.target.value)}
+                  <textarea id="creator-question" rows={4} value={question} onChange={e => setQuestion(e.target.value)}
                     placeholder="The central question or haunting mystery your investigator pursues…"
-                    className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-sepia/70 placeholder:italic leading-7 paper-ruled" />
+                    className="w-full bg-transparent font-serif text-base resize-none placeholder-sepia/90 placeholder:italic leading-7 paper-ruled" />
                 </div>
               </div>
             </div>
@@ -1165,15 +1182,17 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           return (
                             <div key={key} className="flex items-center gap-2">
                               {isLockedGilded ? (
-                                <span className="shrink-0 w-5 h-5 flex items-center justify-center" title="Specialty gilded action (locked)">
-                                  <Gi.GiStarFormation size={13} style={{ color: 'rgb(var(--c-candle-gold))' }} />
+                                <span className="shrink-0 w-5 h-5 flex items-center justify-center" title="Specialty gilded action (locked)" role="img" aria-label={`${label} is gilded by your specialty`}>
+                                  <Gi.GiStarFormation aria-hidden="true" size={13} style={{ color: 'rgb(var(--c-candle-gold))' }} />
                                 </span>
                               ) : (
-                                <button onClick={() => toggleFreeGilded(key)}
+                                <button type="button" onClick={() => toggleFreeGilded(key)}
+                                  aria-pressed={isFreeGilded}
+                                  aria-label={isFreeGilded ? `${label} is your free gilded action. Remove the gild` : freeGilded ? `Move your free gild to ${label}` : `Gild ${label} (free choice)`}
                                   title={isFreeGilded ? 'Remove free gild' : freeGilded ? 'Replace free gild' : 'Gild this action (free choice)'}
-                                  className="shrink-0 w-5 h-5 flex items-center justify-center focus:outline-none transition-opacity hover:opacity-100"
-                                  style={{ opacity: isFreeGilded ? 1 : 0.2 }}>
-                                  <Gi.GiStarFormation size={13} style={{ color: isFreeGilded ? 'rgb(var(--c-candle-gold))' : 'rgb(var(--c-sepia))' }} />
+                                  className="shrink-0 w-7 h-7 -m-1 flex items-center justify-center rounded-sm transition-opacity hover:opacity-100"
+                                  style={{ opacity: isFreeGilded ? 1 : 0.7 }}>
+                                  <Gi.GiStarFormation aria-hidden="true" size={13} style={{ color: isFreeGilded ? 'rgb(var(--c-candle-gold))' : 'rgb(var(--c-sepia))' }} />
                                 </button>
                               )}
                               <span className="text-sm font-serif font-bold text-ink w-16 shrink-0 group/act relative cursor-help">
@@ -1182,7 +1201,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                                   {ACTION_FLAVOR[key]}
                                 </span>
                               </span>
-                              <div className="flex gap-1 flex-1">
+                              <div className="flex gap-1 flex-1" role="img" aria-label={`${label}: ${total} of 3${isGilded ? ', gilded' : ''}`}>
                                 {[1,2,3].map(n => {
                                   let cls = '';
                                   if (n <= locked) cls = 'action-pip filled opacity-50';
@@ -1193,11 +1212,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                                 })}
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
-                                <button onClick={() => adjustFreePoints(key,-1)} disabled={free<=0}
-                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
+                                <button type="button" onClick={() => adjustFreePoints(key,-1)} disabled={free<=0} aria-label={`Take a free point off ${label}`}
+                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                                   style={{ color:'rgb(var(--c-oxblood))', borderColor:'rgb(var(--c-oxblood) / 0.31)' }}>−</button>
-                                <button onClick={() => adjustFreePoints(key,1)} disabled={total>=2||freePtsUsed>=3}
-                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
+                                <button type="button" onClick={() => adjustFreePoints(key,1)} disabled={total>=2||freePtsUsed>=3} aria-label={`Put a free point on ${label}`}
+                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                                   style={{ color:'rgb(var(--c-oxblood))', borderColor:'rgb(var(--c-oxblood) / 0.31)' }}>+</button>
                               </div>
                             </div>
@@ -1235,7 +1254,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                       <span className="text-sm font-black uppercase tracking-wider" style={{ color }}>{label}</span>
                       <span className="text-base font-serif italic text-center leading-snug" style={{ color }}>{DRIVE_FLAVOR[key]}</span>
                       <span className="text-xl font-black" style={{ color }}>{total}</span>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1" role="img" aria-label={`${label}: ${total} drive points, ${startVal} from your specialty`}>
                         {Array.from({length:7}).map((_,i) => (
                           <div key={i} className="w-2.5 h-2.5 rounded-sm border transition-all"
                             style={{
@@ -1246,12 +1265,12 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                         ))}
                       </div>
                       <div className="flex gap-2 items-center">
-                        <button onClick={() => adjustDrive(key,-1)} disabled={addVal<=0}
-                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
+                        <button type="button" onClick={() => adjustDrive(key,-1)} disabled={addVal<=0} aria-label={`Take a point off ${label}`}
+                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>−</button>
                         <span className="text-sm font-sans font-black w-8 text-center" style={{ color }}>+{addVal}</span>
-                        <button onClick={() => adjustDrive(key,1)} disabled={drivesPtsUsed>=6}
-                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
+                        <button type="button" onClick={() => adjustDrive(key,1)} disabled={drivesPtsUsed>=6} aria-label={`Put a point on ${label}`}
+                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>+</button>
                       </div>
                     </div>
@@ -1312,8 +1331,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 <p className="text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-2">{specialty} gear</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {ROLES[role]?.specialties[specialty]?.gear.map(item => (
-                    <div key={item} onClick={() => toggleGear(item)}
-                      className={`flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? 'shadow-sm' : 'hover:bg-parchment-deep/40'}`}
+                    <button type="button" key={item} onClick={() => toggleGear(item)} aria-pressed={selectedGear.includes(item)}
+                      className={`w-full text-left flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? 'shadow-sm' : 'hover:bg-parchment-deep/40'}`}
                       style={{
                         background: selectedGear.includes(item) ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.2)',
                         border: `1px solid ${selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia)/0.22)'}`,
@@ -1324,7 +1343,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                       <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia))', opacity: selectedGear.includes(item) ? 1 : 0.55, flexShrink: 0 }} />
                       <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-ink' : 'text-ink/80'}`}>{item}</span>
                       <span className="ml-auto text-xs font-sans font-black uppercase text-oxblood/80 shrink-0">[Sig]</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1334,8 +1353,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 <p className="text-sm font-sans font-black uppercase tracking-[0.12em] text-sepia mb-2">Standard Issue Equipment</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {STANDARD_GEAR.map(item => (
-                    <div key={item} onClick={() => toggleGear(item)}
-                      className={`flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? '' : 'hover:bg-parchment-deep/30'}`}
+                    <button type="button" key={item} onClick={() => toggleGear(item)} aria-pressed={selectedGear.includes(item)}
+                      className={`w-full text-left flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? '' : 'hover:bg-parchment-deep/30'}`}
                       style={{
                         background: selectedGear.includes(item) ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.1)',
                         border: `1px solid ${selectedGear.includes(item) ? 'rgb(var(--c-oxblood) / 0.5)' : 'rgb(var(--c-sepia)/0.15)'}`,
@@ -1345,7 +1364,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                       </div>
                       <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia))', opacity: selectedGear.includes(item) ? 0.9 : 0.45, flexShrink: 0 }} />
                       <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-ink' : 'text-ink/80'}`}>{item}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1466,6 +1485,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               onClick={() => { if (!savingMode) setShowJoinInput(false); }}
             >
               <div
+                ref={joinDialogRef}
                 role="dialog" aria-modal="true" aria-labelledby="join-campaign-title"
                 className="relative flex flex-col gap-5 rounded-sm w-full max-w-[480px] max-h-[calc(100dvh-32px)] overflow-y-auto px-5 pt-6 pb-5 sm:px-10 sm:pt-9 sm:pb-8"
                 style={{

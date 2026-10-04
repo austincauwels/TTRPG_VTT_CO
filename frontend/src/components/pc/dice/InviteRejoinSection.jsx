@@ -50,7 +50,7 @@ export const InviteRejoinSection = () => {
               onChange={e => { setUsername(e.target.value); setError(''); }}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
               placeholder="Username"
-              className="flex-1 min-w-0 bg-gm-night border border-gm-slate text-cream font-mono text-sm px-3 py-2 placeholder-moonlight-steel/70 focus:outline-none focus:border-moonlight-steel rounded-sm"
+              className="flex-1 min-w-0 bg-gm-night border border-gm-slate text-cream font-mono text-sm px-3 py-2 placeholder-moonlight-steel/90 focus:border-moonlight-steel rounded-sm"
             />
             <button
               onClick={handleSend}

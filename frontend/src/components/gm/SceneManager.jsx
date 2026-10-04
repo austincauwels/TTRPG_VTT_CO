@@ -110,7 +110,7 @@ export const TensionClock = ({ readOnly = false }) => {
           onBlur={e => sendUpdate({ tension_label: e.target.value })}
           placeholder="Name this clock"
           aria-label="Tension clock name"
-          className="text-center font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/70 focus:outline-none focus:border-oxblood transition-colors"
+          className="text-center font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/90 focus:border-oxblood transition-colors"
         />
       ) : (
         <div className="font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 shadow-sm min-w-[9rem] text-center">
@@ -194,7 +194,7 @@ export const SceneManager = () => {
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           aria-label="Location"
-          className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood outline-none px-2 mx-2 text-oxblood font-bold font-serif italic text-center w-full sm:w-auto placeholder-sepia/70"
+          className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood px-2 mx-2 text-oxblood font-bold font-serif italic text-center w-full sm:w-auto placeholder-sepia/90"
           placeholder="location"
           spellCheck="false"
         />.
@@ -202,7 +202,7 @@ export const SceneManager = () => {
         <textarea
           value={atmosphere}
           onChange={(e) => setAtmosphere(e.target.value)}
-          className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood outline-none w-full mt-2 resize-none text-oxblood font-bold font-serif italic leading-[28px] placeholder-sepia/70"
+          className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood w-full mt-2 resize-none text-oxblood font-bold font-serif italic leading-[28px] placeholder-sepia/90"
           rows="2"
           placeholder="what the place is like"
           aria-label="Atmosphere"

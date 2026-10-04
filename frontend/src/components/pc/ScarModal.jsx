@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { ACTION_LABEL, scarShiftNote } from '../../game/actions';
+import { useDialog } from '../shared/useDialog';
 
 // The nine actions in the dossier's order, with the rulebook's names (the keys sneak and
 // read are Read and Focus).
@@ -18,12 +19,7 @@ const ScarModal = () => {
   const isHardened = character?.specialty_ability === 'Hardened';
 
   // Escape is "Decide later", like the button: the scar stays pending, nothing is lost.
-  useEffect(() => {
-    if (!showScarModal) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') deferScar(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [showScarModal]);
+  const dialogRef = useDialog({ open: !!showScarModal, onClose: deferScar });
 
   if (!showScarModal) return null;
 
@@ -126,7 +122,7 @@ const ScarModal = () => {
 
   return (
     <div className="fixed inset-0 bg-black/85 z-[9999] flex items-center justify-center p-4 font-serif">
-      <div role="dialog" aria-modal="true" aria-labelledby="scar-title"
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="scar-title"
         className="w-full max-w-[520px] max-h-[calc(100dvh-32px)] bg-parchment border-4 border-double border-ink rounded-sm p-5 sm:p-8 shadow-[0_25px_60px_rgba(0,0,0,0.8)] relative text-ink overflow-x-hidden overflow-y-auto">
         <div className="absolute inset-0 opacity-30 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
 
@@ -194,7 +190,7 @@ const ScarModal = () => {
               value={medicalNotes}
               onChange={(e) => setMedicalNotes(e.target.value)}
               placeholder="What happened, and how does it mark you?"
-              className="w-full bg-transparent border-none rounded-none p-0 text-base font-serif leading-relaxed text-ink resize-none focus:outline-none focus:ring-0 shadow-none placeholder-sepia/70 placeholder:italic"
+              className="w-full bg-transparent border-none rounded-none p-0 text-base font-serif leading-relaxed text-ink resize-none focus:ring-0 shadow-none placeholder-sepia/90 placeholder:italic"
               style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-oxblood)/0.08) 24px)', backgroundSize: '100% 24px', lineHeight: '24px' }}
             />
           </div>

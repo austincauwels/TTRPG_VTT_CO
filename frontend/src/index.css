@@ -25,10 +25,12 @@
     color: rgb(var(--c-cream));
   }
 
-  /* Keyboard focus takes the color of the text it sits on, so it reads on paper and at night */
+  /* Keyboard focus: a 2px candle-gold ring (the outline rule at the end of this file), with
+     a 2px ink band between it and the control. Gold alone is 1.6:1 on parchment; the ink
+     band carries the ring on paper and the gold carries it at night. The band is a
+     box-shadow in the base layer, so a control with its own shadow keeps that shadow. */
   :focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
+    box-shadow: 0 0 0 2px rgb(var(--c-ink));
   }
 
   /* IM Fell English has one weight: never let the browser fake a bold one */
@@ -193,13 +195,38 @@
   animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
-/* Reduced motion: every CSS animation and transition jumps to its end state, so the
-   candles stop flickering, dice land without tumbling and books open without the swing. */
+/* Keyboard focus ring. Outside the layers and marked important so no utility (such as a
+   leftover focus:outline-none) can hide it. */
+:focus-visible {
+  outline: 2px solid rgb(var(--c-candle-gold)) !important;
+  outline-offset: 2px;
+}
+
+/* Reduced motion. The flame flicker, the shimmy on gilded-choice dice, the spinner and
+   every other loop stop; transitions and long movements end at once. What still has to say
+   "something changed" (a die landing, a sheet or page appearing, the book opening and
+   closing) becomes a short fade with no movement. */
+@keyframes reducedFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes reducedFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  .animate-fadeIn,
+  .animate-dieTumble,
+  .roster-book {
+    animation-name: reducedFadeIn !important;
+    animation-duration: 160ms !important;
+    animation-timing-function: ease-out !important;
+  }
+  .roster-book.closing {
+    animation-name: reducedFadeOut !important;
+  }
+  .animate-dieTumble {
+    transform: rotate(var(--random-skew, 0deg));
   }
 }

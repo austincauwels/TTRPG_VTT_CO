@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PEN_FONTS } from '../campaignSelector/penFonts';
 import { CAMPAIGN_CODE_PATTERN, CAMPAIGN_CODE_RULE } from '../../utils/campaignErrors';
 
-const fieldClass = 'w-full bg-cream/70 border border-sepia/40 px-3 py-2 text-ink outline-none focus:border-oxblood';
+const fieldClass = 'w-full bg-cream/70 border border-sepia/40 px-3 py-2 text-ink focus:border-oxblood';
 const labelClass = 'block font-sans font-bold text-xs tracking-widest uppercase text-sepia mb-1';
 
 // The one form for asking to join a campaign: the campaign code the GM gives out, and the
@@ -38,7 +38,7 @@ export const JoinCampaignForm = ({
           autoCapitalize="none" autoCorrect="off" spellCheck="false"
           placeholder="e.g. fairelands-01"
           aria-describedby={`${idPrefix}-code-help`}
-          className={`${fieldClass} font-mono text-lg placeholder-sepia/60`}
+          className={`${fieldClass} font-mono text-lg placeholder-sepia/90`}
         />
         <p id={`${idPrefix}-code-help`} className={`font-serif text-base mt-1 leading-snug ${codeLooksWrong ? 'text-oxblood' : 'text-sepia'}`}>
           {codeLooksWrong

@@ -50,7 +50,7 @@ export const PlayerRegistryPage = ({
                 {characters.filter(c => c.status === 'pending').map(char => (
                   <div key={char.id} className="flex items-center gap-3 px-3 py-2.5"
                     style={{ border: '1px dashed rgb(var(--c-sepia) / 0.3)', background: 'rgb(var(--c-parchment-deep) / 0.25)' }}>
-                    <span aria-hidden="true" className="text-sepia/70 text-lg shrink-0">◌</span>
+                    <span aria-hidden="true" className="text-sepia text-lg shrink-0">◌</span>
                     <div className="flex-1 min-w-0">
                       <p className="font-serif font-bold text-xl text-ink/80 truncate">{char.name}</p>
                       {char.campaign_name && (

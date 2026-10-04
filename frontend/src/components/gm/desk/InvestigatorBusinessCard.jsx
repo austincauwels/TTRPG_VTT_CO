@@ -11,7 +11,9 @@ export const InvestigatorBusinessCard = ({ inv, onClick, index = 0 }) => {
 
   return (
     <motion.button
+      type="button"
       onClick={onClick}
+      aria-label={`Open ${inv.name}'s investigator sheet`}
       whileHover={{ scale: 1.04, rotate: 0, zIndex: 10 }}
       whileTap={{ scale: 0.97 }}
       style={{ rotate: rotation }}

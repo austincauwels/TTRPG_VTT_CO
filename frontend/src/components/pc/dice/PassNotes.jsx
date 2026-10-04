@@ -75,7 +75,7 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
           onChange={e => setChatMessage(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
           placeholder="Write your message..."
-          className="flex-1 min-w-0 bg-transparent border-b border-sepia/40 focus:border-oxblood outline-none text-base font-serif text-ink placeholder-sepia/70 placeholder:italic py-0.5 transition-colors"
+          className="flex-1 min-w-0 bg-transparent border-b border-sepia/40 focus:border-oxblood text-base font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 transition-colors"
         />
         <button
           onClick={handleSendChat}

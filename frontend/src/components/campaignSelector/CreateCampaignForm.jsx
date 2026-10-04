@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createCampaign } from '../../api/campaigns';
 import { CAMPAIGN_CODE_PATTERN, CAMPAIGN_CODE_RULE, campaignErrorText, NETWORK_ERROR } from '../../utils/campaignErrors';
 
-const inputClass = 'w-full bg-cream/60 border border-sepia/30 px-3 py-2 font-serif text-xl text-ink placeholder-sepia/60 outline-none focus:border-oxblood';
+const inputClass = 'w-full bg-cream/60 border border-sepia/30 px-3 py-2 font-serif text-xl text-ink placeholder-sepia/90 focus:border-oxblood';
 
 // The one form for starting a campaign. It lives in the Lightkeeper Ledger page of the
 // roster book; the GM pamphlet on the desk opens the book straight to it. On success it

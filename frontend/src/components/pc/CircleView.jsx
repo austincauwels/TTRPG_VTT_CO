@@ -3,6 +3,8 @@ import useGameStore from '../../store/gameStore';
 import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
+import { useDialog } from '../shared/useDialog';
+import { onActivateKey } from '../shared/a11y';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -122,6 +124,7 @@ export function AdvancementModal() {
   // details keyed by pick id: action key, drive key, or ability text
   const [details, setDetails]               = useState({});
   const [submitted, setSubmitted]           = useState(false);
+  const dialogRef = useDialog({ open: !!(circleAdvancement && character), onClose: dismissCircleAdvancement, view: submitted });
 
   const MAX_PICKS = 2;
 
@@ -158,9 +161,9 @@ export function AdvancementModal() {
   if (submitted) {
     return (
       <div className="fixed inset-0 z-[600] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
-        <div className="relative bg-cream border-2 border-candle-gold/60 rounded-sm p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-full max-w-[480px]">
+        <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="advancement-done-title" className="relative bg-cream border-2 border-candle-gold/60 rounded-sm p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-full max-w-[480px]">
           <div className="absolute top-0 left-0 right-0 h-1 bg-candle-gold" />
-          <h2 className="text-xl font-serif font-black text-oxblood mb-3">Advancement Applied</h2>
+          <h2 id="advancement-done-title" className="text-xl font-serif font-black text-oxblood mb-3">Advancement Applied</h2>
           <p className="font-serif text-sm text-ink/70 mb-6">Your choices have been recorded. Check your dossier for the updated values.</p>
           <button onClick={dismissCircleAdvancement} className="w-full py-2 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream hover:bg-oxblood rounded-sm transition-all">
             Close
@@ -172,9 +175,9 @@ export function AdvancementModal() {
 
   return (
     <div className="fixed inset-0 z-[600] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
-      <div className="relative bg-cream border-2 border-candle-gold/60 rounded-sm p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-full max-w-[520px] max-h-[90dvh] overflow-y-auto">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="advancement-title" className="relative bg-cream border-2 border-candle-gold/60 rounded-sm p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-full max-w-[520px] max-h-[90dvh] overflow-y-auto">
         <div className="absolute top-0 left-0 right-0 h-1 bg-candle-gold" />
-        <h2 className="text-2xl font-serif font-black text-oxblood mb-1 flex items-center gap-2">
+        <h2 id="advancement-title" className="text-2xl font-serif font-black text-oxblood mb-1 flex items-center gap-2">
           <SafeIcon name="GiMedal" size={20} className="text-candle-gold" />
           Circle Advancement
         </h2>
@@ -283,7 +286,7 @@ export function AdvancementModal() {
                         <select
                           value={details[id] || ''}
                           onChange={e => setDetails(d => ({ ...d, [id]: e.target.value }))}
-                          className="w-full border border-parchment-deep rounded-sm px-2 py-1.5 font-serif text-sm bg-cream focus:outline-none focus:border-oxblood text-ink"
+                          className="w-full border border-parchment-deep rounded-sm px-2 py-1.5 font-serif text-sm bg-cream focus:border-oxblood text-ink"
                         >
                           <option value="">Choose an ability…</option>
                           {(() => {
@@ -656,7 +659,10 @@ export const CircleView = () => {
                             key={i}
                             onClick={clickable ? () => handleResourceClick(key, i, avail) : undefined}
                             role={clickable ? 'button' : undefined}
+                            tabIndex={clickable ? 0 : undefined}
+                            onKeyDown={clickable ? onActivateKey(() => handleResourceClick(key, i, avail)) : undefined}
                             aria-label={clickable ? titleText : undefined}
+                            aria-hidden={clickable ? undefined : true}
                             title={titleText}
                             className={`w-4 h-4 rounded-sm border transition-all ${
                               filled

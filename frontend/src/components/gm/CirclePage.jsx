@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ConfirmAction } from '../shared/ConfirmAction';
+import { useDialog } from '../shared/useDialog';
+import { onActivateKey, pressable } from '../shared/a11y';
 
 // A small Clear button on the circle sheet. Clearing erases the value on the server, so
 // it takes the shared two-step confirm.
@@ -81,7 +83,8 @@ function ReportFlipCard({ inv, report }) {
     <div
       className="cursor-pointer select-none"
       style={{ perspective: '1200px', height: '320px', width: '100%' }}
-      onClick={() => setFlipped(f => !f)}
+      {...pressable(() => setFlipped(f => !f), flipped ? `${inv.name}'s report: turn back to the front` : `${inv.name}: ${report ? 'read the report' : 'no report yet, turn the card'}`)}
+      aria-pressed={flipped}
     >
       <div
         style={{
@@ -173,6 +176,7 @@ export const CirclePage = () => {
 
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
   const [selectedAbility, setSelectedAbility] = useState('');
+  const advanceDialogRef = useDialog({ open: showAdvanceModal, onClose: () => setShowAdvanceModal(false) });
 
   const illum   = circle?.illumination || 0;
   const maxCap  = circle?.max_capacity || 1;
@@ -232,7 +236,7 @@ export const CirclePage = () => {
                   placeholder="No name yet. Type one and leave the field to save."
                   defaultValue=""
                   onBlur={e => e.target.value.trim() && updateCircle({ circle_id: circId, name: e.target.value.trim() })}
-                  className="mt-1 w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-2xl px-3 py-1 focus:outline-none focus:border-oxblood uppercase"
+                  className="mt-1 w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-2xl px-3 py-1 focus:border-oxblood uppercase"
                 />
               )}
             </div>
@@ -257,7 +261,7 @@ export const CirclePage = () => {
                   defaultValue=""
                   onBlur={e => e.target.value.trim() && updateCircle({ circle_id: circId, chapter_house_location: e.target.value.trim() })}
                   rows={2}
-                  className="mt-0.5 w-full bg-cream border border-dashed border-parchment-deep text-oxblood font-serif text-sm px-3 py-1.5 focus:outline-none focus:border-oxblood resize-none italic"
+                  className="mt-0.5 w-full bg-cream border border-dashed border-parchment-deep text-oxblood font-serif text-sm px-3 py-1.5 focus:border-oxblood resize-none italic"
                 />
               )}
             </div>
@@ -300,6 +304,8 @@ export const CirclePage = () => {
                 <div
                   key={i}
                   onClick={() => setIllum(filled && illum === i + 1 ? i : i + 1)}
+                  onKeyDown={onActivateKey(() => setIllum(filled && illum === i + 1 ? i : i + 1))}
+                  tabIndex={0}
                   role="button"
                   aria-label={`Set Illumination to ${filled && illum === i + 1 ? i : i + 1}`}
                   title={`Illumination ${i + 1}`}
@@ -307,7 +313,7 @@ export const CirclePage = () => {
                     filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'
                   } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}
                 >
-                  {milestone && <div className={`w-1.5 h-1.5 rounded-full bg-candle-gold ${filled ? 'opacity-100' : 'opacity-30'}`} />}
+                  {milestone && <div aria-hidden="true" className={`w-1.5 h-1.5 rounded-full bg-candle-gold ${filled ? 'opacity-100' : 'opacity-30'}`} />}
                 </div>
               );
             })}
@@ -344,7 +350,7 @@ export const CirclePage = () => {
               <select
                 defaultValue=""
                 onChange={e => e.target.value && updateCircle({ circle_id: circId, circle_ability: e.target.value })}
-                className="w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-base px-2 py-1.5 focus:outline-none focus:border-oxblood"
+                className="w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-base px-2 py-1.5 focus:border-oxblood"
               >
                 <option value="">Choose a circle ability…</option>
                 {Object.keys(CIRCLE_ABILITY_DESCRIPTIONS).map(a => (
@@ -424,6 +430,12 @@ export const CirclePage = () => {
                         return (
                           <div
                             key={i}
+                            {...(withinMax ? {
+                              role: 'button',
+                              tabIndex: 0,
+                              onKeyDown: onActivateKey(() => setResource(key, i + 1 === avail ? i : i + 1)),
+                              'aria-label': `${label}: set available to ${i + 1 === avail ? i : i + 1}`,
+                            } : { 'aria-hidden': true })}
                             onClick={withinMax ? () => setResource(key, i + 1 === avail ? i : i + 1) : undefined}
                             className={`w-3.5 h-3.5 rounded-sm border transition-all ${
                               filled
@@ -559,11 +571,15 @@ export const CirclePage = () => {
           onClick={() => setShowAdvanceModal(false)}
         >
           <div
+            ref={advanceDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="gm-advance-title"
             className="relative w-full max-w-[480px] max-h-[90dvh] overflow-y-auto bg-cream border border-parchment-deep border-t-4 border-t-oxblood shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
             onClick={e => e.stopPropagation()}
           >
             <div className="p-5 sm:p-8">
-              <h2 className="text-2xl font-serif font-black text-ink mb-1">Circle Advancement</h2>
+              <h2 id="gm-advance-title" className="text-2xl font-serif font-black text-ink mb-1">Circle Advancement</h2>
               <p className="font-serif italic text-base text-sepia mb-6">
                 Choose the circle's new ability. Every investigator sees it as soon as you advance.
               </p>

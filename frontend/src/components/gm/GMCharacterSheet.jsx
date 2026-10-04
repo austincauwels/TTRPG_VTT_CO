@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
@@ -14,6 +14,10 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   const [attempt, setAttempt] = useState(0);
 
   const { gmResetCharacter } = useGameStore(useShallow(s => ({ gmResetCharacter: s.gmResetCharacter })));
+
+  // The sheet replaces the business card that opened it, so keyboard focus starts on Back.
+  const backRef = useRef(null);
+  useEffect(() => { backRef.current?.focus({ preventScroll: true }); }, [rosterItem?.id]);
 
 
   useEffect(() => {
@@ -45,6 +49,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
     >
       {/* Back button */}
       <button
+        ref={backRef}
         onClick={onClose}
         className="mb-4 font-sans text-sm uppercase tracking-widest text-moonlight-steel hover:text-cream border border-moonlight-steel/40 hover:border-moonlight-steel rounded px-5 py-2.5 transition-colors font-bold"
       >

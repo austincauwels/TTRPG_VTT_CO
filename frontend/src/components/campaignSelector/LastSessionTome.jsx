@@ -1,10 +1,11 @@
 import React from 'react';
+import { pressable } from '../shared/a11y';
 
 // Renders the brass lock SVG with id="brassGrad"; render this tome once only.
 export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
   lastPlayedCampaign ? (
       <div
-        onClick={onResume}
+        {...pressable(onResume, `${lastPlayedCampaign.type === 'gm' ? 'Last run as GM' : 'Last played'}: return to ${lastPlayedCampaign.campaignName || 'your last session'}`)}
         className="thick-book group w-full lg:w-[30vw] max-w-[440px] aspect-[1/1.4] lg:aspect-[1/1.3] bg-[#1e0624] p-3 sm:p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-3 lg:translate-y-6 lg:translate-x-4 lg:hover:-translate-y-1 lg:hover:rotate-[1deg] cursor-pointer"
       >
         <div className="leather-texture" />
@@ -31,12 +32,12 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
         </div>
       </div>
   ) : (
-      <div className="thick-book w-full lg:w-[30vw] max-w-[440px] aspect-[1/1.4] lg:aspect-[1/1.3] bg-[#120614] p-3 sm:p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-3 lg:translate-y-6 lg:translate-x-4 cursor-not-allowed">
+      <div role="img" aria-label="Last Session: no session yet" className="thick-book w-full lg:w-[30vw] max-w-[440px] aspect-[1/1.4] lg:aspect-[1/1.3] bg-[#120614] p-3 sm:p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-3 lg:translate-y-6 lg:translate-x-4 cursor-not-allowed">
         <div className="leather-texture" />
         <div className="absolute inset-3 sm:inset-5 border-[3px] border-gold-leaf/20 embossed-stamp pointer-events-none rounded z-10" />
 
         <div className="z-20 flex flex-col items-center text-center relative w-full mb-7 sm:mb-[60px]">
-          <span className="font-display text-xs sm:text-sm lg:text-lg tracking-[0.18em] text-gold-leaf/70 mb-2 lg:mb-4 uppercase drop-shadow-md">Campaign Log</span>
+          <span className="font-display text-xs sm:text-sm lg:text-lg tracking-[0.18em] text-gold-leaf mb-2 lg:mb-4 uppercase drop-shadow-md">Campaign Log</span>
           <h2 className="font-display italic text-3xl sm:text-5xl md:text-6xl embossed-gold leading-[1.05]">
             Last<br/>Session
           </h2>
@@ -77,7 +78,7 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
         </div>
 
         <div className="z-20 absolute bottom-4 sm:bottom-7 flex flex-col items-center gap-2 w-full px-3 sm:px-6">
-          <p className="font-display text-xs sm:text-lg tracking-[0.15em] text-center leading-relaxed uppercase text-gold-leaf/75">
+          <p className="font-display text-xs sm:text-lg tracking-[0.15em] text-center leading-relaxed uppercase text-gold-leaf">
             No session yet
           </p>
         </div>

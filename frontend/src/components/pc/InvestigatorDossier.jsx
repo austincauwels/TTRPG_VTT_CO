@@ -7,6 +7,7 @@ import { SafeIcon } from '../shared/SafeIcon';
 import { getAvailableRollMods } from './DiceVault';
 import { ACTION_LABEL, scarDisplayText } from '../../game/actions';
 import { useMarkUndo, MARK_NAME } from './useMarkUndo';
+import { useDialog } from '../shared/useDialog';
 
 const ROLE_ICONS = {
   'Face': 'GiDramaMasks',
@@ -216,6 +217,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   const [infoTab, setInfoTab] = useState('role'); // 'role' | 'specialty' | 'profile'
   const [showGearModal, setShowGearModal] = useState(false);
   const [pendingGear, setPendingGear] = useState([]);
+  const gearDialogRef = useDialog({ open: showGearModal, onClose: () => setShowGearModal(false) });
   // Pre-spend drive before rolling — keyed by drive category
   const [preSpend, setPreSpend] = useState({ nerve: 0, cunning: 0, intuition: 0 });
   // Toggled ability mods per action key
@@ -336,6 +338,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           ].map(tab => (
             <button
               key={tab.key}
+              type="button"
+              aria-pressed={infoTab === tab.key}
               onClick={() => setInfoTab(tab.key)}
               className="max-sm:flex-1 max-sm:min-h-[36px] leading-tight px-2 sm:px-3 py-1.5 text-xs font-sans font-black uppercase tracking-wider sm:tracking-widest transition-all duration-150 rounded-t-sm mr-0.5"
               style={{
@@ -474,13 +478,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 </div>
                 {/* Available row */}
                 <div className="flex items-center justify-between">
-                  <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2">Available</span>
-                  <div className="flex gap-0.5 flex-wrap justify-end">
+                  <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2" id={`drive-avail-${cat.driveKey}`}>Available</span>
+                  <div className="flex gap-0.5 flex-wrap justify-end" role="group" aria-labelledby={`drive-avail-${cat.driveKey}`}>
+                    <span className="sr-only">{cat.name}: {currentDrive} of {maxDrive} available.</span>
                     {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
                       <button
                         key={i}
+                        type="button"
+                        disabled={!(!readOnly && i < maxDrive && i >= currentDrive)}
+                        aria-label={`Set ${cat.name} available to ${i + 1}`}
+                        aria-hidden={!readOnly && i < maxDrive && i >= currentDrive ? undefined : true}
                         onClick={!readOnly && i < maxDrive && i >= currentDrive ? () => handleSpendDrive(cat.driveKey, i + 1) : undefined}
-                        className={`w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all focus:outline-none ${
+                        className={`w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all ${
                           i < currentDrive
                             ? ''
                             : i < maxDrive
@@ -496,7 +505,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 {/* Maximum row */}
                 <div className="flex items-center justify-between">
                   <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2">Maximum</span>
-                  <div className="flex gap-0.5 flex-wrap justify-end">
+                  <div className="flex gap-0.5 flex-wrap justify-end" role="img" aria-label={`${cat.name} maximum: ${maxDrive}`}>
                     {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
                       <div
                         key={i}
@@ -513,9 +522,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 {/* Resistance pips */}
                 <div className="flex items-center justify-between pt-1.5 border-t border-ink/10">
                   <span className="font-sans text-xs text-sepia uppercase font-bold">Resistance</span>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2" role="img" aria-label={resistMax === 0 ? `${cat.name} resistance: none` : `${cat.name} resistance: ${resistSpent} of ${resistMax} spent`}>
                     {Array.from({ length: resistMax }).map((_, i) => (
-                      <svg key={i} width="14" height="12" viewBox="0 0 14 12" title={i < resistSpent ? 'Spent' : 'Available'}>
+                      <svg key={i} aria-hidden="true" width="14" height="12" viewBox="0 0 14 12">
                         <polygon
                           points="7,1 1,11 13,11"
                           style={{
@@ -546,9 +555,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     <div key={act.key} className="py-0.5 group/action" title={ACTION_FLAVOR[act.key]}>
                       <div className="flex justify-between items-center">
                         {readOnly ? (
-                          <span className="font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-ink/70">
-                            {isGilded && <div className="w-2 h-2 bg-candle-gold rounded-full" />}
+                          <span className="font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-ink">
+                            {isGilded && <span aria-hidden="true" className="w-2 h-2 bg-candle-gold border border-sepia rounded-full" />}
                             {act.label}
+                            {isGilded && <span className="sr-only">(gilded)</span>}
                           </span>
                         ) : (
                           <button
@@ -563,16 +573,16 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             }}
                             className={`font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-left transition-colors [@media(pointer:coarse)]:min-h-[40px] ${(pendingGildedChoice || isRolling) ? 'opacity-40 cursor-not-allowed' : 'hover:text-oxblood'}`}
                             style={{ touchAction: 'manipulation' }}
-                            aria-label={`Roll ${act.label}`}
+                            aria-label={`Roll ${act.label}${isGilded ? ', gilded' : ''}, rating ${actionValue}${preSpend[cat.driveKey] > 0 ? `, plus ${preSpend[cat.driveKey]} from ${cat.name}` : ''}`}
                           >
-                            {isGilded && <div className="w-2 h-2 bg-candle-gold rounded-full" />}
+                            {isGilded && <span aria-hidden="true" className="w-2 h-2 bg-candle-gold border border-sepia rounded-full" />}
                             {act.label}
                             {preSpend[cat.driveKey] > 0 && (
                               <span className="font-mono tabular-nums text-xs text-oxblood font-black">+{preSpend[cat.driveKey]}d</span>
                             )}
                           </button>
                         )}
-                        <div className="flex gap-1">
+                        <div className="flex gap-1" role="img" aria-label={`${act.label} rating: ${actionValue} of 3`}>
                           {Array.from({ length: 3 }).map((_, i) => (
                             <div
                               key={i}
@@ -588,12 +598,14 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             return (
                               <button
                                 key={mod.key}
+                                type="button"
+                                aria-pressed={on}
                                 onClick={() => toggleMod(act.key, mod.key)}
                                 className={`font-sans font-bold text-xs uppercase tracking-wider px-1.5 py-0.5 border transition-colors ${
                                   on ? 'bg-candle-gold/20 border-candle-gold/70 text-ink' : 'border-ink/20 text-sepia hover:border-ink/40 hover:text-ink'
                                 }`}
                               >
-                                {mod.label}
+                                {on && <span aria-hidden="true">✓ </span>}{mod.label}
                               </button>
                             );
                           })}
@@ -796,9 +808,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       {showGearModal && createPortal(
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" style={{ background: 'rgb(var(--c-night) / 0.85)' }}
           onClick={() => setShowGearModal(false)}>
-          <div className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
+          <div ref={gearDialogRef} role="dialog" aria-modal="true" aria-labelledby="gear-dialog-title" className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
             style={{ background: 'rgb(var(--c-parchment))', border: '3px double rgb(var(--c-sepia)/0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
-            <h2 className="text-2xl font-serif font-black text-ink mb-1">Change Gear</h2>
+            <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-1">Change Gear</h2>
             <p className="text-sm font-sans text-sepia mb-5">Pick up to 3 items. You can change gear between assignments.</p>
 
             {character.specialty && SPECIALTY_GEAR[character.specialty] && (
@@ -808,14 +820,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   {SPECIALTY_GEAR[character.specialty].map(item => {
                     const sel = pendingGear.includes(item);
                     return (
-                      <div key={item} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
-                        className="flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
+                      <button type="button" key={item} aria-pressed={sel} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
+                        className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
                         style={{ background: sel ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.3)', border:`1px solid ${sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia)/0.22)'}` }}>
                         <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/40'}`}>{sel&&'✓'}</div>
                         <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />
                         <span className={`text-sm font-serif ${sel?'font-bold text-ink':'text-ink/75'}`}>{item}</span>
-                        
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -828,13 +839,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 {STANDARD_GEAR.map(item => {
                   const sel = pendingGear.includes(item);
                   return (
-                    <div key={item} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
-                      className="flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
+                    <button type="button" key={item} aria-pressed={sel} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
+                      className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
                       style={{ background: sel ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.15)', border:`1px solid ${sel?'rgb(var(--c-oxblood) / 0.5)':'rgb(var(--c-sepia)/0.15)'}` }}>
                       <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/35'}`}>{sel&&'✓'}</div>
                       <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />
                       <span className={`text-sm font-serif ${sel?'font-bold text-ink':'text-sepia'}`}>{item}</span>
-                    </div>
+                    </button>
                   );
                 })}
               </div>

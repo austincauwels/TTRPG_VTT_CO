@@ -11,7 +11,7 @@ export const UnaffiliatedCharacterRow = ({ char, form, setJoinForms, handleJoinF
         aria-expanded={!!form.expanded}
         className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-sepia/10 transition-colors text-left"
       >
-        <span aria-hidden="true" className="text-sepia/70 text-lg shrink-0">○</span>
+        <span aria-hidden="true" className="text-sepia text-lg shrink-0">○</span>
         <p className="font-serif font-bold text-xl text-ink/75 flex-1 truncate">{char.name}</p>
         <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0">
           {form.expanded ? 'Close' : 'Join a campaign'}

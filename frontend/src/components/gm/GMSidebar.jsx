@@ -53,7 +53,7 @@ export const GMSidebar = ({ activeTab, setActiveTab }) => {
             >
               <div className={`flex items-center gap-4 ${active ? 'text-oxblood' : ''}`}>
                 <SafeIcon name={item.icon} size={18} className="opacity-70" />
-                <span className={`font-serif uppercase tracking-[0.12em] text-base whitespace-nowrap ${active ? 'font-bold' : 'font-semibold'}`}>
+                <span className={`font-serif uppercase tracking-[0.12em] text-base whitespace-nowrap ${active ? 'font-bold underline decoration-2 underline-offset-[6px]' : 'font-semibold'}`}>
                   {item.label}
                 </span>
               </div>

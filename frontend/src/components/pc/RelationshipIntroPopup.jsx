@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import useGameStore from '../../store/gameStore';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
+import { useDialog } from '../shared/useDialog';
 
 // Shown when an investigator joins a circle that is already formed: the newcomer sets up
 // a relationship with everyone, and everyone else with the newcomer. Same paper and the
@@ -30,11 +31,14 @@ export const RelationshipIntroPopup = () => {
     ? (allActiveCharacters || []).filter(c => c.id !== myId)
     : [newCharacter];
 
+  const dialogRef = useDialog({ open: !!pendingRelationshipIntro, onClose: clearRelationshipIntro });
+
   if (!pendingRelationshipIntro) return null;
 
   return (
     <div className="fixed inset-0 bg-black/85 z-[9100] flex items-center justify-center p-4">
       <motion.div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="relationship-intro-title"

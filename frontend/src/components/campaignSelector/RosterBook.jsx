@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDialog } from '../shared/useDialog';
 import { PlayerRegistryPage } from './PlayerRegistryPage';
 import { LightkeeperLedgerPage } from './LightkeeperLedgerPage';
 
@@ -13,6 +14,7 @@ const PAGE_TABS = [
 // always inside the viewport. The open and close animation is the same at every width.
 export const RosterBook = ({ isClosingBook, closeBook, defaultPage = 'registry', registryProps, ledgerProps }) => {
   const [page, setPage] = useState(defaultPage);
+  const bookRef = useDialog({ onClose: closeBook });
 
   return (
     <div
@@ -21,6 +23,10 @@ export const RosterBook = ({ isClosingBook, closeBook, defaultPage = 'registry',
       onClick={closeBook}
     >
       <div
+        ref={bookRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Roster book"
         className={`roster-book${isClosingBook ? ' closing' : ''} relative flex w-[calc(100vw-32px)] h-[calc(100dvh-84px)] lg:w-[90vw] lg:max-w-[1100px] lg:h-[85vh]`}
         style={{
           borderRadius: '4px 12px 12px 4px',

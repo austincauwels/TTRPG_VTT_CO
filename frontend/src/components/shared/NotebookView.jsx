@@ -447,6 +447,8 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
         ].map(tab => (
           <button
             key={tab.label}
+            type="button"
+            aria-pressed={!!tab.active}
             onClick={tab.onClick}
             className="max-sm:flex-1 max-sm:min-w-0 leading-tight px-3 sm:px-[22px] font-sans text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all select-none"
             style={{
@@ -500,7 +502,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
               value={ephemeralText}
               onChange={e => setEphemeralText(e.target.value)}
               placeholder="Write a private note…"
-              className="w-full bg-transparent border-none outline-none resize-none font-serif text-[24px] leading-[1.7] text-ink/80 min-h-[80px]"
+              className="w-full bg-transparent border-none resize-none font-serif text-[24px] leading-[1.7] text-ink/80 min-h-[80px]"
               style={{ fontFamily: authorFont, color: authorColor }}
               onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleAddEphemeral(); } }}
             />
@@ -567,7 +569,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                 value={lkContent}
                 onChange={e => handleLKContentChange(e.target.value)}
                 placeholder="Write Lightkeeper notes here…"
-                className="w-full bg-transparent border-none outline-none resize-none text-[26px] leading-[3.5rem] font-serif text-ink placeholder-sepia/70"
+                className="w-full bg-transparent border-none resize-none text-[26px] leading-[3.5rem] font-serif text-ink placeholder-sepia/90"
                 style={{ backgroundImage: 'none', minHeight: '700px' }}
               />
             </div>
@@ -600,24 +602,21 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                     <span className="block font-sans text-xs sm:text-sm font-black text-sepia uppercase tracking-widest mb-2">Filter by Author</span>
                     <div className="flex flex-wrap gap-1.5">
                       <button
+                        type="button"
+                        aria-pressed={activeFilter === null}
                         onClick={() => setSelectedAuthorFilter(null)}
-                        className="px-2.5 py-1.5 text-sm rounded-sm border transition-all font-sans font-black uppercase tracking-widest"
-                        style={{
-                          color: activeFilter === null ? '#fff' : '#555',
-                          borderColor: '#888',
-                          background: activeFilter === null ? '#555' : 'transparent',
-                          opacity: activeFilter === null ? 1 : 0.6,
-                        }}
+                        className={`px-2.5 py-1.5 text-sm rounded-sm border transition-all font-sans font-black uppercase tracking-widest ${
+                          activeFilter === null ? 'bg-ink text-cream border-ink' : 'bg-transparent text-sepia border-sepia/60'}`}
                       >All</button>
                       {authorKeys.map(name => {
                         const info = authorMap[name];
                         const isActive = activeFilter === name;
                         return (
-                          <button key={name} onClick={() => setSelectedAuthorFilter(name)}
+                          <button key={name} type="button" aria-pressed={isActive} onClick={() => setSelectedAuthorFilter(name)}
                             className="px-2 py-1 text-[26px] rounded-sm border transition-all"
                             style={{
-                              fontFamily: info.pen_font, color: isActive ? '#fff' : info.ink_color,
-                              borderColor: info.ink_color, background: isActive ? info.ink_color : 'transparent', opacity: isActive ? 1 : 0.7,
+                              fontFamily: info.pen_font, color: isActive ? 'rgb(var(--c-cream))' : info.ink_color,
+                              borderColor: info.ink_color, background: isActive ? info.ink_color : 'transparent',
                             }}
                           >{name}</button>
                         );
@@ -721,7 +720,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                     <label className="block font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-sepia mb-1">Entry Title</label>
                     <input type="text" value={newEntryTitle} onChange={e => setNewEntryTitle(e.target.value)}
                       placeholder="e.g. The lighthouse keeper's diary"
-                      className="w-full px-0 py-1 bg-transparent border-b-2 border-ink/30 focus:border-ink/60 outline-none text-[32px]"
+                      className="w-full px-0 py-1 bg-transparent border-b-2 border-ink/30 focus:border-ink/60 text-[32px]"
                       style={{ fontFamily: authorFont, color: authorColor }} />
                   </div>
                   <div className="flex-1 flex flex-col">
@@ -733,7 +732,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                       }} />
                       <textarea value={newEntryContent} onChange={e => setNewEntryContent(e.target.value)}
                         placeholder="Write what happened, or what you noticed."
-                        className="w-full h-full min-h-[180px] bg-transparent border-none outline-none resize-none text-[28px] leading-[3.5rem] relative z-10 pt-1"
+                        className="w-full h-full min-h-[180px] bg-transparent border-none resize-none text-[28px] leading-[3.5rem] relative z-10 pt-1"
                         style={{ fontFamily: authorFont, color: authorColor }} />
                     </div>
                   </div>
@@ -742,7 +741,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                   <div className="flex gap-2 items-center flex-wrap">
                     <input type="text" value={uploadCaption} onChange={e => setUploadCaption(e.target.value)}
                       placeholder="Image caption (optional)"
-                      className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 outline-none text-lg font-serif text-ink placeholder-sepia/70 placeholder:italic py-0.5" />
+                      className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 text-lg font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5" />
                     <button onClick={() => sketchInputRef.current?.click()} disabled={isUploading || !!pendingImageFile}
                       className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
                       <span className="inline-flex items-center gap-1.5"><PencilIcon size={16} /> Sketch</span>
@@ -775,7 +774,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                       <select
                         value={authorFont}
                         onChange={e => updatePenFont(e.target.value)}
-                        className="bg-transparent border-b border-ink/25 focus:border-ink/50 outline-none text-[18px] py-0.5 flex-1 min-w-0"
+                        className="bg-transparent border-b border-ink/25 focus:border-ink/50 text-[18px] py-0.5 flex-1 min-w-0"
                         style={{ fontFamily: authorFont, color: authorColor }}
                       >
                         {PEN_FONTS.map(f => (
