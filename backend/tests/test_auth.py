@@ -88,8 +88,11 @@ def test_register_validation_errors(client, field, value):
 
 
 def test_register_accepts_spaces_dots_dashes(client):
-    r = _register(client, username=f"A b.c-{support.uid(4)}")
+    name = f"A b.c-{support.uid(4)}"
+    r = _register(client, username=name)
     assert r.status_code == 201
+    assert r.json()["name"] == name
+    assert support.fetch(User, r.json()["userId"]).username == name  # stored as sent, not trimmed or lowered
 
 
 def test_register_missing_field(client):

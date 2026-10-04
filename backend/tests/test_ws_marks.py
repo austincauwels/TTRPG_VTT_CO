@@ -29,10 +29,16 @@ def test_take_mark_without_type_is_ignored(client):
 
 def test_take_mark_unknown_type_creates_nothing(client):
     """QUIRK: mark_type is not validated; an unknown track is set on the object only."""
-    ch = support.forge(client)
+    ch = support.forge(client, body_marks=1, brain_marks=2, bleed_marks=0)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="soul")
-        assert support.types(ws.sync()) == ["character_update"]
+        [msg] = ws.sync()
+        assert msg["type"] == "character_update"
+        p = msg["payload"]
+        assert set(p) == support.CHAR_DICT_KEYS
+        assert (p["body_marks"], p["brain_marks"], p["bleed_marks"], p["incapacitated"]) == (1, 2, 0, False)
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.brain_marks, row.bleed_marks, row.incapacitated) == (1, 2, 0, False)
 
 
 def test_fourth_mark_incapacitates(client):
@@ -125,7 +131,12 @@ def test_endurance_without_resistance_just_incapacitates(client):
     ch = support.forge(client, body_marks=3, nerve_max=2, specialty_ability="Endurance")
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="body")
-        assert support.types(ws.sync()) == ["trigger_scar", "activity_log"]
+        msgs = ws.sync()
+        assert support.types(msgs) == ["trigger_scar", "activity_log"]
+        assert msgs[0]["payload"]["character"]["incapacitated"] is True
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} has been incapacitated!"
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.incapacitated) == (0, True)
 
 
 def test_let_them_in_and_adrenaline_rush_offers(client):
@@ -331,3 +342,184 @@ def test_revive_character(client):
         assert msgs[1]["payload"] == {"message": f"{ch['name']} has been revived and is operational.",
                                       "log_type": "field", "ink_color": engine.INK_COLORS[0]}
         assert support.types(gm.drain()) == ["activity_log"]
+
+
+# --- the three soak maps: take_mark, resolve_ability_mark, intercept_mark ------
+
+@pytest.mark.parametrize("ability,fields,spent_field", [
+    ("Compartmentalization", dict(nerve_max=3), "nerve_resistance_spent"),
+    ("Steel Mind", dict(intuition_max=3), "intuition_resistance_spent"),
+    ("In the Trenches", dict(cunning_max=3), "cunning_resistance_spent"),
+])
+def test_resolve_soak_spends_the_matching_resistance(client, ability, fields, spent_field):
+    ch = support.forge(client, **fields, specialty_ability=ability)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("resolve_ability_mark", ability=ability)
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update", "activity_log"]
+        p = msgs[0]["payload"]
+        spent = {k: p[k] for k in ("nerve_resistance_spent", "cunning_resistance_spent", "intuition_resistance_spent")}
+        assert spent == {k: (1 if k == spent_field else 0) for k in spent}
+        assert p["ability_uses"] == {ability: 1}
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} used {ability} {EM} soaked the mark."
+    row = support.fetch(Character, ch["id"])
+    assert getattr(row, spent_field) == 1
+    assert row.ability_uses == {ability: 1}
+
+
+@pytest.mark.parametrize("ability,fields,uses", [
+    ("Compartmentalization", dict(nerve_max=3), {"Compartmentalization": 1}),
+    ("Compartmentalization", dict(nerve_max=2), {}),
+    ("Compartmentalization", dict(nerve_max=3, nerve_resistance_spent=1), {}),
+    ("Steel Mind", dict(intuition_max=3), {"Steel Mind": 1}),
+    ("Steel Mind", dict(intuition_max=2), {}),
+    ("Steel Mind", dict(intuition_max=3, intuition_resistance_spent=1), {}),
+])
+def test_brain_soak_skipped_when_used_or_out_of_resistance(client, ability, fields, uses):
+    ch = support.forge(client, **fields, specialty_ability=ability)
+    if uses:
+        support.update(Character, ch["id"], ability_uses=uses)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="brain")
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update"]
+        assert msgs[0]["payload"]["brain_marks"] == 1
+    assert support.fetch(Character, ch["id"]).brain_marks == 1
+
+
+def test_brain_soak_offers_what_is_left(client):
+    ch = support.forge(client, nerve_max=3, intuition_max=3,
+                       role_ability="Compartmentalization", specialty_ability="Steel Mind")
+    support.update(Character, ch["id"], ability_uses={"Compartmentalization": 1})
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="brain")
+        assert ws.sync() == [{"type": "ability_mark_offer", "payload": {
+            "ability": "Steel Mind", "mark_type": "brain", "character_id": ch["id"],
+            "options": [{"ability": "Steel Mind", "resist_key": "intuition"}], "action": "soak"}}]
+
+
+def test_body_soak_ignores_brain_abilities_and_brain_ignores_body(client):
+    ch = support.forge(client, nerve_max=3, cunning_max=3,
+                       role_ability="Compartmentalization", specialty_ability="In the Trenches")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="bleed")
+        assert support.types(ws.sync()) == ["character_update"]
+        ws.send("take_mark", mark_type="body")
+        assert ws.sync()[0]["payload"]["options"] == [{"ability": "In the Trenches", "resist_key": "cunning"}]
+        ws.send("take_mark", mark_type="brain")
+        assert ws.sync()[0]["payload"]["options"] == [{"ability": "Compartmentalization", "resist_key": "nerve"}]
+
+
+# --- intercept_mark: what happens to the interceptor --------------------------
+
+@pytest.mark.parametrize("soak,mark_type,fields", [
+    ("In the Trenches", "body", dict(cunning_max=3)),
+    ("Compartmentalization", "brain", dict(nerve_max=3)),
+    ("Steel Mind", "brain", dict(intuition_max=3)),
+])
+def test_intercept_offers_interceptor_a_soak_and_does_not_mark_them(client, soak, mark_type, fields):
+    """QUIRK: the interceptor's soak offer has no 'options' key and uses the
+    interceptor's own id. The mark is not applied to the interceptor, but the nerve
+    spend and the target's mark removal are already committed."""
+    target = support.forge(client, **{f"{mark_type}_marks": 2})
+    guard = support.forge(client, nerve_current=2, role_ability="Behind Me", specialty_ability=soak,
+                          **{"nerve_max": 3, **fields})
+    with support.ws_connect(client, guard["id"]) as wg:
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type=mark_type)
+        msgs = wg.sync()
+        assert support.types(msgs) == ["activity_log", "ability_mark_offer"]
+        assert msgs[0]["payload"]["message"] == f"{guard['name']} used Behind Me to intercept a mark for {target['name']}!"
+        assert msgs[1]["payload"] == {"ability": soak, "mark_type": mark_type,
+                                      "character_id": guard["id"], "action": "soak"}
+    g = support.fetch(Character, guard["id"])
+    assert (g.nerve_current, getattr(g, f"{mark_type}_marks")) == (1, 0)
+    assert getattr(support.fetch(Character, target["id"]), f"{mark_type}_marks") == 1
+
+
+def test_intercept_soak_skipped_when_used(client):
+    target = support.forge(client, body_marks=2)
+    guard = support.forge(client, nerve_current=2, cunning_max=3, role_ability="Behind Me",
+                          specialty_ability="In the Trenches")
+    support.update(Character, guard["id"], ability_uses={"In the Trenches": 1})
+    with support.ws_connect(client, guard["id"]) as wg:
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
+        msgs = wg.sync()
+        assert support.types(msgs) == ["activity_log", "character_update"]
+        assert msgs[1]["payload"]["body_marks"] == 1
+
+
+def test_intercept_back_against_the_wall_does_not_block_the_mark(client):
+    """Unlike take_mark, the interceptor's soak map has no Back Against the Wall, so the brain mark lands."""
+    target = support.forge(client, brain_marks=1)
+    guard = support.forge(client, nerve_current=1, role_ability="Behind Me", specialty_ability="Back Against the Wall")
+    with support.ws_connect(client, guard["id"]) as wg:
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="brain")
+        msgs = wg.sync()
+        assert support.types(msgs) == ["activity_log", "character_update"]
+        assert msgs[1]["payload"]["brain_marks"] == 1
+    assert support.fetch(Character, guard["id"]).brain_marks == 1
+    assert support.fetch(Character, target["id"]).brain_marks == 0
+
+
+def test_intercept_unknown_target_still_marks_the_interceptor(client):
+    guard = support.forge(client, nerve_current=2, role_ability="Behind Me")
+    with support.ws_connect(client, guard["id"]) as wg:
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=987654321, mark_type="bleed")
+        msgs = wg.sync()
+        assert support.types(msgs) == ["activity_log", "character_update"]
+        assert msgs[0]["payload"]["message"] == f"{guard['name']} used Behind Me to intercept a mark for an ally!"
+        assert msgs[1]["payload"]["bleed_marks"] == 1
+    row = support.fetch(Character, guard["id"])
+    assert (row.nerve_current, row.bleed_marks) == (1, 1)
+
+
+def test_intercept_without_mark_type_does_nothing(client):
+    target = support.forge(client, body_marks=2)
+    guard = support.forge(client, nerve_current=2, role_ability="Behind Me")
+    with support.ws_connect(client, guard["id"]) as wg:
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"])
+        assert wg.sync() == []
+    assert support.fetch(Character, guard["id"]).nerve_current == 2
+    assert support.fetch(Character, target["id"]).body_marks == 2
+
+
+# --- who receives post-roll, resolve and intercept results in a campaign --------
+
+ACTOR_CASES = [
+    ("Flourish", dict(cunning_max=3, cunning_current=3),
+     "use_post_roll_ability", dict(ability="Flourish")),
+    ("Learn from My Mistakes", dict(nerve_max=3, nerve_current=1),
+     "use_post_roll_ability", dict(ability="Learn from My Mistakes", drive="nerve")),
+    ("Bending Spoons", dict(),
+     "use_post_roll_ability", dict(ability="Bending Spoons")),
+    ("Adrenaline Rush", dict(nerve_max=3, nerve_current=1),
+     "resolve_ability_mark", dict(ability="Adrenaline Rush", choice="nerve")),
+    ("In the Trenches", dict(cunning_max=3), "resolve_ability_mark", dict(ability="In the Trenches")),
+    ("Compartmentalization", dict(nerve_max=3), "resolve_ability_mark", dict(ability="Compartmentalization")),
+    ("Steel Mind", dict(intuition_max=3), "resolve_ability_mark", dict(ability="Steel Mind")),
+    ("Death Defy", dict(), "resolve_ability_mark", dict(ability="Death Defy")),
+    ("Premonitions", dict(intuition_max=3),
+     "intercept_mark", dict(ability="Premonitions", mark_type="body")),
+]
+
+
+@pytest.mark.parametrize("ability,fields,action,payload", ACTOR_CASES, ids=[c[0] for c in ACTOR_CASES])
+def test_ability_results_reach_campaign_log_but_sheet_stays_private(client, ability, fields, action, payload):
+    """The activity_log goes to the GM and every active member; the character_update
+    goes only to the acting character's own channel."""
+    camp = support.new_campaign(client)
+    actor = support.active_member(client, camp, specialty_ability=ability, **fields)
+    other = support.active_member(client, camp)
+    if action == "intercept_mark":
+        payload = dict(payload, target_character_id=other["id"])
+    with support.ws_connect(client, actor["id"]) as wa, support.ws_connect(client, other["id"]) as wo, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
+        wa.send(action, **payload)
+        msgs = wa.sync()
+        assert support.types(msgs) == ["character_update", "activity_log"]
+        assert msgs[0]["payload"]["id"] == actor["id"]
+        log = msgs[1]
+        assert log["payload"]["ink_color"] == engine.INK_COLORS[0]
+        assert log["payload"]["message"].startswith(f"{actor['name']} used {ability} {EM} ")
+        assert wo.drain() == [log]
+        assert gm.drain() == [log]

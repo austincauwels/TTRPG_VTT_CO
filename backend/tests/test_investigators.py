@@ -117,8 +117,10 @@ def test_get_investigator_validation(client):
 @pytest.mark.legacy_trust
 def test_get_investigator_of_someone_else(client):
     """Any caller can read any character sheet by id."""
-    made = support.forge(client, user_id=support.make_user().id)
-    assert client.get(f"/api/investigators/{made['id']}").status_code == 200
+    made = support.forge(client, user_id=support.make_user().id, move=2, role_ability="Flourish")
+    r = client.get(f"/api/investigators/{made['id']}")
+    assert r.status_code == 200
+    assert r.json() == made
 
 
 def test_get_investigator_with_null_circle_is_500(client):

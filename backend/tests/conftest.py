@@ -93,7 +93,9 @@ def client():
 
 @pytest.fixture
 def dice(monkeypatch):
-    """Load die faces (1-6) that engine.roll_dice will produce, in order."""
+    """Load die faces (1-6) that engine.roll_dice will produce, in order.
+    Every loaded face must be used: leftovers fail the test at teardown, so a pool
+    that comes out too small is caught even when the test does not count dice."""
     faces = []
 
     def fake_randbelow(n):
@@ -108,7 +110,8 @@ def dice(monkeypatch):
         faces.extend(values)
         return faces
 
-    return load
+    yield load
+    assert not faces, f"unused dice faces left in the queue: {faces}"
 
 
 @pytest.fixture

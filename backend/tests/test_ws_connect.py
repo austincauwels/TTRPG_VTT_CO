@@ -1,4 +1,5 @@
 """/ws/{game_id}: connecting, channel naming, the connection manager, malformed frames."""
+import asyncio
 import json
 
 import pytest
@@ -106,10 +107,15 @@ def test_bad_json_and_unknown_types_are_ignored(client):
 
 
 def test_frame_without_payload_works(client):
-    ch = support.forge(client)
+    ch = support.forge(client, body_marks=2, bleed_marks=1, incapacitated=True)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send_text(json.dumps({"type": "revive_character"}))
-        assert ws.recv()["type"] == "character_update"
+        msg = ws.recv()
+        assert msg["type"] == "character_update"
+        p = msg["payload"]
+        assert (p["id"], p["body_marks"], p["bleed_marks"], p["incapacitated"]) == (ch["id"], 0, 0, False)
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.bleed_marks, row.incapacitated) == (0, 0, False)
 
 
 @pytest.mark.parametrize("frame", ['[1, 2]', '"text"', '{"type": "update_drive", "payload": [1]}'])
@@ -137,3 +143,194 @@ def test_connect_with_campaign_that_has_circle_reuses_it(client):
     with support.ws_connect(client, camp["campaign_code"]) as ws:
         assert ws.initial[0]["payload"]["id"] == cid
     assert len(support.fetch_all(Circle, campaign_id=camp["id"])) == 1
+
+
+# --- dispatcher: actions that need a character, sent on a GM code socket --------
+
+NEEDS_CHARACTER = [
+    ("update_drive", dict(pool="nerve", value=2)),
+    ("resolve_gilded", dict(action="move", chosen_type="gilded", chosen_value=3)),
+    ("use_post_roll_ability", dict(ability="Flourish")),
+    ("update_pen_font", dict(pen_font="Kalam")),
+    ("take_mark", dict(mark_type="body")),
+    ("resolve_ability_mark", dict(ability="Adrenaline Rush", choice="nerve")),
+    ("intercept_mark", dict(ability="Behind Me", target_character_id=987654321, mark_type="body")),
+    ("apply_scar", dict(scar_text="x", shift_down="move", shift_up="sense")),
+    ("revive_character", dict()),
+    ("burn_resistance", dict(action="move", drive_key="nerve")),
+    ("update_gear", dict(gear=["lamp"])),
+    ("spend_resource", dict(resource_type="stitch")),
+    ("apply_advancement", dict(choice="add_action", detail="move")),
+    ("gm_update_tension", dict(role="GM", mark_type="body", value=1)),
+]
+
+
+@pytest.mark.parametrize("action,payload", NEEDS_CHARACTER, ids=[a for a, _ in NEEDS_CHARACTER])
+def test_character_actions_on_a_gm_socket_are_ignored(client, action, payload):
+    """A campaign-code socket has no character, so these actions are skipped and the
+    GM's socket stays open."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send(action, **payload)
+        assert gm.sync() == []
+        assert len(support.server_sockets(camp["campaign_code"])) == 1
+        assert wm.drain() == []
+
+
+# --- the per-message character lookup --------------------------------------------
+
+@pytest.mark.legacy_trust
+@pytest.mark.parametrize("bad", ["abc", {"a": 1}, [1], True], ids=["text", "object", "list", "bool"])
+def test_non_integer_character_id_drops_the_frame(client, bad):
+    """The lookup raises on PostgreSQL; the handler rolls back and skips the frame,
+    even for actions that need no character. The socket stays open."""
+    ch = support.forge(client, nerve_current=1)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("chat_message", message="hi", character_id=bad)
+        ws.send("update_drive", pool="nerve", value=0, character_id=bad)
+        assert ws.sync() == []
+        assert len(support.server_sockets(ch["id"])) == 1
+        ws.send("chat_message", message="still here")
+        assert support.types(ws.sync()) == ["activity_log"]
+    assert support.fetch(Character, ch["id"]).nerve_current == 1
+
+
+@pytest.mark.legacy_trust
+def test_fractional_character_id_finds_no_character(client):
+    """QUIRK: 1.5 is a valid SQL comparison that matches nothing, so the frame runs as
+    if no character were connected. A campaign member's chat then goes only to the
+    member's own channel, with no ink."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, nerve_current=1)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+        wa.send("chat_message", sender_name="Ada", message="hi", character_id=1.5)
+        assert wa.sync() == [{"type": "activity_log", "payload": {
+            "message": "Ada: hi", "log_type": "chat", "target": "@Circle", "ink_color": ""}}]
+        assert gm.drain() == []
+        wa.send("update_drive", pool="nerve", value=0, character_id=1.5)
+        assert wa.sync() == []
+    assert support.fetch(Character, a["id"]).nerve_current == 1
+
+
+@pytest.mark.legacy_trust
+def test_failed_lookup_rollback_reloads_the_stale_circle(client):
+    """The rollback after a failed lookup expires the session's objects the same way
+    a commit does, so the connect-time circle is read fresh on the next frame."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()["circle_id"]
+    support.update(Circle, cid, resources_editable=False, stitch=2, refresh=2, train=2)
+    with support.ws_connect(client, member["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_toggle_resource_edit", role="GM")
+        gm.sync()
+        ws.drain()
+        ws.send("spend_resource", resource_type="stitch")
+        assert ws.sync() == []
+        ws.send("update_drive", pool="nerve", value=0, character_id="abc")
+        ws.send("spend_resource", resource_type="stitch")
+        assert support.types(ws.sync()) == ["character_update", "circle_update", "activity_log"]
+    assert support.fetch(Circle, cid).stitch == 1
+
+
+def test_null_character_id_falls_back_to_the_socket_character(client):
+    ch = support.forge(client, move=1)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("apply_advancement", choice="add_action", detail="move", character_id=None)
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update", "activity_log"]
+        assert (msgs[0]["payload"]["id"], msgs[0]["payload"]["move"]) == (ch["id"], 2)
+    assert support.fetch(Character, ch["id"]).move == 2
+
+
+# --- campaign context is fixed at connect time -----------------------------------
+
+def test_campaign_context_is_fixed_when_the_socket_connects(client, dice):
+    """QUIRK: the comment in websocket_endpoint says the context is re-resolved per
+    message, but camp_id, camp_code and the circle are set once at connect. A socket
+    opened while its character was unaffiliated keeps logging to its own channel
+    after the character joins and is approved, and keeps using circle 1. Only
+    chat_message looks the campaign up again from character.campaign_id, and even
+    that sees the join only after something on the socket commits, because until
+    then the session keeps the character it loaded at connect."""
+    camp = support.new_campaign(client)
+    guard = support.active_member(client, camp, role_ability="Behind Me", nerve_current=1)
+    late = support.forge(client, user_id=support.make_user().id)
+    with support.ws_connect(client, late["id"]) as wl, support.ws_connect(client, camp["campaign_code"]) as gm, \
+            support.ws_connect(client, guard["id"]) as wg:
+        assert wl.initial[1]["payload"]["id"] == 1
+        assert support.join(client, late["id"], camp["campaign_code"]).status_code == 200
+        assert support.approve(client, late["id"]).status_code == 200
+        gm.drain(), wg.drain(), wl.drain()
+
+        # before anything on this socket commits, the character still has no campaign
+        wl.send("chat_message", sender_name="Late", message="one")
+        assert support.types(wl.sync()) == ["activity_log"]
+        assert gm.drain() == [] and wg.drain() == []
+
+        wl.send("update_pen_font", pen_font="Kalam")  # a commit expires the stale objects
+        assert support.types(wl.sync()) == ["character_update"]
+
+        dice(3, 4)
+        wl.send("roll", action="move", drive_spent=0)
+        assert support.types(wl.sync()) == ["roll_result", "activity_log"]
+        assert gm.drain() == [] and wg.drain() == []
+
+        wl.send("chat_message", sender_name="Late", message="two")
+        msgs = wl.sync()
+        assert [m["payload"]["message"] for m in msgs] == ["Late: two"]
+        assert gm.drain() == msgs and wg.drain() == msgs
+
+        # intercept candidates are looked up with campaign_id IS NULL
+        wl.send("take_mark", mark_type="body")
+        assert support.types(wl.sync()) == ["character_update"]
+        assert wg.drain() == []
+
+        wl.send("update_circle")
+        [msg] = wl.sync()
+        assert (msg["type"], msg["payload"]["id"]) == ("circle_update", 1)
+        assert gm.drain() == []
+
+
+# --- ConnectionManager with sockets that fail ------------------------------------
+
+def test_broadcast_drops_dead_sockets_and_keeps_sending(client):
+    mgr = main.ConnectionManager()
+    ok1, dead, ok2, elsewhere = (support.FakeSocket(), support.FakeSocket(fail=True),
+                                 support.FakeSocket(), support.FakeSocket())
+    mgr.active_connections = {"k": [ok1, dead, ok2], "other": [elsewhere]}
+    asyncio.run(mgr.broadcast("k", {"type": "x"}))
+    assert ok1.sent == [{"type": "x"}] and ok2.sent == [{"type": "x"}]
+    assert elsewhere.sent == []
+    assert mgr.active_connections == {"k": [ok1, ok2], "other": [elsewhere]}
+    asyncio.run(mgr.broadcast("missing", {"type": "x"}))
+    assert "missing" not in mgr.active_connections
+
+
+def test_broadcast_campaign_survives_a_dead_socket(client):
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp)
+    b = support.active_member(client, camp)
+    p = support.pending_member(client, camp)
+    gm_dead, gm_ok, a_dead, b_ok, p_ok = (support.FakeSocket(fail=True), support.FakeSocket(),
+                                          support.FakeSocket(fail=True), support.FakeSocket(), support.FakeSocket())
+    code = camp["campaign_code"]
+    mgr = main.ConnectionManager()
+    mgr.active_connections = {code: [gm_dead, gm_ok], str(a["id"]): [a_dead],
+                              str(b["id"]): [b_ok], str(p["id"]): [p_ok]}
+    msg = {"type": "activity_log", "payload": {"message": "m"}}
+    with main.SessionLocal() as db:
+        asyncio.run(mgr.broadcast_campaign(code, camp["id"], msg, db))
+    assert gm_ok.sent == [msg] and b_ok.sent == [msg]
+    assert p_ok.sent == []  # pending members are not part of the campaign broadcast
+    assert mgr.active_connections == {code: [gm_ok], str(a["id"]): [],
+                                      str(b["id"]): [b_ok], str(p["id"]): [p_ok]}
+
+
+def test_broadcast_all_drops_dead_sockets(client):
+    mgr = main.ConnectionManager()
+    ok, dead, ok2 = support.FakeSocket(), support.FakeSocket(fail=True), support.FakeSocket()
+    mgr.active_connections = {"a": [dead, ok], "b": [ok2]}
+    asyncio.run(mgr.broadcast_all({"type": "x"}))
+    assert ok.sent == [{"type": "x"}] and ok2.sent == [{"type": "x"}]
+    assert mgr.active_connections == {"a": [ok], "b": [ok2]}

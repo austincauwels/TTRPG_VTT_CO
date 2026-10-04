@@ -3,8 +3,9 @@ The WebSocket broadcasts these routes send are in test_rest_broadcasts.py."""
 import pytest
 
 import engine
+import main
 import support
-from models import Campaign, Character, Circle, User
+from models import Campaign, Character, Circle, CircleVote, User
 
 
 # --- create -----------------------------------------------------------------
@@ -184,7 +185,11 @@ def test_approve_by_anyone(client):
     """Any caller can approve any pending character; there is no GM check."""
     camp = support.new_campaign(client, gm_user_id=support.make_user().id)
     ch = support.pending_member(client, camp)
-    assert support.approve(client, ch["id"]).status_code == 200
+    r = support.approve(client, ch["id"])
+    assert r.status_code == 200
+    assert r.json()["character"]["status"] == "active"
+    row = support.fetch(Character, ch["id"])
+    assert (row.status, row.campaign_id, row.ink_color) == ("active", camp["id"], engine.INK_COLORS[0])
 
 
 def test_reject(client):
@@ -193,7 +198,10 @@ def test_reject(client):
     r = client.post(f"/campaign/reject/{ch['id']}")
     assert r.status_code == 200
     body = r.json()
+    assert set(body) == {"success", "character"}
     assert body["success"] is True
+    assert set(body["character"]) == support.CHARACTER_COLUMNS
+    assert body["character"]["id"] == ch["id"]
     assert body["character"]["status"] == "unaffiliated"
     assert body["character"]["campaign_id"] is None
     assert body["character"]["pen_font"] is None
@@ -386,3 +394,53 @@ def test_circle_creation_state_unknown_campaign_is_500(client):
     with support.server_errors_as_500(client):
         r = client.get("/campaign/987654321/circle-creation-state")
     assert r.status_code == 500
+
+
+def test_circle_creation_state_with_content(client):
+    """Unlike the roster, dead members stay in active_investigators (they keep status active)."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp)
+    b = support.active_member(client, camp)
+    dead = support.active_member(client, camp)
+    support.update(Character, dead["id"], is_dead=True)
+    retired = support.active_member(client, camp)
+    support.update(Character, retired["id"], status="retired")
+    pending = support.pending_member(client, camp)
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()["circle_id"]
+
+    def vote(char, vote_type, value):
+        r = client.post("/circle/vote", json={"circle_id": cid, "character_id": char["id"],
+                                              "vote_type": vote_type, "value": value})
+        assert r.status_code == 200
+
+    vote(a, "name_suggest", "The Moths")
+    vote(b, "name_vote", "The Moths")
+    vote(a, "ability", "Hunters")
+    vote(b, "question", "q2")
+    vote(pending, "insignia", "Owl")  # any character id is accepted
+    with main.SessionLocal() as s:  # a stored vote of an unknown type is left out
+        s.add(CircleVote(circle_id=cid, character_id=a["id"], vote_type="colour", value="red"))
+        s.commit()
+    rel = client.post("/circle/relationship/propose", json={
+        "circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"],
+        "rel_type": "Rivals", "lore": "feud"}).json()["relationships"][0]
+    support.update(Circle, cid, backstory_answers={"chapter_house": "Mill", "reports": {str(a["id"]): {"q0": True}}})
+
+    body = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()
+    assert body["circle_id"] == cid
+    assert body["is_finalized"] is False
+    actives = {c["id"]: c for c in body["active_investigators"]}
+    assert set(actives) == {a["id"], b["id"], dead["id"]}
+    assert actives[dead["id"]]["is_dead"] is True
+    assert all(set(c) == support.CHAR_DICT_KEYS for c in actives.values())
+    assert body["votes"] == {
+        "name_suggest": [{"character_id": a["id"], "value": "The Moths"}],
+        "name_vote": [{"character_id": b["id"], "value": "The Moths"}],
+        "ability": [{"character_id": a["id"], "value": "Hunters"}],
+        "question": [{"character_id": b["id"], "value": "q2"}],
+        "insignia": [{"character_id": pending["id"], "value": "Owl"}],
+    }
+    assert body["relationships"] == [{
+        "id": rel["id"], "from_character_id": a["id"], "to_character_id": b["id"],
+        "rel_type": "Rivals", "lore": "feud", "status": "proposed", "last_actor_id": None}]
+    assert body["backstory_answers"] == {"chapter_house": "Mill", "reports": {str(a["id"]): {"q0": True}}}

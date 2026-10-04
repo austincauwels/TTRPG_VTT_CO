@@ -68,11 +68,44 @@ def test_whisper_target_matches_sql_wildcards(client):
 
 
 def test_whisper_to_unknown_name(client):
-    camp, (a,) = _campaign_with(client, f"Ada {support.uid()}")
-    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+    camp, (a, b) = _campaign_with(client, f"Ada {support.uid()}", f"Bo {support.uid()}")
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
         wa.send("chat_message", sender_name="Ada", message="anyone?", target="@Nobody")
-        assert support.types(wa.sync()) == ["activity_log"]
-        assert support.types(gm.drain()) == ["activity_log"]
+        expected = {"type": "activity_log", "payload": {
+            "message": f"Ada {ARROW} @Nobody: anyone?", "log_type": "chat",
+            "target": "@Nobody", "ink_color": engine.INK_COLORS[0]}}
+        assert wa.sync() == [expected]
+        assert gm.drain() == [expected]
+        assert wb.drain() == []
+
+
+def test_whisper_without_campaign_searches_every_campaign(client):
+    """QUIRK: on a socket with no campaign the target name is matched with ILIKE
+    across all characters, so a whisper can reach a member of any campaign (and not
+    that campaign's GM)."""
+    tag = support.uid()
+    camp, (target,) = _campaign_with(client, f"Wren {tag}")
+    loner = support.forge(client)
+    with support.ws_connect(client, loner["id"]) as wl, support.ws_connect(client, target["id"]) as wt, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
+        wl.send("chat_message", sender_name="Loner", message="psst", target=f"@wren {tag}")
+        expected = {"type": "activity_log", "payload": {
+            "message": f"Loner {ARROW} @wren {tag}: psst", "log_type": "chat",
+            "target": f"@wren {tag}", "ink_color": ""}}
+        assert wl.sync() == [expected]
+        assert wt.drain() == [expected]
+        assert gm.drain() == []
+
+
+def test_environment_without_campaign_echoes_to_own_channel(client):
+    camp, (member,) = _campaign_with(client, f"Ada {support.uid()}")
+    loner = support.forge(client)
+    with support.ws_connect(client, loner["id"]) as wl, support.ws_connect(client, member["id"]) as wm, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
+        wl.send("chat_message", message="thunder", target="@Environment")
+        assert wl.sync() == [{"type": "activity_log", "payload": {"message": "THUNDER", "log_type": "environment"}}]
+        assert wm.drain() == [] and gm.drain() == []
 
 
 def test_gm_whisper(client):

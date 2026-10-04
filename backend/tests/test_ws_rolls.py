@@ -47,6 +47,7 @@ def test_roll_drive_category(client, dice, action, drive):
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action=action, drive_spent=1)
         msgs = ws.sync()
+        assert len(msgs[0]["payload"]["roll"]["dice"]) == 2  # rating 1 + 1 spent
         assert msgs[0]["payload"]["roll"]["drive_spent_key"] == drive
         assert msgs[0]["payload"]["roll"]["outcome"] == "full_success"
         assert msgs[0]["payload"]["character"][f"{drive}_current"] == 2
@@ -289,17 +290,20 @@ def test_ability_mod_drive_substitution(client, dice):
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="move", drive_spent=1, ability_mods=["Cool Under Pressure"])
         msg = ws.sync()[0]["payload"]
+        assert len(msg["roll"]["dice"]) == 2
         assert msg["roll"]["drive_spent_key"] == "cunning"
         assert (msg["character"]["nerve_current"], msg["character"]["cunning_current"]) == (3, 2)
 
 
 def test_ability_use_counter_never_counts(client, dice):
     """QUIRK: the per-roll use counter only tracks names that are not roll mods, so it never changes."""
-    ch = support.forge(client, sense=1, specialty_ability="Extend Your Senses")
+    ch = support.forge(client, sense=1, intuition_max=3, specialty_ability="Extend Your Senses")
     dice(3, 3)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="sense", drive_spent=0, ability_mods=["Extend Your Senses"])
-        assert ws.sync()[0]["payload"]["character"]["ability_uses"] == {}
+        msg = ws.sync()[0]["payload"]
+        assert len(msg["roll"]["dice"]) == 2  # the mod applied: 1 rating + 1 resistance pip left
+        assert msg["character"]["ability_uses"] == {}
 
 
 def test_well_read_refunds_intuition_on_failure(client, dice):
@@ -377,3 +381,186 @@ def test_post_roll_abilities(client):
             assert msgs[0]["payload"]["incapacitated"] is False
         assert msgs[1]["payload"]["message"] == (
             f"{spoons['name']} used Bending Spoons {EM} took 1 Bleed mark to upgrade the result.")
+
+
+# --- every ABILITY_MOD_DEFS entry ---------------------------------------------
+#
+# Each case rolls with drive_spent=1 and a rating of 1 in the action, so the base
+# pool is 2 dice. The drives have different sizes so a lambda that reads the wrong
+# drive changes the count: nerve 3/3 (1 resistance pip), cunning 6/6 (2 pips),
+# intuition 9/9 (3 pips). Rolls are secret, so only roll_result comes back.
+# Columns: ability, action, dice in the pool, first die gilded, drive the spend
+# came from, (nerve, cunning, intuition) currents afterwards, brain marks afterwards.
+
+N3_C6_I9 = dict(nerve_max=3, nerve_current=3, cunning_max=6, cunning_current=6,
+                intuition_max=9, intuition_current=9)
+
+MOD_CASES = [
+    ("Sweet Talk", "sneak", 3, True, "cunning", (3, 5, 9), 0),
+    ("Open Book", "sway", 4, False, "cunning", (3, 5, 9), 0),
+    ("Lie Detector", "sneak", 2, True, "cunning", (3, 5, 9), 0),
+    ("Misdirection", "hide", 3, False, "cunning", (3, 5, 9), 0),
+    ("Interrogation", "sneak", 4, False, "cunning", (3, 5, 9), 0),
+    ("Inspection", "survey", 2, True, "intuition", (3, 6, 8), 0),
+    ("Basic Training", "survey", 3, False, "intuition", (3, 6, 8), 0),
+    ("Better Part of Valor", "control", 2, True, "nerve", (2, 6, 9), 0),
+    ("Better Part of Valor", "move", 2, True, "nerve", (2, 6, 9), 0),
+    ("Tenacious", "move", 2, True, "nerve", (2, 6, 9), 0),
+    ("Tenacious", "strike", 2, True, "nerve", (2, 6, 9), 0),
+    ("Tenacious", "control", 2, True, "nerve", (2, 6, 9), 0),
+    ("Extend Your Senses", "sense", 5, False, "intuition", (3, 6, 8), 0),
+    ("Meticulous Notes", "read", 3, False, "intuition", (3, 6, 8), 0),
+    ("Sharpshooter", "strike", 4, False, "nerve", (1, 6, 9), 0),
+    ("Dissection", "read", 2, True, "intuition", (3, 6, 8), 0),
+    ("Born in the Shadows", "hide", 2, True, "cunning", (3, 5, 9), 0),
+    ("Cool Under Pressure", "move", 2, False, "cunning", (3, 5, 9), 0),
+    ("Cool Under Pressure", "read", 2, False, "cunning", (3, 5, 9), 0),
+    ("Practiced Patter", "sway", 2, False, "intuition", (3, 6, 8), 0),
+    ("Practiced Patter", "hide", 2, False, "intuition", (3, 6, 8), 0),
+    ("Street Smarts", "survey", 2, False, "intuition", (3, 6, 8), 0),
+    ("Back Against the Wall", "strike", 2, False, "nerve", (2, 6, 9), 1),
+    ("Back Against the Wall", "sense", 2, False, "intuition", (3, 6, 8), 1),
+]
+
+# The same abilities on an action outside their list change nothing.
+MOD_WRONG_ACTION = [
+    ("Sweet Talk", "sway", "cunning"), ("Open Book", "sneak", "cunning"),
+    ("Lie Detector", "hide", "cunning"), ("Misdirection", "sneak", "cunning"),
+    ("Interrogation", "sway", "cunning"), ("Inspection", "read", "intuition"),
+    ("Basic Training", "sense", "intuition"), ("Better Part of Valor", "strike", "nerve"),
+    ("Tenacious", "hide", "cunning"), ("Extend Your Senses", "survey", "intuition"),
+    ("Meticulous Notes", "survey", "intuition"), ("Sharpshooter", "move", "nerve"),
+    ("Dissection", "sense", "intuition"), ("Born in the Shadows", "sneak", "cunning"),
+    ("Practiced Patter", "sneak", "cunning"), ("Street Smarts", "read", "intuition"),
+]
+
+_AFTER_PLAIN_SPEND = {"nerve": (2, 6, 9), "cunning": (3, 5, 9), "intuition": (3, 6, 8)}
+
+
+def _mod_roll(client, dice, ability, action, n_dice, **extra):
+    ch = support.forge(client, **{action: 1, **N3_C6_I9, **extra}, specialty_ability=ability)
+    dice(*([3] * n_dice))
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action=action, drive_spent=1, is_secret=True, ability_mods=[ability])
+        msgs = ws.sync()
+    assert support.types(msgs) == ["roll_result"]
+    return msgs[0]["payload"]
+
+
+@pytest.mark.parametrize("ability,action,n_dice,gilded,drive,currents,brain", MOD_CASES,
+                         ids=[f"{c[0]}-{c[1]}" for c in MOD_CASES])
+def test_every_ability_roll_mod(client, dice, ability, action, n_dice, gilded, drive, currents, brain):
+    p = _mod_roll(client, dice, ability, action, n_dice)
+    roll = p["roll"]
+    assert len(roll["dice"]) == n_dice
+    assert roll["dice"][0]["is_gilded"] is gilded
+    assert roll["needs_gilded_choice"] is (gilded and n_dice > 1)
+    assert roll.get("auto_gilded_refresh", False) is (gilded and n_dice == 1)
+    assert roll["drive_spent_key"] == drive
+    c = p["character"]
+    assert (c["nerve_current"], c["cunning_current"], c["intuition_current"]) == currents
+    assert c["brain_marks"] == brain
+    assert c["ability_uses"] == {}
+
+
+@pytest.mark.parametrize("ability,action,drive", MOD_WRONG_ACTION, ids=[c[0] for c in MOD_WRONG_ACTION])
+def test_ability_roll_mod_ignored_for_other_actions(client, dice, ability, action, drive):
+    p = _mod_roll(client, dice, ability, action, 2)
+    assert [d["is_gilded"] for d in p["roll"]["dice"]] == [False, False]
+    assert p["roll"]["drive_spent_key"] == drive
+    c = p["character"]
+    assert (c["nerve_current"], c["cunning_current"], c["intuition_current"]) == _AFTER_PLAIN_SPEND[drive]
+    assert c["brain_marks"] == 0
+
+
+@pytest.mark.parametrize("ability,action,spent,n_dice,gilded", [
+    ("Sweet Talk", "sneak", 1, 3, False),    # one cunning pip left: the extra die stays, the gild goes
+    ("Open Book", "sway", 1, 3, False),      # extra dice = cunning pips left
+    ("Open Book", "sway", 2, 2, False),      # no pips left, no extra dice
+    ("Open Book", "sway", 5, 2, False),      # overspent pips never take dice away
+    ("Interrogation", "sneak", 2, 2, False),
+])
+def test_resistance_based_roll_mods_follow_pips_left(client, dice, ability, action, spent, n_dice, gilded):
+    p = _mod_roll(client, dice, ability, action, n_dice, cunning_resistance_spent=spent)
+    assert len(p["roll"]["dice"]) == n_dice
+    assert p["roll"]["dice"][0]["is_gilded"] is gilded
+
+
+def test_basic_training_and_extend_your_senses_read_their_own_drive(client, dice):
+    p = _mod_roll(client, dice, "Basic Training", "survey", 2, nerve_resistance_spent=1)
+    assert len(p["roll"]["dice"]) == 2
+    p = _mod_roll(client, dice, "Extend Your Senses", "sense", 4, intuition_resistance_spent=1)
+    assert len(p["roll"]["dice"]) == 4
+
+
+def test_mods_stack_and_repeat(client, dice):
+    """QUIRK: a mod listed twice is applied twice."""
+    ch = support.forge(client, read=1, **N3_C6_I9, role_ability="Meticulous Notes", specialty_ability="Dissection")
+    dice(3, 3, 3, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="read", drive_spent=1, is_secret=True,
+                ability_mods=["Meticulous Notes", "Dissection", "Meticulous Notes"])
+        roll = ws.sync()[0]["payload"]["roll"]
+    assert len(roll["dice"]) == 4  # 1 rating + 1 spent + 2 Meticulous Notes
+    assert roll["needs_gilded_choice"] is True
+
+
+# --- pool and drive arithmetic --------------------------------------------------
+
+def test_overspent_drive_floors_at_zero_but_pool_counts_full_spend(client, dice):
+    """QUIRK: spending more drive than the character has still adds the whole spend to the pool."""
+    ch = support.forge(client, move=1, nerve_max=3, nerve_current=1)
+    dice(1, 2, 3, 4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=3)
+        p = ws.sync()[0]["payload"]
+        assert len(p["roll"]["dice"]) == 4
+        assert p["character"]["nerve_current"] == 0
+    assert support.fetch(Character, ch["id"]).nerve_current == 0
+
+
+def test_back_against_the_wall_brain_mark_capped_at_three(client, dice):
+    ch = support.forge(client, strike=1, brain_marks=3, role_ability="Back Against the Wall")
+    dice(2)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="strike", drive_spent=0, ability_mods=["Back Against the Wall"])
+        p = ws.sync()[0]["payload"]
+        assert p["character"]["brain_marks"] == 3
+        assert p["character"]["incapacitated"] is False
+    assert support.fetch(Character, ch["id"]).brain_marks == 3
+
+
+def test_train_bonus_and_mod_dice_cap_at_six(client, dice):
+    ch = support.forge(client, strike=3, nerve_max=9, nerve_current=9, specialty_ability="Sharpshooter")
+    support.update(Character, ch["id"], train_bonus=True)
+    dice(1, 1, 1, 1, 1, 1)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="strike", drive_spent=3, ability_mods=["Sharpshooter"])
+        p = ws.sync()[0]["payload"]
+        assert len(p["roll"]["dice"]) == 6
+        assert p["character"]["nerve_current"] == 5  # 1 for Sharpshooter, 3 spent
+        assert p["character"]["train_bonus"] is False
+    row = support.fetch(Character, ch["id"])
+    assert (row.nerve_current, row.train_bonus) == (5, False)
+
+
+# --- which character a frame acts on ------------------------------------------
+
+@pytest.mark.legacy_trust
+def test_character_id_zero_makes_a_player_roll_a_lightkeeper_roll(client, dice):
+    """QUIRK: 0 is not None, so there is no fallback to the socket's character, and
+    then 0 is falsy, so no character is looked up and the roll is a Lightkeeper roll."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=2, nerve_max=3, nerve_current=3)
+    dice(2, 5)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        ws.send("roll", action="move", drive_spent=2, character_id=0)
+        msgs = ws.sync()
+        assert support.types(msgs) == ["roll_result", "activity_log"]
+        assert msgs[0]["payload"] == {"character_id": 0, "action": "move", "character": None, "roll": {
+            "type": "standard", "dice": _d(2, 5), "result": 5, "outcome": "mixed_success",
+            "needs_gilded_choice": False, "drive_spent_key": None, "action": "move"}}
+        assert msgs[1]["payload"] == {"message": f"Lightkeeper rolled {EM} 5 {DOT} Mixed Success.",
+                                      "log_type": "roll", "ink_color": ""}
+        assert support.types(gm.drain()) == ["activity_log"]
+    assert support.fetch(Character, ch["id"]).nerve_current == 3

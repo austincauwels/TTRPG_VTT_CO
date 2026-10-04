@@ -2,6 +2,7 @@
 apply_advancement, spend_resource."""
 import pytest
 
+import engine
 import main
 import support
 from models import Character, Circle
@@ -99,7 +100,7 @@ def test_update_gear(client):
         assert support.types(msgs) == ["character_update", "activity_log"]
         assert msgs[0]["payload"]["gear"] == ["lamp", "rope"]
         assert msgs[1]["payload"] == {"message": f"{a['name']} updated their equipment: lamp, rope.",
-                                      "log_type": "field", "ink_color": msgs[1]["payload"]["ink_color"]}
+                                      "log_type": "field", "ink_color": engine.INK_COLORS[0]}
         assert support.types(wb.drain()) == ["activity_log"]
         wa.send("update_gear", gear=[])
         msgs = wa.sync()
@@ -220,7 +221,12 @@ def test_spend_refresh_and_train(client):
     support.update(Character, member["id"], ability_uses={"Steel Mind": 1})
     with support.ws_connect(client, member["id"]) as ws:
         ws.send("spend_resource", resource_type="refresh")
-        p = ws.sync()[0]["payload"]
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update", "circle_update", "activity_log"]
+        assert (msgs[1]["payload"]["id"], msgs[1]["payload"]["refresh"]) == (cid, 1)
+        assert msgs[2]["payload"] == {"message": f"{member['name']} used Refresh {EM} drives & resistances restored.",
+                                      "log_type": "field", "ink_color": engine.INK_COLORS[0]}
+        p = msgs[0]["payload"]
         assert (p["nerve_current"], p["cunning_current"], p["intuition_current"]) == (3, 6, 3)
         assert p["nerve_resistance_spent"] == 0
         assert p["ability_uses"] == {}

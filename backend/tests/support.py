@@ -14,6 +14,8 @@ import time
 import uuid
 
 import anyio
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 import main
 from models import Campaign, Character, Circle, CircleVote, NotebookEntry, Relationship, User
@@ -295,3 +297,43 @@ def types(messages):
 
 def of_type(messages, type_):
     return [m for m in messages if m["type"] == type_]
+
+
+# ---------------------------------------------------------------------------
+# Isolated PostgreSQL schema (for startup code that must not touch shared rows)
+# ---------------------------------------------------------------------------
+
+@contextlib.contextmanager
+def isolated_schema(create_tables=True):
+    """Yield (engine, Session, schema name) for a new, empty PostgreSQL schema in the test
+    database. With create_tables the current models are created in it. The schema
+    is dropped afterwards. Tests swap main.db_engine / main.SessionLocal for these
+    with monkeypatch, which redirects init_db, get_db and the WebSocket handler."""
+    import pytest
+    if main.db_engine.dialect.name != "postgresql":
+        pytest.skip("needs PostgreSQL schemas")
+    name = f"iso_{uid()}"
+    with main.db_engine.begin() as conn:
+        conn.execute(text(f'CREATE SCHEMA "{name}"'))
+    eng = create_engine(main.SQLALCHEMY_DATABASE_URL, connect_args={"options": f"-csearch_path={name}"})
+    try:
+        if create_tables:
+            main.Base.metadata.create_all(bind=eng)
+        yield eng, sessionmaker(autocommit=False, autoflush=False, bind=eng), name
+    finally:
+        eng.dispose()
+        with main.db_engine.begin() as conn:
+            conn.execute(text(f'DROP SCHEMA "{name}" CASCADE'))
+
+
+class FakeSocket:
+    """Stands in for a WebSocket inside ConnectionManager; fail=True makes send_json raise."""
+
+    def __init__(self, fail=False):
+        self.fail = fail
+        self.sent = []
+
+    async def send_json(self, message):
+        if self.fail:
+            raise RuntimeError("socket is gone")
+        self.sent.append(message)

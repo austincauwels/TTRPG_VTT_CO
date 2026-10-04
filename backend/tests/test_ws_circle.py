@@ -390,3 +390,219 @@ def test_circle_relationship_respond_on_gm_socket_closes(client):
         gm.send("circle_relationship_respond", relationship_id=rel_id, action="accept")
         assert support.wait_server_dropped(camp["campaign_code"])
     assert support.fetch(Relationship, rel_id).status == "proposed"
+
+
+def test_ws_propose_again_resets_the_existing_relationship(client):
+    camp, (a, b), cid = _campaign(client, members=2)
+    rel_id = client.post("/circle/relationship/propose", json={
+        "circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"],
+        "rel_type": "Rivals", "lore": "feud"}).json()["relationships"][0]["id"]
+    client.post("/circle/relationship/respond", json={
+        "relationship_id": rel_id, "action": "counter", "counter_type": "Allies", "counter_lore": "truce"})
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"],
+                rel_type="Friends", lore="new")
+        [msg] = wa.sync()
+        assert msg["payload"]["relationships"] == [{
+            "id": rel_id, "from_character_id": a["id"], "to_character_id": b["id"],
+            "rel_type": "Friends", "lore": "new", "status": "proposed", "last_actor_id": a["id"]}]
+        assert wb.drain() == [msg]
+    row = support.fetch(Relationship, rel_id)
+    assert (row.counter_type, row.counter_lore) == (None, None)
+    assert len(support.fetch_all(Relationship, circle_id=cid)) == 1
+
+
+def test_ws_respond_unknown_action_and_counter_without_terms(client):
+    """QUIRK: a response from a socket whose session still holds an older copy of the
+    relationship row can be silently lost (see the comments below)."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"],
+                rel_type="Rivals", lore="feud")
+        [rel] = wa.sync()[0]["payload"]["relationships"]
+        wb.drain()
+        # an unknown action still commits and broadcasts, with nothing changed
+        wb.send("circle_relationship_respond", relationship_id=rel["id"], action="shrug")
+        [msg] = wb.sync()
+        assert msg == {"type": "relationship_update", "payload": {"relationships": [rel]}}
+        assert wa.drain() == [msg]
+        wb.send("circle_relationship_respond", relationship_id=rel["id"], action="accept")
+        assert wb.sync()[0]["payload"]["relationships"] == [dict(rel, status="accepted", last_actor_id=b["id"])]
+        # QUIRK: a's session still holds the row as it was before b accepted. The
+        # counter sets the values that stale copy already has, so nothing is written.
+        wa.send("circle_relationship_respond", relationship_id=rel["id"], action="counter")
+        assert wa.sync()[0]["payload"]["relationships"] == [dict(rel, status="accepted", last_actor_id=b["id"])]
+        # That commit refreshed a's session; now a counter without new terms keeps
+        # the old type and lore and reopens the proposal.
+        wa.send("circle_relationship_respond", relationship_id=rel["id"], action="counter")
+        assert wa.sync()[0]["payload"]["relationships"] == [rel]
+    row = support.fetch(Relationship, rel["id"])
+    assert (row.status, row.last_actor_id) == ("proposed", a["id"])
+
+
+# --- role gate on gm_advance_circle and gm_end_assignment ------------------------
+
+@pytest.mark.parametrize("role", [None, "player", "gm"])
+def test_advance_and_end_assignment_need_role_gm(client, role):
+    camp, (member,), cid = _campaign(client)
+    support.update(Character, member["id"], ability_uses={"Steel Mind": 1}, resources_spent_assignment=2,
+                   train_bonus=True)
+    support.update(Circle, cid, illumination=14, circle_ability="Hunters", location="Docks", atmosphere="Fog")
+    extra = {} if role is None else {"role": role}
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        for ws in (gm, wm):
+            ws.send("gm_advance_circle", circle_ability="Seekers", **extra)
+            ws.send("gm_end_assignment", **extra)
+        assert gm.sync() == []
+        assert wm.sync() == []
+    c = support.fetch(Circle, cid)
+    assert (c.illumination, c.circle_ability, c.location, c.atmosphere) == (14, "Hunters", "Docks", "Fog")
+    row = support.fetch(Character, member["id"])
+    assert (row.ability_uses, row.resources_spent_assignment, row.train_bonus) == ({"Steel Mind": 1}, 2, True)
+
+
+def test_gm_advance_circle_first_ability_and_unnamed_circle(client):
+    camp, _, cid = _campaign(client, members=0)
+    support.update(Circle, cid, name="", circle_ability=None, illumination=12)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_advance_circle", role="GM", circle_ability="Seekers")
+        msgs = gm.sync()
+        assert msgs[0]["payload"] == {"message": "The Circle has advanced!", "log_type": "field"}
+        assert msgs[1]["payload"]["circle"]["circle_ability"] == "Seekers"
+        assert msgs[1]["payload"]["circle"]["illumination"] == 0
+    assert support.fetch(Circle, cid).circle_ability == "Seekers"
+
+
+def test_milestone_log_for_unnamed_circle(client):
+    camp, _, cid = _campaign(client, members=0)
+    support.update(Circle, cid, name=None, illumination=5)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_circle", role="GM", illumination=6)
+        msgs = gm.sync()
+        assert support.types(msgs) == ["circle_update", "activity_log"]
+        assert msgs[1]["payload"] == {"message": "The Circle milestone reached!", "log_type": "field"}
+
+
+@pytest.mark.legacy_trust
+def test_update_circle_player_claiming_gm_may_raise_resources(client):
+    camp, (member,), cid = _campaign(client)
+    support.update(Circle, cid, stitch=1, refresh=1, train=1)
+    with support.ws_connect(client, member["id"]) as wm:
+        wm.send("update_circle", role="GM", stitch=4, refresh=5, train=6)
+        p = wm.sync()[0]["payload"]
+        assert (p["stitch"], p["refresh"], p["train"]) == (4, 5, 6)
+    c = support.fetch(Circle, cid)
+    assert (c.stitch, c.refresh, c.train) == (4, 5, 6)
+
+
+# --- submit_assignment_report when backstory_answers already holds data ----------
+
+def test_second_report_from_a_fresh_session_is_broadcast_but_not_saved(client):
+    """QUIRK (likely live bug): once backstory_answers is not empty, the handler adds
+    the report to the dict it loaded, in place, and assigns that same object back.
+    The plain JSON column does not track in-place changes, so SQLAlchemy sees no
+    change and skips the UPDATE. The report is broadcast but lost on reload."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    with support.ws_connect(client, a["id"]) as wa:
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
+        wa.sync()
+        with support.ws_connect(client, b["id"]) as wb:  # loads the circle with a's report in it
+            wb.send("submit_assignment_report", character_id=b["id"], responses={"q0": False})
+            [msg] = wb.sync()
+            assert msg["payload"] == {"character_id": b["id"], "character_name": b["name"], "responses": {"q0": False}}
+            assert wa.drain() == [msg]
+    assert support.fetch(Circle, cid).backstory_answers == {"reports": {str(a["id"]): {"q0": True}}}
+
+
+def test_reports_from_sockets_opened_before_any_report_replace_each_other(client):
+    """QUIRK: each socket keeps the empty dict it loaded at connect, so every report
+    builds a new dict holding only itself and the last report replaces the others."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
+        wa.sync()
+        wb.send("submit_assignment_report", character_id=b["id"], responses={"q0": False})
+        wb.sync()
+    assert support.fetch(Circle, cid).backstory_answers == {"reports": {str(b["id"]): {"q0": False}}}
+
+
+def test_report_after_circle_answers_is_not_saved(client):
+    """QUIRK: same cause as above; any stored answer (chapter house, selected
+    question) makes the dict non-empty, so even the first report is lost."""
+    camp, (a,), cid = _campaign(client)
+    answers = {"chapter_house": "Mill", "selected_question_key": "q2"}
+    support.update(Circle, cid, backstory_answers=answers)
+    with support.ws_connect(client, a["id"]) as wa:
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
+        assert support.types(wa.sync()) == ["assignment_report_submitted"]
+    assert support.fetch(Circle, cid).backstory_answers == answers
+
+
+# --- a GM socket with no campaign (the frontend's 'gm' fallback channel) ---------
+
+@pytest.mark.legacy_trust
+def test_campaignless_gm_socket_defaults_to_circle_one(client):
+    with support.ws_connect(client, "gm") as gm:
+        assert gm.initial[0]["payload"]["id"] == 1
+        gm.send("gm_toggle_reports", role="GM")
+        first = gm.sync()[0]["payload"]
+        gm.send("gm_toggle_reports", role="GM")  # toggle back
+        second = gm.sync()[0]["payload"]
+    assert first["id"] == second["id"] == 1
+    assert first["reports_open"] is not second["reports_open"]
+
+
+@pytest.mark.legacy_trust
+def test_campaignless_gm_socket_resets_unaffiliated_characters_only(client):
+    """QUIRK: on the 'gm' channel camp_id is None, so gm_reset_character's campaign
+    filter becomes campaign_id IS NULL. It can reset any unaffiliated character but no
+    campaign member, and its log goes only to the 'gm' channel."""
+    loner = support.forge(client, nerve_max=3, nerve_current=0, cunning_max=3, cunning_current=1,
+                          nerve_resistance_spent=1)
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp, nerve_max=3, nerve_current=0)
+    with support.ws_connect(client, "gm") as gm, support.ws_connect(client, loner["id"]) as wl, \
+            support.ws_connect(client, member["id"]) as wm, \
+            support.ws_connect(client, camp["campaign_code"]) as other_gm:
+        gm.send("gm_reset_character", role="GM", character_id=loner["id"])
+        assert gm.sync() == [{"type": "activity_log", "payload": {
+            "message": f"{EM} {loner['name']}'s session resources have been reset. {EM}", "log_type": "field"}}]
+        got = wl.drain()
+        assert support.types(got) == ["character_update"]
+        p = got[0]["payload"]
+        assert (p["nerve_current"], p["cunning_current"], p["nerve_resistance_spent"]) == (3, 3, 0)
+        gm.send("gm_reset_character", role="GM", character_id=member["id"])
+        assert gm.sync() == []
+        assert wm.drain() == [] and other_gm.drain() == []
+    assert support.fetch(Character, loner["id"]).nerve_current == 3
+    assert support.fetch(Character, member["id"]).nerve_current == 0
+
+
+@pytest.mark.legacy_trust
+def test_campaignless_gm_socket_end_assignment_resets_campaignless_actives(client):
+    """QUIRK: gm_end_assignment on the 'gm' channel clears the scene of whatever circle
+    id it is given (resolve_circle is not scoped without a campaign) and resets every
+    active character whose campaign_id is NULL, not that circle's members."""
+    camp, (member,), cid = _campaign(client)
+    support.update(Character, member["id"], ability_uses={"Steel Mind": 1}, resources_spent_assignment=2)
+    stray = support.forge(client)
+    support.update(Character, stray["id"], status="active", ability_uses={"Steel Mind": 1},
+                   resources_spent_assignment=2, train_bonus=True)
+    loner = support.forge(client)
+    support.update(Character, loner["id"], ability_uses={"Steel Mind": 1})
+    support.update(Circle, cid, location="Docks", atmosphere="Fog")
+    with support.ws_connect(client, "gm") as gm, support.ws_connect(client, stray["id"]) as wst, \
+            support.ws_connect(client, member["id"]) as wm, \
+            support.ws_connect(client, camp["campaign_code"]) as other_gm:
+        gm.send("gm_end_assignment", role="GM", circle_id=cid)
+        msgs = gm.sync()
+        assert support.types(msgs) == ["circle_update", "activity_log"]
+        assert (msgs[0]["payload"]["id"], msgs[0]["payload"]["location"]) == (cid, "")
+        got = wst.drain()
+        assert support.types(got) == ["character_update"]
+        assert (got[0]["payload"]["ability_uses"], got[0]["payload"]["train_bonus"]) == ({}, False)
+        assert wm.drain() == [] and other_gm.drain() == []
+    assert support.fetch(Character, member["id"]).ability_uses == {"Steel Mind": 1}
+    assert support.fetch(Character, stray["id"]).resources_spent_assignment == 0
+    assert support.fetch(Character, loner["id"]).ability_uses == {"Steel Mind": 1}
+    assert support.fetch(Circle, cid).location == ""

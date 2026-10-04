@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 
-from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import inspect as sa_inspect, text
 
 import main
 import support
@@ -158,3 +158,117 @@ def test_cors_allows_configured_origin_only(client):
         "Origin": "https://evil.example", "Access-Control-Request-Method": "POST"})
     assert bad.status_code == 400
     assert "access-control-allow-origin" not in bad.headers
+
+
+# --- init_db ALTERs against a legacy schema -----------------------------------
+
+LEGACY_TABLES = [
+    "CREATE TABLE users (id SERIAL PRIMARY KEY, username TEXT)",
+    "CREATE TABLE campaigns (id SERIAL PRIMARY KEY, name TEXT, campaign_code TEXT, is_retired BOOLEAN DEFAULT false)",
+    # guard_patrol already exists, so the very first ALTER fails; every later one must still run
+    "CREATE TABLE circles (id SERIAL PRIMARY KEY, name TEXT, guard_patrol INTEGER DEFAULT 0)",
+    "CREATE TABLE characters (id SERIAL PRIMARY KEY, name TEXT)",
+    "CREATE TABLE relationships (id SERIAL PRIMARY KEY)",
+    "CREATE TABLE notebook_entries (id SERIAL PRIMARY KEY)",
+]
+
+# (table, column) -> (data_type, column_default) as PostgreSQL reports them.
+MIGRATED_COLUMNS = {
+    ("circles", "guard_patrol"): ("integer", "0"),
+    ("circles", "miasma_bleed"): ("integer", "0"),
+    ("circles", "location"): ("text", "''::text"),
+    ("circles", "atmosphere"): ("text", "''::text"),
+    ("circles", "chapter_house_location"): ("text", None),
+    ("circles", "circle_ability"): ("text", None),
+    ("circles", "insignia"): ("text", None),
+    ("circles", "backstory_answers"): ("text", "'{}'::text"),
+    ("circles", "is_finalized"): ("integer", "0"),
+    ("circles", "illumination"): ("integer", "0"),
+    ("circles", "tension_clock"): ("integer", "4"),
+    ("circles", "tension_label"): ("text", "''::text"),
+    ("circles", "resources_editable"): ("integer", "0"),
+    ("circles", "reports_open"): ("integer", "0"),
+    ("circles", "campaign_id"): ("integer", None),
+    ("campaigns", "gm_user_id"): ("integer", None),
+    ("campaigns", "roster_finalized"): ("integer", "0"),
+    ("characters", "role"): ("text", "''::text"),
+    ("characters", "specialty"): ("text", "''::text"),
+    ("characters", "personal_circle_answer"): ("text", "''::text"),
+    ("characters", "nerve_resistance_spent"): ("integer", "0"),
+    ("characters", "cunning_resistance_spent"): ("integer", "0"),
+    ("characters", "intuition_resistance_spent"): ("integer", "0"),
+    ("characters", "ability_uses"): ("text", "'{}'::text"),
+    ("characters", "train_bonus"): ("integer", "0"),
+    ("characters", "resources_spent_assignment"): ("integer", "0"),
+    ("relationships", "last_actor_id"): ("integer", None),
+    ("notebook_entries", "entry_type"): ("text", "'field_log'::text"),
+    ("notebook_entries", "visibility"): ("text", "'all'::text"),
+    ("notebook_entries", "image_data"): ("text", None),
+    ("notebook_entries", "is_deleted"): ("integer", "0"),
+    ("users", "pending_rejoin_campaign_id"): ("integer", None),
+}
+
+
+def _schema_columns(eng, schema):
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT table_name, column_name, data_type, column_default "
+            "FROM information_schema.columns WHERE table_schema = :s"), {"s": schema}).all()
+    return {(r[0], r[1]): (r[2], r[3]) for r in rows}
+
+
+def test_init_db_alters_upgrade_a_legacy_schema(client, monkeypatch):
+    """Runs init_db against tables that predate every migration. Each ALTER runs in
+    its own transaction, so one that fails (a column that already exists) does not
+    stop the rest. QUIRK: the added columns are TEXT and INTEGER, not the JSON and
+    BOOLEAN types the models declare (this is how a database that grew through these
+    ALTERs differs from a create_all one), and no seed rows are written on such a
+    database, because the seed query runs before the ALTERs and fails on the
+    missing columns."""
+    with support.isolated_schema(create_tables=False) as (eng, Session, schema):
+        with eng.begin() as conn:
+            for ddl in LEGACY_TABLES:
+                conn.execute(text(ddl))
+        monkeypatch.setattr(main, "db_engine", eng)
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        main.init_db()
+        cols = _schema_columns(eng, schema)
+        got = {key: cols.get(key) for key in MIGRATED_COLUMNS}
+        assert got == MIGRATED_COLUMNS
+        fks = sa_inspect(eng).get_foreign_keys("circles")
+        assert [(fk["constrained_columns"], fk["referred_table"]) for fk in fks] == [(["campaign_id"], "campaigns")]
+        with eng.connect() as conn:
+            assert conn.execute(text("SELECT count(*) FROM circles")).scalar() == 0
+            assert conn.execute(text("SELECT count(*) FROM users")).scalar() == 0
+        main.init_db()  # a second start changes nothing
+        assert _schema_columns(eng, schema) == cols
+
+
+# --- circle 1 is recreated when it is missing --------------------------------
+
+def test_forge_recreates_missing_circle_one(client, monkeypatch):
+    with support.isolated_schema() as (eng, Session, schema):
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        with Session() as s:
+            u = User(username=f"iso_{support.uid()}", email=f"{support.uid()}@example.test", hashed_password="x")
+            s.add(u)
+            s.commit()
+            user_id = u.id
+            assert s.get(Circle, 1) is None
+        body = support.forge(client, user_id=user_id)
+        assert body["circle_id"] == 1
+        with Session() as s:
+            c = s.get(Circle, 1)
+            assert (c.name, c.stitch, c.refresh, c.train, c.campaign_id) == ("The Order of Light", 1, 1, 1, None)
+
+
+def test_ws_connect_recreates_missing_circle_one(client, monkeypatch):
+    with support.isolated_schema() as (eng, Session, schema):
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        key = f"nothing-{support.uid()}"
+        with support.ws_connect(client, key) as ws:
+            assert support.types(ws.initial) == ["circle_update"]
+            p = ws.initial[0]["payload"]
+            assert (p["id"], p["name"], p["stitch"]) == (1, "The Order of Light", 1)
+        with Session() as s:
+            assert s.get(Circle, 1).name == "The Order of Light"

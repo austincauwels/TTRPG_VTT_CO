@@ -46,7 +46,11 @@ def test_vote_for_any_circle_and_character(client):
     """Votes are accepted for any circle id and any character id, member or not."""
     camp, _, cid = _setup(client, members=0)
     outsider = support.forge(client)
-    assert _vote(client, cid, outsider["id"], "insignia", "Moth").status_code == 200
+    r = _vote(client, cid, outsider["id"], "insignia", "Moth")
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "votes": [{"character_id": outsider["id"], "value": "Moth"}]}
+    [row] = support.fetch_all(CircleVote, circle_id=cid)
+    assert (row.character_id, row.vote_type, row.value) == (outsider["id"], "insignia", "Moth")
 
 
 def test_vote_unknown_type_is_stored_then_500(client):
@@ -193,3 +197,28 @@ def test_finalize_unknown_campaign(client):
     assert r.status_code == 404
     assert r.json() == {"detail": "Campaign not found"}
     assert client.post("/campaign/finalize-roster", json={"campaign_id": 1}).status_code == 422
+
+
+@pytest.mark.parametrize("first,second", [("a", "b"), ("b", "a")])
+def test_finalize_tie_goes_to_the_first_vote_cast(client, first, second):
+    """QUIRK: _tally_winner keeps the first maximum in the order the votes come back,
+    and the vote query has no ORDER BY, so a tie goes to whichever vote was stored
+    first (insertion order on a fresh PostgreSQL table)."""
+    camp, (a, b), cid = _setup(client)
+    chars = {"a": a, "b": b}
+    picks = {"a": ("Alpha", "Hunters", "Moth", "q1"), "b": ("Beta", "Seekers", "Owl", "q2")}
+    for vote_type, i in (("name_vote", 0), ("ability", 1), ("insignia", 2), ("question", 3)):
+        for who in (first, second):
+            _vote(client, cid, chars[who]["id"], vote_type, picks[who][i])
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}).json()
+    name, ability, insignia, question = picks[first]
+    assert (body["name"], body["circle_ability"], body["insignia"]) == (name, ability, insignia)
+    assert body["backstory_answers"] == {"selected_question_key": question}
+
+
+def test_finalize_keeps_an_existing_chapter_house(client):
+    camp, _, cid = _setup(client, members=1)
+    support.update(Circle, cid, chapter_house_location="Tower", backstory_answers={"chapter_house": "Mill"})
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}).json()
+    assert body["chapter_house_location"] == "Tower"
+    assert body["backstory_answers"] == {"chapter_house": "Mill"}

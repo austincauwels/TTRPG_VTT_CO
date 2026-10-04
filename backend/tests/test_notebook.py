@@ -165,7 +165,20 @@ def test_update_entry_not_found(client):
 def test_update_any_entry_without_author_check(client):
     camp = support.new_campaign(client)
     e = _add(client, camp["id"], author_type="gm", entry_type="lightkeeper", visibility="gm_only")
-    assert client.put(f"/api/notebook/entries/{e['id']}", json={"content": "defaced"}).status_code == 200
+    r = client.put(f"/api/notebook/entries/{e['id']}", json={"content": "defaced"})
+    assert r.status_code == 200
+    assert (r.json()["content"], r.json()["title"]) == ("defaced", e["title"])
+    row = support.fetch(NotebookEntry, e["id"])
+    assert (row.content, row.author_type, row.visibility) == ("defaced", "gm", "gm_only")
+
+
+@pytest.mark.parametrize("role", ["gm", "Gm", "GM ", "lightkeeper"])
+def test_list_entries_gm_role_must_match_exactly(client, role):
+    camp = support.new_campaign(client)
+    public = _add(client, camp["id"])
+    _add(client, camp["id"], visibility="gm_only", author_type="gm")
+    got = client.get(f"/api/notebook/{camp['id']}/entries", params={"role": role}).json()
+    assert [e["id"] for e in got] == [public["id"]]
 
 
 def test_delete_entry_is_soft(client):
