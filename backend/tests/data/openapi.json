@@ -86,6 +86,11 @@
             "title": "Id",
             "type": "integer"
           },
+          "investigator_count": {
+            "default": 0,
+            "title": "Investigator Count",
+            "type": "integer"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -1765,6 +1770,42 @@
       }
     },
     "/api/investigators/{investigator_id}": {
+      "delete": {
+        "description": "Deletes the caller's own character, which must be on no campaign's roster (409\nwhile it is active or pending in one). Nobody else may, the GM of its campaign\nincluded. A soft delete: the owner can undo it for a short while (POST\n.../restore) and an admin can restore it later (docs/refactor/DELETION.md). A\nsocket still open on the character's channel gets character_deleted and is closed\nwith 4404.",
+        "operationId": "delete_investigator_api_investigators__investigator_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "investigator_id",
+            "required": true,
+            "schema": {
+              "title": "Investigator Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Investigator"
+      },
       "get": {
         "operationId": "get_investigator_api_investigators__investigator_id__get",
         "parameters": [
@@ -1849,6 +1890,44 @@
           }
         },
         "summary": "Set Portrait"
+      }
+    },
+    "/api/investigators/{investigator_id}/restore": {
+      "post": {
+        "description": "Undoes the caller's delete of their own character, within deletion.UNDO_SECONDS\n(409 after that). A character that is not deleted, or not the caller's, is 404.",
+        "operationId": "restore_investigator_api_investigators__investigator_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "investigator_id",
+            "required": true,
+            "schema": {
+              "title": "Investigator Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Investigator"
       }
     },
     "/api/notebook/entries/{entry_id}": {
@@ -2095,6 +2174,7 @@
     },
     "/api/users/{user_id}/campaigns": {
       "get": {
+        "description": "The campaigns the user runs, with how many investigators are on each roster.\nRetired and deleted campaigns are left out.",
         "operationId": "get_user_gm_campaigns_api_users__user_id__campaigns_get",
         "parameters": [
           {
@@ -2443,6 +2523,44 @@
         "summary": "Rejoin Campaign"
       }
     },
+    "/campaign/{campaign_id}": {
+      "delete": {
+        "description": "Deletes a campaign; only its GM may. Its characters are not deleted: each one\ntagged with it goes back to its owner as unaffiliated (vtt/deletion.py). Everyone\nconnected to it is told with campaign_deleted: the GM's channel and the channel of\nevery character it let go (active, pending or retired). The GM's channel is then\nclosed with 4404; the players' channels stay open, as after a retire. A soft delete:\nthe GM can undo it for a short while (POST .../restore) and an admin can restore it\nlater (docs/refactor/DELETION.md).",
+        "operationId": "delete_campaign_campaign__campaign_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Campaign"
+      }
+    },
     "/campaign/{campaign_id}/circle-creation-state": {
       "get": {
         "operationId": "get_circle_creation_state_campaign__campaign_id__circle_creation_state_get",
@@ -2525,6 +2643,44 @@
           }
         },
         "summary": "Invite Rejoin"
+      }
+    },
+    "/campaign/{campaign_id}/restore": {
+      "post": {
+        "description": "Undoes the caller's delete of their campaign, within deletion.UNDO_SECONDS (409\nafter that), and puts back each character it let go that is still free. A campaign\nthat is not deleted, or not the caller's, is 404.",
+        "operationId": "restore_campaign_campaign__campaign_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Campaign"
       }
     },
     "/campaign/{campaign_id}/retire": {

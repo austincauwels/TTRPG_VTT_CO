@@ -249,6 +249,9 @@ class CampaignSummaryItem(BaseModel):
     id: int
     name: str
     campaign_code: str
+    # Characters on its roster (active or pending): the ones deleting it would send back
+    # to their players.
+    investigator_count: int = 0
     class Config:
         from_attributes = True
 

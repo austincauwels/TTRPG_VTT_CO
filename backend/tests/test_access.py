@@ -36,7 +36,7 @@ def _url(path):
 
 
 def test_every_route_but_the_sign_in_routes_is_protected():
-    assert len(PROTECTED) == 26
+    assert len(PROTECTED) == 30
     assert PUBLIC | ACCOUNT == {r.path for r in main.app.routes
                                 if isinstance(r, APIRoute) and r.path.startswith("/api/auth/")}
 

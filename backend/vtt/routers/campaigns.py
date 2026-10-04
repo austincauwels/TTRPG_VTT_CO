@@ -1,4 +1,5 @@
-"""Campaign and roster routes: create, join, approve, reject, retire, rejoin, invite to rejoin, roster.
+"""Campaign and roster routes: create, join, approve, reject, retire, delete (and undo
+that), rejoin, invite to rejoin, roster.
 
 Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
 """
@@ -13,7 +14,8 @@ from engine import (
     create_new_campaign, request_join_campaign,
     approve_investigator, reject_investigator, get_campaign_roster,
 )
-from models import Campaign, Character, Circle, User
+from models import INCLUDE_DELETED, Campaign, Character, Circle, User
+from vtt import deletion
 from vtt.auth import (
     campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
     require_gm_of_character, require_gm_or_member, require_owner, require_self,
@@ -22,6 +24,7 @@ from vtt.config import _ALLOWED_CAMPAIGN_CODE_RE, _SAFE_FONT_NAMES
 from vtt.db import get_db
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
 from vtt.serializers import get_char_dict
+from vtt.ws.access import CLOSE_NOT_FOUND
 from vtt.ws.manager import campaign_key, character_key, manager
 
 router = APIRouter()
@@ -40,7 +43,10 @@ CODE_IN_USE = "Campaign code is already in use"
 
 
 def _code_taken(db: Session, code: str) -> bool:
-    return db.query(Campaign.id).filter(Campaign.campaign_code == code).first() is not None
+    """A deleted campaign keeps its code (the unique index still holds it, and a restore
+    needs it back), so its code counts as taken."""
+    return db.query(Campaign.id).execution_options(**{INCLUDE_DELETED: True}).filter(
+        Campaign.campaign_code == code).first() is not None
 
 
 CAMPAIGN_RETIRED = "This campaign has been retired."
@@ -191,6 +197,39 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
         "payload": {"campaign_id": campaign_id, "campaign_code": campaign.campaign_code},
     }, db)
     return {"ok": True}
+
+
+@router.delete("/campaign/{campaign_id}")
+async def delete_campaign(campaign_id: int, db: Session = Depends(get_db),
+                          user: User = Depends(get_current_user)):
+    """Deletes a campaign; only its GM may. Its characters are not deleted: each one
+    tagged with it goes back to its owner as unaffiliated (vtt/deletion.py). Everyone
+    connected to it is told with campaign_deleted: the GM's channel and the channel of
+    every character it let go (active, pending or retired). The GM's channel is then
+    closed with 4404; the players' channels stay open, as after a retire. A soft delete:
+    the GM can undo it for a short while (POST .../restore) and an admin can restore it
+    later (docs/refactor/DELETION.md)."""
+    require_gm(user, campaign_or_404(db, campaign_id))
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    released = deletion.delete_campaign(db, campaign)
+    message = {"type": "campaign_deleted", "payload": {
+        "campaign_id": campaign.id, "campaign_code": campaign.campaign_code, "campaign_name": campaign.name}}
+    gm_key = campaign_key(campaign.campaign_code)
+    for key in [gm_key] + [character_key(entry["id"]) for entry in released]:
+        await manager.broadcast(key, message)
+    manager.close_channel(gm_key, CLOSE_NOT_FOUND)
+    return deletion.receipt(campaign, released_character_ids=[entry["id"] for entry in released])
+
+
+@router.post("/campaign/{campaign_id}/restore")
+def restore_campaign(campaign_id: int, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    """Undoes the caller's delete of their campaign, within deletion.UNDO_SECONDS (409
+    after that), and puts back each character it let go that is still free. A campaign
+    that is not deleted, or not the caller's, is 404."""
+    campaign, restored = deletion.restore_campaign(db, campaign_id, user_id=user.id)
+    return {"ok": True, "id": campaign.id, "name": campaign.name, "campaign_code": campaign.campaign_code,
+            "restored_character_ids": restored}
 
 
 @router.post("/campaign/rejoin")

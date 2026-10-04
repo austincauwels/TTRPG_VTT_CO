@@ -5,10 +5,11 @@ Both need a login token, and user_id must be the token's own user (403 otherwise
 from typing import List
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from models import Campaign, Character, User
-from vtt.auth import get_current_user, require_self
+from vtt.auth import ROSTER_STATUSES, get_current_user, require_self
 from vtt.db import get_db
 from vtt.schemas import CampaignSummaryItem, CharacterSummaryItem
 
@@ -41,8 +42,21 @@ def get_user_characters(user_id: int, db: Session = Depends(get_db), user: User 
 
 @router.get("/api/users/{user_id}/campaigns", response_model=List[CampaignSummaryItem])
 def get_user_gm_campaigns(user_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The campaigns the user runs, with how many investigators are on each roster.
+    Retired and deleted campaigns are left out."""
     require_self(user, user_id)
-    return db.query(Campaign).filter(
+    campaigns = db.query(Campaign).filter(
         Campaign.gm_user_id == user_id,
         Campaign.is_retired == False,
     ).all()
+    counts = {}
+    if campaigns:
+        counts = dict(db.query(Character.campaign_id, func.count(Character.id)).filter(
+            Character.campaign_id.in_([c.id for c in campaigns]),
+            Character.status.in_(ROSTER_STATUSES),
+        ).group_by(Character.campaign_id).all())
+    return [
+        CampaignSummaryItem(id=c.id, name=c.name, campaign_code=c.campaign_code,
+                            investigator_count=counts.get(c.id, 0))
+        for c in campaigns
+    ]

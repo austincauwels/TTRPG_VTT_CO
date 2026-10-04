@@ -127,6 +127,15 @@ class ConnectionManager:
                 closed += 1
         return closed
 
+    def close_channel(self, key: str, code: int) -> int:
+        """Closes every socket on the channel with code and forgets them. Used when what
+        the channel belongs to is deleted (a character, or a campaign for its GM's
+        channel). Returns how many it closed. Like close_user, the closes run on their own."""
+        connections = self.active_connections.pop(key, [])
+        for conn in connections:
+            self.close_later(conn, code)
+        return len(connections)
+
     def disconnect(self, key: str, websocket: WebSocket):
         if key in self.active_connections:
             try:

@@ -10,7 +10,7 @@ decides on a stale copy of a row.
 """
 from engine import ALL_ACTIONS
 from models import Campaign, Character, Circle, Relationship
-from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, ROSTER_STATUSES, character_facts
+from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, ROSTER_STATUSES, campaign_facts, character_facts
 from vtt.circle_queries import VOTE_TYPES
 
 # Close codes for a refused connection. The socket is accepted first and then
@@ -324,6 +324,10 @@ def _still_in_connect_campaign(ctx):
 
 
 def check_message(ctx, action, payload, character):
+    if ctx.is_gm and campaign_facts(ctx.db, ctx.camp_id) is None:
+        # The campaign was deleted while its GM's socket was open. Deleting it closes
+        # that socket, but a message can still arrive before the close does.
+        _not_found("Campaign")
     if not ctx.is_gm and ctx.camp_id is not None and action in PLAYER_CAMPAIGN_BROADCASTS:
         _still_in_connect_campaign(ctx)
     rule = RULES.get(action)
