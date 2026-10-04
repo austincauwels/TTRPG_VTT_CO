@@ -16,6 +16,50 @@ let reconnectAttempts = 0;
 // or reconnecting never ticks for a change made while away.
 let tensionSeen = null;
 
+// A roll is never left hanging. One that cannot be sent waits for a connection that is
+// on its way back (sent when the new socket opens) or is refused; one that was sent
+// waits ROLL_REPLY_MS for its result. Either way the tray goes back to idle with
+// rollError when nothing comes. No answer on an open socket means the socket is dead
+// (a phone that slept keeps it "open" for a while), so the desk opens a new one.
+const ROLL_REPLY_MS = 6000;
+const ROLL_QUEUE_MS = 10000;
+const ROLL_NOT_SENT = 'Not connected to the table, so no dice were thrown. Roll again once the desk is back.';
+const ROLL_NO_REPLY = 'The dice did not come back from the table. Reconnecting; roll again in a moment.';
+const ROLL_DROPPED = 'The connection dropped before the dice came back. Roll again once the desk is back.';
+const ROLL_FAILED = 'The table could not make that roll. Roll again.';
+const ROLL_REFUSED = 'The table refused that roll.';
+const KEEP_NOT_SENT = 'Not connected to the table, so the kept die was not sent. Keep it again once the desk is back.';
+let rollTimer = null;
+let queuedRoll = null;   // the roll frame waiting for the socket to open
+
+const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
+
+// The roll did not go through: the tray goes back to idle and says so
+const failRoll = (set, message) => {
+  clearRollTimer();
+  queuedRoll = null;
+  set({ isRolling: false, rollWaiting: false, rollError: message });
+};
+
+const sendRoll = (set, get, frame) => {
+  const { socket } = get();
+  clearRollTimer();
+  queuedRoll = null;
+  try {
+    socket.send(JSON.stringify(frame));
+  } catch {
+    failRoll(set, ROLL_NOT_SENT);
+    return;
+  }
+  set({ rollWaiting: false });
+  rollTimer = setTimeout(() => {
+    rollTimer = null;
+    if (!get().isRolling) return;
+    failRoll(set, ROLL_NO_REPLY);
+    get().reconnect();
+  }, ROLL_REPLY_MS);
+};
+
 const useGameStore = create(
   persist(
     (set, get) => ({
@@ -48,6 +92,8 @@ const useGameStore = create(
       scarModalData: null,
       pendingScar: null,         // { type, characterId }: a scar the player chose to decide later
       isRolling: false,
+      rollWaiting: false,        // the roll waits for the connection to come back
+      rollError: null,           // why the last roll (or kept die) did not go through
       campaignRoster: { pending_investigators: [], active_investigators: [] },
       notebookEntries: [],
       notebookLoadError: false,
@@ -128,7 +174,9 @@ const useGameStore = create(
           socket.onerror = null;
           try { socket.close(1000); } catch { /* already closed */ }
         }
-        set({ socket: null, socketGameId: null, connectionState: 'idle' });
+        clearRollTimer();
+        queuedRoll = null;
+        set({ socket: null, socketGameId: null, connectionState: 'idle', isRolling: false, rollWaiting: false, rollError: null });
       },
 
       // Open the same channel again. The server fixes a socket's campaign when it opens, so
@@ -152,8 +200,15 @@ const useGameStore = create(
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
         tensionSeen = null;
-        if (keepLog) set({ isRolling: false });
-        else set({ activityLog: [], lastActivityLog: null, isRolling: false, pendingRoll: null, tableRoll: null });
+        if (keepLog) {
+          // The same desk again: a roll waiting to be sent goes out on the new socket; one
+          // already sent on the old socket cannot come back on this one
+          if (!queuedRoll && get().isRolling) failRoll(set, ROLL_DROPPED);
+        } else {
+          clearRollTimer();
+          queuedRoll = null;
+          set({ activityLog: [], lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null });
+        }
         const apiBase = import.meta.env.VITE_API_URL || '';
         const wsProtocol = (apiBase.startsWith('https') || window.location.protocol === 'https:') ? 'wss:' : 'ws:';
         const wsHost = apiBase ? apiBase.replace(/^https?:\/\//, '') : window.location.host;
@@ -165,13 +220,20 @@ const useGameStore = create(
 
         socket.onopen = () => {
           reconnectAttempts = 0;
-          if (get().socket === socket) set({ connectionState: 'open' });
+          if (get().socket !== socket) return;
+          set({ connectionState: 'open' });
+          if (queuedRoll) sendRoll(set, get, queuedRoll);
         };
         socket.onerror = (err) => console.error("WebSocket connection error:", err);
         socket.onclose = (event) => {
           if (get().socket !== socket) return;
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
           if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
+          // A roll sent on this socket gets no answer now; one waiting to be sent waits on
+          // only while the desk reconnects by itself
+          const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
+          if (closesForGood && queuedRoll) failRoll(set, ROLL_NOT_SENT);
+          else if (!queuedRoll && get().isRolling) failRoll(set, ROLL_DROPPED);
           if (event.code === WS_CLOSE_REPLACED) { set({ connectionState: 'replaced' }); return; }
           if (event.code === 4403 || event.code === 4404) { set({ connectionState: 'refused' }); return; }
           // Anything else is a dropped connection (sleep, network change, server restart).
@@ -237,11 +299,14 @@ const useGameStore = create(
           }
           else if (message.type === 'roll_result') {
             const roll = message.payload.roll;
+            clearRollTimer();
             set({
               lastRoll: roll,
               tableRoll: null, // this desk's own roll is the newest on its felt
               character: message.payload.character,
               isRolling: false,
+              rollWaiting: false,
+              rollError: null,
               pendingRoll: null,
               pendingRollMods: [],
               pendingGildedChoice: roll?.needs_gilded_choice
@@ -267,7 +332,7 @@ const useGameStore = create(
             }
           }
           else if (message.type === 'roll_error') {
-            set({ isRolling: false });
+            failRoll(set, ROLL_FAILED);
           }
           else if (message.type === 'trigger_scar') {
             set({
@@ -287,7 +352,7 @@ const useGameStore = create(
           else if (message.type === 'action_rejected') {
             // The server refused a message this user may not send; nothing changed on the server.
             console.warn(`Vault refused ${message.payload.action}: ${message.payload.detail}`);
-            if (message.payload.action === 'roll') set({ isRolling: false });
+            if (message.payload.action === 'roll') failRoll(set, ROLL_REFUSED);
           }
           else if (message.type === 'notebook_entry') {
             set(state => {
@@ -559,19 +624,30 @@ const useGameStore = create(
       },
 
       rollAction: (actionName, driveSpent = 0, isSecret = false, abilityMods = []) => {
-        const { socket, pendingGildedChoice } = get();
-        if (pendingGildedChoice) return;
-        if (!socket || socket.readyState !== WebSocket.OPEN) {
-          console.warn("Network transmission failed: Vault socket offline. Aborting roll.");
-          return;
-        }
-        set({ lastRoll: null, isRolling: true });
-        socket.send(JSON.stringify({
+        const { socket, pendingGildedChoice, isRolling, connectionState } = get();
+        if (pendingGildedChoice || isRolling) return;
+        const frame = {
           type: 'roll',
           payload: { action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods }
-        }));
-        // Safety: clear isRolling if backend never responds within 8s
-        setTimeout(() => { if (get().isRolling) set({ isRolling: false }); }, 8000);
+        };
+        set({ lastRoll: null, isRolling: true, rollWaiting: false, rollError: null });
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          sendRoll(set, get, frame);
+          return;
+        }
+        // The connection is on its way (opening, or reconnecting after a drop): the roll
+        // goes out when the new socket opens, if that is soon
+        if (socket && (connectionState === 'connecting' || connectionState === 'reconnecting')) {
+          queuedRoll = frame;
+          set({ rollWaiting: true });
+          clearRollTimer();
+          rollTimer = setTimeout(() => {
+            rollTimer = null;
+            if (queuedRoll === frame) failRoll(set, ROLL_NOT_SENT);
+          }, ROLL_QUEUE_MS);
+          return;
+        }
+        failRoll(set, ROLL_NOT_SENT);
       },
 
       selectRollAction: (action, initialDriveSpend = 0) => set({ pendingRoll: { action, driveSpend: initialDriveSpend }, pendingRollMods: [] }),
@@ -624,15 +700,19 @@ const useGameStore = create(
 
       resolveGildedChoice: (action, chosenType, chosenValue) => {
         const { socket } = get();
-        set({ pendingGildedChoice: null });
+        // The choice stays open until the kept die can reach the table
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          set({ rollError: KEEP_NOT_SENT });
+          return false;
+        }
+        socket.send(JSON.stringify({
+          type: 'resolve_gilded',
+          payload: { action, chosen_type: chosenType, chosen_value: chosenValue }
+        }));
+        set({ pendingGildedChoice: null, rollError: null });
         // The kept die decides it: the dice tumble onto the felt now
         playDiceTumble();
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: 'resolve_gilded',
-            payload: { action, chosen_type: chosenType, chosen_value: chosenValue }
-          }));
-        }
+        return true;
       },
 
       updateDrive: (pool, newValue) => {

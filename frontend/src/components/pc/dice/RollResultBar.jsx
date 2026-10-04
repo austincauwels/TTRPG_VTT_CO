@@ -32,17 +32,22 @@ const MiniDie = ({ die, counts, dim, onClick }) => {
 export const RollResultBar = ({
   rollerName, rollerInk, lastRoll, isRolling, gildedPending, keptDie,
   getIsCandidate, onDieClick, trayInView, children, rating = null,
+  rollWaiting = false, rollError = null,
 }) => {
   const [open, setOpen] = useState(false);
   const sheetRef = useDialog({ open, onClose: () => setOpen(false) });
 
-  if (!lastRoll && !isRolling) return null;
+  if (!lastRoll && !isRolling && !rollError) return null;
 
   const dice = lastRoll?.dice || [];
-  const poolText = isRolling ? '' : rollPoolText(lastRoll, keptDie, rating);
+  const poolText = isRolling || !lastRoll ? '' : rollPoolText(lastRoll, keptDie, rating);
   const outcomeKey = lastRoll?.outcome || (keptDie ? outcomeForKept(keptDie.value) : null);
   const outcome = !isRolling && !gildedPending ? OUTCOME[outcomeKey] : null;
-  const status = isRolling ? 'Rolling…'
+  // A roll that did not reach the table: the bar says so in short with the reason under
+  // it (the tray's slip carries the alert for screen readers)
+  const failed = !isRolling && !!rollError && !lastRoll;
+  const status = isRolling ? (rollWaiting ? 'Waiting for the table…' : 'Rolling…')
+    : failed ? 'Not thrown'
     : gildedPending ? 'Keep one die'
     : (outcome?.word || '');
   const keptIdx = keptDie ? keptDie.idx : null;
@@ -53,7 +58,10 @@ export const RollResultBar = ({
         <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ background: rollerInk || 'rgb(var(--c-candle-gold))' }} />
         <span className="truncate">{rollerName}{poolText ? ` · ${poolText}` : ''}</span>
       </span>
-      <span className={`font-serif text-lg font-bold leading-tight truncate ${outcome?.className || 'text-cream'}`}>{status}</span>
+      <span className={`font-serif text-lg font-bold leading-tight truncate ${failed ? 'text-oxblood-lit' : outcome?.className || 'text-cream'}`}>{status}</span>
+      {!isRolling && rollError && (
+        <span aria-hidden="true" className="font-serif text-sm leading-snug text-parchment-deep">{rollError}</span>
+      )}
     </span>
   );
 

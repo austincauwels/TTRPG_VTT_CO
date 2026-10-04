@@ -17,7 +17,7 @@ export { MAX_ABILITY_USES, ABILITY_ROLL_MODS, getAvailableRollMods } from '../..
 
 export const DiceVault = ({ showGmControls = false, logEntries: externalLog, playerList }) => {
   const {
-    character, lastRoll: ownRoll, tableRoll, isRolling, activityLog, rollAction,
+    character, lastRoll: ownRoll, tableRoll, isRolling, rollWaiting, rollError, activityLog, rollAction,
     pendingGildedChoice, resolveGildedChoice, sendChat, circleCreation,
     burnResistance, usePostRollAbility,
   } = useGameStore(useShallow(s => ({
@@ -25,6 +25,8 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     lastRoll: s.lastRoll,
     tableRoll: s.tableRoll,
     isRolling: s.isRolling,
+    rollWaiting: s.rollWaiting,
+    rollError: s.rollError,
     activityLog: s.activityLog,
     rollAction: s.rollAction,
     pendingGildedChoice: s.pendingGildedChoice,
@@ -87,8 +89,10 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
 
   const handleDieClick = (die, idx) => {
     if (!gildedPending) return;
-    setKept({ roll: lastRoll, value: die.value, idx });
-    resolveGildedChoice(pendingGildedChoice.action, die.is_gilded ? 'gilded' : 'regular', die.value);
+    // Kept only once the choice reached the table; offline the choice stays open
+    if (resolveGildedChoice(pendingGildedChoice.action, die.is_gilded ? 'gilded' : 'regular', die.value)) {
+      setKept({ roll: lastRoll, value: die.value, idx });
+    }
   };
 
   // Whether the tray itself is on screen; the phone roll bar steps aside while it is
@@ -140,6 +144,8 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
           ref={trayRef}
           lastRoll={lastRoll}
           isRolling={isRolling && !shownTable}
+          rollWaiting={rollWaiting}
+          rollError={rollError}
           gildedPending={gildedPending}
           dieSkews={dieSkews}
           getIsCandidate={getIsCandidate}
@@ -169,6 +175,8 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
           rollerInk={rollerInk}
           lastRoll={lastRoll}
           isRolling={isRolling}
+          rollWaiting={rollWaiting}
+          rollError={rollError}
           gildedPending={gildedPending}
           keptDie={keptDie}
           getIsCandidate={getIsCandidate}
@@ -179,6 +187,8 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
           <DiceTray
             lastRoll={lastRoll}
             isRolling={isRolling}
+            rollWaiting={rollWaiting}
+            rollError={rollError}
             gildedPending={gildedPending}
             dieSkews={dieSkews}
             getIsCandidate={getIsCandidate}

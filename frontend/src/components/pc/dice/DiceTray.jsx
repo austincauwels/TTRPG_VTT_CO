@@ -65,6 +65,14 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
   );
 };
 
+// Why the last roll (or a kept die) did not reach the table, on its own slip under the
+// felt, in the ink errors take on paper
+const RollErrorSlip = ({ message, afterSlip }) => (
+  <p role="alert" className={`relative ${afterSlip ? 'mt-2' : '-mt-1'} mx-2 bg-parchment text-oxblood font-serif text-base leading-snug px-4 py-2.5 shadow-[2px_6px_12px_rgba(0,0,0,0.6)] border border-oxblood/40 rounded-sm`}>
+    {message}
+  </p>
+);
+
 // A loudspeaker, struck through when the sounds are off
 const SpeakerIcon = ({ muted }) => (
   <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none"
@@ -100,7 +108,7 @@ const SoundToggle = () => {
 // at the same angles.
 export const DiceTray = forwardRef(({
   lastRoll, isRolling, gildedPending, dieSkews, getIsCandidate, onDieClick,
-  rollerName, rollerInk, keptDie, rating = null,
+  rollerName, rollerInk, keptDie, rating = null, rollWaiting = false, rollError = null,
 }, ref) => (
   <div ref={ref} className="xl:shrink-0">
   <div className="bg-[#12241b] p-5 shadow-[0_15px_30px_rgba(0,0,0,0.95),inset_0_10px_20px_rgba(0,0,0,0.95)] relative h-[270px] xl:h-[clamp(11rem,22dvh,20rem)] flex flex-col justify-between border-[12px] border-[#2e1d15] rounded-sm before:absolute before:inset-0 before:bg-[url('https://www.transparenttextures.com/patterns/fabric-of-squares.png')] before:opacity-20 before:pointer-events-none">
@@ -108,7 +116,7 @@ export const DiceTray = forwardRef(({
     <div className="flex-1 flex flex-col items-center justify-center relative z-10 py-2">
       {isRolling ? (
         <div className="text-center flex flex-col items-center justify-center">
-          <span className="font-serif italic text-candle-gold text-lg">Rolling…</span>
+          <span className="font-serif italic text-candle-gold text-lg">{rollWaiting ? 'Waiting for the table…' : 'Rolling…'}</span>
         </div>
       ) : lastRoll && lastRoll.dice ? (
         // Keyed by the roll, so the next roll's dice tumble in even when they show the same faces
@@ -166,6 +174,7 @@ export const DiceTray = forwardRef(({
   {!isRolling && lastRoll?.dice && (
     <ResultSlip lastRoll={lastRoll} rollerName={rollerName} rollerInk={rollerInk} gildedPending={gildedPending} keptDie={keptDie} rating={rating} />
   )}
+  {!isRolling && rollError && <RollErrorSlip message={rollError} afterSlip={!!lastRoll?.dice} />}
   </div>
 ));
 DiceTray.displayName = 'DiceTray';
