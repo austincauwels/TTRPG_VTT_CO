@@ -25,6 +25,16 @@ from vtt.ws.manager import campaign_key, character_key, manager
 
 router = APIRouter()
 
+
+def _reads_as_number(code: str) -> bool:
+    """True for a code that int() accepts, such as "123", "-12" or "1_000"."""
+    try:
+        int(code)
+    except ValueError:
+        return False
+    return True
+
+
 @router.post("/campaign/create")
 def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Session = Depends(get_db),
                     user: User = Depends(get_current_user)):
@@ -32,6 +42,9 @@ def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Ses
     require_self(user, user_id)
     if not _ALLOWED_CAMPAIGN_CODE_RE.match(code):
         raise HTTPException(status_code=422, detail="Campaign code must be 3–32 alphanumeric characters (hyphens/underscores allowed)")
+    if _reads_as_number(code):
+        # /ws/{code} would also name the character with that id (QUIRK D13).
+        raise HTTPException(status_code=422, detail="Campaign code must not be a number")
     if len(name) < 1 or len(name) > 80:
         raise HTTPException(status_code=422, detail="Campaign name must be 1–80 characters")
     return create_new_campaign(db, name, code, gm_user_id=user.id)

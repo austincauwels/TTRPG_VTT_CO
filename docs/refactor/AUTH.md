@@ -112,6 +112,7 @@ Not changed: game rules that are not about who is acting (pending offers, `repor
 ## Behavior that changed because of these rules
 
 - Campaign create without `user_id` makes the caller the GM (it used to create a campaign with no GM). An unknown `user_id` is 403 (it was a 500 from the foreign key).
+- Campaign create refuses a code that reads as a number (`"123"`, `"-12"`, `"1_000"`) with 422 "Campaign code must not be a number", because `/ws/{code}` would also name the character with that id (QUIRK D13).
 - Forge without `user_id` gives the character to the caller (it used to fall back to user 1, admin). `user_id` 0 or an unknown id is 403.
 - Approve and reject of an unknown character are 404 (they were 400).
 - Roster, notebook list and circle creation state for an unknown campaign are 404 (they were 200 with empty data, or 500).

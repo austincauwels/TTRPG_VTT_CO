@@ -84,10 +84,19 @@ def test_create_campaign_duplicate_code_is_500(client):
     assert len(support.fetch_all(Campaign, campaign_code=code)) == 1
 
 
-def test_create_campaign_numeric_code_allowed(client):
-    """QUIRK: all-digit codes pass, and collide with character-id WebSocket channels."""
-    code = str(10 ** 11 + int(support.uid(6), 16))
+@pytest.mark.parametrize("code", ["123", "000123", "-12", "1_000"])
+def test_create_campaign_numeric_code_is_422(client, code):
+    """QUIRK D13 fixed: all-digit codes used to pass, and /ws/{code} then named both the
+    campaign and the character with that id. Codes that read as a number are refused."""
     r = client.post("/campaign/create", params={"name": "Digits", "code": code}, headers=support.as_stranger())
+    assert r.status_code == 422
+    assert r.json() == {"detail": "Campaign code must not be a number"}
+    assert support.fetch_all(Campaign, campaign_code=code) == []
+
+
+def test_create_campaign_code_with_digits_and_letters_is_fine(client):
+    code = f"12{support.uid()}x"
+    r = client.post("/campaign/create", params={"name": "Mixed", "code": code}, headers=support.as_stranger())
     assert r.status_code == 200
     assert r.json()["campaign_code"] == code
 

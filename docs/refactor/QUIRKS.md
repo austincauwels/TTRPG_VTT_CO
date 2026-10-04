@@ -55,7 +55,7 @@ does not change them by accident. Each fix later gets its own commit and flips i
 The list above is kept as it was found. These entries no longer hold, or hold only in part, because access is now checked (docs/refactor/AUTH.md has the rules); their tests were rewritten to pin the new behavior. Everything else above is unchanged and still pinned.
 
 - Forge: a missing user_id gives the character to the caller; user_id 0 or an unknown id is 403. Stats and circle 1 are unchanged.
-- create_campaign: the caller is the GM; an unknown user_id is 403, not a 500. The duplicate-code 500 and all-digit codes remain.
+- create_campaign: the caller is the GM; an unknown user_id is 403, not a 500. The duplicate-code 500 remains. A code that reads as a number ("123", "-12", "1_000") is 422 "Campaign code must not be a number" (D13); codes like that already in the data still work, with their own channel key.
 - join: still no status check, but only the character's owner can do it.
 - rejoin: needs a rejoin invite or a dead character in that campaign (still no GM approval; the ink color quirk remains).
 - circle-creation-state, roster and the notebook list: an unknown campaign is 404. Notebook writes with an unknown character or campaign are 404, not 500. role=GM and character_id in the notebook query are checked against the token.

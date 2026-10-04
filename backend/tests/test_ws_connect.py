@@ -6,7 +6,7 @@ import pytest
 
 import main
 import support
-from models import Character, Circle
+from models import Campaign, Character, Circle
 from vtt.ws.manager import campaign_key
 
 
@@ -138,6 +138,14 @@ def _numeric_character(owner_id):
     return char_id
 
 
+def _numeric_campaign(client, code):
+    """A campaign with an all-digit code, as older data may hold (create refuses
+    such codes now)."""
+    camp = support.new_campaign(client)
+    support.update(Campaign, camp["id"], campaign_code=code)
+    return {**camp, "campaign_code": code}
+
+
 def test_numeric_campaign_code_and_character_id_channels(client):
     """A campaign whose all-digit code equals a character id: before tokens the
     character's socket resolved to that campaign when the character had none of its
@@ -147,7 +155,7 @@ def test_numeric_campaign_code_and_character_id_channels(client):
     Now both stay open."""
     owner = support.make_user()
     char_id = _numeric_character(owner.id)
-    camp = support.new_campaign(client, code=str(char_id))
+    camp = _numeric_campaign(client, str(char_id))
     with support.ws_connect(client, char_id, token=support.token_for(owner.id), wait_disconnect=False) as ws:
         assert support.types(ws.initial) == ["character_update", "circle_update"]
         assert ws.initial[1]["payload"]["id"] == 1
@@ -172,7 +180,7 @@ def test_all_digit_campaign_code_cannot_take_over_a_players_channel(client):
     char_id = _numeric_character(victim_owner.id)
     assert support.join(client, char_id, real["campaign_code"]).status_code == 200
     assert support.approve(client, char_id).status_code == 200
-    rogue = support.new_campaign(client, code=str(char_id))
+    rogue = _numeric_campaign(client, str(char_id))
     with support.ws_connect(client, char_id, token=support.token_for(victim_owner.id)) as victim, \
             support.ws_connect(client, real["campaign_code"]) as real_gm:
         with support.ws_connect(client, char_id, token=support.token_for(rogue["gm_user_id"])) as attacker:
@@ -190,7 +198,7 @@ def test_character_id_equal_to_a_campaign_code_cannot_take_over_the_gm_channel(c
     equals an all-digit campaign code used to kick the GM off and get its frames."""
     attacker = support.make_user()
     char_id = _numeric_character(attacker.id)
-    camp = support.new_campaign(client, code=str(char_id))
+    camp = _numeric_campaign(client, str(char_id))
     member = support.active_member(client, camp)
     gm_token = support.token_for(camp["gm_user_id"])
     with support.ws_connect(client, camp["campaign_code"], token=gm_token) as gm, \
