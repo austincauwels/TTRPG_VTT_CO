@@ -15,7 +15,10 @@ deletes the older rows. Any other change of the password (Sign in with Google li
 by email, retire_published_passwords, a hash set in the database) changes the stamp,
 so an older token no longer matches. The new password changes the stamp that login
 tokens carry too, which ends every earlier session. Using a token also marks the
-account's email as proven and removes an unproven Google link (use_token).
+account's email as proven, records that someone chose the password (has_password),
+removes an unproven Google link and ends a change of address that waits for its link
+(use_token). A change of address that is used ends the user's reset links
+(vtt/email_change.py), because they went to the old address.
 """
 import hashlib
 import hmac
@@ -30,7 +33,7 @@ from limits import parse as parse_limit
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, case, func
 
-from models import PasswordResetToken, User
+from models import EmailChangeToken, PasswordResetToken, User
 from vtt import config, mail
 from vtt.config import logger
 from vtt.db import PUBLISHED_PASSWORDS
@@ -218,6 +221,7 @@ def use_token(db: Session, row: PasswordResetToken, user: User, new_password_has
         User.id == user.id, User.hashed_password == user.hashed_password,
     ).update({
         User.hashed_password: new_password_hash,
+        User.has_password: True,
         User.email_proven: True,
         User.google_sub: case((proven_link, User.google_sub), else_=None),
         User.google_email: case((proven_link, User.google_email), else_=None),
@@ -226,6 +230,10 @@ def use_token(db: Session, row: PasswordResetToken, user: User, new_password_has
         return None
     linked_after = db.query(User.google_sub).filter(User.id == user.id).scalar()
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete(
+        synchronize_session=False)
+    # A change of address waiting for its link ends too (the new password would end it
+    # anyway, see vtt/email_change.py): whoever reads the current address owns the account.
+    db.query(EmailChangeToken).filter(EmailChangeToken.user_id == user.id).delete(
         synchronize_session=False)
     return ResetOutcome(google_unlinked=linked_before is not None and linked_after is None)
 

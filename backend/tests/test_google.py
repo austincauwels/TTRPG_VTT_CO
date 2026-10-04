@@ -76,6 +76,15 @@ def test_a_good_token_gives_the_google_account(google_auth):
     assert call.request is vtt_google.certs_transport
 
 
+def test_the_identity_carries_when_google_issued_the_token(google_auth):
+    """The account page takes a Google sign-in as proof only while it is fresh."""
+    google_auth.answer(_claims(iat=1_700_000_000))
+    identity = vtt_google.verify_id_token("t")
+    assert identity.issued_at == 1_700_000_000
+    # not compared: an identity from a link token (no issue time) equals the same account's
+    assert identity == GoogleIdentity(sub=identity.sub, email=identity.email, name=identity.name)
+
+
 @pytest.mark.parametrize("issuer", ["accounts.google.com", "https://accounts.google.com"])
 def test_both_google_issuers_are_accepted(google_auth, issuer):
     google_auth.answer(_claims(iss=issuer))

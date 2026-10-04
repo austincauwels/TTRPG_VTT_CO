@@ -9,7 +9,7 @@ import secrets
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from models import Circle, PasswordResetToken, User
+from models import Circle, EmailChangeToken, PasswordResetToken, User
 from vtt.config import SQLALCHEMY_DATABASE_URL, logger
 from vtt.security import pwd_context
 
@@ -45,7 +45,7 @@ def unusable_password_hash():
 
 def retire_published_passwords():
     """Give every account in PUBLISHED_PASSWORDS that still has its published password
-    an unusable one. Returns the usernames it changed. Uses column queries, so it also
+    an unusable one (has_password false). Returns the usernames it changed. Uses column queries, so it also
     runs on a database whose users table predates some model columns."""
     db = SessionLocal()
     changed = []
@@ -59,7 +59,8 @@ def retire_published_passwords():
                 published = False  # not a hash passlib can read, so not the published password
             if published:
                 db.query(User).filter(User.id == row.id).update(
-                    {User.hashed_password: unusable_password_hash()}, synchronize_session=False)
+                    {User.hashed_password: unusable_password_hash(), User.has_password: False},
+                    synchronize_session=False)
                 changed.append(row.username)
         db.commit()
         if changed:
@@ -123,8 +124,8 @@ def init_db():
     that already exist. The ALTERs add the types the models declare, and flag columns
     that older ALTERs added as INTEGER are converted to BOOLEAN (convert_integer_flags). The seeded admin (user 1, which owns characters forged before
     login tokens) gets a random password nobody knows. Tables added after the first
-    release (password_reset_tokens) are created here when missing, so init_db alone
-    brings an older database up to date."""
+    release (password_reset_tokens, email_change_tokens) are created here when missing,
+    so init_db alone brings an older database up to date."""
     db = SessionLocal()
     try:
         circle = db.query(Circle).filter(Circle.id == 1).first()
@@ -139,7 +140,8 @@ def init_db():
                 id=1,
                 username="admin",
                 email="admin@archive.com",
-                hashed_password=unusable_password_hash()
+                hashed_password=unusable_password_hash(),
+                has_password=False,
             )
             db.add(new_admin)
 
@@ -331,13 +333,23 @@ def init_db():
         except Exception:
             pass
 
-    # Password reset links. main.py's create_all makes the table on a normal start; this
-    # makes it (with its indexes) on a database that only init_db upgrades. checkfirst
-    # leaves an existing table and its rows alone.
+    # Whether someone chose the account's password (the account page, docs/refactor/AUTH.md).
+    # Existing rows get NULL: not known.
     try:
-        PasswordResetToken.__table__.create(bind=db_engine, checkfirst=True)
-    except Exception as e:
-        logger.error("Could not create the password_reset_tokens table: %s", e)
+        with db_engine.connect() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN has_password BOOLEAN"))
+            conn.commit()
+    except Exception:
+        pass
+
+    # Password reset links and email change links. main.py's create_all makes the tables
+    # on a normal start; this makes them (with their indexes) on a database that only
+    # init_db upgrades. checkfirst leaves an existing table and its rows alone.
+    for table in (PasswordResetToken.__table__, EmailChangeToken.__table__):
+        try:
+            table.create(bind=db_engine, checkfirst=True)
+        except Exception as e:
+            logger.error("Could not create the %s table: %s", table.name, e)
 
     convert_integer_flags()
     retire_published_passwords()

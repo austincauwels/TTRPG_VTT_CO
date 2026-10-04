@@ -16,7 +16,8 @@ Tests replace verify_id_token, or certs_transport, and never reach Google.
 import re
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional
 
 import google.auth.exceptions
 import google.auth.transport.requests
@@ -50,6 +51,10 @@ class GoogleIdentity:
     sub: str    # Google's id for the account; it never changes
     email: str  # an address Google has verified
     name: str   # the display name; may be empty
+    # When Google issued the ID token (its iat, Unix seconds). The account page takes a
+    # Google sign-in as proof only while it is a few minutes old. None for an identity
+    # read from a link token. Not compared, so two identities of one account are equal.
+    issued_at: Optional[int] = field(default=None, compare=False)
 
 
 def _max_age(headers):
@@ -125,4 +130,6 @@ def verify_id_token(credential: str) -> GoogleIdentity:
         raise GoogleTokenError("the token has no subject")
     if not isinstance(email, str) or "@" not in email:
         raise GoogleTokenError("the token has no email address")
-    return GoogleIdentity(sub=sub, email=email, name=name if isinstance(name, str) else "")
+    issued_at = claims.get("iat")  # google-auth requires it
+    return GoogleIdentity(sub=sub, email=email, name=name if isinstance(name, str) else "",
+                          issued_at=int(issued_at) if isinstance(issued_at, (int, float)) else None)

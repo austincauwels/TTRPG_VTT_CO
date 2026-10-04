@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for all game entities: users, password reset links, campaigns, circles, characters, notebook entries, and relationship votes."""
+"""SQLAlchemy ORM models for all game entities: users, password reset links, email change links, campaigns, circles, characters, notebook entries, and relationship votes."""
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Float, Boolean, Text, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -21,6 +21,11 @@ class User(Base):
     # True once someone showed they read the account's email: a used reset link, or a
     # Google account with that address (made with Google, or linked with the same email).
     email_proven = Column(Boolean, default=False)
+    # True when someone chose the account's password (register, a reset link, the account
+    # page, or any password that was checked and worked); False when the server set one
+    # nobody knows (made with Google, replaced by Google's sign-in by email, a retired
+    # published password). NULL for accounts from before the column: not known.
+    has_password = Column(Boolean, nullable=True)
 
 class PasswordResetToken(Base):
     """An outstanding password reset link (vtt/password_reset.py). Only the SHA-256 of
@@ -31,6 +36,22 @@ class PasswordResetToken(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    password_stamp = Column(String(32), nullable=False)
+    created_at = Column(Integer, nullable=False)  # Unix time, seconds
+    expires_at = Column(Integer, nullable=False)  # Unix time, seconds
+
+class EmailChangeToken(Base):
+    """A pending change of a user's email address (vtt/email_change.py): the link mailed
+    to the new address. Only the SHA-256 of the link's token is kept. A row is deleted
+    when its link is used, when the user asks again or cancels, and when the password
+    changes on the account page; password_stamp and old_email make it useless once the
+    password or the email changes any other way."""
+    __tablename__ = "email_change_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    new_email = Column(String, nullable=False)
+    old_email = Column(String, nullable=True)     # the account's email when the change was asked for
     password_stamp = Column(String(32), nullable=False)
     created_at = Column(Integer, nullable=False)  # Unix time, seconds
     expires_at = Column(Integer, nullable=False)  # Unix time, seconds
