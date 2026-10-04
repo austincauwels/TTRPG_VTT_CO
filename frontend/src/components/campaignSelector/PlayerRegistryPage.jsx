@@ -1,7 +1,7 @@
 import React from 'react';
 import useGameStore from '../../store/gameStore';
 import { UnaffiliatedCharacterRow } from './UnaffiliatedCharacterRow';
-import { RowDelete, DeletedSlip, DeleteError } from './RowDelete';
+import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
 import { useDeleteUndo } from './useDeleteUndo';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
 
@@ -34,14 +34,7 @@ export const PlayerRegistryPage = ({
 
     <div className="flex-1 overflow-y-auto px-4 lg:px-7 py-4 space-y-5">
       <DeleteError text={removal.error} />
-      {removal.deleted && (
-        <DeletedSlip
-          text={`${removal.deleted.name} deleted.`}
-          secondsLeft={removal.secondsLeft}
-          undoing={removal.deleted.undoing}
-          onUndo={removal.undo}
-        />
-      )}
+      <DeletedSlips deleted={removal.deleted} onUndo={removal.undo} />
       {isLoadingBook ? (
         <p className="font-serif text-xl italic text-sepia">Loading your investigators…</p>
       ) : (

@@ -52,20 +52,42 @@ export const RowDelete = ({ name, question, onConfirm, busy = false, blockedReas
   );
 };
 
-// In place of a deleted row for a few seconds: what went, and Undo with its countdown.
-export const DeletedSlip = ({ text, secondsLeft, undoing, onUndo }) => (
+// 115 -> "1:55"
+const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+// In place of a deleted row while the server still lets it be undone: what went, and
+// Undo with its countdown. The countdown is hidden from screen readers, so the slip (a
+// status) is read once and not on every tick; the button's name says what it undoes.
+export const DeletedSlip = ({ name, secondsLeft, undoing, onUndo }) => (
   <div role="status" className="flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 pl-3 pr-1 py-1 rounded-sm">
-    <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-40">{text}</p>
+    <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-40">{name} deleted.</p>
     <button
       type="button"
       onClick={onUndo}
       disabled={undoing}
+      aria-label={`Undo deleting ${name}`}
       className="shrink-0 min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood hover:bg-oxblood hover:text-cream disabled:opacity-60 disabled:cursor-wait rounded-sm transition-colors"
     >
-      {undoing ? 'Undoing…' : <>Undo <span className="font-mono tabular-nums">{secondsLeft}s</span></>}
+      {undoing ? 'Undoing…' : <>Undo <span aria-hidden="true" className="font-mono tabular-nums">{clock(secondsLeft)}</span></>}
     </button>
   </div>
 );
+
+// The slips of the recent deletes, newest first (useDeleteUndo keeps a few), each with
+// its own Undo.
+export const DeletedSlips = ({ deleted, onUndo }) => (deleted.length === 0 ? null : (
+  <div className="space-y-1.5">
+    {deleted.map(slip => (
+      <DeletedSlip
+        key={slip.id}
+        name={slip.name}
+        secondsLeft={slip.secondsLeft}
+        undoing={slip.undoing}
+        onUndo={() => onUndo(slip.id)}
+      />
+    ))}
+  </div>
+));
 
 // What a delete or an undo could not do, above the list.
 export const DeleteError = ({ text }) => (text

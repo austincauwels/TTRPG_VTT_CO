@@ -86,6 +86,9 @@ export const CampaignSelector = () => {
     } else {
       const error = campaignErrorText(result.detail, 'Could not send the request to join. Try again in a moment.');
       setJoinForms(f => ({ ...f, [charId]: { ...f[charId], loading: false, error } }));
+      // 409: the investigator is in a campaign or waiting for one after all (a delete was
+      // undone, or another tab joined). Read the registry again so its row shows where it is.
+      if (result.status === 409) await fetchUserData(accessSession?.userId);
     }
   };
 

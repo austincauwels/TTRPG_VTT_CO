@@ -1,11 +1,13 @@
 import React from 'react';
 import useGameStore from '../../store/gameStore';
 import { CreateCampaignForm } from './CreateCampaignForm';
-import { RowDelete, DeletedSlip, DeleteError } from './RowDelete';
+import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
 import { useDeleteUndo } from './useDeleteUndo';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
 
-// "Delete campaign Beta? 4 investigators return to their players."
+// "Delete campaign Beta? 4 investigators return to their players." The count is exactly
+// what the delete lets go: the investigators on its roster, active or waiting (the
+// server counts them as it releases them). Retired ones stay with the campaign.
 const deleteQuestion = (camp) => {
   const n = camp.investigator_count || 0;
   const back = n === 0 ? '' : n === 1
@@ -42,14 +44,7 @@ export const LightkeeperLedgerPage = ({
 
     <div className="flex-1 overflow-y-auto px-4 lg:px-7 py-4 space-y-5">
       <DeleteError text={removal.error} />
-      {removal.deleted && (
-        <DeletedSlip
-          text={`${removal.deleted.name} deleted.`}
-          secondsLeft={removal.secondsLeft}
-          undoing={removal.deleted.undoing}
-          onUndo={removal.undo}
-        />
-      )}
+      <DeletedSlips deleted={removal.deleted} onUndo={removal.undo} />
       {gmCampaigns.length > 0 && (
         <div className="space-y-1.5">
           {gmCampaigns.map(camp => (
