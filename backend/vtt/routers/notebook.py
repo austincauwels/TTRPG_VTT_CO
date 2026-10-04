@@ -39,8 +39,8 @@ def _require_writer(db: Session, user: User, campaign_id: int, character_id, gm_
     """The caller may write into this campaign's notebook, as themself. Returns the
     author: (author_name, pen_font, ink_color), all set by the server.
 
-    A player writes as one of their own characters, which must be an active or
-    pending member of this campaign; character_id is required. The GM may write
+    A player writes as one of their own characters, which must be an active member
+    of this campaign; character_id is required. The GM may write
     without a character, under their username (what the frontend already sent)."""
     campaign = campaign_or_404(db, campaign_id)
     require_gm_or_member(db, user, campaign)

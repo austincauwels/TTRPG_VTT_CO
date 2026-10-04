@@ -22,7 +22,7 @@ After that, ids the client sends are checked against the caller:
 - An id that exists but that the caller may not use is 403 `{"detail": "Not allowed."}`.
 - Where the client still sends its own user id (`user_id` on campaign create and forge, the path of the two user routes), the server uses the token's user. A matching value is accepted and ignored; anything else is 403.
 
-Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a user with an active or pending character in the campaign. The **owner** of a character is `characters.user_id`.
+Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a user with an active character in the campaign, one the GM approved (a dead character keeps status active until it is replaced). A pending character is waiting for the GM's approval and is not a member: anyone who has the campaign code can make one, so it reaches nothing of the campaign (`MEMBER_STATUSES` in `vtt/auth.py`; before the security review pending counted too). The **owner** of a character is `characters.user_id`.
 
 | Route | Who may call it |
 |---|---|
@@ -35,7 +35,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /campaign/{campaign_id}/invite-rejoin | GM of that campaign. The invite lets its holder skip GM approval, so the username must name one user: an exact match wins, a name that matches only ignoring case must match exactly one user (409 "More than one player has that username..." otherwise). A retired campaign is 409 |
 | GET /campaign/{campaign_id}/roster | GM or member |
 | GET /campaign/{campaign_id}/circle-creation-state | GM or member (unknown campaign is now 404, not 500) |
-| POST /circle/vote | owner of `character_id`; the character must be an active or pending member of the circle's campaign |
+| POST /circle/vote | owner of `character_id`; the character must be an active member of the circle's campaign |
 | POST /circle/relationship/propose | owner of `from_character_id`; both characters members of the circle's campaign |
 | POST /circle/relationship/respond | the owner of the party that did not act last (for a row with no recorded actor, the to-character), as on the WebSocket; propose and respond record `last_actor_id` |
 | POST /campaign/finalize-roster | GM of that campaign |
@@ -43,7 +43,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | GET /api/investigators/{id} | owner, or GM of the character's campaign |
 | POST /api/investigators/forge | any logged-in user; the character is theirs |
 | GET /api/notebook/{campaign_id}/entries | GM or member; `role=GM` only for the GM (403 otherwise); `character_id` must be the caller's own character (an empty `character_id=` means none) |
-| POST /api/notebook/{campaign_id}/entries | GM or member; a player must send `character_id`, and it must be the caller's own character and an active or pending member of this campaign (the GM may leave it out); Lightkeeper entries (author_type gm, entry_type lightkeeper or visibility gm_only) only for the GM. The server sets `author_name` (the character's name, or the GM's username), pen and ink |
+| POST /api/notebook/{campaign_id}/entries | GM or member; a player must send `character_id`, and it must be the caller's own character and an active member of this campaign (the GM may leave it out); Lightkeeper entries (author_type gm, entry_type lightkeeper or visibility gm_only) only for the GM. The server sets `author_name` (the character's name, or the GM's username), pen and ink |
 | PUT, DELETE /api/notebook/entries/{entry_id} | the author: the owner of the entry's character, or the campaign's GM for an entry without a character |
 | POST /api/notebook/{campaign_id}/upload | as for adding an entry |
 | GET /api/users/{user_id}/characters, /campaigns | only the caller's own user id |
@@ -78,7 +78,7 @@ A message that breaks a rule is answered with `{"type": "action_rejected", "payl
 The character a message acts on is `payload.character_id`, or the player channel's own character when the payload has none (a GM channel has none).
 
 - A player channel may only act for its own character: any other `character_id` is 403, one that matches no character is 404 (this includes 0 and 1.5, which used to fall through to "no character").
-- A GM channel may name a character only for `gm_update_tension`, `gm_reset_character`, `update_drive`, `take_mark`, `revive_character` and `update_gear`, and only a member (active or pending) of its own campaign, not a retired character still tagged with it. Any other type with a `character_id` is 403; so the GM cannot roll, vote, chat or answer as a player's character.
+- A GM channel may name a character only for `gm_update_tension`, `gm_reset_character`, `update_drive`, `take_mark`, `revive_character` and `update_gear`, and only a character on its own campaign's roster (active or pending, `ROSTER_STATUSES`), not a retired character still tagged with it. Any other type with a `character_id` is 403; so the GM cannot roll, vote, chat or answer as a player's character.
 - Messages that need a character and have none are still ignored without a reply, as before.
 
 | Type | Who may send it |
@@ -96,12 +96,12 @@ The character a message acts on is `payload.character_id`, or the player channel
 | circle_backstory_update | an active member or the GM, on the campaign's circle |
 | circle_relationship_propose | a player for their own `from_character_id`, to a fellow member, on their campaign's circle |
 | circle_relationship_respond | the other party: the character that did not act last (for a proposal made over REST, which records no actor, the character it was made to); never the GM |
-| chat_message | a member (active or pending) or the GM; `@Environment` only from the GM. The sender name is the character's name, or "Lightkeeper" for the GM; `sender_name` is ignored |
+| chat_message | a member (an active character) or the GM; `@Environment` only from the GM. The sender name is the character's name, or "Lightkeeper" for the GM; `sender_name` is ignored |
 | add_notebook_entry | a member or the GM, into their own campaign only; Lightkeeper entries only from the GM. The author is the socket's: the player's character (name, pen, ink, character_id) or the GM's username with the default pen and ink; payload `author_name`, `pen_font`, `ink_color` and `character_id` are ignored |
 
-"Member" here is read fresh from the database for every message, so a player who joins or is approved while connected is a member at once (the handlers themselves still use the campaign fixed at connect, see QUIRKS.md).
+"Member" here is read fresh from the database for every message, so a player who is approved while connected is a member at once (the handlers themselves still use the campaign fixed at connect, see QUIRKS.md).
 
-A player channel that opened with a campaign posts into that campaign only while its character is still an active or pending member of it. After a reject, a retire or a join to another campaign, these types are 403 on the old socket until the client reconnects: roll, resolve_gilded, use_post_roll_ability, burn_resistance, take_mark, resolve_ability_mark, intercept_mark, revive_character, update_gear, apply_advancement, spend_resource, submit_assignment_report, circle_creation_vote, circle_backstory_update, circle_personal_answer, circle_relationship_propose, circle_relationship_respond, chat_message and add_notebook_entry (`PLAYER_CAMPAIGN_BROADCASTS` in `vtt/ws/access.py`). Types that touch only the player's own sheet and channel (update_drive, update_pen_font, apply_scar) still work.
+A player channel that opened with a campaign posts into that campaign only while its character is an active member of it. Before approval, and after a retire or a join to another campaign, these types are 403 on the old socket until the client reconnects: roll, resolve_gilded, use_post_roll_ability, burn_resistance, take_mark, resolve_ability_mark, intercept_mark, revive_character, update_gear, apply_advancement, spend_resource, submit_assignment_report, circle_creation_vote, circle_backstory_update, circle_personal_answer, circle_relationship_propose, circle_relationship_respond, chat_message and add_notebook_entry (`PLAYER_CAMPAIGN_BROADCASTS` in `vtt/ws/access.py`). Types that touch only the player's own sheet and channel (update_drive, update_pen_font, apply_scar) still work.
 
 Not changed: game rules that are not about who is acting (pending offers, `reports_open`, finalize state, value bounds) are still the quirks listed in QUIRKS.md and WEBSOCKET.md section 8.
 

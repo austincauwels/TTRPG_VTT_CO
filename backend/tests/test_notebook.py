@@ -5,7 +5,7 @@ import pytest
 
 import engine
 import support
-from models import NotebookEntry, User
+from models import Character, NotebookEntry, User
 
 ENTRY_KEYS = {"id", "campaign_id", "character_id", "author_name", "author_type", "pen_font",
               "ink_color", "title", "content", "created_at", "page_number", "entry_type",
@@ -67,7 +67,8 @@ def test_pen_and_ink_come_from_the_character(client):
     member = support.active_member(client, camp)
     entry = _add(client, camp["id"], character_id=member["id"])
     assert (entry["pen_font"], entry["ink_color"]) == ("Caveat", engine.INK_COLORS[0])
-    newcomer = support.pending_member(client, camp)
+    newcomer = support.active_member(client, camp)
+    support.update(Character, newcomer["id"], ink_color="")
     entry = _add(client, camp["id"], character_id=newcomer["id"])
     # a character without ink falls back to dark red, not the GM's near-black
     assert (entry["pen_font"], entry["ink_color"]) == ("Caveat", "#8b1a1a")

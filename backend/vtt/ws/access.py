@@ -10,7 +10,7 @@ decides on a stale copy of a row.
 """
 from engine import ALL_ACTIONS
 from models import Campaign, Character, Circle, Relationship
-from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, character_facts
+from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, ROSTER_STATUSES, character_facts
 from vtt.circle_queries import VOTE_TYPES
 
 # Close codes for a refused connection. The socket is accepted first and then
@@ -91,9 +91,9 @@ def check_target(ctx, action, character, named_in_payload):
     """The character a message acts on (payload.character_id, else the socket's own).
 
     A player socket may only act for its own character. A GM socket may only aim the
-    GM_MAY_TARGET types at a member (active or pending) of its own campaign, not at a
-    retired character still tagged with it. A character_id that matches no character
-    is 404.
+    GM_MAY_TARGET types at a character on its own campaign's roster (active or
+    pending), not at a retired character still tagged with it. A character_id that
+    matches no character is 404.
     """
     if character is None:
         if named_in_payload:
@@ -102,21 +102,21 @@ def check_target(ctx, action, character, named_in_payload):
     if ctx.is_gm:
         facts = character_facts(ctx.db, character.id)
         if action not in GM_MAY_TARGET or facts is None or facts.campaign_id is None \
-                or facts.campaign_id != ctx.camp_id or facts.status not in MEMBER_STATUSES:
+                or facts.campaign_id != ctx.camp_id or facts.status not in ROSTER_STATUSES:
             _forbid()
     elif character.id != ctx.own_char_id:
         _forbid()
 
 
-def _sender_campaign(ctx, active_only=False):
+def _sender_campaign(ctx):
     """The campaign the sender belongs to: the GM's campaign, or the campaign of the
     player's character as it is now (not as it was when the socket opened). 403 when
-    the player's character is not a member (active only, when active_only is set)."""
+    the player's character is not a member (an active character; a pending one is
+    still waiting for the GM)."""
     if ctx.is_gm:
         return ctx.camp_id
     me = character_facts(ctx.db, ctx.own_char_id)
-    allowed = ("active",) if active_only else MEMBER_STATUSES
-    if me is None or me.campaign_id is None or me.status not in allowed:
+    if me is None or me.campaign_id is None or me.status not in MEMBER_STATUSES:
         _forbid()
     return me.campaign_id
 
@@ -163,7 +163,7 @@ def _intercept_mark(ctx, payload, character):
 
 
 def _spend_resource(ctx, payload, character):
-    campaign_id = _sender_campaign(ctx, active_only=True)
+    campaign_id = _sender_campaign(ctx)
     if ctx.circle is None or ctx.circle.campaign_id != campaign_id:
         _forbid()
 
@@ -173,7 +173,7 @@ def _member_circle_vote(ctx, payload, character):
     character on their own socket (check_target), on their campaign's circle."""
     if not payload.get("character_id"):
         return  # the handler ignores the message
-    _circle_of(ctx, _default_circle(ctx, payload), _sender_campaign(ctx, active_only=True))
+    _circle_of(ctx, _default_circle(ctx, payload), _sender_campaign(ctx))
 
 
 def _circle_creation_vote(ctx, payload, character):
@@ -188,7 +188,7 @@ def _circle_creation_vote(ctx, payload, character):
 def _circle_backstory_update(ctx, payload, character):
     if not payload.get("question_key"):
         return  # the handler ignores the message
-    _circle_of(ctx, _default_circle(ctx, payload), _sender_campaign(ctx, active_only=True))
+    _circle_of(ctx, _default_circle(ctx, payload), _sender_campaign(ctx))
 
 
 def _circle_relationship_propose(ctx, payload, character):
@@ -202,7 +202,7 @@ def _circle_relationship_propose(ctx, payload, character):
         _not_found("Character")
     if proposer.id != ctx.own_char_id:
         _forbid()
-    campaign_id = _sender_campaign(ctx, active_only=True)
+    campaign_id = _sender_campaign(ctx)
     if to_id is not None:
         other = character_facts(ctx.db, to_id)
         if other is None:
@@ -231,7 +231,7 @@ def _circle_relationship_respond(ctx, payload, character):
     if (rel.last_actor_id is not None and me == rel.last_actor_id) or \
             (rel.last_actor_id is None and me != rel.to_character_id):
         _forbid()
-    _circle_of(ctx, rel.circle_id, _sender_campaign(ctx, active_only=True))
+    _circle_of(ctx, rel.circle_id, _sender_campaign(ctx))
 
 
 def _apply_scar(ctx, payload, character):
@@ -315,7 +315,7 @@ PLAYER_CAMPAIGN_BROADCASTS = frozenset({
 
 def _still_in_connect_campaign(ctx):
     """A player channel that opened with a campaign may post to it only while its
-    character is still an active or pending member of that campaign. A player who
+    character is still an active member of that campaign. A player who
     was rejected, retired or moved to another campaign keeps an open socket, but it
     no longer reaches the old campaign (403 until the client reconnects)."""
     me = character_facts(ctx.db, ctx.own_char_id)

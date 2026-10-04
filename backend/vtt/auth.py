@@ -23,8 +23,14 @@ from vtt.security import login_token_subject, password_stamp
 NOT_AUTHENTICATED = "Not authenticated."
 NOT_ALLOWED = "Not allowed."
 
-# Character statuses that count as belonging to a campaign.
-MEMBER_STATUSES = ("active", "pending")
+# A member of a campaign is a user with an approved (active) character in it. Dead
+# characters keep status active until they are replaced. A pending character waits
+# for the GM's approval and reaches nothing of the campaign (roster, notebook, circle,
+# chat): anyone who has the campaign code can make one.
+MEMBER_STATUSES = ("active",)
+# The characters on a campaign's roster: its members and those waiting for approval.
+# The GM may act on any of them over the WebSocket.
+ROSTER_STATUSES = ("active", "pending")
 
 
 def bearer_token(request: Request) -> Optional[str]:
@@ -84,7 +90,7 @@ def is_gm(user_id, campaign) -> bool:
 
 
 def is_member(db: Session, user_id, campaign_id) -> bool:
-    """True when the user has an active or pending character in the campaign."""
+    """True when the user has an active (approved) character in the campaign."""
     if campaign_id is None:
         return False
     return db.query(Character.id).filter(

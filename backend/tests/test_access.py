@@ -242,3 +242,56 @@ def test_a_player_who_left_the_campaign_no_longer_posts_to_it(client, how):
             assert ws.sync() == [_rejected(msg_type)]
         assert gm.sync() == []
     assert support.fetch(Character, ch["id"]).gear == ["lamp"]
+
+
+def test_a_pending_character_reaches_nothing_of_the_campaign(client):
+    """Anyone with a campaign code can join it; the character then waits as pending for
+    the GM's approval. Pending used to count as membership, so a stranger with the code
+    could read the roster, the notebook and the circle, write notebook entries, vote
+    and propose on the circle, and chat or post rolls and gear to the table before
+    the GM said yes. A member is now an active character. The GM may still act on a
+    pending one, and approval makes it a member at once."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp)).json()["circle_id"]
+    waiting = support.pending_member(client, camp, nerve_current=1)
+    me = support.as_owner(waiting["id"])
+    base = f"/campaign/{camp['id']}"
+
+    assert client.get(f"{base}/roster", headers=me).status_code == 403
+    assert client.get(f"{base}/circle-creation-state", headers=me).status_code == 403
+    notebook = f"/api/notebook/{camp['id']}"
+    assert client.get(f"{notebook}/entries", params={"character_id": waiting["id"]}, headers=me).status_code == 403
+    entry = {"title": "x", "content": "y", "author_name": "a", "author_type": "player", "character_id": waiting["id"]}
+    assert client.post(f"{notebook}/entries", json=entry, headers=me).status_code == 403
+    r = client.post(f"{notebook}/upload", files={"file": ("a.png", b"\x89PNG", "image/png")},
+                    data={"character_id": str(waiting["id"])}, headers=me)
+    assert r.status_code == 403
+    r = client.post("/circle/vote", json={"circle_id": cid, "character_id": waiting["id"],
+                                          "vote_type": "insignia", "value": "Owl"}, headers=me)
+    assert r.status_code == 403
+    for a, b, headers in ((waiting, member, me), (member, waiting, support.as_owner(member["id"]))):
+        r = client.post("/circle/relationship/propose", json={
+            "circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"], "rel_type": "Rivals"},
+            headers=headers)
+        assert r.status_code == 403
+
+    with support.ws_connect(client, waiting["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        for msg_type, payload in (("chat_message", dict(message="let me in")),
+                                  ("update_gear", dict(gear=["crowbar"])),
+                                  ("add_notebook_entry", dict(campaign_id=camp["id"], title="t", content="c")),
+                                  ("circle_creation_vote", dict(circle_id=cid, character_id=waiting["id"],
+                                                                vote_type="insignia", value="Owl"))):
+            ws.send(msg_type, **payload)
+            assert ws.sync() == [_rejected(msg_type)]
+        assert gm.sync() == []
+        gm.send("update_drive", character_id=waiting["id"], pool="nerve", value=2)  # the GM still may
+        assert support.types(gm.sync()) == ["character_update"]
+        ws.drain()
+        assert support.approve(client, waiting["id"]).status_code == 200
+        ws.recv_type("investigator_approved")
+        gm.drain()
+        ws.send("chat_message", message="hello")
+        assert support.types(ws.sync()) == ["activity_log"]
+    assert support.fetch(Character, waiting["id"]).nerve_current == 2
+    assert client.get(f"{base}/roster", headers=me).status_code == 200

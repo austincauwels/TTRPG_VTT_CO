@@ -567,10 +567,10 @@ def test_roster(client):
     r = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp))
     assert r.status_code == 200
     body = r.json()
-    # active and pending members see the same roster; a retired one no longer belongs
-    for member in (active, pending):
-        assert client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(member["id"])).json() == body
-    for outsider in (support.as_owner(retired["id"]), support.as_stranger()):
+    # an active member sees the GM's roster; a pending character waits for approval
+    # and a retired one no longer belongs
+    assert client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(active["id"])).json() == body
+    for outsider in (support.as_owner(pending["id"]), support.as_owner(retired["id"]), support.as_stranger()):
         assert client.get(f"/campaign/{camp['id']}/roster", headers=outsider).status_code == 403
     assert set(body) == {"pending_investigators", "active_investigators", "roster_finalized"}
     assert body["roster_finalized"] is False
@@ -635,12 +635,14 @@ def test_circle_creation_state_unknown_campaign_is_404(client, unknown):
 
 def test_circle_creation_state_for_gm_and_members_only(client):
     camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
     pending = support.pending_member(client, camp)
     outsider = support.active_member(client, support.new_campaign(client))
     assert client.get(f"/campaign/{camp['id']}/circle-creation-state",
-                      headers=support.as_owner(pending["id"])).status_code == 200
-    r = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_owner(outsider["id"]))
-    assert r.status_code == 403
+                      headers=support.as_owner(member["id"])).status_code == 200
+    for headers in (support.as_owner(pending["id"]), support.as_owner(outsider["id"])):
+        r = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=headers)
+        assert r.status_code == 403
 
 
 def test_circle_creation_state_with_content(client):
@@ -655,17 +657,18 @@ def test_circle_creation_state_with_content(client):
     pending = support.pending_member(client, camp)
     cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()["circle_id"]
 
-    def vote(char, vote_type, value):
+    def vote(char, vote_type, value, status=200):
         r = client.post("/circle/vote", json={"circle_id": cid, "character_id": char["id"],
                                               "vote_type": vote_type, "value": value},
                         headers=support.as_owner(char["id"]))
-        assert r.status_code == 200
+        assert r.status_code == status
 
     vote(a, "name_suggest", "The Moths")
     vote(b, "name_vote", "The Moths")
     vote(a, "ability", "Hunters")
     vote(b, "question", "q2")
-    vote(pending, "insignia", "Owl")  # pending members may vote over REST
+    vote(pending, "insignia", "Owl", status=403)  # a pending character is not a member yet
+    vote(b, "insignia", "Owl")
     with main.SessionLocal() as s:  # a stored vote of an unknown type is left out
         s.add(CircleVote(circle_id=cid, character_id=a["id"], vote_type="colour", value="red"))
         s.commit()
@@ -686,7 +689,7 @@ def test_circle_creation_state_with_content(client):
         "name_vote": [{"character_id": b["id"], "value": "The Moths"}],
         "ability": [{"character_id": a["id"], "value": "Hunters"}],
         "question": [{"character_id": b["id"], "value": "q2"}],
-        "insignia": [{"character_id": pending["id"], "value": "Owl"}],
+        "insignia": [{"character_id": b["id"], "value": "Owl"}],
     }
     assert body["relationships"] == [{
         "id": rel["id"], "from_character_id": a["id"], "to_character_id": b["id"],

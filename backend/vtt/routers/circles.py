@@ -30,7 +30,7 @@ def _circle_campaign_or_404(db: Session, circle_id):
 
 
 def _require_member_of(character, campaign_id):
-    """The character must be an active or pending member of the circle's campaign."""
+    """The character must be an active member of the circle's campaign."""
     if campaign_id is None or character.campaign_id != campaign_id or character.status not in MEMBER_STATUSES:
         raise forbidden()
 

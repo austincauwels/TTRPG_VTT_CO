@@ -142,15 +142,16 @@ def test_chat_without_campaign_is_rejected(client):
         assert ws.sync() == [_rejected("chat_message")]
 
 
-def test_chat_from_pending_member_not_echoed(client):
-    """broadcast_campaign skips non-active characters, including the sender."""
+def test_chat_from_a_pending_character_is_rejected(client):
+    """A pending character waits for the GM's approval and is not a member yet. Its chat
+    used to reach the GM and every active member (but not itself, since
+    broadcast_campaign skips non-active characters)."""
     camp = support.new_campaign(client)
     pending = support.pending_member(client, camp)
     with support.ws_connect(client, pending["id"]) as wp, support.ws_connect(client, camp["campaign_code"]) as gm:
         wp.send("chat_message", message="hello?")
-        assert wp.sync() == []
-        [msg] = gm.drain()
-        assert msg["payload"]["message"] == f"{pending['name']}: hello?"
+        assert wp.sync() == [_rejected("chat_message")]
+        assert gm.sync() == []
 
 
 def test_chat_sender_name_comes_from_the_socket(client):
