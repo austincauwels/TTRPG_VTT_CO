@@ -172,17 +172,24 @@ def refuse_linked_google_account(db: Session, identity: GoogleIdentity) -> None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=GOOGLE_ALREADY_LINKED)
 
 
-def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: str) -> None:
+def link_google_account(db: Session, user: User, identity: GoogleIdentity, how: str,
+                        replace_password: bool = False) -> None:
+    """Links the Google account to the user. With replace_password the user's password
+    becomes one nobody knows, which also ends every login token issued before (they
+    carry a stamp of the password hash, see vtt/security.py)."""
     user.google_sub = identity.sub
+    if replace_password:
+        user.hashed_password = unusable_password_hash()
     try:
         db.commit()
     except IntegrityError:
-        # Only google_sub changed, so another request linked this Google account to
-        # someone else after refuse_linked_google_account looked.
+        # google_sub is the only unique column that changed, so another request linked
+        # this Google account to someone else after refuse_linked_google_account looked.
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=GOOGLE_ALREADY_LINKED)
     db.refresh(user)
-    logger.info("Linked a Google account to user id=%s (%s)", user.id, how)
+    logger.info("Linked a Google account to user id=%s (%s%s)", user.id, how,
+                ", password replaced" if replace_password else "")
 
 
 def refuse_new_google_user(db: Session, identity: GoogleIdentity, username: str) -> None:
@@ -232,8 +239,9 @@ def suggest_username(db: Session, identity: GoogleIdentity) -> str:
 async def google_sign_in(request: Request, body: GoogleSignInRequest, db: Session = Depends(get_db)):
     """Signs in the user linked to this Google account. A user with no Google account
     yet whose email is the Google email (ignoring case) is linked on the spot, if
-    exactly one such user exists. Seeded accounts are never linked this way. Otherwise
-    the answer is a link token for /api/auth/google/link or /api/auth/google/create."""
+    exactly one such user exists, and their password is replaced with one nobody
+    knows. Seeded accounts are never linked this way. Otherwise the answer is a link
+    token for /api/auth/google/link or /api/auth/google/create."""
     identity = await verified_google_identity(body.credential)
 
     user = db.query(User).filter(User.google_sub == identity.sub).first()
@@ -247,7 +255,11 @@ async def google_sign_in(request: Request, body: GoogleSignInRequest, db: Sessio
     ).limit(2).all()
     if len(same_email) == 1:
         user = same_email[0]
-        link_google_account(db, user, identity, "matching email")
+        # Register never checked that the email belongs to whoever registered it.
+        # Someone who registered this player's email first would know the password of
+        # the account the player is about to use, so the password (and with it every
+        # login token issued so far) ends here. The player signs in with Google.
+        link_google_account(db, user, identity, "matching email", replace_password=True)
         return signed_in_response(db, user)
 
     return {

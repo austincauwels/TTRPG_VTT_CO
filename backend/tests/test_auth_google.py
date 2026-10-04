@@ -159,18 +159,58 @@ def test_the_google_token_works_on_the_next_request(client, google):
 # --- 2. one existing user with the same email ---------------------------------------------
 
 def test_a_matching_email_links_the_existing_user(client, google):
-    """How existing players move over: their first Google sign-in links their account."""
+    """How existing players move over: their first Google sign-in links their account.
+    The account's password is replaced on the way (see the next test), so from then on
+    it signs in with Google only."""
     local = f"Ada.{support.uid()}"
     u = support.make_user(email=f"{local}@Example.test")
+    expected = login_body(client, u)
     credential = google.credential(email=f"{local.lower()}@example.test")
     body = assert_signed_in_as(google_sign_in(client, credential), u.id)
     body.pop("token")
-    assert body == login_body(client, u)  # the password still works too
+    assert body == expected
+    assert support.login(client, u.username, support.PASSWORD).status_code == 401
     sub = google.identity(credential).sub
     assert google_sub_of(u.id) == sub
     assert support.fetch(User, u.id).email == f"{local}@Example.test"  # left as it was
     # from now on the Google account signs in by its sub, whatever its email
     assert_signed_in_as(google_sign_in(client, google.credential(sub=sub, email="new@gmail.test")), u.id)
+
+
+def test_linking_by_email_shuts_out_whoever_registered_the_email(client, google):
+    """Register never checks that an email belongs to whoever registers it. Someone who
+    registered another player's email before that player's first Google sign-in got
+    the player linked into an account whose password they knew, and could log in
+    beside them (or keep using their login token) for as long as they liked. Linking
+    by email now replaces the password with one nobody knows, which also ends every
+    login token issued before (they carry a stamp of the password hash)."""
+    email = f"player.{support.uid()}@gmail.test"
+    squatter = f"squatter_{support.uid()}"
+    r = client.post("/api/auth/register", json={"username": squatter, "email": email,
+                                                 "password": "known-to-the-squatter"})
+    assert r.status_code == 201
+    user_id, squatter_token = r.json()["userId"], r.json()["token"]
+    url = f"/api/users/{user_id}/characters"
+    assert client.get(url, headers=support.bearer(squatter_token)).status_code == 200
+
+    credential = google.credential(email=email)
+    body = assert_signed_in_as(google_sign_in(client, credential), user_id)
+    assert google_sub_of(user_id) == google.identity(credential).sub
+    assert client.get(url, headers=support.bearer(body["token"])).status_code == 200
+    # the squatter is out: no password login, no old token, no link with the old password
+    assert support.login(client, squatter, "known-to-the-squatter").status_code == 401
+    assert client.get(url, headers=support.bearer(squatter_token)).status_code == 401
+    r = link(client, needs_account(client, google), squatter, password="known-to-the-squatter")
+    assert r.status_code == 401
+    # and the player still signs in with Google
+    assert_signed_in_as(google_sign_in(client, google.credential(sub=google.identity(credential).sub)), user_id)
+
+
+def test_linking_with_the_password_keeps_the_password(client, google):
+    """Linking through /api/auth/google/link proves the password, so it stays."""
+    u = support.make_user()
+    assert_signed_in_as(link(client, needs_account(client, google), u.username), u.id)
+    assert support.login(client, u.username, support.PASSWORD).status_code == 200
 
 
 def test_a_matching_email_of_a_user_linked_to_another_google_account_is_not_linked(client, google):
