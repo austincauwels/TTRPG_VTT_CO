@@ -4,11 +4,12 @@ These tests pin what the backend does today, bugs included, so the refactor can
 prove it changed nothing. Tests whose docstring starts with "QUIRK:" pin behavior
 that is probably wrong and should only change in its own commit.
 
-Marker legacy_trust: the test's expected outcome exists only because the server
-trusts ids or roles sent by the client (acting on someone else's character, a
-client-claimed GM role, a user_id in a body or path). Happy-path tests where the
-caller is the rightful owner are not marked; once login issues tokens they will
-need a token, but their expected outcome stays the same.
+Login tokens: every route except login and register, and the WebSocket, needs a
+token (docs/refactor/AUTH.md). The helpers in support.py log users in and send the
+rightful caller's token by default (the character's owner, the campaign's GM).
+The tests that used to be marked legacy_trust pinned the old trust in client ids
+and roles; they now pin the refusals (401, 403, 404, action_rejected, close codes
+4401, 4403 and 4404) instead, and the marker is gone.
 
 Importing main has side effects (create_all, seed rows, ALTER TABLE statements),
 so it must only ever run against a throwaway database. The beta test harness

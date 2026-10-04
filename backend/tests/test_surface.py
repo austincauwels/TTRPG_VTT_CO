@@ -244,6 +244,21 @@ def test_ws_handler_table():
     assert {t for t, (_, needs_character) in HANDLERS.items() if needs_character} == WS_NEEDS_CHARACTER
 
 
+def test_ws_access_table():
+    """The GM-only types are exactly the ones whose rule is a GM rule, and every rule
+    and GM-target type is a real message type."""
+    from vtt.ws import access
+    gm_rules = (access._gm_only, access._gm_circle, access._gm_update_circle)
+    assert access.GM_ONLY == {t for t, rule in access.RULES.items() if rule in gm_rules}
+    assert set(access.RULES) <= set(WS_MESSAGE_TYPES)
+    assert access.GM_MAY_TARGET <= set(WS_MESSAGE_TYPES)
+    assert access.GM_ONLY == {
+        "gm_update_tension", "gm_update_circle", "gm_transition_scene", "gm_toggle_resource_edit",
+        "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
+        "gm_reset_character", "update_circle",
+    }
+
+
 def test_unknown_message_type_is_ignored(client):
     ch = support.forge(client)
     with support.ws_connect(client, ch["id"]) as ws:

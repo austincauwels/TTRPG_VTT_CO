@@ -48,4 +48,26 @@ does not change them by accident. Each fix later gets its own commit and flips i
 - get_char_dict sends a string ability_uses through unparsed, while gear and scars are parsed. dict() on a string ability_uses closes the socket in take_mark and resolve_ability_mark. The dict() call in roll is unreachable.
 - On a database that grew through init_db, the added columns are TEXT and INTEGER (backstory_answers and ability_uses are TEXT DEFAULT '{}', and the booleans are INTEGER DEFAULT 0). On such a database the seed rows (admin, circle 1) are never written, because the seed query runs before the ALTERs and fails on the missing columns.
 - A roll mod listed twice in ability_mods is applied twice. An overspent drive floors at 0 but the whole spend still goes into the pool.
-- Not testable without changing app code: the elif order between extra_dice_fn/extra_dice and extra_gild/extra_gild_condition. ABILITY_MOD_DEFS is a local dict in the handler, and no current entry has both keys, so the order has no visible effect today. The real column types on the beta data copy were not checked either, because psql is not allowed here; the legacy-schema test pins what init_db produces instead.
+- Not testable without changing app code: the elif order between extra_dice_fn/extra_dice and extra_gild/extra_gild_condition.
+
+## Changed by the login token stage (2026-10-04)
+
+The list above is kept as it was found. These entries no longer hold, or hold only in part, because access is now checked (docs/refactor/AUTH.md has the rules); their tests were rewritten to pin the new behavior. Everything else above is unchanged and still pinned.
+
+- Forge: a missing user_id gives the character to the caller; user_id 0 or an unknown id is 403. Stats and circle 1 are unchanged.
+- create_campaign: the caller is the GM; an unknown user_id is 403, not a 500. The duplicate-code 500 and all-digit codes remain.
+- join: still no status check, but only the character's owner can do it.
+- rejoin: needs a rejoin invite or a dead character in that campaign (still no GM approval; the ink color quirk remains).
+- circle-creation-state, roster and the notebook list: an unknown campaign is 404. Notebook writes with an unknown character or campaign are 404, not 500. role=GM and character_id in the notebook query are checked against the token.
+- Behind Me can only target a character in the interceptor's campaign; an unknown target is 404 and costs nothing.
+- Bug D2: gm_update_circle on circle 1 is 403 (circle 1 belongs to no campaign); SceneManager sends the campaign's circle id. The circle name is still not settable through it.
+- GM powers come from the token, not payload.role, and GM circle messages only reach the GM's own campaign circle, so the resolve_circle fallback is no longer reachable that way.
+- submit_assignment_report: only for the sender's own character (unknown ids are 404). There is still no reports_open check, and every player still receives every report.
+- update_circle is GM only, so the non-GM "may lower resources" branch and the string-resource crash from a player are gone. The milestone quirk remains.
+- circle_relationship_respond on a GM socket is rejected (403) instead of ending the socket (bug D9).
+- Chat: sender_name is set by the server; @Environment is GM only; a socket with no campaign cannot chat, so the cross-campaign whisper is gone. The ILIKE wildcard and the pending-sender echo quirks remain.
+- WS add_notebook_entry only writes into the sender's own campaign; Lightkeeper entries are GM only.
+- All-digit campaign codes: the character's owner gets the character channel with no campaign, the GM gets the campaign channel. They still share the manager key.
+- A character_id of 0 or 1.5 is 404 (action_rejected). A bad character_id ('abc', object, list, true) still drops the frame.
+- The 'gm' fallback channel no longer exists (closed with 4404), so its reset and end-assignment quirks are gone.
+- The stale relationship-row quirk is still in the code, but whether the stale copy survives depends on when Python's garbage collector runs (the session's identity map holds weak references). The extra access-check queries changed that timing, so the test no longer pins it. ABILITY_MOD_DEFS is a local dict in the handler, and no current entry has both keys, so the order has no visible effect today. The real column types on the beta data copy were not checked either, because psql is not allowed here; the legacy-schema test pins what init_db produces instead.

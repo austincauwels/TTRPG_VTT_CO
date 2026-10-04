@@ -261,8 +261,6 @@ RULES = {
     "add_notebook_entry": _add_notebook_entry,
 }
 
-assert GM_ONLY == {t for t, rule in RULES.items() if rule in (_gm_only, _gm_circle, _gm_update_circle)}
-
 
 def check_message(ctx, action, payload, character):
     rule = RULES.get(action)
