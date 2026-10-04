@@ -6,7 +6,7 @@ import pytest
 
 import main
 import support
-from models import Campaign, Character, Circle
+from models import Campaign, Character, Circle, User
 from vtt.ws.manager import campaign_key
 
 
@@ -464,6 +464,55 @@ def test_campaign_context_is_fixed_when_the_socket_connects(client, dice):
         wl.send("update_circle")
         assert support.types(wl.sync()) == ["action_rejected"]
         assert gm.drain() == []
+
+
+# --- a changed password ends open sockets -------------------------------------------
+
+def test_a_socket_closes_on_its_next_message_once_the_password_changed(client):
+    """The routes that change a password close the user's sockets themselves; this
+    covers every other way (a hash set in the database). The message is not handled."""
+    ch = support.forge(client)
+    user_id = support.owner_id(ch["id"])
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("update_pen_font", pen_font="Kalam")
+        assert ws.recv()["payload"]["pen_font"] == "Kalam"
+        support.update(User, user_id, hashed_password=support.cheap_hash("changed-in-the-database"))
+        ws.send("not_a_type")  # a frame that names no handler is ignored as before
+        ws.send("update_pen_font", pen_font="Rock Salt")
+        with pytest.raises(support.Closed) as closed:
+            ws.recv()
+        assert closed.value.code == 4401
+        assert support.server_sockets(ch["id"]) == []
+    assert support.fetch(Character, ch["id"]).pen_font == "Kalam"
+
+
+def test_a_deleted_users_socket_closes_on_its_next_message(client):
+    camp = support.new_campaign(client)
+    gm_id = support.gm_id(camp)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.sync()
+        support.update(Campaign, camp["id"], gm_user_id=None)
+        with main.SessionLocal() as s:
+            s.query(User).filter(User.id == gm_id).delete()
+            s.commit()
+        gm.send("gm_transition_scene", scene_name="after")
+        with pytest.raises(support.Closed) as closed:
+            gm.recv()
+        assert closed.value.code == 4401
+
+
+def test_close_user_closes_only_that_users_sockets(client):
+    a, b = support.forge(client), support.forge(client)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        # on the event loop that runs the sockets, as a route would
+        assert wa.session.portal.call(main.manager.close_user, support.owner_id(a["id"])) == 1
+        with pytest.raises(support.Closed) as closed:
+            wa.recv()
+        assert closed.value.code == 4401
+        assert support.server_sockets(a["id"]) == []
+        wb.send("update_pen_font", pen_font="Kalam")
+        assert wb.recv()["payload"]["pen_font"] == "Kalam"
+        assert wb.session.portal.call(main.manager.close_user, support.owner_id(a["id"])) == 0
 
 
 # --- ConnectionManager with sockets that fail ------------------------------------

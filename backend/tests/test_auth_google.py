@@ -281,6 +281,28 @@ def test_an_email_squatter_loses_the_account_to_the_address_owner(client, google
     assert me(client, support.bearer(body["token"])).json()["googleLinked"] is True
 
 
+def test_linking_by_email_closes_the_sockets_of_the_old_tokens(client, google):
+    """The password, and with it every earlier login token, ends here; so do the
+    sockets opened with those tokens (a squatter's, say), at once with 4401."""
+    u = support.make_user()
+    ch = support.forge(client, user_id=u.id)
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert_signed_in_as(google_sign_in(client, google.credential(email=u.email)), u.id)
+        with pytest.raises(support.Closed) as closed:
+            ws.recv()
+        assert closed.value.code == 4401
+
+
+def test_linking_while_signed_in_keeps_the_sockets_open(client, google):
+    """The password stays, so do the tokens and their sockets."""
+    u = support.make_user()
+    ch = support.forge(client, user_id=u.id)
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert link_signed_in(client, google.credential(), support.as_user(u.id)).status_code == 200
+        ws.send("update_pen_font", pen_font="Kalam")
+        assert ws.recv()["payload"]["pen_font"] == "Kalam"
+
+
 def test_linking_by_email_keeps_a_password_the_address_owner_set(client, google):
     """A proven email (a used reset link) means the address owner chose the password."""
     u = support.make_user(email_proven=True)

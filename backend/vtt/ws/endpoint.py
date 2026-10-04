@@ -12,6 +12,12 @@ access checks in vtt.ws.access; a rejected message gets an action_rejected frame
 back and nothing else happens. See docs/refactor/WEBSOCKET.md for every message
 type and docs/refactor/AUTH.md for who may send it.
 
+The token's password stamp is checked again before every message that names a
+handler: once the user's password has changed (a reset, Sign in with Google replacing
+it, a hash set in the database), the socket is closed with 4401 and the message is not
+handled. The routes that change a password also close the user's sockets at once
+(manager.close_user), so a socket that only listens ends too.
+
 An exception from a handler (other than inside roll, which catches its own) leaves
 the loop, is logged as "WebSocket fatal error" and ends the connection.
 """
@@ -21,7 +27,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from models import Character, Circle
 from vtt import db as _db
-from vtt.auth import MEMBER_STATUSES, user_for_token
+from vtt.auth import MEMBER_STATUSES, stamp_still_valid, user_for_token
+from vtt.security import password_stamp
 from vtt.circle_queries import get_or_create_campaign_circle
 from vtt.config import logger
 from vtt.serializers import get_char_dict, get_circle_dict
@@ -56,7 +63,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
         if isinstance(channel, int):
             await _refuse(websocket, game_id, channel)
             return
-        await _serve(websocket, db, game_id, user.id, *channel)
+        # The stamp the token carries (user_for_token checked that it matches).
+        await _serve(websocket, db, game_id, user.id, password_stamp(user.hashed_password), *channel)
     finally:
         db.close()
 
@@ -72,13 +80,14 @@ def _shared_circle(db):
     return circle
 
 
-async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character, campaign, is_gm: bool):
+async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: str, character, campaign,
+                 is_gm: bool):
     logger.info("WebSocket connected: game_id=%s user_id=%s", game_id, user_id)
     own_char_id = character.id if character is not None else None
     # The manager key: a character channel and a campaign channel never share one,
     # even when an all-digit campaign code equals a character id (QUIRK D13).
     channel = character_key(own_char_id) if character is not None else campaign_key(campaign.campaign_code)
-    await manager.connect(channel, websocket)
+    await manager.connect(channel, websocket, user_id=user_id)
 
     # Load this campaign's circle (create one if this campaign has none yet)
     circle = None
@@ -149,6 +158,19 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character
             if entry is None:
                 continue
             handler, needs_character = entry
+            # The token this socket was opened with ends when the password changes.
+            try:
+                token_still_good = stamp_still_valid(db, user_id, stamp)
+            except Exception as exc:
+                logger.error("WS token check error: action=%s error=%s", action, exc)
+                db.rollback()
+                continue
+            if not token_still_good:
+                logger.info("WebSocket closed, the login token no longer works: game_id=%s user_id=%s",
+                            game_id, user_id)
+                manager.disconnect(channel, websocket)
+                await websocket.close(code=CLOSE_UNAUTHENTICATED)
+                return
             try:
                 check_target(ctx, action, character, named_in_payload)
                 if needs_character and not character:

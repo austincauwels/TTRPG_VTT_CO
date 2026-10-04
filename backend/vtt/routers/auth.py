@@ -33,6 +33,7 @@ from vtt.schemas import (AccountGoogleLinkRequest, GoogleCreateRequest, GoogleLi
                          LoginRequest, PasswordResetConfirm, PasswordResetRequest, RegisterRequest)
 from vtt.security import (client_key, create_access_token, create_link_token, identity_from_link_token, limiter,
                           pwd_context)
+from vtt.ws.manager import manager
 
 router = APIRouter()
 
@@ -365,6 +366,9 @@ async def google_sign_in(request: Request, body: GoogleSignInRequest, db: Sessio
         new_hash = None if user.email_proven else await run_in_threadpool(unusable_password_hash)
         how = "matching email" if user.google_sub is None else "matching email, replaced an unproven link"
         if link_google_account(db, user, identity, how, expect_sub=user.google_sub, new_password_hash=new_hash):
+            if new_hash is not None:
+                # The earlier login tokens ended with the password; so do their sockets.
+                await manager.close_user(user.id)
             return signed_in_response(db, user)
         # Another request changed the account first. If it linked this Google account
         # (a second click), sign in; otherwise carry on as for no matching account.
@@ -553,4 +557,7 @@ async def confirm_password_reset(request: Request, body: PasswordResetConfirm, d
     db.commit()
     logger.info("Set a new password with a reset link for user id=%s%s", user.id,
                 ", removed its unproven Google link" if outcome.google_unlinked else "")
+    # Every earlier login token ended with the old password, as the email promises; the
+    # sockets opened with them end now too (4401), not when they next reconnect.
+    await manager.close_user(user.id)
     return {**signed_in_response(db, user), "googleUnlinked": outcome.google_unlinked}

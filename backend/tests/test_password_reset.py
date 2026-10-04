@@ -247,6 +247,30 @@ def test_a_new_password_ends_every_earlier_session(client, outbox):
     assert client.get(url, headers=support.bearer(new_token)).status_code == 200
 
 
+def test_a_reset_closes_the_users_open_sockets(client, outbox):
+    """The email says every earlier sign-in ends. A socket opened before used to stay
+    open (the token is only checked when a socket connects), so whoever held it kept
+    acting on that channel and hearing its broadcasts. Every socket of the user now
+    closes with 4401 when the reset is used; other users' sockets stay."""
+    u = player()
+    camp = support.new_campaign(client, gm_user_id=u.id)
+    ch = support.forge(client, user_id=u.id)
+    fellow = support.active_member(client, camp)
+    token = reset_token(client, outbox, u)
+    with support.ws_connect(client, ch["id"]) as own, \
+            support.ws_connect(client, camp["campaign_code"]) as gm, \
+            support.ws_connect(client, fellow["id"]) as other:
+        assert confirm(client, token).status_code == 200
+        for ws in (own, gm):
+            with pytest.raises(support.Closed) as closed:
+                ws.recv()
+            assert closed.value.code == 4401
+        assert support.server_sockets(ch["id"]) == []
+        assert support.server_sockets(camp["campaign_code"]) == []
+        other.send("update_pen_font", pen_font="Kalam")
+        assert other.recv()["payload"]["pen_font"] == "Kalam"
+
+
 def test_a_link_works_once(client, outbox):
     u = player()
     token = reset_token(client, outbox, u)

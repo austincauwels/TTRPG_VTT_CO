@@ -54,6 +54,14 @@ def user_for_token(db: Session, token: Optional[str]) -> Optional[User]:
     return user
 
 
+def stamp_still_valid(db: Session, user_id: int, stamp: str) -> bool:
+    """True while the user exists and their password hash still has this stamp, so a
+    token carrying it still works. A column query, so the WebSocket's long-lived
+    session reads the row as it is now."""
+    row = db.query(User.hashed_password).filter(User.id == user_id).first()
+    return row is not None and hmac.compare_digest(stamp, password_stamp(row[0]))
+
+
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     user = user_for_token(db, bearer_token(request))
     if user is None:

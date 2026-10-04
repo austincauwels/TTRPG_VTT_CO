@@ -70,6 +70,14 @@ The socket is accepted and then closed at once, before any message is read, with
 
 A refused connection never reaches the connection manager, so it does not kick the real user off with 1001.
 
+### Ending sockets when the password changes
+
+A socket used to check its token only when it connected, so one opened before a password change stayed open: after a reset, whoever held it kept acting on that channel (a GM desk, a second character) and hearing its broadcasts, although the reset email says every earlier sign-in ends. Now:
+
+- The connection manager remembers which user opened each socket (`connect(key, websocket, user_id)`, kept in the socket's state). `manager.close_user(user_id)` closes all of that user's sockets with **4401** and forgets them. The reset confirm route calls it after the new password is committed, and step 2 of Sign in with Google calls it when it replaces the password. The browser treats 4401 as a logout, as for a refused token.
+- Before every message that names a handler, the socket checks the token's password stamp again (`stamp_still_valid` in `vtt/auth.py`, one indexed column query). When the password changed any other way (a hash set in the database), or the user is gone, the socket is closed with 4401 and the message is not handled. Frames that name no handler are ignored as before, without the check.
+- Linking Google while signed in keeps the password, so it keeps the sockets too.
+
 - A numeric `game_id` is a character channel, open only to the character's owner. Its campaign is the character's own; the old fallback to "the campaign whose code equals this number" is gone (it let a character socket join a campaign with an all-digit code).
 - Any other `game_id` is a campaign code, open only to `campaigns.gm_user_id`. When an all-digit code equals a character id, the owner gets the character channel and the GM gets the campaign channel. The connection manager keys a character channel by the id (`"123"`) and a campaign channel by `"campaign:"` plus the code, so the two never share a key and neither can close the other's socket or receive its frames (QUIRK D13, fixed).
 - A character channel is keyed by the character's id as the database has it, so `/ws/0123` and `/ws/123` are the same channel.
@@ -305,7 +313,7 @@ The same conditional UPDATE that sets the password also:
 - removes the Google link (`google_sub` and `google_email` back to NULL) unless it is proven, that is unless its `google_email` equals the account's email ignoring case. An unproven link may belong to someone who registered this address before its owner, or who linked their own Google account with a stolen login token, and it used to outlive the reset, so they kept signing in with Google. Whoever reads the address owns the account. Links made before `google_email` was recorded count as unproven, so a reset removes them too; their owner signs in with Google again, which links the account by email (step 2), keeping the new password because the email is now proven. A player who had linked a Google account with another email of their own links it again (`POST /api/auth/me/google` with the new password).
 - `googleUnlinked` in the answer says whether a link was removed, so the reset page can tell the player. **API change:** the answer used to be exactly login's shape; `confirmPasswordReset` in `utils/api.js` passes the extra key through.
 
-Setting the password changes the password stamp, so every login token issued before stops working (REST 401, WebSocket 4401 on the next connect); an open WebSocket stays open until it closes, as after any password change. The answer's token is the only one that works.
+Setting the password changes the password stamp, so every login token issued before stops working (REST 401, WebSocket 4401). Every WebSocket the user has open is closed with 4401 as soon as the new password is committed (`manager.close_user`), so the reset email's promise that every earlier sign-in ends holds for open sockets too. The answer's token is the only one that works.
 
 ### Tokens
 
@@ -362,6 +370,6 @@ User 1 (`admin`) owns every character forged before tokens without a `user_id` (
 - Two reset requests for one account at the same moment can leave two working links. Each still works once, and both end when either is used.
 - Someone who keeps asking for resets for another person's address uses up its 3 an hour, so that person waits for the hour too. Someone who asks for resets for many addresses with accounts can use up the overall caps (20 an hour, 50 a day), and real reset emails wait until the hour or the day is over; the ERROR log line shows when that happens, but nothing alerts anyone yet. The per-IP, per-address and overall counts are in memory and reset when the server restarts.
 - A token cannot be revoked on its own before it expires. Replacing the user's password hash revokes all of that user's tokens (the password stamp), changing `SECRET_KEY` logs everyone out, and deleting a user revokes theirs, because the user lookup fails.
-- An open WebSocket keeps working after its token expires; the token is only checked when the socket connects.
+- An open WebSocket keeps working after its token expires (30 days); the expiry is only checked when the socket connects. A changed password does end it (Ending sockets when the password changes, under WebSocket).
 - The token sits in localStorage, so a script injected into the page could read it. The app renders no user HTML as markup today.
 - `action_rejected` and `portrait_update` are new server-to-client types; WEBSOCKET.md section 5 lists the types from before this stage.
