@@ -5,7 +5,7 @@ import pytest
 
 import engine
 import support
-from models import NotebookEntry
+from models import NotebookEntry, User
 
 ENTRY_KEYS = {"id", "campaign_id", "character_id", "author_name", "author_type", "pen_font",
               "ink_color", "title", "content", "created_at", "page_number", "entry_type",
@@ -25,6 +25,10 @@ def _add(client, campaign_id, headers=None, **fields):
     r = client.post(f"/api/notebook/{campaign_id}/entries", json=body, headers=headers or _writer(campaign_id, fields))
     assert r.status_code == 201, r.text
     return r.json()
+
+
+def _gm_name(campaign):
+    return support.fetch(User, support.gm_id(campaign)).username
 
 
 def _post(client, campaign_id, headers, **fields):
@@ -79,9 +83,11 @@ def test_add_entry_unknown_character_is_404(client):
 
 def test_add_entry_writes_only_as_the_caller(client):
     """Before tokens author name, type and character were whatever the client sent.
-    The character must be the caller's own, and Lightkeeper entries (author_type gm,
-    entry_type lightkeeper, visibility gm_only) are for the GM. Name and type are
-    still client text."""
+    The character must be the caller's own and a member of the campaign, a player
+    must name one, and Lightkeeper entries (author_type gm, entry_type lightkeeper,
+    visibility gm_only) are for the GM. The author name is set by the server: the
+    character's name, or the GM's username (what the frontend sent). author_type is
+    still client text within those rules."""
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
     stranger = support.forge(client)
@@ -93,12 +99,16 @@ def test_add_entry_writes_only_as_the_caller(client):
         assert r.status_code == 403, gm_fields
     # someone who is neither GM nor member, even with their own character
     assert _post(client, camp["id"], support.as_owner(stranger["id"]), character_id=stranger["id"]).status_code == 403
+    # a player must write as a character, and one that is in this campaign
+    assert _post(client, camp["id"], as_member).status_code == 403
+    elsewhere = support.active_member(client, support.new_campaign(client), user_id=support.owner_id(member["id"]))
+    assert _post(client, camp["id"], as_member, character_id=elsewhere["id"]).status_code == 403
     assert support.fetch_all(NotebookEntry, campaign_id=camp["id"]) == []
     entry = _add(client, camp["id"], author_name="The Lightkeeper", author_type="gm",
                  entry_type="lightkeeper", visibility="gm_only")
-    assert (entry["author_name"], entry["author_type"], entry["character_id"]) == ("The Lightkeeper", "gm", None)
-    entry = _add(client, camp["id"], author_name="Anyone", character_id=member["id"])
-    assert (entry["author_name"], entry["character_id"]) == ("Anyone", member["id"])
+    assert (entry["author_name"], entry["author_type"], entry["character_id"]) == (_gm_name(camp), "gm", None)
+    entry = _add(client, camp["id"], author_name="Lightkeeper", character_id=member["id"])
+    assert (entry["author_name"], entry["character_id"]) == (member["name"], member["id"])
 
 
 def test_add_entry_unknown_campaign_is_404(client):
@@ -279,7 +289,7 @@ def test_upload_image(client):
     # hand-built response: no author_type key
     assert set(body) == ENTRY_KEYS - {"author_type"}
     assert body["image_data"] == "data:image/gif;base64," + base64.b64encode(raw).decode()
-    assert (body["title"], body["content"], body["author_name"]) == ("Map", "the cellar", "Ada")
+    assert (body["title"], body["content"], body["author_name"]) == ("Map", "the cellar", member["name"])
     assert (body["entry_type"], body["visibility"]) == ("sketch", "all")
     assert body["character_id"] == member["id"]
     assert body["ink_color"] == engine.INK_COLORS[0]
@@ -300,6 +310,7 @@ def test_upload_only_by_gm_and_members_as_themselves(client):
     assert upload(support.as_owner(other["id"]), character_id=str(member["id"])).status_code == 403
     assert upload(support.as_owner(member["id"]), author_type="gm").status_code == 403
     assert upload(support.as_owner(member["id"]), character_id="987654321").status_code == 404
+    assert upload(support.as_owner(member["id"])).status_code == 403  # a player names a character
     r = client.post("/api/notebook/987654321/upload", files={"file": ("a.png", b"\x89PNG", "image/png")},
                     headers=support.as_stranger())
     assert r.status_code == 404
@@ -313,7 +324,7 @@ def test_upload_defaults_and_client_content_type(client):
                     files={"file": ("x.html", b"<b>hi</b>", "text/html")}, headers=support.as_gm(camp))
     body = r.json()
     assert body["image_data"].startswith("data:text/html;base64,")
-    assert (body["title"], body["content"], body["author_name"]) == ("Attached Image", "", "Unknown")
+    assert (body["title"], body["content"], body["author_name"]) == ("Attached Image", "", _gm_name(camp))
     assert (body["pen_font"], body["ink_color"]) == ("Caveat", "#1a1a1a")
 
 

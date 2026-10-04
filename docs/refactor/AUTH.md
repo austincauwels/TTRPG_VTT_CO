@@ -41,12 +41,12 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | GET /api/investigators/{id} | owner, or GM of the character's campaign |
 | POST /api/investigators/forge | any logged-in user; the character is theirs |
 | GET /api/notebook/{campaign_id}/entries | GM or member; `role=GM` only for the GM (403 otherwise); `character_id` must be the caller's own character |
-| POST /api/notebook/{campaign_id}/entries | GM or member; `character_id` must be the caller's own; Lightkeeper entries (author_type gm, entry_type lightkeeper or visibility gm_only) only for the GM |
+| POST /api/notebook/{campaign_id}/entries | GM or member; a player must send `character_id`, and it must be the caller's own character and an active or pending member of this campaign (the GM may leave it out); Lightkeeper entries (author_type gm, entry_type lightkeeper or visibility gm_only) only for the GM. The server sets `author_name` (the character's name, or the GM's username), pen and ink |
 | PUT, DELETE /api/notebook/entries/{entry_id} | the author: the owner of the entry's character, or the campaign's GM for an entry without a character |
 | POST /api/notebook/{campaign_id}/upload | as for adding an entry |
 | GET /api/users/{user_id}/characters, /campaigns | only the caller's own user id |
 
-Not changed: the request and response shapes, `author_name` and `author_type` on notebook entries (still client text, within the rule above), and the quirks in QUIRKS.md that are not about who may call a route.
+Not changed: the request and response shapes (`author_name` is still sent but ignored), `author_type` on notebook entries (still client text, within the rule above), and the quirks in QUIRKS.md that are not about who may call a route.
 
 ## WebSocket
 
@@ -95,7 +95,7 @@ The character a message acts on is `payload.character_id`, or the player channel
 | circle_relationship_propose | a player for their own `from_character_id`, to a fellow member, on their campaign's circle |
 | circle_relationship_respond | the other party: the character that did not act last (for a proposal made over REST, which records no actor, the character it was made to); never the GM |
 | chat_message | a member (active or pending) or the GM; `@Environment` only from the GM. The sender name is the character's name, or "Lightkeeper" for the GM; `sender_name` is ignored |
-| add_notebook_entry | a member or the GM, into their own campaign only; Lightkeeper entries only from the GM |
+| add_notebook_entry | a member or the GM, into their own campaign only; Lightkeeper entries only from the GM. The author is the socket's: the player's character (name, pen, ink, character_id) or the GM's username with the default pen and ink; payload `author_name`, `pen_font`, `ink_color` and `character_id` are ignored |
 
 "Member" here is read fresh from the database for every message, so a player who joins or is approved while connected is a member at once (the handlers themselves still use the campaign fixed at connect, see QUIRKS.md).
 

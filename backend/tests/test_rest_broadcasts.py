@@ -153,7 +153,7 @@ def test_notebook_entry_broadcast_only_for_visibility_all(client):
                                            "entry_type", "visibility", "character_id", "page_number",
                                            "pen_font", "ink_color", "image_data", "created_at", "is_deleted"}
         assert msgs[0]["payload"]["id"] == entry["id"]
-        assert msgs[1]["payload"] == {"message": "Ada has archived a journal entry.", "log_type": "field",
+        assert msgs[1]["payload"] == {"message": f"{member['name']} has archived a journal entry.", "log_type": "field",
                                       "ink_color": entry["ink_color"]}
         assert support.types(mem.drain()) == ["notebook_entry", "activity_log"]
 
