@@ -155,7 +155,7 @@ Rate limited 10 per minute per IP, because it checks a password. It works whethe
 |---|---|
 | bad link token | 401, as above |
 | the Google account is already linked to a user | 409 "This Google account is already linked to an account. Please sign in with Google again." |
-| unknown username or wrong password | 401 "Invalid credentials." (logged like a failed login) |
+| unknown username or wrong password | 401 "That username and password do not match." (logged like a failed login) |
 | the account already has a `google_sub` | 409 "That account is already linked to a Google account." This comes after the password check, so only the account's owner learns it. |
 | otherwise | `google_sub` is set on the account and the answer is the login shape with `token` |
 
@@ -175,6 +175,15 @@ Rate limited 5 per minute per IP, like register. Status 201.
 ### Data
 
 `users.google_sub`: text, nullable, unique index `ix_users_google_sub` (several users may have none). `init_db` adds the column and the index to an older database. The admin seed reads only the user id, so it also works on a users table from before the column.
+
+### Login screen
+
+- `components/LoginScreen.jsx` loads Google Identity Services (`https://accounts.google.com/gsi/client`) only when the build has `VITE_GOOGLE_CLIENT_ID`, and renders Google's standard "Sign in with Google" button above the password form. Without the client ID the screen is as before.
+- It reads `GET /api/auth/config` on load: no button when the server has no client ID, no password form when password login is off. Until the answer comes (or if it never does) both are offered. A 403 from login or register also hides the form and shows the server's message.
+- After Google: a session is stored exactly like a password login's. `needs_account` shows a choice between "Link my existing account" (username and password, once) and "Create a new account" (the name prefilled with `suggested_name`). Errors show inline in the server's words; a 429 shows "Too many attempts. Please wait a minute and try again."
+- The calls are `fetchAuthConfig`, `signInWithGoogle`, `linkGoogleAccount` and `createGoogleAccount` in `utils/api.js`.
+- Google's button opens a popup. A `Cross-Origin-Opener-Policy: same-origin` header on the page would break it, and a Content-Security-Policy would have to allow `https://accounts.google.com/gsi/` for scripts, frames, styles and connections. The site sends neither today.
+- The Google OAuth client must list every origin the site is served from (and `http://localhost:5173` for development) under Authorized JavaScript origins.
 
 ## Published passwords
 

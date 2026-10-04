@@ -28,6 +28,7 @@ from vtt.security import create_access_token, create_link_token, identity_from_l
 router = APIRouter()
 
 INVALID_CREDENTIALS = "Invalid credentials."
+LINK_WRONG_PASSWORD = "That username and password do not match."
 USERNAME_TAKEN = "That identification is already claimed."
 PASSWORD_LOGIN_OFF = "Password sign-in is turned off. Please use Sign in with Google."
 GOOGLE_NOT_SET_UP = "Sign in with Google is not set up on this server."
@@ -235,7 +236,7 @@ async def google_link(request: Request, body: GoogleLinkRequest, db: Session = D
     user = db.query(User).filter(User.username == body.username).first()
     if not user or not pwd_context.verify(body.password, user.hashed_password):
         logger.warning("Failed Google link attempt for username=%r", body.username)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=INVALID_CREDENTIALS)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=LINK_WRONG_PASSWORD)
     if user.google_sub is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ACCOUNT_ALREADY_LINKED)
 

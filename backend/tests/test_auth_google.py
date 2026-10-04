@@ -269,7 +269,7 @@ def test_link_with_the_wrong_password(client, google):
     token = needs_account(client, google)
     r = link(client, token, u.username, password="not-the-password")
     assert r.status_code == 401
-    assert r.json() == {"detail": "Invalid credentials."}
+    assert r.json() == {"detail": "That username and password do not match."}
     assert google_sub_of(u.id) is None
     # the link token is still good for the right password
     assert_signed_in_as(link(client, token, u.username), u.id)
@@ -278,7 +278,7 @@ def test_link_with_the_wrong_password(client, google):
 def test_link_to_an_unknown_username(client, google):
     r = link(client, needs_account(client, google), f"ghost_{support.uid()}")
     assert r.status_code == 401
-    assert r.json() == {"detail": "Invalid credentials."}
+    assert r.json() == {"detail": "That username and password do not match."}
 
 
 def test_link_refuses_an_account_that_has_a_google_account(client, google):
