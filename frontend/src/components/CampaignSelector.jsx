@@ -5,6 +5,7 @@ import { campaignErrorText } from '../utils/campaignErrors';
 import { useCampaignEntry } from './campaignSelector/useCampaignEntry';
 import { useAutoLastPlayed } from './campaignSelector/useAutoLastPlayed';
 import { RejoinInviteBanner } from './campaignSelector/RejoinInviteBanner';
+import { HubNotice } from './campaignSelector/HubNotice';
 import { DeskStyles } from './campaignSelector/DeskStyles';
 import { DeskBackdrop } from './campaignSelector/DeskBackdrop';
 import { CandleCluster, CandleLight } from './campaignSelector/CandleCluster';
@@ -23,7 +24,7 @@ export const CampaignSelector = () => {
   const {
     setStage, connect, logout, accessSession, character, characters, gmCampaigns,
     lastPlayedCampaign, joinCampaign, refreshCharacterStatus, fetchUserData,
-    setLastPlayed, setLocalCharacter, rejoinInvite, setRejoinInvite,
+    setLastPlayed, setLocalCharacter, rejoinInvite, setRejoinInvite, hubNotice, setHubNotice,
   } = useGameStore();
 
   // Book overlay state and the ways into a campaign
@@ -94,6 +95,7 @@ export const CampaignSelector = () => {
     // folded Herald leave them (.hub-tomes in DeskStyles.jsx)
     <div className="scene-container h-[100dvh] lg:h-auto lg:min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night">
       <RejoinInviteBanner rejoinInvite={rejoinInvite} setStage={setStage} setRejoinInvite={setRejoinInvite} />
+      <HubNotice notice={hubNotice} onDismiss={() => setHubNotice(null)} />
 
       <DeskStyles />
       <HubHeader onLogout={handleLogout} />

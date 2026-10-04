@@ -60,6 +60,38 @@ const sendRoll = (set, get, frame) => {
   }, ROLL_REPLY_MS);
 };
 
+// A delete or an undo from the roster book (docs/refactor/DELETION.md). Resolves to
+// { success, status, detail } plus the server's answer.
+const deletionRequest = async (path, method) => {
+  try {
+    const res = await apiFetch(path, { method });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) return { success: true, status: res.status, ...body };
+    return { success: false, status: res.status, detail: body.detail || 'Unknown error' };
+  } catch (err) {
+    return { success: false, status: 0, detail: err.message };
+  }
+};
+
+// What a campaign's deletion changes in the store: the campaign leaves the ledger, the
+// user's characters in it go back to the registry, and a last played record or rejoin
+// invite pointing at it goes.
+const withoutCampaign = (state, campaignId, campaignCode) => {
+  const releasedIds = state.characters.filter(c => c.campaign_id === campaignId).map(c => c.id);
+  const last = state.lastPlayedCampaign;
+  const lastWasIt = last && (last.campaignId === campaignId
+    || (last.type === 'gm' && last.campaignCode === campaignCode)
+    || (last.type === 'player' && releasedIds.includes(last.characterId)));
+  return {
+    gmCampaigns: state.gmCampaigns.filter(c => c.id !== campaignId),
+    characters: state.characters.map(c => (c.campaign_id === campaignId
+      ? { ...c, status: 'unaffiliated', campaign_id: null, campaign_name: null, campaign_code: null }
+      : c)),
+    lastPlayedCampaign: lastWasIt ? null : last,
+    rejoinInvite: state.rejoinInvite?.campaign_id === campaignId ? null : state.rejoinInvite,
+  };
+};
+
 const useGameStore = create(
   persist(
     (set, get) => ({
@@ -105,6 +137,7 @@ const useGameStore = create(
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
+      hubNotice: null,                // a line the hub shows once, such as a deleted campaign
       circleCreation: {
         isVisible: false,
         circleId: null,
@@ -530,6 +563,35 @@ const useGameStore = create(
             const onCharacterChannel = myChar?.id != null && String(socketGameId) === String(myChar.id);
             setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
             set({ stage: 'HOME', character: null, circle: null, activityLog: [], lastActivityLog: null });
+          }
+          else if (message.type === 'campaign_deleted') {
+            if (!isForThisCampaign(message.payload)) return;
+            // Its Lightkeeper deleted the campaign. Back to the hub, which says so. A player's
+            // character is in their registry again, and its channel opens again without the
+            // campaign; the server closes the Lightkeeper's channel.
+            const { campaign_id: id, campaign_code: code, campaign_name: name } = message.payload;
+            const { character: myChar, socketGameId } = get();
+            const onCharacterChannel = myChar?.id != null && String(socketGameId) === String(myChar.id);
+            setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
+            set(state => ({
+              ...withoutCampaign(state, id, code),
+              stage: 'HOME', character: null, circle: null, activityLog: [], lastActivityLog: null,
+              hubNotice: onCharacterChannel ? `The Lightkeeper deleted campaign ${name}.` : `Campaign ${name} was deleted.`,
+            }));
+            get().fetchUserData(get().accessSession?.userId);
+          }
+          else if (message.type === 'character_deleted') {
+            // This investigator was deleted in another tab; the server closes its channel.
+            const id = message.payload?.character_id;
+            const name = get().character?.name;
+            setTimeout(() => get().disconnect(), 0);
+            set(state => ({
+              stage: state.stage === 'DESK' ? 'HOME' : state.stage,
+              character: state.character?.id === id ? null : state.character,
+              characters: state.characters.filter(c => c.id !== id),
+              lastPlayedCampaign: state.lastPlayedCampaign?.characterId === id ? null : state.lastPlayedCampaign,
+              hubNotice: name ? `${name} was deleted.` : state.hubNotice,
+            }));
           }
           else if (message.type === 'ability_mark_offer') {
             set({ abilityMarkOffer: message.payload });
@@ -1209,6 +1271,49 @@ const useGameStore = create(
       },
 
       setRejoinInvite: (invite) => set({ rejoinInvite: invite }),
+      setHubNotice: (notice) => set({ hubNotice: notice }),
+
+      // ==========================================
+      // DELETING FROM THE ROSTER BOOK (docs/refactor/DELETION.md)
+      // ==========================================
+      // Each resolves to { success, status, detail }. A socket this tab still has open on
+      // what is deleted goes first: the server would close it.
+      deleteCharacter: async (characterId) => {
+        if (String(get().socketGameId) === String(characterId)) get().disconnect();
+        const result = await deletionRequest(`/api/investigators/${characterId}`, 'DELETE');
+        if (result.success) {
+          set(state => ({
+            characters: state.characters.filter(c => c.id !== characterId),
+            character: state.character?.id === characterId ? null : state.character,
+            lastPlayedCampaign: state.lastPlayedCampaign?.characterId === characterId ? null : state.lastPlayedCampaign,
+          }));
+        }
+        return result;
+      },
+
+      restoreCharacter: async (characterId) => {
+        const result = await deletionRequest(`/api/investigators/${characterId}/restore`, 'POST');
+        if (result.success) await get().fetchUserData(get().accessSession?.userId);
+        return result;
+      },
+
+      deleteCampaign: async (campaignId) => {
+        const camp = get().gmCampaigns.find(c => c.id === campaignId);
+        if (camp && String(get().socketGameId) === String(camp.campaign_code)) get().disconnect();
+        const result = await deletionRequest(`/campaign/${campaignId}`, 'DELETE');
+        if (result.success) {
+          set(state => withoutCampaign(state, campaignId, camp?.campaign_code));
+          await get().fetchUserData(get().accessSession?.userId);
+        }
+        return result;
+      },
+
+      restoreCampaign: async (campaignId) => {
+        const result = await deletionRequest(`/campaign/${campaignId}/restore`, 'POST');
+        if (result.success) await get().fetchUserData(get().accessSession?.userId);
+        return result;
+      },
+
       clearRelationshipIntro: () => set({ pendingRelationshipIntro: null }),
       openRelationshipPopup: (targetInvestigator) => {
         const { circleCreation } = get();
