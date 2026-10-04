@@ -8,14 +8,14 @@ from sqlalchemy import or_
 
 from models import Character
 from vtt.serializers import get_char_dict
-from vtt.ws.manager import manager
+from vtt.ws.manager import character_key, manager
 
 # Abilities that can intercept marks on other players — used for efficient DB filtering
 INTERCEPT_ABILITIES = {"Behind Me", "Premonitions"}
 
 
 async def handle_take_mark(ctx):
-    db, payload, character, target_char_id, game_id, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.game_id, ctx.camp_code, ctx.camp_id
+    db, payload, character, target_char_id, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.channel, ctx.camp_code, ctx.camp_id
     m_type = payload.get("mark_type")
     is_from_enemy = payload.get("is_from_enemy", False)
     if m_type:
@@ -42,7 +42,7 @@ async def handle_take_mark(ctx):
                 soak_offers.append({"ability": ability_name, "resist_key": resist_key})
 
         if soak_offers:
-            await manager.broadcast(game_id, {
+            await manager.broadcast(channel, {
                 "type": "ability_mark_offer",
                 "payload": {"ability": soak_offers[0]["ability"], "mark_type": m_type, "character_id": target_char_id, "options": soak_offers, "action": "soak"}
             })
@@ -50,7 +50,7 @@ async def handle_take_mark(ctx):
 
         # Death Defy
         if is_from_enemy and "Death Defy" in char_abilities and ability_uses.get("Death Defy", 0) < 1:
-            await manager.broadcast(game_id, {
+            await manager.broadcast(channel, {
                 "type": "ability_mark_offer",
                 "payload": {"ability": "Death Defy", "mark_type": m_type, "character_id": target_char_id, "action": "escape"}
             })
@@ -70,14 +70,14 @@ async def handle_take_mark(ctx):
                     # Not incapacitated — mark stays at 3
                     setattr(character, f"{m_type}_marks", 3)
                     db.commit()
-                    await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+                    await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
                     await manager.broadcast_campaign(camp_code, camp_id, {
                         "type": "activity_log",
                         "payload": {"message": f"{character.name} used Endurance! Rolled {endurance_roll} — a 6 saves them from incapacitation!", "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}
                     }, db)
                     # Still offer Adrenaline Rush if applicable
                     if "Adrenaline Rush" in char_abilities:
-                        await manager.broadcast(game_id, {"type": "ability_mark_offer", "payload": {"ability": "Adrenaline Rush", "mark_type": m_type, "character_id": target_char_id, "action": "drive_refresh"}})
+                        await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {"ability": "Adrenaline Rush", "mark_type": m_type, "character_id": target_char_id, "action": "drive_refresh"}})
                     return
                 else:
                     await manager.broadcast_campaign(camp_code, camp_id, {
@@ -89,7 +89,7 @@ async def handle_take_mark(ctx):
             setattr(character, f"{m_type}_marks", 0)
             character.incapacitated = True
             db.commit()
-            await manager.broadcast(game_id, {"type": "trigger_scar", "payload": {"character_id": target_char_id, "mark_type": m_type, "character": get_char_dict(character)}})
+            await manager.broadcast(channel, {"type": "trigger_scar", "payload": {"character_id": target_char_id, "mark_type": m_type, "character": get_char_dict(character)}})
             await manager.broadcast_campaign(camp_code, camp_id, {
                 "type": "activity_log",
                 "payload": {"message": f"{character.name} has been incapacitated!", "log_type": "danger", "ink_color": getattr(character, "ink_color", "") or ""}
@@ -97,18 +97,18 @@ async def handle_take_mark(ctx):
         else:
             setattr(character, f"{m_type}_marks", val)
             db.commit()
-            await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+            await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
             # Let Them In: informational notification on Bleed mark
             if m_type == "bleed" and "Let Them In" in char_abilities:
-                await manager.broadcast(game_id, {
+                await manager.broadcast(channel, {
                     "type": "ability_mark_offer",
                     "payload": {"ability": "Let Them In", "mark_type": m_type, "character_id": target_char_id, "action": "info"}
                 })
 
             # Adrenaline Rush: prompt drive refresh
             if "Adrenaline Rush" in char_abilities:
-                await manager.broadcast(game_id, {
+                await manager.broadcast(channel, {
                     "type": "ability_mark_offer",
                     "payload": {"ability": "Adrenaline Rush", "mark_type": m_type, "character_id": target_char_id, "action": "drive_refresh"}
                 })
@@ -126,21 +126,21 @@ async def handle_take_mark(ctx):
             for other in intercept_candidates:
                 other_abilities = {other.role_ability, other.specialty_ability}
                 if "Behind Me" in other_abilities and (other.nerve_current or 0) >= 1:
-                    await manager.broadcast(str(other.id), {
+                    await manager.broadcast(character_key(other.id), {
                         "type": "ability_intercept_offer",
                         "payload": {"ability": "Behind Me", "mark_type": m_type, "character_id": target_char_id, "character_name": character.name, "action": "intercept"}
                     })
                 if "Premonitions" in other_abilities:
                     intuition_resist_max = (other.intuition_max or 3) // 3
                     if (other.intuition_resistance_spent or 0) < intuition_resist_max:
-                        await manager.broadcast(str(other.id), {
+                        await manager.broadcast(character_key(other.id), {
                             "type": "ability_intercept_offer",
                             "payload": {"ability": "Premonitions", "mark_type": m_type, "character_id": target_char_id, "character_name": character.name, "action": "soak"}
                         })
 
 
 async def handle_resolve_ability_mark(ctx):
-    db, payload, character, game_id, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.game_id, ctx.camp_code, ctx.camp_id
+    db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
     ab_name = payload.get("ability")
     choice = payload.get("choice")
     char_abilities = [character.role_ability, character.specialty_ability]
@@ -150,7 +150,7 @@ async def handle_resolve_ability_mark(ctx):
         max_val = getattr(character, f"{choice}_max", 3)
         setattr(character, f"{choice}_current", min(max_val, getattr(character, f"{choice}_current") + 1))
         db.commit()
-        await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": f"{character.name} used Adrenaline Rush — refreshed 1 {choice.capitalize()}.", "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
 
     elif ab_name in ("Compartmentalization", "Steel Mind", "In the Trenches") and ab_name in char_abilities:
@@ -160,19 +160,19 @@ async def handle_resolve_ability_mark(ctx):
         ability_uses[ab_name] = ability_uses.get(ab_name, 0) + 1
         character.ability_uses = ability_uses
         db.commit()
-        await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": f"{character.name} used {ab_name} — soaked the mark.", "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
 
     elif ab_name == "Death Defy" and ab_name in char_abilities:
         ability_uses["Death Defy"] = 1
         character.ability_uses = ability_uses
         db.commit()
-        await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": f"{character.name} used Death Defy — escaped unscathed!", "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
 
 
 async def handle_intercept_mark(ctx):
-    db, payload, character, game_id, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.game_id, ctx.camp_code, ctx.camp_id
+    db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
     ab_name = payload.get("ability")
     target_id = payload.get("target_character_id")
     m_type = payload.get("mark_type")
@@ -191,7 +191,7 @@ async def handle_intercept_mark(ctx):
 
         # Broadcast target's mark removal
         if target_char:
-            await manager.broadcast(str(target_id), {"type": "character_update", "payload": get_char_dict(target_char)})
+            await manager.broadcast(character_key(target_id), {"type": "character_update", "payload": get_char_dict(target_char)})
 
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": f"{character.name} used Behind Me to intercept a mark for {target_char.name if target_char else 'an ally'}!", "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
 
@@ -213,7 +213,7 @@ async def handle_intercept_mark(ctx):
             soak_offers.append({"ability": ability_name, "resist_key": resist_key})
 
         if soak_offers:
-            await manager.broadcast(game_id, {
+            await manager.broadcast(channel, {
                 "type": "ability_mark_offer",
                 "payload": {"ability": soak_offers[0]["ability"], "mark_type": m_type, "character_id": character.id, "action": "soak"}
             })
@@ -223,19 +223,19 @@ async def handle_intercept_mark(ctx):
                 setattr(character, f"{m_type}_marks", 0)
                 character.incapacitated = True
                 db.commit()
-                await manager.broadcast(game_id, {"type": "trigger_scar", "payload": {"character_id": character.id, "mark_type": m_type, "character": get_char_dict(character)}})
+                await manager.broadcast(channel, {"type": "trigger_scar", "payload": {"character_id": character.id, "mark_type": m_type, "character": get_char_dict(character)}})
                 await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": f"{character.name} has been incapacitated!", "log_type": "danger", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
             else:
                 setattr(character, f"{m_type}_marks", val)
                 db.commit()
-                await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+                await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
                 if "Adrenaline Rush" in interceptor_abilities:
-                    await manager.broadcast(game_id, {"type": "ability_mark_offer", "payload": {"ability": "Adrenaline Rush", "mark_type": m_type, "character_id": character.id, "action": "drive_refresh"}})
+                    await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {"ability": "Adrenaline Rush", "mark_type": m_type, "character_id": character.id, "action": "drive_refresh"}})
 
     elif ab_name == "Premonitions" and ab_name in char_abilities:
         intuition_resist_max = getattr(character, "intuition_max", 3) // 3
         if character.intuition_resistance_spent < intuition_resist_max:
             character.intuition_resistance_spent += 1
             db.commit()
-            await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+            await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": f"{character.name} used Premonitions — soaked the mark!", "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)

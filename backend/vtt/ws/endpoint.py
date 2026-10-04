@@ -28,7 +28,7 @@ from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import CLOSE_UNAUTHENTICATED, Rejected, check_message, check_target, resolve_channel
 from vtt.ws.context import WSContext
 from vtt.ws.handlers import HANDLERS
-from vtt.ws.manager import manager
+from vtt.ws.manager import campaign_key, character_key, manager
 
 router = APIRouter()
 
@@ -58,8 +58,11 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
 
 async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character, campaign, is_gm: bool):
     logger.info("WebSocket connected: game_id=%s user_id=%s", game_id, user_id)
-    await manager.connect(game_id, websocket)
     own_char_id = character.id if character is not None else None
+    # The manager key: a character channel and a campaign channel never share one,
+    # even when an all-digit campaign code equals a character id (QUIRK D13).
+    channel = character_key(own_char_id) if character is not None else campaign_key(campaign.campaign_code)
+    await manager.connect(channel, websocket)
 
     # Load this campaign's circle (create one if this campaign has none yet)
     circle = None
@@ -73,7 +76,9 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character
         db.commit()
 
     # Camp context for this connection. It is fixed for the life of the socket, not re-resolved per message.
-    camp_code = campaign.campaign_code if campaign else game_id
+    # Without a campaign, camp_code is the socket's own channel key, so broadcast_campaign
+    # sends campaign messages back to this socket only.
+    camp_code = campaign.campaign_code if campaign else channel
     camp_id = campaign.id if campaign else None
 
     if character:
@@ -81,7 +86,7 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character
     await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(circle)})
 
     ctx = WSContext(game_id=game_id, db=db, circle=circle, camp_code=camp_code, camp_id=camp_id,
-                    user_id=user_id, is_gm=is_gm, own_char_id=own_char_id)
+                    user_id=user_id, is_gm=is_gm, own_char_id=own_char_id, channel=channel)
 
     try:
         while True:
@@ -131,7 +136,7 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: game_id=%s", game_id)
-        manager.disconnect(game_id, websocket)
+        manager.disconnect(channel, websocket)
     except Exception as exc:
         logger.error("WebSocket fatal error: game_id=%s error=%s", game_id, exc, exc_info=True)
-        manager.disconnect(game_id, websocket)
+        manager.disconnect(channel, websocket)

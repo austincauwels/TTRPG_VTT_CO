@@ -7,6 +7,7 @@ import pytest
 import main
 import support
 from models import Character, Circle
+from vtt.ws.manager import campaign_key
 
 
 def test_player_socket_gets_character_then_circle(client):
@@ -126,27 +127,84 @@ def test_token_in_the_query_string_is_not_logged(client, caplog):
     assert not any(token in r.getMessage() for r in caplog.records)
 
 
+def _numeric_character(owner_id):
+    """A character with a large explicit id, so that a campaign code can equal it
+    (codes need 3+ characters; the id is far above anything the sequence hands out
+    during a test run)."""
+    char_id = 900_000_000 + int(support.uid(6), 16) % 90_000_000
+    with main.SessionLocal() as s:
+        s.add(Character(id=char_id, name=f"Num {support.uid()}", user_id=owner_id, circle_id=1))
+        s.commit()
+    return char_id
+
+
 def test_numeric_campaign_code_and_character_id_channels(client):
     """A campaign whose all-digit code equals a character id: before tokens the
     character's socket resolved to that campaign when the character had none of its
     own. Now the character's owner gets the character channel with no campaign, and
-    the campaign's GM gets the campaign channel. QUIRK: both still share the channel
-    key, so the last one to connect closes the other with 1001."""
-    # Codes need 3+ characters, so give the character a large explicit id
-    # (far above anything the sequence hands out during a test run).
-    char_id = 900_000_000 + int(support.uid(6), 16) % 90_000_000
+    the campaign's GM gets the campaign channel. QUIRK D13 fixed: the two used to
+    share the manager key, so the last one to connect closed the other with 1001.
+    Now both stay open."""
     owner = support.make_user()
-    with main.SessionLocal() as s:
-        s.add(Character(id=char_id, name=f"Num {support.uid()}", user_id=owner.id, circle_id=1))
-        s.commit()
+    char_id = _numeric_character(owner.id)
     camp = support.new_campaign(client, code=str(char_id))
     with support.ws_connect(client, char_id, token=support.token_for(owner.id), wait_disconnect=False) as ws:
         assert support.types(ws.initial) == ["character_update", "circle_update"]
         assert ws.initial[1]["payload"]["id"] == 1
-    with support.ws_connect(client, char_id, token=support.token_for(camp["gm_user_id"])) as gm:
-        assert support.types(gm.initial) == ["circle_update"]
-        assert gm.initial[0]["payload"]["id"] == support.campaign_circle(camp["id"]).id
+        with support.ws_connect(client, char_id, token=support.token_for(camp["gm_user_id"]),
+                                wait_disconnect=False) as gm:
+            assert support.types(gm.initial) == ["circle_update"]
+            assert gm.initial[0]["payload"]["id"] == support.campaign_circle(camp["id"]).id
+            assert len(support.server_sockets(char_id)) == 2
+            ws.send("update_pen_font", pen_font="Kalam")
+            assert support.types(ws.sync()) == ["character_update"]
+            gm.send("gm_toggle_reports")
+            assert support.types(gm.sync()) == ["circle_update"]
+            assert ws.drain() == [] and gm.drain() == []
     assert support.ws_close_code(client, char_id, token=support.as_stranger()["Authorization"][7:]) == 4403
+
+
+def test_all_digit_campaign_code_cannot_take_over_a_players_channel(client):
+    """Reviewer probe for D13: a GM whose campaign code is a member's character id
+    used to close the member's socket (1001) and receive the member's frames."""
+    real = support.new_campaign(client)
+    victim_owner = support.make_user()
+    char_id = _numeric_character(victim_owner.id)
+    assert support.join(client, char_id, real["campaign_code"]).status_code == 200
+    assert support.approve(client, char_id).status_code == 200
+    rogue = support.new_campaign(client, code=str(char_id))
+    with support.ws_connect(client, char_id, token=support.token_for(victim_owner.id)) as victim, \
+            support.ws_connect(client, real["campaign_code"]) as real_gm:
+        with support.ws_connect(client, char_id, token=support.token_for(rogue["gm_user_id"])) as attacker:
+            assert support.types(attacker.initial) == ["circle_update"]
+            real_gm.send("gm_reset_character", character_id=char_id)
+            real_gm.sync()
+            assert "character_update" in support.types(victim.sync())
+            assert attacker.sync() == []
+        victim.send("update_pen_font", pen_font="Kalam")
+        assert support.types(victim.sync()) == ["character_update"]
+
+
+def test_character_id_equal_to_a_campaign_code_cannot_take_over_the_gm_channel(client):
+    """Reviewer probe for D13, the other way round: the owner of a character whose id
+    equals an all-digit campaign code used to kick the GM off and get its frames."""
+    attacker = support.make_user()
+    char_id = _numeric_character(attacker.id)
+    camp = support.new_campaign(client, code=str(char_id))
+    member = support.active_member(client, camp)
+    gm_token = support.token_for(camp["gm_user_id"])
+    with support.ws_connect(client, camp["campaign_code"], token=gm_token) as gm, \
+            support.ws_connect(client, member["id"]) as wm:
+        assert support.types(gm.initial) == ["circle_update"]
+        with support.ws_connect(client, char_id, token=support.token_for(attacker.id)) as rogue:
+            assert support.types(rogue.initial) == ["character_update", "circle_update"]
+            wm.send("chat_message", message="for the GM only", target="@Lightkeeper")
+            wm.sync()
+            [whisper] = support.of_type(gm.sync(), "activity_log")
+            assert whisper["payload"]["message"].endswith(": for the GM only")
+            assert rogue.sync() == []
+        gm.send("gm_toggle_reports")
+        assert support.types(gm.sync()) == ["circle_update"]
 
 
 def test_bad_json_and_unknown_types_are_ignored(client):
@@ -373,14 +431,15 @@ def test_broadcast_campaign_survives_a_dead_socket(client):
                                           support.FakeSocket(fail=True), support.FakeSocket(), support.FakeSocket())
     code = camp["campaign_code"]
     mgr = main.ConnectionManager()
-    mgr.active_connections = {code: [gm_dead, gm_ok], str(a["id"]): [a_dead],
+    gm_key = campaign_key(code)
+    mgr.active_connections = {gm_key: [gm_dead, gm_ok], str(a["id"]): [a_dead],
                               str(b["id"]): [b_ok], str(p["id"]): [p_ok]}
     msg = {"type": "activity_log", "payload": {"message": "m"}}
     with main.SessionLocal() as db:
         asyncio.run(mgr.broadcast_campaign(code, camp["id"], msg, db))
     assert gm_ok.sent == [msg] and b_ok.sent == [msg]
     assert p_ok.sent == []  # pending members are not part of the campaign broadcast
-    assert mgr.active_connections == {code: [gm_ok], str(a["id"]): [],
+    assert mgr.active_connections == {gm_key: [gm_ok], str(a["id"]): [],
                                       str(b["id"]): [b_ok], str(p["id"]): [p_ok]}
 
 

@@ -10,11 +10,11 @@ docs/refactor/AUTH.md.
 from models import Character, Circle
 from vtt.circle_queries import resolve_circle
 from vtt.serializers import get_char_dict, get_circle_dict
-from vtt.ws.manager import manager
+from vtt.ws.manager import character_key, manager
 
 
 async def handle_gm_update_tension(ctx):
-    db, payload, character, game_id = ctx.db, ctx.payload, ctx.character, ctx.game_id
+    db, payload, character, channel = ctx.db, ctx.payload, ctx.character, ctx.channel
     if not ctx.is_gm: return
 
     m_type = payload.get("mark_type")
@@ -22,7 +22,7 @@ async def handle_gm_update_tension(ctx):
     if m_type and value is not None:
         setattr(character, f"{m_type}_marks", value)
         db.commit()
-        await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
 
 async def handle_gm_update_circle(ctx):
@@ -41,10 +41,10 @@ async def handle_gm_update_circle(ctx):
 
 
 async def handle_gm_transition_scene(ctx):
-    payload, game_id = ctx.payload, ctx.game_id
+    payload, channel = ctx.payload, ctx.channel
     if not ctx.is_gm: return
 
-    await manager.broadcast(game_id, {
+    await manager.broadcast(channel, {
         "type": "scene_transition",
         "payload": {
             "scene_name": payload.get("scene_name", "Unknown Location"),
@@ -137,7 +137,7 @@ async def handle_gm_end_assignment(ctx):
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
         for ch in active_chars:
-            await manager.broadcast(str(ch.id), {"type": "character_update", "payload": get_char_dict(ch)})
+            await manager.broadcast(character_key(ch.id), {"type": "character_update", "payload": get_char_dict(ch)})
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",
             "payload": {"message": "— Assignment ended. Ability uses have been reset. —", "log_type": "field"},
@@ -162,7 +162,7 @@ async def handle_gm_reset_character(ctx):
             target_char.intuition_resistance_spent = 0
             target_char.ability_uses = {}
             db.commit()
-            await manager.broadcast(str(target_char.id), {
+            await manager.broadcast(character_key(target_char.id), {
                 "type": "character_update",
                 "payload": get_char_dict(target_char),
             })

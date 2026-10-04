@@ -67,7 +67,7 @@ The list above is kept as it was found. These entries no longer hold, or hold on
 - circle_relationship_respond on a GM socket is rejected (403) instead of ending the socket (bug D9).
 - Chat: sender_name is set by the server; @Environment is GM only; a socket with no campaign cannot chat, so the cross-campaign whisper is gone. The ILIKE wildcard and the pending-sender echo quirks remain.
 - WS add_notebook_entry only writes into the sender's own campaign; Lightkeeper entries are GM only.
-- All-digit campaign codes: the character's owner gets the character channel with no campaign, the GM gets the campaign channel. They still share the manager key.
+- All-digit campaign codes (D13): the character's owner gets the character channel with no campaign, the GM gets the campaign channel, and the connection manager keys them apart ("123" and "campaign:123"). With tokens a shared key was a real hole: either user could close the other's socket and receive its frames, including secret rolls and whispers. WS chat no longer looks up a campaign by the path segment either.
 - apply_scar (D14): shift_down and shift_up must be two of the nine action ratings (engine.ALL_ACTIONS). Any other name is 403 and nothing is stored. With tokens the old behavior was a real hole: shifting campaign_id down, with scars_count as the other name, walked a player's own character into any lower-numbered campaign as an active member.
 - A character_id of 0 or 1.5 is 404 (action_rejected). A bad character_id ('abc', object, list, true) still drops the frame.
 - The 'gm' fallback channel no longer exists (closed with 4404), so its reset and end-assignment quirks are gone.

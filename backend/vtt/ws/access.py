@@ -41,7 +41,8 @@ def resolve_channel(db, user_id, game_id):
     campaign is then the character's own (none for an unaffiliated character). Any
     other game_id is a campaign code and only that campaign's GM may open it. When an
     all-digit campaign code equals a character id, the owner gets the character
-    channel and the GM gets the campaign channel.
+    channel and the GM gets the campaign channel. The two have different
+    connection-manager keys (vtt.ws.manager), so neither can take over the other.
     """
     character = None
     try:

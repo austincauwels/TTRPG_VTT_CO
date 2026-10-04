@@ -25,6 +25,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 import main
+from vtt.ws.manager import campaign_key
 from models import Campaign, Character, Circle, CircleVote, NotebookEntry, Relationship, User
 
 EM = "\u2014"      # em dash used in several server messages
@@ -353,7 +354,10 @@ class WS:
 
 
 def server_sockets(key):
-    return list(main.manager.active_connections.get(str(key), []))
+    """The server-side sockets open on /ws/{key}: those on the character channel and
+    on the campaign channel the key can name (the manager keys them apart)."""
+    connections = main.manager.active_connections
+    return list(connections.get(str(key), [])) + list(connections.get(campaign_key(str(key)), []))
 
 
 def wait_until(predicate, timeout=3.0):

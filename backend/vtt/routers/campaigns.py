@@ -21,7 +21,7 @@ from vtt.config import _ALLOWED_CAMPAIGN_CODE_RE, _SAFE_FONT_NAMES
 from vtt.db import get_db
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
 from vtt.serializers import get_char_dict
-from vtt.ws.manager import manager
+from vtt.ws.manager import campaign_key, character_key, manager
 
 router = APIRouter()
 
@@ -66,7 +66,7 @@ async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', 
         if camp_id:
             await manager.broadcast_campaign(camp_code, camp_id, payload, db)
         else:
-            await manager.broadcast(code, payload)
+            await manager.broadcast(campaign_key(code), payload)
     return result
 
 @router.post("/campaign/approve/{character_id}")
@@ -123,7 +123,7 @@ async def reject_character(character_id: int, db: Session = Depends(get_db),
             },
         }, db)
         # Also notify the rejected character directly if they're connected
-        await manager.broadcast(str(character_id), {
+        await manager.broadcast(character_key(character_id), {
             "type": "investigator_rejected",
             "payload": {"character_id": character_id},
         })
@@ -248,7 +248,7 @@ async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session
     # Attempt live delivery to any character websocket this user owns
     chars = db.query(Character).filter(Character.user_id == user.id).all()
     for c in chars:
-        await manager.broadcast(str(c.id), {
+        await manager.broadcast(character_key(c.id), {
             "type": "gm_rejoin_invite",
             "payload": {
                 "campaign_id": campaign_id,

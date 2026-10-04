@@ -35,7 +35,7 @@ async def handle_submit_assignment_report(ctx):
 
 
 async def handle_spend_resource(ctx):
-    db, payload, character, game_id, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.character, ctx.game_id, ctx.camp_code, ctx.camp_id, ctx.circle
+    db, payload, character, channel, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id, ctx.circle
     resource_type = payload.get("resource_type")
     if resource_type not in ("stitch", "refresh", "train"):
         return
@@ -71,7 +71,7 @@ async def handle_spend_resource(ctx):
         "refresh": "drives & resistances restored.",
         "train":   "Train d6 bonus active for next roll.",
     }
-    await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+    await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)
     await manager.broadcast_campaign(camp_code, camp_id, {
         "type": "activity_log",
@@ -198,10 +198,11 @@ async def handle_circle_relationship_propose(ctx):
 
 
 async def handle_circle_relationship_respond(ctx):
-    db, payload, game_id, camp_code, camp_id = ctx.db, ctx.payload, ctx.game_id, ctx.camp_code, ctx.camp_id
+    db, payload, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.channel, ctx.camp_code, ctx.camp_id
     rel_id = payload.get("relationship_id")
     resp_action = payload.get("action")
-    actor_id = int(game_id)
+    # vtt.ws.access only lets a player channel send this, so the actor is its character.
+    actor_id = ctx.own_char_id
     if rel_id and resp_action:
         rel = db.query(Relationship).filter(Relationship.id == rel_id).first()
         if rel:

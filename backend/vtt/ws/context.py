@@ -7,10 +7,12 @@ from typing import Any, Optional
 class WSContext:
     """One socket's state plus the message being handled.
 
-    game_id, db, circle, camp_code and camp_id are set once when the socket
-    connects and are not refreshed while it stays open: db is the one session the
-    socket uses for its whole life, and circle is the circle loaded at connect
-    time. user_id is the user the login token named, is_gm is True on a campaign
+    game_id, db, circle, camp_code, camp_id and channel are set once when the
+    socket connects and are not refreshed while it stays open: game_id is the path
+    segment the client connected with, channel is the socket's connection-manager
+    key (see vtt.ws.manager), db is the one session the socket uses for its whole
+    life, and circle is the circle loaded at connect time. camp_code is the
+    campaign's code, or the socket's own channel key when it has no campaign. user_id is the user the login token named, is_gm is True on a campaign
     channel (only its GM may open one), and own_char_id is the character of a
     player channel (None on a GM channel). payload, character and target_char_id
     are set for every message. character is the row for target_char_id
@@ -24,6 +26,7 @@ class WSContext:
     user_id: Optional[int] = None
     is_gm: bool = False
     own_char_id: Optional[int] = None
+    channel: str = ""
     payload: Any = None
     character: Any = None
     target_char_id: Any = None

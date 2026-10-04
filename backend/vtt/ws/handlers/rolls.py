@@ -6,7 +6,7 @@ from vtt.ws.manager import manager
 
 
 async def handle_roll(ctx):
-    db, payload, character, target_char_id, game_id, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.game_id, ctx.camp_code, ctx.camp_id
+    db, payload, character, target_char_id, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.channel, ctx.camp_code, ctx.camp_id
     try:
         act = payload.get("action")
         if not act:
@@ -105,7 +105,7 @@ async def handle_roll(ctx):
         res["drive_spent_key"] = cat
         res["action"] = act
 
-        await manager.broadcast(game_id, {
+        await manager.broadcast(channel, {
             "type": "roll_result",
             "payload": {"character_id": target_char_id, "action": act, "roll": res, "character": get_char_dict(character) if character else None}
         })
@@ -136,7 +136,7 @@ async def handle_roll(ctx):
 
             if post_roll_dirty:
                 db.commit()
-                await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+                await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
             await manager.broadcast_campaign(camp_code, camp_id, {
                 "type": "activity_log",
@@ -145,11 +145,11 @@ async def handle_roll(ctx):
     except Exception as roll_exc:
         logger.error("WS roll handler error: %s", roll_exc, exc_info=True)
         db.rollback()
-        await manager.broadcast(game_id, {"type": "roll_error", "payload": {"message": str(roll_exc)}})
+        await manager.broadcast(channel, {"type": "roll_error", "payload": {"message": str(roll_exc)}})
 
 
 async def handle_resolve_gilded(ctx):
-    db, payload, character, game_id, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.game_id, ctx.camp_code, ctx.camp_id
+    db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
     r_act = payload.get("action")
     chosen_type = payload.get("chosen_type")
     chosen_value = int(payload.get("chosen_value", 0))
@@ -172,11 +172,11 @@ async def handle_resolve_gilded(ctx):
         "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
     }, db)
     if drive_refreshed:
-        await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
 
 async def handle_use_post_roll_ability(ctx):
-    db, payload, character, game_id, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.game_id, ctx.camp_code, ctx.camp_id
+    db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
     ab_name = payload.get("ability")
     char_abilities = [character.role_ability, character.specialty_ability]
     if ab_name and ab_name in char_abilities:
@@ -184,7 +184,7 @@ async def handle_use_post_roll_ability(ctx):
             character.cunning_current = max(0, character.cunning_current - 2)
             db.commit()
             log_msg = f"{character.name} used Flourish — result pushed up one tier."
-            await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+            await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": log_msg, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
         elif ab_name == "Learn from My Mistakes":
             drive = payload.get("drive")
@@ -193,25 +193,25 @@ async def handle_use_post_roll_ability(ctx):
                 setattr(character, f"{drive}_current", min(max_val, getattr(character, f"{drive}_current") + 1))
                 db.commit()
                 log_msg = f"{character.name} used Learn from My Mistakes — refreshed 1 {drive.capitalize()}."
-                await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+                await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
                 await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": log_msg, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
         elif ab_name == "Bending Spoons":
             character.bleed_marks = min(3, character.bleed_marks + 1)
             db.commit()
             log_msg = f"{character.name} used Bending Spoons — took 1 Bleed mark to upgrade the result."
-            await manager.broadcast(game_id, {"type": "character_update", "payload": get_char_dict(character)})
+            await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": log_msg, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
 
 
 async def handle_burn_resistance(ctx):
-    db, payload, character, target_char_id, game_id, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.game_id, ctx.camp_code, ctx.camp_id
+    db, payload, character, target_char_id, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.channel, ctx.camp_code, ctx.camp_id
     act = payload.get("action")
     drive_key = payload.get("drive_key")
     if act and drive_key:
         result = burn_resistance(db, character, act, drive_key)
         if "error" not in result:
             outcome_label = OUTCOME_LABELS.get(result.get("outcome", ""), "")
-            await manager.broadcast(game_id, {
+            await manager.broadcast(channel, {
                 "type": "roll_result",
                 "payload": {"character_id": target_char_id, "action": act, "roll": result, "character": get_char_dict(character)}
             })

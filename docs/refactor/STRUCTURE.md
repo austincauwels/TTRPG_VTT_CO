@@ -33,7 +33,7 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 | `vtt/routers/investigators.py` | `/api/investigators`, `/api/investigators/{id}`, `/api/investigators/forge` | 1022 to 1088 |
 | `vtt/routers/notebook.py` | the five `/api/notebook` routes | 1094 to 1245 |
 | `vtt/routers/users.py` | `/api/users/{user_id}/characters`, `/api/users/{user_id}/campaigns` | 1251 to 1280 |
-| `vtt/ws/manager.py` | `ConnectionManager`, the `manager` singleton | 1285 to 1350 |
+| `vtt/ws/manager.py` | `ConnectionManager`, the `manager` singleton, `character_key` and `campaign_key` (the channel keys) | 1285 to 1350 |
 | `vtt/ws/endpoint.py` | `/ws/{game_id}`: connect, channel and campaign resolution, the receive loop, dispatch | 1456 to 1520, 2518 to 2525 |
 | `vtt/ws/context.py` | `WSContext`, the state passed to a handler | new |
 | `vtt/ws/access.py` | who may open which channel (`resolve_channel`, close codes 4401, 4403, 4404) and who may send which message (`check_target`, `check_message`) | new |

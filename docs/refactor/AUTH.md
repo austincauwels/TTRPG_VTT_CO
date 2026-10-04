@@ -65,7 +65,8 @@ The socket is accepted and then closed at once, before any message is read, with
 A refused connection never reaches the connection manager, so it does not kick the real user off with 1001.
 
 - A numeric `game_id` is a character channel, open only to the character's owner. Its campaign is the character's own; the old fallback to "the campaign whose code equals this number" is gone (it let a character socket join a campaign with an all-digit code).
-- Any other `game_id` is a campaign code, open only to `campaigns.gm_user_id`. When an all-digit code equals a character id, the owner gets the character channel and the GM gets the campaign channel (they still share the manager key, QUIRK D13).
+- Any other `game_id` is a campaign code, open only to `campaigns.gm_user_id`. When an all-digit code equals a character id, the owner gets the character channel and the GM gets the campaign channel. The connection manager keys a character channel by the id (`"123"`) and a campaign channel by `"campaign:"` plus the code, so the two never share a key and neither can close the other's socket or receive its frames (QUIRK D13, fixed).
+- A character channel is keyed by the character's id as the database has it, so `/ws/0123` and `/ws/123` are the same channel.
 - GM or player is decided here, from the token and `campaigns.gm_user_id`. `payload.role` is ignored everywhere.
 
 ### Messages
