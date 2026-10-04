@@ -172,7 +172,7 @@ export const playDiceTumble = () => {
 // The server's roll lines end in a dash, the counting result, a middle dot and the outcome
 // ("Edith Marlowe rolled sneak, dash, 4 · Full Success."), for a player's roll, the
 // Lightkeeper's roll and a resistance reroll alike.
-const LOGGED_RESULT = / — (\d+) · (Critical Success|Full Success|Mixed Success|Failure)\b/;
+const LOGGED_RESULT = / \u2014 (\d+) \u00b7 (Critical Success|Full Success|Mixed Success|Failure)\b/;
 
 export const soundForRollLine = (text) => {
   const match = typeof text === 'string' ? LOGGED_RESULT.exec(text) : null;
