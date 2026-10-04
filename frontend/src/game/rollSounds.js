@@ -13,9 +13,17 @@ import { useSyncExternalStore } from 'react';
 // choice, never for a secret roll, and never again on a reconnect, since the log is not
 // replayed. Sound is on by default and remembered per browser. Browsers block audio until
 // the page has had a click or a key press; until then a sound fails silently.
+//
+// Paper (owner's request, 2026-10-04; the file is free to use, his decision):
+//   public/sounds/paper.mp3         for the person whose own screen moves paper: a notebook
+//                                   page turning, the GM pamphlet flipping over. Played
+//                                   softer than the roll sounds, and a turn that follows
+//                                   another within a moment stays quiet, so fast turns do
+//                                   not pile up. It is under the same on/off switch.
 
 const STORAGE_KEY = 'candela-roll-sounds';
-const SOURCES = { full_success: 'sounds/full-success.mp3', failure: 'sounds/failure.mp3' };
+const SOURCES = { full_success: 'sounds/full-success.mp3', failure: 'sounds/failure.mp3', paper: 'sounds/paper.mp3' };
+const VOLUME = { paper: 0.45 };
 
 const readSetting = () => {
   try { return localStorage.getItem(STORAGE_KEY) !== 'off'; } catch { return true; }
@@ -45,6 +53,7 @@ const audioFor = (key) => {
   if (!players[key]) {
     players[key] = new Audio(`${import.meta.env.BASE_URL}${SOURCES[key]}`);
     players[key].preload = 'auto';
+    if (VOLUME[key] != null) players[key].volume = VOLUME[key];
   }
   return players[key];
 };
@@ -53,7 +62,7 @@ const audioFor = (key) => {
 // been started inside a tap or a key press. A roll's sound is started by a server
 // message, never by a tap, so on the first tap or key press anywhere on the page each
 // element is started muted and stopped at once. That unlocks it for the rest of the
-// visit; until then a sound fails silently. The listeners go once both are unlocked.
+// visit; until then a sound fails silently. The listeners go once all are unlocked.
 const unlocked = new Set();
 const UNLOCK_EVENTS = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
 let listening = false;
@@ -97,7 +106,7 @@ const listenForUnlock = () => {
   listening = true;
 };
 
-// Load both files when a desk opens, so the first sound is not late, and unlock them on
+// Load the files when a desk opens, so the first sound is not late, and unlock them on
 // the next tap or key press
 export const primeRollSounds = () => { Object.keys(SOURCES).forEach(audioFor); listenForUnlock(); };
 
@@ -130,4 +139,14 @@ export const soundForRollLine = (text) => {
 export const playRollSound = (text) => {
   const key = soundForRollLine(text);
   if (key) play(key);
+};
+
+// A page turn or a flip on this screen. Turns closer together than this share one sound.
+const PAPER_GAP_MS = 260;
+let lastPaperAt = 0;
+export const playPaperSound = () => {
+  const now = Date.now();
+  if (now - lastPaperAt < PAPER_GAP_MS) return;
+  lastPaperAt = now;
+  play('paper');
 };
