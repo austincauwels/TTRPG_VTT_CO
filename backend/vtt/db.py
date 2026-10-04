@@ -84,7 +84,8 @@ def init_db():
             circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
             db.add(circle)
 
-        admin_user = db.query(User).filter(User.username == "admin").first()
+        # A column query, so the seed also works on a users table that predates google_sub.
+        admin_user = db.query(User.id).filter(User.username == "admin").first()
         if not admin_user:
             new_admin = User(
                 id=1,
@@ -244,5 +245,20 @@ def init_db():
                 conn.commit()
         except Exception:
             pass
+
+    # Sign in with Google. The index has the name create_all gives it, so a database
+    # made either way ends up with the same one.
+    try:
+        with db_engine.connect() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN google_sub TEXT"))
+            conn.commit()
+    except Exception:
+        pass
+    try:
+        with db_engine.connect() as conn:
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_sub ON users (google_sub)"))
+            conn.commit()
+    except Exception as e:
+        logger.error("Could not create the unique index on users.google_sub: %s", e)
 
     retire_published_passwords()

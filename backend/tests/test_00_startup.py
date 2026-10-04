@@ -110,7 +110,9 @@ def test_migrated_columns_exist(client):
             "train_bonus", "resources_spent_assignment"} <= cols["characters"]
     assert "last_actor_id" in cols["relationships"]
     assert {"entry_type", "visibility", "image_data", "is_deleted"} <= cols["notebook_entries"]
-    assert "pending_rejoin_campaign_id" in cols["users"]
+    assert {"pending_rejoin_campaign_id", "google_sub"} <= cols["users"]
+    google_sub_index = [i for i in insp.get_indexes("users") if i["column_names"] == ["google_sub"]]
+    assert [(i["name"], bool(i["unique"])) for i in google_sub_index] == [("ix_users_google_sub", True)]
 
 
 def _run_import(env):
@@ -147,6 +149,27 @@ def test_placeholder_or_short_secret_key_refuses_to_start(client, key):
     assert proc.returncode != 0
     assert "RuntimeError" in proc.stderr
     assert "at least 32 characters" in proc.stderr
+
+
+def test_an_unclear_allow_password_login_refuses_to_start(client):
+    """A typo must not leave password login on when it was meant to be off."""
+    proc = _run_import(dict(os.environ, ALLOW_PASSWORD_LOGIN="flase"))
+    assert proc.returncode != 0
+    assert "RuntimeError" in proc.stderr
+    assert "ALLOW_PASSWORD_LOGIN must be true or false" in proc.stderr
+
+
+@pytest.mark.parametrize("value,expected", [
+    (None, True), ("", True), ("  ", True), ("true", True), ("TRUE", True), ("1", True), ("yes", True),
+    ("on", True), ("false", False), ("False", False), (" 0 ", False), ("no", False), ("off", False),
+])
+def test_env_flag(monkeypatch, value, expected):
+    from vtt import config
+    if value is None:
+        monkeypatch.delenv("CANDELA_TEST_FLAG", raising=False)
+    else:
+        monkeypatch.setenv("CANDELA_TEST_FLAG", value)
+    assert config._env_flag("CANDELA_TEST_FLAG", True) is expected
 
 
 def test_route_table_order(client):
@@ -245,6 +268,7 @@ MIGRATED_COLUMNS = {
     ("notebook_entries", "image_data"): ("text", None),
     ("notebook_entries", "is_deleted"): ("integer", "0"),
     ("users", "pending_rejoin_campaign_id"): ("integer", None),
+    ("users", "google_sub"): ("text", None),
 }
 
 
@@ -276,6 +300,8 @@ def test_init_db_alters_upgrade_a_legacy_schema(client, monkeypatch):
         assert got == MIGRATED_COLUMNS
         fks = sa_inspect(eng).get_foreign_keys("circles")
         assert [(fk["constrained_columns"], fk["referred_table"]) for fk in fks] == [(["campaign_id"], "campaigns")]
+        indexes = [(i["name"], i["column_names"], bool(i["unique"])) for i in sa_inspect(eng).get_indexes("users")]
+        assert indexes == [("ix_users_google_sub", ["google_sub"], True)]
         with eng.connect() as conn:
             assert conn.execute(text("SELECT count(*) FROM circles")).scalar() == 0
             assert conn.execute(text("SELECT count(*) FROM users")).scalar() == 0

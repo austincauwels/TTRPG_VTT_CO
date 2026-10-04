@@ -53,6 +53,34 @@ if _secret.strip() == SECRET_KEY_PLACEHOLDER or len(_secret) < SECRET_KEY_MIN_LE
 SECRET_KEY = _secret
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # login tokens last 30 days
+LINK_TOKEN_EXPIRE_MINUTES = 10  # Google link tokens (see vtt/security.py)
+
+
+def _env_flag(name, default):
+    """A true or false setting. Unset or empty means the default. Any value that is
+    not clearly true or false stops the server, so a typo cannot leave a switch on."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    value = raw.strip().lower()
+    if value in ("1", "true", "yes", "on"):
+        return True
+    if value in ("0", "false", "no", "off"):
+        return False
+    raise RuntimeError(f"{name} must be true or false, not {raw!r}")
+
+
+# Sign in with Google: the public client ID of the Google OAuth web client. A Google
+# ID token must name it as its audience. No client secret is used. Empty turns Google
+# sign-in off (vtt/google.py, docs/refactor/AUTH.md).
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+
+# Username and password login and registration. Once every player signs in with
+# Google this can be turned off, and /api/auth/login and /api/auth/register answer 403.
+ALLOW_PASSWORD_LOGIN = _env_flag("ALLOW_PASSWORD_LOGIN", True)
+
+if not ALLOW_PASSWORD_LOGIN and not GOOGLE_CLIENT_ID:
+    logger.warning("ALLOW_PASSWORD_LOGIN is off and GOOGLE_CLIENT_ID is not set, so nobody can log in")
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./candela_obscura.db")
 
