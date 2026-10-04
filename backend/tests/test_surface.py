@@ -228,9 +228,33 @@ def test_ws_message_type_is_handled(client, dice, msg_type):
         assert support.server_sockets(ws.key)  # the handler did not end the connection
 
 
+# Types the endpoint ignores unless it resolved a character for the message.
+WS_NEEDS_CHARACTER = {
+    "gm_update_tension", "update_drive", "resolve_gilded", "use_post_roll_ability",
+    "update_pen_font", "take_mark", "resolve_ability_mark", "intercept_mark", "apply_scar",
+    "revive_character", "burn_resistance", "update_gear", "spend_resource", "apply_advancement",
+}
+
+
+def test_ws_handler_table():
+    from vtt.ws.handlers import HANDLERS
+    assert list(HANDLERS) == WS_MESSAGE_TYPES
+    assert {t for t, (_, needs_character) in HANDLERS.items() if needs_character} == WS_NEEDS_CHARACTER
+
+
 def test_unknown_message_type_is_ignored(client):
     ch = support.forge(client)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("no_such_type", character_id=ch["id"])
+        assert ws.sync() == []
+        assert support.server_sockets(ch["id"])
+
+
+@pytest.mark.parametrize("bad_type", [["roll"], {"roll": 1}, 5, None, True])
+def test_non_string_message_type_is_ignored(client, bad_type):
+    """A type that is not a string never matched a handler; the socket stays open."""
+    ch = support.forge(client)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send_text(json.dumps({"type": bad_type, "payload": {}}))
         assert ws.sync() == []
         assert support.server_sockets(ch["id"])
