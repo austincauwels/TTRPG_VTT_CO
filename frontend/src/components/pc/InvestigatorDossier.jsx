@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { SheetDivider } from '../shared/Decorations';
@@ -723,8 +724,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         </div>
       </div>
 
-      {/* Gear Change Modal */}
-      {showGearModal && (
+      {/* Gear Change Modal: in a portal, so the sheet's stacking context (z-10), its
+          space-y margin and its overflow cannot place or clip it */}
+      {showGearModal && createPortal(
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" style={{ background: 'rgba(10,6,4,0.82)' }}
           onClick={() => setShowGearModal(false)}>
           <div className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
@@ -771,22 +773,23 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid rgba(62,42,26,0.18)' }}>
-              <span className="text-sm font-sans font-black text-[#5a3a28]/60">{pendingGear.length} / 3 selected</span>
-              <div className="flex gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4" style={{ borderTop: '1px solid rgba(62,42,26,0.18)' }}>
+              <span className="text-sm font-sans font-black text-[#5a3a28]/60 whitespace-nowrap">{pendingGear.length} / 3 selected</span>
+              <div className="flex gap-3 max-sm:flex-1 max-sm:justify-end">
                 <button onClick={() => setShowGearModal(false)}
-                  className="px-4 py-2 text-xs font-sans font-black uppercase tracking-widest border border-[#5a3a28]/25 hover:border-[#5a3a28]/50 text-[#5a3a28]/60 transition-colors rounded-sm">
+                  className="px-4 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-[#5a3a28]/25 hover:border-[#5a3a28]/50 text-[#5a3a28]/60 transition-colors rounded-sm">
                   Cancel
                 </button>
                 <button onClick={sendGearUpdate}
-                  className="px-6 py-2 text-xs font-sans font-black uppercase tracking-widest rounded-sm shadow transition-all"
+                  className="px-6 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest rounded-sm shadow transition-all"
                   style={{ background: '#721c15', color: '#fdfaf4' }}>
                   Confirm →
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

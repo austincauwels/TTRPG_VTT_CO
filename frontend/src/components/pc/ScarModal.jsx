@@ -89,7 +89,7 @@ const ScarModal = () => {
           CLINIC
         </div>
 
-        <button onClick={closeScarModal} className="absolute top-4 right-4 text-stone-400 hover:text-red-900 font-bold z-20">✕</button>
+        <button onClick={closeScarModal} className="absolute top-1 right-1 w-11 h-11 sm:top-4 sm:right-4 sm:w-auto sm:h-auto flex items-center justify-center text-stone-400 hover:text-red-900 font-bold z-20">✕</button>
 
         <div className="relative z-10 border-b-2 border-stone-800 pb-4 mb-5 text-center">
           <div className="font-mono text-[8px] uppercase tracking-[0.25em] text-stone-500 mb-1">
@@ -98,7 +98,7 @@ const ScarModal = () => {
           <h2 className="text-xl font-black uppercase tracking-wider text-stone-900 flex items-center justify-center gap-2">
             Trauma Intake & Mutation Record
           </h2>
-          <div className="absolute top-0 right-0 font-mono text-[9px] bg-red-900 text-[#fbf6eb] px-1.5 py-0.5 rounded-sm uppercase tracking-tight animate-pulse font-bold">
+          <div className="inline-block mt-2 sm:mt-0 sm:absolute sm:top-0 sm:right-0 font-mono text-[9px] bg-red-900 text-[#fbf6eb] px-1.5 py-0.5 rounded-sm uppercase tracking-tight animate-pulse font-bold">
             CRITICAL OVERFLOW
           </div>
         </div>
