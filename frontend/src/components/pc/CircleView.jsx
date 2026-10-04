@@ -518,7 +518,7 @@ export const CircleView = () => {
           <div>{/* spacer */}</div>
 
           {/* III. End-of-Assignment Illumination Questions */}
-          <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 p-5 shadow-md rounded-sm relative">
+          <div className="hand-placed bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 p-5 shadow-md rounded-sm relative" style={{ '--tilt': '-0.5deg' }}>
             <h3 className="font-sans text-base font-black uppercase tracking-widest text-oxblood mb-1 flex items-center gap-1.5 border-b border-ink/10 pb-1">
               <SafeIcon name="GiQuillInk" size={12} />
               Illumination Questions & Keys
@@ -727,7 +727,7 @@ export const CircleView = () => {
 
         {/* Player account */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-cream border border-parchment-deep p-4 rounded-sm shadow-sm relative">
+          <div className="hand-placed bg-cream border border-parchment-deep p-4 rounded-sm shadow-sm relative" style={{ '--tilt': '0.6deg' }}>
             <div className="flex items-center gap-2 mb-2 border-b border-ink/10 pb-1.5">
               <SafeIcon name="GiQuillInk" size={12} className="text-oxblood" />
               <span className="font-sans text-xs font-black uppercase tracking-wide text-ink/70">

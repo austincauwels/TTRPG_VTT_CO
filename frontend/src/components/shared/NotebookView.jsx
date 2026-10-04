@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import useGameStore from '../../store/gameStore';
 import { ConfirmAction } from './ConfirmAction';
 import { CameraIcon, PencilIcon } from './NotebookIcons';
+import { tiltFor } from './handPlaced';
 
 const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
@@ -146,16 +147,33 @@ function EntryCard({ entry, isLast }) {
   );
 }
 
-// Ephemeral note — ripped paper aesthetic
+// A push pin seen from above, its round head in oxblood with the lamp's glint on it
+const NotePin = () => (
+  <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="24" height="24"
+    className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+    <path d="M12.8 13.4l2.6 6.2" stroke="rgb(var(--c-sepia))" strokeWidth="1.4" strokeLinecap="round" />
+    <circle cx="12" cy="11" r="7" style={{ fill: 'rgb(var(--c-oxblood))' }} />
+    <circle cx="12" cy="11" r="7" fill="none" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
+    <circle cx="12.6" cy="11.7" r="4.2" fill="rgba(0,0,0,0.18)" />
+    <path d="M8.4 9.2c.7-1.6 2-2.6 3.6-2.9" stroke="rgba(255,236,224,0.6)" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+  </svg>
+);
+
+// A private note pinned to the page: torn along the top, a little crooked (fixed per
+// note), with a pin through it. The shadow is a drop-shadow on the wrapper, so it follows
+// the torn edge (a clip-path would cut off a box-shadow) and the pin casts one too.
 function EphemeralNote({ entry, onDelete }) {
   return (
+    <div
+      className="pinned-note hand-placed relative pt-2"
+      style={{ '--tilt': `${tiltFor(entry.id, { min: 0.6, max: 2 })}deg`, filter: 'drop-shadow(3px 6px 6px rgba(0,0,0,0.3))' }}
+    >
+    <NotePin />
     <div
       className="relative"
       style={{
         background: 'rgb(var(--c-cream))',
-        transform: `rotate(${(entry.id % 3 - 1) * 1.2}deg)`,
-        boxShadow: '3px 5px 18px rgba(0,0,0,0.28)',
-        padding: '20px 16px 28px',
+        padding: '22px 16px 28px',
         minHeight: 140,
         // torn top edge via clip-path
         clipPath: 'polygon(0% 4%, 8% 0%, 18% 3%, 28% 1%, 40% 4%, 52% 0%, 62% 3%, 74% 0%, 84% 3%, 93% 1%, 100% 3%, 100% 100%, 0% 100%)',
@@ -183,6 +201,7 @@ function EphemeralNote({ entry, onDelete }) {
         )}
       />
       <div className="absolute bottom-2 right-3 font-mono text-xs text-sepia">{formatDate(entry.created_at)}</div>
+    </div>
     </div>
   );
 }
@@ -411,6 +430,21 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
   const goToPrev = () => setCurrentSpread(s => Math.max(0, s - 1));
   const goToNext = () => setCurrentSpread(s => Math.min(totalSpreads, s + 1));
 
+  // A page turns whenever the spread changes (Previous, Next, or a contents line): a blank
+  // leaf lifts from the spine and turns over the new pages, which are already there under
+  // it. Decorative and short; none under reduced motion (index.css).
+  const [leaf, setLeaf] = useState(null); // { key, dir }
+  const shownSpread = useRef(currentSpread);
+  useEffect(() => {
+    if (shownSpread.current === currentSpread) return;
+    const dir = currentSpread > shownSpread.current ? 'forward' : 'back';
+    shownSpread.current = currentSpread;
+    setLeaf({ key: `${currentSpread}-${Date.now()}`, dir });
+    // Clear it even if the animation never ends here (another tab opened mid-turn)
+    const done = setTimeout(() => setLeaf(null), 800);
+    return () => clearTimeout(done);
+  }, [currentSpread]);
+
   const { left: leftEntries, right: rightEntries } = currentSpread > 0
     ? getSpreadEntries(currentSpread)
     : { left: [], right: [] };
@@ -491,18 +525,17 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
           </div>
 
           {/* New ephemeral note */}
-          <div className="mb-8 relative" style={{
+          <div className="mb-8 hand-placed" style={{ '--tilt': '-0.5deg', filter: 'drop-shadow(3px 5px 8px rgba(0,0,0,0.22))' }}>
+          <div className="relative" style={{
             background: 'rgb(var(--c-cream))',
             clipPath: 'polygon(0% 4%, 8% 0%, 20% 3%, 35% 0%, 50% 4%, 65% 0%, 80% 3%, 92% 0%, 100% 3%, 100% 100%, 0% 100%)',
             padding: '24px 20px 20px',
-            boxShadow: '3px 5px 18px rgba(0,0,0,0.2)',
-            transform: 'rotate(-0.5deg)',
           }}>
             <textarea
               value={ephemeralText}
               onChange={e => setEphemeralText(e.target.value)}
               placeholder="Write a private note…"
-              className="w-full bg-transparent border-none resize-none font-serif text-[24px] leading-[1.7] text-ink/80 min-h-[80px]"
+              className="w-full bg-transparent border-none resize-none font-serif text-[24px] leading-[1.7] text-ink/80 placeholder-sepia/90 min-h-[80px]"
               style={{ fontFamily: authorFont, color: authorColor }}
               onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleAddEphemeral(); } }}
             />
@@ -511,17 +544,18 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
               <button
                 onClick={handleAddEphemeral}
                 disabled={!ephemeralText.trim() || isAddingEphemeral}
-                className="min-h-[40px] font-sans font-black text-sm uppercase tracking-widest px-3 py-1 border border-ink/30 hover:bg-black/5 disabled:opacity-50 transition-all"
+                className="min-h-[40px] font-sans font-black text-sm uppercase tracking-widest text-ink px-3 py-1 border border-ink/30 hover:bg-black/5 disabled:opacity-50 transition-all"
               >
                 {isAddingEphemeral ? 'Saving…' : 'Pin Note →'}
               </button>
             </div>
             {ephemeralError && <p role="alert" className="mt-2 font-serif text-base text-oxblood">{ephemeralError}</p>}
           </div>
+          </div>
           {deleteError && <p role="alert" className="-mt-4 mb-6 font-serif text-base text-oxblood">{deleteError}</p>}
 
           {/* Existing ephemeral notes */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-8">
             {ephemeralEntries.map(entry => (
               <EphemeralNote
                 key={entry.id}
@@ -586,6 +620,9 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
           >
             <div className="absolute inset-0 opacity-20 pointer-events-none"
               style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cream-paper.png')" }} />
+            {leaf && (
+              <div key={leaf.key} aria-hidden="true" className={`page-leaf ${leaf.dir}`} onAnimationEnd={() => setLeaf(null)} />
+            )}
 
             {/* LEFT PAGE */}
             {currentSpread === 0 ? (

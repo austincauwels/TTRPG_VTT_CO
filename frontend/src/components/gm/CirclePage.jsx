@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
+import { tiltStyle } from '../shared/handPlaced';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey, pressable } from '../shared/a11y';
@@ -367,7 +368,7 @@ export const CirclePage = () => {
 
         {/* Left: Assignment Dispatch Reference */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 p-5 shadow-md rounded-sm relative">
+          <div className="hand-placed bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 p-5 shadow-md rounded-sm relative" style={{ '--tilt': '-0.6deg' }}>
             <h3 className="font-sans text-base font-black uppercase tracking-widest text-oxblood mb-1 flex items-center gap-1.5 border-b border-ink/10 pb-1">
               <SafeIcon name="GiQuillInk" size={12} />
               Illumination Questions
@@ -503,7 +504,7 @@ export const CirclePage = () => {
           </h3>
           <div className="flex flex-wrap gap-4">
             {investigators.map((inv, idx) => (
-              <div key={inv.id || idx} className="w-[360px] max-w-full">
+              <div key={inv.id || idx} className="hand-placed w-[360px] max-w-full" style={tiltStyle(`report-${inv.id ?? idx}`, { max: 1.4, sign: idx % 2 ? 1 : -1 })}>
                 <ReportFlipCard
                   inv={inv}
                   report={reports[inv.id] || reports[String(inv.id)] || null}
@@ -541,7 +542,8 @@ export const CirclePage = () => {
             {playersWithAnswers.map((inv, idx) => (
               <div
                 key={inv.id || idx}
-                className="bg-cream border border-parchment-deep p-4 shadow-sm rounded-sm"
+                className="hand-placed bg-cream border border-parchment-deep p-4 shadow-sm rounded-sm"
+                style={tiltStyle(`history-${inv.id ?? idx}`, { max: 1, sign: idx % 2 ? -1 : 1 })}
               >
                 <div className="flex items-center gap-2 mb-2 border-b border-ink/10 pb-1.5">
                   {inv.ink_color && (

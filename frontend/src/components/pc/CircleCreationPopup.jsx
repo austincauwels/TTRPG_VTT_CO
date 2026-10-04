@@ -185,7 +185,7 @@ export const CircleCreationPopup = () => {
         className="w-full max-w-3xl max-h-[90dvh] overflow-y-auto bg-parchment border-4 border-double border-ink shadow-[0_25px_60px_rgba(0,0,0,0.85)] relative"
       >
         <div className="absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
-        <div className="absolute -top-1 left-8 right-8 h-6 bg-parchment-deep/80 border border-sepia/30 shadow-sm z-20 pointer-events-none" />
+        <div className="absolute -top-1 left-8 right-8 h-6 bg-parchment-deep/80 border border-sepia/30 shadow-sm z-20 pointer-events-none rotate-[-0.6deg]" />
 
         <div className="relative z-10 p-7 pt-9">
           {/* Header */}
@@ -344,12 +344,12 @@ export const CircleCreationPopup = () => {
               Decide where your circle's chapter house is located, and what that looks like.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-              <div className="bg-parchment/80 border border-sepia/30 p-4 rounded-sm">
+              <div className="hand-placed bg-parchment/80 border border-sepia/30 p-4 rounded-sm" style={{ '--tilt': '-0.8deg' }}>
                 <p className="font-serif text-base text-sepia leading-snug italic">
                   "The Circle of Skull &amp; Sovereign maintains a small townhouse on the Eaves. Three out of the four members are highly educated and exceedingly wealthy."
                 </p>
               </div>
-              <div className="bg-parchment/80 border border-sepia/30 p-4 rounded-sm">
+              <div className="hand-placed bg-parchment/80 border border-sepia/30 p-4 rounded-sm" style={{ '--tilt': '0.6deg' }}>
                 <p className="font-serif text-base text-sepia leading-snug italic">
                   "The Circle of Loyal Malefactors has a hideaway in the Bridleborne Mountains. All five members are also redrunners."
                 </p>

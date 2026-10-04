@@ -133,11 +133,12 @@ export const MainDeskView = () => {
                   key={tabName}
                   onClick={() => setActiveTab(tabName)}
                   aria-current={activeTab === tabName ? 'page' : undefined}
-                  className={`px-1 md:px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 leading-tight tracking-normal md:tracking-wider rounded transition-all duration-150 ${
+                  className={`pen-host px-1 md:px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 leading-tight tracking-normal md:tracking-wider rounded transition-all duration-150 ${
                     activeTab === tabName ? 'bg-ink text-parchment shadow-md border border-ink' : 'bg-transparent text-sepia hover:bg-black/5 hover:text-ink'
                   }`}
                 >
-                  {labels[tabName]}
+                  {/* The pen underline draws under a tab that is not open yet */}
+                  <span className={activeTab === tabName ? undefined : 'pen-underline'}>{labels[tabName]}</span>
                 </button>
               );
             })}

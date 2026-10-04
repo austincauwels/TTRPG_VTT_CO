@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { OUTCOME, outcomeForKept, rollPoolText } from '../../../game/outcomes';
 import { onActivateKey } from '../../shared/a11y';
+import { tiltFor } from '../../shared/handPlaced';
 
 // Each outcome is a stamp on the result slip: its word, plus its own ink. Critical success
 // is the one gold stamp (gold fill, ink letters), since gold text cannot be read on paper.
@@ -26,8 +27,14 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie })
       {gildedPending ? (
         <p className="font-serif text-base text-sepia mt-1">Choose your die: keep the gilded die or your highest regular die.</p>
       ) : outcome ? (
-        <p className="mt-1.5">
-          <span className={`inline-block font-display text-2xl uppercase tracking-[0.06em] leading-none px-2 pt-1.5 pb-1 border-2 rounded-sm ${OUTCOME_STAMP[outcomeKey]}`}>
+        <p className="mt-2 mb-0.5">
+          {/* Rubber-stamped onto the slip: a little crooked (fixed per roll), the ink worn,
+              pressed down once when this result lands */}
+          <span
+            key={`${lastRoll.id ?? ''}-${outcomeKey}`}
+            className={`ink-stamp ink-stamp-press font-display text-2xl uppercase tracking-[0.06em] leading-none px-2 pt-1.5 pb-1 border-2 rounded-sm ${OUTCOME_STAMP[outcomeKey]}`}
+            style={{ '--tilt': `${tiltFor(`${lastRoll.id ?? ''}-${outcomeKey}`, { min: 1, max: 2 })}deg` }}
+          >
             {outcome.word}
           </span>
         </p>

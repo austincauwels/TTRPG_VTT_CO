@@ -7,7 +7,7 @@ import { useAutoLastPlayed } from './campaignSelector/useAutoLastPlayed';
 import { RejoinInviteBanner } from './campaignSelector/RejoinInviteBanner';
 import { DeskStyles } from './campaignSelector/DeskStyles';
 import { DeskBackdrop } from './campaignSelector/DeskBackdrop';
-import { CandleCluster } from './campaignSelector/CandleCluster';
+import { CandleCluster, CandleLight } from './campaignSelector/CandleCluster';
 import { CryptidSketches } from './campaignSelector/CryptidSketches';
 import { HubHeader } from './campaignSelector/HubHeader';
 import { ActiveRegisterTome } from './campaignSelector/ActiveRegisterTome';
@@ -50,6 +50,10 @@ export const CampaignSelector = () => {
   }, [accessSession?.userId]);
 
   useAutoLastPlayed({ lastPlayedCampaign, characters, gmCampaigns, setLastPlayed });
+
+  // One candle burns for the chapter, and one more for each investigator in play or campaign
+  // you run, up to three.
+  const litCandles = 1 + Math.min(2, characters.filter(c => c.status === 'active').length + gmCampaigns.length);
 
   const handleLogout = () => {
     logout();
@@ -94,13 +98,13 @@ export const CampaignSelector = () => {
 
       <DeskStyles />
       <DeskBackdrop />
-      <CandleCluster />
+      <CandleCluster lit={litCandles} />
       <CryptidSketches />
       <HubHeader onLogout={handleLogout} />
 
       {/* 6. PHYSICAL DESK LAYOUT: a free composition from lg up; below it the desk stacks in
           one column (tomes side by side, pamphlets in a row, the Herald folded at the foot) */}
-      <main className="flex-1 w-full max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center lg:justify-center gap-10 lg:gap-12 px-4 pt-6 pb-12 sm:px-8 sm:pt-10 lg:p-12 z-30 perspective-[1500px]">
+      <main className="flex-1 w-full max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center lg:justify-center gap-10 lg:gap-12 px-4 pt-[5.5rem] pb-12 sm:px-8 sm:pt-28 lg:p-12 z-30 perspective-[1500px]">
         
         {/* LEFT AREA: MASSIVE LEATHER TOMES */}
         <div className="grid grid-cols-2 items-start gap-6 sm:gap-10 w-full max-w-[680px] pr-3 sm:pr-4 lg:pr-0 lg:max-w-none lg:flex lg:gap-6 lg:items-center lg:justify-center lg:w-[50%] lg:ml-4 z-30">
@@ -132,6 +136,9 @@ export const CampaignSelector = () => {
         </div>
 
       </main>
+
+      {/* The candles' light on the desk and the objects near them */}
+      <CandleLight lit={litCandles} />
 
       {/* FOREGROUND ATMOSPHERICS */}
       <ForegroundAtmosphere />

@@ -65,6 +65,18 @@
     transform: translateY(1px);
     box-shadow: none;
   }
+
+  /* --- HAND-PLACED OBJECTS ---
+     Cards, notes and slips lie slightly crooked, as if someone put them down (owner's
+     choice, 2026-10-04). --tilt comes from tiltFor() in components/shared/handPlaced.js:
+     0.5 to 2 degrees, fixed per object. Phones get a little less. A component layer rule,
+     so a hover:rotate-0 utility can still straighten an object that is picked up. */
+  .hand-placed {
+    transform: rotate(calc(var(--tilt, 0deg) * var(--tilt-scale, 1)));
+  }
+  @media (max-width: 639px) {
+    .hand-placed { --tilt-scale: 0.7; }
+  }
 }
 
 /* ================================================================= */
@@ -195,6 +207,123 @@
   animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
+/* ================================================================= */
+/* PHYSICAL TOUCHES (drawn in CSS and SVG, no source art)            */
+/* ================================================================= */
+
+/* A fountain-pen underline: an uneven oxblood stroke that draws itself left to right
+   under a tab's label on hover or keyboard focus, and stays inked on the active one.
+   Put .pen-underline on the label and .pen-host on the control. */
+.pen-underline {
+  position: relative;
+}
+.pen-underline::after {
+  content: '';
+  position: absolute;
+  left: -4%;
+  right: -4%;
+  bottom: -0.38em;
+  height: 0.34em;
+  background-color: rgb(var(--c-oxblood));
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M1 5.4C30 3.2 58 6.4 96 4.6S158 2.4 199 3.4L198.6 5C160 4.6 132 7.4 96 6.6S34 5.6 1.6 7.2Z'/%3E%3C/svg%3E") no-repeat 0 0 / 100% 100%;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M1 5.4C30 3.2 58 6.4 96 4.6S158 2.4 199 3.4L198.6 5C160 4.6 132 7.4 96 6.6S34 5.6 1.6 7.2Z'/%3E%3C/svg%3E") no-repeat 0 0 / 100% 100%;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .pen-host:hover .pen-underline::after { clip-path: inset(0 0 0 0); }
+}
+.pen-host:focus-visible .pen-underline::after,
+.pen-underline.is-inked::after {
+  clip-path: inset(0 0 0 0);
+}
+
+/* A deckled bottom edge: paper torn by hand, not cut. Masking clips box-shadow, so the
+   paper's shadow goes on a wrapper as a drop-shadow, which follows the torn edge. */
+.deckle-bottom {
+  -webkit-mask:
+    linear-gradient(#000 0 0) top / 100% calc(100% - 5px) no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 6' preserveAspectRatio='none'%3E%3Cpath d='M0 0H90V3.4L86 4.4 81.5 2.9 77 4.6 72 3.1 67.5 4.3 62 2.7 57 4.8 52.5 3.3 48 4.1 43 2.6 38.5 4.4 34 3 29 4.7 24.5 3.2 19 4.3 14.5 2.8 10 4.5 5 3.1 0 3.4Z'/%3E%3C/svg%3E") bottom / 90px 6px repeat-x;
+          mask:
+    linear-gradient(#000 0 0) top / 100% calc(100% - 5px) no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 6' preserveAspectRatio='none'%3E%3Cpath d='M0 0H90V3.4L86 4.4 81.5 2.9 77 4.6 72 3.1 67.5 4.3 62 2.7 57 4.8 52.5 3.3 48 4.1 43 2.6 38.5 4.4 34 3 29 4.7 24.5 3.2 19 4.3 14.5 2.8 10 4.5 5 3.1 0 3.4Z'/%3E%3C/svg%3E") bottom / 90px 6px repeat-x;
+}
+
+/* A rubber stamp on the roll result: set a little crooked (--tilt), the ink worn by a
+   few pinholes, and pressed down once when a new result lands. */
+.ink-stamp {
+  display: inline-block;
+  transform: rotate(var(--tilt, -2deg));
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'%3E%3Cpath fill-rule='evenodd' d='M0 0H46V46H0ZM14.1 7.6a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M2.8 37.1a0.35 0.35 0 1 0 0.7 0a0.35 0.35 0 1 0 -0.7 0M16.2 3.6a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M9.7 4.8a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M3.2 25.9a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M28.4 26.7a0.35 0.35 0 1 0 0.7 0a0.35 0.35 0 1 0 -0.7 0M25.9 18.5a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M18.5 24.8a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M14.1 36.9a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M25.1 28.2a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M30.4 19.8a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M20.9 41.6a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M13.1 36a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M34.8 4.6a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M23 39.5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M5.6 19.4a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M42.4 4.4a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M15.3 16.4a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M38.2 31.6a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M40.1 12.2a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0'/%3E%3C/svg%3E") 0 0 / 46px 46px repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'%3E%3Cpath fill-rule='evenodd' d='M0 0H46V46H0ZM14.1 7.6a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M2.8 37.1a0.35 0.35 0 1 0 0.7 0a0.35 0.35 0 1 0 -0.7 0M16.2 3.6a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M9.7 4.8a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M3.2 25.9a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M28.4 26.7a0.35 0.35 0 1 0 0.7 0a0.35 0.35 0 1 0 -0.7 0M25.9 18.5a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M18.5 24.8a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M14.1 36.9a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M25.1 28.2a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M30.4 19.8a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M20.9 41.6a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M13.1 36a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M34.8 4.6a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M23 39.5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M5.6 19.4a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M42.4 4.4a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M15.3 16.4a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M38.2 31.6a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M40.1 12.2a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0'/%3E%3C/svg%3E") 0 0 / 46px 46px repeat;
+}
+.ink-stamp-press {
+  animation: inkStamp 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+@keyframes inkStamp {
+  0%   { opacity: 0; transform: rotate(var(--tilt, -2deg)) scale(1.7); }
+  60%  { opacity: 1; transform: rotate(var(--tilt, -2deg)) scale(0.95); }
+  100% { opacity: 1; transform: rotate(var(--tilt, -2deg)) scale(1); }
+}
+
+/* A wax seal pressed onto paper (WaxSeal.jsx): it comes down a little turned, squashes,
+   and settles. */
+.seal-press {
+  animation: sealPress 0.45s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+  transform-origin: center;
+}
+@keyframes sealPress {
+  0%   { opacity: 0; transform: scale(1.55) rotate(-16deg); }
+  55%  { opacity: 1; transform: scale(0.9) rotate(3deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* A dispatch typing in: the typewriter's carriage mark at the end of the line */
+.type-caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 2px;
+  margin-left: 1px;
+  vertical-align: baseline;
+  background-color: rgb(var(--c-oxblood));
+}
+
+/* The notebook's page turn: a blank leaf lifts from the spine and turns over, across the
+   spread (forward) or back. Decorative; the new page is already there under it. */
+.page-leaf {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  z-index: 30;
+  pointer-events: none;
+  background-color: rgb(var(--c-cream));
+  background-image:
+    linear-gradient(to right, rgb(var(--c-ink) / 0.14), transparent 18%, transparent 82%, rgb(var(--c-ink) / 0.08)),
+    repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-ink) / 0.07) 27px, rgb(var(--c-ink) / 0.07) 28px);
+  box-shadow: 0 0 24px rgb(0 0 0 / 0.25);
+  animation-duration: 0.55s;
+  animation-timing-function: cubic-bezier(0.45, 0.05, 0.3, 1);
+  animation-fill-mode: forwards;
+}
+.page-leaf.forward { left: 50%; transform-origin: left center; animation-name: leafForward; }
+.page-leaf.back { left: 0; transform-origin: right center; animation-name: leafBack; }
+@media (max-width: 1023.98px) {
+  .page-leaf { width: 100%; }
+  .page-leaf.forward, .page-leaf.back { left: 0; }
+}
+@keyframes leafForward {
+  0%   { transform: perspective(2400px) rotateY(0deg); opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: perspective(2400px) rotateY(-180deg); opacity: 0; }
+}
+@keyframes leafBack {
+  0%   { transform: perspective(2400px) rotateY(0deg); opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: perspective(2400px) rotateY(180deg); opacity: 0; }
+}
+
 /* Keyboard focus ring. Outside the layers and marked important so no utility (such as a
    leftover focus:outline-none) can hide it. */
 :focus-visible {
@@ -229,4 +358,10 @@
   .animate-dieTumble {
     transform: rotate(var(--random-skew, 0deg));
   }
+  /* The physical touches hold still: no page leaf, stamps and seals simply appear in
+     place, a pen underline appears without drawing, a dispatch shows whole (useTypedText). */
+  .page-leaf { display: none !important; }
+  .ink-stamp-press,
+  .seal-press { animation: none !important; }
+  .pen-underline::after { transition: none !important; }
 }

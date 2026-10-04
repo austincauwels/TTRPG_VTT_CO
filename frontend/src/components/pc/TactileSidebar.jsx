@@ -3,6 +3,8 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { TensionClock } from '../gm/SceneManager';
 import { SafeIcon } from '../shared/SafeIcon';
+import { tiltFor } from '../shared/handPlaced';
+import { useTypedText } from '../shared/useTypedText';
 
 function RelationshipCard({ inv, myId, relationships, index }) {
   const [flipped, setFlipped] = useState(false);
@@ -14,8 +16,9 @@ function RelationshipCard({ inv, myId, relationships, index }) {
 
   return (
     <div
-      className="relative cursor-pointer"
+      className="hand-placed relative cursor-pointer"
       style={{
+        '--tilt': `${tiltFor(inv.id, { sign: index % 2 ? 1 : -1 })}deg`,
         perspective: '800px',
         height: flipped ? '220px' : '110px',
         transition: 'height 0.4s ease 0.15s',
@@ -116,6 +119,9 @@ export const TactileSidebar = () => {
     fetchRoster: s.fetchRoster,
   })));
   const relationships = circleCreation?.relationships || [];
+  const location = circle?.location || '';
+  const atmosphere = circle?.atmosphere || '';
+  const typed = useTypedText([location, atmosphere]);
 
   useEffect(() => {
     if (character?.campaign_id) fetchRoster(character.campaign_id);
@@ -124,21 +130,29 @@ export const TactileSidebar = () => {
   return (
     <div className="lg:col-span-3 space-y-6 mt-2 relative order-3 lg:order-none">
 
-      {/* Weathered Library Index Checkout Card */}
-      <div className="bg-cream text-ink border border-parchment-deep p-6 shadow-[5px_8px_20px_rgba(0,0,0,0.65)] relative"
-           style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.14) 24px)', backgroundSize: '100% 24px', lineHeight: '24px' }}>
-        <div className="absolute top-0 bottom-0 left-6 w-[1.5px] bg-oxblood/20 pointer-events-none" />
-        <div className="pl-6 pt-1 relative z-10">
-          <span className="block font-sans text-xs uppercase tracking-widest text-sepia font-black leading-none mb-2">From the GM</span>
-          <div className="space-y-2 font-bold font-serif">
-            <p className="text-base font-black border-b border-ink/10 pb-1 leading-tight">
-              <span className="font-sans text-xs uppercase font-black text-sepia mr-1">Location:</span>
-              {circle?.location || "No dispatch yet"}
-            </p>
-            <p className="text-sm leading-tight">
-              <span className="font-sans text-xs uppercase font-black text-sepia mr-1">Conditions:</span>
-              {circle?.atmosphere || "Not described yet."}
-            </p>
+      {/* The GM's dispatch, a library index card pinned to the desk a little crooked, its
+          bottom edge torn. A new dispatch types in while the desk is open. */}
+      <div className="hand-placed lg:hover:rotate-0 transition-transform duration-200 relative"
+           style={{ '--tilt': '-1.2deg', filter: 'drop-shadow(5px 8px 9px rgba(0,0,0,0.6))' }}>
+        <div className="deckle-bottom bg-cream text-ink border border-parchment-deep p-6 pb-7 relative"
+             style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.14) 24px)', backgroundSize: '100% 24px', lineHeight: '24px' }}>
+          <div className="absolute top-0 bottom-0 left-6 w-[1.5px] bg-oxblood/20 pointer-events-none" />
+          <div className="pl-6 pt-1 relative z-10">
+            <span className="block font-sans text-xs uppercase tracking-widest text-sepia font-black leading-none mb-2">From the GM</span>
+            <div className="space-y-2 font-bold font-serif">
+              <p className="text-base font-black border-b border-ink/10 pb-1 leading-tight">
+                <span className="font-sans text-xs uppercase font-black text-sepia mr-1">Location:</span>
+                {location
+                  ? <><span className="sr-only">{location}</span><span aria-hidden="true">{typed.parts[0]}{typed.typing && typed.parts[0].length < location.length && <span className="type-caret" />}</span></>
+                  : 'No dispatch yet'}
+              </p>
+              <p className="text-sm leading-tight">
+                <span className="font-sans text-xs uppercase font-black text-sepia mr-1">Conditions:</span>
+                {atmosphere
+                  ? <><span className="sr-only">{atmosphere}</span><span aria-hidden="true">{typed.parts[1]}{typed.typing && typed.parts[0].length >= location.length && <span className="type-caret" />}</span></>
+                  : 'Not described yet.'}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -149,8 +163,9 @@ export const TactileSidebar = () => {
 
         {/* Current player — always first */}
         <div
-          className="px-4 py-3 shadow-md relative select-none overflow-hidden"
+          className="hand-placed px-4 py-3 shadow-md relative select-none overflow-hidden"
           style={{
+            '--tilt': `${tiltFor(`self-${character?.id ?? ''}`, { sign: 1 })}deg`,
             background: 'rgb(var(--c-parchment))',
             border: '1px solid rgb(var(--c-ink) / 0.12)',
             borderTopWidth: '3px',

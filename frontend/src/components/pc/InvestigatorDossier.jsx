@@ -161,6 +161,9 @@ const ACTION_FLAVOR = {
 
 const DRIVE_PIP_TOTAL = 9;
 
+// Filled mark boxes are inked by hand: each box keeps its own small lean
+const MARK_TILT = [-2, 1.5, -1];
+
 const STANDARD_GEAR = [
   "Bleed Detector", "Bleed Containment Vial", "Hand Weapon", "Lantern", "Matches & Candles", "First Aid Kit"
 ];
@@ -663,9 +666,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         const filled = i < marked;
                         const isHeld = heldHere && i === marked;
                         const isNext = !readOnly && i === next;
+                        // A filled mark is inked by hand, so each box sits a little askew
                         const box = (
                           <span
                             aria-hidden="true"
+                            style={filled ? { transform: `rotate(${MARK_TILT[i]}deg)` } : undefined}
                             className={`block w-5 h-7 border-2 shadow-inner rounded-sm transition-colors duration-150 ${
                               filled ? 'bg-oxblood border-ink'
                                 : isHeld ? 'bg-oxblood/45 border-oxblood border-dashed'

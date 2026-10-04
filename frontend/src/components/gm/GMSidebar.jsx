@@ -1,6 +1,9 @@
 import React from 'react';
 import { SafeIcon } from '../shared/SafeIcon';
 
+// Each slip lies at its own angle on the desktop rail, fixed, never two alike in a row
+const SLIP_TILT = ['lg:rotate-[-1.2deg]', 'lg:rotate-[0.9deg]', 'lg:rotate-[-0.6deg]', 'lg:rotate-[1.4deg]'];
+
 // Desktop: the four torn paper slips stacked in the left rail. Below lg: the same slips
 // as a compact strip that stays at the top of the screen, not rotated, with the active
 // slip lit and underlined in oxblood.
@@ -25,9 +28,9 @@ export const GMSidebar = ({ activeTab, setActiveTab }) => {
             key={item.id}
             onClick={() => setActiveTab(item.id)}
             aria-current={active ? 'page' : undefined}
-            className={`relative group flex-auto min-w-0 lg:flex-none transition-all duration-500 ease-out lg:w-full
+            className={`pen-host relative group flex-auto min-w-0 lg:flex-none transition-all duration-500 ease-out lg:w-full lg:drop-shadow-[5px_6px_8px_rgba(0,0,0,0.55)]
               ${active ? 'z-20 lg:scale-[1.02]' : 'lg:hover:scale-[1.02]'}
-              ${index % 2 === 0 ? 'lg:-rotate-1' : 'lg:rotate-1'}`}
+              ${SLIP_TILT[index % SLIP_TILT.length]}`}
           >
             {/* Phones: a small flat slip */}
             <div
@@ -41,9 +44,10 @@ export const GMSidebar = ({ activeTab, setActiveTab }) => {
               </span>
             </div>
 
-            {/* Burnt, Ripped, Full-Width Slip */}
+            {/* Burnt, Ripped, Full-Width Slip (its shadow is the button's drop-shadow, which
+                follows the torn clip-path) */}
             <div
-              className="hidden lg:block w-full px-6 py-5 bg-parchment text-ink shadow-[5px_5px_15px_rgba(0,0,0,0.6)]"
+              className="hidden lg:block w-full px-6 py-5 bg-parchment text-ink"
               style={{
                 clipPath: 'polygon(0% 2%, 99% 0%, 100% 98%, 2% 100%)',
                 background: 'linear-gradient(135deg, rgb(var(--c-parchment)) 60%, rgb(var(--c-parchment-deep)) 90%, rgb(var(--c-sepia)) 100%)',
@@ -53,7 +57,7 @@ export const GMSidebar = ({ activeTab, setActiveTab }) => {
             >
               <div className={`flex items-center gap-4 ${active ? 'text-oxblood' : ''}`}>
                 <SafeIcon name={item.icon} size={18} className="opacity-70" />
-                <span className={`font-serif uppercase tracking-[0.12em] text-base whitespace-nowrap ${active ? 'font-bold underline decoration-2 underline-offset-[6px]' : 'font-semibold'}`}>
+                <span className={`pen-underline font-serif uppercase tracking-[0.12em] text-base whitespace-nowrap ${active ? 'is-inked font-bold' : 'font-semibold'}`}>
                   {item.label}
                 </span>
               </div>

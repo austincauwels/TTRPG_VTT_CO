@@ -6,10 +6,69 @@ export const DeskStyles = () => (
   <style>{`
     /* Faces and pens are loaded once in index.html (Crimson Text, IM Fell English, the 20 pens). */
 
-    /* A slow, small flame flicker; index.css stops it under prefers-reduced-motion. */
-    @keyframes wickFlicker {
-      0%, 100% { opacity: 0.95; transform: scale(1); }
-      50% { opacity: 0.8; transform: scale(0.94); }
+    /* ── The candle cluster (CandleCluster.jsx) ──
+       Where the candles stand: behind the top of the tomes, in a strip of desk under the
+       header. The light pool uses the same box so it centers on the flames. */
+    .candle-box { top: 132px; left: 6px; width: 128px; aspect-ratio: 240 / 210; }
+    @media (min-width: 640px) { .candle-box { top: 144px; left: 14px; width: 156px; } }
+    @media (min-width: 1024px) { .candle-box { top: 104px; left: 1%; width: clamp(170px, 15vw, 230px); } }
+
+    /* Each flame sways from its base on its own uneven rhythm (durations set per candle);
+       the core brightens and dims on a shorter one, and the halo breathes with the sway. */
+    .flame { transform-box: fill-box; transform-origin: 50% 94%; animation: flameSway 3s ease-in-out infinite; }
+    .flame-core { animation: flameCore 1.8s ease-in-out infinite; }
+    .flame-halo { transform-box: fill-box; transform-origin: center; animation: haloBreath 3s ease-in-out infinite; }
+    .flame-light { transform-box: fill-box; transform-origin: 50% 100%; animation: flameCatch 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+    @keyframes flameSway {
+      0%   { transform: scale(1, 1) skewX(0deg); }
+      11%  { transform: scale(0.97, 1.05) skewX(-2.5deg); }
+      23%  { transform: scale(1.02, 0.97) skewX(1.5deg); }
+      37%  { transform: scale(0.98, 1.04) skewX(-1deg); }
+      52%  { transform: scale(1.03, 0.95) skewX(2.5deg); }
+      64%  { transform: scale(0.97, 1.03) skewX(-1.5deg); }
+      79%  { transform: scale(1.01, 1.01) skewX(1deg); }
+      91%  { transform: scale(0.99, 1.03) skewX(-0.5deg); }
+      100% { transform: scale(1, 1) skewX(0deg); }
+    }
+    @keyframes flameCore {
+      0%, 100% { opacity: 0.95; }
+      30% { opacity: 0.78; }
+      47% { opacity: 1; }
+      71% { opacity: 0.86; }
+    }
+    @keyframes haloBreath {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      37% { opacity: 0.82; transform: scale(0.96); }
+      64% { opacity: 0.94; transform: scale(1.03); }
+    }
+    /* The wick catches when the hub opens: the flame grows from the wick and settles */
+    @keyframes flameCatch {
+      0%   { opacity: 0; transform: scale(0.25, 0.1); }
+      55%  { opacity: 1; transform: scale(1.08, 1.15); }
+      100% { opacity: 1; transform: scale(1, 1); }
+    }
+
+    /* The light pool: warm, wide and soft, blended onto the desk and the objects near the
+       candles. --light is how many candles burn (CandleLight). */
+    .candle-light {
+      position: absolute; z-index: 40;
+      left: 46%; top: 52%; width: 680px; height: 440px;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(closest-side, rgba(255, 180, 96, 0.8), rgba(255, 166, 80, 0.5) 22%, rgba(255, 152, 70, 0.2) 50%, rgba(255, 140, 60, 0.06) 75%, rgba(255, 140, 60, 0) 100%);
+      mix-blend-mode: soft-light;
+      opacity: var(--light, 1);
+    }
+    @media (min-width: 1024px) {
+      .candle-light { width: 1100px; height: 700px; animation: lightBreath 3.4s ease-in-out infinite; }
+    }
+    @keyframes lightBreath {
+      0%, 100% { opacity: var(--light, 1); }
+      31% { opacity: calc(var(--light, 1) * 0.9); }
+      58% { opacity: calc(var(--light, 1) * 0.97); }
+      77% { opacity: calc(var(--light, 1) * 0.88); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .flame, .flame-core, .flame-halo, .flame-light, .candle-light { animation: none !important; }
     }
 
     .desk-surface {

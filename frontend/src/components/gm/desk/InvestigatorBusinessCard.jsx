@@ -1,11 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { tiltFor } from '../../shared/handPlaced';
 
-// A gentle lean, so the pen-font names stay easy to read.
-const CARD_ROTATIONS = [-2, 1.5, -1, 2, -1.5, 1, -2, 1.5];
-
+// Each card lies where the GM dropped it: a lean of 0.8 to 2 degrees, fixed per
+// investigator, neighbours leaning opposite ways. Gentle enough that the pen-font names
+// stay easy to read; a card straightens when picked up (hover).
 export const InvestigatorBusinessCard = ({ inv, onClick, index = 0 }) => {
-  const rotation = CARD_ROTATIONS[index % CARD_ROTATIONS.length];
+  const rotation = tiltFor(inv.id ?? inv.name, { min: 0.8, max: 2, sign: index % 2 ? 1 : -1 });
   const penFont = inv.pen_font || 'Caveat';
   const accentColor = inv.ink_color || 'rgb(var(--c-ink))';
 

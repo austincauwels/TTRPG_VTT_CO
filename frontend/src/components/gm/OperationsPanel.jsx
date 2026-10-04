@@ -10,7 +10,7 @@ import { DiceVault } from '../pc/DiceVault';
 import { NotebookView } from '../shared/NotebookView';
 import { GMDeskHeader } from './desk/GMDeskHeader';
 import { CorrespondenceStack } from './desk/CorrespondenceStack';
-import { FinalizeRosterSlip } from './desk/FinalizeRosterSlip';
+import { FinalizeRosterSlip, FinalizedSlip } from './desk/FinalizeRosterSlip';
 import { CircleFormationStatus } from './desk/CircleFormationStatus';
 import { ActiveCircleMembers } from './desk/ActiveCircleMembers';
 import { TensionSection } from './desk/TensionSection';
@@ -28,6 +28,8 @@ export const OperationsPanel = () => {
   const [requestError, setRequestError] = useState('');
   const [requestBusy, setRequestBusy] = useState(false);
   const [finalizeError, setFinalizeError] = useState('');
+  // The circle was finalized at this desk just now: its seal is pressed in on the sealed slip
+  const [sealedNow, setSealedNow] = useState(false);
   const { logout, setStage, accessSession, lastPlayedCampaign, campaignRoster, fetchRoster, approveInvestigator, rejectInvestigator, connect, socket,
           activityLog, circle, circleCreation, finalizeRoster, fetchCircleCreationState } = useGameStore();
 
@@ -90,7 +92,8 @@ export const OperationsPanel = () => {
     setFinalizeError('');
     const ok = await finalizeRoster(activeCampaignId, circle?.id || 1);
     setIsFinalizingRoster(false);
-    if (!ok) setFinalizeError(`The circle was not finalized. ${REQUEST_FAILED}`);
+    if (ok) setSealedNow(true);
+    else setFinalizeError(`The circle was not finalized. ${REQUEST_FAILED}`);
   };
 
   const handleSelectInvestigator = (inv) => setSelectedInvestigator(inv);
@@ -176,6 +179,9 @@ export const OperationsPanel = () => {
 
                 {/* ACTIVE CIRCLE MEMBERS */}
                 <ActiveCircleMembers className="order-4 lg:order-none" campaignRoster={campaignRoster} onSelect={handleSelectInvestigator} />
+
+                {/* Once finalized, the sealed slip below the investigators */}
+                {rosterFinalized && <FinalizedSlip className="order-5 lg:order-none" pressed={sealedNow} />}
 
                 {/* TENSION CLOCK: pinned to the bottom on desktop, right after the dice on phones */}
                 <TensionSection className="order-2 lg:order-none" />

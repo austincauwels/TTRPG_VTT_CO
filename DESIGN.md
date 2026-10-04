@@ -198,7 +198,7 @@ A candlelit palette: near-black warm brown for the room, aged paper for the obje
 - **Player ink colors**: each player's `ink_color` from the server (business-card stripes, roster names, log entries, notebook). Data, never replaced by a token.
 
 ### Material literals (kept on purpose)
-Physical objects keep their own local shading, drawn in CSS: the candles' wax, the Last Session tome's plum leather, strap and brass padlock, the book spine and page edges, the dice tray's green felt (#12241b) and wood rim (#2e1d15). They are renderings of materials, not interface colors, and are not to be reused as chrome.
+Physical objects keep their own local shading, drawn in CSS or SVG: the candles' wax and flames (ivory wax, an orange-to-yellow mantle, a white core, a faint blue base) and their warm light, the Last Session tome's plum leather, strap and brass padlock, the book spine and page edges, the dice tray's green felt (#12241b) and wood rim (#2e1d15). They are renderings of materials, not interface colors, and are not to be reused as chrome.
 
 ### Named Rules
 **The One Ink Rule.** Oxblood is the only color that means "act" or "this matters". Primary buttons (Advance, Select this Path, Cast, Dispatch, Join, Commission Investigator), active tabs and filled marks are oxblood; nothing else competes for that role.
@@ -217,7 +217,9 @@ The GM's screens keep a cool, deliberate night look (owner decision, 2026-10-04)
 The paper objects on the GM desk (dispatch letter, nav slips, join-request cards, business cards, Finalize slip, pocket watch, circle ledger, memo pad, activity log) keep parchment, oxblood and gold; only the ground and the chrome around them are cool. The GM's dice are shown in their real colors: the grayscale and hue-rotate filter on the GM dice tray is gone. The chapter hub is shared by players and the GM and follows the warm palette.
 
 ### Effects removed in this stage
-Glow box-shadows (gilded die, pips, rejoin banner, death modal, creator path button), the candles' blurred radial glow (the flames keep a small halo and a slow flicker that stops under `prefers-reduced-motion`), `animate-pulse` on static text, accidental backdrop blur on the scar, circle and relationship modals, the GM dice filter, the pocket watch's metal gradient and glass glare (now a flat brass case), the gilded die's metal gradient, and sub-degree or alternating tilts used as texture (sidebar cards, circle forms, history cards, business cards reduced to at most 2 degrees). The login card's blur is out of scope (LoginScreen.jsx is reserved). Every CSS animation and transition stops under `prefers-reduced-motion` (index.css).
+Glow box-shadows (gilded die, pips, rejoin banner, death modal, creator path button), the candles' blurred radial glow (replaced by the candle cluster and its lit pool, see Elevation & Depth), `animate-pulse` on static text, accidental backdrop blur on the scar, circle and relationship modals, the GM dice filter, the pocket watch's metal gradient and glass glare (now a flat brass case) and the gilded die's metal gradient. The login slip has no blur. Every CSS animation and transition stops under `prefers-reduced-motion` (index.css).
+
+Round 1 of this stage also straightened the hand-placed objects (sidebar cards, circle forms, history and report cards, the dispatch note). That was a mistake: the crooked, hand-placed look is part of the owner's design (Robert Gater, 2026-10-04), and it is back. See "Hand-placed objects" under Shapes.
 
 ## Typography
 
@@ -273,9 +275,16 @@ Depth is literal and physical. Objects cast heavy, dark, offset shadows onto the
 ### Named Rules
 **The One Lamp Rule.** All cast shadows fall the same way (down and right) because the desk has one light. Nothing glows; the candle flames keep only a small halo.
 
+**The Lit Pool Rule.** Candlelight is light falling on things, not a haze in the air. The chapter hub's candles light the desk around them with one wide, soft radial gradient in `soft-light` blending above the objects (`.candle-light` in DeskStyles.jsx), so the wood, the tomes and the papers near them warm in their own colors. No blur filter, no glow blob. It sits in the hub's own stacking context (no z-index, opacity or transform on its box), or the blend has nothing to light.
+
+**Torn paper keeps its shadow.** A clip-path or mask cuts away a box-shadow, so torn or deckled paper (nav slips, the Finalize slip, pinned notes, the From the GM note) casts its shadow with `filter: drop-shadow()` on a wrapper, which follows the torn edge. These are small objects; never put a filter on a large area.
+
 ## Shapes
 
 Corners are tight. Small radius (2px) is the default for panels, wells, chips and tags; medium (4px) for buttons and the step bar. Full rounding is reserved for things that are round in the physical world: action pips, illumination dots, wax seals, dials and the pocket-watch tension clock. Paper objects add their own silhouettes: torn and slightly rotated tabs, corner brackets on the creator panel, double rules (`border-style: double`) on formal frames, dashed borders for empty slots and upload targets. Borders are 1px hairlines in sepia or ink at low alpha; 2px is used for frames and selected cards.
+
+### Hand-placed objects
+**Hand-placed objects sit slightly crooked; tilts of about 0.5 to 2 degrees, fixed per object.** Cards, notes, slips and forms lie as if someone put them down: the player's circle cards and the From the GM note on the player desk, the GM's investigator business cards, nav slips, Finalize and finalized slips, report and history cards on the circle pages, the chapter-house examples and tape in the formation papers, pinned private notes, and filled mark boxes (inked by hand). The angle comes from `tiltFor(key)` in `components/shared/handPlaced.js`, a hash of the object's id, so an object keeps its angle across renders, reloads and list changes; lists alternate the lean so neighbours never match. The `.hand-placed` class (index.css) applies `--tilt` and eases it to 70% on phones. Text inside stays level enough to read, a tilt never moves an object over a control, and an object a person picks up (hover) may straighten. Tomes and pamphlets on the hub keep their larger, older angles; the creator's card deck keeps its own.
 
 ## Components
 
@@ -304,7 +313,8 @@ Tactile and stamped: small, heavy, uppercase, tracked.
 
 ### Navigation
 - **Creator step bar:** four equal tabs in an ink bar with a 1px dark border and 4px corners. Active tab is oxblood with cream text; inactive tabs are ink with dimmed cream text. Labels are numbered ("1. Choose Path").
-- **GM desk tabs:** torn paper strips in cream, rotated a degree or two, with a small icon and tracked serif uppercase label, stacked in the left rail.
+- **GM desk tabs:** torn paper strips in cream, each at its own fixed angle (about 1 degree), with a small icon and tracked serif uppercase label, stacked in the left rail. The active slip's label is underlined in pen.
+- **Fountain-pen underline** (`.pen-underline` on the label, `.pen-host` on the control): an uneven oxblood stroke that draws itself left to right under a tab on hover or keyboard focus (with the gold focus ring) and stays inked on the active GM slip. Used on the GM slips and the player desk tabs.
 - **Notebook tabs:** folder tabs on the book's top edge; active tab is cream paper, inactive tabs are dark brown with gold text.
 
 ### Action Pips and Mark Boxes (signature)
@@ -316,6 +326,18 @@ The creator's left column: an official role portrait in a gold-lined card frame 
 ### Chapter Hub Tomes (signature, kept by owner)
 Leather-bound books (register green, deep purple) with embossed double frames, gold-leaf Cinzel and Playfair lettering, page-block edges and an open/close animation into a two-page ruled spread. PRODUCT.md marks this as the model for the app's physical-object feel.
 
+### Chapter Hub Candles (signature)
+Three pillar candles drawn in SVG (`CandleCluster.jsx`, `candlePaths.js`), standing behind the tomes in the top left of the hub, seen from slightly above: ivory wax with swollen sides, a melted rim and a hollow with a pool of liquid wax, drips over the lip ending in beads, a dark wick with an ember, and a layered flame (orange tip, yellow mantle, white core, faint blue base) with a small halo. Each flame sways from its base on its own uneven rhythm (about 2.6 to 3.7 seconds) while its core brightens and dims on a shorter one, and the wicks catch one after another when the hub opens. The light falls on the desk as a lit pool (The Lit Pool Rule). One candle burns for the chapter and one more for each investigator in play or campaign the person runs, up to three; an unlit candle shows its wick and a thread of smoke, and the pool dims with fewer flames. Everything holds still under `prefers-reduced-motion`. Phones and tablets give the candles a strip of desk above the tomes.
+
+### Physical touches
+Small, meaningful responses drawn in CSS or SVG; each one stops or shows at once under `prefers-reduced-motion`.
+- **Wax seal** (`WaxSeal.jsx`): an oxblood seal with a candlestick struck into it. It sits on the Finalize slip. Pressing Approve on a join request, or confirming Finalize, presses a large seal onto the request or slip while it goes to the server (an approved request then fades off the desk), and a finalized circle shows a sealed slip ("The circle is finalized") below the investigators.
+- **Ink stamp on roll outcomes**: the outcome word on the result slip is a rubber stamp, a little crooked (fixed per roll), its ink worn by pinholes (a mask), pressed down once when the result lands.
+- **Pinned notes**: private notes carry an oxblood push pin and a drop-shadow that follows their torn top edge.
+- **Page turn**: changing spreads in the notebook turns a blank leaf over from the spine (forward or back), over pages that are already there.
+- **Dispatch typing in**: when the GM sends a new dispatch while a player's desk is open, the From the GM note types it in with a carriage mark at the end of the line. What is there when the desk opens shows whole; screen readers get the whole text at once.
+- **Deckled edge** (`.deckle-bottom`): the From the GM note's bottom edge is torn by hand.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -326,6 +348,7 @@ Leather-bound books (register green, deep purple) with embossed double frames, g
 - **Do** show official art whole, with its credit, and use the role portraits on role surfaces.
 - **Do** use the character creator's panel, tab bar and button patterns as the reference when restyling other screens.
 - **Do** keep handwriting fonts for player-written text in the player's chosen pen.
+- **Do** lay hand-placed objects (cards, notes, slips) slightly crooked: 0.5 to 2 degrees, fixed per object with `tiltFor()`.
 
 ### Don't:
 - **Don't** introduce colors outside the Dark Academia palette and the three GM night tokens; stock Tailwind blues, slates and stones are drift, not precedent.
@@ -334,3 +357,4 @@ Leather-bound books (register green, deep purple) with embossed double frames, g
 - **Don't** recolor, crop away the credit of, or replace the official art.
 - **Don't** use handwriting fonts for interface labels or buttons.
 - **Don't** use gold as general text or border decoration where nothing is gilded or selected.
+- **Don't** straighten the hand-placed objects as "noise", and don't tilt anything by a new random angle on each render.
