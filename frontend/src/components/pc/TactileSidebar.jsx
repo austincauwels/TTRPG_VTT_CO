@@ -120,7 +120,7 @@ export const TactileSidebar = () => {
   }, [character?.campaign_id]);
 
   return (
-    <div className="lg:col-span-3 space-y-6 mt-2 relative">
+    <div className="lg:col-span-3 space-y-6 mt-2 relative order-3 lg:order-none">
 
       {/* Weathered Library Index Checkout Card */}
       <div className="bg-[#fcfaf2] text-[#1a1311] border border-[#d2c9b9] p-6 shadow-[5px_8px_20px_rgba(0,0,0,0.65)] relative transform -rotate-1 hover:rotate-0 transition-transform duration-200"

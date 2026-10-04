@@ -88,7 +88,7 @@ export const AbilityMarkOffer = () => {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9998] w-72 animate-fadeIn">
+    <div className="fixed bottom-24 left-4 right-4 sm:left-auto sm:w-72 lg:bottom-6 lg:right-6 z-[9998] animate-fadeIn">
       <div className="bg-[#1a1311] border border-[#b8a060] rounded-sm shadow-[0_4px_24px_rgba(0,0,0,0.7)] px-4 py-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">

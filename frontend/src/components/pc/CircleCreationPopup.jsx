@@ -439,7 +439,7 @@ export const CircleCreationPopup = () => {
         initial={{ opacity: 0, scale: 0.96, y: 30 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 280, damping: 28 }}
-        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[#f4f1ea] border-4 border-double border-stone-800 shadow-[0_25px_60px_rgba(0,0,0,0.85)] relative"
+        className="w-full max-w-3xl max-h-[90dvh] overflow-y-auto bg-[#f4f1ea] border-4 border-double border-stone-800 shadow-[0_25px_60px_rgba(0,0,0,0.85)] relative"
       >
         <div className="absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
         <div className="absolute -top-1 left-8 right-8 h-6 bg-amber-100/80 border border-amber-300/60 shadow-sm rotate-[0.3deg] z-20 pointer-events-none" />

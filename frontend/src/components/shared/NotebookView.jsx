@@ -41,7 +41,7 @@ function EntryCard({ entry, isLast }) {
   // Sketch: rendered with mix-blend-mode multiply, slight rotation
   if (eType === 'sketch' && entry.image_data) {
     return (
-      <div className={isLast ? '' : 'pb-5 mb-5 border-b border-black/10'}>
+      <div className={`break-words ${isLast ? '' : 'pb-5 mb-5 border-b border-black/10'}`}>
         <h3 className="leading-tight mb-1 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2rem' }}>
           {entry.title}
         </h3>
@@ -50,7 +50,7 @@ function EntryCard({ entry, isLast }) {
             src={entry.image_data}
             alt={entry.title}
             style={{
-              maxWidth: 180,
+              maxWidth: 'min(180px, 45vw)',
               transform: 'rotate(-3deg)',
               mixBlendMode: 'multiply',
             }}
@@ -72,7 +72,7 @@ function EntryCard({ entry, isLast }) {
   // Photo: polaroid border with masking tape strip
   if (eType === 'photo' && entry.image_data) {
     return (
-      <div className={isLast ? '' : 'pb-5 mb-5 border-b border-black/10'}>
+      <div className={`break-words ${isLast ? '' : 'pb-5 mb-5 border-b border-black/10'}`}>
         <h3 className="leading-tight mb-1 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2rem' }}>
           {entry.title}
         </h3>
@@ -87,7 +87,7 @@ function EntryCard({ entry, isLast }) {
             background: '#fff',
             padding: '8px 8px 28px',
             boxShadow: '2px 4px 14px rgba(0,0,0,0.35)',
-            maxWidth: 180,
+            maxWidth: 'min(180px, 45vw)',
             transform: 'rotate(1.5deg)',
             position: 'relative',
             zIndex: 1,
@@ -111,11 +111,11 @@ function EntryCard({ entry, isLast }) {
   // Lightkeeper: letterhead style
   if (eType === 'lightkeeper') {
     return (
-      <div className={isLast ? '' : 'pb-5 mb-5 border-b border-black/10'}>
-        <div className="border-b-2 border-black/70 pb-2 mb-3 flex items-center justify-between">
+      <div className={`break-words ${isLast ? '' : 'pb-5 mb-5 border-b border-black/10'}`}>
+        <div className="border-b-2 border-black/70 pb-2 mb-3 flex flex-wrap gap-2 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full border-2 border-black/70 flex items-center justify-center text-lg font-serif font-black">✦</div>
-            <span className="font-sans font-black text-[14px] uppercase tracking-[0.3em] text-black/70">Candela Obscura — Lightkeeper Correspondence</span>
+            <span className="font-sans font-black text-[12px] sm:text-[14px] uppercase tracking-[0.2em] sm:tracking-[0.3em] text-black/70">Candela Obscura — Lightkeeper Correspondence</span>
           </div>
           <span className="font-mono text-[14px] text-black/30">{formatDate(entry.created_at)}</span>
         </div>
@@ -130,7 +130,7 @@ function EntryCard({ entry, isLast }) {
 
   // Standard field_log
   return (
-    <div className={isLast ? '' : 'pb-5 mb-5 border-b border-black/10'}>
+    <div className={`break-words ${isLast ? '' : 'pb-5 mb-5 border-b border-black/10'}`}>
       <h3 className="leading-tight mb-0.5 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2.3rem' }}>
         {entry.title}
       </h3>
@@ -392,11 +392,11 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
   return (
     <div
-      className="bg-[#2a1a13] p-4 sm:p-6 rounded-sm shadow-[0_25px_55px_rgba(0,0,0,0.95)] border-[14px] border-[#1c110c] relative min-h-[850px] animate-fadeIn"
+      className="bg-[#2a1a13] p-2 sm:p-6 rounded-sm shadow-[0_25px_55px_rgba(0,0,0,0.95)] border-[8px] sm:border-[14px] border-[#1c110c] relative min-h-[600px] sm:min-h-[850px] animate-fadeIn"
       style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/dark-leather.png')" }}
     >
       {/* Manila folder tabs */}
-      <div className="flex items-end gap-1 relative z-10" style={{ marginBottom: '-2px' }}>
+      <div className="flex items-end gap-1 relative z-10 pr-1 sm:pr-0" style={{ marginBottom: '-2px' }}>
         {[
           {
             label: 'Field Notes',
@@ -420,12 +420,13 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
           <button
             key={tab.label}
             onClick={tab.onClick}
-            className="font-mono text-[11px] font-black uppercase tracking-widest transition-all select-none"
+            className="max-sm:flex-1 max-sm:min-w-0 leading-tight px-3 sm:px-[22px] font-mono text-[11px] font-black uppercase tracking-wider sm:tracking-widest transition-all select-none"
             style={{
               clipPath: 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 100%, 0% 100%)',
               background: tab.active ? tab.activeColor : tab.inactiveColor,
               color: tab.active ? tab.activeText : tab.inactiveText,
-              padding: tab.active ? '7px 22px 10px' : '4px 22px 8px',
+              paddingTop: tab.active ? 7 : 4,
+              paddingBottom: tab.active ? 10 : 8,
               boxShadow: tab.active ? '0 -3px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3)' : '0 -1px 3px rgba(0,0,0,0.2)',
               position: 'relative',
               zIndex: tab.active ? 20 : 5,
@@ -438,9 +439,9 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
       {/* ═══════════════ EPHEMERAL NOTES VIEW ═══════════════ */}
       {showEphemeral && (
-        <div className="bg-[#fdfaf2] rounded-sm border border-black/20 p-8 min-h-[700px] relative z-10">
-          <div className="flex items-center justify-between mb-6 border-b border-black/15 pb-3">
-            <h2 className="font-serif font-black text-3xl uppercase text-black">Private Field Notes</h2>
+        <div className="bg-[#fdfaf2] rounded-sm border border-black/20 p-4 sm:p-8 min-h-[500px] sm:min-h-[700px] relative z-10">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 items-baseline justify-between mb-6 border-b border-black/15 pb-3">
+            <h2 className="font-serif font-black text-2xl sm:text-3xl uppercase text-black">Private Field Notes</h2>
             <span className="font-mono text-[11px] text-black/30 uppercase">Visible only to you</span>
           </div>
 
@@ -473,7 +474,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
           </div>
 
           {/* Existing ephemeral notes */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {ephemeralEntries.map(entry => (
               <EphemeralNote
                 key={entry.id}
@@ -496,7 +497,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
             style={{ minHeight: '780px' }}
           >
             {/* Header bar */}
-            <div className="flex items-center justify-between px-8 pt-5 pb-3 border-b border-black/10">
+            <div className="flex items-center justify-between px-4 sm:px-8 pt-5 pb-3 border-b border-black/10">
               <span className="font-mono text-[11px] text-black/30 uppercase tracking-widest">Lightkeeper Resources</span>
               <div className="flex items-center gap-1.5 font-mono text-[11px] text-black/40 uppercase tracking-wider">
                 {lkSaveStatus === 'saving' ? (
@@ -508,7 +509,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
             </div>
 
             {/* Continuous note area */}
-            <div className="px-8 py-4" style={LINED_PAPER}>
+            <div className="px-4 sm:px-8 py-4" style={LINED_PAPER}>
               <textarea
                 value={lkContent}
                 onChange={e => handleLKContentChange(e.target.value)}
@@ -533,17 +534,17 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
             {/* LEFT PAGE */}
             {currentSpread === 0 ? (
-              <div className="p-8 lg:pr-10 relative flex flex-col h-full border-b lg:border-b-0 lg:border-r border-black/20">
+              <div className="p-4 pt-10 sm:p-8 lg:pr-10 relative flex flex-col h-full min-w-0 border-b lg:border-b-0 lg:border-r border-black/20">
                 <div className="absolute top-3 left-3 font-mono text-[14px] text-black/30 tracking-widest uppercase">Section I</div>
 
                 <header className="border-b-2 border-black/80 pb-4 mb-5">
-                  <h2 className="text-[48px] font-serif font-black tracking-tight text-black uppercase">Field Notes</h2>
-                  <p className="text-[20px] font-mono uppercase tracking-widest text-[#721c15] font-black mt-1">Table of Contents</p>
+                  <h2 className="text-[34px] sm:text-[48px] leading-tight font-serif font-black tracking-tight text-black uppercase">Field Notes</h2>
+                  <p className="text-[16px] sm:text-[20px] font-mono uppercase tracking-wider sm:tracking-widest text-[#721c15] font-black mt-1">Table of Contents</p>
                 </header>
 
                 {authorKeys.length > 0 && (
                   <div className="mb-4">
-                    <span className="block font-sans text-[18px] font-black text-black/40 uppercase tracking-widest mb-2">Filter by Author</span>
+                    <span className="block font-sans text-[14px] sm:text-[18px] font-black text-black/40 uppercase tracking-wider sm:tracking-widest mb-2">Filter by Author</span>
                     <div className="flex flex-wrap gap-1.5">
                       <button
                         onClick={() => setSelectedAuthorFilter(null)}
@@ -586,9 +587,9 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                         style={{ background: 'rgba(0,0,0,0.015)' }}
                       >
                         <button onClick={() => { setDeleteConfirm(null); setCurrentSpread(entrySpread(entry)); }}
-                          className="flex-1 text-left flex items-center justify-between px-3 py-2"
+                          className="flex-1 min-w-0 text-left flex items-center justify-between px-3 py-2"
                         >
-                          <span className="text-[26px] leading-tight flex items-center gap-2"
+                          <span className="text-[22px] sm:text-[26px] leading-tight flex items-center gap-2 min-w-0 break-words"
                             style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
                             {entry.entry_type === 'sketch' && <span className="text-[14px]">✏</span>}
                             {entry.entry_type === 'photo' && <span className="text-[14px]">📷</span>}
@@ -613,7 +614,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                           ) : (
                             <button
                               onClick={e => { e.stopPropagation(); setDeleteConfirm(entry.id); }}
-                              className="shrink-0 pr-3 font-mono text-[18px] text-black/20 hover:text-[#8b1a1a] transition-colors opacity-0 group-hover:opacity-100"
+                              className="shrink-0 pr-3 min-h-[40px] font-mono text-[18px] text-black/20 hover:text-[#8b1a1a] transition-colors opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                               title="Delete this entry"
                             >×</button>
                           )
@@ -638,7 +639,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                 {pageFooter('CLASSIFIED', 'DO NOT DISTRIBUTE')}
               </div>
             ) : (
-              <div className="p-8 lg:pr-10 relative flex flex-col h-full border-b lg:border-b-0 lg:border-r border-black/20">
+              <div className="p-4 pt-10 sm:p-8 lg:pr-10 relative flex flex-col h-full min-w-0 border-b lg:border-b-0 lg:border-r border-black/20">
                 <div className="absolute top-3 left-3 font-mono text-[14px] text-black/30 tracking-widest uppercase">
                   Field Notes // Spread {currentSpread}
                 </div>
@@ -656,25 +657,25 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
             {/* RIGHT PAGE */}
             {currentSpread === 0 ? (
-              <div className="p-8 lg:pl-10 relative flex flex-col h-full bg-[#faf5e8]">
+              <div className="p-4 pt-10 sm:p-8 lg:pl-10 relative flex flex-col h-full min-w-0 bg-[#faf5e8]">
                 <div className="absolute top-3 right-3 font-mono text-[14px] text-black/30 tracking-widest uppercase">Section II</div>
                 <header className="border-b-2 border-black/80 pb-4 mb-5">
-                  <h3 className="text-[36px] font-serif font-black tracking-tight text-black uppercase">Log a Field Entry</h3>
-                  <p className="text-[18px] font-mono uppercase tracking-wider text-black/40 mt-0.5">
+                  <h3 className="text-[28px] sm:text-[36px] leading-tight font-serif font-black tracking-tight text-black uppercase">Log a Field Entry</h3>
+                  <p className="text-[15px] sm:text-[18px] font-mono uppercase tracking-wider text-black/40 mt-0.5">
                     Record your observations for archival.
                   </p>
                 </header>
 
                 <div className="flex-1 flex flex-col gap-3">
                   <div>
-                    <label className="block font-mono text-[18px] font-black uppercase tracking-widest text-black/50 mb-1">Entry Title</label>
+                    <label className="block font-mono text-[15px] sm:text-[18px] font-black uppercase tracking-wider sm:tracking-widest text-black/50 mb-1">Entry Title</label>
                     <input type="text" value={newEntryTitle} onChange={e => setNewEntryTitle(e.target.value)}
                       placeholder="Name this record..."
                       className="w-full px-0 py-1 bg-transparent border-b-2 border-black/30 focus:border-black/60 outline-none text-[32px]"
                       style={{ fontFamily: authorFont, color: authorColor }} />
                   </div>
                   <div className="flex-1 flex flex-col">
-                    <label className="block font-mono text-[18px] font-black uppercase tracking-widest text-black/50 mb-1">Field Observations</label>
+                    <label className="block font-mono text-[15px] sm:text-[18px] font-black uppercase tracking-wider sm:tracking-widest text-black/50 mb-1">Field Observations</label>
                     <div className="flex-1 relative">
                       <div className="absolute inset-0 pointer-events-none" style={{
                         backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgba(0,0,0,0.08) 27px, rgba(0,0,0,0.08) 28px)',
@@ -691,7 +692,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                   <div className="flex gap-2 items-center flex-wrap">
                     <input type="text" value={uploadCaption} onChange={e => setUploadCaption(e.target.value)}
                       placeholder="Image caption (optional)"
-                      className="flex-1 bg-transparent border-b border-black/20 focus:border-black/40 outline-none text-[18px] font-serif text-black/60 py-0.5" />
+                      className="flex-1 min-w-[10rem] bg-transparent border-b border-black/20 focus:border-black/40 outline-none text-[18px] font-serif text-black/60 py-0.5" />
                     <button onClick={() => sketchInputRef.current?.click()} disabled={isUploading || !!pendingImageFile}
                       className="font-sans font-black uppercase tracking-widest text-[14px] px-3 py-1.5 border border-black/40 hover:bg-black/5 transition-all disabled:opacity-30">
                       ✏ Sketch
@@ -724,7 +725,7 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
                       <select
                         value={authorFont}
                         onChange={e => updatePenFont(e.target.value)}
-                        className="bg-transparent border-b border-black/25 focus:border-black/50 outline-none text-[18px] py-0.5 flex-1"
+                        className="bg-transparent border-b border-black/25 focus:border-black/50 outline-none text-[18px] py-0.5 flex-1 min-w-0"
                         style={{ fontFamily: authorFont, color: authorColor }}
                       >
                         {PEN_FONTS.map(f => (
@@ -741,13 +742,13 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
 
                   <button onClick={handleSubmitEntry}
                     disabled={isSubmitting || isUploading || !newEntryTitle.trim() || (!newEntryContent.trim() && !pendingImageFile)}
-                    className="font-sans font-black uppercase tracking-widest text-[22px] px-4 py-2 border-2 border-black/60 hover:bg-black/5 transition-all disabled:opacity-30 self-end">
+                    className="font-sans font-black uppercase tracking-wider sm:tracking-widest text-[18px] sm:text-[22px] px-4 py-2 border-2 border-black/60 hover:bg-black/5 transition-all disabled:opacity-30 self-end">
                     {isSubmitting || isUploading ? 'Sealing…' : 'Seal & Submit →'}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="p-8 lg:pl-10 relative flex flex-col h-full bg-[#faf5e8]">
+              <div className="p-4 pt-10 sm:p-8 lg:pl-10 relative flex flex-col h-full min-w-0 bg-[#faf5e8]">
                 <div className="absolute top-3 right-3 font-mono text-[14px] text-black/30 tracking-widest uppercase">Field Notes</div>
                 <div className="flex-1 overflow-y-auto relative mt-6" style={LINED_PAPER}>
                   {rightEntries.length === 0
@@ -766,16 +767,16 @@ export const NotebookView = ({ isGM: isGMProp = null }) => {
           </div>
 
           {/* Navigation */}
-          <div className="flex items-center justify-between mt-4 px-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 px-1 sm:px-2">
             <button onClick={goToPrev} disabled={currentSpread === 0}
-              className="font-sans font-black uppercase tracking-widest text-[22px] px-5 py-2 text-[#e4d5b0] border border-[#e4d5b0]/30 rounded-sm hover:bg-white/5 transition-all disabled:opacity-20">
+              className="font-sans font-black uppercase tracking-wider sm:tracking-widest text-[16px] sm:text-[22px] px-3 sm:px-5 py-2 min-h-[44px] text-[#e4d5b0] border border-[#e4d5b0]/30 rounded-sm hover:bg-white/5 transition-all disabled:opacity-20">
               ← Previous
             </button>
-            <span className="font-mono text-[22px] text-[#e4d5b0]/60 tracking-widest">
+            <span className="order-first sm:order-none basis-full sm:basis-auto text-center font-mono text-[16px] sm:text-[22px] text-[#e4d5b0]/60 tracking-wider sm:tracking-widest">
               {currentSpread === 0 ? 'TABLE OF CONTENTS' : `SPREAD ${currentSpread} OF ${totalSpreads}`}
             </span>
             <button onClick={goToNext} disabled={currentSpread >= totalSpreads}
-              className="font-sans font-black uppercase tracking-widest text-[22px] px-5 py-2 text-[#e4d5b0] border border-[#e4d5b0]/30 rounded-sm hover:bg-white/5 transition-all disabled:opacity-20">
+              className="font-sans font-black uppercase tracking-wider sm:tracking-widest text-[16px] sm:text-[22px] px-3 sm:px-5 py-2 min-h-[44px] text-[#e4d5b0] border border-[#e4d5b0]/30 rounded-sm hover:bg-white/5 transition-all disabled:opacity-20">
               Next →
             </button>
           </div>

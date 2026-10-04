@@ -54,50 +54,54 @@ export const MainDeskView = () => {
   const [activeTab, setActiveTab] = useState('character');
 
   return (
-    <div className="min-h-screen bg-[#160e0b] text-[#fdfaf4] font-serif selection:bg-[#721c15] selection:text-white antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 relative">
-      
+    <div className="min-h-screen bg-[#160e0b] text-[#fdfaf4] font-serif selection:bg-[#721c15] selection:text-white antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-28 lg:pb-12 relative">
+
       {/* HEADER */}
-      <header className="w-full bg-[#090504] relative py-6 flex flex-col items-center justify-center border-b border-black/40 shadow-xl">
+      <header className="w-full bg-[#090504] relative px-4 pt-4 pb-5 lg:px-6 lg:py-6 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-start gap-y-3 border-b border-black/40 shadow-xl">
         <ArtDecoCorner position="top-left" />
         <ArtDecoCorner position="top-right" />
-        
-        {/* LOGOUT BUTTON */}
-        <div className="absolute top-4 right-6 z-50">
+
+        <div className="hidden lg:block" aria-hidden="true" />
+
+        <div className="flex flex-col items-center text-center">
+          <h1 className="text-[26px] sm:text-4xl md:text-5xl font-serif font-bold tracking-[0.15em] text-white uppercase drop-shadow-md">
+            CANDELA OBSCURA
+          </h1>
+          <h2 className="text-[11px] font-sans font-black tracking-[0.25em] sm:tracking-[0.35em] text-[#a82222] uppercase mt-1.5">
+            Virtual Tabletop Staging Archive
+          </h2>
+
+          <div className="flex items-center gap-4 mt-3 w-56">
+            <div className="h-[1px] flex-1 bg-[#d4af37]/40" />
+            <div className="text-[#d4af37]/70 relative flex items-center justify-center">
+               <SafeIcon name="GiCompass" size={18} className="relative z-10" />
+            </div>
+            <div className="h-[1px] flex-1 bg-[#d4af37]/40" />
+          </div>
+        </div>
+
+        {/* LOGOUT BUTTON: in normal flow, so it never covers the title */}
+        <div className="relative z-10 flex justify-center lg:justify-end lg:-mt-2">
           <button
             onClick={() => setStage('HOME')}
-            className="text-sm font-bold uppercase tracking-[0.2em] text-[#a82222] hover:text-white transition-colors bg-black/70 hover:bg-black/90 border border-[#a82222]/50 hover:border-[#a82222] px-4 py-2"
+            className="w-full sm:w-auto whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[#a82222] hover:text-white transition-colors bg-black/70 hover:bg-black/90 border border-[#a82222]/50 hover:border-[#a82222] px-4 py-2.5 lg:py-2"
           >
             [ Sign Out of Campaign ]
           </button>
-        </div>
-
-        <h1 className="text-4xl md:text-5xl font-serif font-bold tracking-[0.15em] text-white uppercase drop-shadow-md">
-          CANDELA OBSCURA
-        </h1>
-        <h2 className="text-[11px] font-sans font-black tracking-[0.35em] text-[#a82222] uppercase mt-1.5">
-          Virtual Tabletop Staging Archive
-        </h2>
-        
-        <div className="flex items-center gap-4 mt-3 w-56">
-          <div className="h-[1px] flex-1 bg-[#d4af37]/40" />
-          <div className="text-[#d4af37]/70 relative flex items-center justify-center">
-             <SafeIcon name="GiCompass" size={18} className="relative z-10" />
-          </div>
-          <div className="h-[1px] flex-1 bg-[#d4af37]/40" />
         </div>
       </header>
 
       {/* REGISTRY NAVIGATION */}
       <div className="max-w-[1500px] mx-auto mt-6 px-4 relative z-30">
-        <div className="absolute -left-3 sm:left-2 top-1/2 -translate-y-1/2 w-28 h-28 bg-gradient-to-br from-[#9c1c1c] via-[#7d1414] to-[#4a0808] rounded-[48%] shadow-[4px_10px_20px_rgba(0,0,0,0.85),inset_0_2px_4px_rgba(255,255,255,0.2)] flex items-center justify-center border border-[#5c0f0f] transform rotate-12 z-40 select-none cursor-help group" title="Official Seal of the Order">
-          <div className="w-20 h-20 rounded-full border border-dashed border-black/20 flex items-center justify-center p-0.5 shadow-inner">
-            <div className="text-[#641010] drop-shadow-[0_1.5px_1px_rgba(255,255,255,0.1)] shadow-inner transform -translate-y-[1px]">
+        <div className="absolute left-0 sm:left-2 top-1/2 -translate-y-1/2 w-16 h-16 sm:w-28 sm:h-28 bg-gradient-to-br from-[#9c1c1c] via-[#7d1414] to-[#4a0808] rounded-[48%] shadow-[4px_10px_20px_rgba(0,0,0,0.85),inset_0_2px_4px_rgba(255,255,255,0.2)] flex items-center justify-center border border-[#5c0f0f] transform rotate-12 z-40 select-none cursor-help group" title="Official Seal of the Order">
+          <div className="w-11 h-11 sm:w-20 sm:h-20 rounded-full border border-dashed border-black/20 flex items-center justify-center p-0.5 shadow-inner">
+            <div className="text-[#641010] drop-shadow-[0_1.5px_1px_rgba(255,255,255,0.1)] shadow-inner transform -translate-y-[1px] scale-[0.55] sm:scale-100">
               <SafeIcon name="GiCandleHolder" size={62} />
             </div>
           </div>
         </div>
 
-        <div className="w-full bg-[#ebdcb9] border-4 border-double border-black p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] flex flex-col md:flex-row justify-between items-center gap-4 text-black pl-32 pr-6 rounded-sm overflow-hidden">
+        <div className="w-full bg-[#ebdcb9] border-4 border-double border-black p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-black pl-16 sm:pl-32 pr-3 sm:pr-6 py-3 sm:py-5 rounded-sm overflow-hidden">
           <div className="absolute top-2 left-6 text-4xl font-mono font-black text-[#1a1311] opacity-5 tracking-tighter transform -rotate-2 select-none pointer-events-none">
             REGISTRY FILE // NO. 00843-CO
           </div>
@@ -111,14 +115,14 @@ export const MainDeskView = () => {
             </div>
           </div>
 
-          <div className="flex gap-2 font-sans text-[11px] font-black uppercase tracking-wider relative z-10">
+          <div className="grid grid-cols-3 md:flex gap-1.5 md:gap-2 font-sans text-[11px] font-black uppercase tracking-wider relative z-10">
             {['character', 'circle', 'archives'].map((tabName) => {
               const labels = { character: "Investigator Dossier", circle: "Circle Progress Report", archives: "Archive" };
               return (
                 <button
                   key={tabName}
                   onClick={() => setActiveTab(tabName)}
-                  className={`px-4 py-1.5 rounded transition-all duration-150 ${
+                  className={`px-2 md:px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 leading-tight rounded transition-all duration-150 ${
                     activeTab === tabName ? 'bg-black text-[#ebdcb9] shadow-md border border-black' : 'bg-transparent text-black/60 hover:bg-black/5 hover:text-black'
                   }`}
                 >
@@ -137,8 +141,8 @@ export const MainDeskView = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <TactileSidebar />
-            <div className="lg:col-span-6">
-              <div className="bg-[#fbf6eb] text-black px-8 pt-8 pb-8 rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] min-h-[850px] border-2 border-black relative font-serif overflow-hidden">
+            <div className="lg:col-span-6 order-1 lg:order-none min-w-0">
+              <div className="bg-[#fbf6eb] text-black px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 rounded-sm shadow-[0_20px_45px_rgba(0,0,0,0.85)] lg:min-h-[850px] border-2 border-black relative font-serif overflow-hidden">
                 <div className="absolute inset-0 opacity-25 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
                 <BrassCornerFiligree />
                 {activeTab === 'character' && <InvestigatorDossier />}
@@ -157,8 +161,8 @@ export const MainDeskView = () => {
 
       {/* REJOIN INVITE BANNER — shown when Lightkeeper has sent an invite */}
       {rejoinInvite && !character?.is_dead && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[800] flex items-center gap-4 bg-[#1a0505] border border-[#8b1a1a] px-6 py-4 shadow-[0_4px_30px_rgba(139,26,26,0.5)] max-w-xl w-[calc(100%-2rem)]">
-          <div className="flex-1 min-w-0">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[800] flex flex-wrap items-center gap-x-4 gap-y-2 bg-[#1a0505] border border-[#8b1a1a] px-4 py-3 sm:px-6 sm:py-4 shadow-[0_4px_30px_rgba(139,26,26,0.5)] max-w-xl w-[calc(100%-2rem)]">
+          <div className="flex-1 min-w-[12rem]">
             <p className="font-mono text-xs text-[#8b4a4a] uppercase tracking-[0.2em] mb-0.5">Lightkeeper Invitation</p>
             <p className="text-[#c9b89a] font-serif text-base leading-snug truncate">
               Invited to rejoin <strong className="text-white">{rejoinInvite.campaign_name}</strong>
@@ -180,7 +184,7 @@ export const MainDeskView = () => {
       {/* DEATH MODAL — blocks desk when investigator has perished */}
       {character?.is_dead && !deathDismissed && (
         <div className="fixed inset-0 z-[900] bg-black/90 flex flex-col items-center justify-center text-center px-6">
-          <div className="max-w-lg w-full bg-[#0d0807] border-2 border-[#5c1010] p-10 shadow-[0_0_80px_rgba(120,10,10,0.6)]">
+          <div className="max-w-lg w-full max-h-[calc(100dvh-32px)] overflow-y-auto bg-[#0d0807] border-2 border-[#5c1010] p-6 sm:p-10 shadow-[0_0_80px_rgba(120,10,10,0.6)]">
             <div className="text-[#8b1a1a] text-6xl mb-4 font-serif">✝</div>
             <h2 className="text-3xl font-serif font-bold tracking-widest text-white uppercase mb-3">
               Investigator Deceased

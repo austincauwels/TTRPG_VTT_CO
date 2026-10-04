@@ -82,7 +82,7 @@ const ScarModal = () => {
 
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-serif">
-      <div className="w-full max-w-xl bg-[#f4f1ea] border-4 border-double border-stone-800 rounded-sm p-8 shadow-[0_25px_60px_rgba(0,0,0,0.8)] relative text-stone-900 overflow-hidden">
+      <div className="w-full max-w-[520px] max-h-[calc(100dvh-32px)] bg-[#f4f1ea] border-4 border-double border-stone-800 rounded-sm p-5 sm:p-8 shadow-[0_25px_60px_rgba(0,0,0,0.8)] relative text-stone-900 overflow-x-hidden overflow-y-auto">
         <div className="absolute inset-0 opacity-30 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
         
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-sans font-black text-8xl text-stone-900/[0.02] tracking-widest select-none pointer-events-none border-8 border-stone-900/5 rounded-full p-12 rotate-12">

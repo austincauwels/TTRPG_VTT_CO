@@ -272,8 +272,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     <div className="relative z-10 animate-fadeIn space-y-6">
 
       {/* Investigator Portrait Frame */}
-      <div className="absolute top-0 right-0 w-44 h-[220px] bg-[#fefcf7] p-2 border border-black/10 shadow-[4px_10px_24px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 hover:scale-105 duration-200 transition-all z-30 group">
-        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-20 h-4 bg-[#d2b48c]/70 -rotate-3 border border-black/5 mix-blend-multiply shadow-sm" />
+      <div className="relative float-right ml-3 mb-2 w-24 h-[120px] p-1.5 md:float-none md:m-0 md:absolute md:top-0 md:right-0 md:w-44 md:h-[220px] md:p-2 bg-[#fefcf7] border border-black/10 shadow-[4px_10px_24px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 hover:scale-105 duration-200 transition-all z-30 group">
+        <div className="absolute -top-3 md:-top-3.5 left-1/2 -translate-x-1/2 w-12 md:w-20 h-3 md:h-4 bg-[#d2b48c]/70 -rotate-3 border border-black/5 mix-blend-multiply shadow-sm" />
         <div className="w-full h-full bg-black/5 border border-black/5 flex flex-col items-center justify-center overflow-hidden text-center">
           {character.profilePic || character.profile_pic ? (
             <img src={character.profilePic || character.profile_pic} className="w-full h-full object-cover grayscale contrast-125 sepia-[0.25]" alt="Subject Manifest Photo" />
@@ -287,8 +287,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       </div>
 
       {/* Investigator Identity Headers */}
-      <div className="grid grid-cols-3 gap-6 w-2/3 pb-2 font-mono">
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 md:w-2/3 pb-2 font-mono">
+        <div className="sm:col-span-2 min-w-0">
           <span className="block font-sans text-[8px] font-black uppercase tracking-wider text-black/40 leading-none">[ INVESTIGATOR APPELLATION RECORD ]</span>
           <div className="text-xl font-serif font-black border-b border-black pb-0.5 text-black uppercase mt-1 truncate">{character.name}</div>
           {/* Role class + specialty badges */}
@@ -297,7 +297,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             const displaySpecialty = character.specialty || SPECIALTY_FROM_ABILITY[character.specialty_ability] || '';
             const roleIcon = ROLE_ICONS[displayRole] || 'GiEyeShield';
             return (displayRole || displaySpecialty) ? (
-              <div className="flex flex-wrap gap-2.5 mt-2">
+              <div className="flex flex-wrap gap-2 sm:gap-2.5 mt-2">
                 {displayRole && (
                   <span className="font-mono text-sm font-black uppercase tracking-widest bg-[#1a1311] text-[#ebdcb9] px-2.5 py-1 flex items-center gap-1.5">
                     <SafeIcon name={roleIcon} size={14} />
@@ -321,7 +321,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       </div>
 
       {/* Skeuomorphic Index Card — toggles between Role Asset, Specialty Asset, Motivational Profile */}
-      <div className="w-full pr-48 relative" style={{ perspective: '1000px' }}>
+      <div className="w-full md:pr-48 relative clear-both md:clear-none" style={{ perspective: '1000px' }}>
         {/* Tab row — index card style tabs sticking up from behind */}
         <div className="flex gap-0 mb-0 relative z-10">
           {[
@@ -332,7 +332,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <button
               key={tab.key}
               onClick={() => setInfoTab(tab.key)}
-              className="px-3 py-1.5 text-[10px] font-mono font-black uppercase tracking-widest transition-all duration-150 rounded-t-sm mr-0.5"
+              className="max-sm:flex-1 max-sm:min-h-[36px] leading-tight px-2 sm:px-3 py-1.5 text-[10px] font-mono font-black uppercase tracking-wider sm:tracking-widest transition-all duration-150 rounded-t-sm mr-0.5"
               style={{
                 background: infoTab === tab.key ? tab.color : `${tab.color}55`,
                 color: infoTab === tab.key ? '#fdfaf4' : `${tab.color}bb`,
@@ -362,9 +362,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           }}
         >
           {/* Red margin line like a real index card */}
-          <div className="absolute top-0 bottom-0 left-10 w-[1px] bg-red-400/25 pointer-events-none" />
+          <div className="absolute top-0 bottom-0 left-8 sm:left-10 w-[1px] bg-red-400/25 pointer-events-none" />
 
-          <div className="pl-6 font-mono text-sm text-black/85">
+          <div className="pl-4 sm:pl-6 font-mono text-sm text-black/85 break-words">
             {infoTab === 'role' && (
               <div>
                 <span className="font-sans text-[10px] font-black uppercase tracking-widest text-[#721c15] block mb-1">I. Role Asset</span>
@@ -433,7 +433,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           const resistSpent = character[`${cat.driveKey}_resistance_spent`] || 0;
 
           return (
-            <div key={cat.name} className="bg-white/40 border border-black/20 p-3 rounded-sm grid grid-cols-2 gap-3">
+            <div key={cat.name} className="bg-white/40 border border-black/20 p-3 rounded-sm grid grid-cols-1 sm:grid-cols-2 gap-3">
 
               {/* LEFT: Drive section */}
               <div className="group/drive bg-white/60 border border-black/20 p-2.5 rounded-sm shadow-sm flex flex-col gap-2">
@@ -445,7 +445,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       <button
                         onClick={() => setPreSpend(p => ({ ...p, [cat.driveKey]: Math.max(0, (p[cat.driveKey] || 0) - 1) }))}
                         disabled={(preSpend[cat.driveKey] || 0) <= 0}
-                        className="w-5 h-5 bg-black/10 border border-black/20 text-[10px] font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
+                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 bg-black/10 border border-black/20 text-[10px] font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
                       >−</button>
                       <span className="font-mono text-[10px] text-[#b8860b] font-black w-3 text-center">{preSpend[cat.driveKey] || 0}</span>
                       <button
@@ -454,7 +454,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                           return { ...p, [cat.driveKey]: Math.min(maxSpend, (p[cat.driveKey] || 0) + 1) };
                         })}
                         disabled={(preSpend[cat.driveKey] || 0) >= Math.min(currentDrive, 5)}
-                        className="w-5 h-5 bg-black/10 border border-black/20 text-[10px] font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
+                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 bg-black/10 border border-black/20 text-[10px] font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
                       >+</button>
                     </div>
                   )}
@@ -467,7 +467,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       <button
                         key={i}
                         onClick={!readOnly && i < maxDrive && i >= currentDrive ? () => handleSpendDrive(cat.driveKey, i + 1) : undefined}
-                        className={`w-3.5 h-3.5 rounded-sm border transition-all focus:outline-none ${
+                        className={`w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all focus:outline-none ${
                           i < currentDrive
                             ? 'bg-[#721c15] border-[#721c15]'
                             : i < maxDrive
@@ -486,7 +486,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
                       <div
                         key={i}
-                        className={`w-3.5 h-3.5 rounded-sm border ${
+                        className={`w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border ${
                           i < maxDrive
                             ? 'border-dashed border-black/35 bg-black/8'
                             : 'border-dotted border-black/10 bg-transparent'
@@ -545,7 +545,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                               setActiveMods(p => ({ ...p, [act.key]: [] }));
                               rollAction(act.key, effectiveSpend, false, selectedMods);
                             }}
-                            className={`font-mono text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-left transition-colors ${(pendingGildedChoice || isRolling) ? 'opacity-40 cursor-not-allowed' : 'hover:text-red-800'}`}
+                            className={`font-mono text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-left transition-colors [@media(pointer:coarse)]:min-h-[40px] ${(pendingGildedChoice || isRolling) ? 'opacity-40 cursor-not-allowed' : 'hover:text-red-800'}`}
                             style={{ touchAction: 'manipulation' }}
                           >
                             {isGilded && <div className="w-2 h-2 bg-[#d4af37] rounded-full" />}
@@ -660,7 +660,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         <div className="md:col-span-7 bg-[#fcf9f2] border-2 border-dashed border-black/60 p-4 rounded-sm relative shadow-sm flex flex-col justify-between overflow-hidden">
           <div className="absolute top-1 right-2 font-mono text-[9px] text-black/30 tracking-tight uppercase">Official Worker Accident Form</div>
           <div>
-            <div className="flex justify-between items-center border-b border-black/40 pb-1 mb-2">
+            <div className="flex flex-wrap gap-2 justify-between items-center border-b border-black/40 pb-1 mb-2 mt-3 sm:mt-0">
               <h3 className="font-sans text-sm font-black uppercase tracking-widest text-black flex items-center gap-2">
                 <SafeIcon name="GiQuillInk" size={18} /> Medical Trauma Report
               </h3>
@@ -725,10 +725,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
       {/* Gear Change Modal */}
       {showGearModal && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center" style={{ background: 'rgba(10,6,4,0.82)' }}
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" style={{ background: 'rgba(10,6,4,0.82)' }}
           onClick={() => setShowGearModal(false)}>
-          <div className="relative rounded-sm overflow-y-auto" onClick={e => e.stopPropagation()}
-            style={{ width: 500, maxHeight: '80vh', background: '#f5ead0', border: '3px double rgba(62,42,26,0.7)', padding: '32px 36px', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
+          <div className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
+            style={{ background: '#f5ead0', border: '3px double rgba(62,42,26,0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
             <h2 className="text-2xl font-serif font-black text-[#1a1311] mb-1">Change Equipment</h2>
             <p className="text-sm font-sans text-[#5a3a28]/60 mb-5">Select up to 3 items. Gear can be changed freely between assignments.</p>
 

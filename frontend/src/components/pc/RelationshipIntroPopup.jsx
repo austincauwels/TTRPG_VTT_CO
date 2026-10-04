@@ -188,7 +188,7 @@ export const RelationshipIntroPopup = () => {
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 280, damping: 28 }}
-        className="w-full max-w-2xl max-h-[88vh] overflow-y-auto bg-[#0d0807] border-2 border-[#5c1010] shadow-[0_25px_60px_rgba(0,0,0,0.9)]"
+        className="w-full max-w-2xl max-h-[88dvh] overflow-y-auto bg-[#0d0807] border-2 border-[#5c1010] shadow-[0_25px_60px_rgba(0,0,0,0.9)]"
       >
         <div className="p-6 border-b border-[#2a1010]">
           <div className="font-mono text-xs uppercase tracking-[0.3em] text-[#8b4a4a] mb-1">
