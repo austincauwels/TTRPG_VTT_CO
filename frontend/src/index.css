@@ -612,7 +612,7 @@
 
 /* On a wide sheet (the 1920 and 2560 desks) the parts get room to breathe */
 @container dossier (min-width: 60rem) {
-  .dossier-c .dossier { row-gap: 1rem; column-gap: 1.75rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) 11.5rem; }
+  .dossier-c .dossier { row-gap: 0.875rem; column-gap: 1.75rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) 11.5rem; }
   .dossier-c .dossier-drives { gap: 1rem; padding: 0.875rem; }
   .dossier-c .dossier-drive { gap: 0.625rem; padding: 0.625rem; }
   .dossier-c .drive-pip { width: 0.875rem; height: 0.875rem; }
