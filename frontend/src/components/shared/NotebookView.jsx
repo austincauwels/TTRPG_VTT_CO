@@ -174,7 +174,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
               type="button"
               onClick={onRedraw}
               aria-label={`Keep drawing ${entry.title}`}
-              className="mt-2 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2 inline-flex items-center gap-1.5 font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors"
+              className="mt-2 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2 inline-flex items-center gap-1.5 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors"
             >
               <PencilIcon size={14} /> Keep drawing
             </button>
@@ -1109,7 +1109,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                       <div className="flex-1 min-w-0">
                         {pendingScene ? (
                           <button type="button" onClick={openNewSketch}
-                            className="min-h-[40px] px-2 -ml-2 inline-flex items-center gap-1.5 font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors">
+                            className="min-h-[40px] px-2 -ml-2 inline-flex items-center gap-1.5 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors">
                             <PencilIcon size={14} /> Keep drawing
                           </button>
                         ) : (
