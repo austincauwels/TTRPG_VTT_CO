@@ -107,7 +107,8 @@ export const MainDeskView = () => {
 
       {/* REGISTRY NAVIGATION */}
       <div className="max-w-[1500px] mx-auto mt-6 px-4 relative z-30">
-        <div className="absolute left-0 sm:left-2 top-1/2 -translate-y-1/2 w-16 h-16 sm:w-28 sm:h-28 bg-oxblood rounded-[48%] shadow-[4px_10px_20px_rgba(0,0,0,0.85),inset_-4px_-6px_10px_rgba(0,0,0,0.35),inset_2px_2px_4px_rgb(var(--c-cream)/0.15)] flex items-center justify-center border border-ink transform rotate-12 z-40 select-none group" aria-hidden="true">
+        {/* On phones the seal sits beside the name, so the tabs below can use the full width */}
+        <div className="absolute left-1.5 sm:left-3 top-2.5 sm:top-1/2 sm:-translate-y-1/2 w-16 h-16 sm:w-28 sm:h-28 bg-oxblood rounded-[48%] shadow-[4px_10px_20px_rgba(0,0,0,0.85),inset_-4px_-6px_10px_rgba(0,0,0,0.35),inset_2px_2px_4px_rgb(var(--c-cream)/0.15)] flex items-center justify-center border border-ink transform rotate-12 z-40 select-none group" aria-hidden="true">
           <div className="w-11 h-11 sm:w-20 sm:h-20 rounded-full border border-dashed border-ink/20 flex items-center justify-center p-0.5 shadow-inner">
             <div className="text-oxblood drop-shadow-[0_1.5px_1px_rgb(var(--c-cream)/0.1)] shadow-inner transform -translate-y-[1px] scale-[0.55] sm:scale-100">
               <SafeIcon name="GiCandleHolder" size={62} />
@@ -116,7 +117,7 @@ export const MainDeskView = () => {
         </div>
 
         <div className="w-full bg-parchment border-4 border-double border-ink p-5 relative shadow-[0_12px_30px_rgba(0,0,0,0.9)] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4 text-ink pl-16 sm:pl-32 pr-3 sm:pr-6 py-3 sm:py-5 rounded-sm overflow-hidden">
-          <div className="flex items-center gap-3 relative z-10">
+          <div className="flex items-center gap-3 relative z-10 min-h-[3.75rem] sm:min-h-0">
             <div>
               <span className="block font-serif font-bold text-xl leading-tight text-ink">{character?.name || 'Your investigator'}</span>
               {campaignName && (
@@ -125,7 +126,8 @@ export const MainDeskView = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 md:flex gap-1.5 md:gap-2 font-sans text-xs font-black uppercase tracking-wider relative z-10">
+          {/* uppercase sits on each button: Tailwind's base resets text-transform on buttons */}
+          <div className="flex gap-1 md:gap-2 -ml-12 sm:ml-0 font-sans text-xs font-black relative z-10">
             {['character', 'circle', 'archives'].map((tabName) => {
               const labels = { character: "Investigator", circle: "Circle", archives: "Notebook" };
               return (
@@ -133,7 +135,7 @@ export const MainDeskView = () => {
                   key={tabName}
                   onClick={() => setActiveTab(tabName)}
                   aria-current={activeTab === tabName ? 'page' : undefined}
-                  className={`pen-host px-1 md:px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 leading-tight tracking-normal md:tracking-wider rounded transition-all duration-150 ${
+                  className={`pen-host flex-auto md:flex-none px-1.5 md:px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 leading-tight uppercase tracking-normal md:tracking-widest rounded transition-all duration-150 ${
                     activeTab === tabName ? 'bg-ink text-parchment shadow-md border border-ink' : 'bg-transparent text-sepia hover:bg-black/5 hover:text-ink'
                   }`}
                 >

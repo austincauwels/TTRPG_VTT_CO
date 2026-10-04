@@ -601,7 +601,7 @@ export const CircleView = () => {
         {/* Right column: Resources */}
         <div className="lg:col-span-5 space-y-4">
           <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-3 flex items-center gap-1.5">
-            <SafeIcon name="GiScroll" size={14} className="text-oxblood" />
+            <SafeIcon name="GiScrollUnfurled" size={14} className="text-oxblood" />
             Circle Resources
           </h3>
 
@@ -634,9 +634,9 @@ export const CircleView = () => {
                     {desc}
                   </span>
                   {/* Available row — always shows 9 pips; players spend (left-click filled pip), GM can add/remove freely */}
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-1.5">
                     <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Available</span>
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1">
                       {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => {
                         const withinMax = i < maxCap;
                         const filled = i < avail;
@@ -679,9 +679,9 @@ export const CircleView = () => {
                     </div>
                   </div>
                   {/* Maximum row */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                     <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Maximum</span>
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1">
                       {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => (
                         <div
                           key={i}

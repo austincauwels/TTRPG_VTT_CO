@@ -436,7 +436,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       {/* Train bonus active indicator */}
       {character?.train_bonus && (
         <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-candle-gold/15 border border-candle-gold/50 text-ink font-sans font-bold text-xs uppercase tracking-widest rounded-sm">
-          <SafeIcon name="GiD6" size={11} />
+          <SafeIcon name="GiDiceSixFacesSix" size={11} />
           Train: +1d on your next roll
         </div>
       )}

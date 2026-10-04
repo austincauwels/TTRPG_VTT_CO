@@ -88,7 +88,7 @@ export const ActivityLog = ({ logEntries, gm = false }) => {
   return (
   <div className="font-sans">
     <h3 className={`text-sm font-sans font-black uppercase tracking-widest border-b pb-2 mb-3 flex items-center gap-2 ${gm ? 'text-moonlight-steel border-moonlight-steel/25' : 'text-parchment-deep border-parchment-deep/25'}`}>
-      <SafeIcon name="GiScroll" size={18} /> Activity Log
+      <SafeIcon name="GiScrollUnfurled" size={18} /> Activity Log
     </h3>
     <div
       ref={logContainerRef}

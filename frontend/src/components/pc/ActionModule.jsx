@@ -162,7 +162,7 @@ export default function ActionModule() {
       {/* SECTION II: ACQUIRED DOMAIN METRICS POWER SUB-HEADER (Page 2 Blueprint Style) */}
       <div className="border-b-2 border-[#1a1311] pb-1 pt-4 mb-4">
         <h3 className="text-sm font-sans font-black uppercase tracking-widest text-[#721c15] flex items-center gap-1">
-          <SafeIcon name="GiScroll" size={14} /> II. Assigned Domain Core Abilities
+          <SafeIcon name="GiScrollUnfurled" size={14} /> II. Assigned Domain Core Abilities
         </h3>
       </div>
 

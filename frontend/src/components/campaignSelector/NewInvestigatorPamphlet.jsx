@@ -20,11 +20,10 @@ export const NewInvestigatorPamphlet = ({ onOpen }) => (
       </div>
 
       <div className="flex-1 flex flex-col justify-center items-center text-center px-1">
-        <h3 className="font-display text-xl sm:text-2xl uppercase tracking-[0.06em] leading-none mb-1 text-oxblood">
-          Blank
-        </h3>
-        <h3 className="font-display text-xl sm:text-2xl uppercase tracking-[0.06em] leading-none mb-2 sm:mb-4 text-oxblood">
-          Intake
+        {/* One title on two lines, untracked on phones to match its twin, Lightkeeper Access */}
+        <h3 className="font-display text-lg sm:text-2xl uppercase tracking-normal sm:tracking-[0.06em] leading-none mb-2 sm:mb-4 text-oxblood">
+          <span className="block mb-1">Blank</span>
+          <span className="block">Intake</span>
         </h3>
 
         {/* Vintage Divider */}

@@ -11,7 +11,7 @@ export const GMSidebar = ({ activeTab, setActiveTab }) => {
   const navItems = [
     { id: 'roster', label: 'Roster', icon: 'GiFiles' },
     { id: 'circle', label: 'Circle', icon: 'GiEyeShield' },
-    { id: 'archives', label: 'Notebook', icon: 'GiScroll' },
+    { id: 'archives', label: 'Notebook', icon: 'GiScrollUnfurled' },
     { id: 'map', label: 'Map', icon: 'GiCompass' }
   ];
 

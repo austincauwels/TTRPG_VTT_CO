@@ -96,7 +96,7 @@ export const TensionClock = ({ readOnly = false }) => {
           <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center gap-3 z-10">
             <button onClick={() => adjust(-1)} disabled={!socketReady} aria-label="Lower tension by one"
               className="w-10 h-10 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait"
-            >-</button>
+            >−</button>
             <button onClick={() => adjust(1)} disabled={!socketReady} aria-label="Raise tension by one"
               className="w-10 h-10 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait"
             >+</button>

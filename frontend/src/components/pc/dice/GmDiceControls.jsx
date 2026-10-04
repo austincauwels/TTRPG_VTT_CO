@@ -14,7 +14,7 @@ export const GmDiceControls = ({ rollAction }) => {
           onClick={() => setGmDiceCount(Math.max(1, gmDiceCount - 1))}
           aria-label="One die fewer"
           className="w-8 h-8 bg-gm-night border border-moonlight-steel/50 rounded-sm text-sm font-bold text-cream hover:bg-gm-slate transition-colors"
-        >-</button>
+        >−</button>
         <span className="font-mono tabular-nums text-cream text-base w-5 text-center">{gmDiceCount}</span>
         <button
           onClick={() => setGmDiceCount(Math.min(10, gmDiceCount + 1))}
