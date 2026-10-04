@@ -12,10 +12,10 @@ import { CharacterCreator } from './CharacterCreator';
 
 // The first time the creator opens after the page loads. A page brought back by the
 // browser's Back button with the creator still saved as the screen came back from the
-// creator's own history entry, so it goes to the chapter house instead.
+// creator's own history entry, so it goes to the chapter hub instead.
 let firstCreatorVisit = true;
 
-// Three ways out of the character creator to the chapter house: the header link, Escape,
+// Three ways out of the character creator to the chapter hub: the header link, Escape,
 // and the browser's Back button. The creator gets its own history entry for Back; leaving
 // any other way (the link, Escape, a save) takes that entry off again, so Back from the
 // hub does not land on it. The draft stays in this browser for the account either way.
@@ -209,7 +209,7 @@ export const AppRouter = () => {
                 onClick={() => setStage('HOME')}
                 className="w-full sm:w-auto whitespace-nowrap text-xs sm:text-sm font-sans font-bold uppercase tracking-widest text-parchment-deep hover:text-cream transition-colors bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2"
               >
-                Back to the chapter house
+                Back to chapter hub
               </button>
             </div>
           </header>
