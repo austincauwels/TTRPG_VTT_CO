@@ -38,9 +38,8 @@ export const CampaignSelector = () => {
   // Per-character inline join form state  { [charId]: { code, pen, error, loading } }
   const [joinForms, setJoinForms] = useState({});
 
-  // The new-campaign form on the Lightkeeper Ledger page, and which page the book opens at
+  // The new-campaign form on the Lightkeeper Ledger page
   const [showRegisterForm, setShowRegisterForm] = useState(false);
-  const [bookStartPage, setBookStartPage] = useState(null);
 
   // Fetch user data on mount so book covers show accurate counts without needing to open the book
   useEffect(() => {
@@ -60,17 +59,9 @@ export const CampaignSelector = () => {
     setStage('LOGIN');
   };
 
-  // The tome opens the book at the page for the user's role; the GM pamphlet opens it at
-  // the Lightkeeper Ledger with the new-campaign form showing.
-  const openRoster = () => {
-    setBookStartPage(null);
-    handleOpenRoster();
-  };
-  const openNewCampaign = () => {
-    setBookStartPage('ledger');
-    setShowRegisterForm(true);
-    handleOpenRoster();
-  };
+  // The tome opens the book at the page for the user's role. The GM pamphlet keeps its own
+  // new-campaign form on its back.
+  const openRoster = () => handleOpenRoster();
 
   const handleCampaignCreated = async (camp) => {
     setShowRegisterForm(false);
@@ -129,7 +120,7 @@ export const CampaignSelector = () => {
             <NewInvestigatorPamphlet onOpen={() => setStage('CHARACTER_CREATION')} />
 
             {/* PAMPHLET II: GM OPERATIONS, flips to entry form */}
-            <GMAccessPamphlet onOpen={openNewCampaign} />
+            <GMAccessPamphlet userId={accessSession?.userId} onCreated={handleCampaignCreated} />
           </div>
 
           <HalcyonHeraldStrip />
@@ -146,7 +137,7 @@ export const CampaignSelector = () => {
       {/* BOOK OVERLAY */}
       {showBook && (
         <RosterBook
-          defaultPage={bookStartPage || (accessSession?.role === 'GM' ? 'ledger' : 'registry')}
+          defaultPage={accessSession?.role === 'GM' ? 'ledger' : 'registry'}
           isClosingBook={isClosingBook}
           closeBook={closeBook}
           registryProps={{

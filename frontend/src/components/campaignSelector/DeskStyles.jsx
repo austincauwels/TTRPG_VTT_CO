@@ -161,6 +161,32 @@ export const DeskStyles = () => (
       .pamphlet { position: absolute; }
     }
 
+    /* The GM pamphlet turns over in 3D to show the new-campaign form on its back (her
+       original flip). Under reduced motion it does not spin: the faces swap in place. */
+    .pamphlet-flip {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .pamphlet-flip.is-flipped { transform: rotateY(180deg); }
+    .pamphlet-face {
+      position: absolute;
+      inset: 0;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+    .pamphlet-back { transform: rotateY(180deg); }
+    @media (prefers-reduced-motion: reduce) {
+      .pamphlet-flip,
+      .pamphlet-flip.is-flipped,
+      .pamphlet-back { transform: none; transition: none; }
+      .pamphlet-flip .pamphlet-back,
+      .pamphlet-flip.is-flipped .pamphlet-front { visibility: hidden; }
+      .pamphlet-flip.is-flipped .pamphlet-back { visibility: visible; }
+    }
+
     /* Folded Herald strip for narrow screens: same paper stock, folded to its masthead */
     .newspaper-strip {
       position: relative;
