@@ -30,7 +30,7 @@ export const FairelandsMap = () => {
   return (
     <div>
       <div
-        className="rounded-sm shadow-2xl border border-slate-700 overflow-hidden bg-[#0a0a0a] cursor-crosshair"
+        className="rounded-sm shadow-2xl border border-gm-slate overflow-hidden bg-gm-night cursor-crosshair"
         style={{ touchAction: 'manipulation' }}
         onPointerDown={e => { lastPointer.current = e.pointerType; }}
         onPointerEnter={e => { if (e.pointerType === 'mouse') setMapHover(true); }}
@@ -50,7 +50,7 @@ export const FairelandsMap = () => {
           }}
         />
       </div>
-      <div className="mt-2 px-1 flex flex-wrap items-center justify-between gap-x-4 font-mono text-xs uppercase tracking-widest text-slate-400">
+      <div className="mt-2 px-1 flex flex-wrap items-center justify-between gap-x-4 font-sans font-bold text-xs uppercase tracking-widest text-moonlight-steel">
         <span className="[@media(hover:hover)]:hidden">
           {tapZoom ? 'Tap again to zoom out' : 'Tap the map to zoom in'}
         </span>
@@ -58,7 +58,7 @@ export const FairelandsMap = () => {
           href={MAP_SRC}
           target="_blank"
           rel="noopener noreferrer"
-          className="ml-auto min-h-[44px] inline-flex items-center underline underline-offset-4 hover:text-slate-100 transition-colors"
+          className="ml-auto min-h-[44px] inline-flex items-center underline underline-offset-4 hover:text-cream transition-colors"
         >
           Open full size
         </a>

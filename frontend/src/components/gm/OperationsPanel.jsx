@@ -83,7 +83,7 @@ export const OperationsPanel = () => {
   }, [activeTab, selectedInvestigator?.id]);
 
   return (
-    <div className="min-h-screen bg-[#020617] text-[#f1f5f9] font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 relative">
+    <div className="min-h-screen bg-gm-night text-cream font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 relative">
       
       <GMDeskHeader activeCampaignId={activeCampaignId} setStage={setStage} />
 
@@ -117,7 +117,7 @@ export const OperationsPanel = () => {
             )}
 
             {activeTab === 'roster' && !selectedInvestigator && (
-              <div className="max-lg:contents bg-[#0c1c32] p-8 rounded-sm shadow-2xl border border-[#1e3a5f] min-h-[850px] flex flex-col gap-8">
+              <div className="max-lg:contents bg-gm-night p-8 rounded-sm shadow-2xl border border-gm-slate min-h-[850px] flex flex-col gap-8">
 
                 {!rosterFinalized && (
                   <div className="order-5 lg:order-none">
@@ -156,7 +156,7 @@ export const OperationsPanel = () => {
             )}
             {activeTab === 'circle' && <CirclePage />}
             {activeTab === 'archives' && (
-              <div className="max-lg:contents bg-[#0c1c32] p-8 rounded-sm shadow-2xl border border-[#1e3a5f] min-h-[850px]">
+              <div className="max-lg:contents bg-gm-night p-8 rounded-sm shadow-2xl border border-gm-slate min-h-[850px]">
                 <NotebookView isGM={true} />
               </div>
             )}
@@ -167,8 +167,9 @@ export const OperationsPanel = () => {
 
           {!wideTab(activeTab) && (
             <div className="order-1 lg:order-none lg:col-span-3">
-              <div className="bg-[#0f172a] border border-slate-800 rounded-sm shadow-2xl overflow-hidden">
-                <div className="grayscale sepia-[.2] hue-rotate-[190deg] brightness-90">
+              {/* The GM's dice in their real colors: felt, wood, gold gilded dice */}
+              <div className="bg-gm-night border border-gm-slate rounded-sm shadow-2xl overflow-hidden px-3 pb-3">
+                <div>
                   <DiceVault showGmControls logEntries={activityLog} playerList={campaignRoster.active_investigators} />
                 </div>
               </div>

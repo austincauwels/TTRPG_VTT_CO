@@ -6,17 +6,17 @@ import { PlayerRosterCard } from '../PlayerRosterCard';
 export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIndex, handleStamp, handleReject }) => (
   <>
     <div className="flex items-center gap-3 mb-4">
-      <div className="h-[1px] flex-1 bg-[#1e3a5f]/60" />
-      <h3 className="font-mono text-sm font-bold uppercase tracking-[0.35em] text-[#93c5fd]/70">
+      <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
+      <h3 className="font-sans font-bold text-xs sm:text-sm uppercase tracking-widest text-moonlight-steel text-center">
         Correspondence — Pending Review
       </h3>
-      <div className="h-[1px] flex-1 bg-[#1e3a5f]/60" />
+      <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
     </div>
     {(() => {
       const pending = campaignRoster.pending_investigators || [];
       if (pending.length === 0) {
         return (
-          <p className="font-mono text-[10px] text-slate-600 uppercase tracking-widest text-center py-6 italic">
+          <p className="font-serif text-base text-moonlight-steel text-center py-6 italic">
             No pending correspondence.
           </p>
         );
@@ -39,15 +39,15 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
               <button
                 onClick={() => setPendingIndex(i => Math.max(0, i - 1))}
                 disabled={pendingIndex === 0}
-                className="w-8 h-8 flex items-center justify-center font-mono font-black text-lg text-amber-600/70 hover:text-amber-400 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                className="w-10 h-10 flex items-center justify-center font-sans font-black text-xl text-moonlight-steel hover:text-cream disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >‹</button>
-              <span className="font-mono text-[9px] text-slate-500 uppercase tracking-widest">
+              <span className="font-mono text-xs tabular-nums text-moonlight-steel">
                 {pendingIndex + 1} / {pending.length}
               </span>
               <button
                 onClick={() => setPendingIndex(i => Math.min(pending.length - 1, i + 1))}
                 disabled={pendingIndex === pending.length - 1}
-                className="w-8 h-8 flex items-center justify-center font-mono font-black text-lg text-amber-600/70 hover:text-amber-400 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                className="w-10 h-10 flex items-center justify-center font-sans font-black text-xl text-moonlight-steel hover:text-cream disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >›</button>
             </div>
           )}

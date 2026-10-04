@@ -73,31 +73,31 @@ function ReportFlipCard({ inv, report }) {
         {/* Front */}
         <div
           style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0 }}
-          className="bg-[#fefcf5] border border-[#d6cbbe] border-t-4 border-t-[#721c15]/70 shadow-md p-6 flex flex-col items-center justify-center gap-3"
+          className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 shadow-md p-6 flex flex-col items-center justify-center gap-3"
         >
           {inv.ink_color && (
             <div className="w-5 h-5 rounded-full" style={{ background: inv.ink_color }} />
           )}
-          <span className="font-mono text-xl font-black uppercase tracking-wide text-black text-center leading-tight">
+          <span className="font-sans text-xl font-black uppercase tracking-wide text-ink text-center leading-tight">
             {inv.name}
           </span>
           {inv.specialty && (
-            <span className="font-mono text-xs text-black/40 uppercase">{inv.specialty}</span>
+            <span className="font-sans font-bold text-xs text-sepia uppercase">{inv.specialty}</span>
           )}
           {report ? (
-            <span className="font-mono text-xs text-emerald-700 uppercase tracking-wider mt-1">Report filed ✓</span>
+            <span className="font-sans font-bold text-xs text-seal-green uppercase tracking-wider mt-1">Report filed ✓</span>
           ) : (
-            <span className="font-mono text-xs text-black/30 uppercase tracking-wider mt-1">Pending…</span>
+            <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider mt-1">Pending…</span>
           )}
-          <span className="font-mono text-[10px] text-black/25 uppercase mt-auto">Tap to review →</span>
+          <span className="font-sans font-bold text-xs text-sepia uppercase mt-auto">Tap to review →</span>
         </div>
 
         {/* Back */}
         <div
           style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0, transform: 'rotateY(180deg)' }}
-          className="bg-white border border-[#d6cbbe] p-4 flex flex-col gap-3 overflow-y-auto"
+          className="bg-cream border border-parchment-deep p-4 flex flex-col gap-3 overflow-y-auto"
         >
-          <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#721c15] border-b border-black/10 pb-1.5">
+          <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood border-b border-ink/10 pb-1.5">
             {inv.name}'s Report
           </span>
 
@@ -105,18 +105,18 @@ function ReportFlipCard({ inv, report }) {
           <div className="flex flex-col gap-1.5">
             {ILLUM_QUESTIONS.map((q, i) => (
               <div key={i} className="flex items-start gap-2">
-                <span className={`mt-0.5 text-xs font-black shrink-0 ${responses[`q${i}`] ? 'text-emerald-700' : 'text-black/20'}`}>
+                <span className={`mt-0.5 text-xs font-black shrink-0 ${responses[`q${i}`] ? 'text-seal-green' : 'text-sepia'}`}>
                   {responses[`q${i}`] ? '✓' : '✗'}
                 </span>
-                <span className="font-serif text-xs text-black/60 leading-snug">{q}</span>
+                <span className="font-serif text-xs text-sepia leading-snug">{q}</span>
               </div>
             ))}
           </div>
 
           {/* Illumination keys */}
           {specialtyKeys.length > 0 && (
-            <div className="border-t border-black/10 pt-2.5">
-              <span className="font-mono text-[9px] font-black uppercase tracking-widest text-black/40 block mb-1.5">
+            <div className="border-t border-ink/10 pt-2.5">
+              <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1.5">
                 {inv.specialty} Keys
               </span>
               <div className="flex flex-col gap-1">
@@ -124,10 +124,10 @@ function ReportFlipCard({ inv, report }) {
                   const checked = !!(keysDetail[i] || keysDetail[String(i)]);
                   return (
                     <div key={i} className="flex items-center gap-2">
-                      <span className={`text-xs font-black shrink-0 ${checked ? 'text-emerald-700' : 'text-black/20'}`}>
+                      <span className={`text-xs font-black shrink-0 ${checked ? 'text-seal-green' : 'text-sepia'}`}>
                         {checked ? '✓' : '✗'}
                       </span>
-                      <span className={`font-mono text-xs leading-snug ${checked ? 'text-black/80' : 'text-black/35'}`}>
+                      <span className={`font-serif text-sm leading-snug ${checked ? 'text-ink' : 'text-sepia'}`}>
                         {key}
                       </span>
                     </div>
@@ -180,26 +180,26 @@ export const CirclePage = () => {
   }
 
   return (
-    <div className="relative z-10 animate-sheetDrop space-y-8 text-black bg-[#f0ece4] min-h-[850px] px-8 py-8 rounded-sm shadow-inner" style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgba(0,0,0,0.04) 27px, rgba(0,0,0,0.04) 28px)', backgroundSize: '100% 28px', backgroundPosition: '0 4px' }}>
+    <div className="relative z-10 animate-sheetDrop space-y-8 text-ink bg-parchment min-h-[850px] px-8 py-8 rounded-sm shadow-inner" style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.08) 27px, rgb(var(--c-sepia) / 0.08) 28px)', backgroundSize: '100% 28px', backgroundPosition: '0 4px' }}>
 
       {/* I. Circle Identity Header — matches player CircleView */}
-      <div className="bg-[#fefcf5] border border-[#d6cbbe] border-t-4 border-t-[#721c15]/80 p-5 shadow-md rounded-sm">
+      <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/80 p-5 shadow-md rounded-sm">
         <div className="flex flex-col lg:flex-row gap-6 items-start">
 
           {/* Name + Chapter House (editable for GM) */}
           <div className="flex-1 space-y-3">
             <div>
-              <span className="block font-mono text-[9px] font-black uppercase tracking-widest text-black/40">
+              <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
                 [ CIRCLE DESIGNATION ]
               </span>
               {circle?.name ? (
                 <div className="flex items-center gap-2 mt-1">
-                  <div className="text-2xl font-serif font-black text-black uppercase leading-tight flex-1">
+                  <div className="text-2xl font-serif font-black text-ink uppercase leading-tight flex-1">
                     {circle.name}
                   </div>
                   <button
                     onClick={() => updateCircle({ circle_id: circId, name: '' })}
-                    className="text-black/30 hover:text-black/60 text-xs font-mono shrink-0"
+                    className="text-sepia hover:text-ink text-sm font-sans shrink-0"
                     title="Edit name"
                   >✎</button>
                 </div>
@@ -209,22 +209,22 @@ export const CirclePage = () => {
                   placeholder="Name not yet decided…"
                   defaultValue=""
                   onBlur={e => e.target.value.trim() && updateCircle({ circle_id: circId, name: e.target.value.trim() })}
-                  className="mt-1 w-full bg-white border border-dashed border-[#d6cbbe] text-black font-serif text-2xl px-3 py-1 focus:outline-none focus:border-[#721c15] uppercase"
+                  className="mt-1 w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-2xl px-3 py-1 focus:outline-none focus:border-oxblood uppercase"
                 />
               )}
             </div>
             <div>
-              <span className="block font-mono text-[9px] font-black uppercase tracking-widest text-black/40">
+              <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
                 [ CHAPTER HOUSE ]
               </span>
               {circle?.chapter_house_location ? (
                 <div className="flex items-start gap-2 mt-0.5">
-                  <div className="font-serif text-sm text-[#721c15] italic leading-snug flex-1">
+                  <div className="font-serif text-sm text-oxblood italic leading-snug flex-1">
                     {circle.chapter_house_location}
                   </div>
                   <button
                     onClick={() => updateCircle({ circle_id: circId, chapter_house_location: '' })}
-                    className="text-black/30 hover:text-black/60 text-xs font-mono mt-0.5 shrink-0"
+                    className="text-sepia hover:text-ink text-sm font-sans mt-0.5 shrink-0"
                     title="Edit chapter house"
                   >✎</button>
                 </div>
@@ -234,7 +234,7 @@ export const CirclePage = () => {
                   defaultValue=""
                   onBlur={e => e.target.value.trim() && updateCircle({ circle_id: circId, chapter_house_location: e.target.value.trim() })}
                   rows={2}
-                  className="mt-0.5 w-full bg-white border border-dashed border-[#d6cbbe] text-[#721c15] font-serif text-sm px-3 py-1.5 focus:outline-none focus:border-[#721c15] resize-none italic"
+                  className="mt-0.5 w-full bg-cream border border-dashed border-parchment-deep text-oxblood font-serif text-sm px-3 py-1.5 focus:outline-none focus:border-oxblood resize-none italic"
                 />
               )}
             </div>
@@ -242,29 +242,29 @@ export const CirclePage = () => {
 
           {/* Insignia Stamp */}
           <div className="shrink-0 flex flex-col items-center gap-2">
-            <span className="font-mono text-[9px] font-black uppercase tracking-widest text-black/40">
+            <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
               [ SYSTEM INSIGNIA ]
             </span>
-            <div className="w-20 h-20 rounded-full border-2 border-black/70 flex items-center justify-center bg-[#ebdcb9]/40 relative shadow-inner transform -rotate-3">
-              <div className="absolute inset-0 rounded-full border border-black/20 m-1 border-dashed" />
-              <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={38} className="text-black/85" />
+            <div className="w-20 h-20 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
+              <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
+              <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={38} className="text-ink/85" />
             </div>
           </div>
         </div>
 
         {/* Illumination Tracker */}
-        <div className="mt-4 pt-4 border-t border-black/10">
-          <h3 className="font-mono text-[10px] font-black uppercase tracking-widest text-black/50 mb-2 flex items-center gap-1.5">
-            <SafeIcon name="GiCandleLight" size={11} className="text-[#d4af37]" />
+        <div className="mt-4 pt-4 border-t border-ink/10">
+          <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
+            <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
             Illumination Tracker
           </h3>
           {trackFull && (
             <button
               onClick={() => setShowAdvanceModal(true)}
-              className="mb-2 w-full px-2 py-1.5 bg-[#d4af37]/20 border border-[#d4af37] rounded-sm flex items-center gap-2 hover:bg-[#d4af37]/30 transition-colors"
+              className="mb-2 w-full px-2 py-1.5 bg-candle-gold/20 border border-candle-gold rounded-sm flex items-center gap-2 hover:bg-candle-gold/30 transition-colors"
             >
-              <SafeIcon name="GiMedal" size={12} className="text-[#d4af37]" />
-              <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#7a6000]">
+              <SafeIcon name="GiMedal" size={12} className="text-candle-gold" />
+              <span className="font-sans text-xs font-black uppercase tracking-widest text-ink">
                 Track Complete — Advance Circle →
               </span>
             </button>
@@ -279,46 +279,46 @@ export const CirclePage = () => {
                   onClick={() => setIllum(filled && illum === i + 1 ? i : i + 1)}
                   title={`Illumination ${i + 1}`}
                   className={`w-5 h-5 rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
-                    filled ? 'bg-black border-black text-white' : 'bg-transparent border-black/50 hover:border-black'
-                  } ${milestone ? 'ring-2 ring-offset-1 ring-[#d4af37]' : ''}`}
+                    filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'
+                  } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}
                 >
-                  {milestone && <div className={`w-1.5 h-1.5 rounded-full bg-[#d4af37] ${filled ? 'opacity-100' : 'opacity-30'}`} />}
+                  {milestone && <div className={`w-1.5 h-1.5 rounded-full bg-candle-gold ${filled ? 'opacity-100' : 'opacity-30'}`} />}
                 </div>
               );
             })}
           </div>
-          <div className="font-mono text-[9px] text-black/35">
+          <div className="font-serif italic text-sm text-sepia">
             {illum} / {TRACK_SIZE} — milestone every 3 pips
           </div>
         </div>
 
         {/* Active Circle Ability */}
-        <div className="mt-4 pt-4 border-t border-black/10">
-          <span className="font-mono text-[9px] font-black uppercase tracking-widest text-[#721c15]">
+        <div className="mt-4 pt-4 border-t border-ink/10">
+          <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">
             Active Circle Ability
           </span>
           {circle?.circle_ability ? (
             <div className="mt-1 space-y-1">
               {circle.circle_ability.split('\n').filter(Boolean).map((ability, i) => (
-                <p key={i} className="font-serif text-sm text-black/90 leading-relaxed">
+                <p key={i} className="font-serif text-sm text-ink/90 leading-relaxed">
                   <span className="font-bold uppercase">{ability}: </span>
                   {CIRCLE_ABILITY_DESCRIPTIONS[ability] || ''}
                 </p>
               ))}
               <button
                 onClick={() => updateCircle({ circle_id: circId, circle_ability: '' })}
-                className="mt-1 font-mono text-[8px] text-black/30 hover:text-black/60 uppercase tracking-wider"
+                className="mt-1 font-sans font-bold text-xs text-sepia hover:text-ink uppercase tracking-wider"
               >
                 ✎ Clear abilities
               </button>
             </div>
           ) : (
             <div className="mt-1">
-              <p className="font-serif text-sm text-black/40 italic mb-2">No ability decided — select one:</p>
+              <p className="font-serif text-sm text-sepia italic mb-2">No ability decided — select one:</p>
               <select
                 defaultValue=""
                 onChange={e => e.target.value && updateCircle({ circle_id: circId, circle_ability: e.target.value })}
-                className="w-full bg-white border border-dashed border-[#d6cbbe] text-black font-mono text-sm px-2 py-1.5 focus:outline-none focus:border-[#721c15]"
+                className="w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-base px-2 py-1.5 focus:outline-none focus:border-oxblood"
               >
                 <option value="">— Assign circle ability —</option>
                 {Object.keys(CIRCLE_ABILITY_DESCRIPTIONS).map(a => (
@@ -335,36 +335,36 @@ export const CirclePage = () => {
 
         {/* Left: Assignment Dispatch Reference */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-[#fefcf5] border border-[#d6cbbe] border-t-4 border-t-[#721c15]/70 p-5 shadow-md rounded-sm relative transform -rotate-[0.3deg]">
-            <div className="absolute top-1.5 right-2 font-mono text-[7px] text-black/30 uppercase tracking-wider">
+          <div className="bg-cream border border-parchment-deep border-t-4 border-t-oxblood/70 p-5 shadow-md rounded-sm relative">
+            <div className="absolute top-1.5 right-2 font-sans font-bold text-xs text-sepia uppercase tracking-wider">
               Form No. 84-Illum
             </div>
-            <h3 className="font-mono text-[15px] font-black uppercase tracking-widest text-[#721c15] mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+            <h3 className="font-sans text-base font-black uppercase tracking-widest text-oxblood mb-1 flex items-center gap-1.5 border-b border-ink/10 pb-1">
               <SafeIcon name="GiQuillInk" size={12} />
               Illumination Questions
             </h3>
-            <p className="font-mono text-[8px] text-black/40 uppercase tracking-wider mb-4">
+            <p className="font-serif italic text-sm text-sepia mb-4">
               Evaluate at the end of each assignment.
             </p>
             <div className="space-y-3">
               {ILLUM_QUESTIONS.map((q, i) => (
-                <p key={i} className="font-serif text-sm text-black/80 leading-snug italic border-b border-black/10 pb-2 last:border-0">
-                  <span className="font-mono text-[9px] text-black/40 not-italic mr-2">{i + 1}.</span>"{q}"
+                <p key={i} className="font-serif text-sm text-ink/80 leading-snug italic border-b border-ink/10 pb-2 last:border-0">
+                  <span className="font-mono text-xs text-sepia not-italic mr-2">{i + 1}.</span>"{q}"
                 </p>
               ))}
             </div>
 
             {/* GM Toggle: Open Reports */}
-            <div className="mt-4 pt-3 border-t border-black/10 flex items-center justify-between">
-              <span className="font-mono text-[9px] text-black/50 uppercase tracking-wider">
+            <div className="mt-4 pt-3 border-t border-ink/10 flex items-center justify-between">
+              <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider">
                 {circle?.reports_open ? 'Reports are open' : 'Reports are closed'}
               </span>
               <button
                 onClick={() => gmToggleReports(circId)}
-                className={`px-3 py-1.5 font-mono text-[9px] font-black uppercase tracking-widest border rounded-sm transition-all ${
+                className={`px-3 py-1.5 font-sans text-xs font-black uppercase tracking-widest border rounded-sm transition-all ${
                   circle?.reports_open
-                    ? 'bg-[#721c15]/10 border-[#721c15]/50 text-[#721c15]'
-                    : 'bg-transparent border-black/20 text-black/50 hover:border-black/40'
+                    ? 'bg-oxblood/10 border-oxblood/50 text-oxblood'
+                    : 'bg-transparent border-ink/20 text-sepia hover:border-ink/40'
                 }`}
               >
                 {circle?.reports_open ? '✓ Reports Open' : 'Open Reports'}
@@ -375,11 +375,11 @@ export const CirclePage = () => {
 
         {/* Right: Circle Resources */}
         <div className="lg:col-span-5 space-y-4">
-          <h3 className="font-mono text-[15px] font-black uppercase tracking-widest text-black border-b border-black/30 pb-1 mb-3 flex items-center gap-1.5">
-            <SafeIcon name="GiScroll" size={14} className="text-[#721c15]" />
+          <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-3 flex items-center gap-1.5">
+            <SafeIcon name="GiScroll" size={14} className="text-oxblood" />
             Circle Resources
           </h3>
-          <p className="font-mono text-xs text-black/40 uppercase tracking-wide leading-relaxed">
+          <p className="font-serif italic text-sm text-sepia leading-relaxed">
             Max = 1 + circle members. Spend up to 2 per assignment.
           </p>
 
@@ -387,10 +387,10 @@ export const CirclePage = () => {
             {RESOURCES.map(({ label, key }) => {
               const avail = circle?.[key] ?? maxCap;
               return (
-                <div key={key} className="bg-white/60 border border-black/20 p-3 rounded-sm shadow-sm">
-                  <span className="font-serif font-black text-sm uppercase tracking-wide text-black block mb-2">{label}</span>
+                <div key={key} className="bg-cream/60 border border-ink/20 p-3 rounded-sm shadow-sm">
+                  <span className="font-serif font-black text-sm uppercase tracking-wide text-ink block mb-2">{label}</span>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-mono text-[9px] text-black/50 uppercase font-bold w-20">Available</span>
+                    <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Available</span>
                     <div className="flex gap-1">
                       {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => {
                         const withinMax = i < maxCap;
@@ -401,10 +401,10 @@ export const CirclePage = () => {
                             onClick={withinMax ? () => setResource(key, i + 1 === avail ? i : i + 1) : undefined}
                             className={`w-3.5 h-3.5 rounded-sm border transition-all ${
                               filled
-                                ? 'bg-[#721c15] border-[#721c15] cursor-pointer'
+                                ? 'bg-oxblood border-oxblood cursor-pointer'
                                 : withinMax
-                                  ? 'bg-transparent border-black/40 hover:border-[#721c15]/50 cursor-pointer'
-                                  : 'bg-transparent border-dashed border-black/15 opacity-30'
+                                  ? 'bg-transparent border-ink/40 hover:border-oxblood/50 cursor-pointer'
+                                  : 'bg-transparent border-dashed border-ink/15 opacity-30'
                             }`}
                           />
                         );
@@ -412,15 +412,15 @@ export const CirclePage = () => {
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[9px] text-black/30 uppercase font-bold w-20">Maximum</span>
+                    <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Maximum</span>
                     <div className="flex gap-1">
                       {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => (
                         <div
                           key={i}
                           className={`w-3.5 h-3.5 rounded-sm border ${
                             i < maxCap
-                              ? 'border-dashed border-black/35 bg-black/5'
-                              : 'border-dotted border-black/10 bg-transparent'
+                              ? 'border-dashed border-ink/35 bg-black/5'
+                              : 'border-dotted border-ink/10 bg-transparent'
                           }`}
                         />
                       ))}
@@ -435,16 +435,16 @@ export const CirclePage = () => {
           <div className="flex gap-2 flex-wrap pt-1">
             <button
               onClick={() => refillResources(circId)}
-              className="flex-1 px-3 py-2 font-mono text-[9px] font-black uppercase tracking-widest border border-black/20 text-black/50 hover:bg-black/5 hover:text-black hover:border-black/40 rounded-sm transition-all"
+              className="flex-1 px-3 py-2 font-sans text-xs font-black uppercase tracking-widest border border-ink/20 text-sepia hover:bg-black/5 hover:text-ink hover:border-ink/40 rounded-sm transition-all"
             >
               Refill All Resources
             </button>
             <button
               onClick={() => gmToggleResourceEdit(circId)}
-              className={`flex-1 px-3 py-2 font-mono text-[9px] font-black uppercase tracking-widest border rounded-sm transition-all ${
+              className={`flex-1 px-3 py-2 font-sans text-xs font-black uppercase tracking-widest border rounded-sm transition-all ${
                 circle?.resources_editable
-                  ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
-                  : 'border-black/20 text-black/40 hover:border-black/40'
+                  ? 'bg-seal-green/10 border-seal-green-lit text-seal-green'
+                  : 'border-ink/20 text-sepia hover:border-ink/40'
               }`}
             >
               {circle?.resources_editable ? '✓ Spending Allowed' : 'Lock Spending'}
@@ -458,14 +458,14 @@ export const CirclePage = () => {
       {/* III. Assignment Report Cards */}
       {investigators.length > 0 && (
         <div>
-          <h3 className="font-mono text-[15px] font-black uppercase tracking-widest text-black border-b border-black/30 pb-1.5 mb-5 flex items-center gap-1.5">
-            <SafeIcon name="GiPapers" size={14} className="text-[#721c15]" />
+          <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1.5 mb-5 flex items-center gap-1.5">
+            <SafeIcon name="GiPapers" size={14} className="text-oxblood" />
             Assignment Reports
-            <span className="font-mono text-[8px] text-black/30 ml-2 normal-case">Tap a card to review</span>
+            <span className="font-serif italic text-sm text-sepia ml-2 normal-case tracking-normal">Tap a card to review</span>
           </h3>
           <div className="flex flex-wrap gap-4">
             {investigators.map((inv, idx) => (
-              <div key={inv.id || idx} className="w-[360px] max-w-full" style={{ transform: `rotate(${idx % 2 === 0 ? '-0.5' : '0.5'}deg)` }}>
+              <div key={inv.id || idx} className="w-[360px] max-w-full">
                 <ReportFlipCard
                   inv={inv}
                   report={reports[inv.id] || reports[String(inv.id)] || null}
@@ -480,44 +480,43 @@ export const CirclePage = () => {
 
       {/* IV. Circle History */}
       <div>
-        <h3 className="font-mono text-[15px] font-black uppercase tracking-widest text-black border-b border-black/30 pb-1.5 mb-5 flex items-center gap-1.5">
-          <SafeIcon name="GiQuillInk" size={14} className="text-[#721c15]" />
+        <h3 className="font-sans text-base font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1.5 mb-5 flex items-center gap-1.5">
+          <SafeIcon name="GiQuillInk" size={14} className="text-oxblood" />
           Circle History
         </h3>
 
         {selQ ? (
-          <div className="bg-[#fefcf5] border border-[#d6cbbe] border-l-4 border-l-[#721c15]/60 p-4 mb-5 shadow-sm rounded-sm">
-            <span className="font-mono text-[8px] font-black uppercase tracking-widest text-black/40 block mb-2">
+          <div className="bg-cream border border-parchment-deep border-l-4 border-l-oxblood/60 p-4 mb-5 shadow-sm rounded-sm">
+            <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-2">
               Circle Formation Question
             </span>
-            <p className="font-serif text-base text-black/80 leading-relaxed italic">"{selQ.text}"</p>
+            <p className="font-serif text-base text-ink/80 leading-relaxed italic">"{selQ.text}"</p>
           </div>
         ) : (
-          <p className="font-serif text-sm text-black/40 italic mb-5">No circle question selected yet.</p>
+          <p className="font-serif text-sm text-sepia italic mb-5">No circle question selected yet.</p>
         )}
 
         {playersWithAnswers.length === 0 ? (
-          <p className="font-serif text-sm text-black/40 italic">No player history accounts recorded yet.</p>
+          <p className="font-serif text-sm text-sepia italic">No player history accounts recorded yet.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {playersWithAnswers.map((inv, idx) => (
               <div
                 key={inv.id || idx}
-                className="bg-[#fefcf5] border border-[#d6cbbe] p-4 shadow-sm rounded-sm"
-                style={{ transform: `rotate(${idx % 2 === 0 ? '0.3' : '-0.3'}deg)` }}
+                className="bg-cream border border-parchment-deep p-4 shadow-sm rounded-sm"
               >
-                <div className="flex items-center gap-2 mb-2 border-b border-black/10 pb-1.5">
+                <div className="flex items-center gap-2 mb-2 border-b border-ink/10 pb-1.5">
                   {inv.ink_color && (
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ background: inv.ink_color }} />
                   )}
-                  <span className="font-mono text-[9px] font-black uppercase tracking-wide text-black/60">
+                  <span className="font-sans text-xs font-black uppercase tracking-wide text-sepia">
                     {inv.name}
                   </span>
                   {inv.specialty && (
-                    <span className="font-mono text-[8px] text-black/30 uppercase">— {inv.specialty}</span>
+                    <span className="font-sans font-bold text-xs text-sepia uppercase">— {inv.specialty}</span>
                   )}
                 </div>
-                <p className="font-serif text-sm text-black/80 leading-relaxed italic whitespace-pre-wrap">
+                <p className="font-serif text-sm text-ink/80 leading-relaxed italic whitespace-pre-wrap">
                   "{inv.personal_circle_answer}"
                 </p>
               </div>
@@ -534,12 +533,12 @@ export const CirclePage = () => {
           onClick={() => setShowAdvanceModal(false)}
         >
           <div
-            className="relative w-full max-w-[480px] max-h-[90dvh] overflow-y-auto bg-[#fefcf5] border border-[#d6cbbe] border-t-4 border-t-[#721c15] shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
+            className="relative w-full max-w-[480px] max-h-[90dvh] overflow-y-auto bg-cream border border-parchment-deep border-t-4 border-t-oxblood shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
             onClick={e => e.stopPropagation()}
           >
             <div className="p-5 sm:p-8">
-              <h2 className="text-2xl font-serif font-black text-black mb-1">Circle Advancement</h2>
-              <p className="font-mono text-[9px] text-black/40 uppercase tracking-wider mb-6">
+              <h2 className="text-2xl font-serif font-black text-ink mb-1">Circle Advancement</h2>
+              <p className="font-serif italic text-base text-sepia mb-6">
                 Select the new circle ability. This will be broadcast to all investigators.
               </p>
 
@@ -555,13 +554,13 @@ export const CirclePage = () => {
                       value={ability}
                       checked={selectedAbility === ability}
                       onChange={() => setSelectedAbility(ability)}
-                      className="mt-1 accent-[#721c15] cursor-pointer"
+                      className="mt-1 accent-oxblood cursor-pointer"
                     />
                     <div>
-                      <span className={`font-mono text-sm font-black transition-colors ${selectedAbility === ability ? 'text-[#721c15]' : 'text-black group-hover:text-[#721c15]'}`}>
+                      <span className={`font-serif text-base font-bold transition-colors ${selectedAbility === ability ? 'text-oxblood' : 'text-ink group-hover:text-oxblood'}`}>
                         {ability}
                       </span>
-                      <p className="font-serif text-xs text-black/50 leading-snug mt-0.5">
+                      <p className="font-serif text-xs text-sepia leading-snug mt-0.5">
                         {CIRCLE_ABILITY_DESCRIPTIONS[ability]}
                       </p>
                     </div>
@@ -572,14 +571,14 @@ export const CirclePage = () => {
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowAdvanceModal(false)}
-                  className="flex-1 py-2 font-mono text-[10px] font-black uppercase tracking-widest border border-black/20 text-black/50 hover:border-black/40 hover:text-black rounded-sm transition-all"
+                  className="flex-1 py-2 font-sans text-xs font-black uppercase tracking-widest border border-ink/20 text-sepia hover:border-ink/40 hover:text-ink rounded-sm transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAdvanceConfirm}
                   disabled={!selectedAbility}
-                  className="flex-1 py-2 font-mono text-[10px] font-black uppercase tracking-widest bg-[#721c15] text-white hover:bg-[#8b2318] disabled:opacity-30 rounded-sm transition-all"
+                  className="flex-1 py-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:bg-oxblood disabled:opacity-30 rounded-sm transition-all"
                 >
                   Advance Circle →
                 </button>

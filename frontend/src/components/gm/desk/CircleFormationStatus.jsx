@@ -7,12 +7,12 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
   <div className="mt-3">
     <button
       onClick={() => setShowCircleStatus(s => !s)}
-      className="w-full flex items-center justify-between px-3 py-2 bg-slate-800/60 border border-slate-700 text-left"
+      className="w-full flex items-center justify-between px-3 py-2.5 bg-gm-slate/60 border border-gm-slate text-left hover:bg-gm-slate transition-colors"
     >
-      <span className="font-mono text-xs uppercase tracking-[0.2em] text-blue-400/70">
+      <span className="font-sans font-bold text-xs uppercase tracking-widest text-moonlight-steel">
         Circle Formation Status
       </span>
-      <span className="font-mono text-slate-500 text-xs">{showCircleStatus ? '▲' : '▼'}</span>
+      <span className="font-sans text-moonlight-steel text-xs">{showCircleStatus ? '▲' : '▼'}</span>
     </button>
     <AnimatePresence>
       {showCircleStatus && (
@@ -23,7 +23,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
           transition={{ duration: 0.2 }}
           className="overflow-hidden"
         >
-          <div className="bg-slate-900/60 border border-slate-700 border-t-0 p-3 space-y-2">
+          <div className="bg-gm-night/60 border border-gm-slate border-t-0 p-3 space-y-2">
             {/* Name vote leader */}
             {(() => {
               const nameVotes = circleCreation.votes?.name_vote || [];
@@ -33,8 +33,8 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
               const suggestCount = (circleCreation.votes?.name_suggest || []).length;
               return (
                 <div className="flex justify-between items-center">
-                  <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">Circle Name</span>
-                  <span className="font-mono text-xs text-slate-200">
+                  <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Circle Name</span>
+                  <span className="font-serif text-sm text-cream text-right">
                     {leader ? `"${leader[0]}" (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : suggestCount > 0 ? `${suggestCount} suggest${suggestCount > 1 ? 'ions' : 'ion'}, no votes` : 'No suggestions yet'}
                   </span>
                 </div>
@@ -48,8 +48,8 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
               const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
               return (
                 <div className="flex justify-between items-center">
-                  <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">Circle Ability</span>
-                  <span className="font-mono text-xs text-slate-200">
+                  <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Circle Ability</span>
+                  <span className="font-serif text-sm text-cream text-right">
                     {leader ? `${leader[0]} (${leader[1]})` : 'No votes yet'}
                   </span>
                 </div>
@@ -63,8 +63,8 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
               const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
               return leader ? (
                 <div className="flex justify-between items-center">
-                  <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">Insignia</span>
-                  <span className="font-mono text-xs text-slate-200">{leader[0].replace('Gi','')} ({leader[1]})</span>
+                  <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Insignia</span>
+                  <span className="font-serif text-sm text-cream text-right">{leader[0].replace('Gi','')} ({leader[1]})</span>
                 </div>
               ) : null;
             })()}
@@ -76,8 +76,8 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
               const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
               return (
                 <div className="flex justify-between items-center">
-                  <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">Question</span>
-                  <span className="font-mono text-xs text-slate-200">
+                  <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Question</span>
+                  <span className="font-serif text-sm text-cream text-right">
                     {leader ? `Q${leader[0].replace('q','')} selected (${leader[1]} vote${leader[1] > 1 ? 's' : ''})` : 'No votes yet'}
                   </span>
                 </div>
@@ -90,8 +90,8 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
               const total = rels.length;
               return (
                 <div className="flex justify-between items-center">
-                  <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">Relationships</span>
-                  <span className="font-mono text-xs text-slate-200">
+                  <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest shrink-0">Relationships</span>
+                  <span className="font-serif text-sm text-cream text-right">
                     {confirmed} confirmed / {total} proposed
                   </span>
                 </div>
@@ -99,12 +99,12 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
             })()}
             {/* Player personal answers */}
             {circleCreation.activeInvestigators?.some(inv => inv.personal_circle_answer) && (
-              <div className="mt-2 pt-2 border-t border-slate-700 space-y-2">
-                <span className="font-mono text-xs text-slate-400 uppercase tracking-wider block">Player History Answers</span>
+              <div className="mt-2 pt-2 border-t border-gm-slate space-y-2">
+                <span className="font-sans font-bold text-xs text-moonlight-steel uppercase tracking-widest block">Player History Answers</span>
                 {circleCreation.activeInvestigators.map(inv => inv.personal_circle_answer ? (
-                  <div key={inv.id} className="bg-slate-800/40 rounded-sm p-2">
-                    <p className="font-mono text-xs text-slate-400 uppercase mb-1">{inv.name}</p>
-                    <p className="font-serif text-xs text-slate-200 italic leading-snug">"{inv.personal_circle_answer}"</p>
+                  <div key={inv.id} className="bg-gm-slate/40 rounded-sm p-2">
+                    <p className="font-serif font-bold text-sm text-moonlight-steel mb-1">{inv.name}</p>
+                    <p className="font-serif text-sm text-cream/90 italic leading-snug">"{inv.personal_circle_answer}"</p>
                   </div>
                 ) : null)}
               </div>

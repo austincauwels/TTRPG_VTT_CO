@@ -3,16 +3,16 @@ import { AnimatePresence } from 'framer-motion';
 import { InvestigatorBusinessCard } from './InvestigatorBusinessCard';
 
 export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }) => (
-  <div className={`rounded-sm border border-[#1e3a5f] bg-[#0a1525] p-4 shadow-inner ${className}`}>
+  <div className={`rounded-sm border border-gm-slate bg-gm-slate/30 p-4 shadow-inner ${className}`}>
     <div className="flex items-center gap-3 mb-5">
-      <div className="h-[1px] flex-1 bg-[#2d5a8e]/50" />
-      <h3 className="font-mono text-sm font-bold uppercase tracking-[0.35em] text-[#60a5fa]">
+      <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
+      <h3 className="font-sans font-bold text-xs sm:text-sm uppercase tracking-widest text-moonlight-steel text-center">
         Active Circle Members
       </h3>
-      <div className="h-[1px] flex-1 bg-[#2d5a8e]/50" />
+      <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
     </div>
     {campaignRoster.active_investigators?.length === 0 ? (
-      <p className="font-mono text-[10px] text-[#3b82f6]/40 uppercase tracking-widest text-center py-6 italic">
+      <p className="font-serif text-base text-moonlight-steel text-center py-6 italic">
         No active investigators on record.
       </p>
     ) : (
