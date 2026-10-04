@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 
 // The felt tray. dieSkews, getIsCandidate and onDieClick come from DiceVault, so every
 // tray that shows the same roll lands its dice at the same angles.
-export const DiceTray = ({ lastRoll, isRolling, gildedPending, dieSkews, getIsCandidate, onDieClick }) => (
-  <div className="bg-[#12241b] p-5 shadow-[0_15px_30px_rgba(0,0,0,0.95),inset_0_10px_20px_rgba(0,0,0,0.95)] relative h-[270px] flex flex-col justify-between border-[12px] border-[#2e1d15] rounded-sm before:absolute before:inset-0 before:bg-[url('https://www.transparenttextures.com/patterns/fabric-of-squares.png')] before:opacity-20 before:pointer-events-none">
+export const DiceTray = forwardRef(({ lastRoll, isRolling, gildedPending, dieSkews, getIsCandidate, onDieClick }, ref) => (
+  <div ref={ref} className="bg-[#12241b] p-5 shadow-[0_15px_30px_rgba(0,0,0,0.95),inset_0_10px_20px_rgba(0,0,0,0.95)] relative h-[270px] flex flex-col justify-between border-[12px] border-[#2e1d15] rounded-sm before:absolute before:inset-0 before:bg-[url('https://www.transparenttextures.com/patterns/fabric-of-squares.png')] before:opacity-20 before:pointer-events-none">
     <div className="flex-1 flex flex-col items-center justify-center relative z-10 py-2">
       {isRolling ? (
         <div className="text-center flex flex-col items-center justify-center">
@@ -23,7 +23,7 @@ export const DiceTray = ({ lastRoll, isRolling, gildedPending, dieSkews, getIsCa
               if (gildedPending) {
                 if (isCandidate) {
                   extraClasses = 'animate-liftShimmy cursor-pointer ring-2 ring-white/50 hover:ring-white hover:scale-110 transition-transform';
-                  clickHandler = () => onDieClick(die);
+                  clickHandler = () => onDieClick(die, idx);
                 } else {
                   extraClasses = 'opacity-35';
                 }
@@ -65,4 +65,5 @@ export const DiceTray = ({ lastRoll, isRolling, gildedPending, dieSkews, getIsCa
       )}
     </div>
   </div>
-);
+));
+DiceTray.displayName = 'DiceTray';

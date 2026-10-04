@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { driveKeyFor } from '../../game/actions';
@@ -9,6 +9,7 @@ import { DiceTray } from './dice/DiceTray';
 import { RollModifications } from './dice/RollModifications';
 import { usePostRollPrompts } from './dice/usePostRollPrompts';
 import { PassNotes } from './dice/PassNotes';
+import { RollResultBar } from './dice/RollResultBar';
 
 // The roll modifier tables now live in game/rollMods.js; these names stay importable here.
 export { MAX_ABILITY_USES, ABILITY_ROLL_MODS, getAvailableRollMods } from '../../game/rollMods';
@@ -63,19 +64,53 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     return die.value === maxVal;
   };
 
-  const handleDieClick = (die) => {
+  // The die kept in a gilded choice, remembered for the phone roll bar until the next roll
+  const [kept, setKept] = useState(null);
+  const keptDie = kept && kept.roll === lastRoll ? kept : null;
+
+  const handleDieClick = (die, idx) => {
     if (!gildedPending) return;
+    setKept({ roll: lastRoll, value: die.value, idx });
     resolveGildedChoice(pendingGildedChoice.action, die.is_gilded ? 'gilded' : 'regular', die.value);
   };
 
+  // Whether the tray itself is on screen; the phone roll bar steps aside while it is
+  const trayRef = useRef(null);
+  const [trayInView, setTrayInView] = useState(false);
+  useEffect(() => {
+    if (showGmControls || !trayRef.current || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([entry]) => setTrayInView(entry.isIntersecting), { threshold: 0.6 });
+    io.observe(trayRef.current);
+    return () => io.disconnect();
+  }, [showGmControls]);
+
+  const showRollModifications = !showGmControls && (canResist || visiblePrompts.length > 0);
+  const rollModifications = (
+    <RollModifications
+      canResist={canResist}
+      visiblePrompts={visiblePrompts}
+      lastRoll={lastRoll}
+      character={character}
+      resistMax={resistMax}
+      resistSpent={resistSpent}
+      lastRollDriveKey={lastRollDriveKey}
+      burnResistance={burnResistance}
+      usePostRollAbility={usePostRollAbility}
+      drivePickerPrompt={drivePickerPrompt}
+      setDrivePickerPrompt={setDrivePickerPrompt}
+      setDismissedPrompts={setDismissedPrompts}
+    />
+  );
+
   return (
-    <div className="lg:col-span-3 space-y-6 mt-2">
+    <div className="lg:col-span-3 space-y-6 mt-2 order-2 lg:order-none">
 
 
       {showGmControls && <GmDiceControls rollAction={rollAction} />}
 
       {/* DICE TRAY */}
       <DiceTray
+        ref={trayRef}
         lastRoll={lastRoll}
         isRolling={isRolling}
         gildedPending={gildedPending}
@@ -85,22 +120,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       />
 
       {/* ROLL MODIFICATIONS */}
-      {!showGmControls && (canResist || visiblePrompts.length > 0) && (
-        <RollModifications
-          canResist={canResist}
-          visiblePrompts={visiblePrompts}
-          lastRoll={lastRoll}
-          character={character}
-          resistMax={resistMax}
-          resistSpent={resistSpent}
-          lastRollDriveKey={lastRollDriveKey}
-          burnResistance={burnResistance}
-          usePostRollAbility={usePostRollAbility}
-          drivePickerPrompt={drivePickerPrompt}
-          setDrivePickerPrompt={setDrivePickerPrompt}
-          setDismissedPrompts={setDismissedPrompts}
-        />
-      )}
+      {showRollModifications && rollModifications}
 
       {/* ACTIVITY LOG */}
       <ActivityLog logEntries={logEntries} />
@@ -109,6 +129,31 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       <PassNotes playerList={playerList} circleCreation={circleCreation} showGmControls={showGmControls} sendChat={sendChat} />
 
       {showGmControls && <InviteRejoinSection />}
+
+      {/* Phones: the latest roll pinned to the bottom of the screen, opening into the tray */}
+      {!showGmControls && (
+        <RollResultBar
+          rollerName={character?.name}
+          rollerInk={character?.ink_color}
+          lastRoll={lastRoll}
+          isRolling={isRolling}
+          gildedPending={gildedPending}
+          keptDie={keptDie}
+          getIsCandidate={getIsCandidate}
+          onDieClick={handleDieClick}
+          trayInView={trayInView}
+        >
+          <DiceTray
+            lastRoll={lastRoll}
+            isRolling={isRolling}
+            gildedPending={gildedPending}
+            dieSkews={dieSkews}
+            getIsCandidate={getIsCandidate}
+            onDieClick={handleDieClick}
+          />
+          {showRollModifications && rollModifications}
+        </RollResultBar>
+      )}
     </div>
   );
 };
