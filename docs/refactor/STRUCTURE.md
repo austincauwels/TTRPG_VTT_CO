@@ -59,7 +59,7 @@ The old receive loop was one if/elif chain. Now the endpoint resolves the target
 - A handler body is the old branch body. A `continue` that skipped to the next message is now `return`; a `continue` inside a loop of the handler is unchanged.
 - An exception from a handler still leaves the loop and ends the connection (only `roll` catches its own errors).
 
-Bug D1 is kept on purpose: `vtt/ws/handlers/marks.py` does not import `secrets`, so the Endurance branch of `take_mark` still raises `NameError` and ends the socket.
+Bug D1 was kept through the split and fixed afterwards in its own commit: `vtt/ws/handlers/marks.py` now imports `secrets`, so the Endurance branch of `take_mark` rolls instead of raising `NameError`.
 
 ## Tests that pin the surface
 

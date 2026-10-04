@@ -162,7 +162,7 @@ Validation gaps: `action` is not checked against the nine actions, so `getattr` 
 
 1. Soak offers. Brain: Compartmentalization (needs Nerve resistance), Steel Mind (needs Intuition resistance), Back Against the Wall (no cost). Body: In the Trenches (needs Cunning resistance). The first three each have one use per assignment. If any apply, the server sends `ability_mark_offer {ability: first option, options, mark_type, character_id, action: "soak"}` to the sender and stops. The mark is not applied. Accepting sends `resolve_ability_mark`, which soaks it. Declining, or the 15 second auto-dismiss in `AbilityMarkOffer`, sends nothing, so the mark is never applied (D5).
 2. Death Defy: if `is_from_enemy` and unused, sends an `escape` offer and stops. The UI never sets `is_from_enemy`, so this offer cannot appear today.
-3. New mark value is the current value plus 1. At 4 with Endurance, the handler rolls one die per remaining Nerve resistance pip with `secrets.randbelow`, but `secrets` is not imported in main.py. This raises NameError, nothing is committed, and the player's connection ends (D1).
+3. New mark value is the current value plus 1. At 4 with Endurance, the handler rolls one die per remaining Nerve resistance pip with `secrets.randbelow`; a 6 keeps the marks at 3. (Before the bug-fix stage `secrets` was not imported, so this raised NameError, nothing was committed and the connection ended: D1, now fixed.)
 4. At 4 or more: that track resets to 0, `incapacitated` is set, commit, `trigger_scar {character_id, mark_type, character}` to the sender and `activity_log` (log_type `danger`) to the campaign.
 5. Otherwise: the mark is set, commit, `character_update` to the sender, a `Let Them In` info offer on Bleed marks, an `Adrenaline Rush` drive refresh offer, and for each other active character in the same campaign whose role or specialty ability is exactly Behind Me (with Nerve at least 1) or Premonitions (with Intuition resistance left), `ability_intercept_offer {ability, mark_type, character_id: target, character_name, action}` to that character's key.
 
@@ -275,7 +275,7 @@ All 23 types the server emits have a handler in `gameStore.js`, and the store ha
 
 These are current behavior. The refactor should decide for each one whether to preserve it in a characterization test or fix it in a separate, named change.
 
-- D1. Endurance crashes: main.py:1814 uses `secrets.randbelow` but main.py never imports `secrets`. A character with Endurance taking a fourth mark with Nerve resistance left gets NameError; nothing is committed and the socket closes.
+- D1 (fixed in the bug-fix stage). Endurance crashes: main.py:1814 uses `secrets.randbelow` but main.py never imports `secrets`. A character with Endurance taking a fourth mark with Nerve resistance left gets NameError; nothing is committed and the socket closes.
 - D2. Tension clock and scene text always edit circle 1: `SceneManager` sends `circle_id: 1` and `gm_update_circle` looks the circle up without campaign scoping, then pushes circle 1 to the GM's campaign. This only works for a campaign whose circle is id 1.
 - D3. `campaign_retired` never reaches players: `retire_campaign` sets every character to `retired` and commits before `broadcast_campaign`, which only includes active characters. Only the GM key receives it.
 - D4. `roster_finalized` does not reach the pending characters it releases, for the same reason (they are set to unaffiliated first).

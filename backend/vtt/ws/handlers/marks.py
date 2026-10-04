@@ -1,9 +1,6 @@
-"""Marks and the ability offers around them: take_mark, resolve_ability_mark and intercept_mark.
+"""Marks and the ability offers around them: take_mark, resolve_ability_mark and intercept_mark."""
+import secrets
 
-secrets is deliberately not imported here. The Endurance branch of take_mark raises
-NameError, which is pinned as bug D1 (docs/refactor/QUIRKS.md, tests/test_ws_marks.py)
-and should be fixed in its own commit.
-"""
 from sqlalchemy import or_
 
 from models import Character
