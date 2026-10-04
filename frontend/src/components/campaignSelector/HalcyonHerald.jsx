@@ -9,19 +9,17 @@ const SHEET = agedPaper({
   edges: ['cut', 'cut', 'worn', 'cut'], corners: { tl: { r: 5 }, tr: { r: 8 }, br: { r: 10 }, bl: { r: 6 } },
   stain: { yellow: 0.14, rim: 0.62, rimW: 20, fox: 7 },
 });
-// The folded copy on phones: worn along the top and sides, the fold along its foot
-const STRIP = agedPaper({
-  W: 560, H: 170, seed: 223,
-  edges: ['worn', 'worn', 'cut', 'worn'], corners: { tl: { r: 4 }, tr: { r: 5 }, br: { r: 2 }, bl: { r: 2 } },
-  stain: { yellow: 0.12, rim: 0.6, rimW: 10, fox: 4 },
-});
 
 // Static in-world newspaper. The sheet is a child of the Herald, so the Herald's cast
 // shadow (thrown away from the candles) can lie under it; the paper inside the sheet is cut
 // by its mask. The advertisement's corner marks are absolute inside a box with no
 // `relative`, so they position against the paper: keep the nesting.
-export const HalcyonHerald = () => (
-  <div data-hub="herald" data-cast="0.22" className="herald hidden lg:block w-[960px] h-[700px] rotate-[-8deg] top-[-40px] left-[-100px] z-10"
+// On phones and tablets (`phone`) the same sheet, printed small (.herald-phone), lies under
+// the tomes and runs off the right of the screen (owner's round 4 item 11); its shadow is
+// measured before the scale, so it is set longer to match.
+export const HalcyonHerald = ({ phone = false }) => (
+  <div data-hub="herald" data-cast={phone ? '0.5' : '0.22'}
+    className={phone ? 'herald herald-phone' : 'herald hidden lg:block w-[960px] h-[700px] rotate-[-8deg] top-[-40px] left-[-100px] z-10'}
     style={{ '--shape': SHEET.mask }}>
     <span className="cast" aria-hidden="true" />
     <div className="herald-sheet">
@@ -85,29 +83,5 @@ export const HalcyonHerald = () => (
       </div>
     </div>
     </div>
-  </div>
-);
-
-// Narrow screens: the same paper folded down to its masthead and headline, set at the foot
-// of the desk so it never covers the tomes or tickets. One sheet, folded along its foot.
-export const HalcyonHeraldStrip = () => (
-  <div className="newspaper-strip lg:hidden w-[94%] max-w-[560px] rotate-[-1.5deg]" style={{ '--shape': STRIP.mask }}>
-  <div className="strip-paper px-3 pt-2 pb-2.5 sm:px-4 sm:pt-3 sm:pb-4 text-center" style={{ WebkitMaskImage: STRIP.mask, maskImage: STRIP.mask }}>
-    <span className="paper-stain" aria-hidden="true" style={{ backgroundImage: STRIP.stain }} />
-    <div className="border-b-[3px] border-double border-ink pb-1 mb-1.5 sm:pb-1.5 sm:mb-2">
-      <p className="font-display font-black tracking-tight text-[clamp(18px,5.6vw,32px)] text-ink leading-tight">THE HALCYON HERALD</p>
-      <div className="flex justify-between items-center gap-2 whitespace-nowrap font-display text-[9.5px] sm:text-[11px] uppercase tracking-normal sm:tracking-widest border-t border-ink pt-1 mt-1">
-        <span>Vol. XCIV, No. 212</span>
-        <span>The Fairelands</span>
-        <span>Two Pence</span>
-      </div>
-    </div>
-    <p className="font-display font-bold text-base sm:text-2xl leading-none uppercase tracking-wide text-ink">
-      TERROR IN THE SIDLE!
-    </p>
-    <p className="font-serif text-sm sm:text-base italic font-semibold mt-0.5 sm:mt-1 text-ink/85 leading-snug">
-      Authorities Baffled by Midnight Disappearances
-    </p>
-  </div>
   </div>
 );

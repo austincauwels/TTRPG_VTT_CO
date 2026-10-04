@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
@@ -13,6 +13,7 @@ import { tiltFor } from '../shared/handPlaced';
 import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks';
 import { PhotoMount } from '../shared/PhotoMount';
 import { usePortraitChange } from './usePortraitChange';
+import { TickMark } from '../shared/InkMarks';
 
 // A die face (three pips). The whole action row is the roll; this die only shows on hover
 // or keyboard focus (.action-die in index.css), never as a standing icon on every row.
@@ -25,6 +26,66 @@ const DieGlyph = ({ className = '' }) => (
   </svg>
 );
 
+// One pane of the ability index card: a printed heading, then each entry as its name in
+// bold capitals of the serif and its text in the serif (owner's round 4 item 13). An
+// optional entry with no text is left out; with nothing to show, the blank says so.
+const AbilityPane = ({ heading, entries, blank }) => {
+  const shown = entries.filter(e => e.text || !e.optional);
+  return (
+    <div>
+      <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-1">{heading}</span>
+      {shown.length === 0 && <span className="text-sepia italic">{blank}</span>}
+      {shown.map((e, i) => (
+        <p key={e.name} className={`leading-relaxed${i > 0 ? ' mt-1' : ''}`}>
+          <span className="font-bold uppercase text-ink">{e.name}:</span>{' '}
+          {e.text || <span className="text-sepia italic">{blank}</span>}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+// What an action does, for touch screens (owner's round 4 item 9). A mouse shows it on
+// hover (the row's title); a touch screen has no hover, so each action row ends in a small
+// printed "i" of its own, a 44px target that never rolls, and opens the same words on a
+// slip of paper under the row, clear of the column of "i"s so the next one can be tapped
+// straight away. One slip is open at a time; it closes on a tap outside it, on Escape, or
+// on the "i" again (the dossier keeps which one is open).
+const InfoMark = () => (
+  <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false">
+    <circle cx="10" cy="10" r="8.4" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    <circle cx="10.1" cy="5.9" r="1.25" fill="currentColor" />
+    <path d="M8.3 8.6h2.5v5.6M8.2 14.3h4.2" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const ActionInfo = ({ id, label, text, open, onToggle }) => (
+  <>
+    <button
+      type="button"
+      data-action-info={id}
+      aria-label={`About ${label}`}
+      aria-expanded={open}
+      aria-controls={`${id}-slip`}
+      onClick={onToggle}
+      className={`action-info hidden [@media(pointer:coarse)]:flex shrink-0 w-11 min-h-[44px] items-center justify-center rounded-sm transition-colors ${open ? 'text-oxblood' : 'text-sepia'}`}
+      style={{ touchAction: 'manipulation' }}
+    >
+      <InfoMark />
+    </button>
+    {open && (
+      <div
+        id={`${id}-slip`}
+        data-action-info={id}
+        role="note"
+        aria-label={`About ${label}`}
+        className="action-info-slip absolute left-1 right-12 top-full mt-1 z-30 px-3 py-2 rounded-[1px] font-serif text-base leading-snug text-ink"
+      >
+        <span className="font-bold uppercase">{label}:</span> {text}
+      </div>
+    )}
+  </>
+);
+
 const ROLE_ICONS = {
   'Face': 'GiDramaMasks',
   'Muscle': 'GiMuscleUp',
@@ -35,7 +96,7 @@ const ROLE_ICONS = {
 
 const ABILITY_TEXTS = {
   // ── FACE (role) ────────────────────────────────────────────────────────────
-  "I Know a Guy": "Once per assignment, ask the GM who you know nearby that could help you. The GM will tell you who they are, and explain why this NPC might have insight into the investigation.",
+  "I Know a Guy": "Once per assignment, ask the Lightkeeper who you know nearby that could help you. The Lightkeeper will tell you who they are, and explain why this NPC might have insight into the investigation.",
   "Sweet Talk": "You know how to work the room. After you make small talk with someone, you may add +1d on any Read rolls you make in which they are the target. If your current Cunning resistance is 2 or higher, that die is gilded.",
   "Cool Under Pressure": "On any high-stakes roll, you may always spend Cunning instead of the drive the action falls under.",
   // ── MUSCLE (role) ──────────────────────────────────────────────────────────
@@ -44,7 +105,7 @@ const ABILITY_TEXTS = {
   "Endurance": "When you take enough marks to become incapacitated, instead, roll a number of d6 equal to your current Nerve resistance. On a 6, you aren't incapacitated and don't take a scar.",
   // ── SCHOLAR (role) ─────────────────────────────────────────────────────────
   "Well-Read": "You're highly educated and retain knowledge better than most. When you spend Intuition while making a roll, on a result of 3 or less, earn back any of the Intuition you spent.",
-  "Occult Researcher": "Take 1 Brain mark to ask the GM for an important occult detail that you would recognize from your studies, but has not yet been revealed in the scene. If there are none, clear the Brain mark.",
+  "Occult Researcher": "Take 1 Brain mark to ask the Lightkeeper for an important occult detail that you would recognize from your studies, but has not yet been revealed in the scene. If there are none, clear the Brain mark.",
   "Meticulous Notes": "If your current Cunning resistance is 2 or more, add +1d to all Focus rolls. After an assignment, increase your Illumination track 1 additional point because of the detailed notes your character returns with.",
   // ── SLINK (role) ───────────────────────────────────────────────────────────
   "Scout": "If you have time to observe a location, you can spend 1 Intuition to ask a question: What do I notice here that others do not see? What in this place might be of use to us? What path should we follow?",
@@ -52,7 +113,7 @@ const ABILITY_TEXTS = {
   "Death Defy": "Once per assignment, when you should take 1 or more marks from an enemy, you instead escape unscathed. Describe how your quick thinking keeps you safe from harm.",
   // ── WEIRD (role) ───────────────────────────────────────────────────────────
   "Great Wards": "You can inscribe and maintain a warding symbol on one person at a time. Describe the material they must hold to bind it (salt, sand, etc.). They take +1d on Move rolls against phenomena.",
-  "Let Them In": "Whenever you take 1 or more Bleed marks, you also gain additional information about the phenomenon that harmed you. Ask the GM one question about the source of the bleed.",
+  "Let Them In": "Whenever you take 1 or more Bleed marks, you also gain additional information about the phenomenon that harmed you. Ask the Lightkeeper one question about the source of the bleed.",
   "Ritual": "When you have a few minutes to prepare, you may take a Bleed mark to perform a ritual on yourself or an ally: Circle of Protection (soaks 1 Body mark for the person within), Reinvigorate (refresh 1 resistance), or Remote Viewing (one moment).",
   // ── JOURNALIST (specialty) ─────────────────────────────────────────────────
   "Insider Access": "Your line of work offers you special privileges. Once per assignment, automatically gain access to an important person or place by using the Press Credentials gear.",
@@ -60,12 +121,12 @@ const ABILITY_TEXTS = {
   "Lie Detector": "When you make a Read roll in an attempt to figure out whether a person is telling the truth, gild an additional die. The first Cunning you spend on the roll is worth +2d instead of +1d.",
   "Press Conference": "You can spend 1 Cunning to gather a large group of people together to make announcements, ask questions, or stage a distraction. All Cunning rolls you make at this assembly take +1d.",
   "In the Trenches": "You've done enough dangerous journalism work to know how to keep yourself safe. Once per assignment, you may burn 1 Cunning resistance to soak a Body mark.",
-  "Well-Researched": "You can spend 1 Intuition to ask the GM a specific question about a place, group, or concept that you may have researched before the assignment. They will tell you what you know from that preparation.",
+  "Well-Researched": "You can spend 1 Intuition to ask the Lightkeeper a specific question about a place, group, or concept that you may have researched before the assignment. They will tell you what you know from that preparation.",
   // ── MAGICIAN (specialty) ───────────────────────────────────────────────────
   "Misdirection": "When you use your words or actions to distract a target from what is actually happening here, make a Hide roll. The first Cunning you or an ally spends on this roll is worth +2d instead of +1d.",
   "Escape Artist": "Spend 1 Nerve to automatically escape ropes, cuffs, manacles, or a creature that has grappled you.",
   "Practiced Patter": "You've long rehearsed for a moment like this. When making a Sway or Hide roll, you may spend Intuition instead of Cunning.",
-  "Uncanny Eye": "You may spend 1 Intuition to ask the GM a question: How can I leverage something here to my advantage? What here doesn't work the way it appears? What is out of place here?",
+  "Uncanny Eye": "You may spend 1 Intuition to ask the Lightkeeper a question: How can I leverage something here to my advantage? What here doesn't work the way it appears? What is out of place here?",
   "Flourish": "You know how to cover your mistakes with flair. On a roll where you could spend Cunning, if you fail or get a mixed success, you may spend 2 Cunning to push the result up one tier — from a miss to mixed success or mixed success to full success.",
   "The Prestige": "Your magic is usually all smoke and mirrors, but you have one trick you've learned that's real. Roll Sense when you perform it, and on a success, take a Bleed mark. Circle one option when you take this ability: change appearance, levitate, summon mundane object, teleport a short distance, or throw your voice.",
   // ── EXPLORER (specialty) ───────────────────────────────────────────────────
@@ -79,7 +140,7 @@ const ABILITY_TEXTS = {
   "Basic Training": "You have tactical experience in high-pressure situations. When you make a Survey roll in a dangerous place, also add a number of dice equal to your current Nerve resistance.",
   "Geared Up": "You and one ally in your circle may mark an additional gear slot during each assignment.",
   "Sharpshooter": "When you want to make a ranged attack with a weapon, you may spend 1 Nerve to steady your aim before shooting, and add +2d to your next shot at this target.",
-  "Tactician": "When you are in a dangerous scenario, you may spend 1 Nerve to ask the GM a question: How do I get to safety? What poses the largest immediate threat to my circle? Where is the target going to move next?",
+  "Tactician": "When you are in a dangerous scenario, you may spend 1 Nerve to ask the Lightkeeper a question: How do I get to safety? What poses the largest immediate threat to my circle? Where is the target going to move next?",
   "Compartmentalization": "You have trained to detach yourself from the horrors of violence. Once per assignment, you may burn 1 Nerve resistance to soak a Brain mark.",
   "Volunteer Duty": "Between assignments, instead of spending resources, you can offer a helping hand to your Lightkeeper. Describe how you aid the organization, and refill 1 point in any Candela Obscura resource on your circle sheet. You may not spend any resources during this downtime.",
   // ── DOCTOR (specialty) ────────────────────────────────────────────────────
@@ -91,20 +152,20 @@ const ABILITY_TEXTS = {
   "Anatomical Strike": "You know where the body is most vulnerable. When attacking an enemy, you may roll Focus instead of Strike.",
   // ── PROFESSOR (specialty) ─────────────────────────────────────────────────
   "Steel Mind": "Once per assignment, when you should take a Brain mark, you may instead burn 1 Intuition resistance to soak it.",
-  "University Resources": "Your university has alumni all over the world. Once per session, describe a person you know from your tenure as a professor, and ask the GM where they can be found locally.",
+  "University Resources": "Your university has alumni all over the world. Once per session, describe a person you know from your tenure as a professor, and ask the Lightkeeper where they can be found locally.",
   "Learn from My Mistakes": "Any time you get a result of 3 or less on a roll, describe what lesson you learned from your failure, and refresh 1 drive point of your choice.",
   "Better Part of Valor": "When making a Control or Move roll to flee danger, gild a die. On this roll, the first Nerve you spend is worth +2d instead of +1d.",
   "Verbose": "When you make a speech or hold a conversation to assist an ally, the die you give them is gilded.",
   "Chemical Concoction": "You know how to mix chemicals together to achieve particular effects. When you take Laboratory Equipment as gear, you may spend a few minutes concocting a mixture that is: acidic, explosive, flammable, loud, sleep-inducing, sticky, or toxic.",
   // ── CRIMINAL (specialty) ──────────────────────────────────────────────────
   "Street Smarts": "You know how to keep an eye on your surroundings. Whenever you make a Survey roll, you may spend any drive instead of only Intuition.",
-  "Leverage": "On a successful Read roll, you may ask the GM what your target truly wants. On any Sway rolls you make using this information, also add a number of dice equal to your current Cunning resistance.",
+  "Leverage": "On a successful Read roll, you may ask the Lightkeeper what your target truly wants. On any Sway rolls you make using this information, also add a number of dice equal to your current Cunning resistance.",
   "Hardened": "When you take a scar, you may choose not to shift any action points as a result.",
   "Born in the Shadows": "When attempting to avoid security or detection, gild an additional Hide die.",
   "Tricks of the Trade": "You've learned how to navigate tricky or dangerous situations to keep yourself out of harm's way. On any Hide or Sway roll you make, you may spend 1 Nerve to lower the stakes before rolling. If this is already a low-stakes roll, you may not use this ability.",
   "Sticky Fingers": "After a successful melee attack, you can spend 1 Cunning to pilfer an item from your target undetected. This could be their wallet, a weapon they're carrying, an important document, etc.",
   // ── DETECTIVE (specialty) ─────────────────────────────────────────────────
-  "Mind Palace": "When you want to figure out how two clues might relate or what path they should point you toward, burn 1 Intuition resistance. The GM will give you the information you've deduced.",
+  "Mind Palace": "When you want to figure out how two clues might relate or what path they should point you toward, burn 1 Intuition resistance. The Lightkeeper will give you the information you've deduced.",
   "Interrogation": "When you are questioning someone about information they are resistant to revealing, add a number of dice equal to your current Cunning resistance to your Read roll.",
   "Back Against the Wall": "When you are making a high-stakes roll, you may take a Brain mark to make any Nerve you spend worth +2d instead of +1d.",
   "Inspection": "You have experience examining crime scenes. When you make a Survey roll to gather evidence about what might have happened in this location, gild an additional die on the roll.",
@@ -251,6 +312,27 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   const [preSpend, setPreSpend] = useState({ nerve: 0, cunning: 0, intuition: 0 });
   // Toggled ability mods per action key
   const [activeMods, setActiveMods] = useState({});
+  // Which action's "i" slip is open on a touch screen: one at a time, closed by a tap
+  // outside it or Escape (focus goes back to its "i")
+  const infoId = useId();
+  const [infoFor, setInfoFor] = useState(null);
+  useEffect(() => {
+    if (!infoFor) return undefined;
+    const sel = `[data-action-info="${infoFor}"]`;
+    const onDown = (e) => { if (!e.target.closest?.(sel)) setInfoFor(null); };
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      setInfoFor(null);
+      document.querySelector(`button${sel}`)?.focus();
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+  }, [infoFor]);
   const toggleMod = (actionKey, modKey) => setActiveMods(prev => {
     const cur = prev[actionKey] || [];
     return { ...prev, [actionKey]: cur.includes(modKey) ? cur.filter(k => k !== modKey) : [...cur, modKey] };
@@ -532,44 +614,25 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           {/* Red margin line like a real index card */}
           <div className="absolute top-0 bottom-0 left-8 sm:left-10 w-[1px] bg-oxblood-lit/25 pointer-events-none" />
 
+          {/* One type treatment in all three panes (owner's round 4 item 13): the same
+              printed heading, then each entry as its name in bold capitals of the serif and
+              its text in the serif. The catalyst and the question are entries like the
+              abilities; the player typed them, so they print too. */}
           <div className="pl-4 sm:pl-6 font-serif text-base text-ink break-words">
             {infoTab === 'role' && (
-              <div>
-                <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-1">{character.role || 'Role'} ability</span>
-                <p className="leading-relaxed">
-                  <span className="font-bold uppercase text-ink">{character.role_ability || "Ability"}:</span>{' '}
-                  {ABILITY_TEXTS[character.role_ability] || <span className="text-sepia italic">None chosen</span>}
-                </p>
-              </div>
+              <AbilityPane heading={`${character.role || 'Role'} ability`}
+                entries={[{ name: character.role_ability || 'Ability', text: ABILITY_TEXTS[character.role_ability] }]} blank="None chosen" />
             )}
             {infoTab === 'specialty' && (
-              <div>
-                <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-1">{character.specialty || 'Specialty'} ability</span>
-                <p className="leading-relaxed">
-                  <span className="font-bold uppercase text-ink">{character.specialty_ability || "Specialty"}:</span>{' '}
-                  {ABILITY_TEXTS[character.specialty_ability] || <span className="text-sepia italic">None chosen</span>}
-                </p>
-              </div>
+              <AbilityPane heading={`${character.specialty || 'Specialty'} ability`}
+                entries={[{ name: character.specialty_ability || 'Specialty', text: ABILITY_TEXTS[character.specialty_ability] }]} blank="None chosen" />
             )}
             {infoTab === 'profile' && (
-              <div>
-                <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-1">Catalyst and question</span>
-                {character.catalyst ? (
-                  <p className="leading-relaxed">
-                    <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia mr-2">Catalyst</span>
-                    {character.catalyst}
-                  </p>
-                ) : null}
-                {character.question ? (
-                  <p className="leading-relaxed mt-1">
-                    <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia mr-2">Question</span>
-                    {character.question}
-                  </p>
-                ) : null}
-                {!character.catalyst && !character.question && (
-                  <span className="text-sepia italic">Not written</span>
-                )}
-              </div>
+              <AbilityPane heading="Catalyst and question" blank="Not written"
+                entries={[
+                  { name: 'Catalyst', text: character.catalyst, optional: true },
+                  { name: 'Question', text: character.question, optional: true },
+                ]} />
             )}
           </div>
         </div>
@@ -717,11 +780,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     </span>
                   );
                   const rollBlocked = !!pendingGildedChoice || !!isRolling;
+                  const infoKey = `${infoId}-${act.key}`;
 
                   return (
-                    <div key={act.key} className="group/action" title={ACTION_FLAVOR[act.key]}>
+                    <div key={act.key} className="group/action relative" title={ACTION_FLAVOR[act.key]}>
+                      <div className="flex items-center gap-1">
                       {readOnly ? (
-                        <div className="flex justify-between items-center py-0.5">
+                        <div className="flex-1 min-w-0 flex justify-between items-center py-0.5">
                           <span className="font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5 text-ink">
                             {isGilded && <span aria-hidden="true" className="w-2 h-2 bg-candle-gold border border-sepia rounded-full" />}
                             {act.label}
@@ -761,6 +826,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                           {ratingPips}
                         </button>
                       )}
+                      <ActionInfo id={infoKey} label={act.label} text={ACTION_FLAVOR[act.key]}
+                        open={infoFor === infoKey} onToggle={() => setInfoFor(cur => (cur === infoKey ? null : infoKey))} />
+                      </div>
                       {availMods.length > 0 && (
                         // The abilities that can add to this roll: a chip each, on one line, its
                         // name and what it adds in the sheet's own marks (+1d, the gilded dot,
@@ -972,7 +1040,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       <button type="button" key={item} aria-pressed={sel} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
                         className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
                         style={{ background: sel ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.3)', border:`1px solid ${sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia)/0.22)'}` }}>
-                        <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/40'}`}>{sel&&'✓'}</div>
+                        <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/40'}`}>{sel&&<TickMark />}</div>
                         <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />
                         <span className={`text-sm font-serif ${sel?'font-bold text-ink':'text-ink/75'}`}>{item}</span>
                       </button>
@@ -991,7 +1059,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     <button type="button" key={item} aria-pressed={sel} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
                       className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
                       style={{ background: sel ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.15)', border:`1px solid ${sel?'rgb(var(--c-oxblood) / 0.5)':'rgb(var(--c-sepia)/0.15)'}` }}>
-                      <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/35'}`}>{sel&&'✓'}</div>
+                      <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/35'}`}>{sel&&<TickMark />}</div>
                       <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />
                       <span className={`text-sm font-serif ${sel?'font-bold text-ink':'text-sepia'}`}>{item}</span>
                     </button>

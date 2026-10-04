@@ -34,7 +34,7 @@ const ABILITY_OFFER_CONFIG = {
   },
   "Let Them In": {
     icon: "GiThirdEye",
-    description: "Ask the GM one question about the source of the bleed.",
+    description: "Ask the Lightkeeper one question about the source of the bleed.",
     actionType: "info",
   },
   "Behind Me": {

@@ -718,7 +718,7 @@ const LoginScreen = ({ resetToken = null, onLeaveReset }) => {
         <footer className="relative px-4 pb-5 flex justify-center lg:justify-start lg:pl-[3vw]">
           <p className="max-w-sm rotate-[0.8deg] rounded-sm border border-sepia/40 bg-parchment-deep px-3 py-1.5 font-serif text-sm leading-snug text-ink shadow-[2px_4px_8px_rgba(0,0,0,0.55)]">
             The Fairelands map from the <cite>Candela Obscura Core Rulebook</cite>. Art by Marc Moreau.
-            {' '}™ and © 2023 by Darrington Press LLC.
+            {' \u2122\uFE0E and \u00A9\uFE0E 2023 by Darrington Press LLC.'}
           </p>
         </footer>
       )}

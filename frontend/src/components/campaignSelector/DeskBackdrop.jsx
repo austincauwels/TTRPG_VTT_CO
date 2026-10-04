@@ -1,5 +1,26 @@
 import React from 'react';
 
+// A cup set down on the leather (owner's round 4 item 6): the size of a real cup's foot
+// next to the tomes, a slightly uneven ring with a darker rim where the tea dried, a pale
+// bloom just inside it and a faint inner tide line, and a second, broken ring where the cup
+// was set down again a little off. Built once at module load.
+const ringPath = (cx, cy, r, seed) => {
+  const pts = [];
+  for (let i = 0; i < 96; i++) {
+    const a = (i / 96) * Math.PI * 2;
+    const rr = r * (1 + 0.013 * Math.sin(3 * a + seed) + 0.008 * Math.sin(7 * a + seed * 1.7) + 0.005 * Math.sin(13 * a + seed * 0.6));
+    pts.push(`${(cx + rr * Math.cos(a)).toFixed(2)} ${(cy + rr * Math.sin(a)).toFixed(2)}`);
+  }
+  return `M${pts.join('L')}Z`;
+};
+const CUP = {
+  rim: ringPath(58, 62, 41, 1),
+  edge: ringPath(58, 62, 42.2, 1.3),
+  bloom: ringPath(58, 62, 38.6, 2),
+  tide: ringPath(58.6, 62.4, 33.5, 3),
+  again: ringPath(70, 53, 40.4, 4),
+};
+
 // The writing desk under everything on the hub, seen from above (DeskStyles.jsx, deskArt.js):
 // long-grained wood with plank seams, a dark oxblood leather writing inset a step below it
 // with a tooled gilt border and a smoother patch where hands rest, and two old marks on it,
@@ -11,11 +32,23 @@ export const DeskBackdrop = () => (
       <div className="hub-leather-wear" />
       <div className="hub-tooling" />
     </div>
-    {/* A cup ring, a little broken where the cup was lifted unevenly */}
-    <svg className="hub-cup" viewBox="0 0 100 100" fill="none">
-      <circle cx="50" cy="50" r="40" stroke="#060201" strokeOpacity="0.42" strokeWidth="2.6" strokeDasharray="150 9 62 14 18 6" />
-      <circle cx="51.2" cy="49" r="37.6" stroke="#060201" strokeOpacity="0.2" strokeWidth="1.2" strokeDasharray="48 22 96 30" />
-      <path d="M17 40a35 35 0 0 1 19-23" stroke="#f0c79a" strokeOpacity="0.07" strokeWidth="1.4" strokeLinecap="round" />
+    <svg className="hub-cup" viewBox="0 0 124 124" fill="none">
+      <defs>
+        <radialGradient id="hub-cup-wash" cx="0.47" cy="0.5" r="0.5">
+          <stop offset="0.55" stopColor="#060201" stopOpacity="0" />
+          <stop offset="0.92" stopColor="#060201" stopOpacity="0.14" />
+          <stop offset="1" stopColor="#060201" stopOpacity="0.22" />
+        </radialGradient>
+      </defs>
+      {/* the second time it was set down: an older, fainter ring, broken where the first
+          ring's tea lifted it */}
+      <path d={CUP.again} stroke="#060201" strokeOpacity="0.26" strokeWidth="1.7" strokeDasharray="74 18 46 120" />
+      <path d={CUP.rim} fill="url(#hub-cup-wash)" />
+      <path d={CUP.bloom} stroke="#d9b48a" strokeOpacity="0.07" strokeWidth="3.2" />
+      <path d={CUP.rim} stroke="#050201" strokeOpacity="0.5" strokeWidth="2.3" strokeDasharray="160 7 58 4 31 10" strokeLinecap="round" />
+      <path d={CUP.edge} stroke="#030100" strokeOpacity="0.42" strokeWidth="0.9" strokeDasharray="120 12 90 6" />
+      <path d={CUP.tide} stroke="#060201" strokeOpacity="0.17" strokeWidth="1.1" strokeDasharray="60 26 80 40" />
+      <path d="M24 46a37 37 0 0 1 20-21" stroke="#f0c79a" strokeOpacity="0.07" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
     {/* An old ink stain where an inkwell once tipped: a dried tide line and a few spatters */}
     <svg className="hub-ink" viewBox="0 0 120 80" opacity="0.7">

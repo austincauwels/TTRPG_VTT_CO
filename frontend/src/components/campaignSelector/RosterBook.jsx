@@ -4,13 +4,13 @@ import { PlayerRegistryPage } from './PlayerRegistryPage';
 import { LightkeeperLedgerPage } from './LightkeeperLedgerPage';
 
 const PAGE_TABS = [
-  { id: 'registry', label: 'Player Registry', paper: 'rgb(var(--c-parchment))', ink: 'rgb(var(--c-oxblood))' },
-  { id: 'ledger', label: 'Lightkeeper Ledger', paper: 'rgb(var(--c-parchment))', ink: 'rgb(var(--c-oxblood))' },
+  { id: 'registry', label: 'Player Registry', short: 'Registry' },
+  { id: 'ledger', label: 'Lightkeeper Ledger', short: 'Ledger' },
 ];
 
 // The open book overlay. `.roster-book.closing` needs both classes on the same element.
 // From lg up the book lies open on both pages. Below lg it shows one page at a time, with
-// folder tabs on its top edge to turn between them and Close beside the tabs, so Close is
+// index tabs on its top edge to turn between them and Close beside the tabs, so Close is
 // always inside the viewport. The open and close animation is the same at every width.
 // The book keeps will-change only while it moves (.is-settled once it has opened).
 export const RosterBook = ({ isClosingBook, closeBook, defaultPage = 'registry', registryProps, ledgerProps }) => {
@@ -37,35 +37,32 @@ export const RosterBook = ({ isClosingBook, closeBook, defaultPage = 'registry',
         onClick={e => e.stopPropagation()}
         onAnimationEnd={e => { if (e.target === e.currentTarget && !isClosingBook) setSettled(true); }}
       >
-        {/* Page tabs and Close, on the book's top edge (one page at a time) */}
-        <div className="lg:hidden absolute bottom-full left-[30px] right-0 flex items-end gap-1">
+        {/* Below lg: index tabs cut from the top of the page block, just proud of its edge
+            (owner's round 4 item 10). The open page's tab is the same paper as the page and
+            runs into it; the other page's tab is older paper standing behind it. Each tab's
+            tap area runs on down over the blank head of the page, so it is 44px tall while
+            only its top shows. Close lies on the dark beside them, clear of the page. */}
+        <div className="lg:hidden absolute bottom-[calc(100%-14px)] left-[40px] right-0 z-10 flex items-end gap-1.5">
           <div className="flex items-end gap-1" role="tablist" aria-label="Roster book pages">
             {PAGE_TABS.map(tab => {
               const active = page === tab.id;
               return (
                 <button
-                key={tab.id}
-                role="tab"
-                aria-selected={active}
-                onClick={() => setPage(tab.id)}
-                className="font-sans font-bold uppercase text-xs tracking-[0.06em] sm:tracking-widest leading-tight px-2.5 sm:px-4 transition-colors"
-                style={{
-                  clipPath: 'polygon(7px 0%, calc(100% - 7px) 0%, 100% 100%, 0% 100%)',
-                  background: active ? tab.paper : 'rgb(var(--c-ink) / 0.95)',
-                  color: active ? tab.ink : 'rgb(var(--c-parchment-deep))',
-                  minHeight: active ? 44 : 38,
-                  boxShadow: active ? '0 -3px 8px rgba(0,0,0,0.4)' : 'none',
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+                  key={tab.id}
+                  role="tab"
+                  aria-selected={active}
+                  aria-label={tab.label}
+                  onClick={() => setPage(tab.id)}
+                  className={`book-index-tab${active ? ' is-open' : ''} relative h-[44px] min-w-[80px] px-3 pb-[14px] font-sans font-bold uppercase text-xs tracking-widest leading-none`}
+                >
+                  {tab.short}
+                </button>
+              );
+            })}
           </div>
           <button
             onClick={closeBook}
-            className="ml-auto mb-1.5 shrink-0 font-sans font-bold text-xs tracking-widest uppercase text-parchment-deep hover:text-cream transition-colors px-2.5 min-h-[36px] whitespace-nowrap rounded"
-            style={{ border: '1px solid rgb(var(--c-parchment-deep) / 0.35)' }}
+            className="ml-auto mb-[14px] shrink-0 font-sans font-bold text-xs tracking-widest uppercase text-parchment-deep hover:text-cream transition-colors px-2.5 min-h-[44px] whitespace-nowrap"
           >
             Close book
           </button>

@@ -476,7 +476,7 @@ export const CircleView = () => {
             <div className="mb-2 px-2 py-1.5 bg-candle-gold/20 border border-candle-gold rounded-sm flex items-center gap-2">
               <SafeIcon name="GiMedal" size={12} className="text-candle-gold" />
               <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">
-                Track full: the GM advances the circle
+                Track full: the Lightkeeper advances the circle
               </span>
             </div>
           )}
@@ -567,7 +567,7 @@ export const CircleView = () => {
         <div className="flex items-center justify-between pt-2.5 border-t border-ink/10">
           {submitted ? (
             <span role="status" className="flex items-center gap-3">
-              <span className="sr-only">Report sent to the GM</span>
+              <span className="sr-only">Report sent to the Lightkeeper</span>
               <DateStamp label="Report sent" date={stampDate(new Date())} tone="green" tilt={-2} />
             </span>
           ) : (
@@ -636,11 +636,11 @@ export const CircleView = () => {
                       const titleText = !withinMax
                         ? 'Beyond current maximum'
                         : wouldAdd && !isGM
-                          ? 'Only the GM can refill resources'
+                          ? 'Only the Lightkeeper can refill resources'
                           : spentAll && !isGM
                             ? 'You have used 2 of 2 this assignment'
                             : !circle?.resources_editable && !isGM
-                              ? 'Spending is locked by the GM'
+                              ? 'Spending is locked by the Lightkeeper'
                               : filled
                                 ? `Spend ${label}`
                                 : `Add ${label} (set to ${i + 1})`;

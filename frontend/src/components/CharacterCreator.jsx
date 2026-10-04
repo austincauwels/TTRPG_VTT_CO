@@ -9,6 +9,7 @@ import { serialFor } from './shared/PrintMarks';
 import { PhotoMount } from './shared/PhotoMount';
 import { playPaperSound } from '../game/rollSounds';
 import { portraitDataUrl } from '../utils/api';
+import { TickMark } from './shared/InkMarks';
 
 const ILLUMINATION_KEYS = {
   Journalist: ['Gather Statements', 'Hunt Down a Lead', 'Speak Truth to Power'],
@@ -64,7 +65,7 @@ const ROLES = {
     description: "You are the charming, manipulative, and social expert of the Circle.",
     keys: ["Gather Statements", "Hunt Down a Lead", "Speak Truth to Power"],
     baseAbilities: {
-      "I Know a Guy": { icon: "GiThreeFriends", text: "Once per assignment, ask the GM who you know nearby that could help you. The GM will tell you who they are, and explain why this NPC might have insight into the investigation." },
+      "I Know a Guy": { icon: "GiThreeFriends", text: "Once per assignment, ask the Lightkeeper who you know nearby that could help you. The Lightkeeper will tell you who they are, and explain why this NPC might have insight into the investigation." },
       "Sweet Talk": { icon: "GiLips", text: "You know how to work the room. After you make small talk with someone, you may add +1d on any Read rolls you make in which they are the target. If your current Cunning resistance is 2 or higher, that die is gilded." },
       "Cool Under Pressure": { icon: "GiIciclesAura", text: "On any high-stakes roll, you may always spend Cunning instead of the drive the action falls under." }
     },
@@ -81,7 +82,7 @@ const ROLES = {
           "Lie Detector": { icon: "GiAmplitude", text: "When you make a Read roll in an attempt to figure out whether a person is telling the truth, gild an additional die. The first Cunning you spend on the roll is worth +2d instead of +1d." },
           "Press Conference": { icon: "GiPublicSpeaker", text: "You can spend 1 Cunning to gather a large group of people together to make announcements, ask questions, or stage a distraction. All Cunning rolls you make at this assembly take +1d." },
           "In the Trenches": { icon: "GiTrenchAssault", text: "You've done enough dangerous journalism work to know how to keep yourself safe. Once per assignment, you may burn 1 Cunning resistance to soak a Body mark." },
-          "Well-Researched": { icon: "GiArchiveResearch", text: "You can spend 1 Intuition to ask the GM a specific question about a place, group, or concept that you may have researched before the assignment. They will tell you what you know from that preparation." }
+          "Well-Researched": { icon: "GiArchiveResearch", text: "You can spend 1 Intuition to ask the Lightkeeper a specific question about a place, group, or concept that you may have researched before the assignment. They will tell you what you know from that preparation." }
         }
       },
       "Magician": {
@@ -94,7 +95,7 @@ const ROLES = {
           "Misdirection": { icon: "GiDistraction", text: "When you use your words or actions to distract a target from what is actually happening here, make a Hide roll. The first Cunning you or an ally spends on this roll is worth +2d instead of +1d." },
           "Escape Artist": { icon: "GiBreakingChain", text: "Spend 1 Nerve to automatically escape ropes, cuffs, manacles, or a creature that has grappled you." },
           "Practiced Patter": { icon: "GiDiscussion", text: "You've long rehearsed for a moment like this. When making a Sway or Hide roll, you may spend Intuition instead of Cunning." },
-          "Uncanny Eye": { icon: "GiSunkenEye", text: "You may spend 1 Intuition to ask the GM a question: How can I leverage something here to my advantage? What here doesn't work the way it appears? What is out of place here?" },
+          "Uncanny Eye": { icon: "GiSunkenEye", text: "You may spend 1 Intuition to ask the Lightkeeper a question: How can I leverage something here to my advantage? What here doesn't work the way it appears? What is out of place here?" },
           "Flourish": { icon: "GiJuggler", text: "You know how to cover your mistakes with flair. On a roll where you could spend Cunning, if you fail or get a mixed success, you may spend 2 Cunning to push the result up one tier — from a miss to mixed success or mixed success to full success." },
           "The Prestige": { icon: "GiMedallist", text: "Your magic is usually all smoke and mirrors, but you have one trick you've learned that's real. Roll Sense when you perform it, and on a success, take a Bleed mark. Circle one option when you take this ability: change appearance, levitate, summon mundane object, teleport a short distance, or throw your voice." }
         }
@@ -136,7 +137,7 @@ const ROLES = {
           "Basic Training": { icon: "GiOnSight", text: "You have tactical experience in high-pressure situations. When you make a Survey roll in a dangerous place, also add a number of dice equal to your current Nerve resistance." },
           "Geared Up": { icon: "GiCrestedHelmet", text: "You and one ally in your circle may mark an additional gear slot during each assignment." },
           "Sharpshooter": { icon: "GiHeadshot", text: "When you want to make a ranged attack with a weapon, you may spend 1 Nerve to steady your aim before shooting, and add +2d to your next shot at this target." },
-          "Tactician": { icon: "GiMinions", text: "When you are in a dangerous scenario, you may spend 1 Nerve to ask the GM a question: How do I get to safety? What poses the largest immediate threat to my circle? Where is the target going to move next?" },
+          "Tactician": { icon: "GiMinions", text: "When you are in a dangerous scenario, you may spend 1 Nerve to ask the Lightkeeper a question: How do I get to safety? What poses the largest immediate threat to my circle? Where is the target going to move next?" },
           "Compartmentalization": { icon: "GiCrenulatedShield", text: "You have trained to detach yourself from the horrors of violence. Once per assignment, you may burn 1 Nerve resistance to soak a Brain mark." },
           "Volunteer Duty": { icon: "GiHeartTower", text: "Between assignments, instead of spending resources, you can offer a helping hand to your Lightkeeper. Describe how you aid the organization, and refill 1 point in any Candela Obscura resource on your circle sheet. You may not spend any resources during this downtime." }
         }
@@ -149,7 +150,7 @@ const ROLES = {
     keys: ["Discover a hidden truth", "Apply academic knowledge to a problem", "Preserve a piece of history"],
     baseAbilities: {
       "Well-Read": { icon: "GiBookPile", text: "You're highly educated and retain knowledge better than most. When you spend Intuition while making a roll, on a result of 3 or less, earn back any of the Intuition you spent." },
-      "Occult Researcher": { icon: "GiDeathNote", text: "Take 1 Brain mark to ask the GM for an important occult detail that you would recognize from your studies, but has not yet been revealed in the scene. If there are none, clear the Brain mark." },
+      "Occult Researcher": { icon: "GiDeathNote", text: "Take 1 Brain mark to ask the Lightkeeper for an important occult detail that you would recognize from your studies, but has not yet been revealed in the scene. If there are none, clear the Brain mark." },
       "Meticulous Notes": { icon: "GiPapers", text: "If your current Cunning resistance is 2 or more, add +1d to all Focus rolls. After an assignment, increase your Illumination track 1 additional point because of the detailed notes your character returns with." }
     },
     specialties: {
@@ -176,7 +177,7 @@ const ROLES = {
         startDrives:  { cunning:2, intuition:1 },
         abilities: {
           "Steel Mind": { icon: "GiRearAura", text: "Once per assignment, when you should take a Brain mark, you may instead burn 1 Intuition resistance to soak it." },
-          "University Resources": { icon: "GiEnlightenment", text: "Your university has alumni all over the world. Once per session, describe a person you know from your tenure as a professor, and ask the GM where they can be found locally." },
+          "University Resources": { icon: "GiEnlightenment", text: "Your university has alumni all over the world. Once per session, describe a person you know from your tenure as a professor, and ask the Lightkeeper where they can be found locally." },
           "Learn from My Mistakes": { icon: "GiEyepatch", text: "Any time you get a result of 3 or less on a roll, describe what lesson you learned from your failure, and refresh 1 drive point of your choice." },
           "Better Part of Valor": { icon: "GiOppositeHearts", text: "When making a Control or Move roll to flee danger, gild a die. On this roll, the first Nerve you spend is worth +2d instead of +1d." },
           "Verbose": { icon: "GiShouting", text: "When you make a speech or hold a conversation to assist an ally, the die you give them is gilded." },
@@ -203,7 +204,7 @@ const ROLES = {
         startDrives:  { nerve:1, cunning:2 },
         abilities: {
           "Street Smarts": { icon: "GiChoice", text: "You know how to keep an eye on your surroundings. Whenever you make a Survey roll, you may spend any drive instead of only Intuition." },
-          "Leverage": { icon: "GiHumanEar", text: "On a successful Read roll, you may ask the GM what your target truly wants. On any Sway rolls you make using this information, also add a number of dice equal to your current Cunning resistance." },
+          "Leverage": { icon: "GiHumanEar", text: "On a successful Read roll, you may ask the Lightkeeper what your target truly wants. On any Sway rolls you make using this information, also add a number of dice equal to your current Cunning resistance." },
           "Hardened": { icon: "GiImprisoned", text: "When you take a scar, you may choose not to shift any action points as a result." },
           "Born in the Shadows": { icon: "GiHoodedAssassin", text: "When attempting to avoid security or detection, gild an additional Hide die." },
           "Tricks of the Trade": { icon: "GiCoinflip", text: "You've learned how to navigate tricky or dangerous situations to keep yourself out of harm's way. On any Hide or Sway roll you make, you may spend 1 Nerve to lower the stakes before rolling. If this is already a low-stakes roll, you may not use this ability." },
@@ -217,7 +218,7 @@ const ROLES = {
         startActions: { control:1, hide:1, survey:2, read:1 },
         startDrives:  { nerve:2, cunning:1 },
         abilities: {
-          "Mind Palace": { icon: "GiCastle", text: "When you want to figure out how two clues might relate or what path they should point you toward, burn 1 Intuition resistance. The GM will give you the information you've deduced." },
+          "Mind Palace": { icon: "GiCastle", text: "When you want to figure out how two clues might relate or what path they should point you toward, burn 1 Intuition resistance. The Lightkeeper will give you the information you've deduced." },
           "Interrogation": { icon: "GiTabletopPlayers", text: "When you are questioning someone about information they are resistant to revealing, add a number of dice equal to your current Cunning resistance to your Read roll." },
           "Back Against the Wall": { icon: "GiSinkingShip", text: "When you are making a high-stakes roll, you may take a Brain mark to make any Nerve you spend worth +2d instead of +1d." },
           "Inspection": { icon: "GiCrimeSceneTape", text: "You have experience examining crime scenes. When you make a Survey roll to gather evidence about what might have happened in this location, gild an additional die on the roll." },
@@ -233,7 +234,7 @@ const ROLES = {
     keys: ["Consult arcane texts", "Collect oddities", "Act bizarre"],
     baseAbilities: {
       "Great Wards": { icon: "GiRuneStone", text: "You can inscribe and maintain a warding symbol on one person at a time. Describe the material they must hold to bind it (salt, sand, etc.). They take +1d on Move rolls against phenomena." },
-      "Let Them In": { icon: "GiThirdEye", text: "Whenever you take 1 or more Bleed marks, you also gain additional information about the phenomenon that harmed you. Ask the GM one question about the source of the bleed." },
+      "Let Them In": { icon: "GiThirdEye", text: "Whenever you take 1 or more Bleed marks, you also gain additional information about the phenomenon that harmed you. Ask the Lightkeeper one question about the source of the bleed." },
       "Ritual": { icon: "GiCircleClaws", text: "When you have a few minutes to prepare, you may take a Bleed mark to perform a ritual on yourself or an ally: Circle of Protection (soaks 1 Body mark for the person within), Reinvigorate (refresh 1 resistance), or Remote Viewing (one moment)." }
     },
     specialties: {
@@ -1129,7 +1130,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                   A. Raise One Starting-Zero Action to 1
                 </h3>
                 {freeRaiseKey
-                  ? <span className="text-xs font-sans font-black uppercase tracking-widest text-seal-green">✓ {actionKeyLabel[freeRaiseKey]}</span>
+                  ? <span className="text-xs font-sans font-black uppercase tracking-widest text-seal-green"><TickMark /> {actionKeyLabel[freeRaiseKey]}</span>
                   : <span className="text-xs font-sans font-black uppercase tracking-widest text-sepia">choose one</span>
                 }
               </div>
@@ -1287,7 +1288,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 {label:'Free Gild', done: !!freeGilded},
               ].map(({label,done}) => (
                 <span key={label} style={{ color: done ? 'rgb(var(--c-seal-green))' : 'rgb(var(--c-sepia))' }}>
-                  {done ? '✓' : '○'} {label}
+                  {done ? <TickMark /> : '○'} {label}
                 </span>
               ))}
             </div>
@@ -1336,7 +1337,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                         border: `1px solid ${selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia)/0.22)'}`,
                       }}>
                       <div className={`w-4 h-4 border flex items-center justify-center rounded-sm text-xs shrink-0 ${selectedGear.includes(item) ? 'bg-oxblood border-oxblood text-cream' : 'border-sepia/50'}`}>
-                        {selectedGear.includes(item) && "✓"}
+                        {selectedGear.includes(item) && <TickMark />}
                       </div>
                       <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia))', opacity: selectedGear.includes(item) ? 1 : 0.55, flexShrink: 0 }} />
                       <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-ink' : 'text-ink/80'}`}>{item}</span>
@@ -1358,7 +1359,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                         border: `1px solid ${selectedGear.includes(item) ? 'rgb(var(--c-oxblood) / 0.5)' : 'rgb(var(--c-sepia)/0.15)'}`,
                       }}>
                       <div className={`w-4 h-4 border flex items-center justify-center rounded-sm text-xs shrink-0 ${selectedGear.includes(item) ? 'bg-oxblood border-oxblood text-cream' : 'border-sepia/50'}`}>
-                        {selectedGear.includes(item) && "✓"}
+                        {selectedGear.includes(item) && <TickMark />}
                       </div>
                       <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia))', opacity: selectedGear.includes(item) ? 0.9 : 0.45, flexShrink: 0 }} />
                       <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-ink' : 'text-ink/80'}`}>{item}</span>
@@ -1416,7 +1417,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           ) : rejoinContext ? (
             <div className="w-full bg-night border-2 border-oxblood p-5 shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
                             <p className="text-parchment-deep font-serif text-base mb-4">
-                Your GM invited you back to <strong className="text-cream">{rejoinContext.campaignName}</strong>. Rejoin it with this investigator?
+                Your Lightkeeper invited you back to <strong className="text-cream">{rejoinContext.campaignName}</strong>. Rejoin it with this investigator?
               </p>
               <div className="flex gap-3 flex-wrap">
                 <button

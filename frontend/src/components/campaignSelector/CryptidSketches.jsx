@@ -62,13 +62,16 @@ const PAPERS = {
     edges: ['scallop', 'scallop', 'scallop', 'scallop'],
     stain: { yellow: 0.14, fox: 4, rim: 0.55 }, photoCorners: ['tl', 'tr', 'br'],
   },
-  // A picture postcard, a corner bent over so the stamp and postmark on its back show
+  // A picture postcard, a corner bent over so the stamp and postmark on its back show. Old
+  // card like the sketches beside it: yellowed unevenly, its rim tea-stained, foxed, its
+  // corners worn round, a soft bend across it, the print sunk into the card's own tone
   postcard: {
     src: IMG + 'cryptids/sea-swine.webp', W: 330, H: 210, seed: 97, lazy: true,
-    tone: '#ede5d0', inset: '3% 4.5%',
-    edges: ['cut', 'cut', 'cut', 'cut'],
-    corners: { tl: { ear: 64, post: true, back: '#d9ceb4', backLit: '#f1ead9' }, tr: { r: 6 }, br: { r: 5 }, bl: { r: 7 } },
-    stain: { yellow: 0.2, fox: 5, rim: 0.7 },
+    tone: '#e4d3ad', inset: '3% 4.5%', img: 'aged-print-img',
+    edges: ['worn', 'cut', 'worn', 'cut'],
+    corners: { tl: { ear: 64, post: true, back: '#cdbb94', backLit: '#e6d6b2' }, tr: { r: 9 }, br: { r: 8 }, bl: { r: 10 } },
+    creases: [[[0.58, 0], [0.55, 1]]], curl: 'br',
+    stain: { yellow: 0.34, fox: 14, rim: 1 },
   },
 };
 

@@ -46,7 +46,7 @@ export const PlayerRegistryPage = ({
           {/* Pending characters */}
           {characters.filter(c => c.status === 'pending').length > 0 && (
             <div>
-              <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-sepia">Waiting for the GM to approve</p>
+              <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-sepia">Waiting for the Lightkeeper to approve</p>
               <div className="space-y-1.5">
                 {characters.filter(c => c.status === 'pending').map(char => (
                   <div key={char.id} className="flex items-center gap-3 px-3 py-2.5"

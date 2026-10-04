@@ -934,6 +934,16 @@
 }
 .action-chit:focus-visible .action-die { opacity: 0.75; }
 
+/* What an action does, on touch screens (owner's round 4 item 9): the row's printed "i"
+   opens the words on a slip of paper laid under the row, a little crooked */
+.action-info:focus-visible { outline: 2px solid rgb(var(--c-candle-gold)); outline-offset: -2px; }
+.action-info-slip {
+  background: rgb(var(--c-parchment));
+  border: 1px solid rgb(var(--c-sepia) / 0.35);
+  box-shadow: inset 0 0 14px rgb(var(--c-sepia) / 0.14), 2px 6px 14px rgba(0, 0, 0, 0.3);
+  rotate: -0.6deg;
+}
+
 /* The Fairelands map on a desk that fits the screen: as large as the column allows, in its
    own proportions (3:2), with the "Open full size" line under it */
 @media (min-width: 1280px) {

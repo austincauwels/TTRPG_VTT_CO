@@ -5,6 +5,9 @@
 //       cover, so it never tiles: long grain bent by a slow warp, a lighter figure, broad
 //       variation in tone, four plank seams with staggered butt joints, a few old
 //       scratches. The noise is rendered once by the browser and then holds still.
+//       Dark and low in contrast (owner's round 4 item 8: "too bright, looks like a png"):
+//       the wood lies mostly in shadow and only warms where the candles reach it, with
+//       a varnish sheen there (.hub-wood::after in DeskStyles.jsx).
 // LEATHER  the writing inset's fine pebble grain (a small stitched tile, invisible as a
 //       repeat at this scale) and a slow mottle, both multiplied over the oxblood base.
 // WEAR  a noise mask that wears the tooled gilt line on the leather unevenly.
@@ -27,28 +30,28 @@ export const WOOD_IMAGE = svg(`<svg xmlns='http://www.w3.org/2000/svg' width='${
 <defs>
 <filter id='tone' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'>
   <feTurbulence type='fractalNoise' baseFrequency='0.0007 0.004' numOctaves='2' seed='5'/>
-  <feColorMatrix type='matrix' values='0 0 0 0 0.30 0 0 0 0 0.16 0 0 0 0 0.07 1.6 0 0 0 -0.55'/>
+  <feColorMatrix type='matrix' values='0 0 0 0 0.19 0 0 0 0 0.10 0 0 0 0 0.045 1.6 0 0 0 -0.55'/>
 </filter>
 <filter id='figure' x='-3%' y='-3%' width='106%' height='106%' color-interpolation-filters='sRGB'>
   ${warp}
   <feTurbulence type='fractalNoise' baseFrequency='0.0016 0.05' numOctaves='2' seed='21' result='streak'/>
   <feDisplacementMap in='streak' in2='warp' scale='90' xChannelSelector='R' yChannelSelector='G'/>
-  <feColorMatrix type='matrix' values='0 0 0 0 0.42 0 0 0 0 0.24 0 0 0 0 0.11 0 2.6 0 0 -1.42'/>
+  <feColorMatrix type='matrix' values='0 0 0 0 0.25 0 0 0 0 0.14 0 0 0 0 0.065 0 1.9 0 0 -1.02'/>
 </filter>
 <filter id='grain' x='-3%' y='-3%' width='106%' height='106%' color-interpolation-filters='sRGB'>
   ${warp}
   <feTurbulence type='fractalNoise' baseFrequency='0.0022 0.13' numOctaves='3' seed='8' result='streak'/>
   <feDisplacementMap in='streak' in2='warp' scale='90' xChannelSelector='R' yChannelSelector='G'/>
-  <feColorMatrix type='matrix' values='0 0 0 0 0.04 0 0 0 0 0.02 0 0 0 0 0.01 -3.2 0 0 0 1.85'/>
+  <feColorMatrix type='matrix' values='0 0 0 0 0.03 0 0 0 0 0.015 0 0 0 0 0.008 -2.1 0 0 0 1.18'/>
 </filter>
 </defs>
-<rect width='${W}' height='${H}' fill='#26140a'/>
+<rect width='${W}' height='${H}' fill='#170b05'/>
 <rect width='${W}' height='${H}' filter='url(#tone)'/>
 <rect width='${W}' height='${H}' filter='url(#figure)'/>
 <rect width='${W}' height='${H}' filter='url(#grain)'/>
-${SEAMS.map(y => `<rect y='${y}' width='${W}' height='2.5' fill='#090402'/><rect y='${y + 2.5}' width='${W}' height='1' fill='#8a5a34' fill-opacity='.22'/>`).join('')}
-${JOINTS.map(([x, y0, y1]) => `<rect x='${x}' y='${y0}' width='2' height='${y1 - y0}' fill='#090402'/><rect x='${x + 2}' y='${y0}' width='1' height='${y1 - y0}' fill='#8a5a34' fill-opacity='.18'/>`).join('')}
-<g stroke='#d9a46c' stroke-opacity='.08' stroke-width='1.2' fill='none' stroke-linecap='round'>${SCRATCHES.map(d => `<path d='${d}'/>`).join('')}</g>
+${SEAMS.map(y => `<rect y='${y}' width='${W}' height='2.5' fill='#090402'/><rect y='${y + 2.5}' width='${W}' height='1' fill='#6a4428' fill-opacity='.12'/>`).join('')}
+${JOINTS.map(([x, y0, y1]) => `<rect x='${x}' y='${y0}' width='2' height='${y1 - y0}' fill='#090402'/><rect x='${x + 2}' y='${y0}' width='1' height='${y1 - y0}' fill='#6a4428' fill-opacity='.1'/>`).join('')}
+<g stroke='#d9a46c' stroke-opacity='.045' stroke-width='1.2' fill='none' stroke-linecap='round'>${SCRATCHES.map(d => `<path d='${d}'/>`).join('')}</g>
 </svg>`);
 
 export const LEATHER_GRAIN = svg(`<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'>

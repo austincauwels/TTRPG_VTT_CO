@@ -7,7 +7,7 @@ import { AccountMenu } from '../shared/AccountMenu';
 // column. The hub is shared by players and the Lightkeeper, so it wears the warm night of
 // the desk, not the GM's blue.
 export const HubHeader = ({ onLogout }) => (
-  <div className="relative z-50 w-full shrink-0">
+  <div className="hub-header relative z-50 w-full shrink-0">
     <header className="w-full bg-night pl-4 pr-3 py-1.5 sm:py-2.5 lg:px-6 lg:py-6 flex items-center justify-between gap-3 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-start border-b border-sepia/40 shadow-[0_8px_20px_rgba(0,0,0,0.6)]">
       <div className="hidden lg:block" aria-hidden="true" />
       <div className="min-w-0 flex items-baseline gap-3 lg:flex-col lg:items-center lg:gap-0 lg:text-center">

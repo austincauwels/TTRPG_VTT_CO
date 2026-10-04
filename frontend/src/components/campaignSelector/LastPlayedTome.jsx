@@ -41,7 +41,7 @@ export const LastPlayedTome = ({ lastPlayedCampaign, onResume }) => {
   }
 
   const gm = lastPlayedCampaign.type === 'gm';
-  const heading = gm ? 'Last Played (GM)' : 'Last Played';
+  const heading = gm ? 'Last Played (Lightkeeper)' : 'Last Played';
   const name = lastPlayedCampaign.campaignName || 'Last Session';
   return (
     <Tome

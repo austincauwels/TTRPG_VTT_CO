@@ -6,6 +6,7 @@ import { tiltFor } from './handPlaced';
 import { FormLine, PrinterMark } from './PrintMarks';
 import { pageKeyBlocked } from './a11y';
 import { playPaperSound } from '../../game/rollSounds';
+import { TickMark } from './InkMarks';
 
 const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
@@ -746,7 +747,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                     >Try again</button>
                   </span>
                 ) : (
-                  <><span className="text-seal-green">✓</span> Saved</>
+                  <><TickMark className="text-seal-green" /> Saved</>
                 )}
               </div>
             </div>
@@ -881,7 +882,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                       className="w-full text-left flex items-center justify-between px-2 py-1 rounded-sm hover:bg-sepia/10 transition-all"
                     >
                       <span className="font-serif text-2xl text-ink">Lightkeeper Resources</span>
-                      <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood">GM only →</span>
+                      <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood">Lightkeeper only →</span>
                     </button>
                   </div>
                 )}

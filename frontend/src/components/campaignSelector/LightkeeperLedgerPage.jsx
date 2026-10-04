@@ -1,6 +1,7 @@
 import React from 'react';
 import { CreateCampaignForm } from './CreateCampaignForm';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
+import { PlayMark } from '../shared/InkMarks';
 
 export const LightkeeperLedgerPage = ({
   closeBook, gmCampaigns, enterAsGM, isLoadingBook, showRegisterForm, setShowRegisterForm,
@@ -31,7 +32,7 @@ export const LightkeeperLedgerPage = ({
               className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-sepia/10 transition-colors text-left group"
               style={{ border: '1px solid rgb(var(--c-sepia) / 0.15)' }}
             >
-              <span aria-hidden="true" className="text-seal-green text-lg shrink-0">▶</span>
+              <PlayMark className="text-seal-green text-lg shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-serif font-bold text-xl text-ink group-hover:text-oxblood transition-colors truncate">{camp.name}</p>
                 <p className="font-serif text-base text-sepia">

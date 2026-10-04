@@ -5,6 +5,7 @@ import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
 import { useDialog } from '../shared/useDialog';
 import { FormLine, SerialNo, PrinterMark, RuledBox, serialFor } from '../shared/PrintMarks';
+import { TickMark } from '../shared/InkMarks';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -255,7 +256,7 @@ export const CircleCreationPopup = () => {
                   style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
                 />
                 <p className="font-serif italic text-sm text-sepia mt-1">
-                  The GM reads every answer.
+                  The Lightkeeper reads every answer.
                 </p>
               </div>
             )}
@@ -310,7 +311,7 @@ export const CircleCreationPopup = () => {
                               : 'border-sepia/40 text-sepia hover:border-sepia'
                           }`}
                         >
-                          {isMineVote ? '✓ Voted' : 'Vote'}
+                          {isMineVote ? <><TickMark /> Voted</> : 'Vote'}
                         </button>
                         <span className="font-serif text-lg text-ink flex-1">{name}</span>
                         <div className="flex items-center gap-2 shrink-0">

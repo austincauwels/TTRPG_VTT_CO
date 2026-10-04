@@ -20,6 +20,7 @@ import { WaxSeal } from '../shared/WaxSeal';
 import { ScarIcon } from '../shared/ScarIcon';
 import { Watermark, FormLine, EdgeLine, serialFor } from '../shared/PrintMarks';
 import { AccountMenu } from '../shared/AccountMenu';
+import { MourningCross } from '../shared/InkMarks';
 
 export const MainDeskView = () => {
   const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar } = useGameStore(useShallow(s => ({
@@ -252,7 +253,7 @@ export const MainDeskView = () => {
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[800] flex flex-wrap items-center gap-x-4 gap-y-2 bg-night border border-oxblood px-4 py-3 sm:px-6 sm:py-4 shadow-[0_10px_30px_rgba(0,0,0,0.8)] max-w-xl w-[calc(100%-2rem)]">
           <div className="flex-1 min-w-[12rem]">
             <p className="text-parchment-deep font-serif text-base leading-snug">
-              Your GM invites you back to <strong className="text-cream">{rejoinInvite.campaign_name}</strong> with a new investigator.
+              Your Lightkeeper invites you back to <strong className="text-cream">{rejoinInvite.campaign_name}</strong> with a new investigator.
             </p>
           </div>
           <button
@@ -272,7 +273,7 @@ export const MainDeskView = () => {
       {character?.is_dead && !deathDismissed && (
         <div className="fixed inset-0 z-[900] bg-black/90 flex flex-col items-center justify-center text-center px-6">
           <div ref={deathDialogRef} role="dialog" aria-modal="true" aria-labelledby="death-title" className="max-w-lg w-full max-h-[calc(100dvh-32px)] overflow-y-auto bg-night border-2 border-oxblood p-6 sm:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.9)]">
-            <div aria-hidden="true" className="text-oxblood-lit text-6xl mb-4 font-serif">✝</div>
+            <div aria-hidden="true" className="text-oxblood-lit text-6xl mb-4 leading-none"><MourningCross /></div>
             <h2 id="death-title" className="font-display text-3xl sm:text-4xl tracking-[0.08em] text-cream uppercase mb-3">
               {character?.name || 'Your investigator'} has died
             </h2>
@@ -281,7 +282,7 @@ export const MainDeskView = () => {
             </p>
             {rejoinInvite && (
               <p className="text-oxblood-lit font-serif italic text-base mb-5">
-                Your GM has invited you back to {rejoinInvite.campaign_name}.
+                Your Lightkeeper has invited you back to {rejoinInvite.campaign_name}.
               </p>
             )}
             <div className="flex flex-col gap-3">

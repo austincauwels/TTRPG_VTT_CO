@@ -193,7 +193,7 @@ export const TactileSidebar = () => {
           <div className="absolute top-0 bottom-0 left-6 xl:left-5 w-[1.5px] bg-oxblood/20 pointer-events-none" />
           <div className="pl-6 pt-1 relative z-10">
             <div className="flex items-baseline justify-between gap-2 mb-2">
-              <span className="block font-sans text-xs uppercase tracking-widest text-sepia font-black leading-none">From the GM</span>
+              <span className="block font-sans text-xs uppercase tracking-widest text-sepia font-black leading-none">From the Lightkeeper</span>
               {location && <SerialNo value={serialFor(`${location}|${atmosphere}`, 4)} />}
             </div>
             <div className="space-y-2 font-bold font-serif">

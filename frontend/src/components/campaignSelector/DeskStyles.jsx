@@ -84,13 +84,34 @@ export const DeskStyles = () => (
       animation-play-state: paused;
     }
 
-    /* ── The desk: wood with a tooled leather writing inset ── */
+    /* ── The desk: wood with a tooled leather writing inset ──
+       Where the flames' middle lies on the desk (.candle-box and .candle-center below), so
+       the wood can warm and shine there: --lx, --ly in the room's own box. */
+    .hub-room { --cw: clamp(80px, 12dvh, 112px); --lx: calc(6px + var(--cw) * 0.525); --ly: calc(2px + var(--cw) * 0.438); }
+    @media (min-width: 640px) { .hub-room { --cw: 128px; --lx: calc(14px + var(--cw) * 0.525); --ly: calc(4px + var(--cw) * 0.438); } }
+    @media (min-width: 1024px) {
+      .hub-room {
+        --cw: clamp(190px, 15.5vw, 270px);
+        --lx: calc(max(0px, 50% - 800px) + min(100%, 1600px) * 0.005 + var(--cw) * 0.525);
+        --ly: calc(4px + var(--cw) * 0.438);
+      }
+    }
+    /* The wood lies mostly in shadow (owner's round 4 item 8). Near the candles it warms,
+       and its varnish takes a soft sheen there and nowhere else; the room's shade
+       (.hub-shade) takes the rest further down into the dark. */
     .hub-wood {
       position: absolute; inset: 0;
-      background-color: #24130a;
+      background-color: #170b05;
       background-image: ${WOOD_IMAGE};
       background-size: cover;
       background-position: center top;
+    }
+    .hub-wood::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 340px 120px at var(--lx) calc(var(--ly) - 40px), rgba(255,222,176,0.07), rgba(255,222,176,0.025) 45%, rgba(255,222,176,0) 75%),
+        radial-gradient(ellipse 820px 600px at var(--lx) var(--ly), rgba(255,160,84,0.09), rgba(255,150,72,0.035) 42%, rgba(255,140,60,0) 72%),
+        radial-gradient(ellipse 150% 130% at var(--lx) var(--ly), rgba(6,3,1,0) 30%, rgba(6,3,1,0.3) 100%);
     }
     /* The leather sits a step below the wood: the wood's edge throws a small shadow onto it
        on the sides away from the light, and catches a hairline of light on the others. */
@@ -106,7 +127,15 @@ export const DeskStyles = () => (
         0 0 0 1px rgba(0,0,0,0.72),
         0 0 0 2px rgba(150,96,56,0.16);
     }
-    @media (min-width: 640px) { .hub-leather { inset: 14px 18px 16px 18px; } }
+    /* Phones and tablets look at the left end of a wide desk (owner's round 4 item 11):
+       the wood's edge along the left with its lip catching the light, the wood at the top
+       and foot, and the leather running on off the right of the screen, its gilt lines
+       with it. */
+    @media (max-width: 1023px) {
+      .hub-leather { inset: 10px -40px 12px 20px; }
+      .hub-wood { box-shadow: inset 1px 0 0 rgba(255,220,180,0.1), inset 3px 0 4px -1px rgba(0,0,0,0.55); }
+    }
+    @media (min-width: 640px) and (max-width: 1023px) { .hub-leather { inset: 14px -40px 16px 30px; } }
     @media (min-width: 1024px) {
       .hub-leather { inset: 2.6vh max(3.2vw, calc(50vw - 940px)) 3vh max(3.2vw, calc(50vw - 940px)); }
     }
@@ -130,40 +159,59 @@ export const DeskStyles = () => (
       border: 1px solid rgb(var(--c-gold-leaf) / 0.26);
     }
     @media (min-width: 1024px) { .hub-tooling { inset: 15px; } .hub-tooling::after { inset: 4px; } }
-    /* Old marks on the desk: a cup ring and an ink stain */
-    .hub-cup { position: absolute; width: 74px; left: 2px; bottom: 6%; opacity: 0.9; }
+    /* Old marks on the leather: a cup ring about a third of a tome across (a cup's foot
+       beside a book), and an ink stain */
+    .hub-cup { position: absolute; width: 84px; left: 22px; top: calc(var(--cw) * 0.95); }
     .hub-ink { position: absolute; width: 64px; right: 5%; top: 4px; }
+    @media (min-width: 640px) and (max-width: 1023px) { .hub-cup { width: 150px; left: 40px; } }
     @media (min-width: 1024px) {
-      .hub-cup { width: 92px; left: max(0.6vw, calc(50vw - 990px)); bottom: 5vh; }
+      .hub-cup {
+        top: auto; width: calc(clamp(250px, 20.5vw, 380px) * 0.5);
+        left: calc(max(3.2vw, 50vw - 940px) + 22px); bottom: 5vh;
+      }
       .hub-ink { width: 84px; right: auto; left: 41%; top: 0.6vh; }
     }
 
     /* ── The candle cluster (CandleCluster.jsx), seen from above ──
        The box sits in the top left of the desk, just above the tomes. The desk glow, the
        light pool and the shade are centered on the flames' middle (.candle-center). */
-    .candle-box { top: 2px; left: 6px; width: clamp(70px, 10.5dvh, 96px); aspect-ratio: 230 / 190; }
-    @media (min-width: 640px) { .candle-box { top: 4px; left: 14px; width: 128px; } }
+    .candle-box { top: 2px; left: 6px; width: var(--cw); aspect-ratio: 230 / 190; }
+    @media (min-width: 640px) { .candle-box { top: 4px; left: 14px; } }
 
     /* ── Phones and tablets: the hub is one screen tall (owner's round 3 item 28) ──
-       The candles keep a strip at the top of the desk; the tomes take whatever height the
-       tickets and the folded Herald leave (the tomes' row is a size container), each as
-       large as its column and that height allow; the tickets are only as tall as their
-       print; the folded Herald sits at the foot, clear of the home bar. */
+       A close look at the left end of a wide desk (owner's round 4 item 11): the wood's
+       edge on the left, the leather running on off the right. The candles keep a strip at
+       the top; the tomes lie at the foot of the room the tickets leave them (the tomes' row
+       is a size container), each as large as its column and that height allow; the
+       tickets below them, as tall as a ticket is. The Herald lies under the tomes, its
+       masthead showing above them and the rest running off the right, and a few papers
+       tuck under the tomes and tickets and run off the edges. Nothing that is a control is
+       covered or cut, and the page never scrolls. */
     @media (max-width: 1023px) {
-      .hub-main { padding-top: calc(clamp(70px, 10.5dvh, 96px) * 0.83 + 0.25rem); padding-bottom: max(0.625rem, env(safe-area-inset-bottom)); }
-      .hub-tomes { flex: 1 1 0; min-height: 0; container-type: size; }
+      .hub-main {
+        padding: calc(var(--cw) * 0.83 + 0.25rem) 8px max(0.625rem, env(safe-area-inset-bottom)) 30px;
+      }
+      .hub-tomes { flex: 1 1 0; min-height: 0; container-type: size; align-items: end; }
       .hub-tomes .tome { width: min(100%, calc(100cqh * 0.735 - 14px)); max-width: 400px; }
-      .hub-ticket { height: clamp(164px, 23dvh, 196px); }
+      .hub-ticket { height: clamp(164px, 27dvh, 240px); }
       /* Turned over, the Lightkeeper's ticket is as tall as its form needs, growing upward
          over the tomes, so its fields sit above the phone's keyboard */
       .hub-ticket .ticket-back { top: auto; height: max(100%, 18.75rem); }
+      /* The whole Herald, printed small, lying under the tomes */
+      .herald-phone {
+        display: block; position: absolute; width: 960px; height: 700px;
+        left: 31%; top: calc(var(--cw) * -0.62);
+        transform-origin: 0 0; transform: rotate(-4.5deg) scale(0.46);
+      }
     }
     /* On a short phone the ticket keeps its route and drops the number line above it */
     @media (max-width: 1023px) and (max-height: 720px) { .hub-ticket .ticket-meta { display: none; } }
     @media (min-width: 640px) and (max-width: 1023px) {
-      .hub-main { padding-top: 7rem; }
+      .hub-main { padding: 7rem 16px max(1rem, env(safe-area-inset-bottom)) 48px; }
       .hub-ticket { height: clamp(180px, 24dvh, 300px); }
+      .herald-phone { left: 34%; top: -5.5rem; transform: rotate(-4deg) scale(0.7); }
     }
+    @media (min-width: 1024px) { .herald-phone { display: none; } }
     @media (min-width: 1024px) { .candle-box { top: 4px; left: 0.5%; width: clamp(190px, 15.5vw, 270px); } }
     .candle-center { position: absolute; left: 52.5%; top: 53%; width: 0; height: 0; }
 
@@ -272,6 +320,8 @@ export const DeskStyles = () => (
       position: relative; isolation: isolate;
       aspect-ratio: 1 / 1.36;
       --er: 9px; --eb: 7px; --bd: 3px; --hinge: 8.5%;
+      /* the spine's width outside the cover (8.5% of the cover's width) */
+      --spine: calc((100% - var(--er) - var(--bd)) * 0.085);
       transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
       border-radius: 5px 12px 12px 5px;
     }
@@ -295,15 +345,39 @@ export const DeskStyles = () => (
         repeating-linear-gradient(90deg, #d9c7a1 0 1px, #b8a27a 1px 2px);
       box-shadow: inset 5px 0 6px -2px rgba(0,0,0,0.72), inset -1px 0 0 rgba(0,0,0,0.35);
     }
+    /* The tail of the text block starts where the spine's leather turns round it, tucked
+       a little under the spine's foot */
     .tome-tail {
-      position: absolute; left: 8px; right: var(--bd); bottom: var(--bd);
+      position: absolute; left: calc(var(--spine) - 2px); right: var(--bd); bottom: var(--bd);
       height: calc(var(--eb) + 16px);
-      border-radius: 0 0 7px 3px;
+      border-radius: 0 0 7px 0;
       background:
-        linear-gradient(to right, rgba(40,22,10,0.1), rgba(40,22,10,0.5)),
+        linear-gradient(to right, rgba(20,10,4,0.55), rgba(40,22,10,0.1) 14px, rgba(40,22,10,0.1) 30%, rgba(40,22,10,0.5)),
         repeating-linear-gradient(180deg, #d2bf98 0 1px, #ad9770 1px 2px);
       box-shadow: inset 0 5px 6px -2px rgba(0,0,0,0.72), inset 0 -1px 0 rgba(0,0,0,0.35);
       clip-path: polygon(0 0, calc(100% - var(--er)) 0, 100% 100%, 0 100%);
+    }
+    /* The spine's foot (owner's round 4 item 7): below the cover's corner the spine's
+       leather turns down round the tail of the book to the back board, one piece with the
+       cover. Its round darkens to the left as the cover's spine does, it falls into shade as
+       it turns away from the light, and its corners take the cover's rounding. Its right
+       end is the cap over the text block, with a little shade on the pages under it. */
+    .tome-foot {
+      position: absolute; left: 0; bottom: 0;
+      top: calc(100% - var(--eb) - var(--bd) - 10px);
+      width: calc(var(--spine) + 4px);
+      border-radius: 0 0 5px 7px / 0 0 6px 9px;
+      background:
+        linear-gradient(to bottom, rgba(0,0,0,0.3) 0, rgba(0,0,0,0.3) 10px, rgba(0,0,0,0.4) calc(10px + (100% - 10px) * 0.45), rgba(0,0,0,0.64) 100%),
+        linear-gradient(to right, rgba(0,0,0,0.85), rgba(0,0,0,0.45) 42%, rgba(255,255,255,0.05) 78%, rgba(0,0,0,0.18) 92%, rgba(0,0,0,0.5)),
+        var(--leather);
+      box-shadow: 1px 1px 2px rgba(0,0,0,0.5), inset -1px -1px 1px rgba(0,0,0,0.45);
+    }
+    .tome-foot::after {
+      /* the leather's grain, as on the cover */
+      content: ''; position: absolute; inset: 0; border-radius: inherit;
+      background-image: ${TOME_LEATHER}; background-size: 150px 150px;
+      mix-blend-mode: multiply; opacity: 0.6;
     }
     /* A ledger's sprinkled red edge */
     .tome-sprinkled .tome-fore {
@@ -334,14 +408,22 @@ export const DeskStyles = () => (
       container-type: inline-size;
     }
     /* The spine's round, falling away to the left */
+    /* The spine's round, falling away to the left; at its head the leather catches the
+       candles as it turns over the top edge, and at its foot it goes into the shade of
+       the turn that .tome-foot carries on */
     .tome-cover::before {
       content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: var(--hinge);
-      background: linear-gradient(to right, rgba(0,0,0,0.85), rgba(0,0,0,0.45) 45%, rgba(255,255,255,0.05) 85%, rgba(0,0,0,0.25));
+      background:
+        linear-gradient(to bottom, rgba(255,236,200,0.09), rgba(255,236,200,0) 9px, rgba(0,0,0,0) calc(100% - 14px), rgba(0,0,0,0.2)),
+        linear-gradient(to right, rgba(0,0,0,0.85), rgba(0,0,0,0.45) 45%, rgba(255,255,255,0.05) 85%, rgba(0,0,0,0.25));
       z-index: 2;
     }
+    /* The hinge groove runs the cover's full height and fades out at both ends */
     .tome-hinge {
       position: absolute; top: 0; bottom: 0; left: var(--hinge); width: 6px;
       background: linear-gradient(to right, rgba(0,0,0,0.78), rgba(0,0,0,0.35) 45%, rgba(255,255,255,0.07) 75%, rgba(0,0,0,0.2));
+      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+      mask-image: linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent);
       z-index: 2;
     }
     .tome-frame {
@@ -530,6 +612,23 @@ export const DeskStyles = () => (
     .paper-wide, .paper-roomy { display: none; }
     @media (min-width: 1880px) { .paper-wide { display: block; } }
     @media (min-width: 1600px) and (min-height: 1000px) { .paper-roomy { display: block; } }
+    /* From lg the papers by the tomes are placed by the tomes (owner's round 4 item 16:
+       spread out, at least about half of each picture showing): --T is a tome's width,
+       --G the gap between the tomes and --x0 where the Case Ledger starts in their row,
+       which centres the two tomes and can be narrower than they are. Along the top, left
+       to right: the candles, a field sketch tucked under the Case Ledger's head, the torn
+       page over it, and a field sketch on the Herald's corner under the Last Played
+       tome's head; under the Case Ledger's foot the photograph, and under both feet the
+       third sketch; left of the tomes, on a wide desk, the pinned print. */
+    @media (min-width: 1024px) {
+      .hub-tomes { --T: clamp(250px, 20.5vw, 380px); --G: 2.2vw; --x0: calc((100% - 2 * var(--T) - var(--G)) / 2); }
+      .hub-tomes > .sketch[data-paper="candles"] { left: calc(var(--x0) + var(--T) * 0.47); top: calc(var(--T) * -0.45); width: calc(var(--T) * 0.42); transform: rotate(-7deg); }
+      .hub-tomes > .sketch[data-paper="page"] { left: calc(var(--x0) + var(--T) * 0.8); top: calc(var(--T) * -0.44); bottom: auto; width: calc(var(--T) * 0.5); transform: rotate(-5deg); }
+      .hub-tomes > .sketch[data-paper="herald"] { left: calc(var(--x0) + var(--T) * 1.5 + var(--G)); top: calc(var(--T) * -0.44); width: calc(var(--T) * 0.48); transform: rotate(8deg); }
+      .hub-tomes > .sketch[data-paper="photo"] { left: calc(var(--x0) + var(--T) * 0.28); top: calc(var(--T) * 1.3); width: calc(var(--T) * 0.4); transform: rotate(-7deg); }
+      .hub-tomes > .sketch[data-paper="tomes"] { left: calc(var(--x0) + var(--T) * 0.62); top: calc(var(--T) * 1.1); bottom: auto; width: calc(var(--T) * 0.84); transform: rotate(7deg); }
+      .hub-tomes > .sketch[data-paper="pinned"] { left: calc(var(--x0) - var(--T) * 0.3); top: calc(var(--T) * 0.95); width: calc(var(--T) * 0.27); transform: rotate(4deg); }
+    }
     /* A paper's cast shadow is a plain fill, a little inside its cut, with a dog-eared or
        torn-off corner taken out by a hard gradient stop (--cut-at, --cut) before the blur.
        Never an image in the cast: the cast's layer moves with the flicker, and an SVG image
@@ -582,25 +681,8 @@ export const DeskStyles = () => (
       mix-blend-mode: multiply;
       filter: grayscale(80%) sepia(40%) contrast(120%) brightness(95%);
     }
-
-    /* Folded Herald strip for narrow screens: the same newsprint folded to its masthead, one
-       sheet whose fold is its foot (it darkens toward the fold; no step across it) */
-    .newspaper-strip { position: relative; isolation: isolate; }
-    .newspaper-strip::before, .newspaper-strip::after {
-      content: ''; position: absolute; inset: 0; z-index: -1;
-      background: var(--shape) center / 100% 100% no-repeat;
-    }
-    .newspaper-strip::before { translate: 2px 8px; filter: blur(10px); opacity: 0.9; }
-    .newspaper-strip::after { translate: 0.5px 1.5px; filter: blur(1.5px); opacity: 0.6; }
-    .strip-paper {
-      position: relative;
-      background-color: rgb(var(--c-parchment-deep));
-      background-image: ${HERALD_PAPER};
-      box-shadow: inset 0 -18px 24px -12px rgba(0,0,0,0.42);
-      color: rgb(var(--c-ink));
-      -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
-      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
-    }
+    /* A print on old card: its white sinks into the card's tone */
+    .aged-print-img { mix-blend-mode: multiply; filter: sepia(0.3) contrast(1.04); }
 
     /* The Herald: the sheet is a child, so its cast shadow can lie under it. The sheet is
        the layer; the newsprint inside it is cut by its mask (aged edges, owner's round 4
@@ -651,6 +733,26 @@ export const DeskStyles = () => (
       45%  { opacity: 1; }
       100% { transform: perspective(1800px) scale(0.12) rotateX(58deg) translateY(130px); opacity: 0; }
     }
+    /* Below lg the open book is alone on the screen: the hub's band (the wordmark and the
+       Account tag) steps out of sight under it, so nothing shows through behind Close */
+    @media (max-width: 1023px) { .hub-still .hub-header { visibility: hidden; } }
+    /* The book's index tabs below lg (owner's round 4 item 10): small tabs cut from the
+       top of the page block. Only their top 30px shows over the page's edge; the open one
+       is the page's own paper and runs on into it over the page's black edge, the other is
+       older paper standing behind the page. */
+    .book-index-tab { isolation: isolate; color: rgb(var(--c-sepia)); }
+    .book-index-tab::before, .book-index-tab::after { content: ''; position: absolute; z-index: -1; left: 0; right: 0; pointer-events: none; }
+    .book-index-tab::before {
+      top: 4px; bottom: 14px; border-radius: 4px 4px 0 0;
+      background: linear-gradient(to bottom, #dcc89b, rgb(var(--c-parchment-deep)) 70%, #c9b183);
+      box-shadow: 0 0 0 1.5px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,246,220,0.4);
+    }
+    .book-index-tab.is-open { color: rgb(var(--c-oxblood)); }
+    .book-index-tab.is-open::before {
+      top: 0; background: rgb(var(--c-parchment));
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,250,235,0.6);
+    }
+    .book-index-tab.is-open::after { bottom: 0; height: 16px; background: rgb(var(--c-parchment)); }
     .roster-book { animation: bookOpen 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards; will-change: transform, opacity; }
     .roster-book.is-settled { will-change: auto; }
     .roster-book.closing { animation: bookClose 0.4s cubic-bezier(0.36, 0, 0.66, 0) forwards; will-change: transform, opacity; }
