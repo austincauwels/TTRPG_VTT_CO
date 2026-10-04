@@ -119,9 +119,14 @@ export const CampaignSelector = () => {
         <main className="hub-main relative flex-1 min-h-0 w-full max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center lg:justify-center gap-3 sm:gap-6 lg:gap-12 px-4 sm:px-8 lg:p-12">
           <CandleCluster lit={litCandles} />
 
-          {/* LEFT: THE TOMES, with sketches tucked under their corners */}
+          {/* LEFT: THE TOMES, with papers tucked under their corners. Phones show only a
+              few of them; the pinned print waits for a desk wide and tall enough. */}
           <div className="hub-tomes relative grid grid-cols-2 items-center justify-items-center gap-5 sm:gap-10 w-full max-w-[680px] pr-2 sm:pr-4 lg:pr-0 lg:max-w-none lg:flex lg:gap-[2.2vw] lg:items-center lg:justify-center lg:w-[50%] lg:ml-[3.5vw] z-30">
+            <CryptidSketch which="pinned" className="paper-wide z-0 lg:left-[-18%] lg:top-[75%] lg:w-[13.5%] lg:rotate-[4deg]" />
             <CryptidSketch which="candles" className="z-0 right-[3%] top-[-2.6rem] w-[22%] rotate-[9deg] lg:right-auto lg:left-[-9%] lg:top-[6%] lg:w-[30%] lg:rotate-[-8deg]" />
+            <CryptidSketch which="postcard" className="z-0 left-[27%] top-[-0.9rem] w-[36%] rotate-[-4deg] sm:left-[34%] sm:top-[-4.5rem] sm:w-[26%] lg:hidden" />
+            <CryptidSketch which="page" className="z-0 left-[-1%] bottom-[-9%] w-[25%] rotate-[-9deg] lg:left-[37%] lg:bottom-auto lg:top-[-31%] lg:w-[25%] lg:rotate-[-5deg]" />
+            <CryptidSketch which="photo" className="hidden lg:block z-0 lg:left-[3%] lg:bottom-[-30%] lg:w-[20.5%] lg:rotate-[-7deg]" />
             <CryptidSketch which="tomes" className="z-0 left-[30%] bottom-[1%] w-[38%] rotate-[5deg] lg:left-[29%] lg:bottom-[-25%] lg:w-[42%] lg:rotate-[7deg]" />
             <CaseLedgerTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
             <LastPlayedTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} />
@@ -130,6 +135,10 @@ export const CampaignSelector = () => {
           {/* RIGHT: THE HERALD AND THE TICKETS lying on it */}
           <div className="relative shrink-0 w-full lg:w-[50%] lg:min-w-[550px] lg:h-[600px] flex flex-col lg:flex-row items-center gap-3 sm:gap-6 lg:gap-0">
             <CryptidSketch which="herald" className="z-0 right-[4%] bottom-[0.6rem] w-[19%] rotate-[12deg] lg:right-auto lg:bottom-auto lg:left-[-17%] lg:top-[-9%] lg:w-[29%] lg:rotate-[-13deg]" />
+            {/* Under the Herald's top edge and its left edge, placed in the Herald's own
+                pixels as the Herald is */}
+            <CryptidSketch which="bestiary" className="paper-roomy z-0 lg:left-[460px] lg:top-[-180px] lg:w-[120px] lg:rotate-[-84deg]" />
+            <CryptidSketch which="postcard" className="hidden lg:block z-0 lg:left-[-215px] lg:top-[545px] lg:w-[200px] lg:rotate-[6deg]" />
             <HalcyonHerald />
 
             {/* The tickets share a row below lg and never overlap; from lg up this wrapper

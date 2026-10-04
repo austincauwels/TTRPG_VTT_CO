@@ -1,14 +1,33 @@
 import React from 'react';
+import { agedPaper } from './paperArt';
+
+// Aged newsprint (owner's round 4 item 5): machine-cut edges worn a little uneven, with a
+// nick or two, yellowing that darkens toward the edges all round, a few fox marks. No lit
+// rim and no border: the sheet ends in its own darker paper, and its shadow lies under it.
+const SHEET = agedPaper({
+  W: 960, H: 700, seed: 211,
+  edges: ['cut', 'cut', 'worn', 'cut'], corners: { tl: { r: 5 }, tr: { r: 8 }, br: { r: 10 }, bl: { r: 6 } },
+  stain: { yellow: 0.14, rim: 0.62, rimW: 20, fox: 7 },
+});
+// The folded copy on phones: worn along the top and sides, the fold along its foot
+const STRIP = agedPaper({
+  W: 560, H: 170, seed: 223,
+  edges: ['worn', 'worn', 'cut', 'worn'], corners: { tl: { r: 4 }, tr: { r: 5 }, br: { r: 2 }, bl: { r: 2 } },
+  stain: { yellow: 0.12, rim: 0.6, rimW: 10, fox: 4 },
+});
 
 // Static in-world newspaper. The sheet is a child of the Herald, so the Herald's cast
-// shadow (thrown away from the candles) can lie under it. The advertisement's corner marks
-// are absolute inside a box with no `relative`, so they position against the sheet: keep
-// the nesting.
+// shadow (thrown away from the candles) can lie under it; the paper inside the sheet is cut
+// by its mask. The advertisement's corner marks are absolute inside a box with no
+// `relative`, so they position against the paper: keep the nesting.
 export const HalcyonHerald = () => (
-  <div data-hub="herald" data-cast="0.22" className="herald hidden lg:block w-[960px] h-[700px] rotate-[-8deg] top-[-40px] left-[-100px] z-10">
+  <div data-hub="herald" data-cast="0.22" className="herald hidden lg:block w-[960px] h-[700px] rotate-[-8deg] top-[-40px] left-[-100px] z-10"
+    style={{ '--shape': SHEET.mask }}>
     <span className="cast" aria-hidden="true" />
-    <div className="herald-sheet p-7">
-    
+    <div className="herald-sheet">
+    <div className="herald-paper p-7" style={{ WebkitMaskImage: SHEET.mask, maskImage: SHEET.mask }}>
+      <span className="paper-stain z-[25]" aria-hidden="true" style={{ backgroundImage: SHEET.stain }} />
+
       {/* Elaborate Broadsheet Header */}
       <div className="border-b-[4px] border-double border-ink pb-2 mb-3 text-center relative z-20">
         <h1 className="font-display font-black text-[42px] leading-none tracking-tight text-ink scale-y-[1.1] mb-1">THE HALCYON HERALD</h1>
@@ -65,13 +84,16 @@ export const HalcyonHerald = () => (
         </div>
       </div>
     </div>
+    </div>
   </div>
 );
 
 // Narrow screens: the same paper folded down to its masthead and headline, set at the foot
-// of the desk so it never covers the tomes or tickets.
+// of the desk so it never covers the tomes or tickets. One sheet, folded along its foot.
 export const HalcyonHeraldStrip = () => (
-  <div className="newspaper-strip lg:hidden w-[94%] max-w-[560px] rotate-[-1.5deg] px-3 pt-2 pb-2.5 sm:px-4 sm:pt-3 sm:pb-4 text-center">
+  <div className="newspaper-strip lg:hidden w-[94%] max-w-[560px] rotate-[-1.5deg]" style={{ '--shape': STRIP.mask }}>
+  <div className="strip-paper px-3 pt-2 pb-2.5 sm:px-4 sm:pt-3 sm:pb-4 text-center" style={{ WebkitMaskImage: STRIP.mask, maskImage: STRIP.mask }}>
+    <span className="paper-stain" aria-hidden="true" style={{ backgroundImage: STRIP.stain }} />
     <div className="border-b-[3px] border-double border-ink pb-1 mb-1.5 sm:pb-1.5 sm:mb-2">
       <p className="font-display font-black tracking-tight text-[clamp(18px,5.6vw,32px)] text-ink leading-tight">THE HALCYON HERALD</p>
       <div className="flex justify-between items-center gap-2 whitespace-nowrap font-display text-[9.5px] sm:text-[11px] uppercase tracking-normal sm:tracking-widest border-t border-ink pt-1 mt-1">
@@ -86,5 +108,6 @@ export const HalcyonHeraldStrip = () => (
     <p className="font-serif text-sm sm:text-base italic font-semibold mt-0.5 sm:mt-1 text-ink/85 leading-snug">
       Authorities Baffled by Midnight Disappearances
     </p>
+  </div>
   </div>
 );

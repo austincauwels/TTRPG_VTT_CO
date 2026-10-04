@@ -516,52 +516,111 @@ export const DeskStyles = () => (
     .cast-turn { position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; }
     .cast-turn.is-turning { animation: castTurn 0.65s cubic-bezier(0.22, 1, 0.36, 1); }
 
-    /* ── Cryptid sketches: loose papers under the tomes' corners, by the candles and the Herald ── */
+    /* ── Loose papers (CryptidSketches.jsx, paperArt.js) ──
+       Aged, used paper with no frames: each sheet is cut by its own mask (deckled, torn,
+       machine cut, a photograph's scalloped deckle, a dog-ear, worm holes), its stains
+       multiplied over it and its creases, curl and flap drawn over that. The body
+       (.sketch-paper) is one layer on wide screens: the mask, the stains and the art inside
+       it are drawn once. A mask cuts away a box-shadow, so the paper's contact shadow lies
+       under it as a shadow of its own, a little inside the cut, away from the candles. */
     .sketch { position: absolute; isolation: isolate; pointer-events: none; }
-    .sketch-paper { position: absolute; inset: 0; display: flex; flex-direction: column; }
+    /* Two of the papers need a bigger desk, so the desk never looks crowded: the pinned
+       print lies left of the tomes once there is leather there (1880px), the bestiary leaf
+       above the Herald once there is room above it */
+    .paper-wide, .paper-roomy { display: none; }
+    @media (min-width: 1880px) { .paper-wide { display: block; } }
+    @media (min-width: 1600px) and (min-height: 1000px) { .paper-roomy { display: block; } }
+    /* A paper's cast shadow is a plain fill, a little inside its cut, with a dog-eared or
+       torn-off corner taken out by a hard gradient stop (--cut-at, --cut) before the blur.
+       Never an image in the cast: the cast's layer moves with the flicker, and an SVG image
+       in it is painted again on every frame (round 4 papers trace). Its contact shadow,
+       in the paper's still layer, is the paper's own outline (--shape), drawn once. */
+    .sketch .cast::before {
+      inset: 1.5%;
+      background: linear-gradient(var(--cut-at, 135deg), transparent var(--cut, 0%), rgb(0 0 0 / var(--so, 0.86)) var(--cut, 0%));
+    }
+    .sketch-paper, .herald-sheet { position: absolute; inset: 0; }
+    .sketch-paper::before, .herald-sheet::before {
+      content: ''; position: absolute; inset: 0;
+      background: var(--shape) center / 100% 100% no-repeat;
+      translate: calc(var(--sx, 3px) * 0.25) calc(var(--sy, 5px) * 0.25);
+      filter: blur(1.5px); opacity: 0.6;
+    }
+    .paper-sheet {
+      position: absolute; inset: 0;
+      background-color: rgb(var(--c-parchment-deep));
+      -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    }
+    .paper-art { position: absolute; inset: 0; overflow: hidden; }
+    .paper-stain, .paper-light {
+      position: absolute; inset: 0; pointer-events: none;
+      background-size: 100% 100%; background-repeat: no-repeat;
+    }
+    .paper-stain { mix-blend-mode: multiply; }
+    .paper-over { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+    /* A curled corner stands off the desk: its shadow reaches further there */
+    .sketch[data-curl] .cast::after {
+      content: ''; position: absolute; left: var(--curl-l); top: var(--curl-t); width: 36%; height: 34%;
+      background: radial-gradient(closest-side, rgb(0 0 0 / 0.5), rgb(0 0 0 / 0));
+    }
+    /* A brass tack, lit on the side toward the candles, its shadow thrown away from them */
+    .paper-tack {
+      position: absolute; width: max(9px, 7.5%); aspect-ratio: 1; translate: -50% -50%;
+      border-radius: 50%;
+      background: radial-gradient(circle at calc(50% - var(--sx, 2px) * 0.8) calc(50% - var(--sy, 3px) * 0.8),
+        #fff4c8 0, #e9c870 16%, #b98d38 42%, #7a5620 74%, #4d3613 100%);
+      box-shadow: 0 0 0 0.5px rgba(36,22,6,0.8), calc(var(--sx, 2px) * 0.45) calc(var(--sy, 3px) * 0.45) 2px rgba(0,0,0,0.65);
+    }
+    /* The photograph: sepia, faded and silvered toward its edges */
+    .paper-photo-img { filter: sepia(0.72) saturate(0.85) contrast(1.06) brightness(0.96); }
+    .paper-photo::after {
+      content: ''; position: absolute; inset: 0;
+      box-shadow: inset 0 0 14px 2px rgba(58,34,14,0.42), inset 0 0 2px 1px rgba(150,158,170,0.35);
+    }
+    .aged-paper-img {
+      mix-blend-mode: multiply;
+      filter: grayscale(80%) sepia(40%) contrast(120%) brightness(95%);
+    }
 
-    /* Folded Herald strip for narrow screens: same paper stock, folded to its masthead */
-    .newspaper-strip {
+    /* Folded Herald strip for narrow screens: the same newsprint folded to its masthead, one
+       sheet whose fold is its foot (it darkens toward the fold; no step across it) */
+    .newspaper-strip { position: relative; isolation: isolate; }
+    .newspaper-strip::before, .newspaper-strip::after {
+      content: ''; position: absolute; inset: 0; z-index: -1;
+      background: var(--shape) center / 100% 100% no-repeat;
+    }
+    .newspaper-strip::before { translate: 2px 8px; filter: blur(10px); opacity: 0.9; }
+    .newspaper-strip::after { translate: 0.5px 1.5px; filter: blur(1.5px); opacity: 0.6; }
+    .strip-paper {
       position: relative;
       background-color: rgb(var(--c-parchment-deep));
       background-image: ${HERALD_PAPER};
-      box-shadow: 2px 8px 20px rgba(0,0,0,0.9), inset 0 -18px 24px -12px rgba(0,0,0,0.45);
+      box-shadow: inset 0 -18px 24px -12px rgba(0,0,0,0.42);
       color: rgb(var(--c-ink));
-    }
-    .newspaper-strip::after {
-      content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 10px;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.16), transparent);
-      pointer-events: none;
+      -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
     }
 
-    /* The Herald: the sheet itself is a child, so its cast shadow can lie under it */
+    /* The Herald: the sheet is a child, so its cast shadow can lie under it. The sheet is
+       the layer; the newsprint inside it is cut by its mask (aged edges, owner's round 4
+       item 5), with its contact shadow under it. */
     .herald { position: absolute; isolation: isolate; }
-    .herald-sheet {
+    .herald-paper {
       position: absolute; inset: 0;
       display: flex; flex-direction: column; overflow: hidden;
       background-color: rgb(var(--c-parchment-deep));
       background-image: ${HERALD_PAPER};
-      box-shadow: 1px 2px 4px rgba(0,0,0,0.55), inset 0 -30px 40px -10px rgba(0,0,0,0.5);
       color: rgb(var(--c-ink));
-      border-bottom: 2px solid rgba(0,0,0,0.3);
+      -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
     }
     /* Furthest from the candles: the sheet darkens toward its far edge and its foot */
-    .herald-sheet::before {
+    .herald-paper::before {
       content: ''; position: absolute; inset: 0; z-index: 30; pointer-events: none;
       background:
         linear-gradient(98deg, rgba(10,5,2,0) 22%, rgba(10,5,2,0.3) 68%, rgba(10,5,2,0.46) 100%),
         linear-gradient(to bottom, rgba(10,5,2,0) 55%, rgba(10,5,2,0.22) 100%);
-    }
-    /* The fold dropping off the bottom */
-    .herald-sheet::after {
-      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 15px;
-      background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);
-      pointer-events: none; z-index: 10;
-    }
-
-    .aged-paper-img {
-      mix-blend-mode: multiply;
-      filter: grayscale(80%) sepia(40%) contrast(120%) brightness(95%);
     }
 
     /* Reduced motion: steady light, no flicker, a flip without a spin */
