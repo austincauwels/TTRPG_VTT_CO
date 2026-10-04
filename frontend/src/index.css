@@ -680,9 +680,9 @@
 
 /* The investigator sheet lays itself out by its own width, not the window's, so the same
    sheet works on the player's desk, the GM's desk, a tablet and a phone. Below 44rem it is
-   one column, as on a phone. From 44rem it is a ledger page: the photograph with the marks
-   under it on the right, the name and the gear slip beside it, the ability card under
-   them, then the three drives side by side with their actions, then the scars. */
+   one column, as on a phone. From 44rem it is a ledger page: the name, the gear tag and the
+   photograph side by side, the ability card across the page under them, then the three
+   drives side by side with their actions, then the trauma record (marks and scars). */
 .dossier-c { container: dossier / inline-size; }
 
 /* The photo and the note under it (a change saving, Undo, a picture that would not do).
@@ -695,18 +695,17 @@
   .dossier-c .dossier-photo-cell { display: flex; flex-direction: column; gap: 0.75rem; grid-area: photo; }
   .dossier-c .dossier-photo-note-wide { display: block; }
   .dossier-c .dossier-photo-note-narrow { display: none; }
-  /* The ledger page. The square photograph and the marks tag under it fill the right-hand
-     column; the ability card runs beside them as tall as its own text. */
+  /* The ledger page. The square photograph sits in the right-hand column beside the name
+     and the gear tag; the ability card runs across the page as tall as its own text. */
   .dossier-c .dossier {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) 10.5rem;
     grid-template-areas:
       "form    form    form"
       "ident   gear    photo"
-      "ability ability photo"
-      "ability ability marks"
+      "ability ability ability"
       "actions actions actions"
-      "scars   scars   scars";
+      "trauma  trauma  trauma";
     column-gap: 1.25rem;
     row-gap: 0.625rem;
     align-items: start;
@@ -716,7 +715,10 @@
   .dossier-c .dossier-ident { grid-area: ident; width: auto; padding-bottom: 0; grid-template-columns: minmax(0, 1fr); row-gap: 0.5rem; }
   .dossier-c .dossier-ident > * { grid-column: auto; grid-row: auto; }
   .dossier-c .dossier-badge { font-size: 0.75rem; line-height: 1rem; letter-spacing: 0.08em; padding: 0.25rem 0.5rem; }
-  .dossier-c .dossier-gear { grid-area: gear; width: auto; padding-right: 0; }
+  .dossier-c .dossier-gear { grid-area: gear; width: auto; padding-right: 0; margin-top: 0.375rem !important; }
+  .dossier-c .dossier-gear .gear-tag { padding: 0.375rem 0.625rem 0.375rem 1.75rem; }
+  .dossier-c .dossier-gear .gear-tag-eyelet { left: 0.45rem; }
+  .dossier-c .dossier-gear .gear-head { padding-bottom: 0.25rem; margin-bottom: 0.25rem; }
   .dossier-c .dossier-photo {
     position: relative;
     float: none;
@@ -729,20 +731,7 @@
   }
   .dossier-c .dossier-ability { grid-area: ability; padding-right: 0; align-self: start; }
   .dossier-c .dossier-ability-card { min-height: 0; padding-top: 8px !important; padding-bottom: 10px !important; }
-  .dossier-c .dossier-trauma { display: contents; }
-  .dossier-c .dossier-marks { grid-area: marks; }
-  .dossier-c .dossier-marks .marks-tag { padding: 0.375rem 0.5rem 0.4375rem 1.75rem; }
-  .dossier-c .dossier-marks .marks-tag-eyelet { left: 0.45rem; }
-  .dossier-c .dossier-marks .mark-head { margin-bottom: 0.125rem; padding-bottom: 0.125rem; }
-  .dossier-c .dossier-marks .mark-head svg { width: 18px; height: 18px; }
-  .dossier-c .dossier-marks .mark-label { min-height: 1.5rem; letter-spacing: 0.05em; font-size: 0.75rem; }
-  .dossier-c .dossier-marks .mark-cell { width: 1.5rem; height: 1.5rem; }
-  .dossier-c .dossier-marks .mark-cell > span { width: 1.125rem; height: 1.375rem; }
-  .dossier-c .dossier-marks .mark-status { margin-top: 0.25rem; }
-  .dossier-c .dossier-scars { grid-area: scars; padding: 0.25rem 0.75rem 0.375rem; }
-  .dossier-c .dossier-scars .scars-form { top: 0.625rem; }
-  .dossier-c .dossier-scars .scars-head { justify-content: flex-start; gap: 0.75rem; margin-top: 0; margin-bottom: 0.25rem; padding-right: 13rem; }
-  .dossier-c .dossier-scars .scars-lines { min-height: 1.5rem; padding-top: 0; }
+  .dossier-c .dossier-trauma { grid-area: trauma; margin-top: 0.25rem !important; }
   .dossier-c .dossier-actions { grid-area: actions; }
   .dossier-c .dossier-actions > * + * { margin-top: 0.375rem !important; }
   .dossier-c .dossier-drives { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.875rem; }
@@ -763,10 +752,10 @@
   .dossier-c .action-chit { min-height: 2.125rem; }
 }
 
-/* The marks: a manila tag tied to the investigator's sheet. Its narrow end is cut at both
-   corners around a reinforced eyelet; the page shows through the hole. The tag's shadow is
-   a drop-shadow on its wrapper, since the cut corners would clip a box-shadow. */
-.marks-tag {
+/* The gear: a manila luggage tag tied to the investigator's sheet. Its narrow end is cut at
+   both corners around a reinforced eyelet; the page shows through the hole. The tag's
+   shadow is a drop-shadow on its wrapper, since the cut corners would clip a box-shadow. */
+.gear-tag {
   position: relative;
   color: rgb(var(--c-ink));
   background-color: rgb(var(--c-parchment-deep));
@@ -774,10 +763,10 @@
     radial-gradient(120% 90% at 85% 12%, rgb(255 255 255 / 0.2), transparent 62%),
     repeating-linear-gradient(97deg, rgb(var(--c-sepia) / 0.04) 0 1px, transparent 1px 6px);
   clip-path: polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
-  padding: 0.875rem 0.875rem 0.875rem 2.25rem;
+  padding: 0.5rem 0.75rem 0.625rem 2.25rem;
 }
 /* The tag's string runs from the eyelet off over the page, drawn on the tag's wrapper */
-.marks-tag-string {
+.gear-tag-string {
   position: absolute;
   left: -1.6rem;
   top: 50%;
@@ -788,7 +777,7 @@
   pointer-events: none;
   z-index: 1;
 }
-.marks-tag-eyelet {
+.gear-tag-eyelet {
   position: absolute;
   left: 0.6rem;
   top: 50%;
@@ -799,6 +788,80 @@
   background: radial-gradient(circle, rgb(var(--c-cream)) 0 34%, rgb(var(--c-sepia) / 0.5) 37% 64%, rgb(var(--c-sepia) / 0.18) 67% 100%);
   box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.3);
   pointer-events: none;
+}
+
+/* The trauma record (Form C.O. 14): one printed form, cut along a dashed line, that holds
+   the marks and the scars. Its form number is printed on the frame's top edge. On a narrow
+   sheet (and on touch screens, for 44px boxes) the marks stand one under the other with the
+   status stamp under them, then the scars; on a wide one the record is two ruled lines in
+   three columns: the heading, the entries, and the status stamp or the scars' count. */
+.trauma-c { container: trauma / inline-size; }
+.trauma-record { padding: 0.875rem 1rem 0.75rem; }
+.trauma-c .trauma-form {
+  position: absolute;
+  top: -0.36rem;
+  right: 0.75rem;
+  padding: 0 0.375rem;
+  line-height: 1;
+  background: rgb(var(--c-cream));
+}
+.trauma-c .trauma-marks .trauma-head { padding-bottom: 0.25rem; margin-bottom: 0.75rem; border-bottom: 1px solid rgb(var(--c-ink) / 0.3); }
+.trauma-c .mark-status { margin-top: 0.75rem; }
+.trauma-c .mark-held { margin-top: 0.75rem; }
+.trauma-c .trauma-scars {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "head count" "lines lines";
+  align-items: center;
+  column-gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+.trauma-c .scars-head { grid-area: head; }
+.trauma-c .scars-count { grid-area: count; }
+.trauma-c .scars-lines {
+  grid-area: lines;
+  min-height: 1.5rem;
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgb(var(--c-ink) / 0.4);
+}
+@media (pointer: fine) {
+  @container trauma (min-width: 38rem) {
+    .trauma-c .trauma-record {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      column-gap: 0.875rem;
+      padding: 0.4375rem 0.75rem 0.3125rem;
+    }
+    .trauma-c .trauma-marks,
+    .trauma-c .trauma-scars {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: subgrid;
+      grid-template-areas: none;
+      align-items: center;
+    }
+    .trauma-c .trauma-marks .trauma-head { margin: 0; padding: 0; border: 0; }
+    .trauma-c .mark-tracks { flex-direction: row; flex-wrap: wrap; column-gap: 1rem; row-gap: 0.25rem; }
+    .trauma-c .mark-row { justify-content: flex-start; gap: 0.3125rem; }
+    .trauma-c .mark-label { min-height: 1.5rem; font-size: 0.75rem; letter-spacing: 0.05em; }
+    .trauma-c .mark-cell { width: 1.375rem; height: 1.5rem; }
+    .trauma-c .mark-cell > span { width: 1.125rem; height: 1.375rem; }
+    .trauma-c .mark-status { margin: 0; justify-self: end; justify-content: flex-end; }
+    .trauma-c .mark-held { grid-column: 2 / -1; margin: 0.25rem 0 0.125rem; }
+    .trauma-c .trauma-scars {
+      align-items: start;
+      margin-top: 0.3125rem;
+      padding-top: 0.25rem;
+      border-top: 1px solid rgb(var(--c-ink) / 0.22);
+    }
+    .trauma-c .scars-head,
+    .trauma-c .scars-lines,
+    .trauma-c .scars-count { grid-area: auto; }
+    .trauma-c .scars-head { min-height: 1.5rem; }
+    .trauma-c .scars-lines { margin: 0; padding: 0; border: 0; }
+    .trauma-c .scars-count { justify-self: end; margin-top: 0.0625rem; }
+  }
 }
 
 /* The circle's file (the player's Circle tab, the GM's circle page): separate papers laid

@@ -440,15 +440,23 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       {/* The photo's note, under the name while the sheet is one column */}
       {canChangePhoto && photoNote && <div className="dossier-photo-note-narrow flow-root md:w-2/3">{photoNote}</div>}
 
-      {/* Gear: a requisition slip from the chapter stores laid on the sheet under the name,
-          a little crooked, its bottom edge torn off the pad. Each item is drawn large. */}
-      <div data-desk="gear" className="dossier-gear md:w-2/3 clear-both md:clear-none"
-        style={{ filter: 'drop-shadow(2px 5px 5px rgba(0,0,0,0.22))' }}>
+      {/* Gear: a manila luggage tag tied to the sheet beside the name, cut at its narrow end
+          around a reinforced eyelet, its string running off over the page. Each item is
+          drawn large. The shadow sits on the wrapper, since the cut corners would clip a
+          box-shadow. */}
+      <div data-desk="gear" className="dossier-gear relative md:w-2/3 clear-both md:clear-none"
+        style={{ filter: 'drop-shadow(2px 5px 5px rgba(0,0,0,0.24))' }}>
+        {/* Its string, through the eyelet and off over the page */}
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 40 20" preserveAspectRatio="none" className="gear-tag-string">
+          <path d="M37 12.5 C 28 4, 17 18, 9 9 S 2 6, 0 8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          <path d="M37 12.5 C 30 15, 22 19, 14 16" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        </svg>
         <div
-          className="hand-placed deckle-bottom bg-parchment border-x border-t border-sepia/25 px-3 pt-2 pb-4"
-          style={{ '--tilt': `${tiltFor(`gear-${character.id ?? ''}`, { min: 0.5, max: 1.2, sign: 1 })}deg` }}
+          className="gear-tag hand-placed"
+          style={{ '--tilt': `${tiltFor(`gear-${character.id ?? ''}`, { min: 0.4, max: 1.1, sign: -1 })}deg` }}
         >
-          <div className="flex items-center gap-2 border-b border-dashed border-sepia/45 pb-1.5 mb-2">
+          <span aria-hidden="true" className="gear-tag-eyelet" />
+          <div className="gear-head flex items-center gap-2 border-b border-dashed border-sepia/50 pb-1.5 mb-2">
             <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
               <SafeIcon name="GiBriefcase" size={18} /> Gear
             </h3>
@@ -456,22 +464,22 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <button
                 type="button"
                 onClick={openGearModal}
-                className="ml-auto whitespace-nowrap min-h-[32px] [@media(pointer:coarse)]:min-h-[40px] text-xs font-sans font-black uppercase tracking-wider border border-ink/30 px-2.5 py-1 hover:bg-black/5 hover:border-ink/50 transition-colors rounded-sm"
+                className="ml-auto whitespace-nowrap min-h-[32px] [@media(pointer:coarse)]:min-h-[40px] text-xs font-sans font-black uppercase tracking-wider border border-ink/35 bg-cream/40 px-2.5 py-1 hover:bg-cream/80 hover:border-ink/60 transition-colors rounded-sm"
               >
                 Change gear
               </button>
             )}
           </div>
-          <ul className="grid grid-cols-3 gap-1.5">
+          <ul className="gear-items grid grid-cols-3 gap-1.5">
             {gear.map(item => (
-              <li key={item} className="flex flex-col items-center gap-1 text-center px-1 pt-1.5 pb-1 min-h-[4.75rem] min-w-0">
+              <li key={item} className="flex flex-col items-center gap-1 text-center px-0.5 pt-1 pb-0.5 min-h-[4.5rem] min-w-0">
                 <SafeIcon name={GEAR_ICONS[item] || 'GiSuitcase'} size={30} className="text-ink shrink-0" />
                 <span className="font-serif font-semibold text-sm leading-tight text-ink break-words">{item}</span>
               </li>
             ))}
-            {/* The gear slots not yet filled, printed on the slip and left blank */}
+            {/* The gear slots not yet filled, printed on the tag and left blank */}
             {Array.from({ length: Math.max(0, 3 - gear.length) }).map((_, i) => (
-              <li key={`slot-${i}`} aria-hidden="true" className="min-h-[4.75rem] border border-dashed border-sepia/35 rounded-sm" />
+              <li key={`slot-${i}`} aria-hidden="true" className="min-h-[4.5rem] border border-dashed border-sepia/40 rounded-sm" />
             ))}
           </ul>
           {gear.length === 0 && <span className="sr-only">No gear</span>}
@@ -798,36 +806,29 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
       <SheetDivider className="dossier-divider" />
 
-      {/* Vital Damage & Post-Mortem Ledger */}
-      <div className="dossier-trauma grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+      {/* The trauma record (Form C.O. 14): one printed form for the marks and the scars.
+          The marks are inked by hand in their boxes with the status rubber-stamped beside
+          them; the scars are written on its ruled lines, their count at the end. One under
+          the other on a narrow sheet, a line each on a wide one (.trauma-c in index.css). */}
+      <div className="dossier-trauma trauma-c">
+        <div className="trauma-record relative bg-cream border-2 border-dashed border-ink/60 rounded-sm shadow-sm">
+          <FormLine className="trauma-form">Form C.O. 14 · Trauma record</FormLine>
 
-        {/* Damage Tracks: a manila tag tied to the sheet, its eyelet at the narrow end, the
-            marks inked in its boxes and the status rubber-stamped at its foot. The shadow
-            sits on the wrapper, since the tag's cut corners would clip a box-shadow. */}
-        <div data-desk="marks" className="dossier-marks relative md:col-span-5" style={{ filter: 'drop-shadow(2px 5px 5px rgba(0,0,0,0.24))' }}>
-        {/* Its string, through the eyelet and off over the page */}
-        <svg aria-hidden="true" focusable="false" viewBox="0 0 40 20" preserveAspectRatio="none" className="marks-tag-string">
-          <path d="M37 12.5 C 28 4, 17 18, 9 9 S 2 6, 0 8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          <path d="M37 12.5 C 30 15, 22 19, 14 16" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
-        <div className="marks-tag hand-placed h-full flex flex-col justify-between"
-          style={{ '--tilt': `${tiltFor(`marks-${character.id ?? ''}`, { min: 0.4, max: 1.1, sign: -1 })}deg` }}>
-          <span aria-hidden="true" className="marks-tag-eyelet" />
-          <div>
-            <h3 className="mark-head font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-4 flex items-center gap-2">
-              <SafeIcon name="GiBleedingEye" size={22} className="text-oxblood" /> Marks
+          <div data-desk="marks" className="trauma-marks">
+            <h3 className="trauma-head mark-head font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
+              <SafeIcon name="GiBleedingEye" size={20} className="text-oxblood shrink-0" /> Marks
             </h3>
             {/* Each box is its own target: only the next empty box takes a mark. A mark is
                 held for a few seconds with an Undo before it goes to the table. */}
-            <div className={readOnly ? 'space-y-4' : 'space-y-1'}>
+            <div className={`mark-tracks flex flex-col ${readOnly ? 'gap-2' : 'gap-1'}`}>
               {['body', 'brain', 'bleed'].map((type) => {
                 const name = MARK_NAME[type];
                 const marked = character?.[`${type}_marks`] || 0;
                 const heldHere = !readOnly && heldMark?.type === type;
                 const next = marked + (heldHere ? 1 : 0); // index of the box the next tap fills
                 const trackFull = next >= 3;
-                // 44px targets on phones; in the two-column sheet (md up) 36px keeps the
-                // label on one line beside three boxes.
+                // 44px targets on phones; on a wide record (index.css) the boxes keep to
+                // one line beside their labels.
                 const cell = readOnly ? 'w-7 h-9' : 'w-11 h-11 md:w-9';
                 return (
                   <div key={type} className="mark-row flex justify-between items-center gap-2">
@@ -880,8 +881,34 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 );
               })}
             </div>
+
+            {/* The status, rubber-stamped on the record */}
+            <div className="mark-status flex flex-wrap items-center gap-2">
+              <span className="sr-only">Status: </span>
+              <span className={`mark-stamp inline-block -rotate-2 border-2 rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight whitespace-nowrap ${
+                character?.is_dead ? 'border-ink text-ink' : character?.incapacitated ? 'border-oxblood text-oxblood' : 'border-sepia/70 text-sepia'}`}>
+                {character?.is_dead ? "Dead" : character?.incapacitated ? "Incapacitated" : "Able to act"}
+              </span>
+              {character?.is_dead && !readOnly && (
+                <button
+                  onClick={() => setStage('CHARACTER_CREATION')}
+                  className="min-h-[32px] [@media(pointer:coarse)]:min-h-[40px] px-2.5 py-1 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest border-2 border-ink text-ink hover:bg-ink hover:text-cream transition-all rounded-sm"
+                >
+                  Create a new investigator
+                </button>
+              )}
+              {character?.incapacitated && !character?.is_dead && !readOnly && (
+                <button
+                  onClick={reviveCharacter}
+                  className="min-h-[32px] [@media(pointer:coarse)]:min-h-[40px] px-2.5 py-1 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
+                >
+                  Revive
+                </button>
+              )}
+            </div>
+
             {!readOnly && heldMark && (
-              <div role="status" className="mt-3 flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 px-3 py-2 rounded-sm">
+              <div role="status" className="mark-held flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 px-3 py-2 rounded-sm">
                 <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-40">
                   {(character?.[`${heldMark.type}_marks`] || 0) >= 3
                     ? `${MARK_NAME[heldMark.type]} track is full: this mark brings a scar.`
@@ -896,64 +923,32 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               </div>
             )}
             {!readOnly && markSendError && (
-              <p role="alert" className="mt-3 font-serif text-base text-oxblood leading-snug">{markSendError}</p>
+              <p role="alert" className="mark-held font-serif text-base text-oxblood leading-snug">{markSendError}</p>
             )}
           </div>
 
-          {/* The status, rubber-stamped on the tag */}
-          <div className="mark-status mt-3 flex items-center">
-            <span className="sr-only">Status: </span>
-            <span className={`mark-stamp inline-block -rotate-2 border-2 rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight ${
-              character?.is_dead ? 'border-ink text-ink' : character?.incapacitated ? 'border-oxblood text-oxblood' : 'border-sepia/70 text-sepia'}`}>
-              {character?.is_dead ? "Dead" : character?.incapacitated ? "Incapacitated" : "Able to act"}
-            </span>
-          </div>
-          {character?.is_dead && !readOnly && (
-            <button
-              onClick={() => setStage('CHARACTER_CREATION')}
-              className="mt-2 w-full py-1.5 font-sans text-xs font-black uppercase tracking-widest border-2 border-ink text-ink hover:bg-ink hover:text-cream transition-all rounded-sm"
-            >
-              Create a new investigator
-            </button>
-          )}
-          {character?.incapacitated && !character?.is_dead && !readOnly && (
-            <button
-              onClick={reviveCharacter}
-              className="mt-2 w-full py-1.5 font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
-            >
-              Revive
-            </button>
-          )}
-        </div>
-        </div>
-
-        {/* Scars — editable textarea for players, list view for GM readOnly */}
-        <div data-desk="scars" className="dossier-scars md:col-span-7 bg-cream border-2 border-dashed border-ink/60 p-4 pt-5 rounded-sm relative shadow-sm flex flex-col justify-between overflow-hidden">
-          <FormLine className="scars-form absolute top-1.5 right-3">Form C.O. 14 · Trauma record</FormLine>
-          <div>
-            <div className="scars-head flex flex-wrap gap-2 justify-between items-center border-b border-ink/40 pb-1 mb-2 mt-3 sm:mt-0">
-              <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
-                <ScarIcon size={22} className="text-ink" /> Scars
-              </h3>
-              <span className="font-mono tabular-nums text-sm font-bold bg-ink text-cream px-2.5 py-0.5 rounded-sm" aria-label={`${character?.scars_count || 0} of 4 scars`}>
-                {character?.scars_count || 0} / 4
-              </span>
+          {/* The scars, written on the record's ruled lines */}
+          <div data-desk="scars" className="trauma-scars">
+            <h3 className="trauma-head scars-head font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
+              <ScarIcon size={20} className="text-ink shrink-0" /> Scars
+            </h3>
+            <div className="scars-lines min-w-0"
+                 style={{
+                   backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.16) 24px)',
+                   backgroundSize: '100% 24px',
+                   lineHeight: '24px'
+                 }}>
+              {character?.scars_list?.length > 0 ? (
+                character.scars_list.map((scar, i) => (
+                  <p key={i} className="font-serif text-base text-ink italic pl-1">{scarDisplayText(scar)}</p>
+                ))
+              ) : (
+                <span className="sr-only">No scars</span>
+              )}
             </div>
-          </div>
-
-          <div className="scars-lines flex-1 space-y-1.5 pt-1"
-               style={{
-                 backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.14) 24px)',
-                 backgroundSize: '100% 24px',
-                 lineHeight: '24px'
-               }}>
-            {character?.scars_list?.length > 0 ? (
-              character.scars_list.map((scar, i) => (
-                <p key={i} className="font-serif text-base text-ink italic pl-1">{scarDisplayText(scar)}</p>
-              ))
-            ) : (
-              <span className="sr-only">No scars</span>
-            )}
+            <span className="scars-count font-mono tabular-nums text-sm font-bold bg-ink text-cream px-2.5 py-0.5 rounded-sm whitespace-nowrap" aria-label={`${character?.scars_count || 0} of 4 scars`}>
+              {character?.scars_count || 0} / 4
+            </span>
           </div>
         </div>
       </div>
