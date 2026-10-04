@@ -39,9 +39,17 @@ class _RedactTokenFilter(logging.Filter):
 for _name in ("uvicorn.error", "uvicorn.access", "candela"):
     logging.getLogger(_name).addFilter(_RedactTokenFilter())
 
+# SECRET_KEY signs the login tokens, so anyone who knows it can log in as any user.
+# The placeholder from .env.example and short keys are refused.
+SECRET_KEY_PLACEHOLDER = "your-secret-key-here"
+SECRET_KEY_MIN_LENGTH = 32
+
 _secret = os.getenv("SECRET_KEY")
 if not _secret:
     raise RuntimeError("SECRET_KEY environment variable must be set. Generate one with: openssl rand -hex 32")
+if _secret.strip() == SECRET_KEY_PLACEHOLDER or len(_secret) < SECRET_KEY_MIN_LENGTH:
+    raise RuntimeError(f"SECRET_KEY must be a random value of at least {SECRET_KEY_MIN_LENGTH} characters, "
+                       "not the .env.example placeholder. Generate one with: openssl rand -hex 32")
 SECRET_KEY = _secret
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # login tokens last 30 days

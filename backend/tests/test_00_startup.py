@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 
+import pytest
 from sqlalchemy import inspect as sa_inspect, text
 
 import main
@@ -136,6 +137,16 @@ def test_missing_secret_key_refuses_to_start(client):
     assert proc.returncode != 0
     assert "RuntimeError" in proc.stderr
     assert "SECRET_KEY environment variable must be set" in proc.stderr
+
+
+@pytest.mark.parametrize("key", ["your-secret-key-here", "x" * 31])
+def test_placeholder_or_short_secret_key_refuses_to_start(client, key):
+    """SECRET_KEY signs the login tokens, so the .env.example placeholder or a short
+    key would let anyone forge one."""
+    proc = _run_import(dict(os.environ, SECRET_KEY=key))
+    assert proc.returncode != 0
+    assert "RuntimeError" in proc.stderr
+    assert "at least 32 characters" in proc.stderr
 
 
 def test_route_table_order(client):

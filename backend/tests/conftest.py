@@ -15,6 +15,7 @@ Importing main has side effects (create_all, seed rows, ALTER TABLE statements),
 so it must only ever run against a throwaway database. The beta test harness
 provides one per run in DATABASE_URL.
 """
+import hashlib
 import os
 
 import pytest
@@ -28,6 +29,10 @@ if not _db_url or "candela_obscura.db" in _db_url:
     )
 if not os.environ.get("SECRET_KEY"):
     pytest.exit("SECRET_KEY must be set for the tests", returncode=2)
+if len(os.environ["SECRET_KEY"]) < 32:
+    # The app refuses keys shorter than 32 characters. Stretch the harness's test key
+    # (it only has to be the same for the whole run, subprocesses included).
+    os.environ["SECRET_KEY"] = hashlib.sha256(os.environ["SECRET_KEY"].encode()).hexdigest()
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402

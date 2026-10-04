@@ -8,7 +8,7 @@ Before this stage the server trusted whatever user id, character id or role the 
 - The token is a JWT signed with `SECRET_KEY`, algorithm HS256. Claims: `sub` (the user id as a string), `iat`, `exp` (30 days after `iat`). There is no refresh; after 30 days the user logs in again.
 - Decoding accepts HS256 only and requires `sub`, `iat` and `exp`. A token that is malformed, expired, signed with another key or algorithm, or whose user no longer exists counts as no token.
 - Code: `vtt/security.py` (issue and decode), `vtt/auth.py` (the `get_current_user` dependency and the access helpers).
-- Changing `SECRET_KEY` logs everyone out.
+- Changing `SECRET_KEY` logs everyone out. Anyone who knows it can mint a token for any user, so the server refuses to start when it is the `.env.example` placeholder (`your-secret-key-here`) or shorter than 32 characters (`vtt/config.py`). The test conftest stretches a shorter harness key with SHA-256.
 
 ## REST
 
