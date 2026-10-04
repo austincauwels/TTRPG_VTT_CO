@@ -1,29 +1,35 @@
 import React from 'react';
 
 // Official cryptid field sketches (cryp1-3), kept whole under the aged-paper treatment.
-export const CryptidSketches = () => (
-  <div className="absolute bottom-[5%] left-0 sm:left-[4%] lg:left-[10%] w-[850px] h-[750px] pointer-events-none z-10 origin-bottom-left scale-[0.5] sm:scale-75 lg:scale-100">
-    
-    {/* Cryptid Sheet 1 (Bottom Left) - Scaled Up */}
-    <div className="absolute bottom-[10%] left-[5%] w-[320px] aspect-[1/1.4] bg-parchment-deep rotate-[-12deg] shadow-[4px_6px_15px_rgba(0,0,0,0.9)] border border-sepia/30 p-2 flex flex-col">
-      <div className="w-full h-full border border-sepia/40 relative overflow-hidden bg-parchment-deep">
-        {/* Ensure object-cover fills the container */}
-        <img src="/images/cryp1.jpg" alt="Field Sketch 1" className="w-full h-full object-cover aged-paper-img scale-100" />
-      </div>
-    </div>
+// They lie about the desk like papers someone left there (owner's round 3, item 28): one by
+// the candles with its foot under the Case Ledger, one under the tomes' lower corners, one
+// tucked under the Herald's top edge. Each one is placed by the object it lies under, so it
+// stays with that object at every width. Decorative: no clicks.
+const SKETCHES = {
+  candles: {
+    src: '/images/cryp1.jpg', alt: 'Field Sketch 1', ratio: '1 / 1.4',
+    paper: 'bg-parchment-deep p-2', mount: 'border border-sepia/40 bg-parchment-deep', img: '',
+  },
+  tomes: {
+    src: '/images/cryp2.webp', alt: 'Field Sketch 2', ratio: '4 / 5',
+    paper: 'bg-parchment p-2', mount: 'border border-sepia/30 bg-parchment', img: 'scale-105',
+  },
+  herald: {
+    src: '/images/cryp3.jpg', alt: 'Field Sketch 3', ratio: '1 / 1.3',
+    paper: 'bg-parchment-deep p-3', mount: 'border-2 border-double border-sepia/50 bg-parchment', img: '',
+  },
+};
 
-    {/* Cryptid Sheet 2 (Center Massive) - Scaled Up */}
-    <div className="absolute bottom-[20%] left-[32%] w-[400px] aspect-[4/5] bg-parchment rotate-[8deg] shadow-[5px_8px_20px_rgba(0,0,0,0.95)] border border-sepia/20 p-2 flex flex-col">
-      <div className="w-full h-full border border-sepia/30 relative overflow-hidden bg-parchment">
-        <img src="/images/cryp2.webp" alt="Field Sketch 2" className="w-full h-full object-cover aged-paper-img scale-105" />
+export const CryptidSketch = ({ which, className = '' }) => {
+  const s = SKETCHES[which];
+  return (
+    <div data-hub="sketch" data-cast="0.16" className={`sketch ${className}`} style={{ aspectRatio: s.ratio }}>
+      <span className="cast" aria-hidden="true" />
+      <div className={`sketch-paper border border-sepia/30 shadow-[1px_2px_3px_rgba(0,0,0,0.55)] ${s.paper}`}>
+        <div className={`w-full h-full relative overflow-hidden ${s.mount}`}>
+          <img src={s.src} alt={s.alt} className={`w-full h-full object-cover aged-paper-img ${s.img}`} />
+        </div>
       </div>
     </div>
-
-    {/* Cryptid Sheet 3 (Right Under Book) - Scaled Up */}
-    <div className="absolute bottom-[5%] left-[60%] w-[330px] aspect-[1/1.3] bg-parchment-deep rotate-[22deg] shadow-[6px_12px_25px_rgba(0,0,0,0.98)] border border-sepia/30 p-3 flex flex-col">
-      <div className="w-full h-full border-2 border-double border-sepia/50 relative overflow-hidden bg-parchment">
-        <img src="/images/cryp3.jpg" alt="Field Sketch 3" className="w-full h-full object-cover aged-paper-img" />
-      </div>
-    </div>
-  </div>
-);
+  );
+};

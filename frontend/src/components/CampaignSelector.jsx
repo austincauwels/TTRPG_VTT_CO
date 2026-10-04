@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import useGameStore from '../store/gameStore';
 import { campaignErrorText } from '../utils/campaignErrors';
 
@@ -8,15 +8,16 @@ import { RejoinInviteBanner } from './campaignSelector/RejoinInviteBanner';
 import { DeskStyles } from './campaignSelector/DeskStyles';
 import { DeskBackdrop } from './campaignSelector/DeskBackdrop';
 import { CandleCluster, CandleLight } from './campaignSelector/CandleCluster';
-import { CryptidSketches } from './campaignSelector/CryptidSketches';
+import { CryptidSketch } from './campaignSelector/CryptidSketches';
 import { HubHeader } from './campaignSelector/HubHeader';
-import { ActiveRegisterTome } from './campaignSelector/ActiveRegisterTome';
-import { LastSessionTome } from './campaignSelector/LastSessionTome';
+import { CaseLedgerTome } from './campaignSelector/CaseLedgerTome';
+import { LastPlayedTome } from './campaignSelector/LastPlayedTome';
 import { HalcyonHerald, HalcyonHeraldStrip } from './campaignSelector/HalcyonHerald';
-import { NewInvestigatorPamphlet } from './campaignSelector/NewInvestigatorPamphlet';
-import { GMAccessPamphlet } from './campaignSelector/GMAccessPamphlet';
+import { NewCharacterTicket } from './campaignSelector/NewCharacterTicket';
+import { NewCampaignTicket } from './campaignSelector/NewCampaignTicket';
 import { ForegroundAtmosphere } from './campaignSelector/ForegroundAtmosphere';
 import { RosterBook } from './campaignSelector/RosterBook';
+import { useCastShadows } from './campaignSelector/useCastShadows';
 
 export const CampaignSelector = () => {
   const {
@@ -50,6 +51,10 @@ export const CampaignSelector = () => {
 
   useAutoLastPlayed({ lastPlayedCampaign, characters, gmCampaigns, setLastPlayed });
 
+  // Every object on the desk throws its shadow away from the candles
+  const deskRef = useRef(null);
+  useCastShadows(deskRef, [!!lastPlayedCampaign]);
+
   // One candle burns for the chapter, and one more for each investigator in play or campaign
   // you run, up to three.
   const litCandles = 1 + Math.min(2, characters.filter(c => c.status === 'active').length + gmCampaigns.length);
@@ -59,7 +64,7 @@ export const CampaignSelector = () => {
     setStage('LOGIN');
   };
 
-  // The tome opens the book at the page for the user's role. The GM pamphlet keeps its own
+  // The tome opens the book at the page for the user's role. The GM's ticket keeps its own
   // new-campaign form on its back.
   const openRoster = () => handleOpenRoster();
 
@@ -88,51 +93,49 @@ export const CampaignSelector = () => {
       <RejoinInviteBanner rejoinInvite={rejoinInvite} setStage={setStage} setRejoinInvite={setRejoinInvite} />
 
       <DeskStyles />
-      <DeskBackdrop />
-      <CandleCluster lit={litCandles} />
-      <CryptidSketches />
       <HubHeader onLogout={handleLogout} />
 
-      {/* 6. PHYSICAL DESK LAYOUT: a free composition from lg up; below it the desk stacks in
-          one column (tomes side by side, pamphlets in a row, the Herald folded at the foot) */}
-      <main className="flex-1 w-full max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center lg:justify-center gap-10 lg:gap-12 px-4 pt-[5.5rem] pb-12 sm:px-8 sm:pt-28 lg:p-12 z-30 perspective-[1500px]">
-        
-        {/* LEFT AREA: MASSIVE LEATHER TOMES */}
-        <div className="grid grid-cols-2 items-start gap-6 sm:gap-10 w-full max-w-[680px] pr-3 sm:pr-4 lg:pr-0 lg:max-w-none lg:flex lg:gap-6 lg:items-center lg:justify-center lg:w-[50%] lg:ml-4 z-30">
-          
-          <ActiveRegisterTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
+      {/* THE DESK, seen from above: wood with a leather writing inset, the candles in its top
+          left corner, and the light and shade of the room over everything on it. None of the
+          boxes between the light and the desk may form a stacking context (no z-index,
+          transform, opacity or perspective), or the light has nothing to blend with. */}
+      <div ref={deskRef} className="hub-room relative flex-1 flex flex-col">
+        <DeskBackdrop />
 
-          {/* TOME II: LAST SESSION */}
-          <LastSessionTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} />
+        {/* From lg a free composition; below it the desk stacks in one column (tomes side by
+            side, tickets in a row, the Herald folded at the foot) */}
+        <main className="relative flex-1 w-full max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center lg:justify-center gap-10 lg:gap-12 px-4 pt-[5.5rem] pb-12 sm:px-8 sm:pt-[7.5rem] lg:p-12">
+          <CandleCluster lit={litCandles} />
 
-        </div>
-
-        {/* RIGHT AREA: SHIFTED MESSY DESK PAMPHLETS & NEWSPAPER */}
-        {/* We use a wider container to ensure everything stays far right and avoids books */}
-        <div className="relative w-full lg:w-[50%] lg:min-w-[550px] lg:h-[600px] perspective-[1200px] flex flex-col lg:flex-row items-center gap-10 lg:gap-0">
-          
-          <HalcyonHerald />
-
-          {/* The pamphlets share a row below lg and never overlap; from lg up this wrapper
-              steps aside (display: contents) and they lie loose on the desk */}
-          <div className="grid grid-cols-2 gap-6 sm:gap-10 w-full max-w-[540px] lg:contents">
-            {/* PAMPHLET I: NEW CHARACTER (Turn-of-the-Century Victorian Style) */}
-            <NewInvestigatorPamphlet onOpen={() => setStage('CHARACTER_CREATION')} />
-
-            {/* PAMPHLET II: GM OPERATIONS, flips to entry form */}
-            <GMAccessPamphlet userId={accessSession?.userId} onCreated={handleCampaignCreated} />
+          {/* LEFT: THE TOMES, with sketches tucked under their corners */}
+          <div className="relative grid grid-cols-2 items-start gap-6 sm:gap-10 w-full max-w-[680px] pr-3 sm:pr-4 lg:pr-0 lg:max-w-none lg:flex lg:gap-[2.2vw] lg:items-center lg:justify-center lg:w-[50%] lg:ml-[3.5vw] z-30">
+            <CryptidSketch which="candles" className="z-0 right-[-2%] top-[-40%] w-[30%] rotate-[9deg] lg:right-auto lg:left-[-9%] lg:top-[6%] lg:w-[30%] lg:rotate-[-8deg]" />
+            <CryptidSketch which="tomes" className="z-0 left-[24%] bottom-[-15%] w-[44%] rotate-[5deg] lg:left-[29%] lg:bottom-[-25%] lg:w-[42%] lg:rotate-[7deg]" />
+            <CaseLedgerTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
+            <LastPlayedTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} />
           </div>
 
-          <HalcyonHeraldStrip />
-        </div>
+          {/* RIGHT: THE HERALD AND THE TICKETS lying on it */}
+          <div className="relative w-full lg:w-[50%] lg:min-w-[550px] lg:h-[600px] flex flex-col lg:flex-row items-center gap-10 lg:gap-0">
+            <CryptidSketch which="herald" className="z-0 right-[-3%] bottom-[-18px] w-[30%] rotate-[12deg] lg:right-auto lg:bottom-auto lg:left-[-17%] lg:top-[-9%] lg:w-[29%] lg:rotate-[-13deg]" />
+            <HalcyonHerald />
 
-      </main>
+            {/* The tickets share a row below lg and never overlap; from lg up this wrapper
+                steps aside (display: contents) and they lie loose on the desk */}
+            <div className="grid grid-cols-2 gap-6 sm:gap-10 w-full max-w-[540px] lg:contents">
+              <NewCharacterTicket onOpen={() => setStage('CHARACTER_CREATION')} />
+              <NewCampaignTicket userId={accessSession?.userId} onCreated={handleCampaignCreated} />
+            </div>
 
-      {/* The candles' light on the desk and the objects near them */}
-      <CandleLight lit={litCandles} />
+            <HalcyonHeraldStrip />
+          </div>
 
-      {/* FOREGROUND ATMOSPHERICS */}
-      <ForegroundAtmosphere />
+          {/* The candles' light on the desk and the objects near them, and the room's shade */}
+          <CandleLight lit={litCandles} />
+        </main>
+
+        <ForegroundAtmosphere />
+      </div>
 
       {/* BOOK OVERLAY */}
       {showBook && (

@@ -16,7 +16,7 @@ import { useSyncExternalStore } from 'react';
 //
 // Paper (owner's request, 2026-10-04; the file is free to use, his decision):
 //   public/sounds/paper.mp3         for the person whose own screen moves paper: a notebook
-//                                   page turning, the GM pamphlet flipping over. Played
+//                                   page turning, the GM ticket flipping over. Played
 //                                   softer than the roll sounds, and a turn that follows
 //                                   another within a moment stays quiet, so fast turns do
 //                                   not pile up. It is under the same on/off switch.

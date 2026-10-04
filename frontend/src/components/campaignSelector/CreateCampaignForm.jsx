@@ -7,8 +7,8 @@ const inputClass = {
   card: 'w-full bg-cream/60 border border-sepia/40 px-2 py-1 sm:py-1.5 font-serif text-base sm:text-lg text-ink placeholder-sepia/90 focus:border-oxblood',
 };
 
-// The one form for starting a campaign. It is printed on the back of the GM pamphlet on the
-// hub (variant "card", which the pamphlet's close mark turns back over) and sits on the
+// The one form for starting a campaign. It is printed on the back of the GM ticket on the
+// hub (variant "card", which the ticket's close mark turns back over) and sits on the
 // Lightkeeper Ledger page of the roster book (variant "page", with its own Cancel). On
 // success it hands the new campaign to onCreated, which takes the GM to the desk. The card
 // is small, so it shows the code's format rule only when the code breaks it.

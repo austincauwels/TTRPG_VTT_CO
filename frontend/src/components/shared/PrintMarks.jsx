@@ -77,7 +77,7 @@ export const RuledBox = ({ label, lines = 2, className = '' }) => (
 );
 
 // Printed fields left blank on a form: a small label and a dotted line to write on
-// ("Name ......."), as on the hub's intake pamphlets.
+// ("Name .......").
 export const BlankFields = ({ labels, className = '' }) => (
   <span aria-hidden="true" className={`flex flex-col gap-1.5 w-full pointer-events-none select-none ${className}`}>
     {labels.map(label => (

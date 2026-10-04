@@ -1,8 +1,8 @@
 import React from 'react';
 
-// Rendered after <main>; it must stay after it. A plain shadow at the desk's far edges,
-// in normal blending, so it darkens without shifting the colors of the objects under it
-// (the old overlay blend turned the Lightkeeper pamphlet near black).
+// The room's own dark at the desk's far edges, over the objects and under the header: a
+// plain shadow in normal blending, so it darkens without shifting the colors under it.
+// Rendered last inside the desk area.
 export const ForegroundAtmosphere = () => (
-  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_60%,rgba(0,0,0,0.35)_100%)] pointer-events-none z-50" />
+  <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.46)_100%)] pointer-events-none z-[47]" />
 );
