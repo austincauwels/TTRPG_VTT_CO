@@ -274,7 +274,32 @@ RULES = {
 }
 
 
+# Types whose handlers post to the campaign fixed at connect (ctx.camp_code), when a
+# player channel sends them. chat_message is here too, because its handler can read
+# the character's campaign from the socket's session, which may be stale.
+PLAYER_CAMPAIGN_BROADCASTS = frozenset({
+    "roll", "resolve_gilded", "use_post_roll_ability", "burn_resistance",
+    "take_mark", "resolve_ability_mark", "intercept_mark",
+    "revive_character", "update_gear", "apply_advancement",
+    "spend_resource", "submit_assignment_report", "circle_creation_vote", "circle_backstory_update",
+    "circle_personal_answer", "circle_relationship_propose", "circle_relationship_respond",
+    "chat_message", "add_notebook_entry",
+})
+
+
+def _still_in_connect_campaign(ctx):
+    """A player channel that opened with a campaign may post to it only while its
+    character is still an active or pending member of that campaign. A player who
+    was rejected, retired or moved to another campaign keeps an open socket, but it
+    no longer reaches the old campaign (403 until the client reconnects)."""
+    me = character_facts(ctx.db, ctx.own_char_id)
+    if me is None or me.campaign_id != ctx.camp_id or me.status not in MEMBER_STATUSES:
+        _forbid()
+
+
 def check_message(ctx, action, payload, character):
+    if not ctx.is_gm and ctx.camp_id is not None and action in PLAYER_CAMPAIGN_BROADCASTS:
+        _still_in_connect_campaign(ctx)
     rule = RULES.get(action)
     if rule is not None:
         rule(ctx, payload, character)

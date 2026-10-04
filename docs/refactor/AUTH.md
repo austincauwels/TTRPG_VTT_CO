@@ -99,6 +99,8 @@ The character a message acts on is `payload.character_id`, or the player channel
 
 "Member" here is read fresh from the database for every message, so a player who joins or is approved while connected is a member at once (the handlers themselves still use the campaign fixed at connect, see QUIRKS.md).
 
+A player channel that opened with a campaign posts into that campaign only while its character is still an active or pending member of it. After a reject, a retire or a join to another campaign, these types are 403 on the old socket until the client reconnects: roll, resolve_gilded, use_post_roll_ability, burn_resistance, take_mark, resolve_ability_mark, intercept_mark, revive_character, update_gear, apply_advancement, spend_resource, submit_assignment_report, circle_creation_vote, circle_backstory_update, circle_personal_answer, circle_relationship_propose, circle_relationship_respond, chat_message and add_notebook_entry (`PLAYER_CAMPAIGN_BROADCASTS` in `vtt/ws/access.py`). Types that touch only the player's own sheet and channel (update_drive, update_pen_font, apply_scar) still work.
+
 Not changed: game rules that are not about who is acting (pending offers, `reports_open`, finalize state, value bounds) are still the quirks listed in QUIRKS.md and WEBSOCKET.md section 8.
 
 ## Frontend

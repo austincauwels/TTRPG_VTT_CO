@@ -199,3 +199,44 @@ def test_rejections_go_only_to_the_sender_and_keep_the_socket(client):
         assert wb.drain() == [] and gm.drain() == []
         wa.send("chat_message", message="still here")
         assert support.types(wa.sync()) == ["activity_log"]
+
+
+def test_a_rejected_player_no_longer_posts_to_the_old_campaign(client):
+    """Reviewer probe: a socket keeps the campaign it opened with. After a REST reject
+    its gear names used to reach that campaign's GM as free text."""
+    camp = support.new_campaign(client)
+    ch = support.pending_member(client, camp)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        assert support.reject(client, ch["id"]).status_code == 200
+        ws.recv_type("investigator_rejected")
+        gm.drain()
+        ws.send("update_gear", gear=["ANY TEXT I LIKE"])
+        ws.send("chat_message", message="hello?")
+        assert ws.sync() == [_rejected("update_gear"), _rejected("chat_message")]
+        assert gm.sync() == []
+        ws.send("update_pen_font", pen_font="Kalam")  # its own sheet is still its own
+        assert support.types(ws.sync()) == ["character_update"]
+    assert support.fetch(Character, ch["id"]).gear == []
+
+
+@pytest.mark.parametrize("how", ["moved", "retired"])
+def test_a_player_who_left_the_campaign_no_longer_posts_to_it(client, how):
+    camp = support.new_campaign(client)
+    other = support.new_campaign(client)
+    ch = support.active_member(client, camp)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        ws.send("update_gear", gear=["lamp"])
+        assert support.types(ws.sync()) == ["character_update", "activity_log"]
+        assert support.types(gm.sync()) == ["activity_log"]
+        if how == "moved":
+            assert support.join(client, ch["id"], other["campaign_code"]).status_code == 200
+        else:
+            support.update(Character, ch["id"], status="retired")
+        gm.drain()
+        for msg_type, payload in (("update_gear", dict(gear=["rope"])), ("roll", dict(action="move")),
+                                  ("revive_character", {}),
+                                  ("apply_advancement", dict(choice="add_action", detail="move"))):
+            ws.send(msg_type, **payload)
+            assert ws.sync() == [_rejected(msg_type)]
+        assert gm.sync() == []
+    assert support.fetch(Character, ch["id"]).gear == ["lamp"]
