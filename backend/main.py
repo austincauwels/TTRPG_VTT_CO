@@ -48,6 +48,7 @@ from vtt.schemas import (
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.circle_queries import get_or_create_campaign_circle, votes_dict, relationships_list, resolve_circle
 from vtt.ws.manager import ConnectionManager, manager
+from vtt.routers import auth, users
 
 
 class _MainModule(types.ModuleType):
@@ -517,81 +518,7 @@ async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get
 
 app.include_router(router)
 
-# =====================================================================
-# REST API ENDPOINTS
-# =====================================================================
-
-@app.post("/api/auth/login")
-@limiter.limit("10/minute")
-async def login(request: Request, credentials: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == credentials.username).first()
-
-    if not user or not pwd_context.verify(credentials.password, user.hashed_password):
-        logger.warning("Failed login attempt for username=%r", credentials.username)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials."
-        )
-
-    gm_campaign = db.query(Campaign).filter(
-        Campaign.gm_user_id == user.id,
-        Campaign.is_retired == False,
-    ).first()
-
-    if gm_campaign:
-        return {
-            "role": "GM",
-            "name": user.username,
-            "userId": user.id,
-            "campaignCode": gm_campaign.campaign_code,
-            "campaignId": gm_campaign.id,
-        }
-
-    pending_invite = None
-    if user.pending_rejoin_campaign_id:
-        invite_camp = db.query(Campaign).filter(Campaign.id == user.pending_rejoin_campaign_id).first()
-        if invite_camp and not invite_camp.is_retired:
-            pending_invite = {
-                "campaign_id": invite_camp.id,
-                "campaign_name": invite_camp.name,
-                "campaign_code": invite_camp.campaign_code,
-            }
-
-    return {
-        "role": "PLAYER",
-        "name": user.username,
-        "userId": user.id,
-        "campaignCode": None,
-        "campaignId": None,
-        "pendingRejoinInvite": pending_invite,
-    }
-
-@app.post("/api/auth/register", status_code=201)
-@limiter.limit("5/minute")
-async def register(request: Request, credentials: RegisterRequest, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == credentials.username).first():
-        raise HTTPException(status_code=400, detail="That identification is already claimed.")
-    if db.query(User).filter(User.email == credentials.email).first():
-        raise HTTPException(status_code=400, detail="That correspondence address is already registered.")
-
-    new_user = User(
-        username=credentials.username,
-        email=credentials.email,
-        hashed_password=pwd_context.hash(credentials.password)
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    campaign = db.query(Campaign).filter(Campaign.campaign_code == "fairelands-01").first()
-
-    return {
-        "role": "PLAYER",
-        "name": new_user.username,
-        "userId": new_user.id,
-        "campaignCode": "fairelands-01",
-        "campaignId": campaign.id if campaign else None
-    }
+app.include_router(auth.router)
 
 @app.get("/api/investigators", response_model=List[CharacterRosterItem])
 async def list_investigators(db: Session = Depends(get_db)):
@@ -818,40 +745,7 @@ async def upload_notebook_image(
         "is_deleted": entry.is_deleted,
     }
 
-# =====================================================================
-# USER DATA ENDPOINTS
-# =====================================================================
-
-@app.get("/api/users/{user_id}/characters", response_model=List[CharacterSummaryItem])
-def get_user_characters(user_id: int, db: Session = Depends(get_db)):
-    chars = db.query(Character).filter(Character.user_id == user_id).all()
-    campaign_ids = list({c.campaign_id for c in chars if c.campaign_id})
-    campaigns_by_id = {}
-    if campaign_ids:
-        campaigns_by_id = {
-            c.id: c for c in db.query(Campaign).filter(Campaign.id.in_(campaign_ids)).all()
-        }
-    result = []
-    for c in chars:
-        camp = campaigns_by_id.get(c.campaign_id) if c.campaign_id else None
-        result.append(CharacterSummaryItem(
-            id=c.id,
-            name=c.name,
-            role_ability=c.role_ability or "None",
-            specialty_ability=c.specialty_ability or "None",
-            status=c.status,
-            campaign_id=c.campaign_id,
-            campaign_name=camp.name if camp else None,
-            campaign_code=camp.campaign_code if camp else None,
-        ))
-    return result
-
-@app.get("/api/users/{user_id}/campaigns", response_model=List[CampaignSummaryItem])
-def get_user_gm_campaigns(user_id: int, db: Session = Depends(get_db)):
-    return db.query(Campaign).filter(
-        Campaign.gm_user_id == user_id,
-        Campaign.is_retired == False,
-    ).all()
+app.include_router(users.router)
 
 # =====================================================================
 # WEBSOCKET STREAM ROUTER

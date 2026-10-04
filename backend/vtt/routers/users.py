@@ -1,0 +1,42 @@
+"""Per-user lists for the campaign selector (GET /api/users/{user_id}/...)."""
+from typing import List
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from models import Campaign, Character
+from vtt.db import get_db
+from vtt.schemas import CampaignSummaryItem, CharacterSummaryItem
+
+router = APIRouter()
+
+@router.get("/api/users/{user_id}/characters", response_model=List[CharacterSummaryItem])
+def get_user_characters(user_id: int, db: Session = Depends(get_db)):
+    chars = db.query(Character).filter(Character.user_id == user_id).all()
+    campaign_ids = list({c.campaign_id for c in chars if c.campaign_id})
+    campaigns_by_id = {}
+    if campaign_ids:
+        campaigns_by_id = {
+            c.id: c for c in db.query(Campaign).filter(Campaign.id.in_(campaign_ids)).all()
+        }
+    result = []
+    for c in chars:
+        camp = campaigns_by_id.get(c.campaign_id) if c.campaign_id else None
+        result.append(CharacterSummaryItem(
+            id=c.id,
+            name=c.name,
+            role_ability=c.role_ability or "None",
+            specialty_ability=c.specialty_ability or "None",
+            status=c.status,
+            campaign_id=c.campaign_id,
+            campaign_name=camp.name if camp else None,
+            campaign_code=camp.campaign_code if camp else None,
+        ))
+    return result
+
+@router.get("/api/users/{user_id}/campaigns", response_model=List[CampaignSummaryItem])
+def get_user_gm_campaigns(user_id: int, db: Session = Depends(get_db)):
+    return db.query(Campaign).filter(
+        Campaign.gm_user_id == user_id,
+        Campaign.is_retired == False,
+    ).all()
