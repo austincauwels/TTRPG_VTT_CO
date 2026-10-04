@@ -6,6 +6,8 @@ Everything here was found by reading the source. Nothing was run. Line numbers r
 
 Since the login token stage, sections 2 and 5 are out of date on one point: every call now goes through `apiFetch` in `utils/api.js` with `Authorization: Bearer <token>`, the WebSocket URL carries `?token=`, and the server no longer trusts the ids the client sends. AUTH.md describes the change, including the frontend part.
 
+Sign in with Google adds four calls on the login screen (`GET /api/auth/config`, `POST /api/auth/google`, `/api/auth/google/link` and `/api/auth/google/create`, through the helpers in `utils/api.js`). When the build has `VITE_GOOGLE_CLIENT_ID`, LoginScreen also loads `https://accounts.google.com/gsi/client`, and Google's button opens a popup from that host. AUTH.md, section "Login screen", has the details.
+
 ## 1. Layout
 
 - Entry: `main.jsx` renders `App.jsx`, which renders `components/AppRouter.jsx`.

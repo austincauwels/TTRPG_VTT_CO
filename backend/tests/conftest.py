@@ -11,10 +11,15 @@ The tests that used to be marked legacy_trust pinned the old trust in client ids
 and roles; they now pin the refusals (401, 403, 404, action_rejected, close codes
 4401, 4403 and 4404) instead, and the marker is gone.
 
+Sign in with Google: no test reaches Google. The route tests replace
+vtt.google.verify_id_token, the tests of that function give google-auth a fake
+transport or mock it, and any other request to Google fails the test.
+
 Importing main has side effects (create_all, seed rows, ALTER TABLE statements),
 so it must only ever run against a throwaway database. The beta test harness
 provides one per run in DATABASE_URL.
 """
+import hashlib
 import os
 
 import pytest
@@ -28,6 +33,10 @@ if not _db_url or "candela_obscura.db" in _db_url:
     )
 if not os.environ.get("SECRET_KEY"):
     pytest.exit("SECRET_KEY must be set for the tests", returncode=2)
+if len(os.environ["SECRET_KEY"]) < 32:
+    # The app refuses keys shorter than 32 characters. Stretch the harness's test key
+    # (it only has to be the same for the whole run, subprocesses included).
+    os.environ["SECRET_KEY"] = hashlib.sha256(os.environ["SECRET_KEY"].encode()).hexdigest()
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
@@ -35,6 +44,7 @@ from sqlalchemy import text  # noqa: E402
 import main  # noqa: E402  (imported once; seeds user 1 and circle 1)
 import engine  # noqa: E402
 import support  # noqa: E402
+import vtt.google  # noqa: E402
 
 TABLES = ["users", "circles", "characters", "campaigns", "notebook_entries",
           "circle_votes", "relationships", "games"]
@@ -65,6 +75,16 @@ def _resync_sequences():
 
 # Rate limits are per client IP and every test request comes from "testclient".
 main.limiter.enabled = False
+
+
+def _no_google(url, *args, **kwargs):
+    raise AssertionError(f"a test tried to reach Google: {url}")
+
+
+# Tests never reach Google. They stub vtt.google.verify_id_token, or give
+# vtt.google.certs_transport a fake that serves a test certificate; anything that
+# gets past both ends here.
+vtt.google.certs_transport = vtt.google.CachedCertsTransport(_no_google)
 support.FRESH_DB["sequences_at_import"] = _sequence_state()
 
 

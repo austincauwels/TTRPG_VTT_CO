@@ -9,6 +9,15 @@ class NotebookEntryUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
 
+# Register allows 128 characters. passlib refuses to check more than 4096 and raises,
+# which was a 500, so login and the Google link refuse anything over this unread.
+_MAX_LOGIN_PASSWORD_LENGTH = 1024
+
+def _check_login_password(v):
+    if len(v) > _MAX_LOGIN_PASSWORD_LENGTH:
+        raise ValueError("Password too long")
+    return v
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -20,6 +29,20 @@ class LoginRequest(BaseModel):
             raise ValueError("Username too long")
         return v
 
+    @field_validator("password")
+    @classmethod
+    def password_length(cls, v):
+        return _check_login_password(v)
+
+def check_new_username(v):
+    """The rule for a username chosen at registration (and when creating an account
+    with Google): 2 to 32 letters, digits, spaces, dots, dashes or underscores."""
+    if len(v) < 2 or len(v) > 32:
+        raise ValueError("Username must be 2–32 characters")
+    if not _re.match(r"^[\w\-. ]+$", v):
+        raise ValueError("Username contains invalid characters")
+    return v
+
 class RegisterRequest(BaseModel):
     username: str
     email: str
@@ -28,11 +51,7 @@ class RegisterRequest(BaseModel):
     @field_validator("username")
     @classmethod
     def username_alphanum(cls, v):
-        if len(v) < 2 or len(v) > 32:
-            raise ValueError("Username must be 2–32 characters")
-        if not _re.match(r"^[\w\-. ]+$", v):
-            raise ValueError("Username contains invalid characters")
-        return v
+        return check_new_username(v)
 
     @field_validator("email")
     @classmethod
@@ -49,6 +68,58 @@ class RegisterRequest(BaseModel):
         if len(v) > 128:
             raise ValueError("Password too long")
         return v
+
+# Google ID tokens are about 1 KB and link tokens less; anything far longer is refused unread.
+_MAX_TOKEN_LENGTH = 8192
+
+def _check_token_length(v):
+    if len(v) > _MAX_TOKEN_LENGTH:
+        raise ValueError("Token too long")
+    return v
+
+class GoogleSignInRequest(BaseModel):
+    credential: str  # the ID token from Google Identity Services
+
+    @field_validator("credential")
+    @classmethod
+    def credential_length(cls, v):
+        return _check_token_length(v)
+
+class GoogleLinkRequest(BaseModel):
+    link_token: str
+    username: str
+    password: str
+
+    @field_validator("link_token")
+    @classmethod
+    def link_token_length(cls, v):
+        return _check_token_length(v)
+
+    @field_validator("username")
+    @classmethod
+    def username_length(cls, v):
+        if len(v) > 64:
+            raise ValueError("Username too long")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_length(cls, v):
+        return _check_login_password(v)
+
+class GoogleCreateRequest(BaseModel):
+    link_token: str
+    username: str
+
+    @field_validator("link_token")
+    @classmethod
+    def link_token_length(cls, v):
+        return _check_token_length(v)
+
+    @field_validator("username")
+    @classmethod
+    def username_alphanum(cls, v):
+        return check_new_username(v)
 
 class CharacterBase(BaseModel):
     name: str
@@ -124,7 +195,8 @@ class CampaignSummaryItem(BaseModel):
 
 class CharacterResponse(CharacterBase):
     id: int
-    circle_id: int
+    # None for a character with no circle (such a character used to fail with a 500).
+    circle_id: Optional[int] = None
     status: str = "unaffiliated"
     pen_font: str = "Caveat"
     ink_color: str = ""

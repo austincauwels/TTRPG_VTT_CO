@@ -47,6 +47,10 @@ HTTP_ROUTES = [
     (["POST"], "/campaign/finalize-roster", "finalize_roster", None, None),
     (["POST"], "/api/auth/login", "login", None, None),
     (["POST"], "/api/auth/register", "register", None, 201),
+    (["POST"], "/api/auth/google", "google_sign_in", None, None),
+    (["POST"], "/api/auth/google/link", "google_link", None, None),
+    (["POST"], "/api/auth/google/create", "google_create", None, 201),
+    (["GET"], "/api/auth/config", "auth_config", None, None),
     (["GET"], "/api/investigators", "list_investigators", "list[CharacterRosterItem]", None),
     (["GET"], "/api/investigators/{investigator_id}", "get_investigator", "CharacterResponse", None),
     (["POST"], "/api/investigators/forge", "forge_investigator", "CharacterResponse", 201),
@@ -73,9 +77,17 @@ def test_websocket_route(client):
     assert got == [("/ws/{game_id}", "websocket_endpoint")]
 
 
-def test_only_login_and_register_are_rate_limited(client):
+def test_only_the_sign_in_routes_are_rate_limited(client):
+    """Google sign-in and linking (which checks a password) like login, creating an
+    account like register. /api/auth/config is not limited."""
     limits = {k.rsplit(".", 1)[-1]: [str(x.limit) for x in v] for k, v in main.limiter._route_limits.items()}
-    assert limits == {"login": ["10 per 1 minute"], "register": ["5 per 1 minute"]}
+    assert limits == {
+        "login": ["10 per 1 minute"],
+        "register": ["5 per 1 minute"],
+        "google_sign_in": ["10 per 1 minute"],
+        "google_link": ["10 per 1 minute"],
+        "google_create": ["5 per 1 minute"],
+    }
 
 
 def test_openapi_document_is_unchanged(client):

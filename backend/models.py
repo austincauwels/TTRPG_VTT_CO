@@ -12,6 +12,8 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     pending_rejoin_campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
+    # Sign in with Google: the Google account's subject id, once linked (unique index ix_users_google_sub)
+    google_sub = Column(String, unique=True, index=True, nullable=True)
 
 class Game(Base):
     __tablename__ = "games"

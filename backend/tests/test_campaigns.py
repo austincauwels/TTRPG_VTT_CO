@@ -74,13 +74,33 @@ def test_create_campaign_missing_params(client):
     assert client.post("/campaign/create", params={"code": f"c-{support.uid()}"}, headers=headers).status_code == 422
 
 
-def test_create_campaign_duplicate_code_is_500(client):
-    """QUIRK: duplicate codes are not checked; the unique index raises (unhandled 500)."""
+def test_create_campaign_duplicate_code_is_409(client):
+    """Fixed: duplicate codes were not checked, so the unique index raised (unhandled 500)."""
     code = f"c-{support.uid()}"
     support.new_campaign(client, code=code)
-    with support.server_errors_as_500(client):
-        r = client.post("/campaign/create", params={"name": "again", "code": code}, headers=support.as_stranger())
-    assert r.status_code == 500
+    r = client.post("/campaign/create", params={"name": "again", "code": code}, headers=support.as_stranger())
+    assert r.status_code == 409
+    assert r.json() == {"detail": "Campaign code is already in use"}
+    assert len(support.fetch_all(Campaign, campaign_code=code)) == 1
+
+
+def test_create_campaign_when_another_request_took_the_code_first(client, monkeypatch):
+    """Two requests for one code can both pass the check; the one that loses at the
+    unique index gets the same 409."""
+    from vtt.routers import campaigns
+    code = f"c-{support.uid()}"
+    support.new_campaign(client, code=code)
+    real = campaigns._code_taken
+    calls = []
+
+    def taken_after_the_first_check(db, c):
+        calls.append(c)
+        return len(calls) > 1 and real(db, c)
+
+    monkeypatch.setattr(campaigns, "_code_taken", taken_after_the_first_check)
+    r = client.post("/campaign/create", params={"name": "again", "code": code}, headers=support.as_stranger())
+    assert (r.status_code, r.json()) == (409, {"detail": "Campaign code is already in use"})
+    assert calls == [code, code]
     assert len(support.fetch_all(Campaign, campaign_code=code)) == 1
 
 
@@ -365,6 +385,47 @@ def test_rejoin_after_a_death_needs_no_invite(client):
     assert support.fetch(Character, new["id"]).status == "active"
 
 
+def test_rejoin_after_a_death_needs_an_approved_character(client):
+    """Rejoin skips GM approval. The death path used to count any dead character of the
+    user tagged with the campaign, so anyone with the campaign code could join it
+    (pending), kill that character with four scars on its own socket, and rejoin with
+    another character as an active member the GM never approved. Now only an approved
+    character that died and is still on the roster (status active) counts, so a death
+    opens the path once: the rejoin retires the dead character."""
+    camp = support.new_campaign(client)
+    u = support.make_user()
+    bait = support.pending_member(client, camp, user_id=u.id)
+    with support.ws_connect(client, bait["id"]) as ws:
+        for n in range(4):
+            ws.send("apply_scar", scar_text=f"scar {n}", skip_shifts=True)
+        ws.sync()
+    assert support.fetch(Character, bait["id"]).is_dead is True
+    sneak = support.forge(client, user_id=u.id)
+    body = {"character_id": sneak["id"], "campaign_code": camp["campaign_code"]}
+    r = client.post("/campaign/rejoin", json=body, headers=support.as_user(u.id))
+    assert r.status_code == 403
+    assert r.json() == {"detail": "Not allowed."}
+    row = support.fetch(Character, sneak["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+    assert support.fetch(Character, bait["id"]).status == "pending"
+
+    # An approved character that died opens the path, once.
+    v = support.make_user()
+    fallen = support.active_member(client, camp, user_id=v.id)
+    support.update(Character, fallen["id"], is_dead=True)
+    heir = support.forge(client, user_id=v.id)
+    r = client.post("/campaign/rejoin", json={"character_id": heir["id"], "campaign_code": camp["campaign_code"]},
+                    headers=support.as_user(v.id))
+    assert r.status_code == 200
+    assert support.fetch(Character, fallen["id"]).status == "retired"
+    support.update(Character, heir["id"], campaign_id=None, status="unaffiliated")  # the heir leaves again
+    another = support.forge(client, user_id=v.id)
+    r = client.post("/campaign/rejoin", json={"character_id": another["id"], "campaign_code": camp["campaign_code"]},
+                    headers=support.as_user(v.id))
+    assert r.status_code == 403
+    assert support.fetch(Character, another["id"]).status == "unaffiliated"
+
+
 def test_rejoin_retires_living_active_character_of_same_user(client):
     camp = support.new_campaign(client)
     u = support.make_user(pending_rejoin_campaign_id=camp["id"])
@@ -390,6 +451,40 @@ def test_rejoin_errors(client):
     assert client.post("/campaign/rejoin", json={"character_id": ch["id"]}, headers=owner).status_code == 422
 
 
+def test_a_retired_campaign_takes_no_new_members(client):
+    """A retired campaign used to take joins (the character waited as pending in a
+    campaign nobody runs any more), rejoins (an invite sent before the retirement
+    still made the character active in it) and new invites. All three are 409 now,
+    after the caller's own checks."""
+    camp = support.new_campaign(client)
+    gm = support.as_gm(camp)
+    u = support.make_user(pending_rejoin_campaign_id=camp["id"])
+    assert client.post(f"/campaign/{camp['id']}/retire", headers=gm).status_code == 200
+    retired = {"detail": "This campaign has been retired."}
+
+    ch = support.forge(client, user_id=u.id)
+    r = support.join(client, ch["id"], camp["campaign_code"])
+    assert (r.status_code, r.json()) == (409, retired)
+    r = client.post("/campaign/rejoin", json={"character_id": ch["id"], "campaign_code": camp["campaign_code"]},
+                    headers=support.as_user(u.id))
+    assert (r.status_code, r.json()) == (409, retired)
+    row = support.fetch(Character, ch["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+    assert support.fetch(User, u.id).pending_rejoin_campaign_id == camp["id"]
+
+    other = support.make_user()
+    r = client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": other.username}, headers=gm)
+    assert (r.status_code, r.json()) == (409, retired)
+    assert support.fetch(User, other.id).pending_rejoin_campaign_id is None
+
+    # Callers the campaign would refuse anyway still get 403: their checks come first.
+    outsider = support.forge(client)
+    body = {"character_id": outsider["id"], "campaign_code": camp["campaign_code"]}
+    assert client.post("/campaign/rejoin", json=body, headers=support.as_owner(outsider["id"])).status_code == 403
+    assert client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": other.username},
+                       headers=support.as_stranger()).status_code == 403
+
+
 # --- invite-rejoin ----------------------------------------------------------
 
 def test_invite_rejoin(client):
@@ -400,6 +495,39 @@ def test_invite_rejoin(client):
     assert r.status_code == 200
     assert r.json() == {"ok": True}
     assert support.fetch(User, u.id).pending_rejoin_campaign_id == camp["id"]
+
+
+def test_invite_rejoin_case_variants(client):
+    """The username was matched ignoring case with .first() and no order. With "mira"
+    and "Mira" both registered, the invite (which lets its holder rejoin without GM
+    approval) could land on the other user, whichever row the database returned
+    first. An exact match now wins; a name that matches only ignoring case must match
+    one user, otherwise the answer is 409 and nobody is invited."""
+    camp = support.new_campaign(client)
+    gm = support.as_gm(camp)
+    base = f"mira_{support.uid()}"
+    first = support.make_user(username=base)
+    second = support.make_user(username=base.capitalize())
+    url = f"/campaign/{camp['id']}/invite-rejoin"
+
+    r = client.post(url, json={"username": second.username}, headers=gm)
+    assert r.status_code == 200
+    assert support.fetch(User, second.id).pending_rejoin_campaign_id == camp["id"]
+    assert support.fetch(User, first.id).pending_rejoin_campaign_id is None
+    support.update(User, second.id, pending_rejoin_campaign_id=None)
+
+    r = client.post(url, json={"username": f" {base} "}, headers=gm)
+    assert r.status_code == 200
+    assert support.fetch(User, first.id).pending_rejoin_campaign_id == camp["id"]
+    assert support.fetch(User, second.id).pending_rejoin_campaign_id is None
+    support.update(User, first.id, pending_rejoin_campaign_id=None)
+
+    r = client.post(url, json={"username": base.upper()}, headers=gm)
+    assert r.status_code == 409
+    assert r.json() == {"detail": "More than one player has that username. Please type it exactly, "
+                                  "with the same capital letters."}
+    assert support.fetch(User, first.id).pending_rejoin_campaign_id is None
+    assert support.fetch(User, second.id).pending_rejoin_campaign_id is None
 
 
 def test_invite_rejoin_only_by_the_gm(client):
@@ -439,10 +567,10 @@ def test_roster(client):
     r = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp))
     assert r.status_code == 200
     body = r.json()
-    # active and pending members see the same roster; a retired one no longer belongs
-    for member in (active, pending):
-        assert client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(member["id"])).json() == body
-    for outsider in (support.as_owner(retired["id"]), support.as_stranger()):
+    # an active member sees the GM's roster; a pending character waits for approval
+    # and a retired one no longer belongs
+    assert client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(active["id"])).json() == body
+    for outsider in (support.as_owner(pending["id"]), support.as_owner(retired["id"]), support.as_stranger()):
         assert client.get(f"/campaign/{camp['id']}/roster", headers=outsider).status_code == 403
     assert set(body) == {"pending_investigators", "active_investigators", "roster_finalized"}
     assert body["roster_finalized"] is False
@@ -489,22 +617,32 @@ def test_circle_creation_state_creates_circle_once(client):
     assert len(support.fetch_all(Circle, campaign_id=camp["id"])) == 1
 
 
-def test_circle_creation_state_unknown_campaign_is_404(client):
+@pytest.mark.parametrize("unknown", [987654321, 2 ** 31])
+def test_circle_creation_state_unknown_campaign_is_404(client, unknown):
     """Before tokens the GET tried to create a circle for any id and failed with a 500
-    on the foreign key. The access check now looks the campaign up first."""
-    r = client.get("/campaign/987654321/circle-creation-state", headers=support.as_stranger())
+    on the foreign key. The access check now looks the campaign up first, so no
+    circle is created, and neither is one for a caller who is refused."""
+    with support.server_errors_as_500(client):
+        r = client.get(f"/campaign/{unknown}/circle-creation-state", headers=support.as_stranger())
     assert r.status_code == 404
     assert r.json() == {"detail": "Campaign not found"}
+    assert support.campaign_circle(unknown) is None
+    camp = support.new_campaign(client)
+    r = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_stranger())
+    assert r.status_code == 403
+    assert support.campaign_circle(camp["id"]) is None
 
 
 def test_circle_creation_state_for_gm_and_members_only(client):
     camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
     pending = support.pending_member(client, camp)
     outsider = support.active_member(client, support.new_campaign(client))
     assert client.get(f"/campaign/{camp['id']}/circle-creation-state",
-                      headers=support.as_owner(pending["id"])).status_code == 200
-    r = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_owner(outsider["id"]))
-    assert r.status_code == 403
+                      headers=support.as_owner(member["id"])).status_code == 200
+    for headers in (support.as_owner(pending["id"]), support.as_owner(outsider["id"])):
+        r = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=headers)
+        assert r.status_code == 403
 
 
 def test_circle_creation_state_with_content(client):
@@ -519,17 +657,18 @@ def test_circle_creation_state_with_content(client):
     pending = support.pending_member(client, camp)
     cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()["circle_id"]
 
-    def vote(char, vote_type, value):
+    def vote(char, vote_type, value, status=200):
         r = client.post("/circle/vote", json={"circle_id": cid, "character_id": char["id"],
                                               "vote_type": vote_type, "value": value},
                         headers=support.as_owner(char["id"]))
-        assert r.status_code == 200
+        assert r.status_code == status
 
     vote(a, "name_suggest", "The Moths")
     vote(b, "name_vote", "The Moths")
     vote(a, "ability", "Hunters")
     vote(b, "question", "q2")
-    vote(pending, "insignia", "Owl")  # pending members may vote over REST
+    vote(pending, "insignia", "Owl", status=403)  # a pending character is not a member yet
+    vote(b, "insignia", "Owl")
     with main.SessionLocal() as s:  # a stored vote of an unknown type is left out
         s.add(CircleVote(circle_id=cid, character_id=a["id"], vote_type="colour", value="red"))
         s.commit()
@@ -550,9 +689,9 @@ def test_circle_creation_state_with_content(client):
         "name_vote": [{"character_id": b["id"], "value": "The Moths"}],
         "ability": [{"character_id": a["id"], "value": "Hunters"}],
         "question": [{"character_id": b["id"], "value": "q2"}],
-        "insignia": [{"character_id": pending["id"], "value": "Owl"}],
+        "insignia": [{"character_id": b["id"], "value": "Owl"}],
     }
     assert body["relationships"] == [{
         "id": rel["id"], "from_character_id": a["id"], "to_character_id": b["id"],
-        "rel_type": "Rivals", "lore": "feud", "status": "proposed", "last_actor_id": None}]
+        "rel_type": "Rivals", "lore": "feud", "status": "proposed", "last_actor_id": a["id"]}]
     assert body["backstory_answers"] == {"chapter_house": "Mill", "reports": {str(a["id"]): {"q0": True}}}

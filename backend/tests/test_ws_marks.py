@@ -116,15 +116,36 @@ def test_death_defy_offer_only_from_enemy(client):
         assert ws.sync()[0]["payload"]["bleed_marks"] == 1
 
 
-def test_endurance_crashes_on_missing_import(client):
-    """QUIRK (bug D1): the Endurance branch calls secrets.randbelow but main.py never
-    imports secrets; the NameError ends the socket and the mark is not applied."""
-    ch = support.forge(client, body_marks=3, nerve_max=3, specialty_ability="Endurance")
+def test_endurance_six_keeps_the_character_standing(client, dice):
+    """Fixed bug D1: the Endurance branch called secrets.randbelow without importing
+    secrets, so the NameError ended the socket and the mark was not applied. It rolls
+    one die per Nerve resistance pip left; a 6 keeps the marks at 3."""
+    ch = support.forge(client, body_marks=3, nerve_max=6, specialty_ability="Endurance")
+    dice(2, 6)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="body")
-        assert support.wait_server_dropped(ch["id"])
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update", "activity_log"]
+        assert msgs[0]["payload"]["body_marks"] == 3
+        assert msgs[1]["payload"]["message"] == (
+            f"{ch['name']} used Endurance! Rolled [2, 6] {support.EM} a 6 saves them from incapacitation!")
+        assert msgs[1]["payload"]["log_type"] == "field"
     row = support.fetch(Character, ch["id"])
     assert (row.body_marks, row.incapacitated) == (3, False)
+
+
+def test_endurance_without_a_six_incapacitates(client, dice):
+    ch = support.forge(client, body_marks=3, nerve_max=3, specialty_ability="Endurance")
+    dice(5)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body")
+        msgs = ws.sync()
+        assert support.types(msgs) == ["activity_log", "trigger_scar", "activity_log"]
+        assert msgs[0]["payload"]["message"] == f"{ch['name']} used Endurance {support.EM} rolled [5], no 6. Incapacitated."
+        assert msgs[1]["payload"]["character"]["incapacitated"] is True
+        assert msgs[2]["payload"]["message"] == f"{ch['name']} has been incapacitated!"
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.incapacitated) == (0, True)
 
 
 def test_endurance_without_resistance_just_incapacitates(client):

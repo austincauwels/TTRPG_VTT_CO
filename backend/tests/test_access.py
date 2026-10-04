@@ -1,5 +1,5 @@
-"""Login tokens: every REST route except login and register answers 401 without a
-valid token, the WebSocket closes with 4401 without one, and the WebSocket access
+"""Login tokens: every REST route except the sign-in routes (login, register, the
+Google ones and /api/auth/config) answers 401 without a valid token, the WebSocket closes with 4401 without one, and the WebSocket access
 matrix (GM-only messages, acting for a character). Per-route ownership and GM
 checks (403 and 404) are also tested next to each route's and message type's other
 tests."""
@@ -16,7 +16,8 @@ from vtt import config, security
 from vtt.ws.access import GM_MAY_TARGET, GM_ONLY
 from vtt.ws.handlers import HANDLERS
 
-PUBLIC = {"/api/auth/login", "/api/auth/register"}
+PUBLIC = {"/api/auth/login", "/api/auth/register", "/api/auth/google", "/api/auth/google/link",
+          "/api/auth/google/create", "/api/auth/config"}
 
 PROTECTED = sorted(
     (method, route.path)
@@ -30,8 +31,9 @@ def _url(path):
         .replace("investigator_id", "1").replace("entry_id", "1").replace("user_id", "1")
 
 
-def test_every_route_but_login_and_register_is_protected():
+def test_every_route_but_the_sign_in_routes_is_protected():
     assert len(PROTECTED) == 23
+    assert PUBLIC == {r.path for r in main.app.routes if isinstance(r, APIRoute) and r.path.startswith("/api/auth/")}
 
 
 def _expired_token():
@@ -46,7 +48,7 @@ BAD_HEADERS = {
     "wrong scheme": {"Authorization": "Basic dXNlcjpwYXNz"},
     "token without scheme": None,  # filled in per test: the raw token as the whole header
     "expired": {"Authorization": f"Bearer {_expired_token()}"},
-    "deleted user": {"Authorization": f"Bearer {security.create_access_token(987654321)}"},
+    "deleted user": {"Authorization": f"Bearer {security.create_access_token(987654321, 'x')}"},
     "other key": {"Authorization": "Bearer " + jwt.encode(
         {"sub": "1", "iat": int(time.time()), "exp": int(time.time()) + 60}, "not-the-key", algorithm="HS256")},
 }
@@ -57,7 +59,7 @@ BAD_HEADERS = {
 def test_protected_route_without_a_valid_token_is_401(client, method, path, kind):
     headers = BAD_HEADERS[kind]
     if headers is None:
-        headers = {"Authorization": security.create_access_token(1)}
+        headers = {"Authorization": security.create_access_token(1, "x")}
     r = client.request(method, _url(path), headers=headers)
     assert r.status_code == 401, r.text
     assert r.json() == {"detail": "Not authenticated."}
@@ -199,3 +201,97 @@ def test_rejections_go_only_to_the_sender_and_keep_the_socket(client):
         assert wb.drain() == [] and gm.drain() == []
         wa.send("chat_message", message="still here")
         assert support.types(wa.sync()) == ["activity_log"]
+
+
+def test_a_rejected_player_no_longer_posts_to_the_old_campaign(client):
+    """Reviewer probe: a socket keeps the campaign it opened with. After a REST reject
+    its gear names used to reach that campaign's GM as free text."""
+    camp = support.new_campaign(client)
+    ch = support.pending_member(client, camp)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        assert support.reject(client, ch["id"]).status_code == 200
+        ws.recv_type("investigator_rejected")
+        gm.drain()
+        ws.send("update_gear", gear=["ANY TEXT I LIKE"])
+        ws.send("chat_message", message="hello?")
+        assert ws.sync() == [_rejected("update_gear"), _rejected("chat_message")]
+        assert gm.sync() == []
+        ws.send("update_pen_font", pen_font="Kalam")  # its own sheet is still its own
+        assert support.types(ws.sync()) == ["character_update"]
+    assert support.fetch(Character, ch["id"]).gear == []
+
+
+@pytest.mark.parametrize("how", ["moved", "retired"])
+def test_a_player_who_left_the_campaign_no_longer_posts_to_it(client, how):
+    camp = support.new_campaign(client)
+    other = support.new_campaign(client)
+    ch = support.active_member(client, camp)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        ws.send("update_gear", gear=["lamp"])
+        assert support.types(ws.sync()) == ["character_update", "activity_log"]
+        assert support.types(gm.sync()) == ["activity_log"]
+        if how == "moved":
+            assert support.join(client, ch["id"], other["campaign_code"]).status_code == 200
+        else:
+            support.update(Character, ch["id"], status="retired")
+        gm.drain()
+        for msg_type, payload in (("update_gear", dict(gear=["rope"])), ("roll", dict(action="move")),
+                                  ("revive_character", {}),
+                                  ("apply_advancement", dict(choice="add_action", detail="move"))):
+            ws.send(msg_type, **payload)
+            assert ws.sync() == [_rejected(msg_type)]
+        assert gm.sync() == []
+    assert support.fetch(Character, ch["id"]).gear == ["lamp"]
+
+
+def test_a_pending_character_reaches_nothing_of_the_campaign(client):
+    """Anyone with a campaign code can join it; the character then waits as pending for
+    the GM's approval. Pending used to count as membership, so a stranger with the code
+    could read the roster, the notebook and the circle, write notebook entries, vote
+    and propose on the circle, and chat or post rolls and gear to the table before
+    the GM said yes. A member is now an active character. The GM may still act on a
+    pending one, and approval makes it a member at once."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp)).json()["circle_id"]
+    waiting = support.pending_member(client, camp, nerve_current=1)
+    me = support.as_owner(waiting["id"])
+    base = f"/campaign/{camp['id']}"
+
+    assert client.get(f"{base}/roster", headers=me).status_code == 403
+    assert client.get(f"{base}/circle-creation-state", headers=me).status_code == 403
+    notebook = f"/api/notebook/{camp['id']}"
+    assert client.get(f"{notebook}/entries", params={"character_id": waiting["id"]}, headers=me).status_code == 403
+    entry = {"title": "x", "content": "y", "author_name": "a", "author_type": "player", "character_id": waiting["id"]}
+    assert client.post(f"{notebook}/entries", json=entry, headers=me).status_code == 403
+    r = client.post(f"{notebook}/upload", files={"file": ("a.png", b"\x89PNG", "image/png")},
+                    data={"character_id": str(waiting["id"])}, headers=me)
+    assert r.status_code == 403
+    r = client.post("/circle/vote", json={"circle_id": cid, "character_id": waiting["id"],
+                                          "vote_type": "insignia", "value": "Owl"}, headers=me)
+    assert r.status_code == 403
+    for a, b, headers in ((waiting, member, me), (member, waiting, support.as_owner(member["id"]))):
+        r = client.post("/circle/relationship/propose", json={
+            "circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"], "rel_type": "Rivals"},
+            headers=headers)
+        assert r.status_code == 403
+
+    with support.ws_connect(client, waiting["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        for msg_type, payload in (("chat_message", dict(message="let me in")),
+                                  ("update_gear", dict(gear=["crowbar"])),
+                                  ("add_notebook_entry", dict(campaign_id=camp["id"], title="t", content="c")),
+                                  ("circle_creation_vote", dict(circle_id=cid, character_id=waiting["id"],
+                                                                vote_type="insignia", value="Owl"))):
+            ws.send(msg_type, **payload)
+            assert ws.sync() == [_rejected(msg_type)]
+        assert gm.sync() == []
+        gm.send("update_drive", character_id=waiting["id"], pool="nerve", value=2)  # the GM still may
+        assert support.types(gm.sync()) == ["character_update"]
+        ws.drain()
+        assert support.approve(client, waiting["id"]).status_code == 200
+        ws.recv_type("investigator_approved")
+        gm.drain()
+        ws.send("chat_message", message="hello")
+        assert support.types(ws.sync()) == ["activity_log"]
+    assert support.fetch(Character, waiting["id"]).nerve_current == 2
+    assert client.get(f"{base}/roster", headers=me).status_code == 200

@@ -27,7 +27,7 @@ This file maps every HTTP and WebSocket entry point of the FastAPI backend befor
    - Seeds user `id=1` username `admin`, email `admin@archive.com`, password `admin` (bcrypt) if no user named `admin` exists.
    - Both seeds are in one transaction. Any error is logged and swallowed, so a failure (for example a different user already holding id 1) silently skips both rows.
    - Then runs about 30 additive `ALTER TABLE ... ADD COLUMN` statements, each in its own connection, each wrapped in `except Exception: pass`. Columns: circles (guard_patrol, miasma_bleed, location, atmosphere, chapter_house_location, circle_ability, insignia, backstory_answers, is_finalized, illumination, tension_clock, tension_label, resources_editable, reports_open, campaign_id), campaigns (gm_user_id, roster_finalized), characters (role, specialty, personal_circle_answer, nerve/cunning/intuition_resistance_spent, ability_uses, train_bonus, resources_spent_assignment), relationships (last_actor_id), notebook_entries (entry_type, visibility, image_data, is_deleted), users (pending_rejoin_campaign_id).
-   - The ALTER types do not match the models: booleans are added as `INTEGER`, JSON columns (`backstory_answers`, `ability_uses`) as `TEXT`. On a database created by `create_all` the ALTERs all fail harmlessly. On an older database that got the columns from the ALTERs, JSON values can come back as strings, which is why several places do `if isinstance(x, str): json.loads(x)`.
+   - Before the bug-fix stage the ALTER types did not match the models: booleans were added as `INTEGER`, JSON columns (`backstory_answers`, `ability_uses`) as `TEXT`. They now add `BOOLEAN DEFAULT FALSE` and `JSON`, and `convert_integer_flags` turns a flag column that is still an integer into a boolean on every start (characters.train_bonus broke every forge and train action this way). On a database created by `create_all` the ALTERs all fail harmlessly. On an older database that got the JSON columns as `TEXT`, values can come back as strings, which is why several places do `if isinstance(x, str): json.loads(x)`.
 9. `limiter = Limiter(key_func=get_remote_address)`, `app = FastAPI()`, `app.state.limiter`, the `RateLimitExceeded` handler, and CORS from `CORS_ORIGINS` (default `http://localhost:5173,http://localhost:4173`, credentials allowed, all methods and headers) (lines 243 to 255).
 10. Routes are registered in this order: the prefix-less `router` (all `/campaign/*` and `/circle/*` routes, included at line 944), then the `/api/*` routes on `app`, then `/ws/{game_id}`.
 11. `manager = ConnectionManager()` module singleton (line 1350). It only works with one worker process; `candela.service` runs `uvicorn main:app --workers 1 --proxy-headers --forwarded-allow-ips 10.0.0.202`.
@@ -85,7 +85,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: `user_id` becomes `campaigns.gm_user_id`.
 - Tables: campaigns (insert) via `engine.create_new_campaign`.
 - Response: the ORM Campaign object serialized by FastAPI (id, name, campaign_code, gm_user_id, roster_finalized, is_retired).
-- Notes: a duplicate code raises an unhandled IntegrityError (500). Without `user_id` the campaign has no GM and is unreachable from the UI. A code made only of digits is allowed and collides with character-id WebSocket channels (see WebSocket section).
+- Notes: a duplicate code is 409 "Campaign code is already in use", also when another request takes the code between the check and the insert (before the bug-fix stage it raised an unhandled IntegrityError, a 500). Without `user_id` the campaign has no GM and is unreachable from the UI. A code made only of digits is allowed and collides with character-id WebSocket channels (see WebSocket section).
 
 **POST /campaign/join** (line 458, `async def`)
 - Inputs: query `character_id` (int), `code`, `pen_font` (default Caveat, replaced by Caveat if not in `_SAFE_FONT_NAMES`).
@@ -125,7 +125,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Notes: skips GM approval entirely and does not check that an invite exists or that a predecessor died. Imports `INK_COLORS` from engine inside the function.
 
 **POST /campaign/{campaign_id}/invite-rejoin** (line 638, `async def`)
-- Inputs: path `campaign_id`, JSON body `InviteRejoinRequest {username}` (case-insensitive match).
+- Inputs: path `campaign_id`, JSON body `InviteRejoinRequest {username}` (case-insensitive match; since the security review an exact match wins and a name that matches more than one user ignoring case is 409).
 - Trusted ids: `campaign_id`.
 - Tables: campaigns (read), users (set pending_rejoin_campaign_id), characters (read the user's characters).
 - Broadcast: `gm_rejoin_invite` `{campaign_id, campaign_name, campaign_code}` to every character channel of that user.
@@ -148,7 +148,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: JSON `CircleVoteSubmit {circle_id, character_id, vote_type, value}`.
 - Trusted ids: `circle_id`, `character_id`.
 - Tables: circle_votes (insert or update; `name_suggest` allows up to 5 distinct values per character).
-- Response: `{"ok": true, "votes": <list for vote_type>}`. A `vote_type` outside name_suggest, name_vote, ability, question, insignia is stored, then the response raises KeyError (500).
+- Response: `{"ok": true, "votes": <list for vote_type>}`. A `vote_type` outside name_suggest, name_vote, ability, question, insignia is 422 "Unknown vote type." and nothing is stored (before the bug-fix stage it was stored and then the response raised KeyError, a 500).
 - Notes: unused by the frontend; the WebSocket `circle_creation_vote` action does the same thing.
 
 **POST /circle/relationship/propose** (line 804, `def`)
@@ -174,7 +174,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 ### Auth routes (on `app`)
 
 **POST /api/auth/login** (line 950, `async def`, `@limiter.limit("10/minute")`)
-- Inputs: JSON `LoginRequest {username (max 64), password}`; `request: Request` is required by slowapi.
+- Inputs: JSON `LoginRequest {username (max 64), password (max 1024 since the security review; a longer one was a 500 from passlib)}`; `request: Request` is required by slowapi.
 - Tables: users, campaigns (read).
 - Response, GM (user has a non-retired campaign with `gm_user_id` = user): `{role: "GM", name, userId, campaignCode, campaignId}`.
 - Response, player: `{role: "PLAYER", name, userId, campaignCode: null, campaignId: null, pendingRejoinInvite: {campaign_id, campaign_name, campaign_code} | null}`.
@@ -185,7 +185,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: JSON `RegisterRequest {username (2 to 32, `^[\w\-. ]+$`), email (max 254, not validated as an address), password (8 to 128)}`.
 - Tables: users (insert), campaigns (read code `fairelands-01`).
 - Response: `{role: "PLAYER", name, userId, campaignCode: "fairelands-01", campaignId: <id or null>}`. The hard-coded campaign code is a leftover; the frontend ignores it.
-- Errors: 400 for a taken username or email; 422 validation.
+- Errors: 400 for a taken username or email (since the security review both are compared ignoring case); 422 validation.
 
 ### Investigator routes
 
@@ -195,7 +195,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **GET /api/investigators/{investigator_id}** (line 1040, `async def`, `response_model=CharacterResponse`)
 - Trusted ids: `investigator_id`.
 - Tables: characters. Parses `gear` and `scars_list` if stored as strings (mutates the ORM object, never committed).
-- Response fields are limited by `CharacterResponse` (no user_id or campaign_id). `circle_id` is a required int, so a character with NULL circle_id would fail response validation (500).
+- Response fields are limited by `CharacterResponse` (no user_id or campaign_id). `circle_id` is an optional int: a character with NULL circle_id is returned with `circle_id: null` (before the bug-fix stage it was a required int, and such a character failed response validation with a 500).
 
 **POST /api/investigators/forge** (line 1055, `async def`, status 201, `response_model=CharacterResponse`)
 - Inputs: JSON `CharacterCreate` (all `CharacterBase` fields plus optional `user_id`).
@@ -207,7 +207,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 ### Notebook routes
 
 **GET /api/notebook/{campaign_id}/entries** (line 1094, `def`)
-- Inputs: path `campaign_id`, query `role` (default `player`), `character_id` (optional int).
+- Inputs: path `campaign_id`, query `role` (default `player`), `character_id` (optional int; an empty value, which the GM's notebook sends, counts as absent since the bug-fix stage, where it used to be a 422).
 - Trusted ids: `campaign_id`, `character_id`, and the `role` string.
 - Tables: notebook_entries (non-deleted, ordered by page).
 - Filtering: `all` always; `gm_only` when `role == "GM"`; `self` when `entry.character_id == character_id`. Anyone can pass `role=GM` to read the Lightkeeper's private notes.
@@ -255,7 +255,7 @@ Intended: a numeric channel only for the owner of that character; a code channel
 
 ### Per message
 
-- Message is `{type, payload}`; invalid JSON is ignored.
+- Message is `{type, payload}`; invalid JSON and JSON that is not an object are ignored, and a payload that is not an object gets `action_rejected` 422.
 - `target_char_id = payload.character_id`, else `int(game_id)`, else None. `character` is reloaded from that id on every message. So any action guarded by "and character" can be aimed at any character id by putting `character_id` in the payload.
 - `broadcast(game_id)` reaches only the sender's own channel. `broadcast_campaign(camp_code, camp_id)` reaches the GM channel (campaign code) plus every active character channel in the campaign; with no `camp_id` it reaches only `camp_code`.
 - Only the `roll` branch has its own try/except (rollback and `roll_error`). An exception in any other branch ends the receive loop and closes the connection.

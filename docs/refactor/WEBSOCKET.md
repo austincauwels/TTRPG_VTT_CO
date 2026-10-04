@@ -17,14 +17,14 @@ Setup, in order:
 4. Campaign: the character's campaign if it has one, else the campaign whose `campaign_code == game_id`.
 5. Circle: `get_or_create_campaign_circle(campaign.id)` (this inserts an "Unnamed Circle" if the campaign has none, so connecting can write to the database). Without a campaign it uses circle id 1, and creates circle id 1 if it is missing.
 6. `camp_code = campaign.campaign_code` (or `game_id` when there is no campaign) and `camp_id = campaign.id` (or None). These are resolved once and never refreshed for the life of the socket.
-7. The server sends `character_update` (only when a character was resolved) and then `circle_update`, to this socket only.
+7. The server sends `character_update` (only when a character was resolved) and then `circle_update`, to this socket only. Since the security review a pending or retired character's socket gets circle 1 here instead of its campaign's circle (AUTH.md).
 
 Receive loop (main.py:1496-2516):
 
 - `receive_text()`, then `json.loads`. Text that is not JSON is skipped.
 - `type` and `payload` (default `{}`) are read from the message. Unknown types are ignored with no reply.
 - Target character for the message: `payload.character_id` when present, otherwise `int(game_id)` when the path is numeric, otherwise None. The `character` variable is reassigned on every message. Any message carrying a `character_id` therefore acts on that character, whichever socket sent it.
-- Only the `roll` handler has its own try/except. An exception in any other handler (wrong type in a field, KeyError, NameError, a database error on commit) leaves the loop, is logged as "WebSocket fatal error", removes the socket from the manager and ends the connection. A JSON message that is not an object (a list, a number) or a payload that is not an object also ends the connection, because `.get` is called on it.
+- Only the `roll` handler has its own try/except. An exception in any other handler (wrong type in a field, KeyError, NameError, a database error on commit) leaves the loop, is logged as "WebSocket fatal error", removes the socket from the manager and ends the connection. Since the bug-fix stage, a JSON message that is not an object (a list, a number) is ignored like invalid JSON, a null payload counts as `{}`, and a payload that is not an object gets `action_rejected` with status 422 (for a known type; an unknown type is ignored). Before, both ended the connection, because `.get` was called on them.
 - `WebSocketDisconnect` calls `manager.disconnect`. The session is closed in `finally`.
 
 ## 2. ConnectionManager (in-memory state)
@@ -148,7 +148,7 @@ Validation gaps: `action` is not checked against the nine actions, so `getattr` 
 
 **`update_pen_font`** (1757). Field: `pen_font`, which must be in `_SAFE_FONT_NAMES`. Sends `character_update` to the sender. Sent from `NotebookView`.
 
-**`update_gear`** (2040). Fields: `gear` (list), `character_id` (the UI sends the dossier character's id). Replaces the gear list with no check on elements or size. Sends `character_update` to the sender and an `activity_log` line that joins the gear names. A non-string element makes the join raise after the commit, which ends the connection.
+**`update_gear`** (2040). Fields: `gear` (list), `character_id` (the UI sends the dossier character's id). Replaces the gear list with no check on size. Sends `character_update` to the sender and an `activity_log` line that joins the gear names. Since the bug-fix stage a list with an element that is not a string gets `action_rejected` 422 and nothing is saved; before, the join raised after the commit, which ended the connection.
 
 **`revive_character`** (2006). No fields. Sets `incapacitated` False and all three mark tracks to 0; `is_dead` is left as is. Sends `character_update` to the sender and `activity_log` to the campaign.
 
@@ -162,7 +162,7 @@ Validation gaps: `action` is not checked against the nine actions, so `getattr` 
 
 1. Soak offers. Brain: Compartmentalization (needs Nerve resistance), Steel Mind (needs Intuition resistance), Back Against the Wall (no cost). Body: In the Trenches (needs Cunning resistance). The first three each have one use per assignment. If any apply, the server sends `ability_mark_offer {ability: first option, options, mark_type, character_id, action: "soak"}` to the sender and stops. The mark is not applied. Accepting sends `resolve_ability_mark`, which soaks it. Declining, or the 15 second auto-dismiss in `AbilityMarkOffer`, sends nothing, so the mark is never applied (D5).
 2. Death Defy: if `is_from_enemy` and unused, sends an `escape` offer and stops. The UI never sets `is_from_enemy`, so this offer cannot appear today.
-3. New mark value is the current value plus 1. At 4 with Endurance, the handler rolls one die per remaining Nerve resistance pip with `secrets.randbelow`, but `secrets` is not imported in main.py. This raises NameError, nothing is committed, and the player's connection ends (D1).
+3. New mark value is the current value plus 1. At 4 with Endurance, the handler rolls one die per remaining Nerve resistance pip with `secrets.randbelow`; a 6 keeps the marks at 3. (Before the bug-fix stage `secrets` was not imported, so this raised NameError, nothing was committed and the connection ended: D1, now fixed.)
 4. At 4 or more: that track resets to 0, `incapacitated` is set, commit, `trigger_scar {character_id, mark_type, character}` to the sender and `activity_log` (log_type `danger`) to the campaign.
 5. Otherwise: the mark is set, commit, `character_update` to the sender, a `Let Them In` info offer on Bleed marks, an `Adrenaline Rush` drive refresh offer, and for each other active character in the same campaign whose role or specialty ability is exactly Behind Me (with Nerve at least 1) or Premonitions (with Intuition resistance left), `ability_intercept_offer {ability, mark_type, character_id: target, character_name, action}` to that character's key.
 
@@ -186,9 +186,9 @@ Nothing checks that an offer was made, that the target took a mark, or that the 
 
 **`spend_resource`** (2189). Fields: `resource_type` (stitch, refresh or train), `circle_id` (ignored; the circle loaded at connect is used). Requires a character, `resources_editable` on that circle, fewer than 2 spends this assignment, and a resource count above 0. Stitch clears all marks. Refresh restores drives, resistance and ability uses. Train sets `train_bonus`. The circle count goes down by one and the character's spend count up by one. Sends `character_update` to the sender, and `circle_update` and `activity_log` to the campaign. Rejections are silent.
 
-**`submit_assignment_report`** (2074). Fields: `circle_id`, `character_id` (required), `responses` (object). There is no character, ownership or `reports_open` check. Writes `backstory_answers.reports[str(character_id)] = responses`. Sends `assignment_report_submitted {character_id, character_name, responses}` to the whole campaign, so every player's client also receives every report.
+**`submit_assignment_report`** (2074). Fields: `circle_id`, `character_id` (required), `responses` (object). There is no character, ownership or `reports_open` check. Reads the circle row again (locked until the commit) and writes `backstory_answers.reports[str(character_id)] = {character_name, responses}`, the shape the GM's report card reads after a reload. (Before the bug-fix stage it stored the bare `responses` and changed the loaded dict in place, so once `backstory_answers` was not empty nothing was saved.) Sends `assignment_report_submitted {character_id, character_name, responses}` to the whole campaign, so every player's client also receives every report.
 
-**`circle_creation_vote`** (2284). Fields: `circle_id`, `character_id`, `vote_type`, `value`. For `name_suggest`, inserts if the character has fewer than 5 and this value is new. Other types keep one vote per character and type. Sends `vote_update {vote_type, votes}` to the campaign. An unknown `vote_type` is stored and then `updated_votes[vote_type]` raises KeyError, ending the connection. There is no check on finalization, ownership or circle membership.
+**`circle_creation_vote`** (2284). Fields: `circle_id`, `character_id`, `vote_type`, `value`. For `name_suggest`, inserts if the character has fewer than 5 and this value is new. Other types keep one vote per character and type. Sends `vote_update {vote_type, votes}` to the campaign. An unknown `vote_type` gets `action_rejected` 422 before anything is stored (since the bug-fix stage; before, it was stored and then `updated_votes[vote_type]` raised KeyError, ending the connection). There is no check on finalization, ownership or circle membership.
 
 **`circle_backstory_update`** (2322). Fields: `circle_id`, `question_key`, `answer`. Writes `backstory_answers[question_key] = answer`. Keys are free, and `reports` and `selected_question_key` live in the same JSON, so they can be overwritten. Sends `backstory_update {question_key, answer}` to the campaign. The UI also applies the change locally before sending.
 
@@ -275,7 +275,7 @@ All 23 types the server emits have a handler in `gameStore.js`, and the store ha
 
 These are current behavior. The refactor should decide for each one whether to preserve it in a characterization test or fix it in a separate, named change.
 
-- D1. Endurance crashes: main.py:1814 uses `secrets.randbelow` but main.py never imports `secrets`. A character with Endurance taking a fourth mark with Nerve resistance left gets NameError; nothing is committed and the socket closes.
+- D1 (fixed in the bug-fix stage). Endurance crashes: main.py:1814 uses `secrets.randbelow` but main.py never imports `secrets`. A character with Endurance taking a fourth mark with Nerve resistance left gets NameError; nothing is committed and the socket closes.
 - D2. Tension clock and scene text always edit circle 1: `SceneManager` sends `circle_id: 1` and `gm_update_circle` looks the circle up without campaign scoping, then pushes circle 1 to the GM's campaign. This only works for a campaign whose circle is id 1.
 - D3. `campaign_retired` never reaches players: `retire_campaign` sets every character to `retired` and commits before `broadcast_campaign`, which only includes active characters. Only the GM key receives it.
 - D4. `roster_finalized` does not reach the pending characters it releases, for the same reason (they are set to unaffiliated first).
@@ -284,7 +284,7 @@ These are current behavior. The refactor should decide for each one whether to p
 - D7. Secret rolls skip the single-gilded-die drive refresh and the Well-Read refund.
 - D8. `resolve_gilded` trusts the client's value and can be replayed; gilded-choice rolls can never be critical.
 - D9. `circle_relationship_respond` raises on a GM socket (`int(game_id)`). REST and WebSocket handle `counter` differently.
-- D10. Malformed input ends the connection: unknown `vote_type` (after the vote is committed), non-object payloads, non-numeric `chosen_value`, non-numeric resource values in `update_circle`, non-string gear elements (after commit).
+- D10. Malformed input ends the connection: non-numeric `chosen_value`, non-numeric resource values in `update_circle`. (Fixed in the bug-fix stage: unknown `vote_type`, non-object payloads and non-string gear elements now get `action_rejected` 422 or are ignored.)
 - D11. The ability use counter inside `roll` never counts anything.
 - D12. Exact-match ability checks stop working after a `new_ability` advancement.
 - D13. An all-digit campaign code collides with the character id of the same number.
@@ -304,7 +304,7 @@ These are current behavior. The refactor should decide for each one whether to p
 - R9. Most handler errors end the connection, and several handlers commit before they fail. Adding a per-message try/except is an improvement but changes observable behavior, and tests should state what persists after an error.
 - R10. Transaction boundaries are spread out: engine helpers commit inside (`burn_resistance` commits before rolling, `apply_advancement` commits), and `roll` commits the drive spend before rolling. One transaction per message changes what survives an error.
 - R11. Rules are duplicated: `ABILITY_MOD_DEFS` inside the handler, two different soak maps in `take_mark` and `intercept_mark`, resistance arithmetic inline, and copies in `DiceVault.jsx` and `AbilityMarkOffer.jsx`. Moving them into engine.py has to keep the frontend copies in sync or serve them from the backend.
-- R12. JSON columns hold several things: `Circle.backstory_answers` contains collaborative answers, `selected_question_key` and `reports`. `ability_uses`, `gear` and `scars_list` are JSON too. SQLAlchemy only notices reassignment; the current code reassigns fresh objects, and an in-place mutation introduced by a refactor would silently not persist.
+- R12. JSON columns hold several things: `Circle.backstory_answers` contains collaborative answers, `selected_question_key` and `reports`. `ability_uses`, `gear` and `scars_list` are JSON too. SQLAlchemy only notices reassignment of a new object; an in-place mutation silently does not persist (`submit_assignment_report` lost reports this way until the bug-fix stage).
 - R13. Fixing D2 or D3 changes what players see. Decide per defect and record it.
 - R14. Character ids and campaign codes share one key namespace. Changing the key format must also change the REST broadcasters in join, approve, reject, retire, rejoin, invite-rejoin, finalize-roster and the notebook POST.
 - R15. `backend/candela_obscura.db` (about 1.2 MB SQLite) is tracked in git. Tests and seed scripts must not write to it, and it may contain user rows and password hashes.

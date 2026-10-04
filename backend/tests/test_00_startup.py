@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 
+import pytest
 from sqlalchemy import inspect as sa_inspect, text
 
 import main
@@ -109,7 +110,9 @@ def test_migrated_columns_exist(client):
             "train_bonus", "resources_spent_assignment"} <= cols["characters"]
     assert "last_actor_id" in cols["relationships"]
     assert {"entry_type", "visibility", "image_data", "is_deleted"} <= cols["notebook_entries"]
-    assert "pending_rejoin_campaign_id" in cols["users"]
+    assert {"pending_rejoin_campaign_id", "google_sub"} <= cols["users"]
+    google_sub_index = [i for i in insp.get_indexes("users") if i["column_names"] == ["google_sub"]]
+    assert [(i["name"], bool(i["unique"])) for i in google_sub_index] == [("ix_users_google_sub", True)]
 
 
 def _run_import(env):
@@ -138,6 +141,37 @@ def test_missing_secret_key_refuses_to_start(client):
     assert "SECRET_KEY environment variable must be set" in proc.stderr
 
 
+@pytest.mark.parametrize("key", ["your-secret-key-here", "x" * 31])
+def test_placeholder_or_short_secret_key_refuses_to_start(client, key):
+    """SECRET_KEY signs the login tokens, so the .env.example placeholder or a short
+    key would let anyone forge one."""
+    proc = _run_import(dict(os.environ, SECRET_KEY=key))
+    assert proc.returncode != 0
+    assert "RuntimeError" in proc.stderr
+    assert "at least 32 characters" in proc.stderr
+
+
+def test_an_unclear_allow_password_login_refuses_to_start(client):
+    """A typo must not leave password login on when it was meant to be off."""
+    proc = _run_import(dict(os.environ, ALLOW_PASSWORD_LOGIN="flase"))
+    assert proc.returncode != 0
+    assert "RuntimeError" in proc.stderr
+    assert "ALLOW_PASSWORD_LOGIN must be true or false" in proc.stderr
+
+
+@pytest.mark.parametrize("value,expected", [
+    (None, True), ("", True), ("  ", True), ("true", True), ("TRUE", True), ("1", True), ("yes", True),
+    ("on", True), ("false", False), ("False", False), (" 0 ", False), ("no", False), ("off", False),
+])
+def test_env_flag(monkeypatch, value, expected):
+    from vtt import config
+    if value is None:
+        monkeypatch.delenv("CANDELA_TEST_FLAG", raising=False)
+    else:
+        monkeypatch.setenv("CANDELA_TEST_FLAG", value)
+    assert config._env_flag("CANDELA_TEST_FLAG", True) is expected
+
+
 def test_route_table_order(client):
     routes = []
     for r in main.app.routes:
@@ -160,6 +194,10 @@ def test_route_table_order(client):
         ("/campaign/finalize-roster", ["POST"]),
         ("/api/auth/login", ["POST"]),
         ("/api/auth/register", ["POST"]),
+        ("/api/auth/google", ["POST"]),
+        ("/api/auth/google/link", ["POST"]),
+        ("/api/auth/google/create", ["POST"]),
+        ("/api/auth/config", ["GET"]),
         ("/api/investigators", ["GET"]),
         ("/api/investigators/{investigator_id}", ["GET"]),
         ("/api/investigators/forge", ["POST"]),
@@ -209,31 +247,32 @@ MIGRATED_COLUMNS = {
     ("circles", "chapter_house_location"): ("text", None),
     ("circles", "circle_ability"): ("text", None),
     ("circles", "insignia"): ("text", None),
-    ("circles", "backstory_answers"): ("text", "'{}'::text"),
-    ("circles", "is_finalized"): ("integer", "0"),
+    ("circles", "backstory_answers"): ("json", "'{}'::json"),
+    ("circles", "is_finalized"): ("boolean", "false"),
     ("circles", "illumination"): ("integer", "0"),
     ("circles", "tension_clock"): ("integer", "4"),
     ("circles", "tension_label"): ("text", "''::text"),
-    ("circles", "resources_editable"): ("integer", "0"),
-    ("circles", "reports_open"): ("integer", "0"),
+    ("circles", "resources_editable"): ("boolean", "false"),
+    ("circles", "reports_open"): ("boolean", "false"),
     ("circles", "campaign_id"): ("integer", None),
     ("campaigns", "gm_user_id"): ("integer", None),
-    ("campaigns", "roster_finalized"): ("integer", "0"),
+    ("campaigns", "roster_finalized"): ("boolean", "false"),
     ("characters", "role"): ("text", "''::text"),
     ("characters", "specialty"): ("text", "''::text"),
     ("characters", "personal_circle_answer"): ("text", "''::text"),
     ("characters", "nerve_resistance_spent"): ("integer", "0"),
     ("characters", "cunning_resistance_spent"): ("integer", "0"),
     ("characters", "intuition_resistance_spent"): ("integer", "0"),
-    ("characters", "ability_uses"): ("text", "'{}'::text"),
-    ("characters", "train_bonus"): ("integer", "0"),
+    ("characters", "ability_uses"): ("json", "'{}'::json"),
+    ("characters", "train_bonus"): ("boolean", "false"),
     ("characters", "resources_spent_assignment"): ("integer", "0"),
     ("relationships", "last_actor_id"): ("integer", None),
     ("notebook_entries", "entry_type"): ("text", "'field_log'::text"),
     ("notebook_entries", "visibility"): ("text", "'all'::text"),
     ("notebook_entries", "image_data"): ("text", None),
-    ("notebook_entries", "is_deleted"): ("integer", "0"),
+    ("notebook_entries", "is_deleted"): ("boolean", "false"),
     ("users", "pending_rejoin_campaign_id"): ("integer", None),
+    ("users", "google_sub"): ("text", None),
 }
 
 
@@ -248,11 +287,11 @@ def _schema_columns(eng, schema):
 def test_init_db_alters_upgrade_a_legacy_schema(client, monkeypatch):
     """Runs init_db against tables that predate every migration. Each ALTER runs in
     its own transaction, so one that fails (a column that already exists) does not
-    stop the rest. QUIRK: the added columns are TEXT and INTEGER, not the JSON and
-    BOOLEAN types the models declare (this is how a database that grew through these
-    ALTERs differs from a create_all one), and no seed rows are written on such a
-    database, because the seed query runs before the ALTERs and fails on the
-    missing columns."""
+    stop the rest. Fixed: the added flags are BOOLEAN and backstory_answers and
+    ability_uses are JSON, as the models declare (they used to be INTEGER and TEXT,
+    which broke every write of train_bonus on the live database). QUIRK: no seed rows
+    are written on such a database, because the seed query runs before the ALTERs and
+    fails on the missing columns."""
     with support.isolated_schema(create_tables=False) as (eng, Session, schema):
         with eng.begin() as conn:
             for ddl in LEGACY_TABLES:
@@ -265,11 +304,83 @@ def test_init_db_alters_upgrade_a_legacy_schema(client, monkeypatch):
         assert got == MIGRATED_COLUMNS
         fks = sa_inspect(eng).get_foreign_keys("circles")
         assert [(fk["constrained_columns"], fk["referred_table"]) for fk in fks] == [(["campaign_id"], "campaigns")]
+        indexes = [(i["name"], i["column_names"], bool(i["unique"])) for i in sa_inspect(eng).get_indexes("users")]
+        assert indexes == [("ix_users_google_sub", ["google_sub"], True)]
         with eng.connect() as conn:
             assert conn.execute(text("SELECT count(*) FROM circles")).scalar() == 0
             assert conn.execute(text("SELECT count(*) FROM users")).scalar() == 0
         main.init_db()  # a second start changes nothing
         assert _schema_columns(eng, schema) == cols
+
+
+def _column_types(eng, schema):
+    """(table, column) -> data_type, with text and character varying as one type
+    (PostgreSQL treats an unlimited VARCHAR and TEXT the same)."""
+    return {key: ("text" if data_type == "character varying" else data_type)
+            for key, (data_type, _default) in _schema_columns(eng, schema).items()}
+
+
+def _model_columns():
+    return {(t.name, c.name) for t in main.Base.metadata.tables.values() for c in t.columns}
+
+
+def test_init_db_converts_an_integer_train_bonus_to_boolean(client, monkeypatch):
+    """Bug fix: init_db used to add characters.train_bonus as INTEGER DEFAULT 0 while the
+    model is Boolean. PostgreSQL refuses False for an integer column, so on a database
+    that got the column that way every forge and every train action failed (live and
+    beta were converted by hand on 2026-10-04). init_db now converts the column, keeping
+    the values (0 is false, anything else true), and leaves it alone afterwards."""
+    with support.isolated_schema() as (eng, Session, schema):
+        with eng.begin() as conn:
+            conn.execute(text("ALTER TABLE characters DROP COLUMN train_bonus"))
+            conn.execute(text("ALTER TABLE characters ADD COLUMN train_bonus INTEGER DEFAULT 0"))
+            conn.execute(text("INSERT INTO characters (name, status, train_bonus) VALUES "
+                              "('Zero', 'unaffiliated', 0), ('One', 'unaffiliated', 1), "
+                              "('Unset', 'unaffiliated', NULL)"))
+        with Session() as s:  # the write that failed live
+            s.add(Character(name="Forged", status="unaffiliated"))
+            with pytest.raises(Exception, match="train_bonus"):
+                s.commit()
+        monkeypatch.setattr(main, "db_engine", eng)
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        main.init_db()
+        assert _schema_columns(eng, schema)[("characters", "train_bonus")] == ("boolean", "false")
+        with eng.connect() as conn:
+            rows = conn.execute(text("SELECT name, train_bonus FROM characters ORDER BY id")).all()
+        assert [tuple(r) for r in rows] == [("Zero", False), ("One", True), ("Unset", None)]
+
+        def flags():
+            with Session() as s:
+                return {c.name: c.train_bonus for c in s.query(Character)}
+
+        with Session() as s:
+            s.add(Character(name="Forged", status="unaffiliated"))
+            s.query(Character).filter(Character.name == "Zero").one().train_bonus = True
+            s.commit()
+        main.init_db()  # a second start changes nothing
+        from vtt import db as vtt_db
+        assert vtt_db.convert_integer_flags() == []
+        assert _schema_columns(eng, schema)[("characters", "train_bonus")] == ("boolean", "false")
+        assert flags() == {"Zero": True, "One": True, "Unset": None, "Forged": False}
+
+
+def test_model_column_types_match_the_database_after_init_db_on_a_legacy_schema(client, monkeypatch):
+    """A database made before the migrations (every column init_db adds is missing),
+    with train_bonus already added as INTEGER the way the old ALTER did it, ends up
+    with the type the model declares for every column, as a create_all one has."""
+    with support.isolated_schema() as (fresh_eng, _, fresh_schema):
+        expected = _column_types(fresh_eng, fresh_schema)
+    assert _model_columns() <= set(expected)
+    with support.isolated_schema() as (eng, Session, schema):
+        with eng.begin() as conn:
+            for table, col in MIGRATED_COLUMNS:
+                conn.execute(text(f"ALTER TABLE {table} DROP COLUMN {col}"))
+            conn.execute(text("ALTER TABLE characters ADD COLUMN train_bonus INTEGER DEFAULT 0"))
+        monkeypatch.setattr(main, "db_engine", eng)
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        main.init_db()
+        got = _column_types(eng, schema)
+        assert {key: got.get(key) for key in _model_columns()} == {key: expected[key] for key in _model_columns()}
 
 
 # --- circle 1 is recreated when it is missing --------------------------------
@@ -285,7 +396,7 @@ def test_forge_recreates_missing_circle_one(client, monkeypatch):
             assert s.get(Circle, 1) is None
         # this user exists only in the scratch schema, so its token is minted directly
         r = client.post("/api/investigators/forge", json={"name": f"Inv {support.uid()}", "user_id": user_id},
-                        headers=support.bearer(security.create_access_token(user_id)))
+                        headers=support.bearer(security.create_access_token(user_id, "x")))
         assert r.status_code == 201, r.text
         body = r.json()
         assert body["circle_id"] == 1
@@ -307,7 +418,7 @@ def test_ws_connect_recreates_missing_circle_one(client, monkeypatch):
             s.add(ch)
             s.commit()
             key, user_id = ch.id, u.id
-        with support.ws_connect(client, key, token=security.create_access_token(user_id)) as ws:
+        with support.ws_connect(client, key, token=security.create_access_token(user_id, "x")) as ws:
             assert support.types(ws.initial) == ["character_update", "circle_update"]
             p = ws.initial[1]["payload"]
             assert (p["id"], p["name"], p["stitch"]) == (1, "The Order of Light", 1)

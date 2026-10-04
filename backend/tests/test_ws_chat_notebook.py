@@ -6,7 +6,7 @@ shown as sent).
 """
 import engine
 import support
-from models import NotebookEntry
+from models import Character, NotebookEntry, User
 
 ARROW = support.ARROW
 
@@ -142,15 +142,16 @@ def test_chat_without_campaign_is_rejected(client):
         assert ws.sync() == [_rejected("chat_message")]
 
 
-def test_chat_from_pending_member_not_echoed(client):
-    """broadcast_campaign skips non-active characters, including the sender."""
+def test_chat_from_a_pending_character_is_rejected(client):
+    """A pending character waits for the GM's approval and is not a member yet. Its chat
+    used to reach the GM and every active member (but not itself, since
+    broadcast_campaign skips non-active characters)."""
     camp = support.new_campaign(client)
     pending = support.pending_member(client, camp)
     with support.ws_connect(client, pending["id"]) as wp, support.ws_connect(client, camp["campaign_code"]) as gm:
         wp.send("chat_message", message="hello?")
-        assert wp.sync() == []
-        [msg] = gm.drain()
-        assert msg["payload"]["message"] == f"{pending['name']}: hello?"
+        assert wp.sync() == [_rejected("chat_message")]
+        assert gm.sync() == []
 
 
 def test_chat_sender_name_comes_from_the_socket(client):
@@ -170,7 +171,7 @@ def test_ws_add_notebook_entry_public(client):
     camp, (a, b) = _campaign_with(client, f"Ada {support.uid()}", f"Bo {support.uid()}")
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
         wa.send("add_notebook_entry", campaign_id=camp["id"], title="Clue", content="a key",
-                author_name="Ada", character_id=a["id"])
+                author_name="Lightkeeper", character_id=a["id"])
         msgs = wa.sync()
         assert support.types(msgs) == ["notebook_entry", "activity_log"]
         entry = msgs[0]["payload"]
@@ -179,7 +180,9 @@ def test_ws_add_notebook_entry_public(client):
                               "visibility", "image_data", "is_deleted"}
         assert (entry["author_type"], entry["pen_font"], entry["ink_color"]) == ("player", "Caveat", "#8b1a1a")
         assert (entry["entry_type"], entry["visibility"], entry["page_number"]) == ("field_log", "all", 1)
-        assert msgs[1]["payload"] == {"message": 'Ada logged an entry: "Clue"'}
+        # the author is the socket's character, whatever author_name says
+        assert (entry["author_name"], entry["character_id"]) == (a["name"], a["id"])
+        assert msgs[1]["payload"] == {"message": f'{a["name"]} logged an entry: "Clue"'}
         assert support.types(wb.drain()) == ["notebook_entry", "activity_log"]
     assert support.fetch(NotebookEntry, entry["id"]).campaign_id == camp["id"]
 
@@ -191,10 +194,29 @@ def test_ws_add_notebook_entry_private_goes_to_sender_only(client):
                 pen_font="Kalam", ink_color="#000")
         msgs = wa.sync()
         assert support.types(msgs) == ["notebook_entry"]
-        assert (msgs[0]["payload"]["pen_font"], msgs[0]["payload"]["ink_color"]) == ("Kalam", "#000")
+        # pen and ink come from the character, not the payload
+        row = support.fetch(Character, a["id"])
+        assert (msgs[0]["payload"]["pen_font"], msgs[0]["payload"]["ink_color"]) == \
+            (row.pen_font or "Caveat", row.ink_color or "#8b1a1a")
+        assert msgs[0]["payload"]["character_id"] == a["id"]
         assert wb.drain() == []
         wa.send("add_notebook_entry", title="no campaign")
         assert wa.sync() == []
+
+
+def test_ws_gm_notebook_entry_is_signed_with_the_gm_username(client):
+    """Before tokens the payload's author_name, pen_font and ink_color were stored as
+    sent. A GM entry now carries the GM's username and the GM's default pen and ink."""
+    camp, (a,) = _campaign_with(client, f"Ada {support.uid()}")
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+        gm.send("add_notebook_entry", campaign_id=camp["id"], title="Note", author_name=a["name"],
+                pen_font="Kalam", ink_color="#000")
+        [entry, log] = gm.sync()
+        username = support.fetch(User, support.gm_id(camp)).username
+        assert (entry["payload"]["author_name"], entry["payload"]["character_id"]) == (username, None)
+        assert (entry["payload"]["pen_font"], entry["payload"]["ink_color"]) == ("Caveat", "#1a1a1a")
+        assert log["payload"] == {"message": f'{username} logged an entry: "Note"'}
+        assert support.types(wa.drain()) == ["notebook_entry", "activity_log"]
 
 
 def test_ws_add_notebook_entry_only_into_the_senders_campaign(client):

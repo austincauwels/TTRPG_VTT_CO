@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from engine import (
@@ -35,6 +36,22 @@ def _reads_as_number(code: str) -> bool:
     return True
 
 
+CODE_IN_USE = "Campaign code is already in use"
+
+
+def _code_taken(db: Session, code: str) -> bool:
+    return db.query(Campaign.id).filter(Campaign.campaign_code == code).first() is not None
+
+
+CAMPAIGN_RETIRED = "This campaign has been retired."
+
+
+def _refuse_retired(is_retired) -> None:
+    """A retired campaign takes no new members: no join, rejoin or invite to rejoin."""
+    if is_retired:
+        raise HTTPException(status_code=409, detail=CAMPAIGN_RETIRED)
+
+
 @router.post("/campaign/create")
 def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Session = Depends(get_db),
                     user: User = Depends(get_current_user)):
@@ -47,7 +64,16 @@ def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Ses
         raise HTTPException(status_code=422, detail="Campaign code must not be a number")
     if len(name) < 1 or len(name) > 80:
         raise HTTPException(status_code=422, detail="Campaign name must be 1–80 characters")
-    return create_new_campaign(db, name, code, gm_user_id=user.id)
+    # A taken code used to reach the unique index and answer 500.
+    if _code_taken(db, code):
+        raise HTTPException(status_code=409, detail=CODE_IN_USE)
+    try:
+        return create_new_campaign(db, name, code, gm_user_id=user.id)
+    except IntegrityError:
+        db.rollback()
+        if _code_taken(db, code):  # another request took the code after the check
+            raise HTTPException(status_code=409, detail=CODE_IN_USE)
+        raise
 
 @router.post("/campaign/join")
 async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', db: Session = Depends(get_db),
@@ -55,6 +81,9 @@ async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', 
     if not _ALLOWED_CAMPAIGN_CODE_RE.match(code):
         raise HTTPException(status_code=422, detail="Invalid campaign code format")
     require_owner(user, character_or_404(db, character_id))
+    target = db.query(Campaign.is_retired).filter(Campaign.campaign_code == code).first()
+    if target is not None:
+        _refuse_retired(target.is_retired)
     if pen_font not in _SAFE_FONT_NAMES:
         pen_font = "Caveat"
     result = request_join_campaign(db, character_id, code, pen_font)
@@ -177,15 +206,21 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="Character not found")
     require_owner(user, new_char)
     # Rejoining skips GM approval, so it is only open to a user the GM invited back
-    # to this campaign, or one whose character there has died.
+    # to this campaign, or one whose approved character there has died and is still
+    # on the roster (dead characters keep status active until they are replaced; this
+    # rejoin retires it, so one death opens the path once). A pending character does
+    # not count: its owner can kill it on its own socket, so anyone with the campaign
+    # code could join, die and come back active without the GM.
     invited = user.pending_rejoin_campaign_id == campaign.id
     lost_a_character = db.query(Character.id).filter(
         Character.user_id == user.id,
         Character.campaign_id == campaign.id,
         Character.is_dead == True,
+        Character.status == "active",
     ).first() is not None
     if not (invited or lost_a_character):
         raise forbidden()
+    _refuse_retired(campaign.is_retired)
 
     # Retire any active or dead characters this user had in this campaign
     old_chars = db.query(Character).filter(
@@ -244,6 +279,26 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     return {"success": True, "character": get_char_dict(new_char)}
 
 
+AMBIGUOUS_USERNAME = ("More than one player has that username. Please type it exactly, "
+                      "with the same capital letters.")
+
+
+def _invitee(db: Session, typed: str) -> User:
+    """The user a GM means by a typed username. An invite lets its holder rejoin without
+    GM approval, so it must never land on the wrong user: an exact match wins, and a
+    name that matches only ignoring case must match exactly one user (409 otherwise)."""
+    name = typed.strip()
+    exact = db.query(User).filter(User.username == name).first()
+    if exact is not None:
+        return exact
+    matches = db.query(User).filter(func.lower(User.username) == func.lower(name)).limit(2).all()
+    if not matches:
+        raise HTTPException(status_code=404, detail="No player found with that username.")
+    if len(matches) > 1:
+        raise HTTPException(status_code=409, detail=AMBIGUOUS_USERNAME)
+    return matches[0]
+
+
 @router.post("/campaign/{campaign_id}/invite-rejoin")
 async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session = Depends(get_db),
                         user: User = Depends(get_current_user)):
@@ -251,15 +306,14 @@ async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session
     campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    user = db.query(User).filter(func.lower(User.username) == body.username.strip().lower()).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No player found with that username.")
+    _refuse_retired(campaign.is_retired)
+    invitee = _invitee(db, body.username)
 
-    user.pending_rejoin_campaign_id = campaign_id
+    invitee.pending_rejoin_campaign_id = campaign_id
     db.commit()
 
     # Attempt live delivery to any character websocket this user owns
-    chars = db.query(Character).filter(Character.user_id == user.id).all()
+    chars = db.query(Character).filter(Character.user_id == invitee.id).all()
     for c in chars:
         await manager.broadcast(character_key(c.id), {
             "type": "gm_rejoin_invite",

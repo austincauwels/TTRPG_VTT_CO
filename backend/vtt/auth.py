@@ -2,13 +2,15 @@
 
 get_current_user is the FastAPI dependency every REST route uses except login and
 register. It reads "Authorization: Bearer <token>" and answers 401 when the header
-is missing, the token is invalid or expired, or its user no longer exists.
+is missing, the token is invalid or expired, its user no longer exists, or the
+user's password has been replaced since the token was issued.
 
 The helpers below implement the access rules in docs/refactor/AUTH.md. They raise
 HTTPException: 404 when an id the client sent does not exist, 403 when it exists but
 the caller may not use it. Facts are read with column queries, so a long-lived
 session (the WebSocket's) never decides on a stale copy of a row.
 """
+import hmac
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request
@@ -16,13 +18,19 @@ from sqlalchemy.orm import Session
 
 from models import Campaign, Character, User
 from vtt.db import get_db
-from vtt.security import user_id_from_token
+from vtt.security import login_token_subject, password_stamp
 
 NOT_AUTHENTICATED = "Not authenticated."
 NOT_ALLOWED = "Not allowed."
 
-# Character statuses that count as belonging to a campaign.
-MEMBER_STATUSES = ("active", "pending")
+# A member of a campaign is a user with an approved (active) character in it. Dead
+# characters keep status active until they are replaced. A pending character waits
+# for the GM's approval and reaches nothing of the campaign (roster, notebook, circle,
+# chat): anyone who has the campaign code can make one.
+MEMBER_STATUSES = ("active",)
+# The characters on a campaign's roster: its members and those waiting for approval.
+# The GM may act on any of them over the WebSocket.
+ROSTER_STATUSES = ("active", "pending")
 
 
 def bearer_token(request: Request) -> Optional[str]:
@@ -34,10 +42,16 @@ def bearer_token(request: Request) -> Optional[str]:
 
 
 def user_for_token(db: Session, token: Optional[str]) -> Optional[User]:
-    user_id = user_id_from_token(token)
-    if user_id is None:
+    """The user a login token names, or None. A token whose password stamp no longer
+    matches the user's password hash (the password was replaced) counts as none."""
+    subject = login_token_subject(token)
+    if subject is None:
         return None
-    return db.query(User).filter(User.id == user_id).first()
+    user_id, stamp = subject
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None or not hmac.compare_digest(stamp, password_stamp(user.hashed_password)):
+        return None
+    return user
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
@@ -76,7 +90,7 @@ def is_gm(user_id, campaign) -> bool:
 
 
 def is_member(db: Session, user_id, campaign_id) -> bool:
-    """True when the user has an active or pending character in the campaign."""
+    """True when the user has an active (approved) character in the campaign."""
     if campaign_id is None:
         return False
     return db.query(Character.id).filter(

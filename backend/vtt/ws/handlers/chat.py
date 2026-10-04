@@ -1,6 +1,6 @@
 """Chat and the WebSocket notebook entry."""
 from engine import create_notebook_entry
-from models import Campaign, Character
+from models import Campaign, Character, User
 from vtt.ws.manager import campaign_key, character_key, manager
 
 # The name chat shows for the GM; the frontend used the same name when the client
@@ -80,16 +80,26 @@ async def handle_add_notebook_entry(ctx):
     if campaign_id:
         e_type  = payload.get("entry_type", "field_log")
         e_vis   = payload.get("visibility", "all")
+        # The author is who the socket belongs to, as for REST entries: the player's
+        # character (its name, pen and ink), or the GM under their username.
+        # payload author_name, pen_font, ink_color and character_id are ignored.
+        if ctx.is_gm:
+            author_name = db.query(User.username).filter(User.id == ctx.user_id).scalar() or "Unknown"
+            pen_font, ink_color, author_char_id = "Caveat", "#1a1a1a", None
+        else:
+            me = db.query(Character).filter(Character.id == ctx.own_char_id).first()
+            author_name = me.name
+            pen_font, ink_color, author_char_id = me.pen_font or "Caveat", me.ink_color or "#8b1a1a", me.id
         db_entry = create_notebook_entry(
             db,
             campaign_id  = int(campaign_id),
             title        = payload.get("title", ""),
             content      = payload.get("content", ""),
-            author_name  = payload.get("author_name", "Unknown"),
+            author_name  = author_name,
             author_type  = payload.get("author_type", "player"),
-            pen_font     = payload.get("pen_font", "Caveat"),
-            ink_color    = payload.get("ink_color", "#8b1a1a"),
-            character_id = payload.get("character_id"),
+            pen_font     = pen_font,
+            ink_color    = ink_color,
+            character_id = author_char_id,
             entry_type   = e_type,
             visibility   = e_vis,
             image_data   = payload.get("image_data"),
@@ -116,7 +126,7 @@ async def handle_add_notebook_entry(ctx):
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "notebook_entry", "payload": entry_dict}, db)
             await manager.broadcast_campaign(camp_code, camp_id, {
                 "type": "activity_log",
-                "payload": {"message": f"{payload.get('author_name', 'Someone')} logged an entry: \"{payload.get('title', '')}\""}
+                "payload": {"message": f"{author_name} logged an entry: \"{payload.get('title', '')}\""}
             }, db)
         else:
             await manager.broadcast(channel, {"type": "notebook_entry", "payload": entry_dict})

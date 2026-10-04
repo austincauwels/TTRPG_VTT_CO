@@ -38,6 +38,8 @@ DATABASE_URL=sqlite:///./candela_obscura.db
 CORS_ORIGINS=http://localhost:5173,http://localhost:4173
 ```
 
+Sign in with Google is optional. To turn it on, create an OAuth web client in the Google Cloud console, add `http://localhost:5173` (and every address the site is served from) under Authorized JavaScript origins, and put its client ID in two places: `GOOGLE_CLIENT_ID` in `backend/.env`, and `VITE_GOOGLE_CLIENT_ID` in the frontend build environment (for example `frontend/.env.local`). No client secret is needed. `ALLOW_PASSWORD_LOGIN=false` turns username and password login off. `docs/refactor/AUTH.md` describes the whole flow.
+
 ### 2. Backend — Install Dependencies
 
 ```bash

@@ -12,7 +12,7 @@ from vtt.auth import (
     MEMBER_STATUSES, campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
     require_gm_or_member, require_owner,
 )
-from vtt.circle_queries import get_or_create_campaign_circle, relationships_list, votes_dict
+from vtt.circle_queries import VOTE_TYPES, get_or_create_campaign_circle, relationships_list, votes_dict
 from vtt.db import get_db
 from vtt.schemas import CircleVoteSubmit, FinalizeRosterRequest, RelationshipPropose, RelationshipRespond
 from vtt.serializers import get_char_dict, get_circle_dict
@@ -30,7 +30,7 @@ def _circle_campaign_or_404(db: Session, circle_id):
 
 
 def _require_member_of(character, campaign_id):
-    """The character must be an active or pending member of the circle's campaign."""
+    """The character must be an active member of the circle's campaign."""
     if campaign_id is None or character.campaign_id != campaign_id or character.status not in MEMBER_STATUSES:
         raise forbidden()
 
@@ -59,6 +59,9 @@ def submit_circle_vote(body: CircleVoteSubmit, db: Session = Depends(get_db),
     voter = character_or_404(db, body.character_id)
     require_owner(user, voter)
     _require_member_of(voter, _circle_campaign_or_404(db, body.circle_id))
+    if body.vote_type not in VOTE_TYPES:
+        # Checked before anything is stored; an unknown type used to be saved and then 500.
+        raise HTTPException(status_code=422, detail="Unknown vote type.")
     if body.vote_type == "name_suggest":
         count = db.query(CircleVote).filter(
             CircleVote.circle_id == body.circle_id,
@@ -104,12 +107,15 @@ def propose_relationship(body: RelationshipPropose, db: Session = Depends(get_db
         Relationship.from_character_id == body.from_character_id,
         Relationship.to_character_id == body.to_character_id,
     ).first()
+    # last_actor_id records who acted last, as the WebSocket does, so that only the
+    # other party may answer (over REST or the WebSocket).
     if existing:
         existing.rel_type = body.rel_type
         existing.lore = body.lore
         existing.status = "proposed"
         existing.counter_type = None
         existing.counter_lore = None
+        existing.last_actor_id = proposer.id
     else:
         db.add(Relationship(
             circle_id=body.circle_id,
@@ -118,9 +124,24 @@ def propose_relationship(body: RelationshipPropose, db: Session = Depends(get_db
             rel_type=body.rel_type,
             lore=body.lore,
             status="proposed",
+            last_actor_id=proposer.id,
         ))
     db.commit()
     return {"ok": True, "relationships": relationships_list(db, body.circle_id)}
+
+def _relationship_responder(db, user, rel):
+    """The character the caller answers for: the party that did not act last (for a
+    row with no recorded actor, the character the proposal was made to), and only if
+    the caller owns it. The same rule as the WebSocket's circle_relationship_respond."""
+    if rel.last_actor_id is None:
+        allowed = (rel.to_character_id,)
+    else:
+        allowed = tuple(c for c in (rel.to_character_id, rel.from_character_id) if c != rel.last_actor_id)
+    for character_id in allowed:
+        if character_or_404(db, character_id).user_id == user.id:
+            return character_id
+    raise forbidden()
+
 
 @router.post("/circle/relationship/respond")
 def respond_relationship(body: RelationshipRespond, db: Session = Depends(get_db),
@@ -128,16 +149,17 @@ def respond_relationship(body: RelationshipRespond, db: Session = Depends(get_db
     rel = db.query(Relationship).filter(Relationship.id == body.relationship_id).first()
     if not rel:
         raise HTTPException(status_code=404, detail="Relationship not found")
-    # Only the owner of the character the proposal was made to may answer it.
-    require_owner(user, character_or_404(db, rel.to_character_id))
+    responder_id = _relationship_responder(db, user, rel)
     if body.action == "accept":
         rel.status = "accepted"
         rel.counter_type = None
         rel.counter_lore = None
+        rel.last_actor_id = responder_id
     elif body.action == "counter":
         rel.status = "countered"
         rel.counter_type = body.counter_type
         rel.counter_lore = body.counter_lore
+        rel.last_actor_id = responder_id
     db.commit()
     return {"ok": True, "relationships": relationships_list(db, rel.circle_id)}
 
