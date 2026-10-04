@@ -45,9 +45,10 @@ const TONES = {
 // aria-describedby, disabled, type). idleHint is shown before the first press (optional);
 // armedHint says what the second press does. The wrapper takes className, so a caller
 // can use "contents" to let the button and the hint sit in its own flex row.
+// cancelSize sets Cancel's height (44px where the row is meant for a thumb).
 export const ConfirmAction = ({
   onConfirm, renderButton, idleHint, armedHint, cancelLabel = 'Cancel',
-  tone = 'paper', disabled = false, className = '', hintClassName = '',
+  tone = 'paper', disabled = false, className = '', hintClassName = '', cancelSize = 'min-h-[36px]',
 }) => {
   const { armed, press, disarm, ref } = useConfirmStep();
   const hintId = useId();
@@ -83,7 +84,7 @@ export const ConfirmAction = ({
             <button
               type="button"
               onClick={disarm}
-              className={`shrink-0 min-h-[36px] px-3 font-sans text-xs font-bold uppercase tracking-widest border rounded transition-colors ${colors.cancel}`}
+              className={`shrink-0 ${cancelSize} px-3 font-sans text-xs font-bold uppercase tracking-widest border rounded transition-colors ${colors.cancel}`}
             >
               {cancelLabel}
             </button>
