@@ -5,8 +5,9 @@ Before this stage the server trusted whatever user id, character id or role the 
 ## Tokens
 
 - `POST /api/auth/login` and `POST /api/auth/register` return every field they returned before, plus `token`. The Google sign-in routes return the login shape with `token` too (see Sign in with Google below).
-- The token is a JWT signed with `SECRET_KEY`, algorithm HS256. Claims: `sub` (the user id as a string), `iat`, `exp` (30 days after `iat`). There is no refresh; after 30 days the user logs in again.
-- Decoding accepts HS256 only and requires `sub`, `iat` and `exp`. A token that is malformed, expired, signed with another key or algorithm, or whose user no longer exists counts as no token.
+- The token is a JWT signed with `SECRET_KEY`, algorithm HS256. Claims: `sub` (the user id as a string), `pwh` (the password stamp, below), `iat`, `exp` (30 days after `iat`). There is no refresh; after 30 days the user logs in again.
+- Decoding accepts HS256 only and requires `sub`, `pwh`, `iat` and `exp`. A token that is malformed, expired, signed with another key or algorithm, whose user no longer exists, or whose password stamp no longer matches the user counts as no token.
+- The password stamp is a keyed hash (HMAC-SHA256 with `SECRET_KEY`, 32 hex digits) of the user's password hash at the time the token was issued (`password_stamp` in `vtt/security.py`). When the password is replaced, every login token issued before stops working (REST 401, WebSocket 4401). That happens when `retire_published_passwords` replaces a published password, and when someone sets a new hash in the database. Tokens issued before the stamp existed have no `pwh` and no longer work, so everyone logs in once more after this change.
 - A token that carries a `purpose` claim is never a login token (Google link tokens have one).
 - Code: `vtt/security.py` (issue and decode), `vtt/auth.py` (the `get_current_user` dependency and the access helpers).
 - Changing `SECRET_KEY` logs everyone out. Anyone who knows it can mint a token for any user, so the server refuses to start when it is the `.env.example` placeholder (`your-secret-key-here`) or shorter than 32 characters (`vtt/config.py`). The test conftest stretches a shorter harness key with SHA-256.
@@ -212,7 +213,7 @@ User 1 (`admin`) owns every character forged before tokens without a `user_id` (
 
 - Sign in with Google links by email to the account that has that email, and register never checked that an email belongs to whoever registered it. Someone who registers a password account with another person's email before that person's first Google sign-in gets that person linked to an account whose password they know. Turning password login off ends that. The other way round is not possible: Google must have verified the email.
 - There is no password reset, so a player whose Google email matches none of their accounts and who has forgotten their password cannot claim their old account. Unlinking a Google account, or moving it to another user, is a database edit (`google_sub` set to NULL).
-- A token cannot be revoked before it expires, except by changing `SECRET_KEY` (which logs everyone out). Deleting a user does revoke it, because the user lookup fails.
+- A token cannot be revoked on its own before it expires. Replacing the user's password hash revokes all of that user's tokens (the password stamp), changing `SECRET_KEY` logs everyone out, and deleting a user revokes theirs, because the user lookup fails.
 - An open WebSocket keeps working after its token expires; the token is only checked when the socket connects.
 - The token sits in localStorage, so a script injected into the page could read it. The app renders no user HTML as markup today.
 - `action_rejected` is a new server-to-client type; WEBSOCKET.md section 5 lists the types from before this stage.

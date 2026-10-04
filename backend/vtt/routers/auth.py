@@ -57,7 +57,7 @@ def signed_in_response(db: Session, user: User) -> dict:
             "userId": user.id,
             "campaignCode": gm_campaign.campaign_code,
             "campaignId": gm_campaign.id,
-            "token": create_access_token(user.id),
+            "token": create_access_token(user.id, user.hashed_password),
         }
 
     pending_invite = None
@@ -77,7 +77,7 @@ def signed_in_response(db: Session, user: User) -> dict:
         "campaignCode": None,
         "campaignId": None,
         "pendingRejoinInvite": pending_invite,
-        "token": create_access_token(user.id),
+        "token": create_access_token(user.id, user.hashed_password),
     }
 
 
@@ -137,7 +137,7 @@ async def register(request: Request, credentials: RegisterRequest, db: Session =
         "userId": new_user.id,
         "campaignCode": "fairelands-01",
         "campaignId": campaign.id if campaign else None,
-        "token": create_access_token(new_user.id),
+        "token": create_access_token(new_user.id, new_user.hashed_password),
     }
 
 

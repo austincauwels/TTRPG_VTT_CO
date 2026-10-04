@@ -17,6 +17,7 @@ THIRTY_DAYS = 30 * 24 * 60 * 60
 def _assert_token_for(token, user_id):
     claims = jwt.decode(token, config.SECRET_KEY, algorithms=["HS256"])
     assert claims["sub"] == str(user_id)
+    assert claims["pwh"] == security.password_stamp(support.fetch(User, user_id).hashed_password)
     assert claims["exp"] - claims["iat"] == THIRTY_DAYS
     assert abs(claims["iat"] - time.time()) < 60
     assert security.user_id_from_token(token) == user_id
@@ -274,6 +275,35 @@ def test_rate_limit_does_not_count_validation_errors(client, limiter_on):
     assert r.status_code == 401
 
 
+def test_a_new_password_ends_earlier_login_tokens(client):
+    """A login token used to stay good for its 30 days whatever happened to the password.
+    It now carries a stamp of the password hash, so replacing the password (as
+    retire_published_passwords does, or an admin in the database) ends every login
+    token issued before: 401 on REST and 4401 on the WebSocket."""
+    u = support.make_user()
+    ch = support.forge(client, user_id=u.id)
+    old = support.login(client, u.username, support.PASSWORD).json()["token"]
+    url = f"/api/users/{u.id}/characters"
+    assert client.get(url, headers=support.bearer(old)).status_code == 200
+    support.update(User, u.id, hashed_password=main.pwd_context.handler("bcrypt").using(rounds=4).hash("a-new-one"))
+    r = client.get(url, headers=support.bearer(old))
+    assert r.status_code == 401
+    assert r.json() == {"detail": "Not authenticated."}
+    assert support.ws_close_code(client, ch["id"], token=old) == 4401
+    new = support.login(client, u.username, "a-new-one").json()["token"]
+    assert client.get(url, headers=support.bearer(new)).status_code == 200
+    with support.ws_connect(client, ch["id"], token=new) as ws:
+        assert ws.initial[0]["type"] == "character_update"
+
+
+def test_a_token_without_the_password_stamp_is_refused(client):
+    """Tokens issued before the stamp existed have no pwh claim; they no longer work."""
+    u = support.make_user()
+    now = int(time.time())
+    token = _signed({"sub": str(u.id), "iat": now, "exp": now + 60})
+    assert client.get(f"/api/users/{u.id}/characters", headers=support.bearer(token)).status_code == 401
+
+
 # --- the token itself -------------------------------------------------------------
 
 def _signed(claims, key=None, algorithm="HS256"):
@@ -282,13 +312,24 @@ def _signed(claims, key=None, algorithm="HS256"):
 
 def _fresh_claims(**changes):
     now = int(time.time())
-    claims = {"sub": "1", "iat": now, "exp": now + 60}
+    claims = {"sub": "1", "pwh": security.password_stamp("some hash"), "iat": now, "exp": now + 60}
     claims.update(changes)
     return claims
 
 
 def test_token_round_trip():
-    assert security.user_id_from_token(security.create_access_token(42)) == 42
+    token = security.create_access_token(42, "some hash")
+    assert security.user_id_from_token(token) == 42
+    assert security.login_token_subject(token) == (42, security.password_stamp("some hash"))
+    assert security.user_id_from_token(_signed(_fresh_claims(sub="42"))) == 42
+
+
+def test_the_password_stamp_hides_the_hash():
+    """The stamp is keyed with SECRET_KEY, so the token (readable by whoever holds it)
+    tells nothing about the hash, and two hashes give two stamps."""
+    a, b = security.password_stamp("$2b$12$abc"), security.password_stamp("$2b$12$abd")
+    assert a != b and len(a) == 32 and "abc" not in a
+    assert security.password_stamp(None) == security.password_stamp("")
 
 
 @pytest.mark.parametrize("token", [None, "", "not-a-jwt", "a.b.c", 12345])
@@ -305,7 +346,7 @@ def test_expired_token_is_rejected():
     assert security.user_id_from_token(_signed(_fresh_claims(iat=now - 120, exp=now - 60))) is None
 
 
-@pytest.mark.parametrize("missing", ["sub", "iat", "exp"])
+@pytest.mark.parametrize("missing", ["sub", "pwh", "iat", "exp"])
 def test_token_missing_a_claim_is_rejected(missing):
     claims = _fresh_claims()
     del claims[missing]
@@ -335,7 +376,7 @@ def test_token_query_parameter_is_redacted_from_logs(logger_name):
     """uvicorn logs a WebSocket's path with its query string, which carries the token."""
     import logging
     logger = logging.getLogger(logger_name)
-    token = security.create_access_token(7)
+    token = security.create_access_token(7, "some hash")
     record = logger.makeRecord(logger_name, logging.INFO, __file__, 1, '%s - "WebSocket %s" [accepted]',
                                ("10.0.0.1:5000", f"/ws/12?token={token}&x=1"), None)
     assert all(f.filter(record) for f in logger.filters)

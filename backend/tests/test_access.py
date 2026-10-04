@@ -48,7 +48,7 @@ BAD_HEADERS = {
     "wrong scheme": {"Authorization": "Basic dXNlcjpwYXNz"},
     "token without scheme": None,  # filled in per test: the raw token as the whole header
     "expired": {"Authorization": f"Bearer {_expired_token()}"},
-    "deleted user": {"Authorization": f"Bearer {security.create_access_token(987654321)}"},
+    "deleted user": {"Authorization": f"Bearer {security.create_access_token(987654321, 'x')}"},
     "other key": {"Authorization": "Bearer " + jwt.encode(
         {"sub": "1", "iat": int(time.time()), "exp": int(time.time()) + 60}, "not-the-key", algorithm="HS256")},
 }
@@ -59,7 +59,7 @@ BAD_HEADERS = {
 def test_protected_route_without_a_valid_token_is_401(client, method, path, kind):
     headers = BAD_HEADERS[kind]
     if headers is None:
-        headers = {"Authorization": security.create_access_token(1)}
+        headers = {"Authorization": security.create_access_token(1, "x")}
     r = client.request(method, _url(path), headers=headers)
     assert r.status_code == 401, r.text
     assert r.json() == {"detail": "Not authenticated."}

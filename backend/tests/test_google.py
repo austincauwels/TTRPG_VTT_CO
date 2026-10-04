@@ -292,13 +292,14 @@ def test_a_link_token_is_not_a_login_token():
 
 
 def test_a_login_token_is_not_a_link_token():
-    assert security.identity_from_link_token(security.create_access_token(1)) is None
+    assert security.identity_from_link_token(security.create_access_token(1, "some hash")) is None
 
 
 def test_a_login_token_with_a_purpose_is_refused():
     """A token that carries both a user id and a purpose is no login token."""
     now = int(time.time())
-    token = _signed({"sub": "1", "iat": now, "exp": now + 60, "purpose": "google_link"})
+    token = _signed({"sub": "1", "pwh": security.password_stamp("some hash"), "iat": now, "exp": now + 60,
+                     "purpose": "google_link"})
     assert security.user_id_from_token(token) is None
 
 

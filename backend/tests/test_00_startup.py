@@ -396,7 +396,7 @@ def test_forge_recreates_missing_circle_one(client, monkeypatch):
             assert s.get(Circle, 1) is None
         # this user exists only in the scratch schema, so its token is minted directly
         r = client.post("/api/investigators/forge", json={"name": f"Inv {support.uid()}", "user_id": user_id},
-                        headers=support.bearer(security.create_access_token(user_id)))
+                        headers=support.bearer(security.create_access_token(user_id, "x")))
         assert r.status_code == 201, r.text
         body = r.json()
         assert body["circle_id"] == 1
@@ -418,7 +418,7 @@ def test_ws_connect_recreates_missing_circle_one(client, monkeypatch):
             s.add(ch)
             s.commit()
             key, user_id = ch.id, u.id
-        with support.ws_connect(client, key, token=security.create_access_token(user_id)) as ws:
+        with support.ws_connect(client, key, token=security.create_access_token(user_id, "x")) as ws:
             assert support.types(ws.initial) == ["character_update", "circle_update"]
             p = ws.initial[1]["payload"]
             assert (p["id"], p["name"], p["stitch"]) == (1, "The Order of Light", 1)

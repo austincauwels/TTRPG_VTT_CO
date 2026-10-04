@@ -101,7 +101,7 @@ def test_socket_without_a_valid_token_is_closed_with_4401(client, token):
     now = int(time.time())
     token = {
         "expired": jwt.encode({"sub": "1", "iat": now - 120, "exp": now - 60}, config.SECRET_KEY, algorithm="HS256"),
-        "deleted user": security.create_access_token(987654321),
+        "deleted user": security.create_access_token(987654321, "x"),
         "other key": jwt.encode({"sub": "1", "iat": now, "exp": now + 60}, "not-the-key", algorithm="HS256"),
     }.get(token, token)
     camp = support.new_campaign(client)
