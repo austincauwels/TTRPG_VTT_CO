@@ -731,8 +731,18 @@ def me(client, headers):
     return client.get("/api/auth/me", headers=headers)
 
 
-def link_signed_in(client, credential, headers):
-    return client.post("/api/auth/me/google", json={"credential": credential}, headers=headers)
+def link_signed_in(client, credential, headers, password=support.PASSWORD):
+    """POST /api/auth/me/google, with the account's password (the make_user one) unless
+    password is None."""
+    body = {"credential": credential}
+    if password is not None:
+        body["password"] = password
+    return client.post("/api/auth/me/google", json=body, headers=headers)
+
+
+WRONG_PASSWORD = {"detail": "That is not this account's password."}
+NEEDS_PASSWORD = {"detail": "This Google account has another email address than your account. "
+                            "Enter your account's password to link it."}
 
 
 def test_me_shows_the_account(client):
@@ -774,6 +784,76 @@ def test_linking_while_signed_in_keeps_the_account_email(client, google):
     r = link_signed_in(client, google.credential(email=f"other.{support.uid()}@gmail.test"), support.as_user(u.id))
     assert r.status_code == 200
     assert support.fetch(User, u.id).email == u.email
+
+
+# --- linking while signed in needs more than the login token -------------------------------------
+
+def test_a_login_token_alone_links_no_google_account_with_another_email(client, google):
+    """A stolen login token used to be enough to link the thief's own Google account."""
+    u = support.make_user()
+    headers = support.as_user(u.id)
+    r = link_signed_in(client, google.credential(email=f"thief.{support.uid()}@gmail.test"), headers, password=None)
+    assert (r.status_code, r.json()) == (403, NEEDS_PASSWORD)
+    assert google_sub_of(u.id) is None
+    r = link_signed_in(client, google.credential(), headers, password="")  # an empty password is none
+    assert (r.status_code, r.json()) == (403, NEEDS_PASSWORD)
+    assert me(client, headers).status_code == 200  # 403, not 401: the session stays
+
+
+def test_a_wrong_password_links_nothing(client, google):
+    u = support.make_user()
+    headers = support.as_user(u.id)
+    r = link_signed_in(client, google.credential(), headers, password="a-guess-1")
+    assert (r.status_code, r.json()) == (403, WRONG_PASSWORD)
+    assert google_sub_of(u.id) is None
+    assert me(client, headers).status_code == 200
+    # a wrong password is refused even when the Google email is the account's
+    r = link_signed_in(client, google.credential(email=u.email), headers, password="a-guess-2")
+    assert (r.status_code, r.json()) == (403, WRONG_PASSWORD)
+    assert google_sub_of(u.id) is None
+
+
+def test_a_google_account_with_the_account_email_needs_no_password(client, google):
+    """Google has verified that address, so the Google sign-in proves the account."""
+    local = f"Own.{support.uid()}"
+    u = support.make_user(email=f"{local}@Example.test")
+    credential = google.credential(email=f"{local.lower()}@example.test")
+    r = link_signed_in(client, credential, support.as_user(u.id), password=None)
+    assert r.status_code == 200, r.text
+    assert google_sub_of(u.id) == google.identity(credential).sub
+    assert support.login(client, u.username, support.PASSWORD).status_code == 200
+
+
+def test_an_account_whose_password_nobody_knows_links_with_its_own_email(client, google):
+    """Such as an account made with Google whose link was removed in the database."""
+    u = support.make_user()
+    support.update(User, u.id, hashed_password=support.cheap_hash(f"nobody-knows-{support.uid()}"))
+    headers = support.bearer(support.fresh_token(u.id))
+    r = link_signed_in(client, google.credential(), headers, password=None)
+    assert (r.status_code, r.json()) == (403, NEEDS_PASSWORD)
+    credential = google.credential(email=u.email.upper())
+    assert link_signed_in(client, credential, headers, password=None).status_code == 200
+    assert google_sub_of(u.id) == google.identity(credential).sub
+
+
+def test_a_stolen_token_cannot_lock_the_owner_out(client, google, monkeypatch):
+    """The finding: with password login off, a thief who linked their own Google account
+    with a stolen token kept the account for good (login, reset, the owner's Google
+    sign-in, create and link all refused the owner). Now the link needs the password,
+    so the owner's first Google sign-in still links the account by email."""
+    owner_email = f"owner.{support.uid()}@gmail.test"
+    u = support.make_user(email=owner_email)
+    stolen = support.as_user(u.id)
+    monkeypatch.setattr(config, "ALLOW_PASSWORD_LOGIN", False)
+    thief_google = google.credential(email=f"thief.{support.uid()}@gmail.test")
+    assert link_signed_in(client, thief_google, stolen, password=None).status_code == 403
+    assert link_signed_in(client, thief_google, stolen, password="password1").status_code == 403
+    assert google_sub_of(u.id) is None
+    # the owner signs in with Google and gets the account; the stolen token ends there
+    body = assert_signed_in_as(google_sign_in(client, google.credential(email=owner_email)), u.id)
+    assert me(client, support.bearer(body["token"])).status_code == 200
+    assert me(client, stolen).status_code == 401
+    assert google_sign_in(client, thief_google).json()["needs_account"] is True
 
 
 def test_linking_the_same_google_account_again_changes_nothing(client, google):
@@ -867,7 +947,8 @@ def test_signed_in_link_works_with_password_login_off(client, google, monkeypatc
     assert link_signed_in(client, google.credential(), headers).status_code == 200
 
 
-@pytest.mark.parametrize("body", [{}, {"credential": None}, {"credential": "x" * 8193}])
+@pytest.mark.parametrize("body", [{}, {"credential": None}, {"credential": "x" * 8193},
+                                  {"credential": "c", "password": "p" * 1025}, {"credential": "c", "password": 5}])
 def test_signed_in_link_body_validation(client, google, body):
     r = client.post("/api/auth/me/google", json=body, headers=support.as_user(support.make_user().id))
     assert r.status_code == 422

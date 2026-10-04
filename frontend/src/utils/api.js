@@ -115,10 +115,14 @@ export const fetchAccount = async () => {
 };
 
 // Links the Google account of a credential from Google Identity Services to the
-// signed-in user. Resolves to the updated account ({ ..., googleLinked: true }); the
-// session and the password stay as they are. Throws like the sign-in calls: 409 when
-// this account or that Google account is linked already, 400 when Google refused.
-export const linkGoogleToAccount = (credential) => postAuth('/api/auth/me/google', { credential });
+// signed-in user. The server asks for proof beyond the session: the account's current
+// password, or a Google account whose email is the account's email (then the password
+// can be left out). Resolves to the updated account ({ ..., googleLinked: true }); the
+// session and the password stay as they are. Throws like the sign-in calls: 403 when
+// the password is wrong or is needed (the message says which), 409 when this account
+// or that Google account is linked already, 400 when Google refused.
+export const linkGoogleToAccount = (credential, password) =>
+  postAuth('/api/auth/me/google', password ? { credential, password } : { credential });
 
 // ==========================================
 // PASSWORD RESET BY EMAIL (docs/refactor/AUTH.md)

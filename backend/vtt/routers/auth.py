@@ -28,8 +28,8 @@ from vtt.auth import get_current_user
 from vtt.config import logger
 from vtt.db import PUBLISHED_PASSWORDS, get_db, unusable_password_hash
 from vtt.google import GoogleIdentity
-from vtt.schemas import (GoogleCreateRequest, GoogleLinkRequest, GoogleSignInRequest, LoginRequest,
-                         PasswordResetConfirm, PasswordResetRequest, RegisterRequest)
+from vtt.schemas import (AccountGoogleLinkRequest, GoogleCreateRequest, GoogleLinkRequest, GoogleSignInRequest,
+                         LoginRequest, PasswordResetConfirm, PasswordResetRequest, RegisterRequest)
 from vtt.security import create_access_token, create_link_token, identity_from_link_token, limiter, pwd_context
 
 router = APIRouter()
@@ -47,6 +47,9 @@ ACCOUNT_ALREADY_LINKED = "That account is already linked to a Google account."
 EMAIL_TAKEN = ("An account with this email address already exists. "
                "Please use Link my existing account instead.")
 GOOGLE_LINKED_ELSEWHERE = "This Google account is already linked to another account."
+RELINK_WRONG_PASSWORD = "That is not this account's password."
+RELINK_NEEDS_PASSWORD = ("This Google account has another email address than your account. "
+                         "Enter your account's password to link it.")
 RESET_ADDRESS_LIMITED = "Too many reset emails were asked for this address. Please wait an hour and try again."
 RESET_LINK_INVALID = "This link has expired or has already been used. Please ask for a new one."
 
@@ -369,14 +372,25 @@ def refuse_google_linked_elsewhere(db: Session, identity: GoogleIdentity) -> Non
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=GOOGLE_LINKED_ELSEWHERE)
 
 
+def same_email(a: Optional[str], b: Optional[str]) -> bool:
+    """True when both addresses are set and equal ignoring case."""
+    return bool(a) and bool(b) and a.lower() == b.lower()
+
+
 @router.post("/api/auth/me/google")
 @limiter.limit("10/minute")
-async def link_google_to_account(request: Request, body: GoogleSignInRequest, db: Session = Depends(get_db),
+async def link_google_to_account(request: Request, body: AccountGoogleLinkRequest, db: Session = Depends(get_db),
                                  user: User = Depends(get_current_user)):
     """Links the Google account of a Google ID token (the credential, as for
-    /api/auth/google) to the signed-in user, who has none yet. The login token proves
-    the account, so the password stays as it is and so do the login tokens. From then
-    on Sign in with Google signs in to this account."""
+    /api/auth/google) to the signed-in user, who has none yet.
+
+    A login token alone is not enough: whoever stole one could link their own Google
+    account and keep signing in after the owner changed the password. The request
+    must also prove the account again, with its current password, or with a Google
+    account whose email is the account's email (ignoring case), which is how an
+    account whose password nobody knows proves itself. The password stays as it is
+    and so do the login tokens. From then on Sign in with Google signs in to this
+    account."""
     try:
         identity = await verified_google_identity(body.credential)
     except HTTPException as exc:
@@ -389,6 +403,12 @@ async def link_google_to_account(request: Request, body: GoogleSignInRequest, db
         return account_view(user)  # linked already, for example by a second click
     if user.google_sub is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ACCOUNT_ALREADY_LINKED)
+    if body.password:
+        if not await run_in_threadpool(check_password, body.password, user):
+            logger.warning("Wrong password to link a Google account for user id=%s", user.id)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=RELINK_WRONG_PASSWORD)
+    elif not same_email(identity.email, user.email):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=RELINK_NEEDS_PASSWORD)
     refuse_google_linked_elsewhere(db, identity)
     link_google_account(db, user, identity, "signed in", taken_detail=GOOGLE_LINKED_ELSEWHERE)
     return account_view(user)

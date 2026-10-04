@@ -45,7 +45,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /api/investigators/forge | any logged-in user; the character is theirs. `profile_pic` follows the portrait rule (Portraits below) |
 | PUT /api/investigators/{id}/portrait | owner, or GM of the character's campaign while the character is on its roster (active or pending; a retired character still tagged with the campaign is 403 for that GM) |
 | GET /api/auth/me | any logged-in user; their own account |
-| POST /api/auth/me/google | any logged-in user; links a Google account to their own account (Linking Google while signed in below) |
+| POST /api/auth/me/google | any logged-in user who also sends the account's password, or a Google account with the account's email; links it to their own account (Linking Google while signed in below) |
 | GET /api/notebook/{campaign_id}/entries | GM or member; `role=GM` only for the GM (403 otherwise); `character_id` must be the caller's own character (an empty `character_id=` means none) |
 | POST /api/notebook/{campaign_id}/entries | GM or member; a player must send `character_id`, and it must be the caller's own character and an active member of this campaign (the GM may leave it out); Lightkeeper entries (author_type gm, entry_type lightkeeper or visibility gm_only) only for the GM. The server sets `author_name` (the character's name, or the GM's username), pen and ink |
 | PUT, DELETE /api/notebook/entries/{entry_id} | the author: the owner of the entry's character, or the campaign's GM for an entry without a character |
@@ -190,21 +190,28 @@ Two requests at once: the checks above run before the write, so another request 
 - It reads `GET /api/auth/config` on load: no button when the server has no client ID, no password form when password login is off. Until the answer comes (or if it never does) both are offered. A 403 from login or register also hides the form and shows the server's message.
 - After Google: a session is stored exactly like a password login's. `needs_account` shows a choice between "Link my existing account" (username and password, once) and "Create a new account" (the name prefilled with `suggested_name`). Errors show inline in the server's words; a 429 shows "Too many attempts. Please wait a minute and try again."
 - The calls are `fetchAuthConfig`, `signInWithGoogle`, `linkGoogleAccount` and `createGoogleAccount` in `utils/api.js`.
-- For the account menu, the reset page and portraits, `utils/api.js` also has `fetchAccount` (GET /api/auth/me, null on failure), `linkGoogleToAccount(credential)`, `requestPasswordReset(email)` (a 429 reads "Too many reset emails have been asked for. Please try again in an hour."), `confirmPasswordReset(token, password)` (resolves to a session), `setCharacterPortrait(characterId, dataUrlOrNull)` and `PORTRAIT_MAX_BYTES`. No component calls them yet.
+- For the account menu, the reset page and portraits, `utils/api.js` also has `fetchAccount` (GET /api/auth/me, null on failure), `linkGoogleToAccount(credential, password)`, `requestPasswordReset(email)` (a 429 reads "Too many reset emails have been asked for. Please try again in an hour."), `confirmPasswordReset(token, password)` (resolves to a session), `setCharacterPortrait(characterId, dataUrlOrNull)` and `PORTRAIT_MAX_BYTES`. No component calls them yet.
 - Google's button opens a popup. A `Cross-Origin-Opener-Policy: same-origin` header on the page would break it, and a Content-Security-Policy would have to allow `https://accounts.google.com/gsi/` for scripts, frames, styles and connections. The site sends neither today.
 - The Google OAuth client must list every origin the site is served from (and `http://localhost:5173` for development) under Authorized JavaScript origins.
 
 ## Linking Google while signed in
 
-A player who signed in with a password can link a Google account from the desk's account menu. The browser runs Google's sign-in, then posts the credential with its login token.
+A player who signed in with a password can link a Google account from the desk's account menu. The browser runs Google's sign-in, then posts the credential with its login token and, unless the Google email is the account's email, the account's password.
 
 ### GET /api/auth/me
 
 Needs a login token (401 otherwise); not rate limited. Answers the caller's own account: `{"userId": 12, "name": "mira", "email": "mira@example.org", "googleLinked": false}`. The account menu shows "Link Google account" while `googleLinked` is false.
 
-### POST /api/auth/me/google `{credential}`
+### POST /api/auth/me/google `{credential, password?}`
 
-Needs a login token, checked first (401 `{"detail": "Not authenticated."}`, and Google is not asked). Rate limited 10 per minute per IP. Body as for `POST /api/auth/google` (a missing credential, or one over 8192 characters, is 422). It works whether or not password login is on.
+Needs a login token, checked first (401 `{"detail": "Not authenticated."}`, and Google is not asked). Rate limited 10 per minute per IP. `credential` as for `POST /api/auth/google` (missing, or over 8192 characters, is 422); `password` is optional, a string of at most 1024 characters (422 otherwise). It works whether or not password login is on.
+
+A login token alone is not enough. Tokens last 30 days and cannot be revoked one at a time, so a stolen one used to be enough to link the thief's own Google account, which then signed in to the account for good. With password login off it also locked the owner out: their own Google sign-in no longer linked by email (step 2 skips a linked account), create answered 409 for their email and link 409 for the linked account. So the request has to prove the account again, in one of two ways:
+
+- the account's current password (`password`). This is the way for a Google account whose email differs from the account's.
+- a Google account whose email is the account's email, ignoring case (`password` left out, null or empty). Google has verified that address, and whoever controls it could reset the password anyway. This is also how an account whose password nobody knows (one made with Google, or linked by email in step 2) proves itself.
+
+The server cannot tell whether anyone knows an account's password (an unusable one is a bcrypt hash like any other), so it takes either proof from every account. A password that is sent must be right, even when the Google email would have been enough.
 
 | Check, in order | Answer |
 |---|---|
@@ -213,10 +220,14 @@ Needs a login token, checked first (401 `{"detail": "Not authenticated."}`, and 
 | Google cannot be reached | 503, as for sign-in |
 | the account is linked to this Google account already | 200 with the account, nothing changes (a second click) |
 | the account is linked to another Google account | 409 "That account is already linked to a Google account." |
+| a password is sent and it is wrong | **403** "That is not this account's password." (403, not 401, so the session stays; logged like a failed login) |
+| no password, and the Google email is not the account's email | **403** "This Google account has another email address than your account. Enter your account's password to link it." |
 | another user has this Google account | 409 "This Google account is already linked to another account." (also when another request linked it in between and the unique index refuses the write) |
 | otherwise | `google_sub` is set and the answer is the account, as `GET /api/auth/me` gives it, with `googleLinked: true` |
 
-The login token proves the account, so nothing else changes: the password stays (password login keeps working), every login token keeps working, and the account's email stays as it was even when the Google email differs. From then on `POST /api/auth/google` signs in to this account by the Google subject (step 1).
+Nothing else changes: the password stays (password login keeps working), every login token keeps working, and the account's email stays as it was even when the Google email differs. From then on `POST /api/auth/google` signs in to this account by the Google subject (step 1).
+
+Frontend: `linkGoogleToAccount(credential, password)` in `utils/api.js` sends the password when one is given. The account menu can try without it when the Google email is the one `GET /api/auth/me` shows, and ask for the password on the second 403.
 
 ## Portraits
 
@@ -298,7 +309,7 @@ User 1 (`admin`) owns every character forged before tokens without a `user_id` (
 
 - Sign in with Google links by email to the account that has that email, and register never checked that an email belongs to whoever registered it. Someone who registers a password account with another person's email before that person's first Google sign-in used to get that person linked to an account whose password they knew. Since the security review the link replaces the password and ends every earlier login token, so they lose the account at that moment. What they put in it before (characters, a campaign they run) stays with the account, and a WebSocket they still have open keeps working until it closes, because the token is only checked when a socket connects. The other way round is not possible: Google must have verified the email.
 - Password reset trusts the email on the account, and register never checked that an address belongs to whoever registered it. Whoever controls an account's registered address can set its password by reset; the other way round (someone who registered another person's address) they cannot, because the link goes to that address. A player whose account has an address that cannot receive mail (the reserved test domains) cannot reset it.
-- A stolen login token can link the thief's Google account through `POST /api/auth/me/google`, and that link outlives a password reset. Nothing in the app shows or removes a link: unlinking a Google account, or moving it to another user, is a database edit (`google_sub` set to NULL).
+- A stolen login token can no longer link the thief's Google account (`POST /api/auth/me/google` needs the password, or a Google account with the account's email). Someone who knows the password can still link a Google account of their own. Nothing in the app shows or removes a link: unlinking a Google account, or moving it to another user, is a database edit (`google_sub` set to NULL).
 - Two reset requests for one account at the same moment can leave two working links. Each still works once, and both end when either is used.
 - Someone who keeps asking for resets for another person's address uses up its 3 an hour, so that person waits for the hour too. The per-IP and per-address counts are in memory and reset when the server restarts.
 - A token cannot be revoked on its own before it expires. Replacing the user's password hash revokes all of that user's tokens (the password stamp), changing `SECRET_KEY` logs everyone out, and deleting a user revokes theirs, because the user lookup fails.

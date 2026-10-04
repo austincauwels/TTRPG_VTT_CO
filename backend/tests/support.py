@@ -108,8 +108,13 @@ def update(model, obj_id, **fields):
 def password_hash():
     global _password_hash
     if _password_hash is None:
-        _password_hash = main.pwd_context.handler("bcrypt").using(rounds=4).hash(PASSWORD)
+        _password_hash = cheap_hash(PASSWORD)
     return _password_hash
+
+
+def cheap_hash(password):
+    """A bcrypt hash of the password with 4 rounds (fast; login accepts it)."""
+    return main.pwd_context.handler("bcrypt").using(rounds=4).hash(password)
 
 
 def make_user(username=None, email=None, **fields):
@@ -144,6 +149,14 @@ def token_for(user_id):
         r = login(CLIENT, username, password)
         assert r.status_code == 200, r.text
         _TOKENS[user_id] = r.json()["token"]
+    return _TOKENS[user_id]
+
+
+def fresh_token(user_id):
+    """A login token for the user's password hash as it is now (for a user whose hash
+    a test replaced, which ends the tokens issued before). It replaces the cached one."""
+    from vtt.security import create_access_token
+    _TOKENS[user_id] = create_access_token(user_id, fetch(User, user_id).hashed_password)
     return _TOKENS[user_id]
 
 

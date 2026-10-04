@@ -89,6 +89,22 @@ class GoogleSignInRequest(BaseModel):
     def credential_length(cls, v):
         return _check_token_length(v)
 
+class AccountGoogleLinkRequest(BaseModel):
+    """POST /api/auth/me/google: the credential, as for /api/auth/google, plus the
+    account's current password unless the Google email is the account's email."""
+    credential: str
+    password: Optional[str] = None
+
+    @field_validator("credential")
+    @classmethod
+    def credential_length(cls, v):
+        return _check_token_length(v)
+
+    @field_validator("password")
+    @classmethod
+    def password_length(cls, v):
+        return v if v is None else _check_login_password(v)
+
 class GoogleLinkRequest(BaseModel):
     link_token: str
     username: str

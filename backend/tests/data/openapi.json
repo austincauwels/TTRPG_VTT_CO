@@ -1,6 +1,31 @@
 {
   "components": {
     "schemas": {
+      "AccountGoogleLinkRequest": {
+        "description": "POST /api/auth/me/google: the credential, as for /api/auth/google, plus the\naccount's current password unless the Google email is the account's email.",
+        "properties": {
+          "credential": {
+            "title": "Credential",
+            "type": "string"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "required": [
+          "credential"
+        ],
+        "title": "AccountGoogleLinkRequest",
+        "type": "object"
+      },
       "Body_upload_notebook_image_api_notebook__campaign_id__upload_post": {
         "properties": {
           "author_name": {
@@ -1533,13 +1558,13 @@
     },
     "/api/auth/me/google": {
       "post": {
-        "description": "Links the Google account of a Google ID token (the credential, as for\n/api/auth/google) to the signed-in user, who has none yet. The login token proves\nthe account, so the password stays as it is and so do the login tokens. From then\non Sign in with Google signs in to this account.",
+        "description": "Links the Google account of a Google ID token (the credential, as for\n/api/auth/google) to the signed-in user, who has none yet.\n\nA login token alone is not enough: whoever stole one could link their own Google\naccount and keep signing in after the owner changed the password. The request\nmust also prove the account again, with its current password, or with a Google\naccount whose email is the account's email (ignoring case), which is how an\naccount whose password nobody knows proves itself. The password stays as it is\nand so do the login tokens. From then on Sign in with Google signs in to this\naccount.",
         "operationId": "link_google_to_account_api_auth_me_google_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/GoogleSignInRequest"
+                "$ref": "#/components/schemas/AccountGoogleLinkRequest"
               }
             }
           },
