@@ -408,13 +408,16 @@ const PaperSheet = ({ children, className = "" }) => (
         <span className="text-[7px] font-sans font-black tracking-[0.35em] text-[#3e2a1a] uppercase">Archive</span>
       </div>
     </div>
-    <div className="relative z-10 p-8">{children}</div>
+    <div className="relative z-10 p-4 sm:p-8">{children}</div>
   </div>
 );
 
 // ── Individual specialty card ──────────────────────────────────────────────────
 const CARD_W = 275;
 const CARD_H = 430;
+// The deck is sized by the CSS variable --card-w (set per breakpoint on the stack), keeping
+// the card's 275:430 proportion; CARD_W is the full desktop width.
+const CARD_SIZE = { width: 'var(--card-w)', height: `calc(var(--card-w) * ${CARD_H} / ${CARD_W})` };
 
 // CardFace — pure visual card, no positional logic (container handles placement & animation)
 const CardFace = ({ roleName, specialtyName }) => {
@@ -631,22 +634,23 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
   const STEP_UNLOCKED = [true, step2Unlocked, step3Unlocked, step4Unlocked];
 
   return (
-    <div className="w-full px-10 py-6 font-serif text-[#1a1311]">
+    <div className="w-full px-4 sm:px-6 lg:px-10 py-6 font-serif text-[#1a1311]">
 
       {/* ── PROGRESS NAV ── */}
-      <div className="flex border border-[#3e2f29] bg-[#1a1311] text-base font-sans font-black tracking-widest text-center select-none rounded mb-8 shadow-md overflow-hidden">
+      <div className="flex border border-[#3e2f29] bg-[#1a1311] text-xs sm:text-sm lg:text-base font-sans font-black tracking-wider sm:tracking-widest text-center select-none rounded mb-6 sm:mb-8 shadow-md overflow-hidden">
         {STEP_LABELS.map((label, i) => {
           const n = i + 1;
           const unlocked = STEP_UNLOCKED[i];
           const active = step === n;
+          const [num, ...words] = label.split(' ');
           return (
             <div key={n} onClick={() => unlocked && setStep(n)}
-              className={`flex-1 py-4 border-r border-[#3e2f29] last:border-r-0 transition-colors ${
+              className={`${active ? 'flex-[3] sm:flex-1' : 'flex-1'} py-3 sm:py-4 px-1 border-r border-[#3e2f29] last:border-r-0 transition-colors ${
                 active   ? 'bg-[#721c15] text-[#fdfaf4]' :
                 unlocked ? 'text-[#fdfaf4]/50 hover:bg-black/20 cursor-pointer' :
                            'opacity-25 cursor-not-allowed text-[#fdfaf4]/20'
               }`}>
-              {label}
+              {num}<span className={active ? '' : 'hidden sm:inline'}> {words.join(' ')}</span>
             </div>
           );
         })}
@@ -656,7 +660,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
           STEP 1 — CHOOSE YOUR PATH
           ══════════════════════════════════════════════════════════════════════ */}
       {step === 1 && (
-        <div className="animate-fadeIn">
+        <div className="animate-fadeIn pb-28 lg:pb-0">
           <style>{`
             @import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Caveat&family=Cedarville+Cursive&family=Charm&family=Dawning+of+a+New+Day&family=Gaegu&family=Gochi+Hand&family=Grape+Nuts&family=Homemade+Apple&family=Indie+Flower&family=Kalam&family=La+Belle+Aurore&family=Long+Cang&family=Moondance&family=Patrick+Hand&family=Reenie+Beenie&family=Rock+Salt&family=Sacramento&family=Shadows+Into+Light&family=Zeyada&display=swap');
             @keyframes cardFlipOutForward  { from { transform: rotateY(0deg);    } to { transform: rotateY(-90deg); } }
@@ -666,26 +670,26 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
           `}</style>
 
           <div className="text-center mb-6">
-            <h2 className="text-4xl font-black uppercase tracking-widest text-[#fdfaf4]"
+            <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-[0.12em] sm:tracking-widest text-[#fdfaf4]"
               style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}>Choose Your Path</h2>
-            <p className="text-base font-sans tracking-[0.2em] text-[#fdfaf4]/35 uppercase mt-2">
+            <p className="text-xs sm:text-base font-sans tracking-[0.12em] sm:tracking-[0.2em] text-[#fdfaf4]/35 uppercase mt-2">
               Flip through the deck — choose one specialty ability and one role ability to continue
             </p>
           </div>
 
-          <div className="flex gap-10 items-start">
+          <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 items-center lg:items-start">
 
             {/* ── LEFT: stacked card deck ── */}
-            <div className="shrink-0 flex flex-col items-center gap-5" style={{ width: 340 }}>
+            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px]">
 
               {/* Card stack */}
-              <div style={{ position: 'relative', width: CARD_W + 30, height: CARD_H + 25 }}>
+              <div style={{ position: 'relative', width: 'calc(var(--card-w) + 30px)', height: `calc(${CARD_SIZE.height} + 25px)` }}>
 
                 {/* Depth shadow cards beneath */}
                 {[4, 3, 2, 1].map(n => (
                   <div key={n} style={{
                     position: 'absolute', bottom: 0, left: '50%',
-                    width: CARD_W, height: CARD_H,
+                    ...CARD_SIZE,
                     transform: `translateX(calc(-50% + ${n * 5}px)) translateY(${n * 4}px)`,
                     borderRadius: 5,
                     background: currentColor.cardBg,
@@ -698,7 +702,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 {/* Top card — animated on flip */}
                 <div style={{
                   position: 'absolute', bottom: 0, left: '50%',
-                  width: CARD_W, height: CARD_H,
+                  ...CARD_SIZE,
                   transform: 'translateX(-50%)',
                   zIndex: 10, perspective: '1000px',
                 }}>
@@ -733,22 +737,21 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
               </div>
 
               {/* Role description blurb */}
-              <p className="text-base font-sans italic text-[#fdfaf4]/40 text-center leading-relaxed px-3 max-w-[280px]">
+              <p className="text-sm sm:text-base font-sans italic text-[#fdfaf4]/40 text-center leading-relaxed px-3 max-w-[280px]">
                 {currentRoleData.description}
               </p>
             </div>
 
             {/* ── RIGHT: always-visible panel ── */}
-            <div className="flex-1 flex flex-col rounded overflow-hidden"
+            <div className="w-full lg:w-auto lg:flex-1 flex flex-col rounded lg:overflow-hidden lg:min-h-[455px]"
               style={{ border: `1px solid ${currentColor.primary}33`, background: '#0a0705',
-                boxShadow: `0 4px 20px rgba(0,0,0,0.6), inset 0 0 0 1px ${currentColor.secondary}44`,
-                minHeight: CARD_H + 25 }}>
+                boxShadow: `0 4px 20px rgba(0,0,0,0.6), inset 0 0 0 1px ${currentColor.secondary}44` }}>
 
               {/* Header */}
-              <div className="px-6 pt-5 pb-4 shrink-0"
+              <div className="px-4 sm:px-6 pt-5 pb-4 shrink-0"
                 style={{ borderBottom: `1px solid ${currentColor.primary}25`, background: `linear-gradient(to bottom, rgba(${currentColor.rgb},0.1), transparent)` }}>
                 <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-full flex items-center justify-center shrink-0"
+                  <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shrink-0"
                     style={{ background: `rgba(${currentColor.rgb},0.15)`, border: `2px solid ${currentColor.primary}` }}>
                     <SafeIcon name={currentSpecData.icon} size={46} style={{ color: currentColor.primary }} />
                   </div>
@@ -756,7 +759,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                     <p className="text-sm font-sans font-black tracking-[0.22em] uppercase" style={{ color: currentColor.primary }}>
                       {currentCard.roleName}
                     </p>
-                    <h3 className="text-3xl font-black text-[#fdfaf4] leading-tight">{currentCard.specialtyName}</h3>
+                    <h3 className="text-2xl sm:text-3xl font-black text-[#fdfaf4] leading-tight">{currentCard.specialtyName}</h3>
                     <p className="text-base italic text-[#fdfaf4]/55 mt-0.5">{currentSpecData.description}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {(ILLUMINATION_KEYS[currentCard.specialtyName] || []).map(k => (
@@ -771,11 +774,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
               </div>
 
               {/* Side-by-side abilities */}
-              <div className="grid grid-cols-2 flex-1 overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 flex-1 overflow-y-auto custom-scrollbar">
 
                 {/* Left col — specialty abilities */}
-                <div className="px-5 py-4 space-y-2"
-                  style={{ borderRight: `1px solid ${currentColor.primary}18` }}>
+                <div className="px-4 sm:px-5 py-4 space-y-2 border-b md:border-b-0 md:border-r"
+                  style={{ borderColor: `${currentColor.primary}18` }}>
                   <p className="text-base font-sans font-black tracking-[0.2em] uppercase mb-3" style={{ color: currentColor.primary }}>
                     Specialty Ability — Choose One
                   </p>
@@ -804,7 +807,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 </div>
 
                 {/* Right col — role abilities + specialty gear */}
-                <div className="px-5 py-4 space-y-2 flex flex-col">
+                <div className="px-4 sm:px-5 py-4 space-y-2 flex flex-col">
                   <p className="text-base font-sans font-black tracking-[0.2em] uppercase mb-3" style={{ color: currentColor.primary }}>
                     {currentCard.roleName} Role Ability — Choose One
                   </p>
@@ -849,14 +852,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
               </div>
 
               {/* Footer — CTA only */}
-              <div className="px-6 py-4 shrink-0"
+              <div className="fixed inset-x-0 bottom-0 z-40 bg-[#0a0705] shadow-[0_-10px_24px_rgba(0,0,0,0.75)] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:static lg:z-auto lg:bg-transparent lg:shadow-none lg:px-6 lg:py-4 shrink-0"
                 style={{ borderTop: `1px solid ${currentColor.primary}20` }}>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-base italic text-[#fdfaf4]/35">
+                <div className="flex items-center justify-between gap-3 max-w-[1500px] mx-auto">
+                  <p className="text-sm sm:text-base italic text-[#fdfaf4]/35">
                     {(!selectedSpecialtyAbility || !selectedRoleAbility) ? 'Select one ability from each column to continue' : 'Ready to proceed'}
                   </p>
                   <button onClick={chooseSpecialty} disabled={!selectedRoleAbility || !selectedSpecialtyAbility}
-                    className="px-6 py-2.5 text-base font-sans font-black uppercase tracking-wider rounded transition-all shrink-0"
+                    className="px-4 sm:px-6 py-3 lg:py-2.5 text-sm sm:text-base font-sans font-black uppercase tracking-wider rounded transition-all shrink-0"
                     style={{
                       background: (selectedRoleAbility && selectedSpecialtyAbility) ? currentColor.primary : 'rgba(255,255,255,0.06)',
                       color: (selectedRoleAbility && selectedSpecialtyAbility) ? '#0a0705' : 'rgba(255,255,255,0.2)',
@@ -879,7 +882,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
         <PaperSheet>
           <div className="animate-fadeIn space-y-6">
             <div className="text-center pb-4" style={{ borderBottom: '1px solid rgba(62,42,26,0.22)' }}>
-              <h2 className="text-3xl font-black uppercase tracking-wide text-[#721c15]">Investigator Profile</h2>
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide text-[#721c15]">Investigator Profile</h2>
               <p className="text-base font-sans font-black uppercase tracking-[0.18em] text-black/40 mt-1">
                 {specialty} · {role} — Complete identity and examination record
               </p>
@@ -891,11 +894,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
               {/* LEFT: Portrait + Name/Pronouns/Characteristics */}
               <div className="space-y-4">
                 {/* Portrait + Name row */}
-                <div className="flex gap-4 items-start">
+                <div className="flex gap-3 sm:gap-4 items-start">
                   <div className="shrink-0">
                     <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1.5">Portrait</label>
-                    <label className="flex flex-col items-center justify-center cursor-pointer hover:bg-[#e4cfa0]/55 hover:border-[#721c15]/50 transition-all relative overflow-hidden shadow-inner group rounded"
-                      style={{ width: 160, height: 200, border: '2px dashed rgba(90,58,40,0.4)', background: 'rgba(228,207,160,0.3)' }}>
+                    <label className="flex flex-col items-center justify-center cursor-pointer hover:bg-[#e4cfa0]/55 hover:border-[#721c15]/50 transition-all relative overflow-hidden shadow-inner group rounded w-[112px] h-[140px] sm:w-[160px] sm:h-[200px]"
+                      style={{ border: '2px dashed rgba(90,58,40,0.4)', background: 'rgba(228,207,160,0.3)' }}>
                       {profilePic
                         ? <img src={profilePic} alt="Portrait" className="w-full h-full object-cover" />
                         : <div className="text-center px-3">
@@ -907,7 +910,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                     </label>
                   </div>
 
-                  <div className="flex-1 space-y-3 pt-5">
+                  <div className="flex-1 min-w-0 space-y-3 pt-5">
                     <div>
                       <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1">Full Name *</label>
                       <input type="text" value={name} onChange={e => setName(e.target.value)}
@@ -979,7 +982,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
         <PaperSheet>
           <div className="animate-fadeIn space-y-6">
             <div className="text-center pb-5" style={{ borderBottom: '1px solid rgba(62,42,26,0.22)' }}>
-              <h2 className="text-3xl font-black uppercase tracking-wide text-[#721c15]">Action Ratings &amp; Drive</h2>
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide text-[#721c15]">Action Ratings &amp; Drive</h2>
               <p className="text-base font-sans font-black uppercase tracking-[0.18em] text-black/40 mt-1">
                 {specialty} starting values locked — raise one, add 3 free action points, assign 6 drive points
               </p>
@@ -1024,7 +1027,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                   {freePtsUsed}/3 placed
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {ACTION_DRIVES.map(di => {
                   const gKey = di.drive.toLowerCase();
                   return (
@@ -1073,10 +1076,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <button onClick={() => adjustFreePoints(key,-1)} disabled={free<=0}
-                                  className="w-7 h-7 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
+                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
                                   style={{ color:'#721c15', borderColor:'#721c1550' }}>−</button>
                                 <button onClick={() => adjustFreePoints(key,1)} disabled={total>=2||freePtsUsed>=3}
-                                  className="w-7 h-7 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
+                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
                                   style={{ color:'#721c15', borderColor:'#721c1550' }}>+</button>
                               </div>
                             </div>
@@ -1099,7 +1102,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                   {drivesPtsUsed}/6 placed
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
                   {key:'nerve',     label:'Nerve',     color:'#7a4822'},
                   {key:'cunning',   label:'Cunning',   color:'#2a4d25'},
@@ -1126,11 +1129,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                       </div>
                       <div className="flex gap-2 items-center">
                         <button onClick={() => adjustDrive(key,-1)} disabled={addVal<=0}
-                          className="w-7 h-7 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
+                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
                           style={{ color, borderColor:`${color}50` }}>−</button>
                         <span className="text-sm font-sans font-black w-8 text-center" style={{ color }}>+{addVal}</span>
                         <button onClick={() => adjustDrive(key,1)} disabled={drivesPtsUsed>=6}
-                          className="w-7 h-7 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
+                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
                           style={{ color, borderColor:`${color}50` }}>+</button>
                       </div>
                     </div>
@@ -1140,7 +1143,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             </div>
 
             {/* Validation status */}
-            <div className="flex justify-center gap-6 text-xs font-sans font-black uppercase tracking-widest">
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs font-sans font-black uppercase tracking-widest">
               {[
                 {label:'Free Raise', done: !!freeRaiseKey},
                 {label:'3 Action Pts', done: freePtsUsed===3},
@@ -1168,8 +1171,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
         <PaperSheet>
           <div className="animate-fadeIn space-y-7">
             <div className="text-center pb-5" style={{ borderBottom: '1px solid rgba(62,42,26,0.22)' }}>
-              <h2 className="text-3xl font-black uppercase tracking-wide text-[#721c15]">Specialty Gear &amp; Final Dossier</h2>
-              <p className="text-lg font-sans font-black uppercase tracking-[0.18em] text-black/40 mt-1">
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide text-[#721c15]">Specialty Gear &amp; Final Dossier</h2>
+              <p className="text-xs sm:text-lg font-sans font-black uppercase tracking-[0.12em] sm:tracking-[0.18em] text-black/40 mt-1">
                 Select up to 3 items — then review and submit your dossier for Archive transmission
               </p>
               <p className="text-sm font-sans italic text-[#721c15]/60 mt-2">
@@ -1188,7 +1191,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
 
               {/* Specialty gear */}
               <div className="mb-4">
-                <p className="text-lg font-sans font-black uppercase tracking-[0.18em] text-[#721c15]/70 mb-2">Signature Equipment — {specialty}</p>
+                <p className="text-sm sm:text-lg font-sans font-black uppercase tracking-[0.12em] sm:tracking-[0.18em] text-[#721c15]/70 mb-2">Signature Equipment — {specialty}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {ROLES[role]?.specialties[specialty]?.gear.map(item => (
                     <div key={item} onClick={() => toggleGear(item)}
@@ -1210,7 +1213,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
 
               {/* Standard gear */}
               <div>
-                <p className="text-lg font-sans font-black uppercase tracking-[0.18em] text-[#5a3a28]/55 mb-2">Standard Issue Equipment</p>
+                <p className="text-sm sm:text-lg font-sans font-black uppercase tracking-[0.12em] sm:tracking-[0.18em] text-[#5a3a28]/55 mb-2">Standard Issue Equipment</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {STANDARD_GEAR.map(item => (
                     <div key={item} onClick={() => toggleGear(item)}
@@ -1233,7 +1236,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             {/* Dossier summary */}
             <div style={{ borderTop: '2px dashed rgba(62,42,26,0.2)' }} className="pt-5 space-y-4">
               <h3 className="text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15]">Candela Archive Ledger — Investigator Summary</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   { label: "Investigator", value: name },
                   { label: "Pronouns",     value: pronouns || '—' },
@@ -1241,8 +1244,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                   { label: "Gear Selected", value: `${selectedGear.length} of 3 items` },
                 ].map(({ label, value }) => (
                   <div key={label} className="p-3 rounded-sm" style={{ background: 'rgba(228,207,160,0.28)', border: '1px solid rgba(90,58,40,0.15)' }}>
-                    <span className="block text-lg font-sans font-black uppercase tracking-[0.15em] text-[#721c15] mb-0.5">{label}</span>
-                    <span className="text-lg font-bold text-[#1a1311] block truncate">{value}</span>
+                    <span className="block text-sm sm:text-lg font-sans font-black uppercase tracking-[0.15em] text-[#721c15] mb-0.5">{label}</span>
+                    <span className="text-lg font-bold text-[#1a1311] block break-words sm:truncate">{value}</span>
                   </div>
                 ))}
               </div>
@@ -1261,7 +1264,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
 
       {/* ── BOTTOM NAV BUTTONS ── */}
       {step > 1 && (
-        <div className="flex justify-between items-center mt-5">
+        <div className="flex flex-wrap justify-between items-center gap-3 mt-5">
           <button onClick={() => setStep(step - 1)}
             className="px-5 py-2 text-base border border-[#fdfaf4]/18 font-sans font-black uppercase tracking-widest text-[#fdfaf4]/50 hover:bg-white/5 hover:text-[#fdfaf4]/75 transition-all rounded">
             ← Back
@@ -1300,16 +1303,16 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
               <button
                 onClick={() => handleComplete('save')}
-                className="px-6 py-2.5 text-sm border border-[#8b5a2b] font-sans font-black uppercase tracking-widest rounded transition-all"
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border border-[#8b5a2b] font-sans font-black uppercase tracking-widest rounded transition-all"
                 style={{ background: 'rgba(245,235,214,0.6)', color: '#3e2a1a' }}>
                 Save for Later
               </button>
               <button
                 onClick={() => setShowJoinInput(true)}
-                className="px-6 py-2.5 text-sm border-2 border-[#1a1311] font-sans font-black uppercase tracking-widest rounded shadow-md transition-all"
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border-2 border-[#1a1311] font-sans font-black uppercase tracking-widest rounded shadow-md transition-all"
                 style={{ background: '#721c15', color: '#fdfaf4' }}>
                 Join a Campaign
               </button>
@@ -1319,18 +1322,16 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
           {/* JOIN CAMPAIGN MODAL */}
           {showJoinInput && (
             <div
-              className="fixed inset-0 z-[500] flex items-center justify-center"
+              className="fixed inset-0 z-[500] flex items-center justify-center p-4"
               style={{ background: 'rgba(10,6,4,0.82)' }}
               onClick={() => { setShowJoinInput(false); setPenDropdownOpen(false); }}
             >
               <div
-                className="relative flex flex-col gap-5 rounded-sm"
+                className="relative flex flex-col gap-5 rounded-sm w-full max-w-[480px] max-h-[calc(100dvh-32px)] overflow-y-auto px-5 pt-6 pb-5 sm:px-10 sm:pt-9 sm:pb-8"
                 style={{
-                  width: 480,
                   background: '#ffffff',
                   border: '3px double rgba(0,0,0,0.3)',
                   boxShadow: '0 20px 60px rgba(0,0,0,0.9)',
-                  padding: '36px 40px 32px',
                 }}
                 onClick={e => e.stopPropagation()}
               >

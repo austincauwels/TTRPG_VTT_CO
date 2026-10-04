@@ -55,11 +55,11 @@ export const AppRouter = () => {
     case 'CHARACTER_CREATION':
       return (
         <div
-          className="min-h-screen bg-[#110a08] py-8 font-serif"
+          className="min-h-screen bg-[#110a08] py-6 sm:py-8 font-serif"
           style={{ color: accessSession?.pen?.color || '#fdfaf4', fontFamily: accessSession?.pen?.font || 'serif' }}
         >
-          <header className="max-w-6xl mx-auto mb-6 text-center">
-            <h1 className="text-5xl mb-2 font-serif font-black tracking-tight text-[#fdfaf4]">CANDELA OBSCURA</h1>
+          <header className="max-w-6xl mx-auto mb-4 sm:mb-6 px-4 text-center">
+            <h1 className="text-4xl sm:text-5xl mb-2 font-serif font-black tracking-tight text-[#fdfaf4]">CANDELA OBSCURA</h1>
             <p className="text-sm font-sans font-black tracking-widest text-[#a82222] uppercase">Investigator Forging</p>
           </header>
 
