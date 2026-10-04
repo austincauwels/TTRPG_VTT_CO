@@ -163,7 +163,7 @@ def test_login_gm(client):
 def test_login_gm_of_retired_campaign_is_player(client):
     u = support.make_user()
     camp = support.new_campaign(client, gm_user_id=u.id)
-    assert client.post(f"/campaign/{camp['id']}/retire").status_code == 200
+    assert client.post(f"/campaign/{camp['id']}/retire", headers=support.as_user(u.id)).status_code == 200
     r = client.post("/api/auth/login", json={"username": u.username, "password": support.PASSWORD})
     assert r.json()["role"] == "PLAYER"
     assert r.json()["campaignId"] is None
@@ -183,7 +183,7 @@ def test_login_with_pending_rejoin_invite(client):
 def test_login_invite_to_retired_campaign_is_hidden(client):
     camp = support.new_campaign(client)
     u = support.make_user(pending_rejoin_campaign_id=camp["id"])
-    client.post(f"/campaign/{camp['id']}/retire")
+    client.post(f"/campaign/{camp['id']}/retire", headers=support.as_gm(camp))
     r = client.post("/api/auth/login", json={"username": u.username, "password": support.PASSWORD})
     assert r.json()["pendingRejoinInvite"] is None
 

@@ -73,6 +73,7 @@ def client():
     # like the single uvicorn worker in production. Broadcasts from one socket's
     # handler to another socket therefore work as they do live.
     with TestClient(main.app) as c:
+        support.CLIENT = c  # the helpers log users in through it
         # Record what a brand new PostgreSQL database does before anything else
         # touches it: init_db inserted user 1 and circle 1 with explicit ids, so
         # the SERIAL sequences still hand out 1 next.
@@ -84,7 +85,7 @@ def client():
             })
             support.FRESH_DB["first_register_status"] = r.status_code
             camp = support.new_campaign(c)
-            r = c.get(f"/campaign/{camp['id']}/circle-creation-state")
+            r = c.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp))
             support.FRESH_DB["first_circle_status"] = r.status_code
         _resync_sequences()
         yield c

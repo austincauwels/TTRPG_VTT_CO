@@ -10,7 +10,7 @@ EM = support.EM
 def _campaign(client, members=1, **char_fields):
     camp = support.new_campaign(client)
     chars = [support.active_member(client, camp, **char_fields) for _ in range(members)]
-    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()["circle_id"]
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()["circle_id"]
     return camp, chars, cid
 
 
@@ -177,8 +177,9 @@ def test_refill_resources_counts_circle_members(client):
         p = gm.sync()[0]["payload"]
         assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (1, 1, 1, 1)
         # a rejoined character is moved onto the campaign circle and then counts
-        late = support.forge(client, user_id=support.make_user().id)
-        client.post("/campaign/rejoin", json={"character_id": late["id"], "campaign_code": camp["campaign_code"]})
+        late = support.forge(client, user_id=support.make_user(pending_rejoin_campaign_id=camp["id"]).id)
+        client.post("/campaign/rejoin", json={"character_id": late["id"], "campaign_code": camp["campaign_code"]},
+                    headers=support.as_owner(late["id"]))
         gm.drain()
         # QUIRK: the GM socket's long-lived session still holds the member list it
         # loaded before the rejoin, so this refill uses the old count while the
@@ -396,9 +397,10 @@ def test_ws_propose_again_resets_the_existing_relationship(client):
     camp, (a, b), cid = _campaign(client, members=2)
     rel_id = client.post("/circle/relationship/propose", json={
         "circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"],
-        "rel_type": "Rivals", "lore": "feud"}).json()["relationships"][0]["id"]
+        "rel_type": "Rivals", "lore": "feud"}, headers=support.as_owner(a["id"])).json()["relationships"][0]["id"]
     client.post("/circle/relationship/respond", json={
-        "relationship_id": rel_id, "action": "counter", "counter_type": "Allies", "counter_lore": "truce"})
+        "relationship_id": rel_id, "action": "counter", "counter_type": "Allies", "counter_lore": "truce"},
+        headers=support.as_owner(b["id"]))
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
         wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"],
                 rel_type="Friends", lore="new")

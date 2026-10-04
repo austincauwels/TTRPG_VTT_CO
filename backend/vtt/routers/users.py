@@ -1,18 +1,23 @@
-"""Per-user lists for the campaign selector (GET /api/users/{user_id}/...)."""
+"""Per-user lists for the campaign selector (GET /api/users/{user_id}/...).
+
+Both need a login token, and user_id must be the token's own user (403 otherwise).
+"""
 from typing import List
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from models import Campaign, Character
+from models import Campaign, Character, User
+from vtt.auth import get_current_user, require_self
 from vtt.db import get_db
 from vtt.schemas import CampaignSummaryItem, CharacterSummaryItem
 
 router = APIRouter()
 
 @router.get("/api/users/{user_id}/characters", response_model=List[CharacterSummaryItem])
-def get_user_characters(user_id: int, db: Session = Depends(get_db)):
-    chars = db.query(Character).filter(Character.user_id == user_id).all()
+def get_user_characters(user_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    require_self(user, user_id)
+    chars =db.query(Character).filter(Character.user_id == user_id).all()
     campaign_ids = list({c.campaign_id for c in chars if c.campaign_id})
     campaigns_by_id = {}
     if campaign_ids:
@@ -35,7 +40,8 @@ def get_user_characters(user_id: int, db: Session = Depends(get_db)):
     return result
 
 @router.get("/api/users/{user_id}/campaigns", response_model=List[CampaignSummaryItem])
-def get_user_gm_campaigns(user_id: int, db: Session = Depends(get_db)):
+def get_user_gm_campaigns(user_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    require_self(user, user_id)
     return db.query(Campaign).filter(
         Campaign.gm_user_id == user_id,
         Campaign.is_retired == False,

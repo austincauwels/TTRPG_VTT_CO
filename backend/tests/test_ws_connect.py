@@ -139,7 +139,7 @@ def test_disconnect_removes_socket_but_keeps_key(client):
 
 def test_connect_with_campaign_that_has_circle_reuses_it(client):
     camp = support.new_campaign(client)
-    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()["circle_id"]
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()["circle_id"]
     with support.ws_connect(client, camp["campaign_code"]) as ws:
         assert ws.initial[0]["payload"]["id"] == cid
     assert len(support.fetch_all(Circle, campaign_id=camp["id"])) == 1
@@ -219,7 +219,7 @@ def test_failed_lookup_rollback_reloads_the_stale_circle(client):
     a commit does, so the connect-time circle is read fresh on the next frame."""
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
-    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()["circle_id"]
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()["circle_id"]
     support.update(Circle, cid, resources_editable=False, stitch=2, refresh=2, train=2)
     with support.ws_connect(client, member["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("gm_toggle_resource_edit", role="GM")

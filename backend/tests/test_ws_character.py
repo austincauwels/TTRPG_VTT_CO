@@ -193,7 +193,7 @@ def test_apply_advancement_has_no_gate(client):
 def _resource_setup(client, editable=True, **char_fields):
     camp = support.new_campaign(client)
     member = support.active_member(client, camp, **char_fields)
-    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()["circle_id"]
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()["circle_id"]
     support.update(Circle, cid, resources_editable=editable, stitch=2, refresh=2, train=2)
     return camp, member, cid
 

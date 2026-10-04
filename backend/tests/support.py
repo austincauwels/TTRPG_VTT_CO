@@ -7,6 +7,13 @@ two rows main.py seeds at import (user 1 'admin' and circle 1).
 The WebSocket helpers read frames with a timeout. They use two private attributes
 of starlette's WebSocketTestSession (portal and _send_rx) because the public
 receive methods block forever when the server sends nothing.
+
+Every route except login and register needs a login token. The helpers log users
+in through POST /api/auth/login (once per user, then the token is cached) and send
+the token of whoever should be acting: as_user(user_id), as_owner(character_id),
+as_gm(campaign) and as_stranger() return the headers for a request, and the REST
+shortcuts below pick the rightful caller by default. Users made by make_user get a
+cheap bcrypt hash (4 rounds) so that logging in hundreds of them stays fast.
 """
 import contextlib
 import json
@@ -26,6 +33,13 @@ ARROW = "\u2192"   # arrow used in whisper log messages
 
 PASSWORD = "correct-horse-1"
 _password_hash = None
+
+# The session TestClient, set by the client fixture in conftest.py.
+CLIENT = None
+# user id -> (username, password) for every user the tests can log in as, and the
+# login token once it has been fetched.
+_CREDENTIALS = {1: ("admin", "admin")}
+_TOKENS = {}
 
 # Filled in once per run by the session fixture in conftest.py before any test runs.
 FRESH_DB = {}
@@ -93,7 +107,7 @@ def update(model, obj_id, **fields):
 def password_hash():
     global _password_hash
     if _password_hash is None:
-        _password_hash = main.pwd_context.hash(PASSWORD)
+        _password_hash = main.pwd_context.handler("bcrypt").using(rounds=4).hash(PASSWORD)
     return _password_hash
 
 
@@ -110,7 +124,71 @@ def make_user(username=None, email=None, **fields):
         s.commit()
         s.refresh(u)
         s.expunge(u)
-        return u
+    _CREDENTIALS[u.id] = (u.username, PASSWORD)
+    return u
+
+
+# ---------------------------------------------------------------------------
+# Login tokens
+# ---------------------------------------------------------------------------
+
+def login(client, username, password):
+    return client.post("/api/auth/login", json={"username": username, "password": password})
+
+
+def token_for(user_id):
+    """The login token of a user made by make_user (or admin), logging in on first use."""
+    if user_id not in _TOKENS:
+        username, password = _CREDENTIALS[user_id]
+        r = login(CLIENT, username, password)
+        assert r.status_code == 200, r.text
+        _TOKENS[user_id] = r.json()["token"]
+    return _TOKENS[user_id]
+
+
+def bearer(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def as_user(user_id):
+    return bearer(token_for(user_id))
+
+
+def as_stranger():
+    """A logged-in user who owns nothing and runs no campaign."""
+    return as_user(make_user().id)
+
+
+def owner_id(character_id):
+    row = fetch(Character, character_id)
+    return row.user_id if row is not None else None
+
+
+def gm_id(campaign):
+    """The GM of a campaign, given its id or the dict /campaign/create returned."""
+    campaign_id = campaign["id"] if isinstance(campaign, dict) else campaign
+    row = fetch(Campaign, campaign_id)
+    return row.gm_user_id if row is not None else None
+
+
+def as_owner(character_id):
+    """The owner of a character; a stranger when the character does not exist."""
+    uid_ = owner_id(character_id)
+    return as_user(uid_) if uid_ is not None else as_stranger()
+
+
+def as_gm(campaign):
+    """The GM of a campaign; a stranger when it does not exist or has no GM."""
+    uid_ = gm_id(campaign)
+    return as_user(uid_) if uid_ is not None else as_stranger()
+
+
+def as_gm_of_character(character_id):
+    """The GM of the campaign a character belongs to; a stranger otherwise."""
+    row = fetch(Character, character_id)
+    if row is None or row.campaign_id is None:
+        return as_stranger()
+    return as_gm(row.campaign_id)
 
 
 def campaign_circle(campaign_id):
@@ -126,29 +204,40 @@ def campaign_circle(campaign_id):
 # ---------------------------------------------------------------------------
 
 def new_campaign(client, gm_user_id=None, name=None, code=None):
+    """Create a campaign as gm_user_id (sent as user_id too, as the frontend does), or
+    as a new user when none is given. The caller becomes the GM."""
     params = {"name": name or f"Campaign {uid()}", "code": code or f"c-{uid()}"}
     if gm_user_id is not None:
         params["user_id"] = gm_user_id
-    r = client.post("/campaign/create", params=params)
+    gm = gm_user_id if gm_user_id is not None else make_user().id
+    r = client.post("/campaign/create", params=params, headers=as_user(gm))
     assert r.status_code == 200, r.text
     return r.json()
 
 
 def forge(client, user_id=None, name=None, **fields):
+    """Forge a character for user_id (also sent in the body, as the frontend does), or
+    for a new user when none is given."""
     body = {"name": name or f"Inv {uid()}", **fields}
     if user_id is not None:
         body["user_id"] = user_id
-    r = client.post("/api/investigators/forge", json=body)
+    owner = user_id if user_id is not None else make_user().id
+    r = client.post("/api/investigators/forge", json=body, headers=as_user(owner))
     assert r.status_code == 201, r.text
     return r.json()
 
 
-def join(client, char_id, code, pen_font="Caveat"):
-    return client.post("/campaign/join", params={"character_id": char_id, "code": code, "pen_font": pen_font})
+def join(client, char_id, code, pen_font="Caveat", headers=None):
+    return client.post("/campaign/join", params={"character_id": char_id, "code": code, "pen_font": pen_font},
+                       headers=headers or as_owner(char_id))
 
 
-def approve(client, char_id):
-    return client.post(f"/campaign/approve/{char_id}")
+def approve(client, char_id, headers=None):
+    return client.post(f"/campaign/approve/{char_id}", headers=headers or as_gm_of_character(char_id))
+
+
+def reject(client, char_id, headers=None):
+    return client.post(f"/campaign/reject/{char_id}", headers=headers or as_gm_of_character(char_id))
 
 
 def pending_member(client, campaign, user_id=None, **fields):

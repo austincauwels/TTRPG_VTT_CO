@@ -1,4 +1,7 @@
-"""Campaign and roster routes: create, join, approve, reject, retire, rejoin, invite to rejoin, roster."""
+"""Campaign and roster routes: create, join, approve, reject, retire, rejoin, invite to rejoin, roster.
+
+Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
+"""
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +13,10 @@ from engine import (
     approve_investigator, reject_investigator, get_campaign_roster,
 )
 from models import Campaign, Character, Circle, User
+from vtt.auth import (
+    campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
+    require_gm_of_character, require_gm_or_member, require_owner, require_self,
+)
 from vtt.config import _ALLOWED_CAMPAIGN_CODE_RE, _SAFE_FONT_NAMES
 from vtt.db import get_db
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
@@ -19,17 +26,22 @@ from vtt.ws.manager import manager
 router = APIRouter()
 
 @router.post("/campaign/create")
-def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Session = Depends(get_db)):
+def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    # The caller becomes the GM. A user_id that names someone else is refused.
+    require_self(user, user_id)
     if not _ALLOWED_CAMPAIGN_CODE_RE.match(code):
         raise HTTPException(status_code=422, detail="Campaign code must be 3–32 alphanumeric characters (hyphens/underscores allowed)")
     if len(name) < 1 or len(name) > 80:
         raise HTTPException(status_code=422, detail="Campaign name must be 1–80 characters")
-    return create_new_campaign(db, name, code, gm_user_id=user_id)
+    return create_new_campaign(db, name, code, gm_user_id=user.id)
 
 @router.post("/campaign/join")
-async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', db: Session = Depends(get_db)):
+async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', db: Session = Depends(get_db),
+                        user: User = Depends(get_current_user)):
     if not _ALLOWED_CAMPAIGN_CODE_RE.match(code):
         raise HTTPException(status_code=422, detail="Invalid campaign code format")
+    require_owner(user, character_or_404(db, character_id))
     if pen_font not in _SAFE_FONT_NAMES:
         pen_font = "Caveat"
     result = request_join_campaign(db, character_id, code, pen_font)
@@ -58,7 +70,9 @@ async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', 
     return result
 
 @router.post("/campaign/approve/{character_id}")
-async def approve_character(character_id: int, db: Session = Depends(get_db)):
+async def approve_character(character_id: int, db: Session = Depends(get_db),
+                            user: User = Depends(get_current_user)):
+    require_gm_of_character(db, user, character_or_404(db, character_id))
     result = approve_investigator(db, character_id)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -81,7 +95,9 @@ async def approve_character(character_id: int, db: Session = Depends(get_db)):
     return result
 
 @router.post("/campaign/reject/{character_id}")
-async def reject_character(character_id: int, db: Session = Depends(get_db)):
+async def reject_character(character_id: int, db: Session = Depends(get_db),
+                           user: User = Depends(get_current_user)):
+    require_gm_of_character(db, user, character_or_404(db, character_id))
     # Capture campaign info before the reject clears campaign_id
     char_before = db.query(Character).filter(Character.id == character_id).first()
     camp_id_before = char_before.campaign_id if char_before else None
@@ -114,7 +130,9 @@ async def reject_character(character_id: int, db: Session = Depends(get_db)):
     return result
 
 @router.post("/campaign/{campaign_id}/retire")
-async def retire_campaign(campaign_id: int, db: Session = Depends(get_db)):
+async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
+                          user: User = Depends(get_current_user)):
+    require_gm(user, campaign_or_404(db, campaign_id))
     campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -134,7 +152,8 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/campaign/rejoin")
-async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db)):
+async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
+                          user: User = Depends(get_current_user)):
     from engine import INK_COLORS
     campaign = db.query(Campaign).filter(Campaign.campaign_code == body.campaign_code).first()
     if not campaign:
@@ -143,6 +162,17 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db)):
     new_char = db.query(Character).filter(Character.id == body.character_id).first()
     if not new_char:
         raise HTTPException(status_code=404, detail="Character not found")
+    require_owner(user, new_char)
+    # Rejoining skips GM approval, so it is only open to a user the GM invited back
+    # to this campaign, or one whose character there has died.
+    invited = user.pending_rejoin_campaign_id == campaign.id
+    lost_a_character = db.query(Character.id).filter(
+        Character.user_id == user.id,
+        Character.campaign_id == campaign.id,
+        Character.is_dead == True,
+    ).first() is not None
+    if not (invited or lost_a_character):
+        raise forbidden()
 
     # Retire any active or dead characters this user had in this campaign
     old_chars = db.query(Character).filter(
@@ -202,7 +232,9 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/campaign/{campaign_id}/invite-rejoin")
-async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session = Depends(get_db)):
+async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session = Depends(get_db),
+                        user: User = Depends(get_current_user)):
+    require_gm(user, campaign_or_404(db, campaign_id))
     campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -227,7 +259,8 @@ async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session
     return {"ok": True}
 
 @router.get("/campaign/{campaign_id}/roster", response_model=RosterResponse)
-def get_roster(campaign_id: int, db: Session = Depends(get_db)):
+def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    require_gm_or_member(db, user, campaign_or_404(db, campaign_id))
     raw = get_campaign_roster(db, campaign_id)
     campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     def to_item(c):

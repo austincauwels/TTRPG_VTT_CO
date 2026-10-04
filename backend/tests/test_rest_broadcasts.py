@@ -53,7 +53,7 @@ def test_reject_notifies_campaign_and_rejected_character(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm, \
             support.ws_connect(client, member["id"]) as mem, \
             support.ws_connect(client, ch["id"]) as rejected:
-        client.post(f"/campaign/reject/{ch['id']}")
+        support.reject(client, ch["id"])
         [msg] = gm.drain()
         assert msg == {"type": "investigator_rejected", "payload": {
             "character_id": ch["id"],
@@ -69,7 +69,7 @@ def test_retire_reaches_only_the_gm(client):
     member = support.active_member(client, camp)
     with support.ws_connect(client, camp["campaign_code"]) as gm, \
             support.ws_connect(client, member["id"]) as mem:
-        client.post(f"/campaign/{camp['id']}/retire")
+        client.post(f"/campaign/{camp['id']}/retire", headers=support.as_gm(camp))
         assert gm.drain() == [{"type": "campaign_retired", "payload": {
             "campaign_id": camp["id"], "campaign_code": camp["campaign_code"]}}]
         assert mem.drain() == []
@@ -78,11 +78,12 @@ def test_retire_reaches_only_the_gm(client):
 def test_rejoin_sends_approved_then_joined_mid_campaign(client):
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
-    ch = support.forge(client, user_id=support.make_user().id)
+    ch = support.forge(client, user_id=support.make_user(pending_rejoin_campaign_id=camp["id"]).id)
     with support.ws_connect(client, camp["campaign_code"]) as gm, \
             support.ws_connect(client, member["id"]) as mem, \
             support.ws_connect(client, ch["id"]) as newbie:
-        client.post("/campaign/rejoin", json={"character_id": ch["id"], "campaign_code": camp["campaign_code"]})
+        client.post("/campaign/rejoin", json={"character_id": ch["id"], "campaign_code": camp["campaign_code"]},
+                    headers=support.as_owner(ch["id"]))
         msgs = gm.drain()
         assert support.types(msgs) == ["investigator_approved", "character_joined_mid_campaign"]
         assert msgs[0]["payload"]["character"]["id"] == ch["id"]
@@ -102,7 +103,8 @@ def test_invite_rejoin_reaches_every_character_of_the_user(client):
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
             support.ws_connect(client, stranger["id"]) as ws_other, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
-        client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": u.username})
+        client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": u.username},
+                    headers=support.as_gm(camp))
         expected = {"type": "gm_rejoin_invite", "payload": {
             "campaign_id": camp["id"], "campaign_name": camp["name"], "campaign_code": camp["campaign_code"]}}
         assert wa.drain() == [expected]
@@ -116,11 +118,11 @@ def test_finalize_roster_skips_released_pending_characters(client):
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
     pending = support.pending_member(client, camp)
-    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()["circle_id"]
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()["circle_id"]
     with support.ws_connect(client, camp["campaign_code"]) as gm, \
             support.ws_connect(client, member["id"]) as mem, \
             support.ws_connect(client, pending["id"]) as pend:
-        client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid})
+        client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp))
         [msg] = gm.drain()
         assert msg["type"] == "roster_finalized"
         assert set(msg["payload"]) == {"circle", "campaign_id", "rejected_character_ids"}
@@ -137,13 +139,13 @@ def test_notebook_entry_broadcast_only_for_visibility_all(client):
             support.ws_connect(client, member["id"]) as mem:
         r = client.post(f"/api/notebook/{camp['id']}/entries", json={
             "title": "Secret", "content": "x", "author_name": "LK", "author_type": "gm",
-            "visibility": "gm_only"})
+            "visibility": "gm_only"}, headers=support.as_gm(camp))
         assert r.status_code == 201
         assert gm.drain() == [] and mem.drain() == []
 
         r = client.post(f"/api/notebook/{camp['id']}/entries", json={
             "title": "Public", "content": "y", "author_name": "Ada", "author_type": "player",
-            "character_id": member["id"]})
+            "character_id": member["id"]}, headers=support.as_owner(member["id"]))
         entry = r.json()
         msgs = gm.drain()
         assert support.types(msgs) == ["notebook_entry", "activity_log"]
@@ -160,7 +162,7 @@ def test_notebook_entry_log_has_no_ink_without_character(client):
     camp = support.new_campaign(client)
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         client.post(f"/api/notebook/{camp['id']}/entries", json={
-            "title": "T", "content": "c", "author_name": "LK", "author_type": "gm"})
+            "title": "T", "content": "c", "author_name": "LK", "author_type": "gm"}, headers=support.as_gm(camp))
         msgs = gm.drain()
         assert msgs[1]["payload"]["ink_color"] == ""
 
@@ -169,6 +171,6 @@ def test_upload_does_not_broadcast(client):
     camp = support.new_campaign(client)
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         r = client.post(f"/api/notebook/{camp['id']}/upload",
-                        files={"file": ("a.png", b"\x89PNG....", "image/png")})
+                        files={"file": ("a.png", b"\x89PNG....", "image/png")}, headers=support.as_gm(camp))
         assert r.status_code == 201
         assert gm.drain() == []

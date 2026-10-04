@@ -8,13 +8,27 @@ from models import Campaign, Character, Circle, CircleVote, Relationship
 def _setup(client, members=2):
     camp = support.new_campaign(client)
     chars = [support.active_member(client, camp) for _ in range(members)]
-    circle_id = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()["circle_id"]
+    circle_id = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()["circle_id"]
     return camp, chars, circle_id
 
 
-def _vote(client, circle_id, char_id, vote_type, value):
+def _vote(client, circle_id, char_id, vote_type, value, headers=None):
+    """Vote as the character's owner unless other headers are given."""
     return client.post("/circle/vote", json={"circle_id": circle_id, "character_id": char_id,
-                                             "vote_type": vote_type, "value": value})
+                                             "vote_type": vote_type, "value": value},
+                       headers=headers or support.as_owner(char_id))
+
+
+def _propose(client, body, headers=None):
+    """Propose as the owner of from_character_id unless other headers are given."""
+    return client.post("/circle/relationship/propose", json=body,
+                       headers=headers or support.as_owner(body["from_character_id"]))
+
+
+def _respond(client, rel_id, to_char_id, **fields):
+    """Answer as the owner of the character the proposal was made to."""
+    return client.post("/circle/relationship/respond", json={"relationship_id": rel_id, **fields},
+                       headers=support.as_owner(to_char_id))
 
 
 # --- votes ------------------------------------------------------------------
@@ -41,16 +55,26 @@ def test_name_suggest_keeps_five_distinct_per_character(client):
     assert len(support.fetch_all(CircleVote, circle_id=cid, vote_type="name_suggest")) == 5
 
 
-@pytest.mark.legacy_trust
-def test_vote_for_any_circle_and_character(client):
-    """Votes are accepted for any circle id and any character id, member or not."""
-    camp, _, cid = _setup(client, members=0)
+def test_vote_only_for_own_character_in_the_circles_campaign(client):
+    """Before tokens votes were accepted for any circle id and any character id."""
+    camp, (a, _), cid = _setup(client)
     outsider = support.forge(client)
-    r = _vote(client, cid, outsider["id"], "insignia", "Moth")
+    other_camp_member = support.active_member(client, support.new_campaign(client))
+    # someone else's character, a non-member's own character, a member of another campaign
+    assert _vote(client, cid, a["id"], "insignia", "Moth", headers=support.as_owner(outsider["id"])).status_code == 403
+    assert _vote(client, cid, outsider["id"], "insignia", "Moth").status_code == 403
+    assert _vote(client, cid, other_camp_member["id"], "insignia", "Moth").status_code == 403
+    assert _vote(client, cid, a["id"], "insignia", "Moth", headers=support.as_gm(camp)).status_code == 403
+    # legacy circle 1 belongs to no campaign
+    assert _vote(client, 1, a["id"], "insignia", "Moth").status_code == 403
+    assert support.fetch_all(CircleVote, circle_id=cid) == []
+    r = _vote(client, 987654321, a["id"], "insignia", "Moth")
+    assert (r.status_code, r.json()) == (404, {"detail": "Circle not found"})
+    r = _vote(client, cid, 987654321, "insignia", "Moth", headers=support.as_owner(a["id"]))
+    assert (r.status_code, r.json()) == (404, {"detail": "Character not found"})
+    r = _vote(client, cid, a["id"], "insignia", "Moth")
     assert r.status_code == 200
-    assert r.json() == {"ok": True, "votes": [{"character_id": outsider["id"], "value": "Moth"}]}
-    [row] = support.fetch_all(CircleVote, circle_id=cid)
-    assert (row.character_id, row.vote_type, row.value) == (outsider["id"], "insignia", "Moth")
+    assert r.json() == {"ok": True, "votes": [{"character_id": a["id"], "value": "Moth"}]}
 
 
 def test_vote_unknown_type_is_stored_then_500(client):
@@ -63,14 +87,14 @@ def test_vote_unknown_type_is_stored_then_500(client):
 
 
 def test_vote_validation(client):
-    assert client.post("/circle/vote", json={"circle_id": 1}).status_code == 422
+    assert client.post("/circle/vote", json={"circle_id": 1}, headers=support.as_stranger()).status_code == 422
 
 
 # --- relationships ----------------------------------------------------------
 
 def test_propose_relationship(client):
     camp, (a, b), cid = _setup(client)
-    r = client.post("/circle/relationship/propose", json={
+    r = _propose(client, {
         "circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"],
         "rel_type": "Rivals", "lore": "old feud"})
     assert r.status_code == 200
@@ -82,13 +106,26 @@ def test_propose_relationship(client):
                    "last_actor_id": None}  # unlike the WebSocket version
 
 
+def test_propose_only_for_own_character_with_a_fellow_member(client):
+    camp, (a, b), cid = _setup(client)
+    outsider = support.active_member(client, support.new_campaign(client))
+    body = {"circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"], "rel_type": "Rivals"}
+    for headers in (support.as_owner(b["id"]), support.as_gm(camp), support.as_stranger()):
+        assert _propose(client, body, headers=headers).status_code == 403
+    assert _propose(client, dict(body, to_character_id=outsider["id"])).status_code == 403
+    assert _propose(client, dict(body, circle_id=1)).status_code == 403
+    assert _propose(client, dict(body, to_character_id=987654321)).status_code == 404
+    assert _propose(client, dict(body, circle_id=987654321)).status_code == 404
+    assert support.fetch_all(Relationship, circle_id=cid) == []
+
+
 def test_propose_again_updates_same_row_and_resets_status(client):
     camp, (a, b), cid = _setup(client)
     body = {"circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"], "rel_type": "Rivals"}
-    rel_id = client.post("/circle/relationship/propose", json=body).json()["relationships"][0]["id"]
-    client.post("/circle/relationship/respond", json={"relationship_id": rel_id, "action": "accept"})
+    rel_id = _propose(client, body).json()["relationships"][0]["id"]
+    _respond(client, rel_id, b["id"], action="accept")
     body["rel_type"] = "Friends"
-    rels = client.post("/circle/relationship/propose", json=body).json()["relationships"]
+    rels = _propose(client, body).json()["relationships"]
     assert len(rels) == 1
     assert rels[0]["id"] == rel_id
     assert (rels[0]["rel_type"], rels[0]["status"], rels[0]["lore"]) == ("Friends", "proposed", "")
@@ -96,12 +133,16 @@ def test_propose_again_updates_same_row_and_resets_status(client):
 
 def test_respond_accept_and_counter(client):
     camp, (a, b), cid = _setup(client)
-    rel_id = client.post("/circle/relationship/propose", json={
+    rel_id = _propose(client, {
         "circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"],
         "rel_type": "Rivals"}).json()["relationships"][0]["id"]
 
-    r = client.post("/circle/relationship/respond", json={
-        "relationship_id": rel_id, "action": "counter", "counter_type": "Allies", "counter_lore": "truce"})
+    # only the owner of the character the proposal was made to may answer
+    for headers in (support.as_owner(a["id"]), support.as_gm(camp)):
+        r = client.post("/circle/relationship/respond", json={"relationship_id": rel_id, "action": "accept"},
+                        headers=headers)
+        assert r.status_code == 403
+    r = _respond(client, rel_id, b["id"], action="counter", counter_type="Allies", counter_lore="truce")
     assert r.status_code == 200
     assert r.json()["ok"] is True
     assert r.json()["relationships"][0]["status"] == "countered"
@@ -110,7 +151,7 @@ def test_respond_accept_and_counter(client):
     # the WebSocket counter rewrites the terms and sets status back to proposed.
     assert (row.rel_type, row.counter_type, row.counter_lore) == ("Rivals", "Allies", "truce")
 
-    r = client.post("/circle/relationship/respond", json={"relationship_id": rel_id, "action": "accept"})
+    r = _respond(client, rel_id, b["id"], action="accept")
     assert r.json()["relationships"][0]["status"] == "accepted"
     row = support.fetch(Relationship, rel_id)
     assert (row.counter_type, row.counter_lore) == (None, None)
@@ -118,16 +159,17 @@ def test_respond_accept_and_counter(client):
 
 def test_respond_unknown_action_changes_nothing(client):
     camp, (a, b), cid = _setup(client)
-    rel_id = client.post("/circle/relationship/propose", json={
+    rel_id = _propose(client, {
         "circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"],
         "rel_type": "Rivals"}).json()["relationships"][0]["id"]
-    r = client.post("/circle/relationship/respond", json={"relationship_id": rel_id, "action": "shrug"})
+    r = _respond(client, rel_id, b["id"], action="shrug")
     assert r.status_code == 200
     assert r.json()["relationships"][0]["status"] == "proposed"
 
 
 def test_respond_not_found(client):
-    r = client.post("/circle/relationship/respond", json={"relationship_id": 987654321, "action": "accept"})
+    r = client.post("/circle/relationship/respond", json={"relationship_id": 987654321, "action": "accept"},
+                    headers=support.as_stranger())
     assert r.status_code == 404
     assert r.json() == {"detail": "Relationship not found"}
 
@@ -146,7 +188,7 @@ def test_finalize_roster(client):
     _vote(client, cid, b["id"], "question", "q2")
     support.update(Circle, cid, backstory_answers={"chapter_house": "Old mill", "q1": "yes"})
 
-    r = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid})
+    r = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp))
     assert r.status_code == 200
     body = r.json()
     assert set(body) == support.CIRCLE_DICT_KEYS
@@ -163,7 +205,16 @@ def test_finalize_roster(client):
     assert support.fetch(Campaign, camp["id"]).roster_finalized is True
     row = support.fetch(Character, pending["id"])
     assert (row.status, row.campaign_id) == ("unaffiliated", None)
-    assert client.get(f"/campaign/{camp['id']}/roster").json()["roster_finalized"] is True
+    assert client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()["roster_finalized"] is True
+
+
+def test_finalize_only_by_the_gm(client):
+    camp, (a, _), cid = _setup(client)
+    for headers in (support.as_owner(a["id"]), support.as_gm(support.new_campaign(client))):
+        r = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid},
+                        headers=headers)
+        assert r.status_code == 403
+    assert support.fetch(Campaign, camp["id"]).roster_finalized is False
 
 
 def test_finalize_name_falls_back_to_suggestions(client):
@@ -171,13 +222,13 @@ def test_finalize_name_falls_back_to_suggestions(client):
     _vote(client, cid, a["id"], "name_suggest", "Ashen Few")
     _vote(client, cid, b["id"], "name_suggest", "Ashen Few")
     _vote(client, cid, b["id"], "name_suggest", "Other")
-    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}).json()
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp)).json()
     assert body["name"] == "Ashen Few"
 
 
 def test_finalize_without_votes_keeps_defaults(client):
     camp, _, cid = _setup(client, members=1)
-    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}).json()
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp)).json()
     assert body["name"] == "Unnamed Circle"
     assert body["circle_ability"] == ""
     assert body["backstory_answers"] == {}
@@ -186,17 +237,18 @@ def test_finalize_without_votes_keeps_defaults(client):
 
 def test_finalize_wrong_circle_falls_back_to_campaign_circle(client):
     camp = support.new_campaign(client)
-    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": 1}).json()
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": 1}, headers=support.as_gm(camp)).json()
     circle = support.campaign_circle(camp["id"])
     assert body["id"] == circle.id != 1
     assert support.fetch(Circle, 1).is_finalized in (False, None)
 
 
 def test_finalize_unknown_campaign(client):
-    r = client.post("/campaign/finalize-roster", json={"campaign_id": 987654321, "circle_id": 1})
+    headers = support.as_stranger()
+    r = client.post("/campaign/finalize-roster", json={"campaign_id": 987654321, "circle_id": 1}, headers=headers)
     assert r.status_code == 404
     assert r.json() == {"detail": "Campaign not found"}
-    assert client.post("/campaign/finalize-roster", json={"campaign_id": 1}).status_code == 422
+    assert client.post("/campaign/finalize-roster", json={"campaign_id": 1}, headers=headers).status_code == 422
 
 
 @pytest.mark.parametrize("first,second", [("a", "b"), ("b", "a")])
@@ -210,7 +262,7 @@ def test_finalize_tie_goes_to_the_first_vote_cast(client, first, second):
     for vote_type, i in (("name_vote", 0), ("ability", 1), ("insignia", 2), ("question", 3)):
         for who in (first, second):
             _vote(client, cid, chars[who]["id"], vote_type, picks[who][i])
-    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}).json()
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp)).json()
     name, ability, insignia, question = picks[first]
     assert (body["name"], body["circle_ability"], body["insignia"]) == (name, ability, insignia)
     assert body["backstory_answers"] == {"selected_question_key": question}
@@ -219,6 +271,6 @@ def test_finalize_tie_goes_to_the_first_vote_cast(client, first, second):
 def test_finalize_keeps_an_existing_chapter_house(client):
     camp, _, cid = _setup(client, members=1)
     support.update(Circle, cid, chapter_house_location="Tower", backstory_answers={"chapter_house": "Mill"})
-    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}).json()
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp)).json()
     assert body["chapter_house_location"] == "Tower"
     assert body["backstory_answers"] == {"chapter_house": "Mill"}

@@ -12,6 +12,7 @@ from sqlalchemy import inspect as sa_inspect, text
 import main
 import support
 from models import Circle, User
+from vtt import security
 
 
 def test_seeded_admin_user(client):
@@ -255,7 +256,11 @@ def test_forge_recreates_missing_circle_one(client, monkeypatch):
             s.commit()
             user_id = u.id
             assert s.get(Circle, 1) is None
-        body = support.forge(client, user_id=user_id)
+        # this user exists only in the scratch schema, so its token is minted directly
+        r = client.post("/api/investigators/forge", json={"name": f"Inv {support.uid()}", "user_id": user_id},
+                        headers=support.bearer(security.create_access_token(user_id)))
+        assert r.status_code == 201, r.text
+        body = r.json()
         assert body["circle_id"] == 1
         with Session() as s:
             c = s.get(Circle, 1)

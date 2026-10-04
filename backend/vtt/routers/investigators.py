@@ -1,4 +1,7 @@
-"""Investigator (character) routes: list, fetch one, and forge a new one."""
+"""Investigator (character) routes: list, fetch one, and forge a new one.
+
+Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
+"""
 import json
 from typing import List
 
@@ -6,14 +9,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from models import Character, Circle, User
+from vtt.auth import character_or_404, get_current_user, require_owner_or_gm, require_self
 from vtt.db import get_db
 from vtt.schemas import CharacterCreate, CharacterResponse, CharacterRosterItem
 
 router = APIRouter()
 
 @router.get("/api/investigators", response_model=List[CharacterRosterItem])
-async def list_investigators(db: Session = Depends(get_db)):
-    characters = db.query(Character).all()
+async def list_investigators(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    # Nothing in the frontend needs every user's characters, so this lists the caller's own.
+    characters = db.query(Character).filter(Character.user_id == user.id).all()
     return [
         CharacterRosterItem(
             id=c.id,
@@ -30,7 +35,9 @@ async def list_investigators(db: Session = Depends(get_db)):
     ]
 
 @router.get("/api/investigators/{investigator_id}", response_model=CharacterResponse)
-async def get_investigator(investigator_id: int, db: Session = Depends(get_db)):
+async def get_investigator(investigator_id: int, db: Session = Depends(get_db),
+                           user: User = Depends(get_current_user)):
+    require_owner_or_gm(db, user, character_or_404(db, investigator_id, detail="Investigator dossier not found."))
     character = db.query(Character).filter(Character.id == investigator_id).first()
     if not character:
         raise HTTPException(status_code=404, detail="Investigator dossier not found.")
@@ -45,7 +52,11 @@ async def get_investigator(investigator_id: int, db: Session = Depends(get_db)):
     return character
 
 @router.post("/api/investigators/forge", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
-async def forge_investigator(character_data: CharacterCreate, db: Session = Depends(get_db)):
+async def forge_investigator(character_data: CharacterCreate, db: Session = Depends(get_db),
+                             user: User = Depends(get_current_user)):
+    # The character belongs to the caller. A user_id that names someone else is refused.
+    require_self(user, character_data.user_id)
+    target_user_id = user.id
     try:
         circle = db.query(Circle).filter(Circle.id == 1).first()
         if not circle:
@@ -54,13 +65,7 @@ async def forge_investigator(character_data: CharacterCreate, db: Session = Depe
             db.commit()
 
         char_dict = character_data.dict() if hasattr(character_data, 'dict') else character_data.model_dump()
-
-        # Use the user_id from the request, falling back to 1 (admin) for legacy compatibility
-        target_user_id = char_dict.pop('user_id', None) or 1
-        user = db.query(User).filter(User.id == target_user_id).first()
-        if not user:
-            user = db.query(User).filter(User.id == 1).first()
-            target_user_id = user.id if user else 1
+        char_dict.pop('user_id', None)
 
         for key in ["body_marks", "brain_marks", "bleed_marks", "scars_count", "move", "strike", "control", "sneak", "hide", "sway", "survey", "read", "sense"]:
             if char_dict.get(key) is None:

@@ -13,7 +13,7 @@ from models import Character, Circle
 def _campaign(client, members=1):
     camp = support.new_campaign(client)
     chars = [support.active_member(client, camp) for _ in range(members)]
-    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()["circle_id"]
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()["circle_id"]
     return camp, chars, cid
 
 
@@ -57,14 +57,14 @@ def test_circle_dict_parses_string_backstory(client):
     support.update(Circle, cid, backstory_answers="not json")
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         assert gm.initial[0]["payload"]["backstory_answers"] == {}
-    state = client.get(f"/campaign/{camp['id']}/circle-creation-state").json()
+    state = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()
     assert state["backstory_answers"] == {}
 
 
 def test_get_investigator_parses_string_gear_and_scars(client):
     ch = support.forge(client)
     support.update(Character, ch["id"], gear='["lamp"]', scars_list="not json")
-    r = client.get(f"/api/investigators/{ch['id']}")
+    r = client.get(f"/api/investigators/{ch['id']}", headers=support.as_owner(ch["id"]))
     assert r.status_code == 200
     assert (r.json()["gear"], r.json()["scars_list"]) == (["lamp"], [])
     # parsed for the response only; the stored value is unchanged
@@ -77,8 +77,9 @@ def test_get_investigator_parses_string_gear_and_scars(client):
 def test_finalize_roster_with_string_backstory_and_question_vote(client):
     camp, (a,), cid = _campaign(client)
     support.update(Circle, cid, backstory_answers='{"chapter_house": "Mill"}')
-    client.post("/circle/vote", json={"circle_id": cid, "character_id": a["id"], "vote_type": "question", "value": "q2"})
-    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}).json()
+    client.post("/circle/vote", json={"circle_id": cid, "character_id": a["id"], "vote_type": "question", "value": "q2"},
+                headers=support.as_owner(a["id"]))
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp)).json()
     assert body["backstory_answers"] == {"chapter_house": "Mill", "selected_question_key": "q2"}
     assert body["chapter_house_location"] == "Mill"
     assert support.fetch(Circle, cid).backstory_answers == {"chapter_house": "Mill", "selected_question_key": "q2"}
@@ -88,7 +89,7 @@ def test_finalize_roster_with_string_backstory_and_no_question_vote(client):
     """The chapter house is read from the string; the string itself is left as it was."""
     camp, _, cid = _campaign(client)
     support.update(Circle, cid, backstory_answers='{"chapter_house": "Mill"}')
-    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}).json()
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp)).json()
     assert body["chapter_house_location"] == "Mill"
     assert body["backstory_answers"] == {"chapter_house": "Mill"}
     assert support.fetch(Circle, cid).backstory_answers == '{"chapter_house": "Mill"}'
@@ -97,8 +98,9 @@ def test_finalize_roster_with_string_backstory_and_no_question_vote(client):
 def test_finalize_roster_with_unparseable_backstory(client):
     camp, (a,), cid = _campaign(client)
     support.update(Circle, cid, backstory_answers="not json")
-    client.post("/circle/vote", json={"circle_id": cid, "character_id": a["id"], "vote_type": "question", "value": "q1"})
-    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}).json()
+    client.post("/circle/vote", json={"circle_id": cid, "character_id": a["id"], "vote_type": "question", "value": "q1"},
+                headers=support.as_owner(a["id"]))
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp)).json()
     assert body["backstory_answers"] == {"selected_question_key": "q1"}
     assert body["chapter_house_location"] == ""
 

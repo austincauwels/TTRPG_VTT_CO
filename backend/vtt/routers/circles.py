@@ -1,10 +1,17 @@
-"""Circle creation routes: creation state, votes, relationships, and finalizing the roster."""
+"""Circle creation routes: creation state, votes, relationships, and finalizing the roster.
+
+Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
+"""
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from models import Campaign, Character, Circle, CircleVote, Relationship
+from models import Campaign, Character, Circle, CircleVote, Relationship, User
+from vtt.auth import (
+    MEMBER_STATUSES, campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
+    require_gm_or_member, require_owner,
+)
 from vtt.circle_queries import get_or_create_campaign_circle, relationships_list, votes_dict
 from vtt.db import get_db
 from vtt.schemas import CircleVoteSubmit, FinalizeRosterRequest, RelationshipPropose, RelationshipRespond
@@ -13,8 +20,25 @@ from vtt.ws.manager import manager
 
 router = APIRouter()
 
+
+def _circle_campaign_or_404(db: Session, circle_id):
+    """The campaign id a circle belongs to (None for the legacy circle 1); 404 for an unknown circle."""
+    row = db.query(Circle.id, Circle.campaign_id).filter(Circle.id == circle_id).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Circle not found")
+    return row.campaign_id
+
+
+def _require_member_of(character, campaign_id):
+    """The character must be an active or pending member of the circle's campaign."""
+    if campaign_id is None or character.campaign_id != campaign_id or character.status not in MEMBER_STATUSES:
+        raise forbidden()
+
+
 @router.get("/campaign/{campaign_id}/circle-creation-state")
-def get_circle_creation_state(campaign_id: int, db: Session = Depends(get_db)):
+def get_circle_creation_state(campaign_id: int, db: Session = Depends(get_db),
+                              user: User = Depends(get_current_user)):
+    require_gm_or_member(db, user, campaign_or_404(db, campaign_id))
     circle = get_or_create_campaign_circle(db, campaign_id)
     active = db.query(Character).filter(
         Character.campaign_id == campaign_id,
@@ -30,7 +54,11 @@ def get_circle_creation_state(campaign_id: int, db: Session = Depends(get_db)):
     }
 
 @router.post("/circle/vote")
-def submit_circle_vote(body: CircleVoteSubmit, db: Session = Depends(get_db)):
+def submit_circle_vote(body: CircleVoteSubmit, db: Session = Depends(get_db),
+                       user: User = Depends(get_current_user)):
+    voter = character_or_404(db, body.character_id)
+    require_owner(user, voter)
+    _require_member_of(voter, _circle_campaign_or_404(db, body.circle_id))
     if body.vote_type == "name_suggest":
         count = db.query(CircleVote).filter(
             CircleVote.circle_id == body.circle_id,
@@ -63,7 +91,14 @@ def submit_circle_vote(body: CircleVoteSubmit, db: Session = Depends(get_db)):
     return {"ok": True, "votes": all_votes[body.vote_type]}
 
 @router.post("/circle/relationship/propose")
-def propose_relationship(body: RelationshipPropose, db: Session = Depends(get_db)):
+def propose_relationship(body: RelationshipPropose, db: Session = Depends(get_db),
+                         user: User = Depends(get_current_user)):
+    proposer = character_or_404(db, body.from_character_id)
+    require_owner(user, proposer)
+    other = character_or_404(db, body.to_character_id)
+    circle_campaign = _circle_campaign_or_404(db, body.circle_id)
+    _require_member_of(proposer, circle_campaign)
+    _require_member_of(other, circle_campaign)
     existing = db.query(Relationship).filter(
         Relationship.circle_id == body.circle_id,
         Relationship.from_character_id == body.from_character_id,
@@ -88,10 +123,13 @@ def propose_relationship(body: RelationshipPropose, db: Session = Depends(get_db
     return {"ok": True, "relationships": relationships_list(db, body.circle_id)}
 
 @router.post("/circle/relationship/respond")
-def respond_relationship(body: RelationshipRespond, db: Session = Depends(get_db)):
+def respond_relationship(body: RelationshipRespond, db: Session = Depends(get_db),
+                         user: User = Depends(get_current_user)):
     rel = db.query(Relationship).filter(Relationship.id == body.relationship_id).first()
     if not rel:
         raise HTTPException(status_code=404, detail="Relationship not found")
+    # Only the owner of the character the proposal was made to may answer it.
+    require_owner(user, character_or_404(db, rel.to_character_id))
     if body.action == "accept":
         rel.status = "accepted"
         rel.counter_type = None
@@ -104,7 +142,9 @@ def respond_relationship(body: RelationshipRespond, db: Session = Depends(get_db
     return {"ok": True, "relationships": relationships_list(db, rel.circle_id)}
 
 @router.post("/campaign/finalize-roster")
-async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get_db)):
+async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get_db),
+                          user: User = Depends(get_current_user)):
+    require_gm(user, campaign_or_404(db, body.campaign_id))
     campaign = db.query(Campaign).filter(Campaign.id == body.campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")

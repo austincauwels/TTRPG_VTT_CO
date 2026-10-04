@@ -1,4 +1,10 @@
-"""Campaign notebook routes: list, add, edit, soft-delete and image upload."""
+"""Campaign notebook routes: list, add, edit, soft-delete and image upload.
+
+Every route needs a login token. Who may call what is in docs/refactor/AUTH.md: the
+campaign's GM and members read and write; role=GM (the Lightkeeper's private notes)
+only works for the GM; a character_id must be the caller's own character; only the
+author of an entry may change or delete it.
+"""
 import base64
 from typing import List, Optional
 
@@ -6,15 +12,53 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from engine import create_notebook_entry
-from models import Campaign, Character, NotebookEntry
+from models import Campaign, Character, NotebookEntry, User
+from vtt.auth import (
+    campaign_facts, campaign_or_404, character_facts, character_or_404, forbidden, get_current_user,
+    is_gm, require_gm_or_member, require_owner,
+)
 from vtt.db import get_db
 from vtt.schemas import NotebookEntryCreate, NotebookEntryResponse, NotebookEntryUpdate
 from vtt.ws.manager import manager
 
 router = APIRouter()
 
+
+def is_gm_entry(author_type, entry_type, visibility) -> bool:
+    """Entries that only the Lightkeeper writes."""
+    return author_type == "gm" or entry_type == "lightkeeper" or visibility == "gm_only"
+
+
+def _require_writer(db: Session, user: User, campaign_id: int, character_id, gm_entry: bool):
+    """The caller may write into this campaign's notebook, as themself."""
+    campaign = campaign_or_404(db, campaign_id)
+    require_gm_or_member(db, user, campaign)
+    if character_id is not None:
+        require_owner(user, character_or_404(db, character_id))
+    if gm_entry and not is_gm(user.id, campaign):
+        raise forbidden()
+
+
+def _require_author(db: Session, user: User, entry: NotebookEntry):
+    """A character's entry belongs to that character's owner; any other entry to the campaign's GM."""
+    if entry.character_id is not None:
+        author = character_facts(db, entry.character_id)
+        if author is not None and author.user_id == user.id:
+            return
+        raise forbidden()
+    if not is_gm(user.id, campaign_facts(db, entry.campaign_id)):
+        raise forbidden()
+
+
 @router.get("/api/notebook/{campaign_id}/entries", response_model=List[NotebookEntryResponse])
-def fetch_notebook_entries(campaign_id: int, role: str = "player", character_id: Optional[int] = None, db: Session = Depends(get_db)):
+def fetch_notebook_entries(campaign_id: int, role: str = "player", character_id: Optional[int] = None,
+                           db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    campaign = campaign_or_404(db, campaign_id)
+    require_gm_or_member(db, user, campaign)
+    if role == "GM" and not is_gm(user.id, campaign):
+        raise forbidden()
+    if character_id is not None:
+        require_owner(user, character_or_404(db, character_id))
     entries = db.query(NotebookEntry).filter(
         NotebookEntry.campaign_id == campaign_id,
         NotebookEntry.is_deleted == False,
@@ -32,7 +76,10 @@ def fetch_notebook_entries(campaign_id: int, role: str = "player", character_id:
     return visible
 
 @router.post("/api/notebook/{campaign_id}/entries", response_model=NotebookEntryResponse, status_code=201)
-async def add_notebook_entry(campaign_id: int, entry_data: NotebookEntryCreate, db: Session = Depends(get_db)):
+async def add_notebook_entry(campaign_id: int, entry_data: NotebookEntryCreate, db: Session = Depends(get_db),
+                             user: User = Depends(get_current_user)):
+    _require_writer(db, user, campaign_id, entry_data.character_id,
+                    is_gm_entry(entry_data.author_type, entry_data.entry_type, entry_data.visibility))
     pen_font  = 'Caveat'
     ink_color = '#1a1a1a'
     if entry_data.character_id:
@@ -89,10 +136,12 @@ async def add_notebook_entry(campaign_id: int, entry_data: NotebookEntryCreate, 
     return entry
 
 @router.put("/api/notebook/entries/{entry_id}", response_model=NotebookEntryResponse)
-def update_notebook_entry(entry_id: int, entry_data: NotebookEntryUpdate, db: Session = Depends(get_db)):
+def update_notebook_entry(entry_id: int, entry_data: NotebookEntryUpdate, db: Session = Depends(get_db),
+                          user: User = Depends(get_current_user)):
     entry = db.query(NotebookEntry).filter(NotebookEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
+    _require_author(db, user, entry)
     if entry_data.title is not None:
         entry.title = entry_data.title
     if entry_data.content is not None:
@@ -102,10 +151,11 @@ def update_notebook_entry(entry_id: int, entry_data: NotebookEntryUpdate, db: Se
     return entry
 
 @router.delete("/api/notebook/entries/{entry_id}", status_code=204)
-def delete_notebook_entry(entry_id: int, db: Session = Depends(get_db)):
+def delete_notebook_entry(entry_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     entry = db.query(NotebookEntry).filter(NotebookEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
+    _require_author(db, user, entry)
     entry.is_deleted = True
     db.commit()
 
@@ -120,7 +170,9 @@ async def upload_notebook_image(
     entry_type: str = Form("sketch"),
     character_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
+    _require_writer(db, user, campaign_id, character_id, is_gm_entry(author_type, entry_type, "all"))
     raw = await file.read()
     if len(raw) > 2 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Image too large (max 2MB)")

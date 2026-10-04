@@ -24,7 +24,7 @@ def test_forge_happy_path(client):
         "user_id": u.id, "name": "Ada Quill", "pronouns": "she/her", "role": "Scholar",
         "specialty": "Doctor", "role_ability": "Well-Read", "specialty_ability": "Dissection",
         "gear": ["lamp", "notebook"], "move": 1, "read": 2, "nerve_max": 4, "nerve_current": 4,
-    })
+    }, headers=support.as_user(u.id))
     assert r.status_code == 201
     body = r.json()
     assert set(body) == RESPONSE_KEYS
@@ -55,24 +55,35 @@ def test_forge_defaults(client):
     assert body["profile_pic"] is None
 
 
-def test_forge_without_user_id_belongs_to_admin(client):
-    """QUIRK: legacy fallback, a character without user_id is owned by user 1."""
-    body = support.forge(client)
-    assert support.fetch(Character, body["id"]).user_id == 1
+def test_forge_without_user_id_belongs_to_the_caller(client):
+    """Before tokens a character without user_id fell back to user 1 (admin)."""
+    u = support.make_user()
+    r = client.post("/api/investigators/forge", json={"name": f"Inv {support.uid()}"}, headers=support.as_user(u.id))
+    assert r.status_code == 201
+    assert support.fetch(Character, r.json()["id"]).user_id == u.id
 
 
 @pytest.mark.parametrize("user_id", [0, 987654321])
-def test_forge_with_falsy_or_unknown_user_id_belongs_to_admin(client, user_id):
-    """QUIRK: user_id 0 and unknown user ids silently fall back to user 1."""
-    body = support.forge(client, user_id=user_id)
-    assert support.fetch(Character, body["id"]).user_id == 1
+def test_forge_with_falsy_or_unknown_user_id_is_403(client, user_id):
+    """Before tokens user_id 0 and unknown user ids silently fell back to user 1; now
+    they are a user_id that is not the caller's."""
+    name = f"Inv {support.uid()}"
+    r = client.post("/api/investigators/forge", json={"name": name, "user_id": user_id},
+                    headers=support.as_stranger())
+    assert r.status_code == 403
+    assert support.fetch_all(Character, name=name) == []
 
 
-@pytest.mark.legacy_trust
-def test_forge_for_any_user_id(client):
-    """Anyone can create a character owned by any existing user."""
+def test_forge_for_another_user_is_403(client):
+    """Before tokens anyone could create a character owned by any existing user."""
     other = support.make_user()
-    body = support.forge(client, user_id=other.id)
+    name = f"Inv {support.uid()}"
+    r = client.post("/api/investigators/forge", json={"name": name, "user_id": other.id},
+                    headers=support.as_stranger())
+    assert r.status_code == 403
+    assert r.json() == {"detail": "Not allowed."}
+    assert support.fetch_all(Character, name=name) == []
+    body = support.forge(client, user_id=other.id)  # the user themself, sending their own id
     assert support.fetch(Character, body["id"]).user_id == other.id
 
 
@@ -86,41 +97,50 @@ def test_forge_client_sets_any_stats(client):
 
 
 def test_forge_validation_errors(client):
-    assert client.post("/api/investigators/forge", json={}).status_code == 422
-    assert client.post("/api/investigators/forge", json={"name": "x", "gear": "lamp"}).status_code == 422
-    assert client.post("/api/investigators/forge", json={"name": "x", "move": "lots"}).status_code == 422
+    headers = support.as_stranger()
+    assert client.post("/api/investigators/forge", json={}, headers=headers).status_code == 422
+    assert client.post("/api/investigators/forge", json={"name": "x", "gear": "lamp"}, headers=headers).status_code == 422
+    assert client.post("/api/investigators/forge", json={"name": "x", "move": "lots"}, headers=headers).status_code == 422
 
 
 def test_forge_database_error_is_500_with_message(client):
-    r = client.post("/api/investigators/forge", json={"name": "Overflow", "move": 2 ** 40})
+    r = client.post("/api/investigators/forge", json={"name": "Overflow", "move": 2 ** 40},
+                    headers=support.as_stranger())
     assert r.status_code == 500
     assert r.json()["detail"].startswith("Database Forge Error: ")
 
 
 def test_get_investigator(client):
     made = support.forge(client, user_id=support.make_user().id, gear=["rope"])
-    r = client.get(f"/api/investigators/{made['id']}")
+    r = client.get(f"/api/investigators/{made['id']}", headers=support.as_owner(made["id"]))
     assert r.status_code == 200
     assert r.json() == made
 
 
 def test_get_investigator_not_found(client):
-    r = client.get("/api/investigators/987654321")
+    r = client.get("/api/investigators/987654321", headers=support.as_stranger())
     assert r.status_code == 404
     assert r.json() == {"detail": "Investigator dossier not found."}
 
 
 def test_get_investigator_validation(client):
-    assert client.get("/api/investigators/abc").status_code == 422
+    assert client.get("/api/investigators/abc", headers=support.as_stranger()).status_code == 422
 
 
-@pytest.mark.legacy_trust
-def test_get_investigator_of_someone_else(client):
-    """Any caller can read any character sheet by id."""
-    made = support.forge(client, user_id=support.make_user().id, move=2, role_ability="Flourish")
-    r = client.get(f"/api/investigators/{made['id']}")
-    assert r.status_code == 200
-    assert r.json() == made
+def test_get_investigator_by_owner_or_the_campaigns_gm_only(client):
+    """Before tokens any caller could read any character sheet by id."""
+    camp = support.new_campaign(client)
+    made = support.active_member(client, camp, move=2, role_ability="Flourish")
+    fellow = support.active_member(client, camp)
+    for headers in (support.as_owner(made["id"]), support.as_gm(camp)):
+        r = client.get(f"/api/investigators/{made['id']}", headers=headers)
+        assert r.status_code == 200
+        assert r.json()["move"] == 2
+    for headers in (support.as_owner(fellow["id"]), support.as_gm(support.new_campaign(client)),
+                    support.as_stranger()):
+        r = client.get(f"/api/investigators/{made['id']}", headers=headers)
+        assert r.status_code == 403
+        assert r.json() == {"detail": "Not allowed."}
 
 
 def test_get_investigator_with_null_circle_is_500(client):
@@ -128,7 +148,7 @@ def test_get_investigator_with_null_circle_is_500(client):
     made = support.forge(client)
     support.update(Character, made["id"], circle_id=None)
     with support.server_errors_as_500(client):
-        r = client.get(f"/api/investigators/{made['id']}")
+        r = client.get(f"/api/investigators/{made['id']}", headers=support.as_owner(made["id"]))
     assert r.status_code == 500
 
 
@@ -136,7 +156,7 @@ def test_list_investigators(client):
     made = support.forge(client, user_id=support.make_user().id, role="Face",
                          specialty="Journalist", role_ability="Sweet Talk")
     support.update(Character, made["id"], is_dead=True, pen_font="Kalam", ink_color="#8b1a1a")
-    r = client.get("/api/investigators")
+    r = client.get("/api/investigators", headers=support.as_owner(made["id"]))
     assert r.status_code == 200
     rows = {row["id"]: row for row in r.json()}
     assert rows[made["id"]] == {
@@ -156,9 +176,13 @@ def test_list_investigators(client):
     }
 
 
-@pytest.mark.legacy_trust
-def test_list_investigators_shows_every_users_characters(client):
-    a = support.forge(client, user_id=support.make_user().id)
+def test_list_investigators_shows_only_the_callers_characters(client):
+    """Before tokens it listed every user's characters."""
+    u = support.make_user()
+    a = support.forge(client, user_id=u.id)
+    a2 = support.forge(client, user_id=u.id)
     b = support.forge(client, user_id=support.make_user().id)
-    ids = {row["id"] for row in client.get("/api/investigators").json()}
-    assert {a["id"], b["id"]} <= ids
+    ids = [row["id"] for row in client.get("/api/investigators", headers=support.as_user(u.id)).json()]
+    assert sorted(ids) == sorted([a["id"], a2["id"]])
+    assert b["id"] not in ids
+    assert client.get("/api/investigators", headers=support.as_stranger()).json() == []

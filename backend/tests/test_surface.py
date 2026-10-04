@@ -112,7 +112,7 @@ def _propose_first(ctx, ws):
 
 
 def _resources_editable(client, ctx):
-    r = client.get(f"/campaign/{ctx.camp_id}/circle-creation-state")
+    r = client.get(f"/campaign/{ctx.camp_id}/circle-creation-state", headers=support.as_gm(ctx.camp_id))
     assert r.status_code == 200, r.text
     support.update(Circle, r.json()["circle_id"], resources_editable=True)
 
