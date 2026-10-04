@@ -69,6 +69,7 @@ A refused connection never reaches the connection manager, so it does not kick t
 - A numeric `game_id` is a character channel, open only to the character's owner. Its campaign is the character's own; the old fallback to "the campaign whose code equals this number" is gone (it let a character socket join a campaign with an all-digit code).
 - Any other `game_id` is a campaign code, open only to `campaigns.gm_user_id`. When an all-digit code equals a character id, the owner gets the character channel and the GM gets the campaign channel. The connection manager keys a character channel by the id (`"123"`) and a campaign channel by `"campaign:"` plus the code, so the two never share a key and neither can close the other's socket or receive its frames (QUIRK D13, fixed).
 - A character channel is keyed by the character's id as the database has it, so `/ws/0123` and `/ws/123` are the same channel.
+- A character channel opens with the campaign its character is tagged with, whatever the character's status, so that an approval while connected makes it a member at once. The `circle_update` sent on connect is that campaign's circle only for an active member; a pending or retired character gets the shared circle 1, as an unaffiliated one does (since the security review; it used to get the campaign's circle, backstory answers and assignment reports included).
 - GM or player is decided here, from the token and `campaigns.gm_user_id`. `payload.role` is ignored everywhere.
 
 ### Messages

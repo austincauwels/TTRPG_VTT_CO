@@ -21,7 +21,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from models import Character, Circle
 from vtt import db as _db
-from vtt.auth import user_for_token
+from vtt.auth import MEMBER_STATUSES, user_for_token
 from vtt.circle_queries import get_or_create_campaign_circle
 from vtt.config import logger
 from vtt.serializers import get_char_dict, get_circle_dict
@@ -61,6 +61,17 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
         db.close()
 
 
+def _shared_circle(db):
+    """Circle 1, the legacy circle shared by every character without a campaign
+    (created again if it is missing)."""
+    circle = db.query(Circle).filter(Circle.id == 1).first()
+    if not circle:
+        circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
+        db.add(circle)
+        db.commit()
+    return circle
+
+
 async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character, campaign, is_gm: bool):
     logger.info("WebSocket connected: game_id=%s user_id=%s", game_id, user_id)
     own_char_id = character.id if character is not None else None
@@ -74,11 +85,7 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character
     if campaign:
         circle = get_or_create_campaign_circle(db, campaign.id)
     if not circle:
-        circle = db.query(Circle).filter(Circle.id == 1).first()
-    if not circle:
-        circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
-        db.add(circle)
-        db.commit()
+        circle = _shared_circle(db)
 
     # Camp context for this connection. It is fixed for the life of the socket, not re-resolved per message.
     # Without a campaign, camp_code is the socket's own channel key, so broadcast_campaign
@@ -86,9 +93,16 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, character
     camp_code = campaign.campaign_code if campaign else channel
     camp_id = campaign.id if campaign else None
 
+    # A pending or retired character's socket keeps its campaign (an approval while
+    # connected makes it a member at once), but only the GM and members see the
+    # campaign's circle. The others get the shared circle 1, like an unaffiliated one.
+    shown_circle = circle
+    if character is not None and campaign is not None and character.status not in MEMBER_STATUSES:
+        shown_circle = _shared_circle(db)
+
     if character:
         await websocket.send_json({"type": "character_update", "payload": get_char_dict(character)})
-    await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(circle)})
+    await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(shown_circle)})
 
     ctx = WSContext(game_id=game_id, db=db, circle=circle, camp_code=camp_code, camp_id=camp_id,
                     user_id=user_id, is_gm=is_gm, own_char_id=own_char_id, channel=channel)

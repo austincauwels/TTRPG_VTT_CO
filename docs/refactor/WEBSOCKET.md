@@ -17,7 +17,7 @@ Setup, in order:
 4. Campaign: the character's campaign if it has one, else the campaign whose `campaign_code == game_id`.
 5. Circle: `get_or_create_campaign_circle(campaign.id)` (this inserts an "Unnamed Circle" if the campaign has none, so connecting can write to the database). Without a campaign it uses circle id 1, and creates circle id 1 if it is missing.
 6. `camp_code = campaign.campaign_code` (or `game_id` when there is no campaign) and `camp_id = campaign.id` (or None). These are resolved once and never refreshed for the life of the socket.
-7. The server sends `character_update` (only when a character was resolved) and then `circle_update`, to this socket only.
+7. The server sends `character_update` (only when a character was resolved) and then `circle_update`, to this socket only. Since the security review a pending or retired character's socket gets circle 1 here instead of its campaign's circle (AUTH.md).
 
 Receive loop (main.py:1496-2516):
 

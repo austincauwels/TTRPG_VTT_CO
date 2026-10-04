@@ -45,6 +45,33 @@ def test_unaffiliated_character_falls_back_to_circle_one(client):
         assert ws.initial[1]["payload"]["name"] == "The Order of Light"
 
 
+@pytest.mark.parametrize("status", ["pending", "retired"])
+def test_a_non_member_does_not_get_the_campaign_circle_on_connect(client, status):
+    """A character's socket keeps the campaign the character is tagged with, so that an
+    approval while connected makes it a member at once. The circle_update sent on
+    connect was that campaign's circle whatever the character's status, so anyone with
+    the campaign code could join and read the circle's name, scene, chapter house,
+    backstory answers and assignment reports. A pending or retired character now gets
+    the shared circle 1 on connect, as an unaffiliated one does."""
+    secret = f"Secret mill {support.uid()}"
+    camp = support.new_campaign(client)
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp)).json()["circle_id"]
+    support.update(Circle, cid, location=secret, backstory_answers={"chapter_house": secret})
+    if status == "pending":
+        ch = support.pending_member(client, camp)
+    else:
+        ch = support.active_member(client, camp)
+        support.update(Character, ch["id"], status="retired")
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert support.types(ws.initial) == ["character_update", "circle_update"]
+        assert ws.initial[1]["payload"]["id"] == 1
+        assert secret not in json.dumps(ws.initial)
+    member = support.active_member(client, camp)
+    with support.ws_connect(client, member["id"]) as ws:
+        assert ws.initial[1]["payload"]["id"] == cid
+        assert ws.initial[1]["payload"]["location"] == secret
+
+
 def test_unknown_numeric_and_text_keys_are_closed_with_4404(client):
     """Before tokens these opened a socket on circle 1 with no campaign. The
     frontend's 'gm' fallback channel is one of them."""
