@@ -3,8 +3,8 @@ import { PlayerRegistryPage } from './PlayerRegistryPage';
 import { LightkeeperLedgerPage } from './LightkeeperLedgerPage';
 
 const PAGE_TABS = [
-  { id: 'registry', label: 'Player Registry', paper: '#f0e8d0', ink: '#8b1a1a' },
-  { id: 'ledger', label: 'Lightkeeper Ledger', paper: '#ede4c8', ink: '#7a5a18' },
+  { id: 'registry', label: 'Player Registry', paper: 'rgb(var(--c-parchment))', ink: 'rgb(var(--c-oxblood))' },
+  { id: 'ledger', label: 'Lightkeeper Ledger', paper: 'rgb(var(--c-parchment))', ink: 'rgb(var(--c-oxblood))' },
 ];
 
 // The open book overlay. `.roster-book.closing` needs both classes on the same element.
@@ -39,11 +39,11 @@ export const RosterBook = ({ isClosingBook, closeBook, defaultPage = 'registry',
                 role="tab"
                 aria-selected={active}
                 onClick={() => setPage(tab.id)}
-                className="font-cinzel font-black uppercase text-[11px] sm:text-xs tracking-[0.06em] sm:tracking-[0.1em] leading-tight px-2.5 sm:px-4 transition-colors"
+                className="font-sans font-bold uppercase text-xs tracking-[0.06em] sm:tracking-widest leading-tight px-2.5 sm:px-4 transition-colors"
                 style={{
                   clipPath: 'polygon(7px 0%, calc(100% - 7px) 0%, 100% 100%, 0% 100%)',
-                  background: active ? tab.paper : 'rgba(58,30,8,0.95)',
-                  color: active ? tab.ink : 'rgba(196,157,71,0.85)',
+                  background: active ? tab.paper : 'rgb(var(--c-ink) / 0.95)',
+                  color: active ? tab.ink : 'rgb(var(--c-parchment-deep))',
                   minHeight: active ? 44 : 38,
                   boxShadow: active ? '0 -3px 8px rgba(0,0,0,0.4)' : 'none',
                 }}
@@ -55,8 +55,8 @@ export const RosterBook = ({ isClosingBook, closeBook, defaultPage = 'registry',
           </div>
           <button
             onClick={closeBook}
-            className="ml-auto mb-1.5 shrink-0 font-mono-data text-[11px] sm:text-xs tracking-[0.15em] sm:tracking-[0.25em] uppercase text-[#e8dcc4]/80 hover:text-[#e8dcc4] transition-colors px-2.5 min-h-[36px] whitespace-nowrap"
-            style={{ border: '1px solid rgba(232,220,196,0.3)' }}
+            className="ml-auto mb-1.5 shrink-0 font-sans font-bold text-xs tracking-widest uppercase text-parchment-deep hover:text-cream transition-colors px-2.5 min-h-[36px] whitespace-nowrap rounded"
+            style={{ border: '1px solid rgb(var(--c-parchment-deep) / 0.35)' }}
           >
             ✕ Close
           </button>

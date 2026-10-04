@@ -8,22 +8,22 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
         className="thick-book group w-full lg:w-[30vw] max-w-[440px] aspect-[1/1.4] lg:aspect-[1/1.3] bg-[#1e0624] p-3 sm:p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-3 lg:translate-y-6 lg:translate-x-4 lg:hover:-translate-y-1 lg:hover:rotate-[1deg] cursor-pointer"
       >
         <div className="leather-texture" />
-        <div className="absolute inset-3 sm:inset-5 border-[3px] border-[#c49d47]/40 embossed-stamp pointer-events-none rounded z-10" />
+        <div className="absolute inset-3 sm:inset-5 border-[3px] border-gold-leaf/40 embossed-stamp pointer-events-none rounded z-10" />
         <div className="z-20 flex flex-col items-center text-center relative w-full lg:w-auto">
-          <span className="font-mono-data text-[10px] sm:text-sm lg:text-xl font-bold tracking-[0.3em] lg:tracking-[0.5em] text-[#c49d47]/60 mb-2 sm:mb-4 lg:mb-6 uppercase drop-shadow-md">
+          <span className="font-display text-xs sm:text-sm lg:text-lg tracking-[0.18em] text-gold-leaf/80 mb-2 sm:mb-4 lg:mb-6 uppercase drop-shadow-md">
             {lastPlayedCampaign.type === 'gm' ? 'List of Campaigns' : 'Campaign Log'}
           </span>
-          <h2 className="font-playfair italic font-bold text-2xl sm:text-4xl md:text-5xl embossed-gold tracking-tight leading-[1.1] mb-1 sm:mb-4 break-words max-w-full group-hover:text-[#e8c678] transition-colors">
+          <h2 className="font-display italic text-2xl sm:text-4xl md:text-5xl embossed-gold leading-[1.1] mb-1 sm:mb-4 break-words max-w-full group-hover:text-candle-gold transition-colors">
             {lastPlayedCampaign.campaignName || 'Last Session'}
           </h2>
           <div className="flex items-center gap-3 my-2 sm:my-4">
-            <div className="w-6 h-[1px] bg-[#c49d47]/30" />
-            <svg className="w-5 h-5 text-[#c49d47]/50" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+            <div className="w-6 h-[1px] bg-gold-leaf/30" />
+            <svg className="w-5 h-5 text-gold-leaf/60" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
               <path strokeLinecap="square" strokeLinejoin="miter" d="M12 2l2 4h-4l2-4zm-3 4h6v14H9V6zm1.5 3h3M10.5 12h3M10.5 15h3M5 21h14" />
             </svg>
-            <div className="w-6 h-[1px] bg-[#c49d47]/30" />
+            <div className="w-6 h-[1px] bg-gold-leaf/30" />
           </div>
-          <p className="font-garamond text-[#c49d47]/80 text-[11px] sm:text-base lg:text-[26px] tracking-wider max-w-[90%] lg:max-w-[70%] leading-snug sm:leading-relaxed drop-shadow-md uppercase sm:mt-2">
+          <p className="font-serif italic text-gold-leaf/90 text-sm sm:text-lg lg:text-2xl max-w-[90%] lg:max-w-[75%] leading-snug drop-shadow-md sm:mt-2">
             {lastPlayedCampaign.type === 'gm'
               ? "Resume command of your active investigation."
               : "Resume your circle's ongoing assignment."}
@@ -33,11 +33,11 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
   ) : (
       <div className="thick-book w-full lg:w-[30vw] max-w-[440px] aspect-[1/1.4] lg:aspect-[1/1.3] bg-[#120614] p-3 sm:p-6 shadow-[20px_30px_50px_rgba(0,0,0,0.98),inset_10px_0_25px_rgba(0,0,0,0.95),inset_-2px_0_5px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center relative rotate-[2deg] translate-y-3 lg:translate-y-6 lg:translate-x-4 cursor-not-allowed">
         <div className="leather-texture" />
-        <div className="absolute inset-3 sm:inset-5 border-[3px] border-[#c49d47]/20 embossed-stamp pointer-events-none rounded z-10" />
+        <div className="absolute inset-3 sm:inset-5 border-[3px] border-gold-leaf/20 embossed-stamp pointer-events-none rounded z-10" />
 
         <div className="z-20 flex flex-col items-center text-center relative w-full mb-7 sm:mb-[60px]">
-          <span className="font-mono-data text-[10px] sm:text-sm lg:text-xl font-bold tracking-[0.3em] lg:tracking-[0.5em] text-[#c49d47]/50 mb-2 lg:mb-4 uppercase drop-shadow-md">Campaign Log</span>
-          <h2 className="font-playfair italic font-bold text-3xl sm:text-5xl md:text-6xl embossed-gold tracking-tight leading-[1.05]">
+          <span className="font-display text-xs sm:text-sm lg:text-lg tracking-[0.18em] text-gold-leaf/70 mb-2 lg:mb-4 uppercase drop-shadow-md">Campaign Log</span>
+          <h2 className="font-display italic text-3xl sm:text-5xl md:text-6xl embossed-gold leading-[1.05]">
             Last<br/>Session
           </h2>
         </div>
@@ -77,7 +77,7 @@ export const LastSessionTome = ({ lastPlayedCampaign, onResume }) => (
         </div>
 
         <div className="z-20 absolute bottom-4 sm:bottom-7 flex flex-col items-center gap-2 w-full px-3 sm:px-6">
-          <p className="font-garamond text-[#c49d47]/55 text-xs sm:text-2xl tracking-wider text-center leading-relaxed uppercase">
+          <p className="font-display text-xs sm:text-lg tracking-[0.15em] text-center leading-relaxed uppercase text-gold-leaf/75">
             No Recent Sessions
           </p>
         </div>

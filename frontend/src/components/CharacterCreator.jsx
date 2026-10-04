@@ -278,6 +278,10 @@ const ROLE_COLORS = {
   Weird:   { primary: '#4a2870', secondary: '#26123c', rgb: '74,40,112',   cardBg: '#110a18' },
 };
 
+// A role color lifted toward cream so it reads as text or as an icon on the dark stage
+// (the role colors themselves fall under 3:1 there). The hue stays the role's own.
+const roleInk = (hex) => `color-mix(in srgb, ${hex} 60%, rgb(var(--c-cream)))`;
+
 const CARD_IMAGES = {
   Journalist: '/images/Journalist.png',
   Magician:   '/images/magician.jpg',
@@ -379,33 +383,33 @@ const EdgeDiamond = ({ color }) => (
 // Skeuomorphic parchment wrapper with watermarks, tea stains, fold lines
 const PaperSheet = ({ children, className = "" }) => (
   <div className={`paper-bg paper-texture relative ${className}`}
-    style={{ border: '3px double #3e2a1a', boxShadow: '0 14px 36px rgba(0,0,0,0.65), inset 0 0 80px rgba(139,90,43,0.07)' }}>
+    style={{ border: '3px double rgb(var(--c-sepia))', boxShadow: '0 14px 36px rgba(0,0,0,0.65), inset 0 0 80px rgb(var(--c-sepia)/0.07)' }}>
     {/* Tea stains */}
-    <div className="tea-stain" style={{ width: 320, height: 240, top: -60, left: -80, background: 'radial-gradient(ellipse at center, rgba(139,90,43,0.12) 0%, transparent 70%)' }} />
-    <div className="tea-stain" style={{ width: 260, height: 200, bottom: -40, right: -50, background: 'radial-gradient(ellipse at center, rgba(100,60,20,0.10) 0%, transparent 70%)' }} />
-    <div className="tea-stain" style={{ width: 160, height: 120, top: '45%', right: '10%', background: 'radial-gradient(ellipse at center, rgba(120,70,30,0.07) 0%, transparent 70%)' }} />
-    <div className="tea-stain" style={{ width: 90, height: 70, top: '20%', left: '8%', background: 'radial-gradient(ellipse at center, rgba(100,55,15,0.06) 0%, transparent 70%)' }} />
+    <div className="tea-stain" style={{ width: 320, height: 240, top: -60, left: -80, background: 'radial-gradient(ellipse at center, rgb(var(--c-sepia)/0.12) 0%, transparent 70%)' }} />
+    <div className="tea-stain" style={{ width: 260, height: 200, bottom: -40, right: -50, background: 'radial-gradient(ellipse at center, rgb(var(--c-sepia)/0.10) 0%, transparent 70%)' }} />
+    <div className="tea-stain" style={{ width: 160, height: 120, top: '45%', right: '10%', background: 'radial-gradient(ellipse at center, rgb(var(--c-sepia)/0.07) 0%, transparent 70%)' }} />
+    <div className="tea-stain" style={{ width: 90, height: 70, top: '20%', left: '8%', background: 'radial-gradient(ellipse at center, rgb(var(--c-sepia)/0.06) 0%, transparent 70%)' }} />
     {/* Fold lines */}
     <div className="fold-line" style={{ top: '34%' }} />
     <div className="fold-line" style={{ top: '67%' }} />
     {/* Corner filigrees */}
-    <div className="absolute top-2 left-2 w-7 h-7 border-t-2 border-l-2 border-[#3e2a1a]/50" />
-    <div className="absolute top-2 right-2 w-7 h-7 border-t-2 border-r-2 border-[#3e2a1a]/50" />
-    <div className="absolute bottom-2 left-2 w-7 h-7 border-b-2 border-l-2 border-[#3e2a1a]/50" />
-    <div className="absolute bottom-2 right-2 w-7 h-7 border-b-2 border-r-2 border-[#3e2a1a]/50" />
+    <div className="absolute top-2 left-2 w-7 h-7 border-t-2 border-l-2 border-sepia/50" />
+    <div className="absolute top-2 right-2 w-7 h-7 border-t-2 border-r-2 border-sepia/50" />
+    <div className="absolute bottom-2 left-2 w-7 h-7 border-b-2 border-l-2 border-sepia/50" />
+    <div className="absolute bottom-2 right-2 w-7 h-7 border-b-2 border-r-2 border-sepia/50" />
     {/* Text watermark */}
     <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-0"
       style={{ transform: 'rotate(-28deg)' }}>
-      <span className="text-[100px] font-serif font-black text-[#3e2a1a] whitespace-nowrap select-none"
+      <span className="text-[100px] font-serif font-black text-sepia whitespace-nowrap select-none"
         style={{ opacity: 0.032, letterSpacing: '0.08em' }}>CANDELA OBSCURA</span>
     </div>
     {/* Circular seal watermark */}
     <div className="absolute bottom-8 right-8 pointer-events-none z-0" style={{ opacity: 0.06 }}>
       <div className="w-28 h-28 rounded-full flex flex-col items-center justify-center"
-        style={{ border: '3px solid #3e2a1a' }}>
-        <span className="text-[7px] font-sans font-black tracking-[0.35em] text-[#3e2a1a] uppercase">Candela</span>
-        <Gi.GiWaxSeal size={30} className="text-[#3e2a1a] my-1" />
-        <span className="text-[7px] font-sans font-black tracking-[0.35em] text-[#3e2a1a] uppercase">Archive</span>
+        style={{ border: '3px solid rgb(var(--c-sepia))' }}>
+        <span className="text-[7px] font-sans font-black tracking-[0.35em] text-sepia uppercase">Candela</span>
+        <Gi.GiWaxSeal size={30} className="text-sepia my-1" />
+        <span className="text-[7px] font-sans font-black tracking-[0.35em] text-sepia uppercase">Archive</span>
       </div>
     </div>
     <div className="relative z-10 p-4 sm:p-8">{children}</div>
@@ -445,8 +449,8 @@ const CardFace = ({ roleName, specialtyName }) => {
         background: 'linear-gradient(to bottom, rgba(0,0,0,0.92) 62%, transparent 100%)',
         padding: '12px 8px 18px' }}>
         <div style={{ height: 1, background: `linear-gradient(to right, transparent, ${color.primary}, transparent)`, marginBottom: 7 }} />
-        <p style={{ textAlign: 'center', fontSize: 17, fontFamily: 'serif', fontWeight: 700,
-          color: '#f8f0e4', textShadow: '0 1px 6px rgba(0,0,0,0.9)', lineHeight: 1.2 }}>
+        <p style={{ textAlign: 'center', fontSize: 18, fontWeight: 700,
+          color: 'rgb(var(--c-cream))', textShadow: '0 1px 6px rgba(0,0,0,0.9)', lineHeight: 1.2 }}>
           {specialtyName}
         </p>
       </div>
@@ -456,8 +460,8 @@ const CardFace = ({ roleName, specialtyName }) => {
         background: 'linear-gradient(to top, rgba(0,0,0,0.88) 55%, transparent 100%)',
         padding: '10px 8px 10px' }}>
         <div style={{ height: 1, background: `linear-gradient(to right, transparent, ${color.primary}, transparent)`, marginBottom: 5 }} />
-        <p style={{ textAlign: 'center', fontSize: 11, fontFamily: 'sans-serif', fontWeight: 900,
-          letterSpacing: '0.22em', textTransform: 'uppercase', color: color.primary }}>
+        <p className="font-sans" style={{ textAlign: 'center', fontSize: 12, fontWeight: 900,
+          letterSpacing: '0.16em', textTransform: 'uppercase', color: roleInk(color.primary) }}>
           {roleName}
         </p>
       </div>
@@ -634,10 +638,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
   const STEP_UNLOCKED = [true, step2Unlocked, step3Unlocked, step4Unlocked];
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-10 py-6 font-serif text-[#1a1311]">
+    <div className="w-full px-4 sm:px-6 lg:px-10 py-6 font-serif text-ink">
 
       {/* ── PROGRESS NAV ── */}
-      <div className="flex border border-[#3e2f29] bg-[#1a1311] text-xs sm:text-sm lg:text-base font-sans font-black tracking-wider sm:tracking-widest text-center select-none rounded mb-6 sm:mb-8 shadow-md overflow-hidden">
+      <div className="flex border border-sepia/50 bg-ink text-xs sm:text-sm lg:text-base font-sans font-black tracking-wider sm:tracking-widest text-center select-none rounded mb-6 sm:mb-8 shadow-md overflow-hidden">
         {STEP_LABELS.map((label, i) => {
           const n = i + 1;
           const unlocked = STEP_UNLOCKED[i];
@@ -645,10 +649,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
           const [num, ...words] = label.split(' ');
           return (
             <div key={n} onClick={() => unlocked && setStep(n)}
-              className={`${active ? 'flex-[3] sm:flex-1' : 'flex-1'} py-3 sm:py-4 px-1 border-r border-[#3e2f29] last:border-r-0 transition-colors ${
-                active   ? 'bg-[#721c15] text-[#fdfaf4]' :
-                unlocked ? 'text-[#fdfaf4]/50 hover:bg-black/20 cursor-pointer' :
-                           'opacity-25 cursor-not-allowed text-[#fdfaf4]/20'
+              className={`${active ? 'flex-[3] sm:flex-1' : 'flex-1'} py-3 sm:py-4 px-1 border-r border-sepia/50 last:border-r-0 transition-colors ${
+                active   ? 'bg-oxblood text-cream' :
+                unlocked ? 'text-cream/70 hover:bg-black/20 hover:text-cream cursor-pointer' :
+                           'opacity-25 cursor-not-allowed text-cream/20'
               }`}>
               {num}<span className={active ? '' : 'hidden sm:inline'}> {words.join(' ')}</span>
             </div>
@@ -662,7 +666,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
       {step === 1 && (
         <div className="animate-fadeIn pb-28 lg:pb-0">
           <style>{`
-            @import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Caveat&family=Cedarville+Cursive&family=Charm&family=Dawning+of+a+New+Day&family=Gaegu&family=Gochi+Hand&family=Grape+Nuts&family=Homemade+Apple&family=Indie+Flower&family=Kalam&family=La+Belle+Aurore&family=Long+Cang&family=Moondance&family=Patrick+Hand&family=Reenie+Beenie&family=Rock+Salt&family=Sacramento&family=Shadows+Into+Light&family=Zeyada&display=swap');
             @keyframes cardFlipOutForward  { from { transform: rotateY(0deg);    } to { transform: rotateY(-90deg); } }
             @keyframes cardFlipInForward   { from { transform: rotateY(90deg);   } to { transform: rotateY(0deg);   } }
             @keyframes cardFlipOutBackward { from { transform: rotateY(0deg);    } to { transform: rotateY(90deg);  } }
@@ -670,9 +673,9 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
           `}</style>
 
           <div className="text-center mb-6">
-            <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-[0.12em] sm:tracking-widest text-[#fdfaf4]"
+            <h2 className="font-display text-3xl sm:text-5xl uppercase tracking-[0.08em] text-cream"
               style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}>Choose Your Path</h2>
-            <p className="text-xs sm:text-base font-sans tracking-[0.12em] sm:tracking-[0.2em] text-[#fdfaf4]/35 uppercase mt-2">
+            <p className="text-base sm:text-lg font-serif italic text-cream/70 mt-2">
               Flip through the deck — choose one specialty ability and one role ability to continue
             </p>
           </div>
@@ -723,28 +726,28 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
               <div className="flex items-center gap-5">
                 <button onClick={() => flip('backward')} disabled={currentIndex === 0 || animState !== 'idle'}
                   className="w-11 h-11 flex items-center justify-center rounded-full font-black text-2xl transition-all disabled:opacity-20 hover:bg-white/10"
-                  style={{ border: '1px solid rgba(255,255,255,0.2)', color: '#fdfaf4' }}>
+                  style={{ border: '1px solid rgb(var(--c-cream)/0.2)', color: 'rgb(var(--c-cream))' }}>
                   ‹
                 </button>
-                <span className="text-sm font-sans font-black tracking-widest text-[#fdfaf4]/40 uppercase min-w-[56px] text-center">
+                <span className="text-sm font-mono tabular-nums text-cream/70 min-w-[56px] text-center">
                   {currentIndex + 1} / {allCards.length}
                 </span>
                 <button onClick={() => flip('forward')} disabled={currentIndex >= allCards.length - 1 || animState !== 'idle'}
                   className="w-11 h-11 flex items-center justify-center rounded-full font-black text-2xl transition-all disabled:opacity-20 hover:bg-white/10"
-                  style={{ border: '1px solid rgba(255,255,255,0.2)', color: '#fdfaf4' }}>
+                  style={{ border: '1px solid rgb(var(--c-cream)/0.2)', color: 'rgb(var(--c-cream))' }}>
                   ›
                 </button>
               </div>
 
               {/* Role description blurb */}
-              <p className="text-sm sm:text-base font-sans italic text-[#fdfaf4]/40 text-center leading-relaxed px-3 max-w-[280px]">
+              <p className="text-base font-serif italic text-cream/70 text-center leading-relaxed px-3 max-w-[280px]">
                 {currentRoleData.description}
               </p>
             </div>
 
             {/* ── RIGHT: always-visible panel ── */}
             <div className="w-full lg:w-auto lg:flex-1 flex flex-col rounded lg:overflow-hidden lg:min-h-[455px]"
-              style={{ border: `1px solid ${currentColor.primary}33`, background: '#0a0705',
+              style={{ border: `1px solid ${currentColor.primary}33`, background: 'rgb(var(--c-night))',
                 boxShadow: `0 4px 20px rgba(0,0,0,0.6), inset 0 0 0 1px ${currentColor.secondary}44` }}>
 
               {/* Header */}
@@ -753,18 +756,18 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shrink-0"
                     style={{ background: `rgba(${currentColor.rgb},0.15)`, border: `2px solid ${currentColor.primary}` }}>
-                    <SafeIcon name={currentSpecData.icon} size={46} style={{ color: currentColor.primary }} />
+                    <SafeIcon name={currentSpecData.icon} size={46} style={{ color: roleInk(currentColor.primary) }} />
                   </div>
                   <div>
-                    <p className="text-sm font-sans font-black tracking-[0.22em] uppercase" style={{ color: currentColor.primary }}>
+                    <p className="text-sm font-sans font-black tracking-[0.16em] uppercase" style={{ color: roleInk(currentColor.primary) }}>
                       {currentCard.roleName}
                     </p>
-                    <h3 className="text-2xl sm:text-3xl font-black text-[#fdfaf4] leading-tight">{currentCard.specialtyName}</h3>
-                    <p className="text-base italic text-[#fdfaf4]/55 mt-0.5">{currentSpecData.description}</p>
+                    <h3 className="text-2xl sm:text-3xl font-black text-cream leading-tight">{currentCard.specialtyName}</h3>
+                    <p className="text-base italic text-cream/70 mt-0.5">{currentSpecData.description}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {(ILLUMINATION_KEYS[currentCard.specialtyName] || []).map(k => (
                         <span key={k} className="px-2 py-0.5 rounded-sm text-xs font-sans font-black uppercase tracking-wide"
-                          style={{ background: `rgba(${currentColor.rgb},0.22)`, border: `1px solid ${currentColor.primary}55`, color: currentColor.primary }}>
+                          style={{ background: `rgba(${currentColor.rgb},0.22)`, border: `1px solid ${currentColor.primary}55`, color: roleInk(currentColor.primary) }}>
                           {k}
                         </span>
                       ))}
@@ -779,7 +782,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 {/* Left col — specialty abilities */}
                 <div className="px-4 sm:px-5 py-4 space-y-2 border-b md:border-b-0 md:border-r"
                   style={{ borderColor: `${currentColor.primary}18` }}>
-                  <p className="text-base font-sans font-black tracking-[0.2em] uppercase mb-3" style={{ color: currentColor.primary }}>
+                  <p className="text-sm font-sans font-black tracking-[0.14em] uppercase mb-3" style={{ color: roleInk(currentColor.primary) }}>
                     Specialty Ability — Choose One
                   </p>
                   {Object.entries(currentSpecData.abilities).map(([aN, aD]) => {
@@ -788,19 +791,18 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                       <div key={aN} onClick={() => setSelectedSpecialtyAbility(aN)}
                         className="flex items-start gap-2.5 p-3 rounded cursor-pointer transition-all"
                         style={{
-                          background: picked ? `rgba(${currentColor.rgb},0.22)` : 'rgba(255,255,255,0.03)',
+                          background: picked ? `rgba(${currentColor.rgb},0.22)` : 'rgb(var(--c-cream)/0.03)',
                           border: `1px solid ${picked ? currentColor.primary : `rgba(${currentColor.rgb},0.18)`}`,
-                          boxShadow: picked ? `0 0 8px rgba(${currentColor.rgb},0.25)` : 'none',
                         }}>
                         <div className="shrink-0 mt-0.5 w-10 h-10 rounded-full flex items-center justify-center"
                           style={{ background: picked ? currentColor.primary : `rgba(${currentColor.rgb},0.15)`, border: `1px solid ${currentColor.primary}55` }}>
-                          <SafeIcon name={aD.icon} size={22} style={{ color: picked ? '#0f0805' : currentColor.primary }} />
+                          <SafeIcon name={aD.icon} size={22} style={{ color: picked ? 'rgb(var(--c-cream))' : roleInk(currentColor.primary) }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-lg font-black text-[#fdfaf4] leading-tight">{aN}</p>
-                          <p className="text-base text-[#fdfaf4]/65 leading-snug mt-0.5">{aD.text}</p>
+                          <p className="text-lg font-black text-cream leading-tight">{aN}</p>
+                          <p className="text-base text-cream/75 leading-snug mt-0.5">{aD.text}</p>
                         </div>
-                        {picked && <Gi.GiCheckMark size={12} className="ml-auto shrink-0 mt-1" style={{ color: currentColor.primary }} />}
+                        {picked && <Gi.GiCheckMark size={14} className="ml-auto shrink-0 mt-1" style={{ color: roleInk(currentColor.primary) }} />}
                       </div>
                     );
                   })}
@@ -808,7 +810,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
 
                 {/* Right col — role abilities + specialty gear */}
                 <div className="px-4 sm:px-5 py-4 space-y-2 flex flex-col">
-                  <p className="text-base font-sans font-black tracking-[0.2em] uppercase mb-3" style={{ color: currentColor.primary }}>
+                  <p className="text-sm font-sans font-black tracking-[0.14em] uppercase mb-3" style={{ color: roleInk(currentColor.primary) }}>
                     {currentCard.roleName} Role Ability — Choose One
                   </p>
                   {Object.entries(currentRoleData.baseAbilities).map(([aN, aD]) => {
@@ -817,32 +819,31 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                       <div key={aN} onClick={() => setSelectedRoleAbility(aN)}
                         className="flex items-start gap-2.5 p-3 rounded cursor-pointer transition-all"
                         style={{
-                          background: picked ? `rgba(${currentColor.rgb},0.22)` : 'rgba(255,255,255,0.03)',
+                          background: picked ? `rgba(${currentColor.rgb},0.22)` : 'rgb(var(--c-cream)/0.03)',
                           border: `1px solid ${picked ? currentColor.primary : `rgba(${currentColor.rgb},0.18)`}`,
-                          boxShadow: picked ? `0 0 8px rgba(${currentColor.rgb},0.25)` : 'none',
                         }}>
                         <div className="shrink-0 mt-0.5 w-10 h-10 rounded-full flex items-center justify-center"
                           style={{ background: picked ? currentColor.primary : `rgba(${currentColor.rgb},0.15)`, border: `1px solid ${currentColor.primary}55` }}>
-                          <SafeIcon name={aD.icon} size={22} style={{ color: picked ? '#0f0805' : currentColor.primary }} />
+                          <SafeIcon name={aD.icon} size={22} style={{ color: picked ? 'rgb(var(--c-cream))' : roleInk(currentColor.primary) }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-lg font-black text-[#fdfaf4] leading-tight">{aN}</p>
-                          <p className="text-base text-[#fdfaf4]/65 leading-snug mt-0.5">{aD.text}</p>
+                          <p className="text-lg font-black text-cream leading-tight">{aN}</p>
+                          <p className="text-base text-cream/75 leading-snug mt-0.5">{aD.text}</p>
                         </div>
-                        {picked && <Gi.GiCheckMark size={12} className="ml-auto shrink-0 mt-1" style={{ color: currentColor.primary }} />}
+                        {picked && <Gi.GiCheckMark size={14} className="ml-auto shrink-0 mt-1" style={{ color: roleInk(currentColor.primary) }} />}
                       </div>
                     );
                   })}
 
                   {/* Specialty Gear — under role abilities */}
                   <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${currentColor.primary}20` }}>
-                    <p className="text-sm font-sans font-black tracking-[0.18em] uppercase mb-2" style={{ color: currentColor.primary }}>
+                    <p className="text-sm font-sans font-black tracking-[0.14em] uppercase mb-2" style={{ color: roleInk(currentColor.primary) }}>
                       Specialty Gear
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {currentSpecData.gear.map(g => (
-                        <span key={g} className="text-sm font-serif italic text-[#fdfaf4]/70 px-2.5 py-1 rounded"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                        <span key={g} className="text-base font-serif italic text-cream/80 px-2.5 py-1 rounded"
+                          style={{ background: 'rgb(var(--c-cream)/0.05)', border: '1px solid rgb(var(--c-cream)/0.12)' }}>
                           {g}
                         </span>
                       ))}
@@ -852,18 +853,18 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
               </div>
 
               {/* Footer — CTA only */}
-              <div className="fixed inset-x-0 bottom-0 z-40 bg-[#0a0705] shadow-[0_-10px_24px_rgba(0,0,0,0.75)] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:static lg:z-auto lg:bg-transparent lg:shadow-none lg:px-6 lg:py-4 shrink-0"
+              <div className="fixed inset-x-0 bottom-0 z-40 bg-night shadow-[0_-10px_24px_rgba(0,0,0,0.75)] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:static lg:z-auto lg:bg-transparent lg:shadow-none lg:px-6 lg:py-4 shrink-0"
                 style={{ borderTop: `1px solid ${currentColor.primary}20` }}>
                 <div className="flex items-center justify-between gap-3 max-w-[1500px] mx-auto">
-                  <p className="text-sm sm:text-base italic text-[#fdfaf4]/35">
+                  <p className="text-sm sm:text-base italic text-cream/70">
                     {(!selectedSpecialtyAbility || !selectedRoleAbility) ? 'Select one ability from each column to continue' : 'Ready to proceed'}
                   </p>
                   <button onClick={chooseSpecialty} disabled={!selectedRoleAbility || !selectedSpecialtyAbility}
                     className="px-4 sm:px-6 py-3 lg:py-2.5 text-sm sm:text-base font-sans font-black uppercase tracking-wider rounded transition-all shrink-0"
                     style={{
-                      background: (selectedRoleAbility && selectedSpecialtyAbility) ? currentColor.primary : 'rgba(255,255,255,0.06)',
-                      color: (selectedRoleAbility && selectedSpecialtyAbility) ? '#0a0705' : 'rgba(255,255,255,0.2)',
-                      boxShadow: (selectedRoleAbility && selectedSpecialtyAbility) ? `0 2px 12px rgba(${currentColor.rgb},0.45)` : 'none',
+                      background: (selectedRoleAbility && selectedSpecialtyAbility) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-cream)/0.06)',
+                      color: (selectedRoleAbility && selectedSpecialtyAbility) ? 'rgb(var(--c-cream))' : 'rgb(var(--c-cream)/0.45)',
+                      boxShadow: (selectedRoleAbility && selectedSpecialtyAbility) ? '0 2px 6px rgba(0,0,0,0.5)' : 'none',
                       cursor: (selectedRoleAbility && selectedSpecialtyAbility) ? 'pointer' : 'not-allowed',
                     }}>
                     Select this Path →
@@ -881,9 +882,9 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
       {step === 2 && (
         <PaperSheet>
           <div className="animate-fadeIn space-y-6">
-            <div className="text-center pb-4" style={{ borderBottom: '1px solid rgba(62,42,26,0.22)' }}>
-              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide text-[#721c15]">Investigator Profile</h2>
-              <p className="text-base font-sans font-black uppercase tracking-[0.18em] text-black/40 mt-1">
+            <div className="text-center pb-4" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
+              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Investigator Profile</h2>
+              <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
                 {specialty} · {role} — Complete identity and examination record
               </p>
             </div>
@@ -896,14 +897,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 {/* Portrait + Name row */}
                 <div className="flex gap-3 sm:gap-4 items-start">
                   <div className="shrink-0">
-                    <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1.5">Portrait</label>
-                    <label className="flex flex-col items-center justify-center cursor-pointer hover:bg-[#e4cfa0]/55 hover:border-[#721c15]/50 transition-all relative overflow-hidden shadow-inner group rounded w-[112px] h-[140px] sm:w-[160px] sm:h-[200px]"
-                      style={{ border: '2px dashed rgba(90,58,40,0.4)', background: 'rgba(228,207,160,0.3)' }}>
+                    <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1.5">Portrait</label>
+                    <label className="flex flex-col items-center justify-center cursor-pointer hover:bg-parchment-deep/55 hover:border-oxblood/50 transition-all relative overflow-hidden shadow-inner group rounded w-[112px] h-[140px] sm:w-[160px] sm:h-[200px]"
+                      style={{ border: '2px dashed rgb(var(--c-sepia)/0.4)', background: 'rgb(var(--c-parchment-deep)/0.3)' }}>
                       {profilePic
                         ? <img src={profilePic} alt="Portrait" className="w-full h-full object-cover" />
                         : <div className="text-center px-3">
-                            <Gi.GiIdCard size={36} className="mx-auto text-[#1a1311]/22 mb-2 group-hover:scale-110 transition-transform" />
-                            <span className="block text-xs font-sans font-black tracking-wider text-[#1a1311]/35 uppercase leading-tight">[+] Affix Portrait</span>
+                            <Gi.GiIdCard size={36} className="mx-auto text-sepia/50 mb-2 group-hover:scale-110 transition-transform" />
+                            <span className="block text-xs font-sans font-black tracking-wider text-sepia uppercase leading-tight">[+] Affix Portrait</span>
                           </div>
                       }
                       <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
@@ -912,58 +913,58 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
 
                   <div className="flex-1 min-w-0 space-y-3 pt-5">
                     <div>
-                      <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1">Full Name *</label>
+                      <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Full Name *</label>
                       <input type="text" value={name} onChange={e => setName(e.target.value)}
                         placeholder="Full Nomenclature Name…"
-                        className="w-full bg-transparent font-serif font-bold text-lg focus:outline-none placeholder-black/20 pb-1"
-                        style={{ borderBottom: '1px solid rgba(90,58,40,0.38)' }} />
+                        className="w-full bg-transparent font-serif font-bold text-lg focus:outline-none placeholder-sepia/70 placeholder:font-normal placeholder:italic pb-1"
+                        style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
                     <div>
-                      <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1">Gender / Pronouns</label>
+                      <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Gender / Pronouns</label>
                       <input type="text" value={pronouns} onChange={e => setPronouns(e.target.value)}
                         placeholder="e.g., He/They, She/Her…"
-                        className="w-full bg-transparent font-serif italic text-lg focus:outline-none placeholder-black/20 pb-1"
-                        style={{ borderBottom: '1px solid rgba(90,58,40,0.38)' }} />
+                        className="w-full bg-transparent font-serif italic text-lg focus:outline-none placeholder-sepia/70 pb-1"
+                        style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
                   </div>
                 </div>
 
                 {/* Identifying Characteristics */}
                 <div>
-                  <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1">Identifying Characteristics</label>
+                  <label className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Identifying Characteristics</label>
                   <textarea rows={3} value={style} onChange={e => setStyle(e.target.value)}
                     placeholder="Detail apparel, distinguishing marks, tailored suits, or signature items that set this investigator apart…"
-                    className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-black/20 leading-7 paper-ruled"
-                    style={{ borderBottom: '1px solid rgba(90,58,40,0.25)' }} />
+                    className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-sepia/70 placeholder:italic leading-7 paper-ruled"
+                    style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.25)' }} />
                 </div>
               </div>
 
               {/* RIGHT: Psychological Evaluation */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="flex-1" style={{ borderTop: '1px dashed rgba(62,42,26,0.25)' }} />
-                  <span className="text-sm font-sans font-black uppercase tracking-[0.18em] text-[#721c15]/60 shrink-0">Psychological Evaluation</span>
-                  <div className="flex-1" style={{ borderTop: '1px dashed rgba(62,42,26,0.25)' }} />
+                  <div className="flex-1" style={{ borderTop: '1px dashed rgb(var(--c-sepia)/0.25)' }} />
+                  <span className="text-sm font-sans font-black uppercase tracking-[0.14em] text-oxblood shrink-0">Psychological Evaluation</span>
+                  <div className="flex-1" style={{ borderTop: '1px dashed rgb(var(--c-sepia)/0.25)' }} />
                 </div>
 
-                <div className="bg-[#e4cfa0]/30 p-4 rounded-sm shadow-inner" style={{ border: '1px solid rgba(90,58,40,0.18)' }}>
-                  <label className="block text-base font-sans font-black uppercase tracking-[0.15em] text-[#721c15] mb-2 pb-1.5"
-                    style={{ borderBottom: '1px solid rgba(90,58,40,0.15)' }}>
+                <div className="bg-parchment-deep/30 p-4 rounded-sm shadow-inner" style={{ border: '1px solid rgb(var(--c-sepia)/0.18)' }}>
+                  <label className="block text-lg font-serif font-bold text-oxblood mb-2 pb-1.5"
+                    style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.15)' }}>
                     Catalyst — Why do you seek Candela Obscura? *
                   </label>
                   <textarea rows={4} value={catalyst} onChange={e => setCatalyst(e.target.value)}
                     placeholder="The specific event or rupture that drew you into the dark…"
-                    className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-black/22 leading-7 paper-ruled" />
+                    className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-sepia/70 placeholder:italic leading-7 paper-ruled" />
                 </div>
 
-                <div className="bg-[#e4cfa0]/30 p-4 rounded-sm shadow-inner" style={{ border: '1px solid rgba(90,58,40,0.18)' }}>
-                  <label className="block text-base font-sans font-black uppercase tracking-[0.15em] text-[#721c15] mb-2 pb-1.5"
-                    style={{ borderBottom: '1px solid rgba(90,58,40,0.15)' }}>
+                <div className="bg-parchment-deep/30 p-4 rounded-sm shadow-inner" style={{ border: '1px solid rgb(var(--c-sepia)/0.18)' }}>
+                  <label className="block text-lg font-serif font-bold text-oxblood mb-2 pb-1.5"
+                    style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.15)' }}>
                     Curiosity — What answers are you demanding?
                   </label>
                   <textarea rows={4} value={question} onChange={e => setQuestion(e.target.value)}
                     placeholder="The central question or haunting mystery your investigator pursues…"
-                    className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-black/22 leading-7 paper-ruled" />
+                    className="w-full bg-transparent font-serif text-base focus:outline-none resize-none placeholder-sepia/70 placeholder:italic leading-7 paper-ruled" />
                 </div>
               </div>
             </div>
@@ -981,22 +982,22 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
         return (
         <PaperSheet>
           <div className="animate-fadeIn space-y-6">
-            <div className="text-center pb-5" style={{ borderBottom: '1px solid rgba(62,42,26,0.22)' }}>
-              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide text-[#721c15]">Action Ratings &amp; Drive</h2>
-              <p className="text-base font-sans font-black uppercase tracking-[0.18em] text-black/40 mt-1">
+            <div className="text-center pb-5" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
+              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Action Ratings &amp; Drive</h2>
+              <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
                 {specialty} starting values locked — raise one, add 3 free action points, assign 6 drive points
               </p>
             </div>
 
             {/* ── Step A: Free Raise ── */}
-            <div className="rounded-sm p-4" style={{ background:'rgba(228,207,160,0.2)', border:'1px solid rgba(90,58,40,0.18)' }}>
+            <div className="rounded-sm p-4" style={{ background:'rgb(var(--c-parchment-deep)/0.2)', border:'1px solid rgb(var(--c-sepia)/0.18)' }}>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-sans font-black uppercase tracking-[0.15em] text-[#721c15]">
+                <h3 className="text-lg font-serif font-bold text-oxblood">
                   A — Raise One Starting-Zero Action to 1
                 </h3>
                 {freeRaiseKey
-                  ? <span className="text-xs font-sans font-black uppercase tracking-widest text-[#2a7a2a]">✓ {actionKeyLabel[freeRaiseKey]}</span>
-                  : <span className="text-xs font-sans font-black uppercase tracking-widest text-[#721c15]/50">choose one</span>
+                  ? <span className="text-xs font-sans font-black uppercase tracking-widest text-seal-green">✓ {actionKeyLabel[freeRaiseKey]}</span>
+                  : <span className="text-xs font-sans font-black uppercase tracking-widest text-sepia">choose one</span>
                 }
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1006,9 +1007,9 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                     <button key={k} onClick={() => setFreeRaiseKey(sel ? null : k)}
                       className="px-3 py-1.5 text-sm font-sans font-black uppercase tracking-wider rounded-sm transition-all"
                       style={{
-                        background: sel ? '#721c15' : 'rgba(228,207,160,0.5)',
-                        color: sel ? '#fdfaf4' : '#5a3a28',
-                        border: `1px solid ${sel ? '#721c15' : 'rgba(90,58,40,0.3)'}`,
+                        background: sel ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-parchment-deep)/0.5)',
+                        color: sel ? 'rgb(var(--c-cream))' : 'rgb(var(--c-sepia))',
+                        border: `1px solid ${sel ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia)/0.3)'}`,
                       }}>
                       {actionKeyLabel[k]}
                     </button>
@@ -1020,10 +1021,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             {/* ── Step B: Action distribution grid ── */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-sans font-black uppercase tracking-[0.15em] text-[#721c15]">
+                <h3 className="text-lg font-serif font-bold text-oxblood">
                   B — Distribute 3 Free Action Points (max 2 per action)
                 </h3>
-                <span className={`text-xs font-sans font-black uppercase tracking-widest ${freePtsUsed===3?'text-[#2a7a2a]':'text-[#721c15]/50'}`}>
+                <span className={`text-xs font-sans font-black uppercase tracking-widest ${freePtsUsed===3?'text-seal-green':'text-sepia'}`}>
                   {freePtsUsed}/3 placed
                 </span>
               </div>
@@ -1048,19 +1049,19 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                             <div key={key} className="flex items-center gap-2">
                               {isLockedGilded ? (
                                 <span className="shrink-0 w-5 h-5 flex items-center justify-center" title="Specialty gilded action (locked)">
-                                  <Gi.GiStarFormation size={13} style={{ color: '#d4af37' }} />
+                                  <Gi.GiStarFormation size={13} style={{ color: 'rgb(var(--c-candle-gold))' }} />
                                 </span>
                               ) : (
                                 <button onClick={() => toggleFreeGilded(key)}
                                   title={isFreeGilded ? 'Remove free gild' : freeGilded ? 'Replace free gild' : 'Gild this action (free choice)'}
                                   className="shrink-0 w-5 h-5 flex items-center justify-center focus:outline-none transition-opacity hover:opacity-100"
                                   style={{ opacity: isFreeGilded ? 1 : 0.2 }}>
-                                  <Gi.GiStarFormation size={13} style={{ color: isFreeGilded ? '#d4af37' : '#5a3a28' }} />
+                                  <Gi.GiStarFormation size={13} style={{ color: isFreeGilded ? 'rgb(var(--c-candle-gold))' : 'rgb(var(--c-sepia))' }} />
                                 </button>
                               )}
-                              <span className="text-sm font-serif font-bold text-[#1a1311] w-16 shrink-0 group/act relative cursor-help">
+                              <span className="text-sm font-serif font-bold text-ink w-16 shrink-0 group/act relative cursor-help">
                                 {label}
-                                <span className="hidden group-hover/act:block absolute left-0 top-full mt-1 z-10 w-64 text-[20px] font-sans font-normal italic text-[#5a3a28]/70 bg-[#fdfaf4] border border-[#c4a870]/50 rounded px-2 py-1 shadow pointer-events-none leading-snug">
+                                <span className="hidden group-hover/act:block absolute left-0 top-full mt-1 z-10 w-64 text-base font-serif font-normal italic text-ink bg-cream border border-sepia/40 rounded px-2 py-1 shadow pointer-events-none leading-snug">
                                   {ACTION_FLAVOR[key]}
                                 </span>
                               </span>
@@ -1071,16 +1072,16 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                                   else if (n === locked+1 && raised===1) cls = isGilded&&n===total ? 'action-pip gilded' : 'action-pip filled';
                                   else if (n <= total) cls = isGilded&&n===total ? 'action-pip gilded' : 'action-pip filled';
                                   else cls = 'action-pip';
-                                  return <div key={n} className={cls} style={n<=locked?{outline:'2px solid rgba(90,58,40,0.5)', outlineOffset:'-1px'}:{}} />;
+                                  return <div key={n} className={cls} style={n<=locked?{outline:'2px solid rgb(var(--c-sepia)/0.5)', outlineOffset:'-1px'}:{}} />;
                                 })}
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <button onClick={() => adjustFreePoints(key,-1)} disabled={free<=0}
                                   className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
-                                  style={{ color:'#721c15', borderColor:'#721c1550' }}>−</button>
+                                  style={{ color:'rgb(var(--c-oxblood))', borderColor:'rgb(var(--c-oxblood) / 0.31)' }}>−</button>
                                 <button onClick={() => adjustFreePoints(key,1)} disabled={total>=2||freePtsUsed>=3}
                                   className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 focus:outline-none border"
-                                  style={{ color:'#721c15', borderColor:'#721c1550' }}>+</button>
+                                  style={{ color:'rgb(var(--c-oxblood))', borderColor:'rgb(var(--c-oxblood) / 0.31)' }}>+</button>
                               </div>
                             </div>
                           );
@@ -1093,12 +1094,12 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             </div>
 
             {/* ── Step C: Drive distribution ── */}
-            <div className="rounded-sm p-4" style={{ background:'rgba(228,207,160,0.15)', border:'1px solid rgba(90,58,40,0.18)' }}>
+            <div className="rounded-sm p-4" style={{ background:'rgb(var(--c-parchment-deep)/0.15)', border:'1px solid rgb(var(--c-sepia)/0.18)' }}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-sans font-black uppercase tracking-[0.15em] text-[#721c15]">
+                <h3 className="text-lg font-serif font-bold text-oxblood">
                   C — Distribute 6 Drive Points
                 </h3>
-                <span className={`text-xs font-sans font-black uppercase tracking-widest ${drivesPtsUsed===6?'text-[#2a7a2a]':'text-[#721c15]/50'}`}>
+                <span className={`text-xs font-sans font-black uppercase tracking-widest ${drivesPtsUsed===6?'text-seal-green':'text-sepia'}`}>
                   {drivesPtsUsed}/6 placed
                 </span>
               </div>
@@ -1115,14 +1116,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                     <div key={key} className="flex flex-col items-center gap-2 p-3 rounded-sm"
                       style={{ background:`rgba(${color==='#7a4822'?'122,72,34':color==='#2a4d25'?'42,77,37':'74,40,112'},0.08)`, border:`1px solid ${color}22` }}>
                       <span className="text-sm font-black uppercase tracking-wider" style={{ color }}>{label}</span>
-                      <span className="text-[18px] font-sans italic text-center leading-snug" style={{ color, opacity: 0.6 }}>{DRIVE_FLAVOR[key]}</span>
+                      <span className="text-base font-serif italic text-center leading-snug" style={{ color }}>{DRIVE_FLAVOR[key]}</span>
                       <span className="text-xl font-black" style={{ color }}>{total}</span>
                       <div className="flex gap-1">
                         {Array.from({length:7}).map((_,i) => (
                           <div key={i} className="w-2.5 h-2.5 rounded-sm border transition-all"
                             style={{
                               background: i<startVal ? color : i<total ? color+'99' : 'transparent',
-                              borderColor: i<total ? color : '#b0a090',
+                              borderColor: i<total ? color : 'rgb(var(--c-sepia))',
                               opacity: i<startVal ? 0.5 : 1,
                             }} />
                         ))}
@@ -1150,13 +1151,13 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                 {label:'6 Drive Pts', done: drivesPtsUsed===6},
                 {label:'Free Gild', done: !!freeGilded},
               ].map(({label,done}) => (
-                <span key={label} style={{ color: done ? '#2a7a2a' : 'rgba(90,58,40,0.4)' }}>
+                <span key={label} style={{ color: done ? 'rgb(var(--c-seal-green))' : 'rgb(var(--c-sepia))' }}>
                   {done ? '✓' : '○'} {label}
                 </span>
               ))}
             </div>
 
-            <p className="text-base font-sans italic text-[#5a3a28]/55 text-center">
+            <p className="text-base font-serif italic text-sepia text-center">
               ★ Your specialty auto-gilds one action. Click ☆ beside any other action to add your free gild — gilded actions roll an extra die on their first result.
             </p>
           </div>
@@ -1170,12 +1171,12 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
       {step === 4 && (
         <PaperSheet>
           <div className="animate-fadeIn space-y-7">
-            <div className="text-center pb-5" style={{ borderBottom: '1px solid rgba(62,42,26,0.22)' }}>
-              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide text-[#721c15]">Specialty Gear &amp; Final Dossier</h2>
-              <p className="text-xs sm:text-lg font-sans font-black uppercase tracking-[0.12em] sm:tracking-[0.18em] text-black/40 mt-1">
+            <div className="text-center pb-5" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
+              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Specialty Gear &amp; Final Dossier</h2>
+              <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
                 Select up to 3 items — then review and submit your dossier for Archive transmission
               </p>
-              <p className="text-sm font-sans italic text-[#721c15]/60 mt-2">
+              <p className="text-base font-serif italic text-oxblood mt-2">
                 Starting gear can be changed at any time from your Investigator Dossier.
               </p>
             </div>
@@ -1183,29 +1184,29 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             {/* Gear ledger */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-sans font-black uppercase tracking-[0.15em] text-[#721c15] flex items-center gap-2">
+                <h3 className="text-sm font-sans font-black uppercase tracking-[0.14em] text-oxblood flex items-center gap-2">
                   <Gi.GiBriefcase size={16} /> Equipment Ledger
                 </h3>
-                <span className="text-sm font-sans font-black text-black/45">{selectedGear.length} / 3 selected</span>
+                <span className="text-sm font-sans font-black text-sepia">{selectedGear.length} / 3 selected</span>
               </div>
 
               {/* Specialty gear */}
               <div className="mb-4">
-                <p className="text-sm sm:text-lg font-sans font-black uppercase tracking-[0.12em] sm:tracking-[0.18em] text-[#721c15]/70 mb-2">Signature Equipment — {specialty}</p>
+                <p className="text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-2">Signature Equipment — {specialty}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {ROLES[role]?.specialties[specialty]?.gear.map(item => (
                     <div key={item} onClick={() => toggleGear(item)}
-                      className={`flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? 'shadow-sm' : 'hover:bg-[#e4cfa0]/40'}`}
+                      className={`flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? 'shadow-sm' : 'hover:bg-parchment-deep/40'}`}
                       style={{
-                        background: selectedGear.includes(item) ? 'rgba(114,28,21,0.1)' : 'rgba(228,207,160,0.2)',
-                        border: `1px solid ${selectedGear.includes(item) ? '#721c15' : 'rgba(90,58,40,0.22)'}`,
+                        background: selectedGear.includes(item) ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.2)',
+                        border: `1px solid ${selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia)/0.22)'}`,
                       }}>
-                      <div className={`w-4 h-4 border flex items-center justify-center rounded-sm text-xs shrink-0 ${selectedGear.includes(item) ? 'bg-[#721c15] border-[#721c15] text-white' : 'border-[#5a3a28]/40'}`}>
+                      <div className={`w-4 h-4 border flex items-center justify-center rounded-sm text-xs shrink-0 ${selectedGear.includes(item) ? 'bg-oxblood border-oxblood text-cream' : 'border-sepia/50'}`}>
                         {selectedGear.includes(item) && "✓"}
                       </div>
-                      <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? '#721c15' : '#5a3a28', opacity: selectedGear.includes(item) ? 1 : 0.55, flexShrink: 0 }} />
-                      <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-[#1a1311]' : 'text-[#1a1311]/75'}`}>{item}</span>
-                      <span className="ml-auto text-[8px] font-sans font-black uppercase text-[#721c15]/60 tracking-tighter shrink-0">[Sig]</span>
+                      <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia))', opacity: selectedGear.includes(item) ? 1 : 0.55, flexShrink: 0 }} />
+                      <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-ink' : 'text-ink/80'}`}>{item}</span>
+                      <span className="ml-auto text-xs font-sans font-black uppercase text-oxblood/80 shrink-0">[Sig]</span>
                     </div>
                   ))}
                 </div>
@@ -1213,20 +1214,20 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
 
               {/* Standard gear */}
               <div>
-                <p className="text-sm sm:text-lg font-sans font-black uppercase tracking-[0.12em] sm:tracking-[0.18em] text-[#5a3a28]/55 mb-2">Standard Issue Equipment</p>
+                <p className="text-sm font-sans font-black uppercase tracking-[0.12em] text-sepia mb-2">Standard Issue Equipment</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {STANDARD_GEAR.map(item => (
                     <div key={item} onClick={() => toggleGear(item)}
-                      className={`flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? '' : 'hover:bg-[#e4cfa0]/30'}`}
+                      className={`flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? '' : 'hover:bg-parchment-deep/30'}`}
                       style={{
-                        background: selectedGear.includes(item) ? 'rgba(114,28,21,0.08)' : 'rgba(228,207,160,0.1)',
-                        border: `1px solid ${selectedGear.includes(item) ? '#721c1580' : 'rgba(90,58,40,0.15)'}`,
+                        background: selectedGear.includes(item) ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.1)',
+                        border: `1px solid ${selectedGear.includes(item) ? 'rgb(var(--c-oxblood) / 0.5)' : 'rgb(var(--c-sepia)/0.15)'}`,
                       }}>
-                      <div className={`w-4 h-4 border flex items-center justify-center rounded-sm text-xs shrink-0 ${selectedGear.includes(item) ? 'bg-[#721c15] border-[#721c15] text-white' : 'border-[#5a3a28]/35'}`}>
+                      <div className={`w-4 h-4 border flex items-center justify-center rounded-sm text-xs shrink-0 ${selectedGear.includes(item) ? 'bg-oxblood border-oxblood text-cream' : 'border-sepia/50'}`}>
                         {selectedGear.includes(item) && "✓"}
                       </div>
-                      <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? '#721c15' : '#5a3a28', opacity: selectedGear.includes(item) ? 0.9 : 0.45, flexShrink: 0 }} />
-                      <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-[#1a1311]' : 'text-[#1a1311]/60'}`}>{item}</span>
+                      <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia))', opacity: selectedGear.includes(item) ? 0.9 : 0.45, flexShrink: 0 }} />
+                      <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-ink' : 'text-ink/80'}`}>{item}</span>
                     </div>
                   ))}
                 </div>
@@ -1234,8 +1235,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             </div>
 
             {/* Dossier summary */}
-            <div style={{ borderTop: '2px dashed rgba(62,42,26,0.2)' }} className="pt-5 space-y-4">
-              <h3 className="text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15]">Candela Archive Ledger — Investigator Summary</h3>
+            <div style={{ borderTop: '2px dashed rgb(var(--c-sepia)/0.2)' }} className="pt-5 space-y-4">
+              <h3 className="text-lg font-serif font-bold text-oxblood">Candela Archive Ledger — Investigator Summary</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   { label: "Investigator", value: name },
@@ -1243,19 +1244,19 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                   { label: "Role · Specialty", value: `${role} · ${specialty}` },
                   { label: "Gear Selected", value: `${selectedGear.length} of 3 items` },
                 ].map(({ label, value }) => (
-                  <div key={label} className="p-3 rounded-sm" style={{ background: 'rgba(228,207,160,0.28)', border: '1px solid rgba(90,58,40,0.15)' }}>
-                    <span className="block text-sm sm:text-lg font-sans font-black uppercase tracking-[0.15em] text-[#721c15] mb-0.5">{label}</span>
-                    <span className="text-lg font-bold text-[#1a1311] block break-words sm:truncate">{value}</span>
+                  <div key={label} className="p-3 rounded-sm" style={{ background: 'rgb(var(--c-parchment-deep)/0.28)', border: '1px solid rgb(var(--c-sepia)/0.15)' }}>
+                    <span className="block text-xs sm:text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-0.5">{label}</span>
+                    <span className="text-lg font-bold text-ink block break-words sm:truncate">{value}</span>
                   </div>
                 ))}
               </div>
-              <div className="p-4 rounded-sm" style={{ background: 'rgba(228,207,160,0.18)', border: '1px dashed rgba(90,58,40,0.22)' }}>
-                <span className="block text-base font-sans font-black uppercase tracking-[0.18em] text-[#721c15] mb-1">Administrative Catalyst</span>
-                <p className="text-base italic text-[#1a1311]/80 leading-relaxed">"{catalyst}"</p>
+              <div className="p-4 rounded-sm" style={{ background: 'rgb(var(--c-parchment-deep)/0.18)', border: '1px dashed rgb(var(--c-sepia)/0.22)' }}>
+                <span className="block text-xs sm:text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-1">Administrative Catalyst</span>
+                <p className="text-base italic text-ink/80 leading-relaxed">"{catalyst}"</p>
               </div>
             </div>
 
-            <div className="text-center pt-1 text-xs font-sans font-black tracking-widest uppercase text-[#5a3a28]/38 animate-pulse">
+            <div className="text-center pt-1 text-base font-serif italic text-sepia">
               ⚠ Pending final review — verify all fields before submission to the Archive
             </div>
           </div>
@@ -1266,7 +1267,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
       {step > 1 && (
         <div className="flex flex-wrap justify-between items-center gap-3 mt-5">
           <button onClick={() => setStep(step - 1)}
-            className="px-5 py-2 text-base border border-[#fdfaf4]/18 font-sans font-black uppercase tracking-widest text-[#fdfaf4]/50 hover:bg-white/5 hover:text-[#fdfaf4]/75 transition-all rounded">
+            className="px-5 py-2 text-base border border-cream/25 font-sans font-black uppercase tracking-widest text-cream/75 hover:bg-cream/5 hover:text-cream transition-all rounded">
             ← Back
           </button>
           {step < 4 ? (
@@ -1275,28 +1276,28 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
               disabled={!canAdvance}
               className="px-7 py-2 text-base font-sans font-black uppercase tracking-widest rounded transition-all shadow"
               style={{
-                background: canAdvance ? '#721c15' : 'rgba(26,19,17,0.6)',
-                color: canAdvance ? '#fdfaf4' : 'rgba(253,250,244,0.2)',
+                background: canAdvance ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-ink)/0.6)',
+                color: canAdvance ? 'rgb(var(--c-cream))' : 'rgb(var(--c-cream)/0.45)',
                 cursor: canAdvance ? 'pointer' : 'not-allowed',
               }}>
               Advance →
             </button>
           ) : rejoinContext ? (
-            <div className="w-full bg-[#0d0807] border-2 border-[#5c1010] p-5 shadow-[0_0_30px_rgba(120,10,10,0.5)]">
-              <p className="font-mono text-xs text-[#8b4a4a] uppercase tracking-[0.2em] mb-1">Lightkeeper Invitation</p>
-              <p className="text-[#c9b89a] font-serif text-base mb-4">
-                Rejoin <strong className="text-white">{rejoinContext.campaignName}</strong> with this investigator?
+            <div className="w-full bg-night border-2 border-oxblood p-5 shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
+              <p className="font-sans font-bold text-xs text-oxblood-lit uppercase tracking-widest mb-1">Lightkeeper Invitation</p>
+              <p className="text-parchment-deep font-serif text-base mb-4">
+                Rejoin <strong className="text-cream">{rejoinContext.campaignName}</strong> with this investigator?
               </p>
               <div className="flex gap-3 flex-wrap">
                 <button
                   onClick={() => handleComplete('rejoin')}
-                  className="px-6 py-2.5 text-sm font-sans font-black uppercase tracking-[0.2em] border border-[#5c0f0f] transition-colors"
-                  style={{ background: '#8b1a1a', color: '#fdfaf4' }}>
+                  className="px-6 py-2.5 text-sm font-sans font-black uppercase tracking-widest border border-ink rounded hover:brightness-125 transition"
+                  style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
                   [ Rejoin {rejoinContext.campaignName} ]
                 </button>
                 <button
                   onClick={() => handleComplete('save')}
-                  className="px-6 py-2.5 text-sm border border-zinc-600 text-zinc-400 hover:text-zinc-200 font-sans font-black uppercase tracking-[0.15em] transition-colors"
+                  className="px-6 py-2.5 text-sm border border-cream/25 text-cream/75 hover:text-cream hover:bg-cream/5 rounded font-sans font-black uppercase tracking-widest transition-colors"
                   style={{ background: 'transparent' }}>
                   [ Save for Later ]
                 </button>
@@ -1306,14 +1307,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <button
                 onClick={() => handleComplete('save')}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border border-[#8b5a2b] font-sans font-black uppercase tracking-widest rounded transition-all"
-                style={{ background: 'rgba(245,235,214,0.6)', color: '#3e2a1a' }}>
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border border-sepia font-sans font-black uppercase tracking-widest rounded transition-all"
+                style={{ background: 'rgb(var(--c-parchment)/0.6)', color: 'rgb(var(--c-sepia))' }}>
                 Save for Later
               </button>
               <button
                 onClick={() => setShowJoinInput(true)}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border-2 border-[#1a1311] font-sans font-black uppercase tracking-widest rounded shadow-md transition-all"
-                style={{ background: '#721c15', color: '#fdfaf4' }}>
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border-2 border-ink font-sans font-black uppercase tracking-widest rounded shadow-md transition-all"
+                style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
                 Join a Campaign
               </button>
             </div>
@@ -1323,30 +1324,30 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
           {showJoinInput && (
             <div
               className="fixed inset-0 z-[500] flex items-center justify-center p-4"
-              style={{ background: 'rgba(10,6,4,0.82)' }}
+              style={{ background: 'rgb(var(--c-night) / 0.85)' }}
               onClick={() => { setShowJoinInput(false); setPenDropdownOpen(false); }}
             >
               <div
                 className="relative flex flex-col gap-5 rounded-sm w-full max-w-[480px] max-h-[calc(100dvh-32px)] overflow-y-auto px-5 pt-6 pb-5 sm:px-10 sm:pt-9 sm:pb-8"
                 style={{
-                  background: '#ffffff',
+                  background: 'rgb(var(--c-cream))',
                   border: '3px double rgba(0,0,0,0.3)',
                   boxShadow: '0 20px 60px rgba(0,0,0,0.9)',
                 }}
                 onClick={e => e.stopPropagation()}
               >
                 {/* Header */}
-                <div style={{ borderBottom: '1px solid rgba(62,42,26,0.2)', paddingBottom: 16 }}>
-                  <p className="text-xs font-sans font-black uppercase tracking-[0.35em] text-[#721c15]/60 mb-1">Chapter Admission</p>
-                  <h2 className="text-3xl font-serif font-black text-[#1a1311] tracking-wide">Join a Circle</h2>
-                  <p className="text-sm font-sans text-[#1a1311] mt-1.5 leading-relaxed opacity-70">
+                <div style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.2)', paddingBottom: 16 }}>
+                  <p className="text-xs font-sans font-black uppercase tracking-widest text-oxblood mb-1">Chapter Admission</p>
+                  <h2 className="font-display text-4xl text-ink">Join a Circle</h2>
+                  <p className="text-base font-serif text-ink/80 mt-1.5 leading-relaxed">
                     Enter the campaign cipher provided by your Lightkeeper to request admission.
                   </p>
                 </div>
 
                 {/* Campaign Cipher input */}
                 <div>
-                  <label className="block text-xs font-sans font-black uppercase tracking-[0.25em] text-[#721c15] mb-2">Campaign Cipher</label>
+                  <label className="block text-xs font-sans font-black uppercase tracking-widest text-oxblood mb-2">Campaign Cipher</label>
                   <input
                     autoFocus
                     type="text"
@@ -1354,36 +1355,36 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                     onChange={e => setCampaignCode(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && campaignCode.trim() && handleComplete('join', campaignCode.trim())}
                     placeholder="e.g. fairelands-01"
-                    className="w-full bg-[#f8f8f8] px-4 py-3 text-lg font-serif text-[#1a1311] placeholder-black/30 focus:outline-none"
-                    style={{ border: '1px solid rgba(0,0,0,0.2)', borderBottom: '2px solid rgba(114,28,21,0.5)' }}
+                    className="w-full bg-parchment px-4 py-3 text-lg font-serif text-ink placeholder-sepia/70 placeholder:italic focus:outline-none"
+                    style={{ border: '1px solid rgba(0,0,0,0.2)', borderBottom: '2px solid rgb(var(--c-oxblood)/0.5)' }}
                   />
                 </div>
 
                 {/* Pen font picker */}
                 <div>
-                  <label className="block text-xs font-sans font-black uppercase tracking-[0.25em] text-[#721c15] mb-2">Writing Instrument</label>
+                  <label className="block text-xs font-sans font-black uppercase tracking-widest text-oxblood mb-2">Writing Instrument</label>
                   <div>
                     <button
                       type="button"
                       onClick={() => setPenDropdownOpen(v => !v)}
-                      className="w-full bg-[#f8f8f8] px-4 py-3 flex items-center justify-between hover:bg-[#f0f0f0] transition-colors"
-                      style={{ border: '1px solid rgba(0,0,0,0.2)', borderBottom: penDropdownOpen ? '1px solid rgba(0,0,0,0.2)' : '2px solid rgba(114,28,21,0.5)' }}
+                      className="w-full bg-parchment px-4 py-3 flex items-center justify-between hover:bg-parchment-deep transition-colors"
+                      style={{ border: '1px solid rgba(0,0,0,0.2)', borderBottom: penDropdownOpen ? '1px solid rgba(0,0,0,0.2)' : '2px solid rgb(var(--c-oxblood)/0.5)' }}
                     >
-                      <span className="text-xl text-[#1a1311]" style={{ fontFamily: selectedPen }}>{selectedPen}</span>
-                      <span className="text-sm text-[#5a3a28]/50 ml-2 shrink-0">{penDropdownOpen ? '▲' : '▼'}</span>
+                      <span className="text-xl text-ink" style={{ fontFamily: selectedPen }}>{selectedPen}</span>
+                      <span className="text-sm text-sepia ml-2 shrink-0">{penDropdownOpen ? '▲' : '▼'}</span>
                     </button>
                     {penDropdownOpen && (
-                      <div className="max-h-52 overflow-y-auto" style={{ border: '1px solid rgba(0,0,0,0.2)', borderTop: 'none', background: '#f8f8f8' }}>
+                      <div className="max-h-52 overflow-y-auto" style={{ border: '1px solid rgba(0,0,0,0.2)', borderTop: 'none', background: 'rgb(var(--c-parchment))' }}>
                         {PEN_FONTS.map(font => (
                           <button
                             key={font}
                             type="button"
                             onClick={() => { setSelectedPen(font); setPenDropdownOpen(false); }}
-                            className="w-full px-4 py-2.5 text-left hover:bg-[#5a3a28]/10 transition-colors"
+                            className="w-full px-4 py-2.5 text-left hover:bg-sepia/10 transition-colors"
                             style={{
-                              fontFamily: font, fontSize: 20, color: '#1a1311',
-                              background: selectedPen === font ? 'rgba(90,58,40,0.12)' : undefined,
-                              borderBottom: '1px solid rgba(90,58,40,0.07)',
+                              fontFamily: font, fontSize: 20, color: 'rgb(var(--c-ink))',
+                              background: selectedPen === font ? 'rgb(var(--c-sepia)/0.12)' : undefined,
+                              borderBottom: '1px solid rgb(var(--c-sepia)/0.07)',
                             }}
                           >
                             {font}
@@ -1392,16 +1393,16 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                       </div>
                     )}
                   </div>
-                  <p className="mt-2 text-base text-[#3a2010]/75 italic" style={{ fontFamily: selectedPen }}>
+                  <p className="mt-2 text-base text-ink/75 italic" style={{ fontFamily: selectedPen }}>
                     The quick brown fox jumps over the lazy dog.
                   </p>
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-end gap-3 pt-1" style={{ borderTop: '1px solid rgba(62,42,26,0.15)' }}>
+                <div className="flex items-center justify-end gap-3 pt-1" style={{ borderTop: '1px solid rgb(var(--c-sepia)/0.15)' }}>
                   <button
                     onClick={() => { setShowJoinInput(false); setPenDropdownOpen(false); }}
-                    className="px-5 py-2.5 text-sm font-sans font-black uppercase tracking-widest text-[#1a1311]/60 hover:text-[#1a1311] transition-colors border border-black/20 hover:border-black/40 rounded"
+                    className="px-5 py-2.5 text-sm font-sans font-black uppercase tracking-widest text-ink/75 hover:text-ink transition-colors border border-ink/25 hover:border-ink/50 rounded"
                   >
                     Cancel
                   </button>
@@ -1410,10 +1411,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext }) => {
                     disabled={!campaignCode.trim()}
                     className="px-7 py-2.5 text-sm font-sans font-black uppercase tracking-widest rounded shadow transition-all"
                     style={{
-                      background: campaignCode.trim() ? '#721c15' : 'rgba(26,19,17,0.25)',
-                      color: campaignCode.trim() ? '#fdfaf4' : 'rgba(26,19,17,0.3)',
+                      background: campaignCode.trim() ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-ink)/0.25)',
+                      color: campaignCode.trim() ? 'rgb(var(--c-cream))' : 'rgb(var(--c-ink)/0.5)',
                       cursor: campaignCode.trim() ? 'pointer' : 'not-allowed',
-                      border: '2px solid rgba(26,19,17,0.15)',
+                      border: '2px solid rgb(var(--c-ink)/0.15)',
                     }}
                   >
                     Join Circle →

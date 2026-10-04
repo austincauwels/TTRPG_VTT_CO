@@ -4,28 +4,17 @@ import React from 'react';
 // exists while the chapter hub is mounted.
 export const DeskStyles = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Alex+Brush&family=Caveat&family=Cedarville+Cursive&family=Charm&family=Dawning+of+a+New+Day&family=Gaegu&family=Gochi+Hand&family=Grape+Nuts&family=Homemade+Apple&family=Indie+Flower&family=Kalam&family=La+Belle+Aurore&family=Long+Cang&family=Moondance&family=Patrick+Hand&family=Reenie+Beenie&family=Rock+Salt&family=Sacramento&family=Shadows+Into+Light&family=Zeyada&display=swap');
+    /* Faces and pens are loaded once in index.html (Crimson Text, IM Fell English, the 20 pens). */
 
-    .font-cinzel { font-family: 'Cinzel', serif; }
-    .font-garamond { font-family: 'Cormorant Garamond', serif; }
-    .font-mono-data { font-family: 'IBM Plex Mono', monospace; }
-    .font-playfair { font-family: 'Playfair Display', serif; }
-
-    @keyframes candleSharedGlow {
-      0%, 100% { opacity: 0.85; transform: scale(1); filter: blur(40px); }
-      50% { opacity: 0.65; transform: scale(0.95); filter: blur(45px); }
-      75% { opacity: 0.95; transform: scale(1.02); filter: blur(38px); }
-    }
-
+    /* A slow, small flame flicker; index.css stops it under prefers-reduced-motion. */
     @keyframes wickFlicker {
-      0%, 100% { opacity: 0.9; transform: scale(1) translateX(0px); }
-      25% { opacity: 0.7; transform: scale(0.9) translateX(-1px); }
-      50% { opacity: 1; transform: scale(1.1) translateX(1px); }
+      0%, 100% { opacity: 0.95; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(0.94); }
     }
 
     .desk-surface {
     /* Rich deep-brown mahogany base */
-    background-color: #2b170c;
+    background-color: rgb(var(--c-mahogany));
     
     /* 
       1. Radial gradient creates the 'desk lamp' hotspot.
@@ -34,7 +23,7 @@ export const DeskStyles = () => (
           rotated 90 degrees to force a horizontal grain flow.
     */
     background: 
-      radial-gradient(circle at 50% 50%, rgba(60, 30, 10, 0.2) 0%, rgba(0, 0, 0, 0.5) 100%),
+      radial-gradient(circle at 50% 50%, rgb(var(--c-mahogany) / 0.2) 0%, rgba(0, 0, 0, 0.5) 100%),
       linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%),
       url('https://www.transparenttextures.com/patterns/dark-wood.png');
       
@@ -96,15 +85,14 @@ export const DeskStyles = () => (
       .thick-book::before { right: -10px; width: 10px; }
     }
 
-    .embossed-gold { color: #c49d47; text-shadow: -1px -1px 1px rgba(0,0,0,0.9), 1px 1px 1px rgba(255,255,255,0.2), inset 0 0 2px rgba(0,0,0,0.5); }
-    .embossed-silver { color: #a8a8a8; text-shadow: -1px -1px 1px rgba(0,0,0,0.9), 1px 1px 1px rgba(255,255,255,0.15); }
+    .embossed-gold { color: rgb(var(--c-gold-leaf)); text-shadow: -1px -1px 1px rgba(0,0,0,0.9), 1px 1px 1px rgba(255,255,255,0.2), inset 0 0 2px rgba(0,0,0,0.5); }
     .embossed-stamp { box-shadow: inset 1px 1px 3px rgba(0,0,0,0.8), inset -1px -1px 2px rgba(255,255,255,0.1); }
 
     /* Turn-of-the-Century Pamphlets */
     .pamphlet {
-      background-color: #e6dfcc;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.08 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)'/%3E%3C/svg%3E");
-      box-shadow: 4px 6px 15px rgba(0,0,0,0.7), inset 0 0 40px rgba(139, 115, 85, 0.4);
+      background-color: rgb(var(--c-parchment));
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.08 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23f0e2c0' filter='url(%23paper)'/%3E%3C/svg%3E");
+      box-shadow: 4px 6px 15px rgba(0,0,0,0.7), inset 0 0 40px rgb(var(--c-sepia) / 0.3);
       cursor: pointer;
       transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
       position: relative;
@@ -117,10 +105,10 @@ export const DeskStyles = () => (
     /* Folded Herald strip for narrow screens: same paper stock, folded to its masthead */
     .newspaper-strip {
       position: relative;
-      background-color: #dcd2b8;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.1 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23dcd2b8' filter='url(%23paper)'/%3E%3C/svg%3E");
+      background-color: rgb(var(--c-parchment-deep));
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.1 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23e4cfa0' filter='url(%23paper)'/%3E%3C/svg%3E");
       box-shadow: 2px 8px 20px rgba(0,0,0,0.9), inset 0 -18px 24px -12px rgba(0,0,0,0.45);
-      color: #2b251e;
+      color: rgb(var(--c-ink));
     }
     .newspaper-strip::after {
       content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 10px;
@@ -130,10 +118,10 @@ export const DeskStyles = () => (
 
     /* Top-Fold Horizontal Newspaper Emulation */
     .newspaper-top-fold {
-      background-color: #dcd2b8;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.1 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23dcd2b8' filter='url(%23paper)'/%3E%3C/svg%3E");
+      background-color: rgb(var(--c-parchment-deep));
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.1 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23e4cfa0' filter='url(%23paper)'/%3E%3C/svg%3E");
       box-shadow: 2px 8px 20px rgba(0,0,0,0.9), inset 0 -30px 40px -10px rgba(0,0,0,0.5);
-      color: #2b251e;
+      color: rgb(var(--c-ink));
       position: absolute;
       border-bottom: 2px solid rgba(0,0,0,0.3);
     }
@@ -165,21 +153,21 @@ export const DeskStyles = () => (
     .roster-book.closing { animation: bookClose 0.4s cubic-bezier(0.36, 0, 0.66, 0) forwards; }
 
     .book-page {
-      background-color: #f0e8d0;
+      background-color: rgb(var(--c-parchment));
       background-image: repeating-linear-gradient(
         transparent,
         transparent 27px,
-        rgba(90,58,40,0.08) 27px,
-        rgba(90,58,40,0.08) 28px
+        rgb(var(--c-sepia) / 0.08) 27px,
+        rgb(var(--c-sepia) / 0.08) 28px
       );
     }
     .book-page-right {
-      background-color: #ede4c8;
+      background-color: rgb(var(--c-parchment));
       background-image: repeating-linear-gradient(
         transparent,
         transparent 27px,
-        rgba(60,40,20,0.07) 27px,
-        rgba(60,40,20,0.07) 28px
+        rgb(var(--c-sepia) / 0.08) 27px,
+        rgb(var(--c-sepia) / 0.08) 28px
       );
     }
   `}</style>

@@ -6,9 +6,9 @@ export const HalcyonHerald = () => (
   <div className="newspaper-top-fold w-[960px] h-[700px] p-7 rotate-[-8deg] top-[-40px] left-[-100px] hidden lg:flex flex-col overflow-hidden">
     
     {/* Elaborate Broadsheet Header */}
-    <div className="border-b-[4px] border-double border-[#2b251e] pb-2 mb-3 text-center relative z-20">
-      <h1 className="font-cinzel text-[42px] font-black tracking-tight text-[#1f1b15] scale-y-[1.1] mb-1">THE HALCYON HERALD</h1>
-      <div className="flex justify-between items-center font-mono-data text-[8px] uppercase tracking-widest font-bold border-t border-[#2b251e] pt-1.5">
+    <div className="border-b-[4px] border-double border-ink pb-2 mb-3 text-center relative z-20">
+      <h1 className="font-display text-[46px] leading-none text-ink scale-y-[1.1] mb-1">THE HALCYON HERALD</h1>
+      <div className="flex justify-between items-center font-display text-[11px] uppercase tracking-widest border-t border-ink pt-1.5">
         <span>Vol. XCIV, No. 212</span>
         <span>The Fairelands</span>
         <span>Two Pence</span>
@@ -16,19 +16,19 @@ export const HalcyonHerald = () => (
     </div>
     
     {/* Horizontal Layout - Main Headline spans across top */}
-    <div className="border-b-[2px] border-[#2b251e] pb-2 mb-3 text-center z-20">
-      <h2 className="font-playfair text-3xl font-black leading-none uppercase tracking-wide text-[#1a1611]">
+    <div className="border-b-[2px] border-ink pb-2 mb-3 text-center z-20">
+      <h2 className="font-display text-[34px] leading-none uppercase tracking-wide text-ink">
         TERROR IN THE SIDLE!
       </h2>
-      <h3 className="font-garamond text-[15px] italic font-semibold mt-1 text-[#3b3227]">
+      <h3 className="font-serif text-base italic font-semibold mt-1 text-ink/85">
         Authorities Baffled by Midnight Disappearances
       </h3>
     </div>
 
     {/* 3-Column Text Layout with Expanded Content */}
-    <div className="columns-3 gap-6 font-garamond text-[14.5px] leading-[1.65] text-justify opacity-90 z-20 h-full overflow-hidden">
+    <div className="columns-3 gap-6 font-serif text-[15px] leading-[1.6] text-justify text-ink/90 z-20 h-full overflow-hidden">
       <p className="mb-4">
-        <span className="text-5xl float-left mr-2 mt-1 leading-none font-cinzel font-bold text-[#1f1b15]">C</span>itizens are strongly urged to remain indoors after nightfall following a staggering series of inexplicable vanishings in the lower wards. The constabulary maintains that there is no cause for mass hysteria. Commissioner Vane stated this morning that the disappearances are likely linked to "migratory patterns of the transient population" and strictly advised the public against spreading sensationalist rumors that might incite unrest.
+        <span className="text-5xl float-left mr-2 mt-1 leading-none font-display text-ink">C</span>itizens are strongly urged to remain indoors after nightfall following a staggering series of inexplicable vanishings in the lower wards. The constabulary maintains that there is no cause for mass hysteria. Commissioner Vane stated this morning that the disappearances are likely linked to "migratory patterns of the transient population" and strictly advised the public against spreading sensationalist rumors that might incite unrest.
       </p>
       <p className="mb-4">
         "It took him right out of the alley," claims one docker, visibly shaken, his hands trembling as he gestured toward the dense fog blanketing the canal. "No sound, no struggle. Just swallowed by the damp. One moment he was lighting his pipe, the next, the fog just... closed over him. There was a smell, too—like ozone and wet earth."
@@ -47,15 +47,15 @@ export const HalcyonHerald = () => (
       </p>
 
       {/* Robust Advertisement Module */}
-      <div className="border-2 border-[#2b251e] p-4 text-center shadow-[inset_0_0_15px_rgba(0,0,0,0.1)] break-inside-avoid mt-2 bg-[#d2c7ac]">
-        <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t border-l border-[#2b251e]" />
-        <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t border-r border-[#2b251e]" />
-        <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b border-l border-[#2b251e]" />
-        <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b border-r border-[#2b251e]" />
+      <div className="border-2 border-ink p-4 text-center shadow-[inset_0_0_15px_rgba(0,0,0,0.1)] break-inside-avoid mt-2 bg-parchment-deep">
+        <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t border-l border-ink" />
+        <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t border-r border-ink" />
+        <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b border-l border-ink" />
+        <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b border-r border-ink" />
         
-        <h4 className="font-playfair font-black text-lg mb-1 uppercase leading-none mt-1">Dr. West's</h4>
-        <h5 className="font-cinzel text-[10px] font-bold mb-3 border-b border-[#2b251e]/40 pb-1 mx-2">Tincture for Hysteria</h5>
-        <p className="font-garamond text-xs leading-tight italic opacity-90 px-1">
+        <h4 className="font-display text-xl mb-1 uppercase leading-none mt-1">Dr. West's</h4>
+        <h5 className="font-display text-xs uppercase tracking-wider mb-3 border-b border-ink/40 pb-1 mx-2">Tincture for Hysteria</h5>
+        <p className="font-serif text-xs leading-tight italic px-1">
           Calms the frayed nerves of the weary traveler. Restores the essential humors of the blood. Erases dreadful visions of the Unseen. Only available at the apothecary of the Periphery. Beware of cheap imitations!
         </p>
       </div>
@@ -67,18 +67,18 @@ export const HalcyonHerald = () => (
 // of the desk so it never covers the tomes or pamphlets.
 export const HalcyonHeraldStrip = () => (
   <div className="newspaper-strip lg:hidden w-full max-w-[560px] rotate-[-1.5deg] px-4 pt-3 pb-4 text-center">
-    <div className="border-b-[3px] border-double border-[#2b251e] pb-1.5 mb-2">
-      <p className="font-cinzel text-[22px] sm:text-[30px] font-black tracking-tight text-[#1f1b15] leading-tight">THE HALCYON HERALD</p>
-      <div className="flex justify-between items-center font-mono-data text-[9px] uppercase tracking-widest font-bold border-t border-[#2b251e] pt-1 mt-1">
+    <div className="border-b-[3px] border-double border-ink pb-1.5 mb-2">
+      <p className="font-display text-[26px] sm:text-[34px] text-ink leading-tight">THE HALCYON HERALD</p>
+      <div className="flex justify-between items-center font-display text-[11px] uppercase tracking-widest border-t border-ink pt-1 mt-1">
         <span>Vol. XCIV, No. 212</span>
         <span>The Fairelands</span>
         <span>Two Pence</span>
       </div>
     </div>
-    <p className="font-playfair text-lg sm:text-2xl font-black leading-none uppercase tracking-wide text-[#1a1611]">
+    <p className="font-display text-xl sm:text-2xl leading-none uppercase tracking-wide text-ink">
       TERROR IN THE SIDLE!
     </p>
-    <p className="font-garamond text-sm sm:text-[15px] italic font-semibold mt-1 text-[#3b3227]">
+    <p className="font-serif text-sm sm:text-base italic font-semibold mt-1 text-ink/85">
       Authorities Baffled by Midnight Disappearances
     </p>
   </div>

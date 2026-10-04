@@ -97,7 +97,7 @@ export const CampaignSelector = () => {
   };
 
   return (
-    <div className="scene-container min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-black">
+    <div className="scene-container min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night">
       <RejoinInviteBanner rejoinInvite={rejoinInvite} setStage={setStage} setRejoinInvite={setRejoinInvite} />
 
       <DeskStyles />
