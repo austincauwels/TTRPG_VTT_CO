@@ -238,28 +238,32 @@ The scale is Tailwind's: 12, 14, 16, 18, 20, 24, 30, 36, 48px (`text-xs` to `tex
 - **Display** (Fell, 400, 28px phone / 36px desktop, uppercase, 0.1em): the wordmark on the hub, creator, player and GM headers.
 - **Headline** (Fell, 30 to 36px, uppercase, 0.06em): step titles in the creator ("Action Ratings & Drive"), the death notice, Join a Circle, Field Notes; oxblood on paper, cream on night.
 - **Title** (Crimson 700, 18 to 24px): ability and character names, sub-section heads in the creator ("A — Raise One Starting-Zero Action to 1"), field questions (Catalyst, Curiosity).
-- **Body** (Crimson 400, 16px, line-height 1.5): rule text, descriptions, the dispatch letter, roster names; italic for instructions, flavor lines and empty states.
+- **Body** (Crimson 400, 16px, line-height 1.5): rule text, descriptions, the dispatch letter, roster names; italic for game state and short empty states.
 - **Label** (sans 700 to 900, 12 to 14px, uppercase, 0.1em): buttons, tabs, field labels, status chips.
 - **Data** (mono 400, 12 to 16px, tabular): numbers and identifiers.
 
 ### Named Rules
 **The Read in Serif Rule.** Anything a player reads as prose or as a name is serif. Sans is for labels, mono for numbers and identifiers only (never for sentences, rule text or the dispatch letter).
 
-**The Twelve Pixel Floor.** No visible label or text under 12px. Decorative newspaper print (the Herald) and watermarks at a few percent opacity are the only exceptions.
+**The Twelve Pixel Floor.** No visible label or text under 12px. Decorative newspaper print (the Herald), watermarks at a few percent opacity and the printed form furniture (form numbers and edge lines at 9.5 to 10.5px, see Components) are the only exceptions; none of them carries anything a player has to read.
 
-**The Short Caps Rule.** Uppercase with wide tracking is for short labels only. Sentences, instructions and letterhead lines are set in sentence case, usually Crimson italic.
+**The Short Caps Rule.** Uppercase with wide tracking is for short labels only. Sentences and letterhead lines are set in sentence case, usually Crimson italic.
+
+**The No Instructions Rule** (Robert Gater, 2026-10-04). No sentence explains a control ("Tap an action to roll it", "No rolls yet", "Use Change Gear to pick up to 3 items"). The layout carries the action: a roll is a raised chit with a die on it, a card that turns over shows a turn-over mark, a field has a plain label, a limit shows as a counter ("0 / 3 selected"), a choice as filled or open marks. An empty area stays quietly empty or shows an object (two resting dice on the felt, blank gear slots, a blank ruled sheet). What stays in words: rulebook ability text, game state ("Spending locked", "Reports open", "Waiting for Iris"), the outcome of a roll, errors that say what to do next, and the second-press warnings on actions that cannot be undone.
 
 **The Pen Belongs to the Player Rule.** Handwriting fonts appear only for text a person wrote (notebook entries, signatures, pen previews, business-card names). Interface copy never uses them.
 
 ## Layout
 
-The creator is a centered column up to 1500px wide with 40px side margins on desktop: wordmark, a four-step tab bar spanning the width, then one parchment panel. Inside panels, content splits into two or three equal columns (abilities, drive columns) with 16px to 24px gaps, and collapses to one column on phones.
+The creator runs the full width of the screen with 40px side margins on desktop: wordmark, a four-step tab bar spanning the width, then one parchment panel. Inside panels, content splits into two or three equal columns (abilities, drive columns) with 16px to 24px gaps, and collapses to one column on phones.
 
 The GM desk is a three-column workspace: a left rail of paper-tab navigation and the pinned dispatch, a center work surface, and a right rail with the dice tray, activity log and pass-notes. The chapter hub is a free composition of overlapping objects (tomes, newspaper, pamphlets) on a dark desk.
 
 Spacing follows Tailwind's 4px grid. The working steps are 4, 8, 12, 16 and 24px (gap-2, gap-3, p-3, p-4, px-6 are the most used). Vertical rhythm inside parchment panels is set by sepia hairlines and 28px ruled lines (`paper-ruled`), not by large gaps.
 
-Breakpoints are Tailwind defaults (sm 640, md 768, lg 1024). `lg:` carries most of the responsive switching. On a 390px phone the creator stacks cleanly; the hub objects and the GM header overflow and overlap (see drift notes).
+Breakpoints are Tailwind defaults (sm 640, md 768, lg 1024, xl 1280, 2xl 1536). `lg:` carries most of the responsive switching. Phones (390) and tablets (768) stack the desks into one column.
+
+**Wide desks (2xl, owner's request 2026-10-04).** From 1536px the player and GM desks stop being a 1500px column in the middle of the screen. Their container grows to 1840px with 40px side margins, and the 12-column grid gives way to three explicit tracks: the left rail (22 to 23rem) and the right rail with the dice tray (27rem) sit out at the edges with 56px gutters, and the sheet or work surface between them takes the rest, about 850px at 1920, which keeps the dossier's prose at a comfortable measure. The felt tray grows to 330px with larger dice, the activity log to 320px, the roster book's spread to 1320px, and the notebook spread follows the container. The map and notebook tabs on the GM desk drop the right rail and use two tracks. 1440 keeps the lg layout.
 
 ## Elevation & Depth
 
@@ -331,16 +335,37 @@ Three pillar candles drawn in SVG (`CandleCluster.jsx`, `candlePaths.js`), stand
 
 ### Physical touches
 Small, meaningful responses drawn in CSS or SVG; each one stops or shows at once under `prefers-reduced-motion`.
-- **Wax seal** (`WaxSeal.jsx`): an oxblood seal with a candlestick struck into it. It sits on the Finalize slip. Pressing Approve on a join request, or confirming Finalize, presses a large seal onto the request or slip while it goes to the server (an approved request then fades off the desk), and a finalized circle shows a sealed slip ("The circle is finalized") below the investigators.
+- **Wax seal** (`WaxSeal.jsx`): an oxblood seal in raised relief: a recessed field inside a raised rim, and a candle in its holder standing up from the field. Every raised edge has a lit side to the upper left and a dark side to the lower right (the One Lamp Rule), offset about one screen pixel at the smallest size the seal is shown (`minSize`), so the mark reads at 32px as well as on the 128px seal on the player's member ID strip. It sits on the Finalize slip. Pressing Approve on a join request, or confirming Finalize, presses a large seal onto the request or slip while it goes to the server (an approved request then fades off the desk), and a finalized circle shows a sealed slip ("The circle is finalized") below the investigators.
 - **Ink stamp on roll outcomes**: the outcome word on the result slip is a rubber stamp, a little crooked (fixed per roll), its ink worn by pinholes (a mask), pressed down once when the result lands.
 - **Pinned notes**: private notes carry an oxblood push pin and a drop-shadow that follows their torn top edge.
 - **Page turn**: changing spreads in the notebook turns a blank leaf over from the spine (forward or back), over pages that are already there.
 - **Dispatch typing in**: when the GM sends a new dispatch while a player's desk is open, the From the GM note types it in with a carriage mark at the end of the line. What is there when the desk opens shows whole; screen readers get the whole text at once.
 - **Deckled edge** (`.deckle-bottom`): the From the GM note's bottom edge is torn by hand.
 
+### Printed form furniture (owner's request, 2026-10-04)
+The paper objects carry the small print of forms that came off a press, drawn in code by `components/shared/PrintMarks.jsx` with the `.print-*` rules in index.css. All of it is decoration: `aria-hidden`, faint on purpose, never an instruction, never over a control, no clicks.
+- **Watermark**: oversized faint mono print behind a strip, at about 6% ink. The member ID strip on the player desk carries "REGISTRY FILE // NO. 00000-CO", its number fixed per investigator.
+- **Form line**: tiny letterpress capitals in sepia at about 60% ("Form C.O. 7 · Investigator record", "Form C.O. 14 · Trauma record", "Memo · Form C.O. 22", "Office of the Lightkeeper · Vol. II"). Each kind of paper keeps one form number everywhere it appears.
+- **Serial number**: a numbering machine's red figures ("No. 89206") in the corner of the dossier, the GM's dispatch, the From the GM card, the circle charter, business cards and each roll's result slip. `serialFor(key)` hashes a stable key, so a sheet keeps its number across reloads.
+- **Printer's mark**: a registration circle and cross beside a form line.
+- **Edge line**: small print repeated along the bottom edge of the investigator sheet and clipped by it.
+- **Date stamp**: a worn rubber stamp with a word and a date ("Report sent 4 OCT 2026", "Report filed").
+- **Ruled box**: a blank box in a form's margin ("Lightkeeper's seal" at the foot of the formation papers).
+`PaperSheet` takes `printLine` and `serial` for its top corners (creator sheets, login slip).
+
+### Dice tray and roll line
+- **Result slip**: the roller's name in their ink and the slip's serial; then what was thrown, in the rulebook's terms, for every pool: "Move: 2 dice, lowest counts" (zero rating), "Sense: 1 die", "Sway: 3 dice, highest counts", "Survey: 2 dice, 1 gilded" and, after the choice, "... kept the gilded 5"; a resistance reroll reads "Move, resistance burned: ...". Drive and ability dice are already in the count. Then the outcome stamp, or a dashed "Keep one die" while a gilded choice is open.
+- **Empty tray**: two ivory dice resting on the felt, drawn with pips (a rolled die shows a numeral).
+- **Actions on the sheet**: each action that rolls is a raised paper chit with a die face, its label and its rating pips; hover inks it oxblood, pressing sinks it. The drive stepper beside each drive reads "+0d" and goes up as drive is added.
+
+### Roll sounds
+`game/rollSounds.js` plays `public/sounds/full-success.mp3` (a vibraphone chord) when a roll's final result is a Full Success (a counting 6 that is not a Critical) and `failure.mp3` when the counting result is exactly 1; nothing for Mixed, Critical, or a Failure of 2 or 3. Both come from Pixabay's free library (no attribution required). The cue is the roll's line in the activity log, which reaches every desk at the table once, when the result is final; a secret roll writes no line, and a reconnect replays nothing. A loudspeaker in the corner of the felt turns the sounds off or on for that browser (`localStorage`, default on); a browser that has not had a click yet stays silent.
+
 ## Do's and Don'ts
 
 ### Do:
+- **Do** let the layout say what a control does: a raised chit for a roll, a counter for a limit, a mark for a choice. Words are for rulebook text, game state, outcomes and errors.
+- **Do** give paper objects their printed furniture (form number, serial, edge line) from `PrintMarks.jsx`, faint and out of the way.
 - **Do** use oxblood (#721c15) for the single primary action on a screen and for active tabs, filled marks and pips.
 - **Do** place parchment objects on the night stage, with the shadow falling down and right.
 - **Do** set prose, names and rule text in the serif, and labels in small heavy uppercase with at least 0.1em tracking.
@@ -351,6 +376,8 @@ Small, meaningful responses drawn in CSS or SVG; each one stops or shows at once
 - **Do** lay hand-placed objects (cards, notes, slips) slightly crooked: 0.5 to 2 degrees, fixed per object with `tiltFor()`.
 
 ### Don't:
+- **Don't** write a sentence that explains a control or fills an empty area ("Tap an action to roll it", "No rolls yet", "Appears here once ...").
+- **Don't** keep the desks in a narrow column on wide screens; from 2xl the rails go to the edges.
 - **Don't** introduce colors outside the Dark Academia palette and the three GM night tokens; stock Tailwind blues, slates and stones are drift, not precedent.
 - **Don't** add art taken from Candela Obscura source material, and never remove art the app already has (official or open-source).
 - **Don't** use rounding above 4px on rectangles; round shapes are for pips, seals and dials.
