@@ -847,8 +847,6 @@
   .dossier-c .dossier-drive { grid-template-columns: minmax(0, 1fr); align-content: start; gap: 0.375rem; padding: 0.375rem 0.5rem 0.5rem; }
   .dossier-c .dossier-drive-panel { padding: 0 0 0.375rem; gap: 0.25rem; }
   .dossier-c .drive-pips { flex-wrap: nowrap; gap: 2px; }
-  .dossier-c .drive-pip { width: 0.6875rem; height: 0.6875rem; }
-  .dossier-c .action-chit { min-height: 1.75rem; padding-top: 0.125rem; padding-bottom: 0.125rem; }
   .dossier-c .dossier-divider { display: none; }
 }
 
@@ -857,8 +855,28 @@
   .dossier-c .dossier { row-gap: 0.875rem; column-gap: 1.75rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) 11.5rem; }
   .dossier-c .dossier-drives { gap: 1.25rem; }
   .dossier-c .dossier-drive { gap: 0.5rem; padding: 0.5rem 0.625rem 0.625rem; }
-  .dossier-c .drive-pip { width: 0.875rem; height: 0.875rem; }
-  .dossier-c .action-chit { min-height: 2.125rem; }
+}
+
+/* The ledger page's small action rows and drive squares are for a mouse. With a finger (an
+   iPad held upright gives the sheet 44rem) the rows keep their 44px and the squares their
+   20px, as on a phone (iPad pass, 2026-10-05): each row rolls at a touch, in front of the
+   table. Where a drive's row is too narrow for its label and its nine squares side by side,
+   the squares go under the label. */
+@media (pointer: fine) {
+  @container dossier (min-width: 44rem) {
+    .dossier-c .drive-pip { width: 0.6875rem; height: 0.6875rem; }
+    .dossier-c .action-chit { min-height: 1.75rem; padding-top: 0.125rem; padding-bottom: 0.125rem; }
+  }
+  @container dossier (min-width: 60rem) {
+    .dossier-c .drive-pip { width: 0.875rem; height: 0.875rem; }
+    .dossier-c .action-chit { min-height: 2.125rem; }
+  }
+}
+@media (pointer: coarse) {
+  @container dossier (min-width: 44rem) {
+    .dossier-c .drive-row { flex-wrap: wrap; row-gap: 0.25rem; }
+    .dossier-c .drive-row > .drive-pips { margin-left: auto; }
+  }
 }
 
 /* The gear: a manila luggage tag tied to the investigator's sheet. Its narrow end is cut at
