@@ -98,7 +98,10 @@ export const MainDeskView = () => {
   // out at its end, and the three columns run to the bottom of the window, each scrolling
   // inside itself if its papers ever run longer than the screen.
   return (
-    <div className="min-h-screen xl:h-[100dvh] xl:min-h-0 xl:flex xl:flex-col xl:overflow-hidden bg-night text-cream font-serif selection:bg-oxblood selection:text-cream antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-28 lg:pb-12 xl:pb-0 relative">
+    // overflow-x-clip: nothing on the desk ever makes the page wider than the screen (a
+    // sideways scroll at 1024 wide aborted WebKit on an iPad); clip, not hidden, so the
+    // bands held at the top of the screen still hold
+    <div className="min-h-screen overflow-x-clip xl:h-[100dvh] xl:min-h-0 xl:flex xl:flex-col xl:overflow-hidden bg-night text-cream font-serif selection:bg-oxblood selection:text-cream antialiased bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-28 lg:pb-12 xl:pb-0 relative">
 
       {/* Held at the top of the screen from md; below md it hangs under the slim band */}
       <ConnectionBanner className="max-md:hidden sticky top-0 z-[850]" />

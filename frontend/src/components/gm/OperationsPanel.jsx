@@ -112,7 +112,8 @@ export const OperationsPanel = () => {
   }, [activeTab, selectedInvestigator?.id]);
 
   return (
-    <div className="min-h-screen xl:h-[100dvh] xl:min-h-0 xl:flex xl:flex-col xl:overflow-hidden bg-gm-night text-cream font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 xl:pb-0 relative">
+    // overflow-x-clip: as on the player's desk, the page is never wider than the screen
+    <div className="min-h-screen overflow-x-clip xl:h-[100dvh] xl:min-h-0 xl:flex xl:flex-col xl:overflow-hidden bg-gm-night text-cream font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 xl:pb-0 relative">
 
       <ConnectionBanner />
       <GMDeskHeader activeCampaignId={activeCampaignId} campaignName={activeCampaignName} campaignCode={activeCampaignCode} setStage={setStage} />

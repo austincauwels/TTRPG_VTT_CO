@@ -48,8 +48,10 @@ export function TargetDropdown({ value, onChange, options, darkMode = false }) {
     };
   }, [open, updateMenuPosition]);
 
+  // min-w-0: the field shrinks with its pad, so a long name never pushes the page wider
+  // than the screen (at 1024 wide that 2px overflow aborted WebKit, iPad pass 2026-10-05)
   return (
-    <div ref={triggerRef} className="relative flex-1">
+    <div ref={triggerRef} className="relative flex-1 min-w-0">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
