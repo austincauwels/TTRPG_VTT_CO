@@ -19,7 +19,7 @@ const SHEET = agedPaper({
 // measured before the scale, so it is set longer to match.
 export const HalcyonHerald = ({ phone = false }) => (
   <div data-hub="herald" data-cast={phone ? '0.5' : '0.22'}
-    className={phone ? 'herald herald-phone' : 'herald hidden lg:block w-[960px] h-[700px] rotate-[-8deg] top-[-40px] left-[-100px] z-10'}
+    className={phone ? 'herald herald-phone' : 'herald hidden lg:landscape:block w-[960px] h-[700px] rotate-[-8deg] top-[-40px] left-[-100px] z-10'}
     style={{ '--shape': SHEET.mask }}>
     <span className="cast" aria-hidden="true" />
     <div className="herald-sheet">

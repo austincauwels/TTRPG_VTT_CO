@@ -6,6 +6,14 @@ const PAPER = "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http
 const HERALD_PAPER = "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.1 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23e4cfa0' filter='url(%23paper)'/%3E%3C/svg%3E\")";
 const TOME_LEATHER = "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 150 150' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='leather'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.4' numOctaves='4' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.25 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23ffffff' filter='url(%23leather)'/%3E%3C/svg%3E\")";
 
+// The hub's free desk: from lg, on a screen wider than tall (the hub's components say the same
+// with lg:landscape:). Anything else, a phone, a tablet or a tall screen such
+// as a 12.9 inch iPad held upright, gets the hub that is one screen tall (iPad pass,
+// 2026-10-05: the 12.9 upright had the wide desk small in its middle).
+const HUB_WIDE = '(min-width: 1024px) and (orientation: landscape)';
+const HUB_NARROW = '(max-width: 1023px), (orientation: portrait)';
+const HUB_TABLET = '(min-width: 640px) and (max-width: 1023px), (min-width: 1024px) and (orientation: portrait)';
+
 // Every hub class (.tome, .ticket, .roster-book, ...) is defined here and only exists while
 // the chapter hub is mounted. The desk is seen from above, lit by the candle cluster at its
 // left, standing just above the tomes: a small warm pool that falls off fast into a dim room,
@@ -66,7 +74,7 @@ export const DeskStyles = () => (
       74% { transform: translate(0.24px, 0) scale(1.0036); }
       88% { transform: translate(-0.48px, 0) scale(0.99712); }
     }
-    @media (min-width: 1024px) {
+    @media ${HUB_WIDE} {
       .hub-light { animation: hubLightSway 4.3s ease-in-out infinite; will-change: transform; }
       .hub-shade { animation: hubShadeSway 4.3s ease-in-out infinite; will-change: transform; }
       .candle-shadow { animation: candleShadowSway 4.3s ease-in-out infinite; }
@@ -93,7 +101,7 @@ export const DeskStyles = () => (
        are the phone and tablet places, where the candles keep the top left corner. */
     .hub-room { --cw: clamp(80px, 12dvh, 112px); --lx: calc(6px + var(--cw) * 0.525); --ly: calc(2px + var(--cw) * 0.438); }
     @media (min-width: 640px) { .hub-room { --cw: 128px; --lx: calc(14px + var(--cw) * 0.525); --ly: calc(4px + var(--cw) * 0.438); } }
-    @media (min-width: 1024px) { .hub-room { --cw: clamp(190px, 15.5vw, 270px); } }
+    @media ${HUB_WIDE} { .hub-room { --cw: clamp(190px, 15.5vw, 270px); } }
     /* The wood lies mostly in shadow (owner's round 4 item 8). Near the candles it warms,
        and its varnish takes a soft sheen there and nowhere else; the room's shade
        (.hub-shade) takes the rest further down into the dark. */
@@ -129,12 +137,12 @@ export const DeskStyles = () => (
        the wood's edge along the left with its lip catching the light, the wood at the top
        and foot, and the leather running on off the right of the screen, its gilt lines
        with it. */
-    @media (max-width: 1023px) {
+    @media ${HUB_NARROW} {
       .hub-leather { inset: 10px -40px 12px 20px; }
       .hub-wood { box-shadow: inset 1px 0 0 rgba(255,220,180,0.1), inset 3px 0 4px -1px rgba(0,0,0,0.55); }
     }
-    @media (min-width: 640px) and (max-width: 1023px) { .hub-leather { inset: 14px -40px 16px 30px; } }
-    @media (min-width: 1024px) {
+    @media ${HUB_TABLET} { .hub-leather { inset: 14px -40px 16px 30px; } }
+    @media ${HUB_WIDE} {
       .hub-leather { inset: 2.6vh max(3.2vw, calc(50vw - 940px)) 3vh max(3.2vw, calc(50vw - 940px)); }
     }
     /* Where hands rest: the leather worn smoother and a little lighter, with a soft sheen */
@@ -156,13 +164,13 @@ export const DeskStyles = () => (
       content: ''; position: absolute; inset: 3px;
       border: 1px solid rgb(var(--c-gold-leaf) / 0.26);
     }
-    @media (min-width: 1024px) { .hub-tooling { inset: 15px; } .hub-tooling::after { inset: 4px; } }
+    @media ${HUB_WIDE} { .hub-tooling { inset: 15px; } .hub-tooling::after { inset: 4px; } }
     /* Old marks on the leather: a cup ring about a third of a tome across (a cup's foot
        beside a book), and an ink stain */
     .hub-cup { position: absolute; width: 84px; left: 22px; top: calc(var(--cw) * 0.95); }
     .hub-ink { position: absolute; width: 64px; right: 5%; top: 4px; }
-    @media (min-width: 640px) and (max-width: 1023px) { .hub-cup { width: 150px; left: 40px; } }
-    @media (min-width: 1024px) {
+    @media ${HUB_TABLET} { .hub-cup { width: 150px; left: 40px; } }
+    @media ${HUB_WIDE} {
       .hub-cup {
         top: auto; width: calc(clamp(250px, 20.5vw, 380px) * 0.5);
         left: calc(max(3.2vw, 50vw - 940px) + 22px); bottom: 5vh;
@@ -189,7 +197,7 @@ export const DeskStyles = () => (
        masthead showing above them and the rest running off the right, and a few papers
        tuck under the tomes and tickets and run off the edges. Nothing that is a control is
        covered or cut, and the page never scrolls. */
-    @media (max-width: 1023px) {
+    @media ${HUB_NARROW} {
       .hub-main {
         padding: calc(var(--cw) * 0.83 + 0.25rem) 8px max(0.625rem, env(safe-area-inset-bottom)) 30px;
       }
@@ -208,12 +216,12 @@ export const DeskStyles = () => (
     }
     /* On a short phone the ticket keeps its route and drops the number line above it */
     @media (max-width: 1023px) and (max-height: 720px) { .hub-ticket .ticket-meta { display: none; } }
-    @media (min-width: 640px) and (max-width: 1023px) {
+    @media ${HUB_TABLET} {
       .hub-main { padding: 7rem 16px max(1rem, env(safe-area-inset-bottom)) 48px; }
       .hub-ticket { height: clamp(180px, 24dvh, 300px); }
       .herald-phone { left: 34%; top: -5.5rem; transform: rotate(-4deg) scale(0.7); }
     }
-    @media (min-width: 1024px) { .herald-phone { display: none; } }
+    @media ${HUB_WIDE} { .herald-phone { display: none; } }
     .candle-center { position: absolute; left: 52.5%; top: 53%; width: 0; height: 0; }
 
     /* ── From lg the candles stand by the tomes (owner's bug, 2026-10-04) ──
@@ -236,7 +244,7 @@ export const DeskStyles = () => (
        them: a tome's width, the gap and the strip (--T, --G, --strip) on .hub-main, so the
        papers on the Herald (.hub-right > .sketch) can read them too; where the Case Ledger
        starts (--x0) on .hub-left, whose width it needs. */
-    @media (min-width: 1024px) {
+    @media ${HUB_WIDE} {
       .hub-main { --T: clamp(250px, 20.5vw, 380px); --G: 2.2vw; --strip: calc(var(--cw) * 0.535 + var(--T) * 0.1); }
       .hub-left { --x0: calc((100% - 2 * var(--T) - var(--G)) / 2); }
       .hub-candles { flex: 1 1 0; min-height: var(--strip); }
@@ -293,7 +301,7 @@ export const DeskStyles = () => (
       mix-blend-mode: screen;
       opacity: var(--light, 1);
     }
-    @media (max-width: 1023px) { .desk-glow { width: 460px; height: 460px; opacity: calc(var(--light, 1) * 0.8); } }
+    @media ${HUB_NARROW} { .desk-glow { width: 460px; height: 460px; opacity: calc(var(--light, 1) * 0.8); } }
 
     /* Above the objects: the pool warms what lies near the flames in its own colors (soft
        light), and the shade takes the rest of the room down into the dark, so every object
@@ -307,7 +315,7 @@ export const DeskStyles = () => (
       mix-blend-mode: soft-light;
       opacity: var(--light, 1);
     }
-    @media (max-width: 1023px) { .hub-light { width: 760px; height: 620px; } }
+    @media ${HUB_NARROW} { .hub-light { width: 760px; height: 620px; } }
     .hub-shade {
       position: absolute; left: 0; top: 0; width: 440vmax; height: 440vmax;
       transform: translate(-50%, -50%);
@@ -320,8 +328,8 @@ export const DeskStyles = () => (
         rgba(8,4,2,var(--shade, 0.42)) max(1365px, 94.8vw),
         rgba(8,4,2,calc(var(--shade, 0.42) * 1.25)) max(2080px, 144.4vw));
     }
-    @media (max-width: 1023px) { .hub-shade { --shade: 0.56; } }
-    @media (min-width: 1024px) { .hub-shade { --shade: 0.4; } }
+    @media ${HUB_NARROW} { .hub-shade { --shade: 0.56; } }
+    @media ${HUB_WIDE} { .hub-shade { --shade: 0.4; } }
 
     /* ── Cast shadows ──
        Every object on the desk carries a .cast child: a soft dark copy of its outline,
@@ -672,7 +680,7 @@ export const DeskStyles = () => (
        lying against the Herald's edge and under it where they meet. A tablet much wider for
        its height has its tomes up to the Herald's masthead and no room above them, so it
        shows none. */
-    @media (min-width: 640px) and (max-width: 1023px) and (max-aspect-ratio: 19/25) {
+    @media (min-width: 640px) and (max-width: 1023px) and (max-aspect-ratio: 19/25), (min-width: 1024px) and (orientation: portrait) and (max-aspect-ratio: 19/25) {
       .hub-tomes { --tomeH: calc(1.36 * min(50cqw - 16px, 73.5cqh - 14px, 400px)); }
       .hub-tomes > .sketch[data-paper="page"] { display: block; z-index: 1; width: 276px; left: 0; top: max(4px, calc(100cqh - var(--tomeH) + 60px - 330px)); transform: rotate(-13deg); }
       .hub-tomes > .sketch[data-paper="sketchbook"] { display: block; z-index: 3; width: 266px; left: calc(50cqw + 10px); top: max(22px, calc(100cqh - var(--tomeH) + 60px - 305px)); transform: rotate(9deg); }
@@ -704,7 +712,7 @@ export const DeskStyles = () => (
        desk short enough that it scrolls already (to 899px tall) the row lengthens the desk
        by that much; a desk between (900 to 999px tall) never starts to scroll for it, and
        its row runs off the screen's foot with about half of each paper showing. */
-    @media (min-width: 1024px) {
+    @media ${HUB_WIDE} {
       .hub-tomes { --a1: calc(max(0px, var(--x0)) + var(--cw) * 0.552 + var(--candle-nudge, 0px) + 40px); }
       .hub-tomes > .sketch, .hub-right > .sketch { width: var(--w); left: var(--x); top: var(--y); transform: rotate(var(--r)); z-index: var(--z); }
       .hub-tomes > .sketch[data-paper="sketchbook"] { --w: 260px; --x: calc(var(--a1) + 14px); --y: calc(-1 * min(206px, var(--strip) + 22px)); --r: 12deg; --z: 4; }
@@ -722,16 +730,16 @@ export const DeskStyles = () => (
     /* A desk that scrolls: room for the row under the tomes, and the sea monster as high as
        the header allows, the Herald's group lying in the middle of the desk's own height
        (the candles' strip, the tomes and the row's 150px) */
-    @media (min-width: 1024px) and (max-height: 899px) {
+    @media ${HUB_WIDE} and (max-height: 899px) {
       .hub-left::after { min-height: 150px; }
       .hub-right > .sketch[data-paper="page"] { --y: max(-180px, calc(-41.5px - (var(--strip) + 1.36 * var(--T) - 450px) / 2)); }
     }
-    @media (min-width: 1024px) and (max-width: 1499px) { .hub-tomes > .sketch[data-paper="tomes"] { --r: 166deg; } }
-    @media (min-width: 1500px) { .hub-right > .sketch[data-paper="page"] { display: block; } }
-    @media (min-width: 1880px) {
+    @media ${HUB_WIDE} and (max-width: 1499px) { .hub-tomes > .sketch[data-paper="tomes"] { --r: 166deg; } }
+    @media (min-width: 1500px) and (orientation: landscape) { .hub-right > .sketch[data-paper="page"] { display: block; } }
+    @media (min-width: 1880px) and (orientation: landscape) {
       .hub-tomes > .sketch[data-paper="pinned"], .hub-right > .sketch[data-paper="bestiary"] { display: block; }
     }
-    @media (min-width: 1880px) and (min-height: 1000px) { .hub-tomes > .sketch[data-paper="herald"] { display: block; } }
+    @media (min-width: 1880px) and (min-height: 1000px) and (orientation: landscape) { .hub-tomes > .sketch[data-paper="herald"] { display: block; } }
     @media (min-width: 1880px) and (max-height: 999px) {
       .hub-right > .sketch[data-paper="bestiary"] { --x: 646px; --y: 321px; --r: -100deg; --z: 20; }
     }
@@ -844,7 +852,7 @@ export const DeskStyles = () => (
     }
     /* Below lg the open book is alone on the screen: the hub's band (the wordmark and the
        Account tag) steps out of sight under it, so nothing shows through behind Close */
-    @media (max-width: 1023px) { .hub-still .hub-header { visibility: hidden; } }
+    @media ${HUB_NARROW} { .hub-still .hub-header { visibility: hidden; } }
     /* The book's index tabs below lg (owner's round 4 item 10): small tabs cut from the
        top of the page block. Only their top 30px shows over the page's edge; the open one
        is the page's own paper and runs on into it over the page's black edge, the other is

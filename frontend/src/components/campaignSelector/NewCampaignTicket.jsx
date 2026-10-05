@@ -18,7 +18,8 @@ const CloseMark = () => (
 // CreateCampaignForm the Lightkeeper Ledger uses). The close mark, or Escape, turns it back.
 // The face turned away takes no clicks or focus. Its shadow narrows as the card goes edge-on.
 // Under reduced motion the faces swap in place without spinning (DeskStyles). The two
-// faces stay direct children of the preserve-3d element.
+// faces stay direct children of the preserve-3d element. On the wide desk it lies 112px in
+// from the Herald's right edge, 64px on a narrower Herald (NewCharacterTicket.jsx).
 export const NewCampaignTicket = ({ userId, onCreated }) => {
   const [flipped, setFlipped] = useState(false);
   const [turns, setTurns] = useState(0);
@@ -48,8 +49,8 @@ export const NewCampaignTicket = ({ userId, onCreated }) => {
     <div
       data-hub="ticket"
       data-cast="0.35"
-      className={`ticket hub-ticket relative lg:absolute w-full lg:w-[230px] lg:h-[330px] rotate-[2deg] lg:rotate-[3deg] lg:top-[70px] lg:right-[112px] z-40 ${
-        flipped ? 'cursor-default' : 'lg:hover:-translate-y-4 lg:hover:translate-x-3 lg:hover:rotate-[4deg]'}`}
+      className={`ticket hub-ticket relative lg:landscape:absolute w-full lg:landscape:w-[230px] lg:landscape:h-[330px] rotate-[2deg] lg:landscape:rotate-[3deg] lg:landscape:top-[70px] lg:landscape:right-[clamp(64px,calc(39.344%_-_152.4px),112px)] z-40 ${
+        flipped ? 'cursor-default' : 'lg:landscape:hover:-translate-y-4 lg:landscape:hover:translate-x-3 lg:landscape:hover:rotate-[4deg]'}`}
       style={{ perspective: '1200px' }}
     >
       <span key={turns} className={`cast-turn${turns ? ' is-turning' : ''}`} aria-hidden="true">

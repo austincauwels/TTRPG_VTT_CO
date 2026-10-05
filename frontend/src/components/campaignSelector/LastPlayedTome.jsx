@@ -3,7 +3,7 @@ import { pressable } from '../shared/a11y';
 import { CampaignMark } from '../shared/CampaignMark';
 import { Tome } from './Tome';
 
-const SIZE = 'w-full lg:w-[clamp(250px,20.5vw,380px)] max-w-[400px]';
+const SIZE = 'w-full lg:landscape:w-[clamp(250px,20.5vw,380px)] max-w-[400px]';
 
 // The cover's head panel: its heading tooled in gold, over a fine rule with a lozenge
 const Head = ({ children }) => (
@@ -28,7 +28,7 @@ export const LastPlayedTome = ({ lastPlayedCampaign, onResume }) => {
         role="img"
         aria-label="Last Played: no session yet"
         leather="#120614"
-        className={`${SIZE} rotate-[2deg] translate-y-3 lg:translate-y-2 lg:translate-x-3 cursor-not-allowed`}
+        className={`${SIZE} rotate-[2deg] translate-y-3 lg:landscape:translate-y-2 lg:landscape:translate-x-3 cursor-not-allowed`}
         frames={<span className="tome-frame tome-frame-gilt opacity-50" data-part="frame" style={{ '--fi': '5%' }} />}
         overlay={<Strap />}
       >
@@ -47,7 +47,7 @@ export const LastPlayedTome = ({ lastPlayedCampaign, onResume }) => {
     <Tome
       {...pressable(onResume, `${heading}: ${name}`)}
       leather="#1e0624"
-      className={`${SIZE} cursor-pointer rotate-[2deg] translate-y-3 lg:translate-y-2 lg:translate-x-3 lg:hover:-translate-y-1 lg:hover:rotate-[1deg]`}
+      className={`${SIZE} cursor-pointer rotate-[2deg] translate-y-3 lg:landscape:translate-y-2 lg:landscape:translate-x-3 lg:landscape:hover:-translate-y-1 lg:landscape:hover:rotate-[1deg]`}
       frames={<span className="tome-frame tome-frame-gilt" data-part="frame" style={{ '--fi': '5%' }} />}
     >
       <span className="flex flex-col items-center justify-between h-full w-full py-[4%]">

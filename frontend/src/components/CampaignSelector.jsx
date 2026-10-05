@@ -105,7 +105,7 @@ export const CampaignSelector = () => {
     // 28): the slim band, then the desk, whose tomes take the height the tickets and the
     // folded Herald leave them (.hub-tomes in DeskStyles.jsx). While the roster book is open
     // the room under it holds still (.hub-still), so the book moves alone.
-    <div className={`scene-container${showBook ? ' hub-still' : ''} h-[100dvh] lg:h-auto lg:min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night`}>
+    <div className={`scene-container${showBook ? ' hub-still' : ''} h-[100dvh] lg:landscape:h-auto lg:landscape:min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night`}>
       <RejoinInviteBanner rejoinInvite={rejoinInvite} setStage={setStage} setRejoinInvite={setRejoinInvite} />
       <HubNotice notice={hubNotice} onDismiss={() => setHubNotice(null)} />
 
@@ -122,7 +122,7 @@ export const CampaignSelector = () => {
         {/* From lg a free composition; below it a close look at the left end of the desk
             (owner's round 4 item 11): the tomes side by side with the Herald under them,
             the tickets in a row below, a few papers tucked under them */}
-        <main className="hub-main relative flex-1 min-h-0 w-full max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center lg:justify-center gap-6 sm:gap-8 lg:gap-12 lg:p-12">
+        <main className="hub-main relative flex-1 min-h-0 w-full max-w-[1600px] mx-auto flex flex-col lg:landscape:flex-row items-center lg:landscape:justify-center gap-6 sm:gap-8 lg:landscape:gap-12 lg:landscape:p-12">
           {/* LEFT: THE CANDLES AND THE TOMES. From lg the candles stand on a strip of desk
               of their own just above the Case Ledger's head (.hub-candles in DeskStyles.jsx),
               placed by the tomes and not by the window, so however short the window they
@@ -130,8 +130,8 @@ export const CampaignSelector = () => {
               step aside (display: contents) and the candles keep their strip at the top of
               the room. Neither box may form a stacking context (no z-index, transform or
               opacity), or the candles' light has nothing to blend with. */}
-          <div className="hub-left contents lg:relative lg:flex lg:flex-col lg:self-stretch lg:w-[50%] lg:ml-[3.5vw]">
-            <div className="hub-candles contents lg:block lg:relative">
+          <div className="hub-left contents lg:landscape:relative lg:landscape:flex lg:landscape:flex-col lg:landscape:self-stretch lg:landscape:w-[50%] lg:landscape:ml-[3.5vw]">
+            <div className="hub-candles contents lg:landscape:block lg:landscape:relative">
               <CandleCluster lit={litCandles} />
               {/* The candles' light on the desk and the objects near them, and the room's shade */}
               <CandleLight lit={litCandles} />
@@ -146,7 +146,7 @@ export const CampaignSelector = () => {
                 shows; on phones and tablets in the tomes' row's own size (cqw, cqh), only as
                 many as there is room for. The tomes lie over every paper and the pile's
                 order is set there too (z-index), not by the order below. */}
-            <div className="hub-tomes relative grid grid-cols-2 items-end justify-items-center gap-3 sm:gap-8 w-full max-w-[760px] lg:max-w-none lg:flex lg:gap-[2.2vw] lg:items-center lg:justify-center z-30">
+            <div className="hub-tomes relative grid grid-cols-2 items-end justify-items-center gap-3 sm:gap-8 w-full max-w-[760px] lg:landscape:max-w-none lg:landscape:flex lg:landscape:gap-[2.2vw] lg:landscape:items-center lg:landscape:justify-center z-30">
               <HalcyonHerald phone />
               <CryptidSketch which="pinned" />
               <CryptidSketch which="photo" />
@@ -162,7 +162,7 @@ export const CampaignSelector = () => {
           </div>
 
           {/* RIGHT: THE HERALD AND THE TICKETS lying on it */}
-          <div className="hub-right relative shrink-0 w-full lg:w-[50%] lg:min-w-[550px] lg:h-[600px] flex flex-col lg:flex-row items-center gap-3 sm:gap-6 lg:gap-0">
+          <div className="hub-right relative shrink-0 w-full lg:landscape:w-[50%] lg:landscape:min-w-[550px] lg:landscape:h-[600px] flex flex-col lg:landscape:flex-row items-center gap-3 sm:gap-6 lg:landscape:gap-0">
             <HalcyonHerald />
             {/* From lg, papers on the Herald round the tickets and under the Herald's edges,
                 placed in the Herald's own pixels as the Herald and the tickets are
@@ -173,7 +173,7 @@ export const CampaignSelector = () => {
 
             {/* The tickets share a row below lg and never overlap; from lg up this wrapper
                 steps aside (display: contents) and they lie loose on the desk */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-8 w-full max-w-[560px] lg:contents">
+            <div className="grid grid-cols-2 gap-3 sm:gap-8 w-full max-w-[560px] lg:landscape:contents">
               <NewCharacterTicket onOpen={() => setStage('CHARACTER_CREATION')} />
               <NewCampaignTicket userId={accessSession?.userId} onCreated={handleCampaignCreated} />
             </div>

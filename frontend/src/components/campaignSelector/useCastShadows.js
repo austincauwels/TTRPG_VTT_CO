@@ -19,7 +19,8 @@ import { useLayoutEffect } from 'react';
 // (DeskStyles.jsx), so the place read back here is the place the nudge has just set.
 const CANDLE_WAX_LEFT = 0.157;
 const LEATHER_MARGIN = 8;
-const WIDE = '(min-width: 1024px)';
+// the hub's free desk (HUB_WIDE in DeskStyles.jsx)
+const WIDE = '(min-width: 1024px) and (orientation: landscape)';
 
 function nudgeCandles(root) {
   const art = root.querySelector('.hub-candles > .candle-box svg');

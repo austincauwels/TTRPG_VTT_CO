@@ -71,7 +71,7 @@ export const CaseLedgerTome = ({ characters, gmCampaigns, onOpen }) => {
       {...pressable(onOpen, `Case Ledger: ${spoken}`)}
       leather="rgb(var(--c-register-green))"
       sprinkled
-      className="cursor-pointer w-full lg:w-[clamp(250px,20.5vw,380px)] max-w-[400px] rotate-[-2deg] lg:rotate-[-3deg] lg:-translate-y-2 lg:hover:-translate-y-4"
+      className="cursor-pointer w-full lg:landscape:w-[clamp(250px,20.5vw,380px)] max-w-[400px] rotate-[-2deg] lg:landscape:rotate-[-3deg] lg:landscape:-translate-y-2 lg:landscape:hover:-translate-y-4"
       frames={
         <>
           <span className="tome-frame tome-frame-blind" data-part="frame" style={{ '--fi': '5.5%' }} />
