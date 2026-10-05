@@ -1100,8 +1100,8 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
 
                 <div className="flex-1 flex flex-col gap-3">
                   <div>
-                    <label className="block font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-sepia mb-1">Entry Title</label>
-                    <input type="text" value={newEntryTitle} onChange={e => setNewEntryTitle(e.target.value)}
+                    <label htmlFor={`${idBase}-title`} className="block font-sans text-xs sm:text-sm font-black uppercase tracking-widest text-sepia mb-1">Entry Title</label>
+                    <input id={`${idBase}-title`} type="text" value={newEntryTitle} onChange={e => setNewEntryTitle(e.target.value)}
                       className="w-full px-0 py-1 bg-transparent border-b-2 border-ink/30 focus:border-ink/60 text-[32px]"
                       style={{ fontFamily: authorFont, color: authorColor }} />
                   </div>
