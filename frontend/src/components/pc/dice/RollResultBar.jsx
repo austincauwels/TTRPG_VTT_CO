@@ -36,8 +36,10 @@ const CHOICE_MS = 8000;
 const FADE_MS = 400;
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-// Below lg the dice tray sits far down the desk (on a phone, in its own part of the desk), so
-// the latest roll comes up at the bottom of the screen while the tray is out of view: who
+// Below xl the desk is a long page and the dice tray is often out of view when a roll is made
+// (on a phone it is in its own part of the desk; on a tablet held sideways it lies at the
+// top of the right column while the actions are a screen further down), so the latest roll
+// comes up at the bottom of the screen while the tray is out of view: who
 // rolled, the action, the outcome and the dice, with the two candidates tappable during a
 // gilded choice. Tapping the bar opens the full tray (and Burn or ability prompts) as a
 // sheet; its cross closes it. Rendered in a portal so no ancestor transform or filter can
@@ -133,7 +135,8 @@ export const RollResultBar = ({
   );
 
   return createPortal(
-    <div className="lg:hidden">
+    // From xl the desk fits the screen and the felt is always in view
+    <div className="xl:hidden">
       {open ? (
         <>
           <div className="fixed inset-0 z-[70] bg-black/60" onClick={closeSheet} />
