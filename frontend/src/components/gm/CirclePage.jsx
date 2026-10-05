@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { tiltStyle } from '../shared/handPlaced';
@@ -78,33 +78,55 @@ const ILLUMINATION_KEYS = {
   Occultist:  ['Consult Arcane Texts', 'Collect Oddities', 'Act Bizarre'],
 };
 
+const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+const TURN_MS = 400;
+
 function ReportFlipCard({ inv, report }) {
   const [flipped, setFlipped] = useState(false);
+  // The card turns flat, in two dimensions: it narrows to its edge, shows its other face and
+  // widens again, drawn frame by frame. The report cards lie in the circle papers' columns,
+  // and WebKit (Safari) draws anything given a 3D transform or a running transform animation
+  // there out of place: a card turned in 3D at rest was drawn in the first column over the
+  // papers there, and during a 3D turn the second column's papers went blank (iPad pass,
+  // 2026-10-05). A transform set by script on each frame is painted where the card lies.
+  const cardRef = useRef(null);
+  const turnFrame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(turnFrame.current), []);
+  const turn = () => {
+    playPaperSound();
+    const el = cardRef.current;
+    cancelAnimationFrame(turnFrame.current);
+    if (!el || reducedMotion()) { if (el) el.style.transform = ''; setFlipped(f => !f); return; }
+    const start = performance.now();
+    let swapped = false;
+    const frame = (now) => {
+      const t = Math.min(1, (now - start) / TURN_MS);
+      const eased = 0.5 - Math.cos(Math.PI * t) / 2;
+      // the other face comes up as the card stands on its edge
+      if (!swapped && t >= 0.5) { swapped = true; setFlipped(f => !f); }
+      el.style.transform = t < 1 ? `scaleX(${Math.max(0.002, Math.abs(Math.cos(eased * Math.PI))).toFixed(3)})` : '';
+      if (t < 1) turnFrame.current = requestAnimationFrame(frame);
+    };
+    turnFrame.current = requestAnimationFrame(frame);
+  };
   const responses = report?.responses || {};
   const specialtyKeys = ILLUMINATION_KEYS[inv.specialty] || [];
   const keysDetail = responses.keys_detail || {};
+  // Only the face that is up is drawn; it sets the card's height
+  const face = (up) => (up ? undefined : { display: 'none' });
 
   return (
     <div
       className="cursor-pointer select-none"
-      style={{ perspective: '1200px', width: '100%' }}
-      {...pressable(() => { playPaperSound(); setFlipped(f => !f); }, flipped ? `${inv.name}'s report: turn back to the front` : `${inv.name}: ${report ? 'read the report' : 'no report yet, turn the card'}`)}
+      style={{ width: '100%' }}
+      {...pressable(turn, flipped ? `${inv.name}'s report: turn back to the front` : `${inv.name}: ${report ? 'read the report' : 'no report yet, turn the card'}`)}
       aria-pressed={flipped}
     >
-      {/* The face that is up sits in the flow and sets the card's height; the other one
-          lies under it, so the card is only as tall as what it shows */}
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          transformStyle: 'preserve-3d',
-          transition: 'transform 0.4s ease',
-          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-        }}
-      >
+      <div ref={cardRef} style={{ position: 'relative', width: '100%' }}>
         {/* Front */}
         <div
-          style={{ backfaceVisibility: 'hidden', ...(flipped ? { position: 'absolute', inset: 0 } : { position: 'relative' }) }}
+          style={face(!flipped)}
           className="bg-cream border border-sepia/25 shadow-[2px_6px_14px_rgba(0,0,0,0.38)] px-4 pt-3 pb-2.5 min-h-[9.5rem] flex flex-col items-center gap-2"
         >
           {inv.ink_color && (
@@ -130,7 +152,7 @@ function ReportFlipCard({ inv, report }) {
 
         {/* Back */}
         <div
-          style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', ...(flipped ? { position: 'relative' } : { position: 'absolute', inset: 0 }) }}
+          style={face(flipped)}
           className={`bg-cream border border-sepia/25 shadow-[2px_6px_14px_rgba(0,0,0,0.38)] p-4 min-h-[9.5rem] flex flex-col gap-3 ${flipped ? '' : 'overflow-hidden'}`}
         >
           <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood border-b border-ink/10 pb-1.5">
