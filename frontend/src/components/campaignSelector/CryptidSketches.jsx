@@ -4,9 +4,12 @@ import { agedPaper } from './paperArt';
 // The loose papers on the hub's desk, each a physical object on aged, used paper (owner's
 // round 4 items 2 and 4): no clean frames; every sheet is cut, stained, foxed, creased or
 // dog-eared in its own way (paperArt.js), and the art on it stays whole. Each is at least as
-// large as a railway ticket on the same screen (owner, 2026-10-05) and is placed by the
-// object it lies under, so it stays with that object at every width; its size, its place
-// and the screens it shows on are in DeskStyles.jsx (Loose papers). Every image loads
+// large as a railway ticket on the same screen (owner, 2026-10-05), lies at its own angle in
+// a pile, some under the Herald, the tomes or each other (owner, 2026-10-05), and is placed
+// by the object it lies under, so it stays with that object at every width; its size, its
+// place, its angle, its place in the pile and the screens it shows on are in
+// DeskStyles.jsx (Loose papers). However far a paper is turned, its shadow falls away from
+// the candles (useCastShadows.js measures it in the paper's own frame). Every image loads
 // lazily, so a screen never fetches the papers it leaves out. Decorative: hidden from
 // screen readers, no clicks.
 //

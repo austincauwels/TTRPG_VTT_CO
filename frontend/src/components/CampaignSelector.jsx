@@ -137,12 +137,15 @@ export const CampaignSelector = () => {
               <CandleLight lit={litCandles} />
             </div>
 
-            {/* THE TOMES, with papers tucked under their heads and feet. Every paper is at
-                least as large as a railway ticket (owner, 2026-10-05); where each lies, and
-                on which screens, is in DeskStyles.jsx (Loose papers): from lg placed by the
-                tomes themselves, so at least half of every picture shows; on phones and
-                tablets in the tomes' row's own size (cqw, cqh), only as many as there is
-                room for. In paint order: the folded Herald, then the papers, then the tomes. */}
+            {/* THE TOMES, with papers dropped round them and tucked under their heads and
+                feet. Every paper is at least as large as a railway ticket (owner, 2026-10-05)
+                and lies at its own angle in a pile (owner, 2026-10-05: scattered, some under
+                the newspaper and each other); where each lies, its angle, its place in the
+                pile and on which screens it shows are in DeskStyles.jsx (Loose papers): from
+                lg placed by the tomes themselves, so at least a third of every picture
+                shows; on phones and tablets in the tomes' row's own size (cqw, cqh), only as
+                many as there is room for. The tomes lie over every paper and the pile's
+                order is set there too (z-index), not by the order below. */}
             <div className="hub-tomes relative grid grid-cols-2 items-end justify-items-center gap-3 sm:gap-8 w-full max-w-[760px] lg:max-w-none lg:flex lg:gap-[2.2vw] lg:items-center lg:justify-center z-30">
               <HalcyonHerald phone />
               <CryptidSketch which="pinned" />
@@ -161,9 +164,10 @@ export const CampaignSelector = () => {
           {/* RIGHT: THE HERALD AND THE TICKETS lying on it */}
           <div className="hub-right relative shrink-0 w-full lg:w-[50%] lg:min-w-[550px] lg:h-[600px] flex flex-col lg:flex-row items-center gap-3 sm:gap-6 lg:gap-0">
             <HalcyonHerald />
-            {/* From lg, papers lying on the Herald round the tickets, placed in the Herald's
-                own pixels as the Herald and the tickets are (.hub-right > .sketch) */}
-            <CryptidSketch which="tomes" />
+            {/* From lg, papers on the Herald round the tickets and under the Herald's edges,
+                placed in the Herald's own pixels as the Herald and the tickets are
+                (.hub-right > .sketch) */}
+            <CryptidSketch which="page" />
             <CryptidSketch which="postcard" />
             <CryptidSketch which="bestiary" />
 
