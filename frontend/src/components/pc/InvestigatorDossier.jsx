@@ -671,7 +671,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               {/* LEFT: Drive section */}
               <div className="dossier-drive-panel group/drive pb-2 border-b border-dotted border-ink/30 flex flex-col gap-2">
                 {/* Drive title + pre-spend buttons */}
-                <div className="drive-row flex items-center justify-between">
+                <div className="flex items-center justify-between">
                   <span className="font-serif font-bold text-lg uppercase tracking-wide" style={{ color: `rgb(var(--c-drive-${cat.driveKey}))` }} title={DRIVE_FLAVOR[cat.driveKey]}>{cat.name}</span>
                   {!readOnly && (
                     <div className="flex items-center gap-1">
@@ -721,7 +721,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 </div>
 
                 {/* Maximum row */}
-                <div className="flex items-center justify-between">
+                <div className="drive-row flex items-center justify-between">
                   <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2">Maximum</span>
                   <div className="drive-pips flex gap-0.5 flex-wrap justify-end" role="img" aria-label={`${cat.name} maximum: ${maxDrive}`}>
                     {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
