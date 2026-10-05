@@ -7,9 +7,10 @@ const HERALD_PAPER = "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmln
 const TOME_LEATHER = "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 150 150' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='leather'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.4' numOctaves='4' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.25 0' in='noise' result='coloredNoise'/%3E%3CfeBlend in='SourceGraphic' in2='coloredNoise' mode='multiply'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23ffffff' filter='url(%23leather)'/%3E%3C/svg%3E\")";
 
 // Every hub class (.tome, .ticket, .roster-book, ...) is defined here and only exists while
-// the chapter hub is mounted. The desk is seen from above, lit by the candle cluster in its
-// top left corner: a small warm pool that falls off fast into a dim room, shadows cast away
-// from the flames, and a gentle flicker that moves the light and the shadows together.
+// the chapter hub is mounted. The desk is seen from above, lit by the candle cluster at its
+// left, standing just above the tomes: a small warm pool that falls off fast into a dim room,
+// shadows cast away from the flames, and a gentle flicker that moves the light and the
+// shadows together.
 export const DeskStyles = () => (
   <style>{`
     /* Faces and pens are loaded once in index.html. */
@@ -85,17 +86,14 @@ export const DeskStyles = () => (
     }
 
     /* ── The desk: wood with a tooled leather writing inset ──
-       Where the flames' middle lies on the desk (.candle-box and .candle-center below), so
-       the wood can warm and shine there: --lx, --ly in the room's own box. */
+       --cw is the candle cluster's width. Where the flames' middle lies on the desk, so the
+       wood can warm and shine there: --lx, --ly in the room's own box. The hub measures
+       them from the flames (useCastShadows.js) before the first paint and on every resize,
+       since from lg the candles stand by the tomes (.hub-candles below); the values here
+       are the phone and tablet places, where the candles keep the top left corner. */
     .hub-room { --cw: clamp(80px, 12dvh, 112px); --lx: calc(6px + var(--cw) * 0.525); --ly: calc(2px + var(--cw) * 0.438); }
     @media (min-width: 640px) { .hub-room { --cw: 128px; --lx: calc(14px + var(--cw) * 0.525); --ly: calc(4px + var(--cw) * 0.438); } }
-    @media (min-width: 1024px) {
-      .hub-room {
-        --cw: clamp(190px, 15.5vw, 270px);
-        --lx: calc(max(0px, 50% - 800px) + min(100%, 1600px) * 0.005 + var(--cw) * 0.525);
-        --ly: calc(4px + var(--cw) * 0.438);
-      }
-    }
+    @media (min-width: 1024px) { .hub-room { --cw: clamp(190px, 15.5vw, 270px); } }
     /* The wood lies mostly in shadow (owner's round 4 item 8). Near the candles it warms,
        and its varnish takes a soft sheen there and nowhere else; the room's shade
        (.hub-shade) takes the rest further down into the dark. */
@@ -173,9 +171,13 @@ export const DeskStyles = () => (
     }
 
     /* ── The candle cluster (CandleCluster.jsx), seen from above ──
-       The box sits in the top left of the desk, just above the tomes. The desk glow, the
-       light pool and the shade are centered on the flames' middle (.candle-center). */
-    .candle-box { top: 2px; left: 6px; width: var(--cw); aspect-ratio: 230 / 190; }
+       Below lg the box sits in the top left of the desk, in the strip the room keeps for it
+       above the tomes; from lg it stands just above the Case Ledger's head (.hub-candles
+       below). The desk glow, the light pool and the shade are centered on the flames'
+       middle (.candle-center). The boxes never transition: under reduced motion every
+       element gets a tiny transition (index.css), which would let the hub read the
+       candles' old place back right after moving them (useCastShadows.js). */
+    .candle-box { top: 2px; left: 6px; width: var(--cw); aspect-ratio: 230 / 190; transition: none; }
     @media (min-width: 640px) { .candle-box { top: 4px; left: 14px; } }
 
     /* ── Phones and tablets: the hub is one screen tall (owner's round 3 item 28) ──
@@ -212,8 +214,39 @@ export const DeskStyles = () => (
       .herald-phone { left: 34%; top: -5.5rem; transform: rotate(-4deg) scale(0.7); }
     }
     @media (min-width: 1024px) { .herald-phone { display: none; } }
-    @media (min-width: 1024px) { .candle-box { top: 4px; left: 0.5%; width: clamp(190px, 15.5vw, 270px); } }
     .candle-center { position: absolute; left: 52.5%; top: 53%; width: 0; height: 0; }
+
+    /* ── From lg the candles stand by the tomes (owner's bug, 2026-10-04) ──
+       They were placed by the window (the top left of the desk) while the tomes lie in the
+       middle of the desk's height, so a window made shorter by the browser's own bars
+       (1920x937, 1536x730) brought the tomes up under them. Now the tomes' half of the desk
+       (.hub-left, as tall as the desk) is a column: the candles' strip (.hub-candles), the
+       tomes, and an empty strip, the two strips sharing the height the tomes leave. The
+       tomes lie in the middle of the desk's height as before unless that leaves the candles
+       less than their strip (--strip: the cluster's height and the gap under it), when they
+       lie just under it. The cluster stands on the strip's foot, its own foot clear of the
+       Case Ledger's head by a tenth of a tome and 12px (the tome's tilt and its lift on
+       hover take about half of that), its left at the Case Ledger's left (on a desk so
+       narrow that the tomes run off its left edge, --candle-nudge from useCastShadows.js
+       keeps the wax on the leather); at the strip's least height its top reaches 12px into
+       the desk's top margin, where it always stood.
+       In the cluster's own measures: its wax spans 0.157 to 0.772 of the box's width, and
+       0.137 to 0.672 of its width down from the box's top; the box is 0.826 of its width
+       tall. The tomes' measures (--T, --G, --x0) live here, where the candles and the
+       papers by the tomes (.hub-tomes > .sketch) both read them. */
+    @media (min-width: 1024px) {
+      .hub-left {
+        --T: clamp(250px, 20.5vw, 380px); --G: 2.2vw; --x0: calc((100% - 2 * var(--T) - var(--G)) / 2);
+        --strip: calc(var(--cw) * 0.535 + var(--T) * 0.1);
+      }
+      .hub-candles { flex: 1 1 0; min-height: var(--strip); }
+      .hub-left::after { content: ''; flex: 1 1 0; }
+      .hub-left > .hub-tomes { flex: none; }
+      .hub-candles > .candle-box {
+        top: auto; bottom: calc(var(--T) * 0.1 + 12px - var(--cw) * 0.154);
+        left: calc(max(0px, var(--x0)) - var(--cw) * 0.22 + var(--candle-nudge, 0px));
+      }
+    }
 
     /* Each flame sways on its own uneven rhythm (durations set per candle); the core
        brightens and dims on a shorter one, and the halo breathes with the sway. */
@@ -615,13 +648,13 @@ export const DeskStyles = () => (
     /* From lg the papers by the tomes are placed by the tomes (owner's round 4 item 16:
        spread out, at least about half of each picture showing): --T is a tome's width,
        --G the gap between the tomes and --x0 where the Case Ledger starts in their row,
-       which centres the two tomes and can be narrower than they are. Along the top, left
+       which centres the two tomes and can be narrower than they are (all three set on
+       .hub-left, which the candles share). Along the top, left
        to right: the candles, a field sketch tucked under the Case Ledger's head, the torn
        page over it, and a field sketch on the Herald's corner under the Last Played
        tome's head; under the Case Ledger's foot the photograph, and under both feet the
        third sketch; left of the tomes, on a wide desk, the pinned print. */
     @media (min-width: 1024px) {
-      .hub-tomes { --T: clamp(250px, 20.5vw, 380px); --G: 2.2vw; --x0: calc((100% - 2 * var(--T) - var(--G)) / 2); }
       .hub-tomes > .sketch[data-paper="candles"] { left: calc(var(--x0) + var(--T) * 0.47); top: calc(var(--T) * -0.45); width: calc(var(--T) * 0.42); transform: rotate(-7deg); }
       .hub-tomes > .sketch[data-paper="page"] { left: calc(var(--x0) + var(--T) * 0.8); top: calc(var(--T) * -0.44); bottom: auto; width: calc(var(--T) * 0.5); transform: rotate(-5deg); }
       .hub-tomes > .sketch[data-paper="herald"] { left: calc(var(--x0) + var(--T) * 1.5 + var(--G)); top: calc(var(--T) * -0.44); width: calc(var(--T) * 0.48); transform: rotate(8deg); }

@@ -112,8 +112,8 @@ export const CampaignSelector = () => {
       <DeskStyles />
       <HubHeader onLogout={handleLogout} />
 
-      {/* THE DESK, seen from above: wood with a leather writing inset, the candles in its top
-          left corner, and the light and shade of the room over everything on it. None of the
+      {/* THE DESK, seen from above: wood with a leather writing inset, the candles at its left
+          above the tomes, and the light and shade of the room over everything on it. None of the
           boxes between the light and the desk may form a stacking context (no z-index,
           transform, opacity or perspective), or the light has nothing to blend with. */}
       <div ref={deskRef} className="hub-room relative flex-1 min-h-0 flex flex-col">
@@ -123,24 +123,37 @@ export const CampaignSelector = () => {
             (owner's round 4 item 11): the tomes side by side with the Herald under them,
             the tickets in a row below, a few papers tucked under them */}
         <main className="hub-main relative flex-1 min-h-0 w-full max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center lg:justify-center gap-6 sm:gap-8 lg:gap-12 lg:p-12">
-          <CandleCluster lit={litCandles} />
+          {/* LEFT: THE CANDLES AND THE TOMES. From lg the candles stand on a strip of desk
+              of their own just above the Case Ledger's head (.hub-candles in DeskStyles.jsx),
+              placed by the tomes and not by the window, so however short the window they
+              never come down onto the books (owner's bug, 2026-10-04). Below lg both boxes
+              step aside (display: contents) and the candles keep their strip at the top of
+              the room. Neither box may form a stacking context (no z-index, transform or
+              opacity), or the candles' light has nothing to blend with. */}
+          <div className="hub-left contents lg:relative lg:flex lg:flex-col lg:self-stretch lg:w-[50%] lg:ml-[3.5vw]">
+            <div className="hub-candles contents lg:block lg:relative">
+              <CandleCluster lit={litCandles} />
+              {/* The candles' light on the desk and the objects near them, and the room's shade */}
+              <CandleLight lit={litCandles} />
+            </div>
 
-          {/* LEFT: THE TOMES, with papers tucked under their corners. From lg each paper
-              is placed by the tomes themselves (.hub-tomes > .sketch in DeskStyles.jsx), so
-              at least about half of every picture shows at every desk width (owner's round
-              4 item 16). Phones and tablets show only a few, placed in the tomes' row's own
-              width (cqw); the pinned print waits for a desk wide and tall enough. */}
-          <div className="hub-tomes relative grid grid-cols-2 items-end justify-items-center gap-3 sm:gap-8 w-full max-w-[760px] lg:max-w-none lg:flex lg:gap-[2.2vw] lg:items-center lg:justify-center lg:w-[50%] lg:ml-[3.5vw] z-30">
-            <HalcyonHerald phone />
-            <CryptidSketch which="pinned" className="paper-wide z-0" />
-            <CryptidSketch which="candles" className="hidden lg:block z-0" />
-            <CryptidSketch which="page" className="z-0 left-[-4cqw] bottom-[57cqw] w-[31cqw] rotate-[-8deg] sm:left-[16cqw] sm:bottom-[54cqw] sm:w-[22cqw]" />
-            <CryptidSketch which="herald" className="hidden lg:block z-0" />
-            <CryptidSketch which="postcard" className="sm:hidden z-0 left-[46cqw] bottom-[58cqw] w-[40cqw] rotate-[7deg]" />
-            <CryptidSketch which="photo" className="hidden lg:block z-0" />
-            <CryptidSketch which="tomes" className="z-0 left-[28cqw] bottom-[-14cqw] w-[44cqw] rotate-[6deg]" />
-            <CaseLedgerTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
-            <LastPlayedTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} />
+            {/* THE TOMES, with papers tucked under their corners. From lg each paper
+                is placed by the tomes themselves (.hub-tomes > .sketch in DeskStyles.jsx), so
+                at least about half of every picture shows at every desk width (owner's round
+                4 item 16). Phones and tablets show only a few, placed in the tomes' row's own
+                width (cqw); the pinned print waits for a desk wide and tall enough. */}
+            <div className="hub-tomes relative grid grid-cols-2 items-end justify-items-center gap-3 sm:gap-8 w-full max-w-[760px] lg:max-w-none lg:flex lg:gap-[2.2vw] lg:items-center lg:justify-center z-30">
+              <HalcyonHerald phone />
+              <CryptidSketch which="pinned" className="paper-wide z-0" />
+              <CryptidSketch which="candles" className="hidden lg:block z-0" />
+              <CryptidSketch which="page" className="z-0 left-[-4cqw] bottom-[57cqw] w-[31cqw] rotate-[-8deg] sm:left-[16cqw] sm:bottom-[54cqw] sm:w-[22cqw]" />
+              <CryptidSketch which="herald" className="hidden lg:block z-0" />
+              <CryptidSketch which="postcard" className="sm:hidden z-0 left-[46cqw] bottom-[58cqw] w-[40cqw] rotate-[7deg]" />
+              <CryptidSketch which="photo" className="hidden lg:block z-0" />
+              <CryptidSketch which="tomes" className="z-0 left-[28cqw] bottom-[-14cqw] w-[44cqw] rotate-[6deg]" />
+              <CaseLedgerTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
+              <LastPlayedTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} />
+            </div>
           </div>
 
           {/* RIGHT: THE HERALD AND THE TICKETS lying on it */}
@@ -159,9 +172,6 @@ export const CampaignSelector = () => {
               <NewCampaignTicket userId={accessSession?.userId} onCreated={handleCampaignCreated} />
             </div>
           </div>
-
-          {/* The candles' light on the desk and the objects near them, and the room's shade */}
-          <CandleLight lit={litCandles} />
         </main>
 
         <ForegroundAtmosphere />
