@@ -400,7 +400,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   ) : (
     <PhotoMount className="w-full h-full">
       {canChangePhoto && !portrait.busy && (
-        <span aria-hidden="true" className="absolute z-[3] inset-x-1 bottom-1.5 md:inset-x-3 md:bottom-3 border border-oxblood/70 bg-cream/85 px-1 py-1 md:py-1.5 rounded-sm font-sans text-xs font-black uppercase tracking-wider leading-tight text-oxblood group-hover:bg-oxblood group-hover:text-cream transition-colors">
+        <span aria-hidden="true" className="dossier-photo-add absolute z-[3] inset-x-1 bottom-1.5 border border-oxblood/70 bg-cream/85 px-1 py-1 rounded-sm font-sans text-xs font-black uppercase tracking-wider leading-tight text-oxblood group-hover:bg-oxblood group-hover:text-cream transition-colors">
           Add portrait
         </span>
       )}
@@ -443,8 +443,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       {/* Investigator Portrait Frame: a photograph taped to the sheet. On the player's own
           desk it is a button: tap it to add a photo or change it, with Undo after. */}
       <div className="dossier-photo-cell">
-        <div className="dossier-photo relative float-right ml-3 mb-2 w-24 h-[120px] p-1.5 md:float-none md:m-0 md:absolute md:top-0 md:right-0 md:w-44 md:h-[220px] md:p-2 bg-cream border border-ink/10 shadow-[4px_10px_24px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 hover:scale-105 duration-200 transition-all z-30 group">
-          <div className="absolute z-10 -top-3 md:-top-3.5 left-1/2 -translate-x-1/2 w-12 md:w-20 h-3 md:h-4 bg-parchment-deep/80 -rotate-3 border border-ink/5 mix-blend-multiply shadow-sm" />
+        <div className="dossier-photo relative float-right ml-3 mb-2 w-24 h-[120px] p-1.5 bg-cream border border-ink/10 shadow-[4px_10px_24px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 hover:scale-105 duration-200 transition-all z-30 group">
+          <div className="dossier-photo-tape absolute z-10 -top-3 left-1/2 -translate-x-1/2 w-12 h-3 bg-parchment-deep/80 -rotate-3 border border-ink/5 mix-blend-multiply shadow-sm" />
           {canChangePhoto ? (
             <button
               type="button"
@@ -459,7 +459,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 <span aria-hidden="true" className="photo-caption absolute z-[3] inset-x-0 bottom-0 bg-cream/90 border-t border-ink/15 px-1 py-1 font-sans text-xs font-black uppercase tracking-wider leading-tight text-ink">
                   {portrait.phase === 'undoing' ? 'Undoing…'
                     : portrait.busy ? 'Saving…'
-                    : <><span className="md:hidden">Change</span><span className="hidden md:inline">Change portrait</span></>}
+                    : <><span className="photo-caption-short">Change</span><span className="photo-caption-long hidden">Change portrait</span></>}
                 </span>
               )}
             </button>
@@ -483,15 +483,15 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       )}
 
       {/* The form's printed head: its number, and the registry's serial in red */}
-      <div className="dossier-form flex items-center gap-2 md:w-2/3 -mt-1" aria-hidden="true">
+      <div className="dossier-form flex items-center gap-2 -mt-1" aria-hidden="true">
         <PrinterMark size={13} />
-        <FormLine>Form C.O. 7<span className="hidden sm:inline"> · Investigator record</span></FormLine>
+        <FormLine>Form C.O. 7<span className="form-line-long hidden"> · Investigator record</span></FormLine>
         <SerialNo value={serialFor(character.id)} className="ml-auto" />
       </div>
 
       {/* Investigator Identity Headers: the name with the role and specialty under it,
           the pronouns beside them */}
-      <div data-desk="identity" className="dossier-ident grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-x-6 sm:gap-y-2 md:w-2/3 pb-2">
+      <div data-desk="identity" className="dossier-ident grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-x-6 sm:gap-y-2 pb-2">
         <div className="sm:col-span-2 min-w-0">
           <span className="block font-sans text-xs font-black uppercase tracking-normal text-sepia leading-tight">Investigator</span>
           <div className="text-xl font-serif font-black border-b border-ink pb-0.5 text-ink uppercase mt-1 truncate">{character.name}</div>
@@ -520,13 +520,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       </div>
 
       {/* The photo's note, under the name while the sheet is one column */}
-      {canChangePhoto && photoNote && <div className="dossier-photo-note-narrow flow-root md:w-2/3">{photoNote}</div>}
+      {canChangePhoto && photoNote && <div className="dossier-photo-note-narrow flow-root">{photoNote}</div>}
 
       {/* Gear: a manila luggage tag tied to the sheet beside the name, cut at its narrow end
           around a reinforced eyelet, its string running off over the page. Each item is
           drawn large. The shadow sits on the wrapper, since the cut corners would clip a
           box-shadow. */}
-      <div data-desk="gear" className="dossier-gear relative md:w-2/3 clear-both md:clear-none"
+      <div data-desk="gear" className="dossier-gear relative clear-both"
         style={{ filter: 'drop-shadow(2px 5px 5px rgba(0,0,0,0.24))' }}>
         {/* Its string, through the eyelet and off over the page */}
         <svg aria-hidden="true" focusable="false" viewBox="0 0 40 20" preserveAspectRatio="none" className="gear-tag-string">
@@ -569,7 +569,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       </div>
 
       {/* Index card: the role ability, the specialty ability, then catalyst and question */}
-      <div data-desk="abilities" className="dossier-ability w-full md:pr-48 relative clear-both md:clear-none" style={{ perspective: '1000px' }}>
+      <div data-desk="abilities" className="dossier-ability w-full relative clear-both" style={{ perspective: '1000px' }}>
         {/* Tab row — index card style tabs sticking up from behind */}
         <div className="flex gap-0 mb-0 relative z-10">
           {/* One scheme for every tab: the open one in oxblood, the others older paper */}

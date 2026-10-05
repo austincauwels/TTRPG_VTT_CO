@@ -800,6 +800,29 @@
 .dossier-c .dossier-photo-cell { display: contents; }
 .dossier-c .dossier-photo-note-wide { display: none; }
 
+/* From 33rem of its own width the one-column sheet has room for the larger photograph,
+   taped at its top right with the form line, the name, the note and the gear tag in the two
+   thirds beside it and the ability card clear of it. Narrower, the small photo floats beside
+   the name, as on a phone. This follows the sheet, not the window: on a tablet held sideways
+   the sheet's column is only 420 to 505px wide, and the photo there covered the pronouns and
+   the serial number (iPad pass, 2026-10-05). The form line's "Investigator record" needs
+   the same room. */
+@container dossier (min-width: 33rem) {
+  .dossier-c .dossier-photo { float: none; margin: 0; position: absolute; top: 0; right: 0; width: 11rem; height: 220px; padding: 0.5rem; }
+  .dossier-c .dossier-photo-tape { top: -0.875rem; width: 5rem; height: 1rem; }
+  .dossier-c .dossier-photo-add { left: 0.75rem; right: 0.75rem; bottom: 0.75rem; padding-top: 0.375rem; padding-bottom: 0.375rem; }
+  .dossier-c .photo-caption-short { display: none; }
+  .dossier-c .photo-caption-long,
+  .dossier-c .form-line-long { display: inline; }
+  .dossier-c .dossier-form,
+  .dossier-c .dossier-ident,
+  .dossier-c .dossier-photo-note-narrow,
+  .dossier-c .dossier-gear { width: 66.666667%; }
+  .dossier-c .dossier-gear,
+  .dossier-c .dossier-ability { clear: none; }
+  .dossier-c .dossier-ability { padding-right: 12rem; }
+}
+
 @container dossier (min-width: 44rem) {
   .dossier-c .dossier-photo-cell { display: flex; flex-direction: column; gap: 0.75rem; grid-area: photo; }
   .dossier-c .dossier-photo-note-wide { display: block; }
