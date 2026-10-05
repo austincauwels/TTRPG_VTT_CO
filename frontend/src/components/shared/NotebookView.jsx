@@ -147,80 +147,124 @@ function useLinesThatFit() {
   return [ref, count];
 }
 
+// A sketch or a photograph lies across the whole page, as wide as the page allows inside
+// its margins, at its own shape. A tall one is scaled down to about two thirds of the
+// page's height (66cqh: the page from lg, where the page is a size container; below lg,
+// where the page is as long as it needs, 66svh of the screen) and stays centred. Its width
+// follows from its shape once it has loaded, so a photograph's white border hugs it.
+const PICTURE_MAX_H = '66cqh';
+
+function usePictureRatio() {
+  const [ratio, setRatio] = useState(null);
+  const read = useCallback((img) => {
+    if (img && img.naturalWidth && img.naturalHeight) setRatio(img.naturalWidth / img.naturalHeight);
+  }, []);
+  // A picture already in the cache may have loaded before React saw it
+  const ref = useCallback((img) => { if (img && img.complete) read(img); }, [read]);
+  return [ratio, ref, (e) => read(e.currentTarget)];
+}
+
+// The width that keeps a picture of this shape within the page and within the height cap;
+// `extra` is a frame's own width (a photograph's border)
+const pictureWidth = (ratio, extra = 0) => (ratio
+  ? `min(100%, calc(${PICTURE_MAX_H} * ${ratio.toFixed(4)} + ${extra}px))`
+  : undefined);
+
+// Ink on the page: the drawing multiplies into the paper, a little crooked. The tilt is on
+// the picture itself, since a transformed wrapper would cut the blend off from the paper.
+function SketchPicture({ entry, onRedraw }) {
+  const [ratio, ref, onLoad] = usePictureRatio();
+  return (
+    <div className="px-2 sm:px-4 pt-4 pb-1">
+      <div className="mx-auto" style={{ width: pictureWidth(ratio), maxWidth: '100%' }}>
+        <img
+          ref={ref}
+          onLoad={onLoad}
+          src={entry.image_data}
+          alt={entry.title}
+          className="hand-placed block mx-auto"
+          style={{
+            '--tilt': `${tiltFor(entry.id, { min: 0.5, max: 1.2 })}deg`,
+            width: ratio ? '100%' : 'auto',
+            height: 'auto',
+            maxWidth: '100%',
+            maxHeight: PICTURE_MAX_H,
+            mixBlendMode: 'multiply',
+          }}
+        />
+      </div>
+      {onRedraw && (
+        <div className="flex justify-end mt-2">
+          <button
+            type="button"
+            onClick={onRedraw}
+            aria-label={`Keep drawing ${entry.title}`}
+            className="min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2 inline-flex items-center gap-1.5 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors"
+          >
+            <PencilIcon size={14} /> Keep drawing
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A print with a white border and a strip of masking tape across its head, a little crooked
+function PhotoPicture({ entry }) {
+  const [ratio, ref, onLoad] = usePictureRatio();
+  return (
+    <div className="px-3 sm:px-4 pt-5 pb-3">
+      <div className="relative mx-auto" style={{ width: pictureWidth(ratio, 16), maxWidth: '100%' }}>
+        {/* Masking tape strip */}
+        <div style={{
+          position: 'absolute', top: -10, left: '50%', width: 'clamp(72px, 34%, 170px)', height: 22,
+          background: 'rgb(var(--c-parchment-deep) / 0.75)', transform: 'translateX(-50%) rotate(-1deg)',
+          zIndex: 2, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+        }} />
+        <div
+          className="hand-placed"
+          style={{
+            '--tilt': `${tiltFor(entry.id, { min: 0.4, max: 1 })}deg`,
+            background: '#fff',
+            padding: '8px 8px 28px',
+            boxShadow: '2px 4px 10px rgba(0,0,0,0.35)',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          <img
+            ref={ref}
+            onLoad={onLoad}
+            src={entry.image_data}
+            alt={entry.title}
+            className="block mx-auto"
+            style={{ width: ratio ? '100%' : 'auto', height: 'auto', maxWidth: '100%', maxHeight: PICTURE_MAX_H }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Renders a single notebook entry: a field log, sketch, photo or Lightkeeper entry.
 // onRedraw: given for a drawn sketch its reader wrote, who can take it up again.
 function EntryCard({ entry, isLast, onRedraw }) {
   const eType = entry.entry_type || 'field_log';
 
-  // Sketch: rendered with mix-blend-mode multiply, slight rotation
-  if (eType === 'sketch' && entry.image_data) {
+  // Sketch or photo: the picture across the page, then the title, the caption and the hand
+  // under it (owner, 2026-10-05: never shrunk off to the side)
+  if ((eType === 'sketch' || eType === 'photo') && entry.image_data) {
     return (
       <div className={`break-words ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
-        <h3 className="leading-tight mb-1 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2rem' }}>
+        {eType === 'sketch'
+          ? <SketchPicture entry={entry} onRedraw={onRedraw} />
+          : <PhotoPicture entry={entry} />}
+        <h3 className="leading-tight mt-2 mb-1 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2rem' }}>
           {entry.title}
         </h3>
-        <div className="relative mb-2 flex flex-col items-end" style={{ float: 'right', margin: '0 0 12px 16px' }}>
-          <img
-            src={entry.image_data}
-            alt={entry.title}
-            style={{
-              maxWidth: 'min(180px, 45vw)',
-              transform: 'rotate(-3deg)',
-              mixBlendMode: 'multiply',
-            }}
-          />
-          {onRedraw && (
-            <button
-              type="button"
-              onClick={onRedraw}
-              aria-label={`Keep drawing ${entry.title}`}
-              className="mt-2 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2 inline-flex items-center gap-1.5 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors"
-            >
-              <PencilIcon size={14} /> Keep drawing
-            </button>
-          )}
-        </div>
         {entry.content && (
           <NoteMarkdown text={entry.content} className="text-[26px] leading-[2.8rem]" style={{ fontFamily: entry.pen_font, color: entry.ink_color }} />
         )}
-        <div className="clear-both" />
-        <div className="text-[18px] mt-2" style={{ fontFamily: entry.pen_font, color: entry.ink_color, opacity: 0.5 }}>
-          — {entry.author_name} · {formatDate(entry.created_at)}
-        </div>
-      </div>
-    );
-  }
-
-  // Photo: polaroid border with masking tape strip
-  if (eType === 'photo' && entry.image_data) {
-    return (
-      <div className={`break-words ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
-        <h3 className="leading-tight mb-1 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2rem' }}>
-          {entry.title}
-        </h3>
-        <div className="relative" style={{ float: 'right', margin: '0 0 12px 16px' }}>
-          {/* Masking tape strip */}
-          <div style={{
-            position: 'absolute', top: -10, left: '20%', right: '20%', height: 20,
-            background: 'rgb(var(--c-parchment-deep) / 0.75)', transform: 'rotate(-1deg)',
-            zIndex: 2, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-          }} />
-          <div style={{
-            background: '#fff',
-            padding: '8px 8px 28px',
-            boxShadow: '2px 4px 14px rgba(0,0,0,0.35)',
-            maxWidth: 'min(180px, 45vw)',
-            transform: 'rotate(1.5deg)',
-            position: 'relative',
-            zIndex: 1,
-          }}>
-            <img src={entry.image_data} alt={entry.title} style={{ width: '100%', display: 'block' }} />
-          </div>
-        </div>
-        {entry.content && (
-          <NoteMarkdown text={entry.content} className="text-[26px] leading-[2.8rem]" style={{ fontFamily: entry.pen_font, color: entry.ink_color }} />
-        )}
-        <div className="clear-both" />
         <div className="text-[18px] mt-2" style={{ fontFamily: entry.pen_font, color: entry.ink_color, opacity: 0.5 }}>
           — {entry.author_name} · {formatDate(entry.created_at)}
         </div>
@@ -1029,7 +1073,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                 <div className="absolute top-3 left-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">
                   Field Notes, page {currentSpread}
                 </div>
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative lg:mt-6" style={LINED_PAPER}>
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative lg:mt-6 lg:[container-type:size]" style={LINED_PAPER}>
                   {leftEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === leftEntries.length - 1}
                     onRedraw={canRedraw(entry) ? () => openRedraw(entry) : undefined} />)}
                 </div>
@@ -1153,7 +1197,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
             ) : (
               <div className="p-4 pt-10 sm:p-8 lg:pl-10 relative flex flex-col min-h-[360px] lg:min-h-0 lg:h-full min-w-0 bg-cream">
                 <div className="absolute top-3 right-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">Field Notes</div>
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative mt-6" style={LINED_PAPER}>
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative mt-6 lg:[container-type:size]" style={LINED_PAPER}>
                   {rightEntries.length === 0
                     ? <div className="h-full flex flex-col items-center justify-center gap-4 opacity-[0.055] pointer-events-none select-none">
                         <div className="w-32 h-32 rounded-full border-4 border-ink flex flex-col items-center justify-center">
