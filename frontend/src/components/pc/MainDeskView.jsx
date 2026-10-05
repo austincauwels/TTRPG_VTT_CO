@@ -136,7 +136,7 @@ export const MainDeskView = () => {
         <div className="relative z-10 flex gap-2 justify-center lg:justify-end lg:-mt-2 max-md:hidden xl:hidden">
           <button
             onClick={() => setStage('HOME')}
-            className="flex-1 sm:flex-none whitespace-nowrap text-xs sm:text-sm font-sans font-bold uppercase tracking-widest text-parchment-deep hover:text-cream transition-colors bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2"
+            className="flex-1 sm:flex-none whitespace-nowrap text-xs sm:text-sm font-sans font-bold uppercase tracking-widest text-parchment-deep hover:text-cream transition-colors bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2 md:[@media(pointer:coarse)]:min-h-[44px]"
           >
             Back to chapter hub
           </button>
@@ -194,7 +194,7 @@ export const MainDeskView = () => {
                   key={tabName}
                   onClick={() => chooseTab(tabName)}
                   aria-current={activeTab === tabName ? 'page' : undefined}
-                  className={`pen-host flex-auto md:flex-none px-1.5 md:px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 leading-tight uppercase tracking-normal md:tracking-widest rounded transition-all duration-150 ${
+                  className={`pen-host flex-auto md:flex-none px-1.5 md:px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 md:[@media(pointer:coarse)]:min-h-[44px] leading-tight uppercase tracking-normal md:tracking-widest rounded transition-all duration-150 ${
                     activeTab === tabName ? 'bg-ink text-parchment shadow-md border border-ink' : 'bg-transparent text-sepia [@media(hover:hover)]:hover:bg-black/5 [@media(hover:hover)]:hover:text-ink'
                   }`}
                 >
@@ -211,7 +211,7 @@ export const MainDeskView = () => {
           <div className="hidden xl:flex items-center gap-2 self-stretch shrink-0 pl-3 ml-1 border-l border-ink/25 relative z-10">
             <button
               onClick={() => setStage('HOME')}
-              className="whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink hover:bg-black/5 border border-ink/25 hover:border-ink/50 rounded px-3 py-1.5 transition-colors"
+              className="whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink hover:bg-black/5 border border-ink/25 hover:border-ink/50 rounded px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] transition-colors"
             >
               Back to chapter hub
             </button>

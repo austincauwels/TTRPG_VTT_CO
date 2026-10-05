@@ -299,7 +299,7 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
           {inks.map(i => (
             <button key={i.color} type="button" aria-label={i.name} title={i.name} aria-pressed={stroke === i.color}
               onClick={() => pickInk(i.color)}
-              className={`w-9 h-9 [@media(pointer:coarse)]:w-10 [@media(pointer:coarse)]:h-11 shrink-0 flex items-center justify-center rounded-full transition ${
+              className={`w-9 h-9 [@media(pointer:coarse)]:w-10 [@media(pointer:coarse)]:h-11 md:[@media(pointer:coarse)]:w-11 shrink-0 flex items-center justify-center rounded-full transition ${
                 stroke === i.color ? 'ring-2 ring-ink ring-offset-1 ring-offset-cream' : '[@media(hover:hover)]:hover:bg-ink/[0.06]'}`}>
               <InkBlot color={i.color} />
             </button>

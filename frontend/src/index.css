@@ -1094,6 +1094,15 @@
   rotate: -0.6deg;
 }
 
+/* A small mark in a row of them (the Lightkeeper's Illumination dots, the circle's resource
+   squares) on a tablet: it keeps its size and place and takes a finger over 44px of height
+   and the whole width up to its neighbours (--hit-y, --hit-x: how far the target reaches
+   past the mark; iPad pass, 2026-10-05) */
+@media (min-width: 768px) and (pointer: coarse) {
+  .touch-pip { position: relative; }
+  .touch-pip::before { content: ''; position: absolute; inset: var(--hit-y, -13px) var(--hit-x, -3px); }
+}
+
 /* The player desk's drawer on phones (owner's round 4 item 14, DeskDrawer.jsx): it slides
    out from the right edge over the dimmed desk and slides back in when it closes. Under
    reduced motion it is simply there, and gone. */

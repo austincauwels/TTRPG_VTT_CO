@@ -81,7 +81,7 @@ export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, set
               renderButton={(armed, props) => (
                 <button
                   {...props}
-                  className={`w-full lg:w-auto min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest rounded px-4 py-2 transition disabled:opacity-50 disabled:cursor-wait ${
+                  className={`w-full lg:w-auto min-h-[44px] lg:min-h-0 md:[@media(pointer:coarse)]:min-h-[44px] text-xs lg:text-sm font-sans font-bold uppercase tracking-widest rounded px-4 py-2 transition disabled:opacity-50 disabled:cursor-wait ${
                     armed
                       ? 'text-cream bg-oxblood hover:brightness-125 border border-oxblood-lit/50'
                       : 'text-moonlight-steel hover:text-oxblood-lit bg-gm-night/80 border border-moonlight-steel/30 hover:border-oxblood-lit/60'
@@ -94,7 +94,7 @@ export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, set
           </div>
           <button
             onClick={() => setStage('HOME')}
-            className="flex-1 lg:flex-none min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest text-cream hover:bg-gm-night transition-colors bg-gm-night/80 border border-moonlight-steel/60 hover:border-moonlight-steel rounded px-4 py-2"
+            className="flex-1 lg:flex-none min-h-[44px] lg:min-h-0 md:[@media(pointer:coarse)]:min-h-[44px] text-xs lg:text-sm font-sans font-bold uppercase tracking-widest text-cream hover:bg-gm-night transition-colors bg-gm-night/80 border border-moonlight-steel/60 hover:border-moonlight-steel rounded px-4 py-2"
           >
             Back to chapter hub
           </button>

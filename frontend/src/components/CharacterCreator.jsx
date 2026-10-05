@@ -1054,14 +1054,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                     <div>
                       <label htmlFor="creator-name" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Full Name *</label>
                       <input id="creator-name" type="text" required aria-required="true" value={name} onChange={e => setName(e.target.value)}
-                        className="w-full bg-transparent font-serif font-bold text-lg placeholder-sepia/90 placeholder:font-normal placeholder:italic pb-1"
+                        className="w-full bg-transparent font-serif font-bold text-lg placeholder-sepia/90 placeholder:font-normal placeholder:italic pb-1 md:[@media(pointer:coarse)]:min-h-[44px]"
                         style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
                     <div>
                       <label htmlFor="creator-pronouns" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Gender / Pronouns</label>
                       <input id="creator-pronouns" type="text" value={pronouns} onChange={e => setPronouns(e.target.value)}
                         placeholder="She/her, he/they"
-                        className="w-full bg-transparent font-serif italic text-lg placeholder-sepia/90 pb-1"
+                        className="w-full bg-transparent font-serif italic text-lg placeholder-sepia/90 pb-1 md:[@media(pointer:coarse)]:min-h-[44px]"
                         style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
                   </div>

@@ -20,16 +20,16 @@ export const GmDiceControls = ({ rollAction }) => {
         <button
           onClick={() => setGmDiceCount(Math.max(1, gmDiceCount - 1))}
           aria-label="One die fewer"
-          className="w-8 h-8 bg-black/35 border border-parchment-deep/30 rounded-sm text-sm font-bold text-cream hover:bg-black/55 hover:border-parchment-deep/60 transition-colors"
+          className="w-8 h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/35 border border-parchment-deep/30 rounded-sm text-sm font-bold text-cream hover:bg-black/55 hover:border-parchment-deep/60 transition-colors"
         >−</button>
         <span className="font-mono tabular-nums text-cream text-base w-5 text-center">{gmDiceCount}</span>
         <button
           onClick={() => setGmDiceCount(Math.min(6, gmDiceCount + 1))}
           aria-label="One die more"
-          className="w-8 h-8 bg-black/35 border border-parchment-deep/30 rounded-sm text-sm font-bold text-cream hover:bg-black/55 hover:border-parchment-deep/60 transition-colors"
+          className="w-8 h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/35 border border-parchment-deep/30 rounded-sm text-sm font-bold text-cream hover:bg-black/55 hover:border-parchment-deep/60 transition-colors"
         >+</button>
       </div>
-      <label className="flex items-center gap-1.5 cursor-pointer ml-auto select-none">
+      <label className="flex items-center gap-1.5 cursor-pointer ml-auto select-none md:[@media(pointer:coarse)]:min-h-[44px] md:[@media(pointer:coarse)]:px-1">
         <input
           type="checkbox"
           checked={gmSecretRoll}

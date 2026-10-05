@@ -31,7 +31,7 @@ const primaryClass = `${buttonBase} bg-oxblood text-cream border border-ink hove
 const outlineClass = `${buttonBase} bg-transparent text-oxblood border-2 border-oxblood hover:bg-oxblood hover:text-cream`;
 const textButtonClass = 'min-h-[44px] px-3 font-sans font-bold text-sm uppercase tracking-widest text-sepia hover:text-oxblood underline-offset-4 hover:underline transition-colors';
 // A line of the slip's own small print that can be followed, under the password field
-const slipLinkClass = 'min-h-[32px] font-serif italic text-base text-sepia underline decoration-sepia/40 underline-offset-4 hover:text-oxblood hover:decoration-oxblood transition-colors';
+const slipLinkClass = 'min-h-[32px] md:[@media(pointer:coarse)]:min-h-[44px] font-serif italic text-base text-sepia underline decoration-sepia/40 underline-offset-4 hover:text-oxblood hover:decoration-oxblood transition-colors';
 
 // The slip is laid on the map by hand, so it sits a little crooked, like the cards and
 // slips on the desks (owner's choice, 2026-10-04). Less tilt on a phone, where the slip

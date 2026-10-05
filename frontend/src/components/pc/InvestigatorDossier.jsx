@@ -525,7 +525,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               type="button"
               aria-pressed={infoTab === tab.key}
               onClick={() => setInfoTab(tab.key)}
-              className="max-sm:flex-1 max-sm:min-h-[36px] leading-tight px-2 sm:px-3 py-1.5 text-xs font-sans font-black uppercase tracking-wider sm:tracking-widest transition-all duration-150 rounded-t-sm mr-0.5"
+              className="max-sm:flex-1 max-sm:min-h-[36px] sm:[@media(pointer:coarse)]:min-h-[44px] leading-tight px-2 sm:px-3 py-1.5 text-xs font-sans font-black uppercase tracking-wider sm:tracking-widest transition-all duration-150 rounded-t-sm mr-0.5"
               style={{
                 background: infoTab === tab.key ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-parchment-deep))',
                 color: infoTab === tab.key ? 'rgb(var(--c-cream))' : 'rgb(var(--c-sepia))',
@@ -786,7 +786,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                                 aria-label={mod.label}
                                 title={mod.label}
                                 onClick={() => toggleMod(act.key, mod.key)}
-                                className={`mod-chip relative inline-flex items-center gap-1 max-w-full whitespace-nowrap font-serif text-sm leading-6 px-1.5 border rounded-sm transition-colors ${
+                                className={`mod-chip relative inline-flex items-center gap-1 max-w-full whitespace-nowrap font-serif text-sm leading-6 px-1.5 md:[@media(pointer:coarse)]:min-h-[44px] md:[@media(pointer:coarse)]:px-2.5 border rounded-sm transition-colors ${
                                   on ? 'bg-candle-gold/20 border-candle-gold/80 text-ink' : 'border-ink/25 text-sepia hover:border-ink/50 hover:text-ink'
                                 }`}
                               >

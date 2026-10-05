@@ -80,12 +80,12 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
           placeholder="Message"
           aria-label="Message"
-          className="flex-1 min-w-0 bg-transparent border-b border-sepia/40 focus:border-oxblood text-base font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 transition-colors"
+          className="flex-1 min-w-0 bg-transparent border-b border-sepia/40 focus:border-oxblood text-base font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 md:[@media(pointer:coarse)]:min-h-[44px] transition-colors"
         />
         <button
           onClick={handleSendChat}
           disabled={!chatMessage.trim()}
-          className="shrink-0 px-2.5 py-1 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood rounded-sm hover:bg-oxblood hover:text-cream transition-all disabled:opacity-40"
+          className="shrink-0 px-2.5 py-1 md:[@media(pointer:coarse)]:min-h-[44px] md:[@media(pointer:coarse)]:px-4 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood rounded-sm hover:bg-oxblood hover:text-cream transition-all disabled:opacity-40"
         >
           Send ›
         </button>

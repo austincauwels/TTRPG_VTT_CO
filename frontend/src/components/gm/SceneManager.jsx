@@ -254,10 +254,10 @@ export const TensionClock = ({ readOnly = false }) => {
         {isGM && (
           <div className="absolute inset-0 rounded-full flex items-center justify-center gap-3 z-10">
             <button onClick={() => adjust(-1)} disabled={!socketReady} aria-label="Lower tension by one"
-              className="w-10 h-10 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait"
+              className="w-10 h-10 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait"
             >−</button>
             <button onClick={() => adjust(1)} disabled={!socketReady} aria-label="Raise tension by one"
-              className="w-10 h-10 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait"
+              className="w-10 h-10 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait"
             >+</button>
           </div>
         )}
@@ -269,7 +269,7 @@ export const TensionClock = ({ readOnly = false }) => {
           onBlur={e => sendUpdate({ tension_label: e.target.value })}
           placeholder="Clock name"
           aria-label="Tension clock name"
-          className="text-center font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/90 focus:border-oxblood transition-colors"
+          className="text-center font-sans font-bold text-xs md:[@media(pointer:coarse)]:text-base md:[@media(pointer:coarse)]:min-h-[44px] uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/90 focus:border-oxblood transition-colors"
         />
       ) : (
         <div className="font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 shadow-sm min-w-[9rem] text-center">

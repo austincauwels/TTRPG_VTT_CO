@@ -15,13 +15,13 @@ const TRIGGER = {
   // the hub's night header
   night: 'min-h-[40px] text-xs uppercase tracking-widest font-sans font-bold text-parchment-deep hover:text-cream border border-cream/20 hover:border-cream/40 hover:bg-cream/5 rounded px-3 py-2',
   // the player desk's header below xl, beside its Back to chapter hub
-  desk: 'text-xs sm:text-sm uppercase tracking-widest font-sans font-bold text-parchment-deep hover:text-cream bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2',
+  desk: 'text-xs sm:text-sm uppercase tracking-widest font-sans font-bold text-parchment-deep hover:text-cream bg-transparent hover:bg-cream/5 border border-cream/20 hover:border-cream/40 rounded px-4 py-2.5 lg:py-2 md:[@media(pointer:coarse)]:min-h-[44px]',
   // the player desk's paper band (xl)
-  paper: 'font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink hover:bg-black/5 border border-ink/25 hover:border-ink/50 rounded px-3 py-1.5',
+  paper: 'font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink hover:bg-black/5 border border-ink/25 hover:border-ink/50 rounded px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px]',
   // the Lightkeeper's Desk bar
-  gm: 'min-h-[44px] lg:min-h-0 text-xs lg:text-sm font-sans font-bold uppercase tracking-widest text-cream hover:bg-gm-night bg-gm-night/80 border border-moonlight-steel/60 hover:border-moonlight-steel rounded px-4 py-2',
+  gm: 'min-h-[44px] lg:min-h-0 md:[@media(pointer:coarse)]:min-h-[44px] text-xs lg:text-sm font-sans font-bold uppercase tracking-widest text-cream hover:bg-gm-night bg-gm-night/80 border border-moonlight-steel/60 hover:border-moonlight-steel rounded px-4 py-2',
   // the hub: a small paper tag lying at the edge of the desk, a little crooked
-  tag: 'min-h-[36px] lg:min-h-[40px] -rotate-2 text-xs uppercase tracking-widest font-sans font-black text-ink bg-parchment hover:bg-parchment-deep border border-sepia/50 rounded-sm px-2.5 py-1.5 shadow-[1px_3px_7px_rgba(0,0,0,0.65)]',
+  tag: 'min-h-[36px] lg:min-h-[40px] -rotate-2 text-xs uppercase tracking-widest font-sans font-black text-ink bg-parchment hover:bg-parchment-deep border border-sepia/50 rounded-sm px-2.5 py-1.5 shadow-[1px_3px_7px_rgba(0,0,0,0.65)] md:[@media(pointer:coarse)]:min-h-[44px]',
 };
 
 const CARD_WIDTH = 304; // px; narrower on a phone, where it keeps 8px from each edge

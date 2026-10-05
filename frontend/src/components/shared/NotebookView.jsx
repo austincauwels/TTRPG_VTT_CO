@@ -788,7 +788,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
             type="button"
             aria-pressed={!!tab.active}
             onClick={tab.onClick}
-            className="max-sm:flex-1 max-sm:min-w-0 leading-tight px-3 sm:px-[22px] font-sans text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all select-none"
+            className="max-sm:flex-1 max-sm:min-w-0 sm:[@media(pointer:coarse)]:min-h-[44px] leading-tight px-3 sm:px-[22px] font-sans text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all select-none"
             style={{
               clipPath: 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 100%, 0% 100%)',
               background: tab.active ? tab.activeColor : tab.inactiveColor,
@@ -1133,7 +1133,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                   <div className="flex gap-2 items-center flex-wrap">
                     <input type="text" value={uploadCaption} onChange={e => setUploadCaption(e.target.value)}
                       placeholder="Caption (optional)"
-                      className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 text-lg font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5" />
+                      className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 text-lg font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 md:[@media(pointer:coarse)]:min-h-[44px]" />
                     <button onClick={openNewSketch} disabled={isUploading || !!pendingImageFile}
                       className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
                       <span className="inline-flex items-center gap-1.5"><PencilIcon size={16} /> Sketch</span>

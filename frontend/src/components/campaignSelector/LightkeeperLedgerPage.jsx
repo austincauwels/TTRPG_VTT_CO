@@ -36,7 +36,7 @@ export const LightkeeperLedgerPage = ({
       </div>
       <button
         onClick={closeBook}
-        className="hidden lg:block shrink-0 font-sans font-bold text-xs tracking-widest uppercase text-sepia hover:text-oxblood transition-colors mt-1 px-3 py-2 rounded"
+        className="hidden lg:block shrink-0 font-sans font-bold text-xs tracking-widest uppercase text-sepia hover:text-oxblood transition-colors mt-1 px-3 py-2 md:[@media(pointer:coarse)]:min-h-[44px] rounded"
         style={{ border: '1px solid rgb(var(--c-sepia) / 0.3)' }}
       >
         Close book
@@ -87,7 +87,7 @@ export const LightkeeperLedgerPage = ({
       <div className="px-4 py-3 lg:px-7 lg:py-4 shrink-0" style={{ borderTop: '2px solid rgb(var(--c-sepia) / 0.12)' }}>
         <button
           onClick={() => setShowRegisterForm(true)}
-          className="w-full font-sans font-black text-sm leading-tight tracking-widest uppercase text-oxblood transition-colors py-2.5 rounded hover:bg-oxblood/5"
+          className="w-full font-sans font-black text-sm leading-tight tracking-widest uppercase text-oxblood transition-colors py-2.5 md:[@media(pointer:coarse)]:min-h-[44px] rounded hover:bg-oxblood/5"
           style={{ border: '1px solid rgb(var(--c-oxblood) / 0.35)' }}
         >
           + New campaign

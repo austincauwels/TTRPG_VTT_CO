@@ -95,7 +95,7 @@ const SoundToggle = () => {
       aria-pressed={on}
       aria-label="Sounds"
       title={on ? 'Sounds on' : 'Sounds off'}
-      className={`absolute top-1 right-1 z-20 w-10 h-10 flex items-center justify-center rounded-full transition-colors hover:bg-cream/10 ${
+      className={`absolute top-1 right-1 z-20 w-10 h-10 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center rounded-full transition-colors hover:bg-cream/10 ${
         on ? 'text-parchment-deep/80 hover:text-cream' : 'text-parchment-deep/45 hover:text-parchment-deep'}`}
     >
       <SpeakerIcon muted={!on} />
