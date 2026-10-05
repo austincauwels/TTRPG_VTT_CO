@@ -137,37 +137,35 @@ export const CampaignSelector = () => {
               <CandleLight lit={litCandles} />
             </div>
 
-            {/* THE TOMES, with papers tucked under their corners. From lg each paper
-                is placed by the tomes themselves (.hub-tomes > .sketch in DeskStyles.jsx), so
-                at least about half of every picture shows at every desk width (owner's round
-                4 item 16). Phones and tablets show only a few, placed in the tomes' row's own
-                width (cqw); the pinned print waits for a desk wide and tall enough. */}
+            {/* THE TOMES, with papers tucked under their heads and feet. Every paper is at
+                least as large as a railway ticket (owner, 2026-10-05); where each lies, and
+                on which screens, is in DeskStyles.jsx (Loose papers): from lg placed by the
+                tomes themselves, so at least half of every picture shows; on phones and
+                tablets in the tomes' row's own size (cqw, cqh), only as many as there is
+                room for. In paint order: the folded Herald, then the papers, then the tomes. */}
             <div className="hub-tomes relative grid grid-cols-2 items-end justify-items-center gap-3 sm:gap-8 w-full max-w-[760px] lg:max-w-none lg:flex lg:gap-[2.2vw] lg:items-center lg:justify-center z-30">
-              {/* The sketchbook leaf lies under everything near it: under the Herald on
-                  phones, and from lg under the torn page, the field sketch and the Last Played
-                  tome's head, in the gap between them */}
-              <CryptidSketch which="sketchbook" className="paper-sketchbook z-0 left-[16cqw] bottom-[89cqw] w-[26cqw] rotate-[-6deg]" />
               <HalcyonHerald phone />
-              <CryptidSketch which="pinned" className="paper-wide z-0" />
-              <CryptidSketch which="candles" className="hidden lg:block z-0" />
-              <CryptidSketch which="page" className="z-0 left-[-4cqw] bottom-[57cqw] w-[31cqw] rotate-[-8deg] sm:left-[16cqw] sm:bottom-[54cqw] sm:w-[22cqw]" />
-              <CryptidSketch which="herald" className="hidden lg:block z-0" />
-              <CryptidSketch which="postcard" className="sm:hidden z-0 left-[46cqw] bottom-[58cqw] w-[40cqw] rotate-[7deg]" />
-              <CryptidSketch which="photo" className="hidden lg:block z-0" />
-              <CryptidSketch which="tomes" className="z-0 left-[28cqw] bottom-[-14cqw] w-[44cqw] rotate-[6deg]" />
+              <CryptidSketch which="pinned" />
+              <CryptidSketch which="photo" />
+              <CryptidSketch which="tomes" />
+              <CryptidSketch which="herald" />
+              <CryptidSketch which="candles" />
+              <CryptidSketch which="page" />
+              <CryptidSketch which="postcard" />
+              <CryptidSketch which="sketchbook" />
               <CaseLedgerTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
               <LastPlayedTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} />
             </div>
           </div>
 
           {/* RIGHT: THE HERALD AND THE TICKETS lying on it */}
-          <div className="relative shrink-0 w-full lg:w-[50%] lg:min-w-[550px] lg:h-[600px] flex flex-col lg:flex-row items-center gap-3 sm:gap-6 lg:gap-0">
-            <CryptidSketch which="herald" className="hidden sm:block lg:hidden z-0 right-[-13%] top-[-17%] w-[31%] rotate-[11deg]" />
-            {/* Under the Herald's top edge and its left edge, placed in the Herald's own
-                pixels as the Herald is */}
-            <CryptidSketch which="bestiary" className="paper-roomy z-0 lg:left-[460px] lg:top-[-180px] lg:w-[120px] lg:rotate-[-84deg]" />
-            <CryptidSketch which="postcard" className="hidden sm:block z-0 left-[26%] bottom-[-26%] w-[46%] rotate-[-5deg] lg:bottom-auto lg:left-[-215px] lg:top-[545px] lg:w-[200px] lg:rotate-[6deg]" />
+          <div className="hub-right relative shrink-0 w-full lg:w-[50%] lg:min-w-[550px] lg:h-[600px] flex flex-col lg:flex-row items-center gap-3 sm:gap-6 lg:gap-0">
             <HalcyonHerald />
+            {/* From lg, papers lying on the Herald round the tickets, placed in the Herald's
+                own pixels as the Herald and the tickets are (.hub-right > .sketch) */}
+            <CryptidSketch which="tomes" />
+            <CryptidSketch which="postcard" />
+            <CryptidSketch which="bestiary" />
 
             {/* The tickets share a row below lg and never overlap; from lg up this wrapper
                 steps aside (display: contents) and they lie loose on the desk */}

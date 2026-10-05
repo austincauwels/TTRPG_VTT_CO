@@ -638,36 +638,89 @@ export const DeskStyles = () => (
        (.sketch-paper) is one layer on wide screens: the mask, the stains and the art inside
        it are drawn once. A mask cuts away a box-shadow, so the paper's contact shadow lies
        under it as a shadow of its own, a little inside the cut, away from the candles. */
-    .sketch { position: absolute; isolation: isolate; pointer-events: none; }
-    /* Two of the papers need a bigger desk, so the desk never looks crowded: the pinned
-       print lies left of the tomes once there is leather there (1880px), the bestiary leaf
-       above the Herald once there is room above it */
-    .paper-wide, .paper-roomy { display: none; }
-    @media (min-width: 1880px) { .paper-wide { display: block; } }
-    @media (min-width: 1600px) and (min-height: 1000px) { .paper-roomy { display: block; } }
-    /* The sketchbook leaf: from lg in the gap along the tomes' heads; on a phone tall enough
-       to leave room between the candles and the torn page, half under the folded Herald;
-       never on a tablet, whose desk has no room for it */
-    .paper-sketchbook { display: none; }
-    @media (min-width: 1024px), (max-width: 639px) and (min-height: 780px) { .paper-sketchbook { display: block; } }
-    /* From lg the papers by the tomes are placed by the tomes (owner's round 4 item 16:
-       spread out, at least about half of each picture showing): --T is a tome's width,
-       --G the gap between the tomes and --x0 where the Case Ledger starts in their row,
-       which centres the two tomes and can be narrower than they are (all three set on
-       .hub-left, which the candles share). Along the top, left
-       to right: the candles, a field sketch tucked under the Case Ledger's head, the torn
-       page over it, the sketchbook leaf in the gap under the page, the next sketch and the
-       Last Played tome's head, and a field sketch on the Herald's corner under that
-       tome's head; under the Case Ledger's foot the photograph, and under both feet the
-       third sketch; left of the tomes, on a wide desk, the pinned print. */
+    .sketch { position: absolute; isolation: isolate; pointer-events: none; display: none; }
+    /* Where the papers lie (owner, 2026-10-05: "the sketches probably shouldn't be smaller
+       than the train tickets"). Every paper is at least as large as a railway ticket on the
+       same screen, in area and in its shorter side; the three larger prints (the bestiary
+       page, the sea monster, the sea monk) about a quarter larger. Each still lies clear of
+       the candles, the tomes' titles, the tickets and the Herald's titles, and from lg at
+       least half of each picture shows. A desk shows only as many as it has room for at that
+       size, so the smaller the screen, the fewer papers; each is a plain block (no new
+       layers, The Smooth Hub Rule). Checked at 23 sizes by
+       candela-ui-review/2026-10-05-hub-sketch-size/work/hub-check.mjs.
+
+       Phones: the torn page on the left and the sketchbook leaf on the folded Herald, above
+       the tomes, each sized by the phone's ticket (--tw is a ticket's width, 50cqw less half
+       the gap; its height is at most 1.36 times that) and lying just above the tomes' heads
+       (--tomeH), never higher than just under the candles or the Herald's headline. */
+    @media (max-width: 639px) {
+      .hub-tomes { --tw: calc(50cqw - 6px); --tomeH: calc(1.36 * min(50cqw - 6px, 73.5cqh - 14px)); }
+      .hub-tomes > .sketch[data-paper="page"] { display: block; width: calc(var(--tw) * 1.16); left: -1cqw; top: max(2px, calc(100cqh - var(--tomeH) + 18px - var(--tw) * 1.16 * 1.197)); transform: rotate(-6deg); }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { display: block; width: calc(var(--tw) * 1.1); left: 49cqw; top: max(24px, calc(100cqh - var(--tomeH) + 24px - var(--tw) * 1.1 * 1.148)); transform: rotate(5deg); }
+    }
+    /* Tablets: the same two, as large as the largest tablet ticket (264 x 300). A tablet
+       much wider for its height has its tomes up to the Herald's masthead and no room above
+       them, so it shows none. */
+    @media (min-width: 640px) and (max-width: 1023px) and (max-aspect-ratio: 19/25) {
+      .hub-tomes { --tomeH: calc(1.36 * min(50cqw - 16px, 73.5cqh - 14px, 400px)); }
+      .hub-tomes > .sketch[data-paper="page"] { display: block; width: 276px; left: 0; top: max(-2px, calc(100cqh - var(--tomeH) + 60px - 330px)); transform: rotate(-5deg); }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { display: block; width: 266px; left: calc(50cqw + 40px); top: max(22px, calc(100cqh - var(--tomeH) + 60px - 305px)); transform: rotate(5deg); }
+    }
+    /* From lg the ticket is 230 x 330 at every width, so the papers have fixed sizes. Those
+       by the tomes are placed by the tomes (--T a tome's width, --G the gap between them,
+       --x0 where the Case Ledger starts, --strip the candles' strip above them, all set on
+       .hub-left); those on the Herald (.hub-right) in the Herald's own pixels, as the Herald
+       and the tickets are, over the Herald and under the tickets. The slots:
+         above the tomes' heads, right of the candles: the sketchbook leaf, and from 1600px
+           the torn page beside it;
+         under the tomes' feet, a row: the photograph and a field sketch, the torn page
+           below 1600px, and on a big desk (1880 x 1000) the other two field sketches;
+         on the Herald, beside the New Character ticket and under the Lightkeeper's: the
+           postcard; from 1880px right of the Lightkeeper's ticket the bestiary page;
+         left of the tomes, from 1880px: the pinned print.
+       The row under the tomes needs about 150px below them: a desk tall enough has it; on a
+       desk short enough that it scrolls already (to 899px tall) the row lengthens the desk
+       by that much; a desk between (900 to 999px tall, 1500px wide or more, as 1920 x 937)
+       never starts to scroll for it, and lays one field sketch on the Herald under the New
+       Character ticket instead. */
     @media (min-width: 1024px) {
-      .hub-tomes > .sketch[data-paper="candles"] { left: calc(var(--x0) + var(--T) * 0.47); top: calc(var(--T) * -0.45); width: calc(var(--T) * 0.42); transform: rotate(-7deg); }
-      .hub-tomes > .sketch[data-paper="page"] { left: calc(var(--x0) + var(--T) * 0.8); top: calc(var(--T) * -0.44); bottom: auto; width: calc(var(--T) * 0.5); transform: rotate(-5deg); }
-      .hub-tomes > .sketch[data-paper="herald"] { left: calc(var(--x0) + var(--T) * 1.5 + var(--G)); top: calc(var(--T) * -0.44); width: calc(var(--T) * 0.48); transform: rotate(8deg); }
-      .hub-tomes > .sketch[data-paper="photo"] { left: calc(var(--x0) + var(--T) * 0.28); top: calc(var(--T) * 1.3); width: calc(var(--T) * 0.4); transform: rotate(-7deg); }
-      .hub-tomes > .sketch[data-paper="tomes"] { left: calc(var(--x0) + var(--T) * 0.62); top: calc(var(--T) * 1.1); bottom: auto; width: calc(var(--T) * 0.84); transform: rotate(7deg); }
-      .hub-tomes > .sketch[data-paper="pinned"] { left: calc(var(--x0) - var(--T) * 0.3); top: calc(var(--T) * 0.95); width: calc(var(--T) * 0.27); transform: rotate(4deg); }
-      .hub-tomes > .sketch[data-paper="sketchbook"] { left: calc(var(--x0) + var(--T) * 1.2); top: calc(var(--T) * -0.5); bottom: auto; width: calc(var(--T) * 0.44); transform: rotate(4deg); }
+      .hub-tomes { --a1: calc(max(0px, var(--x0)) + var(--cw) * 0.552 + var(--candle-nudge, 0px) + 40px); }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { display: block; width: 260px; left: var(--a1); top: calc(-1 * min(196px, var(--strip) + 36px)); transform: rotate(-4deg); }
+      .hub-tomes > .sketch[data-paper="page"] { width: 282px; left: calc(max(10px, var(--x0)) + var(--T) * 1.76 + var(--G)); top: calc(100% - 30px); transform: rotate(-4deg); }
+      .hub-tomes > .sketch[data-paper="photo"] { width: 286px; left: max(6px, calc(var(--x0) - 24px)); top: calc(100% - 28px); transform: rotate(-6deg); }
+      .hub-tomes > .sketch[data-paper="tomes"] { width: 322px; left: calc(max(10px, var(--x0)) + var(--T) * 0.8); top: calc(100% - 30px); transform: rotate(5deg); }
+      .hub-tomes > .sketch[data-paper="herald"] { width: 272px; top: calc(100% - 44px); transform: rotate(-4deg); }
+      .hub-tomes > .sketch[data-paper="candles"] { width: 240px; top: calc(100% - 40px); transform: rotate(5deg); }
+      .hub-tomes > .sketch[data-paper="pinned"] { width: 244px; left: calc(var(--x0) - 160px); top: calc(var(--T) * 0.12); transform: rotate(4deg); }
+      .hub-right > .sketch { z-index: 20; }
+      .hub-right > .sketch[data-paper="postcard"] { display: block; width: 362px; left: 300px; top: 414px; transform: rotate(-4deg); }
+      .hub-right > .sketch[data-paper="tomes"] { width: 322px; left: 6px; top: 556px; transform: rotate(4deg); }
+      .hub-right > .sketch[data-paper="bestiary"] { width: 252px; left: calc(100% - 96px); top: 150px; transform: rotate(4deg); }
+    }
+    @media (min-width: 1024px) and (max-width: 1279px) {
+      .hub-tomes > .sketch[data-paper="tomes"] { left: calc(max(10px, var(--x0)) + var(--T) * 0.92); }
+      .hub-right > .sketch[data-paper="postcard"] { left: 282px; top: 404px; }
+    }
+    @media (min-width: 1024px) and (max-height: 899px), (min-width: 1024px) and (min-height: 1000px), (min-width: 1024px) and (max-width: 1499px) {
+      .hub-tomes > .sketch[data-paper="photo"], .hub-tomes > .sketch[data-paper="tomes"] { display: block; }
+    }
+    @media (min-width: 1280px) and (max-height: 899px), (min-width: 1280px) and (max-width: 1499px) {
+      .hub-tomes > .sketch[data-paper="page"] { display: block; }
+    }
+    @media (min-width: 1024px) and (max-height: 899px) { .hub-left::after { min-height: 150px; } }
+    @media (min-width: 1600px) {
+      .hub-tomes > .sketch[data-paper="page"] { display: block; left: calc(var(--a1) + 270px); top: calc(-1 * min(210px, var(--strip) + 36px)); transform: rotate(4deg); }
+    }
+    @media (min-width: 1500px) and (min-height: 900px) and (max-height: 999px) { .hub-right > .sketch[data-paper="tomes"] { display: block; } }
+    @media (min-width: 1880px) {
+      .hub-tomes > .sketch[data-paper="pinned"], .hub-right > .sketch[data-paper="bestiary"] { display: block; }
+    }
+    @media (min-width: 1880px) and (min-height: 1000px) {
+      .hub-tomes > .sketch[data-paper="herald"], .hub-tomes > .sketch[data-paper="candles"] { display: block; }
+      .hub-tomes > .sketch[data-paper="photo"] { left: calc(var(--x0) - var(--T) * 0.27); }
+      .hub-tomes > .sketch[data-paper="tomes"] { left: calc(var(--x0) + var(--T) * 0.53); }
+      .hub-tomes > .sketch[data-paper="herald"] { left: calc(var(--x0) + var(--T) * 1.43); }
+      .hub-tomes > .sketch[data-paper="candles"] { left: calc(var(--x0) + var(--T) * 2.24); }
     }
     /* A paper's cast shadow is a plain fill, a little inside its cut, with a dog-eared or
        torn-off corner taken out by a hard gradient stop (--cut-at, --cut) before the blur.

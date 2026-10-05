@@ -3,9 +3,12 @@ import { agedPaper } from './paperArt';
 
 // The loose papers on the hub's desk, each a physical object on aged, used paper (owner's
 // round 4 items 2 and 4): no clean frames; every sheet is cut, stained, foxed, creased or
-// dog-eared in its own way (paperArt.js), and the art on it stays whole. Each is placed by
-// the object it lies under (CampaignSelector.jsx), so it stays with that object at every
-// width. Decorative: hidden from screen readers, no clicks.
+// dog-eared in its own way (paperArt.js), and the art on it stays whole. Each is at least as
+// large as a railway ticket on the same screen (owner, 2026-10-05) and is placed by the
+// object it lies under, so it stays with that object at every width; its size, its place
+// and the screens it shows on are in DeskStyles.jsx (Loose papers). Every image loads
+// lazily, so a screen never fetches the papers it leaves out. Decorative: hidden from
+// screen readers, no clicks.
 //
 // Each is two layers on wide screens, like everything on the desk (The Smooth Hub Rule):
 // its cast shadow (.cast) and its body (.sketch-paper), where the cut, the stains and the
@@ -16,19 +19,20 @@ const PARCHMENT = 'rgb(var(--c-parchment))';
 // Under the app's base path, so a build served from a sub-path finds them too
 const IMG = `${import.meta.env.BASE_URL || '/'}images/`;
 const PAPERS = {
-  // The three field sketches from round 3
+  // The three field sketches from round 3, named for where they first lay (by the candles,
+  // by the tomes, on the Herald)
   candles: {
-    src: IMG + 'cryp1.jpg', W: 300, H: 412, seed: 11, img: 'aged-paper-img',
+    src: IMG + 'cryp1.jpg', W: 300, H: 412, seed: 11, img: 'aged-paper-img', lazy: true,
     edges: ['deckle', 'worn', 'deckle', 'deckle'], corners: { br: { ear: 44 } },
     creases: [[[0, 0.56], [1, 0.5]]], stain: { yellow: 0.3, fox: 12 },
   },
   tomes: {
-    src: IMG + 'cryp2.webp', W: 360, H: 271, seed: 23, img: 'aged-paper-img scale-[1.06]', tone: PARCHMENT,
+    src: IMG + 'cryp2.webp', W: 360, H: 271, seed: 23, img: 'aged-paper-img scale-[1.06]', tone: PARCHMENT, lazy: true,
     edges: ['worn', 'deckle', 'worn', 'torn'], corners: { tr: { torn: 30 }, br: { r: 6 } },
     creases: [[[0.63, 0], [0.59, 1]]], curl: 'bl', stain: { yellow: 0.26, fox: 9 },
   },
   herald: {
-    src: IMG + 'cryp3.jpg', W: 320, H: 338, seed: 37, img: 'aged-paper-img', tone: PARCHMENT,
+    src: IMG + 'cryp3.jpg', W: 320, H: 338, seed: 37, img: 'aged-paper-img', tone: PARCHMENT, lazy: true,
     edges: ['deckle', 'deckle', 'torn', 'worn'], corners: { tl: { r: 7 } },
     creases: [[[0, 0.34], [1, 0.42]]], curl: 'tr', stain: { yellow: 0.3, fox: 11 },
   },
