@@ -57,12 +57,12 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
-      // framed: a screen with room for a sheet laid on the desk with the desk showing round
-      // it (sm wide and more than 500 tall). A phone held sideways is sm wide but short, so
-      // the sketch sheet takes its whole screen instead (sketch/SketchSheet.jsx).
-      screens: {
-        framed: { raw: '(min-width: 640px) and (min-height: 501px)' },
-      },
+      // The screens stay Tailwind's own simple min-widths. A screen given as an object (raw)
+      // turns off every max-* variant (max-md:hidden and the rest), which the phone drawer,
+      // the roster book's index tabs and the Lightkeeper's desk on a tablet rely on; it did
+      // from c0e26d2 until the iPad pass (2026-10-05). A variant that needs a height is a
+      // plugin below (framed); the hub's free desk, which needs lg and a screen wider than
+      // tall, stacks two built-in variants (lg:landscape:), so it sorts after sm: and md:.
       colors,
       // Bare `border` and `ring` classes take palette colors instead of Tailwind's gray and blue.
       borderColor: { DEFAULT: 'rgb(var(--c-parchment-deep) / 0.6)' },
@@ -86,6 +86,14 @@ export default {
           Object.entries(palette).map(([name, hex]) => [`--c-${name}`, channels(hex)]),
         ),
       });
+    }),
+    plugin(({ addVariant }) => {
+      // framed: a screen with room for a sheet laid on the desk with the desk showing round
+      // it (sm wide and more than 500 tall). A phone held sideways is sm wide but short, so
+      // the sketch sheet takes its whole screen instead (sketch/SketchSheet.jsx). A plugin's
+      // variant sorts before the screens' (sm: to 2xl:), so a framed: class never shares a
+      // property with a screen class on the same element.
+      addVariant('framed', '@media (min-width: 640px) and (min-height: 501px)');
     }),
   ],
 };
