@@ -73,6 +73,17 @@ const PAPERS = {
     creases: [[[0.58, 0], [0.55, 1]]], curl: 'br',
     stain: { yellow: 0.34, fox: 14, rim: 1 },
   },
+  // A leaf from an anatomist's sketchbook, the study done in red chalk (the owner's sixth
+  // cryptid, approved 2026-10-05): torn along the binding where it came out, the stitch
+  // holes still in it, the other edges cut, a corner curling up off the desk. The chalk
+  // keeps its red; only the paper under it ages (.aged-chalk-img).
+  sketchbook: {
+    src: IMG + 'cryptids/red-ink-creature.webp', W: 270, H: 310, seed: 109, lazy: true,
+    tone: '#ecdcbb', inset: '2.5% 3% 3% 7%', img: 'aged-chalk-img',
+    edges: ['cut', 'cut', 'cut', 'torn'], corners: { tr: { r: 5 }, br: { r: 6 } },
+    holes: [[0.062, 0.14, 1.5], [0.06, 0.38, 1.5], [0.064, 0.62, 1.5], [0.061, 0.86, 1.5]],
+    curl: 'tr', creases: [[[0.2, 0], [0.26, 1]]], stain: { yellow: 0.22, fox: 8, rim: 0.7 },
+  },
 };
 
 // Drawn once, when the hub's code first loads

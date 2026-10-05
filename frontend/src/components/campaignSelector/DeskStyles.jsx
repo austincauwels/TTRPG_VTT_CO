@@ -645,13 +645,19 @@ export const DeskStyles = () => (
     .paper-wide, .paper-roomy { display: none; }
     @media (min-width: 1880px) { .paper-wide { display: block; } }
     @media (min-width: 1600px) and (min-height: 1000px) { .paper-roomy { display: block; } }
+    /* The sketchbook leaf: from lg in the gap along the tomes' heads; on a phone tall enough
+       to leave room between the candles and the torn page, half under the folded Herald;
+       never on a tablet, whose desk has no room for it */
+    .paper-sketchbook { display: none; }
+    @media (min-width: 1024px), (max-width: 639px) and (min-height: 780px) { .paper-sketchbook { display: block; } }
     /* From lg the papers by the tomes are placed by the tomes (owner's round 4 item 16:
        spread out, at least about half of each picture showing): --T is a tome's width,
        --G the gap between the tomes and --x0 where the Case Ledger starts in their row,
        which centres the two tomes and can be narrower than they are (all three set on
        .hub-left, which the candles share). Along the top, left
        to right: the candles, a field sketch tucked under the Case Ledger's head, the torn
-       page over it, and a field sketch on the Herald's corner under the Last Played
+       page over it, the sketchbook leaf in the gap under the page, the next sketch and the
+       Last Played tome's head, and a field sketch on the Herald's corner under that
        tome's head; under the Case Ledger's foot the photograph, and under both feet the
        third sketch; left of the tomes, on a wide desk, the pinned print. */
     @media (min-width: 1024px) {
@@ -661,6 +667,7 @@ export const DeskStyles = () => (
       .hub-tomes > .sketch[data-paper="photo"] { left: calc(var(--x0) + var(--T) * 0.28); top: calc(var(--T) * 1.3); width: calc(var(--T) * 0.4); transform: rotate(-7deg); }
       .hub-tomes > .sketch[data-paper="tomes"] { left: calc(var(--x0) + var(--T) * 0.62); top: calc(var(--T) * 1.1); bottom: auto; width: calc(var(--T) * 0.84); transform: rotate(7deg); }
       .hub-tomes > .sketch[data-paper="pinned"] { left: calc(var(--x0) - var(--T) * 0.3); top: calc(var(--T) * 0.95); width: calc(var(--T) * 0.27); transform: rotate(4deg); }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { left: calc(var(--x0) + var(--T) * 1.2); top: calc(var(--T) * -0.5); bottom: auto; width: calc(var(--T) * 0.44); transform: rotate(4deg); }
     }
     /* A paper's cast shadow is a plain fill, a little inside its cut, with a dog-eared or
        torn-off corner taken out by a hard gradient stop (--cut-at, --cut) before the blur.
@@ -714,6 +721,9 @@ export const DeskStyles = () => (
       mix-blend-mode: multiply;
       filter: grayscale(80%) sepia(40%) contrast(120%) brightness(95%);
     }
+    /* Red chalk on a sketchbook leaf: the chalk keeps its colour, its paper (lifted to white
+       in the file) takes the leaf's tone */
+    .aged-chalk-img { mix-blend-mode: multiply; filter: sepia(0.12) contrast(1.04); }
     /* A print on old card: its white sinks into the card's tone */
     .aged-print-img { mix-blend-mode: multiply; filter: sepia(0.3) contrast(1.04); }
 

@@ -143,6 +143,10 @@ export const CampaignSelector = () => {
                 4 item 16). Phones and tablets show only a few, placed in the tomes' row's own
                 width (cqw); the pinned print waits for a desk wide and tall enough. */}
             <div className="hub-tomes relative grid grid-cols-2 items-end justify-items-center gap-3 sm:gap-8 w-full max-w-[760px] lg:max-w-none lg:flex lg:gap-[2.2vw] lg:items-center lg:justify-center z-30">
+              {/* The sketchbook leaf lies under everything near it: under the Herald on
+                  phones, and from lg under the torn page, the field sketch and the Last Played
+                  tome's head, in the gap between them */}
+              <CryptidSketch which="sketchbook" className="paper-sketchbook z-0 left-[16cqw] bottom-[89cqw] w-[26cqw] rotate-[-6deg]" />
               <HalcyonHerald phone />
               <CryptidSketch which="pinned" className="paper-wide z-0" />
               <CryptidSketch which="candles" className="hidden lg:block z-0" />
