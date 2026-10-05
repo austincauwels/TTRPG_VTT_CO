@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import * as Gi from "./shared/gameIcons";
 import { JoinCampaignForm } from './shared/JoinCampaignForm';
 import { ConfirmAction } from './shared/ConfirmAction';
@@ -10,6 +10,7 @@ import { PhotoMount } from './shared/PhotoMount';
 import { playPaperSound } from '../game/rollSounds';
 import { portraitDataUrl } from '../utils/api';
 import { TickMark } from './shared/InkMarks';
+import { ActionInfo, useActionInfo } from './shared/ActionInfo';
 
 const ILLUMINATION_KEYS = {
   Journalist: ['Gather Statements', 'Hunt Down a Lead', 'Speak Truth to Power'],
@@ -493,6 +494,9 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   const d = (field, fallback) => (draft && draft[field] !== undefined && draft[field] !== null ? draft[field] : fallback);
 
   const [step, setStep] = useState(() => d('step', 1));
+  // Step 3 on a tablet: what each action does, behind its printed "i" (shared/ActionInfo.jsx)
+  const infoId = useId();
+  const [infoFor, toggleInfo] = useActionInfo();
 
   // Card deck state
   const [currentIndex, setCurrentIndex] = useState(() => d('currentIndex', 0));
@@ -1139,7 +1143,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                   const sel = freeRaiseKey === k;
                   return (
                     <button key={k} onClick={() => setFreeRaiseKey(sel ? null : k)}
-                      className="px-3 py-1.5 text-sm font-sans font-black uppercase tracking-wider rounded-sm transition-all"
+                      className="px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] md:[@media(pointer:coarse)]:px-4 text-sm font-sans font-black uppercase tracking-wider rounded-sm transition-all"
                       style={{
                         background: sel ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-parchment-deep)/0.5)',
                         color: sel ? 'rgb(var(--c-cream))' : 'rgb(var(--c-sepia))',
@@ -1162,7 +1166,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                   {freePtsUsed}/3 placed
                 </span>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 md:[@media(pointer:coarse)]:max-xl:grid-cols-1 gap-4">
                 {ACTION_DRIVES.map(di => {
                   const gKey = di.drive.toLowerCase();
                   return (
@@ -1180,9 +1184,9 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           const isFreeGilded   = freeGilded === key;
                           const isGilded       = isLockedGilded || isFreeGilded;
                           return (
-                            <div key={key} className="flex items-center gap-2">
+                            <div key={key} className="relative flex items-center gap-2">
                               {isLockedGilded ? (
-                                <span className="shrink-0 w-5 h-5 flex items-center justify-center" title="Specialty gilded action (locked)" role="img" aria-label={`${label} is gilded by your specialty`}>
+                                <span className="shrink-0 w-5 h-5 md:[@media(pointer:coarse)]:w-6 flex items-center justify-center" title="Specialty gilded action (locked)" role="img" aria-label={`${label} is gilded by your specialty`}>
                                   <Gi.GiStarFormation aria-hidden="true" size={13} style={{ color: 'rgb(var(--c-candle-gold))' }} />
                                 </span>
                               ) : (
@@ -1190,7 +1194,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                                   aria-pressed={isFreeGilded}
                                   aria-label={isFreeGilded ? `${label} is your free gilded action. Remove the gild` : freeGilded ? `Move your free gild to ${label}` : `Gild ${label} (free choice)`}
                                   title={isFreeGilded ? 'Remove free gild' : freeGilded ? 'Replace free gild' : 'Gild this action (free choice)'}
-                                  className="shrink-0 w-7 h-7 -m-1 flex items-center justify-center rounded-sm transition-opacity hover:opacity-100"
+                                  className="shrink-0 w-7 h-7 -m-1 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 md:[@media(pointer:coarse)]:-m-2.5 flex items-center justify-center rounded-sm transition-opacity hover:opacity-100"
                                   style={{ opacity: isFreeGilded ? 1 : 0.7 }}>
                                   <Gi.GiStarFormation aria-hidden="true" size={13} style={{ color: isFreeGilded ? 'rgb(var(--c-candle-gold))' : 'rgb(var(--c-sepia))' }} />
                                 </button>
@@ -1201,6 +1205,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                                   {ACTION_FLAVOR[key]}
                                 </span>
                               </span>
+                              <ActionInfo id={`${infoId}-${key}`} label={label} text={ACTION_FLAVOR[key]} show="hidden md:[@media(pointer:coarse)]:flex"
+                                open={infoFor === `${infoId}-${key}`} onToggle={() => toggleInfo(`${infoId}-${key}`)} />
                               <div className="flex gap-1 flex-1" role="img" aria-label={`${label}: ${total} of 3${isGilded ? ', gilded' : ''}`}>
                                 {[1,2,3].map(n => {
                                   let cls = '';
@@ -1213,10 +1219,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <button type="button" onClick={() => adjustFreePoints(key,-1)} disabled={free<=0} aria-label={`Take a free point off ${label}`}
-                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
+                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                                   style={{ color:'rgb(var(--c-oxblood))', borderColor:'rgb(var(--c-oxblood) / 0.31)' }}>−</button>
                                 <button type="button" onClick={() => adjustFreePoints(key,1)} disabled={total>=2||freePtsUsed>=3} aria-label={`Put a free point on ${label}`}
-                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
+                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                                   style={{ color:'rgb(var(--c-oxblood))', borderColor:'rgb(var(--c-oxblood) / 0.31)' }}>+</button>
                               </div>
                             </div>
@@ -1266,11 +1272,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                       </div>
                       <div className="flex gap-2 items-center">
                         <button type="button" onClick={() => adjustDrive(key,-1)} disabled={addVal<=0} aria-label={`Take a point off ${label}`}
-                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
+                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>−</button>
                         <span className="text-sm font-sans font-black w-8 text-center" style={{ color }}>+{addVal}</span>
                         <button type="button" onClick={() => adjustDrive(key,1)} disabled={drivesPtsUsed>=6} aria-label={`Put a point on ${label}`}
-                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
+                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>+</button>
                       </div>
                     </div>
