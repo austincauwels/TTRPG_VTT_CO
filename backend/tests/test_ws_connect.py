@@ -127,7 +127,7 @@ def test_socket_without_a_valid_token_is_closed_with_4401(client, token):
     """The socket is accepted and closed at once with 4401; no frame is sent and the
     channel's real socket is left alone."""
     import time
-    from jose import jwt
+    import jwt
     from vtt import config, security
     now = int(time.time())
     token = {

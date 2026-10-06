@@ -8,7 +8,7 @@ import time
 
 import pytest
 from fastapi.routing import APIRoute
-from jose import jwt
+import jwt
 
 import main
 import support

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from jose import jwt
+import jwt
 from limits import parse as parse_limit
 
 import main

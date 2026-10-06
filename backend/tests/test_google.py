@@ -13,7 +13,7 @@ import rsa
 from google.auth import crypt
 from google.auth import exceptions as google_exceptions
 from google.auth import jwt as google_jwt
-from jose import jwt
+import jwt
 from sqlalchemy import inspect as sa_inspect, text
 from sqlalchemy.exc import IntegrityError
 

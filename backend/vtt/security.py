@@ -24,7 +24,7 @@ import ipaddress
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
-from jose import JWTError, jwt
+import jwt
 from passlib.context import CryptContext
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -57,8 +57,9 @@ def client_key(request) -> str:
 limiter = Limiter(key_func=client_key)
 
 # A token that lacks one of these claims is rejected (and one without "pwh", below).
-_DECODE_OPTIONS = {"require_sub": True, "require_iat": True, "require_exp": True}
-_LINK_DECODE_OPTIONS = {"require_iat": True, "require_exp": True}
+# PyJWT also checks that "sub" is a string and that "iat" is not in the future.
+_DECODE_OPTIONS = {"require": ["sub", "iat", "exp"]}
+_LINK_DECODE_OPTIONS = {"require": ["iat", "exp"]}
 
 LINK_TOKEN_PURPOSE = "google_link"
 
@@ -109,7 +110,7 @@ def login_token_subject(token: Optional[str]) -> Optional[Tuple[int, str]]:
         return None
     try:
         claims = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options=_DECODE_OPTIONS)
-    except JWTError:
+    except jwt.PyJWTError:
         return None
     if "purpose" in claims:
         return None  # a link token, never a login token
@@ -149,7 +150,7 @@ def identity_from_link_token(token: Optional[str]) -> Optional[GoogleIdentity]:
         return None
     try:
         claims = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options=_LINK_DECODE_OPTIONS)
-    except JWTError:
+    except jwt.PyJWTError:
         return None
     if claims.get("purpose") != LINK_TOKEN_PURPOSE:
         return None
