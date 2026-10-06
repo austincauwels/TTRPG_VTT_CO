@@ -4,15 +4,21 @@ import { apiFetch } from '../utils/api';
 import { campaignErrorText, NETWORK_ERROR } from '../utils/campaignErrors';
 import { isEditableTarget, pageKeyBlocked } from './shared/a11y';
 
+import { lazyScreen, whenIdle } from './shared/lazyScreen';
+
 import LoginScreen from './LoginScreen';
-import { CampaignSelector } from './CampaignSelector';
-import { MainDeskView } from './pc/MainDeskView';
-import { OperationsPanel } from './gm/OperationsPanel';
-import { CharacterCreator } from './CharacterCreator';
-import { AccountPage } from './account/AccountPage';
 import { ConfirmEmailPage } from './account/ConfirmEmailPage';
 import { UndoEmailChangePage } from './account/UndoEmailChangePage';
 import { accountPageOpen, emailTokenFromAddress, undoTokenFromAddress, watchAddress } from './account/accountAddress';
+
+// The screens behind the sign-in slip load when first shown (shared/lazyScreen.js); App
+// wraps the router in a Suspense that keeps the night stage up meanwhile.
+const CampaignSelector = lazyScreen(() => import('./CampaignSelector'), 'CampaignSelector');
+const MainDeskView = lazyScreen(() => import('./pc/MainDeskView'), 'MainDeskView');
+const OperationsPanel = lazyScreen(() => import('./gm/OperationsPanel'), 'OperationsPanel');
+const CharacterCreator = lazyScreen(() => import('./CharacterCreator'), 'CharacterCreator');
+const AccountPage = lazyScreen(() => import('./account/AccountPage'), 'AccountPage');
+const SIGNED_IN_SCREENS = [CampaignSelector, MainDeskView, OperationsPanel, CharacterCreator, AccountPage];
 
 // The first time the creator opens after the page loads. A page brought back by the
 // browser's Back button with the creator still saved as the screen came back from the
@@ -96,6 +102,11 @@ export const AppRouter = () => {
     || (accountOpen && !!accessSession);
 
   useCreatorExits(onOwnAddress ? null : stage, setStage);
+
+  // Once someone is signed in, the other screens' code is fetched while the browser is
+  // idle, so moving between the hub, the creator and the desks never waits on it
+  const signedIn = !!accessSession;
+  useEffect(() => (signedIn ? whenIdle(() => SIGNED_IN_SCREENS.forEach((screen) => screen.preload())) : undefined), [signedIn]);
 
   // Compute rejoin context — either organic death path or GM invite path
   const deadCharRejoinCode = character?.is_dead && lastPlayedCampaign?.campaignCode
