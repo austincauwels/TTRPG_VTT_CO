@@ -1101,7 +1101,7 @@
    hit test gave it 42 (finish review, 2026-10-05). */
 @media (min-width: 768px) and (pointer: coarse) {
   .touch-pip { position: relative; }
-  .touch-pip::before { content: ''; position: absolute; inset: var(--hit-y, -13px) var(--hit-x, -3px); }
+  .touch-pip::before { content: ''; position: absolute; inset: var(--hit-y, -14px) var(--hit-x, -3px); }
 }
 
 /* The player desk's drawer on phones (owner's round 4 item 14, DeskDrawer.jsx): it slides
