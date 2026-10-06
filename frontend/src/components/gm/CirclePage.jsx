@@ -328,7 +328,7 @@ export const CirclePage = () => {
                   role="button"
                   aria-label={`Set Illumination to ${filled && illum === i + 1 ? i : i + 1}`}
                   title={`Illumination ${i + 1}`}
-                  className={`touch-pip [--hit-y:-13px] [--hit-x:-4px] w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
+                  className={`touch-pip [--hit-y:-14px] [--hit-x:-4px] w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
                     filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'
                   } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}
                 >
@@ -456,7 +456,7 @@ export const CirclePage = () => {
                               'aria-label': `${label}: set available to ${i + 1 === avail ? i : i + 1}`,
                             } : { 'aria-hidden': true })}
                             onClick={withinMax ? () => setResource(key, i + 1 === avail ? i : i + 1) : undefined}
-                            className={`${withinMax ? 'touch-pip [--hit-y:-15px] [--hit-x:-2px] ' : ''}w-3.5 h-3.5 rounded-sm border transition-all ${
+                            className={`${withinMax ? 'touch-pip [--hit-y:-16px] [--hit-x:-2px] ' : ''}w-3.5 h-3.5 rounded-sm border transition-all ${
                               filled
                                 ? 'bg-oxblood border-oxblood cursor-pointer'
                                 : withinMax

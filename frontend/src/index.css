@@ -1097,11 +1097,10 @@
 /* A small mark in a row of them (the Lightkeeper's Illumination dots, the circle's resource
    squares) on a tablet: it keeps its size and place and takes a finger over 44px of height
    and the whole width up to its neighbours (--hit-y, --hit-x: how far the target reaches
-   past the mark; iPad pass, 2026-10-05). The target lies over the edges of the heading above
-   the row and the section under it, which take no taps there (WebKit measured 42px when they
-   lay over it; finish review, 2026-10-05). */
+   past the mark; iPad pass, 2026-10-05). The reach is 46px tall: set at exactly 44, WebKit's
+   hit test gave it 42 (finish review, 2026-10-05). */
 @media (min-width: 768px) and (pointer: coarse) {
-  .touch-pip { position: relative; z-index: 1; }
+  .touch-pip { position: relative; }
   .touch-pip::before { content: ''; position: absolute; inset: var(--hit-y, -13px) var(--hit-x, -3px); }
 }
 
