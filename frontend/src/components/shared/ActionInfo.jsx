@@ -5,8 +5,8 @@ import React, { useEffect, useState } from 'react';
 // printed "i" of its own, a 44px target that never rolls, and opens the same words on a
 // slip of paper under the row, clear of the column of "i"s so the next one can be tapped
 // straight away. One slip is open at a time; it closes on a tap outside it, on Escape, or
-// on the "i" again (useActionInfo keeps which one is open). The dossier's action rows use
-// it on every touch screen, the creator's action ratings on a tablet (iPad pass, 2026-10-05).
+// on the "i" again (useActionInfo keeps which one is open). The dossier's action rows and
+// the creator's action ratings use it on every touch screen (iPad pass, 2026-10-05).
 const InfoMark = () => (
   <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false">
     <circle cx="10" cy="10" r="8.4" fill="none" stroke="currentColor" strokeWidth="1.3" />

@@ -269,7 +269,7 @@ export const TensionClock = ({ readOnly = false }) => {
           onBlur={e => sendUpdate({ tension_label: e.target.value })}
           placeholder="Clock name"
           aria-label="Tension clock name"
-          className="text-center font-sans font-bold text-xs md:[@media(pointer:coarse)]:text-base md:[@media(pointer:coarse)]:min-h-[44px] uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/90 focus:border-oxblood transition-colors"
+          className="text-center font-sans font-bold text-xs [@media(pointer:coarse)]:text-base md:[@media(pointer:coarse)]:min-h-[44px] uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/90 focus:border-oxblood transition-colors"
         />
       ) : (
         <div className="font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 shadow-sm min-w-[9rem] text-center">

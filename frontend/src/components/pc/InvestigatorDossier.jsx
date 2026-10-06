@@ -612,16 +612,17 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
               {/* LEFT: Drive section */}
               <div className="dossier-drive-panel group/drive pb-2 border-b border-dotted border-ink/30 flex flex-col gap-2">
-                {/* Drive title + pre-spend buttons */}
-                <div className="flex items-center justify-between">
+                {/* Drive title + pre-spend buttons. On a tablet the buttons are 44px and
+                    take the line under the drive's name, the same in all three drives. */}
+                <div className="flex items-center justify-between md:[@media(pointer:coarse)]:flex-wrap md:[@media(pointer:coarse)]:gap-y-1">
                   <span className="font-serif font-bold text-lg uppercase tracking-wide" style={{ color: `rgb(var(--c-drive-${cat.driveKey}))` }} title={DRIVE_FLAVOR[cat.driveKey]}>{cat.name}</span>
                   {!readOnly && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 md:[@media(pointer:coarse)]:basis-full md:[@media(pointer:coarse)]:justify-end">
                       <button
                         onClick={() => setPreSpend(p => ({ ...p, [cat.driveKey]: Math.max(0, (p[cat.driveKey] || 0) - 1) }))}
                         disabled={(preSpend[cat.driveKey] || 0) <= 0}
                         aria-label={`Spend one less ${cat.name}`}
-                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
+                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
                       >−</button>
                       <span className={`font-mono tabular-nums text-xs font-black w-7 text-center ${(preSpend[cat.driveKey] || 0) > 0 ? 'text-oxblood' : 'text-sepia'}`}>+{preSpend[cat.driveKey] || 0}d</span>
                       <button
@@ -631,7 +632,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         })}
                         disabled={(preSpend[cat.driveKey] || 0) >= Math.min(currentDrive, 5)}
                         aria-label={`Spend one more ${cat.name} for +1d`}
-                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
+                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
                       >+</button>
                     </div>
                   )}

@@ -17,7 +17,8 @@ export function TargetDropdown({ value, onChange, options, darkMode = false }) {
     // On a desk that fits the screen the pad lies at the foot of the window, where the
     // page cannot scroll: there the list opens upward from the field instead
     const below = window.innerHeight - rect.bottom;
-    const wanted = Math.min(options.length * 36 + 6, 320);
+    const rowH = window.matchMedia?.('(pointer: coarse)').matches ? 44 : 36;
+    const wanted = Math.min(options.length * rowH + 6, 320);
     const upward = below < wanted && rect.top > below;
     setMenuStyle({
       position: 'fixed',
@@ -55,7 +56,7 @@ export function TargetDropdown({ value, onChange, options, darkMode = false }) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 bg-transparent px-0 py-0.5 md:[@media(pointer:coarse)]:min-h-[44px] text-left transition-colors border-b border-sepia/40 hover:border-sepia"
+        className="w-full flex items-center gap-2 bg-transparent px-0 py-0.5 [@media(pointer:coarse)]:min-h-[44px] text-left transition-colors border-b border-sepia/40 hover:border-sepia"
       >
         {selected?.inkColor ? (
           <span className="w-2 h-2 rounded-full flex-shrink-0 ring-1 ring-black/10" style={{ background: selected.inkColor }} />
@@ -79,7 +80,7 @@ export function TargetDropdown({ value, onChange, options, darkMode = false }) {
               key={opt.value}
               type="button"
               onClick={() => { onChange(opt.value); setOpen(false); }}
-              className={`w-full flex items-center gap-2 px-2.5 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] transition-colors ${
+              className={`w-full flex items-center gap-2 px-2.5 py-1.5 [@media(pointer:coarse)]:min-h-[44px] transition-colors ${
                 opt.value === value
                   ? 'bg-parchment-deep/70'
                   : 'hover:bg-parchment-deep/40'

@@ -1194,7 +1194,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                                   aria-pressed={isFreeGilded}
                                   aria-label={isFreeGilded ? `${label} is your free gilded action. Remove the gild` : freeGilded ? `Move your free gild to ${label}` : `Gild ${label} (free choice)`}
                                   title={isFreeGilded ? 'Remove free gild' : freeGilded ? 'Replace free gild' : 'Gild this action (free choice)'}
-                                  className="shrink-0 w-7 h-7 -m-1 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 md:[@media(pointer:coarse)]:-m-2.5 flex items-center justify-center rounded-sm transition-opacity hover:opacity-100"
+                                  className="shrink-0 w-7 h-7 -m-1 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 md:[@media(pointer:coarse)]:-my-2.5 md:[@media(pointer:coarse)]:-ml-2.5 md:[@media(pointer:coarse)]:-mr-1.5 flex items-center justify-center rounded-sm transition-opacity hover:opacity-100"
                                   style={{ opacity: isFreeGilded ? 1 : 0.7 }}>
                                   <Gi.GiStarFormation aria-hidden="true" size={13} style={{ color: isFreeGilded ? 'rgb(var(--c-candle-gold))' : 'rgb(var(--c-sepia))' }} />
                                 </button>
@@ -1205,7 +1205,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                                   {ACTION_FLAVOR[key]}
                                 </span>
                               </span>
-                              <ActionInfo id={`${infoId}-${key}`} label={label} text={ACTION_FLAVOR[key]} show="hidden md:[@media(pointer:coarse)]:flex"
+                              <ActionInfo id={`${infoId}-${key}`} label={label} text={ACTION_FLAVOR[key]}
                                 open={infoFor === `${infoId}-${key}`} onToggle={() => toggleInfo(`${infoId}-${key}`)} />
                               <div className="flex gap-1 flex-1" role="img" aria-label={`${label}: ${total} of 3${isGilded ? ', gilded' : ''}`}>
                                 {[1,2,3].map(n => {

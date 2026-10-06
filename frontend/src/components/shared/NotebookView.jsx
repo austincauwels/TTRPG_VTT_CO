@@ -761,7 +761,8 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
         fit ? 'xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:p-4 xl:border-[10px]' : ''}`}
       style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/dark-leather.png')" }}
     >
-      {/* Manila folder tabs */}
+      {/* Manila folder tabs. On a touch screen they are 46px tall: the page's edge lies over
+          their foot, so a finger keeps 44px of each (finish review, 2026-10-05). */}
       <div className="flex items-end gap-1 relative z-10 pr-1 sm:pr-0 xl:shrink-0" style={{ marginBottom: '-2px' }}>
         {[
           {
@@ -788,7 +789,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
             type="button"
             aria-pressed={!!tab.active}
             onClick={tab.onClick}
-            className="max-sm:flex-1 max-sm:min-w-0 sm:[@media(pointer:coarse)]:min-h-[44px] leading-tight px-3 sm:px-[22px] font-sans text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all select-none"
+            className="max-sm:flex-1 max-sm:min-w-0 sm:[@media(pointer:coarse)]:min-h-[46px] leading-tight px-3 sm:px-[22px] font-sans text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all select-none"
             style={{
               clipPath: 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 100%, 0% 100%)',
               background: tab.active ? tab.activeColor : tab.inactiveColor,
@@ -967,7 +968,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                         type="button"
                         aria-pressed={activeFilter === null}
                         onClick={() => setSelectedAuthorFilter(null)}
-                        className={`px-2.5 py-1 text-sm rounded-sm border transition-all font-sans font-black uppercase tracking-widest ${
+                        className={`px-2.5 py-1 md:[@media(pointer:coarse)]:min-h-[44px] text-sm rounded-sm border transition-all font-sans font-black uppercase tracking-widest ${
                           activeFilter === null ? 'bg-ink text-cream border-ink' : 'bg-transparent text-sepia border-sepia/60'}`}
                       >All</button>
                       {authorKeys.map(name => {
@@ -975,7 +976,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                         const isActive = activeFilter === name;
                         return (
                           <button key={name} type="button" aria-pressed={isActive} onClick={() => setSelectedAuthorFilter(name)}
-                            className="px-2 py-0.5 text-[22px] leading-snug rounded-sm border transition-all"
+                            className="px-2 py-0.5 md:[@media(pointer:coarse)]:min-h-[44px] text-[22px] leading-snug rounded-sm border transition-all"
                             style={{
                               fontFamily: info.pen_font, color: isActive ? 'rgb(var(--c-cream))' : info.ink_color,
                               borderColor: info.ink_color, background: isActive ? info.ink_color : 'transparent',
@@ -1135,11 +1136,11 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                       placeholder="Caption (optional)"
                       className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 text-lg font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 md:[@media(pointer:coarse)]:min-h-[44px]" />
                     <button onClick={openNewSketch} disabled={isUploading || !!pendingImageFile}
-                      className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
+                      className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
                       <span className="inline-flex items-center gap-1.5"><PencilIcon size={16} /> Sketch</span>
                     </button>
                     <button onClick={() => photoInputRef.current?.click()} disabled={isUploading || !!pendingImageFile}
-                      className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
+                      className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
                       <span className="inline-flex items-center gap-1.5"><CameraIcon size={16} /> Photo</span>
                     </button>
                     <input ref={sketchInputRef} type="file" accept="image/png" className="hidden"
@@ -1154,14 +1155,14 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                       <div className="flex-1 min-w-0">
                         {pendingScene ? (
                           <button type="button" onClick={openNewSketch}
-                            className="min-h-[40px] px-2 -ml-2 inline-flex items-center gap-1.5 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors">
+                            className="min-h-[40px] md:[@media(pointer:coarse)]:min-h-[44px] px-2 -ml-2 inline-flex items-center gap-1.5 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors">
                             <PencilIcon size={14} /> Keep drawing
                           </button>
                         ) : (
                           <p className="font-mono text-sm text-sepia truncate">{pendingImageFile?.name}</p>
                         )}
                       </div>
-                      <button onClick={clearPendingImage} aria-label="Remove the image" className="min-w-[40px] min-h-[40px] text-sepia hover:text-oxblood font-black text-lg transition-colors">✕</button>
+                      <button onClick={clearPendingImage} aria-label="Remove the image" className="min-w-[40px] min-h-[40px] md:[@media(pointer:coarse)]:min-w-[44px] md:[@media(pointer:coarse)]:min-h-[44px] text-sepia hover:text-oxblood font-black text-lg transition-colors">✕</button>
                     </div>
                   )}
 
@@ -1172,7 +1173,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                       <select
                         value={authorFont}
                         onChange={e => updatePenFont(e.target.value)}
-                        className="bg-transparent border-b border-ink/25 focus:border-ink/50 text-[18px] py-0.5 flex-1 min-w-0"
+                        className="bg-transparent border-b border-ink/25 focus:border-ink/50 text-[18px] py-0.5 md:[@media(pointer:coarse)]:min-h-[44px] flex-1 min-w-0"
                         style={{ fontFamily: authorFont, color: authorColor }}
                       >
                         {PEN_FONTS.map(f => (
