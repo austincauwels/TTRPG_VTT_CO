@@ -90,7 +90,17 @@ async def handle_gm_advance_circle(ctx):
                 target_circle.circle_ability = new_ability
         carry = max(0, (getattr(target_circle, "illumination", 0) or 0) - 12)
         target_circle.illumination = carry
+        # Each active member chooses two different advancements (rulebook p. 55). The
+        # picks wait on the character until chosen, so a player who was away still gets them.
+        members = db.query(Character).filter(
+            Character.campaign_id == camp_id, Character.status == "active").all() if camp_id else []
+        for member in members:
+            if not (member.advancement_picks or 0):
+                member.advancement_taken = []
+            member.advancement_picks = (member.advancement_picks or 0) + 2
         db.commit()
+        for member in members:
+            await manager.broadcast(character_key(member.id), {"type": "character_update", "payload": get_char_dict(member)})
         circle_name = target_circle.name or "The Circle"
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",

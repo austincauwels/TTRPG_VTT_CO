@@ -118,16 +118,22 @@ function getAvailableAbilities(character) {
 }
 
 export function AdvancementModal() {
-  const { character, circleAdvancement, applyAdvancement, dismissCircleAdvancement, accessSession } = useGameStore();
-  const isGM = accessSession?.role === 'GM';
+  const { character, circleAdvancement, applyAdvancement, dismissCircleAdvancement, advancementDeferred, advancementError } = useGameStore();
   // selectedPicks: array of up to 2 pick ids
   const [selectedPicks, setSelectedPicks]   = useState([]);
   // details keyed by pick id: action key, drive key, or ability text
   const [details, setDetails]               = useState({});
   const [submitted, setSubmitted]           = useState(false);
-  const dialogRef = useDialog({ open: !!(circleAdvancement && character), onClose: dismissCircleAdvancement, view: submitted });
+  // The picks the Lightkeeper's circle advance gave this investigator and not chosen yet
+  // (two per advancement, kept on the character until chosen), and the options already
+  // taken in this advancement, which the other pick must differ from
+  const picksLeft = character?.advancement_picks || 0;
+  const taken = Array.isArray(character?.advancement_taken) ? character.advancement_taken : [];
+  const open = !!character && picksLeft > 0 && !advancementDeferred;
+  const close = () => { setSubmitted(false); setSelectedPicks([]); setDetails({}); dismissCircleAdvancement(); };
+  const dialogRef = useDialog({ open: open || submitted, onClose: close, view: submitted });
 
-  const MAX_PICKS = 2;
+  const MAX_PICKS = picksLeft % 2 === 1 ? 1 : 2;
 
   function togglePick(id) {
     setSelectedPicks(prev => {
@@ -150,23 +156,29 @@ export function AdvancementModal() {
   function handleConfirm() {
     if (!isReady()) return;
     for (const id of selectedPicks) {
-      applyAdvancement(id, details[id] || '');
+      if (!applyAdvancement(id, details[id] || '')) return;
     }
     setSubmitted(true);
   }
 
-  // Modal only renders inside MainDeskView (player context) — no isGM check needed;
-  // accessSession.role can be stale from a previous GM session.
-  if (!circleAdvancement || !character) return null;
+  // Modal only renders inside MainDeskView (player context). Its "applied" slip shows
+  // until it is closed, even once the server has used up the picks (that used to hide it).
+  if (!character || (!open && !submitted)) return null;
 
   if (submitted) {
     return (
       <div className="fixed inset-0 z-[600] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
         <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="advancement-done-title" className="relative bg-cream border-2 border-candle-gold/60 rounded-sm p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-full max-w-[480px]">
           <div className="absolute top-0 left-0 right-0 h-1 bg-candle-gold" />
-          <h2 id="advancement-done-title" className="text-xl font-serif font-black text-oxblood mb-6">Advancement Applied</h2>
-          <button onClick={dismissCircleAdvancement} className="w-full py-2 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream hover:bg-oxblood rounded-sm transition-all">
-            Close
+          <h2 id="advancement-done-title" className="text-xl font-serif font-black text-oxblood mb-4">
+            {advancementError ? 'Advancement not applied' : 'Advancement Applied'}
+          </h2>
+          {advancementError && <p role="alert" className="font-serif text-base text-ink mb-4">{advancementError}</p>}
+          <button
+            onClick={advancementError && picksLeft > 0 ? () => { setSubmitted(false); setSelectedPicks([]); } : close}
+            className="w-full py-2 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream hover:bg-oxblood rounded-sm transition-all"
+          >
+            {advancementError && picksLeft > 0 ? 'Choose again' : 'Close'}
           </button>
         </div>
       </div>
@@ -182,7 +194,7 @@ export function AdvancementModal() {
           Circle Advancement
         </h2>
         <p className="font-serif italic text-base text-sepia mb-5">
-          The Illumination track is full: <strong>2</strong> advancements for {character?.name || 'your investigator'}.
+          The Illumination track is full: <strong>{MAX_PICKS}</strong> {MAX_PICKS === 1 ? 'advancement' : 'advancements'} for {character?.name || 'your investigator'}.
         </p>
 
         {circleAdvancement?.circle?.circle_ability && (() => {
@@ -199,9 +211,12 @@ export function AdvancementModal() {
         })()}
 
         <div className="space-y-3 mb-6">
-          {ADV_PICKS.map(({ id, label, desc }) => {
+          {ADV_PICKS.map(({ id, label, desc: baseDesc }) => {
+            const desc = id === 'add_drive'
+              ? 'Two drive points: both on one drive, or one each on two (a drive goes up to 9)'
+              : baseDesc;
             const isSelected = selectedPicks.includes(id);
-            const isDisabled = !isSelected && selectedPicks.length >= MAX_PICKS;
+            const isDisabled = !isSelected && (selectedPicks.length >= MAX_PICKS || taken.includes(id));
             return (
               <div key={id} className={`border rounded-sm transition-all ${isSelected ? 'border-oxblood bg-oxblood/5' : 'border-parchment-deep'} ${isDisabled ? 'opacity-40' : ''}`}>
                 <label className="flex items-start gap-3 p-3 cursor-pointer">
@@ -258,17 +273,32 @@ export function AdvancementModal() {
                   <div className="px-3 pb-3">
                     <p id={`adv-${id}-label`} className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">Drive</p>
                     <div className="flex gap-2" role="group" aria-labelledby={`adv-${id}-label`}>
-                      {['nerve', 'cunning', 'intuition'].map(dk => (
-                        <button
-                          key={dk}
-                          onClick={() => setDetails(d => ({ ...d, [id]: dk }))}
-                          className={`flex-1 py-1 rounded-sm font-sans font-bold text-xs uppercase tracking-wider transition-all ${
-                            details[id] === dk ? 'bg-oxblood text-cream' : 'border border-parchment-deep hover:border-oxblood text-sepia'
-                          }`}
-                        >
-                          {dk} ({character?.[`${dk}_max`] || 0})
-                        </button>
-                      ))}
+                      {['nerve', 'cunning', 'intuition'].map(dk => {
+                        // Up to two drives: the first tap puts both points on it, a tap on a
+                        // second drive splits them one each, a tap on a chosen one clears it
+                        const chosen = (details[id] || '').split(',').filter(Boolean);
+                        const on = chosen.includes(dk);
+                        const points = chosen.length === 1 && on ? 2 : on ? 1 : 0;
+                        const atMax = (character?.[`${dk}_max`] || 0) + (on ? points : 1) > 9;
+                        const toggle = () => setDetails(d => {
+                          const cur = (d[id] || '').split(',').filter(Boolean);
+                          const next = cur.includes(dk) ? cur.filter(x => x !== dk) : [...cur, dk].slice(-2);
+                          return { ...d, [id]: next.join(',') };
+                        });
+                        return (
+                          <button
+                            key={dk}
+                            onClick={toggle}
+                            disabled={!on && atMax}
+                            aria-pressed={on}
+                            className={`flex-1 py-1 rounded-sm font-sans font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-40 ${
+                              on ? 'bg-oxblood text-cream' : 'border border-parchment-deep hover:border-oxblood text-sepia'
+                            }`}
+                          >
+                            {dk} ({character?.[`${dk}_max`] || 0}{points ? ` +${points}` : ''})
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -325,7 +355,7 @@ export function AdvancementModal() {
             Confirm Advancement ({selectedPicks.length}/{MAX_PICKS})
           </button>
           <button
-            onClick={dismissCircleAdvancement}
+            onClick={close}
             className="px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border border-ink/20 text-sepia hover:text-ink hover:border-ink rounded-sm transition-all"
           >
             Later

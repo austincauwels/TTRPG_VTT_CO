@@ -7,6 +7,18 @@ import json
 from vtt.portraits import served_portrait
 
 
+def advancement_taken(char) -> list:
+    """The advancement options the character has taken among its waiting picks (a list,
+    whatever the column holds)."""
+    raw = getattr(char, "advancement_taken", None)
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raw = None
+    return [c for c in raw if isinstance(c, str)] if isinstance(raw, list) else []
+
+
 def get_char_dict(char):
     gear = char.gear if not isinstance(char.gear, str) else json.loads(char.gear) if char.gear else []
     scars = char.scars_list if not isinstance(char.scars_list, str) else json.loads(char.scars_list) if char.scars_list else []
@@ -72,6 +84,8 @@ def get_char_dict(char):
         "ability_uses": getattr(char, "ability_uses", None) or {},
         "train_bonus": bool(getattr(char, "train_bonus", False)),
         "resources_spent_assignment": getattr(char, "resources_spent_assignment", 0) or 0,
+        "advancement_picks": getattr(char, "advancement_picks", 0) or 0,
+        "advancement_taken": advancement_taken(char),
     }
 
 def get_circle_dict(circle):

@@ -251,6 +251,12 @@ class Character(SoftDeleted, Base):
     train_bonus                = Column(Boolean, default=False)
     resources_spent_assignment = Column(Integer, default=0)
 
+    # Circle advancement (rulebook p. 55): picks the Lightkeeper's advance gave the
+    # character that are not chosen yet, and the options already taken among them (two
+    # different options per advancement; engine.apply_advancement).
+    advancement_picks = Column(Integer, default=0)
+    advancement_taken = Column(JSON, default=list)
+
     # Status
     incapacitated = Column(Boolean, default=False)
     is_dead = Column(Boolean, default=False)

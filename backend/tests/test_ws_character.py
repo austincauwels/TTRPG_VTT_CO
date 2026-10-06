@@ -167,26 +167,36 @@ def test_update_gear_non_string_item_is_rejected(client, gear):
 
 # --- apply_advancement ------------------------------------------------------
 
+def _rejected(detail, status=409):
+    return {"type": "action_rejected", "payload": {"action": "apply_advancement", "status": status, "detail": detail}}
+
+
 def test_apply_advancement_add_action(client):
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, move=2)
+    support.update(Character, ch["id"], advancement_picks=2)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         ws.send("apply_advancement", choice="add_action", detail="move")
         msgs = ws.sync()
         assert support.types(msgs) == ["character_update", "activity_log"]
         assert msgs[0]["payload"]["move"] == 3
+        assert (msgs[0]["payload"]["advancement_picks"], msgs[0]["payload"]["advancement_taken"]) == (1, ["add_action"])
         assert msgs[1]["payload"]["message"] == f"{ch['name']} has advanced {EM} gained +1 move."
         assert support.types(gm.drain()) == ["activity_log"]
-        ws.send("apply_advancement", choice="add_action", detail="move")  # already 3
-        ws.send("apply_advancement", choice="add_action", detail="dance")
+        ws.send("apply_advancement", choice="add_action", detail="sense")  # the same option twice
         ws.send("apply_advancement", choice="mystery", detail="x")
-        ws.send("apply_advancement", detail="move")
-        assert ws.sync() == []
-    assert support.fetch(Character, ch["id"]).move == 3
+        ws.send("apply_advancement", detail="move")  # no choice: ignored
+        assert ws.sync() == [
+            _rejected("Choose a different option for your other advancement."),
+            _rejected("Unknown advancement choice: mystery", 422),
+        ]
+    row = support.fetch(Character, ch["id"])
+    assert (row.move, row.sense, row.advancement_picks) == (3, 0, 1)
 
 
 def test_apply_advancement_other_choices(client):
     ch = support.forge(client, nerve_max=3, nerve_current=1, specialty_ability="Dissection")
+    support.update(Character, ch["id"], advancement_picks=3)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("apply_advancement", choice="add_drive", detail="nerve")
         msgs = ws.sync()
@@ -197,33 +207,78 @@ def test_apply_advancement_other_choices(client):
         ws.send("apply_advancement", choice="gild_action", detail="sense")
         msgs = ws.sync()
         assert msgs[-1]["payload"]["message"] == f"{ch['name']} has advanced {EM} gilded their sense action."
-        ws.send("apply_advancement", choice="new_ability", detail="   ")
-        ws.send("apply_advancement", choice="add_drive", detail="charm")
-        ws.send("apply_advancement", choice="gild_action", detail="charm")
-        assert ws.sync() == []
+        ws.send("apply_advancement", choice="add_action", detail="move")  # no pick left
+        assert ws.sync() == [_rejected("No advancement is waiting to be chosen.")]
     row = support.fetch(Character, ch["id"])
     assert (row.nerve_max, row.nerve_current) == (5, 3)
-    # QUIRK: abilities are joined into one string, which breaks exact-name ability checks.
+    # Still one string, but every ability check splits it (vtt/abilities.py, QUIRKS D12)
     assert row.specialty_ability == "Dissection; Steel Mind"
     assert row.gilded_sense is True
 
 
+@pytest.mark.parametrize("choice,detail,fields,error,status", [
+    ("add_drive", "charm", {}, "Choose one drive for both points, or two drives for one each.", 422),
+    ("add_drive", "nerve,cunning,intuition", {}, "Choose one drive for both points, or two drives for one each.", 422),
+    ("add_drive", "nerve", {"nerve_max": 8}, "Nerve is at most 9.", 409),
+    ("new_ability", "   ", {}, "Choose an ability.", 422),
+    ("new_ability", "Dissection", {"specialty_ability": "Dissection"},
+     "Dissection is already one of this investigator's abilities.", 409),
+    ("gild_action", "charm", {}, "Unknown action: charm", 422),
+    ("gild_action", "sense", {"gilded_sense": True}, "sense is already gilded.", 409),
+    ("add_action", "move", {"move": 3}, "move is already at maximum (3)", 409),
+])
+def test_apply_advancement_refusals(client, choice, detail, fields, error, status):
+    """Fixed (RULES_CHECK 14): each pick is checked; a refused one changes nothing."""
+    ch = support.forge(client, **fields)
+    support.update(Character, ch["id"], advancement_picks=2)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("apply_advancement", choice=choice, detail=detail)
+        assert ws.sync() == [_rejected(error, status)]
+    assert support.fetch(Character, ch["id"]).advancement_picks == 2
+
+
+def test_apply_advancement_splits_drive_points(client):
+    ch = support.forge(client, nerve_max=3, nerve_current=3, cunning_max=8, cunning_current=2)
+    support.update(Character, ch["id"], advancement_picks=2)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("apply_advancement", choice="add_drive", detail="nerve,cunning")
+        p = ws.sync()[0]["payload"]
+        assert (p["nerve_max"], p["nerve_current"], p["cunning_max"], p["cunning_current"]) == (4, 4, 9, 3)
+
+
 def test_apply_advancement_new_ability_replaces_none(client):
     ch = support.forge(client)
+    support.update(Character, ch["id"], advancement_picks=2)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("apply_advancement", choice="new_ability", detail="Flourish")
         ws.sync()
     assert support.fetch(Character, ch["id"]).specialty_ability == "Flourish"
 
 
-def test_apply_advancement_has_no_gate(client):
-    """QUIRK: a player can advance any number of times without a circle advancement."""
+def test_apply_advancement_needs_a_circle_advance(client):
+    """Fixed (RULES_CHECK 14): a player could advance any number of times. Picks come
+    from the Lightkeeper's circle advance, two at a time."""
     ch = support.forge(client)
     with support.ws_connect(client, ch["id"]) as ws:
-        for _ in range(3):
-            ws.send("apply_advancement", choice="add_action", detail="read")
+        ws.send("apply_advancement", choice="add_action", detail="read")
+        assert ws.sync() == [_rejected("No advancement is waiting to be chosen.")]
+    assert support.fetch(Character, ch["id"]).read == 0
+
+
+def test_an_advanced_ability_still_works(client, dice):
+    """Fixed (QUIRKS D12): an ability appended by an advancement, and the specialty's own
+    before it, both pass the exact-name checks (here a roll mod and a soak)."""
+    ch = support.forge(client, read=1, cunning_max=6, cunning_current=6, nerve_max=3,
+                       specialty_ability="Dissection; Meticulous Notes; Compartmentalization")
+    dice(3, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="read", drive_spent=0, ability_mods=["Dissection", "Meticulous Notes"])
+        roll = ws.sync()[0]["payload"]["roll"]
+        assert (len(roll["dice"]), roll["dice"][0]["is_gilded"]) == (2, True)
+        ws.send("resolve_gilded", action="read", chosen_type="regular")
         ws.sync()
-    assert support.fetch(Character, ch["id"]).read == 3
+        ws.send("take_mark", mark_type="brain")
+        assert ws.sync()[0]["payload"]["ability"] == "Compartmentalization"
 
 
 # --- spend_resource ---------------------------------------------------------

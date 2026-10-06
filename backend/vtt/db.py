@@ -375,6 +375,13 @@ def init_db():
     # says why.
     add_columns("notebook_entries", [("sketch_scene", "TEXT")])
 
+    # Circle advancement picks (RULES_CHECK.md item 14). Existing rows get 0 and an empty
+    # list: no advancement waiting.
+    add_columns("characters", [
+        ("advancement_picks", "INTEGER DEFAULT 0"),
+        ("advancement_taken", "JSON DEFAULT '[]'"),
+    ])
+
     convert_integer_flags()
     retire_published_passwords()
     warn_password_only_accounts()

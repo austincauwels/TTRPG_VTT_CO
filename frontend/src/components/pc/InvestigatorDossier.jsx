@@ -372,7 +372,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     setShowGearModal(true);
   };
   const displayRole = character.role || ROLE_FROM_ABILITY[character.role_ability] || '';
-  const displaySpecialty = character.specialty || SPECIALTY_FROM_ABILITY[character.specialty_ability] || '';
+  const displaySpecialty = character.specialty || SPECIALTY_FROM_ABILITY[(character.specialty_ability || '').split(';')[0].trim()] || '';
   const roleIcon = ROLE_ICONS[displayRole] || 'GiEyeShield';
 
   // The sheet is one column on a phone and a ledger page from 44rem of its own width; the
@@ -566,8 +566,12 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 entries={[{ name: character.role_ability || 'Ability', text: ABILITY_TEXTS[character.role_ability] }]} blank="None chosen" />
             )}
             {infoTab === 'specialty' && (
+              // Abilities taken by advancement follow the specialty's own after "; "
               <AbilityPane heading={`${character.specialty || 'Specialty'} ability`}
-                entries={[{ name: character.specialty_ability || 'Specialty', text: ABILITY_TEXTS[character.specialty_ability] }]} blank="None chosen" />
+                entries={(character.specialty_ability || '').split(';').map(n => n.trim()).filter(n => n && n !== 'None').length
+                  ? (character.specialty_ability || '').split(';').map(n => n.trim()).filter(n => n && n !== 'None')
+                      .map(name => ({ name, text: ABILITY_TEXTS[name] }))
+                  : [{ name: 'Specialty', text: undefined }]} blank="None chosen" />
             )}
             {infoTab === 'profile' && (
               <AbilityPane heading="Catalyst and question" blank="Not written"

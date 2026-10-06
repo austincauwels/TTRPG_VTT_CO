@@ -190,10 +190,14 @@ def test_gm_advance_circle(client):
         assert msgs[1]["payload"]["campaign_id"] == camp["id"]
         assert msgs[1]["payload"]["circle"]["circle_ability"] == "Hunters\nSeekers"
         assert msgs[1]["payload"]["circle"]["illumination"] == 2
-        assert support.types(wm.drain()) == ["activity_log", "circle_advanced"]
+        # Each member is given two advancement picks (RULES_CHECK 14)
+        seen = wm.drain()
+        assert support.types(seen) == ["character_update", "activity_log", "circle_advanced"]
+        assert (seen[0]["payload"]["advancement_picks"], seen[0]["payload"]["advancement_taken"]) == (2, [])
         gm.send("gm_advance_circle", role="GM")  # no ability, no full track: still advances
         msgs = gm.sync()
         assert msgs[1]["payload"]["circle"]["illumination"] == 0
+    assert support.fetch(Character, member["id"]).advancement_picks == 4
 
 
 def test_refill_resources_counts_circle_members(client):

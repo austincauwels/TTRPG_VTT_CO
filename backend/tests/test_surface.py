@@ -231,7 +231,9 @@ WS_CASES = {
         before_connect=_resources_editable,
         payload=lambda c: {"resource_type": "stitch"},
         expect=["character_update", "circle_update", "activity_log"]),
+    # A pick comes from the Lightkeeper's circle advance (engine.apply_advancement)
     "apply_advancement": dict(
+        before_connect=lambda client, c: support.update(Character, c.char_id, advancement_picks=2),
         payload=lambda c: {"choice": "add_action", "detail": "move"},
         expect=["character_update", "activity_log"]),
     "update_circle": dict(

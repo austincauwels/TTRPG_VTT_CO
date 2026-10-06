@@ -164,6 +164,8 @@ const useGameStore = create(
       pendingRollMods: [],       // active ability modifier chip keys for the current pending roll
       abilityMarkOffer: null,    // { ability, mark_type, character_id, options? } — mark intercept prompt
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
+      advancementDeferred: false, // the player chose "Later" on the advancement dialog
+      advancementError: null,     // why the server refused an advancement pick
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
@@ -420,6 +422,9 @@ const useGameStore = create(
             // The server keeps the dice of a roll that waits for a die to be kept, and reads
             // the kept die from them; with no roll waiting (a server restart, a second
             // choice) the kept die did not count, and the server's words say to roll again
+            if (message.payload.action === 'apply_advancement') {
+              set({ advancementError: message.payload.detail || 'That advancement was not applied.' });
+            }
             if (message.payload.action === 'resolve_gilded') {
               set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
             }
@@ -589,7 +594,7 @@ const useGameStore = create(
           }
           else if (message.type === 'circle_advanced') {
             if (!isForThisCampaign(message.payload)) return;
-            set({ circle: message.payload.circle, circleAdvancement: { circle: message.payload.circle } });
+            set({ circle: message.payload.circle, circleAdvancement: { circle: message.payload.circle }, advancementDeferred: false });
           }
           else if (message.type === 'campaign_retired') {
             if (!isForThisCampaign(message.payload)) return;
@@ -993,18 +998,22 @@ const useGameStore = create(
         }
       },
 
-      dismissCircleAdvancement: () => set({ circleAdvancement: null }),
+      // "Later": the picks stay on the character (advancement_picks) and the dialog comes
+      // back with the next advance or the next visit to the desk
+      dismissCircleAdvancement: () => set({ circleAdvancement: null, advancementDeferred: true, advancementError: null }),
 
+      // One pick of the circle's advancement; the server checks it (engine.apply_advancement)
+      // and answers with the character, or refuses it with its reason (advancementError).
+      // The socket's own character is the one advanced.
       applyAdvancement: (choice, detail) => {
-        const { socket, accessSession } = get();
+        const { socket } = get();
         if (socket?.readyState === WebSocket.OPEN) {
-          const charId = accessSession?.characterId;
-          socket.send(JSON.stringify({
-            type: 'apply_advancement',
-            payload: { character_id: charId, choice, detail },
-          }));
+          socket.send(JSON.stringify({ type: 'apply_advancement', payload: { choice, detail } }));
+          set({ advancementError: null });
+          return true;
         }
-        set({ circleAdvancement: null });
+        set({ advancementError: 'Not connected to the table, so nothing was chosen. Try again once the desk is back.' });
+        return false;
       },
 
       // ==========================================

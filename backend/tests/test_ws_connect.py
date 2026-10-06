@@ -408,6 +408,7 @@ def test_failed_lookup_rollback_reloads_the_stale_circle(client):
 
 def test_null_character_id_falls_back_to_the_socket_character(client):
     ch = support.forge(client, move=1)
+    support.update(Character, ch["id"], advancement_picks=2)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("apply_advancement", choice="add_action", detail="move", character_id=None)
         msgs = ws.sync()

@@ -261,58 +261,82 @@ def roll_dice(pool_size, is_gilded=False, extra_dice=0, extra_gild=0):
 
 ALL_ACTIONS = ["move", "strike", "control", "hide", "sneak", "sway", "survey", "read", "sense"]
 
+DRIVE_MAX = 9  # drives range from 0 to 9 (rulebook p. 8)
+ADVANCEMENT_CHOICES = ("add_action", "add_drive", "new_ability", "gild_action")
+
+
 def apply_advancement(db: Session, character, choice: str, detail: str = ""):
-    """Apply a character advancement choice. Returns updated char dict or error."""
+    """Applies one advancement pick (rulebook p. 55; RULES_CHECK.md item 14). Returns
+    {"success": True, "character": ...} or {"error": ..., "status": ...} with words for
+    the player, having changed nothing.
+
+    A pick must be waiting: the Lightkeeper's circle advance gives each active member two
+    (advancement_picks), and the two must be different options (advancement_taken).
+    - add_action: +1 to an action, up to 3.
+    - add_drive: 2 drive points, both to one drive ("nerve") or split ("nerve,cunning"),
+      each drive up to 9; the current value rises with the maximum.
+    - new_ability: an ability the character does not have yet, appended to
+      specialty_ability after "; " (vtt/abilities.py reads it back).
+    - gild_action: an action that is not gilded yet."""
+    from vtt.abilities import abilities_of
+    from vtt.serializers import advancement_taken
+
+    if choice not in ADVANCEMENT_CHOICES:
+        return {"error": f"Unknown advancement choice: {choice}", "status": 422}
+    if (character.advancement_picks or 0) < 1:
+        return {"error": "No advancement is waiting to be chosen.", "status": 409}
+    taken = advancement_taken(character)
+    if choice in taken:
+        return {"error": "Choose a different option for your other advancement.", "status": 409}
+    detail = detail if isinstance(detail, str) else ""
+
     if choice == "add_action":
-        action = detail
-        if action not in ALL_ACTIONS:
-            return {"error": f"Unknown action: {action}"}
-        current = getattr(character, action, 0) or 0
+        if detail not in ALL_ACTIONS:
+            return {"error": f"Unknown action: {detail}", "status": 422}
+        current = getattr(character, detail, 0) or 0
         if current >= 3:
-            return {"error": f"{action} is already at maximum (3)"}
-        setattr(character, action, current + 1)
-        db.commit()
-        db.refresh(character)
-        return {"success": True, "character": character}
+            return {"error": f"{detail} is already at maximum (3)", "status": 409}
+        setattr(character, detail, current + 1)
 
     elif choice == "add_drive":
-        drive_key = detail  # 'nerve' | 'cunning' | 'intuition'
-        max_field = f"{drive_key}_max"
-        cur_field = f"{drive_key}_current"
-        if not hasattr(character, max_field):
-            return {"error": f"Unknown drive pool: {drive_key}"}
-        new_max = (getattr(character, max_field) or 0) + 2
-        new_cur = (getattr(character, cur_field) or 0) + 2
-        setattr(character, max_field, new_max)
-        setattr(character, cur_field, new_cur)
-        db.commit()
-        db.refresh(character)
-        return {"success": True, "character": character}
+        drives = [d.strip() for d in detail.split(",") if d.strip()]
+        if len(drives) == 1:
+            drives = drives * 2
+        if len(drives) != 2 or any(d not in ("nerve", "cunning", "intuition") for d in drives):
+            return {"error": "Choose one drive for both points, or two drives for one each.", "status": 422}
+        for drive in set(drives):
+            if (getattr(character, f"{drive}_max") or 0) + drives.count(drive) > DRIVE_MAX:
+                return {"error": f"{drive.capitalize()} is at most {DRIVE_MAX}.", "status": 409}
+        for drive in drives:
+            setattr(character, f"{drive}_max", (getattr(character, f"{drive}_max") or 0) + 1)
+            setattr(character, f"{drive}_current", (getattr(character, f"{drive}_current") or 0) + 1)
 
     elif choice == "new_ability":
         ability_text = detail.strip()
-        if not ability_text:
-            return {"error": "Ability name cannot be empty"}
-        # Append to specialty_ability (or role_ability) as a semicolon-separated list
+        if not ability_text or ";" in ability_text:
+            return {"error": "Choose an ability.", "status": 422}
+        if ability_text in abilities_of(character):
+            return {"error": f"{ability_text} is already one of this investigator's abilities.", "status": 409}
         existing = getattr(character, "specialty_ability", "None") or "None"
         if existing in ("None", ""):
             setattr(character, "specialty_ability", ability_text)
         else:
             setattr(character, "specialty_ability", f"{existing}; {ability_text}")
-        db.commit()
-        db.refresh(character)
-        return {"success": True, "character": character}
 
     elif choice == "gild_action":
-        action = detail
-        if action not in ALL_ACTIONS:
-            return {"error": f"Unknown action: {action}"}
-        setattr(character, f"gilded_{action}", True)
-        db.commit()
-        db.refresh(character)
-        return {"success": True, "character": character}
+        if detail not in ALL_ACTIONS:
+            return {"error": f"Unknown action: {detail}", "status": 422}
+        if getattr(character, f"gilded_{detail}", False):
+            return {"error": f"{detail} is already gilded.", "status": 409}
+        setattr(character, f"gilded_{detail}", True)
 
-    return {"error": f"Unknown advancement choice: {choice}"}
+    # Picks come two to an advancement: the options taken reset when a pair is complete,
+    # so a second advancement's picks may repeat the first's
+    character.advancement_picks = (character.advancement_picks or 0) - 1
+    character.advancement_taken = [] if character.advancement_picks % 2 == 0 else taken + [choice]
+    db.commit()
+    db.refresh(character)
+    return {"success": True, "character": character}
 
 
 def calculate_resistance_max(max_drive):

@@ -96,6 +96,11 @@ async def handle_apply_advancement(ctx):
     adv_detail = payload.get("detail", "")
     if adv_choice:
         result = apply_advancement(db, character, adv_choice, adv_detail)
+        if "error" in result:
+            # A pick that is not waiting, repeated, or out of range changes nothing
+            await manager.broadcast(channel, {"type": "action_rejected", "payload": {
+                "action": "apply_advancement", "status": result.get("status", 409), "detail": result["error"]}})
+            return
         if "error" not in result:
             await manager.broadcast(channel, {
                 "type": "character_update",
