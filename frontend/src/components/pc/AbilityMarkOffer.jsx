@@ -52,7 +52,7 @@ const ABILITY_OFFER_CONFIG = {
 };
 
 export const AbilityMarkOffer = () => {
-  const { abilityMarkOffer, resolveAbilityMark, interceptMark, dismissAbilityMarkOffer } = useGameStore();
+  const { abilityMarkOffer, resolveAbilityMark, interceptMark, dismissAbilityMarkOffer, declineAbilityMark } = useGameStore();
   const [driveChoice, setDriveChoice] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [hovered, setHovered] = useState(false);
@@ -63,6 +63,12 @@ export const AbilityMarkOffer = () => {
 
   const offer = abilityMarkOffer;
   const config = offer ? ABILITY_OFFER_CONFIG[offer.ability] : null;
+  // A soak or Death Defy on this investigator's own mark holds the mark back: passing it
+  // up, or letting the time run out, takes the mark (the server lands it)
+  const holdsOwnMark = !!config && !config.isIntercept && (offer.action === 'soak' || offer.action === 'escape');
+  const holdsRef = useRef(null);
+  holdsRef.current = holdsOwnMark ? offer : null;
+  const passUp = () => (holdsRef.current ? declineAbilityMark(holdsRef.current) : dismissAbilityMarkOffer());
 
   const autoDismissSeconds = offer?.action === 'info' || config?.isIntercept ? MIN_OFFER_SECONDS : 30;
 
@@ -73,7 +79,7 @@ export const AbilityMarkOffer = () => {
       if (pausedRef.current) return;
       setTimeLeft(prev => {
         if (prev == null) return prev;
-        if (prev <= 1) { dismissAbilityMarkOffer(); return null; }
+        if (prev <= 1) { passUp(); return null; }
         return prev - 1;
       });
     }, 1000);
@@ -156,10 +162,10 @@ export const AbilityMarkOffer = () => {
           )}
           {offer.action === 'info' && <span className="flex-1" aria-hidden="true" />}
           <button
-            onClick={dismissAbilityMarkOffer}
+            onClick={passUp}
             className="min-h-[40px] px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-widest border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm"
           >
-            {offer.action === 'info' ? 'Close' : 'Not now'}
+            {offer.action === 'info' ? 'Close' : holdsOwnMark ? 'Take the mark' : 'Not now'}
           </button>
         </div>
 

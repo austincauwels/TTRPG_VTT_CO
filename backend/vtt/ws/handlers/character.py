@@ -2,6 +2,7 @@
 import json
 
 from engine import ALL_ACTIONS, apply_advancement
+from vtt.abilities import count_use, has_ability
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.serializers import get_char_dict
 from vtt.ws.manager import manager
@@ -41,6 +42,9 @@ async def handle_apply_scar(ctx):
         character.incapacitated = True
     down, up = payload.get("shift_down"), payload.get("shift_up")
     skip_shifts = payload.get("skip_shifts", False)
+    # A Not Again scar (p. 29) is once per assignment; vtt.ws.access checked it is unused
+    if payload.get("not_again") and has_ability(character, "Not Again"):
+        count_use(character, "Not Again")
     # vtt.ws.access already rejects other names; this keeps the handler safe on its own.
     if not skip_shifts and down in ALL_ACTIONS and up in ALL_ACTIONS:
         if getattr(character, down) > 0 and getattr(character, up) < 3:
@@ -52,11 +56,10 @@ async def handle_apply_scar(ctx):
 
 async def handle_revive_character(ctx):
     db, character, channel, camp_code, camp_id = ctx.db, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
+    # Back on their feet once the circle gets them somewhere safe (rulebook p. 14). The
+    # overfilled track was cleared when the scar was taken; the others keep their marks,
+    # which only resources, abilities or gear heal (RULES_CHECK.md item 9).
     character.incapacitated = False
-    # Reset marks on all three tracks so they can act again
-    character.body_marks = 0
-    character.brain_marks = 0
-    character.bleed_marks = 0
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     await manager.broadcast_campaign(camp_code, camp_id, {

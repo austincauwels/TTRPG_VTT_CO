@@ -262,9 +262,10 @@ def test_frame_without_payload_works(client):
         msg = ws.recv()
         assert msg["type"] == "character_update"
         p = msg["payload"]
-        assert (p["id"], p["body_marks"], p["bleed_marks"], p["incapacitated"]) == (ch["id"], 0, 0, False)
+        # Revive clears incapacitated only (RULES_CHECK.md item 9)
+        assert (p["id"], p["body_marks"], p["bleed_marks"], p["incapacitated"]) == (ch["id"], 2, 1, False)
     row = support.fetch(Character, ch["id"])
-    assert (row.body_marks, row.bleed_marks, row.incapacitated) == (0, 0, False)
+    assert (row.body_marks, row.bleed_marks, row.incapacitated) == (2, 1, False)
 
 
 @pytest.mark.parametrize("frame", ['[1, 2]', '"text"', '7', 'null', '{"type": "no_such_action", "payload": [1]}'])

@@ -282,8 +282,8 @@ These are current behavior. The refactor should decide for each one whether to p
 - D2. Tension clock and scene text always edit circle 1: `SceneManager` sends `circle_id: 1` and `gm_update_circle` looks the circle up without campaign scoping, then pushes circle 1 to the GM's campaign. This only works for a campaign whose circle is id 1.
 - D3. `campaign_retired` never reaches players: `retire_campaign` sets every character to `retired` and commits before `broadcast_campaign`, which only includes active characters. Only the GM key receives it.
 - D4. `roster_finalized` does not reach the pending characters it releases, for the same reason (they are set to unaffiliated first).
-- D5. Declining or ignoring a soak or Death Defy offer means the mark is never applied. A Back Against the Wall soak offer has no frontend config and no server branch, so when it is the first soak option a Brain mark can never land through `take_mark`.
-- D6. The Premonitions intercept spends the interceptor's resistance but does not remove the target's mark.
+- D5. Declining or ignoring a soak or Death Defy offer means the mark is never applied. A Back Against the Wall soak offer has no frontend config and no server branch, so when it is the first soak option a Brain mark can never land through `take_mark`. (Fixed 2026-10-06: the offer holds the mark and a decline lands it; Back Against the Wall is no soak.)
+- D6. The Premonitions intercept spends the interceptor's resistance but does not remove the target's mark. (Fixed 2026-10-06: it removes one mark of that track.)
 - D7. Secret rolls skip the single-gilded-die drive refresh and the Well-Read refund. (Fixed 2026-10-06: both apply; the line stays with the roller.)
 - D8. `resolve_gilded` trusts the client's value and can be replayed; gilded-choice rolls can never be critical. (Fixed 2026-10-06: the server reads the kept die from the dice it holds, refuses a choice with no roll waiting, and counts a critical.)
 - D9. `circle_relationship_respond` raises on a GM socket (`int(game_id)`). REST and WebSocket handle `counter` differently.

@@ -27,16 +27,14 @@ def test_take_mark_without_type_is_ignored(client):
         assert ws.sync() == []
 
 
-def test_take_mark_unknown_type_creates_nothing(client):
-    """QUIRK: mark_type is not validated; an unknown track is set on the object only."""
+def test_take_mark_unknown_type_is_rejected(client):
+    """Fixed: an unknown track used to be set on the loaded object and sent back as a
+    character_update; it is refused (422) now."""
     ch = support.forge(client, body_marks=1, brain_marks=2, bleed_marks=0)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="soul")
-        [msg] = ws.sync()
-        assert msg["type"] == "character_update"
-        p = msg["payload"]
-        assert set(p) == support.CHAR_DICT_KEYS
-        assert (p["body_marks"], p["brain_marks"], p["bleed_marks"], p["incapacitated"]) == (1, 2, 0, False)
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "take_mark", "status": 422, "detail": "Unknown mark type."}}]
     row = support.fetch(Character, ch["id"])
     assert (row.body_marks, row.brain_marks, row.bleed_marks, row.incapacitated) == (1, 2, 0, False)
 
@@ -59,9 +57,8 @@ def test_fourth_mark_incapacitates(client):
     assert (row.brain_marks, row.incapacitated) == (0, True)
 
 
-def test_soak_offer_stops_the_mark(client):
-    """QUIRK: with a soak ability available the mark is not applied; it only lands if the
-    player accepts the soak (which does not apply it either), so declining loses it."""
+def test_soak_offer_holds_the_mark_until_it_is_answered(client):
+    """With a soak available the mark waits for the player's answer."""
     ch = support.forge(client, body_marks=1, cunning_max=3, specialty_ability="In the Trenches")
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="body")
@@ -69,6 +66,45 @@ def test_soak_offer_stops_the_mark(client):
             "ability": "In the Trenches", "mark_type": "body", "character_id": ch["id"],
             "options": [{"ability": "In the Trenches", "resist_key": "cunning"}], "action": "soak"}}]
     assert support.fetch(Character, ch["id"]).body_marks == 1
+
+
+def test_declining_a_soak_lands_the_mark(client):
+    """Fixed (RULES_CHECK 11): declining the soak (the desk's "Take the mark", or its
+    countdown) used to lose the mark; it lands now, and nothing is spent."""
+    ch = support.forge(client, body_marks=1, cunning_max=3, specialty_ability="In the Trenches")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body")
+        ws.sync()
+        ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body")
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update"]
+        assert msgs[0]["payload"]["body_marks"] == 2
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.cunning_resistance_spent, row.ability_uses) == (2, 0, {})
+
+
+def test_accepting_a_soak_keeps_the_mark_off(client):
+    ch = support.forge(client, body_marks=1, cunning_max=3, specialty_ability="In the Trenches")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body")
+        ws.sync()
+        ws.send("resolve_ability_mark", ability="In the Trenches", choice="soak")
+        assert support.types(ws.sync()) == ["character_update", "activity_log"]
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.cunning_resistance_spent) == (1, 1)
+
+
+def test_a_declined_soak_still_offers_death_defy_for_an_enemys_mark(client):
+    ch = support.forge(client, body_marks=0, cunning_max=3, role_ability="In the Trenches",
+                       specialty_ability="Death Defy")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", is_from_enemy=True)
+        assert ws.sync()[0]["payload"]["action"] == "soak"
+        ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body")
+        assert ws.sync() == [{"type": "ability_mark_offer", "payload": {
+            "ability": "Death Defy", "mark_type": "body", "character_id": ch["id"], "action": "escape"}}]
+        ws.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body")
+        assert ws.sync()[0]["payload"]["body_marks"] == 1
 
 
 def test_soak_skipped_without_resistance_or_after_use(client):
@@ -92,18 +128,14 @@ def test_brain_soak_offers_list_every_option(client):
                                              {"ability": "Steel Mind", "resist_key": "intuition"}]
 
 
-def test_back_against_the_wall_always_blocks_brain_marks(client):
-    """QUIRK: Back Against the Wall is always offered as a soak, has no handler, and so a
-    character with it never takes a brain mark."""
+def test_back_against_the_wall_is_not_a_soak(client):
+    """Fixed (RULES_CHECK 21): Back Against the Wall was offered as a brain soak with no
+    handler, so such a character never took a brain mark. It is a roll cost, not a soak."""
     ch = support.forge(client, role_ability="Back Against the Wall")
     with support.ws_connect(client, ch["id"]) as ws:
-        for _ in range(2):
-            ws.send("take_mark", mark_type="brain")
-            [msg] = ws.sync()
-            assert msg["payload"]["options"] == [{"ability": "Back Against the Wall", "resist_key": None}]
-        ws.send("resolve_ability_mark", ability="Back Against the Wall", choice="soak")
-        assert ws.sync() == []
-    assert support.fetch(Character, ch["id"]).brain_marks == 0
+        ws.send("take_mark", mark_type="brain")
+        assert support.types(ws.sync()) == ["character_update"]
+    assert support.fetch(Character, ch["id"]).brain_marks == 1
 
 
 def test_death_defy_offer_only_from_enemy(client):
@@ -193,20 +225,28 @@ def test_intercept_offers_go_to_eligible_campaign_members(client):
         assert wt.drain() == [] and wo.drain() == []
 
 
-def test_resolve_adrenaline_rush_is_replayable(client):
-    """QUIRK: no pending offer is stored, so the refresh can be claimed repeatedly."""
+def test_resolve_adrenaline_rush_once_per_offer(client):
+    """Fixed: no offer was stored, so the refresh could be claimed at will. Each mark's
+    offer can be used once."""
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, nerve_max=3, nerve_current=0, role_ability="Adrenaline Rush")
     with support.ws_connect(client, ch["id"]) as ws:
-        for expected in (1, 2, 3, 3):
-            ws.send("resolve_ability_mark", ability="Adrenaline Rush", choice="nerve")
-            msgs = ws.sync()
-            assert support.types(msgs) == ["character_update", "activity_log"]
-            assert msgs[0]["payload"]["nerve_current"] == expected
-        assert msgs[1]["payload"]["message"] == f"{ch['name']} used Adrenaline Rush {EM} refreshed 1 Nerve."
+        ws.send("resolve_ability_mark", ability="Adrenaline Rush", choice="nerve")
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "resolve_ability_mark", "status": 409, "detail": "No Adrenaline Rush is waiting to be used."}}]
+        ws.send("take_mark", mark_type="body")
+        assert support.types(ws.sync()) == ["character_update", "ability_mark_offer"]
         ws.send("resolve_ability_mark", ability="Adrenaline Rush", choice="luck")
         ws.send("resolve_ability_mark", ability="Steel Mind")  # not owned
         assert ws.sync() == []
+        ws.send("resolve_ability_mark", ability="Adrenaline Rush", choice="nerve")
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update", "activity_log"]
+        assert msgs[0]["payload"]["nerve_current"] == 1
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} used Adrenaline Rush {EM} refreshed 1 Nerve."
+        ws.send("resolve_ability_mark", ability="Adrenaline Rush", choice="nerve")
+        assert support.types(ws.sync()) == ["action_rejected"]
+    assert support.fetch(Character, ch["id"]).nerve_current == 1
 
 
 def test_resolve_soak_spends_resistance_and_counts_use(client):
@@ -217,8 +257,12 @@ def test_resolve_soak_spends_resistance_and_counts_use(client):
         assert msgs[0]["payload"]["cunning_resistance_spent"] == 1
         assert msgs[0]["payload"]["ability_uses"] == {"In the Trenches": 1}
         assert msgs[1]["payload"]["message"] == f"{ch['name']} used In the Trenches {EM} soaked the mark."
-        ws.send("resolve_ability_mark", ability="In the Trenches")  # no pip check here
-        assert ws.sync()[0]["payload"]["cunning_resistance_spent"] == 2
+        # Fixed (RULES_CHECK 11): used for this assignment, and no resistance left
+        ws.send("resolve_ability_mark", ability="In the Trenches")
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "resolve_ability_mark", "status": 409,
+            "detail": "In the Trenches cannot soak this mark: it is used for this assignment or no Cunning resistance is left."}}]
+    assert support.fetch(Character, ch["id"]).cunning_resistance_spent == 1
 
 
 def test_resolve_death_defy(client):
@@ -299,18 +343,33 @@ def test_intercept_can_incapacitate_interceptor(client):
     assert (row.bleed_marks, row.incapacitated) == (0, True)
 
 
-def test_intercept_premonitions_does_not_remove_target_mark(client):
-    """QUIRK (bug D6): Premonitions spends the seer's resistance but the target keeps the mark."""
+def test_intercept_premonitions_soaks_the_targets_mark(client):
+    """Fixed (bug D6, RULES_CHECK 23): Premonitions spent the seer's resistance but the
+    target kept the mark. The ally soaks one mark of that track now."""
     target, seer = _allies(client, dict(body_marks=2), dict(intuition_max=3, specialty_ability="Premonitions"))
-    with support.ws_connect(client, seer["id"]) as wsr:
+    with support.ws_connect(client, seer["id"]) as wsr, support.ws_connect(client, target["id"]) as wt:
         wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
         msgs = wsr.sync()
         assert support.types(msgs) == ["character_update", "activity_log"]
         assert msgs[0]["payload"]["intuition_resistance_spent"] == 1
         assert msgs[1]["payload"]["message"] == f"{seer['name']} used Premonitions {EM} soaked the mark!"
+        seen = wt.drain()
+        assert support.types(seen) == ["character_update", "activity_log"]
+        assert seen[0]["payload"]["body_marks"] == 1
         wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
         assert wsr.sync() == []  # no resistance left
-    assert support.fetch(Character, target["id"]).body_marks == 2
+    assert support.fetch(Character, target["id"]).body_marks == 1
+
+
+def test_premonitions_needs_a_mark_to_soak(client):
+    target, seer = _allies(client, dict(bleed_marks=0), dict(intuition_max=3, specialty_ability="Premonitions"))
+    with support.ws_connect(client, seer["id"]) as wsr:
+        wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="bleed")
+        assert wsr.sync() == [{"type": "action_rejected", "payload": {
+            "action": "intercept_mark", "status": 409, "detail": "There is no such mark to soak."}}]
+        wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="soul")
+        assert support.types(wsr.sync()) == ["action_rejected"]
+    assert support.fetch(Character, seer["id"]).intuition_resistance_spent == 0
 
 
 def test_apply_scar_with_shift(client):
@@ -321,12 +380,30 @@ def test_apply_scar_with_shift(client):
         assert p["scars_list"] == ["Burned hand"]
         assert p["scars_count"] == 1
         assert (p["move"], p["sense"]) == (1, 1)
+        # Fixed (RULES_CHECK 12): keeping the ratings needs Hardened (or Not Again)
         ws.send("apply_scar", scar_text="Limp", shift_down="move", shift_up="sense", skip_shifts=True)
-        p = ws.sync()[0]["payload"]
-        assert (p["move"], p["sense"], p["scars_count"]) == (1, 1, 2)
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "apply_scar", "status": 422,
+            "detail": "A scar shifts an action point: choose one action to lower and one to raise. "
+                      "Only Hardened, or a Not Again scar, keeps the ratings as they are."}}]
         ws.send("apply_scar", scar_text="", shift_down="sense", shift_up="move")
         p = ws.sync()[0]["payload"]
-        assert (p["move"], p["sense"], p["scars_count"]) == (2, 0, 2)
+        assert (p["move"], p["sense"], p["scars_count"]) == (2, 0, 1)
+
+
+def test_hardened_and_not_again_keep_the_ratings(client):
+    hardened = support.forge(client, move=2, specialty_ability="Hardened")
+    with support.ws_connect(client, hardened["id"]) as ws:
+        ws.send("apply_scar", scar_text="Scar", skip_shifts=True)
+        p = ws.sync()[0]["payload"]
+        assert (p["move"], p["scars_count"]) == (2, 1)
+    lesson = support.forge(client, move=2, specialty_ability="Not Again")
+    with support.ws_connect(client, lesson["id"]) as ws:
+        ws.send("apply_scar", scar_text="The lesson", skip_shifts=True, not_again=True)
+        p = ws.sync()[0]["payload"]
+        assert (p["scars_count"], p["ability_uses"]) == (1, {"Not Again": 1})
+        ws.send("apply_scar", scar_text="Again", skip_shifts=True, not_again=True)  # once per assignment
+        assert support.types(ws.sync()) == ["action_rejected"]
 
 
 def test_apply_scar_shift_limits(client):
@@ -376,7 +453,8 @@ def test_revive_character(client):
         msgs = ws.sync()
         assert support.types(msgs) == ["character_update", "activity_log"]
         p = msgs[0]["payload"]
-        assert (p["body_marks"], p["brain_marks"], p["bleed_marks"], p["incapacitated"]) == (0, 0, 0, False)
+        # Fixed (RULES_CHECK 9): only incapacitated clears; the other tracks keep their marks
+        assert (p["body_marks"], p["brain_marks"], p["bleed_marks"], p["incapacitated"]) == (2, 1, 3, False)
         assert p["is_dead"] is True  # untouched
         assert msgs[1]["payload"] == {"message": f"{ch['name']} has been revived and is operational.",
                                       "log_type": "field", "ink_color": engine.INK_COLORS[0]}
@@ -456,10 +534,9 @@ def test_body_soak_ignores_brain_abilities_and_brain_ignores_body(client):
     ("Compartmentalization", "brain", dict(nerve_max=3)),
     ("Steel Mind", "brain", dict(intuition_max=3)),
 ])
-def test_intercept_offers_interceptor_a_soak_and_does_not_mark_them(client, soak, mark_type, fields):
-    """QUIRK: the interceptor's soak offer has no 'options' key and uses the
-    interceptor's own id. The mark is not applied to the interceptor, but the nerve
-    spend and the target's mark removal are already committed."""
+def test_intercept_offers_interceptor_a_soak_that_holds_the_mark(client, soak, mark_type, fields):
+    """Fixed (RULES_CHECK 10): the interceptor takes the mark as any mark is taken. Their
+    soak offer lists its options like take_mark's, and declining it lands the mark."""
     target, guard = _allies(client, {f"{mark_type}_marks": 2},
                             dict(nerve_current=2, role_ability="Behind Me", specialty_ability=soak,
                                  **{"nerve_max": 3, **fields}))
@@ -468,11 +545,19 @@ def test_intercept_offers_interceptor_a_soak_and_does_not_mark_them(client, soak
         msgs = wg.sync()
         assert support.types(msgs) == ["activity_log", "ability_mark_offer"]
         assert msgs[0]["payload"]["message"] == f"{guard['name']} used Behind Me to intercept a mark for {target['name']}!"
-        assert msgs[1]["payload"] == {"ability": soak, "mark_type": mark_type,
-                                      "character_id": guard["id"], "action": "soak"}
-    g = support.fetch(Character, guard["id"])
-    assert (g.nerve_current, getattr(g, f"{mark_type}_marks")) == (1, 0)
-    assert getattr(support.fetch(Character, target["id"]), f"{mark_type}_marks") == 1
+        resist = {"In the Trenches": "cunning", "Compartmentalization": "nerve", "Steel Mind": "intuition"}[soak]
+        assert msgs[1]["payload"] == {"ability": soak, "mark_type": mark_type, "character_id": guard["id"],
+                                      "options": [{"ability": soak, "resist_key": resist}], "action": "soak"}
+        g = support.fetch(Character, guard["id"])
+        assert (g.nerve_current, getattr(g, f"{mark_type}_marks")) == (1, 0)
+        assert getattr(support.fetch(Character, target["id"]), f"{mark_type}_marks") == 1
+        wg.send("resolve_ability_mark", ability=soak, choice="decline", mark_type=mark_type)
+        assert ws_marks(wg.sync(), mark_type) == [1]
+    assert getattr(support.fetch(Character, guard["id"]), f"{mark_type}_marks") == 1
+
+
+def ws_marks(msgs, mark_type):
+    return [m["payload"][f"{mark_type}_marks"] for m in msgs if m["type"] == "character_update"]
 
 
 def test_intercept_soak_skipped_when_used(client):
@@ -488,7 +573,7 @@ def test_intercept_soak_skipped_when_used(client):
 
 
 def test_intercept_back_against_the_wall_does_not_block_the_mark(client):
-    """Unlike take_mark, the interceptor's soak map has no Back Against the Wall, so the brain mark lands."""
+    """Back Against the Wall is no soak anywhere, so the brain mark lands."""
     target, guard = _allies(client, dict(brain_marks=1),
                             dict(nerve_current=1, role_ability="Behind Me", specialty_ability="Back Against the Wall"))
     with support.ws_connect(client, guard["id"]) as wg:
@@ -551,8 +636,16 @@ def test_ability_results_reach_campaign_log_but_sheet_stays_private(client, abil
     other = support.active_member(client, camp)
     if action == "intercept_mark":
         payload = dict(payload, target_character_id=other["id"])
+    if ability == "Premonitions":
+        support.update(Character, other["id"], body_marks=1)  # a mark for the seer to soak
     with support.ws_connect(client, actor["id"]) as wa, support.ws_connect(client, other["id"]) as wo, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
+        if ability == "Adrenaline Rush":
+            # The offer comes with a mark (it can be used once per offer)
+            wa.send("take_mark", mark_type="bleed")
+            wa.sync()
+            wo.drain()
+            gm.drain()
         wa.send(action, **payload)
         msgs = wa.sync()
         assert support.types(msgs) == ["character_update", "activity_log"]
@@ -560,5 +653,11 @@ def test_ability_results_reach_campaign_log_but_sheet_stays_private(client, abil
         log = msgs[1]
         assert log["payload"]["ink_color"] == engine.INK_COLORS[0]
         assert log["payload"]["message"].startswith(f"{actor['name']} used {ability} {EM} ")
-        assert wo.drain() == [log]
+        seen = wo.drain()
+        if ability == "Premonitions":
+            # The ally whose mark was soaked gets their own sheet's update
+            assert support.types(seen) == ["character_update", "activity_log"]
+            assert (seen[0]["payload"]["id"], seen[0]["payload"]["body_marks"]) == (other["id"], 0)
+            seen = seen[1:]
+        assert seen == [log]
         assert gm.drain() == [log]

@@ -16,7 +16,7 @@ from fastapi.routing import APIRoute, APIWebSocketRoute
 
 import main
 import support
-from models import Circle
+from models import Character, Circle
 
 SNAPSHOT = os.path.join(os.path.dirname(__file__), "data", "openapi.json")
 
@@ -198,9 +198,11 @@ WS_CASES = {
         payload=lambda c: {"ability": "Death Defy"}, expect=["character_update", "activity_log"]),
     "intercept_mark": dict(
         fields={"role_ability": "Premonitions", "intuition_max": 3},
+        before_connect=lambda client, c: support.update(Character, c.other_id, body_marks=1),
         payload=lambda c: {"ability": "Premonitions", "target_character_id": c.other_id, "mark_type": "body"},
         expect=["character_update", "activity_log"]),
-    "apply_scar": dict(payload=lambda c: {"scar_text": "s", "skip_shifts": True}, expect=["character_update"]),
+    "apply_scar": dict(fields={"specialty_ability": "Hardened"},
+                       payload=lambda c: {"scar_text": "s", "skip_shifts": True}, expect=["character_update"]),
     "revive_character": dict(payload=lambda c: {}, expect=["character_update", "activity_log"]),
     "burn_resistance": dict(
         fields={"move": 2, "nerve_max": 3}, dice=(6, 6),

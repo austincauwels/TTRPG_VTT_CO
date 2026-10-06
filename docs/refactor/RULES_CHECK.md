@@ -76,24 +76,28 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: `revive_character` clears the incapacitated flag and sets Body, Brain and Bleed marks to 0.
 - Rulebook (p. 14): when a fourth mark becomes a scar you erase the marks "in the category you overfilled", and you return to play when your circle gets you somewhere safe. Other categories keep their marks; marks are only healed by resources, abilities or gear.
 - Suggested fix: revive should only clear `incapacitated`. The overfilled category is already cleared when the scar is taken.
+- Done (2026-10-06): revive_character clears incapacitated only; the other tracks keep their marks.
 
 ### 10. Some ways of taking a mark never incapacitate
 
 - App: Back Against the Wall's roll cost (`rolls.py`) and Bending Spoons (`use_post_roll_ability`) add a mark with `min(3, marks + 1)`, so a fourth mark is dropped instead of causing incapacitation and a scar. The interceptor's mark in Behind Me (`intercept_mark`) does incapacitate, but skips Endurance and Death Defy.
 - Rulebook (p. 14): whenever you would take a mark in a category that already has 3, you drop incapacitated and take the fourth mark as a scar.
 - Suggested fix: route every mark through one function (the take_mark logic) so the fourth mark, Endurance, soaks and Adrenaline Rush apply the same way everywhere.
+- Done (2026-10-06): every mark lands through apply_mark in vtt/ws/handlers/marks.py (take_mark, a declined offer, the Behind Me interceptor, and from rules batch 3 the Back Against the Wall cost and Bending Spoons), so the fourth mark, Endurance, Let Them In, Adrenaline Rush and the allies' offers apply the same way everywhere.
 
 ### 11. A declined soak or Death Defy offer loses the mark
 
 - App: when a soak ability (Compartmentalization, Steel Mind, In the Trenches, Back Against the Wall) or Death Defy is available, `take_mark` sends an offer and returns without applying the mark. If the player declines or ignores the offer, the mark is never taken (QUIRKS.md D5). The soak branch of `resolve_ability_mark` also does not check that a resistance point is left.
 - Rulebook: soaking is a choice (p. 14: a soaked mark "leaves no damage"); not using the ability means taking the mark.
 - Suggested fix: apply the mark when the offer is declined (a decline message, or a timeout), and check the resistance point before soaking.
+- Done (2026-10-06): a soak or Death Defy offer holds the mark (_pending_marks) until it is answered. Declining, which the desk sends from its "Take the mark" button or when the offer's countdown runs out, lets the mark land, after a declined soak still offering Death Defy for an enemy's mark. A soak is refused (409) once it is used for the assignment or its resistance is gone, and the held mark then lands.
 
 ### 12. Hardened is not checked
 
 - App: `apply_scar` skips the action shift for anyone who sends `skip_shifts`.
 - Rulebook (p. 31): Hardened lets you choose not to shift action points when you take a scar. Not Again (p. 29) also takes a scar without a shift. Otherwise a scar always shifts a point (p. 14).
 - Suggested fix: honor `skip_shifts` only for a character with Hardened, or for a Not Again scar.
+- Done (2026-10-06): a scar that keeps the ratings is refused (422) unless the character has Hardened, the scar is a Not Again scar (payload not_again, once per assignment, counted in ability_uses), or it is the fatal fourth scar. The desk only offers it to Hardened characters, now including one whose Hardened came from an advancement.
 
 ### 13. Death at the fourth scar
 
@@ -155,24 +159,28 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: it is offered as a Brain mark soak in `take_mark` (the soak list includes it with no resistance cost), and there is no resolve branch for it, so a character with this ability never takes a Brain mark through `take_mark` (QUIRKS.md D5). As a roll mod it adds a Brain mark (capped at 3, see item 10) and gives no extra dice; the roll screen's label promises Nerve worth +2d.
 - Rulebook (p. 31): on a high-stakes roll, "you may take a Brain mark to make any Nerve you spend worth +2d instead of +1d."
 - Suggested fix: remove it from the soak list in `take_mark`. In the roll handler, when it is used, take the Brain mark through the normal mark logic and add one extra die per Nerve point spent (within the Rule of Six).
+- Done (2026-10-06): Back Against the Wall is no longer offered as a soak, so its characters take Brain marks again. The roll side is in rules batch 3.
 
 ### 22. Endurance
 
 - App: fixed in this stage (it used to end the socket, bug D1). On a fourth mark it rolls one die per Nerve resistance point left; a 6 keeps the marks at 3 and no scar is taken. It only runs in `take_mark`.
 - Rulebook (p. 27): when you take enough marks to become incapacitated, roll d6 equal to your current Nerve resistance; on a 6 you are not incapacitated and do not take a scar.
 - Matches. Suggested fix: apply it on every path that can incapacitate (item 10).
+- Done (2026-10-06): Endurance runs on every path that lands a mark (item 10).
 
 ### 23. Premonitions
 
 - App: the offer goes out after the ally's mark is already applied. Using it burns the seer's Intuition resistance but does not remove the ally's mark (QUIRKS.md D6).
 - Rulebook (p. 32): when an ally is about to take marks, burn an Intuition resistance to warn them, "then, soak one of these marks."
 - Suggested fix: remove one mark from the ally when Premonitions is used (as Behind Me does), and send the offer before the mark lands.
+- Done (2026-10-06): Premonitions removes one mark of that track from the ally (409 when the ally has none). Not done: sending the offer before the mark lands. That needs the mark held across several players' desks with a timeout, and the mark already being removable afterwards gives the same result except for a fourth mark, which the Lightkeeper can undo by hand.
 
 ### 24. Behind Me
 
 - App: after the ally's mark is applied, a member with Behind Me and at least 1 Nerve gets an offer for any mark. Using it spends 1 Nerve, removes the mark from the ally and gives it to the interceptor. No offer is sent when the mark incapacitated the ally, because offers are only sent on the non-incapacitating path. The interceptor's own soak offer has no options list and does not apply the mark.
 - Rulebook (p. 27): spend 1 Nerve to choose an ally in the same scene "who is about to take a mark from a phenomenon", and take the mark instead.
 - Suggested fix: offer it before the mark is applied, including for a fourth mark, and let the GM say whether the source is a phenomenon (as `is_from_enemy` does for Death Defy).
+- Done (2026-10-06): the interceptor now takes the mark through the normal flow, with soak options that hold it. Not done, for the reason in item 23: offering before the mark lands (including a fourth mark), and asking the Lightkeeper whether the source is a phenomenon. Death Defy has the same gap: the desk never sends is_from_enemy, so Death Defy is only offered when that flag is set.
 
 ### 25. Abilities whose conditions the server does not check
 

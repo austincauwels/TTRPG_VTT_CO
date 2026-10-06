@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { ACTION_LABEL, scarShiftNote } from '../../game/actions';
+import { hasAbility } from '../../game/abilities';
 import { useDialog } from '../shared/useDialog';
 import { FormLine } from '../shared/PrintMarks';
 import { ScarIcon } from '../shared/ScarIcon';
@@ -18,7 +19,8 @@ const ScarModal = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [skipShifts, setSkipShifts] = useState(false);
 
-  const isHardened = character?.specialty_ability === 'Hardened';
+  // Hardened (p. 31) keeps the ratings; the server allows it for Hardened only
+  const isHardened = hasAbility(character, 'Hardened');
 
   // Escape is "Decide later", like the button: the scar stays pending, nothing is lost.
   const dialogRef = useDialog({ open: !!showScarModal, onClose: deferScar });

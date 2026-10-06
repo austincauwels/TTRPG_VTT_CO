@@ -10,6 +10,7 @@ decides on a stale copy of a row.
 """
 from engine import ALL_ACTIONS
 from models import Campaign, Character, Circle, Relationship
+from vtt.abilities import MARK_TYPES, abilities_of, uses_of
 from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, ROSTER_STATUSES, campaign_facts, character_facts
 from vtt.circle_queries import VOTE_TYPES
 
@@ -151,6 +152,9 @@ def _gm_update_circle(ctx, payload, character):
 
 
 def _intercept_mark(ctx, payload, character):
+    m_type = payload.get("mark_type")
+    if m_type and m_type not in MARK_TYPES:
+        _invalid("Unknown mark type.")
     target_id = payload.get("target_character_id")
     if target_id is None:
         return
@@ -234,13 +238,39 @@ def _circle_relationship_respond(ctx, payload, character):
     _circle_of(ctx, rel.circle_id, _sender_campaign(ctx))
 
 
+KEEP_RATINGS_REFUSED = ("A scar shifts an action point: choose one action to lower and one to raise. "
+                        "Only Hardened, or a Not Again scar, keeps the ratings as they are.")
+
+
+def may_keep_ratings(character, payload) -> bool:
+    """Whether a scar may leave the action ratings as they are (rulebook p. 14): with
+    Hardened (p. 31), for a Not Again scar (p. 29) while it is unused this assignment, or
+    for the fourth scar, which is fatal (RULES_CHECK.md item 12)."""
+    abilities = abilities_of(character)
+    if "Hardened" in abilities or (character.scars_count or 0) >= 3:
+        return True
+    return bool(payload.get("not_again")) and "Not Again" in abilities and uses_of(character, "Not Again") < 1
+
+
 def _apply_scar(ctx, payload, character):
     """A scar may only move a point between two of the nine action ratings. Any other
-    name used to reach every numeric column, including campaign_id and user_id."""
+    name used to reach every numeric column, including campaign_id and user_id. A scar
+    without a shift needs Hardened or one of the other cases in may_keep_ratings."""
     for key in ("shift_down", "shift_up"):
         name = payload.get(key)
         if name and name not in ALL_ACTIONS:
             _forbid()
+    keeps = payload.get("skip_shifts") or not (payload.get("shift_down") and payload.get("shift_up"))
+    if keeps and not may_keep_ratings(character, payload):
+        _invalid(KEEP_RATINGS_REFUSED)
+
+
+def _take_mark(ctx, payload, character):
+    """The three mark tracks only. An unknown track used to be set on the loaded object
+    and sent back as if it were a mark."""
+    m_type = payload.get("mark_type")
+    if m_type and m_type not in MARK_TYPES:
+        _invalid("Unknown mark type.")
 
 
 def _update_gear(ctx, payload, character):
@@ -308,6 +338,7 @@ RULES = {
     "circle_relationship_propose": _circle_relationship_propose,
     "circle_relationship_respond": _circle_relationship_respond,
     "apply_scar": _apply_scar,
+    "take_mark": _take_mark,
     "update_gear": _update_gear,
     "roll": _roll,
     "chat_message": _chat_message,
