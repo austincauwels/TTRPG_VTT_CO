@@ -286,13 +286,16 @@ const ROLE_COLORS = {
 // (the role colors themselves fall under 3:1 there). The hue stays the role's own.
 const roleInk = (hex) => `color-mix(in srgb, ${hex} 60%, rgb(var(--c-cream)))`;
 
+// The PNG portraits (1 to 7 MB each) are served as WebP copies at their full size,
+// quality 92, about a fifth of the bytes; the cards draw them small and sepia-toned, so
+// the copies look the same. The original PNGs stay in public/images beside them.
 const CARD_IMAGES = {
-  Journalist: '/images/Journalist.png',
+  Journalist: '/images/Journalist.webp',
   Magician:   '/images/magician.jpg',
-  Explorer:   '/images/explorer.png',
-  Soldier:    '/images/soldier.png',
-  Doctor:     '/images/doctor.png',
-  Professor:  '/images/professor.png',
+  Explorer:   '/images/explorer.webp',
+  Soldier:    '/images/soldier.webp',
+  Doctor:     '/images/doctor.webp',
+  Professor:  '/images/professor.webp',
   Criminal:   '/images/criminal.webp',
   Detective:  '/images/detective.jpg',
   Medium:     '/images/medium.jpg',
