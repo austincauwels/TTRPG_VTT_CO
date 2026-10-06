@@ -63,13 +63,14 @@ async def handle_spend_resource(ctx):
         character.brain_marks = 0
         character.bleed_marks = 0
     elif resource_type == "refresh":
+        # Refresh recoups drives and resistances (rulebook p. 41). Once-per-assignment
+        # abilities come back when the Lightkeeper ends the assignment, not here.
         character.nerve_current     = character.nerve_max
         character.cunning_current   = character.cunning_max
         character.intuition_current = character.intuition_max
         character.nerve_resistance_spent     = 0
         character.cunning_resistance_spent   = 0
         character.intuition_resistance_spent = 0
-        character.ability_uses = {}
     elif resource_type == "train":
         character.train_bonus = True
 

@@ -1,6 +1,6 @@
 # Rules check: where the app may differ from the rulebook (2026-10-04)
 
-This list compares the app's game mechanics with the Candela Obscura Core Rulebook. Nothing here has been changed in the code. Some differences may be house rules, so the game's owner should confirm each one before anything is fixed. Page numbers are the printed page numbers of the rulebook. Code references are to backend/ unless a path says otherwise.
+This list compares the app's game mechanics with the Candela Obscura Core Rulebook. It was written before any of them changed. On 2026-10-06 the suggested fixes were made on the branch claude/nice-franklin-fjdpgh, each in its own commit with its tests, and each item says what was done in a "Done" line. Some differences may be house rules: the game's owner can drop any of those commits before the branch is merged. Page numbers are the printed page numbers of the rulebook. Code references are to backend/ unless a path says otherwise.
 
 Each entry gives what the app does, what the rulebook says, and a suggested fix.
 
@@ -9,6 +9,7 @@ Each entry gives what the app does, what the rulebook says, and a suggested fix.
 The code uses different names for two actions. The code's `sneak` is the rulebook's Read (a Cunning action), and the code's `read` is the rulebook's Focus (an Intuition action) (p. 50 and 51). The character creator and the circle view label them Read and Focus, but `frontend/src/components/pc/ActionModule.jsx` still shows the label "Sneak". This document uses the rulebook names, with the code name in brackets where it matters.
 
 - Suggested fix: show "Read" in ActionModule.jsx too. Renaming the columns is not needed.
+- Done (2026-10-06): ActionModule.jsx was never imported and is removed; every screen players see labels the actions Read and Focus.
 
 ## Rolls
 
@@ -17,24 +18,28 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: with no dice in the pool, `engine.roll_dice` rolls two dice and takes the lower one, then `calculate_outcome` counts two sixes as a critical success.
 - Rulebook (p. 11): a zero-rating roll takes the lowest of two dice, and "you can't get a critical success on this (even if you get two 6s)." The GM reference repeats it (p. 198).
 - Suggested fix: in the zero branch of `roll_dice`, call `calculate_outcome(result_val)` without the dice, so two sixes give a full success. This also covers a resistance reroll of a zero-rating action (p. 13).
+- Done (2026-10-06): the zero branch takes its outcome from the lower die alone, so two sixes are a full success. A resistance reroll of a zero-rating action follows the same rule.
 
 ### 2. A gilded die on a zero-rating roll never earns back drive
 
 - App: the zero branch marks the first die as gilded but never refreshes drive.
 - Rulebook (p. 11): you cannot choose the gilded die as your result, but if it is the lowest die (the result), you still earn back drive.
 - Suggested fix: in the zero branch, when the gilded die's value equals the result, set `auto_gilded_refresh` so the roll handler refreshes 1 point in the action's drive.
+- Done (2026-10-06): when the gilded die is the lower die (equal values included), the roll carries auto_gilded_refresh and the action's drive gets 1 point back.
 
 ### 3. A roll where the player chooses between the gilded die and the highest die can never be critical
 
 - App: `resolve_gilded` calls `calculate_outcome(chosen_value)` without the dice, so two sixes are never a critical success on a gilded action with two or more dice.
 - Rulebook (p. 10): "On multiple 6s, the roll is a critical success." Taking the gilded die is a choice of result, so a chosen 6 with another 6 in the pool is still multiple sixes.
 - Suggested fix: when the chosen value is 6, count the sixes in the rolled dice. The server would need to keep the dice it rolled (it currently trusts the client's `chosen_value`, see QUIRKS.md bug D8), which also stops a replayed or invented result.
+- Done (2026-10-06): the server keeps the dice of a roll waiting for a choice (_pending_gilded in vtt/ws/handlers/rolls.py) and reads the kept die from them; chosen_value is ignored. A kept 6 among two or more 6s is a critical success. A choice with no roll waiting, a second choice, or a choice after a server restart is refused (action_rejected 409) and the desk says to roll again. This also closes QUIRKS.md D8.
 
 ### 4. Only one die can ever be gilded
 
 - App: `roll_dice` gilds at most the first die. An ability that gilds a die (`extra_gild`) on an action that is already gilded changes nothing.
 - Rulebook: several abilities "gild an additional die", for example Inspection (p. 31), Born in the Shadows (p. 31), Lie Detector (p. 28), Tenacious (p. 29) and Dissection (p. 30). With a gilded action that means two gilded dice.
 - Suggested fix: count gilded dice (gilded action plus one per gilding ability, capped by the pool) and let the player choose any gilded die. Only one point of drive is refreshed per roll either way, since only one die is taken as the result.
+- Done (2026-10-06): each gild adds a gilded die (the action's own plus one per gilding ability), up to the pool. The choice offers the best gilded die and the best regular die; when every die is gilded the best one counts and refreshes drive.
 
 ### 5. Drive can be spent past the Rule of Six and past what the character has
 
@@ -47,6 +52,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: on a secret roll (`is_secret`) neither the single gilded die refresh nor the Well-Read refund happens (QUIRKS.md D7). Well-Read is also never checked on a roll resolved through `resolve_gilded`.
 - Rulebook: taking the gilded result refreshes 1 drive point (p. 8), and Well-Read refunds spent Intuition on a result of 3 or less (p. 27). Neither depends on whether the roll is shown to others.
 - Suggested fix: apply both on secret rolls (without the public log line) and apply Well-Read in `resolve_gilded` when the chosen value is 3 or less and Intuition was spent.
+- Done (2026-10-06): a secret roll applies the gilded refresh and Well-Read and only keeps its log line to itself; resolve_gilded checks Well-Read on the kept die, and a secret roll's choice no longer reaches the table's log.
 
 ### 7. The Lightkeeper's roll
 
@@ -61,6 +67,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: `burn_resistance` takes `drive_key` from the client and accepts any drive for any action. It also does not check that there was a roll to resist.
 - Rulebook (p. 13): you burn "1 resistance point from the drive related to that action", then reroll a number of dice equal to the action rating (drive and assist dice are not included, a gilded action still rolls its gilded die, and a zero rating rolls two dice and takes the lowest).
 - Suggested fix: derive the drive from the action, as the roll handler does. The reroll itself matches the rulebook.
+- Done (2026-10-06): burn_resistance burns the action's own drive (engine.drive_for_action); the client's drive_key is ignored and an unknown action is refused (422).
 
 ## Marks, incapacitation and scars
 
@@ -127,6 +134,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: spending Refresh restores drives and resistances and also clears `ability_uses`.
 - Rulebook (p. 41): Refresh recoups "all used drives and resistances for one PC". Once-per-assignment abilities reset with the assignment.
 - Suggested fix: leave `ability_uses` to `gm_end_assignment`. This is minor, since Refresh is spent between assignments.
+- Done (2026-10-06): Refresh restores drives and resistances and leaves ability_uses to gm_end_assignment.
 
 ### 19. Illumination track size and milestones
 

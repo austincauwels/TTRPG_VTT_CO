@@ -169,7 +169,9 @@ def create_notebook_entry(db: Session, campaign_id: int, title: str, content: st
     return entry
 
 def calculate_outcome(value, dice=None):
-    if dice and sum(1 for d in dice if d.get("value") == 6) >= 2:
+    """The outcome of a result. With the roll's dice, a 6 among two or more 6s is a
+    critical success (rulebook p. 10); a result below 6 never is, whatever else was rolled."""
+    if value == 6 and dice and sum(1 for d in dice if d.get("value") == 6) >= 2:
         return "critical_success"
     if value == 6:
         return "full_success"
@@ -184,35 +186,46 @@ OUTCOME_LABELS = {
     "failure": "Failure",
 }
 
-def roll_dice(pool_size, is_gilded=False, extra_dice=0, extra_gild=False):
-    # extra_gild upgrades the action to gilded even if the gilded_{action} flag is False
-    effective_gilded = is_gilded or extra_gild
-    # extra_dice adds to pool but total is capped at 6
-    effective_pool = min(6, pool_size + extra_dice)
+def roll_dice(pool_size, is_gilded=False, extra_dice=0, extra_gild=0):
+    """Rolls an action's pool (rulebook pp. 10 to 13).
 
-    if effective_pool == 0:
+    is_gilded is the action's own gilding; extra_gild is how many more dice abilities
+    gild (True counts as one). Each gild makes one more die gilded, as many as the pool
+    has dice, so a gilded action with a gilding ability rolls two gilded dice. extra_dice
+    adds to the pool, which is capped at six dice (the Rule of Six).
+
+    With no dice the roll takes the lower of two, never a critical success, and the
+    gilded die cannot be chosen; when it is the lower die (the result) drive is still
+    earned back (auto_gilded_refresh). With gilded dice and regular dice the player
+    keeps either the best gilded die or the best regular one (needs_gilded_choice; the
+    server holds the dice, see vtt/ws/handlers/rolls.py). When every die is gilded the
+    best one counts and earns back drive."""
+    gilds = (1 if is_gilded else 0) + int(extra_gild or 0)
+    pool = min(6, max(0, pool_size + extra_dice))
+
+    if pool == 0:
         die1 = secrets.randbelow(6) + 1
         die2 = secrets.randbelow(6) + 1
         result_val = min(die1, die2)
-        zero_dice = [
-            {"value": die1, "is_gilded": effective_gilded},
-            {"value": die2, "is_gilded": False},
-        ]
-        return {
+        zero = {
             "type": "zero",
-            "dice": zero_dice,
+            "dice": [
+                {"value": die1, "is_gilded": gilds > 0},
+                {"value": die2, "is_gilded": False},
+            ],
             "result": result_val,
-            "outcome": calculate_outcome(result_val, zero_dice),
+            "outcome": calculate_outcome(result_val),
             "needs_gilded_choice": False,
         }
+        if gilds > 0 and die1 <= die2:
+            zero["auto_gilded_refresh"] = True
+        return zero
 
-    pool_size = effective_pool
-    is_gilded = effective_gilded
+    gilded_count = min(pool, gilds)
+    dice = [{"value": secrets.randbelow(6) + 1, "is_gilded": i < gilded_count} for i in range(pool)]
 
-    dice = [{"value": secrets.randbelow(6) + 1, "is_gilded": is_gilded and i == 0} for i in range(pool_size)]
-
-    if is_gilded and pool_size == 1:
-        result_val = dice[0]["value"]
+    if gilded_count == pool:
+        result_val = max(d["value"] for d in dice)
         return {
             "type": "standard",
             "dice": dice,
@@ -222,19 +235,19 @@ def roll_dice(pool_size, is_gilded=False, extra_dice=0, extra_gild=False):
             "auto_gilded_refresh": True,
         }
 
-    if is_gilded and pool_size > 1:
-        gilded_value = dice[0]["value"]
-        regular_values = [d["value"] for d in dice[1:]]
-        highest_regular = max(regular_values)
-        highest_regular_idx = next(i + 1 for i, d in enumerate(dice[1:]) if d["value"] == highest_regular)
+    if gilded_count > 0:
+        def best(of_gilded):
+            return max((i for i, d in enumerate(dice) if d["is_gilded"] == of_gilded),
+                       key=lambda i: (dice[i]["value"], -i))
+        gilded_idx, highest_regular_idx = best(True), best(False)
         return {
             "type": "standard",
             "dice": dice,
             "needs_gilded_choice": True,
-            "gilded_idx": 0,
-            "gilded_value": gilded_value,
+            "gilded_idx": gilded_idx,
+            "gilded_value": dice[gilded_idx]["value"],
             "highest_regular_idx": highest_regular_idx,
-            "highest_regular_value": highest_regular,
+            "highest_regular_value": dice[highest_regular_idx]["value"],
         }
 
     result_val = max(d["value"] for d in dice)
@@ -305,8 +318,19 @@ def apply_advancement(db: Session, character, choice: str, detail: str = ""):
 def calculate_resistance_max(max_drive):
     return max_drive // 3
 
+def drive_for_action(action: str) -> str:
+    """The drive an action belongs to: Nerve for move, strike, control; Cunning for
+    hide, sneak (the rulebook's Read), sway; Intuition for survey, read (Focus), sense."""
+    if action in ("move", "strike", "control"):
+        return "nerve"
+    if action in ("hide", "sneak", "sway"):
+        return "cunning"
+    return "intuition"
+
+
 def burn_resistance(db: Session, character, action: str, drive_key: str):
-    """Burn one resistance pip and reroll using only the action rating (no drive added)."""
+    """Burn one resistance pip and reroll using only the action rating (no drive added).
+    The caller passes the action's own drive (drive_for_action, rulebook p. 13)."""
     resist_field = f"{drive_key}_resistance_spent"
     max_pips = calculate_resistance_max(getattr(character, f"{drive_key}_max", 1) or 1)
     current_spent = getattr(character, resist_field, 0) or 0

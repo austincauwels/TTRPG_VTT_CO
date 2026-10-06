@@ -267,7 +267,8 @@ def test_spend_refresh_and_train(client):
         p = msgs[0]["payload"]
         assert (p["nerve_current"], p["cunning_current"], p["intuition_current"]) == (3, 6, 3)
         assert p["nerve_resistance_spent"] == 0
-        assert p["ability_uses"] == {}
+        # Refresh leaves once-per-assignment uses to the end of the assignment (RULES_CHECK 18)
+        assert p["ability_uses"] == {"Steel Mind": 1}
         ws.send("spend_resource", resource_type="train")
         msgs = ws.sync()
         assert msgs[0]["payload"]["train_bonus"] is True

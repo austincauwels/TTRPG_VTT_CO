@@ -10,18 +10,28 @@ when a die is kept (the roll's dice wait for that choice). Its payload:
 result and outcome, as in roll_result) and "kept" (None, or {"index", "is_gilded",
 "value"} for the die kept in a gilded choice)}. A secret roll sends none.
 """
-from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, roll_dice
+from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, drive_for_action, roll_dice
 from vtt.config import logger
 from vtt.serializers import get_char_dict
 from vtt.ws.manager import manager
 
 ACTION_KEYS = ("move", "strike", "control", "sway", "sneak", "hide", "survey", "read", "sense")
 
-# The dice of a gilded roll waiting for its choice, per character id, so that the table
-# can be shown them when a die is kept. In memory only: after a restart a kept die
-# sends no dice_thrown, and the other desks hear the dice when the roll's log line comes.
-# The choice itself is still taken as the client sends it (see handle_resolve_gilded).
+# The dice of a gilded roll waiting for its choice, per character id: the roll, its
+# action, the drive it spent from and how much, and whether it was secret. The kept die
+# is read from these dice, not from the value the client sends, so a choice can only be
+# made once, for the roll that is waiting, and a critical success counts the real dice
+# (rulebook p. 10; QUIRKS.md D8). In memory only: after a restart there is nothing to
+# choose from and the choice is refused, so the player rolls again.
 _pending_gilded: dict = {}
+
+NO_CHOICE_WAITING = "No roll is waiting for a die to be kept. Roll again."
+
+
+async def _refuse(ctx, action, status, detail):
+    """An action_rejected frame to the sender's own channel, as vtt.ws.access sends."""
+    await manager.broadcast(ctx.channel, {"type": "action_rejected", "payload": {
+        "action": action, "status": status, "detail": detail}})
 
 
 def _rating(character, action):
@@ -47,19 +57,19 @@ async def _dice_thrown(ctx, character, action, roll, rating, kept=None):
     }, ctx.db, exclude=ctx.channel)
 
 
-def _hold_or_throw(character, action, roll, is_secret):
+def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0):
     """For a roll that has just landed on the roller's felt: True when its dice tumble
     now and the table is told; False for a secret roll, which is never shown, and for
-    a gilded choice, whose dice are held until a die is kept."""
+    a gilded choice, whose dice are held until a die is kept (secret or not)."""
     if character is not None:
         _pending_gilded.pop(character.id, None)
-    if is_secret:
-        return False
-    if roll.get("needs_gilded_choice"):
-        if character is not None:
-            _pending_gilded[character.id] = {"action": action, "roll": dict(roll), "rating": _rating(character, action)}
-        return False
-    return True
+        if roll.get("needs_gilded_choice"):
+            _pending_gilded[character.id] = {
+                "action": action, "roll": dict(roll), "rating": _rating(character, action),
+                "cat": cat or drive_for_action(action), "spent": spent, "secret": bool(is_secret),
+            }
+            return False
+    return not is_secret
 
 
 async def handle_roll(ctx):
@@ -166,10 +176,10 @@ async def handle_roll(ctx):
             "type": "roll_result",
             "payload": {"character_id": target_char_id, "action": act, "roll": res, "character": get_char_dict(character) if character else None}
         })
-        if _hold_or_throw(character, act, res, is_secret):
+        if _hold_or_throw(character, act, res, is_secret, cat, spent):
             await _dice_thrown(ctx, character, act, res, _rating(character, act))
 
-        if not res.get("needs_gilded_choice") and not is_secret:
+        if not res.get("needs_gilded_choice"):
             result_val = res.get("result")
             outcome_key = res.get("outcome", "")
             outcome_label = OUTCOME_LABELS.get(outcome_key, outcome_key)
@@ -179,6 +189,8 @@ async def handle_roll(ctx):
             else:
                 log_msg = f"Lightkeeper rolled — {result_val} · {outcome_label}."
 
+            # The gilded refresh and Well-Read follow the dice, so they apply to a secret
+            # roll too (RULES_CHECK.md item 6); only its log line stays with the roller.
             post_roll_dirty = False
             if res.get("auto_gilded_refresh") and character and cat:
                 setattr(character, f"{cat}_current", min(getattr(character, f"{cat}_max", 3), getattr(character, f"{cat}_current") + 1))
@@ -197,10 +209,11 @@ async def handle_roll(ctx):
                 db.commit()
                 await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
-            await manager.broadcast_campaign(camp_code, camp_id, {
-                "type": "activity_log",
-                "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
-            }, db)
+            if not is_secret:
+                await manager.broadcast_campaign(camp_code, camp_id, {
+                    "type": "activity_log",
+                    "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
+                }, db)
     except Exception as roll_exc:
         logger.error("WS roll handler error: %s", roll_exc, exc_info=True)
         db.rollback()
@@ -208,44 +221,52 @@ async def handle_roll(ctx):
 
 
 async def handle_resolve_gilded(ctx):
+    """Keeps a die of the roll waiting for a choice: the best gilded die (chosen_type
+    "gilded"), which earns back 1 drive, or the best regular one (anything else). The die
+    and its value come from the held dice; the client's chosen_value is ignored. Two or
+    more 6s with a 6 kept is a critical success. Well-Read refunds spent Intuition on a
+    kept 3 or less, as on any roll. A secret roll's choice is told to no one else."""
     db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
     r_act = payload.get("action")
-    chosen_type = payload.get("chosen_type")
-    chosen_value = int(payload.get("chosen_value", 0))
-    r_cat = "nerve" if r_act in ["move", "strike", "control"] else "cunning" if r_act in ["hide", "sneak", "sway"] else "intuition"
+    pending = _pending_gilded.get(character.id)
+    if pending is None or pending["action"] != r_act:
+        await _refuse(ctx, "resolve_gilded", 409, NO_CHOICE_WAITING)
+        return
+    _pending_gilded.pop(character.id, None)
 
-    drive_refreshed = False
-    if chosen_type == "gilded" and hasattr(character, f"{r_cat}_current"):
-        setattr(character, f"{r_cat}_current", min(getattr(character, f"{r_cat}_max", 3), getattr(character, f"{r_cat}_current") + 1))
-        drive_refreshed = True
-        db.commit()
-
-    outcome_key = calculate_outcome(chosen_value)
+    roll = pending["roll"]
+    dice = roll.get("dice") or []
+    want_gilded = payload.get("chosen_type") == "gilded"
+    index = roll["gilded_idx"] if want_gilded else roll["highest_regular_idx"]
+    chosen_value = dice[index]["value"]
+    r_cat, spent = pending["cat"], pending["spent"]
+    outcome_key = calculate_outcome(chosen_value, dice)
     outcome_label = OUTCOME_LABELS.get(outcome_key, outcome_key)
     log_msg = f"{character.name} rolled {r_act} — {chosen_value} · {outcome_label}."
-    if drive_refreshed:
-        log_msg += f" [gilded — {r_cat} Drive refreshed]"
 
-    # The kept die starts the dice tumbling on the roller's felt: the table sees them now
-    pending = _pending_gilded.pop(character.id, None)
-    if pending is not None and pending["action"] == r_act:
-        roll = pending["roll"]
-        dice = roll.get("dice") or []
-        want_gilded = chosen_type == "gilded"
-        index = roll.get("gilded_idx") if want_gilded else roll.get("highest_regular_idx")
-        if not (isinstance(index, int) and 0 <= index < len(dice)
-                and dice[index].get("value") == chosen_value and bool(dice[index].get("is_gilded")) == want_gilded):
-            index = next((i for i, d in enumerate(dice)
-                          if bool(d.get("is_gilded")) == want_gilded and d.get("value") == chosen_value), None)
+    changed = False
+    if want_gilded:
+        setattr(character, f"{r_cat}_current", min(getattr(character, f"{r_cat}_max", 3), getattr(character, f"{r_cat}_current") + 1))
+        changed = True
+        log_msg += f" [gilded — {r_cat} Drive refreshed]"
+    if outcome_key == "failure" and r_cat == "intuition" and spent > 0 \
+            and "Well-Read" in (character.role_ability, character.specialty_ability):
+        character.intuition_current = min(character.intuition_max or 3, (character.intuition_current or 0) + spent)
+        changed = True
+        log_msg += f" [Well-Read — {spent} Intuition refunded]"
+    if changed:
+        db.commit()
+
+    if not pending["secret"]:
+        # The kept die starts the dice tumbling on the roller's felt: the table sees them now
         shown = {**roll, "needs_gilded_choice": False, "result": chosen_value, "outcome": outcome_key}
         await _dice_thrown(ctx, character, r_act, shown, pending["rating"],
                            kept={"index": index, "is_gilded": want_gilded, "value": chosen_value})
-
-    await manager.broadcast_campaign(camp_code, camp_id, {
-        "type": "activity_log",
-        "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
-    }, db)
-    if drive_refreshed:
+        await manager.broadcast_campaign(camp_code, camp_id, {
+            "type": "activity_log",
+            "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
+        }, db)
+    if changed:
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
 
@@ -278,21 +299,31 @@ async def handle_use_post_roll_ability(ctx):
 
 
 async def handle_burn_resistance(ctx):
+    """Burns a resistance point of the action's own drive (rulebook p. 13; the client's
+    drive_key is ignored) and rerolls the action rating."""
     db, payload, character, target_char_id, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.channel, ctx.camp_code, ctx.camp_id
     act = payload.get("action")
-    drive_key = payload.get("drive_key")
-    if act and drive_key:
-        result = burn_resistance(db, character, act, drive_key)
-        if "error" not in result:
-            outcome_label = OUTCOME_LABELS.get(result.get("outcome", ""), "")
-            await manager.broadcast(channel, {
-                "type": "roll_result",
-                "payload": {"character_id": target_char_id, "action": act, "roll": result, "character": get_char_dict(character)}
-            })
-            if _hold_or_throw(character, act, result, False):
-                await _dice_thrown(ctx, character, act, result, _rating(character, act))
-            log_msg = f"{character.name} burned resistance on {act} — {result.get('result', '?')} · {outcome_label}."
-            await manager.broadcast_campaign(camp_code, camp_id, {
-                "type": "activity_log",
-                "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
-            }, db)
+    if act not in ACTION_KEYS:
+        if act:
+            await _refuse(ctx, "burn_resistance", 422, "Unknown action.")
+        return
+    drive_key = drive_for_action(act)
+    result = burn_resistance(db, character, act, drive_key)
+    if "error" in result:
+        return
+    outcome_label = OUTCOME_LABELS.get(result.get("outcome", ""), "")
+    await manager.broadcast(channel, {
+        "type": "roll_result",
+        "payload": {"character_id": target_char_id, "action": act, "roll": result, "character": get_char_dict(character)}
+    })
+    if _hold_or_throw(character, act, result, False, drive_key):
+        await _dice_thrown(ctx, character, act, result, _rating(character, act))
+    if result.get("needs_gilded_choice"):
+        # The result is the die the player keeps; resolve_gilded logs it
+        log_msg = f"{character.name} burned resistance on {act}."
+    else:
+        log_msg = f"{character.name} burned resistance on {act} — {result['result']} · {outcome_label}."
+    await manager.broadcast_campaign(camp_code, camp_id, {
+        "type": "activity_log",
+        "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
+    }, db)

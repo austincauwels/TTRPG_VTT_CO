@@ -414,6 +414,12 @@ const useGameStore = create(
             // The server refused a message this user may not send; nothing changed on the server.
             console.warn(`Vault refused ${message.payload.action}: ${message.payload.detail}`);
             if (message.payload.action === 'roll') failRoll(set, ROLL_REFUSED);
+            // The server keeps the dice of a roll that waits for a die to be kept, and reads
+            // the kept die from them; with no roll waiting (a server restart, a second
+            // choice) the kept die did not count, and the server's words say to roll again
+            if (message.payload.action === 'resolve_gilded') {
+              set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
+            }
           }
           else if (message.type === 'notebook_entry') {
             set(state => {

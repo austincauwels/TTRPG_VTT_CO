@@ -284,8 +284,8 @@ These are current behavior. The refactor should decide for each one whether to p
 - D4. `roster_finalized` does not reach the pending characters it releases, for the same reason (they are set to unaffiliated first).
 - D5. Declining or ignoring a soak or Death Defy offer means the mark is never applied. A Back Against the Wall soak offer has no frontend config and no server branch, so when it is the first soak option a Brain mark can never land through `take_mark`.
 - D6. The Premonitions intercept spends the interceptor's resistance but does not remove the target's mark.
-- D7. Secret rolls skip the single-gilded-die drive refresh and the Well-Read refund.
-- D8. `resolve_gilded` trusts the client's value and can be replayed; gilded-choice rolls can never be critical.
+- D7. Secret rolls skip the single-gilded-die drive refresh and the Well-Read refund. (Fixed 2026-10-06: both apply; the line stays with the roller.)
+- D8. `resolve_gilded` trusts the client's value and can be replayed; gilded-choice rolls can never be critical. (Fixed 2026-10-06: the server reads the kept die from the dice it holds, refuses a choice with no roll waiting, and counts a critical.)
 - D9. `circle_relationship_respond` raises on a GM socket (`int(game_id)`). REST and WebSocket handle `counter` differently.
 - D10. Malformed input ends the connection: non-numeric `chosen_value`, non-numeric resource values in `update_circle`. (Fixed in the bug-fix stage: unknown `vote_type`, non-object payloads and non-string gear elements now get `action_rejected` 422 or are ignored.)
 - D11. The ability use counter inside `roll` never counts anything.

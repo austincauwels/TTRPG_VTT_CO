@@ -91,13 +91,32 @@ def test_zero_dice_roll_keeps_lower(client, dice):
                         "needs_gilded_choice": False, "drive_spent_key": "nerve", "action": "move"}
 
 
-def test_zero_dice_double_six_is_critical(client, dice):
-    """QUIRK: on a zero-dice roll the lower die is the result, but two sixes still count as critical."""
+def test_zero_dice_double_six_is_a_full_success(client, dice):
+    """Fixed (RULES_CHECK 1): a zero-rating roll takes the lower die and can never be a
+    critical success, even on two sixes (rulebook p. 11)."""
     ch = support.forge(client)
     dice(6, 6)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="move", drive_spent=0)
-        assert ws.sync()[0]["payload"]["roll"]["outcome"] == "critical_success"
+        assert ws.sync()[0]["payload"]["roll"]["outcome"] == "full_success"
+
+
+@pytest.mark.parametrize("faces,refreshed", [((2, 5), True), ((3, 3), True), ((5, 2), False)])
+def test_zero_dice_gilded_die_refreshes_when_it_is_the_result(client, dice, faces, refreshed):
+    """Fixed (RULES_CHECK 2): on a zero-rating gilded action the gilded die cannot be
+    chosen, but when it is the lower die (the result) it still earns back drive (p. 11)."""
+    ch = support.forge(client, gilded_move=True, nerve_max=3, nerve_current=1)
+    dice(*faces)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=0)
+        msgs = ws.sync()
+        roll = msgs[0]["payload"]["roll"]
+        assert roll["type"] == "zero" and roll["result"] == min(faces)
+        assert roll["dice"][0]["is_gilded"] is True and roll["needs_gilded_choice"] is False
+        assert roll.get("auto_gilded_refresh", False) is refreshed
+        assert support.types(msgs) == (["roll_result", "character_update", "activity_log"] if refreshed
+                                       else ["roll_result", "activity_log"])
+    assert support.fetch(Character, ch["id"]).nerve_current == (2 if refreshed else 1)
 
 
 def test_two_sixes_critical(client, dice):
@@ -160,7 +179,7 @@ def test_keeping_the_regular_die_names_it(client, dice):
 
 def test_a_kept_die_shows_dice_once(client, dice):
     """The held dice are the roll's: a second resolve, or a resolve after a newer roll,
-    sends the line (as before) but no dice."""
+    is refused (no roll is waiting) and tells the table nothing."""
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, move=2, gilded_move=True, strike=1, nerve_max=3)
     dice(3, 5)
@@ -168,15 +187,15 @@ def test_a_kept_die_shows_dice_once(client, dice):
         ws.send("roll", action="move", drive_spent=0)
         ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value=3)
         ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value=3)
-        ws.sync()
-        assert support.types(gm.drain()) == ["dice_thrown", "activity_log", "activity_log"]
+        assert support.types(ws.sync()) == ["roll_result", "activity_log", "character_update", "action_rejected"]
+        assert support.types(gm.drain()) == ["dice_thrown", "activity_log"]
         dice(3, 5)
         ws.send("roll", action="move", drive_spent=0)
         dice(2)
         ws.send("roll", action="strike", drive_spent=0)
         ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=5)
-        ws.sync()
-        assert support.types(gm.drain()) == ["dice_thrown", "activity_log", "activity_log"]
+        assert support.types(ws.sync())[-1] == "action_rejected"
+        assert support.types(gm.drain()) == ["dice_thrown", "activity_log"]
 
 
 def test_a_secret_roll_shows_no_dice(client, dice):
@@ -188,33 +207,105 @@ def test_a_secret_roll_shows_no_dice(client, dice):
         dice(3, 5)
         ws.send("roll", action="move", drive_spent=0, is_secret=True)
         ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=5)
-        ws.sync()
-        # QUIRK: resolve_gilded logs even a secret roll's choice; it sends no dice
-        assert support.types(gm.drain()) == ["activity_log"]
+        assert support.types(ws.sync()) == ["roll_result", "roll_result"]
+        # Fixed: a secret roll's choice is told to no one, neither dice nor a line
+        assert gm.drain() == []
 
 
-def test_resolve_gilded_trusts_client_value_and_can_be_replayed(client):
-    """QUIRK: the value is not checked against the roll (the held dice only show the
-    table which die was kept); any value can be claimed at any time, and a 6 is a
-    full success, never critical."""
-    ch = support.forge(client, nerve_max=3, nerve_current=0)
+def test_resolve_gilded_reads_the_held_dice_and_cannot_be_replayed(client, dice):
+    """Fixed (QUIRKS D8): the kept die's value comes from the dice the server rolled, not
+    from chosen_value, and a choice with no roll waiting is refused (409) and changes nothing."""
+    ch = support.forge(client, move=2, gilded_move=True, nerve_max=3, nerve_current=0)
     with support.ws_connect(client, ch["id"]) as ws:
-        for _ in range(2):
-            ws.send("resolve_gilded", action="strike", chosen_type="gilded", chosen_value=6)
-            msgs = ws.sync()
-            assert msgs[0]["payload"]["message"].startswith(f"{ch['name']} rolled strike {EM} 6 {DOT} Full Success.")
-        ws.send("resolve_gilded", action="strike", chosen_type="regular", chosen_value="5")
+        ws.send("resolve_gilded", action="strike", chosen_type="gilded", chosen_value=6)
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "resolve_gilded", "status": 409, "detail": "No roll is waiting for a die to be kept. Roll again."}}]
+        dice(2, 4)
+        ws.send("roll", action="move", drive_spent=0)
+        ws.sync()
+        ws.send("resolve_gilded", action="strike", chosen_type="regular", chosen_value=6)  # not the roll waiting
+        assert support.types(ws.sync()) == ["action_rejected"]
+        ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=6)
         msgs = ws.sync()
         assert support.types(msgs) == ["activity_log"]
-        assert msgs[0]["payload"]["message"] == f"{ch['name']} rolled strike {EM} 5 {DOT} Mixed Success."
-    assert support.fetch(Character, ch["id"]).nerve_current == 2
+        assert msgs[0]["payload"]["message"] == f"{ch['name']} rolled move {EM} 4 {DOT} Mixed Success."
+        ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value=6)
+        assert support.types(ws.sync()) == ["action_rejected"]
+    assert support.fetch(Character, ch["id"]).nerve_current == 0
 
 
-def test_resolve_gilded_bad_value_closes_socket(client):
-    ch = support.forge(client)
+def test_resolve_gilded_ignores_a_value_that_is_not_a_number(client, dice):
+    """Fixed: a chosen_value that is not a number used to end the socket; it is ignored."""
+    ch = support.forge(client, move=2, gilded_move=True)
+    dice(5, 1)
     with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=0)
+        ws.sync()
         ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value="six")
-        assert support.wait_server_dropped(ch["id"])
+        assert ws.sync()[0]["payload"]["message"].startswith(f"{ch['name']} rolled move {EM} 5 {DOT} Mixed Success.")
+        assert support.server_sockets(ch["id"])
+
+
+@pytest.mark.parametrize("chosen_type,faces,outcome", [
+    ("gilded", (6, 6, 2), "critical_success"),
+    ("regular", (2, 6, 6), "critical_success"),
+    ("regular", (6, 5, 4), "mixed_success"),
+    ("gilded", (3, 6, 6), "failure"),          # a kept 3 is a 3, whatever else was rolled
+])
+def test_resolve_gilded_counts_the_held_dice_for_a_critical(client, dice, chosen_type, faces, outcome):
+    """Fixed (RULES_CHECK 3): two or more 6s with a 6 kept is a critical success (p. 10)."""
+    ch = support.forge(client, move=3, gilded_move=True)
+    dice(*faces)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=0)
+        ws.sync()
+        ws.send("resolve_gilded", action="move", chosen_type=chosen_type)
+        label = engine.OUTCOME_LABELS[outcome]
+        assert f" {DOT} {label}." in ws.sync()[0]["payload"]["message"]
+
+
+def test_two_gilds_roll_two_gilded_dice(client, dice):
+    """Fixed (RULES_CHECK 4): a gilded action with a gilding ability (Born in the Shadows
+    on Hide) rolls two gilded dice; the choice offers the better of them."""
+    ch = support.forge(client, hide=3, gilded_hide=True, specialty_ability="Born in the Shadows",
+                       cunning_max=3, cunning_current=1)
+    dice(2, 5, 4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="hide", drive_spent=0, ability_mods=["Born in the Shadows"])
+        roll = ws.sync()[0]["payload"]["roll"]
+        assert [d["is_gilded"] for d in roll["dice"]] == [True, True, False]
+        assert (roll["gilded_idx"], roll["gilded_value"], roll["highest_regular_idx"], roll["highest_regular_value"]) == (1, 5, 2, 4)
+        ws.send("resolve_gilded", action="hide", chosen_type="gilded")
+        msgs = ws.sync()
+        assert msgs[0]["payload"]["message"] == (
+            f"{ch['name']} rolled hide {EM} 5 {DOT} Mixed Success. [gilded {EM} cunning Drive refreshed]")
+        assert msgs[1]["payload"]["cunning_current"] == 2
+
+
+def test_every_die_gilded_takes_the_best_and_refreshes(client, dice):
+    ch = support.forge(client, hide=1, gilded_hide=True, specialty_ability="Born in the Shadows",
+                       cunning_max=3, cunning_current=1)
+    dice(2, 6)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="hide", drive_spent=1, ability_mods=["Born in the Shadows"])
+        roll = ws.sync()[0]["payload"]["roll"]
+    assert roll["dice"] == [{"value": 2, "is_gilded": True}, {"value": 6, "is_gilded": True}]
+    assert (roll["needs_gilded_choice"], roll["result"], roll.get("auto_gilded_refresh")) == (False, 6, True)
+    assert support.fetch(Character, ch["id"]).cunning_current == 1  # 1 spent, 1 earned back
+
+
+def test_well_read_refunds_on_a_kept_die_of_three_or_less(client, dice):
+    """Fixed (RULES_CHECK 6): Well-Read is checked on a gilded choice as on any roll."""
+    ch = support.forge(client, read=1, gilded_read=True, specialty_ability="Well-Read",
+                       intuition_max=6, intuition_current=4)
+    dice(2, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="read", drive_spent=1)
+        ws.sync()
+        ws.send("resolve_gilded", action="read", chosen_type="regular")
+        msgs = ws.sync()
+        assert msgs[0]["payload"]["message"].endswith("[Well-Read " + EM + " 1 Intuition refunded]")
+        assert msgs[1]["payload"]["intuition_current"] == 4
 
 
 def test_single_gilded_die_refreshes_drive(client, dice):
@@ -233,13 +324,17 @@ def test_single_gilded_die_refreshes_drive(client, dice):
             f"{ch['name']} rolled move {EM} 4 {DOT} Mixed Success. [gilded {EM} nerve Drive refreshed]")
 
 
-def test_secret_single_gilded_die_does_not_refresh(client, dice):
-    ch = support.forge(client, move=1, gilded_move=True, nerve_max=3, nerve_current=1)
+def test_secret_single_gilded_die_refreshes_without_a_line(client, dice):
+    """Fixed (RULES_CHECK 6): the gilded refresh follows the dice, secret or not; a
+    secret roll still sends no log line."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=1, gilded_move=True, nerve_max=3, nerve_current=1)
     dice(4)
-    with support.ws_connect(client, ch["id"]) as ws:
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         ws.send("roll", action="move", drive_spent=0, is_secret=True)
-        assert support.types(ws.sync()) == ["roll_result"]
-    assert support.fetch(Character, ch["id"]).nerve_current == 1
+        assert support.types(ws.sync()) == ["roll_result", "character_update"]
+        assert gm.drain() == []
+    assert support.fetch(Character, ch["id"]).nerve_current == 2
 
 
 def test_lightkeeper_roll_on_gm_socket(client, dice):
@@ -432,14 +527,33 @@ def test_burn_resistance(client, dice):
     assert support.fetch(Character, ch["id"]).nerve_resistance_spent == 1
 
 
-def test_burn_resistance_gilded_choice_logs_question_mark(client, dice):
+def test_burn_resistance_uses_the_actions_own_drive(client, dice):
+    """Fixed (RULES_CHECK 8): the resistance burned is the action's drive's, whatever
+    drive_key the client names; an unknown action is refused."""
+    ch = support.forge(client, sway=1, cunning_max=3, nerve_max=3)
+    dice(4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("burn_resistance", action="sway", drive_key="nerve")
+        assert support.types(ws.sync()) == ["roll_result", "activity_log"]
+        ws.send("burn_resistance", action="nerve_max")
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "burn_resistance", "status": 422, "detail": "Unknown action."}}]
+    fetched = support.fetch(Character, ch["id"])
+    assert (fetched.cunning_resistance_spent, fetched.nerve_resistance_spent) == (1, 0)
+
+
+def test_burn_resistance_gilded_choice_logs_the_kept_die(client, dice):
+    """Fixed: a resistance reroll that waits for a choice says only that resistance was
+    burned; the kept die's line follows from resolve_gilded."""
     ch = support.forge(client, sense=2, gilded_sense=True, intuition_max=3)
     dice(2, 4)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("burn_resistance", action="sense", drive_key="intuition")
         msgs = ws.sync()
         assert msgs[0]["payload"]["roll"]["needs_gilded_choice"] is True
-        assert msgs[1]["payload"]["message"] == f"{ch['name']} burned resistance on sense {EM} ? {DOT} ."
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} burned resistance on sense."
+        ws.send("resolve_gilded", action="sense", chosen_type="regular")
+        assert ws.sync()[0]["payload"]["message"] == f"{ch['name']} rolled sense {EM} 4 {DOT} Mixed Success."
 
 
 def test_post_roll_abilities(client):
