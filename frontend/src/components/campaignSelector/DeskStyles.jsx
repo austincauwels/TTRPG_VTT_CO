@@ -626,18 +626,15 @@ export const DeskStyles = () => (
       text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.05; text-align: center;
       font-size: clamp(14px, 8.4cqw, 19px);
     }
-    .ticket-flip {
-      position: absolute; inset: 0;
-      transform-style: preserve-3d;
-      transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-    .ticket-flip.is-flipped { transform: rotateY(180deg); }
-    .ticket-face { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
-    .ticket-back { transform: rotateY(180deg); cursor: default; --hole-x: 18%; }
-    /* The shadow narrows as the card turns edge-on, and widens again */
-    @keyframes castTurn { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.08); } }
+    /* The Lightkeeper's ticket turns flat (NewCampaignTicket.jsx, shared/useFlatTurn.js):
+       only the face that is up is drawn, and the card and its shadow narrow to the edge and
+       widen again by script. In 3D, WebKit (Safari) showed the form on its back mirrored
+       over the front at rest (iPad pass, 2026-10-05). */
+    .ticket-flip { position: absolute; inset: 0; }
+    .ticket-flip .ticket-back, .ticket-flip.is-flipped .ticket-front { visibility: hidden; }
+    .ticket-flip.is-flipped .ticket-back { visibility: visible; }
+    .ticket-back { cursor: default; --hole-x: 18%; }
     .cast-turn { position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; }
-    .cast-turn.is-turning { animation: castTurn 0.65s cubic-bezier(0.22, 1, 0.36, 1); }
 
     /* ── Loose papers (CryptidSketches.jsx, paperArt.js) ──
        Aged, used paper with no frames: each sheet is cut by its own mask (deckled, torn,
@@ -822,18 +819,12 @@ export const DeskStyles = () => (
         linear-gradient(to bottom, rgba(10,5,2,0) 55%, rgba(10,5,2,0.22) 100%);
     }
 
-    /* Reduced motion: steady light, no flicker, a flip without a spin */
+    /* Reduced motion: steady light, no flicker (the ticket turns without narrowing, useFlatTurn) */
     @media (prefers-reduced-motion: reduce) {
       .hub-light, .hub-shade, .candle-shadow, .cast,
-      .flame, .flame-core, .flame-halo, .flame-light, .cast-turn.is-turning,
+      .flame, .flame-core, .flame-halo, .flame-light,
       .tome:hover .gilt-glow, .tome:focus-visible .gilt-glow { animation: none !important; }
       .gilt-glow, .gilt-mark, .ink-glow, .cast { transition: none !important; }
-      .ticket-flip,
-      .ticket-flip.is-flipped,
-      .ticket-back { transform: none; transition: none; }
-      .ticket-flip .ticket-back,
-      .ticket-flip.is-flipped .ticket-front { visibility: hidden; }
-      .ticket-flip.is-flipped .ticket-back { visibility: visible; }
     }
 
     /* ── Book open/close animation ──

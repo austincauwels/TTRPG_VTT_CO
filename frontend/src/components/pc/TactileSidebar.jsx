@@ -7,6 +7,7 @@ import { useTypedText } from '../shared/useTypedText';
 import { SerialNo, BlankEntry, serialFor } from '../shared/PrintMarks';
 import { TurnOverMark, PushPin } from '../shared/Decorations';
 import { playPaperSound } from '../../game/rollSounds';
+import { useFlatTurn } from '../shared/useFlatTurn';
 
 // The investigator's photograph, small, pinned to the corner of their card. Only when
 // there is one: a card without a photograph shows no empty frame.
@@ -44,10 +45,10 @@ function useFaceHeights() {
   return { frontRef, backRef, heights };
 }
 
-// The face of a card: parchment with the investigator's ink along its top edge
-const faceStyle = (inkColor, back = false) => ({
-  backfaceVisibility: 'hidden',
-  ...(back ? { transform: 'rotateY(180deg)' } : null),
+// The face of a card: parchment with the investigator's ink along its top edge. Only the
+// face that is up is drawn; the other keeps its size, so the card knows its height.
+const faceStyle = (inkColor, up) => ({
+  visibility: up ? undefined : 'hidden',
   background: 'rgb(var(--c-parchment))',
   border: '1px solid rgb(var(--c-ink) / 0.12)',
   borderTopColor: inkColor,
@@ -62,8 +63,11 @@ function RelationshipCard({ inv, myId, relationships, index }) {
   const myRel = relationships.find(r => r.from_character_id === myId && r.to_character_id === inv.id);
   const theirRel = relationships.find(r => r.from_character_id === inv.id && r.to_character_id === myId);
   const hasAny = myRel || theirRel;
-  // The card turns over on this screen, with the paper sound (owner's round 3 item 21)
-  const turn = () => { playPaperSound(); setFlipped(f => !f); };
+  // The card turns over on this screen, with the paper sound (owner's round 3 item 21). It
+  // turns flat, as the Lightkeeper's report cards do: in 3D, WebKit (Safari) showed each
+  // card's back mirrored over its front at rest (iPad pass, 2026-10-05).
+  const { ref: cardRef, turn: turnFlat } = useFlatTurn({ ms: 500 });
+  const turn = () => { playPaperSound(); turnFlat(() => setFlipped(f => !f)); };
   // The card is as tall as the face that is up; the borders (3px top, 1px bottom) sit on
   // the face, outside the measured content
   const height = (flipped ? heights.back : heights.front) + 4;
@@ -73,10 +77,9 @@ function RelationshipCard({ inv, myId, relationships, index }) {
       className="hand-placed relative cursor-pointer"
       style={{
         '--tilt': `${tiltFor(inv.id, { sign: index % 2 ? 1 : -1 })}deg`,
-        perspective: '800px',
         height: height > 4 ? `${height}px` : undefined,
         minHeight: height > 4 ? undefined : '96px',
-        transition: 'height 0.4s ease 0.15s',
+        transition: 'height 0.4s ease',
       }}
       onClick={() => hasAny && turn()}
       role={hasAny ? 'button' : undefined}
@@ -84,15 +87,9 @@ function RelationshipCard({ inv, myId, relationships, index }) {
       aria-expanded={hasAny ? flipped : undefined}
       onKeyDown={hasAny ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); turn(); } } : undefined}
     >
-      <div
-        className="w-full h-full transition-transform duration-500"
-        style={{
-          transformStyle: 'preserve-3d',
-          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-        }}
-      >
+      <div ref={cardRef} className="w-full h-full">
         {/* Front */}
-        <div className="absolute inset-0 shadow-md overflow-hidden" style={faceStyle(inkColor)} aria-hidden={flipped || undefined}>
+        <div className="absolute inset-0 shadow-md overflow-hidden" style={faceStyle(inkColor, !flipped)} aria-hidden={flipped || undefined}>
           <div ref={frontRef} className="flex items-start gap-3 px-4 py-3">
             <PinnedPhoto src={inv.profile_pic} name={inv.name} index={index} />
             <div className="min-w-0 flex-1">
@@ -125,7 +122,7 @@ function RelationshipCard({ inv, myId, relationships, index }) {
         </div>
 
         {/* Back: as long as what is written on it */}
-        <div className="absolute inset-0 shadow-md overflow-hidden" style={faceStyle(inkColor, true)} aria-hidden={!flipped || undefined}>
+        <div className="absolute inset-0 shadow-md overflow-hidden" style={faceStyle(inkColor, flipped)} aria-hidden={!flipped || undefined}>
           <div ref={backRef} className="px-3 pt-2 pb-3">
             <p className="font-sans font-bold text-base text-sepia uppercase tracking-widest mb-2">{inv.name}</p>
             {myRel ? (

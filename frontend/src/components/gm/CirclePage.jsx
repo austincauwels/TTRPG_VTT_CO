@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
+import { useFlatTurn } from '../shared/useFlatTurn';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { tiltStyle } from '../shared/handPlaced';
@@ -78,38 +79,15 @@ const ILLUMINATION_KEYS = {
   Occultist:  ['Consult Arcane Texts', 'Collect Oddities', 'Act Bizarre'],
 };
 
-const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-const TURN_MS = 400;
-
 function ReportFlipCard({ inv, report }) {
   const [flipped, setFlipped] = useState(false);
-  // The card turns flat, in two dimensions: it narrows to its edge, shows its other face and
-  // widens again, drawn frame by frame. The report cards lie in the circle papers' columns,
-  // and WebKit (Safari) draws anything given a 3D transform or a running transform animation
-  // there out of place: a card turned in 3D at rest was drawn in the first column over the
-  // papers there, and during a 3D turn the second column's papers went blank (iPad pass,
-  // 2026-10-05). A transform set by script on each frame is painted where the card lies.
-  const cardRef = useRef(null);
-  const turnFrame = useRef(0);
-  useEffect(() => () => cancelAnimationFrame(turnFrame.current), []);
-  const turn = () => {
-    playPaperSound();
-    const el = cardRef.current;
-    cancelAnimationFrame(turnFrame.current);
-    if (!el || reducedMotion()) { if (el) el.style.transform = ''; setFlipped(f => !f); return; }
-    const start = performance.now();
-    let swapped = false;
-    const frame = (now) => {
-      const t = Math.min(1, (now - start) / TURN_MS);
-      const eased = 0.5 - Math.cos(Math.PI * t) / 2;
-      // the other face comes up as the card stands on its edge
-      if (!swapped && t >= 0.5) { swapped = true; setFlipped(f => !f); }
-      el.style.transform = t < 1 ? `scaleX(${Math.max(0.002, Math.abs(Math.cos(eased * Math.PI))).toFixed(3)})` : '';
-      if (t < 1) turnFrame.current = requestAnimationFrame(frame);
-    };
-    turnFrame.current = requestAnimationFrame(frame);
-  };
+  // The card turns flat (shared/useFlatTurn.js): the report cards lie in the circle papers'
+  // columns, and WebKit (Safari) draws anything given a 3D transform or a running transform
+  // animation there out of place: a card turned in 3D at rest was drawn in the first column
+  // over the papers there, and during a 3D turn the second column's papers went blank
+  // (iPad pass, 2026-10-05).
+  const { ref: cardRef, turn: turnFlat } = useFlatTurn({ ms: 400 });
+  const turn = () => { playPaperSound(); turnFlat(() => setFlipped(f => !f)); };
   const responses = report?.responses || {};
   const specialtyKeys = ILLUMINATION_KEYS[inv.specialty] || [];
   const keysDetail = responses.keys_detail || {};
