@@ -259,7 +259,7 @@ def _roll(ctx, payload, character):
     (RULES_CHECK.md item 5) and is left as it is."""
     try:
         spent = int(payload.get("drive_spent", 0))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):  # OverflowError: JSON's Infinity
         return
     if spent < 0:
         _invalid("Drive spent cannot be negative.")

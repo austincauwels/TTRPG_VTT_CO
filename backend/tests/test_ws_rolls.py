@@ -295,11 +295,15 @@ def test_negative_lightkeeper_roll_is_rejected(client):
             "action": "roll", "status": 422, "detail": "Drive spent cannot be negative."}}]
 
 
-def test_roll_bad_drive_spent_is_roll_error(client):
+@pytest.mark.parametrize("raw", ['"lots"', "null", "Infinity", "-Infinity", "NaN"])
+def test_roll_bad_drive_spent_is_roll_error(client, raw):
+    """A drive_spent that is not a whole number gets roll_error and the socket stays open,
+    including JSON's Infinity, which the negative-spend check must let through to the handler."""
     ch = support.forge(client, move=1)
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("roll", action="move", drive_spent="lots")
+        ws.send_text('{"type": "roll", "payload": {"action": "move", "drive_spent": %s}}' % raw)
         assert support.types(ws.sync()) == ["roll_error"]
+        assert support.server_sockets(ch["id"])
 
 
 def test_roll_action_is_not_validated(client, dice):
