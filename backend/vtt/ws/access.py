@@ -251,6 +251,20 @@ def _update_gear(ctx, payload, character):
         _invalid("Gear items must be text.")
 
 
+def _roll(ctx, payload, character):
+    """A negative drive_spent used to raise the drive above its maximum and commit that
+    before the empty pool failed (QUIRK D15). It is refused before anything changes.
+    A value that is not a number still reaches the handler, which answers roll_error
+    as it always has. Spending more than the drive holds is a rules question
+    (RULES_CHECK.md item 5) and is left as it is."""
+    try:
+        spent = int(payload.get("drive_spent", 0))
+    except (TypeError, ValueError):
+        return
+    if spent < 0:
+        _invalid("Drive spent cannot be negative.")
+
+
 def _chat_message(ctx, payload, character):
     _sender_campaign(ctx)
     if str(payload.get("target", "@Circle")).lower() == "@environment" and not ctx.is_gm:
@@ -295,6 +309,7 @@ RULES = {
     "circle_relationship_respond": _circle_relationship_respond,
     "apply_scar": _apply_scar,
     "update_gear": _update_gear,
+    "roll": _roll,
     "chat_message": _chat_message,
     "add_notebook_entry": _add_notebook_entry,
 }

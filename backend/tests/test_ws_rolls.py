@@ -269,16 +269,30 @@ def test_roll_without_action_sends_roll_error(client):
         assert ws.sync() == [{"type": "roll_error", "payload": {"message": "roll action missing 'action' field"}}]
 
 
-def test_negative_drive_spent_inflates_drive_then_errors(client):
-    """QUIRK: a negative spend raises the drive above its max and is committed before
-    the empty dice pool fails."""
+@pytest.mark.parametrize("spent", [-3, "-1", -1.5])
+def test_negative_drive_spent_is_rejected(client, dice, spent):
+    """Fixed (D15): a negative spend raised the drive above its max and was committed
+    before the empty dice pool failed. It is now refused before anything changes, and
+    the socket stays open for the next roll."""
     ch = support.forge(client, move=1, nerve_max=3, nerve_current=1)
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("roll", action="move", drive_spent=-3)
-        msgs = ws.sync()
-        assert support.types(msgs) == ["roll_error"]
-        assert "max()" in msgs[0]["payload"]["message"]
-    assert support.fetch(Character, ch["id"]).nerve_current == 4
+        ws.send("roll", action="move", drive_spent=spent)
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "roll", "status": 422, "detail": "Drive spent cannot be negative."}}]
+        assert support.fetch(Character, ch["id"]).nerve_current == 1
+        dice(4, 2)
+        ws.send("roll", action="move", drive_spent=1)
+        assert support.types(ws.sync()) == ["roll_result", "activity_log"]
+    assert support.fetch(Character, ch["id"]).nerve_current == 0
+
+
+def test_negative_lightkeeper_roll_is_rejected(client):
+    """The Lightkeeper's roll takes drive_spent as its pool, so a negative one is refused too."""
+    camp = support.new_campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("roll", action="Lightkeeper", drive_spent=-2)
+        assert gm.sync() == [{"type": "action_rejected", "payload": {
+            "action": "roll", "status": 422, "detail": "Drive spent cannot be negative."}}]
 
 
 def test_roll_bad_drive_spent_is_roll_error(client):

@@ -38,7 +38,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 
 ### 5. Drive can be spent past the Rule of Six and past what the character has
 
-- App: the roll handler takes the whole `drive_spent` from the drive (floored at 0) but caps the pool at 6. A player can spend more than they have and still get every die, and drive spent past six dice is lost. A negative `drive_spent` raises the drive (QUIRKS.md D15).
+- App: the roll handler takes the whole `drive_spent` from the drive (floored at 0) but caps the pool at 6. A player can spend more than they have and still get every die, and drive spent past six dice is lost. A negative `drive_spent` used to raise the drive (QUIRKS.md D15); since 2026-10-06 it is refused with 422, and the rest of this item is unchanged.
 - Rulebook (p. 8): "When your drive is empty, you cannot spend any more points." The Rule of Six (p. 11) caps any roll at six dice.
 - Suggested fix: refuse a spend that is negative or larger than the current drive, and cap the spend at what fits under six dice.
 

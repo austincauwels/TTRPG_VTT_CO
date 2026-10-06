@@ -292,7 +292,7 @@ These are current behavior. The refactor should decide for each one whether to p
 - D12. Exact-match ability checks stop working after a `new_ability` advancement.
 - D13. An all-digit campaign code collides with the character id of the same number.
 - D14. `apply_scar` shifts accept any column name, including `id`.
-- D15. A negative `drive_spent` raises the drive above its max and is committed even when the roll then fails.
+- D15. A negative `drive_spent` raises the drive above its max and is committed even when the roll then fails. (Fixed 2026-10-06: a negative `drive_spent` gets `action_rejected` 422 and nothing changes.)
 
 ## 9. Risks for the refactor
 
