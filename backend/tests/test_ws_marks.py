@@ -4,6 +4,7 @@ import pytest
 import engine
 import support
 from models import Character
+from vtt.ws.handlers import rolls
 
 EM = support.EM
 
@@ -638,6 +639,14 @@ def test_ability_results_reach_campaign_log_but_sheet_stays_private(client, abil
         payload = dict(payload, target_character_id=other["id"])
     if ability == "Premonitions":
         support.update(Character, other["id"], body_marks=1)  # a mark for the seer to soak
+    if action == "use_post_roll_ability":
+        # The roll each one answers (RULES_CHECK 28): a failed Cunning roll for Flourish,
+        # a 3 for Learn from My Mistakes, a mixed Sense roll for Bending Spoons
+        rolls._last_roll[actor["id"]] = {
+            "Flourish": {"action": "sneak", "cat": "cunning", "result": 2, "outcome": "failure", "used": set()},
+            "Learn from My Mistakes": {"action": "move", "cat": "nerve", "result": 3, "outcome": "failure", "used": set()},
+            "Bending Spoons": {"action": "sense", "cat": "intuition", "result": 5, "outcome": "mixed_success", "used": set()},
+        }[ability]
     with support.ws_connect(client, actor["id"]) as wa, support.ws_connect(client, other["id"]) as wo, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
         if ability == "Adrenaline Rush":

@@ -165,7 +165,7 @@ def test_resolve_ability_mark_with_string_ability_uses_works(client):
 def test_roll_with_string_ability_uses_works(client, dice):
     """The roll handler only copies ability_uses for names that are never roll mods,
     so a string there is never touched."""
-    ch = support.forge(client, read=1, specialty_ability="Meticulous Notes")
+    ch = support.forge(client, read=1, cunning_max=6, specialty_ability="Meticulous Notes")
     support.update(Character, ch["id"], ability_uses='{"Death Defy": 1}')
     dice(2, 4)
     with support.ws_connect(client, ch["id"]) as ws:

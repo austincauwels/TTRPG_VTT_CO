@@ -592,7 +592,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         {character?.train_bonus && (
           <span className="flex items-center gap-1.5 px-2.5 py-1 bg-candle-gold/15 border border-candle-gold/50 text-ink font-sans font-bold text-xs uppercase tracking-widest rounded-sm">
             <SafeIcon name="GiDiceSixFacesSix" size={11} />
-            Train: +1d on your next roll
+            Train: +1d on a roll you pick
           </span>
         )}
       </div>
@@ -743,12 +743,20 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         <button
                           disabled={rollBlocked}
                           onClick={() => {
-                            const spend = preSpend[cat.driveKey] || 0;
+                            // Street Smarts lets a Survey roll spend any drive: the one the
+                            // player put a spend on (the server spends what the roll names)
+                            let spendKey = cat.driveKey;
+                            let extra = {};
+                            if (act.key === 'survey' && selectedMods.includes('Street Smarts')) {
+                              const chosen = ['intuition', 'nerve', 'cunning'].find(d => (preSpend[d] || 0) > 0);
+                              if (chosen) { spendKey = chosen; extra = { drive: chosen }; }
+                            }
+                            const spend = preSpend[spendKey] || 0;
                             const actionRating = character[act.key] || 0;
                             const effectiveSpend = Math.min(spend, Math.max(0, 6 - actionRating));
-                            setPreSpend(p => ({ ...p, [cat.driveKey]: 0 }));
+                            setPreSpend(p => ({ ...p, [spendKey]: 0 }));
                             setActiveMods(p => ({ ...p, [act.key]: [] }));
-                            rollAction(act.key, effectiveSpend, false, selectedMods);
+                            rollAction(act.key, effectiveSpend, false, selectedMods, extra);
                           }}
                           className={`action-chit pen-host group/roll w-full flex items-center gap-2 pl-2.5 pr-2.5 py-1.5 min-h-[34px] [@media(pointer:coarse)]:min-h-[44px] text-left rounded-sm border transition-[color,background-color,border-color,box-shadow,transform] duration-150 ${
                             rollBlocked

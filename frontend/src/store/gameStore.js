@@ -31,6 +31,7 @@ const ROLL_REFUSED = 'The table refused that roll.';
 const KEEP_NOT_SENT = 'Not connected to the table, so the kept die was not sent. Keep it again once the desk is back.';
 let rollTimer = null;
 let queuedRoll = null;   // the roll frame waiting for the socket to open
+let rollSeq = 0;         // the id each roll_result's roll is given on this desk
 
 const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
 
@@ -359,7 +360,9 @@ const useGameStore = create(
             if (seen && next && seen.id === next.id && value > seen.value) playTensionTick(value);
           }
           else if (message.type === 'roll_result') {
-            const roll = message.payload.roll;
+            // Each roll gets an id here (the server sends none), so what is keyed on the
+            // roll, such as the post-roll ability prompts, sees a new roll as new
+            const roll = message.payload.roll ? { ...message.payload.roll, id: ++rollSeq } : message.payload.roll;
             clearRollTimer();
             set({
               lastRoll: roll,
@@ -735,12 +738,13 @@ const useGameStore = create(
         set({ character: characterData });
       },
 
-      rollAction: (actionName, driveSpent = 0, isSecret = false, abilityMods = []) => {
+      // extra: more of the roll's payload, such as { drive } for Street Smarts
+      rollAction: (actionName, driveSpent = 0, isSecret = false, abilityMods = [], extra = {}) => {
         const { socket, pendingGildedChoice, isRolling, connectionState } = get();
         if (pendingGildedChoice || isRolling) return;
         const frame = {
           type: 'roll',
-          payload: { action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods }
+          payload: { ...extra, action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods }
         };
         set({ lastRoll: null, isRolling: true, rollWaiting: false, rollError: null });
         if (socket && socket.readyState === WebSocket.OPEN) {

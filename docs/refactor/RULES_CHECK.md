@@ -46,6 +46,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: the roll handler takes the whole `drive_spent` from the drive (floored at 0) but caps the pool at 6. A player can spend more than they have and still get every die, and drive spent past six dice is lost. A negative `drive_spent` used to raise the drive (QUIRKS.md D15); since 2026-10-06 it is refused with 422, and the rest of this item is unchanged.
 - Rulebook (p. 8): "When your drive is empty, you cannot spend any more points." The Rule of Six (p. 11) caps any roll at six dice.
 - Suggested fix: refuse a spend that is negative or larger than the current drive, and cap the spend at what fits under six dice.
+- Done (2026-10-06): a spend larger than the drive holds (with any cost from the same drive, such as Sharpshooter's Nerve) is refused (422, "Not enough Nerve for that roll."). Only the drive points that fit under six dice are taken, after the free dice (rating, ability dice, Train): spending 5 on a rating of 3 takes 3.
 
 ### 6. Gilded refresh and Well-Read are skipped on some rolls
 
@@ -132,6 +133,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: spending Train sets `train_bonus`, and the very next roll of that character (any roll, secret or not) gets +1d. `gm_end_assignment` clears an unused bonus.
 - Rulebook (p. 41): Train is "a d6 that may be used on any roll in the next assignment."
 - Suggested fix: let the player choose the roll (a flag on the roll message), and keep the bonus until it is used in the next assignment.
+- Done (2026-10-06): Train is a chip the player picks on a roll ("Train" in ability_mods, or use_train); it adds a die once and is otherwise kept until the Lightkeeper ends the assignment.
 
 ### 18. Refresh also resets ability uses
 
@@ -159,7 +161,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: it is offered as a Brain mark soak in `take_mark` (the soak list includes it with no resistance cost), and there is no resolve branch for it, so a character with this ability never takes a Brain mark through `take_mark` (QUIRKS.md D5). As a roll mod it adds a Brain mark (capped at 3, see item 10) and gives no extra dice; the roll screen's label promises Nerve worth +2d.
 - Rulebook (p. 31): on a high-stakes roll, "you may take a Brain mark to make any Nerve you spend worth +2d instead of +1d."
 - Suggested fix: remove it from the soak list in `take_mark`. In the roll handler, when it is used, take the Brain mark through the normal mark logic and add one extra die per Nerve point spent (within the Rule of Six).
-- Done (2026-10-06): Back Against the Wall is no longer offered as a soak, so its characters take Brain marks again. The roll side is in rules batch 3.
+- Done (2026-10-06): Back Against the Wall is no longer offered as a soak, so its characters take Brain marks again. On a roll that spends Nerve, each Nerve point is worth +2d (within the Rule of Six) and the Brain mark is taken through apply_mark, so a fourth one incapacitates; with no Nerve spent it does nothing and costs nothing.
 
 ### 22. Endurance
 
@@ -190,6 +192,7 @@ The roll screen (`frontend/src/components/pc/DiceVault.jsx`) checks some conditi
 - Tenacious (p. 29): gild a die on Move, Strike and Control only with 1 or more Bleed marks and while in danger. The server always gilds.
 - Sharpshooter (p. 29): spend 1 Nerve for +2d on a ranged attack. The server allows it with 0 Nerve (the cost floors at 0), and only on Strike, while the rulebook puts shooting under Control (p. 50).
 - Suggested fix: check the same conditions on the server, and allow Sharpshooter on Control (and Strike, if the table treats thrown weapons that way).
+- Done (2026-10-06): the server checks Meticulous Notes (2 Cunning resistance left), Tenacious (a Bleed mark; being in danger is the player's call, so it is a chip, not automatic) and Sharpshooter (1 Nerve to pay, on Strike and Control). The desk shows the same conditions.
 
 ### 26. Abilities whose "+2d for the first drive point" is missing or wrong
 
@@ -197,12 +200,14 @@ The roll screen (`frontend/src/components/pc/DiceVault.jsx`) checks some conditi
 - Lie Detector (p. 28): gild an additional die and the first Cunning spent is worth +2d. The app only gilds.
 - Better Part of Valor (p. 30): gild a die and the first Nerve spent is worth +2d. The app only gilds.
 - Suggested fix: add one extra die when at least 1 point of the named drive is spent, and none otherwise.
+- Done (2026-10-06): Misdirection, Lie Detector and Better Part of Valor add one more die when at least 1 point of their drive is spent on the roll, and none otherwise.
 
 ### 27. Street Smarts does nothing on the server
 
 - App: its `drive_substitute` is "any", which the roll handler skips, so a Survey roll still spends Intuition.
 - Rulebook (p. 31): on a Survey roll you may spend any drive instead of only Intuition.
 - Suggested fix: let the roll message name the drive to spend, and accept it for Street Smarts.
+- Done (2026-10-06): with Street Smarts on a Survey roll, the roll's "drive" names the drive to spend; the desk sends the drive the player put a spend on.
 
 ### 28. Post-roll abilities do not check the roll
 
@@ -210,12 +215,14 @@ The roll screen (`frontend/src/components/pc/DiceVault.jsx`) checks some conditi
 - Learn from My Mistakes (p. 30): on a result of 3 or less, refresh 1 drive of your choice. The app refreshes without checking the result, and it can be repeated.
 - Bending Spoons (p. 32): on a mixed success on a Sense roll to control an object, take a Bleed mark to make it a full success. The app adds the Bleed mark (capped at 3, item 10) without checking the roll.
 - Suggested fix: keep the last roll's result on the server and check it before applying these.
+- Done (2026-10-06): the server keeps each character's last roll (_last_roll in vtt/ws/handlers/rolls.py) and checks it: Flourish on a failed or mixed roll that could take Cunning, with 2 Cunning (and the new tier is logged); Learn from My Mistakes on a 3 or less; Bending Spoons on a mixed Sense roll, its Bleed mark taken through apply_mark. Each works once per roll; anything else is refused (409). The desk's prompts follow the same checks, and now refresh with each roll: they were keyed on a roll id the server never sent, so they never appeared.
 
 ### 29. Once-per-assignment limits for roll abilities are not counted
 
 - App: the roll handler's use counter only counts abilities that are also in `ABILITY_MOD_DEFS`, and none are, so nothing is counted (QUIRKS.md D11). An ability named twice in `ability_mods` is applied twice.
 - Rulebook: I Know a Guy and Death Defy (p. 27), Field Experience and Not Again (p. 29) are once per assignment, and Saw This Coming (p. 27) three times per assignment.
 - Suggested fix: count uses where each ability is applied, refuse uses past the limit, and ignore duplicate names in `ability_mods`.
+- Done (2026-10-06): a mod named twice is applied once, and the use counter that never counted is gone. None of the roll abilities is limited per assignment. The limited abilities the app runs are counted where they are used: the soaks and Death Defy (rules batch 2) and Not Again. I Know a Guy, Field Experience, Saw This Coming and University Resources are told at the table and have nothing to count in the app.
 
 ### 30. Abilities that match the rulebook
 

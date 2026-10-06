@@ -288,7 +288,7 @@ These are current behavior. The refactor should decide for each one whether to p
 - D8. `resolve_gilded` trusts the client's value and can be replayed; gilded-choice rolls can never be critical. (Fixed 2026-10-06: the server reads the kept die from the dice it holds, refuses a choice with no roll waiting, and counts a critical.)
 - D9. `circle_relationship_respond` raises on a GM socket (`int(game_id)`). REST and WebSocket handle `counter` differently.
 - D10. Malformed input ends the connection: non-numeric `chosen_value`, non-numeric resource values in `update_circle`. (Fixed in the bug-fix stage: unknown `vote_type`, non-object payloads and non-string gear elements now get `action_rejected` 422 or are ignored.)
-- D11. The ability use counter inside `roll` never counts anything.
+- D11. The ability use counter inside `roll` never counts anything. (Removed 2026-10-06: no roll ability is limited per assignment; the limited ones are counted where they are used.)
 - D12. Exact-match ability checks stop working after a `new_ability` advancement.
 - D13. An all-digit campaign code collides with the character id of the same number.
 - D14. `apply_scar` shifts accept any column name, including `id`.

@@ -188,8 +188,10 @@ WS_CASES = {
         after_connect=lambda c, ws: (ws.send("roll", action="move", drive_spent=0), ws.sync()),
         payload=lambda c: {"action": "move", "chosen_type": "plain", "chosen_value": 4},
         expect=["activity_log"]),
+    # Flourish answers a failed or mixed roll that could take Cunning (handlers/rolls.py)
     "use_post_roll_ability": dict(
-        fields={"role_ability": "Flourish", "cunning_max": 3, "cunning_current": 3},
+        fields={"role_ability": "Flourish", "cunning_max": 3, "cunning_current": 3, "sneak": 1}, dice=(2,),
+        after_connect=lambda c, ws: (ws.send("roll", action="sneak", drive_spent=0), ws.sync()),
         payload=lambda c: {"ability": "Flourish"}, expect=["character_update", "activity_log"]),
     "update_pen_font": dict(payload=lambda c: {"pen_font": "Kalam"}, expect=["character_update"]),
     "take_mark": dict(payload=lambda c: {"mark_type": "body"}, expect=["character_update"]),
