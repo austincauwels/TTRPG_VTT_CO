@@ -56,6 +56,10 @@ const ACTION_FLAVOR = {
   sense:   'Attune, channel, or reveal: perception of the supernatural.',
 };
 
+// No drive starts above 6 (rulebook p. 26). The server checks a new investigator against
+// these tables and limits (backend/vtt/creation.py; tests/test_creation.py compares them).
+const DRIVE_START_MAX = 6;
+
 const STANDARD_GEAR = [
   "Bleed Detector", "Bleed Containment Vial", "Hand Weapon", "Lantern", "Matches & Candles", "First Aid Kit"
 ];
@@ -650,7 +654,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   const adjustDrive = (driveKey, delta) => {
     const cur = driveDistrib[driveKey] || 0;
     if (delta < 0 && cur <= 0) return;
-    if (delta > 0 && drivesPtsUsed >= 6) return;
+    if (delta > 0 && (drivesPtsUsed >= 6 || getDriveValue(driveKey) >= DRIVE_START_MAX)) return;
     setDriveDistrib(p => ({ ...p, [driveKey]: cur + delta }));
   };
 
@@ -1264,7 +1268,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                       <span className="text-base font-serif italic text-center leading-snug" style={{ color }}>{DRIVE_FLAVOR[key]}</span>
                       <span className="text-xl font-black" style={{ color }}>{total}</span>
                       <div className="flex gap-1" role="img" aria-label={`${label}: ${total} drive points, ${startVal} from your specialty`}>
-                        {Array.from({length:7}).map((_,i) => (
+                        {Array.from({length:DRIVE_START_MAX}).map((_,i) => (
                           <div key={i} className="w-2.5 h-2.5 rounded-sm border transition-all"
                             style={{
                               background: i<startVal ? color : i<total ? color+'99' : 'transparent',
@@ -1278,7 +1282,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>−</button>
                         <span className="text-sm font-sans font-black w-8 text-center" style={{ color }}>+{addVal}</span>
-                        <button type="button" onClick={() => adjustDrive(key,1)} disabled={drivesPtsUsed>=6} aria-label={`Put a point on ${label}`}
+                        <button type="button" onClick={() => adjustDrive(key,1)} disabled={drivesPtsUsed>=6 || total>=DRIVE_START_MAX} aria-label={`Put a point on ${label}`}
                           className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>+</button>
                       </div>

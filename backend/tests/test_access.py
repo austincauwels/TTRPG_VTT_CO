@@ -128,7 +128,7 @@ def test_a_registered_users_token_opens_their_characters_socket(client):
     r = client.post("/api/auth/register", json={"username": f"ws_{support.uid()}",
                                                 "email": f"{support.uid()}@example.test", "password": "long-enough-pw"})
     token = r.json()["token"]
-    ch = client.post("/api/investigators/forge", json={"name": "Wren"}, headers=support.bearer(token)).json()
+    ch = client.post("/api/investigators/forge", json=support.sheet(name="Wren"), headers=support.bearer(token)).json()
     with support.ws_connect(client, ch["id"], token=token) as ws:
         assert support.types(ws.initial) == ["character_update", "circle_update"]
         assert ws.initial[0]["payload"]["id"] == ch["id"]

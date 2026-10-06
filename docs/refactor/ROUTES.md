@@ -204,7 +204,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: `user_id` (falls back to 1, see legacy fallbacks).
 - Tables: circles (creates id 1 if missing), users (read), characters (insert with circle_id 1).
 - Errors: any exception becomes 500 `Database Forge Error: <text>` after rollback.
-- Notes: the client can set every stat directly (action ratings, drives, marks, scars, gilded flags); there is no server-side character creation rule check.
+- Notes: the client can set every stat directly (action ratings, drives, marks, scars, gilded flags); there is no server-side character creation rule check. (Since 2026-10-06: the sheet must be one the character creator could make, vtt/creation.py, or the answer is 422 with the rule it breaks; RULES_CHECK.md item 15.)
 
 ### Notebook routes
 

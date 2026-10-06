@@ -232,15 +232,51 @@ def new_campaign(client, gm_user_id=None, name=None, code=None):
     return r.json()
 
 
+# A sheet the character creator could make (vtt/creation.py): a Scholar and Doctor who
+# raised Move from 0, put 3 more points on Strike, Sway and Hide, gilded Focus (the
+# Doctor's) and Move, and put 2 more points on each drive.
+SHEET = dict(
+    role="Scholar", specialty="Doctor", role_ability="Well-Read", specialty_ability="Dissection",
+    control=1, sneak=1, survey=1, read=2, move=1, strike=1, sway=1, hide=1, sense=0,
+    gilded_read=True, gilded_move=True,
+    nerve_max=2, nerve_current=2, cunning_max=2, cunning_current=2, intuition_max=5, intuition_current=5,
+    gear=["Surgical Tools", "Lantern"],
+)
+
+# The sheet a forged character had before the server checked new investigators: no role,
+# no abilities, every action 0, every drive 1. Most tests build on it.
+BLANK = dict(
+    pronouns="Unlisted", style="", catalyst="", question="", role="", specialty="",
+    role_ability="None", specialty_ability="None", gear=[],
+    **{a: 0 for a in ("move", "strike", "control", "sneak", "hide", "sway", "survey", "read", "sense")},
+    **{f"gilded_{a}": False for a in ("move", "strike", "control", "sneak", "hide", "sway", "survey", "read", "sense")},
+    **{f"{d}_{k}": v for d in ("nerve", "cunning", "intuition") for k, v in (("current", 1), ("max", 1), ("resistance_spent", 0))},
+    body_marks=0, brain_marks=0, bleed_marks=0, scars_count=0, scars_list=[], incapacitated=False,
+)
+
+
+def sheet(**fields):
+    """A forge body the server accepts (SHEET), with the given fields."""
+    return {**SHEET, "name": f"Inv {uid()}", **fields}
+
+
 def forge(client, user_id=None, name=None, **fields):
     """Forge a character for user_id (also sent in the body, as the frontend does), or
-    for a new user when none is given."""
-    body = {"name": name or f"Inv {uid()}", **fields}
+    for a new user when none is given. The forge sends a valid sheet, then the row is set
+    to BLANK with the given fields: tests build sheets the creator never makes (a rating
+    of 3, marks, any ability). profile_pic goes through the forge and its portrait rule."""
+    body = sheet(name=name or f"Inv {uid()}")
+    if "profile_pic" in fields:
+        body["profile_pic"] = fields.pop("profile_pic")
     if user_id is not None:
         body["user_id"] = user_id
     owner = user_id if user_id is not None else make_user().id
     r = client.post("/api/investigators/forge", json=body, headers=as_user(owner))
     assert r.status_code == 201, r.text
+    char_id = r.json()["id"]
+    update(Character, char_id, **{**BLANK, **fields})
+    r = client.get(f"/api/investigators/{char_id}", headers=as_user(owner))
+    assert r.status_code == 200, r.text
     return r.json()
 
 

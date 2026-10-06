@@ -120,6 +120,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: `POST /api/investigators/forge` accepts any action ratings, drives and gilded flags (QUIRKS.md); only the frontend's character creator follows the rules.
 - Rulebook (p. 25 and 26): action ratings from role and specialty, drives start at 3 fixed points plus 6 more with none above 6, resistances from drive maximums, and two gilded actions.
 - Suggested fix: validate the totals on forge, or accept that the creator is trusted.
+- Done (2026-10-06): forge refuses (422, with the rule broken in words) any sheet the character creator could not make: vtt/creation.py holds the creator's roles, specialties, starting ratings and drives, gilded actions, gear and abilities, and checks the raise of a zero action plus 3 points with no action above 2, 6 more drive points with no drive above 6, full drives with no resistance spent, the specialty's gild and one other, up to 3 items of the specialty's gear and the standard issue, and no marks or scars. The creator now stops a drive at 6, which it let reach 9, and shows the server's reason if a sheet is refused. tests/test_creation.py checks that the server's table matches the creator's. The tests' forge helper sends a valid sheet and then sets the row to the stats each test needs.
 
 ## Circle resources and illumination
 

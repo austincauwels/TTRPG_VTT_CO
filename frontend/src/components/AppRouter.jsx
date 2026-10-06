@@ -196,13 +196,17 @@ export const AppRouter = () => {
           // The server checks the portrait (PNG, JPEG or WebP, how large, how often) and
           // says what is wrong with it in words that can be shown as they are
           const detail = await response.json().then((b) => (typeof b?.detail === 'string' ? b.detail : ''), () => '');
+          // A sheet the creator could not make (an old draft, say) is refused with the
+          // rule it breaks (vtt/creation.py)
           return {
             ok: false,
             error: response.status === 413
               ? 'The portrait is too large to save. Choose a smaller picture, then save again.'
               : /portrait/i.test(detail)
                 ? `${detail} Your other choices are kept.`
-                : 'The investigator was not saved. Your choices are kept; try again in a moment.',
+                : response.status === 422 && detail
+                  ? `The investigator was not saved: ${detail} Your choices are kept; change that, then save again.`
+                  : 'The investigator was not saved. Your choices are kept; try again in a moment.',
           };
         }
         savedCharacter = await response.json();

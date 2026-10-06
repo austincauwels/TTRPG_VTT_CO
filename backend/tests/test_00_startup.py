@@ -429,7 +429,7 @@ def test_forge_recreates_missing_circle_one(client, monkeypatch):
             user_id = u.id
             assert s.get(Circle, 1) is None
         # this user exists only in the scratch schema, so its token is minted directly
-        r = client.post("/api/investigators/forge", json={"name": f"Inv {support.uid()}", "user_id": user_id},
+        r = client.post("/api/investigators/forge", json=support.sheet(user_id=user_id),
                         headers=support.bearer(security.create_access_token(user_id, "x")))
         assert r.status_code == 201, r.text
         body = r.json()

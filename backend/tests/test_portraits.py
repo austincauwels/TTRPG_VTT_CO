@@ -232,11 +232,11 @@ def test_forge_refuses_what_the_portrait_route_refuses(client, monkeypatch):
     picture that is too large."""
     owner = support.make_user()
     for value, status in (("https://example.com/me.png", 422), ("data:image/svg+xml;base64,PHN2Zy8+", 422)):
-        r = client.post("/api/investigators/forge", json={"name": "Inv", "profile_pic": value},
+        r = client.post("/api/investigators/forge", json=support.sheet(profile_pic=value),
                         headers=support.as_user(owner.id))
         assert (r.status_code, r.json()) == (status, NOT_A_PICTURE)
     monkeypatch.setattr(portraits, "PORTRAIT_MAX_LENGTH", len(picture(300)))
-    r = client.post("/api/investigators/forge", json={"name": "Inv", "profile_pic": picture(301)},
+    r = client.post("/api/investigators/forge", json=support.sheet(profile_pic=picture(301)),
                     headers=support.as_user(owner.id))
     assert (r.status_code, r.json()) == (413, TOO_LARGE)
     assert support.fetch_all(Character, user_id=owner.id) == []
@@ -265,7 +265,7 @@ def test_portrait_changes_are_limited_per_user(client, limiter_on, monkeypatch):
     r = put(client, ch["id"], picture(42))
     assert (r.status_code, r.json()) == (429, TOO_OFTEN)
     assert stored(ch["id"]) is None
-    r = client.post("/api/investigators/forge", json={"name": "Inv", "profile_pic": picture()},
+    r = client.post("/api/investigators/forge", json=support.sheet(profile_pic=picture()),
                     headers=support.as_user(owner.id))
     assert (r.status_code, r.json()) == (429, TOO_OFTEN)
     assert support.forge(client, user_id=owner.id)["profile_pic"] is None  # still no limit without one
