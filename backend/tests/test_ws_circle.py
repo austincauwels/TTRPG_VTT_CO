@@ -200,29 +200,24 @@ def test_gm_advance_circle(client):
     assert support.fetch(Character, member["id"]).advancement_picks == 4
 
 
-def test_refill_resources_counts_circle_members(client):
-    """QUIRK: capacity counts characters attached to the circle, and campaign members
-    stay on circle 1, so a campaign circle refills to 1."""
+def test_refill_resources_shares_the_pool(client):
+    """Fixed (RULES_CHECK 16): the pool is 1 + the campaign's active members, shared
+    across Stitch, Refresh and Train (it used to give each 1 + the members attached to
+    the circle, and campaign members stay on circle 1, so a campaign circle got 1 each)."""
     camp, members, cid = _campaign(client, members=3)
     support.update(Circle, cid, stitch=0, refresh=0, train=0)
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("refill_resources", role="GM")
         p = gm.sync()[0]["payload"]
-        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (1, 1, 1, 1)
-        # a rejoined character is moved onto the campaign circle and then counts
+        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (2, 1, 1, 4)
+        # a rejoined character counts at once (the count is read fresh, not from the session)
         late = support.forge(client, user_id=support.make_user(pending_rejoin_campaign_id=camp["id"]).id)
         client.post("/campaign/rejoin", json={"character_id": late["id"], "campaign_code": camp["campaign_code"]},
                     headers=support.as_owner(late["id"]))
         gm.drain()
-        # QUIRK: the GM socket's long-lived session still holds the member list it
-        # loaded before the rejoin, so this refill uses the old count while the
-        # circle_update (built after the commit reloaded it) already reports 2.
-        gm.send("refill_resources", role="GM")
+        gm.send("refill_resources")
         p = gm.sync()[0]["payload"]
-        assert (p["stitch"], p["max_capacity"]) == (1, 2)
-        gm.send("refill_resources")  # payload.role is ignored now
-        p = gm.sync()[0]["payload"]
-        assert (p["stitch"], p["max_capacity"]) == (2, 2)
+        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (2, 2, 1, 5)
 
 
 def test_gm_end_assignment(client):
@@ -308,8 +303,59 @@ def test_update_circle_milestone_log(client):
         assert msgs[1]["payload"] == {"message": "The Moths milestone reached!", "log_type": "field"}
         gm.send("update_circle", role="GM", illumination=4)
         gm.send("update_circle", role="GM", illumination=3)  # going down: no log
-        gm.send("update_circle", role="GM", illumination=12)  # 12 is excluded
-        assert support.types(gm.sync()) == ["circle_update"] * 3
+        assert support.types(gm.sync()) == ["circle_update"] * 2
+        # Fixed (RULES_CHECK 19): every milestone passed gets its line, and a full track says so
+        gm.send("update_circle", role="GM", illumination=12)
+        msgs = gm.sync()
+        assert [m["payload"]["message"] for m in msgs[1:]] == [
+            "The Moths milestone reached!", "The Moths milestone reached!",
+            "The Moths's Illumination track is full: the circle can advance."]
+
+
+def test_resource_management_reminds_at_each_milestone(client):
+    """RULES_CHECK 20: Resource Management gains a resource of the circle's choice at each
+    milestone; the log says so (the choice stays with the table)."""
+    camp, _, cid = _campaign(client, members=0)
+    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Hunters\nResource Management")
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_circle", illumination=7)
+        lines = [m["payload"]["message"] for m in gm.sync()[1:]]
+        assert lines == ["The Moths milestone reached!", "Resource Management: The Moths gains one resource of its choice.",
+                         "The Moths milestone reached!", "Resource Management: The Moths gains one resource of its choice."]
+
+
+def test_advancing_the_circle_replenishes_its_resources(client):
+    """Fixed (RULES_CHECK 16): resources come back when the track fills (p. 41)."""
+    camp, members, cid = _campaign(client, members=2)
+    support.update(Circle, cid, stitch=0, refresh=0, train=0, illumination=12)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_advance_circle")
+        circle = gm.sync()[-1]["payload"]["circle"]
+        assert (circle["stitch"], circle["refresh"], circle["train"]) == (1, 1, 1)
+
+
+def test_stamina_training_gilds_three_dice_an_assignment(client, dice):
+    """RULES_CHECK 20: Stamina Training gives the circle three gilded dice to share each
+    assignment; a player picks one on a roll, and ending the assignment brings them back."""
+    camp, (a,), cid = _campaign(client, move=2)
+    support.update(Circle, cid, circle_ability="Stamina Training")
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+        for left in (2, 1, 0):
+            dice(4, 5)
+            wa.send("roll", action="move", drive_spent=0, ability_mods=["Stamina Training"])
+            msgs = wa.sync()
+            assert msgs[0]["payload"]["roll"]["dice"][0]["is_gilded"] is True
+            update = next(m for m in msgs if m["type"] == "circle_update")
+            assert update["payload"]["stamina_dice_left"] == left
+            wa.send("resolve_gilded", action="move", chosen_type="regular")
+            wa.sync()
+        dice(4, 5)
+        wa.send("roll", action="move", drive_spent=0, ability_mods=["Stamina Training"])  # none left
+        msgs = wa.sync()
+        assert [d["is_gilded"] for d in msgs[0]["payload"]["roll"]["dice"]] == [False, False]
+        gm.drain()
+        gm.send("gm_end_assignment")
+        assert gm.sync()[0]["payload"]["stamina_dice_left"] == 3
 
 
 def test_update_circle_string_resource(client):

@@ -53,7 +53,8 @@ function resistRemaining(character, driveKey) {
   return Math.max(0, max - spent);
 }
 
-export function getAvailableRollMods(character, action) {
+// circle: the investigator's circle, for Stamina Training's shared dice
+export function getAvailableRollMods(character, action, circle = null) {
   if (!character || !action) return [];
   const mods = [];
   const abilities = [...abilitiesOf(character)];
@@ -85,6 +86,14 @@ export function getAvailableRollMods(character, action) {
       },
     });
   });
+  // Stamina Training (p. 41): the circle's three gilded dice for each assignment
+  const circleAbilities = (circle?.circle_ability || '').split('\n').map(a => a.trim());
+  if (circleAbilities.includes('Stamina Training') && (circle?.stamina_dice_left || 0) > 0) {
+    mods.push({
+      key: 'Stamina Training', label: `Stamina Training (gild a die; ${circle.stamina_dice_left} of 3 left this assignment)`,
+      autoApply: false, extraDice: 0, extraGild: true, driveSubstitute: null, shows: { dice: 0, gild: true, use: null },
+    });
+  }
   // Train (p. 41): a die the circle's resource gives for one roll this assignment, on the
   // roll the player picks
   if (character.train_bonus) {

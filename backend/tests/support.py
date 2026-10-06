@@ -68,7 +68,7 @@ CIRCLE_DICT_KEYS = {
     "id", "name", "stitch", "refresh", "train", "guard_patrol", "miasma_bleed",
     "tension_clock", "tension_label", "location", "atmosphere", "max_capacity",
     "chapter_house_location", "circle_ability", "insignia", "backstory_answers",
-    "is_finalized", "illumination", "resources_editable", "reports_open",
+    "is_finalized", "illumination", "resources_editable", "reports_open", "stamina_dice_left",
 }
 
 CHARACTER_COLUMNS = {c.name for c in Character.__table__.columns}

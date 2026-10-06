@@ -494,7 +494,8 @@ export const CirclePage = () => {
               onClick={() => refillResources(circId)}
               className="flex-1 px-3 py-2 font-sans text-xs font-black uppercase tracking-widest border border-ink/20 text-sepia hover:bg-black/5 hover:text-ink hover:border-ink/40 rounded-sm transition-all"
             >
-              Refill every resource
+              {/* 1 + the active members, shared across the three (rulebook p. 41) */}
+              Refill resources: {maxCap} to share
             </button>
             <button
               onClick={() => gmToggleResourceEdit(circId)}

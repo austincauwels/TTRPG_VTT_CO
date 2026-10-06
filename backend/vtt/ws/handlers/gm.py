@@ -8,9 +8,13 @@ because only GM screens send it. See docs/refactor/WEBSOCKET.md section 4.2 and
 docs/refactor/AUTH.md.
 """
 from models import Character, Circle
-from vtt.circle_queries import resolve_circle
+from vtt.abilities import abilities_of
+from vtt.circle_queries import circle_abilities, fill_resources, resolve_circle
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.manager import character_key, manager
+
+TRACK = 12              # the Illumination track (rulebook p. 55)
+MILESTONES = (3, 6, 9)  # its milestones, printed on the circle sheet
 
 
 async def handle_gm_update_tension(ctx):
@@ -81,6 +85,9 @@ async def handle_gm_advance_circle(ctx):
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
+        # Read the row again: the socket's session may hold it as it was when it opened,
+        # and setting a value it already shows would write nothing
+        db.refresh(target_circle, with_for_update=True)
         new_ability = payload.get("circle_ability")
         if new_ability:
             existing_abilities = getattr(target_circle, "circle_ability", None) or ""
@@ -88,7 +95,7 @@ async def handle_gm_advance_circle(ctx):
                 target_circle.circle_ability = existing_abilities + "\n" + new_ability
             else:
                 target_circle.circle_ability = new_ability
-        carry = max(0, (getattr(target_circle, "illumination", 0) or 0) - 12)
+        carry = max(0, (getattr(target_circle, "illumination", 0) or 0) - TRACK)
         target_circle.illumination = carry
         # Each active member chooses two different advancements (rulebook p. 55). The
         # picks wait on the character until chosen, so a player who was away still gets them.
@@ -98,6 +105,8 @@ async def handle_gm_advance_circle(ctx):
             if not (member.advancement_picks or 0):
                 member.advancement_taken = []
             member.advancement_picks = (member.advancement_picks or 0) + 2
+        # A full track replenishes the circle's resources (rulebook p. 41)
+        fill_resources(target_circle, db)
         db.commit()
         for member in members:
             await manager.broadcast(character_key(member.id), {"type": "character_update", "payload": get_char_dict(member)})
@@ -118,10 +127,9 @@ async def handle_refill_resources(ctx):
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
-        max_cap = 1 + sum(1 for c in target_circle.characters if c.status == "active")
-        target_circle.stitch  = max_cap
-        target_circle.refresh = max_cap
-        target_circle.train   = max_cap
+        db.refresh(target_circle, with_for_update=True)  # see handle_gm_advance_circle
+        # 1 + the active members, shared across the three (RULES_CHECK.md item 16)
+        fill_resources(target_circle, db)
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
 
@@ -132,6 +140,7 @@ async def handle_gm_end_assignment(ctx):
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
+        db.refresh(target_circle, with_for_update=True)  # see handle_gm_advance_circle
         # Clear scene text
         target_circle.location = ""
         target_circle.atmosphere = ""
@@ -144,6 +153,7 @@ async def handle_gm_end_assignment(ctx):
             ch.ability_uses = {}
             ch.resources_spent_assignment = 0
             ch.train_bonus = False
+        target_circle.stamina_dice_used = 0  # Stamina Training's dice come back
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
         for ch in active_chars:
@@ -152,6 +162,13 @@ async def handle_gm_end_assignment(ctx):
             "type": "activity_log",
             "payload": {"message": "— Assignment ended. Ability uses have been reset. —", "log_type": "field"},
         }, db)
+        # Meticulous Notes (p. 27): detailed notes add 1 Illumination after an assignment,
+        # which the Lightkeeper decides; the log reminds them
+        for ch in active_chars:
+            if "Meticulous Notes" in abilities_of(ch):
+                await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
+                    "message": f"Meticulous Notes: if {ch.name} kept detailed notes, the circle gains 1 Illumination.",
+                    "log_type": "field", "ink_color": getattr(ch, "ink_color", "") or ""}}, db)
 
 
 async def handle_gm_reset_character(ctx):
@@ -199,11 +216,18 @@ async def handle_update_circle(ctx):
                 setattr(target_circle, field, payload[field])
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
-        # Fire milestone notification when illumination hits a golden pip (every 3rd)
+        # A line for each milestone the change passed (it used to need the value to land
+        # on one), and one when the track fills (RULES_CHECK.md items 19 and 20)
         new_illum = getattr(target_circle, "illumination", 0) or 0
-        if "illumination" in payload and new_illum > old_illum and new_illum % 3 == 0 and new_illum < 12:
+        if "illumination" in payload and isinstance(new_illum, int) and isinstance(old_illum, int) and new_illum > old_illum:
             circle_name = target_circle.name or "The Circle"
-            await manager.broadcast_campaign(camp_code, camp_id, {
-                "type": "activity_log",
-                "payload": {"message": f"{circle_name} milestone reached!", "log_type": "field"},
-            }, db)
+            async def log(message):
+                await manager.broadcast_campaign(camp_code, camp_id, {
+                    "type": "activity_log", "payload": {"message": message, "log_type": "field"}}, db)
+            for milestone in MILESTONES:
+                if old_illum < milestone <= new_illum:
+                    await log(f"{circle_name} milestone reached!")
+                    if "Resource Management" in circle_abilities(target_circle):
+                        await log(f"Resource Management: {circle_name} gains one resource of its choice.")
+            if old_illum < TRACK <= new_illum:
+                await log(f"{circle_name}'s Illumination track is full: the circle can advance.")

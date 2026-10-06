@@ -168,6 +168,9 @@ class Circle(Base):
     resources_editable = Column(Boolean, default=False)
     reports_open = Column(Boolean, default=False)
 
+    # Stamina Training's gilded dice used this assignment (rulebook p. 41)
+    stamina_dice_used = Column(Integer, default=0)
+
     # Per-player assignment report responses stored in backstory_answers JSON keyed by character_id
     # Structure: { "selected_question_key": "...", "reports": { "42": { "q0": true, "q1": false, ... } } }
 

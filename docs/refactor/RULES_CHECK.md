@@ -128,6 +128,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: a new circle gets Stitch 1, Refresh 1 and Train 1. The GM's refill sets each of the three to 1 plus the number of active members, so the circle gets three times the rulebook's total.
 - Rulebook (p. 41): at circle creation, "assign a number of resource points equal to 1 plus the number of circle members", shared across Stitch, Refresh and Train. Resources are only replenished when the Illumination Track is filled. Each player may spend up to two between assignments (the app's limit of 2 per assignment matches).
 - Suggested fix: refill to a total of 1 plus members and let the circle (or GM) split it, and tie the refill to circle advancement.
+- Done (2026-10-06): the pool is 1 plus the campaign's active members (vtt/circle_queries.py resource_pool, counted by campaign since members stay on circle 1), shared across the three. Finalize, the Lightkeeper's refill and the circle advance all fill it split as evenly as it goes, Stitch first (5 points: 2, 2, 1), and the Lightkeeper can move points afterwards. The advance replenishes the resources, as the rulebook says; the refill button stays for the Lightkeeper's own calls. max_capacity is the pool, so any one resource can hold all of it.
 
 ### 17. Train is spent automatically on the next roll
 
@@ -148,12 +149,14 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: advancing the circle subtracts 12 and carries the rest over. The milestone log fires at 3, 6 and 9 when illumination goes up.
 - Rulebook (p. 55): when the track fills, clear it and carry leftover points into the next cycle (matches). The track length and milestone positions are printed on the circle sheet, not in the text; the example on p. 62 says seven Illumination "gets you a milestone and leaves the track just over half full", which fits a track of 12.
 - Suggested fix: confirm 12 and the milestone positions against the circle sheet. Meticulous Notes (p. 27) adds 1 Illumination after an assignment, which the app leaves to the GM.
+- Done (2026-10-06): the track stays 12 with milestones at 3, 6 and 9 (TRACK and MILESTONES in vtt/ws/handlers/gm.py), as the p. 62 example fits. Each milestone the illumination passes gets its own log line (it used to need the value to land on one), and a full track logs that the circle can advance. Ending an assignment logs a reminder for each investigator with Meticulous Notes; the point stays the Lightkeeper's call.
 
 ### 20. Circle abilities have no effect in the app
 
 - App: circle abilities are stored as text (`circle_ability`); none of them changes a roll or a resource.
 - Rulebook (p. 41): Stamina Training (three shared gilded dice per assignment), Nobody Left Behind, In This Together, Interdisciplinary, Resource Management (a resource back at each milestone) and One Last Run all have mechanical effects.
 - Suggested fix: decide which ones the app should automate. Resource Management and Stamina Training are the easiest to add; the rest can stay with the GM.
+- Done (2026-10-06): Stamina Training gives the circle three gilded dice for each assignment (circles.stamina_dice_used, a new column; stamina_dice_left in the circle dict). A player picks the chip on a roll, the die is gilded, and the count is locked on the circle row so two players cannot take the last one. Ending the assignment brings them back. Resource Management logs a resource of the circle's choice at each milestone, which the Lightkeeper adds on the circle page. Nobody Left Behind, In This Together, Interdisciplinary and One Last Run stay with the table: each is a choice in the story rather than a number the app holds.
 
 ## Abilities
 

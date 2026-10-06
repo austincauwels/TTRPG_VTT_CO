@@ -240,8 +240,9 @@ const GEAR_ICONS = {
 };
 
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false }) => {
-  const { character: storeChar, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter } = useGameStore(useShallow(s => ({
+  const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter } = useGameStore(useShallow(s => ({
     character: s.character,
+    circle: s.circle,
     setLocalCharacter: s.setLocalCharacter,
     updateDrive: s.updateDrive,
     rollAction: s.rollAction,
@@ -713,7 +714,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   const actionValue = character[act.key] || 0;
                   const isGilded = character[`gilded_${act.key}`] === true || character[`gilded_${act.key}`] === 1 || character[`gilded_${act.key}`] === "true";
 
-                  const availMods = !readOnly ? getAvailableRollMods(character, act.key) : [];
+                  const availMods = !readOnly ? getAvailableRollMods(character, act.key, circle) : [];
                   const selectedMods = activeMods[act.key] || [];
 
                   const ratingPips = (

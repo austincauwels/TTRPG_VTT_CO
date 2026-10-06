@@ -375,6 +375,9 @@ def init_db():
     # says why.
     add_columns("notebook_entries", [("sketch_scene", "TEXT")])
 
+    # Stamina Training's dice used this assignment (RULES_CHECK.md item 20). Existing rows get 0.
+    add_columns("circles", [("stamina_dice_used", "INTEGER DEFAULT 0")])
+
     # Circle advancement picks (RULES_CHECK.md item 14). Existing rows get 0 and an empty
     # list: no advancement waiting.
     add_columns("characters", [

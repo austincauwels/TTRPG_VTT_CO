@@ -13,7 +13,9 @@ result and outcome, as in roll_result) and "kept" (None, or {"index", "is_gilded
 from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, drive_for_action, roll_dice
 from vtt.abilities import abilities_of, resistance_left
 from vtt.config import logger
-from vtt.serializers import get_char_dict
+from models import Circle
+from vtt.circle_queries import STAMINA_DICE, circle_abilities
+from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.handlers.marks import apply_mark
 from vtt.ws.manager import manager
 
@@ -124,7 +126,7 @@ def _remember(character, action, cat, result, outcome):
                                     "outcome": outcome, "used": set()}
 
 
-def _plan_roll(character, act, spent, mods, payload):
+def _plan_roll(character, act, spent, mods, payload, stamina_die=False):
     """What a player's roll will be, before anything changes: the drive it spends, how
     many dice, gilds and drive points it uses, what else it costs, and the abilities that
     applied. Raises ValueError with words for the player when the roll cannot be made."""
@@ -168,6 +170,9 @@ def _plan_roll(character, act, spent, mods, payload):
     train = bool(character.train_bonus) and ("Train" in mods or bool(payload.get("use_train")))
     if train:
         extra += 1
+    # Stamina Training (p. 41): one of the circle's shared gilded dice for this assignment
+    if stamina_die:
+        gilds += 1
 
     # The drive must hold the spend and any cost from the same drive (p. 8)
     for drive in DRIVES:
@@ -201,15 +206,27 @@ async def handle_roll(ctx):
         mods = list(dict.fromkeys(m for m in raw_mods if isinstance(m, str))) if isinstance(raw_mods, list) else []
 
         plan = None
+        stamina_circle = None
         if character:
             if act not in ACTION_KEYS:
                 await _refuse(ctx, "roll", 422, "Unknown action.")
                 return
+            # Stamina Training's dice are the circle's: read and locked until the commit, so
+            # two players cannot take the last one at once
+            if "Stamina Training" in mods and camp_id:
+                stamina_circle = db.query(Circle).filter(Circle.campaign_id == camp_id) \
+                    .populate_existing().with_for_update().first()
+                if not (stamina_circle and "Stamina Training" in circle_abilities(stamina_circle)
+                        and (stamina_circle.stamina_dice_used or 0) < STAMINA_DICE):
+                    stamina_circle = None
             try:
-                plan = _plan_roll(character, act, spent, mods, payload)
+                plan = _plan_roll(character, act, spent, mods, payload, stamina_die=stamina_circle is not None)
             except ValueError as refused:
+                db.rollback()
                 await _refuse(ctx, "roll", 422, str(refused))
                 return
+            if stamina_circle is not None:
+                stamina_circle.stamina_dice_used = (stamina_circle.stamina_dice_used or 0) + 1
             cat, spent = plan["cat"], plan["used"]
             setattr(character, f"{cat}_current", getattr(character, f"{cat}_current") - spent)
             for drive, cost in plan["costs"].items():
@@ -232,6 +249,8 @@ async def handle_roll(ctx):
             "type": "roll_result",
             "payload": {"character_id": target_char_id, "action": act, "roll": res, "character": get_char_dict(character) if character else None}
         })
+        if character and stamina_circle is not None:
+            await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(stamina_circle)}, db)
         if _hold_or_throw(character, act, res, is_secret, cat, spent):
             await _dice_thrown(ctx, character, act, res, _rating(character, act))
 

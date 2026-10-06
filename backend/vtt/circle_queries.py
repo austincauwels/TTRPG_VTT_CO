@@ -1,7 +1,37 @@
 """Circle lookups shared by the REST circle routes and the WebSocket handlers."""
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
-from models import Circle, CircleVote, Relationship
+from models import Character, Circle, CircleVote, Relationship
+
+RESOURCES = ("stitch", "refresh", "train")
+STAMINA_DICE = 3  # Stamina Training's gilded dice for each assignment (rulebook p. 41)
+
+
+def resource_pool(circle, db: Session = None) -> int:
+    """The circle's resource points: 1 plus its active members (rulebook p. 41), shared
+    across Stitch, Refresh and Train. A campaign's members are counted by campaign, since
+    they stay on the shared circle 1 (QUIRKS.md); circle 1 counts its own characters."""
+    if circle.campaign_id:
+        db = db or object_session(circle)
+        members = db.query(Character.id).filter(
+            Character.campaign_id == circle.campaign_id, Character.status == "active").count() if db else 0
+    else:
+        members = sum(1 for c in circle.characters if c.status == "active")
+    return 1 + members
+
+
+def fill_resources(circle, db: Session = None):
+    """Sets Stitch, Refresh and Train to the pool split as evenly as it goes, Stitch
+    first (5 points: 2, 2, 1). The Lightkeeper can move points between them afterwards."""
+    total = resource_pool(circle, db)
+    for i, key in enumerate(RESOURCES):
+        setattr(circle, key, total // 3 + (1 if i < total % 3 else 0))
+
+
+def circle_abilities(circle) -> list:
+    """The circle's abilities (circle_ability holds one per line, newest last)."""
+    raw = getattr(circle, "circle_ability", None) or ""
+    return [line.strip() for line in raw.split("\n") if line.strip()]
 
 
 def get_or_create_campaign_circle(db: Session, campaign_id: int) -> Circle:
