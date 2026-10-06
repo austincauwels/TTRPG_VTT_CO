@@ -1,6 +1,7 @@
 import React from 'react';
 import { MotionConfig } from 'framer-motion';
 import { AppRouter } from './components/AppRouter';
+import { AppErrorBoundary } from './components/shared/AppErrorBoundary';
 
 function App() {
   // GLOBAL THEME WRAPPER 
@@ -18,7 +19,10 @@ function App() {
           it, movement is dropped and only opacity changes remain. */}
       <MotionConfig reducedMotion="user">
         <div className="flex-grow flex flex-col relative w-full h-full">
-          <AppRouter />
+          {/* A screen that throws while it draws shows a slip with a way out, not a blank stage */}
+          <AppErrorBoundary>
+            <AppRouter />
+          </AppErrorBoundary>
         </div>
       </MotionConfig>
 
