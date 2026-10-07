@@ -581,6 +581,7 @@ def test_burn_resistance(client, dice):
     ch = support.active_member(client, camp, move=2, nerve_max=3, nerve_current=0)
     dice(6, 6)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        support.last_roll(ch["id"], "move")  # a burn answers a roll (p. 13)
         ws.send("burn_resistance", action="move", drive_key="nerve")
         msgs = ws.sync()
         assert support.types(msgs) == ["roll_result", "activity_log"]
@@ -604,6 +605,7 @@ def test_burn_resistance_uses_the_actions_own_drive(client, dice):
     ch = support.forge(client, sway=1, cunning_max=3, nerve_max=3)
     dice(4)
     with support.ws_connect(client, ch["id"]) as ws:
+        support.last_roll(ch["id"], "sway")  # a burn answers a roll (p. 13)
         ws.send("burn_resistance", action="sway", drive_key="nerve")
         assert support.types(ws.sync()) == ["roll_result", "activity_log"]
         ws.send("burn_resistance", action="nerve_max")
@@ -623,6 +625,58 @@ def test_narrow_escape_and_leverage_add_their_dice(client, dice, ability, action
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action=action, drive_spent=0, ability_mods=[ability])
         assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == count
+
+
+def test_a_burn_answers_a_roll_of_that_action(client, dice):
+    """Rulebook p. 13: "Any time you don't like the result of your roll, you may choose to
+    burn 1 resistance point". A burn with no roll, or after a roll of another action, is
+    refused and spends nothing (it used to reroll any action at any time)."""
+    ch = support.forge(client, move=1, strike=1, nerve_max=6)
+    refused = [{"type": "action_rejected", "payload": {
+        "action": "burn_resistance", "status": 409, "detail": "Burn a resistance after a roll of that action."}}]
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("burn_resistance", action="move")
+        assert ws.sync() == refused
+        dice(2)
+        ws.send("roll", action="strike", drive_spent=0)
+        ws.sync()
+        ws.send("burn_resistance", action="move")
+        assert ws.sync() == refused
+        dice(3)
+        ws.send("burn_resistance", action="strike")
+        assert ws.sync()[0]["payload"]["roll"]["is_resistance_roll"] is True
+    assert support.fetch(Character, ch["id"]).nerve_resistance_spent == 1
+
+
+def test_flourish_follows_a_cunning_action_paid_in_intuition(client, dice):
+    """Flourish works "on a roll where you could spend Cunning" (p. 28). A Hide roll paid
+    in Intuition with Practiced Patter is still a Cunning action, so it counts (the
+    server used to read only the drive the roll spent)."""
+    ch = support.forge(client, hide=1, cunning_max=3, cunning_current=3, intuition_max=3, intuition_current=3,
+                       role_ability="Flourish", specialty_ability="Practiced Patter")
+    dice(2, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="hide", drive_spent=1, ability_mods=["Practiced Patter"])
+        assert ws.sync()[0]["payload"]["roll"]["outcome"] == "failure"
+        ws.send("use_post_roll_ability", ability="Flourish")
+        assert ws.sync()[-1]["payload"]["message"].endswith("to Mixed Success.")
+    row = support.fetch(Character, ch["id"])
+    assert (row.intuition_current, row.cunning_current) == (2, 1)
+
+
+def test_a_zero_roll_with_two_gilds_gilds_both_dice(client, dice):
+    """Rulebook p. 11: on a zero rating, "if any of your dice are gilded" and the gilded
+    die is the lowest, drive comes back. A gilded Survey with Inspection gilds both dice,
+    so the lower one always refreshes (only the first die could be gilded before)."""
+    ch = support.forge(client, survey=0, gilded_survey=True, specialty_ability="Inspection",
+                       intuition_max=3, intuition_current=1)
+    dice(5, 2)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="survey", drive_spent=0, ability_mods=["Inspection"])
+        roll = ws.sync()[0]["payload"]["roll"]
+        assert [(d["value"], d["is_gilded"]) for d in roll["dice"]] == [(5, True), (2, True)]
+        assert (roll["type"], roll["result"], roll.get("auto_gilded_refresh")) == ("zero", 2, True)
+    assert support.fetch(Character, ch["id"]).intuition_current == 2
 
 
 def test_a_gilded_die_refreshes_the_actions_own_drive(client, dice):
@@ -649,6 +703,7 @@ def test_a_gilded_reroll_earns_back_drive(client, dice):
     ch = support.forge(client, move=0, gilded_move=True, nerve_max=3, nerve_current=1)
     dice(2, 5)
     with support.ws_connect(client, ch["id"]) as ws:
+        support.last_roll(ch["id"], "move")  # a burn answers a roll (p. 13)
         ws.send("burn_resistance", action="move")
         msgs = ws.sync()
         roll = msgs[0]["payload"]["roll"]
@@ -664,6 +719,7 @@ def test_burn_resistance_gilded_choice_logs_the_kept_die(client, dice):
     ch = support.forge(client, sense=2, gilded_sense=True, intuition_max=3)
     dice(2, 4)
     with support.ws_connect(client, ch["id"]) as ws:
+        support.last_roll(ch["id"], "sense")  # a burn answers a roll (p. 13)
         ws.send("burn_resistance", action="sense", drive_key="intuition")
         msgs = ws.sync()
         assert msgs[0]["payload"]["roll"]["needs_gilded_choice"] is True

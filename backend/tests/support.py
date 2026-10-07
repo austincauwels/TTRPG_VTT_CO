@@ -574,3 +574,12 @@ def offer_intercept(target_id, mark_type):
     tests that send intercept_mark without having a mark land first."""
     from vtt.ws.handlers import marks
     marks.open_intercept(target_id, mark_type)
+
+
+def last_roll(char_id, action, outcome="failure", result=2):
+    """Records a roll of action as the character's last (vtt/ws/handlers/rolls.py), for
+    tests of what answers a roll (a resistance burn, a post-roll ability)."""
+    from engine import drive_for_action
+    from vtt.ws.handlers import rolls
+    rolls._last_roll[char_id] = {"action": action, "cat": drive_for_action(action), "result": result,
+                                 "outcome": outcome, "used": set()}

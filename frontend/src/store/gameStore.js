@@ -460,6 +460,10 @@ const useGameStore = create(
             if (message.payload.action === 'resolve_gilded') {
               set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
             }
+            // A burn answers a roll of that action; after a server restart there is none
+            if (message.payload.action === 'burn_resistance') {
+              set({ rollError: message.payload.detail || ROLL_REFUSED });
+            }
           }
           else if (message.type === 'notebook_entry') {
             set(state => {

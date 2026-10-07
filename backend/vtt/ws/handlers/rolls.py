@@ -398,7 +398,11 @@ async def handle_use_post_roll_ability(ctx):
             "message": message, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
 
     if ab_name == "Flourish":
-        could_take_cunning = fresh and (last["cat"] == "cunning" or "Cool Under Pressure" in abilities)
+        # "a roll where you could spend Cunning" (p. 28): a Cunning action, a roll that spent
+        # Cunning (Street Smarts), or any roll with Cool Under Pressure. A Sway or Hide roll
+        # paid in Intuition with Practiced Patter still counts.
+        could_take_cunning = fresh and (last["cat"] == "cunning" or drive_for_action(last["action"]) == "cunning"
+                                        or "Cool Under Pressure" in abilities)
         if not (could_take_cunning and last["outcome"] in TIER_UP and (character.cunning_current or 0) >= 2):
             await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED[ab_name])
             return
@@ -441,6 +445,12 @@ async def handle_burn_resistance(ctx):
     if act not in ACTION_KEYS:
         if act:
             await _refuse(ctx, "burn_resistance", 422, "Unknown action.")
+        return
+    # A burn answers a roll the player does not like (p. 13): the character's last roll,
+    # of this action (a reroll counts, so a second burn can follow it)
+    last = _last_roll.get(character.id)
+    if not last or last["action"] != act:
+        await _refuse(ctx, "burn_resistance", 409, "Burn a resistance after a roll of that action.")
         return
     drive_key = drive_for_action(act)
     result = burn_resistance(db, character, act, drive_key)

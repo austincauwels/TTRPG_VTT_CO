@@ -208,8 +208,10 @@ WS_CASES = {
     "apply_scar": dict(fields={"specialty_ability": "Hardened"},
                        payload=lambda c: {"scar_text": "s", "skip_shifts": True}, expect=["character_update"]),
     "revive_character": dict(payload=lambda c: {}, expect=["character_update", "activity_log"]),
+    # A burn answers a roll of that action (p. 13)
     "burn_resistance": dict(
         fields={"move": 2, "nerve_max": 3}, dice=(6, 6),
+        before_connect=lambda client, c: support.last_roll(c.char_id, "move"),
         payload=lambda c: {"action": "move", "drive_key": "nerve"}, expect=["roll_result", "activity_log"]),
     "update_gear": dict(payload=lambda c: {"gear": ["rope"]}, expect=["character_update", "activity_log"]),
     "gm_toggle_resource_edit": dict(

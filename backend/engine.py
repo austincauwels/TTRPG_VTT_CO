@@ -209,15 +209,17 @@ def roll_dice(pool_size, is_gilded=False, extra_dice=0, extra_gild=0):
         result_val = min(die1, die2)
         zero = {
             "type": "zero",
+            # Each gild gilds one of the two dice (p. 11: "if any of your dice are gilded")
             "dice": [
                 {"value": die1, "is_gilded": gilds > 0},
-                {"value": die2, "is_gilded": False},
+                {"value": die2, "is_gilded": gilds > 1},
             ],
             "result": result_val,
             "outcome": calculate_outcome(result_val),
             "needs_gilded_choice": False,
         }
-        if gilds > 0 and die1 <= die2:
+        # Drive comes back when a gilded die is the lowest (the result), ties included
+        if (gilds > 0 and die1 <= die2) or (gilds > 1 and die2 <= die1):
             zero["auto_gilded_refresh"] = True
         return zero
 

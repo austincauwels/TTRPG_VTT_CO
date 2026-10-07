@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { abilitiesOf } from '../../../game/abilities';
+import { driveKeyFor } from '../../../game/actions';
 
 // Post-roll ability prompts (Flourish, Learn from My Mistakes, Bending Spoons), offered on
 // the rolls the server accepts them for (use_post_roll_ability in
@@ -15,7 +16,10 @@ export const usePostRollPrompts = ({ lastRoll, character, showGmControls }) => {
     const isFail = outcome === 'failure';
     const isMixed = outcome === 'mixed_success';
     // Well-Read is applied by the server; it needs no prompt
-    const couldTakeCunning = lastRoll.drive_spent_key === 'cunning' || abilities.has('Cool Under Pressure');
+    // "a roll where you could spend Cunning" (p. 28): a Cunning action (Sway, Read, Hide),
+    // a roll that spent Cunning, or any roll with Cool Under Pressure
+    const couldTakeCunning = lastRoll.drive_spent_key === 'cunning' || driveKeyFor(lastRoll.action) === 'cunning'
+      || abilities.has('Cool Under Pressure');
     if (abilities.has('Flourish') && (isFail || isMixed) && couldTakeCunning && (character.cunning_current || 0) >= 2) {
       prompts.push({ key: 'Flourish', label: 'Flourish: spend 2 Cunning to push the result up one tier', params: {} });
     }
