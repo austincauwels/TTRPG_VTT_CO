@@ -94,6 +94,7 @@ DRIVES = ("nerve", "cunning", "intuition")
 #   substitute    the drive spent instead of the action's own ("any": the payload's "drive")
 #   cost          a drive point it costs, apart from what is spent for dice
 #   nerve_doubles each Nerve spent is worth +2d, for a Brain mark (Back Against the Wall)
+#   brain_mark    it costs a Brain mark, taken after the roll (Mind Over Matter)
 ROLL_MODS = {
     "Sweet Talk":            {"actions": ["sneak"], "extra_dice": 1,
                               "gild_if": lambda ch: resistance_left(ch, "cunning") >= 2},
@@ -125,6 +126,9 @@ ROLL_MODS = {
     "Practiced Patter":      {"actions": ["sway", "hide"], "substitute": "intuition"},
     "Street Smarts":         {"actions": ["survey"], "substitute": "any"},
     "Back Against the Wall": {"actions": ["any"], "nerve_doubles": True},
+    # Mind Over Matter (p. 29): the action the player chose in place of the one they were
+    # told to use, for a Brain mark; its own drive is spent, as on any roll
+    "Mind Over Matter":      {"actions": ["any"], "brain_mark": True},
 }
 
 # The last roll each character made, for the post-roll abilities (RULES_CHECK.md item
@@ -215,7 +219,9 @@ def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_d
     target = min(6, pool(spent))
     used = next(k for k in range(spent + 1) if min(6, pool(k)) == target)
     return {"cat": cat, "pool": target, "gilds": gilds, "used": used, "costs": costs,
-            "applied": applied, "train": train, "brain_mark": "Back Against the Wall" in applied and used > 0}
+            "applied": applied, "train": train,
+            "brain_mark": ("Back Against the Wall" in applied and used > 0)
+            or any(ROLL_MODS.get(n, {}).get("brain_mark") for n in applied)}
 
 
 async def handle_roll(ctx):
@@ -330,8 +336,9 @@ async def handle_roll(ctx):
                 }, db)
             _remember(character, act, cat, result_val, outcome_key)
 
-        # Back Against the Wall's price: a Brain mark, taken as any mark is (RULES_CHECK.md
-        # item 21). It is the player's choice, so no soak or ally is offered for it.
+        # Back Against the Wall's and Mind Over Matter's price: a Brain mark, taken as any
+        # mark is (RULES_CHECK.md item 21). It is the player's choice, so no soak or ally is
+        # offered for it.
         if plan and plan["brain_mark"]:
             await apply_mark(ctx, character, "brain", channel, offer_intercepts=False)
     except Exception as roll_exc:

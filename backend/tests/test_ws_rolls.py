@@ -1231,3 +1231,19 @@ def test_great_wards_adds_a_die_to_the_warded_persons_move(client, dice):
         support.update(Character, weird["id"], specialty_ability="Ritual")
         assert rolls("move", 1)            # the Weird no longer has it
 
+
+def test_mind_over_matter_costs_a_brain_mark(client, dice):
+    """Mind Over Matter (p. 29): "When you are told to use a specific action on a roll, you
+    may take a Brain mark to utilize an alternative action instead. You may also spend the
+    drive that corresponds with your chosen action." The roll is of the action chosen,
+    with its own drive, and the Brain mark follows it."""
+    ch = support.forge(client, sway=1, cunning_max=3, cunning_current=3, specialty_ability="Mind Over Matter")
+    dice(2, 5)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="sway", drive_spent=1, ability_mods=["Mind Over Matter"])
+        msgs = ws.sync()
+        assert len(msgs[0]["payload"]["roll"]["dice"]) == 2
+        assert msgs[-1]["type"] == "character_update" and msgs[-1]["payload"]["brain_marks"] == 1
+    row = support.fetch(Character, ch["id"])
+    assert (row.cunning_current, row.brain_marks) == (2, 1)
+

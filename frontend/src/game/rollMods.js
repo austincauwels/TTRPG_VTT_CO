@@ -47,6 +47,8 @@ export const ABILITY_ROLL_MODS = {
   "Cool Under Pressure": { actions: ['any'],                     extraDice: () => 0, extraGild: false, driveSubstitute: 'cunning', chipLabel: () => 'Cool Under Pressure (use Cunning)' },
   "Practiced Patter":    { actions: ['sway','hide'],             extraDice: () => 0, extraGild: false, driveSubstitute: 'intuition', chipLabel: () => 'Practiced Patter (use Intuition)' },
   "Street Smarts":       { actions: ['survey'],                  extraDice: () => 0, extraGild: false, driveSubstitute: 'any', chipLabel: () => 'Street Smarts (any drive)' },
+  // Mind Over Matter (p. 29): roll this action in place of the one you were told to use
+  "Mind Over Matter":    { actions: ['any'],                     extraDice: () => 0, extraGild: false, costBrainMark: true, chipLabel: () => 'Mind Over Matter (this action in place of the one asked for: take a Brain mark)' },
   "Back Against the Wall":{ actions: ['any'],                    extraDice: () => 0, extraGild: false, costBrainMark: true, chipLabel: () => 'Back Against the Wall (take a Brain mark: each Nerve spent is worth +2d)' },
   // Shooting is a Control roll in the rulebook (p. 50)
   "Sharpshooter":        { actions: ['strike','control'],        extraDice: () => 2, extraGild: false, costDrive: 'nerve', condition: (ch) => (ch.nerve_current || 0) > 0, chipLabel: (ch) => `Sharpshooter (spend 1 Nerve for +2d, ${ch.nerve_current ?? '?'} left)` },
