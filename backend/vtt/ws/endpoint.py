@@ -205,6 +205,9 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
             ctx.character = character
             ctx.target_char_id = target_char_id
             await handler(ctx)
+            # End the message's transaction too, so no lock it took (SELECT ... FOR UPDATE)
+            # is held while the socket waits for its next message.
+            db.rollback()
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: game_id=%s", game_id)

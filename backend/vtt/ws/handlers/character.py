@@ -196,6 +196,10 @@ async def handle_use_ability(ctx):
     db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
 
     async def refuse(status, detail):
+        # Some refusals come after a row was locked (Volunteer Duty's circle, Ritual's
+        # target). Release it first: the lock used to last until this socket's next
+        # message, and every other write to the row waited for it and failed.
+        db.rollback()
         await manager.broadcast(channel, {"type": "action_rejected", "payload": {
             "action": "use_ability", "status": status, "detail": detail}})
 

@@ -1,6 +1,7 @@
 """WebSocket character actions: update_drive, update_pen_font, update_gear,
 apply_advancement, spend_resource."""
 import pytest
+from sqlalchemy.exc import OperationalError
 
 import engine
 import main
@@ -549,6 +550,34 @@ def test_volunteer_duty_refills_a_resource_instead_of_spending(client):
     with support.ws_connect(client, member2["id"]) as ws:
         ws.send("use_ability", ability="Volunteer Duty", resource="stitch")
         assert ws.sync() == [_use_rejected(409, "Volunteer Duty is used between assignments, while resources are open.")]
+
+
+def _locked(model, *criteria):
+    """True while another session holds a lock on the row (SELECT ... FOR UPDATE NOWAIT)."""
+    with main.SessionLocal() as s:
+        try:
+            s.query(model).filter(*criteria).with_for_update(nowait=True).first()
+            return False
+        except OperationalError:
+            return True
+
+
+def test_a_refused_use_ability_leaves_no_row_locked(client):
+    """A use_ability refused after it locked a row (Volunteer Duty's circle, Ritual's
+    target) kept the lock until that socket's next message, so the GM opening resources,
+    or the ally's own next roll, waited 5 seconds for it and failed. Found by the
+    pre-deploy review. The refusal is awaited on its own: sync() sends a message, and that
+    message's rollback would free the lock."""
+    camp, member, cid = _resource_setup(client, editable=False, specialty_ability="Volunteer Duty")
+    with support.ws_connect(client, member["id"]) as ws:
+        ws.send("use_ability", ability="Volunteer Duty", resource="stitch")
+        assert ws.recv_type("action_rejected")["payload"]["status"] == 409
+        assert not _locked(Circle, Circle.id == cid)
+    camp, weird, ally = _member_pair(client, specialty_ability="Ritual")
+    with support.ws_connect(client, weird["id"]) as ws:
+        ws.send("use_ability", ability="Ritual", option="Reinvigorate", drive="nerve", target_character_id=ally["id"])
+        assert ws.recv_type("action_rejected")["payload"]["detail"] == "Choose a drive with a burned resistance to refresh."
+        assert not _locked(Character, Character.id == ally["id"])
 
 
 # --- gear slots: three, Geared Up and One Step Ahead ----------------------------------
