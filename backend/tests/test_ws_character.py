@@ -237,6 +237,41 @@ def test_apply_advancement_refusals(client, choice, detail, fields, error, statu
     assert support.fetch(Character, ch["id"]).advancement_picks == 2
 
 
+def test_a_new_ability_comes_from_the_role_or_specialty(client):
+    """A new ability is one of the investigator's role or specialty (it took any text)."""
+    ch = support.forge(client, role="Scholar", specialty="Doctor", role_ability="Well-Read",
+                       specialty_ability="Dissection")
+    support.update(Character, ch["id"], advancement_picks=2)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("apply_advancement", choice="new_ability", detail="Steel Mind")
+        ws.send("apply_advancement", choice="new_ability", detail="Godmode")
+        assert ws.sync() == [_rejected("Choose an ability of the Scholar role or the Doctor specialty."),
+                             _rejected("Godmode is not a role or specialty ability.")]
+        ws.send("apply_advancement", choice="new_ability", detail="Meticulous Notes")
+        assert ws.sync()[0]["payload"]["specialty_ability"] == "Dissection; Meticulous Notes"
+
+
+def test_interdisciplinary_gives_one_ability_from_outside(client):
+    """With the circle's Interdisciplinary (p. 41), once per campaign, a new ability may
+    come from another role or specialty."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, role="Scholar", specialty="Doctor", role_ability="Well-Read",
+                               specialty_ability="Dissection")
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp["id"])).json()["circle_id"]
+    support.update(Circle, cid, circle_ability="Interdisciplinary")
+    support.update(Character, ch["id"], advancement_picks=4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("apply_advancement", choice="new_ability", detail="Steel Mind")
+        assert ws.sync()[0]["payload"]["specialty_ability"] == "Dissection; Steel Mind"
+        ws.send("apply_advancement", choice="add_action", detail="move")
+        ws.sync()
+        ws.send("apply_advancement", choice="new_ability", detail="Hardened")  # a second outside one
+        assert ws.sync() == [_rejected(
+            "Interdisciplinary gives one ability from another role or specialty a campaign, and it is taken.")]
+        ws.send("apply_advancement", choice="new_ability", detail="Patch Up")  # its own still works
+        assert ws.sync()[0]["payload"]["specialty_ability"] == "Dissection; Steel Mind; Patch Up"
+
+
 def test_apply_advancement_splits_drive_points(client):
     ch = support.forge(client, nerve_max=3, nerve_current=3, cunning_max=8, cunning_current=2)
     support.update(Character, ch["id"], advancement_picks=2)

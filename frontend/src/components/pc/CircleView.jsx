@@ -102,11 +102,15 @@ const SPECIALTY_ABILITY_POOL = {
   Occultist:  ['Ghostblade', 'Blood of the Covenant', 'Speak Their Language', 'Play the Bait', 'Extend Your Senses', 'Forbidden Ritual'],
 };
 
-function getAvailableAbilities(character) {
+// The abilities an advancement can give: the role's and the specialty's, and with the
+// circle's Interdisciplinary (p. 41), until one is taken, every other role's and
+// specialty's (outside: true). The server checks the same (backend/vtt/creation.py).
+function getAvailableAbilities(character, circle) {
   const owned = new Set(
     [character?.role_ability, character?.specialty_ability]
       .filter(Boolean)
       .flatMap(s => s.split(';').map(a => a.trim()))
+      .filter(a => a && a !== 'None')
   );
   const rolePool = ROLE_ABILITY_POOL[character?.role] || [];
   const specPool = SPECIALTY_ABILITY_POOL[character?.specialty] || [];
@@ -114,11 +118,20 @@ function getAvailableAbilities(character) {
     ...rolePool.map(a => ({ name: a, source: character?.role || 'Role' })),
     ...specPool.map(a => ({ name: a, source: character?.specialty || 'Specialty' })),
   ];
+  const own = new Set([...rolePool, ...specPool]);
+  const circleAbilities = (circle?.circle_ability || '').split('\n').map(a => a.trim());
+  const outsideTaken = [...owned].some(a => !own.has(a));
+  if (circleAbilities.includes('Interdisciplinary') && rolePool.length && specPool.length && !outsideTaken) {
+    for (const [source, pool] of [...Object.entries(ROLE_ABILITY_POOL), ...Object.entries(SPECIALTY_ABILITY_POOL)]) {
+      if (source === character.role || source === character.specialty) continue;
+      all.push(...pool.map(a => ({ name: a, source, outside: true })));
+    }
+  }
   return all.filter(a => !owned.has(a.name));
 }
 
 export function AdvancementModal() {
-  const { character, circleAdvancement, applyAdvancement, dismissCircleAdvancement, advancementDeferred, advancementError } = useGameStore();
+  const { character, circle, circleAdvancement, applyAdvancement, dismissCircleAdvancement, advancementDeferred, advancementError } = useGameStore();
   // selectedPicks: array of up to 2 pick ids
   const [selectedPicks, setSelectedPicks]   = useState([]);
   // details keyed by pick id: action key, drive key, or ability text
@@ -304,7 +317,8 @@ export function AdvancementModal() {
                 )}
 
                 {isSelected && id === 'new_ability' && (() => {
-                  const available = getAvailableAbilities(character);
+                  const available = getAvailableAbilities(character, circle);
+                  const outside = available.filter(a => a.outside);
                   return (
                     <div className="px-3 pb-3">
                       <label htmlFor="adv-new-ability" className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">
@@ -321,8 +335,9 @@ export function AdvancementModal() {
                         >
                           <option value="" aria-label="None"></option>
                           {(() => {
-                            const roleOpts = available.filter(a => a.source === character?.role);
-                            const specOpts = available.filter(a => a.source === character?.specialty);
+                            const roleOpts = available.filter(a => !a.outside && a.source === character?.role);
+                            const specOpts = available.filter(a => !a.outside && a.source === character?.specialty);
+                            const outsideGroups = [...new Set(outside.map(a => a.source))];
                             return [
                               roleOpts.length > 0 && (
                                 <optgroup key="role" label={`${character?.role} (Role)`}>
@@ -334,9 +349,19 @@ export function AdvancementModal() {
                                   {specOpts.map(a => <option key={a.name} value={a.name}>{a.name}</option>)}
                                 </optgroup>
                               ),
+                              ...outsideGroups.map(source => (
+                                <optgroup key={`outside-${source}`} label={`${source} (Interdisciplinary)`}>
+                                  {outside.filter(a => a.source === source).map(a => <option key={a.name} value={a.name}>{a.name}</option>)}
+                                </optgroup>
+                              )),
                             ];
                           })()}
                         </select>
+                      )}
+                      {outside.length > 0 && (
+                        <p className="font-serif text-sm text-sepia italic mt-1">
+                          Interdisciplinary: once a campaign, one new ability may come from another role or specialty.
+                        </p>
                       )}
                     </div>
                   );

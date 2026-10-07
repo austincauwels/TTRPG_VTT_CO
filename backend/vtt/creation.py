@@ -105,6 +105,34 @@ ROLES = {
 }
 
 
+# Every role and specialty ability, for advancement
+ALL_ABILITIES = frozenset(
+    a for role in ROLES.values()
+    for a in (*role["abilities"], *(x for spec in role["specialties"].values() for x in spec["abilities"])))
+
+
+def new_ability_problem(character, ability: str, interdisciplinary: bool):
+    """Why an advancement cannot give this ability, or None. A new ability comes from the
+    investigator's role or specialty; with the circle's Interdisciplinary (rulebook p. 41),
+    once per campaign, one may come from another role or specialty. A character whose
+    role or specialty the creator does not have (older rows) is not checked."""
+    from vtt.abilities import abilities_of
+    role = ROLES.get(getattr(character, "role", None))
+    spec = role["specialties"].get(getattr(character, "specialty", None)) if role else None
+    if spec is None:
+        return None
+    own = set(role["abilities"]) | set(spec["abilities"])
+    if ability in own:
+        return None
+    if ability not in ALL_ABILITIES:
+        return f"{ability} is not a role or specialty ability."
+    if not interdisciplinary:
+        return f"Choose an ability of the {character.role} role or the {character.specialty} specialty."
+    if any(a not in own for a in abilities_of(character)):
+        return "Interdisciplinary gives one ability from another role or specialty a campaign, and it is taken."
+    return None
+
+
 def creation_problem(sheet: dict):
     """What keeps this sheet from being a new investigator the creator could make, in
     words for the player, or None when it is one."""

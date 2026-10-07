@@ -1,6 +1,7 @@
 """The server's copy of the creator's rules (vtt/creation.py) agrees with the creator
-(frontend/src/components/CharacterCreator.jsx). Node reads the creator's tables, since
-they are JavaScript; the test is skipped where Node or the frontend is missing (GitHub's
+(frontend/src/components/CharacterCreator.jsx) and with the advancement dialog's ability
+lists (frontend/src/components/pc/CircleView.jsx). Node reads their tables, since they
+are JavaScript; the test is skipped where Node or the frontend is missing (GitHub's
 runners have Node)."""
 import json
 import pathlib
@@ -11,10 +12,12 @@ import pytest
 
 from vtt import creation
 
-CREATOR = pathlib.Path(__file__).resolve().parents[2] / "frontend/src/components/CharacterCreator.jsx"
+FRONTEND = pathlib.Path(__file__).resolve().parents[2] / "frontend/src/components"
+CREATOR = FRONTEND / "CharacterCreator.jsx"
+ADVANCEMENT = FRONTEND / "pc/CircleView.jsx"   # the advancement dialog's ability lists
 
-# Prints the creator's ROLES, SPECIALTY_GILDED and STANDARD_GEAR as JSON. Each is an
-# object or array literal of plain data, so it is cut out of the file and evaluated alone.
+# Prints the named object or array literals of a file as JSON. Each is plain data, so it
+# is cut out of the file and evaluated alone.
 READ_TABLES = r"""
 const s = require('fs').readFileSync(process.argv[1], 'utf8');
 function literal(name) {
@@ -33,19 +36,22 @@ function literal(name) {
   }
   throw new Error('unclosed ' + name);
 }
-console.log(JSON.stringify({
-  roles: literal('ROLES'), gilded: literal('SPECIALTY_GILDED'), gear: literal('STANDARD_GEAR'),
-}));
+console.log(JSON.stringify(Object.fromEntries(process.argv.slice(2).map((n) => [n, literal(n)]))));
 """
+
+
+def _read(path, *names):
+    node = shutil.which("node")
+    if not node or not path.exists():
+        pytest.skip(f"needs Node and {path.name}")
+    out = subprocess.run([node, "-e", READ_TABLES, str(path), *names], capture_output=True, text=True, check=True)
+    return json.loads(out.stdout)
 
 
 @pytest.fixture(scope="module")
 def creator():
-    node = shutil.which("node")
-    if not node or not CREATOR.exists():
-        pytest.skip("needs Node and frontend/src/components/CharacterCreator.jsx")
-    out = subprocess.run([node, "-e", READ_TABLES, str(CREATOR)], capture_output=True, text=True, check=True)
-    return json.loads(out.stdout)
+    t = _read(CREATOR, "ROLES", "SPECIALTY_GILDED", "STANDARD_GEAR")
+    return {"roles": t["ROLES"], "gilded": t["SPECIALTY_GILDED"], "gear": t["STANDARD_GEAR"]}
 
 
 def test_the_roles_and_specialties_agree(creator):
@@ -65,6 +71,14 @@ def test_the_roles_and_specialties_agree(creator):
 
 def test_the_standard_gear_agrees(creator):
     assert tuple(creator["gear"]) == creation.STANDARD_GEAR
+
+
+def test_the_advancement_dialogs_abilities_agree():
+    t = _read(ADVANCEMENT, "ROLE_ABILITY_POOL", "SPECIALTY_ABILITY_POOL")
+    assert {r: tuple(a) for r, a in t["ROLE_ABILITY_POOL"].items()} == {
+        r: d["abilities"] for r, d in creation.ROLES.items()}
+    assert {s: tuple(a) for s, a in t["SPECIALTY_ABILITY_POOL"].items()} == {
+        s: spec["abilities"] for d in creation.ROLES.values() for s, spec in d["specialties"].items()}
 
 
 def test_each_specialty_starts_with_five_action_points_and_three_drive_points():

@@ -265,7 +265,7 @@ DRIVE_MAX = 9  # drives range from 0 to 9 (rulebook p. 8)
 ADVANCEMENT_CHOICES = ("add_action", "add_drive", "new_ability", "gild_action")
 
 
-def apply_advancement(db: Session, character, choice: str, detail: str = ""):
+def apply_advancement(db: Session, character, choice: str, detail: str = "", interdisciplinary: bool = False):
     """Applies one advancement pick (rulebook p. 55; RULES_CHECK.md item 14). Returns
     {"success": True, "character": ...} or {"error": ..., "status": ...} with words for
     the player, having changed nothing.
@@ -275,10 +275,12 @@ def apply_advancement(db: Session, character, choice: str, detail: str = ""):
     - add_action: +1 to an action, up to 3.
     - add_drive: 2 drive points, both to one drive ("nerve") or split ("nerve,cunning"),
       each drive up to 9; the current value rises with the maximum.
-    - new_ability: an ability the character does not have yet, appended to
-      specialty_ability after "; " (vtt/abilities.py reads it back).
+    - new_ability: an ability the character does not have yet, of its role or specialty
+      (or one from another with the circle's Interdisciplinary, vtt/creation.py),
+      appended to specialty_ability after "; " (vtt/abilities.py reads it back).
     - gild_action: an action that is not gilded yet."""
     from vtt.abilities import abilities_of
+    from vtt.creation import new_ability_problem
     from vtt.serializers import advancement_taken
 
     if choice not in ADVANCEMENT_CHOICES:
@@ -317,6 +319,9 @@ def apply_advancement(db: Session, character, choice: str, detail: str = ""):
             return {"error": "Choose an ability.", "status": 422}
         if ability_text in abilities_of(character):
             return {"error": f"{ability_text} is already one of this investigator's abilities.", "status": 409}
+        problem = new_ability_problem(character, ability_text, interdisciplinary)
+        if problem:
+            return {"error": problem, "status": 409}
         existing = getattr(character, "specialty_ability", "None") or "None"
         if existing in ("None", ""):
             setattr(character, "specialty_ability", ability_text)

@@ -2,7 +2,9 @@
 import json
 
 from engine import ALL_ACTIONS, apply_advancement
+from models import Circle
 from vtt.abilities import count_use, has_ability
+from vtt.circle_queries import circle_abilities
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.serializers import get_char_dict
 from vtt.ws.manager import manager
@@ -95,7 +97,11 @@ async def handle_apply_advancement(ctx):
     adv_choice = payload.get("choice")
     adv_detail = payload.get("detail", "")
     if adv_choice:
-        result = apply_advancement(db, character, adv_choice, adv_detail)
+        # The campaign circle's Interdisciplinary allows one ability from another role or
+        # specialty (vtt/creation.py new_ability_problem)
+        circle = db.query(Circle).filter(Circle.campaign_id == camp_id).first() if camp_id else None
+        interdisciplinary = bool(circle) and "Interdisciplinary" in circle_abilities(circle)
+        result = apply_advancement(db, character, adv_choice, adv_detail, interdisciplinary=interdisciplinary)
         if "error" in result:
             # A pick that is not waiting, repeated, or out of range changes nothing
             await manager.broadcast(channel, {"type": "action_rejected", "payload": {
