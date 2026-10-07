@@ -60,7 +60,7 @@ CHAR_DICT_KEYS = {
     "pronouns", "style", "catalyst", "question", "role", "specialty",
     "role_ability", "specialty_ability", "gear", "profile_pic", "status",
     "pen_font", "ink_color", "campaign_id", "personal_circle_answer",
-    "ability_uses", "train_bonus", "resources_spent_assignment",
+    "ability_uses", "train_bonus", "train_dice", "resources_spent_assignment",
     "advancement_picks", "advancement_taken",
 }
 

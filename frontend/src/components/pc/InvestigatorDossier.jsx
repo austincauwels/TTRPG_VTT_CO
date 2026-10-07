@@ -597,7 +597,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         {character?.train_bonus && (
           <span className="flex items-center gap-1.5 px-2.5 py-1 bg-candle-gold/15 border border-candle-gold/50 text-ink font-sans font-bold text-xs uppercase tracking-widest rounded-sm">
             <SafeIcon name="GiDiceSixFacesSix" size={11} />
-            Train: +1d on a roll you pick
+            {(character.train_dice || 1) > 1 ? `Train: ${character.train_dice} dice, +1d on each roll you pick` : 'Train: +1d on a roll you pick'}
           </span>
         )}
       </div>
@@ -756,7 +756,15 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                               const chosen = ['intuition', 'nerve', 'cunning'].find(d => (preSpend[d] || 0) > 0);
                               if (chosen) { spendKey = chosen; extra = { drive: chosen }; }
                             }
-                            const spend = preSpend[spendKey] || 0;
+                            // Cool Under Pressure and Practiced Patter spend another drive: the
+                            // server takes the spend from it, so the spend is read from its stepper
+                            const substitute = availMods.find(m => selectedMods.includes(m.key) && m.driveSubstitute && m.driveSubstitute !== 'any');
+                            if (substitute) spendKey = substitute.driveSubstitute;
+                            let spend = preSpend[spendKey] || 0;
+                            // Sharpshooter costs 1 Nerve on top of what is spent on the roll
+                            if (selectedMods.includes('Sharpshooter') && spendKey === 'nerve') {
+                              spend = Math.min(spend, Math.max(0, (character.nerve_current || 0) - 1));
+                            }
                             const actionRating = character[act.key] || 0;
                             const effectiveSpend = Math.min(spend, Math.max(0, 6 - actionRating));
                             setPreSpend(p => ({ ...p, [spendKey]: 0 }));

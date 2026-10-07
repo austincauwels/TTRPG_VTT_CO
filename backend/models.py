@@ -253,6 +253,9 @@ class Character(SoftDeleted, Base):
     # Circle resource tracking
     train_bonus                = Column(Boolean, default=False)
     resources_spent_assignment = Column(Integer, default=0)
+    # Train dice waiting to be used: a player may spend Train twice (rulebook p. 41).
+    # train_bonus stays true while any wait (vtt/circle_queries.py train_dice_left).
+    train_dice                 = Column(Integer, default=0)
 
     # Circle advancement (rulebook p. 55): picks the Lightkeeper's advance gave the
     # character that are not chosen yet, and the options already taken among them (two

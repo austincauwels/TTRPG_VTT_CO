@@ -4,7 +4,7 @@ profile_pic is the stored portrait only when it follows the portrait rule
 (vtt/portraits.py served_portrait); anything else is sent as no portrait."""
 import json
 
-from vtt.circle_queries import STAMINA_DICE, circle_abilities, resource_pool
+from vtt.circle_queries import STAMINA_DICE, circle_abilities, resource_pool, train_dice_left
 
 from vtt.portraits import served_portrait
 
@@ -85,6 +85,7 @@ def get_char_dict(char):
         "personal_circle_answer": getattr(char, "personal_circle_answer", "") or "",
         "ability_uses": getattr(char, "ability_uses", None) or {},
         "train_bonus": bool(getattr(char, "train_bonus", False)),
+        "train_dice": train_dice_left(char),
         "resources_spent_assignment": getattr(char, "resources_spent_assignment", 0) or 0,
         "advancement_picks": getattr(char, "advancement_picks", 0) or 0,
         "advancement_taken": advancement_taken(char),

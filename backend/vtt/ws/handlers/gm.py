@@ -159,6 +159,7 @@ async def handle_gm_end_assignment(ctx):
             ch.ability_uses = {}
             ch.resources_spent_assignment = 0
             ch.train_bonus = False
+            ch.train_dice = 0
         target_circle.stamina_dice_used = 0  # Stamina Training's dice come back
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)

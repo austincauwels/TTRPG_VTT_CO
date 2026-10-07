@@ -14,7 +14,7 @@ from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, drive_for
 from vtt.abilities import abilities_of, resistance_left
 from vtt.config import logger
 from models import Circle
-from vtt.circle_queries import STAMINA_DICE, circle_abilities
+from vtt.circle_queries import STAMINA_DICE, circle_abilities, take_train_die, train_dice_left
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.handlers.marks import apply_mark
 from vtt.ws.manager import manager
@@ -167,7 +167,7 @@ def _plan_roll(character, act, spent, mods, payload, stamina_die=False):
     first_bonus = sum(1 for d in first_points if d == cat)
 
     # Train (p. 41): the player chooses the roll, from a chip like the abilities'
-    train = bool(character.train_bonus) and ("Train" in mods or bool(payload.get("use_train")))
+    train = train_dice_left(character) > 0 and ("Train" in mods or bool(payload.get("use_train")))
     if train:
         extra += 1
     # Stamina Training (p. 41): one of the circle's three gilded dice for the assignment,
@@ -234,7 +234,7 @@ async def handle_roll(ctx):
             for drive, cost in plan["costs"].items():
                 setattr(character, f"{drive}_current", getattr(character, f"{drive}_current") - cost)
             if plan["train"]:
-                character.train_bonus = False
+                take_train_die(character)  # one die per roll
             is_gilded_action = bool(getattr(character, f"gilded_{act}", False))
             res = roll_dice(plan["pool"], is_gilded_action, extra_gild=plan["gilds"])
             char_name = character.name

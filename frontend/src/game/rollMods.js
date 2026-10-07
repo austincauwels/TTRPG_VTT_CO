@@ -97,8 +97,10 @@ export function getAvailableRollMods(character, action, circle = null) {
   // Train (p. 41): a die the circle's resource gives for one roll this assignment, on the
   // roll the player picks
   if (character.train_bonus) {
+    // Each Train spent is a die (p. 41); a player may spend two
+    const left = character.train_dice || 1;
     mods.push({
-      key: 'Train', label: 'Train (+1d on this roll, once this assignment)', autoApply: false,
+      key: 'Train', label: `Train (+1d on this roll; ${left} Train ${left === 1 ? 'die' : 'dice'} this assignment)`, autoApply: false,
       extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
     });
   }

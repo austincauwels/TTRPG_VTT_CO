@@ -446,7 +446,8 @@ const useGameStore = create(
           else if (message.type === 'action_rejected') {
             // The server refused a message this user may not send; nothing changed on the server.
             console.warn(`Vault refused ${message.payload.action}: ${message.payload.detail}`);
-            if (message.payload.action === 'roll') failRoll(set, ROLL_REFUSED);
+            // The server's reason, such as "Not enough Nerve for that roll."
+            if (message.payload.action === 'roll') failRoll(set, message.payload.detail || ROLL_REFUSED);
             // The server keeps the dice of a roll that waits for a die to be kept, and reads
             // the kept die from them; with no roll waiting (a server restart, a second
             // choice) the kept die did not count, and the server's words say to roll again

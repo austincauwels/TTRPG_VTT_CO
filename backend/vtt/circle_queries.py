@@ -7,6 +7,20 @@ RESOURCES = ("stitch", "refresh", "train")
 STAMINA_DICE = 3  # Stamina Training's gilded dice for each assignment (rulebook p. 41)
 
 
+def train_dice_left(character) -> int:
+    """Train dice the character has waiting. A character saved before the count existed
+    has train_bonus set and a count of 0: that is one die."""
+    n = getattr(character, "train_dice", 0) or 0
+    return n if n > 0 else (1 if getattr(character, "train_bonus", False) else 0)
+
+
+def take_train_die(character, n=-1):
+    """Adds (n=1) or uses (n=-1) a Train die, keeping train_bonus true while any wait."""
+    left = max(0, train_dice_left(character) + n)
+    character.train_dice = left
+    character.train_bonus = left > 0
+
+
 def resource_pool(circle, db: Session = None) -> int:
     """The circle's resource points: 1 plus its active members (rulebook p. 41), shared
     across Stitch, Refresh and Train. A campaign's members are counted by campaign, since

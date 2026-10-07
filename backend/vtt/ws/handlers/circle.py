@@ -4,7 +4,7 @@ creation (votes, backstory answers, personal answers, relationships).
 import json
 
 from models import Character, CircleVote, Relationship
-from vtt.circle_queries import relationships_list, resolve_circle, votes_dict
+from vtt.circle_queries import relationships_list, resolve_circle, take_train_die, votes_dict
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.manager import manager
 
@@ -72,7 +72,8 @@ async def handle_spend_resource(ctx):
         character.cunning_resistance_spent   = 0
         character.intuition_resistance_spent = 0
     elif resource_type == "train":
-        character.train_bonus = True
+        # Each Train is a die for a roll in the next assignment (p. 41): two spends, two dice
+        take_train_die(character, 1)
 
     setattr(circle, resource_type, cur_val - 1)
     character.resources_spent_assignment = (getattr(character, "resources_spent_assignment", 0) or 0) + 1

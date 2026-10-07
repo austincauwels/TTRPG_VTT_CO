@@ -317,6 +317,9 @@ def init_db():
         ("train_bonus",                "BOOLEAN DEFAULT FALSE"),
         ("resources_spent_assignment", "INTEGER DEFAULT 0"),
     ])
+    # Train dice as a count (a second Train used to set the flag again and give nothing).
+    # A row whose flag is set and count is 0 has one die waiting (train_dice_left).
+    add_columns("characters", [("train_dice", "INTEGER DEFAULT 0")])
 
     # Sign in with Google. The index has the name create_all gives it, so a database
     # made either way ends up with the same one.

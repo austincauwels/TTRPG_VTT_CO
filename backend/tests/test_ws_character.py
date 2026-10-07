@@ -342,6 +342,40 @@ def test_spend_stitch(client):
     assert support.fetch(Character, member["id"]).resources_spent_assignment == 1
 
 
+def test_two_train_spends_give_two_dice(client, dice):
+    """Fixed: a second Train took a circle point and one of the player's two spends but
+    gave no second die, because Train was a flag. Each Train is a die (rulebook p. 41),
+    used one per roll."""
+    camp, member, cid = _resource_setup(client, move=1)
+    with support.ws_connect(client, member["id"]) as ws:
+        ws.send("spend_resource", resource_type="train")
+        ws.send("spend_resource", resource_type="train")
+        updates = [m["payload"] for m in ws.sync() if m["type"] == "character_update"]
+        assert updates[-1]["train_dice"] == 2
+        for left in (1, 0):
+            dice(3, 4)
+            ws.send("roll", action="move", drive_spent=0, ability_mods=["Train"])
+            msgs = ws.sync()
+            assert len(msgs[0]["payload"]["roll"]["dice"]) == 2
+            assert msgs[0]["payload"]["character"]["train_dice"] == left
+        dice(5)
+        ws.send("roll", action="move", drive_spent=0, ability_mods=["Train"])  # none left
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 1
+    assert support.fetch(Circle, cid).train == 0
+
+
+def test_a_train_flag_saved_before_the_count_is_one_die(client, dice):
+    ch = support.forge(client, move=1)
+    support.update(Character, ch["id"], train_bonus=True, train_dice=0)
+    dice(3, 4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert ws.initial[0]["payload"]["train_dice"] == 1
+        ws.send("roll", action="move", drive_spent=0, ability_mods=["Train"])
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 2
+    row = support.fetch(Character, ch["id"])
+    assert (row.train_bonus, row.train_dice) == (False, 0)
+
+
 def test_spend_refresh_and_train(client):
     camp, member, cid = _resource_setup(
         client, nerve_max=3, nerve_current=0, cunning_max=6, cunning_current=1,
