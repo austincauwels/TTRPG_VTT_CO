@@ -16,7 +16,7 @@ from fastapi.routing import APIRoute, APIWebSocketRoute
 
 import main
 import support
-from models import Circle
+from models import Character, Circle
 
 SNAPSHOT = os.path.join(os.path.dirname(__file__), "data", "openapi.json")
 
@@ -72,6 +72,7 @@ HTTP_ROUTES = [
     (["PUT"], "/api/investigators/{investigator_id}/portrait", "set_portrait", None, None),
     (["DELETE"], "/api/investigators/{investigator_id}", "delete_investigator", None, None),
     (["POST"], "/api/investigators/{investigator_id}/restore", "restore_investigator", None, None),
+    (["GET"], "/api/notebook/hub-sketches", "hub_sketches", None, None),
     (["GET"], "/api/notebook/{campaign_id}/entries", "fetch_notebook_entries", "list[NotebookEntryResponse]", None),
     (["POST"], "/api/notebook/{campaign_id}/entries", "add_notebook_entry", "NotebookEntryResponse", 201),
     (["PUT"], "/api/notebook/entries/{entry_id}", "update_notebook_entry", "NotebookEntryResponse", None),
@@ -149,7 +150,7 @@ WS_MESSAGE_TYPES = [
     "refill_resources", "gm_end_assignment", "gm_reset_character", "spend_resource",
     "apply_advancement", "update_circle", "circle_creation_vote",
     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
-    "circle_relationship_respond", "chat_message", "add_notebook_entry",
+    "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
 ]
 
 
@@ -173,7 +174,7 @@ def _resources_editable(client, ctx):
 WS_CASES = {
     "gm_update_tension": dict(
         sender="gm", payload=lambda c: {"role": "GM", "character_id": c.char_id, "mark_type": "body", "value": 1},
-        expect=["character_update"]),
+        expect=["activity_log"]),
     "gm_update_circle": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id, "tension_label": "t"},
         expect=["circle_update"]),
@@ -182,11 +183,16 @@ WS_CASES = {
         expect=["scene_transition"]),
     "roll": dict(payload=lambda c: {}, expect=["roll_error"]),
     "update_drive": dict(payload=lambda c: {"pool": "nerve", "value": 1}, expect=["character_update"]),
+    # A choice needs a gilded roll waiting for it (handlers/rolls.py _pending_gilded)
     "resolve_gilded": dict(
+        fields={"move": 2, "gilded_move": True}, dice=(3, 5),
+        after_connect=lambda c, ws: (ws.send("roll", action="move", drive_spent=0), ws.sync()),
         payload=lambda c: {"action": "move", "chosen_type": "plain", "chosen_value": 4},
-        expect=["activity_log"]),
+        expect=["roll_kept", "activity_log"]),
+    # Flourish answers a failed or mixed roll that could take Cunning (handlers/rolls.py)
     "use_post_roll_ability": dict(
-        fields={"role_ability": "Flourish", "cunning_max": 3, "cunning_current": 3},
+        fields={"role_ability": "Flourish", "cunning_max": 3, "cunning_current": 3, "sneak": 1}, dice=(2,),
+        after_connect=lambda c, ws: (ws.send("roll", action="sneak", drive_spent=0), ws.sync()),
         payload=lambda c: {"ability": "Flourish"}, expect=["character_update", "activity_log"]),
     "update_pen_font": dict(payload=lambda c: {"pen_font": "Kalam"}, expect=["character_update"]),
     "take_mark": dict(payload=lambda c: {"mark_type": "body"}, expect=["character_update"]),
@@ -195,12 +201,18 @@ WS_CASES = {
         payload=lambda c: {"ability": "Death Defy"}, expect=["character_update", "activity_log"]),
     "intercept_mark": dict(
         fields={"role_ability": "Premonitions", "intuition_max": 3},
+        # an ally's mark offered to the table (intercepts answer an offered mark)
+        before_connect=lambda client, c: (support.update(Character, c.other_id, body_marks=1),
+                                          support.offer_intercept(c.other_id, "body")),
         payload=lambda c: {"ability": "Premonitions", "target_character_id": c.other_id, "mark_type": "body"},
         expect=["character_update", "activity_log"]),
-    "apply_scar": dict(payload=lambda c: {"scar_text": "s", "skip_shifts": True}, expect=["character_update"]),
+    "apply_scar": dict(fields={"specialty_ability": "Hardened"},
+                       payload=lambda c: {"scar_text": "s", "skip_shifts": True}, expect=["character_update"]),
     "revive_character": dict(payload=lambda c: {}, expect=["character_update", "activity_log"]),
+    # A burn answers a roll of that action (p. 13)
     "burn_resistance": dict(
         fields={"move": 2, "nerve_max": 3}, dice=(6, 6),
+        before_connect=lambda client, c: support.last_roll(c.char_id, "move"),
         payload=lambda c: {"action": "move", "drive_key": "nerve"}, expect=["roll_result", "activity_log"]),
     "update_gear": dict(payload=lambda c: {"gear": ["rope"]}, expect=["character_update", "activity_log"]),
     "gm_toggle_resource_edit": dict(
@@ -224,7 +236,9 @@ WS_CASES = {
         before_connect=_resources_editable,
         payload=lambda c: {"resource_type": "stitch"},
         expect=["character_update", "circle_update", "activity_log"]),
+    # A pick comes from the Lightkeeper's circle advance (engine.apply_advancement)
     "apply_advancement": dict(
+        before_connect=lambda client, c: support.update(Character, c.char_id, advancement_picks=2),
         payload=lambda c: {"choice": "add_action", "detail": "move"},
         expect=["character_update", "activity_log"]),
     "update_circle": dict(
@@ -249,11 +263,14 @@ WS_CASES = {
     "add_notebook_entry": dict(
         payload=lambda c: {"campaign_id": c.camp_id, "title": "t", "content": "c", "visibility": "self"},
         expect=["notebook_entry"]),
+    # Scout spends 1 Intuition for a question (p. 27; vtt/ability_uses.py)
+    "use_ability": dict(fields={"role_ability": "Scout", "intuition_max": 3, "intuition_current": 3},
+                        payload=lambda c: {"ability": "Scout"}, expect=["character_update", "activity_log"]),
 }
 
 
 def test_ws_cases_cover_every_message_type():
-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 32
+    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 33
     assert list(WS_CASES) == WS_MESSAGE_TYPES
 
 
@@ -284,6 +301,7 @@ WS_NEEDS_CHARACTER = {
     "gm_update_tension", "update_drive", "resolve_gilded", "use_post_roll_ability",
     "update_pen_font", "take_mark", "resolve_ability_mark", "intercept_mark", "apply_scar",
     "revive_character", "burn_resistance", "update_gear", "spend_resource", "apply_advancement",
+    "use_ability",
 }
 
 

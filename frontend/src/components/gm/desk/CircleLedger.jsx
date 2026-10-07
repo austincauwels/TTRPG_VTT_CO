@@ -69,7 +69,7 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
                 <span key={i} aria-hidden="true"
                   className={`block w-2.5 h-2.5 rounded-full border ${i < illum ? 'bg-ink border-ink' : 'border-ink/45'} ${(i + 1) % 3 === 0 ? 'ring-1 ring-candle-gold' : ''}`} />
               ))}
-              <span aria-hidden="true" className="ml-1 font-mono tabular-nums text-sm text-sepia">{illum} / {TRACK_SIZE}</span>
+              <span aria-hidden="true" className="ml-1 font-mono tabular-nums text-sm text-sepia">{Math.min(illum, TRACK_SIZE)} / {TRACK_SIZE}{illum > TRACK_SIZE ? ` +${illum - TRACK_SIZE}` : ''}</span>
             </dd>
           </div>
           {RESOURCES.map(({ label, key }) => {

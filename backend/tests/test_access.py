@@ -8,7 +8,7 @@ import time
 
 import pytest
 from fastapi.routing import APIRoute
-from jose import jwt
+import jwt
 
 import main
 import support
@@ -38,9 +38,10 @@ def _url(path):
 
 
 def test_every_route_but_the_sign_in_routes_is_protected():
-    # 40: the delete and undo routes and a drawn sketch's scene and redraw routes
-    # (GET .../scene, PUT .../sketch) on one side, the account page's routes on the other
-    assert len(PROTECTED) == 40
+    # 41: the delete and undo routes, a drawn sketch's scene and redraw routes
+    # (GET .../scene, PUT .../sketch) and the hub's sketches on one side, the account
+    # page's routes on the other
+    assert len(PROTECTED) == 41
     assert PUBLIC | ACCOUNT == {r.path for r in main.app.routes
                                 if isinstance(r, APIRoute) and r.path.startswith("/api/auth/")}
 
@@ -128,7 +129,7 @@ def test_a_registered_users_token_opens_their_characters_socket(client):
     r = client.post("/api/auth/register", json={"username": f"ws_{support.uid()}",
                                                 "email": f"{support.uid()}@example.test", "password": "long-enough-pw"})
     token = r.json()["token"]
-    ch = client.post("/api/investigators/forge", json={"name": "Wren"}, headers=support.bearer(token)).json()
+    ch = client.post("/api/investigators/forge", json=support.sheet(name="Wren"), headers=support.bearer(token)).json()
     with support.ws_connect(client, ch["id"], token=token) as ws:
         assert support.types(ws.initial) == ["character_update", "circle_update"]
         assert ws.initial[0]["payload"]["id"] == ch["id"]
@@ -264,7 +265,7 @@ def test_a_pending_character_reaches_nothing_of_the_campaign(client):
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
     cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp)).json()["circle_id"]
-    waiting = support.pending_member(client, camp, nerve_current=1)
+    waiting = support.pending_member(client, camp, nerve_max=3, nerve_current=1)
     me = support.as_owner(waiting["id"])
     base = f"/campaign/{camp['id']}"
 

@@ -17,6 +17,7 @@ from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BeforeValidator
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from engine import create_notebook_entry
@@ -90,6 +91,29 @@ def _require_author(db: Session, user: User, entry: NotebookEntry):
         return
     if not is_gm(user.id, campaign):
         raise forbidden()
+
+
+HUB_SKETCHES = 3
+
+
+@router.get("/api/notebook/hub-sketches")
+def hub_sketches(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """A few sketches for the chapter hub's desk, chosen at random on each visit (owner's
+    request, 2026-10-07): from the notebooks of the campaigns the user runs or plays in
+    with an active investigator, and only sketches the whole table sees. The picture
+    only: no scene, no text."""
+    playing = db.query(Character.campaign_id).filter(
+        Character.user_id == user.id, Character.status.in_(MEMBER_STATUSES), Character.campaign_id.isnot(None))
+    campaigns = db.query(Campaign.id).filter(or_(Campaign.gm_user_id == user.id, Campaign.id.in_(playing)))
+    rows = db.query(NotebookEntry.id, NotebookEntry.title, NotebookEntry.author_name, NotebookEntry.image_data).filter(
+        NotebookEntry.campaign_id.in_(campaigns),
+        NotebookEntry.entry_type == "sketch",
+        NotebookEntry.visibility == "all",
+        NotebookEntry.is_deleted.isnot(True),
+        NotebookEntry.image_data.isnot(None),
+    ).order_by(func.random()).limit(HUB_SKETCHES).all()
+    return [{"id": r.id, "title": r.title, "author_name": r.author_name, "image_data": r.image_data}
+            for r in rows if isinstance(r.image_data, str) and r.image_data.startswith("data:image/")]
 
 
 @router.get("/api/notebook/{campaign_id}/entries", response_model=List[NotebookEntryResponse])

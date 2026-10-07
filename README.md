@@ -97,6 +97,23 @@ Then open `http://localhost:5173` in your browser.
 
 ---
 
+## Running the Tests
+
+The backend has a characterization test suite in `backend/tests`. It needs a throwaway PostgreSQL database: several tests check row locks and column types that SQLite does not have, and the suite refuses to run against `candela_obscura.db`. Importing the app creates tables and seed rows, so never point it at real data.
+
+```bash
+pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+cd backend
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/candela_test
+export CORS_ORIGINS=http://localhost:5173
+export SECRET_KEY=$(openssl rand -hex 32)
+python -m pytest -q
+```
+
+GitHub Actions runs the same suite against PostgreSQL 16, and builds the frontend, on every push and pull request (`.github/workflows/ci.yml`).
+
+---
+
 ## Key Features
 - **Real-time Synchronization:** Game state updates instantly across all connected clients via WebSockets.
 - **Role & Specialty Abilities:** Ability modifiers (Behind Me, Premonitions, Well-Read, etc.) are resolved server-side and factored into every roll.

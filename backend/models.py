@@ -168,6 +168,9 @@ class Circle(Base):
     resources_editable = Column(Boolean, default=False)
     reports_open = Column(Boolean, default=False)
 
+    # Stamina Training's gilded dice used this assignment (rulebook p. 41)
+    stamina_dice_used = Column(Integer, default=0)
+
     # Per-player assignment report responses stored in backstory_answers JSON keyed by character_id
     # Structure: { "selected_question_key": "...", "reports": { "42": { "q0": true, "q1": false, ... } } }
 
@@ -250,6 +253,22 @@ class Character(SoftDeleted, Base):
     # Circle resource tracking
     train_bonus                = Column(Boolean, default=False)
     resources_spent_assignment = Column(Integer, default=0)
+    # Train dice waiting to be used: a player may spend Train twice (rulebook p. 41).
+    # train_bonus stays true while any wait (vtt/circle_queries.py train_dice_left).
+    train_dice                 = Column(Integer, default=0)
+
+    # Circle advancement (rulebook p. 55): picks the Lightkeeper's advance gave the
+    # character that are not chosen yet, and the options already taken among them (two
+    # different options per advancement; engine.apply_advancement).
+    advancement_picks = Column(Integer, default=0)
+    advancement_taken = Column(JSON, default=list)
+    # How many different options the current set of picks takes: 2, or 4 for the
+    # advancement that brings One Last Run (rulebook p. 41)
+    advancement_set = Column(Integer, default=2)
+
+    # Great Wards (rulebook p. 27): the Weird whose warding symbol this character holds,
+    # one person at a time. They take +1d on Move rolls against phenomena.
+    warded_by_id = Column(Integer, nullable=True)
 
     # Status
     incapacitated = Column(Boolean, default=False)

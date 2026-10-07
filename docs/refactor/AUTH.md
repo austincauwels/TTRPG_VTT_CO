@@ -45,7 +45,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /campaign/finalize-roster | GM of that campaign |
 | GET /api/investigators | any logged-in user; lists only their own characters |
 | GET /api/investigators/{id} | owner, or GM of the character's campaign |
-| POST /api/investigators/forge | any logged-in user; the character is theirs. `profile_pic` follows the portrait rule (Portraits below) |
+| POST /api/investigators/forge | any logged-in user; the character is theirs. `profile_pic` follows the portrait rule (Portraits below). The sheet must be one the character creator could make (vtt/creation.py, 422 otherwise) |
 | DELETE /api/investigators/{id} | owner only (not the GM of its campaign), and only while the character is on no roster: 409 while it is active or pending (DELETION.md) |
 | POST /api/investigators/{id}/restore | owner, within two minutes of deleting it; anyone else, or a character that is not deleted, is 404 (DELETION.md) |
 | PUT /api/investigators/{id}/portrait | owner, or GM of the character's campaign while the character is on its roster (active or pending; a retired character still tagged with the campaign is 403 for that GM) |
@@ -111,11 +111,11 @@ The character a message acts on is `payload.character_id`, or the player channel
 | gm_update_tension, gm_transition_scene, gm_reset_character | the GM |
 | gm_update_circle | the GM, for the campaign's own circle (`circle_id` still defaults to 1, which belongs to no campaign, so the frontend now sends the real id) |
 | gm_toggle_resource_edit, gm_toggle_reports, gm_advance_circle, refill_resources, gm_end_assignment, update_circle | the GM, for the campaign's own circle (default: the circle loaded at connect) |
-| roll | the owner; on a GM channel without a character it is a Lightkeeper roll |
-| update_drive, take_mark, revive_character, update_gear | the owner, or the GM for a member; a `gear` list whose items are not all strings is 422 |
-| resolve_gilded, use_post_roll_ability, update_pen_font, resolve_ability_mark, burn_resistance, apply_advancement, circle_personal_answer | the owner |
-| apply_scar | the owner; `shift_down` and `shift_up` must be action ratings (move, strike, control, hide, sneak, sway, survey, read, sense), anything else is 403 (QUIRK D14) |
-| intercept_mark | the owner of the interceptor; `target_character_id` must exist (404) and be in the interceptor's campaign |
+| roll | the owner; on a GM channel without a character it is a Lightkeeper roll; a negative `drive_spent` is 422 (QUIRK D15); a player's roll must name one of the nine actions and may not spend more drive than it holds (422, from the handler) |
+| update_drive, take_mark, revive_character, update_gear | the owner, or the GM for a member; a `gear` list whose items are not all strings is 422; a `mark_type` other than body, brain or bleed is 422 |
+| resolve_gilded, use_post_roll_ability, update_pen_font, resolve_ability_mark, burn_resistance, apply_advancement, circle_personal_answer | the owner (apply_advancement also needs a pick waiting from the circle's advance; the handler refuses others with 409 or 422) |
+| apply_scar | the owner; `shift_down` and `shift_up` must be action ratings (move, strike, control, hide, sneak, sway, survey, read, sense), anything else is 403 (QUIRK D14); a scar without both (or with `skip_shifts`) is 422 unless the character has Hardened, sends `not_again` (or `ability` Not Again) with an unused Not Again, or takes the fatal fourth scar (RULES_CHECK.md item 12); an `ability` must be Not Again or Forbidden Ritual (else 422) and the character's own, with Not Again unused this assignment (else 409) |
+| intercept_mark | the owner of the interceptor; `target_character_id` must exist (404) and be in the interceptor's campaign; an unknown `mark_type` is 422 |
 | spend_resource | the owner, an active member, on their campaign's circle |
 | submit_assignment_report, circle_creation_vote | the owner of `character_id`, an active member, on their campaign's circle; an unknown `vote_type` is 422 |
 | circle_backstory_update | an active member or the GM, on the campaign's circle |

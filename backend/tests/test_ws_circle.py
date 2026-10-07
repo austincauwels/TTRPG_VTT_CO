@@ -80,21 +80,29 @@ def test_gm_messages_from_a_player_are_rejected(client):
 
 
 def test_gm_update_tension(client):
+    """The Lightkeeper corrects a character's marks (the GM sheet's Marks row). The player's
+    sheet is told and the table's log says so (only the GM's own socket used to hear)."""
     camp, (member,), _ = _campaign(client)
     outsider = support.active_member(client, support.new_campaign(client))
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("gm_update_tension", role="GM", mark_type="body", value=2, character_id=member["id"])
         msgs = gm.sync()
-        assert support.types(msgs) == ["character_update"]
-        assert msgs[0]["payload"]["id"] == member["id"]
-        assert msgs[0]["payload"]["body_marks"] == 2
-        assert wm.drain() == []  # the player is not told
+        assert support.types(msgs) == ["activity_log"]
+        assert msgs[0]["payload"]["message"] == f"The Lightkeeper set {member['name']}'s Body marks to 2."
+        seen = wm.drain()
+        assert support.types(seen) == ["character_update", "activity_log"]
+        assert (seen[0]["payload"]["id"], seen[0]["payload"]["body_marks"]) == (member["id"], 2)
         gm.send("gm_update_tension", role="GM", mark_type="body", value=3)  # no character on a GM socket
         assert gm.sync() == []
         gm.send("gm_update_tension", mark_type="body", value=3, character_id=outsider["id"])
         assert gm.sync() == [_rejected("gm_update_tension")]
+        # Only the three tracks, 0 to 3
+        for m_type, value in (("foo", 1), ("body", 4), ("body", -1), ("body", "2"), ("body", True), ("nerve_max", 1)):
+            gm.send("gm_update_tension", mark_type=m_type, value=value, character_id=member["id"])
+        assert gm.sync() == [_rejected("gm_update_tension", status=422,
+                                       detail="Marks are 0 to 3, in Body, Brain or Bleed.")] * 6
         gm.send("gm_update_tension", mark_type="body", value=1, character_id=member["id"])  # role not needed
-        assert gm.sync()[0]["payload"]["body_marks"] == 1
+        assert support.types(gm.sync()) == ["activity_log"]
     assert support.fetch(Character, member["id"]).body_marks == 1
     assert support.fetch(Character, outsider["id"]).body_marks == 0
 
@@ -190,42 +198,59 @@ def test_gm_advance_circle(client):
         assert msgs[1]["payload"]["campaign_id"] == camp["id"]
         assert msgs[1]["payload"]["circle"]["circle_ability"] == "Hunters\nSeekers"
         assert msgs[1]["payload"]["circle"]["illumination"] == 2
-        assert support.types(wm.drain()) == ["activity_log", "circle_advanced"]
+        # Each member is given two advancement picks (RULES_CHECK 14)
+        seen = wm.drain()
+        assert support.types(seen) == ["character_update", "activity_log", "circle_advanced"]
+        assert (seen[0]["payload"]["advancement_picks"], seen[0]["payload"]["advancement_taken"]) == (2, [])
         gm.send("gm_advance_circle", role="GM")  # no ability, no full track: still advances
         msgs = gm.sync()
         assert msgs[1]["payload"]["circle"]["illumination"] == 0
+    assert support.fetch(Character, member["id"]).advancement_picks == 4
 
 
-def test_refill_resources_counts_circle_members(client):
-    """QUIRK: capacity counts characters attached to the circle, and campaign members
-    stay on circle 1, so a campaign circle refills to 1."""
+def test_refill_resources_counts_the_campaigns_members(client):
+    """Fixed (RULES_CHECK 16): each of Stitch, Refresh and Train refills to 1 + the
+    campaign's active members (rulebook p. 41; the p. 62 example has four players with 5
+    in each). It counted the members attached to the circle, and campaign members stay
+    on circle 1, so a campaign circle got 1 each."""
     camp, members, cid = _campaign(client, members=3)
     support.update(Circle, cid, stitch=0, refresh=0, train=0)
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("refill_resources", role="GM")
         p = gm.sync()[0]["payload"]
-        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (1, 1, 1, 1)
-        # a rejoined character is moved onto the campaign circle and then counts
+        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (4, 4, 4, 4)
+        # a rejoined character counts at once (the count is read fresh, not from the session)
         late = support.forge(client, user_id=support.make_user(pending_rejoin_campaign_id=camp["id"]).id)
         client.post("/campaign/rejoin", json={"character_id": late["id"], "campaign_code": camp["campaign_code"]},
                     headers=support.as_owner(late["id"]))
         gm.drain()
-        # QUIRK: the GM socket's long-lived session still holds the member list it
-        # loaded before the rejoin, so this refill uses the old count while the
-        # circle_update (built after the commit reloaded it) already reports 2.
-        gm.send("refill_resources", role="GM")
+        gm.send("refill_resources")
         p = gm.sync()[0]["payload"]
-        assert (p["stitch"], p["max_capacity"]) == (1, 2)
-        gm.send("refill_resources")  # payload.role is ignored now
-        p = gm.sync()[0]["payload"]
-        assert (p["stitch"], p["max_capacity"]) == (2, 2)
+        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (5, 5, 5, 5)
+
+
+def test_meticulous_notes_add_illumination_after_an_assignment(client):
+    """Rulebook p. 27: "After an assignment, increase your Illumination track 1 additional
+    point because of the detailed notes your character returns with." It was only a
+    reminder that made the point conditional."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Character, a["id"], role_ability="Meticulous Notes")
+    support.update(Circle, cid, illumination=2, name="The Moths")
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_end_assignment")
+        msgs = gm.sync()
+        assert msgs[0]["payload"]["illumination"] == 3
+        lines = [m["payload"]["message"] for m in msgs if m["type"] == "activity_log"]
+        assert lines[1:] == [f"Meticulous Notes: {a['name']}'s detailed notes add 1 Illumination.",
+                             "The Moths milestone reached!"]
+    assert support.fetch(Circle, cid).illumination == 3
 
 
 def test_gm_end_assignment(client):
     camp, (a, b), cid = _campaign(client, members=2)
     for ch in (a, b):
         support.update(Character, ch["id"], ability_uses={"Steel Mind": 1}, resources_spent_assignment=2,
-                       train_bonus=True)
+                       train_bonus=True, gear=["Lantern"])
     outsider = support.forge(client)
     support.update(Character, outsider["id"], resources_spent_assignment=2)
     support.update(Circle, cid, location="Docks", atmosphere="Fog")
@@ -234,13 +259,14 @@ def test_gm_end_assignment(client):
         msgs = gm.sync()
         assert support.types(msgs) == ["circle_update", "activity_log"]
         assert (msgs[0]["payload"]["location"], msgs[0]["payload"]["atmosphere"]) == ("", "")
-        assert msgs[1]["payload"] == {"message": f"{EM} Assignment ended. Ability uses have been reset. {EM}",
+        assert msgs[1]["payload"] == {"message": f"{EM} Assignment ended. Ability uses and gear slots have been reset. {EM}",
                                       "log_type": "field"}
         got = wa.drain()
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
         assert got[1]["payload"]["ability_uses"] == {}
         assert got[1]["payload"]["resources_spent_assignment"] == 0
         assert got[1]["payload"]["train_bonus"] is False
+        assert got[1]["payload"]["gear"] == []  # gear slots reset with the assignment (p. 52)
     assert support.fetch(Character, b["id"]).resources_spent_assignment == 0
     assert support.fetch(Character, outsider["id"]).resources_spent_assignment == 2
 
@@ -304,8 +330,164 @@ def test_update_circle_milestone_log(client):
         assert msgs[1]["payload"] == {"message": "The Moths milestone reached!", "log_type": "field"}
         gm.send("update_circle", role="GM", illumination=4)
         gm.send("update_circle", role="GM", illumination=3)  # going down: no log
-        gm.send("update_circle", role="GM", illumination=12)  # 12 is excluded
-        assert support.types(gm.sync()) == ["circle_update"] * 3
+        assert support.types(gm.sync()) == ["circle_update"] * 2
+        # Fixed (RULES_CHECK 19): every milestone passed gets its line, and a full track says so
+        gm.send("update_circle", role="GM", illumination=12)
+        msgs = gm.sync()
+        assert [m["payload"]["message"] for m in msgs[1:]] == [
+            "The Moths milestone reached!", "The Moths milestone reached!",
+            "The Moths's Illumination track is full: the circle can advance."]
+
+
+def test_resource_management_reminds_at_each_milestone(client):
+    """RULES_CHECK 20: Resource Management gains a resource of the circle's choice at each
+    milestone; the log says so (the choice stays with the table)."""
+    camp, _, cid = _campaign(client, members=0)
+    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Hunters\nResource Management")
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_circle", illumination=7)
+        lines = [m["payload"]["message"] for m in gm.sync()[1:]]
+        assert lines == ["The Moths milestone reached!", "Resource Management: The Moths gains one resource of its choice.",
+                         "The Moths milestone reached!", "Resource Management: The Moths gains one resource of its choice."]
+
+
+def test_advancing_the_circle_replenishes_its_resources(client):
+    """Fixed (RULES_CHECK 16): resources come back when the track fills (p. 41)."""
+    camp, members, cid = _campaign(client, members=2)
+    support.update(Circle, cid, stitch=0, refresh=0, train=0, illumination=12)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_advance_circle")
+        circle = gm.sync()[-1]["payload"]["circle"]
+        assert (circle["stitch"], circle["refresh"], circle["train"]) == (3, 3, 3)
+
+
+def test_one_last_run_gives_all_four_options(client):
+    """One Last Run (rulebook p. 41): "Everyone gets to take all four options during this
+    character advancement instead of only two." The advance that brings it gives four
+    picks that must all differ; later advances are pairs again."""
+    camp, (member,), cid = _campaign(client, move=1, nerve_max=3, nerve_current=3)
+    support.update(Circle, cid, illumination=12)
+    rejected = {"type": "action_rejected", "payload": {
+        "action": "apply_advancement", "status": 409, "detail": "Choose a different option for your other advancement."}}
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("gm_advance_circle", circle_ability="One Last Run")
+        gm.sync()
+        assert wm.drain()[0]["payload"]["advancement_picks"] == 4
+        wm.send("apply_advancement", choice="add_action", detail="move")
+        wm.send("apply_advancement", choice="add_drive", detail="nerve")
+        wm.sync()
+        wm.send("apply_advancement", choice="add_action", detail="strike")  # the set is four different options
+        assert wm.sync() == [rejected]
+        wm.send("apply_advancement", choice="new_ability", detail="Steel Mind")
+        wm.send("apply_advancement", choice="gild_action", detail="sense")
+        msgs = wm.sync()
+        last = [m for m in msgs if m["type"] == "character_update"][-1]["payload"]
+        assert (last["advancement_picks"], last["advancement_taken"]) == (0, [])
+    row = support.fetch(Character, member["id"])
+    assert (row.move, row.nerve_max, row.gilded_sense, row.advancement_set) == (2, 5, True, 2)
+
+
+def test_an_open_desk_can_take_the_picks_of_an_advance(client):
+    """Fixed: a player whose desk was open when the Lightkeeper advanced the circle got
+    "No advancement is waiting", because the socket kept the character it had loaded.
+    Each message now reads the row fresh (vtt/ws/endpoint.py)."""
+    camp, (member,), cid = _campaign(client, move=1)
+    support.update(Circle, cid, illumination=12)
+    with support.ws_connect(client, member["id"]) as wm, support.ws_connect(client, camp["campaign_code"]) as gm:
+        wm.send("update_pen_font", pen_font="Kalam")  # the player's socket has loaded its row
+        wm.sync()
+        gm.send("gm_advance_circle")
+        gm.sync()
+        wm.drain()
+        wm.send("apply_advancement", choice="add_action", detail="move")
+        assert wm.sync()[0]["payload"]["move"] == 2
+
+
+def test_the_gms_resource_edit_is_written_after_a_spend(client):
+    """Fixed: the GM socket's copy of the circle still showed the value from before a
+    player's spend, so setting that value again wrote nothing."""
+    camp, (member,), cid = _campaign(client)
+    support.update(Circle, cid, stitch=2, resources_editable=True)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("update_circle", illumination=0)  # the GM socket has loaded the circle
+        gm.sync()
+        support.update(Circle, cid, stitch=1)     # a spend from elsewhere
+        gm.send("update_circle", stitch=2)
+        assert gm.sync()[0]["payload"]["stitch"] == 2
+    assert support.fetch(Circle, cid).stitch == 2
+
+
+def test_stamina_training_on_a_zero_rating_rolls_its_die(client, dice):
+    """With a rating of 0, the Stamina die is the roll: one gilded die (an added die
+    makes it a normal roll, rulebook p. 11), not two dice taking the lower."""
+    camp, (a,), cid = _campaign(client, move=0)
+    support.update(Circle, cid, circle_ability="Stamina Training")
+    with support.ws_connect(client, a["id"]) as wa:
+        dice(5)
+        wa.send("roll", action="move", drive_spent=0, ability_mods=["Stamina Training"])
+        roll = wa.sync()[0]["payload"]["roll"]
+        assert [(d["value"], d["is_gilded"]) for d in roll["dice"]] == [(5, True)]
+        assert roll["outcome"] == "mixed_success"
+
+
+def test_nobody_left_behind_adds_a_die_while_a_member_is_down(client, dice):
+    """Rulebook p. 41: when a circle member drops incapacitated, a roll to protect them or
+    get them out of danger has +1d. The circle names who is down, and goes out again when
+    that changes, so the desks offer the die only then."""
+    camp, (a, b), cid = _campaign(client, members=2, move=1)
+    support.update(Circle, cid, circle_ability="Nobody Left Behind")
+
+    def rolls(ws, count):
+        dice(*([2] * count))
+        ws.send("roll", action="move", drive_spent=0, ability_mods=["Nobody Left Behind"])
+        return len(ws.sync()[0]["payload"]["roll"]["dice"]) == count
+
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        assert rolls(wa, 1)   # nobody is down: no die
+        support.update(Character, b["id"], body_marks=3)
+        wb.send("take_mark", mark_type="body", is_from_enemy=False)
+        update = next(m for m in wa.drain(0.5) if m["type"] == "circle_update")
+        assert update["payload"]["incapacitated_members"] == [{"id": b["id"], "name": b["name"]}]
+        assert rolls(wa, 2)   # b is down: +1d
+        assert rolls(wb, 1)   # not for b's own rolls
+        wb.drain()
+        wb.send("revive_character")
+        wb.sync()
+        update = next(m for m in wa.drain(0.5) if m["type"] == "circle_update")
+        assert update["payload"]["incapacitated_members"] == []
+        assert rolls(wa, 1)
+    # Without the circle ability, no die
+    support.update(Circle, cid, circle_ability="Stamina Training")
+    support.update(Character, b["id"], incapacitated=True)
+    with support.ws_connect(client, a["id"]) as wa:
+        assert rolls(wa, 1)
+
+
+def test_stamina_training_adds_three_gilded_dice_an_assignment(client, dice):
+    """RULES_CHECK 20: Stamina Training gives the circle three gilded dice to share each
+    assignment, each added "as +1d to any roll" (rulebook p. 41); a player picks one on a
+    roll, and ending the assignment brings them back. (It first gilded a die already in
+    the pool and added none.)"""
+    camp, (a,), cid = _campaign(client, move=2)
+    support.update(Circle, cid, circle_ability="Stamina Training")
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+        for left in (2, 1, 0):
+            dice(4, 5, 3)
+            wa.send("roll", action="move", drive_spent=0, ability_mods=["Stamina Training"])
+            msgs = wa.sync()
+            # Move 2 plus the Stamina die: three dice, one gilded
+            assert [d["is_gilded"] for d in msgs[0]["payload"]["roll"]["dice"]] == [True, False, False]
+            update = next(m for m in msgs if m["type"] == "circle_update")
+            assert update["payload"]["stamina_dice_left"] == left
+            wa.send("resolve_gilded", action="move", chosen_type="regular")
+            wa.sync()
+        dice(4, 5)
+        wa.send("roll", action="move", drive_spent=0, ability_mods=["Stamina Training"])  # none left
+        msgs = wa.sync()
+        assert [d["is_gilded"] for d in msgs[0]["payload"]["roll"]["dice"]] == [False, False]
+        gm.drain()
+        gm.send("gm_end_assignment")
+        assert gm.sync()[0]["payload"]["stamina_dice_left"] == 3
 
 
 def test_update_circle_string_resource(client):

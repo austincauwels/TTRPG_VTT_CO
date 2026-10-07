@@ -41,12 +41,16 @@ def test_char_dict_empty_string_gear_is_empty_list(client):
         assert (p["gear"], p["scars_list"]) == ([], [])
 
 
-def test_char_dict_passes_string_ability_uses_through(client):
-    """QUIRK: gear and scars are parsed, but ability_uses is sent as the raw string."""
+def test_char_dict_parses_string_ability_uses(client):
+    """ability_uses is parsed like gear and scars. It used to be sent as the raw string,
+    and the desk's gear slots and once-per-assignment Use buttons read it as an object."""
     ch = support.forge(client)
     support.update(Character, ch["id"], ability_uses='{"Death Defy": 1}')
     with support.ws_connect(client, ch["id"]) as ws:
-        assert ws.initial[0]["payload"]["ability_uses"] == '{"Death Defy": 1}'
+        assert ws.initial[0]["payload"]["ability_uses"] == {"Death Defy": 1}
+    support.update(Character, ch["id"], ability_uses="not json")
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert ws.initial[0]["payload"]["ability_uses"] == {}
 
 
 def test_circle_dict_parses_string_backstory(client):
@@ -127,7 +131,7 @@ def test_backstory_update_onto_string_backstory(client):
 
 
 def test_apply_scar_onto_string_scars(client):
-    ch = support.forge(client)
+    ch = support.forge(client, specialty_ability="Hardened")
     support.update(Character, ch["id"], scars_list='["Limp"]', scars_count=1)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("apply_scar", scar_text="Burn")
@@ -138,33 +142,38 @@ def test_apply_scar_onto_string_scars(client):
 
 # --- dict(ability_uses) on a string -------------------------------------------------
 
-def test_take_mark_with_string_ability_uses_closes_the_socket(client):
-    """QUIRK: dict() of a JSON string raises ValueError before any change, and the socket ends."""
-    ch = support.forge(client, body_marks=1)
+def test_take_mark_with_string_ability_uses_works(client):
+    """Fixed: dict() of a JSON string raised and ended the socket. vtt.abilities reads
+    the string's JSON, so the mark lands and the uses in it still count."""
+    ch = support.forge(client, body_marks=1, specialty_ability="Death Defy")
     support.update(Character, ch["id"], ability_uses='{"Death Defy": 1}')
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("take_mark", mark_type="body")
-        assert support.wait_server_dropped(ch["id"])
-    assert support.fetch(Character, ch["id"]).body_marks == 1
+        ws.send("take_mark", mark_type="body", is_from_enemy=True)  # Death Defy is used up
+        assert support.types(ws.sync()) == ["character_update"]
+        assert support.server_sockets(ch["id"])
+    assert support.fetch(Character, ch["id"]).body_marks == 2
 
 
-def test_resolve_ability_mark_with_string_ability_uses_closes_the_socket(client):
+def test_resolve_ability_mark_with_string_ability_uses_works(client):
     ch = support.forge(client, nerve_max=3, nerve_current=1, specialty_ability="Adrenaline Rush")
     support.update(Character, ch["id"], ability_uses='{"Death Defy": 1}')
     with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body")
+        ws.sync()
         ws.send("resolve_ability_mark", ability="Adrenaline Rush", choice="nerve")
-        assert support.wait_server_dropped(ch["id"])
-    assert support.fetch(Character, ch["id"]).nerve_current == 1
+        assert support.types(ws.sync()) == ["character_update", "activity_log"]
+        assert support.server_sockets(ch["id"])
+    assert support.fetch(Character, ch["id"]).nerve_current == 2
 
 
 def test_roll_with_string_ability_uses_works(client, dice):
     """The roll handler only copies ability_uses for names that are never roll mods,
     so a string there is never touched."""
-    ch = support.forge(client, read=1, specialty_ability="Meticulous Notes")
+    ch = support.forge(client, read=1, cunning_max=6, specialty_ability="Meticulous Notes")
     support.update(Character, ch["id"], ability_uses='{"Death Defy": 1}')
     dice(2, 4)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="read", drive_spent=0, ability_mods=["Meticulous Notes"])
         p = ws.sync()[0]["payload"]
         assert len(p["roll"]["dice"]) == 2
-        assert p["character"]["ability_uses"] == '{"Death Defy": 1}'
+        assert p["character"]["ability_uses"] == {"Death Defy": 1}

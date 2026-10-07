@@ -2686,6 +2686,23 @@
         "summary": "Redraw Sketch"
       }
     },
+    "/api/notebook/hub-sketches": {
+      "get": {
+        "description": "A few sketches for the chapter hub's desk, chosen at random on each visit (owner's\nrequest, 2026-10-07): from the notebooks of the campaigns the user runs or plays in\nwith an active investigator, and only sketches the whole table sees. The picture\nonly: no scene, no text.",
+        "operationId": "hub_sketches_api_notebook_hub_sketches_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Hub Sketches"
+      }
+    },
     "/api/notebook/{campaign_id}/entries": {
       "get": {
         "operationId": "fetch_notebook_entries_api_notebook__campaign_id__entries_get",

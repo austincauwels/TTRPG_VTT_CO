@@ -2,7 +2,8 @@
 // the rulebook. Used by the relationship form (components/pc/relationships).
 
 export const RELATIONSHIP_DATA = {
-  Antagonist: [
+  // The rulebook's name (p. 34); stored "Antagonist" rows are renamed at startup (vtt/db.py)
+  Bully: [
     "This person does something that makes your life more difficult. What do they do, and why do you think they treat you this way?",
     "What do you admire about this person, but would never say?",
     "You stand in the way of something this person wants. How has this changed their behavior toward you?",

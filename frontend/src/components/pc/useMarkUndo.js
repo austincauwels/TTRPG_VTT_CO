@@ -7,7 +7,7 @@ export const MARK_NAME = { body: 'Body', brain: 'Brain', bleed: 'Bleed' };
 // A mark the player takes is held here for five seconds before it goes to the server, so a
 // mis-tap can be undone: the server has no message that removes a mark. Taking another mark
 // sends the held one at once. Leaving the sheet or closing the page sends a held mark
-// rather than dropping it, because the player did mean to take it.
+// rather than dropping it, because the player did mean to take it. flush sends it now.
 export const useMarkUndo = (takeMark) => {
   const heldRef = useRef(null);          // { type, timer }
   const takeMarkRef = useRef(takeMark);
@@ -61,5 +61,5 @@ export const useMarkUndo = (takeMark) => {
   }, []);
 
   const secondsLeft = held ? Math.max(1, Math.ceil((held.until - now) / 1000)) : 0;
-  return { held, hold, undo, secondsLeft, sendError };
+  return { held, hold, undo, flush: send, secondsLeft, sendError };
 };

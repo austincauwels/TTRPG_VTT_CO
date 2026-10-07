@@ -4,7 +4,23 @@ profile_pic is the stored portrait only when it follows the portrait rule
 (vtt/portraits.py served_portrait); anything else is sent as no portrait."""
 import json
 
+from vtt.circle_queries import (STAMINA_DICE, circle_abilities, downed_members, resource_pool, saw_this_coming,
+                                train_dice_left)
+
+from vtt.abilities import ability_uses
 from vtt.portraits import served_portrait
+
+
+def advancement_taken(char) -> list:
+    """The advancement options the character has taken among its waiting picks (a list,
+    whatever the column holds)."""
+    raw = getattr(char, "advancement_taken", None)
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raw = None
+    return [c for c in raw if isinstance(c, str)] if isinstance(raw, list) else []
 
 
 def get_char_dict(char):
@@ -69,9 +85,13 @@ def get_char_dict(char):
         "ink_color": getattr(char, "ink_color", "") or "",
         "campaign_id": getattr(char, "campaign_id", None),
         "personal_circle_answer": getattr(char, "personal_circle_answer", "") or "",
-        "ability_uses": getattr(char, "ability_uses", None) or {},
+        "ability_uses": ability_uses(char),
         "train_bonus": bool(getattr(char, "train_bonus", False)),
+        "train_dice": train_dice_left(char),
+        "warded_by_id": getattr(char, "warded_by_id", None),
         "resources_spent_assignment": getattr(char, "resources_spent_assignment", 0) or 0,
+        "advancement_picks": getattr(char, "advancement_picks", 0) or 0,
+        "advancement_taken": advancement_taken(char),
     }
 
 def get_circle_dict(circle):
@@ -91,7 +111,15 @@ def get_circle_dict(circle):
         "tension_label": getattr(circle, "tension_label", None) or "",
         "location": getattr(circle, "location", None) or "",
         "atmosphere": getattr(circle, "atmosphere", None) or "",
-        "max_capacity": 1 + sum(1 for c in circle.characters if c.status == "active"),
+        # The resource pool (1 plus the active members, rulebook p. 41): any one resource
+        # can hold all of it
+        "max_capacity": resource_pool(circle),
+        "stamina_dice_left": max(0, STAMINA_DICE - (getattr(circle, "stamina_dice_used", 0) or 0))
+        if "Stamina Training" in circle_abilities(circle) else 0,
+        # Nobody Left Behind (p. 41): who is down, for the +1d chip on the desks
+        "incapacitated_members": downed_members(circle),
+        # Saw This Coming (p. 27): who can still add +1d to another member's roll
+        "saw_this_coming": saw_this_coming(circle),
         "chapter_house_location": getattr(circle, "chapter_house_location", None) or "",
         "circle_ability": getattr(circle, "circle_ability", None) or "",
         "insignia": getattr(circle, "insignia", None) or "",

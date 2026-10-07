@@ -137,6 +137,17 @@ INTEGER_FLAG_COLUMNS = [
 ]
 
 
+def rename_relationship_types():
+    """The rulebook's Bully relationship (pp. 34 to 37) was named Antagonist in the app.
+    Renames stored rows, including a counter's proposed type; safe on every start."""
+    try:
+        with db_engine.begin() as conn:
+            conn.execute(text("UPDATE relationships SET rel_type = 'Bully' WHERE rel_type = 'Antagonist'"))
+            conn.execute(text("UPDATE relationships SET counter_type = 'Bully' WHERE counter_type = 'Antagonist'"))
+    except Exception as e:
+        logger.error("Error renaming relationship types: %s", e)
+
+
 def convert_integer_flags():
     """Convert any column in INTEGER_FLAG_COLUMNS that is still an integer to BOOLEAN
     DEFAULT FALSE (0 becomes false, anything else true). Columns that are already
@@ -244,12 +255,14 @@ def init_db():
     have no Google sign-in (warn_password_only_accounts)."""
     db = SessionLocal()
     try:
-        circle = db.query(Circle).filter(Circle.id == 1).first()
+        # Column queries, so the seed also works on tables that predate a column added
+        # below: loading the whole row failed on the first start after an upgrade that
+        # added a column (circles.stamina_dice_used), and skipped the seed with an error.
+        circle = db.query(Circle.id).filter(Circle.id == 1).first()
         if not circle:
             circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
             db.add(circle)
 
-        # A column query, so the seed also works on a users table that predates google_sub.
         admin_user = db.query(User.id).filter(User.username == "admin").first()
         if not admin_user:
             new_admin = User(
@@ -317,6 +330,9 @@ def init_db():
         ("train_bonus",                "BOOLEAN DEFAULT FALSE"),
         ("resources_spent_assignment", "INTEGER DEFAULT 0"),
     ])
+    # Train dice as a count (a second Train used to set the flag again and give nothing).
+    # A row whose flag is set and count is 0 has one die waiting (train_dice_left).
+    add_columns("characters", [("train_dice", "INTEGER DEFAULT 0")])
 
     # Sign in with Google. The index has the name create_all gives it, so a database
     # made either way ends up with the same one.
@@ -375,6 +391,21 @@ def init_db():
     # says why.
     add_columns("notebook_entries", [("sketch_scene", "TEXT")])
 
+    # Stamina Training's dice used this assignment (RULES_CHECK.md item 20). Existing rows get 0.
+    add_columns("circles", [("stamina_dice_used", "INTEGER DEFAULT 0")])
+
+    # Circle advancement picks (RULES_CHECK.md item 14). Existing rows get 0 and an empty
+    # list: no advancement waiting.
+    add_columns("characters", [
+        ("advancement_picks", "INTEGER DEFAULT 0"),
+        ("advancement_taken", "JSON DEFAULT '[]'"),
+        # One Last Run's set of four options (rulebook p. 41); others are sets of two
+        ("advancement_set", "INTEGER DEFAULT 2"),
+    ])
+    # Great Wards: who holds the Weird's ward (rulebook p. 27). Nobody does on existing rows.
+    add_columns("characters", [("warded_by_id", "INTEGER")])
+
     convert_integer_flags()
+    rename_relationship_types()
     retire_published_passwords()
     warn_password_only_accounts()

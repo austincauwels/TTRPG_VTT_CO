@@ -438,7 +438,7 @@ def test_rejoin_after_a_death_needs_an_approved_character(client):
     bait = support.pending_member(client, camp, user_id=u.id)
     with support.ws_connect(client, bait["id"]) as ws:
         for n in range(4):
-            ws.send("apply_scar", scar_text=f"scar {n}", skip_shifts=True)
+            ws.send("apply_scar", scar_text=f"scar {n}", shift_down="move", shift_up="sense")
         ws.sync()
     assert support.fetch(Character, bait["id"]).is_dead is True
     sneak = support.forge(client, user_id=u.id)

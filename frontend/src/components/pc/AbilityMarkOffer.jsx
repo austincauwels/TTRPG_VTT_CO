@@ -27,9 +27,19 @@ const ABILITY_OFFER_CONFIG = {
     description: "Burn 1 Cunning resistance to soak this Body mark.",
     actionType: "soak",
   },
+  "Non-Combatant": {
+    icon: "GiHeartInside",
+    description: (name) => `${name} took a mark. If they have hurt no one this assignment, recover 1 drive point of your choice.`,
+    actionType: "drive_refresh",
+  },
+  "Circle of Protection": {
+    icon: "GiShield",
+    description: "The Circle of Protection around you soaks this Body mark.",
+    actionType: "soak",
+  },
   "Death Defy": {
     icon: "GiHalfDead",
-    description: "Escape unscathed: you take no marks from this enemy.",
+    description: "If an enemy dealt this mark, escape unscathed: you take no marks from it.",
     actionType: "escape",
   },
   "Let Them In": {
@@ -52,7 +62,7 @@ const ABILITY_OFFER_CONFIG = {
 };
 
 export const AbilityMarkOffer = () => {
-  const { abilityMarkOffer, resolveAbilityMark, interceptMark, dismissAbilityMarkOffer } = useGameStore();
+  const { abilityMarkOffer, resolveAbilityMark, interceptMark, dismissAbilityMarkOffer, declineAbilityMark } = useGameStore();
   const [driveChoice, setDriveChoice] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [hovered, setHovered] = useState(false);
@@ -63,6 +73,12 @@ export const AbilityMarkOffer = () => {
 
   const offer = abilityMarkOffer;
   const config = offer ? ABILITY_OFFER_CONFIG[offer.ability] : null;
+  // A soak or Death Defy on this investigator's own mark holds the mark back: passing it
+  // up, or letting the time run out, takes the mark (the server lands it)
+  const holdsOwnMark = !!config && !config.isIntercept && (offer.action === 'soak' || offer.action === 'escape');
+  const holdsRef = useRef(null);
+  holdsRef.current = holdsOwnMark ? offer : null;
+  const passUp = () => (holdsRef.current ? declineAbilityMark(holdsRef.current) : dismissAbilityMarkOffer());
 
   const autoDismissSeconds = offer?.action === 'info' || config?.isIntercept ? MIN_OFFER_SECONDS : 30;
 
@@ -73,17 +89,20 @@ export const AbilityMarkOffer = () => {
       if (pausedRef.current) return;
       setTimeLeft(prev => {
         if (prev == null) return prev;
-        if (prev <= 1) { dismissAbilityMarkOffer(); return null; }
+        if (prev <= 1) { passUp(); return null; }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [offer?.ability, offer?.character_id]);
+  }, [offer?.seq]);  // each offer gets its full time, even a second one of the same ability
 
   if (!offer || !config) return null;
 
   const charName = offer.character_name || 'an ally';
-  const desc = typeof config.description === 'function' ? config.description(charName) : config.description;
+  // Death Defy names how many marks of the harm it escapes
+  const desc = offer.ability === 'Death Defy' && offer.count > 1
+    ? `If an enemy dealt these ${offer.count} marks, escape unscathed: you take none of them.`
+    : typeof config.description === 'function' ? config.description(charName) : config.description;
 
   const handleAccept = () => {
     if (config.isIntercept) {
@@ -156,10 +175,10 @@ export const AbilityMarkOffer = () => {
           )}
           {offer.action === 'info' && <span className="flex-1" aria-hidden="true" />}
           <button
-            onClick={dismissAbilityMarkOffer}
+            onClick={passUp}
             className="min-h-[40px] px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-widest border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm"
           >
-            {offer.action === 'info' ? 'Close' : 'Not now'}
+            {offer.action === 'info' ? 'Close' : holdsOwnMark ? 'Take the mark' : 'Not now'}
           </button>
         </div>
 

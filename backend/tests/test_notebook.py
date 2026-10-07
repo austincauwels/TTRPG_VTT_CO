@@ -643,3 +643,38 @@ def test_drawn_sketch_and_redraw_do_not_broadcast(client):
                        headers=support.as_owner(member["id"]))
         assert r.status_code == 200
         assert gm.drain() == [] and mem.drain() == []
+
+
+def _upload_sketch(client, camp, member, title, entry_type="sketch"):
+    r = client.post(f"/api/notebook/{camp['id']}/upload",
+                    files={"file": ("s.png", b"\x89PNG-" + title.encode(), "image/png")},
+                    data={"title": title, "author_type": "player", "entry_type": entry_type,
+                          "character_id": str(member["id"])},
+                    headers=support.as_owner(member["id"]))
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
+
+
+def test_hub_sketches_come_from_the_users_own_notebooks(client):
+    """The chapter hub lays a few notebook sketches on its desk (owner's request,
+    2026-10-07), chosen at random: only from campaigns the user runs or plays in with an
+    active investigator, only sketches the whole table sees, and no more than three."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    ids = [_upload_sketch(client, camp, member, f"Sketch {n}") for n in range(4)]
+    hidden = _upload_sketch(client, camp, member, "Mine only")
+    support.update(NotebookEntry, hidden, visibility="self")
+    gone = _upload_sketch(client, camp, member, "Torn out")
+    support.update(NotebookEntry, gone, is_deleted=True)
+    _upload_sketch(client, camp, member, "A photograph", entry_type="photo")
+
+    got = client.get("/api/notebook/hub-sketches", headers=support.as_owner(member["id"])).json()
+    assert len(got) == 3 and {s["id"] for s in got} <= set(ids)
+    assert set(got[0]) == {"id", "title", "author_name", "image_data"}
+    assert got[0]["image_data"].startswith("data:image/png;base64,")
+    assert {s["id"] for s in client.get("/api/notebook/hub-sketches", headers=support.as_gm(camp)).json()} <= set(ids)
+    # Someone else, and someone still waiting for approval, see none of them
+    assert client.get("/api/notebook/hub-sketches", headers=support.as_stranger()).json() == []
+    waiting = support.pending_member(client, camp)
+    assert client.get("/api/notebook/hub-sketches", headers=support.as_owner(waiting["id"])).json() == []
+    assert client.get("/api/notebook/hub-sketches").status_code == 401

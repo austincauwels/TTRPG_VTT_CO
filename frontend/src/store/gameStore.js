@@ -31,6 +31,26 @@ const ROLL_REFUSED = 'The table refused that roll.';
 const KEEP_NOT_SENT = 'Not connected to the table, so the kept die was not sent. Keep it again once the desk is back.';
 let rollTimer = null;
 let queuedRoll = null;   // the roll frame waiting for the socket to open
+let rollSeq = 0;         // the id each roll_result's roll is given on this desk
+let offerSeq = 0;        // the id each ability offer is given, so each gets its own countdown
+let scarFormSeq = 0;     // the id each scar form is opened with, so a new one starts blank
+const nextScarForm = () => { scarFormSeq += 1; return scarFormSeq; };
+
+// Ability offers wait their turn: one is shown, the rest queue behind it (an ally's
+// intercept offer used to replace a soak offer that held this investigator's own mark,
+// which was then never answered). A new offer holding this investigator's own mark
+// replaces an old one, whose mark the server has already landed.
+const holdsOwnMark = (offer) => !!offer && !offer.intercept && (offer.action === 'soak' || offer.action === 'escape');
+// Let Them In answers "1 or more Bleed marks" (p. 27): several marks from one harm ask once
+const asksLetThemIn = (offer, other) => !!offer && !!other && offer.ability === 'Let Them In'
+  && other.ability === 'Let Them In' && offer.character_id === other.character_id;
+const queueOffer = (state, offer) => {
+  if ([state.abilityMarkOffer, ...state.abilityMarkQueue].some(o => asksLetThemIn(offer, o))) return {};
+  if (!state.abilityMarkOffer) return { abilityMarkOffer: offer };
+  if (holdsOwnMark(offer) && holdsOwnMark(state.abilityMarkOffer)) return { abilityMarkOffer: offer };
+  return { abilityMarkQueue: [...state.abilityMarkQueue, offer] };
+};
+const nextOffer = (state) => ({ abilityMarkOffer: state.abilityMarkQueue[0] || null, abilityMarkQueue: state.abilityMarkQueue.slice(1) });
 
 const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
 
@@ -143,6 +163,9 @@ const useGameStore = create(
       lastPlayedCampaign: null, // { type:'player'|'gm', characterId?, campaignCode, campaignName }
       circle: null,
       lastRoll: null,
+      // The server's result for the die kept in this desk's last gilded choice (roll_kept):
+      // { rollId, index, is_gilded, value, outcome, seq }
+      lastRollKept: null,
       // The latest roll by someone else at the table, as its dice started tumbling there
       // (the server's dice_thrown); the GM's tray shows it. { roll, kept, name, ink_color,
       // action, rating, character_id }
@@ -151,6 +174,8 @@ const useGameStore = create(
       showScarModal: false,
       scarModalData: null,
       pendingScar: null,         // { type, characterId }: a scar the player chose to decide later
+      scarError: null,           // why the server refused the last scar sent (the form reopens)
+      scarSent: null,            // { scarModalData, pendingScar } of the scar last sent
       isRolling: false,
       rollWaiting: false,        // the roll waits for the connection to come back
       rollError: null,           // why the last roll (or kept die) did not go through
@@ -161,8 +186,12 @@ const useGameStore = create(
       activityLog: [],
       pendingRoll: null,         // { action, driveSpend } — set before roll to show spend selector
       pendingRollMods: [],       // active ability modifier chip keys for the current pending roll
-      abilityMarkOffer: null,    // { ability, mark_type, character_id, options? } — mark intercept prompt
+      abilityMarkOffer: null,    // { ability, mark_type, character_id, options?, intercept?, seq } — mark intercept prompt
+      abilityMarkQueue: [],      // offers waiting behind the one shown
+      abilityUseError: null,     // why the server refused an ability used outside a roll
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
+      advancementDeferred: false, // the player chose "Later" on the advancement dialog
+      advancementError: null,     // why the server refused an advancement pick
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
@@ -194,6 +223,8 @@ const useGameStore = create(
           pendingScar: null,
           showScarModal: false,
           scarModalData: null,
+          scarError: null,
+          scarSent: null,
           character: null,
           characters: [],
           gmCampaigns: [],
@@ -340,12 +371,15 @@ const useGameStore = create(
                 get().fetchCircleCreationState(incoming.campaign_id);
               }
             }
-            // Deceased log entry when character becomes incapacitated or dead
-            if ((incoming.incapacitated === true || incoming.is_dead === true) &&
-                !prevChar?.incapacitated && !prevChar?.is_dead) {
+            // A line when the character drops incapacitated or dies. Incapacitated is not
+            // death (rulebook p. 14): it said "is deceased" for both, and said nothing when
+            // an incapacitated investigator then died
+            const becameDead = incoming.is_dead === true && !prevChar?.is_dead;
+            const becameDown = incoming.incapacitated === true && !prevChar?.incapacitated && !incoming.is_dead;
+            if (becameDead || becameDown) {
               const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
               set(state => ({
-                activityLog: [{ text: `${incoming.name} is deceased.`, type: 'danger', time, inkColor: incoming.ink_color }, ...state.activityLog].slice(0, 50),
+                activityLog: [{ text: becameDead ? `${incoming.name} is deceased.` : `${incoming.name} is incapacitated.`, type: 'danger', time, inkColor: incoming.ink_color }, ...state.activityLog].slice(0, 50),
               }));
             }
           }
@@ -359,10 +393,13 @@ const useGameStore = create(
             if (seen && next && seen.id === next.id && value > seen.value) playTensionTick(value);
           }
           else if (message.type === 'roll_result') {
-            const roll = message.payload.roll;
+            // Each roll gets an id here (the server sends none), so what is keyed on the
+            // roll, such as the post-roll ability prompts, sees a new roll as new
+            const roll = message.payload.roll ? { ...message.payload.roll, id: ++rollSeq } : message.payload.roll;
             clearRollTimer();
             set({
               lastRoll: roll,
+              lastRollKept: null,
               tableRoll: null, // this desk's own roll is the newest on its felt
               character: message.payload.character,
               isRolling: false,
@@ -377,6 +414,16 @@ const useGameStore = create(
             // The dice start tumbling on this desk now; a gilded roll's dice wait, still, for
             // the choice, and tumble when a die is kept (resolveGildedChoice)
             if (roll?.dice && !roll.needs_gilded_choice) playDiceTumble();
+          }
+          else if (message.type === 'roll_kept') {
+            // The server scored the die this desk kept: the outcome slip, the post-roll
+            // prompts and the resistance offer read it (DiceVault)
+            const p = message.payload || {};
+            const { lastRoll } = get();
+            if (lastRoll && lastRoll.action === p.action && lastRoll.needs_gilded_choice) {
+              set({ lastRollKept: { rollId: lastRoll.id, index: p.index, is_gilded: !!p.is_gilded,
+                value: p.value, outcome: p.outcome, seq: ++rollSeq } });
+            }
           }
           else if (message.type === 'dice_thrown') {
             // Someone else's dice start tumbling now (their roll landed, or they kept a
@@ -399,7 +446,8 @@ const useGameStore = create(
             set({
               character: message.payload.character,
               showScarModal: true,
-              scarModalData: { type: message.payload.mark_type },
+              scarModalData: { type: message.payload.mark_type, seq: nextScarForm() },
+              scarError: null,
               pendingScar: {
                 type: message.payload.mark_type,
                 characterId: message.payload.character_id ?? message.payload.character?.id ?? null,
@@ -413,7 +461,35 @@ const useGameStore = create(
           else if (message.type === 'action_rejected') {
             // The server refused a message this user may not send; nothing changed on the server.
             console.warn(`Vault refused ${message.payload.action}: ${message.payload.detail}`);
-            if (message.payload.action === 'roll') failRoll(set, ROLL_REFUSED);
+            // The server's reason, such as "Not enough Nerve for that roll."
+            if (message.payload.action === 'roll') failRoll(set, message.payload.detail || ROLL_REFUSED);
+            // The server keeps the dice of a roll that waits for a die to be kept, and reads
+            // the kept die from them; with no roll waiting (a server restart, a second
+            // choice) the kept die did not count, and the server's words say to roll again
+            if (message.payload.action === 'apply_advancement') {
+              set({ advancementError: message.payload.detail || 'That advancement was not applied.' });
+            }
+            if (message.payload.action === 'resolve_gilded') {
+              set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
+            }
+            if (message.payload.action === 'use_ability') {
+              set({ abilityUseError: message.payload.detail || 'That ability was not used.' });
+            }
+            // A refused scar was not recorded: the form opens again, as it was, with the reason
+            if (message.payload.action === 'apply_scar') {
+              const sent = get().scarSent;
+              const detail = message.payload.detail || 'The scar was not recorded.';
+              if (sent) {
+                set({ showScarModal: true, scarModalData: sent.scarModalData, pendingScar: sent.pendingScar,
+                  scarError: detail, scarSent: null });
+              } else {
+                set({ abilityUseError: detail });
+              }
+            }
+            // A burn answers a roll of that action; after a server restart there is none
+            if (message.payload.action === 'burn_resistance' || message.payload.action === 'use_post_roll_ability') {
+              set({ rollError: message.payload.detail || ROLL_REFUSED });
+            }
           }
           else if (message.type === 'notebook_entry') {
             set(state => {
@@ -580,7 +656,7 @@ const useGameStore = create(
           }
           else if (message.type === 'circle_advanced') {
             if (!isForThisCampaign(message.payload)) return;
-            set({ circle: message.payload.circle, circleAdvancement: { circle: message.payload.circle } });
+            set({ circle: message.payload.circle, circleAdvancement: { circle: message.payload.circle }, advancementDeferred: false });
           }
           else if (message.type === 'campaign_retired') {
             if (!isForThisCampaign(message.payload)) return;
@@ -638,10 +714,10 @@ const useGameStore = create(
             }));
           }
           else if (message.type === 'ability_mark_offer') {
-            set({ abilityMarkOffer: message.payload });
+            set(state => queueOffer(state, { ...message.payload, seq: ++offerSeq }));
           }
           else if (message.type === 'ability_intercept_offer') {
-            set({ abilityMarkOffer: message.payload });
+            set(state => queueOffer(state, { ...message.payload, intercept: true, seq: ++offerSeq }));
           }
           else if (message.type === 'gm_rejoin_invite') {
             set({ rejoinInvite: message.payload });
@@ -729,14 +805,15 @@ const useGameStore = create(
         set({ character: characterData });
       },
 
-      rollAction: (actionName, driveSpent = 0, isSecret = false, abilityMods = []) => {
+      // extra: more of the roll's payload, such as { drive } for Street Smarts
+      rollAction: (actionName, driveSpent = 0, isSecret = false, abilityMods = [], extra = {}) => {
         const { socket, pendingGildedChoice, isRolling, connectionState } = get();
         if (pendingGildedChoice || isRolling) return;
         const frame = {
           type: 'roll',
-          payload: { action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods }
+          payload: { ...extra, action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods }
         };
-        set({ lastRoll: null, isRolling: true, rollWaiting: false, rollError: null });
+        set({ lastRoll: null, lastRollKept: null, isRolling: true, rollWaiting: false, rollError: null });
         if (socket && socket.readyState === WebSocket.OPEN) {
           sendRoll(set, get, frame);
           return;
@@ -781,10 +858,22 @@ const useGameStore = create(
 
       resolveAbilityMark: (ability, choice) => {
         const { socket } = get();
-        set({ abilityMarkOffer: null });
+        set(nextOffer);
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'resolve_ability_mark', payload: { ability, choice } }));
         }
+      },
+
+      // An ability used outside a roll: the server pays its cost (backend/vtt/ability_uses.py)
+      useAbility: (ability, extra = {}) => {
+        const { socket } = get();
+        set({ abilityUseError: null });
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'use_ability', payload: { ability, ...extra } }));
+          return true;
+        }
+        set({ abilityUseError: 'Not connected. Try again in a moment.' });
+        return false;
       },
 
       usePostRollAbility: (ability, params = {}) => {
@@ -796,13 +885,26 @@ const useGameStore = create(
 
       interceptMark: (ability, targetCharacterId, markType) => {
         const { socket } = get();
-        set({ abilityMarkOffer: null });
+        set(nextOffer);
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'intercept_mark', payload: { ability, target_character_id: targetCharacterId, mark_type: markType } }));
         }
       },
 
-      dismissAbilityMarkOffer: () => set({ abilityMarkOffer: null }),
+      dismissAbilityMarkOffer: () => set(nextOffer),
+
+      // A soak or Death Defy offer holds the mark back until it is answered. Declining it
+      // (or letting its countdown run out) tells the server, which lets the mark land.
+      declineAbilityMark: (offer) => {
+        const { socket } = get();
+        set(nextOffer);
+        if (offer && socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'resolve_ability_mark',
+            payload: { ability: offer.ability, choice: 'decline', mark_type: offer.mark_type },
+          }));
+        }
+      },
 
       resolveGildedChoice: (action, chosenType, chosenValue) => {
         const { socket } = get();
@@ -852,21 +954,26 @@ const useGameStore = create(
       },
 
       applyScar: (payloadData) => {
-        const { socket } = get();
+        const { socket, scarModalData, pendingScar } = get();
         if (socket && socket.readyState === WebSocket.OPEN) {
           const outPayload = typeof payloadData === 'string'
             ? { scar_text: payloadData, shift_down: null, shift_up: null }
             : {
                 scar_text: payloadData.scar_text,
                 shift_down: payloadData.shift_down,
-                shift_up: payloadData.shift_up
+                shift_up: payloadData.shift_up,
+                skip_shifts: !!payloadData.skip_shifts,
+                // Not Again or Forbidden Ritual (game/abilityUses.js SCAR_ABILITIES)
+                ...(payloadData.ability ? { ability: payloadData.ability } : {}),
               };
 
           socket.send(JSON.stringify({
             type: 'apply_scar',
             payload: outPayload
           }));
-          set({ showScarModal: false, scarModalData: null, pendingScar: null });
+          // Kept so that a refusal can open the same form again
+          set({ showScarModal: false, scarModalData: null, pendingScar: null, scarError: null,
+            scarSent: { scarModalData, pendingScar } });
           return true;
         }
         // Not sent: keep the scar pending and the form open so nothing typed is lost.
@@ -970,18 +1077,22 @@ const useGameStore = create(
         }
       },
 
-      dismissCircleAdvancement: () => set({ circleAdvancement: null }),
+      // "Later": the picks stay on the character (advancement_picks) and the dialog comes
+      // back with the next advance or the next visit to the desk
+      dismissCircleAdvancement: () => set({ circleAdvancement: null, advancementDeferred: true, advancementError: null }),
 
+      // One pick of the circle's advancement; the server checks it (engine.apply_advancement)
+      // and answers with the character, or refuses it with its reason (advancementError).
+      // The socket's own character is the one advanced.
       applyAdvancement: (choice, detail) => {
-        const { socket, accessSession } = get();
+        const { socket } = get();
         if (socket?.readyState === WebSocket.OPEN) {
-          const charId = accessSession?.characterId;
-          socket.send(JSON.stringify({
-            type: 'apply_advancement',
-            payload: { character_id: charId, choice, detail },
-          }));
+          socket.send(JSON.stringify({ type: 'apply_advancement', payload: { choice, detail } }));
+          set({ advancementError: null });
+          return true;
         }
-        set({ circleAdvancement: null });
+        set({ advancementError: 'Not connected to the table, so nothing was chosen. Try again once the desk is back.' });
+        return false;
       },
 
       // ==========================================
@@ -1221,20 +1332,18 @@ const useGameStore = create(
       // ==========================================
       // GM ADMINISTRATIVE ACTIONS
       // ==========================================
-      gmAdjustTension: (markType, newValue) => {
-        const { socket, accessSession } = get();
+      // The Lightkeeper sets a character's marks in one track, 0 to 3 (the GM sheet's Marks
+      // row). True when it was sent.
+      gmSetMarks: (characterId, markType, newValue) => {
+        const { socket } = get();
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'gm_update_tension',
-            payload: {
-              mark_type: markType,
-              value: newValue,
-              role: accessSession?.role
-            }
+            payload: { character_id: characterId, mark_type: markType, value: newValue, role: 'GM' },
           }));
-        } else {
-          console.warn("Vault socket offline. Cannot transmit GM override.");
+          return true;
         }
+        return false;
       },
 
       // "Decide later": the form closes, the scar stays pending (a banner reopens it).
@@ -1244,6 +1353,11 @@ const useGameStore = create(
         scarModalData: state.scarModalData || (state.pendingScar ? { type: state.pendingScar.type } : null),
       })),
       closeScarModal: () => set({ showScarModal: false }),
+      // Not Again or Forbidden Ritual from the sheet: the scar form, for that ability
+      openAbilityScar: (ability, type = '') => set({
+        showScarModal: true, scarModalData: { type, ability, seq: nextScarForm() }, scarError: null,
+      }),
+      cancelAbilityScar: () => set({ showScarModal: false, scarModalData: null, scarError: null }),
 
       // ==========================================
       // CIRCLE CREATION ACTIONS

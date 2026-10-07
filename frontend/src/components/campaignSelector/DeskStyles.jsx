@@ -322,14 +322,16 @@ export const DeskStyles = () => (
       /* wider than tall: the light runs further along the desk than down it, and its
          reach grows with the screen, so the tickets stay legible and the corners dark */
       background: radial-gradient(ellipse 220vmax 169vmax at center,
-        rgba(8,4,2,0) 0, rgba(8,4,2,0) max(182px, 12.6vw),
+        rgba(8,4,2,0) 0, rgba(8,4,2,0) max(150px, 10.4vw),
         rgba(8,4,2,calc(var(--shade, 0.42) * 0.45)) max(468px, 32.5vw),
         rgba(8,4,2,calc(var(--shade, 0.42) * 0.82)) max(910px, 63.2vw),
         rgba(8,4,2,var(--shade, 0.42)) max(1365px, 94.8vw),
         rgba(8,4,2,calc(var(--shade, 0.42) * 1.25)) max(2080px, 144.4vw));
     }
-    @media ${HUB_NARROW} { .hub-shade { --shade: 0.56; } }
-    @media ${HUB_WIDE} { .hub-shade { --shade: 0.4; } }
+    /* A dim room: the candles are its only light (owner's request, 2026-10-07: the room was
+       lit as if from overhead, which washed out the flicker of the shadows) */
+    @media ${HUB_NARROW} { .hub-shade { --shade: 0.76; } }
+    @media ${HUB_WIDE} { .hub-shade { --shade: 0.8; } }
 
     /* ── Cast shadows ──
        Every object on the desk carries a .cast child: a soft dark copy of its outline,
@@ -784,6 +786,9 @@ export const DeskStyles = () => (
     }
     /* The photograph: sepia, faded and silvered toward its edges */
     .paper-photo-img { filter: sepia(0.72) saturate(0.85) contrast(1.06) brightness(0.96); }
+    /* A sketch from the user's notebook: drawn on white, so its white becomes the sheet
+       (multiply) and its ink ages a little with it */
+    .notebook-sketch-img { mix-blend-mode: multiply; filter: sepia(0.35) contrast(1.05); padding: 6%; }
     .paper-photo::after {
       content: ''; position: absolute; inset: 0;
       box-shadow: inset 0 0 14px 2px rgba(58,34,14,0.42), inset 0 0 2px 1px rgba(150,158,170,0.35);

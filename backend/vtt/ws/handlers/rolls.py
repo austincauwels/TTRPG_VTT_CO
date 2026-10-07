@@ -10,18 +10,34 @@ when a die is kept (the roll's dice wait for that choice). Its payload:
 result and outcome, as in roll_result) and "kept" (None, or {"index", "is_gilded",
 "value"} for the die kept in a gilded choice)}. A secret roll sends none.
 """
-from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, roll_dice
+from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, drive_for_action, roll_dice
+from vtt.abilities import abilities_of, count_use, resistance_left, uses_of
 from vtt.config import logger
-from vtt.serializers import get_char_dict
-from vtt.ws.manager import manager
+from models import Character, Circle
+from vtt.circle_queries import (SAW_THIS_COMING_USES, STAMINA_DICE, circle_abilities, downed_members, take_train_die,
+                                train_dice_left)
+from vtt.serializers import get_char_dict, get_circle_dict
+from vtt.ws.handlers.circle import announce_downed
+from vtt.ws.handlers.marks import apply_mark, awaiting_scar
+from vtt.ws.manager import character_key, manager
 
 ACTION_KEYS = ("move", "strike", "control", "sway", "sneak", "hide", "survey", "read", "sense")
 
-# The dice of a gilded roll waiting for its choice, per character id, so that the table
-# can be shown them when a die is kept. In memory only: after a restart a kept die
-# sends no dice_thrown, and the other desks hear the dice when the roll's log line comes.
-# The choice itself is still taken as the client sends it (see handle_resolve_gilded).
+# The dice of a gilded roll waiting for its choice, per character id: the roll, its
+# action, the drive it spent from and how much, and whether it was secret. The kept die
+# is read from these dice, not from the value the client sends, so a choice can only be
+# made once, for the roll that is waiting, and a critical success counts the real dice
+# (rulebook p. 10; QUIRKS.md D8). In memory only: after a restart there is nothing to
+# choose from and the choice is refused, so the player rolls again.
 _pending_gilded: dict = {}
+
+NO_CHOICE_WAITING = "No roll is waiting for a die to be kept. Roll again."
+
+
+async def _refuse(ctx, action, status, detail):
+    """An action_rejected frame to the sender's own channel, as vtt.ws.access sends."""
+    await manager.broadcast(ctx.channel, {"type": "action_rejected", "payload": {
+        "action": action, "status": status, "detail": detail}})
 
 
 def _rating(character, action):
@@ -47,19 +63,171 @@ async def _dice_thrown(ctx, character, action, roll, rating, kept=None):
     }, ctx.db, exclude=ctx.channel)
 
 
-def _hold_or_throw(character, action, roll, is_secret):
+def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0):
     """For a roll that has just landed on the roller's felt: True when its dice tumble
     now and the table is told; False for a secret roll, which is never shown, and for
-    a gilded choice, whose dice are held until a die is kept."""
+    a gilded choice, whose dice are held until a die is kept (secret or not)."""
     if character is not None:
         _pending_gilded.pop(character.id, None)
-    if is_secret:
-        return False
-    if roll.get("needs_gilded_choice"):
-        if character is not None:
-            _pending_gilded[character.id] = {"action": action, "roll": dict(roll), "rating": _rating(character, action)}
-        return False
-    return True
+        # A new roll replaces the last one: a burn or a post-roll ability answers this
+        # roll once its result is known (_remember), never an older one while a die
+        # waits to be kept
+        _last_roll.pop(character.id, None)
+        if roll.get("needs_gilded_choice"):
+            _pending_gilded[character.id] = {
+                "action": action, "roll": dict(roll), "rating": _rating(character, action),
+                "cat": cat or drive_for_action(action), "spent": spent, "secret": bool(is_secret),
+            }
+            return False
+    return not is_secret
+
+
+DRIVES = ("nerve", "cunning", "intuition")
+
+# The abilities that change a roll when the player picks them (the dossier's chips, which
+# frontend/src/game/rollMods.js lists the same way). Rulebook pages 27 to 32 and
+# docs/refactor/RULES_CHECK.md items 21, 25, 26 and 27.
+#   actions       the action keys it works on, or "any"
+#   condition     what the character must have for it to apply
+#   extra_dice    dice it adds (a number, or a function of the character)
+#   gild          it gilds a die
+#   first_point   the drive whose first point spent on this roll is worth +2d (one more die)
+#   substitute    the drive spent instead of the action's own ("any": the payload's "drive")
+#   cost          a drive point it costs, apart from what is spent for dice
+#   nerve_doubles each Nerve spent is worth +2d, for a Brain mark (Back Against the Wall)
+#   brain_mark    it costs a Brain mark, taken after the roll (Mind Over Matter)
+ROLL_MODS = {
+    "Sweet Talk":            {"actions": ["sneak"], "extra_dice": 1,
+                              "gild_if": lambda ch: resistance_left(ch, "cunning") >= 2},
+    "Open Book":             {"actions": ["sway"], "extra_dice": lambda ch: resistance_left(ch, "cunning")},
+    # Leverage (p. 31): Sway rolls using what a Read revealed add the current Cunning
+    # resistance in dice; whether the roll uses it is the player's call, as Open Book's
+    "Leverage":              {"actions": ["sway"], "extra_dice": lambda ch: resistance_left(ch, "cunning")},
+    # Narrow Escape (p. 29): +1d to Move when escaping a trap or ambush (the player's call)
+    "Narrow Escape":         {"actions": ["move"], "extra_dice": 1},
+    # Press Conference (p. 28): +1d to Cunning rolls at the assembly the Journalist called
+    # (the 1 Cunning is paid with use_ability)
+    "Press Conference":      {"actions": ["sway", "sneak", "hide"], "extra_dice": 1},
+    "Lie Detector":          {"actions": ["sneak"], "gild": True, "first_point": "cunning"},
+    "Misdirection":          {"actions": ["hide"], "first_point": "cunning"},
+    "Interrogation":         {"actions": ["sneak"], "extra_dice": lambda ch: resistance_left(ch, "cunning")},
+    "Inspection":            {"actions": ["survey"], "gild": True},
+    "Basic Training":        {"actions": ["survey"], "extra_dice": lambda ch: resistance_left(ch, "nerve")},
+    "Better Part of Valor":  {"actions": ["control", "move"], "gild": True, "first_point": "nerve"},
+    "Tenacious":             {"actions": ["move", "strike", "control"], "gild": True,
+                              "condition": lambda ch: (ch.bleed_marks or 0) >= 1},
+    "Extend Your Senses":    {"actions": ["sense"], "extra_dice": lambda ch: resistance_left(ch, "intuition")},
+    "Meticulous Notes":      {"actions": ["read"], "extra_dice": 1,
+                              "condition": lambda ch: resistance_left(ch, "cunning") >= 2},
+    "Sharpshooter":          {"actions": ["strike", "control"], "extra_dice": 2, "cost": "nerve",
+                              "condition": lambda ch: (ch.nerve_current or 0) >= 1},
+    "Dissection":            {"actions": ["read"], "gild": True},
+    "Born in the Shadows":   {"actions": ["hide"], "gild": True},
+    "Cool Under Pressure":   {"actions": ["any"], "substitute": "cunning"},
+    "Practiced Patter":      {"actions": ["sway", "hide"], "substitute": "intuition"},
+    "Street Smarts":         {"actions": ["survey"], "substitute": "any"},
+    "Back Against the Wall": {"actions": ["any"], "nerve_doubles": True},
+    # Mind Over Matter (p. 29): the action the player chose in place of the one they were
+    # told to use, for a Brain mark; its own drive is spent, as on any roll
+    "Mind Over Matter":      {"actions": ["any"], "brain_mark": True},
+}
+
+# The last roll each character made, for the post-roll abilities (RULES_CHECK.md item
+# 28): its action, drive, result and outcome, and which of them were used on it. Set when
+# a roll's result is known (at once, or when a die is kept). In memory only.
+_last_roll: dict = {}
+
+
+def _remember(character, action, cat, result, outcome):
+    if character is not None:
+        _last_roll[character.id] = {"action": action, "cat": cat, "result": result,
+                                    "outcome": outcome, "used": set()}
+
+
+def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_die=False, ward_die=False,
+               helper_die=False):
+    """What a player's roll will be, before anything changes: the drive it spends, how
+    many dice, gilds and drive points it uses, what else it costs, and the abilities that
+    applied. Raises ValueError with words for the player when the roll cannot be made."""
+    owned = abilities_of(character)
+    cat = drive_for_action(act)
+    extra, gilds, first_points, costs, applied = 0, 0, [], {}, []
+    nerve_doubles = False
+    for name in mods:
+        mod = ROLL_MODS.get(name)
+        if mod is None or name not in owned:
+            continue
+        if act not in mod["actions"] and "any" not in mod["actions"]:
+            continue
+        if mod.get("condition") and not mod["condition"](character):
+            continue
+        applied.append(name)
+        sub = mod.get("substitute")
+        if sub == "any":
+            if payload.get("drive") in DRIVES:
+                cat = payload["drive"]
+        elif sub:
+            cat = sub
+        dice = mod.get("extra_dice", 0)
+        extra += dice(character) if callable(dice) else dice
+        if mod.get("gild") or (mod.get("gild_if") and mod["gild_if"](character)):
+            gilds += 1
+        if mod.get("first_point"):
+            first_points.append(mod["first_point"])
+        if mod.get("cost"):
+            costs[mod["cost"]] = costs.get(mod["cost"], 0) + 1
+        nerve_doubles = nerve_doubles or mod.get("nerve_doubles", False)
+
+    # Back Against the Wall only does something when Nerve is spent: no mark otherwise
+    if "Back Against the Wall" in applied and not (nerve_doubles and cat == "nerve" and spent > 0):
+        applied.remove("Back Against the Wall")
+        nerve_doubles = False
+    per_point = 2 if nerve_doubles and cat == "nerve" else 1
+    first_bonus = sum(1 for d in first_points if d == cat)
+
+    # Train (p. 41): the player chooses the roll, from a chip like the abilities'
+    train = train_dice_left(character) > 0 and ("Train" in mods or bool(payload.get("use_train")))
+    if train:
+        extra += 1
+    # Stamina Training (p. 41): one of the circle's three gilded dice for the assignment,
+    # added "as +1d to any roll". It used to gild a die already in the pool and add none.
+    if stamina_die:
+        extra += 1
+        gilds += 1
+    # Nobody Left Behind (p. 41): +1d on a roll to protect a circle member who is down, or
+    # get them out of danger (the player's call, while one is down)
+    if rescue_die:
+        extra += 1
+        applied.append("Nobody Left Behind")
+    # Great Wards (p. 27): the person holding a Weird's ward takes +1d on Move rolls against
+    # phenomena (whether the roll is against one is the player's call)
+    if ward_die:
+        extra += 1
+        applied.append("Great Wards")
+    # Saw This Coming (p. 27): an ally's +1d "without spending drive"
+    if helper_die:
+        extra += 1
+        applied.append("Saw This Coming")
+
+    # The drive must hold the spend and any cost from the same drive (p. 8)
+    for drive in DRIVES:
+        need = (spent if drive == cat else 0) + costs.get(drive, 0)
+        if need > (getattr(character, f"{drive}_current", 0) or 0):
+            raise ValueError(f"Not enough {drive.capitalize()} for that roll.")
+
+    rating = getattr(character, act, 0) or 0
+
+    def pool(points):
+        return rating + points * per_point + (first_bonus if points > 0 else 0) + extra
+
+    # The Rule of Six (p. 11): never more than six dice, and drive past the sixth die is
+    # not taken
+    target = min(6, pool(spent))
+    used = next(k for k in range(spent + 1) if min(6, pool(k)) == target)
+    return {"cat": cat, "pool": target, "gilds": gilds, "used": used, "costs": costs,
+            "applied": applied, "train": train,
+            "brain_mark": ("Back Against the Wall" in applied and used > 0)
+            or any(ROLL_MODS.get(n, {}).get("brain_mark") for n in applied)}
 
 
 async def handle_roll(ctx):
@@ -70,95 +238,74 @@ async def handle_roll(ctx):
             raise ValueError("roll action missing 'action' field")
         spent = int(payload.get("drive_spent", 0))
         is_secret = payload.get("is_secret", False)
-        ability_mods = payload.get("ability_mods", [])
+        raw_mods = payload.get("ability_mods", [])
+        # Each ability once, whatever the client lists (RULES_CHECK.md item 29)
+        mods = list(dict.fromkeys(m for m in raw_mods if isinstance(m, str))) if isinstance(raw_mods, list) else []
 
-        # Per-ability backend mod definitions (mirrors frontend ABILITY_ROLL_MODS)
-        ABILITY_MOD_DEFS = {
-            "Sweet Talk":           {"actions": ["sneak"],                   "extra_dice": 1,  "extra_gild_condition": lambda ch: (ch.cunning_max // 3 - ch.cunning_resistance_spent) >= 2},
-            "Open Book":            {"actions": ["sway"],                    "extra_dice_fn": lambda ch: max(0, ch.cunning_max // 3 - ch.cunning_resistance_spent)},
-            "Lie Detector":         {"actions": ["sneak"],                   "extra_gild": True},
-            "Misdirection":         {"actions": ["hide"],                    "extra_dice": 1},
-            "Interrogation":        {"actions": ["sneak"],                   "extra_dice_fn": lambda ch: max(0, ch.cunning_max // 3 - ch.cunning_resistance_spent)},
-            "Inspection":           {"actions": ["survey"],                  "extra_gild": True},
-            "Basic Training":       {"actions": ["survey"],                  "extra_dice_fn": lambda ch: max(0, ch.nerve_max // 3 - ch.nerve_resistance_spent)},
-            "Better Part of Valor": {"actions": ["control","move"],          "extra_gild": True},
-            "Tenacious":            {"actions": ["move","strike","control"],  "extra_gild": True},
-            "Extend Your Senses":   {"actions": ["sense"],                   "extra_dice_fn": lambda ch: max(0, ch.intuition_max // 3 - ch.intuition_resistance_spent)},
-            "Meticulous Notes":     {"actions": ["read"],                    "extra_dice": 1},
-            "Sharpshooter":         {"actions": ["strike"],                  "extra_dice": 2,  "cost_drive": "nerve"},
-            "Dissection":           {"actions": ["read"],                    "extra_gild": True},
-            "Born in the Shadows":  {"actions": ["hide"],                    "extra_gild": True},
-            "Cool Under Pressure":  {"actions": ["any"],                     "drive_substitute": "cunning"},
-            "Practiced Patter":     {"actions": ["sway","hide"],             "drive_substitute": "intuition"},
-            "Street Smarts":        {"actions": ["survey"],                  "drive_substitute": "any"},
-            "Back Against the Wall":{"actions": ["any"],                     "cost_brain_mark": True},
-        }
-
+        plan = None
+        stamina_circle = None
+        helper = None
         if character:
-            cat = "nerve" if act in ["move", "strike", "control"] else "cunning" if act in ["hide", "sneak", "sway"] else "intuition"
-
-            # Apply drive substitution from ability mods
-            extra_dice_count = 0
-            extra_gild_flag = False
-            for mod_name in ability_mods:
-                mod_def = ABILITY_MOD_DEFS.get(mod_name)
-                if not mod_def: continue
-                char_abilities = [character.role_ability, character.specialty_ability]
-                if mod_name not in char_abilities: continue
-                allowed_actions = mod_def.get("actions", [])
-                if act not in allowed_actions and "any" not in allowed_actions: continue
-                # Drive substitution
-                if "drive_substitute" in mod_def and mod_def["drive_substitute"] != "any":
-                    cat = mod_def["drive_substitute"]
-                # Brain mark cost (Back Against the Wall)
-                if mod_def.get("cost_brain_mark"):
-                    character.brain_marks = min(3, character.brain_marks + 1)
-                # Drive cost (e.g. Sharpshooter costs 1 Nerve)
-                if "cost_drive" in mod_def:
-                    drive_key = mod_def["cost_drive"]
-                    cur = getattr(character, f"{drive_key}_current", 0) or 0
-                    setattr(character, f"{drive_key}_current", max(0, cur - 1))
-                # Extra dice
-                if "extra_dice_fn" in mod_def:
-                    extra_dice_count += mod_def["extra_dice_fn"](character)
-                elif mod_def.get("extra_dice", 0) > 0:
-                    extra_dice_count += mod_def["extra_dice"]
-                # Extra gild
-                if mod_def.get("extra_gild"):
-                    extra_gild_flag = True
-                elif "extra_gild_condition" in mod_def and mod_def["extra_gild_condition"](character):
-                    extra_gild_flag = True
-                # Record ability use
-                MAX_ABILITY_USES = {
-                    "I Know a Guy": 1, "Death Defy": 1, "Field Experience": 1,
-                    "Not Again": 1, "In the Trenches": 1, "Steel Mind": 1,
-                    "Compartmentalization": 1, "Saw This Coming": 3,
-                }
-                if mod_name in MAX_ABILITY_USES:
-                    uses = dict(character.ability_uses or {})
-                    uses[mod_name] = uses.get(mod_name, 0) + 1
-                    character.ability_uses = uses
-
-            # Consume Train bonus (+1d on first roll after spending Train resource)
-            if getattr(character, "train_bonus", False):
-                extra_dice_count += 1
-                character.train_bonus = False
-
-            setattr(character, f"{cat}_current", max(0, getattr(character, f"{cat}_current") - spent))
-            is_gilded_action = getattr(character, f"gilded_{act}", False)
-            pool = min(6, getattr(character, act, 0) + spent)
+            if act not in ACTION_KEYS:
+                await _refuse(ctx, "roll", 422, "Unknown action.")
+                return
+            # Stamina Training's dice are the circle's: read and locked until the commit, so
+            # two players cannot take the last one at once
+            if "Stamina Training" in mods and camp_id:
+                stamina_circle = db.query(Circle).filter(Circle.campaign_id == camp_id) \
+                    .populate_existing().with_for_update().first()
+                if not (stamina_circle and "Stamina Training" in circle_abilities(stamina_circle)
+                        and (stamina_circle.stamina_dice_used or 0) < STAMINA_DICE):
+                    stamina_circle = None
+            rescue = False
+            if "Nobody Left Behind" in mods and camp_id:
+                circle = db.query(Circle).filter(Circle.campaign_id == camp_id).first()
+                rescue = circle is not None and any(m["id"] != character.id for m in downed_members(circle, db))
+            # The ward holds while the Weird who drew it is active in the same campaign and
+            # still has Great Wards
+            warder = db.get(Character, character.warded_by_id) \
+                if "Great Wards" in mods and act == "move" and character.warded_by_id else None
+            ward = warder is not None and warder.status == "active" and not warder.is_dead \
+                and (warder.id == character.id or warder.campaign_id == character.campaign_id) \
+                and "Great Wards" in abilities_of(warder)
+            # Saw This Coming (p. 27): the Slink who adds the die, a member of the same campaign
+            # with uses left this assignment; never the roller's own
+            helper_id = payload.get("saw_this_coming_from")
+            if helper_id is not None:
+                helper = db.query(Character).filter(
+                    Character.id == helper_id, Character.campaign_id == camp_id, Character.status == "active",
+                ).with_for_update().first() if camp_id and type(helper_id) is int and helper_id != character.id else None
+                if helper is None or "Saw This Coming" not in abilities_of(helper) \
+                        or uses_of(helper, "Saw This Coming") >= SAW_THIS_COMING_USES:
+                    db.rollback()
+                    await _refuse(ctx, "roll", 409, "Saw This Coming is not available from that ally.")
+                    return
+            try:
+                plan = _plan_roll(character, act, spent, mods, payload, stamina_die=stamina_circle is not None,
+                                  rescue_die=rescue, ward_die=ward, helper_die=helper is not None)
+            except ValueError as refused:
+                db.rollback()
+                await _refuse(ctx, "roll", 422, str(refused))
+                return
+            if stamina_circle is not None:
+                stamina_circle.stamina_dice_used = (stamina_circle.stamina_dice_used or 0) + 1
+            if helper is not None:
+                count_use(helper, "Saw This Coming")
+            cat, spent = plan["cat"], plan["used"]
+            setattr(character, f"{cat}_current", getattr(character, f"{cat}_current") - spent)
+            for drive, cost in plan["costs"].items():
+                setattr(character, f"{drive}_current", getattr(character, f"{drive}_current") - cost)
+            if plan["train"]:
+                take_train_die(character)  # one die per roll
+            is_gilded_action = bool(getattr(character, f"gilded_{act}", False))
+            res = roll_dice(plan["pool"], is_gilded_action, extra_gild=plan["gilds"])
             char_name = character.name
             db.commit()
         else:
             # Lightkeeper (GM) roll: drive_spent is the total pool size
             cat = None
-            is_gilded_action = False
-            pool = spent
-            extra_dice_count = 0
-            extra_gild_flag = False
+            res = roll_dice(spent)
             char_name = "Lightkeeper"
-
-        res = roll_dice(pool, is_gilded_action, extra_dice=extra_dice_count, extra_gild=extra_gild_flag)
         res["drive_spent_key"] = cat
         res["action"] = act
 
@@ -166,10 +313,21 @@ async def handle_roll(ctx):
             "type": "roll_result",
             "payload": {"character_id": target_char_id, "action": act, "roll": res, "character": get_char_dict(character) if character else None}
         })
-        if _hold_or_throw(character, act, res, is_secret):
+        if character and stamina_circle is not None:
+            await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(stamina_circle)}, db)
+        if character and helper is not None:
+            # The Slink's use is counted on their sheet, and the table's chips follow it
+            await manager.broadcast(character_key(helper.id), {"type": "character_update", "payload": get_char_dict(helper)})
+            helper_circle = db.query(Circle).filter(Circle.campaign_id == camp_id).first()
+            if helper_circle is not None:
+                await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(helper_circle)}, db)
+            await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
+                "message": f"{helper.name} saw this coming: +1d on {character.name}'s roll.",
+                "log_type": "field", "ink_color": getattr(helper, "ink_color", "") or ""}}, db)
+        if _hold_or_throw(character, act, res, is_secret, cat, spent):
             await _dice_thrown(ctx, character, act, res, _rating(character, act))
 
-        if not res.get("needs_gilded_choice") and not is_secret:
+        if not res.get("needs_gilded_choice"):
             result_val = res.get("result")
             outcome_key = res.get("outcome", "")
             outcome_label = OUTCOME_LABELS.get(outcome_key, outcome_key)
@@ -179,28 +337,40 @@ async def handle_roll(ctx):
             else:
                 log_msg = f"Lightkeeper rolled — {result_val} · {outcome_label}."
 
+            # The gilded refresh and Well-Read follow the dice, so they apply to a secret
+            # roll too (RULES_CHECK.md item 6); only its log line stays with the roller.
             post_roll_dirty = False
-            if res.get("auto_gilded_refresh") and character and cat:
-                setattr(character, f"{cat}_current", min(getattr(character, f"{cat}_max", 3), getattr(character, f"{cat}_current") + 1))
+            # The gilded die refreshes "the drive that encompasses that action" (p. 8),
+            # even when the roll spent another drive (Cool Under Pressure, Street Smarts)
+            act_drive = drive_for_action(act)
+            if res.get("auto_gilded_refresh") and character and act_drive:
+                setattr(character, f"{act_drive}_current", min(getattr(character, f"{act_drive}_max", 3), getattr(character, f"{act_drive}_current") + 1))
                 post_roll_dirty = True
-                log_msg += f" [gilded — {cat} Drive refreshed]"
+                log_msg += f" [gilded — {act_drive} Drive refreshed]"
 
             # Well-Read auto-refund: if failure and Intuition was spent, earn it back
-            if character and outcome_key == "failure" and cat == "intuition" and spent > 0:
-                char_abilities = [character.role_ability, character.specialty_ability]
-                if "Well-Read" in char_abilities:
-                    setattr(character, "intuition_current", min(getattr(character, "intuition_max", 3), getattr(character, "intuition_current") + spent))
-                    post_roll_dirty = True
-                    log_msg += f" [Well-Read — {spent} Intuition refunded]"
+            if character and outcome_key == "failure" and cat == "intuition" and spent > 0 \
+                    and "Well-Read" in abilities_of(character):
+                setattr(character, "intuition_current", min(getattr(character, "intuition_max", 3), getattr(character, "intuition_current") + spent))
+                post_roll_dirty = True
+                log_msg += f" [Well-Read — {spent} Intuition refunded]"
 
             if post_roll_dirty:
                 db.commit()
                 await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
-            await manager.broadcast_campaign(camp_code, camp_id, {
-                "type": "activity_log",
-                "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
-            }, db)
+            if not is_secret:
+                await manager.broadcast_campaign(camp_code, camp_id, {
+                    "type": "activity_log",
+                    "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
+                }, db)
+            _remember(character, act, cat, result_val, outcome_key)
+
+        # Back Against the Wall's and Mind Over Matter's price: a Brain mark, taken as any
+        # mark is (RULES_CHECK.md item 21). It is the player's choice, so no soak or ally is
+        # offered for it.
+        if plan and plan["brain_mark"]:
+            await apply_mark(ctx, character, "brain", channel, offer_intercepts=False)
     except Exception as roll_exc:
         logger.error("WS roll handler error: %s", roll_exc, exc_info=True)
         db.rollback()
@@ -208,91 +378,251 @@ async def handle_roll(ctx):
 
 
 async def handle_resolve_gilded(ctx):
+    """Keeps a die of the roll waiting for a choice: the best gilded die (chosen_type
+    "gilded"), which earns back 1 drive, or the best regular one (anything else). The die
+    and its value come from the held dice; the client's chosen_value is ignored. Two or
+    more 6s with a 6 kept is a critical success. Well-Read refunds spent Intuition on a
+    kept 3 or less, as on any roll. A secret roll's choice is told to no one else."""
     db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
     r_act = payload.get("action")
-    chosen_type = payload.get("chosen_type")
-    chosen_value = int(payload.get("chosen_value", 0))
-    r_cat = "nerve" if r_act in ["move", "strike", "control"] else "cunning" if r_act in ["hide", "sneak", "sway"] else "intuition"
+    pending = _pending_gilded.get(character.id)
+    if pending is None or pending["action"] != r_act:
+        await _refuse(ctx, "resolve_gilded", 409, NO_CHOICE_WAITING)
+        return
+    _pending_gilded.pop(character.id, None)
 
-    drive_refreshed = False
-    if chosen_type == "gilded" and hasattr(character, f"{r_cat}_current"):
-        setattr(character, f"{r_cat}_current", min(getattr(character, f"{r_cat}_max", 3), getattr(character, f"{r_cat}_current") + 1))
-        drive_refreshed = True
-        db.commit()
-
-    outcome_key = calculate_outcome(chosen_value)
+    roll = pending["roll"]
+    dice = roll.get("dice") or []
+    want_gilded = payload.get("chosen_type") == "gilded"
+    index = roll["gilded_idx"] if want_gilded else roll["highest_regular_idx"]
+    chosen_value = dice[index]["value"]
+    r_cat, spent = pending["cat"], pending["spent"]
+    outcome_key = calculate_outcome(chosen_value, dice)
     outcome_label = OUTCOME_LABELS.get(outcome_key, outcome_key)
     log_msg = f"{character.name} rolled {r_act} — {chosen_value} · {outcome_label}."
-    if drive_refreshed:
-        log_msg += f" [gilded — {r_cat} Drive refreshed]"
 
-    # The kept die starts the dice tumbling on the roller's felt: the table sees them now
-    pending = _pending_gilded.pop(character.id, None)
-    if pending is not None and pending["action"] == r_act:
-        roll = pending["roll"]
-        dice = roll.get("dice") or []
-        want_gilded = chosen_type == "gilded"
-        index = roll.get("gilded_idx") if want_gilded else roll.get("highest_regular_idx")
-        if not (isinstance(index, int) and 0 <= index < len(dice)
-                and dice[index].get("value") == chosen_value and bool(dice[index].get("is_gilded")) == want_gilded):
-            index = next((i for i, d in enumerate(dice)
-                          if bool(d.get("is_gilded")) == want_gilded and d.get("value") == chosen_value), None)
+    changed = False
+    if want_gilded:
+        # the action's own drive (p. 8), whichever drive the roll spent
+        act_drive = drive_for_action(r_act)
+        setattr(character, f"{act_drive}_current", min(getattr(character, f"{act_drive}_max", 3), getattr(character, f"{act_drive}_current") + 1))
+        changed = True
+        log_msg += f" [gilded — {act_drive} Drive refreshed]"
+    if outcome_key == "failure" and r_cat == "intuition" and spent > 0 \
+            and "Well-Read" in abilities_of(character):
+        character.intuition_current = min(character.intuition_max or 3, (character.intuition_current or 0) + spent)
+        changed = True
+        log_msg += f" [Well-Read — {spent} Intuition refunded]"
+    if changed:
+        db.commit()
+    _remember(character, r_act, r_cat, chosen_value, outcome_key)
+
+    # The roller's own desk learns the kept die's result, so its outcome slip, the
+    # post-roll ability prompts and the resistance offer follow the server's scoring (they
+    # were left with a roll that had no result). Sent for a secret roll too.
+    await manager.broadcast(channel, {"type": "roll_kept", "payload": {
+        "character_id": character.id, "action": r_act, "index": index, "is_gilded": want_gilded,
+        "value": chosen_value, "outcome": outcome_key}})
+
+    if not pending["secret"]:
+        # The kept die starts the dice tumbling on the roller's felt: the table sees them now
         shown = {**roll, "needs_gilded_choice": False, "result": chosen_value, "outcome": outcome_key}
         await _dice_thrown(ctx, character, r_act, shown, pending["rating"],
                            kept={"index": index, "is_gilded": want_gilded, "value": chosen_value})
+        await manager.broadcast_campaign(camp_code, camp_id, {
+            "type": "activity_log",
+            "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
+        }, db)
+    if changed:
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
+
+TIER_UP = {"failure": "mixed_success", "mixed_success": "full_success"}
+POST_ROLL_REFUSED = {
+    "Flourish": "Flourish needs a failed or mixed roll that could take Cunning, and 2 Cunning to spend.",
+    "Learn from My Mistakes": "Learn from My Mistakes needs a roll of 3 or less.",
+    "Bending Spoons": "Bending Spoons needs a mixed success on a Sense roll.",
+    "Patch Up": "Patch Up needs a Focus roll, an ally in your circle with a Body mark, and the Intuition to pay.",
+    "Resuscitation": "Resuscitation needs a Focus roll of 4 or more and an incapacitated ally whose scar is not their fourth.",
+}
+SUCCESS = ("full_success", "critical_success")
+
+
+def _ally(ctx, payload):
+    """The ally a post-roll ability names: an active member of the roller's campaign,
+    other than the roller, locked for the change."""
+    target = payload.get("target_character_id")
+    if not ctx.camp_id or type(target) is not int or target == ctx.character.id:
+        return None
+    return ctx.db.query(Character).filter(
+        Character.id == target, Character.campaign_id == ctx.camp_id, Character.status == "active",
+    ).with_for_update().first()
+
+
+async def handle_use_post_roll_ability(ctx):
+    """The abilities used after a roll, each checked against the character's last roll
+    and usable once on it (rulebook pp. 28 to 32; RULES_CHECK.md item 28):
+    Flourish on a failure or mixed success that could take Cunning, for 2 Cunning, pushes
+    the result up a tier; Learn from My Mistakes on a result of 3 or less refreshes 1
+    drive point of the player's choice; Bending Spoons on a mixed success on a Sense roll
+    takes a Bleed mark (through apply_mark) to make it a full success."""
+    db, payload, character, channel = ctx.db, ctx.payload, ctx.character, ctx.channel
+    ab_name = payload.get("ability")
+    abilities = abilities_of(character)
+    if not ab_name or ab_name not in abilities or ab_name not in POST_ROLL_REFUSED:
+        return
+    last = _last_roll.get(character.id)
+    fresh = last is not None and ab_name not in last["used"]
+
+    async def log(message):
+        await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "activity_log", "payload": {
+            "message": message, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
+
+    if ab_name == "Flourish":
+        # "a roll where you could spend Cunning" (p. 28): a Cunning action, a roll that spent
+        # Cunning, a Survey roll with Street Smarts (which may spend any drive, p. 31,
+        # whatever it was paid in), or any roll with Cool Under Pressure. A Sway or Hide
+        # roll paid in Intuition with Practiced Patter still counts.
+        could_take_cunning = fresh and (last["cat"] == "cunning" or drive_for_action(last["action"]) == "cunning"
+                                        or (last["action"] == "survey" and "Street Smarts" in abilities)
+                                        or "Cool Under Pressure" in abilities)
+        if not (could_take_cunning and last["outcome"] in TIER_UP and (character.cunning_current or 0) >= 2):
+            await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED[ab_name])
+            return
+        character.cunning_current -= 2
+        last["used"].add(ab_name)
+        last["outcome"] = TIER_UP[last["outcome"]]
+        db.commit()
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        await log(f"{character.name} used Flourish — result pushed up one tier, to {OUTCOME_LABELS[last['outcome']]}.")
+
+    elif ab_name == "Learn from My Mistakes":
+        drive = payload.get("drive")
+        if drive not in DRIVES:
+            return
+        if not (fresh and isinstance(last["result"], int) and last["result"] <= 3):
+            await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED[ab_name])
+            return
+        last["used"].add(ab_name)
+        max_val = getattr(character, f"{drive}_max", 3)
+        setattr(character, f"{drive}_current", min(max_val, getattr(character, f"{drive}_current") + 1))
+        db.commit()
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        await log(f"{character.name} used Learn from My Mistakes — refreshed 1 {drive.capitalize()}.")
+
+    elif ab_name == "Bending Spoons":
+        if not (fresh and last["action"] == "sense" and last["outcome"] == "mixed_success"):
+            await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED[ab_name])
+            return
+        last["used"].add(ab_name)
+        last["outcome"] = "full_success"
+        await apply_mark(ctx, character, "bleed", channel, offer_intercepts=False)
+        await log(f"{character.name} used Bending Spoons — took 1 Bleed mark to upgrade the result.")
+
+    elif ab_name == "Patch Up":
+        # Patch Up (p. 30): a Focus roll heals 1 Body mark on an ally. On a 6, 1 Intuition
+        # (a critical counts as a 6); on a 4-5, 2 Intuition; on a 3 or less the Doctor may
+        # take a Brain mark to take the 4-5 result.
+        ally = _ally(ctx, payload)
+        failed = fresh and last["outcome"] == "failure"
+        cost = 1 if fresh and last["outcome"] in SUCCESS else 2
+        if not (fresh and last["action"] == "read" and ally is not None and (ally.body_marks or 0) >= 1
+                and (not failed or payload.get("take_brain_mark") is True)
+                and (character.intuition_current or 0) >= cost):
+            db.rollback()
+            await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED[ab_name])
+            return
+        last["used"].add(ab_name)
+        character.intuition_current -= cost
+        ally.body_marks -= 1
+        db.commit()
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast(character_key(ally.id), {"type": "character_update", "payload": get_char_dict(ally)})
+        await log(f"{character.name} used Patch Up — healed 1 Body mark on {ally.name} ({cost} Intuition"
+                  + (", and a Brain mark)." if failed else ")."))
+        if failed:
+            await apply_mark(ctx, character, "brain", channel, offer_intercepts=False)
+
+    elif ab_name == "Resuscitation":
+        # Resuscitation (p. 30): when an ally takes a scar, a Focus roll revives them. On a
+        # 6 it works; on a 4-5 it costs 3 drive points of the Doctor's choosing. "This
+        # cannot be used when a PC takes their fourth scar": a scar still waiting to be
+        # recorded counts.
+        ally = _ally(ctx, payload)
+        mixed = fresh and last["outcome"] == "mixed_success"
+        scar_number = ally is not None and (ally.scars_count or 0) + (1 if ally.id in awaiting_scar else 0)
+        if not (fresh and last["action"] == "read" and (mixed or last["outcome"] in SUCCESS)
+                and ally is not None and ally.incapacitated and not ally.is_dead and scar_number < 4):
+            db.rollback()
+            await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED[ab_name])
+            return
+        cost = {}
+        if mixed:
+            cost = payload.get("cost")
+            if not (isinstance(cost, dict) and set(cost) <= set(DRIVES)
+                    and all(type(v) is int and v >= 0 for v in cost.values()) and sum(cost.values()) == 3):
+                db.rollback()
+                await _refuse(ctx, "use_post_roll_ability", 422, "Choose 3 drive points to pay, from Nerve, Cunning and Intuition.")
+                return
+            if any((getattr(character, f"{d}_current", 0) or 0) < v for d, v in cost.items()):
+                db.rollback()
+                await _refuse(ctx, "use_post_roll_ability", 409, "Not enough drive for those 3 points.")
+                return
+            for d, v in cost.items():
+                setattr(character, f"{d}_current", getattr(character, f"{d}_current") - v)
+        last["used"].add(ab_name)
+        ally.incapacitated = False
+        db.commit()
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast(character_key(ally.id), {"type": "character_update", "payload": get_char_dict(ally)})
+        paid = ", ".join(f"{v} {d.capitalize()}" for d, v in cost.items() if v)
+        await log(f"{character.name} used Resuscitation — {ally.name} is back on their feet" + (f" ({paid})." if paid else "."))
+        await announce_downed(ctx)
+
+
+async def handle_burn_resistance(ctx):
+    """Burns a resistance point of the action's own drive (rulebook p. 13; the client's
+    drive_key is ignored) and rerolls the action rating."""
+    db, payload, character, target_char_id, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.channel, ctx.camp_code, ctx.camp_id
+    act = payload.get("action")
+    if act not in ACTION_KEYS:
+        if act:
+            await _refuse(ctx, "burn_resistance", 422, "Unknown action.")
+        return
+    # A burn answers a roll the player does not like (p. 13): the character's last roll,
+    # of this action (a reroll counts, so a second burn can follow it)
+    last = _last_roll.get(character.id)
+    if not last or last["action"] != act:
+        await _refuse(ctx, "burn_resistance", 409, "Burn a resistance after a roll of that action.")
+        return
+    drive_key = drive_for_action(act)
+    result = burn_resistance(db, character, act, drive_key)
+    if "error" in result:
+        return
+    # The reroll's drive, as on any roll, so the desk's post-roll prompts can read it
+    result["drive_spent_key"] = drive_key
+    outcome_label = OUTCOME_LABELS.get(result.get("outcome", ""), "")
+    # A gilded die that counts earns back 1 drive (rulebook p. 8) on a reroll too: a zero
+    # rating whose gilded die is the lower one, or a pool that is all gilded
+    refreshed = ""
+    if result.get("auto_gilded_refresh"):
+        setattr(character, f"{drive_key}_current",
+                min(getattr(character, f"{drive_key}_max", 3) or 0, (getattr(character, f"{drive_key}_current", 0) or 0) + 1))
+        db.commit()
+        refreshed = f" [gilded — {drive_key} Drive refreshed]"
+    await manager.broadcast(channel, {
+        "type": "roll_result",
+        "payload": {"character_id": target_char_id, "action": act, "roll": result, "character": get_char_dict(character)}
+    })
+    if _hold_or_throw(character, act, result, False, drive_key):
+        await _dice_thrown(ctx, character, act, result, _rating(character, act))
+    if result.get("needs_gilded_choice"):
+        # The result is the die the player keeps; resolve_gilded logs it
+        log_msg = f"{character.name} burned resistance on {act}."
+    else:
+        log_msg = f"{character.name} burned resistance on {act} — {result['result']} · {outcome_label}.{refreshed}"
+        _remember(character, act, drive_key, result["result"], result["outcome"])
     await manager.broadcast_campaign(camp_code, camp_id, {
         "type": "activity_log",
         "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
     }, db)
-    if drive_refreshed:
-        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
-
-
-async def handle_use_post_roll_ability(ctx):
-    db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
-    ab_name = payload.get("ability")
-    char_abilities = [character.role_ability, character.specialty_ability]
-    if ab_name and ab_name in char_abilities:
-        if ab_name == "Flourish":
-            character.cunning_current = max(0, character.cunning_current - 2)
-            db.commit()
-            log_msg = f"{character.name} used Flourish — result pushed up one tier."
-            await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
-            await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": log_msg, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
-        elif ab_name == "Learn from My Mistakes":
-            drive = payload.get("drive")
-            if drive in ["nerve", "cunning", "intuition"]:
-                max_val = getattr(character, f"{drive}_max", 3)
-                setattr(character, f"{drive}_current", min(max_val, getattr(character, f"{drive}_current") + 1))
-                db.commit()
-                log_msg = f"{character.name} used Learn from My Mistakes — refreshed 1 {drive.capitalize()}."
-                await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
-                await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": log_msg, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
-        elif ab_name == "Bending Spoons":
-            character.bleed_marks = min(3, character.bleed_marks + 1)
-            db.commit()
-            log_msg = f"{character.name} used Bending Spoons — took 1 Bleed mark to upgrade the result."
-            await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
-            await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {"message": log_msg, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
-
-
-async def handle_burn_resistance(ctx):
-    db, payload, character, target_char_id, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.channel, ctx.camp_code, ctx.camp_id
-    act = payload.get("action")
-    drive_key = payload.get("drive_key")
-    if act and drive_key:
-        result = burn_resistance(db, character, act, drive_key)
-        if "error" not in result:
-            outcome_label = OUTCOME_LABELS.get(result.get("outcome", ""), "")
-            await manager.broadcast(channel, {
-                "type": "roll_result",
-                "payload": {"character_id": target_char_id, "action": act, "roll": result, "character": get_char_dict(character)}
-            })
-            if _hold_or_throw(character, act, result, False):
-                await _dice_thrown(ctx, character, act, result, _rating(character, act))
-            log_msg = f"{character.name} burned resistance on {act} — {result.get('result', '?')} · {outcome_label}."
-            await manager.broadcast_campaign(camp_code, camp_id, {
-                "type": "activity_log",
-                "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
-            }, db)

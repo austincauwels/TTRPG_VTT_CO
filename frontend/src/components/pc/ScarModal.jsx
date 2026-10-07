@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { ACTION_LABEL, scarShiftNote } from '../../game/actions';
+import { hasAbility } from '../../game/abilities';
+import { SCAR_ABILITIES } from '../../game/abilityUses';
 import { useDialog } from '../shared/useDialog';
 import { FormLine } from '../shared/PrintMarks';
 import { ScarIcon } from '../shared/ScarIcon';
@@ -10,7 +12,7 @@ import { ScarIcon } from '../shared/ScarIcon';
 const ACTION_KEYS = ['move', 'strike', 'control', 'sway', 'sneak', 'hide', 'survey', 'read', 'sense'];
 
 const ScarModal = () => {
-  const { showScarModal, scarModalData, pendingScar, applyScar, character, deferScar } = useGameStore();
+  const { showScarModal, scarModalData, pendingScar, applyScar, character, deferScar, cancelAbilityScar, scarError } = useGameStore();
   const [medicalNotes, setMedicalNotes] = useState('');
 
   const [degradeAction, setDegradeAction] = useState('');
@@ -18,10 +20,31 @@ const ScarModal = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [skipShifts, setSkipShifts] = useState(false);
 
-  const isHardened = character?.specialty_ability === 'Hardened';
+  // A form opened for a new scar starts blank; one opened again after the server refused
+  // it (same seq) keeps what the player wrote
+  const formSeq = scarModalData?.seq;
+  const seenSeq = useRef(formSeq);
+  useEffect(() => {
+    if (formSeq == null || formSeq === seenSeq.current) return;
+    seenSeq.current = formSeq;
+    setMedicalNotes('');
+    setDegradeAction('');
+    setAdvanceAction('');
+    setSkipShifts(false);
+    setErrorMessage('');
+  }, [formSeq]);
+
+  // Hardened (p. 31) keeps the ratings; the server allows it for Hardened only
+  const isHardened = hasAbility(character, 'Hardened');
+  // A scar the player takes for Not Again (p. 29) or Forbidden Ritual (p. 32). A Not Again
+  // scar leaves the ratings alone.
+  const ability = scarModalData?.ability || null;
+  const keepsByAbility = !!SCAR_ABILITIES[ability]?.keepsRatings;
+  const keep = keepsByAbility || skipShifts;
 
   // Escape is "Decide later", like the button: the scar stays pending, nothing is lost.
-  const dialogRef = useDialog({ open: !!showScarModal, onClose: deferScar });
+  // A scar taken for an ability is not owed, so Escape cancels it.
+  const dialogRef = useDialog({ open: !!showScarModal, onClose: ability ? cancelAbilityScar : deferScar });
 
   if (!showScarModal) return null;
 
@@ -39,7 +62,7 @@ const ScarModal = () => {
       return;
     }
 
-    if (!skipShifts) {
+    if (!keep) {
       if (!degradeAction) {
         setErrorMessage('Choose an action to lower by 1.');
         return;
@@ -66,25 +89,22 @@ const ScarModal = () => {
       }
     }
 
-    const shiftNote = skipShifts ? scarShiftNote(null, null) : scarShiftNote(degradeAction, advanceAction);
+    const shiftNote = keep ? scarShiftNote(null, null, keepsByAbility ? ability : 'Hardened') : scarShiftNote(degradeAction, advanceAction);
     const finalNotes = `${medicalNotes.trim()} ${shiftNote}`;
 
     const sent = applyScar({
       scar_text: finalNotes,
-      shift_down: skipShifts ? null : degradeAction,
-      shift_up: skipShifts ? null : advanceAction,
-      skip_shifts: skipShifts,
+      shift_down: keep ? null : degradeAction,
+      shift_up: keep ? null : advanceAction,
+      skip_shifts: keep,
+      ...(ability ? { ability } : {}),
     });
     if (sent === false) {
       // The form stays open with everything the player chose and wrote.
       setErrorMessage('The scar was not recorded: the desk is not connected to the table. Your description is kept; press Record scar again once the connection is back.');
-      return;
     }
-
-    setMedicalNotes('');
-    setDegradeAction('');
-    setAdvanceAction('');
-    setSkipShifts(false);
+    // Sent: the fields are kept until a new scar opens the form, so a refusal from the
+    // server can open it again as it was
   };
 
   const actionColumn = ({ name, title, value, onChange, isDisabled, titleClass }) => (
@@ -139,7 +159,11 @@ const ScarModal = () => {
             A New Scar
           </h2>
           <p className="font-serif text-base text-ink mt-2 leading-snug">
-            {character?.name || 'Your investigator'}'s {markName} track is full.
+            {ability === 'Not Again'
+              ? `${character?.name || 'Your investigator'} uses Not Again: an automatic full success on the action. Tell your circle how they got this scar, and why the lesson is helping them succeed here. The action ratings stay as they are.`
+              : ability === 'Forbidden Ritual'
+                ? `${character?.name || 'Your investigator'} uses Forbidden Ritual and takes a Bleed scar.`
+                : `${character?.name || 'Your investigator'}'s ${markName} track is full.`}
           </p>
           {isFourthScar && (
             <p className="font-serif text-base font-bold text-oxblood mt-2 leading-snug">
@@ -150,7 +174,7 @@ const ScarModal = () => {
 
         <form onSubmit={handleSubmit} noValidate className="relative z-10 space-y-4">
           {/* Hardened ability: skip action shifts */}
-          {isHardened && (
+          {isHardened && !keepsByAbility && (
             <label className="flex items-center gap-2 cursor-pointer bg-cream border border-parchment-deep rounded px-3 py-2">
               <input
                 type="checkbox"
@@ -164,7 +188,7 @@ const ScarModal = () => {
             </label>
           )}
 
-          <div className={`grid grid-cols-2 gap-4 ${skipShifts ? 'opacity-40 pointer-events-none' : ''}`}>
+          {!keepsByAbility && <div className={`grid grid-cols-2 gap-4 ${skipShifts ? 'opacity-40 pointer-events-none' : ''}`}>
             {actionColumn({
               name: 'degrade_action',
               title: 'Lower by 1',
@@ -181,7 +205,7 @@ const ScarModal = () => {
               isDisabled: (score) => score >= 3,
               titleClass: 'text-ink',
             })}
-          </div>
+          </div>}
 
           <div className="bg-cream border border-sepia/40 p-4 rounded-sm shadow-inner relative">
             <label htmlFor="scar-notes" className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-2 border-b border-parchment-deep pb-1">
@@ -197,19 +221,19 @@ const ScarModal = () => {
             />
           </div>
 
-          {errorMessage && (
+          {(errorMessage || scarError) && (
             <p role="alert" className="p-2 border border-oxblood bg-oxblood/10 rounded-sm text-oxblood font-serif text-base text-center">
-              {errorMessage}
+              {errorMessage || scarError}
             </p>
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <button
               type="button"
-              onClick={deferScar}
+              onClick={ability ? cancelAbilityScar : deferScar}
               className="min-h-[40px] px-3 font-sans text-xs font-bold uppercase tracking-widest text-sepia hover:text-oxblood border border-sepia/40 hover:border-oxblood/50 rounded-sm transition-colors"
             >
-              Decide later
+              {ability ? 'Cancel' : 'Decide later'}
             </button>
             <button type="submit" className="px-5 py-2.5 bg-ink text-cream hover:bg-oxblood font-sans font-black text-xs uppercase tracking-widest rounded-sm transition-colors shadow-md">
               Record scar

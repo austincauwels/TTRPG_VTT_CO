@@ -1,5 +1,7 @@
 // Roll modifiers granted by abilities, shared by the dossier (chips under each action) and
-// the dice vault (Burn resistance). Moved from components/pc/DiceVault.jsx unchanged.
+// the dice vault (Burn resistance). The server applies them the same way
+// (ROLL_MODS in backend/vtt/ws/handlers/rolls.py) and checks the same conditions.
+import { abilitiesOf } from './abilities';
 
 // ── Ability system ────────────────────────────────────────────────────────────
 
@@ -24,35 +26,48 @@ export const MAX_ABILITY_USES = {
 export const ABILITY_ROLL_MODS = {
   "Sweet Talk":          { actions: ['sneak'],                   extraDice: () => 1, extraGild: false, gildIfCunningResist2: true, chipLabel: (ch) => `Sweet Talk (+1d${resistRemaining(ch,'cunning') >= 2 ? ', gilded' : ''})` },
   "Open Book":           { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Open Book (+${resistRemaining(ch,'cunning')}d)` },
-  "Lie Detector":        { actions: ['sneak'],                   extraDice: () => 0, extraGild: true,  chipLabel: () => 'Lie Detector (gild extra die)' },
-  "Misdirection":        { actions: ['hide'],                    extraDice: () => 1, extraGild: false, chipLabel: () => 'Misdirection (+1d)' },
+  // The first drive point spent counts twice: no die until drive is spent (firstPoint)
+  "Lie Detector":        { actions: ['sneak'],                   extraDice: () => 0, firstPoint: true, extraGild: true,  chipLabel: () => 'Lie Detector (gild a die; the first Cunning spent is worth +2d)' },
+  "Misdirection":        { actions: ['hide'],                    extraDice: () => 0, firstPoint: true, extraGild: false, chipLabel: () => 'Misdirection (the first Cunning spent is worth +2d)' },
+  // Leverage (p. 31): a Sway roll using what a successful Read revealed
+  "Leverage":            { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Leverage (using what you learned: +${resistRemaining(ch,'cunning')}d)` },
+  // Narrow Escape (p. 29): escaping a trap or ambush
+  "Narrow Escape":       { actions: ['move'],                    extraDice: () => 1, extraGild: false, chipLabel: () => 'Narrow Escape (escaping a trap or ambush: +1d)' },
+  // Press Conference (p. 28): the Cunning rolls made at the assembly the Journalist called
+  // (its 1 Cunning is paid with the ability's Use button)
+  "Press Conference":    { actions: ['sway','sneak','hide'],     extraDice: () => 1, extraGild: false, chipLabel: () => 'Press Conference (at the assembly you called: +1d)' },
   "Interrogation":       { actions: ['sneak'],                   extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Interrogation (+${resistRemaining(ch,'cunning')}d)` },
   "Inspection":          { actions: ['survey'],                  extraDice: () => 0, extraGild: true,  chipLabel: () => 'Inspection (gild extra die)' },
   "Basic Training":      { actions: ['survey'],                  extraDice: (ch) => resistRemaining(ch,'nerve'),   extraGild: false, chipLabel: (ch) => `Basic Training (+${resistRemaining(ch,'nerve')}d)` },
-  "Better Part of Valor":{ actions: ['control','move'],          extraDice: () => 0, extraGild: true,  chipLabel: () => 'Better Part of Valor (gild extra die)' },
-  "Tenacious":           { actions: ['move','strike','control'], extraDice: () => 0, extraGild: true,  autoApply: true, condition: (ch) => (ch.bleed_marks || 0) >= 1, chipLabel: () => 'Tenacious (auto: gild die)' },
+  "Better Part of Valor":{ actions: ['control','move'],          extraDice: () => 0, firstPoint: true, extraGild: true,  chipLabel: () => 'Better Part of Valor (gild a die; the first Nerve spent is worth +2d)' },
+  // In danger is the player's call, so it is a chip like the others, shown with a Bleed mark
+  "Tenacious":           { actions: ['move','strike','control'], extraDice: () => 0, extraGild: true,  condition: (ch) => (ch.bleed_marks || 0) >= 1, chipLabel: () => 'Tenacious (in danger with a Bleed mark: gild a die)' },
   "Extend Your Senses":  { actions: ['sense'],                   extraDice: (ch) => resistRemaining(ch,'intuition'), extraGild: false, chipLabel: (ch) => `Extend Your Senses (+${resistRemaining(ch,'intuition')}d)` },
   "Meticulous Notes":    { actions: ['read'],                    extraDice: () => 1, extraGild: false, condition: (ch) => resistRemaining(ch,'cunning') >= 2, chipLabel: () => 'Meticulous Notes (+1d)' },
   "Cool Under Pressure": { actions: ['any'],                     extraDice: () => 0, extraGild: false, driveSubstitute: 'cunning', chipLabel: () => 'Cool Under Pressure (use Cunning)' },
   "Practiced Patter":    { actions: ['sway','hide'],             extraDice: () => 0, extraGild: false, driveSubstitute: 'intuition', chipLabel: () => 'Practiced Patter (use Intuition)' },
   "Street Smarts":       { actions: ['survey'],                  extraDice: () => 0, extraGild: false, driveSubstitute: 'any', chipLabel: () => 'Street Smarts (any drive)' },
-  "Back Against the Wall":{ actions: ['any'],                    extraDice: () => 0, extraGild: false, costBrainMark: true, chipLabel: () => 'Back Against the Wall (Brain mark → Nerve = +2d)' },
-  "Sharpshooter":        { actions: ['strike'],                  extraDice: () => 2, extraGild: false, costDrive: 'nerve', condition: (ch) => (ch.nerve_current || 0) > 0, chipLabel: (ch) => `Sharpshooter (spend 1 Nerve → +2d, ${ch.nerve_current ?? '?'} left)` },
+  // Mind Over Matter (p. 29): roll this action in place of the one you were told to use
+  "Mind Over Matter":    { actions: ['any'],                     extraDice: () => 0, extraGild: false, costBrainMark: true, chipLabel: () => 'Mind Over Matter (this action in place of the one asked for: take a Brain mark)' },
+  "Back Against the Wall":{ actions: ['any'],                    extraDice: () => 0, extraGild: false, costBrainMark: true, chipLabel: () => 'Back Against the Wall (take a Brain mark: each Nerve spent is worth +2d)' },
+  // Shooting is a Control roll in the rulebook (p. 50)
+  "Sharpshooter":        { actions: ['strike','control'],        extraDice: () => 2, extraGild: false, costDrive: 'nerve', condition: (ch) => (ch.nerve_current || 0) > 0, chipLabel: (ch) => `Sharpshooter (spend 1 Nerve for +2d, ${ch.nerve_current ?? '?'} left)` },
   "Dissection":          { actions: ['read'],                    extraDice: () => 0, extraGild: true,  chipLabel: () => 'Dissection (gild extra die)' },
   "Born in the Shadows": { actions: ['hide'],                    extraDice: () => 0, extraGild: true,  chipLabel: () => 'Born in the Shadows (gild extra die)' },
 };
 
-function resistRemaining(character, driveKey) {
+export function resistRemaining(character, driveKey) {
   if (!character) return 0;
   const max = Math.floor((character[driveKey + '_max'] || 1) / 3);
   const spent = character[driveKey + '_resistance_spent'] || 0;
   return Math.max(0, max - spent);
 }
 
-export function getAvailableRollMods(character, action) {
+// circle: the investigator's circle, for Stamina Training's shared dice
+export function getAvailableRollMods(character, action, circle = null) {
   if (!character || !action) return [];
   const mods = [];
-  const abilities = [character.role_ability, character.specialty_ability].filter(Boolean);
+  const abilities = [...abilitiesOf(character)];
   const uses = character.ability_uses || {};
 
   abilities.forEach(abilityName => {
@@ -63,7 +78,7 @@ export function getAvailableRollMods(character, action) {
     const maxUses = MAX_ABILITY_USES[abilityName];
     if (maxUses && (uses[abilityName] || 0) >= maxUses) return;
     const extra = typeof def.extraDice === 'function' ? def.extraDice(character) : def.extraDice;
-    if (!def.autoApply && extra === 0 && !def.extraGild && !def.driveSubstitute && !def.costBrainMark) return;
+    if (!def.autoApply && extra === 0 && !def.extraGild && !def.driveSubstitute && !def.costBrainMark && !def.firstPoint) return;
     mods.push({
       key: abilityName,
       label: def.chipLabel(character),
@@ -81,5 +96,49 @@ export function getAvailableRollMods(character, action) {
       },
     });
   });
+  // Stamina Training (p. 41): the circle's three gilded dice for each assignment
+  const circleAbilities = (circle?.circle_ability || '').split('\n').map(a => a.trim());
+  if (circleAbilities.includes('Stamina Training') && (circle?.stamina_dice_left || 0) > 0) {
+    mods.push({
+      key: 'Stamina Training', label: `Stamina Training (+1d, gilded; ${circle.stamina_dice_left} of 3 left this assignment)`,
+      autoApply: false, extraDice: 1, extraGild: true, driveSubstitute: null, shows: { dice: 1, gild: true, use: null },
+    });
+  }
+  // Nobody Left Behind (p. 41): while a circle member is down, +1d on a roll to protect them
+  // or get them out of danger (the server checks someone else is down)
+  const downed = (circle?.incapacitated_members || []).filter(m => m.id !== character.id);
+  if (circleAbilities.includes('Nobody Left Behind') && downed.length > 0) {
+    mods.push({
+      key: 'Nobody Left Behind', label: `Nobody Left Behind (protecting or rescuing ${downed.map(m => m.name).join(' or ')}: +1d)`,
+      autoApply: false, extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
+    });
+  }
+  // Saw This Coming (p. 27): a Slink in the circle adds +1d to this roll "without spending
+  // drive", three times an assignment; one chip for each who can (never your own)
+  (circle?.saw_this_coming || []).filter(s => s.id !== character.id && s.left > 0).forEach(s => {
+    mods.push({
+      key: `Saw This Coming:${s.id}`, name: 'Saw This Coming', helper: s.id,
+      label: `Saw This Coming from ${s.name} (+1d; ${s.left} of 3 left this assignment)`,
+      autoApply: false, extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
+    });
+  });
+  // Great Wards (p. 27): whoever holds a Weird's ward takes +1d on Move rolls against
+  // phenomena (the player's call; the server checks the ward still holds)
+  if (character.warded_by_id && action === 'move') {
+    mods.push({
+      key: 'Great Wards', label: 'Great Wards (against a phenomenon: +1d)',
+      autoApply: false, extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
+    });
+  }
+  // Train (p. 41): a die the circle's resource gives for one roll this assignment, on the
+  // roll the player picks
+  if (character.train_bonus) {
+    // Each Train spent is a die (p. 41); a player may spend two
+    const left = character.train_dice || 1;
+    mods.push({
+      key: 'Train', label: `Train (+1d on this roll; ${left} Train ${left === 1 ? 'die' : 'dice'} this assignment)`, autoApply: false,
+      extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
+    });
+  }
   return mods;
 }

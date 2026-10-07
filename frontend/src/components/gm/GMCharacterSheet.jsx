@@ -14,7 +14,18 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
 
-  const { gmResetCharacter } = useGameStore(useShallow(s => ({ gmResetCharacter: s.gmResetCharacter })));
+  const { gmResetCharacter, gmSetMarks } = useGameStore(useShallow(s => ({ gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks })));
+  const [marksError, setMarksError] = useState(null);
+  // A mark the app does not clear itself (Occult Researcher's with no detail, p. 27), or a
+  // mis-tap: the Lightkeeper sets the track, and the player's sheet follows
+  const setMarks = (type, value) => {
+    setMarksError(null);
+    if (!gmSetMarks(rosterItem.id, type, value)) {
+      setMarksError('Not connected to the table. Try again in a moment.');
+      return;
+    }
+    setFullChar(c => (c ? { ...c, [`${type}_marks`]: value } : c));
+  };
   // The roster takes the portrait_update frames, so a photo changed while this sheet is
   // open shows here too (it was fetched once, when the sheet opened)
   const rosterPic = useGameStore(s => {
@@ -97,6 +108,27 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
         {fullChar && !loading && (
           <>
             <InvestigatorDossier character={sheet} readOnly />
+            <div className="mt-6 pt-4 border-t border-ink/10">
+              <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-2">Correct marks</span>
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                {['body', 'brain', 'bleed'].map(type => {
+                  const label = type[0].toUpperCase() + type.slice(1);
+                  const value = fullChar[`${type}_marks`] || 0;
+                  const step = 'w-9 h-9 [@media(pointer:fine)]:w-7 [@media(pointer:fine)]:h-7 border border-ink/40 rounded-sm font-sans font-black text-ink hover:bg-ink/5 disabled:opacity-30';
+                  return (
+                    <div key={type} className="flex items-center gap-2">
+                      <span className="font-sans text-sm font-bold uppercase tracking-wider text-ink w-12">{label}</span>
+                      <button type="button" className={step} disabled={value <= 0} onClick={() => setMarks(type, value - 1)}
+                        aria-label={`Remove a ${label} mark from ${fullChar.name || 'this investigator'}`}>−</button>
+                      <span className="font-mono tabular-nums text-base w-4 text-center" aria-label={`${label} marks`}>{value}</span>
+                      <button type="button" className={step} disabled={value >= 3} onClick={() => setMarks(type, value + 1)}
+                        aria-label={`Add a ${label} mark to ${fullChar.name || 'this investigator'}`}>+</button>
+                    </div>
+                  );
+                })}
+              </div>
+              {marksError && <p role="alert" className="mt-2 text-sm font-serif text-oxblood">{marksError}</p>}
+            </div>
             <ConfirmAction
               className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-3"
               onConfirm={() => gmResetCharacter(rosterItem.id)}

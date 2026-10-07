@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- A lit candle on the night stage, drawn in code (no source art). Palette: night,
+       parchment, candle gold, cream, oxblood, ink (tailwind.config.js). -->
+  <defs>
+    <radialGradient id="glow" cx="32" cy="22" r="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d4af37" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#d4af37" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="4" fill="#120b0a"/>
+  <circle cx="32" cy="22" r="20" fill="url(#glow)"/>
+  <path d="M32 6 C37.5 14.5 40 19.5 40 24 A8 8 0 0 1 24 24 C24 19.5 26.5 14.5 32 6 Z" fill="#d4af37"/>
+  <path d="M32 15 C34.6 19.2 35.8 21.8 35.8 24.2 A3.8 3.8 0 0 1 28.2 24.2 C28.2 21.8 29.4 19.2 32 15 Z" fill="#fdfaf4"/>
+  <path d="M24 33 H40 V54 H24 Z" fill="#f0e2c0"/>
+  <path d="M24 33 H40 V36 C38 36 37.5 40 36 40 C34.5 40 34.5 36 32.5 36 H24 Z" fill="#fdfaf4"/>
+  <path d="M32 29.5 V33" stroke="#1a1311" stroke-width="1.8" stroke-linecap="round"/>
+  <rect x="17" y="53" width="30" height="5" rx="1" fill="#721c15"/>
+</svg>

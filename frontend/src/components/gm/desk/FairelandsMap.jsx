@@ -1,6 +1,11 @@
 import React, { useState, useRef } from 'react';
 
 const MAP_SRC = '/images/The_Fairelands_map.png';
+// The same map at the same 3000 x 2000 size as AVIF (quality 90, full colour resolution,
+// 4:4:4), about a fifth of the PNG's 15 MB. Lossy WebP was tried and dulled the saturated
+// roofs under the magnifier (it always halves colour resolution), so it is not used here.
+// A browser without AVIF loads the PNG; "Open full size" always opens the original PNG.
+const MAP_AVIF = '/images/The_Fairelands_map.avif';
 
 // The official Fairelands map (Marc Moreau / Darrington Press), shown whole.
 // A mouse gets the hover magnifier. Touch and pen get tap to zoom at the tapped spot and
@@ -39,17 +44,23 @@ export const FairelandsMap = () => {
         onPointerLeave={e => { if (e.pointerType === 'mouse') setMapHover(false); }}
         onClick={handleTap}
       >
-        <img
-          src={MAP_SRC}
-          alt="The Fairelands"
-          className="w-full h-auto block select-none"
-          draggable={false}
-          style={{
-            transform: `scale(${scale})`,
-            transformOrigin: mapOrigin,
-            transition: mapHover ? 'transform 0.15s ease-out' : 'transform 0.35s ease-out',
-          }}
-        />
+        <picture className="block">
+          <source srcSet={MAP_AVIF} type="image/avif" />
+          <img
+            src={MAP_SRC}
+            alt="The Fairelands"
+            width={3000}
+            height={2000}
+            decoding="async"
+            className="w-full h-auto block select-none"
+            draggable={false}
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: mapOrigin,
+              transition: mapHover ? 'transform 0.15s ease-out' : 'transform 0.35s ease-out',
+            }}
+          />
+        </picture>
       </div>
       <div className="map-fit-frame mt-2 px-1 flex flex-wrap items-center justify-between gap-x-4 font-sans font-bold text-xs uppercase tracking-widest text-moonlight-steel">
         {/* On touch screens a tap zooms: a magnifier says which way the next tap goes */}

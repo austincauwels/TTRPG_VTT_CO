@@ -108,7 +108,7 @@ export const RollResultBar = ({
 
   const dice = lastRoll?.dice || [];
   const poolText = isRolling || !lastRoll ? '' : rollPoolText(lastRoll, keptDie, rating);
-  const outcomeKey = lastRoll?.outcome || (keptDie ? outcomeForKept(keptDie.value) : null);
+  const outcomeKey = lastRoll?.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll?.dice) : null);
   const outcome = !isRolling && !gildedPending ? OUTCOME[outcomeKey] : null;
   // A roll that did not reach the table: the bar says so in short with the reason under
   // it (the tray's slip carries the alert for screen readers)

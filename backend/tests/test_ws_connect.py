@@ -127,7 +127,7 @@ def test_socket_without_a_valid_token_is_closed_with_4401(client, token):
     """The socket is accepted and closed at once with 4401; no frame is sent and the
     channel's real socket is left alone."""
     import time
-    from jose import jwt
+    import jwt
     from vtt import config, security
     now = int(time.time())
     token = {
@@ -262,9 +262,10 @@ def test_frame_without_payload_works(client):
         msg = ws.recv()
         assert msg["type"] == "character_update"
         p = msg["payload"]
-        assert (p["id"], p["body_marks"], p["bleed_marks"], p["incapacitated"]) == (ch["id"], 0, 0, False)
+        # Revive clears incapacitated only (RULES_CHECK.md item 9)
+        assert (p["id"], p["body_marks"], p["bleed_marks"], p["incapacitated"]) == (ch["id"], 2, 1, False)
     row = support.fetch(Character, ch["id"])
-    assert (row.body_marks, row.bleed_marks, row.incapacitated) == (0, 0, False)
+    assert (row.body_marks, row.bleed_marks, row.incapacitated) == (2, 1, False)
 
 
 @pytest.mark.parametrize("frame", ['[1, 2]', '"text"', '7', 'null', '{"type": "no_such_action", "payload": [1]}'])
@@ -386,9 +387,10 @@ def test_fractional_character_id_is_an_unknown_character(client):
     assert support.fetch(Character, a["id"]).nerve_current == 1
 
 
-def test_failed_lookup_rollback_reloads_the_stale_circle(client):
-    """The rollback after a failed lookup expires the session's objects the same way
-    a commit does, so the connect-time circle is read fresh on the next frame."""
+def test_each_message_reads_the_circle_fresh(client):
+    """Each message starts with a rollback, so the connect-time circle is read fresh:
+    a spend right after the GM opens spending works (it used to be ignored until a
+    commit or a failed lookup's rollback expired the stale copy)."""
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
     cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp['id'])).json()["circle_id"]
@@ -398,15 +400,13 @@ def test_failed_lookup_rollback_reloads_the_stale_circle(client):
         gm.sync()
         ws.drain()
         ws.send("spend_resource", resource_type="stitch")
-        assert ws.sync() == []
-        ws.send("update_drive", pool="nerve", value=0, character_id="abc")
-        ws.send("spend_resource", resource_type="stitch")
         assert support.types(ws.sync()) == ["character_update", "circle_update", "activity_log"]
     assert support.fetch(Circle, cid).stitch == 1
 
 
 def test_null_character_id_falls_back_to_the_socket_character(client):
     ch = support.forge(client, move=1)
+    support.update(Character, ch["id"], advancement_picks=2)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("apply_advancement", choice="add_action", detail="move", character_id=None)
         msgs = ws.sync()
@@ -418,15 +418,13 @@ def test_null_character_id_falls_back_to_the_socket_character(client):
 # --- campaign context is fixed at connect time -----------------------------------
 
 def test_campaign_context_is_fixed_when_the_socket_connects(client, dice):
-    """QUIRK: the comment in websocket_endpoint says the context is re-resolved per
-    message, but camp_id, camp_code and the circle are set once at connect. A socket
+    """QUIRK: camp_id, camp_code and the circle are set once at connect. A socket
     opened while its character was unaffiliated keeps logging to its own channel
     after the character joins and is approved, and keeps using circle 1. Only
-    chat_message looks the campaign up again from character.campaign_id, and even
-    that sees the join only after something on the socket commits, because until
-    then the session keeps the character it loaded at connect. (The access checks
-    read the character fresh, so the member may chat; the chat handler itself still
-    uses the stale copy.)"""
+    chat_message looks the campaign up again from character.campaign_id. Fixed: it
+    used to see the join only after something on the socket committed, because the
+    session kept the character it loaded at connect; each message now starts with a
+    rollback that expires it (vtt/ws/endpoint.py)."""
     camp = support.new_campaign(client)
     guard = support.active_member(client, camp, role_ability="Behind Me", nerve_current=1)
     late = support.forge(client, user_id=support.make_user().id)
@@ -440,13 +438,11 @@ def test_campaign_context_is_fixed_when_the_socket_connects(client, dice):
         assert support.approve(client, late["id"]).status_code == 200
         gm.drain(), wg.drain(), wl.drain()
 
-        # before anything on this socket commits, the character still has no campaign
+        # the character is read fresh, so the chat reaches the campaign at once
         wl.send("chat_message", message="one")
-        assert support.types(wl.sync()) == ["activity_log"]
-        assert gm.drain() == [] and wg.drain() == []
-
-        wl.send("update_pen_font", pen_font="Kalam")  # a commit expires the stale objects
-        assert support.types(wl.sync()) == ["character_update"]
+        msgs = wl.sync()
+        assert [m["payload"]["message"] for m in msgs] == [f"{late['name']}: one"]
+        assert gm.drain() == msgs and wg.drain() == msgs
 
         dice(3, 4)
         wl.send("roll", action="move", drive_spent=0)

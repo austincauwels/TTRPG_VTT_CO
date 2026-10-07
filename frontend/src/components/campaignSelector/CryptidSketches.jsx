@@ -126,7 +126,19 @@ const PhotoCorners = ({ at, W, H }) => (
   </svg>
 );
 
-export const CryptidSketch = ({ which, className = '' }) => {
+// The papers a notebook sketch takes the place of, in order, so the first sketch always
+// shows: on a wide desk the leaf by the tomes, the one by the candles and (from about
+// 1900px) the torn page; on phones and tablets, which show only the torn page and the
+// sketchbook leaf, the torn page. The red chalk sketchbook leaf, which every screen shows,
+// keeps the owner's art.
+export const NOTEBOOK_SLOTS = { wide: ['tomes', 'candles', 'page'], narrow: ['page'] };
+export const HUB_WIDE_QUERY = '(min-width: 1024px) and (orientation: landscape)';
+export const sketchInSlot = (sketches, which, wide) => {
+  const i = NOTEBOOK_SLOTS[wide ? 'wide' : 'narrow'].indexOf(which);
+  return i >= 0 ? sketches[i] || null : null;
+};
+
+export const CryptidSketch = ({ which, className = '', notebook = null }) => {
   const p = PAPERS[which];
   const a = ART[which];
   const curl = p.curl ? CURL_AT[p.curl] : null;
@@ -144,8 +156,15 @@ export const CryptidSketch = ({ which, className = '' }) => {
       <span className="sketch-paper">
         <span className="paper-sheet" style={{ backgroundColor: p.tone, WebkitMaskImage: a.mask, maskImage: a.mask }}>
           <span className={`paper-art ${p.artClass || ''}`} style={p.inset ? { inset: p.inset } : undefined}>
-            <img src={p.src} alt="" draggable={false} decoding="async" loading={p.lazy ? 'lazy' : undefined}
-              className={`block w-full h-full object-cover ${p.img || ''}`} />
+            {notebook ? (
+              // A sketch from the user's notebook, whole on the sheet, its white taking the
+              // paper's own tone (.notebook-sketch-img)
+              <img src={notebook.image_data} alt="" draggable={false} decoding="async"
+                className="block w-full h-full object-contain notebook-sketch-img" />
+            ) : (
+              <img src={p.src} alt="" draggable={false} decoding="async" loading={p.lazy ? 'lazy' : undefined}
+                className={`block w-full h-full object-cover ${p.img || ''}`} />
+            )}
           </span>
           <span className="paper-stain" style={{ backgroundImage: a.stain }} />
           {a.light && <span className="paper-light" style={{ backgroundImage: a.light }} />}

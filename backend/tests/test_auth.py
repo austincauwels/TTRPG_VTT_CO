@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from jose import jwt
+import jwt
 from limits import parse as parse_limit
 
 import main
@@ -411,9 +411,11 @@ def test_token_round_trip():
 
 def test_the_password_stamp_hides_the_hash():
     """The stamp is keyed with SECRET_KEY, so the token (readable by whoever holds it)
-    tells nothing about the hash, and two hashes give two stamps."""
-    a, b = security.password_stamp("$2b$12$abc"), security.password_stamp("$2b$12$abd")
-    assert a != b and len(a) == 32 and "abc" not in a
+    tells nothing about the hash, and two hashes give two stamps. The hashes end in
+    letters that are not hex digits: "abc" turned up by chance in about one stamp in 140,
+    with CI's random key, and failed the test."""
+    a, b = security.password_stamp("$2b$12$xyz"), security.password_stamp("$2b$12$xyw")
+    assert a != b and len(a) == 32 and "xyz" not in a and all(c in "0123456789abcdef" for c in a)
     assert security.password_stamp(None) == security.password_stamp("")
 
 

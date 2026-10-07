@@ -10,6 +10,8 @@ decides on a stale copy of a row.
 """
 from engine import ALL_ACTIONS
 from models import Campaign, Character, Circle, Relationship
+from vtt.abilities import MARK_TYPES, abilities_of, uses_of
+from vtt.ability_uses import SCAR_ABILITIES
 from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, ROSTER_STATUSES, campaign_facts, character_facts
 from vtt.circle_queries import VOTE_TYPES
 
@@ -151,6 +153,9 @@ def _gm_update_circle(ctx, payload, character):
 
 
 def _intercept_mark(ctx, payload, character):
+    m_type = payload.get("mark_type")
+    if m_type and m_type not in MARK_TYPES:
+        _invalid("Unknown mark type.")
     target_id = payload.get("target_character_id")
     if target_id is None:
         return
@@ -234,21 +239,83 @@ def _circle_relationship_respond(ctx, payload, character):
     _circle_of(ctx, rel.circle_id, _sender_campaign(ctx))
 
 
+KEEP_RATINGS_REFUSED = ("A scar shifts an action point: choose one action to lower and one to raise. "
+                        "Only Hardened, or a Not Again scar, keeps the ratings as they are.")
+
+
+def scar_ability(payload):
+    """The ability a scar is taken for, if any: the desk names it, and not_again is the
+    older name of a Not Again scar."""
+    return payload.get("ability") or ("Not Again" if payload.get("not_again") else None)
+
+
+def may_keep_ratings(character, payload) -> bool:
+    """Whether a scar may leave the action ratings as they are (rulebook p. 14): with
+    Hardened (p. 31), for a Not Again scar (p. 29) while it is unused this assignment, or
+    for the fourth scar, which is fatal (RULES_CHECK.md item 12)."""
+    abilities = abilities_of(character)
+    if "Hardened" in abilities or (character.scars_count or 0) >= 3:
+        return True
+    return scar_ability(payload) == "Not Again" and "Not Again" in abilities and uses_of(character, "Not Again") < 1
+
+
 def _apply_scar(ctx, payload, character):
     """A scar may only move a point between two of the nine action ratings. Any other
-    name used to reach every numeric column, including campaign_id and user_id."""
+    name used to reach every numeric column, including campaign_id and user_id. A scar
+    without a shift needs Hardened or one of the other cases in may_keep_ratings. A scar
+    taken for an ability needs the ability, and Not Again an unused one."""
     for key in ("shift_down", "shift_up"):
         name = payload.get(key)
         if name and name not in ALL_ACTIONS:
             _forbid()
+    # A scar taken for Not Again or Forbidden Ritual (vtt/ability_uses.py SCAR_ABILITIES)
+    ability = scar_ability(payload)
+    if ability is not None:
+        use = SCAR_ABILITIES.get(ability) if isinstance(ability, str) else None
+        if use is None:
+            _invalid("No ability takes a scar that way.")
+        if ability not in abilities_of(character):
+            raise Rejected(409, f"{character.name} does not have {ability}.")
+        if use.get("once") and uses_of(character, ability) >= 1:
+            raise Rejected(409, f"{ability} is used for this assignment.")
+        if use.get("keeps_ratings"):
+            return
+    keeps = payload.get("skip_shifts") or not (payload.get("shift_down") and payload.get("shift_up"))
+    if keeps and not may_keep_ratings(character, payload):
+        _invalid(KEEP_RATINGS_REFUSED)
+
+
+def _take_mark(ctx, payload, character):
+    """The three mark tracks only. An unknown track used to be set on the loaded object
+    and sent back as if it were a mark."""
+    m_type = payload.get("mark_type")
+    if m_type and m_type not in MARK_TYPES:
+        _invalid("Unknown mark type.")
 
 
 def _update_gear(ctx, payload, character):
     """Gear is a list of item names. A list holding anything else used to be saved,
-    and then building the log line raised and ended the socket."""
+    and then building the log line raised and ended the socket. Gear written in by name
+    (the sheet's blank gear line, rulebook p. 53) is a name of up to 80 characters."""
     gear = payload.get("gear", [])
     if isinstance(gear, list) and not all(isinstance(item, str) for item in gear):
         _invalid("Gear items must be text.")
+    if isinstance(gear, list) and not all(item.strip() and len(item) <= 80 for item in gear):
+        _invalid("A gear item is a name of up to 80 characters.")
+
+
+def _roll(ctx, payload, character):
+    """A negative drive_spent used to raise the drive above its maximum and commit that
+    before the empty pool failed (QUIRK D15). It is refused before anything changes.
+    A value that is not a number still reaches the handler, which answers roll_error
+    as it always has. Spending more than the drive holds is a rules question
+    (RULES_CHECK.md item 5) and is left as it is."""
+    try:
+        spent = int(payload.get("drive_spent", 0))
+    except (TypeError, ValueError, OverflowError):  # OverflowError: JSON's Infinity
+        return
+    if spent < 0:
+        _invalid("Drive spent cannot be negative.")
 
 
 def _chat_message(ctx, payload, character):
@@ -294,7 +361,9 @@ RULES = {
     "circle_relationship_propose": _circle_relationship_propose,
     "circle_relationship_respond": _circle_relationship_respond,
     "apply_scar": _apply_scar,
+    "take_mark": _take_mark,
     "update_gear": _update_gear,
+    "roll": _roll,
     "chat_message": _chat_message,
     "add_notebook_entry": _add_notebook_entry,
 }
@@ -309,7 +378,7 @@ PLAYER_CAMPAIGN_BROADCASTS = frozenset({
     "revive_character", "update_gear", "apply_advancement",
     "spend_resource", "submit_assignment_report", "circle_creation_vote", "circle_backstory_update",
     "circle_personal_answer", "circle_relationship_propose", "circle_relationship_respond",
-    "chat_message", "add_notebook_entry",
+    "chat_message", "add_notebook_entry", "use_ability",
 })
 
 

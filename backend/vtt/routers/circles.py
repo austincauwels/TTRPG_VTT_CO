@@ -12,7 +12,7 @@ from vtt.auth import (
     MEMBER_STATUSES, campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
     require_gm_or_member, require_owner,
 )
-from vtt.circle_queries import VOTE_TYPES, get_or_create_campaign_circle, relationships_list, votes_dict
+from vtt.circle_queries import VOTE_TYPES, fill_resources, get_or_create_campaign_circle, relationships_list, votes_dict
 from vtt.db import get_db
 from vtt.schemas import CircleVoteSubmit, FinalizeRosterRequest, RelationshipPropose, RelationshipRespond
 from vtt.serializers import get_char_dict, get_circle_dict
@@ -238,15 +238,9 @@ async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get
     circle.is_finalized = True
     campaign.roster_finalized = True
 
-    # Set starting resources to 1 + number of active members
-    active_member_count = db.query(Character).filter(
-        Character.campaign_id == body.campaign_id,
-        Character.status == "active",
-    ).count()
-    starting_resources = 1 + active_member_count
-    circle.stitch  = starting_resources
-    circle.refresh = starting_resources
-    circle.train   = starting_resources
+    # Starting resources: 1 + the active members in each of the three (rulebook
+    # p. 41, and the example on p. 62; RULES_CHECK.md item 16).
+    fill_resources(circle, db)
 
     # Any character still pending when the roster is locked was not included — release them
     pending_chars = db.query(Character).filter(

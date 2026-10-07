@@ -4,15 +4,22 @@ import { apiFetch } from '../utils/api';
 import { campaignErrorText, NETWORK_ERROR } from '../utils/campaignErrors';
 import { isEditableTarget, pageKeyBlocked } from './shared/a11y';
 
+import { lazyScreen, whenIdle } from './shared/lazyScreen';
+import { forgePayload } from '../game/forgePayload';
+
 import LoginScreen from './LoginScreen';
-import { CampaignSelector } from './CampaignSelector';
-import { MainDeskView } from './pc/MainDeskView';
-import { OperationsPanel } from './gm/OperationsPanel';
-import { CharacterCreator } from './CharacterCreator';
-import { AccountPage } from './account/AccountPage';
 import { ConfirmEmailPage } from './account/ConfirmEmailPage';
 import { UndoEmailChangePage } from './account/UndoEmailChangePage';
 import { accountPageOpen, emailTokenFromAddress, undoTokenFromAddress, watchAddress } from './account/accountAddress';
+
+// The screens behind the sign-in slip load when first shown (shared/lazyScreen.js); App
+// wraps the router in a Suspense that keeps the night stage up meanwhile.
+const CampaignSelector = lazyScreen(() => import('./CampaignSelector'), 'CampaignSelector');
+const MainDeskView = lazyScreen(() => import('./pc/MainDeskView'), 'MainDeskView');
+const OperationsPanel = lazyScreen(() => import('./gm/OperationsPanel'), 'OperationsPanel');
+const CharacterCreator = lazyScreen(() => import('./CharacterCreator'), 'CharacterCreator');
+const AccountPage = lazyScreen(() => import('./account/AccountPage'), 'AccountPage');
+const SIGNED_IN_SCREENS = [CampaignSelector, MainDeskView, OperationsPanel, CharacterCreator, AccountPage];
 
 // The first time the creator opens after the page loads. A page brought back by the
 // browser's Back button with the creator still saved as the screen came back from the
@@ -97,6 +104,11 @@ export const AppRouter = () => {
 
   useCreatorExits(onOwnAddress ? null : stage, setStage);
 
+  // Once someone is signed in, the other screens' code is fetched while the browser is
+  // idle, so moving between the hub, the creator and the desks never waits on it
+  const signedIn = !!accessSession;
+  useEffect(() => (signedIn ? whenIdle(() => SIGNED_IN_SCREENS.forEach((screen) => screen.preload())) : undefined), [signedIn]);
+
   // Compute rejoin context — either organic death path or GM invite path
   const deadCharRejoinCode = character?.is_dead && lastPlayedCampaign?.campaignCode
     ? lastPlayedCampaign.campaignCode : null;
@@ -137,43 +149,7 @@ export const AppRouter = () => {
       savedCharacter = { id: characterData.existingCharacterId };
     } else {
       try {
-        const a = characterData.actions || {};
-        const ga = characterData.gildedActions || [];
-        const ALL_ACTIONS = ['move', 'strike', 'control', 'hide', 'sneak', 'sway', 'survey', 'read', 'sense'];
-        const gildedPayload = {};
-        ALL_ACTIONS.forEach(act => {
-          gildedPayload[`gilded_${act}`] = ga.includes(act);
-        });
-        const payload = {
-          name: characterData.name || "Unknown Investigator",
-          pronouns: characterData.pronouns || "Unlisted",
-          style: characterData.style || "",
-          catalyst: characterData.catalyst || "",
-          question: characterData.question || "",
-          role: characterData.role || "",
-          specialty: characterData.specialty || "",
-          role_ability: characterData.roleAbility || "None",
-          specialty_ability: characterData.specialtyAbility || "None",
-          gear: characterData.gear || [],
-          profile_pic: characterData.profilePic || null,
-          user_id: accessSession?.userId || null,
-          move:    a.move    || 0,
-          strike:  a.strike  || 0,
-          control: a.control || 0,
-          hide:    a.hide    || 0,
-          sneak:   a.sneak   || 0,
-          sway:    a.sway    || 0,
-          survey:  a.survey  || 0,
-          read:    a.read    || 0,
-          sense:   a.sense   || 0,
-          ...gildedPayload,
-          nerve_max:     characterData.nerve_max     || 1,
-          cunning_max:   characterData.cunning_max   || 1,
-          intuition_max: characterData.intuition_max || 1,
-          nerve_current:     characterData.nerve_max     || 1,
-          cunning_current:   characterData.cunning_max   || 1,
-          intuition_current: characterData.intuition_max || 1,
-        };
+        const payload = forgePayload(characterData, accessSession?.userId);
 
         const response = await apiFetch('/api/investigators/forge', {
           method: 'POST',
@@ -185,13 +161,17 @@ export const AppRouter = () => {
           // The server checks the portrait (PNG, JPEG or WebP, how large, how often) and
           // says what is wrong with it in words that can be shown as they are
           const detail = await response.json().then((b) => (typeof b?.detail === 'string' ? b.detail : ''), () => '');
+          // A sheet the creator could not make (an old draft, say) is refused with the
+          // rule it breaks (vtt/creation.py)
           return {
             ok: false,
             error: response.status === 413
               ? 'The portrait is too large to save. Choose a smaller picture, then save again.'
               : /portrait/i.test(detail)
                 ? `${detail} Your other choices are kept.`
-                : 'The investigator was not saved. Your choices are kept; try again in a moment.',
+                : response.status === 422 && detail
+                  ? `The investigator was not saved: ${detail} Your choices are kept; change that, then save again.`
+                  : 'The investigator was not saved. Your choices are kept; try again in a moment.',
           };
         }
         savedCharacter = await response.json();

@@ -15,6 +15,7 @@ from vtt.auth import (
     MEMBER_STATUSES, ROSTER_STATUSES, campaign_facts, character_or_404, get_current_user,
     require_owner, require_owner_or_gm, require_owner_or_roster_gm, require_self,
 )
+from vtt.creation import creation_problem
 from vtt.db import get_db
 from vtt.portraits import check_portrait, refuse_too_many_portrait_changes, served_portrait
 from vtt.schemas import CharacterCreate, CharacterResponse, CharacterRosterItem, PortraitUpdate
@@ -69,6 +70,11 @@ async def forge_investigator(character_data: CharacterCreate, db: Session = Depe
     # The character belongs to the caller. A user_id that names someone else is refused.
     require_self(user, character_data.user_id)
     target_user_id = user.id
+    # The sheet must be one the character creator could make (vtt/creation.py,
+    # RULES_CHECK.md item 15): it used to take any ratings, drives, gilds, marks and scars.
+    problem = creation_problem(character_data.model_dump())
+    if problem:
+        raise HTTPException(status_code=422, detail=problem)
     # The same portrait rule as PUT /api/investigators/{id}/portrait (413 or 422), and
     # a forge with a portrait counts as a portrait change (429 past the limit).
     if character_data.profile_pic:

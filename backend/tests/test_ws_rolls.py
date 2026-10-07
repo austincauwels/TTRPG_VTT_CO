@@ -62,13 +62,14 @@ def test_roll_drive_category(client, dice, action, drive):
 
 
 def test_roll_pool_capped_at_six(client, dice):
+    """Fixed (RULES_CHECK 5): drive past the sixth die is not taken (the Rule of Six)."""
     ch = support.forge(client, move=3, nerve_max=9, nerve_current=9)
     dice(1, 1, 1, 1, 1, 1)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="move", drive_spent=5)
         roll = ws.sync()[0]["payload"]["roll"]
         assert len(roll["dice"]) == 6
-    assert support.fetch(Character, ch["id"]).nerve_current == 4
+    assert support.fetch(Character, ch["id"]).nerve_current == 6
 
 
 def test_secret_roll_is_not_logged(client, dice):
@@ -91,13 +92,32 @@ def test_zero_dice_roll_keeps_lower(client, dice):
                         "needs_gilded_choice": False, "drive_spent_key": "nerve", "action": "move"}
 
 
-def test_zero_dice_double_six_is_critical(client, dice):
-    """QUIRK: on a zero-dice roll the lower die is the result, but two sixes still count as critical."""
+def test_zero_dice_double_six_is_a_full_success(client, dice):
+    """Fixed (RULES_CHECK 1): a zero-rating roll takes the lower die and can never be a
+    critical success, even on two sixes (rulebook p. 11)."""
     ch = support.forge(client)
     dice(6, 6)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="move", drive_spent=0)
-        assert ws.sync()[0]["payload"]["roll"]["outcome"] == "critical_success"
+        assert ws.sync()[0]["payload"]["roll"]["outcome"] == "full_success"
+
+
+@pytest.mark.parametrize("faces,refreshed", [((2, 5), True), ((3, 3), True), ((5, 2), False)])
+def test_zero_dice_gilded_die_refreshes_when_it_is_the_result(client, dice, faces, refreshed):
+    """Fixed (RULES_CHECK 2): on a zero-rating gilded action the gilded die cannot be
+    chosen, but when it is the lower die (the result) it still earns back drive (p. 11)."""
+    ch = support.forge(client, gilded_move=True, nerve_max=3, nerve_current=1)
+    dice(*faces)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=0)
+        msgs = ws.sync()
+        roll = msgs[0]["payload"]["roll"]
+        assert roll["type"] == "zero" and roll["result"] == min(faces)
+        assert roll["dice"][0]["is_gilded"] is True and roll["needs_gilded_choice"] is False
+        assert roll.get("auto_gilded_refresh", False) is refreshed
+        assert support.types(msgs) == (["roll_result", "character_update", "activity_log"] if refreshed
+                                       else ["roll_result", "activity_log"])
+    assert support.fetch(Character, ch["id"]).nerve_current == (2 if refreshed else 1)
 
 
 def test_two_sixes_critical(client, dice):
@@ -126,11 +146,14 @@ def test_gilded_pool_needs_choice_then_resolve(client, dice):
 
         ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value=3)
         msgs = ws.sync()
-        assert support.types(msgs) == ["activity_log", "character_update"]
-        assert msgs[0]["payload"] == {
+        assert support.types(msgs) == ["roll_kept", "activity_log", "character_update"]
+        # The roller's desk is told the kept die's result (its slip and post-roll prompts)
+        assert msgs[0]["payload"] == {"character_id": ch["id"], "action": "move", "index": 0,
+                                      "is_gilded": True, "value": 3, "outcome": "failure"}
+        assert msgs[1]["payload"] == {
             "message": f"{ch['name']} rolled move {EM} 3 {DOT} Failure. [gilded {EM} nerve Drive refreshed]",
             "log_type": "roll", "ink_color": engine.INK_COLORS[0]}
-        assert msgs[1]["payload"]["nerve_current"] == 3
+        assert msgs[2]["payload"]["nerve_current"] == 3
         # The kept die starts the tumble: the GM's tray is shown the dice and which counts
         seen = gm.drain()
         assert support.types(seen) == ["dice_thrown", "activity_log"]
@@ -160,7 +183,7 @@ def test_keeping_the_regular_die_names_it(client, dice):
 
 def test_a_kept_die_shows_dice_once(client, dice):
     """The held dice are the roll's: a second resolve, or a resolve after a newer roll,
-    sends the line (as before) but no dice."""
+    is refused (no roll is waiting) and tells the table nothing."""
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, move=2, gilded_move=True, strike=1, nerve_max=3)
     dice(3, 5)
@@ -168,15 +191,15 @@ def test_a_kept_die_shows_dice_once(client, dice):
         ws.send("roll", action="move", drive_spent=0)
         ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value=3)
         ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value=3)
-        ws.sync()
-        assert support.types(gm.drain()) == ["dice_thrown", "activity_log", "activity_log"]
+        assert support.types(ws.sync()) == ["roll_result", "roll_kept", "activity_log", "character_update", "action_rejected"]
+        assert support.types(gm.drain()) == ["dice_thrown", "activity_log"]
         dice(3, 5)
         ws.send("roll", action="move", drive_spent=0)
         dice(2)
         ws.send("roll", action="strike", drive_spent=0)
         ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=5)
-        ws.sync()
-        assert support.types(gm.drain()) == ["dice_thrown", "activity_log", "activity_log"]
+        assert support.types(ws.sync())[-1] == "action_rejected"
+        assert support.types(gm.drain()) == ["dice_thrown", "activity_log"]
 
 
 def test_a_secret_roll_shows_no_dice(client, dice):
@@ -188,33 +211,108 @@ def test_a_secret_roll_shows_no_dice(client, dice):
         dice(3, 5)
         ws.send("roll", action="move", drive_spent=0, is_secret=True)
         ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=5)
+        # the roller's own desk is told the kept die's result
+        assert support.types(ws.sync()) == ["roll_result", "roll_result", "roll_kept"]
+        # Fixed: a secret roll's choice is told to no one else, neither dice nor a line
+        assert gm.drain() == []
+
+
+def test_resolve_gilded_reads_the_held_dice_and_cannot_be_replayed(client, dice):
+    """Fixed (QUIRKS D8): the kept die's value comes from the dice the server rolled, not
+    from chosen_value, and a choice with no roll waiting is refused (409) and changes nothing."""
+    ch = support.forge(client, move=2, gilded_move=True, nerve_max=3, nerve_current=0)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("resolve_gilded", action="strike", chosen_type="gilded", chosen_value=6)
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "resolve_gilded", "status": 409, "detail": "No roll is waiting for a die to be kept. Roll again."}}]
+        dice(2, 4)
+        ws.send("roll", action="move", drive_spent=0)
         ws.sync()
-        # QUIRK: resolve_gilded logs even a secret roll's choice; it sends no dice
-        assert support.types(gm.drain()) == ["activity_log"]
-
-
-def test_resolve_gilded_trusts_client_value_and_can_be_replayed(client):
-    """QUIRK: the value is not checked against the roll (the held dice only show the
-    table which die was kept); any value can be claimed at any time, and a 6 is a
-    full success, never critical."""
-    ch = support.forge(client, nerve_max=3, nerve_current=0)
-    with support.ws_connect(client, ch["id"]) as ws:
-        for _ in range(2):
-            ws.send("resolve_gilded", action="strike", chosen_type="gilded", chosen_value=6)
-            msgs = ws.sync()
-            assert msgs[0]["payload"]["message"].startswith(f"{ch['name']} rolled strike {EM} 6 {DOT} Full Success.")
-        ws.send("resolve_gilded", action="strike", chosen_type="regular", chosen_value="5")
+        ws.send("resolve_gilded", action="strike", chosen_type="regular", chosen_value=6)  # not the roll waiting
+        assert support.types(ws.sync()) == ["action_rejected"]
+        ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=6)
         msgs = ws.sync()
-        assert support.types(msgs) == ["activity_log"]
-        assert msgs[0]["payload"]["message"] == f"{ch['name']} rolled strike {EM} 5 {DOT} Mixed Success."
-    assert support.fetch(Character, ch["id"]).nerve_current == 2
+        assert support.types(msgs) == ["roll_kept", "activity_log"]
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} rolled move {EM} 4 {DOT} Mixed Success."
+        ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value=6)
+        assert support.types(ws.sync()) == ["action_rejected"]
+    assert support.fetch(Character, ch["id"]).nerve_current == 0
 
 
-def test_resolve_gilded_bad_value_closes_socket(client):
-    ch = support.forge(client)
+def test_resolve_gilded_ignores_a_value_that_is_not_a_number(client, dice):
+    """Fixed: a chosen_value that is not a number used to end the socket; it is ignored."""
+    ch = support.forge(client, move=2, gilded_move=True)
+    dice(5, 1)
     with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=0)
+        ws.sync()
         ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value="six")
-        assert support.wait_server_dropped(ch["id"])
+        assert ws.sync()[1]["payload"]["message"].startswith(f"{ch['name']} rolled move {EM} 5 {DOT} Mixed Success.")
+        assert support.server_sockets(ch["id"])
+
+
+@pytest.mark.parametrize("chosen_type,faces,outcome", [
+    ("gilded", (6, 6, 2), "critical_success"),
+    ("regular", (2, 6, 6), "critical_success"),
+    ("regular", (6, 5, 4), "mixed_success"),
+    ("gilded", (3, 6, 6), "failure"),          # a kept 3 is a 3, whatever else was rolled
+])
+def test_resolve_gilded_counts_the_held_dice_for_a_critical(client, dice, chosen_type, faces, outcome):
+    """Fixed (RULES_CHECK 3): two or more 6s with a 6 kept is a critical success (p. 10)."""
+    ch = support.forge(client, move=3, gilded_move=True)
+    dice(*faces)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=0)
+        ws.sync()
+        ws.send("resolve_gilded", action="move", chosen_type=chosen_type)
+        label = engine.OUTCOME_LABELS[outcome]
+        kept, line = ws.sync()[:2]
+        assert kept["payload"]["outcome"] == outcome
+        assert f" {DOT} {label}." in line["payload"]["message"]
+
+
+def test_two_gilds_roll_two_gilded_dice(client, dice):
+    """Fixed (RULES_CHECK 4): a gilded action with a gilding ability (Born in the Shadows
+    on Hide) rolls two gilded dice; the choice offers the better of them."""
+    ch = support.forge(client, hide=3, gilded_hide=True, specialty_ability="Born in the Shadows",
+                       cunning_max=3, cunning_current=1)
+    dice(2, 5, 4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="hide", drive_spent=0, ability_mods=["Born in the Shadows"])
+        roll = ws.sync()[0]["payload"]["roll"]
+        assert [d["is_gilded"] for d in roll["dice"]] == [True, True, False]
+        assert (roll["gilded_idx"], roll["gilded_value"], roll["highest_regular_idx"], roll["highest_regular_value"]) == (1, 5, 2, 4)
+        ws.send("resolve_gilded", action="hide", chosen_type="gilded")
+        msgs = ws.sync()
+        assert msgs[1]["payload"]["message"] == (
+            f"{ch['name']} rolled hide {EM} 5 {DOT} Mixed Success. [gilded {EM} cunning Drive refreshed]")
+        assert msgs[2]["payload"]["cunning_current"] == 2
+
+
+def test_every_die_gilded_takes_the_best_and_refreshes(client, dice):
+    ch = support.forge(client, hide=1, gilded_hide=True, specialty_ability="Born in the Shadows",
+                       cunning_max=3, cunning_current=1)
+    dice(2, 6)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="hide", drive_spent=1, ability_mods=["Born in the Shadows"])
+        roll = ws.sync()[0]["payload"]["roll"]
+    assert roll["dice"] == [{"value": 2, "is_gilded": True}, {"value": 6, "is_gilded": True}]
+    assert (roll["needs_gilded_choice"], roll["result"], roll.get("auto_gilded_refresh")) == (False, 6, True)
+    assert support.fetch(Character, ch["id"]).cunning_current == 1  # 1 spent, 1 earned back
+
+
+def test_well_read_refunds_on_a_kept_die_of_three_or_less(client, dice):
+    """Fixed (RULES_CHECK 6): Well-Read is checked on a gilded choice as on any roll."""
+    ch = support.forge(client, read=1, gilded_read=True, specialty_ability="Well-Read",
+                       intuition_max=6, intuition_current=4)
+    dice(2, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="read", drive_spent=1)
+        ws.sync()
+        ws.send("resolve_gilded", action="read", chosen_type="regular")
+        msgs = ws.sync()
+        assert msgs[1]["payload"]["message"].endswith("[Well-Read " + EM + " 1 Intuition refunded]")
+        assert msgs[2]["payload"]["intuition_current"] == 4
 
 
 def test_single_gilded_die_refreshes_drive(client, dice):
@@ -233,13 +331,17 @@ def test_single_gilded_die_refreshes_drive(client, dice):
             f"{ch['name']} rolled move {EM} 4 {DOT} Mixed Success. [gilded {EM} nerve Drive refreshed]")
 
 
-def test_secret_single_gilded_die_does_not_refresh(client, dice):
-    ch = support.forge(client, move=1, gilded_move=True, nerve_max=3, nerve_current=1)
+def test_secret_single_gilded_die_refreshes_without_a_line(client, dice):
+    """Fixed (RULES_CHECK 6): the gilded refresh follows the dice, secret or not; a
+    secret roll still sends no log line."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=1, gilded_move=True, nerve_max=3, nerve_current=1)
     dice(4)
-    with support.ws_connect(client, ch["id"]) as ws:
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         ws.send("roll", action="move", drive_spent=0, is_secret=True)
-        assert support.types(ws.sync()) == ["roll_result"]
-    assert support.fetch(Character, ch["id"]).nerve_current == 1
+        assert support.types(ws.sync()) == ["roll_result", "character_update"]
+        assert gm.drain() == []
+    assert support.fetch(Character, ch["id"]).nerve_current == 2
 
 
 def test_lightkeeper_roll_on_gm_socket(client, dice):
@@ -269,34 +371,68 @@ def test_roll_without_action_sends_roll_error(client):
         assert ws.sync() == [{"type": "roll_error", "payload": {"message": "roll action missing 'action' field"}}]
 
 
-def test_negative_drive_spent_inflates_drive_then_errors(client):
-    """QUIRK: a negative spend raises the drive above its max and is committed before
-    the empty dice pool fails."""
+def test_a_roll_reads_the_drive_the_gm_just_set(client, dice):
+    """Fixed: the player's socket kept the character it had loaded, so after the GM
+    raised a drive the player's spend was refused, or a roll wrote the old value back."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=1, nerve_max=6, nerve_current=0)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        ws.send("update_pen_font", pen_font="Kalam")  # the player's socket has loaded its row
+        ws.sync()
+        gm.send("update_drive", pool="nerve", value=4, character_id=ch["id"])
+        gm.sync()
+        ws.drain()
+        dice(2, 3)
+        ws.send("roll", action="move", drive_spent=1)
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 2
+    assert support.fetch(Character, ch["id"]).nerve_current == 3
+
+
+@pytest.mark.parametrize("spent", [-3, "-1", -1.5])
+def test_negative_drive_spent_is_rejected(client, dice, spent):
+    """Fixed (D15): a negative spend raised the drive above its max and was committed
+    before the empty dice pool failed. It is now refused before anything changes, and
+    the socket stays open for the next roll."""
     ch = support.forge(client, move=1, nerve_max=3, nerve_current=1)
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("roll", action="move", drive_spent=-3)
-        msgs = ws.sync()
-        assert support.types(msgs) == ["roll_error"]
-        assert "max()" in msgs[0]["payload"]["message"]
-    assert support.fetch(Character, ch["id"]).nerve_current == 4
+        ws.send("roll", action="move", drive_spent=spent)
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "roll", "status": 422, "detail": "Drive spent cannot be negative."}}]
+        assert support.fetch(Character, ch["id"]).nerve_current == 1
+        dice(4, 2)
+        ws.send("roll", action="move", drive_spent=1)
+        assert support.types(ws.sync()) == ["roll_result", "activity_log"]
+    assert support.fetch(Character, ch["id"]).nerve_current == 0
 
 
-def test_roll_bad_drive_spent_is_roll_error(client):
+def test_negative_lightkeeper_roll_is_rejected(client):
+    """The Lightkeeper's roll takes drive_spent as its pool, so a negative one is refused too."""
+    camp = support.new_campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("roll", action="Lightkeeper", drive_spent=-2)
+        assert gm.sync() == [{"type": "action_rejected", "payload": {
+            "action": "roll", "status": 422, "detail": "Drive spent cannot be negative."}}]
+
+
+@pytest.mark.parametrize("raw", ['"lots"', "null", "Infinity", "-Infinity", "NaN"])
+def test_roll_bad_drive_spent_is_roll_error(client, raw):
+    """A drive_spent that is not a whole number gets roll_error and the socket stays open,
+    including JSON's Infinity, which the negative-spend check must let through to the handler."""
     ch = support.forge(client, move=1)
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("roll", action="move", drive_spent="lots")
+        ws.send_text('{"type": "roll", "payload": {"action": "move", "drive_spent": %s}}' % raw)
         assert support.types(ws.sync()) == ["roll_error"]
+        assert support.server_sockets(ch["id"])
 
 
-def test_roll_action_is_not_validated(client, dice):
-    """QUIRK: any attribute name works as the action; nerve_max feeds the pool here."""
+def test_roll_action_must_be_an_action(client):
+    """Fixed: any attribute name worked as the action (nerve_max fed the pool). A
+    player's roll names one of the nine actions now; anything else is 422."""
     ch = support.forge(client, nerve_max=3, nerve_current=3, intuition_max=3, intuition_current=3)
-    dice(1, 2, 3)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="nerve_max", drive_spent=0)
-        roll = ws.sync()[0]["payload"]["roll"]
-        assert len(roll["dice"]) == 3
-        assert roll["drive_spent_key"] == "intuition"
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "roll", "status": 422, "detail": "Unknown action."}}]
 
 
 def test_roll_for_another_character_is_rejected(client):
@@ -314,27 +450,56 @@ def test_roll_for_another_character_is_rejected(client):
     assert support.fetch(Character, b["id"]).nerve_current == 3
 
 
-def test_train_bonus_adds_a_die_once(client, dice):
+def test_train_bonus_waits_for_the_roll_the_player_picks(client, dice):
+    """Fixed (RULES_CHECK 17): Train went on the very next roll. The player picks the roll
+    (the Train chip, "Train" in ability_mods), and it adds a die once."""
     ch = support.forge(client, move=1)
     support.update(Character, ch["id"], train_bonus=True)
-    dice(2, 6, 3)
+    dice(3, 2, 6, 3)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="move", drive_spent=0)
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 1
+        assert support.fetch(Character, ch["id"]).train_bonus is True
+        ws.send("roll", action="move", drive_spent=0, ability_mods=["Train"])
         roll = ws.sync()[0]["payload"]["roll"]
         assert len(roll["dice"]) == 2 and roll["result"] == 6
-        ws.send("roll", action="move", drive_spent=0)
+        ws.send("roll", action="move", drive_spent=0, ability_mods=["Train"])
         assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 1
     assert support.fetch(Character, ch["id"]).train_bonus is False
 
 
 def test_ability_mod_sharpshooter(client, dice):
-    ch = support.forge(client, strike=1, nerve_max=3, nerve_current=3, specialty_ability="Sharpshooter")
+    ch = support.forge(client, strike=1, control=1, nerve_max=3, nerve_current=1, specialty_ability="Sharpshooter")
     dice(1, 2, 3)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="strike", drive_spent=0, ability_mods=["Sharpshooter"])
         msg = ws.sync()[0]["payload"]
         assert len(msg["roll"]["dice"]) == 3
-        assert msg["character"]["nerve_current"] == 2
+        assert msg["character"]["nerve_current"] == 0
+        # Fixed (RULES_CHECK 25): with no Nerve to pay, Sharpshooter does nothing
+        dice(4)
+        ws.send("roll", action="strike", drive_spent=0, ability_mods=["Sharpshooter"])
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 1
+
+
+def test_sharpshooter_works_on_control(client, dice):
+    """Fixed (RULES_CHECK 25): shooting is a Control roll in the rulebook (p. 50)."""
+    ch = support.forge(client, control=1, nerve_max=3, nerve_current=2, specialty_ability="Sharpshooter")
+    dice(1, 2, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="control", drive_spent=0, ability_mods=["Sharpshooter"])
+        msg = ws.sync()[0]["payload"]
+        assert len(msg["roll"]["dice"]) == 3
+        assert msg["character"]["nerve_current"] == 1
+
+
+def test_sharpshooter_and_spend_cannot_overdraw_nerve(client):
+    ch = support.forge(client, strike=1, nerve_max=3, nerve_current=1, specialty_ability="Sharpshooter")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="strike", drive_spent=1, ability_mods=["Sharpshooter"])
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "roll", "status": 422, "detail": "Not enough Nerve for that roll."}}]
+    assert support.fetch(Character, ch["id"]).nerve_current == 1
 
 
 def test_ability_mod_must_be_owned_and_match_action(client, dice):
@@ -347,14 +512,33 @@ def test_ability_mod_must_be_owned_and_match_action(client, dice):
         assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 1
 
 
-def test_ability_mod_gild_and_brain_cost(client, dice):
+def test_ability_mod_gild_and_back_against_the_wall_without_nerve(client, dice):
+    """Fixed (RULES_CHECK 21): Back Against the Wall only does something when Nerve is
+    spent, so on a Focus roll it costs no Brain mark."""
     ch = support.forge(client, read=2, role_ability="Back Against the Wall", specialty_ability="Dissection")
     dice(2, 5)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="read", drive_spent=0, ability_mods=["Dissection", "Back Against the Wall"])
-        msg = ws.sync()[0]["payload"]
-        assert msg["roll"]["needs_gilded_choice"] is True
-        assert msg["character"]["brain_marks"] == 1
+        msgs = ws.sync()
+        assert support.types(msgs) == ["roll_result"]
+        assert msgs[0]["payload"]["roll"]["needs_gilded_choice"] is True
+        assert msgs[0]["payload"]["character"]["brain_marks"] == 0
+
+
+def test_back_against_the_wall_doubles_nerve_for_a_brain_mark(client, dice):
+    """Fixed (RULES_CHECK 21): each Nerve spent is worth +2d, and the Brain mark is taken
+    as any mark is: a fourth one incapacitates (it used to be capped at 3)."""
+    ch = support.forge(client, strike=1, nerve_max=3, nerve_current=2, brain_marks=3,
+                       role_ability="Back Against the Wall")
+    dice(1, 2, 3, 4, 5)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="strike", drive_spent=2, ability_mods=["Back Against the Wall"])
+        msgs = ws.sync()
+        assert support.types(msgs) == ["roll_result", "activity_log", "trigger_scar", "activity_log"]
+        assert len(msgs[0]["payload"]["roll"]["dice"]) == 5
+        assert msgs[2]["payload"]["mark_type"] == "brain"
+    row = support.fetch(Character, ch["id"])
+    assert (row.nerve_current, row.brain_marks, row.incapacitated) == (0, 0, True)
 
 
 def test_ability_mod_drive_substitution(client, dice):
@@ -369,8 +553,8 @@ def test_ability_mod_drive_substitution(client, dice):
         assert (msg["character"]["nerve_current"], msg["character"]["cunning_current"]) == (3, 2)
 
 
-def test_ability_use_counter_never_counts(client, dice):
-    """QUIRK: the per-roll use counter only tracks names that are not roll mods, so it never changes."""
+def test_roll_mods_record_no_uses(client, dice):
+    """None of the roll abilities is limited per assignment, so a roll records no uses."""
     ch = support.forge(client, sense=1, intuition_max=3, specialty_ability="Extend Your Senses")
     dice(3, 3)
     with support.ws_connect(client, ch["id"]) as ws:
@@ -397,12 +581,13 @@ def test_burn_resistance(client, dice):
     ch = support.active_member(client, camp, move=2, nerve_max=3, nerve_current=0)
     dice(6, 6)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        support.last_roll(ch["id"], "move")  # a burn answers a roll (p. 13)
         ws.send("burn_resistance", action="move", drive_key="nerve")
         msgs = ws.sync()
         assert support.types(msgs) == ["roll_result", "activity_log"]
         assert msgs[0]["payload"]["roll"] == {
             "type": "standard", "dice": _d(6, 6), "result": 6, "outcome": "critical_success",
-            "needs_gilded_choice": False, "action": "move", "is_resistance_roll": True}
+            "needs_gilded_choice": False, "action": "move", "is_resistance_roll": True, "drive_spent_key": "nerve"}
         assert msgs[0]["payload"]["character"]["nerve_resistance_spent"] == 1
         assert msgs[1]["payload"]["message"] == f"{ch['name']} burned resistance on move {EM} 6 {DOT} Critical Success."
         seen = gm.drain()
@@ -414,49 +599,315 @@ def test_burn_resistance(client, dice):
     assert support.fetch(Character, ch["id"]).nerve_resistance_spent == 1
 
 
-def test_burn_resistance_gilded_choice_logs_question_mark(client, dice):
+def test_burn_resistance_uses_the_actions_own_drive(client, dice):
+    """Fixed (RULES_CHECK 8): the resistance burned is the action's drive's, whatever
+    drive_key the client names; an unknown action is refused."""
+    ch = support.forge(client, sway=1, cunning_max=3, nerve_max=3)
+    dice(4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        support.last_roll(ch["id"], "sway")  # a burn answers a roll (p. 13)
+        ws.send("burn_resistance", action="sway", drive_key="nerve")
+        assert support.types(ws.sync()) == ["roll_result", "activity_log"]
+        ws.send("burn_resistance", action="nerve_max")
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "burn_resistance", "status": 422, "detail": "Unknown action."}}]
+    fetched = support.fetch(Character, ch["id"])
+    assert (fetched.cunning_resistance_spent, fetched.nerve_resistance_spent) == (1, 0)
+
+
+@pytest.mark.parametrize("ability,action,fields,count", [
+    ("Narrow Escape", "move", dict(move=1), 2),               # +1d (p. 29)
+    ("Leverage", "sway", dict(sway=1, cunning_max=6), 3),     # + current Cunning resistance (p. 31)
+    ("Press Conference", "sway", dict(sway=1), 2),            # +1d on Cunning rolls (p. 28)
+    ("Press Conference", "sneak", dict(sneak=1), 2),          # Read is a Cunning action
+    ("Press Conference", "hide", dict(hide=1), 2),
+    ("Press Conference", "move", dict(move=1), 1),            # not a Cunning action: no die
+])
+def test_narrow_escape_and_leverage_add_their_dice(client, dice, ability, action, fields, count):
+    ch = support.forge(client, specialty_ability=ability, **fields)
+    dice(*([2] * count))
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action=action, drive_spent=0, ability_mods=[ability])
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == count
+
+
+def test_a_burn_answers_a_roll_of_that_action(client, dice):
+    """Rulebook p. 13: "Any time you don't like the result of your roll, you may choose to
+    burn 1 resistance point". A burn with no roll, or after a roll of another action, is
+    refused and spends nothing (it used to reroll any action at any time)."""
+    ch = support.forge(client, move=1, strike=1, nerve_max=6)
+    refused = [{"type": "action_rejected", "payload": {
+        "action": "burn_resistance", "status": 409, "detail": "Burn a resistance after a roll of that action."}}]
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("burn_resistance", action="move")
+        assert ws.sync() == refused
+        dice(2)
+        ws.send("roll", action="strike", drive_spent=0)
+        ws.sync()
+        ws.send("burn_resistance", action="move")
+        assert ws.sync() == refused
+        dice(3)
+        ws.send("burn_resistance", action="strike")
+        assert ws.sync()[0]["payload"]["roll"]["is_resistance_roll"] is True
+    assert support.fetch(Character, ch["id"]).nerve_resistance_spent == 1
+
+
+def test_a_burn_answers_only_the_newest_roll(client, dice):
+    """A roll waiting for its gilded die to be kept replaces the last one: a burn for an
+    older roll's action is refused and the waiting choice is kept (it used to reroll the
+    older roll and drop the choice). Once the die is kept, the burn answers it."""
+    ch = support.forge(client, strike=1, move=2, gilded_move=True, nerve_max=6)
+    refused = [{"type": "action_rejected", "payload": {
+        "action": "burn_resistance", "status": 409, "detail": "Burn a resistance after a roll of that action."}}]
+    with support.ws_connect(client, ch["id"]) as ws:
+        dice(2)
+        ws.send("roll", action="strike", drive_spent=0)
+        ws.sync()
+        dice(3, 5)
+        ws.send("roll", action="move", drive_spent=0)
+        assert ws.sync()[0]["payload"]["roll"]["needs_gilded_choice"] is True
+        ws.send("burn_resistance", action="strike")
+        assert ws.sync() == refused
+        ws.send("resolve_gilded", action="move", chosen_type="regular")
+        assert support.types(ws.sync())[0] == "roll_kept"
+        dice(4, 6)
+        ws.send("burn_resistance", action="move")
+        assert ws.sync()[0]["payload"]["roll"]["is_resistance_roll"] is True
+    assert support.fetch(Character, ch["id"]).nerve_resistance_spent == 1
+
+
+@pytest.mark.parametrize("specialty, accepted", [("Street Smarts", True), ("Mind Palace", False)])
+def test_flourish_counts_a_street_smarts_survey_roll(client, dice, specialty, accepted):
+    """With Street Smarts any drive may pay for a Survey roll (p. 31), so Cunning could be
+    spent on one, whatever paid for it: Flourish (p. 28) counts it. Without Street Smarts
+    a Survey roll is an Intuition roll and Flourish is refused."""
+    ch = support.forge(client, survey=1, cunning_max=3, cunning_current=3, intuition_max=3, intuition_current=3,
+                       role_ability="Flourish", specialty_ability=specialty)
+    dice(2, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="survey", drive_spent=1)
+        assert ws.sync()[0]["payload"]["roll"]["outcome"] == "failure"
+        ws.send("use_post_roll_ability", ability="Flourish")
+        msgs = ws.sync()
+        assert (msgs[0]["type"] != "action_rejected") is accepted
+    assert support.fetch(Character, ch["id"]).cunning_current == (1 if accepted else 3)
+
+
+def test_flourish_follows_a_cunning_action_paid_in_intuition(client, dice):
+    """Flourish works "on a roll where you could spend Cunning" (p. 28). A Hide roll paid
+    in Intuition with Practiced Patter is still a Cunning action, so it counts (the
+    server used to read only the drive the roll spent)."""
+    ch = support.forge(client, hide=1, cunning_max=3, cunning_current=3, intuition_max=3, intuition_current=3,
+                       role_ability="Flourish", specialty_ability="Practiced Patter")
+    dice(2, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="hide", drive_spent=1, ability_mods=["Practiced Patter"])
+        assert ws.sync()[0]["payload"]["roll"]["outcome"] == "failure"
+        ws.send("use_post_roll_ability", ability="Flourish")
+        assert ws.sync()[-1]["payload"]["message"].endswith("to Mixed Success.")
+    row = support.fetch(Character, ch["id"])
+    assert (row.intuition_current, row.cunning_current) == (2, 1)
+
+
+def test_a_zero_roll_with_two_gilds_gilds_both_dice(client, dice):
+    """Rulebook p. 11: on a zero rating, "if any of your dice are gilded" and the gilded
+    die is the lowest, drive comes back. A gilded Survey with Inspection gilds both dice,
+    so the lower one always refreshes (only the first die could be gilded before)."""
+    ch = support.forge(client, survey=0, gilded_survey=True, specialty_ability="Inspection",
+                       intuition_max=3, intuition_current=1)
+    dice(5, 2)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="survey", drive_spent=0, ability_mods=["Inspection"])
+        roll = ws.sync()[0]["payload"]["roll"]
+        assert [(d["value"], d["is_gilded"]) for d in roll["dice"]] == [(5, True), (2, True)]
+        assert (roll["type"], roll["result"], roll.get("auto_gilded_refresh")) == ("zero", 2, True)
+    assert support.fetch(Character, ch["id"]).intuition_current == 2
+
+
+def test_a_gilded_die_refreshes_the_actions_own_drive(client, dice):
+    """Rulebook p. 8: taking the gilded result refreshes "the drive that encompasses that
+    action". A gilded Move roll paid in Cunning (Cool Under Pressure) refreshes Nerve; it
+    used to refresh the drive the roll spent."""
+    ch = support.forge(client, move=2, gilded_move=True, nerve_max=3, nerve_current=1,
+                       cunning_max=3, cunning_current=3, role_ability="Cool Under Pressure")
+    dice(3, 5, 4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=1, ability_mods=["Cool Under Pressure"])
+        ws.sync()
+        ws.send("resolve_gilded", action="move", chosen_type="gilded")
+        msgs = ws.sync()
+        assert msgs[1]["payload"]["message"].endswith(f"[gilded {EM} nerve Drive refreshed]")
+    row = support.fetch(Character, ch["id"])
+    assert (row.nerve_current, row.cunning_current) == (2, 2)
+
+
+def test_a_gilded_reroll_earns_back_drive(client, dice):
+    """Fixed: a resistance reroll ignored the gilded die's refresh (rulebook p. 8). On a
+    gilded action rated 0 the reroll is two dice taking the lower (p. 13); when the gilded
+    die is that lower one, 1 drive comes back, as on any roll."""
+    ch = support.forge(client, move=0, gilded_move=True, nerve_max=3, nerve_current=1)
+    dice(2, 5)
+    with support.ws_connect(client, ch["id"]) as ws:
+        support.last_roll(ch["id"], "move")  # a burn answers a roll (p. 13)
+        ws.send("burn_resistance", action="move")
+        msgs = ws.sync()
+        roll = msgs[0]["payload"]["roll"]
+        assert (roll["type"], roll["result"], roll["drive_spent_key"]) == ("zero", 2, "nerve")
+        assert msgs[0]["payload"]["character"]["nerve_current"] == 2
+        assert msgs[1]["payload"]["message"].endswith(f"[gilded {EM} nerve Drive refreshed]")
+    assert support.fetch(Character, ch["id"]).nerve_current == 2
+
+
+def test_burn_resistance_gilded_choice_logs_the_kept_die(client, dice):
+    """Fixed: a resistance reroll that waits for a choice says only that resistance was
+    burned; the kept die's line follows from resolve_gilded."""
     ch = support.forge(client, sense=2, gilded_sense=True, intuition_max=3)
     dice(2, 4)
     with support.ws_connect(client, ch["id"]) as ws:
+        support.last_roll(ch["id"], "sense")  # a burn answers a roll (p. 13)
         ws.send("burn_resistance", action="sense", drive_key="intuition")
         msgs = ws.sync()
         assert msgs[0]["payload"]["roll"]["needs_gilded_choice"] is True
-        assert msgs[1]["payload"]["message"] == f"{ch['name']} burned resistance on sense {EM} ? {DOT} ."
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} burned resistance on sense."
+        ws.send("resolve_gilded", action="sense", chosen_type="regular")
+        assert ws.sync()[1]["payload"]["message"] == f"{ch['name']} rolled sense {EM} 4 {DOT} Mixed Success."
 
 
-def test_post_roll_abilities(client):
-    flourish = support.forge(client, cunning_max=3, cunning_current=3, role_ability="Flourish")
+def test_post_roll_abilities_check_the_last_roll(client, dice):
+    """Fixed (RULES_CHECK 28): each post-roll ability is checked against the last roll
+    and works once on it."""
+    flourish = support.forge(client, sneak=1, cunning_max=6, cunning_current=6, role_ability="Flourish")
     with support.ws_connect(client, flourish["id"]) as ws:
+        ws.send("use_post_roll_ability", ability="Flourish")  # no roll yet
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "use_post_roll_ability", "status": 409,
+            "detail": "Flourish needs a failed or mixed roll that could take Cunning, and 2 Cunning to spend."}}]
+        dice(2)
+        ws.send("roll", action="sneak", drive_spent=0)
+        ws.sync()
         ws.send("use_post_roll_ability", ability="Flourish")
         msgs = ws.sync()
         assert support.types(msgs) == ["character_update", "activity_log"]
-        assert msgs[0]["payload"]["cunning_current"] == 1
-        assert msgs[1]["payload"]["message"] == f"{flourish['name']} used Flourish {EM} result pushed up one tier."
-        ws.send("use_post_roll_ability", ability="Flourish")  # repeatable, floors at 0
-        assert ws.sync()[0]["payload"]["cunning_current"] == 0
+        assert msgs[0]["payload"]["cunning_current"] == 4
+        assert msgs[1]["payload"]["message"] == (
+            f"{flourish['name']} used Flourish {EM} result pushed up one tier, to Mixed Success.")
+        ws.send("use_post_roll_ability", ability="Flourish")  # once per roll
+        assert support.types(ws.sync()) == ["action_rejected"]
         ws.send("use_post_roll_ability", ability="Bending Spoons")  # not owned
         assert ws.sync() == []
 
-    lfmm = support.forge(client, nerve_max=3, nerve_current=2, specialty_ability="Learn from My Mistakes")
+    lfmm = support.forge(client, move=1, nerve_max=3, nerve_current=2, specialty_ability="Learn from My Mistakes")
     with support.ws_connect(client, lfmm["id"]) as ws:
+        dice(5)
+        ws.send("roll", action="move", drive_spent=0)
+        ws.sync()
+        ws.send("use_post_roll_ability", ability="Learn from My Mistakes", drive="nerve")
+        assert ws.sync()[0]["payload"]["detail"] == "Learn from My Mistakes needs a roll of 3 or less."
+        dice(3)
+        ws.send("roll", action="move", drive_spent=0)
+        ws.sync()
+        ws.send("use_post_roll_ability", ability="Learn from My Mistakes", drive="luck")
+        assert ws.sync() == []
         ws.send("use_post_roll_ability", ability="Learn from My Mistakes", drive="nerve")
         msgs = ws.sync()
         assert msgs[0]["payload"]["nerve_current"] == 3
         assert msgs[1]["payload"]["message"] == f"{lfmm['name']} used Learn from My Mistakes {EM} refreshed 1 Nerve."
         ws.send("use_post_roll_ability", ability="Learn from My Mistakes", drive="nerve")
-        assert ws.sync()[0]["payload"]["nerve_current"] == 3  # capped
-        ws.send("use_post_roll_ability", ability="Learn from My Mistakes", drive="luck")
-        assert ws.sync() == []
+        assert support.types(ws.sync()) == ["action_rejected"]
 
-    spoons = support.forge(client, bleed_marks=2, role_ability="Bending Spoons")
+    spoons = support.forge(client, sense=1, move=1, bleed_marks=2, role_ability="Bending Spoons")
     with support.ws_connect(client, spoons["id"]) as ws:
-        for expected in (3, 3):
-            ws.send("use_post_roll_ability", ability="Bending Spoons")
-            msgs = ws.sync()
-            assert msgs[0]["payload"]["bleed_marks"] == expected
-            assert msgs[0]["payload"]["incapacitated"] is False
+        dice(4)
+        ws.send("roll", action="move", drive_spent=0)  # not a Sense roll
+        ws.sync()
+        ws.send("use_post_roll_ability", ability="Bending Spoons")
+        assert support.types(ws.sync()) == ["action_rejected"]
+        dice(5)
+        ws.send("roll", action="sense", drive_spent=0)
+        ws.sync()
+        ws.send("use_post_roll_ability", ability="Bending Spoons")
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update", "activity_log"]
+        assert (msgs[0]["payload"]["bleed_marks"], msgs[0]["payload"]["incapacitated"]) == (3, False)
         assert msgs[1]["payload"]["message"] == (
             f"{spoons['name']} used Bending Spoons {EM} took 1 Bleed mark to upgrade the result.")
+
+
+def test_bending_spoons_fourth_mark_incapacitates(client, dice):
+    """Fixed (RULES_CHECK 10): the Bleed mark used to be capped at 3."""
+    ch = support.forge(client, sense=1, bleed_marks=3, role_ability="Bending Spoons")
+    dice(4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="sense", drive_spent=0)
+        ws.sync()
+        ws.send("use_post_roll_ability", ability="Bending Spoons")
+        assert support.types(ws.sync()) == ["trigger_scar", "activity_log", "activity_log"]
+    assert support.fetch(Character, ch["id"]).incapacitated is True
+
+
+def test_flourish_after_a_kept_die(client, dice):
+    """The last roll is the kept die's result when a gilded roll waited for a choice."""
+    ch = support.forge(client, hide=2, gilded_hide=True, cunning_max=3, cunning_current=3, role_ability="Flourish")
+    dice(2, 4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="hide", drive_spent=0)
+        ws.sync()
+        ws.send("resolve_gilded", action="hide", chosen_type="regular")
+        ws.sync()
+        ws.send("use_post_roll_ability", ability="Flourish")
+        assert ws.sync()[1]["payload"]["message"].endswith("to Full Success.")
+
+
+def test_first_drive_point_worth_two_dice(client, dice):
+    """Fixed (RULES_CHECK 26): Misdirection's +1d needs Cunning spent; Lie Detector and
+    Better Part of Valor add it too, with their gild."""
+    ch = support.forge(client, hide=1, cunning_max=6, cunning_current=6, specialty_ability="Misdirection")
+    dice(3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="hide", drive_spent=0, ability_mods=["Misdirection"])
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 1
+        dice(3, 3, 3)
+        ws.send("roll", action="hide", drive_spent=1, ability_mods=["Misdirection"])
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 3
+
+
+def test_ability_conditions_are_checked(client, dice):
+    """Fixed (RULES_CHECK 25): Meticulous Notes needs 2 Cunning resistance left, and
+    Tenacious needs a Bleed mark."""
+    notes = support.forge(client, read=1, cunning_max=3, specialty_ability="Meticulous Notes")
+    dice(3)
+    with support.ws_connect(client, notes["id"]) as ws:
+        ws.send("roll", action="read", drive_spent=0, ability_mods=["Meticulous Notes"])
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 1
+    tough = support.forge(client, move=2, bleed_marks=0, specialty_ability="Tenacious")
+    dice(3, 3)
+    with support.ws_connect(client, tough["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=0, ability_mods=["Tenacious"])
+        roll = ws.sync()[0]["payload"]["roll"]
+        assert [d["is_gilded"] for d in roll["dice"]] == [False, False]
+
+
+def test_street_smarts_spends_the_drive_named(client, dice):
+    """Fixed (RULES_CHECK 27): Street Smarts lets a Survey roll spend any drive, named
+    in the roll's "drive"."""
+    ch = support.forge(client, survey=1, nerve_max=3, nerve_current=3, intuition_max=3, intuition_current=3,
+                       specialty_ability="Street Smarts")
+    dice(3, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="survey", drive_spent=1, drive="nerve", ability_mods=["Street Smarts"])
+        p = ws.sync()[0]["payload"]
+        assert p["roll"]["drive_spent_key"] == "nerve"
+        assert (p["character"]["nerve_current"], p["character"]["intuition_current"]) == (2, 3)
+
+
+def test_overspending_drive_is_refused(client):
+    """Fixed (RULES_CHECK 5): a spend larger than the drive holds is refused, not floored."""
+    ch = support.forge(client, move=1, nerve_max=3, nerve_current=1)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=3)
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "roll", "status": 422, "detail": "Not enough Nerve for that roll."}}]
+    assert support.fetch(Character, ch["id"]).nerve_current == 1
 
 
 # --- every ABILITY_MOD_DEFS entry ---------------------------------------------
@@ -474,19 +925,20 @@ N3_C6_I9 = dict(nerve_max=3, nerve_current=3, cunning_max=6, cunning_current=6,
 MOD_CASES = [
     ("Sweet Talk", "sneak", 3, True, "cunning", (3, 5, 9), 0),
     ("Open Book", "sway", 4, False, "cunning", (3, 5, 9), 0),
-    ("Lie Detector", "sneak", 2, True, "cunning", (3, 5, 9), 0),
+    ("Lie Detector", "sneak", 3, True, "cunning", (3, 5, 9), 0),       # first Cunning +2d (RULES_CHECK 26)
     ("Misdirection", "hide", 3, False, "cunning", (3, 5, 9), 0),
     ("Interrogation", "sneak", 4, False, "cunning", (3, 5, 9), 0),
     ("Inspection", "survey", 2, True, "intuition", (3, 6, 8), 0),
     ("Basic Training", "survey", 3, False, "intuition", (3, 6, 8), 0),
-    ("Better Part of Valor", "control", 2, True, "nerve", (2, 6, 9), 0),
-    ("Better Part of Valor", "move", 2, True, "nerve", (2, 6, 9), 0),
+    ("Better Part of Valor", "control", 3, True, "nerve", (2, 6, 9), 0),  # first Nerve +2d
+    ("Better Part of Valor", "move", 3, True, "nerve", (2, 6, 9), 0),
     ("Tenacious", "move", 2, True, "nerve", (2, 6, 9), 0),
     ("Tenacious", "strike", 2, True, "nerve", (2, 6, 9), 0),
     ("Tenacious", "control", 2, True, "nerve", (2, 6, 9), 0),
     ("Extend Your Senses", "sense", 5, False, "intuition", (3, 6, 8), 0),
     ("Meticulous Notes", "read", 3, False, "intuition", (3, 6, 8), 0),
     ("Sharpshooter", "strike", 4, False, "nerve", (1, 6, 9), 0),
+    ("Sharpshooter", "control", 4, False, "nerve", (1, 6, 9), 0),         # shooting is Control (p. 50)
     ("Dissection", "read", 2, True, "intuition", (3, 6, 8), 0),
     ("Born in the Shadows", "hide", 2, True, "cunning", (3, 5, 9), 0),
     ("Cool Under Pressure", "move", 2, False, "cunning", (3, 5, 9), 0),
@@ -494,8 +946,8 @@ MOD_CASES = [
     ("Practiced Patter", "sway", 2, False, "intuition", (3, 6, 8), 0),
     ("Practiced Patter", "hide", 2, False, "intuition", (3, 6, 8), 0),
     ("Street Smarts", "survey", 2, False, "intuition", (3, 6, 8), 0),
-    ("Back Against the Wall", "strike", 2, False, "nerve", (2, 6, 9), 1),
-    ("Back Against the Wall", "sense", 2, False, "intuition", (3, 6, 8), 1),
+    ("Back Against the Wall", "strike", 3, False, "nerve", (2, 6, 9), 1),  # Nerve worth +2d, a Brain mark
+    ("Back Against the Wall", "sense", 2, False, "intuition", (3, 6, 8), 0),  # no Nerve spent: nothing
 ]
 
 # The same abilities on an action outside their list change nothing.
@@ -513,14 +965,24 @@ MOD_WRONG_ACTION = [
 _AFTER_PLAIN_SPEND = {"nerve": (2, 6, 9), "cunning": (3, 5, 9), "intuition": (3, 6, 8)}
 
 
+# What an ability needs on the sheet to apply (RULES_CHECK 25): Tenacious a Bleed mark
+MOD_FIELDS = {"Tenacious": {"bleed_marks": 1}}
+
+
 def _mod_roll(client, dice, ability, action, n_dice, **extra):
-    ch = support.forge(client, **{action: 1, **N3_C6_I9, **extra}, specialty_ability=ability)
+    fields = {action: 1, **N3_C6_I9, **MOD_FIELDS.get(ability, {}), **extra}
+    ch = support.forge(client, **fields, specialty_ability=ability)
     dice(*([3] * n_dice))
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action=action, drive_spent=1, is_secret=True, ability_mods=[ability])
         msgs = ws.sync()
-    assert support.types(msgs) == ["roll_result"]
-    return msgs[0]["payload"]
+    # A secret roll answers with its result alone; Back Against the Wall's mark follows it
+    assert support.types(msgs)[0] == "roll_result"
+    assert all(t == "character_update" for t in support.types(msgs)[1:])
+    payload = dict(msgs[0]["payload"])
+    if len(msgs) > 1:
+        payload["character"] = msgs[-1]["payload"]
+    return payload
 
 
 @pytest.mark.parametrize("ability,action,n_dice,gilded,drive,currents,brain", MOD_CASES,
@@ -569,55 +1031,34 @@ def test_basic_training_and_extend_your_senses_read_their_own_drive(client, dice
     assert len(p["roll"]["dice"]) == 4
 
 
-def test_mods_stack_and_repeat(client, dice):
-    """QUIRK: a mod listed twice is applied twice."""
+def test_mods_stack_but_do_not_repeat(client, dice):
+    """Fixed (RULES_CHECK 29): a mod listed twice is applied once."""
     ch = support.forge(client, read=1, **N3_C6_I9, role_ability="Meticulous Notes", specialty_ability="Dissection")
-    dice(3, 3, 3, 3)
+    dice(3, 3, 3)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action="read", drive_spent=1, is_secret=True,
                 ability_mods=["Meticulous Notes", "Dissection", "Meticulous Notes"])
         roll = ws.sync()[0]["payload"]["roll"]
-    assert len(roll["dice"]) == 4  # 1 rating + 1 spent + 2 Meticulous Notes
+    assert len(roll["dice"]) == 3  # 1 rating + 1 spent + 1 Meticulous Notes
     assert roll["needs_gilded_choice"] is True
 
 
 # --- pool and drive arithmetic --------------------------------------------------
 
-def test_overspent_drive_floors_at_zero_but_pool_counts_full_spend(client, dice):
-    """QUIRK: spending more drive than the character has still adds the whole spend to the pool."""
-    ch = support.forge(client, move=1, nerve_max=3, nerve_current=1)
-    dice(1, 2, 3, 4)
-    with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("roll", action="move", drive_spent=3)
-        p = ws.sync()[0]["payload"]
-        assert len(p["roll"]["dice"]) == 4
-        assert p["character"]["nerve_current"] == 0
-    assert support.fetch(Character, ch["id"]).nerve_current == 0
-
-
-def test_back_against_the_wall_brain_mark_capped_at_three(client, dice):
-    ch = support.forge(client, strike=1, brain_marks=3, role_ability="Back Against the Wall")
-    dice(2)
-    with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("roll", action="strike", drive_spent=0, ability_mods=["Back Against the Wall"])
-        p = ws.sync()[0]["payload"]
-        assert p["character"]["brain_marks"] == 3
-        assert p["character"]["incapacitated"] is False
-    assert support.fetch(Character, ch["id"]).brain_marks == 3
-
-
 def test_train_bonus_and_mod_dice_cap_at_six(client, dice):
+    """Free dice fill the pool first, and drive past the sixth die is not taken: rating 3,
+    Sharpshooter +2 and Train +1 make six, so the 3 Nerve offered are not spent."""
     ch = support.forge(client, strike=3, nerve_max=9, nerve_current=9, specialty_ability="Sharpshooter")
     support.update(Character, ch["id"], train_bonus=True)
     dice(1, 1, 1, 1, 1, 1)
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("roll", action="strike", drive_spent=3, ability_mods=["Sharpshooter"])
+        ws.send("roll", action="strike", drive_spent=3, ability_mods=["Sharpshooter", "Train"])
         p = ws.sync()[0]["payload"]
         assert len(p["roll"]["dice"]) == 6
-        assert p["character"]["nerve_current"] == 5  # 1 for Sharpshooter, 3 spent
+        assert p["character"]["nerve_current"] == 8  # 1 for Sharpshooter, none spent
         assert p["character"]["train_bonus"] is False
     row = support.fetch(Character, ch["id"])
-    assert (row.nerve_current, row.train_bonus) == (5, False)
+    assert (row.nerve_current, row.train_bonus) == (8, False)
 
 
 # --- which character a frame acts on ------------------------------------------
@@ -634,3 +1075,204 @@ def test_character_id_zero_on_a_player_socket_is_rejected(client):
             "action": "roll", "status": 404, "detail": "Character not found"}}]
         assert gm.drain() == []
     assert support.fetch(Character, ch["id"]).nerve_current == 3
+
+
+def test_back_against_the_wall_without_a_spend_takes_no_mark(client, dice):
+    ch = support.forge(client, strike=1, brain_marks=3, role_ability="Back Against the Wall")
+    dice(2)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="strike", drive_spent=0, ability_mods=["Back Against the Wall"])
+        p = ws.sync()[0]["payload"]
+        assert (p["character"]["brain_marks"], p["character"]["incapacitated"]) == (3, False)
+    assert support.fetch(Character, ch["id"]).brain_marks == 3
+
+
+# --- Patch Up and Resuscitation: a Focus roll for an ally (p. 30) ---------------------
+
+POST_REFUSED = lambda detail, status=409: {"type": "action_rejected", "payload": {  # noqa: E731
+    "action": "use_post_roll_ability", "status": status, "detail": detail}}
+PATCH_UP_REFUSED = POST_REFUSED("Patch Up needs a Focus roll, an ally in your circle with a Body mark, and the Intuition to pay.")
+RESUSCITATION_REFUSED = POST_REFUSED(
+    "Resuscitation needs a Focus roll of 4 or more and an incapacitated ally whose scar is not their fourth.")
+
+
+def _doctor_and_ally(client, ability, ally_fields=None, **doctor):
+    camp = support.new_campaign(client)
+    doc = support.active_member(client, camp, read=1, specialty_ability=ability,
+                                **{"intuition_max": 3, "intuition_current": 3, **doctor})
+    ally = support.active_member(client, camp, **(ally_fields or {}))
+    return camp, doc, ally
+
+
+@pytest.mark.parametrize("face, cost, brain", [(6, 1, False), (5, 2, False), (2, 2, True)])
+def test_patch_up_heals_an_allys_body_mark(client, dice, face, cost, brain):
+    """Patch Up (p. 30): a Focus roll heals 1 Body mark on an ally, for 1 Intuition on a
+    6 and 2 on a 4-5; on a 3 or less the Doctor may take a Brain mark for the 4-5 result.
+    The book's cost could not be paid, nor the ally's mark healed."""
+    camp, doc, ally = _doctor_and_ally(client, "Patch Up", {"body_marks": 2})
+    dice(face)
+    with support.ws_connect(client, doc["id"]) as wd, support.ws_connect(client, ally["id"]) as wa:
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        wa.drain()
+        if brain:   # a 3 or less needs the Brain mark
+            wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])
+            assert wd.sync() == [PATCH_UP_REFUSED]
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"], take_brain_mark=brain)
+        wd.sync()
+        assert wa.drain()[0]["payload"]["body_marks"] == 1
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"], take_brain_mark=brain)
+        assert wd.sync() == [PATCH_UP_REFUSED]   # once on a roll
+    row = support.fetch(Character, doc["id"])
+    assert (row.intuition_current, row.brain_marks) == (3 - cost, 1 if brain else 0)
+    assert support.fetch(Character, ally["id"]).body_marks == 1
+
+
+def test_patch_up_refusals(client, dice):
+    camp, doc, ally = _doctor_and_ally(client, "Patch Up", intuition_current=1, sway=1)
+    stranger = support.active_member(client, support.new_campaign(client), body_marks=1)
+    with support.ws_connect(client, doc["id"]) as wd:
+        dice(6)
+        wd.send("roll", action="sway", drive_spent=0)   # not a Focus roll
+        wd.sync()
+        support.update(Character, ally["id"], body_marks=1)
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])
+        assert wd.sync() == [PATCH_UP_REFUSED]
+        dice(5)
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        for target in (ally["id"], doc["id"], stranger["id"]):   # 2 Intuition short; self; another campaign
+            wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=target)
+        support.update(Character, ally["id"], body_marks=0)
+        support.update(Character, doc["id"], intuition_current=3)
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])   # no Body mark
+        assert wd.sync() == [PATCH_UP_REFUSED] * 4
+    assert support.fetch(Character, stranger["id"]).body_marks == 1
+
+
+@pytest.mark.parametrize("face", [6, 5])
+def test_resuscitation_revives_a_scarred_ally(client, dice, face):
+    """Resuscitation (p. 30): when an ally takes a scar, a Focus roll revives them. On a
+    6 it works; on a 4-5 it costs 3 drive points of the Doctor's choosing."""
+    camp, doc, ally = _doctor_and_ally(client, "Resuscitation", {"incapacitated": True, "scars_count": 1},
+                                       nerve_max=3, nerve_current=2, cunning_max=3, cunning_current=1)
+    dice(face)
+    with support.ws_connect(client, doc["id"]) as wd, support.ws_connect(client, ally["id"]) as wa:
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        wa.drain()
+        if face == 5:
+            for cost, status in (({"nerve": 2}, 422), ({"nerve": 1, "body": 2}, 422), ({"nerve": 1.5, "cunning": 1.5}, 422),
+                                 ({"cunning": 3}, 409)):
+                wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"], cost=cost)
+                expected = "Not enough drive for those 3 points." if status == 409 else \
+                    "Choose 3 drive points to pay, from Nerve, Cunning and Intuition."
+                assert wd.sync() == [POST_REFUSED(expected, status)]
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"],
+                cost={"nerve": 2, "intuition": 1})
+        msgs = wd.sync()
+        assert msgs[-1]["payload"]["message"] == f"{doc['name']} used Resuscitation {support.EM} {ally['name']} is back on their feet" \
+            + (" (2 Nerve, 1 Intuition)." if face == 5 else ".")
+        assert wa.drain()[0]["payload"]["incapacitated"] is False
+    row = support.fetch(Character, doc["id"])
+    assert (row.nerve_current, row.intuition_current) == ((0, 2) if face == 5 else (2, 3))
+
+
+def test_resuscitation_refusals(client, dice):
+    """Not on a 3 or less, not for a dead ally or one standing, and not when the scar
+    being taken is the fourth, even before it is recorded."""
+    camp, doc, ally = _doctor_and_ally(client, "Resuscitation",
+                                       {"bleed_marks": 3, "scars_list": ["a", "b", "c"], "scars_count": 3})
+    with support.ws_connect(client, doc["id"]) as wd, support.ws_connect(client, ally["id"]) as wa:
+        dice(3)
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        support.update(Character, ally["id"], incapacitated=True)
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
+        assert wd.sync() == [RESUSCITATION_REFUSED]   # a 3
+        support.update(Character, ally["id"], incapacitated=False)
+        dice(6)
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
+        assert wd.sync() == [RESUSCITATION_REFUSED]   # standing
+        wa.drain()
+        wa.send("take_mark", mark_type="bleed", is_from_enemy=False)   # a fourth mark: the fourth scar
+        assert support.types(wa.sync())[0] == "trigger_scar"
+        wd.drain()
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
+        assert wd.sync() == [RESUSCITATION_REFUSED]
+        wa.send("apply_scar", scar_text="The last one", skip_shifts=True)
+        wa.sync()
+        wd.drain()
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
+        assert wd.sync() == [RESUSCITATION_REFUSED]   # dead
+    assert support.fetch(Character, ally["id"]).is_dead is True
+
+
+def test_great_wards_adds_a_die_to_the_warded_persons_move(client, dice):
+    """Great Wards (p. 27): the warded person "take[s] +1d on Move rolls against
+    phenomena". Only while the ward holds: a Weird in the same campaign who still has the
+    ability."""
+    camp = support.new_campaign(client)
+    weird = support.active_member(client, camp, specialty_ability="Great Wards")
+    ally = support.active_member(client, camp, move=1, strike=1)
+
+    def rolls(action, count):
+        dice(*([2] * count))
+        wa.send("roll", action=action, drive_spent=0, ability_mods=["Great Wards"])
+        return len(wa.sync()[0]["payload"]["roll"]["dice"]) == count
+
+    with support.ws_connect(client, ally["id"]) as wa:
+        assert rolls("move", 1)            # no ward yet
+        support.update(Character, ally["id"], warded_by_id=weird["id"])
+        assert rolls("move", 2)            # +1d on Move
+        assert rolls("strike", 1)          # not on another action
+        support.update(Character, weird["id"], specialty_ability="Ritual")
+        assert rolls("move", 1)            # the Weird no longer has it
+
+
+def test_mind_over_matter_costs_a_brain_mark(client, dice):
+    """Mind Over Matter (p. 29): "When you are told to use a specific action on a roll, you
+    may take a Brain mark to utilize an alternative action instead. You may also spend the
+    drive that corresponds with your chosen action." The roll is of the action chosen,
+    with its own drive, and the Brain mark follows it."""
+    ch = support.forge(client, sway=1, cunning_max=3, cunning_current=3, specialty_ability="Mind Over Matter")
+    dice(2, 5)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="sway", drive_spent=1, ability_mods=["Mind Over Matter"])
+        msgs = ws.sync()
+        assert len(msgs[0]["payload"]["roll"]["dice"]) == 2
+        assert msgs[-1]["type"] == "character_update" and msgs[-1]["payload"]["brain_marks"] == 1
+    row = support.fetch(Character, ch["id"])
+    assert (row.cunning_current, row.brain_marks) == (2, 1)
+
+
+def test_saw_this_coming_adds_an_allys_die(client, dice):
+    """Saw This Coming (p. 27): "Three times per assignment, you may add +1d to a circle
+    member's roll without spending drive". The circle names who can still give it, the
+    roll names the Slink, and the use is the Slink's. It could not reach a roll at all."""
+    camp = support.new_campaign(client)
+    slink = support.active_member(client, camp, role_ability="Saw This Coming")
+    roller = support.active_member(client, camp, move=1, nerve_max=3, nerve_current=3)
+    stranger = support.active_member(client, support.new_campaign(client), role_ability="Saw This Coming")
+    refused = [{"type": "action_rejected", "payload": {
+        "action": "roll", "status": 409, "detail": "Saw This Coming is not available from that ally."}}]
+    with support.ws_connect(client, roller["id"]) as wr, support.ws_connect(client, slink["id"]) as ws:
+        for left in (2, 1, 0):
+            dice(2, 2)
+            wr.send("roll", action="move", drive_spent=0, saw_this_coming_from=slink["id"])
+            msgs = wr.sync()
+            assert len(msgs[0]["payload"]["roll"]["dice"]) == 2
+            circle = next(m for m in msgs if m["type"] == "circle_update")["payload"]
+            assert circle["saw_this_coming"] == ([{"id": slink["id"], "name": slink["name"], "left": left}] if left else [])
+            assert any(m["type"] == "activity_log" and m["payload"]["message"]
+                       == f"{slink['name']} saw this coming: +1d on {roller['name']}'s roll." for m in msgs)
+        assert next(m for m in ws.drain(0.5) if m["type"] == "character_update")["payload"]["ability_uses"] \
+            == {"Saw This Coming": 1}
+        for helper in (slink["id"], roller["id"], stranger["id"]):   # used up; the roller; another campaign
+            wr.send("roll", action="move", drive_spent=0, saw_this_coming_from=helper)
+        assert wr.sync() == refused * 3
+    assert support.fetch(Character, slink["id"]).ability_uses == {"Saw This Coming": 3}
+    assert support.fetch(Character, roller["id"]).nerve_current == 3
+

@@ -9,7 +9,7 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from jose import jwt
+import jwt
 
 import support
 from models import User

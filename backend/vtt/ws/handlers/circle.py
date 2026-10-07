@@ -3,8 +3,8 @@ creation (votes, backstory answers, personal answers, relationships).
 """
 import json
 
-from models import Character, CircleVote, Relationship
-from vtt.circle_queries import relationships_list, resolve_circle, votes_dict
+from models import Character, Circle, CircleVote, Relationship
+from vtt.circle_queries import circle_abilities, relationships_list, resolve_circle, take_train_die, votes_dict
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.manager import manager
 
@@ -63,15 +63,17 @@ async def handle_spend_resource(ctx):
         character.brain_marks = 0
         character.bleed_marks = 0
     elif resource_type == "refresh":
+        # Refresh recoups drives and resistances (rulebook p. 41). Once-per-assignment
+        # abilities come back when the Lightkeeper ends the assignment, not here.
         character.nerve_current     = character.nerve_max
         character.cunning_current   = character.cunning_max
         character.intuition_current = character.intuition_max
         character.nerve_resistance_spent     = 0
         character.cunning_resistance_spent   = 0
         character.intuition_resistance_spent = 0
-        character.ability_uses = {}
     elif resource_type == "train":
-        character.train_bonus = True
+        # Each Train is a die for a roll in the next assignment (p. 41): two spends, two dice
+        take_train_die(character, 1)
 
     setattr(circle, resource_type, cur_val - 1)
     character.resources_spent_assignment = (getattr(character, "resources_spent_assignment", 0) or 0) + 1
@@ -80,7 +82,7 @@ async def handle_spend_resource(ctx):
     _RESOURCE_MSG = {
         "stitch":  "all marks cleared.",
         "refresh": "drives & resistances restored.",
-        "train":   "Train d6 bonus active for next roll.",
+        "train":   "a Train d6 for a roll of their choice this assignment.",
     }
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)
@@ -235,3 +237,14 @@ async def handle_circle_relationship_respond(ctx):
                 "type": "relationship_update",
                 "payload": {"relationships": relationships_list(db, rel.circle_id)}
             }, db)
+
+
+async def announce_downed(ctx):
+    """Nobody Left Behind (p. 41): the desks' +1d chip follows who in the circle is down,
+    so the circle goes out again when a member drops, dies or is back on their feet."""
+    if not ctx.camp_id:
+        return
+    circle = ctx.db.query(Circle).filter(Circle.campaign_id == ctx.camp_id).first()
+    if circle is not None and "Nobody Left Behind" in circle_abilities(circle):
+        await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
+            "type": "circle_update", "payload": get_circle_dict(circle)}, ctx.db)

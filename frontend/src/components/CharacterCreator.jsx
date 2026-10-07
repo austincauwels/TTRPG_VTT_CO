@@ -30,7 +30,7 @@ const SPECIALTY_GILDED = {
   Magician:   'sway',
   Explorer:   'move',
   Soldier:    'strike',
-  Doctor:     'read',
+  Doctor:     'sneak',   // the book's Read (p. 26); key read is Focus
   Professor:  'read',
   Criminal:   'hide',
   Detective:  'control',
@@ -46,15 +46,19 @@ const DRIVE_FLAVOR = {
 
 const ACTION_FLAVOR = {
   move:    'Run, dodge, or navigate: raw movement through danger.',
-  strike:  'Punch, break, or knock down: direct physical force.',
+  strike:  'Punch, break, or grapple: direct physical force.',
   control: 'Drive, shoot, or finesse: precise command of tools and situations.',
   sway:    'Convince, command, or consort: social pressure and persuasion.',
   sneak:   'Interpret body language, spot lies, gather motives.',
-  hide:    'Sneak, distract, or sleight of hand: concealment and misdirection.',
+  hide:    'Sneak, deceive, or sleight of hand: concealment and misdirection.',
   survey:  'Search, track, or spot: reading an environment for detail.',
   read:    'Inspect, analyze, or remember: focused mental examination.',
   sense:   'Attune, channel, or reveal: perception of the supernatural.',
 };
+
+// No drive starts above 6 (rulebook p. 26). The server checks a new investigator against
+// these tables and limits (backend/vtt/creation.py; tests/test_creation.py compares them).
+const DRIVE_START_MAX = 6;
 
 const STANDARD_GEAR = [
   "Bleed Detector", "Bleed Containment Vial", "Hand Weapon", "Lantern", "Matches & Candles", "First Aid Kit"
@@ -286,13 +290,16 @@ const ROLE_COLORS = {
 // (the role colors themselves fall under 3:1 there). The hue stays the role's own.
 const roleInk = (hex) => `color-mix(in srgb, ${hex} 60%, rgb(var(--c-cream)))`;
 
+// The PNG portraits (1 to 7 MB each) are served as WebP copies at their full size,
+// quality 92, about a fifth of the bytes; the cards draw them small and sepia-toned, so
+// the copies look the same. The original PNGs stay in public/images beside them.
 const CARD_IMAGES = {
-  Journalist: '/images/Journalist.png',
+  Journalist: '/images/Journalist.webp',
   Magician:   '/images/magician.jpg',
-  Explorer:   '/images/explorer.png',
-  Soldier:    '/images/soldier.png',
-  Doctor:     '/images/doctor.png',
-  Professor:  '/images/professor.png',
+  Explorer:   '/images/explorer.webp',
+  Soldier:    '/images/soldier.webp',
+  Doctor:     '/images/doctor.webp',
+  Professor:  '/images/professor.webp',
   Criminal:   '/images/criminal.webp',
   Detective:  '/images/detective.jpg',
   Medium:     '/images/medium.jpg',
@@ -525,8 +532,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   const [freeAdditions, setFreeAdditions] = useState(() => ({ ...EMPTY_ACTIONS, ...d('freeAdditions', {}) }));
   const [lockedDrives,  setLockedDrives]  = useState(() => ({ ...EMPTY_DRIVES, ...d('lockedDrives', {}) }));
   const [driveDistrib,  setDriveDistrib]  = useState(() => ({ ...EMPTY_DRIVES, ...d('driveDistrib', {}) }));
-  const [lockedGilded, setLockedGilded] = useState(() => d('lockedGilded', ''));
-  const [freeGilded,   setFreeGilded]   = useState(() => d('freeGilded', ''));
+  // The locked gild follows the specialty: a draft from an older creator can hold another
+  // (the Doctor's was Focus), which the forge refuses. A free gild it now repeats is cleared.
+  const [lockedGilded, setLockedGilded] = useState(() => SPECIALTY_GILDED[d('specialty', '')] || d('lockedGilded', ''));
+  const [freeGilded,   setFreeGilded]   = useState(() => { const free = d('freeGilded', ''); return free === lockedGilded ? '' : free; });
   const [selectedGear, setSelectedGear] = useState(() => d('selectedGear', []));
 
   // Finalize routing
@@ -647,7 +656,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   const adjustDrive = (driveKey, delta) => {
     const cur = driveDistrib[driveKey] || 0;
     if (delta < 0 && cur <= 0) return;
-    if (delta > 0 && drivesPtsUsed >= 6) return;
+    if (delta > 0 && (drivesPtsUsed >= 6 || getDriveValue(driveKey) >= DRIVE_START_MAX)) return;
     setDriveDistrib(p => ({ ...p, [driveKey]: cur + delta }));
   };
 
@@ -1142,8 +1151,12 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 {zeroStartKeys.map(k => {
                   const sel = freeRaiseKey === k;
                   return (
+                    // An action that already has 2 free points would go to 3, past the
+                    // limit of 2 at creation (rulebook p. 25), which the server refuses
                     <button key={k} onClick={() => setFreeRaiseKey(sel ? null : k)}
-                      className="px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] md:[@media(pointer:coarse)]:px-4 text-sm font-sans font-black uppercase tracking-wider rounded-sm transition-all"
+                      disabled={!sel && (freeAdditions[k] || 0) >= 2}
+                      title={!sel && (freeAdditions[k] || 0) >= 2 ? 'Already at 2 from your free points' : undefined}
+                      className="disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] md:[@media(pointer:coarse)]:px-4 text-sm font-sans font-black uppercase tracking-wider rounded-sm transition-all"
                       style={{
                         background: sel ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-parchment-deep)/0.5)',
                         color: sel ? 'rgb(var(--c-cream))' : 'rgb(var(--c-sepia))',
@@ -1261,7 +1274,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                       <span className="text-base font-serif italic text-center leading-snug" style={{ color }}>{DRIVE_FLAVOR[key]}</span>
                       <span className="text-xl font-black" style={{ color }}>{total}</span>
                       <div className="flex gap-1" role="img" aria-label={`${label}: ${total} drive points, ${startVal} from your specialty`}>
-                        {Array.from({length:7}).map((_,i) => (
+                        {Array.from({length:DRIVE_START_MAX}).map((_,i) => (
                           <div key={i} className="w-2.5 h-2.5 rounded-sm border transition-all"
                             style={{
                               background: i<startVal ? color : i<total ? color+'99' : 'transparent',
@@ -1275,7 +1288,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>−</button>
                         <span className="text-sm font-sans font-black w-8 text-center" style={{ color }}>+{addVal}</span>
-                        <button type="button" onClick={() => adjustDrive(key,1)} disabled={drivesPtsUsed>=6} aria-label={`Put a point on ${label}`}
+                        <button type="button" onClick={() => adjustDrive(key,1)} disabled={drivesPtsUsed>=6 || total>=DRIVE_START_MAX} aria-label={`Put a point on ${label}`}
                           className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>+</button>
                       </div>

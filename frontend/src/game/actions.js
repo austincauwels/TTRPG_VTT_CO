@@ -11,9 +11,10 @@ export const ACTION_LABEL = {
   survey: 'Survey', read: 'Focus', sense: 'Sense',
 };
 
-// The note a scar adds to its description: which action went down and which went up.
-export const scarShiftNote = (down, up) =>
-  (down && up ? `(-1 ${ACTION_LABEL[down]}, +1 ${ACTION_LABEL[up]})` : '(Hardened: no action shift)');
+// The note a scar adds to its description: which action went down and which went up, or
+// the ability that kept the ratings (Hardened, or Not Again).
+export const scarShiftNote = (down, up, keptBy = 'Hardened') =>
+  (down && up ? `(-1 ${ACTION_LABEL[down]}, +1 ${ACTION_LABEL[up]})` : `(${keptBy}: no action shift)`);
 
 // Scars recorded before 2026-10-04 end in "[SCAR SHIFT: -1 SNEAK / +1 READ]", written with
 // the internal action keys. Show those in the rulebook's names; the stored text is unchanged.

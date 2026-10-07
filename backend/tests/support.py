@@ -60,14 +60,16 @@ CHAR_DICT_KEYS = {
     "pronouns", "style", "catalyst", "question", "role", "specialty",
     "role_ability", "specialty_ability", "gear", "profile_pic", "status",
     "pen_font", "ink_color", "campaign_id", "personal_circle_answer",
-    "ability_uses", "train_bonus", "resources_spent_assignment",
+    "ability_uses", "train_bonus", "train_dice", "resources_spent_assignment",
+    "advancement_picks", "advancement_taken", "warded_by_id",
 }
 
 CIRCLE_DICT_KEYS = {
     "id", "name", "stitch", "refresh", "train", "guard_patrol", "miasma_bleed",
     "tension_clock", "tension_label", "location", "atmosphere", "max_capacity",
     "chapter_house_location", "circle_ability", "insignia", "backstory_answers",
-    "is_finalized", "illumination", "resources_editable", "reports_open",
+    "is_finalized", "illumination", "resources_editable", "reports_open", "stamina_dice_left",
+    "incapacitated_members", "saw_this_coming",
 }
 
 CHARACTER_COLUMNS = {c.name for c in Character.__table__.columns}
@@ -231,15 +233,51 @@ def new_campaign(client, gm_user_id=None, name=None, code=None):
     return r.json()
 
 
+# A sheet the character creator could make (vtt/creation.py): a Scholar and Doctor who
+# raised Move from 0, put 3 more points on Strike, Sway and Hide, gilded Read (the
+# Doctor's, key sneak) and Move, and put 2 more points on each drive.
+SHEET = dict(
+    role="Scholar", specialty="Doctor", role_ability="Well-Read", specialty_ability="Dissection",
+    control=1, sneak=1, survey=1, read=2, move=1, strike=1, sway=1, hide=1, sense=0,
+    gilded_sneak=True, gilded_move=True,
+    nerve_max=2, nerve_current=2, cunning_max=2, cunning_current=2, intuition_max=5, intuition_current=5,
+    gear=["Surgical Tools", "Lantern"],
+)
+
+# The sheet a forged character had before the server checked new investigators: no role,
+# no abilities, every action 0, every drive 1. Most tests build on it.
+BLANK = dict(
+    pronouns="Unlisted", style="", catalyst="", question="", role="", specialty="",
+    role_ability="None", specialty_ability="None", gear=[],
+    **{a: 0 for a in ("move", "strike", "control", "sneak", "hide", "sway", "survey", "read", "sense")},
+    **{f"gilded_{a}": False for a in ("move", "strike", "control", "sneak", "hide", "sway", "survey", "read", "sense")},
+    **{f"{d}_{k}": v for d in ("nerve", "cunning", "intuition") for k, v in (("current", 1), ("max", 1), ("resistance_spent", 0))},
+    body_marks=0, brain_marks=0, bleed_marks=0, scars_count=0, scars_list=[], incapacitated=False,
+)
+
+
+def sheet(**fields):
+    """A forge body the server accepts (SHEET), with the given fields."""
+    return {**SHEET, "name": f"Inv {uid()}", **fields}
+
+
 def forge(client, user_id=None, name=None, **fields):
     """Forge a character for user_id (also sent in the body, as the frontend does), or
-    for a new user when none is given."""
-    body = {"name": name or f"Inv {uid()}", **fields}
+    for a new user when none is given. The forge sends a valid sheet, then the row is set
+    to BLANK with the given fields: tests build sheets the creator never makes (a rating
+    of 3, marks, any ability). profile_pic goes through the forge and its portrait rule."""
+    body = sheet(name=name or f"Inv {uid()}")
+    if "profile_pic" in fields:
+        body["profile_pic"] = fields.pop("profile_pic")
     if user_id is not None:
         body["user_id"] = user_id
     owner = user_id if user_id is not None else make_user().id
     r = client.post("/api/investigators/forge", json=body, headers=as_user(owner))
     assert r.status_code == 201, r.text
+    char_id = r.json()["id"]
+    update(Character, char_id, **{**BLANK, **fields})
+    r = client.get(f"/api/investigators/{char_id}", headers=as_user(owner))
+    assert r.status_code == 200, r.text
     return r.json()
 
 
@@ -530,3 +568,19 @@ class StaleSocket:
 
     async def send_json(self, message):
         raise RuntimeError("socket is gone")
+
+
+def offer_intercept(target_id, mark_type):
+    """Opens the answer a mark offered to the allies opens (vtt/ws/handlers/marks.py), for
+    tests that send intercept_mark without having a mark land first."""
+    from vtt.ws.handlers import marks
+    marks.open_intercept(target_id, mark_type)
+
+
+def last_roll(char_id, action, outcome="failure", result=2):
+    """Records a roll of action as the character's last (vtt/ws/handlers/rolls.py), for
+    tests of what answers a roll (a resistance burn, a post-roll ability)."""
+    from engine import drive_for_action
+    from vtt.ws.handlers import rolls
+    rolls._last_roll[char_id] = {"action": action, "cat": drive_for_action(action), "result": result,
+                                 "outcome": outcome, "used": set()}
