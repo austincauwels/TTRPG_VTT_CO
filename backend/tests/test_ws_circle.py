@@ -334,6 +334,32 @@ def test_advancing_the_circle_replenishes_its_resources(client):
         assert (circle["stitch"], circle["refresh"], circle["train"]) == (1, 1, 1)
 
 
+def test_one_last_run_gives_all_four_options(client):
+    """One Last Run (rulebook p. 41): "Everyone gets to take all four options during this
+    character advancement instead of only two." The advance that brings it gives four
+    picks that must all differ; later advances are pairs again."""
+    camp, (member,), cid = _campaign(client, move=1, nerve_max=3, nerve_current=3)
+    support.update(Circle, cid, illumination=12)
+    rejected = {"type": "action_rejected", "payload": {
+        "action": "apply_advancement", "status": 409, "detail": "Choose a different option for your other advancement."}}
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("gm_advance_circle", circle_ability="One Last Run")
+        gm.sync()
+        assert wm.drain()[0]["payload"]["advancement_picks"] == 4
+        wm.send("apply_advancement", choice="add_action", detail="move")
+        wm.send("apply_advancement", choice="add_drive", detail="nerve")
+        wm.sync()
+        wm.send("apply_advancement", choice="add_action", detail="strike")  # the set is four different options
+        assert wm.sync() == [rejected]
+        wm.send("apply_advancement", choice="new_ability", detail="Steel Mind")
+        wm.send("apply_advancement", choice="gild_action", detail="sense")
+        msgs = wm.sync()
+        last = [m for m in msgs if m["type"] == "character_update"][-1]["payload"]
+        assert (last["advancement_picks"], last["advancement_taken"]) == (0, [])
+    row = support.fetch(Character, member["id"])
+    assert (row.move, row.nerve_max, row.gilded_sense, row.advancement_set) == (2, 5, True, 2)
+
+
 def test_an_open_desk_can_take_the_picks_of_an_advance(client):
     """Fixed: a player whose desk was open when the Lightkeeper advanced the circle got
     "No advancement is waiting", because the socket kept the character it had loaded.

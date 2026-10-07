@@ -97,14 +97,20 @@ async def handle_gm_advance_circle(ctx):
                 target_circle.circle_ability = new_ability
         carry = max(0, (getattr(target_circle, "illumination", 0) or 0) - TRACK)
         target_circle.illumination = carry
-        # Each active member chooses two different advancements (rulebook p. 55). The
-        # picks wait on the character until chosen, so a player who was away still gets them.
+        # Each active member chooses two different advancements (rulebook p. 55), or all
+        # four when the circle takes One Last Run (p. 41). The picks wait on the character
+        # until chosen, so a player who was away still gets them.
+        grant = 4 if (new_ability or "").strip() == "One Last Run" else 2
         members = db.query(Character).filter(
             Character.campaign_id == camp_id, Character.status == "active").all() if camp_id else []
         for member in members:
             if not (member.advancement_picks or 0):
                 member.advancement_taken = []
-            member.advancement_picks = (member.advancement_picks or 0) + 2
+                member.advancement_set = grant
+            elif grant == 4:
+                # Picks still waiting from an earlier advance join One Last Run's set
+                member.advancement_set = 4
+            member.advancement_picks = (member.advancement_picks or 0) + grant
         # A full track replenishes the circle's resources (rulebook p. 41)
         fill_resources(target_circle, db)
         db.commit()

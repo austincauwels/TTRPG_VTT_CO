@@ -335,10 +335,16 @@ def apply_advancement(db: Session, character, choice: str, detail: str = "", int
             return {"error": f"{detail} is already gilded.", "status": 409}
         setattr(character, f"gilded_{detail}", True)
 
-    # Picks come two to an advancement: the options taken reset when a pair is complete,
-    # so a second advancement's picks may repeat the first's
+    # Picks come in sets of different options: two to an advancement, or all four for the
+    # one that brings One Last Run (advancement_set). The options taken reset when a set is
+    # complete, so the next advancement's picks may repeat this one's.
     character.advancement_picks = (character.advancement_picks or 0) - 1
-    character.advancement_taken = [] if character.advancement_picks % 2 == 0 else taken + [choice]
+    taken = taken + [choice]
+    if len(taken) >= (character.advancement_set or 2) or character.advancement_picks <= 0:
+        character.advancement_taken = []
+        character.advancement_set = 2
+    else:
+        character.advancement_taken = taken
     db.commit()
     db.refresh(character)
     return {"success": True, "character": character}

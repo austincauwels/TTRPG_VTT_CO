@@ -259,6 +259,9 @@ class Character(SoftDeleted, Base):
     # different options per advancement; engine.apply_advancement).
     advancement_picks = Column(Integer, default=0)
     advancement_taken = Column(JSON, default=list)
+    # How many different options the current set of picks takes: 2, or 4 for the
+    # advancement that brings One Last Run (rulebook p. 41)
+    advancement_set = Column(Integer, default=2)
 
     # Status
     incapacitated = Column(Boolean, default=False)

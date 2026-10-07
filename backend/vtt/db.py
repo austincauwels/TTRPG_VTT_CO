@@ -383,6 +383,8 @@ def init_db():
     add_columns("characters", [
         ("advancement_picks", "INTEGER DEFAULT 0"),
         ("advancement_taken", "JSON DEFAULT '[]'"),
+        # One Last Run's set of four options (rulebook p. 41); others are sets of two
+        ("advancement_set", "INTEGER DEFAULT 2"),
     ])
 
     convert_integer_flags()
