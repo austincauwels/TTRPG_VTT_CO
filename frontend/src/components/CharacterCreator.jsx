@@ -1149,8 +1149,12 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 {zeroStartKeys.map(k => {
                   const sel = freeRaiseKey === k;
                   return (
+                    // An action that already has 2 free points would go to 3, past the
+                    // limit of 2 at creation (rulebook p. 25), which the server refuses
                     <button key={k} onClick={() => setFreeRaiseKey(sel ? null : k)}
-                      className="px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] md:[@media(pointer:coarse)]:px-4 text-sm font-sans font-black uppercase tracking-wider rounded-sm transition-all"
+                      disabled={!sel && (freeAdditions[k] || 0) >= 2}
+                      title={!sel && (freeAdditions[k] || 0) >= 2 ? 'Already at 2 from your free points' : undefined}
+                      className="disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] md:[@media(pointer:coarse)]:px-4 text-sm font-sans font-black uppercase tracking-wider rounded-sm transition-all"
                       style={{
                         background: sel ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-parchment-deep)/0.5)',
                         color: sel ? 'rgb(var(--c-cream))' : 'rgb(var(--c-sepia))',
