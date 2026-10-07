@@ -33,23 +33,30 @@ def test_update_drive_sets_value_and_tells_only_the_sender(client):
     assert support.fetch(Character, a["id"]).nerve_current == 1
 
 
-def test_update_drive_has_no_bounds(client):
-    """QUIRK: any value is stored; the character dict clamps negatives to 0 on the way out."""
-    ch = support.forge(client, nerve_max=3, nerve_current=3)
+DRIVE_REFUSED = {"type": "action_rejected", "payload": {
+    "action": "update_drive", "status": 422, "detail": "A drive is a whole number from 0 to its maximum."}}
+
+
+def test_update_drive_stays_between_empty_and_the_maximum(client):
+    """Rulebook p. 8: a drive has a maximum and an amount available. Fixed (QUIRKS.md):
+    any value used to be stored, 99 and -5 included."""
+    ch = support.forge(client, nerve_max=3, nerve_current=3, cunning_max=3, cunning_current=3)
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("update_drive", pool="nerve", value=99)
-        assert ws.recv()["payload"]["nerve_current"] == 99
-        ws.send("update_drive", pool="cunning", value=-5)
-        assert ws.recv()["payload"]["cunning_current"] == 0
+        for pool, value in (("nerve", 99), ("nerve", 4), ("cunning", -5), ("nerve", 1.5), ("nerve", True), ("nerve", "2")):
+            ws.send("update_drive", pool=pool, value=value)
+        assert ws.sync() == [DRIVE_REFUSED] * 6
+        ws.send("update_drive", pool="nerve", value=0)
+        assert ws.recv()["payload"]["nerve_current"] == 0
     row = support.fetch(Character, ch["id"])
-    assert (row.nerve_current, row.cunning_current) == (99, -5)
+    assert (row.nerve_current, row.cunning_current) == (0, 3)
 
 
 def test_update_drive_unknown_pool_or_missing_value(client):
     ch = support.forge(client, nerve_current=1)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("update_drive", pool="bogus", value=2)
-        assert ws.recv()["type"] == "character_update"  # sent, nothing stored
+        ws.send("update_drive", pool="nerve_resistance_spent", value=0)
+        assert ws.sync() == [DRIVE_REFUSED] * 2   # nothing stored
         ws.send("update_drive", pool="nerve")
         ws.send("update_drive", value=3)
         assert ws.sync() == []

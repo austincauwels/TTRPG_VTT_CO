@@ -20,6 +20,14 @@ async def handle_update_drive(ctx):
     pool = payload.get("pool")
     value = payload.get("value")
     if pool and value is not None:
+        # One of the three drives, from empty to its maximum (rulebook p. 8). Any value
+        # used to be stored, 99 or -5 included, and an unknown pool sent an update anyway.
+        maximum = (getattr(character, f"{pool}_max", 0) or 0) if pool in DRIVES else None
+        if maximum is None or type(value) is not int or not 0 <= value <= maximum:
+            await manager.broadcast(channel, {"type": "action_rejected", "payload": {
+                "action": "update_drive", "status": 422,
+                "detail": "A drive is a whole number from 0 to its maximum."}})
+            return
         setattr(character, f"{pool}_current", value)
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})

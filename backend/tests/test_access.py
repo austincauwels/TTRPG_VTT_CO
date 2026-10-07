@@ -264,7 +264,7 @@ def test_a_pending_character_reaches_nothing_of_the_campaign(client):
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
     cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp)).json()["circle_id"]
-    waiting = support.pending_member(client, camp, nerve_current=1)
+    waiting = support.pending_member(client, camp, nerve_max=3, nerve_current=1)
     me = support.as_owner(waiting["id"])
     base = f"/campaign/{camp['id']}"
 
