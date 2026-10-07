@@ -613,6 +613,23 @@ def test_burn_resistance_uses_the_actions_own_drive(client, dice):
     assert (fetched.cunning_resistance_spent, fetched.nerve_resistance_spent) == (1, 0)
 
 
+def test_a_gilded_die_refreshes_the_actions_own_drive(client, dice):
+    """Rulebook p. 8: taking the gilded result refreshes "the drive that encompasses that
+    action". A gilded Move roll paid in Cunning (Cool Under Pressure) refreshes Nerve; it
+    used to refresh the drive the roll spent."""
+    ch = support.forge(client, move=2, gilded_move=True, nerve_max=3, nerve_current=1,
+                       cunning_max=3, cunning_current=3, role_ability="Cool Under Pressure")
+    dice(3, 5, 4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=1, ability_mods=["Cool Under Pressure"])
+        ws.sync()
+        ws.send("resolve_gilded", action="move", chosen_type="gilded")
+        msgs = ws.sync()
+        assert msgs[1]["payload"]["message"].endswith(f"[gilded {EM} nerve Drive refreshed]")
+    row = support.fetch(Character, ch["id"])
+    assert (row.nerve_current, row.cunning_current) == (2, 2)
+
+
 def test_a_gilded_reroll_earns_back_drive(client, dice):
     """Fixed: a resistance reroll ignored the gilded die's refresh (rulebook p. 8). On a
     gilded action rated 0 the reroll is two dice taking the lower (p. 13); when the gilded

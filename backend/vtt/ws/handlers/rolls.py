@@ -269,10 +269,13 @@ async def handle_roll(ctx):
             # The gilded refresh and Well-Read follow the dice, so they apply to a secret
             # roll too (RULES_CHECK.md item 6); only its log line stays with the roller.
             post_roll_dirty = False
-            if res.get("auto_gilded_refresh") and character and cat:
-                setattr(character, f"{cat}_current", min(getattr(character, f"{cat}_max", 3), getattr(character, f"{cat}_current") + 1))
+            # The gilded die refreshes "the drive that encompasses that action" (p. 8),
+            # even when the roll spent another drive (Cool Under Pressure, Street Smarts)
+            act_drive = drive_for_action(act)
+            if res.get("auto_gilded_refresh") and character and act_drive:
+                setattr(character, f"{act_drive}_current", min(getattr(character, f"{act_drive}_max", 3), getattr(character, f"{act_drive}_current") + 1))
                 post_roll_dirty = True
-                log_msg += f" [gilded — {cat} Drive refreshed]"
+                log_msg += f" [gilded — {act_drive} Drive refreshed]"
 
             # Well-Read auto-refund: if failure and Intuition was spent, earn it back
             if character and outcome_key == "failure" and cat == "intuition" and spent > 0 \
@@ -328,9 +331,11 @@ async def handle_resolve_gilded(ctx):
 
     changed = False
     if want_gilded:
-        setattr(character, f"{r_cat}_current", min(getattr(character, f"{r_cat}_max", 3), getattr(character, f"{r_cat}_current") + 1))
+        # the action's own drive (p. 8), whichever drive the roll spent
+        act_drive = drive_for_action(r_act)
+        setattr(character, f"{act_drive}_current", min(getattr(character, f"{act_drive}_max", 3), getattr(character, f"{act_drive}_current") + 1))
         changed = True
-        log_msg += f" [gilded — {r_cat} Drive refreshed]"
+        log_msg += f" [gilded — {act_drive} Drive refreshed]"
     if outcome_key == "failure" and r_cat == "intuition" and spent > 0 \
             and "Well-Read" in abilities_of(character):
         character.intuition_current = min(character.intuition_max or 3, (character.intuition_current or 0) + spent)
