@@ -93,6 +93,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - Rulebook: soaking is a choice (p. 14: a soaked mark "leaves no damage"); not using the ability means taking the mark.
 - Suggested fix: apply the mark when the offer is declined (a decline message, or a timeout), and check the resistance point before soaking.
 - Done (2026-10-06): a soak or Death Defy offer holds the mark (_pending_marks) until it is answered. Declining, which the desk sends from its "Take the mark" button or when the offer's countdown runs out, lets the mark land, after a declined soak still offering Death Defy for an enemy's mark. A soak is refused (409) once it is used for the assignment or its resistance is gone, and the held mark then lands.
+- Done (2026-10-07): Death Defy escapes "1 or more marks from an enemy" (p. 27). An enemy mark that arrives while it is offered is taken as part of the same harm: it waits with the first, the offer counts it, one use escapes them all, and declining lands them all. A mark that is not an enemy's lands the held ones first, as before. The grouping is the app's reading: the book does not say how marks arrive. The desk sends a mark still held for undo as soon as the offer appears, so it joins the harm.
 
 ### 12. Hardened is not checked
 

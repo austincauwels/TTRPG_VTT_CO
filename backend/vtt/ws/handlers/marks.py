@@ -193,14 +193,36 @@ async def _offer_intercepts(ctx, character, m_type):
                 "character_name": character.name, "action": "soak"}})
 
 
+async def _land(ctx, character, held, channel):
+    """The marks an offer held: its own, and any more of the same harm (Death Defy)."""
+    for m_type in [held["mark_type"], *held.get("more", [])]:
+        await apply_mark(ctx, character, m_type, channel, held["offer_intercepts"])
+
+
+async def _offer_defy(character, channel, held):
+    count = 1 + len(held.get("more", []))
+    await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {
+        "ability": "Death Defy", "mark_type": held["mark_type"], "character_id": character.id,
+        "action": "escape", "count": count}})
+
+
 async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False, offer_intercepts=True,
                         soaks=True):
     """take_mark's flow: a soak offer, then Death Defy for an enemy's mark, then the mark.
     A mark an open offer still holds lands first, as if that offer were declined (a new
-    mark, or Behind Me taking an ally's mark, used to replace it, and it was lost)."""
+    mark, or Behind Me taking an ally's mark, used to replace it, and it was lost).
+
+    Death Defy escapes "1 or more marks from an enemy" (p. 27): another enemy mark that
+    arrives while it is offered is taken as part of the same harm. It waits with the
+    first, the offer counts it, and one use escapes them all."""
     held = _pending_marks.pop(character.id, None)
+    if held and held.get("stage") == "escape" and is_from_enemy:
+        held["more"] = [*held.get("more", []), m_type]
+        _pending_marks[character.id] = held
+        await _offer_defy(character, channel, held)
+        return
     if held:
-        await apply_mark(ctx, character, held["mark_type"], channel, held["offer_intercepts"])
+        await _land(ctx, character, held, channel)
     pending = {"mark_type": m_type, "is_from_enemy": bool(is_from_enemy), "offer_intercepts": offer_intercepts}
     options = _soak_options(character, m_type) if soaks else []
     if options:
@@ -211,8 +233,7 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
         return
     if is_from_enemy and _can_defy(character):
         _pending_marks[character.id] = {**pending, "stage": "escape"}
-        await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {
-            "ability": "Death Defy", "mark_type": m_type, "character_id": character.id, "action": "escape"}})
+        await _offer_defy(character, channel, _pending_marks[character.id])
         return
     _pending_marks.pop(character.id, None)
     await apply_mark(ctx, character, m_type, channel, offer_intercepts)
@@ -242,7 +263,7 @@ async def _let_the_mark_land(ctx, character, payload, after):
         await mark_or_offer(ctx, character, pending["mark_type"], ctx.channel, soaks=False,
                             is_from_enemy=pending["is_from_enemy"], offer_intercepts=pending["offer_intercepts"])
     else:
-        await apply_mark(ctx, character, pending["mark_type"], ctx.channel, pending["offer_intercepts"])
+        await _land(ctx, character, pending, ctx.channel)
 
 
 async def handle_resolve_ability_mark(ctx):
@@ -291,10 +312,12 @@ async def handle_resolve_ability_mark(ctx):
                 await _let_the_mark_land(ctx, character, payload, "escape")
             return
         count_use(character, "Death Defy")
-        _pending_marks.pop(character.id, None)
+        escaped = _pending_marks.pop(character.id, None)
+        count = 1 + len((escaped or {}).get("more", []))
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
-        await _log(ctx, character, f"{character.name} used Death Defy — escaped unscathed!")
+        await _log(ctx, character, f"{character.name} used Death Defy — escaped "
+                   + (f"{count} marks " if count > 1 else "") + "unscathed!")
 
 
 async def handle_intercept_mark(ctx):

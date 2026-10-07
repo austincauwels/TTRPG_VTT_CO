@@ -89,7 +89,10 @@ export const AbilityMarkOffer = () => {
   if (!offer || !config) return null;
 
   const charName = offer.character_name || 'an ally';
-  const desc = typeof config.description === 'function' ? config.description(charName) : config.description;
+  // Death Defy names how many marks of the harm it escapes
+  const desc = offer.ability === 'Death Defy' && offer.count > 1
+    ? `If an enemy dealt these ${offer.count} marks, escape unscathed: you take none of them.`
+    : typeof config.description === 'function' ? config.description(charName) : config.description;
 
   const handleAccept = () => {
     if (config.isIntercept) {

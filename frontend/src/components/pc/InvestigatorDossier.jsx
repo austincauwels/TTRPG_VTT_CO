@@ -1,4 +1,4 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { ABILITY_USES, SCAR_ABILITIES } from '../../game/abilityUses';
@@ -375,7 +375,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     }
     return null;
   };
-  const { held: heldMark, hold: holdMark, undo: undoMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
+  const { held: heldMark, hold: holdMark, undo: undoMark, flush: flushMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
+  // Death Defy escapes every mark of one harm (p. 27): a mark still held for undo when its
+  // offer appears goes now, so it joins the harm the offer counts
+  const markOffer = useGameStore(s => s.abilityMarkOffer);
+  useEffect(() => {
+    if (markOffer?.ability === 'Death Defy' && markOffer.character_id === storeChar?.id) flushMark();
+  }, [markOffer?.seq]);
   // The player's own photo: the answer to a change is the sheet as the table now has it
   const photoInputRef = useRef(null);
   const portrait = usePortraitChange({
