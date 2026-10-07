@@ -12,6 +12,7 @@ from vtt.config import _SAFE_FONT_NAMES
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import scar_ability
 from vtt.ws.handlers.circle import announce_downed
+from vtt.ws.handlers.marks import awaiting_scar
 from vtt.ws.manager import character_key, manager
 
 
@@ -52,6 +53,7 @@ async def handle_apply_scar(ctx):
     # Assign a fresh list so SQLAlchemy detects the mutation
     character.scars_list = existing
     character.scars_count = len(existing)
+    awaiting_scar.discard(character.id)
     if character.scars_count >= 4:
         character.is_dead = True
         character.incapacitated = True

@@ -487,7 +487,7 @@ const useGameStore = create(
               }
             }
             // A burn answers a roll of that action; after a server restart there is none
-            if (message.payload.action === 'burn_resistance') {
+            if (message.payload.action === 'burn_resistance' || message.payload.action === 'use_post_roll_ability') {
               set({ rollError: message.payload.detail || ROLL_REFUSED });
             }
           }

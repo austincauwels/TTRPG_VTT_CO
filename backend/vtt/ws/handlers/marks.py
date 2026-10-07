@@ -46,6 +46,9 @@ ONCE_PER_ASSIGNMENT = {"Compartmentalization": 1, "Steel Mind": 1, "In the Trenc
 
 # character id -> the mark an open soak or Death Defy offer holds back
 _pending_marks: dict = {}
+# Characters whose fourth mark asked for a scar not yet recorded (handle_apply_scar
+# clears it). Resuscitation reads it: a scar still waiting counts. In memory only.
+awaiting_scar: set = set()
 # character id -> how many Adrenaline Rush offers are open
 _pending_rush: dict = {}
 
@@ -138,6 +141,7 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True):
         setattr(character, f"{m_type}_marks", 0)
         character.incapacitated = True
         db.commit()
+        awaiting_scar.add(character.id)
         await manager.broadcast(channel, {"type": "trigger_scar", "payload": {
             "character_id": character.id, "mark_type": m_type, "character": get_char_dict(character)}})
         await _log(ctx, character, f"{character.name} has been incapacitated!", "danger")

@@ -1085,3 +1085,126 @@ def test_back_against_the_wall_without_a_spend_takes_no_mark(client, dice):
         p = ws.sync()[0]["payload"]
         assert (p["character"]["brain_marks"], p["character"]["incapacitated"]) == (3, False)
     assert support.fetch(Character, ch["id"]).brain_marks == 3
+
+
+# --- Patch Up and Resuscitation: a Focus roll for an ally (p. 30) ---------------------
+
+POST_REFUSED = lambda detail, status=409: {"type": "action_rejected", "payload": {  # noqa: E731
+    "action": "use_post_roll_ability", "status": status, "detail": detail}}
+PATCH_UP_REFUSED = POST_REFUSED("Patch Up needs a Focus roll, an ally in your circle with a Body mark, and the Intuition to pay.")
+RESUSCITATION_REFUSED = POST_REFUSED(
+    "Resuscitation needs a Focus roll of 4 or more and an incapacitated ally whose scar is not their fourth.")
+
+
+def _doctor_and_ally(client, ability, ally_fields=None, **doctor):
+    camp = support.new_campaign(client)
+    doc = support.active_member(client, camp, read=1, specialty_ability=ability,
+                                **{"intuition_max": 3, "intuition_current": 3, **doctor})
+    ally = support.active_member(client, camp, **(ally_fields or {}))
+    return camp, doc, ally
+
+
+@pytest.mark.parametrize("face, cost, brain", [(6, 1, False), (5, 2, False), (2, 2, True)])
+def test_patch_up_heals_an_allys_body_mark(client, dice, face, cost, brain):
+    """Patch Up (p. 30): a Focus roll heals 1 Body mark on an ally, for 1 Intuition on a
+    6 and 2 on a 4-5; on a 3 or less the Doctor may take a Brain mark for the 4-5 result.
+    The book's cost could not be paid, nor the ally's mark healed."""
+    camp, doc, ally = _doctor_and_ally(client, "Patch Up", {"body_marks": 2})
+    dice(face)
+    with support.ws_connect(client, doc["id"]) as wd, support.ws_connect(client, ally["id"]) as wa:
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        wa.drain()
+        if brain:   # a 3 or less needs the Brain mark
+            wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])
+            assert wd.sync() == [PATCH_UP_REFUSED]
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"], take_brain_mark=brain)
+        wd.sync()
+        assert wa.drain()[0]["payload"]["body_marks"] == 1
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"], take_brain_mark=brain)
+        assert wd.sync() == [PATCH_UP_REFUSED]   # once on a roll
+    row = support.fetch(Character, doc["id"])
+    assert (row.intuition_current, row.brain_marks) == (3 - cost, 1 if brain else 0)
+    assert support.fetch(Character, ally["id"]).body_marks == 1
+
+
+def test_patch_up_refusals(client, dice):
+    camp, doc, ally = _doctor_and_ally(client, "Patch Up", intuition_current=1, sway=1)
+    stranger = support.active_member(client, support.new_campaign(client), body_marks=1)
+    with support.ws_connect(client, doc["id"]) as wd:
+        dice(6)
+        wd.send("roll", action="sway", drive_spent=0)   # not a Focus roll
+        wd.sync()
+        support.update(Character, ally["id"], body_marks=1)
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])
+        assert wd.sync() == [PATCH_UP_REFUSED]
+        dice(5)
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        for target in (ally["id"], doc["id"], stranger["id"]):   # 2 Intuition short; self; another campaign
+            wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=target)
+        support.update(Character, ally["id"], body_marks=0)
+        support.update(Character, doc["id"], intuition_current=3)
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])   # no Body mark
+        assert wd.sync() == [PATCH_UP_REFUSED] * 4
+    assert support.fetch(Character, stranger["id"]).body_marks == 1
+
+
+@pytest.mark.parametrize("face", [6, 5])
+def test_resuscitation_revives_a_scarred_ally(client, dice, face):
+    """Resuscitation (p. 30): when an ally takes a scar, a Focus roll revives them. On a
+    6 it works; on a 4-5 it costs 3 drive points of the Doctor's choosing."""
+    camp, doc, ally = _doctor_and_ally(client, "Resuscitation", {"incapacitated": True, "scars_count": 1},
+                                       nerve_max=3, nerve_current=2, cunning_max=3, cunning_current=1)
+    dice(face)
+    with support.ws_connect(client, doc["id"]) as wd, support.ws_connect(client, ally["id"]) as wa:
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        wa.drain()
+        if face == 5:
+            for cost, status in (({"nerve": 2}, 422), ({"nerve": 1, "body": 2}, 422), ({"nerve": 1.5, "cunning": 1.5}, 422),
+                                 ({"cunning": 3}, 409)):
+                wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"], cost=cost)
+                expected = "Not enough drive for those 3 points." if status == 409 else \
+                    "Choose 3 drive points to pay, from Nerve, Cunning and Intuition."
+                assert wd.sync() == [POST_REFUSED(expected, status)]
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"],
+                cost={"nerve": 2, "intuition": 1})
+        msgs = wd.sync()
+        assert msgs[-1]["payload"]["message"] == f"{doc['name']} used Resuscitation {support.EM} {ally['name']} is back on their feet" \
+            + (" (2 Nerve, 1 Intuition)." if face == 5 else ".")
+        assert wa.drain()[0]["payload"]["incapacitated"] is False
+    row = support.fetch(Character, doc["id"])
+    assert (row.nerve_current, row.intuition_current) == ((0, 2) if face == 5 else (2, 3))
+
+
+def test_resuscitation_refusals(client, dice):
+    """Not on a 3 or less, not for a dead ally or one standing, and not when the scar
+    being taken is the fourth, even before it is recorded."""
+    camp, doc, ally = _doctor_and_ally(client, "Resuscitation",
+                                       {"bleed_marks": 3, "scars_list": ["a", "b", "c"], "scars_count": 3})
+    with support.ws_connect(client, doc["id"]) as wd, support.ws_connect(client, ally["id"]) as wa:
+        dice(3)
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        support.update(Character, ally["id"], incapacitated=True)
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
+        assert wd.sync() == [RESUSCITATION_REFUSED]   # a 3
+        support.update(Character, ally["id"], incapacitated=False)
+        dice(6)
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
+        assert wd.sync() == [RESUSCITATION_REFUSED]   # standing
+        wa.drain()
+        wa.send("take_mark", mark_type="bleed", is_from_enemy=False)   # a fourth mark: the fourth scar
+        assert support.types(wa.sync())[0] == "trigger_scar"
+        wd.drain()
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
+        assert wd.sync() == [RESUSCITATION_REFUSED]
+        wa.send("apply_scar", scar_text="The last one", skip_shifts=True)
+        wa.sync()
+        wd.drain()
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
+        assert wd.sync() == [RESUSCITATION_REFUSED]   # dead
+    assert support.fetch(Character, ally["id"]).is_dead is True

@@ -13,11 +13,12 @@ result and outcome, as in roll_result) and "kept" (None, or {"index", "is_gilded
 from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, drive_for_action, roll_dice
 from vtt.abilities import abilities_of, resistance_left
 from vtt.config import logger
-from models import Circle
+from models import Character, Circle
 from vtt.circle_queries import STAMINA_DICE, circle_abilities, downed_members, take_train_die, train_dice_left
 from vtt.serializers import get_char_dict, get_circle_dict
-from vtt.ws.handlers.marks import apply_mark
-from vtt.ws.manager import manager
+from vtt.ws.handlers.circle import announce_downed
+from vtt.ws.handlers.marks import apply_mark, awaiting_scar
+from vtt.ws.manager import character_key, manager
 
 ACTION_KEYS = ("move", "strike", "control", "sway", "sneak", "hide", "survey", "read", "sense")
 
@@ -392,7 +393,21 @@ POST_ROLL_REFUSED = {
     "Flourish": "Flourish needs a failed or mixed roll that could take Cunning, and 2 Cunning to spend.",
     "Learn from My Mistakes": "Learn from My Mistakes needs a roll of 3 or less.",
     "Bending Spoons": "Bending Spoons needs a mixed success on a Sense roll.",
+    "Patch Up": "Patch Up needs a Focus roll, an ally in your circle with a Body mark, and the Intuition to pay.",
+    "Resuscitation": "Resuscitation needs a Focus roll of 4 or more and an incapacitated ally whose scar is not their fourth.",
 }
+SUCCESS = ("full_success", "critical_success")
+
+
+def _ally(ctx, payload):
+    """The ally a post-roll ability names: an active member of the roller's campaign,
+    other than the roller, locked for the change."""
+    target = payload.get("target_character_id")
+    if not ctx.camp_id or type(target) is not int or target == ctx.character.id:
+        return None
+    return ctx.db.query(Character).filter(
+        Character.id == target, Character.campaign_id == ctx.camp_id, Character.status == "active",
+    ).with_for_update().first()
 
 
 async def handle_use_post_roll_ability(ctx):
@@ -454,6 +469,66 @@ async def handle_use_post_roll_ability(ctx):
         last["outcome"] = "full_success"
         await apply_mark(ctx, character, "bleed", channel, offer_intercepts=False)
         await log(f"{character.name} used Bending Spoons — took 1 Bleed mark to upgrade the result.")
+
+    elif ab_name == "Patch Up":
+        # Patch Up (p. 30): a Focus roll heals 1 Body mark on an ally. On a 6, 1 Intuition
+        # (a critical counts as a 6); on a 4-5, 2 Intuition; on a 3 or less the Doctor may
+        # take a Brain mark to take the 4-5 result.
+        ally = _ally(ctx, payload)
+        failed = fresh and last["outcome"] == "failure"
+        cost = 1 if fresh and last["outcome"] in SUCCESS else 2
+        if not (fresh and last["action"] == "read" and ally is not None and (ally.body_marks or 0) >= 1
+                and (not failed or payload.get("take_brain_mark") is True)
+                and (character.intuition_current or 0) >= cost):
+            db.rollback()
+            await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED[ab_name])
+            return
+        last["used"].add(ab_name)
+        character.intuition_current -= cost
+        ally.body_marks -= 1
+        db.commit()
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast(character_key(ally.id), {"type": "character_update", "payload": get_char_dict(ally)})
+        await log(f"{character.name} used Patch Up — healed 1 Body mark on {ally.name} ({cost} Intuition"
+                  + (", and a Brain mark)." if failed else ")."))
+        if failed:
+            await apply_mark(ctx, character, "brain", channel, offer_intercepts=False)
+
+    elif ab_name == "Resuscitation":
+        # Resuscitation (p. 30): when an ally takes a scar, a Focus roll revives them. On a
+        # 6 it works; on a 4-5 it costs 3 drive points of the Doctor's choosing. "This
+        # cannot be used when a PC takes their fourth scar": a scar still waiting to be
+        # recorded counts.
+        ally = _ally(ctx, payload)
+        mixed = fresh and last["outcome"] == "mixed_success"
+        scar_number = ally is not None and (ally.scars_count or 0) + (1 if ally.id in awaiting_scar else 0)
+        if not (fresh and last["action"] == "read" and (mixed or last["outcome"] in SUCCESS)
+                and ally is not None and ally.incapacitated and not ally.is_dead and scar_number < 4):
+            db.rollback()
+            await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED[ab_name])
+            return
+        cost = {}
+        if mixed:
+            cost = payload.get("cost")
+            if not (isinstance(cost, dict) and set(cost) <= set(DRIVES)
+                    and all(type(v) is int and v >= 0 for v in cost.values()) and sum(cost.values()) == 3):
+                db.rollback()
+                await _refuse(ctx, "use_post_roll_ability", 422, "Choose 3 drive points to pay, from Nerve, Cunning and Intuition.")
+                return
+            if any((getattr(character, f"{d}_current", 0) or 0) < v for d, v in cost.items()):
+                db.rollback()
+                await _refuse(ctx, "use_post_roll_ability", 409, "Not enough drive for those 3 points.")
+                return
+            for d, v in cost.items():
+                setattr(character, f"{d}_current", getattr(character, f"{d}_current") - v)
+        last["used"].add(ab_name)
+        ally.incapacitated = False
+        db.commit()
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast(character_key(ally.id), {"type": "character_update", "payload": get_char_dict(ally)})
+        paid = ", ".join(f"{v} {d.capitalize()}" for d, v in cost.items() if v)
+        await log(f"{character.name} used Resuscitation — {ally.name} is back on their feet" + (f" ({paid})." if paid else "."))
+        await announce_downed(ctx)
 
 
 async def handle_burn_resistance(ctx):

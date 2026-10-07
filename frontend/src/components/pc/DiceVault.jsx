@@ -23,7 +23,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   const {
     character, lastRoll: ownRoll, lastRollKept, tableRoll, isRolling, rollWaiting, rollError, activityLog, rollAction,
     pendingGildedChoice, resolveGildedChoice, sendChat, circleCreation,
-    burnResistance, usePostRollAbility,
+    burnResistance, usePostRollAbility, campaignRoster,
   } = useGameStore(useShallow(s => ({
     character: s.character,
     lastRoll: s.lastRoll,
@@ -40,6 +40,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     circleCreation: s.circleCreation,
     burnResistance: s.burnResistance,
     usePostRollAbility: s.usePostRollAbility,
+    campaignRoster: s.campaignRoster,
   })));
 
   const logEntries = externalLog ?? activityLog;
@@ -143,6 +144,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       drivePickerPrompt={drivePickerPrompt}
       setDrivePickerPrompt={setDrivePickerPrompt}
       setDismissedPrompts={setDismissedPrompts}
+      allies={(campaignRoster?.active_investigators || []).filter(inv => inv.id !== character?.id)}
     />
   );
 
