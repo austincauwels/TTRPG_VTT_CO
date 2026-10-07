@@ -28,6 +28,10 @@ export const ABILITY_ROLL_MODS = {
   "Open Book":           { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Open Book (+${resistRemaining(ch,'cunning')}d)` },
   "Lie Detector":        { actions: ['sneak'],                   extraDice: () => 1, extraGild: true,  chipLabel: () => 'Lie Detector (gild a die; the first Cunning spent is worth +2d)' },
   "Misdirection":        { actions: ['hide'],                    extraDice: () => 1, extraGild: false, chipLabel: () => 'Misdirection (the first Cunning spent is worth +2d)' },
+  // Leverage (p. 31): a Sway roll using what a successful Read revealed
+  "Leverage":            { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Leverage (using what you learned: +${resistRemaining(ch,'cunning')}d)` },
+  // Narrow Escape (p. 29): escaping a trap or ambush
+  "Narrow Escape":       { actions: ['move'],                    extraDice: () => 1, extraGild: false, chipLabel: () => 'Narrow Escape (escaping a trap or ambush: +1d)' },
   "Interrogation":       { actions: ['sneak'],                   extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Interrogation (+${resistRemaining(ch,'cunning')}d)` },
   "Inspection":          { actions: ['survey'],                  extraDice: () => 0, extraGild: true,  chipLabel: () => 'Inspection (gild extra die)' },
   "Basic Training":      { actions: ['survey'],                  extraDice: (ch) => resistRemaining(ch,'nerve'),   extraGild: false, chipLabel: (ch) => `Basic Training (+${resistRemaining(ch,'nerve')}d)` },

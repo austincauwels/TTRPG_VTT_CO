@@ -93,6 +93,11 @@ ROLL_MODS = {
     "Sweet Talk":            {"actions": ["sneak"], "extra_dice": 1,
                               "gild_if": lambda ch: resistance_left(ch, "cunning") >= 2},
     "Open Book":             {"actions": ["sway"], "extra_dice": lambda ch: resistance_left(ch, "cunning")},
+    # Leverage (p. 31): Sway rolls using what a Read revealed add the current Cunning
+    # resistance in dice; whether the roll uses it is the player's call, as Open Book's
+    "Leverage":              {"actions": ["sway"], "extra_dice": lambda ch: resistance_left(ch, "cunning")},
+    # Narrow Escape (p. 29): +1d to Move when escaping a trap or ambush (the player's call)
+    "Narrow Escape":         {"actions": ["move"], "extra_dice": 1},
     "Lie Detector":          {"actions": ["sneak"], "gild": True, "first_point": "cunning"},
     "Misdirection":          {"actions": ["hide"], "first_point": "cunning"},
     "Interrogation":         {"actions": ["sneak"], "extra_dice": lambda ch: resistance_left(ch, "cunning")},

@@ -613,6 +613,18 @@ def test_burn_resistance_uses_the_actions_own_drive(client, dice):
     assert (fetched.cunning_resistance_spent, fetched.nerve_resistance_spent) == (1, 0)
 
 
+@pytest.mark.parametrize("ability,action,fields,count", [
+    ("Narrow Escape", "move", dict(move=1), 2),               # +1d (p. 29)
+    ("Leverage", "sway", dict(sway=1, cunning_max=6), 3),     # + current Cunning resistance (p. 31)
+])
+def test_narrow_escape_and_leverage_add_their_dice(client, dice, ability, action, fields, count):
+    ch = support.forge(client, specialty_ability=ability, **fields)
+    dice(*([2] * count))
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action=action, drive_spent=0, ability_mods=[ability])
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == count
+
+
 def test_a_gilded_die_refreshes_the_actions_own_drive(client, dice):
     """Rulebook p. 8: taking the gilded result refreshes "the drive that encompasses that
     action". A gilded Move roll paid in Cunning (Cool Under Pressure) refreshes Nerve; it
