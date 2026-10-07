@@ -98,6 +98,9 @@ ROLL_MODS = {
     "Leverage":              {"actions": ["sway"], "extra_dice": lambda ch: resistance_left(ch, "cunning")},
     # Narrow Escape (p. 29): +1d to Move when escaping a trap or ambush (the player's call)
     "Narrow Escape":         {"actions": ["move"], "extra_dice": 1},
+    # Press Conference (p. 28): +1d to Cunning rolls at the assembly the Journalist called
+    # (the 1 Cunning is paid with use_ability)
+    "Press Conference":      {"actions": ["sway", "sneak", "hide"], "extra_dice": 1},
     "Lie Detector":          {"actions": ["sneak"], "gild": True, "first_point": "cunning"},
     "Misdirection":          {"actions": ["hide"], "first_point": "cunning"},
     "Interrogation":         {"actions": ["sneak"], "extra_dice": lambda ch: resistance_left(ch, "cunning")},

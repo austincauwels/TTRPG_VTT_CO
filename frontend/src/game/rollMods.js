@@ -33,6 +33,9 @@ export const ABILITY_ROLL_MODS = {
   "Leverage":            { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Leverage (using what you learned: +${resistRemaining(ch,'cunning')}d)` },
   // Narrow Escape (p. 29): escaping a trap or ambush
   "Narrow Escape":       { actions: ['move'],                    extraDice: () => 1, extraGild: false, chipLabel: () => 'Narrow Escape (escaping a trap or ambush: +1d)' },
+  // Press Conference (p. 28): the Cunning rolls made at the assembly the Journalist called
+  // (its 1 Cunning is paid with the ability's Use button)
+  "Press Conference":    { actions: ['sway','sneak','hide'],     extraDice: () => 1, extraGild: false, chipLabel: () => 'Press Conference (at the assembly you called: +1d)' },
   "Interrogation":       { actions: ['sneak'],                   extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Interrogation (+${resistRemaining(ch,'cunning')}d)` },
   "Inspection":          { actions: ['survey'],                  extraDice: () => 0, extraGild: true,  chipLabel: () => 'Inspection (gild extra die)' },
   "Basic Training":      { actions: ['survey'],                  extraDice: (ch) => resistRemaining(ch,'nerve'),   extraGild: false, chipLabel: (ch) => `Basic Training (+${resistRemaining(ch,'nerve')}d)` },

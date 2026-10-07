@@ -618,6 +618,10 @@ def test_burn_resistance_uses_the_actions_own_drive(client, dice):
 @pytest.mark.parametrize("ability,action,fields,count", [
     ("Narrow Escape", "move", dict(move=1), 2),               # +1d (p. 29)
     ("Leverage", "sway", dict(sway=1, cunning_max=6), 3),     # + current Cunning resistance (p. 31)
+    ("Press Conference", "sway", dict(sway=1), 2),            # +1d on Cunning rolls (p. 28)
+    ("Press Conference", "sneak", dict(sneak=1), 2),          # Read is a Cunning action
+    ("Press Conference", "hide", dict(hide=1), 2),
+    ("Press Conference", "move", dict(move=1), 1),            # not a Cunning action: no die
 ])
 def test_narrow_escape_and_leverage_add_their_dice(client, dice, ability, action, fields, count):
     ch = support.forge(client, specialty_ability=ability, **fields)
