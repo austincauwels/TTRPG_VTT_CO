@@ -26,8 +26,9 @@ export const MAX_ABILITY_USES = {
 export const ABILITY_ROLL_MODS = {
   "Sweet Talk":          { actions: ['sneak'],                   extraDice: () => 1, extraGild: false, gildIfCunningResist2: true, chipLabel: (ch) => `Sweet Talk (+1d${resistRemaining(ch,'cunning') >= 2 ? ', gilded' : ''})` },
   "Open Book":           { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Open Book (+${resistRemaining(ch,'cunning')}d)` },
-  "Lie Detector":        { actions: ['sneak'],                   extraDice: () => 1, extraGild: true,  chipLabel: () => 'Lie Detector (gild a die; the first Cunning spent is worth +2d)' },
-  "Misdirection":        { actions: ['hide'],                    extraDice: () => 1, extraGild: false, chipLabel: () => 'Misdirection (the first Cunning spent is worth +2d)' },
+  // The first drive point spent counts twice: no die until drive is spent (firstPoint)
+  "Lie Detector":        { actions: ['sneak'],                   extraDice: () => 0, firstPoint: true, extraGild: true,  chipLabel: () => 'Lie Detector (gild a die; the first Cunning spent is worth +2d)' },
+  "Misdirection":        { actions: ['hide'],                    extraDice: () => 0, firstPoint: true, extraGild: false, chipLabel: () => 'Misdirection (the first Cunning spent is worth +2d)' },
   // Leverage (p. 31): a Sway roll using what a successful Read revealed
   "Leverage":            { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Leverage (using what you learned: +${resistRemaining(ch,'cunning')}d)` },
   // Narrow Escape (p. 29): escaping a trap or ambush
@@ -35,7 +36,7 @@ export const ABILITY_ROLL_MODS = {
   "Interrogation":       { actions: ['sneak'],                   extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Interrogation (+${resistRemaining(ch,'cunning')}d)` },
   "Inspection":          { actions: ['survey'],                  extraDice: () => 0, extraGild: true,  chipLabel: () => 'Inspection (gild extra die)' },
   "Basic Training":      { actions: ['survey'],                  extraDice: (ch) => resistRemaining(ch,'nerve'),   extraGild: false, chipLabel: (ch) => `Basic Training (+${resistRemaining(ch,'nerve')}d)` },
-  "Better Part of Valor":{ actions: ['control','move'],          extraDice: () => 1, extraGild: true,  chipLabel: () => 'Better Part of Valor (gild a die; the first Nerve spent is worth +2d)' },
+  "Better Part of Valor":{ actions: ['control','move'],          extraDice: () => 0, firstPoint: true, extraGild: true,  chipLabel: () => 'Better Part of Valor (gild a die; the first Nerve spent is worth +2d)' },
   // In danger is the player's call, so it is a chip like the others, shown with a Bleed mark
   "Tenacious":           { actions: ['move','strike','control'], extraDice: () => 0, extraGild: true,  condition: (ch) => (ch.bleed_marks || 0) >= 1, chipLabel: () => 'Tenacious (in danger with a Bleed mark: gild a die)' },
   "Extend Your Senses":  { actions: ['sense'],                   extraDice: (ch) => resistRemaining(ch,'intuition'), extraGild: false, chipLabel: (ch) => `Extend Your Senses (+${resistRemaining(ch,'intuition')}d)` },
@@ -72,7 +73,7 @@ export function getAvailableRollMods(character, action, circle = null) {
     const maxUses = MAX_ABILITY_USES[abilityName];
     if (maxUses && (uses[abilityName] || 0) >= maxUses) return;
     const extra = typeof def.extraDice === 'function' ? def.extraDice(character) : def.extraDice;
-    if (!def.autoApply && extra === 0 && !def.extraGild && !def.driveSubstitute && !def.costBrainMark) return;
+    if (!def.autoApply && extra === 0 && !def.extraGild && !def.driveSubstitute && !def.costBrainMark && !def.firstPoint) return;
     mods.push({
       key: abilityName,
       label: def.chipLabel(character),

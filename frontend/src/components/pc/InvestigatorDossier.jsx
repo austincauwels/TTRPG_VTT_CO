@@ -632,10 +632,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       <span className={`font-mono tabular-nums text-xs font-black w-7 text-center ${(preSpend[cat.driveKey] || 0) > 0 ? 'text-oxblood' : 'text-sepia'}`}>+{preSpend[cat.driveKey] || 0}d</span>
                       <button
                         onClick={() => setPreSpend(p => {
-                          const maxSpend = Math.min(currentDrive, 6 - 1);
+                          const maxSpend = Math.min(currentDrive, 6);
                           return { ...p, [cat.driveKey]: Math.min(maxSpend, (p[cat.driveKey] || 0) + 1) };
                         })}
-                        disabled={(preSpend[cat.driveKey] || 0) >= Math.min(currentDrive, 5)}
+                        // Up to six dice (p. 11): the roll keeps only what fits after the rating
+                        disabled={(preSpend[cat.driveKey] || 0) >= Math.min(currentDrive, 6)}
                         aria-label={`Spend one more ${cat.name} for +1d`}
                         className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
                       >+</button>
