@@ -372,6 +372,22 @@ def test_intercept_premonitions_soaks_the_targets_mark(client):
     assert support.fetch(Character, target["id"]).body_marks == 1
 
 
+def test_a_soaked_mark_stays_soaked_when_the_target_takes_another(client):
+    """Fixed: the target's socket kept its own copy of the row, so its next mark was
+    counted from the old value and undid the ally's Premonitions. Each message now
+    reads the row fresh (vtt/ws/endpoint.py)."""
+    target, seer = _allies(client, dict(body_marks=2), dict(intuition_max=3, specialty_ability="Premonitions"))
+    with support.ws_connect(client, target["id"]) as wt, support.ws_connect(client, seer["id"]) as wsr:
+        wt.send("update_pen_font", pen_font="Kalam")  # the target's socket has loaded its row
+        wt.sync()
+        wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
+        wsr.sync()
+        wt.drain()
+        wt.send("take_mark", mark_type="body")
+        assert wt.sync()[0]["payload"]["body_marks"] == 2
+    assert support.fetch(Character, target["id"]).body_marks == 2
+
+
 def test_premonitions_needs_a_mark_to_soak(client):
     target, seer = _allies(client, dict(bleed_marks=0), dict(intuition_max=3, specialty_ability="Premonitions"))
     with support.ws_connect(client, seer["id"]) as wsr:

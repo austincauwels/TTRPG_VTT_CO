@@ -365,6 +365,23 @@ def test_roll_without_action_sends_roll_error(client):
         assert ws.sync() == [{"type": "roll_error", "payload": {"message": "roll action missing 'action' field"}}]
 
 
+def test_a_roll_reads_the_drive_the_gm_just_set(client, dice):
+    """Fixed: the player's socket kept the character it had loaded, so after the GM
+    raised a drive the player's spend was refused, or a roll wrote the old value back."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=1, nerve_max=6, nerve_current=0)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        ws.send("update_pen_font", pen_font="Kalam")  # the player's socket has loaded its row
+        ws.sync()
+        gm.send("update_drive", pool="nerve", value=4, character_id=ch["id"])
+        gm.sync()
+        ws.drain()
+        dice(2, 3)
+        ws.send("roll", action="move", drive_spent=1)
+        assert len(ws.sync()[0]["payload"]["roll"]["dice"]) == 2
+    assert support.fetch(Character, ch["id"]).nerve_current == 3
+
+
 @pytest.mark.parametrize("spent", [-3, "-1", -1.5])
 def test_negative_drive_spent_is_rejected(client, dice, spent):
     """Fixed (D15): a negative spend raised the drive above its max and was committed

@@ -390,17 +390,14 @@ def test_spend_resource_needs_a_character(client):
         assert gm.sync() == []
 
 
-def test_spend_uses_stale_connect_time_circle(client):
-    """QUIRK: the socket keeps the circle it loaded on connect. When the GM opens
-    spending after the player connected, the player's spend is silently ignored
-    until the player's session commits something and reloads its objects."""
+def test_spend_sees_the_gm_opening_spending(client):
+    """Fixed: the socket kept the circle it loaded on connect, so a spend after the GM
+    opened spending was silently ignored until the player's session committed
+    something. Each message now reads the rows fresh (vtt/ws/endpoint.py)."""
     camp, member, cid = _resource_setup(client, editable=False)
     with support.ws_connect(client, member["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("gm_toggle_resource_edit", role="GM")
         assert gm.sync()[0]["payload"]["resources_editable"] is True
         assert support.types(ws.drain()) == ["circle_update"]
         ws.send("spend_resource", resource_type="stitch")
-        assert support.types(ws.sync()) == []
-        ws.send("update_pen_font", pen_font="Kalam")  # any commit expires the stale circle
-        ws.send("spend_resource", resource_type="stitch")
-        assert support.types(ws.sync()) == ["character_update", "character_update", "circle_update", "activity_log"]
+        assert support.types(ws.sync()) == ["character_update", "circle_update", "activity_log"]

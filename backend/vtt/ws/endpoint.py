@@ -158,6 +158,14 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
                 target_char_id = own_char_id
 
             try:
+                # Each message starts a new transaction on fresh rows. The socket's session
+                # lives as long as the socket, and a row it loaded earlier (the character,
+                # the connect-time circle) stayed as it was until something on this socket
+                # committed: an advancement pick, a mark an ally removed or a resource the
+                # GM opened all went unseen. Rolling back expires every loaded row, so the
+                # next read gets the current values. Nothing uncommitted should outlive
+                # its message, so the rollback loses nothing.
+                db.rollback()
                 character = db.query(Character).filter(Character.id == target_char_id).first() if target_char_id else None
 
                 # camp_id and camp_code are resolved once at connection time and reused — characters

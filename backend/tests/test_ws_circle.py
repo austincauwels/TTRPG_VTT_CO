@@ -334,6 +334,36 @@ def test_advancing_the_circle_replenishes_its_resources(client):
         assert (circle["stitch"], circle["refresh"], circle["train"]) == (1, 1, 1)
 
 
+def test_an_open_desk_can_take_the_picks_of_an_advance(client):
+    """Fixed: a player whose desk was open when the Lightkeeper advanced the circle got
+    "No advancement is waiting", because the socket kept the character it had loaded.
+    Each message now reads the row fresh (vtt/ws/endpoint.py)."""
+    camp, (member,), cid = _campaign(client, move=1)
+    support.update(Circle, cid, illumination=12)
+    with support.ws_connect(client, member["id"]) as wm, support.ws_connect(client, camp["campaign_code"]) as gm:
+        wm.send("update_pen_font", pen_font="Kalam")  # the player's socket has loaded its row
+        wm.sync()
+        gm.send("gm_advance_circle")
+        gm.sync()
+        wm.drain()
+        wm.send("apply_advancement", choice="add_action", detail="move")
+        assert wm.sync()[0]["payload"]["move"] == 2
+
+
+def test_the_gms_resource_edit_is_written_after_a_spend(client):
+    """Fixed: the GM socket's copy of the circle still showed the value from before a
+    player's spend, so setting that value again wrote nothing."""
+    camp, (member,), cid = _campaign(client)
+    support.update(Circle, cid, stitch=2, resources_editable=True)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("update_circle", illumination=0)  # the GM socket has loaded the circle
+        gm.sync()
+        support.update(Circle, cid, stitch=1)     # a spend from elsewhere
+        gm.send("update_circle", stitch=2)
+        assert gm.sync()[0]["payload"]["stitch"] == 2
+    assert support.fetch(Circle, cid).stitch == 2
+
+
 def test_stamina_training_gilds_three_dice_an_assignment(client, dice):
     """RULES_CHECK 20: Stamina Training gives the circle three gilded dice to share each
     assignment; a player picks one on a roll, and ending the assignment brings them back."""
