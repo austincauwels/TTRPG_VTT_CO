@@ -144,6 +144,9 @@ const useGameStore = create(
       lastPlayedCampaign: null, // { type:'player'|'gm', characterId?, campaignCode, campaignName }
       circle: null,
       lastRoll: null,
+      // The server's result for the die kept in this desk's last gilded choice (roll_kept):
+      // { rollId, index, is_gilded, value, outcome, seq }
+      lastRollKept: null,
       // The latest roll by someone else at the table, as its dice started tumbling there
       // (the server's dice_thrown); the GM's tray shows it. { roll, kept, name, ink_color,
       // action, rating, character_id }
@@ -368,6 +371,7 @@ const useGameStore = create(
             clearRollTimer();
             set({
               lastRoll: roll,
+              lastRollKept: null,
               tableRoll: null, // this desk's own roll is the newest on its felt
               character: message.payload.character,
               isRolling: false,
@@ -382,6 +386,16 @@ const useGameStore = create(
             // The dice start tumbling on this desk now; a gilded roll's dice wait, still, for
             // the choice, and tumble when a die is kept (resolveGildedChoice)
             if (roll?.dice && !roll.needs_gilded_choice) playDiceTumble();
+          }
+          else if (message.type === 'roll_kept') {
+            // The server scored the die this desk kept: the outcome slip, the post-roll
+            // prompts and the resistance offer read it (DiceVault)
+            const p = message.payload || {};
+            const { lastRoll } = get();
+            if (lastRoll && lastRoll.action === p.action && lastRoll.needs_gilded_choice) {
+              set({ lastRollKept: { rollId: lastRoll.id, index: p.index, is_gilded: !!p.is_gilded,
+                value: p.value, outcome: p.outcome, seq: ++rollSeq } });
+            }
           }
           else if (message.type === 'dice_thrown') {
             // Someone else's dice start tumbling now (their roll landed, or they kept a
@@ -751,7 +765,7 @@ const useGameStore = create(
           type: 'roll',
           payload: { ...extra, action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods }
         };
-        set({ lastRoll: null, isRolling: true, rollWaiting: false, rollError: null });
+        set({ lastRoll: null, lastRollKept: null, isRolling: true, rollWaiting: false, rollError: null });
         if (socket && socket.readyState === WebSocket.OPEN) {
           sendRoll(set, get, frame);
           return;

@@ -340,6 +340,13 @@ async def handle_resolve_gilded(ctx):
         db.commit()
     _remember(character, r_act, r_cat, chosen_value, outcome_key)
 
+    # The roller's own desk learns the kept die's result, so its outcome slip, the
+    # post-roll ability prompts and the resistance offer follow the server's scoring (they
+    # were left with a roll that had no result). Sent for a secret roll too.
+    await manager.broadcast(channel, {"type": "roll_kept", "payload": {
+        "character_id": character.id, "action": r_act, "index": index, "is_gilded": want_gilded,
+        "value": chosen_value, "outcome": outcome_key}})
+
     if not pending["secret"]:
         # The kept die starts the dice tumbling on the roller's felt: the table sees them now
         shown = {**roll, "needs_gilded_choice": False, "result": chosen_value, "outcome": outcome_key}
@@ -429,7 +436,17 @@ async def handle_burn_resistance(ctx):
     result = burn_resistance(db, character, act, drive_key)
     if "error" in result:
         return
+    # The reroll's drive, as on any roll, so the desk's post-roll prompts can read it
+    result["drive_spent_key"] = drive_key
     outcome_label = OUTCOME_LABELS.get(result.get("outcome", ""), "")
+    # A gilded die that counts earns back 1 drive (rulebook p. 8) on a reroll too: a zero
+    # rating whose gilded die is the lower one, or a pool that is all gilded
+    refreshed = ""
+    if result.get("auto_gilded_refresh"):
+        setattr(character, f"{drive_key}_current",
+                min(getattr(character, f"{drive_key}_max", 3) or 0, (getattr(character, f"{drive_key}_current", 0) or 0) + 1))
+        db.commit()
+        refreshed = f" [gilded — {drive_key} Drive refreshed]"
     await manager.broadcast(channel, {
         "type": "roll_result",
         "payload": {"character_id": target_char_id, "action": act, "roll": result, "character": get_char_dict(character)}
@@ -440,7 +457,7 @@ async def handle_burn_resistance(ctx):
         # The result is the die the player keeps; resolve_gilded logs it
         log_msg = f"{character.name} burned resistance on {act}."
     else:
-        log_msg = f"{character.name} burned resistance on {act} — {result['result']} · {outcome_label}."
+        log_msg = f"{character.name} burned resistance on {act} — {result['result']} · {outcome_label}.{refreshed}"
         _remember(character, act, drive_key, result["result"], result["outcome"])
     await manager.broadcast_campaign(camp_code, camp_id, {
         "type": "activity_log",

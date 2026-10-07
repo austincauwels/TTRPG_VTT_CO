@@ -10,9 +10,14 @@ export const OUTCOME = {
   critical_success: { word: 'Critical success', className: 'text-candle-gold' },
 };
 
-// After a gilded choice the server scores the kept die alone (engine.calculate_outcome
-// with no dice list, so never a critical): 6 is a success, 4 or 5 mixed, else failure.
-export const outcomeForKept = (value) => (value === 6 ? 'full_success' : value >= 4 ? 'mixed_success' : 'failure');
+// After a gilded choice the server scores the kept die (engine.calculate_outcome): a kept
+// 6 among two or more 6s is a critical success, a 6 a success, 4 or 5 mixed, else failure.
+// The roller's desk also hears the server's own outcome (roll_kept); this covers the
+// moment before it arrives and the GM's felt.
+export const outcomeForKept = (value, dice = []) => {
+  if (value === 6) return dice.filter(d => d.value === 6).length >= 2 ? 'critical_success' : 'full_success';
+  return value >= 4 ? 'mixed_success' : 'failure';
+};
 
 // What was thrown, in the rulebook's terms, for the line under the dice:
 //   zero rating (two dice, the lower one counts)  "Move: 2 dice, lowest counts"

@@ -31,7 +31,7 @@ const rollKey = (roll) =>
 // counts, then the outcome stamp. Player inks are dark by design, so the name sits on
 // paper, not on the felt. The red number is a numbering machine's, for the look only.
 const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, rating }) => {
-  const outcomeKey = lastRoll.outcome || (keptDie ? outcomeForKept(keptDie.value) : null);
+  const outcomeKey = lastRoll.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll.dice) : null);
   const outcome = OUTCOME[outcomeKey];
   const key = rollKey(lastRoll);
   return (

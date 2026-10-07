@@ -219,6 +219,7 @@ All 26 types the server emits have a handler in `gameStore.js`, and the store ha
 | `character_update` | connect; most character handlers; `gm_end_assignment`; `gm_reset_character`; Behind Me target | Sender's key, or the affected character's key | Replaces `character` with the payload, no campaign check; triggers circle creation fetch; adds a "deceased" log line on first incapacitation |
 | `circle_update` | connect; GM circle handlers; `update_circle`; `spend_resource`; `refill_resources`; `gm_end_assignment` | Campaign (connect: sender only) | Replaces `circle`, no campaign check |
 | `roll_result` | `roll`, `burn_resistance` | Sender's key | Sets `lastRoll`, `character`, clears rolling state, sets `pendingGildedChoice` when needed |
+| `roll_kept` (since 2026-10-07) | `resolve_gilded` | Sender's key, secret rolls too | `{character_id, action, index, is_gilded, value, outcome}`: the server's result for the kept die. Sets `lastRollKept`; the dice vault's outcome slip, post-roll prompts and resistance offer read it |
 | `roll_error` | `roll` exception | Sender's key | Clears `isRolling`; the message text is not shown |
 | `trigger_scar` | `take_mark`, `intercept_mark` at 4 marks | Sender's key | Sets `character`, opens the scar modal |
 | `scene_transition` | `gm_transition_scene` | Sender's key | console.log only |

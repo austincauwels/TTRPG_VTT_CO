@@ -21,12 +21,13 @@ export { MAX_ABILITY_USES, ABILITY_ROLL_MODS, getAvailableRollMods } from '../..
 // its own and comes up whichever part is on show.
 export const DiceVault = ({ showGmControls = false, logEntries: externalLog, playerList, phonePart }) => {
   const {
-    character, lastRoll: ownRoll, tableRoll, isRolling, rollWaiting, rollError, activityLog, rollAction,
+    character, lastRoll: ownRoll, lastRollKept, tableRoll, isRolling, rollWaiting, rollError, activityLog, rollAction,
     pendingGildedChoice, resolveGildedChoice, sendChat, circleCreation,
     burnResistance, usePostRollAbility,
   } = useGameStore(useShallow(s => ({
     character: s.character,
     lastRoll: s.lastRoll,
+    lastRollKept: s.lastRollKept,
     tableRoll: s.tableRoll,
     isRolling: s.isRolling,
     rollWaiting: s.rollWaiting,
@@ -52,15 +53,22 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     : !showGmControls && lastRoll?.action && character ? Number(character[lastRoll.action]) : NaN;
   const rollRating = Number.isFinite(rawRating) ? rawRating : null;
   const gildedPending = !shownTable && !!(pendingGildedChoice && lastRoll?.needs_gilded_choice);
+  // After a gilded choice, the server's result for the kept die (roll_kept). The post-roll
+  // prompts and the resistance offer read the roll with that result, under its own id so
+  // the prompts are worked out again; the dice themselves stay on lastRoll.
+  const resolved = !shownTable && lastRollKept && lastRoll && lastRollKept.rollId === lastRoll.id ? lastRollKept : null;
+  const scoredRoll = useMemo(() => (resolved
+    ? { ...lastRoll, result: resolved.value, outcome: resolved.outcome, needs_gilded_choice: false, id: `${lastRoll.id}:kept${resolved.seq}` }
+    : lastRoll), [lastRoll, resolved]);
 
   const { visiblePrompts, setDismissedPrompts, drivePickerPrompt, setDrivePickerPrompt } =
-    usePostRollPrompts({ lastRoll, character, showGmControls });
+    usePostRollPrompts({ lastRoll: scoredRoll, character, showGmControls });
 
   // Resistance state after last roll
   const lastRollDriveKey = lastRoll?.action ? driveKeyFor(lastRoll.action) : null;
   const resistMax   = lastRollDriveKey ? Math.floor((character?.[lastRollDriveKey + '_max'] || 1) / 3) : 0;
   const resistSpent = lastRollDriveKey ? (character?.[lastRollDriveKey + '_resistance_spent'] || 0) : 0;
-  const canResist   = !gildedPending && lastRoll && lastRoll.outcome !== 'full_success' && lastRoll.outcome !== 'critical_success' && resistMax > resistSpent && !showGmControls;
+  const canResist   = !gildedPending && scoredRoll && scoredRoll.outcome !== 'full_success' && scoredRoll.outcome !== 'critical_success' && resistMax > resistSpent && !showGmControls;
 
   // Skew values are stable per-roll — computed once when lastRoll changes, not on every render
   const dieSkews = useMemo(() => {
@@ -73,7 +81,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   const [kept, setKept] = useState(null);
   const tableKept = shownTable?.kept && Number.isInteger(shownTable.kept.index)
     ? { roll: lastRoll, value: shownTable.kept.value, idx: shownTable.kept.index } : null;
-  const keptDie = shownTable ? tableKept : (kept && kept.roll === lastRoll ? kept : null);
+  const keptDie = shownTable ? tableKept
+    : kept && kept.roll === lastRoll ? kept
+    : resolved ? { roll: lastRoll, value: resolved.value, idx: resolved.index } : null;
 
   const getIsCandidate = (die, idx) => {
     if (!lastRoll?.dice) return false;
