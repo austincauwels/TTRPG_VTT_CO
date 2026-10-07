@@ -225,7 +225,7 @@ def test_gm_end_assignment(client):
     camp, (a, b), cid = _campaign(client, members=2)
     for ch in (a, b):
         support.update(Character, ch["id"], ability_uses={"Steel Mind": 1}, resources_spent_assignment=2,
-                       train_bonus=True)
+                       train_bonus=True, gear=["Lantern"])
     outsider = support.forge(client)
     support.update(Character, outsider["id"], resources_spent_assignment=2)
     support.update(Circle, cid, location="Docks", atmosphere="Fog")
@@ -234,13 +234,14 @@ def test_gm_end_assignment(client):
         msgs = gm.sync()
         assert support.types(msgs) == ["circle_update", "activity_log"]
         assert (msgs[0]["payload"]["location"], msgs[0]["payload"]["atmosphere"]) == ("", "")
-        assert msgs[1]["payload"] == {"message": f"{EM} Assignment ended. Ability uses have been reset. {EM}",
+        assert msgs[1]["payload"] == {"message": f"{EM} Assignment ended. Ability uses and gear slots have been reset. {EM}",
                                       "log_type": "field"}
         got = wa.drain()
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
         assert got[1]["payload"]["ability_uses"] == {}
         assert got[1]["payload"]["resources_spent_assignment"] == 0
         assert got[1]["payload"]["train_bonus"] is False
+        assert got[1]["payload"]["gear"] == []  # gear slots reset with the assignment (p. 52)
     assert support.fetch(Character, b["id"]).resources_spent_assignment == 0
     assert support.fetch(Character, outsider["id"]).resources_spent_assignment == 2
 

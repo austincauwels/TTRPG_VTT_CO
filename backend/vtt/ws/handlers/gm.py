@@ -160,6 +160,7 @@ async def handle_gm_end_assignment(ctx):
             ch.resources_spent_assignment = 0
             ch.train_bonus = False
             ch.train_dice = 0
+            ch.gear = []  # "Gear slots only reset once an assignment is complete" (p. 52)
         target_circle.stamina_dice_used = 0  # Stamina Training's dice come back
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
@@ -167,7 +168,7 @@ async def handle_gm_end_assignment(ctx):
             await manager.broadcast(character_key(ch.id), {"type": "character_update", "payload": get_char_dict(ch)})
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",
-            "payload": {"message": "— Assignment ended. Ability uses have been reset. —", "log_type": "field"},
+            "payload": {"message": "— Assignment ended. Ability uses and gear slots have been reset. —", "log_type": "field"},
         }, db)
         # Meticulous Notes (p. 27): detailed notes add 1 Illumination after an assignment,
         # which the Lightkeeper decides; the log reminds them

@@ -367,9 +367,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     ) : null;
 
   const gear = character.gear || [];
+  // Gear is marked when it is used, and stays marked until the Lightkeeper ends the
+  // assignment (rulebook p. 52; the server refuses unmarking). Every marked item is kept,
+  // including ones from outside these lists, which the dialog used to drop.
+  const listedGear = [...STANDARD_GEAR, ...(character.specialty ? (SPECIALTY_GEAR[character.specialty] || []) : [])];
+  const otherGear = gear.filter(item => !listedGear.includes(item));
   const openGearModal = () => {
-    const available = [...STANDARD_GEAR, ...(character.specialty ? (SPECIALTY_GEAR[character.specialty] || []) : [])];
-    setPendingGear(gear.filter(item => available.includes(item)));
+    setPendingGear([...gear]);
     setShowGearModal(true);
   };
   const displayRole = character.role || ROLE_FROM_ABILITY[character.role_ability] || '';
@@ -993,7 +997,21 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           onClick={() => setShowGearModal(false)}>
           <div ref={gearDialogRef} role="dialog" aria-modal="true" aria-labelledby="gear-dialog-title" className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
             style={{ background: 'rgb(var(--c-parchment))', border: '3px double rgb(var(--c-sepia)/0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
-            <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-5">Change Gear</h2>
+            <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-2">Change Gear</h2>
+            <p className="text-sm font-serif italic text-sepia mb-5">Mark an item when you use it. Marked gear stays until the Lightkeeper ends the assignment.</p>
+            {otherGear.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-sans font-black uppercase tracking-wider text-sepia mb-2">Other gear</p>
+                <ul className="space-y-1.5">
+                  {otherGear.map(item => (
+                    <li key={item} className="flex items-center gap-3 p-2.5 rounded-sm text-sm font-serif font-bold text-ink"
+                      style={{ background: 'rgb(var(--c-oxblood)/0.08)', border: '1px solid rgb(var(--c-oxblood) / 0.5)' }}>
+                      <TickMark /> {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {character.specialty && SPECIALTY_GEAR[character.specialty] && (
               <div className="mb-4">
@@ -1002,7 +1020,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   {SPECIALTY_GEAR[character.specialty].map(item => {
                     const sel = pendingGear.includes(item);
                     return (
-                      <button type="button" key={item} aria-pressed={sel} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
+                      <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
                         className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
                         style={{ background: sel ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.3)', border:`1px solid ${sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia)/0.22)'}` }}>
                         <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/40'}`}>{sel&&<TickMark />}</div>
@@ -1021,7 +1039,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 {STANDARD_GEAR.map(item => {
                   const sel = pendingGear.includes(item);
                   return (
-                    <button type="button" key={item} aria-pressed={sel} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
+                    <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
                       className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
                       style={{ background: sel ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.15)', border:`1px solid ${sel?'rgb(var(--c-oxblood) / 0.5)':'rgb(var(--c-sepia)/0.15)'}` }}>
                       <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/35'}`}>{sel&&<TickMark />}</div>

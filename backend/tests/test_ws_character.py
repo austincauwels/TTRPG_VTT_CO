@@ -136,12 +136,14 @@ def test_update_gear(client):
         assert msgs[1]["payload"] == {"message": f"{a['name']} updated their equipment: lamp, rope.",
                                       "log_type": "field", "ink_color": engine.INK_COLORS[0]}
         assert support.types(wb.drain()) == ["activity_log"]
-        wa.send("update_gear", gear=[])
-        msgs = wa.sync()
-        assert msgs[1]["payload"]["message"] == f"{a['name']} updated their equipment: nothing."
+        # Gear stays marked until the assignment ends (rulebook p. 52): unmarking is refused
+        wa.send("update_gear", gear=["lamp"])
+        assert wa.sync() == [{"type": "action_rejected", "payload": {
+            "action": "update_gear", "status": 409,
+            "detail": "Marked gear stays until the Lightkeeper ends the assignment."}}]
         wa.send("update_gear", gear="not a list")
         assert wa.sync() == []
-    assert support.fetch(Character, a["id"]).gear == []
+    assert support.fetch(Character, a["id"]).gear == ["lamp", "rope"]
 
 
 def test_update_gear_unaffiliated_logs_to_own_channel(client):
@@ -149,6 +151,17 @@ def test_update_gear_unaffiliated_logs_to_own_channel(client):
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("update_gear", gear=["map"])
         assert support.types(ws.sync()) == ["character_update", "activity_log"]
+
+
+def test_the_gm_may_correct_marked_gear(client):
+    """A player may not unmark gear during an assignment (rulebook p. 52); the
+    Lightkeeper may correct the list."""
+    camp, a, b = _member_pair(client)
+    support.update(Character, a["id"], gear=["Lantern", "Camera"])
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_gear", character_id=a["id"], gear=["Camera"])
+        assert gm.sync()[-1]["type"] == "activity_log"
+    assert support.fetch(Character, a["id"]).gear == ["Camera"]
 
 
 @pytest.mark.parametrize("gear", [["map", 7], [None], [["nested"]], [{"name": "lamp"}]])
@@ -160,9 +173,9 @@ def test_update_gear_non_string_item_is_rejected(client, gear):
         ws.send("update_gear", gear=gear)
         assert ws.sync() == [{"type": "action_rejected", "payload": {
             "action": "update_gear", "status": 422, "detail": "Gear items must be text."}}]
-        ws.send("update_gear", gear=["map"])
+        ws.send("update_gear", gear=["lamp", "map"])  # marked gear stays (p. 52)
         assert support.types(ws.sync()) == ["character_update", "activity_log"]
-    assert support.fetch(Character, ch["id"]).gear == ["map"]
+    assert support.fetch(Character, ch["id"]).gear == ["lamp", "map"]
 
 
 # --- apply_advancement ------------------------------------------------------

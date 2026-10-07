@@ -74,10 +74,30 @@ async def handle_revive_character(ctx):
     }, db)
 
 
+GEAR_STAYS = "Marked gear stays until the Lightkeeper ends the assignment."
+
+
+def _gear_of(character) -> list:
+    raw = character.gear
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raw = []
+    return list(raw) if isinstance(raw, list) else []
+
+
 async def handle_update_gear(ctx):
     db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
     new_gear = payload.get("gear", [])
     if isinstance(new_gear, list):
+        # Gear is marked when it is used, and "Gear slots only reset once an assignment is
+        # complete" (rulebook p. 52): a player may add items but not unmark them. The
+        # Lightkeeper may correct the list, and ending the assignment clears it.
+        if not ctx.is_gm and any(item not in new_gear for item in _gear_of(character)):
+            await manager.broadcast(channel, {"type": "action_rejected", "payload": {
+                "action": "update_gear", "status": 409, "detail": GEAR_STAYS}})
+            return
         character.gear = new_gear
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
