@@ -170,8 +170,10 @@ def _plan_roll(character, act, spent, mods, payload, stamina_die=False):
     train = bool(character.train_bonus) and ("Train" in mods or bool(payload.get("use_train")))
     if train:
         extra += 1
-    # Stamina Training (p. 41): one of the circle's shared gilded dice for this assignment
+    # Stamina Training (p. 41): one of the circle's three gilded dice for the assignment,
+    # added "as +1d to any roll". It used to gild a die already in the pool and add none.
     if stamina_die:
+        extra += 1
         gilds += 1
 
     # The drive must hold the spend and any cost from the same drive (p. 8)

@@ -90,8 +90,8 @@ export function getAvailableRollMods(character, action, circle = null) {
   const circleAbilities = (circle?.circle_ability || '').split('\n').map(a => a.trim());
   if (circleAbilities.includes('Stamina Training') && (circle?.stamina_dice_left || 0) > 0) {
     mods.push({
-      key: 'Stamina Training', label: `Stamina Training (gild a die; ${circle.stamina_dice_left} of 3 left this assignment)`,
-      autoApply: false, extraDice: 0, extraGild: true, driveSubstitute: null, shows: { dice: 0, gild: true, use: null },
+      key: 'Stamina Training', label: `Stamina Training (+1d, gilded; ${circle.stamina_dice_left} of 3 left this assignment)`,
+      autoApply: false, extraDice: 1, extraGild: true, driveSubstitute: null, shows: { dice: 1, gild: true, use: null },
     });
   }
   // Train (p. 41): a die the circle's resource gives for one roll this assignment, on the

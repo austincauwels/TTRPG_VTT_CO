@@ -364,17 +364,33 @@ def test_the_gms_resource_edit_is_written_after_a_spend(client):
     assert support.fetch(Circle, cid).stitch == 2
 
 
-def test_stamina_training_gilds_three_dice_an_assignment(client, dice):
+def test_stamina_training_on_a_zero_rating_rolls_its_die(client, dice):
+    """With a rating of 0, the Stamina die is the roll: one gilded die (an added die
+    makes it a normal roll, rulebook p. 11), not two dice taking the lower."""
+    camp, (a,), cid = _campaign(client, move=0)
+    support.update(Circle, cid, circle_ability="Stamina Training")
+    with support.ws_connect(client, a["id"]) as wa:
+        dice(5)
+        wa.send("roll", action="move", drive_spent=0, ability_mods=["Stamina Training"])
+        roll = wa.sync()[0]["payload"]["roll"]
+        assert [(d["value"], d["is_gilded"]) for d in roll["dice"]] == [(5, True)]
+        assert roll["outcome"] == "mixed_success"
+
+
+def test_stamina_training_adds_three_gilded_dice_an_assignment(client, dice):
     """RULES_CHECK 20: Stamina Training gives the circle three gilded dice to share each
-    assignment; a player picks one on a roll, and ending the assignment brings them back."""
+    assignment, each added "as +1d to any roll" (rulebook p. 41); a player picks one on a
+    roll, and ending the assignment brings them back. (It first gilded a die already in
+    the pool and added none.)"""
     camp, (a,), cid = _campaign(client, move=2)
     support.update(Circle, cid, circle_ability="Stamina Training")
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
         for left in (2, 1, 0):
-            dice(4, 5)
+            dice(4, 5, 3)
             wa.send("roll", action="move", drive_spent=0, ability_mods=["Stamina Training"])
             msgs = wa.sync()
-            assert msgs[0]["payload"]["roll"]["dice"][0]["is_gilded"] is True
+            # Move 2 plus the Stamina die: three dice, one gilded
+            assert [d["is_gilded"] for d in msgs[0]["payload"]["roll"]["dice"]] == [True, False, False]
             update = next(m for m in msgs if m["type"] == "circle_update")
             assert update["payload"]["stamina_dice_left"] == left
             wa.send("resolve_gilded", action="move", chosen_type="regular")
