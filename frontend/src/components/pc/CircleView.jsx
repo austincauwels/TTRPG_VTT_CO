@@ -692,10 +692,13 @@ export const CircleView = () => {
                   <span className="font-black uppercase tracking-wide mr-1.5">{label}</span>
                   <span className="text-sepia">{desc}</span>
                 </p>
-                {/* Available row — always shows 9 pips; players spend (left-click filled pip), GM can add/remove freely */}
-                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-1.5 mb-1">
+                {/* One row per resource, always 9 pips: filled are available, empty up to the
+                    maximum are spent, dotted lie beyond it. Players spend (click a filled pip);
+                    the GM can add and remove freely. */}
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-1.5">
                   <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Available</span>
                   <div className="flex flex-wrap gap-1">
+                    <span className="sr-only">{label}: {avail} of {maxCap} available.</span>
                     {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => {
                       const withinMax = i < maxCap;
                       const filled = i < avail;
@@ -730,27 +733,11 @@ export const CircleView = () => {
                                 ? wouldAdd && !isGM
                                   ? 'bg-transparent border-dashed border-ink/30'
                                   : 'bg-transparent border-ink/40 hover:border-oxblood/50'
-                                : 'bg-transparent border-dashed border-ink/15'
+                                : 'bg-transparent border-dotted border-ink/30 opacity-40'
                           } ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
                         />
                       );
                     })}
-                  </div>
-                </div>
-                {/* Maximum row */}
-                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                  <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Maximum</span>
-                  <div className="flex flex-wrap gap-1">
-                    {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={`w-4 h-4 rounded-sm border ${
-                          i < maxCap
-                            ? 'border-ink/40 bg-black/15'
-                            : 'border-dashed border-ink/15 bg-transparent'
-                        }`}
-                      />
-                    ))}
                   </div>
                 </div>
               </div>

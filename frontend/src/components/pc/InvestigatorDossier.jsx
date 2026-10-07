@@ -809,7 +809,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     </div>
                   )}
                 </div>
-                {/* Available row */}
+                {/* One row for the drive: filled pips are available, empty ones up to the
+                    maximum are spent, and dotted ones lie beyond the maximum */}
                 <div className="drive-row flex items-center justify-between">
                   <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2" id={`drive-avail-${cat.driveKey}`}>Available</span>
                   <div className="drive-pips flex gap-0.5 flex-wrap justify-end" role="group" aria-labelledby={`drive-avail-${cat.driveKey}`}>
@@ -827,26 +828,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             ? ''
                             : i < maxDrive
                               ? 'bg-transparent border-ink/40 hover:border-oxblood/50'
-                              : 'bg-transparent border-ink/15 opacity-30'
+                              : 'bg-transparent border-dotted border-ink/30 opacity-40'
                         } ${!readOnly && i < maxDrive && i >= currentDrive ? 'cursor-pointer' : 'cursor-default'}`}
                         style={i < currentDrive ? { background: `rgb(var(--c-drive-${cat.driveKey}))`, borderColor: `rgb(var(--c-drive-${cat.driveKey}))` } : undefined}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Maximum row */}
-                <div className="drive-row flex items-center justify-between">
-                  <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2">Maximum</span>
-                  <div className="drive-pips flex gap-0.5 flex-wrap justify-end" role="img" aria-label={`${cat.name} maximum: ${maxDrive}`}>
-                    {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={`drive-pip w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border ${
-                          i < maxDrive
-                            ? 'border-dashed border-ink/35 bg-ink/5'
-                            : 'border-dotted border-ink/10 bg-transparent'
-                        }`}
                       />
                     ))}
                   </div>
