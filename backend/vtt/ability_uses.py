@@ -14,8 +14,9 @@ Each entry may have:
   image) or name an effect.
 - effect: what the app plays out: Field Experience refreshes 1 Nerve for everyone in
   the circle, Volunteer Duty refills a circle resource, Reinvigorate refreshes 1
-  resistance, One Step Ahead writes an object into a gear slot of its own, and Geared Up
-  gives the ally the player picks a fourth gear slot.
+  resistance, One Step Ahead writes an object into a gear slot of its own, Geared Up
+  gives the ally the player picks a fourth gear slot, and Blood of the Covenant refreshes
+  drive points, split as the player chooses, equal to the current Intuition resistance.
 """
 
 ABILITY_USES = {
@@ -49,6 +50,9 @@ ABILITY_USES = {
     "Volunteer Duty":      {"effect": "volunteer"},     # p. 29: between assignments
     "One Step Ahead":      {"once": True, "effect": "step_ahead"},  # p. 31
     "Geared Up":           {"once": True, "effect": "geared_up"},   # p. 30: the ally's slot
+    # p. 32: "The first time a dangerous phenomenon inflicts a mark on anyone in your
+    # circle", read as once per assignment; whether it has happened is the player's call
+    "Blood of the Covenant": {"once": True, "effect": "covenant"},
 }
 
 # Abilities that take a scar on purpose. Their "Use" button opens the desk's scar form,

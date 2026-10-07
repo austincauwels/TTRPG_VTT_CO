@@ -632,3 +632,24 @@ def test_gear_is_written_in_by_name(client):
             "action": "update_gear", "status": 422, "detail": "A gear item is a name of up to 80 characters."}}] * 3
         ws.send("update_gear", gear=["Lantern", "Rope", "Crowbar"])
         assert ws.sync()[0]["payload"]["gear"] == ["Lantern", "Rope", "Crowbar"]
+
+
+def test_blood_of_the_covenant_refreshes_drive_equal_to_intuition_resistance(client):
+    """Blood of the Covenant (p. 32): "you refresh a number of points, in any drive,
+    equal to your current Intuition resistance", once (read as once per assignment)."""
+    ch = support.forge(client, specialty_ability="Blood of the Covenant", intuition_max=6, intuition_current=1,
+                       nerve_max=3, nerve_current=2, cunning_max=3, cunning_current=0)
+    with support.ws_connect(client, ch["id"]) as ws:
+        for points in ({"nerve": 2, "cunning": 1}, {}, {"nerve": -1, "cunning": 2}, {"body": 1}, {"nerve": True}, [1]):
+            ws.send("use_ability", ability="Blood of the Covenant", points=points)
+        assert ws.sync() == [_use_rejected(422, "Choose up to 2 drive points to refresh.")] * 6
+        ws.send("use_ability", ability="Blood of the Covenant", points={"nerve": 1, "cunning": 1})
+        msgs = ws.sync()
+        assert (msgs[0]["payload"]["nerve_current"], msgs[0]["payload"]["cunning_current"]) == (3, 1)
+        assert msgs[-1]["payload"]["message"] == f"{ch['name']} used Blood of the Covenant (refreshed 1 Nerve, 1 Cunning)."
+        ws.send("use_ability", ability="Blood of the Covenant", points={"nerve": 1})
+        assert ws.sync() == [_use_rejected(409, "Blood of the Covenant is used for this assignment.")]
+    spent = support.forge(client, specialty_ability="Blood of the Covenant", intuition_max=3, intuition_resistance_spent=1)
+    with support.ws_connect(client, spent["id"]) as ws:
+        ws.send("use_ability", ability="Blood of the Covenant", points={"nerve": 1})
+        assert ws.sync() == [_use_rejected(409, "No Intuition resistance left for Blood of the Covenant.")]

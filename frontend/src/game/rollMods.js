@@ -54,7 +54,7 @@ export const ABILITY_ROLL_MODS = {
   "Born in the Shadows": { actions: ['hide'],                    extraDice: () => 0, extraGild: true,  chipLabel: () => 'Born in the Shadows (gild extra die)' },
 };
 
-function resistRemaining(character, driveKey) {
+export function resistRemaining(character, driveKey) {
   if (!character) return 0;
   const max = Math.floor((character[driveKey + '_max'] || 1) / 3);
   const spent = character[driveKey + '_resistance_spent'] || 0;

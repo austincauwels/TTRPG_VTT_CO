@@ -8,6 +8,7 @@ import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ScarIcon } from '../shared/ScarIcon';
 import { getAvailableRollMods } from './DiceVault';
+import { resistRemaining } from '../../game/rollMods';
 import { ACTION_LABEL, scarDisplayText } from '../../game/actions';
 import { useMarkUndo, MARK_NAME } from './useMarkUndo';
 import { useDialog } from '../shared/useDialog';
@@ -51,7 +52,7 @@ const AbilityPane = ({ heading, entries, blank, renderUse }) => {
 
 // An ability used outside a roll: its cost on a button, and the choice it needs, if any
 // (game/abilityUses.js; the server pays the cost)
-const AbilityUse = ({ name, use, onUse, allies = [] }) => {
+const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const optionKeys = use.options ? Object.keys(use.options) : null;
   const [option, setOption] = useState(optionKeys ? optionKeys[0] : '');
   const [choice, setChoice] = useState('');
@@ -59,6 +60,12 @@ const AbilityUse = ({ name, use, onUse, allies = [] }) => {
   const needsResource = use.needs === 'resource';
   const needsItem = use.needs === 'item';
   const needsAlly = use.needs === 'ally';
+  // Blood of the Covenant: drive points, split as the player likes, up to the current
+  // Intuition resistance
+  const needsSplit = use.needs === 'split';
+  const [split, setSplit] = useState({ nerve: 0, cunning: 0, intuition: 0 });
+  const splitMax = needsSplit ? resistRemaining(character, 'intuition') : 0;
+  const splitTotal = split.nerve + split.cunning + split.intuition;
   const send = () => {
     const sent = onUse(name, {
       ...(optionKeys ? { option } : {}),
@@ -66,8 +73,10 @@ const AbilityUse = ({ name, use, onUse, allies = [] }) => {
       ...(needsResource ? { resource: choice } : {}),
       ...(needsItem ? { item: choice.trim() } : {}),
       ...(needsAlly ? { ally_id: Number(choice) } : {}),
+      ...(needsSplit ? { points: split } : {}),
     });
     if (sent && needsItem) setChoice('');
+    if (sent && needsSplit) setSplit({ nerve: 0, cunning: 0, intuition: 0 });
   };
   const select = 'ml-1 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5';
   return (
@@ -99,7 +108,19 @@ const AbilityUse = ({ name, use, onUse, allies = [] }) => {
           {allies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
       )}
-      <button type="button" onClick={send} disabled={(needsDrive || needsResource || needsAlly) ? !choice : needsItem ? !choice.trim() : false}
+      {needsSplit && ['nerve', 'cunning', 'intuition'].map(d => (
+        <label key={d} className="inline-flex items-center gap-1 text-sm font-serif">
+          {d[0].toUpperCase() + d.slice(1)}
+          <select aria-label={`${d} points to refresh`} value={split[d]} className={select}
+            onChange={e => setSplit(s => ({ ...s, [d]: Number(e.target.value) }))}>
+            {Array.from({ length: splitMax + 1 }, (_, n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+      ))}
+      {needsSplit && <span className="text-sm font-mono text-sepia">{splitTotal} / {splitMax}</span>}
+      <button type="button" onClick={send}
+        disabled={(needsDrive || needsResource || needsAlly) ? !choice : needsItem ? !choice.trim()
+          : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false}
         className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
       </button>
@@ -345,7 +366,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     if (readOnly) return null;
     if (ABILITY_USES[name]) {
       const allies = (campaignRoster?.active_investigators || []).filter(inv => inv.id !== character?.id);
-      return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} allies={allies} />;
+      return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} allies={allies} character={character} />;
     }
     if (SCAR_ABILITIES[name]) {
       return <ScarAbilityUse key={name} name={name} use={SCAR_ABILITIES[name]} character={character}

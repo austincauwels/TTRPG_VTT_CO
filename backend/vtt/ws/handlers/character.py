@@ -260,6 +260,19 @@ async def handle_use_ability(ctx):
         if ally is None:
             await refuse(422, "Choose an ally in your circle for the extra gear slot.")
             return
+    points = None
+    if effect == "covenant":
+        # Blood of the Covenant (p. 32): "refresh a number of points, in any drive, equal to
+        # your current Intuition resistance"
+        left = resistance_left(character, "intuition")
+        points = payload.get("points")
+        if left < 1:
+            await refuse(409, "No Intuition resistance left for Blood of the Covenant.")
+            return
+        if not (isinstance(points, dict) and set(points) <= set(DRIVES)
+                and all(type(v) is int and v >= 0 for v in points.values()) and 1 <= sum(points.values()) <= left):
+            await refuse(422, f"Choose up to {left} drive {'point' if left == 1 else 'points'} to refresh.")
+            return
     reinvigorate = None
     if effect == "reinvigorate":
         reinvigorate = payload.get("drive")
@@ -296,6 +309,12 @@ async def handle_use_ability(ctx):
         setattr(circle, resource, (getattr(circle, resource, 0) or 0) + 1)
         character.resources_spent_assignment = 2  # "You may not spend any resources during this downtime."
         paid.append(f"refilled 1 {resource.capitalize()}")
+    if points:
+        for d in DRIVES:
+            if points.get(d):
+                setattr(character, f"{d}_current", min(getattr(character, f"{d}_max", 0) or 0,
+                                                       (getattr(character, f"{d}_current", 0) or 0) + points[d]))
+        paid.append("refreshed " + ", ".join(f"{points[d]} {d.capitalize()}" for d in DRIVES if points.get(d)))
     if step_item:
         character.gear = _gear_of(character) + [ONE_STEP_AHEAD + step_item]
         paid.append(f"wrote in {step_item}")
