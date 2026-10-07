@@ -168,8 +168,16 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
 async def handle_take_mark(ctx):
     m_type = ctx.payload.get("mark_type")
     if m_type:
+        # A mark taken while an offer still holds the last one: the held mark lands first,
+        # as if the offer were declined (it used to be replaced, and lost)
+        held = _pending_marks.pop(ctx.character.id, None)
+        if held:
+            await apply_mark(ctx, ctx.character, held["mark_type"], ctx.channel, held["offer_intercepts"])
+        # Whether an enemy dealt the mark is the table's call, and the desk does not ask,
+        # so Death Defy is offered unless the payload says the mark is not from an enemy
+        # (is_from_enemy false). The offer asks the player (RULES_CHECK.md item 24).
         await mark_or_offer(ctx, ctx.character, m_type, ctx.channel,
-                            is_from_enemy=ctx.payload.get("is_from_enemy", False))
+                            is_from_enemy=ctx.payload.get("is_from_enemy") is not False)
 
 
 async def _let_the_mark_land(ctx, character, payload, after):

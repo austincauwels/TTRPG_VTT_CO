@@ -60,6 +60,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: a GM socket with no character makes a "Lightkeeper" roll where `drive_spent` is the pool size, with the same outcome tiers and criticals as a player roll.
 - Rulebook: action rolls are made by players when the GM calls for them (p. 10); the GM's own dice mechanic is countdown dice (p. 166). No GM action roll is described.
 - Suggested fix: likely a deliberate house feature. Confirm it is wanted; no change otherwise.
+- Done (2026-10-06): no change. The Lightkeeper's roll stays as the table's own feature until the owner says otherwise.
 
 ## Resistance
 
@@ -105,6 +106,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: `apply_scar` marks the character dead when `scars_count` reaches 4.
 - Rulebook (p. 74): after three scars, the risk of "a fourth and fatal scar" is high.
 - Matches. Listed so the owner can confirm the fourth scar is always fatal at this table.
+- Done (2026-10-06): no change. The fourth scar stays fatal, which matches; the owner can say if the table plays it otherwise.
 
 ## Drives and advancement
 
@@ -187,7 +189,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: after the ally's mark is applied, a member with Behind Me and at least 1 Nerve gets an offer for any mark. Using it spends 1 Nerve, removes the mark from the ally and gives it to the interceptor. No offer is sent when the mark incapacitated the ally, because offers are only sent on the non-incapacitating path. The interceptor's own soak offer has no options list and does not apply the mark.
 - Rulebook (p. 27): spend 1 Nerve to choose an ally in the same scene "who is about to take a mark from a phenomenon", and take the mark instead.
 - Suggested fix: offer it before the mark is applied, including for a fourth mark, and let the GM say whether the source is a phenomenon (as `is_from_enemy` does for Death Defy).
-- Done (2026-10-06): the interceptor now takes the mark through the normal flow, with soak options that hold it. Not done, for the reason in item 23: offering before the mark lands (including a fourth mark), and asking the Lightkeeper whether the source is a phenomenon. Death Defy has the same gap: the desk never sends is_from_enemy, so Death Defy is only offered when that flag is set.
+- Done (2026-10-06): the interceptor now takes the mark through the normal flow, with soak options that hold it. Not done, for the reason in item 23: offering before the mark lands (including a fourth mark), and asking the Lightkeeper whether the source is a phenomenon. Death Defy needed is_from_enemy, which the desk never sends, so it was never offered; it is now offered on any mark its holder takes unless the payload says is_from_enemy false, and the offer asks the player whether an enemy dealt it.
 
 ### 25. Abilities whose conditions the server does not check
 

@@ -139,14 +139,24 @@ def test_back_against_the_wall_is_not_a_soak(client):
     assert support.fetch(Character, ch["id"]).brain_marks == 1
 
 
-def test_death_defy_offer_only_from_enemy(client):
+def test_death_defy_offer_unless_not_from_an_enemy(client):
+    """Fixed (RULES_CHECK 24): Death Defy needed is_from_enemy, which the desk never sends,
+    so it was never offered. It is offered unless the payload says the mark is not from an
+    enemy; the player judges whether an enemy dealt it."""
     ch = support.forge(client, specialty_ability="Death Defy")
+    offer = [{"type": "ability_mark_offer", "payload": {
+        "ability": "Death Defy", "mark_type": "bleed", "character_id": ch["id"], "action": "escape"}}]
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="bleed", is_from_enemy=True)
-        assert ws.sync() == [{"type": "ability_mark_offer", "payload": {
-            "ability": "Death Defy", "mark_type": "bleed", "character_id": ch["id"], "action": "escape"}}]
+        assert ws.sync() == offer
+        # as the desk sends it; the mark the first offer held lands first
         ws.send("take_mark", mark_type="bleed")
-        assert ws.sync()[0]["payload"]["bleed_marks"] == 1
+        msgs = ws.sync()
+        assert msgs[0]["payload"]["bleed_marks"] == 1 and msgs[-1] == offer[0]
+        ws.send("take_mark", mark_type="bleed", is_from_enemy=False)  # the held one, then this one
+        updates = [m["payload"]["bleed_marks"] for m in ws.sync() if m["type"] == "character_update"]
+        assert updates == [2, 3]
+    assert support.fetch(Character, ch["id"]).bleed_marks == 3
 
 
 def test_endurance_six_keeps_the_character_standing(client, dice):
@@ -524,8 +534,10 @@ def test_body_soak_ignores_brain_abilities_and_brain_ignores_body(client):
         assert support.types(ws.sync()) == ["character_update"]
         ws.send("take_mark", mark_type="body")
         assert ws.sync()[0]["payload"]["options"] == [{"ability": "In the Trenches", "resist_key": "cunning"}]
-        ws.send("take_mark", mark_type="brain")
-        assert ws.sync()[0]["payload"]["options"] == [{"ability": "Compartmentalization", "resist_key": "nerve"}]
+        ws.send("take_mark", mark_type="brain")  # the body mark the offer held lands first
+        msgs = ws.sync()
+        assert msgs[0]["payload"]["body_marks"] == 1
+        assert msgs[-1]["payload"]["options"] == [{"ability": "Compartmentalization", "resist_key": "nerve"}]
 
 
 # --- intercept_mark: what happens to the interceptor --------------------------

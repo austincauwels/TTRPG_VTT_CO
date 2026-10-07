@@ -29,7 +29,7 @@ const ABILITY_OFFER_CONFIG = {
   },
   "Death Defy": {
     icon: "GiHalfDead",
-    description: "Escape unscathed: you take no marks from this enemy.",
+    description: "If an enemy dealt this mark, escape unscathed: you take no marks from it.",
     actionType: "escape",
   },
   "Let Them In": {
