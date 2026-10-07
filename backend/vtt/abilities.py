@@ -33,7 +33,7 @@ def resistance_left(character, drive: str) -> int:
     return max(0, maximum - (getattr(character, f"{drive}_resistance_spent", 0) or 0))
 
 
-def _uses(character) -> dict:
+def ability_uses(character) -> dict:
     """ability_uses as a dict. On a database that grew through init_db the column can be
     TEXT, so a row may hold the JSON as a string (QUIRKS.md); anything unreadable is empty."""
     raw = getattr(character, "ability_uses", None)
@@ -46,13 +46,13 @@ def _uses(character) -> dict:
 
 
 def uses_of(character, name: str) -> int:
-    value = _uses(character).get(name, 0)
+    value = ability_uses(character).get(name, 0)
     return value if isinstance(value, int) else 0
 
 
 def spend_use(character, name: str):
     """Takes back one recorded use (a ward that has done its work), as a new dict."""
-    uses = _uses(character)
+    uses = ability_uses(character)
     left = uses_of(character, name) - 1
     if left > 0:
         uses[name] = left
@@ -64,7 +64,7 @@ def spend_use(character, name: str):
 def count_use(character, name: str):
     """Records one use of an ability this assignment (ability_uses, reset when the
     Lightkeeper ends the assignment). A new dict, so the JSON column sees the change."""
-    uses = _uses(character)
+    uses = ability_uses(character)
     uses[name] = uses_of(character, name) + 1
     character.ability_uses = uses
 

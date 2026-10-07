@@ -7,6 +7,7 @@ import json
 from vtt.circle_queries import (STAMINA_DICE, circle_abilities, downed_members, resource_pool, saw_this_coming,
                                 train_dice_left)
 
+from vtt.abilities import ability_uses
 from vtt.portraits import served_portrait
 
 
@@ -84,7 +85,7 @@ def get_char_dict(char):
         "ink_color": getattr(char, "ink_color", "") or "",
         "campaign_id": getattr(char, "campaign_id", None),
         "personal_circle_answer": getattr(char, "personal_circle_answer", "") or "",
-        "ability_uses": getattr(char, "ability_uses", None) or {},
+        "ability_uses": ability_uses(char),
         "train_bonus": bool(getattr(char, "train_bonus", False)),
         "train_dice": train_dice_left(char),
         "warded_by_id": getattr(char, "warded_by_id", None),

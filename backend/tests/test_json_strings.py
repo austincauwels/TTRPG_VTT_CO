@@ -41,12 +41,16 @@ def test_char_dict_empty_string_gear_is_empty_list(client):
         assert (p["gear"], p["scars_list"]) == ([], [])
 
 
-def test_char_dict_passes_string_ability_uses_through(client):
-    """QUIRK: gear and scars are parsed, but ability_uses is sent as the raw string."""
+def test_char_dict_parses_string_ability_uses(client):
+    """ability_uses is parsed like gear and scars. It used to be sent as the raw string,
+    and the desk's gear slots and once-per-assignment Use buttons read it as an object."""
     ch = support.forge(client)
     support.update(Character, ch["id"], ability_uses='{"Death Defy": 1}')
     with support.ws_connect(client, ch["id"]) as ws:
-        assert ws.initial[0]["payload"]["ability_uses"] == '{"Death Defy": 1}'
+        assert ws.initial[0]["payload"]["ability_uses"] == {"Death Defy": 1}
+    support.update(Character, ch["id"], ability_uses="not json")
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert ws.initial[0]["payload"]["ability_uses"] == {}
 
 
 def test_circle_dict_parses_string_backstory(client):
@@ -172,4 +176,4 @@ def test_roll_with_string_ability_uses_works(client, dice):
         ws.send("roll", action="read", drive_spent=0, ability_mods=["Meticulous Notes"])
         p = ws.sync()[0]["payload"]
         assert len(p["roll"]["dice"]) == 2
-        assert p["character"]["ability_uses"] == '{"Death Defy": 1}'
+        assert p["character"]["ability_uses"] == {"Death Defy": 1}
