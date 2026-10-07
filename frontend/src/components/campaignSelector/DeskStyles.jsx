@@ -322,14 +322,16 @@ export const DeskStyles = () => (
       /* wider than tall: the light runs further along the desk than down it, and its
          reach grows with the screen, so the tickets stay legible and the corners dark */
       background: radial-gradient(ellipse 220vmax 169vmax at center,
-        rgba(8,4,2,0) 0, rgba(8,4,2,0) max(182px, 12.6vw),
+        rgba(8,4,2,0) 0, rgba(8,4,2,0) max(150px, 10.4vw),
         rgba(8,4,2,calc(var(--shade, 0.42) * 0.45)) max(468px, 32.5vw),
         rgba(8,4,2,calc(var(--shade, 0.42) * 0.82)) max(910px, 63.2vw),
         rgba(8,4,2,var(--shade, 0.42)) max(1365px, 94.8vw),
         rgba(8,4,2,calc(var(--shade, 0.42) * 1.25)) max(2080px, 144.4vw));
     }
-    @media ${HUB_NARROW} { .hub-shade { --shade: 0.56; } }
-    @media ${HUB_WIDE} { .hub-shade { --shade: 0.4; } }
+    /* A dim room: the candles are its only light (owner's request, 2026-10-07: the room was
+       lit as if from overhead, which washed out the flicker of the shadows) */
+    @media ${HUB_NARROW} { .hub-shade { --shade: 0.76; } }
+    @media ${HUB_WIDE} { .hub-shade { --shade: 0.8; } }
 
     /* ── Cast shadows ──
        Every object on the desk carries a .cast child: a soft dark copy of its outline,

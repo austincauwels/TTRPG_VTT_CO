@@ -1,21 +1,27 @@
 import React from 'react';
 
 // The chapter hub's candles, seen from above as the desk is: three pillar candles in a tight
-// cluster, as in her original hub. Each top is a slightly uneven disc of wax with a raised
+// cluster, as in her original hub, and three smaller ones among them (owner's request,
+// 2026-10-07: more candles, and a darker room for their shadows). Each top is a slightly uneven disc of wax with a raised
 // rim glowing where it is thin, a pool of melted wax around the wick, drips that have run
 // over the rim (bulges on the outline, a channel across the rim, a bead below), and a small
 // bright flame with a soft halo. Each candle throws a long soft shadow away from every
-// other lit flame, and the shadows stretch and shorten with the room's flicker. One candle
-// burns for the chapter and one more for each investigator in play or campaign you run, up
-// to three (lit, 1 to 3); an unlit candle shows a cold pool, a dark wick and a thread of
-// smoke. Drawn for this app in code (no source art). Decorative: hidden from assistive
+// other lit flame, and the shadows stretch and shorten with the room's flicker. The three
+// pillars burn for the chapter, and one smaller candle more for each investigator in play
+// or campaign you run, up to all six (lit, 3 to 6); an unlit candle shows a cold pool, a
+// dark wick and a thread of smoke. Drawn for this app in code (no source art). Decorative: hidden from assistive
 // technology. Everything holds still under reduced motion (DeskStyles.jsx).
 
 // viewBox 0 0 230 190: x, y, radius, height (for shadow length), drips (degrees, 0 = right)
+// The three pillars first, then the smaller candles, which stand inside the pillars' span
+// so the cluster keeps its measures (DeskStyles.jsx, .hub-candles).
 const CANDLES = [
   { x: 72, y: 112, r: 33, h: 1.0, seed: 1, drips: [200, 322] },
   { x: 134, y: 58, r: 23, h: 0.8, seed: 2, drips: [38, 252] },
   { x: 157, y: 133, r: 16.5, h: 0.6, seed: 3, drips: [138] },
+  { x: 64, y: 54, r: 15, h: 0.7, seed: 4, drips: [118] },
+  { x: 122, y: 104, r: 12.5, h: 0.5, seed: 5, drips: [300] },
+  { x: 168, y: 88, r: 10, h: 0.45, seed: 6, drips: [20] },
 ];
 
 // Per candle: sway and core rhythms that never line up, and when it catches on arrival
@@ -23,6 +29,9 @@ const RHYTHM = [
   { sway: '3.1s', core: '1.9s', delay: '0.15s' },
   { sway: '2.6s', core: '1.6s', delay: '0.35s' },
   { sway: '3.7s', core: '2.3s', delay: '0.55s' },
+  { sway: '2.9s', core: '1.7s', delay: '0.75s' },
+  { sway: '3.4s', core: '2.1s', delay: '0.9s' },
+  { sway: '2.4s', core: '1.5s', delay: '1.05s' },
 ];
 
 const f2 = (n) => n.toFixed(2);
@@ -123,8 +132,8 @@ const Candle = ({ c, s, lit, rhythm }) => (
 );
 
 // Desk glow, under the books and papers: the flames' light on the wood and leather
-const LIGHT = [0.5, 0.78, 1];
-const lightFor = (lit) => LIGHT[Math.max(1, Math.min(3, lit)) - 1];
+const LIGHT = [0.5, 0.7, 0.84, 0.9, 0.95, 1];
+const lightFor = (lit) => LIGHT[Math.max(1, Math.min(CANDLES.length, lit)) - 1];
 
 export const CandleCluster = ({ lit = 3 }) => (
   <>

@@ -66,7 +66,8 @@ export const CampaignSelector = () => {
 
   // One candle burns for the chapter, and one more for each investigator in play or campaign
   // you run, up to three.
-  const litCandles = 1 + Math.min(2, characters.filter(c => c.status === 'active').length + gmCampaigns.length);
+  // The chapter's three candles, and one more for each investigator in play or campaign run
+  const litCandles = 3 + Math.min(3, characters.filter(c => c.status === 'active').length + gmCampaigns.length);
 
   const handleLogout = () => {
     logout();
