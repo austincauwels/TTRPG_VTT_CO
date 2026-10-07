@@ -360,12 +360,15 @@ const useGameStore = create(
                 get().fetchCircleCreationState(incoming.campaign_id);
               }
             }
-            // Deceased log entry when character becomes incapacitated or dead
-            if ((incoming.incapacitated === true || incoming.is_dead === true) &&
-                !prevChar?.incapacitated && !prevChar?.is_dead) {
+            // A line when the character drops incapacitated or dies. Incapacitated is not
+            // death (rulebook p. 14): it said "is deceased" for both, and said nothing when
+            // an incapacitated investigator then died
+            const becameDead = incoming.is_dead === true && !prevChar?.is_dead;
+            const becameDown = incoming.incapacitated === true && !prevChar?.incapacitated && !incoming.is_dead;
+            if (becameDead || becameDown) {
               const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
               set(state => ({
-                activityLog: [{ text: `${incoming.name} is deceased.`, type: 'danger', time, inkColor: incoming.ink_color }, ...state.activityLog].slice(0, 50),
+                activityLog: [{ text: becameDead ? `${incoming.name} is deceased.` : `${incoming.name} is incapacitated.`, type: 'danger', time, inkColor: incoming.ink_color }, ...state.activityLog].slice(0, 50),
               }));
             }
           }

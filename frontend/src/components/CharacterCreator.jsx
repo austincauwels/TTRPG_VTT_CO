@@ -46,11 +46,11 @@ const DRIVE_FLAVOR = {
 
 const ACTION_FLAVOR = {
   move:    'Run, dodge, or navigate: raw movement through danger.',
-  strike:  'Punch, break, or knock down: direct physical force.',
+  strike:  'Punch, break, or grapple: direct physical force.',
   control: 'Drive, shoot, or finesse: precise command of tools and situations.',
   sway:    'Convince, command, or consort: social pressure and persuasion.',
   sneak:   'Interpret body language, spot lies, gather motives.',
-  hide:    'Sneak, distract, or sleight of hand: concealment and misdirection.',
+  hide:    'Sneak, deceive, or sleight of hand: concealment and misdirection.',
   survey:  'Search, track, or spot: reading an environment for detail.',
   read:    'Inspect, analyze, or remember: focused mental examination.',
   sense:   'Attune, channel, or reveal: perception of the supernatural.',

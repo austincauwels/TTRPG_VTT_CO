@@ -396,7 +396,7 @@ def test_spend_refresh_and_train(client):
         ws.send("spend_resource", resource_type="train")
         msgs = ws.sync()
         assert msgs[0]["payload"]["train_bonus"] is True
-        assert msgs[2]["payload"]["message"] == f"{member['name']} used Train {EM} Train d6 bonus active for next roll."
+        assert msgs[2]["payload"]["message"] == f"{member['name']} used Train {EM} a Train d6 for a roll of their choice this assignment."
         # at most two spends per assignment
         ws.send("spend_resource", resource_type="stitch")
         assert ws.sync() == []

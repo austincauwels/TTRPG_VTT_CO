@@ -82,7 +82,7 @@ async def handle_spend_resource(ctx):
     _RESOURCE_MSG = {
         "stitch":  "all marks cleared.",
         "refresh": "drives & resistances restored.",
-        "train":   "Train d6 bonus active for next roll.",
+        "train":   "a Train d6 for a roll of their choice this assignment.",
     }
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)
