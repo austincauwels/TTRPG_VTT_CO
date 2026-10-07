@@ -393,6 +393,22 @@ def test_a_fourth_bleed_mark_still_brings_let_them_in_and_adrenaline_rush(client
         assert offers == ["Let Them In", "Adrenaline Rush"]
 
 
+def test_an_endurance_save_on_a_bleed_mark_still_brings_let_them_in(client, dice):
+    """Endurance keeps the character standing, but the Bleed mark is still taken: Let Them
+    In ("Whenever you take 1 or more Bleed marks", p. 31) answers it, before Adrenaline
+    Rush. Only Adrenaline Rush was offered."""
+    ch = support.forge(client, bleed_marks=3, nerve_max=3, specialty_ability="Endurance; Let Them In",
+                       role_ability="Adrenaline Rush")
+    dice(6)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="bleed", is_from_enemy=False)
+        msgs = ws.sync()
+        assert msgs[0]["payload"]["bleed_marks"] == 3
+        offers = [m["payload"]["ability"] for m in msgs if m["type"] == "ability_mark_offer"]
+        assert offers == ["Let Them In", "Adrenaline Rush"]
+    assert support.fetch(Character, ch["id"]).incapacitated is False
+
+
 def test_one_mark_is_answered_by_one_ally(client):
     """Fixed: Premonitions and Behind Me (both "when an ally is about to take" a mark,
     pp. 27 and 32) could both answer the same mark and remove two. The first answer takes

@@ -1,9 +1,10 @@
 """Marks and the ability offers around them: take_mark, resolve_ability_mark and intercept_mark.
 
 Every mark lands through apply_mark (rulebook p. 14): a fourth mark in a track drops
-the character incapacitated and asks for a scar, unless Endurance saves them, and a
-mark that does not incapacitate offers Let Them In, Adrenaline Rush and the allies'
-Behind Me and Premonitions. The roll handler's Back Against the Wall cost and Bending
+the character incapacitated and asks for a scar, unless Endurance saves them. Every
+mark that lands, the fourth and one Endurance saves included, offers Let Them In and
+Adrenaline Rush; one that does not incapacitate also offers the allies' Behind Me and
+Premonitions. The roll handler's Back Against the Wall cost and Bending
 Spoons use it too (vtt/ws/handlers/rolls.py).
 
 Before a mark lands, mark_or_offer offers a soak (Compartmentalization, Steel Mind, In
@@ -129,8 +130,7 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True):
                 db.commit()
                 await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
                 await _log(ctx, character, f"{character.name} used Endurance! Rolled {endurance_roll} — a 6 saves them from incapacitation!")
-                if "Adrenaline Rush" in abilities:
-                    await _offer_rush(character, channel, m_type)
+                await _after_mark_taken(character, channel, m_type, abilities)
                 return
             await _log(ctx, character, f"{character.name} used Endurance — rolled {endurance_roll}, no 6. Incapacitated.", "danger")
 
@@ -142,27 +142,28 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True):
             "character_id": character.id, "mark_type": m_type, "character": get_char_dict(character)}})
         await _log(ctx, character, f"{character.name} has been incapacitated!", "danger")
         await announce_downed(ctx)
-        # The fourth mark is taken, as a scar (p. 14): Let Them In ("Whenever you take 1 or
-        # more Bleed marks") and Adrenaline Rush ("For each mark you take") answer it too
-        if m_type == "bleed" and "Let Them In" in abilities:
-            await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {
-                "ability": "Let Them In", "mark_type": m_type, "character_id": character.id, "action": "info"}})
-        if "Adrenaline Rush" in abilities:
-            await _offer_rush(character, channel, m_type)
+        # The fourth mark is taken, as a scar (p. 14), so it is answered too
+        await _after_mark_taken(character, channel, m_type, abilities)
         return
 
     setattr(character, f"{m_type}_marks", val)
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
-    # Let Them In: informational notification on Bleed mark
+    await _after_mark_taken(character, channel, m_type, abilities)
+    if offer_intercepts:
+        await _offer_intercepts(ctx, character, m_type)
+
+
+async def _after_mark_taken(character, channel, m_type, abilities):
+    """Let Them In ("Whenever you take 1 or more Bleed marks", p. 31) and Adrenaline Rush
+    ("For each mark you take", p. 27) answer every mark that lands: an ordinary one, the
+    fourth, and one Endurance kept from incapacitating them."""
     if m_type == "bleed" and "Let Them In" in abilities:
         await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {
             "ability": "Let Them In", "mark_type": m_type, "character_id": character.id, "action": "info"}})
     if "Adrenaline Rush" in abilities:
         await _offer_rush(character, channel, m_type)
-    if offer_intercepts:
-        await _offer_intercepts(ctx, character, m_type)
 
 
 async def _offer_intercepts(ctx, character, m_type):
