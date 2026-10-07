@@ -652,6 +652,30 @@ def test_a_burn_answers_a_roll_of_that_action(client, dice):
     assert support.fetch(Character, ch["id"]).nerve_resistance_spent == 1
 
 
+def test_a_burn_answers_only_the_newest_roll(client, dice):
+    """A roll waiting for its gilded die to be kept replaces the last one: a burn for an
+    older roll's action is refused and the waiting choice is kept (it used to reroll the
+    older roll and drop the choice). Once the die is kept, the burn answers it."""
+    ch = support.forge(client, strike=1, move=2, gilded_move=True, nerve_max=6)
+    refused = [{"type": "action_rejected", "payload": {
+        "action": "burn_resistance", "status": 409, "detail": "Burn a resistance after a roll of that action."}}]
+    with support.ws_connect(client, ch["id"]) as ws:
+        dice(2)
+        ws.send("roll", action="strike", drive_spent=0)
+        ws.sync()
+        dice(3, 5)
+        ws.send("roll", action="move", drive_spent=0)
+        assert ws.sync()[0]["payload"]["roll"]["needs_gilded_choice"] is True
+        ws.send("burn_resistance", action="strike")
+        assert ws.sync() == refused
+        ws.send("resolve_gilded", action="move", chosen_type="regular")
+        assert support.types(ws.sync())[0] == "roll_kept"
+        dice(4, 6)
+        ws.send("burn_resistance", action="move")
+        assert ws.sync()[0]["payload"]["roll"]["is_resistance_roll"] is True
+    assert support.fetch(Character, ch["id"]).nerve_resistance_spent == 1
+
+
 def test_flourish_follows_a_cunning_action_paid_in_intuition(client, dice):
     """Flourish works "on a roll where you could spend Cunning" (p. 28). A Hide roll paid
     in Intuition with Practiced Patter is still a Cunning action, so it counts (the

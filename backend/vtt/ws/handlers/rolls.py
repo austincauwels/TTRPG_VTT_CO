@@ -67,6 +67,10 @@ def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0):
     a gilded choice, whose dice are held until a die is kept (secret or not)."""
     if character is not None:
         _pending_gilded.pop(character.id, None)
+        # A new roll replaces the last one: a burn or a post-roll ability answers this
+        # roll once its result is known (_remember), never an older one while a die
+        # waits to be kept
+        _last_roll.pop(character.id, None)
         if roll.get("needs_gilded_choice"):
             _pending_gilded[character.id] = {
                 "action": action, "roll": dict(roll), "rating": _rating(character, action),
