@@ -4,7 +4,8 @@ import json
 
 from engine import ALL_ACTIONS, apply_advancement
 from models import Character, Circle
-from vtt.abilities import count_use, has_ability, resistance_left, uses_of
+from vtt.abilities import (GEARED_UP_SLOT, ONE_STEP_AHEAD, count_use, counted_gear, gear_limit, has_ability,
+                           resistance_left, uses_of, written_in)
 from vtt.ability_uses import ABILITY_USES, DRIVES, SCAR_ABILITIES
 from vtt.circle_queries import RESOURCES, circle_abilities
 from vtt.config import _SAFE_FONT_NAMES
@@ -113,11 +114,22 @@ async def handle_update_gear(ctx):
     new_gear = payload.get("gear", [])
     if isinstance(new_gear, list):
         # Gear is marked when it is used, and "Gear slots only reset once an assignment is
-        # complete" (rulebook p. 52): a player may add items but not unmark them. The
-        # Lightkeeper may correct the list, and ending the assignment clears it.
-        if not ctx.is_gm and any(item not in new_gear for item in _gear_of(character)):
+        # complete" (rulebook p. 52): a player may add items, up to the slots they have
+        # (three; four with Geared Up, p. 30), but not unmark them. The Lightkeeper may
+        # correct the list, and ending the assignment clears it.
+        old_gear = _gear_of(character)
+        refused = None
+        if not ctx.is_gm:
+            if any(item not in new_gear for item in old_gear):
+                refused = GEAR_STAYS
+            # One Step Ahead's object is written in by its Use button, not here
+            elif sorted(written_in(new_gear)) != sorted(written_in(old_gear)):
+                refused = "One Step Ahead's object is written in with its Use button."
+            elif len(counted_gear(new_gear)) > gear_limit(character):
+                refused = f"{character.name} has {gear_limit(character)} gear slots this assignment."
+        if refused:
             await manager.broadcast(channel, {"type": "action_rejected", "payload": {
-                "action": "update_gear", "status": 409, "detail": GEAR_STAYS}})
+                "action": "update_gear", "status": 409, "detail": refused}})
             return
         character.gear = new_gear
         db.commit()
@@ -221,6 +233,23 @@ async def handle_use_ability(ctx):
         if resource not in RESOURCES:
             await refuse(422, "Choose a resource to refill: stitch, refresh or train.")
             return
+    step_item = None
+    if effect == "step_ahead":
+        # One Step Ahead (p. 31): "a useful mundane object you've had with you all along"
+        step_item = payload.get("item").strip()[:60] if isinstance(payload.get("item"), str) else ""
+        if not step_item:
+            await refuse(422, "Name the object you've had with you all along.")
+            return
+    ally = None
+    if effect == "geared_up":
+        # Geared Up (p. 30): "You and one ally in your circle may mark an additional gear slot"
+        ally_id = payload.get("ally_id")
+        ally = db.query(Character).filter(
+            Character.id == ally_id, Character.campaign_id == camp_id, Character.status == "active",
+        ).with_for_update().first() if camp_id and type(ally_id) is int and ally_id != character.id else None
+        if ally is None:
+            await refuse(422, "Choose an ally in your circle for the extra gear slot.")
+            return
     reinvigorate = None
     if effect == "reinvigorate":
         reinvigorate = payload.get("drive")
@@ -241,7 +270,7 @@ async def handle_use_ability(ctx):
     if reinvigorate:
         setattr(character, f"{reinvigorate}_resistance_spent", getattr(character, f"{reinvigorate}_resistance_spent") - 1)
         paid.append(f"refreshed 1 {reinvigorate.capitalize()} resistance")
-    refreshed = []
+    changed = []   # other characters this use changed
     if effect == "circle_nerve":
         # Field Experience (p. 29): "refresh 1 Nerve for everyone in your circle"
         members = db.query(Character).filter(Character.campaign_id == camp_id, Character.status == "active") \
@@ -250,16 +279,23 @@ async def handle_use_ability(ctx):
             members.append(character)
         for member in members:
             member.nerve_current = min(member.nerve_max or 0, (member.nerve_current or 0) + 1)
-        refreshed = members
+        changed = members
         paid.append("1 Nerve back for everyone in the circle")
     if effect == "volunteer":
         resource = payload["resource"]
         setattr(circle, resource, (getattr(circle, resource, 0) or 0) + 1)
         character.resources_spent_assignment = 2  # "You may not spend any resources during this downtime."
         paid.append(f"refilled 1 {resource.capitalize()}")
+    if step_item:
+        character.gear = _gear_of(character) + [ONE_STEP_AHEAD + step_item]
+        paid.append(f"wrote in {step_item}")
+    if ally is not None:
+        count_use(ally, GEARED_UP_SLOT)
+        changed.append(ally)
+        paid.append(f"an extra gear slot for {ally.name}")
     db.commit()
 
-    for member in refreshed:
+    for member in changed:
         if member.id != character.id:
             await manager.broadcast(character_key(member.id), {"type": "character_update", "payload": get_char_dict(member)})
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})

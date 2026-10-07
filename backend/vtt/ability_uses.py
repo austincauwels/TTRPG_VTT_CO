@@ -14,7 +14,8 @@ Each entry may have:
   image) or name an effect.
 - effect: what the app plays out: Field Experience refreshes 1 Nerve for everyone in
   the circle, Volunteer Duty refills a circle resource, Reinvigorate refreshes 1
-  resistance.
+  resistance, One Step Ahead writes an object into a gear slot of its own, and Geared Up
+  gives the ally the player picks a fourth gear slot.
 """
 
 ABILITY_USES = {
@@ -46,6 +47,8 @@ ABILITY_USES = {
     "University Resources": {"once": True},             # p. 30: once per session
     "Field Experience":    {"once": True, "effect": "circle_nerve"},  # p. 29
     "Volunteer Duty":      {"effect": "volunteer"},     # p. 29: between assignments
+    "One Step Ahead":      {"once": True, "effect": "step_ahead"},  # p. 31
+    "Geared Up":           {"once": True, "effect": "geared_up"},   # p. 30: the ally's slot
 }
 
 # Abilities that take a scar on purpose. Their "Use" button opens the desk's scar form,

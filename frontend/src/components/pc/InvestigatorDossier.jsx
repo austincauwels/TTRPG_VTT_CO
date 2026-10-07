@@ -2,6 +2,7 @@ import React, { useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { ABILITY_USES, SCAR_ABILITIES } from '../../game/abilityUses';
+import { GEAR_RULES, countedGear, gearLimit, writtenIn } from '../../game/gear';
 import useGameStore from '../../store/gameStore';
 import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
@@ -50,17 +51,24 @@ const AbilityPane = ({ heading, entries, blank, renderUse }) => {
 
 // An ability used outside a roll: its cost on a button, and the choice it needs, if any
 // (game/abilityUses.js; the server pays the cost)
-const AbilityUse = ({ name, use, onUse }) => {
+const AbilityUse = ({ name, use, onUse, allies = [] }) => {
   const optionKeys = use.options ? Object.keys(use.options) : null;
   const [option, setOption] = useState(optionKeys ? optionKeys[0] : '');
   const [choice, setChoice] = useState('');
   const needsDrive = name === 'Ritual' && option === 'Reinvigorate';
   const needsResource = use.needs === 'resource';
-  const send = () => onUse(name, {
-    ...(optionKeys ? { option } : {}),
-    ...(needsDrive ? { drive: choice } : {}),
-    ...(needsResource ? { resource: choice } : {}),
-  });
+  const needsItem = use.needs === 'item';
+  const needsAlly = use.needs === 'ally';
+  const send = () => {
+    const sent = onUse(name, {
+      ...(optionKeys ? { option } : {}),
+      ...(needsDrive ? { drive: choice } : {}),
+      ...(needsResource ? { resource: choice } : {}),
+      ...(needsItem ? { item: choice.trim() } : {}),
+      ...(needsAlly ? { ally_id: Number(choice) } : {}),
+    });
+    if (sent && needsItem) setChoice('');
+  };
   const select = 'ml-1 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5';
   return (
     <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle">
@@ -81,7 +89,17 @@ const AbilityUse = ({ name, use, onUse }) => {
           {['stitch', 'refresh', 'train'].map(r => <option key={r} value={r}>{r[0].toUpperCase() + r.slice(1)}</option>)}
         </select>
       )}
-      <button type="button" onClick={send} disabled={(needsDrive || needsResource) && !choice}
+      {needsItem && (
+        <input type="text" aria-label="The object you've had all along" placeholder="The object" maxLength={60}
+          value={choice} onChange={e => setChoice(e.target.value)} className={`${select} w-40`} />
+      )}
+      {needsAlly && (
+        <select aria-label="Ally for the extra gear slot" value={choice} onChange={e => setChoice(e.target.value)} className={select}>
+          <option value="">{allies.length ? 'Ally for the extra slot' : 'No ally in your circle'}</option>
+          {allies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+      )}
+      <button type="button" onClick={send} disabled={(needsDrive || needsResource || needsAlly) ? !choice : needsItem ? !choice.trim() : false}
         className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
       </button>
@@ -302,12 +320,13 @@ const GEAR_ICONS = {
 };
 
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false }) => {
-  const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar } = useGameStore(useShallow(s => ({
+  const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster } = useGameStore(useShallow(s => ({
     character: s.character,
     useAbility: s.useAbility,
     abilityUseError: s.abilityUseError,
     openAbilityScar: s.openAbilityScar,
     pendingScar: s.pendingScar,
+    campaignRoster: s.campaignRoster,
     circle: s.circle,
     setLocalCharacter: s.setLocalCharacter,
     updateDrive: s.updateDrive,
@@ -324,7 +343,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The "Use" control for an ability with a cost outside a roll (not on a read-only sheet)
   const renderAbilityUse = (name) => {
     if (readOnly) return null;
-    if (ABILITY_USES[name]) return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} />;
+    if (ABILITY_USES[name]) {
+      const allies = (campaignRoster?.active_investigators || []).filter(inv => inv.id !== character?.id);
+      return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} allies={allies} />;
+    }
     if (SCAR_ABILITIES[name]) {
       return <ScarAbilityUse key={name} name={name} use={SCAR_ABILITIES[name]} character={character}
         scarWaiting={pendingScar && (pendingScar.characterId == null || pendingScar.characterId === character?.id)}
@@ -449,6 +471,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // including ones from outside these lists, which the dialog used to drop.
   const listedGear = [...STANDARD_GEAR, ...(character.specialty ? (SPECIALTY_GEAR[character.specialty] || []) : [])];
   const otherGear = gear.filter(item => !listedGear.includes(item));
+  // Three slots, four with Geared Up (p. 30); One Step Ahead's object has a slot of its own
+  const slots = gearLimit(character);
+  const stepAhead = writtenIn(gear);
+  const counted = countedGear(gear);
+  const pendingCount = countedGear(pendingGear).length;
   const openGearModal = () => {
     setPendingGear([...gear]);
     setShowGearModal(true);
@@ -577,15 +604,22 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             )}
           </div>
           <ul className="gear-items grid grid-cols-3 gap-1.5">
-            {gear.map(item => (
+            {counted.map(item => (
               <li key={item} className="flex flex-col items-center gap-1 text-center px-0.5 pt-1 pb-0.5 min-h-[4.5rem] min-w-0">
                 <SafeIcon name={GEAR_ICONS[item] || 'GiSuitcase'} size={30} className="text-ink shrink-0" />
                 <span className="font-serif font-semibold text-sm leading-tight text-ink break-words">{item}</span>
               </li>
             ))}
             {/* The gear slots not yet filled, printed on the tag and left blank */}
-            {Array.from({ length: Math.max(0, 3 - gear.length) }).map((_, i) => (
+            {Array.from({ length: Math.max(0, slots - counted.length) }).map((_, i) => (
               <li key={`slot-${i}`} aria-hidden="true" className="min-h-[4.5rem] border border-dashed border-sepia/40 rounded-sm" />
+            ))}
+            {/* One Step Ahead (p. 31): the object written in, outside the gear limit */}
+            {stepAhead.map(item => (
+              <li key={item} className="flex flex-col items-center gap-1 text-center px-0.5 pt-1 pb-0.5 min-h-[4.5rem] min-w-0 border border-dashed border-oxblood/40 rounded-sm">
+                <span className="font-sans text-xs font-black uppercase tracking-wider text-oxblood">One Step Ahead</span>
+                <span className="font-serif font-semibold text-sm leading-tight text-ink break-words">{item.slice(GEAR_RULES.oneStepAhead.length)}</span>
+              </li>
             ))}
           </ul>
           {gear.length === 0 && <span className="sr-only">No gear</span>}
@@ -1100,7 +1134,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   {SPECIALTY_GEAR[character.specialty].map(item => {
                     const sel = pendingGear.includes(item);
                     return (
-                      <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
+                      <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingCount < slots && setPendingGear(g=>[...g,item])}
                         className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
                         style={{ background: sel ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.3)', border:`1px solid ${sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia)/0.22)'}` }}>
                         <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/40'}`}>{sel&&<TickMark />}</div>
@@ -1119,7 +1153,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 {STANDARD_GEAR.map(item => {
                   const sel = pendingGear.includes(item);
                   return (
-                    <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingGear.length < 3 && setPendingGear(g=>[...g,item])}
+                    <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingCount < slots && setPendingGear(g=>[...g,item])}
                       className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
                       style={{ background: sel ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.15)', border:`1px solid ${sel?'rgb(var(--c-oxblood) / 0.5)':'rgb(var(--c-sepia)/0.15)'}` }}>
                       <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/35'}`}>{sel&&<TickMark />}</div>
@@ -1132,7 +1166,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-4" style={{ borderTop: '1px solid rgb(var(--c-sepia)/0.18)' }}>
-              <span className="text-sm font-sans font-black text-sepia whitespace-nowrap">{pendingGear.length} / 3 selected</span>
+              <span className="text-sm font-sans font-black text-sepia whitespace-nowrap">{pendingCount} / {slots} selected</span>
               <div className="flex gap-3 max-sm:flex-1 max-sm:justify-end">
                 <button onClick={() => setShowGearModal(false)}
                   className="px-4 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-sepia/25 hover:border-sepia/50 text-sepia transition-colors rounded-sm">

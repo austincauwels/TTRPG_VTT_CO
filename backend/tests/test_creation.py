@@ -19,6 +19,7 @@ CREATOR = FRONTEND / "CharacterCreator.jsx"
 ADVANCEMENT = FRONTEND / "pc/CircleView.jsx"   # the advancement dialog's ability lists
 FORGE_PAYLOAD = FRONTEND.parent / "game/forgePayload.js"
 ABILITY_USES_JS = FRONTEND.parent / "game/abilityUses.js"   # the sheet's "Use" buttons
+GEAR_JS = FRONTEND.parent / "game/gear.js"                   # the gear tag's slots
 
 # Prints the named object or array literals of a file as JSON. Each is plain data, so it
 # is cut out of the file and evaluated alone.
@@ -102,6 +103,14 @@ def test_the_sheets_ability_uses_agree():
     from vtt.ability_uses import SCAR_ABILITIES
     assert list(_read(ABILITY_USES_JS, "SCAR_ABILITIES")["SCAR_ABILITIES"]) == list(SCAR_ABILITIES)
     assert set(SCAR_ABILITIES) <= set(creation.ALL_ABILITIES)
+
+
+def test_the_gear_slots_agree():
+    """The desk counts gear slots as the server does (vtt/abilities.py gear_limit)."""
+    from vtt import abilities
+    assert _read(GEAR_JS, "GEAR_RULES")["GEAR_RULES"] == {
+        "slots": abilities.GEAR_SLOTS, "oneStepAhead": abilities.ONE_STEP_AHEAD,
+        "gearedUpSlot": abilities.GEARED_UP_SLOT}
 
 
 def test_each_specialty_starts_with_five_action_points_and_three_drive_points():

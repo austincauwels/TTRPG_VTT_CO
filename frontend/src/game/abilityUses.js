@@ -2,7 +2,8 @@
 // "Use" button on the sheet's ability card sends use_ability; the server pays the cost
 // (backend/vtt/ability_uses.py, which names the same abilities; tests/test_creation.py
 // checks that the two tables agree). cost is what the button says; options is a choice
-// the player makes; needs is a further choice (a resource, or a drive's resistance).
+// the player makes; needs is a further choice (a resource, an object to write in, or an
+// ally).
 export const ABILITY_USES = {
   'Scout':               { cost: '1 Intuition' },
   'Uncanny Eye':         { cost: '1 Intuition' },
@@ -25,6 +26,8 @@ export const ABILITY_USES = {
   'University Resources': { cost: 'once per session' },
   'Field Experience':    { cost: 'once per assignment: 1 Nerve back for everyone in the circle' },
   'Volunteer Duty':      { cost: 'instead of spending resources', needs: 'resource' },
+  'One Step Ahead':      { cost: 'once per assignment: write in an object', needs: 'item' },
+  'Geared Up':           { cost: 'once per assignment: a gear slot for an ally', needs: 'ally' },
 };
 
 // Abilities that take a scar on purpose (pp. 29 and 32). Their "Use" button opens the

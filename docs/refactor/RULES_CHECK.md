@@ -233,6 +233,12 @@ The roll screen (`frontend/src/components/pc/DiceVault.jsx`) checks some conditi
 - Suggested fix: count uses where each ability is applied, refuse uses past the limit, and ignore duplicate names in `ability_mods`.
 - Done (2026-10-06): a mod named twice is applied once, and the use counter that never counted is gone. None of the roll abilities is limited per assignment. The limited abilities the app runs are counted where they are used: the soaks and Death Defy (rules batch 2) and Not Again. I Know a Guy, Field Experience, Saw This Coming and University Resources are told at the table and have nothing to count in the app.
 
+### 29a. Gear slots
+
+- App: the gear dialog stopped at three items, and the server took any number. Geared Up gave no extra slot, and One Step Ahead had no way to write in its object.
+- Rulebook: "PCs have the capacity for three pieces of gear on their person" (p. 52). Geared Up (p. 30): "You and one ally in your circle may mark an additional gear slot during each assignment." One Step Ahead (p. 31): once per assignment, a mundane object written into a gear slot that "does not count toward your gear limit".
+- Done (2026-10-07): the server refuses a player's gear past their slots (vtt/abilities.py gear_limit, mirrored in frontend/src/game/gear.js). A Soldier with Geared Up has four slots and gives one ally a fourth with the ability's Use button, once per assignment. One Step Ahead's Use button writes the object in under "One Step Ahead: ", outside the limit. Both end with the assignment, with the gear and ability_uses.
+
 ### 30. Abilities that match the rulebook
 
 These were checked and match: Sweet Talk (p. 27, code `sneak`), Cool Under Pressure (p. 27), Adrenaline Rush (p. 27, offered after each mark that is not a fourth one), Death Defy (p. 27), Let Them In (p. 27, an information prompt), Well-Read (p. 27, apart from item 6), Open Book and Practiced Patter and In the Trenches (p. 28), Basic Training and Compartmentalization (p. 29), Steel Mind (p. 30), Interrogation (p. 31), Extend Your Senses (p. 32). Dice equal to "current resistance" are computed as maximum drive divided by 3 minus resistance burned, which matches p. 13.

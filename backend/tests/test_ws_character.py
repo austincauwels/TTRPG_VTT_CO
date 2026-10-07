@@ -542,3 +542,72 @@ def test_volunteer_duty_refills_a_resource_instead_of_spending(client):
     with support.ws_connect(client, member2["id"]) as ws:
         ws.send("use_ability", ability="Volunteer Duty", resource="stitch")
         assert ws.sync() == [_use_rejected(409, "Volunteer Duty is used between assignments, while resources are open.")]
+
+
+# --- gear slots: three, Geared Up and One Step Ahead ----------------------------------
+
+def _gear_rejected(detail):
+    return {"type": "action_rejected", "payload": {"action": "update_gear", "status": 409, "detail": detail}}
+
+
+def test_a_player_marks_up_to_three_gear_slots(client):
+    """Rulebook p. 52: "PCs have the capacity for three pieces of gear on their person."
+    The desk stopped at three; the server took any number."""
+    ch = support.forge(client)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("update_gear", gear=["Lantern", "Camera", "Rope", "Map"])
+        assert ws.sync() == [_gear_rejected(f"{ch['name']} has 3 gear slots this assignment.")]
+        ws.send("update_gear", gear=["Lantern", "Camera", "Rope"])
+        assert support.types(ws.sync()) == ["character_update", "activity_log"]
+
+
+def test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot(client):
+    """Geared Up (p. 30): "You and one ally in your circle may mark an additional gear slot
+    during each assignment." The ally is picked once per assignment, and the slot ends
+    with it."""
+    camp, soldier, ally = _member_pair(client, specialty_ability="Geared Up")
+    four = ["Lantern", "Camera", "Rope", "Map"]
+    with support.ws_connect(client, soldier["id"]) as ws, support.ws_connect(client, ally["id"]) as wa:
+        ws.send("update_gear", gear=four)
+        assert support.types(ws.sync()) == ["character_update", "activity_log"]
+        wa.drain()
+        wa.send("update_gear", gear=four)
+        assert wa.sync() == [_gear_rejected(f"{ally['name']} has 3 gear slots this assignment.")]
+        ws.send("use_ability", ability="Geared Up", ally_id=soldier["id"])   # not themselves
+        ws.send("use_ability", ability="Geared Up", ally_id=999999)
+        ws.send("use_ability", ability="Geared Up")
+        assert ws.sync() == [_use_rejected(422, "Choose an ally in your circle for the extra gear slot.")] * 3
+        ws.send("use_ability", ability="Geared Up", ally_id=ally["id"])
+        msgs = ws.sync()
+        assert msgs[-1]["payload"]["message"] == \
+            f"{soldier['name']} used Geared Up (an extra gear slot for {ally['name']})."
+        assert wa.drain()[0]["payload"]["ability_uses"] == {"Geared Up slot": 1}
+        wa.send("update_gear", gear=four)
+        assert support.types(wa.sync()) == ["character_update", "activity_log"]
+        ws.drain()
+        ws.send("use_ability", ability="Geared Up", ally_id=ally["id"])
+        assert ws.sync() == [_use_rejected(409, "Geared Up is used for this assignment.")]
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_end_assignment")
+        gm.sync()
+    row = support.fetch(Character, ally["id"])
+    assert (row.gear, row.ability_uses) == ([], {})
+
+
+def test_one_step_ahead_writes_in_an_object_outside_the_limit(client):
+    """One Step Ahead (p. 31): once per assignment, "a useful mundane object you've had
+    with you all along ... This does not count toward your gear limit." """
+    ch = support.forge(client, specialty_ability="One Step Ahead", gear=["Lantern", "Camera", "Rope"])
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("use_ability", ability="One Step Ahead", item="   ")
+        assert ws.sync() == [_use_rejected(422, "Name the object you've had with you all along.")]
+        ws.send("use_ability", ability="One Step Ahead", item=" A hatpin ")
+        msgs = ws.sync()
+        assert msgs[0]["payload"]["gear"] == ["Lantern", "Camera", "Rope", "One Step Ahead: A hatpin"]
+        assert msgs[-1]["payload"]["message"] == f"{ch['name']} used One Step Ahead (wrote in A hatpin)."
+        ws.send("use_ability", ability="One Step Ahead", item="A key")
+        assert ws.sync() == [_use_rejected(409, "One Step Ahead is used for this assignment.")]
+        # Only the Use button writes one in
+        ws.send("update_gear", gear=["Lantern", "Camera", "Rope", "One Step Ahead: A hatpin", "One Step Ahead: A saw"])
+        assert ws.sync() == [_gear_rejected("One Step Ahead's object is written in with its Use button.")]
+    assert support.fetch(Character, ch["id"]).gear == ["Lantern", "Camera", "Rope", "One Step Ahead: A hatpin"]
