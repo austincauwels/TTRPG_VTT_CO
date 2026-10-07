@@ -72,6 +72,7 @@ HTTP_ROUTES = [
     (["PUT"], "/api/investigators/{investigator_id}/portrait", "set_portrait", None, None),
     (["DELETE"], "/api/investigators/{investigator_id}", "delete_investigator", None, None),
     (["POST"], "/api/investigators/{investigator_id}/restore", "restore_investigator", None, None),
+    (["GET"], "/api/notebook/hub-sketches", "hub_sketches", None, None),
     (["GET"], "/api/notebook/{campaign_id}/entries", "fetch_notebook_entries", "list[NotebookEntryResponse]", None),
     (["POST"], "/api/notebook/{campaign_id}/entries", "add_notebook_entry", "NotebookEntryResponse", 201),
     (["PUT"], "/api/notebook/entries/{entry_id}", "update_notebook_entry", "NotebookEntryResponse", None),

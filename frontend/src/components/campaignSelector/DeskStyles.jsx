@@ -786,6 +786,9 @@ export const DeskStyles = () => (
     }
     /* The photograph: sepia, faded and silvered toward its edges */
     .paper-photo-img { filter: sepia(0.72) saturate(0.85) contrast(1.06) brightness(0.96); }
+    /* A sketch from the user's notebook: drawn on white, so its white becomes the sheet
+       (multiply) and its ink ages a little with it */
+    .notebook-sketch-img { mix-blend-mode: multiply; filter: sepia(0.35) contrast(1.05); padding: 6%; }
     .paper-photo::after {
       content: ''; position: absolute; inset: 0;
       box-shadow: inset 0 0 14px 2px rgba(58,34,14,0.42), inset 0 0 2px 1px rgba(150,158,170,0.35);

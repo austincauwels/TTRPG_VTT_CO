@@ -69,6 +69,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 | GET | /api/investigators | list_investigators | 1022 | no | none | nobody needs it (lists every character of every user) |
 | GET | /api/investigators/{investigator_id} | get_investigator | 1040 | no | GMCharacterSheet.jsx, gameStore.refreshCharacterStatus | owner, or GM of the character's campaign |
 | POST | /api/investigators/forge | forge_investigator | 1055 | yes | AppRouter.jsx | logged-in user, for themself |
+| GET | /api/notebook/hub-sketches | hub_sketches | vtt/routers/notebook.py, added 2026-10-07 | no | CampaignSelector.jsx (the hub's desk) | any signed-in user; up to three random sketches (entry_type sketch, visibility all, not deleted) from campaigns they run or play in with an active investigator; the picture, title and author only |
 | GET | /api/notebook/{campaign_id}/entries | fetch_notebook_entries | 1094 | no | NotebookView.jsx | GM or member of that campaign; gm_only rows for the GM only; self rows for that character's owner only |
 | POST | /api/notebook/{campaign_id}/entries | add_notebook_entry | 1112 | yes | NotebookView.jsx | GM or member of that campaign, writing as themself |
 | PUT | /api/notebook/entries/{entry_id} | update_notebook_entry | 1169 | yes | NotebookView.jsx (GM lk_main autosave) | author of the entry |

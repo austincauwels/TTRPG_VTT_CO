@@ -38,9 +38,10 @@ def _url(path):
 
 
 def test_every_route_but_the_sign_in_routes_is_protected():
-    # 40: the delete and undo routes and a drawn sketch's scene and redraw routes
-    # (GET .../scene, PUT .../sketch) on one side, the account page's routes on the other
-    assert len(PROTECTED) == 40
+    # 41: the delete and undo routes, a drawn sketch's scene and redraw routes
+    # (GET .../scene, PUT .../sketch) and the hub's sketches on one side, the account
+    # page's routes on the other
+    assert len(PROTECTED) == 41
     assert PUBLIC | ACCOUNT == {r.path for r in main.app.routes
                                 if isinstance(r, APIRoute) and r.path.startswith("/api/auth/")}
 

@@ -9,7 +9,7 @@ import { HubNotice } from './campaignSelector/HubNotice';
 import { DeskStyles } from './campaignSelector/DeskStyles';
 import { DeskBackdrop } from './campaignSelector/DeskBackdrop';
 import { CandleCluster, CandleLight } from './campaignSelector/CandleCluster';
-import { CryptidSketch } from './campaignSelector/CryptidSketches';
+import { CryptidSketch, HUB_WIDE_QUERY, sketchInSlot } from './campaignSelector/CryptidSketches';
 import { HubHeader } from './campaignSelector/HubHeader';
 import { CaseLedgerTome } from './campaignSelector/CaseLedgerTome';
 import { LastPlayedTome } from './campaignSelector/LastPlayedTome';
@@ -20,6 +20,7 @@ import { ForegroundAtmosphere } from './campaignSelector/ForegroundAtmosphere';
 import { RosterBook } from './campaignSelector/RosterBook';
 import { useCastShadows } from './campaignSelector/useCastShadows';
 import { warmPaperSound } from '../game/rollSounds';
+import { apiFetch } from '../utils/api';
 
 export const CampaignSelector = () => {
   const {
@@ -60,13 +61,35 @@ export const CampaignSelector = () => {
     return () => (idle ? window.cancelIdleCallback(id) : clearTimeout(id));
   }, []);
 
+  // A few sketches from the user's own notebooks, chosen at random on each visit, lie on the
+  // desk in place of some of the prints (owner's request, 2026-10-07; NOTEBOOK_SLOTS in
+  // CryptidSketches.jsx). The prints stay when there are none, or the call fails.
+  const [notebookSketches, setNotebookSketches] = useState([]);
+  useEffect(() => {
+    let live = true;
+    apiFetch('/api/notebook/hub-sketches')
+      .then(r => (r.ok ? r.json() : []))
+      .then(list => { if (live && Array.isArray(list)) setNotebookSketches(list); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+  // Which papers the desk shows depends on its size (DeskStyles.jsx), so the slots follow it
+  const [wideDesk, setWideDesk] = useState(() => !!window.matchMedia?.(HUB_WIDE_QUERY).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(HUB_WIDE_QUERY);
+    if (!mq) return undefined;
+    const update = () => setWideDesk(mq.matches);
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
+  const sketchFor = (which) => sketchInSlot(notebookSketches, which, wideDesk);
+
   // Every object on the desk throws its shadow away from the candles
   const deskRef = useRef(null);
   useCastShadows(deskRef, [!!lastPlayedCampaign]);
 
-  // One candle burns for the chapter, and one more for each investigator in play or campaign
-  // you run, up to three.
-  // The chapter's three candles, and one more for each investigator in play or campaign run
+  // The chapter's three candles, and one more for each investigator in play or campaign
+  // you run, up to six.
   const litCandles = 3 + Math.min(3, characters.filter(c => c.status === 'active').length + gmCampaigns.length);
 
   const handleLogout = () => {
@@ -151,10 +174,10 @@ export const CampaignSelector = () => {
               <HalcyonHerald phone />
               <CryptidSketch which="pinned" />
               <CryptidSketch which="photo" />
-              <CryptidSketch which="tomes" />
+              <CryptidSketch which="tomes" notebook={sketchFor('tomes')} />
               <CryptidSketch which="herald" />
-              <CryptidSketch which="candles" />
-              <CryptidSketch which="page" />
+              <CryptidSketch which="candles" notebook={sketchFor('candles')} />
+              <CryptidSketch which="page" notebook={sketchFor('page')} />
               <CryptidSketch which="postcard" />
               <CryptidSketch which="sketchbook" />
               <CaseLedgerTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
@@ -168,7 +191,7 @@ export const CampaignSelector = () => {
             {/* From lg, papers on the Herald round the tickets and under the Herald's edges,
                 placed in the Herald's own pixels as the Herald and the tickets are
                 (.hub-right > .sketch) */}
-            <CryptidSketch which="page" />
+            <CryptidSketch which="page" notebook={sketchFor('page')} />
             <CryptidSketch which="postcard" />
             <CryptidSketch which="bestiary" />
 

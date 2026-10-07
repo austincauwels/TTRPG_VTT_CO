@@ -226,6 +226,7 @@ def test_route_table_order(client):
         ("/api/investigators/{investigator_id}/portrait", ["PUT"]),
         ("/api/investigators/{investigator_id}", ["DELETE"]),
         ("/api/investigators/{investigator_id}/restore", ["POST"]),
+        ("/api/notebook/hub-sketches", ["GET"]),
         ("/api/notebook/{campaign_id}/entries", ["GET"]),
         ("/api/notebook/{campaign_id}/entries", ["POST"]),
         ("/api/notebook/entries/{entry_id}", ["PUT"]),
