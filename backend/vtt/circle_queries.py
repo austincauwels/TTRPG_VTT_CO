@@ -1,7 +1,9 @@
 """Circle lookups shared by the REST circle routes and the WebSocket handlers."""
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, object_session
 
 from models import Character, Circle, CircleVote, Relationship
+from vtt.abilities import abilities_of, uses_of
 
 RESOURCES = ("stitch", "refresh", "train")
 STAMINA_DICE = 3  # Stamina Training's gilded dice for each assignment (rulebook p. 41)
@@ -48,6 +50,27 @@ def downed_members(circle, db: Session = None) -> list:
         Character.campaign_id == circle.campaign_id, Character.status == "active",
         Character.incapacitated.is_(True), Character.is_dead.isnot(True)).order_by(Character.id).all()
     return [{"id": cid, "name": name} for cid, name in rows]
+
+
+SAW_THIS_COMING_USES = 3
+
+
+def saw_this_coming(circle, db: Session = None) -> list:
+    """Saw This Coming (rulebook p. 27): "Three times per assignment, you may add +1d to a
+    circle member's roll without spending drive". The campaign's active members who have it
+    and uses left, as {id, name, left}, for the chips on the other members' desks."""
+    if not circle.campaign_id:
+        return []
+    db = db or object_session(circle)
+    if db is None:
+        return []
+    rows = db.query(Character).filter(
+        Character.campaign_id == circle.campaign_id, Character.status == "active",
+        or_(Character.role_ability.contains("Saw This Coming"), Character.specialty_ability.contains("Saw This Coming")),
+    ).order_by(Character.id).all()
+    return [{"id": c.id, "name": c.name, "left": SAW_THIS_COMING_USES - uses_of(c, "Saw This Coming")}
+            for c in rows if "Saw This Coming" in abilities_of(c)
+            and uses_of(c, "Saw This Coming") < SAW_THIS_COMING_USES]
 
 
 def fill_resources(circle, db: Session = None):

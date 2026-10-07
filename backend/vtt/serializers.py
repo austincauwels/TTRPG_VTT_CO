@@ -4,7 +4,8 @@ profile_pic is the stored portrait only when it follows the portrait rule
 (vtt/portraits.py served_portrait); anything else is sent as no portrait."""
 import json
 
-from vtt.circle_queries import STAMINA_DICE, circle_abilities, downed_members, resource_pool, train_dice_left
+from vtt.circle_queries import (STAMINA_DICE, circle_abilities, downed_members, resource_pool, saw_this_coming,
+                                train_dice_left)
 
 from vtt.portraits import served_portrait
 
@@ -116,6 +117,8 @@ def get_circle_dict(circle):
         if "Stamina Training" in circle_abilities(circle) else 0,
         # Nobody Left Behind (p. 41): who is down, for the +1d chip on the desks
         "incapacitated_members": downed_members(circle),
+        # Saw This Coming (p. 27): who can still add +1d to another member's roll
+        "saw_this_coming": saw_this_coming(circle),
         "chapter_house_location": getattr(circle, "chapter_house_location", None) or "",
         "circle_ability": getattr(circle, "circle_ability", None) or "",
         "insignia": getattr(circle, "insignia", None) or "",

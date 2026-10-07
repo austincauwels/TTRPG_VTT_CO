@@ -11,10 +11,11 @@ result and outcome, as in roll_result) and "kept" (None, or {"index", "is_gilded
 "value"} for the die kept in a gilded choice)}. A secret roll sends none.
 """
 from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, drive_for_action, roll_dice
-from vtt.abilities import abilities_of, resistance_left
+from vtt.abilities import abilities_of, count_use, resistance_left, uses_of
 from vtt.config import logger
 from models import Character, Circle
-from vtt.circle_queries import STAMINA_DICE, circle_abilities, downed_members, take_train_die, train_dice_left
+from vtt.circle_queries import (SAW_THIS_COMING_USES, STAMINA_DICE, circle_abilities, downed_members, take_train_die,
+                                train_dice_left)
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.handlers.circle import announce_downed
 from vtt.ws.handlers.marks import apply_mark, awaiting_scar
@@ -143,7 +144,8 @@ def _remember(character, action, cat, result, outcome):
                                     "outcome": outcome, "used": set()}
 
 
-def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_die=False, ward_die=False):
+def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_die=False, ward_die=False,
+               helper_die=False):
     """What a player's roll will be, before anything changes: the drive it spends, how
     many dice, gilds and drive points it uses, what else it costs, and the abilities that
     applied. Raises ValueError with words for the player when the roll cannot be made."""
@@ -202,6 +204,10 @@ def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_d
     if ward_die:
         extra += 1
         applied.append("Great Wards")
+    # Saw This Coming (p. 27): an ally's +1d "without spending drive"
+    if helper_die:
+        extra += 1
+        applied.append("Saw This Coming")
 
     # The drive must hold the spend and any cost from the same drive (p. 8)
     for drive in DRIVES:
@@ -238,6 +244,7 @@ async def handle_roll(ctx):
 
         plan = None
         stamina_circle = None
+        helper = None
         if character:
             if act not in ACTION_KEYS:
                 await _refuse(ctx, "roll", 422, "Unknown action.")
@@ -261,15 +268,29 @@ async def handle_roll(ctx):
             ward = warder is not None and warder.status == "active" and not warder.is_dead \
                 and (warder.id == character.id or warder.campaign_id == character.campaign_id) \
                 and "Great Wards" in abilities_of(warder)
+            # Saw This Coming (p. 27): the Slink who adds the die, a member of the same campaign
+            # with uses left this assignment; never the roller's own
+            helper_id = payload.get("saw_this_coming_from")
+            if helper_id is not None:
+                helper = db.query(Character).filter(
+                    Character.id == helper_id, Character.campaign_id == camp_id, Character.status == "active",
+                ).with_for_update().first() if camp_id and type(helper_id) is int and helper_id != character.id else None
+                if helper is None or "Saw This Coming" not in abilities_of(helper) \
+                        or uses_of(helper, "Saw This Coming") >= SAW_THIS_COMING_USES:
+                    db.rollback()
+                    await _refuse(ctx, "roll", 409, "Saw This Coming is not available from that ally.")
+                    return
             try:
                 plan = _plan_roll(character, act, spent, mods, payload, stamina_die=stamina_circle is not None,
-                                  rescue_die=rescue, ward_die=ward)
+                                  rescue_die=rescue, ward_die=ward, helper_die=helper is not None)
             except ValueError as refused:
                 db.rollback()
                 await _refuse(ctx, "roll", 422, str(refused))
                 return
             if stamina_circle is not None:
                 stamina_circle.stamina_dice_used = (stamina_circle.stamina_dice_used or 0) + 1
+            if helper is not None:
+                count_use(helper, "Saw This Coming")
             cat, spent = plan["cat"], plan["used"]
             setattr(character, f"{cat}_current", getattr(character, f"{cat}_current") - spent)
             for drive, cost in plan["costs"].items():
@@ -294,6 +315,15 @@ async def handle_roll(ctx):
         })
         if character and stamina_circle is not None:
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(stamina_circle)}, db)
+        if character and helper is not None:
+            # The Slink's use is counted on their sheet, and the table's chips follow it
+            await manager.broadcast(character_key(helper.id), {"type": "character_update", "payload": get_char_dict(helper)})
+            helper_circle = db.query(Circle).filter(Circle.campaign_id == camp_id).first()
+            if helper_circle is not None:
+                await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(helper_circle)}, db)
+            await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
+                "message": f"{helper.name} saw this coming: +1d on {character.name}'s roll.",
+                "log_type": "field", "ink_color": getattr(helper, "ink_color", "") or ""}}, db)
         if _hold_or_throw(character, act, res, is_secret, cat, spent):
             await _dice_thrown(ctx, character, act, res, _rating(character, act))
 

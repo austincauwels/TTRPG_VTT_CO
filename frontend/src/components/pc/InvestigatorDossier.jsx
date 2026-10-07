@@ -932,6 +932,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             if (selectedMods.includes('Sharpshooter') && spendKey === 'nerve') {
                               spend = Math.min(spend, Math.max(0, (character.nerve_current || 0) - 1));
                             }
+                            // Saw This Coming names the ally who adds the die
+                            const helper = availMods.find(m => m.helper && selectedMods.includes(m.key));
+                            if (helper) extra = { ...extra, saw_this_coming_from: helper.helper };
                             const actionRating = character[act.key] || 0;
                             const effectiveSpend = Math.min(spend, Math.max(0, 6 - actionRating));
                             setPreSpend(p => ({ ...p, [spendKey]: 0 }));
@@ -979,7 +982,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                                   on ? 'bg-candle-gold/20 border-candle-gold/80 text-ink' : 'border-ink/25 text-sepia hover:border-ink/50 hover:text-ink'
                                 }`}
                               >
-                                <span className="min-w-0 truncate">{mod.key}</span>
+                                <span className="min-w-0 truncate">{mod.name || mod.key}</span>
                                 {mod.shows?.dice > 0 && <span className="shrink-0 font-mono tabular-nums text-xs font-bold">+{mod.shows.dice}d</span>}
                                 {mod.shows?.gild && <span aria-hidden="true" className="shrink-0 w-2 h-2 bg-candle-gold border border-sepia rounded-full" />}
                                 {mod.shows?.use && <span className="shrink-0 italic">{mod.shows.use}</span>}

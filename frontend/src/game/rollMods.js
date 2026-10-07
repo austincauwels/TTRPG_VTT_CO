@@ -113,6 +113,15 @@ export function getAvailableRollMods(character, action, circle = null) {
       autoApply: false, extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
     });
   }
+  // Saw This Coming (p. 27): a Slink in the circle adds +1d to this roll "without spending
+  // drive", three times an assignment; one chip for each who can (never your own)
+  (circle?.saw_this_coming || []).filter(s => s.id !== character.id && s.left > 0).forEach(s => {
+    mods.push({
+      key: `Saw This Coming:${s.id}`, name: 'Saw This Coming', helper: s.id,
+      label: `Saw This Coming from ${s.name} (+1d; ${s.left} of 3 left this assignment)`,
+      autoApply: false, extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
+    });
+  });
   // Great Wards (p. 27): whoever holds a Weird's ward takes +1d on Move rolls against
   // phenomena (the player's call; the server checks the ward still holds)
   if (character.warded_by_id && action === 'move') {

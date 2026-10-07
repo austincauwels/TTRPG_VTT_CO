@@ -1247,3 +1247,32 @@ def test_mind_over_matter_costs_a_brain_mark(client, dice):
     row = support.fetch(Character, ch["id"])
     assert (row.cunning_current, row.brain_marks) == (2, 1)
 
+
+def test_saw_this_coming_adds_an_allys_die(client, dice):
+    """Saw This Coming (p. 27): "Three times per assignment, you may add +1d to a circle
+    member's roll without spending drive". The circle names who can still give it, the
+    roll names the Slink, and the use is the Slink's. It could not reach a roll at all."""
+    camp = support.new_campaign(client)
+    slink = support.active_member(client, camp, role_ability="Saw This Coming")
+    roller = support.active_member(client, camp, move=1, nerve_max=3, nerve_current=3)
+    stranger = support.active_member(client, support.new_campaign(client), role_ability="Saw This Coming")
+    refused = [{"type": "action_rejected", "payload": {
+        "action": "roll", "status": 409, "detail": "Saw This Coming is not available from that ally."}}]
+    with support.ws_connect(client, roller["id"]) as wr, support.ws_connect(client, slink["id"]) as ws:
+        for left in (2, 1, 0):
+            dice(2, 2)
+            wr.send("roll", action="move", drive_spent=0, saw_this_coming_from=slink["id"])
+            msgs = wr.sync()
+            assert len(msgs[0]["payload"]["roll"]["dice"]) == 2
+            circle = next(m for m in msgs if m["type"] == "circle_update")["payload"]
+            assert circle["saw_this_coming"] == ([{"id": slink["id"], "name": slink["name"], "left": left}] if left else [])
+            assert any(m["type"] == "activity_log" and m["payload"]["message"]
+                       == f"{slink['name']} saw this coming: +1d on {roller['name']}'s roll." for m in msgs)
+        assert next(m for m in ws.drain(0.5) if m["type"] == "character_update")["payload"]["ability_uses"] \
+            == {"Saw This Coming": 1}
+        for helper in (slink["id"], roller["id"], stranger["id"]):   # used up; the roller; another campaign
+            wr.send("roll", action="move", drive_spent=0, saw_this_coming_from=helper)
+        assert wr.sync() == refused * 3
+    assert support.fetch(Character, slink["id"]).ability_uses == {"Saw This Coming": 3}
+    assert support.fetch(Character, roller["id"]).nerve_current == 3
+
