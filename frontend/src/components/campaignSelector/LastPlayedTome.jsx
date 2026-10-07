@@ -43,6 +43,11 @@ export const LastPlayedTome = ({ lastPlayedCampaign, onResume }) => {
   const gm = lastPlayedCampaign.type === 'gm';
   const heading = gm ? 'Last Played (Lightkeeper)' : 'Last Played';
   const name = lastPlayedCampaign.campaignName || 'Last Session';
+  // The longest word fits on its line: a long one-word name used to break mid-word on a
+  // phone, where the title's 18px floor is wider than the cover ("GREATWARD / S"). The
+  // floor gives way for a long word (the face's capitals are about 0.72em wide).
+  const longest = Math.max(...name.split(/\s+/).map((w) => w.length));
+  const titleSize = longest > 7 ? `clamp(min(18px, ${(78 / (0.72 * longest)).toFixed(1)}cqw), 9.5cqw, 40px)` : undefined;
   return (
     <Tome
       {...pressable(onResume, `${heading}: ${name}`)}
@@ -53,7 +58,8 @@ export const LastPlayedTome = ({ lastPlayedCampaign, onResume }) => {
       <span className="flex flex-col items-center justify-between h-full w-full py-[4%]">
         <Head>{heading}</Head>
         <span className="flex-1 flex flex-col items-center justify-center gap-[7%] w-full min-h-0">
-          <span data-glow className="gilt-glow embossed-gold font-display leading-[1.15] tracking-[0.03em] [text-wrap:balance] break-words max-w-full text-[clamp(18px,9.5cqw,40px)]">
+          <span data-glow className="gilt-glow embossed-gold font-display leading-[1.15] tracking-[0.03em] [text-wrap:balance] break-words max-w-full text-[clamp(18px,9.5cqw,40px)]"
+            style={titleSize ? { fontSize: titleSize } : undefined}>
             {name}
           </span>
           <CampaignMark name={name} className="gilt-mark mark-emboss text-gold-leaf/80 w-[clamp(34px,19cqw,72px)] h-auto" />
