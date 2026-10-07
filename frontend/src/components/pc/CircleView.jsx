@@ -156,11 +156,18 @@ export function AdvancementModal() {
     });
   }
 
+  // Both points on one drive must keep it at 9 or less (the server refuses more): a drive
+  // at 8 takes one point, and the other goes on a second drive
+  function driveOverMax(detail) {
+    const chosen = (detail || '').split(',').filter(Boolean);
+    return chosen.length === 1 && (character?.[`${chosen[0]}_max`] || 0) + 2 > 9;
+  }
+
   function isReady() {
     if (selectedPicks.length !== MAX_PICKS) return false;
     for (const id of selectedPicks) {
       if ((id === 'add_action' || id === 'gild_action') && !details[id]) return false;
-      if (id === 'add_drive' && !details[id]) return false;
+      if (id === 'add_drive' && (!details[id] || driveOverMax(details[id]))) return false;
       if (id === 'new_ability' && !details[id]?.trim()) return false;
     }
     return true;
@@ -187,11 +194,13 @@ export function AdvancementModal() {
             {advancementError ? 'Advancement not applied' : 'Advancement Applied'}
           </h2>
           {advancementError && <p role="alert" className="font-serif text-base text-ink mb-4">{advancementError}</p>}
+          {/* With picks still waiting (a second advance, or One Last Run's four), the next
+              set opens; closing used to hide them until the page was reloaded */}
           <button
-            onClick={advancementError && picksLeft > 0 ? () => { setSubmitted(false); setSelectedPicks([]); } : close}
+            onClick={picksLeft > 0 ? () => { setSubmitted(false); setSelectedPicks([]); setDetails({}); } : close}
             className="w-full py-2 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream hover:bg-oxblood rounded-sm transition-all"
           >
-            {advancementError && picksLeft > 0 ? 'Choose again' : 'Close'}
+            {advancementError && picksLeft > 0 ? 'Choose again' : picksLeft > 0 ? 'Next advancement' : 'Close'}
           </button>
         </div>
       </div>
@@ -313,6 +322,11 @@ export function AdvancementModal() {
                         );
                       })}
                     </div>
+                    {driveOverMax(details[id]) && (
+                      <p className="font-serif text-sm text-oxblood mt-1">
+                        That drive can take only one more point (a drive goes up to 9). Tap a second drive for the other.
+                      </p>
+                    )}
                   </div>
                 )}
 
