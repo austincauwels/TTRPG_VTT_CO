@@ -57,6 +57,8 @@ NO_RUSH_WAITING = "No Adrenaline Rush is waiting to be used."
 # (target character id, mark type) -> when each offered mark was offered (monotonic)
 _interceptable: dict = {}
 INTERCEPT_WINDOW = 120  # seconds an ally may still answer an offered mark
+# ally id -> deadlines of the Non-Combatant drive points they were offered, one per mark
+_non_combatant: dict = {}
 NO_MARK_TO_ANSWER = "No ally's mark is waiting for that, or another ally answered it first."
 
 
@@ -137,7 +139,7 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True):
                 db.commit()
                 await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
                 await _log(ctx, character, f"{character.name} used Endurance! Rolled {endurance_roll} — a 6 saves them from incapacitation!")
-                await _after_mark_taken(character, channel, m_type, abilities)
+                await _after_mark_taken(ctx, character, channel, m_type, abilities)
                 return
             await _log(ctx, character, f"{character.name} used Endurance — rolled {endurance_roll}, no 6. Incapacitated.", "danger")
 
@@ -151,27 +153,49 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True):
         await _log(ctx, character, f"{character.name} has been incapacitated!", "danger")
         await announce_downed(ctx)
         # The fourth mark is taken, as a scar (p. 14), so it is answered too
-        await _after_mark_taken(character, channel, m_type, abilities)
+        await _after_mark_taken(ctx, character, channel, m_type, abilities)
         return
 
     setattr(character, f"{m_type}_marks", val)
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
-    await _after_mark_taken(character, channel, m_type, abilities)
+    await _after_mark_taken(ctx, character, channel, m_type, abilities)
     if offer_intercepts:
         await _offer_intercepts(ctx, character, m_type)
 
 
-async def _after_mark_taken(character, channel, m_type, abilities):
-    """Let Them In ("Whenever you take 1 or more Bleed marks", p. 27) and Adrenaline Rush
-    ("For each mark you take", p. 27) answer every mark that lands: an ordinary one, the
-    fourth, and one Endurance kept from incapacitating them."""
+async def _after_mark_taken(ctx, character, channel, m_type, abilities):
+    """Let Them In ("Whenever you take 1 or more Bleed marks", p. 27), Adrenaline Rush
+    ("For each mark you take", p. 27) and Non-Combatant answer every mark that lands: an
+    ordinary one, the fourth, one Endurance kept from incapacitating them, and one taken
+    as a cost."""
     if m_type == "bleed" and "Let Them In" in abilities:
         await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {
             "ability": "Let Them In", "mark_type": m_type, "character_id": character.id, "action": "info"}})
     if "Adrenaline Rush" in abilities:
         await _offer_rush(character, channel, m_type)
+    if "Non-Combatant" in abilities:
+        await _offer_non_combatant(ctx, character, m_type)
+
+
+async def _offer_non_combatant(ctx, doctor, m_type):
+    """Non-Combatant (p. 30): "If you haven't hurt anyone yet during this assignment, when
+    you take a mark, each of your allies in the scene can recover 1 drive point of their
+    choice." Each active member of the campaign is offered one, for INTERCEPT_WINDOW
+    seconds; whether the Doctor has hurt anyone, and who is in the scene, is the table's
+    call, and an offer can be let go."""
+    if not ctx.camp_id:
+        return
+    allies = ctx.db.query(Character).filter(
+        Character.campaign_id == ctx.camp_id, Character.status == "active", Character.id != doctor.id,
+        Character.is_dead.isnot(True)).all()
+    now = time.monotonic()
+    for ally in allies:
+        _non_combatant[ally.id] = [t for t in _non_combatant.get(ally.id, []) if t > now] + [now + INTERCEPT_WINDOW]
+        await manager.broadcast(character_key(ally.id), {"type": "ability_mark_offer", "payload": {
+            "ability": "Non-Combatant", "mark_type": m_type, "character_id": doctor.id,
+            "character_name": doctor.name, "action": "drive_refresh"}})
 
 
 async def _offer_intercepts(ctx, character, m_type):
@@ -275,6 +299,23 @@ async def handle_resolve_ability_mark(ctx):
     ab_name = payload.get("ability")
     choice = payload.get("choice")
     abilities = abilities_of(character)
+    if ab_name == "Non-Combatant":
+        # An ally's answer to the Doctor's mark (_offer_non_combatant): not their ability
+        if choice not in ("nerve", "cunning", "intuition"):
+            return
+        now = time.monotonic()
+        waiting = [t for t in _non_combatant.get(character.id, []) if t > now]
+        if not waiting:
+            _non_combatant.pop(character.id, None)
+            await _refuse(ctx, "resolve_ability_mark", 409, "No Non-Combatant drive point is waiting.")
+            return
+        _non_combatant[character.id] = waiting[1:]
+        setattr(character, f"{choice}_current", min(getattr(character, f"{choice}_max", 0) or 0,
+                                                    (getattr(character, f"{choice}_current", 0) or 0) + 1))
+        db.commit()
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        await _log(ctx, character, f"{character.name} recovered 1 {choice.capitalize()} (Non-Combatant).")
+        return
     if ab_name == "Circle of Protection":
         # The ward an ally's Ritual put around them: it is theirs to use, not an ability
         if choice == "decline":

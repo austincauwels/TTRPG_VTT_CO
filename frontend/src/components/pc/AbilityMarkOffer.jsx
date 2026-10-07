@@ -27,6 +27,11 @@ const ABILITY_OFFER_CONFIG = {
     description: "Burn 1 Cunning resistance to soak this Body mark.",
     actionType: "soak",
   },
+  "Non-Combatant": {
+    icon: "GiHeartInside",
+    description: (name) => `${name} took a mark. If they have hurt no one this assignment, recover 1 drive point of your choice.`,
+    actionType: "drive_refresh",
+  },
   "Circle of Protection": {
     icon: "GiShield",
     description: "The Circle of Protection around you soaks this Body mark.",

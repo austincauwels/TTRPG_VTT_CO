@@ -350,6 +350,41 @@ def test_circle_of_protection_soaks_one_body_mark(client):
     assert (row.body_marks, row.brain_marks) == (2, 1)
 
 
+def test_non_combatant_lets_each_ally_recover_a_drive_point(client):
+    """Non-Combatant (p. 30): when the Doctor takes a mark, "each of your allies in the
+    scene can recover 1 drive point of their choice". Each active member of the campaign
+    is offered one per mark, and can take it once. Nothing happened before."""
+    camp = support.new_campaign(client)
+    doctor = support.active_member(client, camp, specialty_ability="Non-Combatant", body_marks=3)
+    ally = support.active_member(client, camp, nerve_max=3, nerve_current=1)
+    other = support.active_member(client, camp, cunning_max=3, cunning_current=3)
+    stranger = support.active_member(client, support.new_campaign(client))
+    with support.ws_connect(client, doctor["id"]) as wd, support.ws_connect(client, ally["id"]) as wa, \
+            support.ws_connect(client, other["id"]) as wo, support.ws_connect(client, stranger["id"]) as wx:
+        wd.send("take_mark", mark_type="brain", is_from_enemy=False)
+        wd.sync()
+        offer = next(m for m in wa.drain(0.5) if m["type"] == "ability_mark_offer")["payload"]
+        assert offer == {"ability": "Non-Combatant", "mark_type": "brain", "character_id": doctor["id"],
+                         "character_name": doctor["name"], "action": "drive_refresh"}
+        assert any(m["type"] == "ability_mark_offer" for m in wo.drain(0.5))
+        assert not any(m["type"] == "ability_mark_offer" for m in wx.drain(0.5))
+        wa.send("resolve_ability_mark", ability="Non-Combatant", choice="nerve")
+        msgs = wa.sync()
+        assert msgs[0]["payload"]["nerve_current"] == 2
+        assert msgs[1]["payload"]["message"] == f"{ally['name']} recovered 1 Nerve (Non-Combatant)."
+        wa.send("resolve_ability_mark", ability="Non-Combatant", choice="nerve")   # one per mark
+        assert wa.sync() == [{"type": "action_rejected", "payload": {
+            "action": "resolve_ability_mark", "status": 409, "detail": "No Non-Combatant drive point is waiting."}}]
+        wo.drain()
+        wo.send("resolve_ability_mark", ability="Non-Combatant", choice="cunning")   # capped at the maximum
+        assert wo.sync()[0]["payload"]["cunning_current"] == 3
+        # The fourth mark, which incapacitates, is answered too
+        wd.send("take_mark", mark_type="body", is_from_enemy=False)
+        wd.sync()
+        assert any(m["type"] == "ability_mark_offer" for m in wa.drain(0.5))
+    assert support.fetch(Character, ally["id"]).nerve_current == 2
+
+
 def test_intercept_behind_me(client):
     camp = support.new_campaign(client)
     target = support.active_member(client, camp, body_marks=2)

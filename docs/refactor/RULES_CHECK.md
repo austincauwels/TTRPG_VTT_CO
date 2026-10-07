@@ -231,6 +231,7 @@ The roll screen (`frontend/src/components/pc/DiceVault.jsx`) checks some conditi
 - Done (2026-10-07): Blood of the Covenant (p. 32) has a Use button: drive points in any split, up to the current Intuition resistance. "The first time a dangerous phenomenon inflicts a mark on anyone in your circle" is read as once per assignment, and whether it has happened is the player's call. The owner may want a different reading.
 - Done (2026-10-07): Ritual (p. 27) can be performed on an ally in the circle. Circle of Protection "soaks 1 Body mark for the person within": the ward is kept in that person's ability_uses and offered first as a soak on their next Body mark, which it takes at no cost. The app's reading is that the ward lasts until it soaks a mark or the assignment ends.
 - Done (2026-10-07): Great Wards (p. 27) has a Use button that puts the Weird's ward on themselves or an ally, one person at a time (characters.warded_by_id). The warded person gets a Move chip for +1d against phenomena, which the server allows while the Weird is active in the same campaign and still has the ability. Against a phenomenon is the player's call.
+- Done (2026-10-07): Non-Combatant (p. 30): each mark the Doctor takes offers every active member of the campaign 1 drive point of their choice, for two minutes, once per mark. Whether the Doctor has hurt anyone this assignment, and who is in the scene, is left to the table: the offer says so, and an ally can let it go.
 
 ### 29. Once-per-assignment limits for roll abilities are not counted
 
