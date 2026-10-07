@@ -4,6 +4,7 @@ lists (frontend/src/components/pc/CircleView.jsx). Node reads their tables, sinc
 are JavaScript; the test is skipped where Node or the frontend is missing (GitHub's
 runners have Node)."""
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -43,6 +44,9 @@ console.log(JSON.stringify(Object.fromEntries(process.argv.slice(2).map((n) => [
 def _read(path, *names):
     node = shutil.which("node")
     if not node or not path.exists():
+        # CI sets REQUIRE_FRONTEND_TABLES, so there a missing Node fails instead of skipping
+        if os.environ.get("REQUIRE_FRONTEND_TABLES"):
+            pytest.fail(f"needs Node and {path.name}")
         pytest.skip(f"needs Node and {path.name}")
     out = subprocess.run([node, "-e", READ_TABLES, str(path), *names], capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
