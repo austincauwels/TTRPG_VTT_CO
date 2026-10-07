@@ -225,6 +225,7 @@ The roll screen (`frontend/src/components/pc/DiceVault.jsx`) checks some conditi
 - Bending Spoons (p. 32): on a mixed success on a Sense roll to control an object, take a Bleed mark to make it a full success. The app adds the Bleed mark (capped at 3, item 10) without checking the roll.
 - Suggested fix: keep the last roll's result on the server and check it before applying these.
 - Done (2026-10-06): the server keeps each character's last roll (_last_roll in vtt/ws/handlers/rolls.py) and checks it: Flourish on a failed or mixed roll that could take Cunning, with 2 Cunning (and the new tier is logged); Learn from My Mistakes on a 3 or less; Bending Spoons on a mixed Sense roll, its Bleed mark taken through apply_mark. Each works once per roll; anything else is refused (409). The desk's prompts follow the same checks, and now refresh with each roll: they were keyed on a roll id the server never sent, so they never appeared.
+- Done (2026-10-07): a Survey roll with Street Smarts counts for Flourish whatever drive paid for it, since Cunning could have. Left for the owner: Cool Under Pressure only applies "on any high-stakes roll" (p. 27), and the app cannot tell which rolls are high stakes, so with it every roll counts for Flourish.
 
 ### 29. Once-per-assignment limits for roll abilities are not counted
 

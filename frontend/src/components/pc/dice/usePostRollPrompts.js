@@ -17,8 +17,10 @@ export const usePostRollPrompts = ({ lastRoll, character, showGmControls }) => {
     const isMixed = outcome === 'mixed_success';
     // Well-Read is applied by the server; it needs no prompt
     // "a roll where you could spend Cunning" (p. 28): a Cunning action (Sway, Read, Hide),
-    // a roll that spent Cunning, or any roll with Cool Under Pressure
+    // a roll that spent Cunning, a Survey roll with Street Smarts (any drive may pay for
+    // it), or any roll with Cool Under Pressure
     const couldTakeCunning = lastRoll.drive_spent_key === 'cunning' || driveKeyFor(lastRoll.action) === 'cunning'
+      || (lastRoll.action === 'survey' && abilities.has('Street Smarts'))
       || abilities.has('Cool Under Pressure');
     if (abilities.has('Flourish') && (isFail || isMixed) && couldTakeCunning && (character.cunning_current || 0) >= 2) {
       prompts.push({ key: 'Flourish', label: 'Flourish: spend 2 Cunning to push the result up one tier', params: {} });

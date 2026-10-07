@@ -416,9 +416,11 @@ async def handle_use_post_roll_ability(ctx):
 
     if ab_name == "Flourish":
         # "a roll where you could spend Cunning" (p. 28): a Cunning action, a roll that spent
-        # Cunning (Street Smarts), or any roll with Cool Under Pressure. A Sway or Hide roll
-        # paid in Intuition with Practiced Patter still counts.
+        # Cunning, a Survey roll with Street Smarts (which may spend any drive, p. 31,
+        # whatever it was paid in), or any roll with Cool Under Pressure. A Sway or Hide
+        # roll paid in Intuition with Practiced Patter still counts.
         could_take_cunning = fresh and (last["cat"] == "cunning" or drive_for_action(last["action"]) == "cunning"
+                                        or (last["action"] == "survey" and "Street Smarts" in abilities)
                                         or "Cool Under Pressure" in abilities)
         if not (could_take_cunning and last["outcome"] in TIER_UP and (character.cunning_current or 0) >= 2):
             await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED[ab_name])

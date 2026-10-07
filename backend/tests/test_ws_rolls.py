@@ -676,6 +676,23 @@ def test_a_burn_answers_only_the_newest_roll(client, dice):
     assert support.fetch(Character, ch["id"]).nerve_resistance_spent == 1
 
 
+@pytest.mark.parametrize("specialty, accepted", [("Street Smarts", True), ("Mind Palace", False)])
+def test_flourish_counts_a_street_smarts_survey_roll(client, dice, specialty, accepted):
+    """With Street Smarts any drive may pay for a Survey roll (p. 31), so Cunning could be
+    spent on one, whatever paid for it: Flourish (p. 28) counts it. Without Street Smarts
+    a Survey roll is an Intuition roll and Flourish is refused."""
+    ch = support.forge(client, survey=1, cunning_max=3, cunning_current=3, intuition_max=3, intuition_current=3,
+                       role_ability="Flourish", specialty_ability=specialty)
+    dice(2, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="survey", drive_spent=1)
+        assert ws.sync()[0]["payload"]["roll"]["outcome"] == "failure"
+        ws.send("use_post_roll_ability", ability="Flourish")
+        msgs = ws.sync()
+        assert (msgs[0]["type"] != "action_rejected") is accepted
+    assert support.fetch(Character, ch["id"]).cunning_current == (1 if accepted else 3)
+
+
 def test_flourish_follows_a_cunning_action_paid_in_intuition(client, dice):
     """Flourish works "on a roll where you could spend Cunning" (p. 28). A Hide roll paid
     in Intuition with Practiced Patter is still a Cunning action, so it counts (the
