@@ -89,7 +89,8 @@ export const DeskStyles = () => (
     }
     /* The roster book is open: the room holds still under it */
     .hub-still .hub-light, .hub-still .hub-shade, .hub-still .candle-shadow, .hub-still .cast,
-    .hub-still .flame, .hub-still .flame-core, .hub-still .flame-halo, .hub-still .gilt-glow {
+    .hub-still .flame, .hub-still .flame-core, .hub-still .flame-halo, .hub-still .gilt-glow,
+    .hub-still .smoke-sway, .hub-still .smoke-strand {
       animation-play-state: paused;
     }
 
@@ -288,6 +289,26 @@ export const DeskStyles = () => (
       55%  { opacity: 1; transform: scale(1.12); }
       100% { opacity: 1; transform: scale(1); }
     }
+    /* Smoke off the unlit candles (CandleCluster.jsx): each thread's dash runs from the wick
+       to its tip, fading in and out on its way, three threads on staggered rhythms; and each
+       candle's plume wavers about its wick. Its SVG is a layer of its own, so only the
+       threads repaint. */
+    .candle-smoke { will-change: transform; }
+    .smoke-sway { animation: smokeSway 6.5s ease-in-out infinite; }
+    .smoke-strand { stroke-dasharray: 46 54; animation: smokeRise 5s linear infinite; }
+    .smoke-still { display: none; }
+    @keyframes smokeRise {
+      0%   { stroke-dashoffset: 46; opacity: 0; }
+      14%  { opacity: 1; }
+      62%  { opacity: 0.7; }
+      100% { stroke-dashoffset: -100; opacity: 0; }
+    }
+    @keyframes smokeSway {
+      0%, 100% { transform: rotate(0deg) translate(0, 0); }
+      31% { transform: rotate(-5deg) translate(0.6px, 0); }
+      66% { transform: rotate(4deg) translate(-0.4px, 0); }
+    }
+
     /* The candles' own shadows stretch and shorten with the room's flicker (candleShadowSway
        on the group that holds each flame's blurred shadows, so the blur is drawn once) */
 
@@ -827,8 +848,10 @@ export const DeskStyles = () => (
     /* Reduced motion: steady light, no flicker (the ticket turns without narrowing, useFlatTurn) */
     @media (prefers-reduced-motion: reduce) {
       .hub-light, .hub-shade, .candle-shadow, .cast,
-      .flame, .flame-core, .flame-halo, .flame-light,
+      .flame, .flame-core, .flame-halo, .flame-light, .smoke-sway, .smoke-strand,
       .tome:hover .gilt-glow, .tome:focus-visible .gilt-glow { animation: none !important; }
+      .smoke-strand { display: none; }
+      .smoke-still { display: inline; }
       .gilt-glow, .gilt-mark, .ink-glow, .cast { transition: none !important; }
     }
 

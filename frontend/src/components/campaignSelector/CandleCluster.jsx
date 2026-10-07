@@ -9,7 +9,7 @@ import React from 'react';
 // other lit flame, and the shadows stretch and shorten with the room's flicker. The three
 // pillars burn for the chapter, and one smaller candle more for each investigator in play
 // or campaign you run, up to all six (lit, 3 to 6); an unlit candle shows a cold pool, a
-// dark wick and a thread of smoke. Drawn for this app in code (no source art). Decorative: hidden from assistive
+// dark wick and smoke rising off it. Drawn for this app in code (no source art). Decorative: hidden from assistive
 // technology. Everything holds still under reduced motion (DeskStyles.jsx).
 
 // viewBox 0 0 230 190: x, y, radius, height (for shadow length), drips (degrees, 0 = right)
@@ -76,6 +76,36 @@ const SHAPES = CANDLES.map((c) => ({
   }),
 }));
 
+// The end of an unlit candle's wick, where its smoke starts
+const wickEnd = (c) => [c.x + c.r * 0.14, c.y + c.r * 0.09];
+
+// A thread of smoke off a snuffed wick: a smooth line rising from the wick and drifting a
+// little, wavering more the higher it goes. Each candle has three, on one curve that frays
+// apart near the top, so together they read as one plume.
+function smokeStrand(c, k) {
+  const [wx, wy] = wickEnd(c);
+  const len = 26 + 1.6 * c.r;
+  const pts = [];
+  for (let i = 0; i <= 8; i++) {
+    const t = i / 8;
+    const waver = (2.6 + 0.5 * k) * t * Math.sin((1.25 + 0.12 * k) * t * Math.PI * 2 + c.seed * 1.7 + k * 0.5);
+    pts.push([wx + c.r * 0.2 * t + waver, wy - len * t]);
+  }
+  let p = `M${f2(pts[0][0])} ${f2(pts[0][1])}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    p += `C${f2(p1[0] + (p2[0] - p0[0]) / 6)} ${f2(p1[1] + (p2[1] - p0[1]) / 6)} ${f2(p2[0] - (p3[0] - p1[0]) / 6)} ${f2(p2[1] - (p3[1] - p1[1]) / 6)} ${f2(p2[0])} ${f2(p2[1])}`;
+  }
+  return p;
+}
+const SMOKE = CANDLES.map((c) => [0, 1, 2].map((k) => smokeStrand(c, k)));
+// Each thread's rise, and how far into it the page opens, so the smoke is already up
+const SMOKE_RISE = [4.2, 5, 5.8];
+const SMOKE_START = [0, 1.7, 3.3];
+
 // The shadow candle i throws away from flame j: a soft capsule, longest for the tallest
 // candle and the nearest flame
 function shadowOf(c, f) {
@@ -124,11 +154,37 @@ const Candle = ({ c, s, lit, rhythm }) => (
       <>
         <path d={`M${c.x} ${c.y}q${c.r * 0.06} ${c.r * 0.02} ${c.r * 0.14} ${c.r * 0.09}`}
           stroke="#1a1311" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-        <path d={`M${c.x + c.r * 0.14} ${c.y + c.r * 0.09}c-4 -6 5 -10 1 -17s4 -10 1 -16`}
-          stroke="#d9cdb8" strokeOpacity="0.18" strokeWidth="1.3" fill="none" strokeLinecap="round" />
       </>
     )}
   </g>
+);
+
+// The unlit candles' smoke, in an SVG of its own over the cluster: a layer of its own
+// (.candle-smoke, DeskStyles.jsx), so the moving threads repaint alone and never the
+// blurred shadows under them. Each thread's dash runs from the wick to its tip as it fades
+// (.smoke-strand), and each candle's plume wavers about its wick (.smoke-sway). Under
+// reduced motion only a still thread shows (.smoke-still).
+const Smoke = ({ lit }) => (
+  <svg viewBox="0 0 230 190" className="candle-smoke absolute left-0 top-0 block w-full h-auto overflow-visible">
+    {CANDLES.map((c, i) => {
+      if (i < lit) return null;
+      const [wx, wy] = wickEnd(c);
+      return (
+        <g key={i} className="smoke-sway"
+          style={{ transformBox: 'view-box', transformOrigin: `${f2(wx)}px ${f2(wy)}px`, animationDuration: `${5.9 + i * 0.7}s` }}>
+          {SMOKE[i].map((d, k) => (
+            <g key={k} className="smoke-strand" fill="none" strokeLinecap="round"
+              style={{ animationDuration: `${SMOKE_RISE[k]}s`, animationDelay: `-${f2(SMOKE_START[k] + i * 0.9)}s` }}>
+              <path d={d} pathLength="100" stroke="#d9cdb8" strokeOpacity="0.08" strokeWidth="3.2" />
+              <path d={d} pathLength="100" stroke="#e6dccb" strokeOpacity="0.34" strokeWidth="1.1" />
+            </g>
+          ))}
+          <path className="smoke-still" d={SMOKE[i][0]} stroke="#d9cdb8" strokeOpacity="0.18" strokeWidth="1.3"
+            fill="none" strokeLinecap="round" />
+        </g>
+      );
+    })}
+  </svg>
 );
 
 // Desk glow, under the books and papers: the flames' light on the wood and leather
@@ -203,6 +259,7 @@ export const CandleCluster = ({ lit = 3 }) => (
         ))}
         {CANDLES.map((c, i) => <Candle key={i} c={c} s={SHAPES[i]} lit={i < lit} rhythm={RHYTHM[i]} />)}
       </svg>
+      <Smoke lit={lit} />
     </div>
   </>
 );
