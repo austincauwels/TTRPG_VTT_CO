@@ -532,8 +532,10 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   const [freeAdditions, setFreeAdditions] = useState(() => ({ ...EMPTY_ACTIONS, ...d('freeAdditions', {}) }));
   const [lockedDrives,  setLockedDrives]  = useState(() => ({ ...EMPTY_DRIVES, ...d('lockedDrives', {}) }));
   const [driveDistrib,  setDriveDistrib]  = useState(() => ({ ...EMPTY_DRIVES, ...d('driveDistrib', {}) }));
-  const [lockedGilded, setLockedGilded] = useState(() => d('lockedGilded', ''));
-  const [freeGilded,   setFreeGilded]   = useState(() => d('freeGilded', ''));
+  // The locked gild follows the specialty: a draft from an older creator can hold another
+  // (the Doctor's was Focus), which the forge refuses. A free gild it now repeats is cleared.
+  const [lockedGilded, setLockedGilded] = useState(() => SPECIALTY_GILDED[d('specialty', '')] || d('lockedGilded', ''));
+  const [freeGilded,   setFreeGilded]   = useState(() => { const free = d('freeGilded', ''); return free === lockedGilded ? '' : free; });
   const [selectedGear, setSelectedGear] = useState(() => d('selectedGear', []));
 
   // Finalize routing
