@@ -302,7 +302,9 @@ export const CirclePage = () => {
           <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
             Illumination
-            <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">{illum} / {TRACK_SIZE}</span>
+            <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">
+              {Math.min(illum, TRACK_SIZE)} / {TRACK_SIZE}{illum > TRACK_SIZE ? ` (+${illum - TRACK_SIZE} carried over)` : ''}
+            </span>
           </h3>
           {trackFull && (
             <button
@@ -336,6 +338,19 @@ export const CirclePage = () => {
                 </div>
               );
             })}
+          </div>
+          {/* Points awarded one at a time can pass 12: "Any leftover Illumination counts
+              toward your next advancement cycle" (rulebook p. 55), which the advance keeps */}
+          <div className="mt-2 flex items-center gap-2">
+            <button type="button" onClick={() => setIllum(illum + 1)}
+              className="px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink">
+              +1 Illumination
+            </button>
+            <button type="button" onClick={() => setIllum(Math.max(0, illum - 1))} disabled={illum <= 0}
+              aria-label="Take back 1 Illumination"
+              className="px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink disabled:opacity-40">
+              −1
+            </button>
           </div>
         </div>
 

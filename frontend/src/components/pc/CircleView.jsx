@@ -539,7 +539,7 @@ export const CircleView = () => {
           <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
             Illumination
-            <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">{illum} / {TRACK_SIZE}</span>
+            <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">{Math.min(illum, TRACK_SIZE)} / {TRACK_SIZE}{illum > TRACK_SIZE ? ` (+${illum - TRACK_SIZE} carried over)` : ''}</span>
           </h3>
           {trackFull && (
             <div className="mb-2 px-2 py-1.5 bg-candle-gold/20 border border-candle-gold rounded-sm flex items-center gap-2">
