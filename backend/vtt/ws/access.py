@@ -295,10 +295,13 @@ def _take_mark(ctx, payload, character):
 
 def _update_gear(ctx, payload, character):
     """Gear is a list of item names. A list holding anything else used to be saved,
-    and then building the log line raised and ended the socket."""
+    and then building the log line raised and ended the socket. Gear written in by name
+    (the sheet's blank gear line, rulebook p. 53) is a name of up to 80 characters."""
     gear = payload.get("gear", [])
     if isinstance(gear, list) and not all(isinstance(item, str) for item in gear):
         _invalid("Gear items must be text.")
+    if isinstance(gear, list) and not all(item.strip() and len(item) <= 80 for item in gear):
+        _invalid("A gear item is a name of up to 80 characters.")
 
 
 def _roll(ctx, payload, character):

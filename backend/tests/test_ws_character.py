@@ -618,3 +618,17 @@ def test_one_step_ahead_writes_in_an_object_outside_the_limit(client):
         ws.send("update_gear", gear=["Lantern", "Camera", "Rope", "One Step Ahead: A hatpin", "One Step Ahead: A saw"])
         assert ws.sync() == [_gear_rejected("One Step Ahead's object is written in with its Use button.")]
     assert support.fetch(Character, ch["id"]).gear == ["Lantern", "Camera", "Rope", "One Step Ahead: A hatpin"]
+
+
+def test_gear_is_written_in_by_name(client):
+    """The sheet's blank gear line (p. 53) takes circle gear, or gear from the list on
+    p. 190, by name: any name counts toward the slots. A blank or overlong name is
+    refused before anything is saved."""
+    ch = support.forge(client, gear=["Lantern"])
+    with support.ws_connect(client, ch["id"]) as ws:
+        for name in ("", "   ", "x" * 81):
+            ws.send("update_gear", gear=["Lantern", name])
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "update_gear", "status": 422, "detail": "A gear item is a name of up to 80 characters."}}] * 3
+        ws.send("update_gear", gear=["Lantern", "Rope", "Crowbar"])
+        assert ws.sync()[0]["payload"]["gear"] == ["Lantern", "Rope", "Crowbar"]

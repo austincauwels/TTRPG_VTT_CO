@@ -367,6 +367,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   const [infoTab, setInfoTab] = useState('role'); // 'role' | 'specialty' | 'profile'
   const [showGearModal, setShowGearModal] = useState(false);
   const [pendingGear, setPendingGear] = useState([]);
+  const [writeIn, setWriteIn] = useState('');   // gear written in by name (p. 53)
   const gearDialogRef = useDialog({ open: showGearModal, onClose: () => setShowGearModal(false) });
   // Pre-spend drive before rolling — keyed by drive category
   const [preSpend, setPreSpend] = useState({ nerve: 0, cunning: 0, intuition: 0 });
@@ -476,7 +477,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   const stepAhead = writtenIn(gear);
   const counted = countedGear(gear);
   const pendingCount = countedGear(pendingGear).length;
+  // Gear written in by name in this dialog and not saved yet: it can still be taken off
+  const pendingWritten = pendingGear.filter(item => !listedGear.includes(item) && !gear.includes(item));
+  const writeInName = writeIn.trim();
+  const canWriteIn = writeInName && pendingCount < slots && !pendingGear.includes(writeInName)
+    && !writeInName.startsWith(GEAR_RULES.oneStepAhead);
+  const addWriteIn = () => {
+    if (!canWriteIn) return;
+    setPendingGear(g => [...g, writeInName]);
+    setWriteIn('');
+  };
   const openGearModal = () => {
+    setWriteIn('');
     setPendingGear([...gear]);
     setShowGearModal(true);
   };
@@ -1113,19 +1125,38 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             style={{ background: 'rgb(var(--c-parchment))', border: '3px double rgb(var(--c-sepia)/0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
             <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-2">Change Gear</h2>
             <p className="text-sm font-serif italic text-sepia mb-5">Mark an item when you use it. Marked gear stays until the Lightkeeper ends the assignment.</p>
-            {otherGear.length > 0 && (
-              <div className="mb-4">
-                <p className="text-xs font-sans font-black uppercase tracking-wider text-sepia mb-2">Other gear</p>
-                <ul className="space-y-1.5">
+            {/* The sheet's blank gear line (p. 53): circle gear, or gear found on the way,
+                written in by name. Marked items stay; new ones can be taken off until saved. */}
+            <div className="mb-4">
+              <p className="text-xs font-sans font-black uppercase tracking-wider text-sepia mb-2">Other gear</p>
+              {(otherGear.length > 0 || pendingWritten.length > 0) && (
+                <ul className="space-y-1.5 mb-2">
                   {otherGear.map(item => (
                     <li key={item} className="flex items-center gap-3 p-2.5 rounded-sm text-sm font-serif font-bold text-ink"
                       style={{ background: 'rgb(var(--c-oxblood)/0.08)', border: '1px solid rgb(var(--c-oxblood) / 0.5)' }}>
                       <TickMark /> {item}
                     </li>
                   ))}
+                  {pendingWritten.map(item => (
+                    <li key={item} className="flex items-center gap-3 p-2.5 rounded-sm text-sm font-serif font-bold text-ink"
+                      style={{ background: 'rgb(var(--c-oxblood)/0.08)', border: '1px solid rgb(var(--c-oxblood) / 0.5)' }}>
+                      <TickMark /> <span className="flex-1 min-w-0 break-words">{item}</span>
+                      <button type="button" onClick={() => setPendingGear(g => g.filter(x => x !== item))}
+                        className="text-xs font-sans font-black uppercase tracking-widest text-sepia hover:text-oxblood">Take off</button>
+                    </li>
+                  ))}
                 </ul>
-              </div>
-            )}
+              )}
+              <form className="flex gap-2" onSubmit={e => { e.preventDefault(); addWriteIn(); }}>
+                <input type="text" value={writeIn} onChange={e => setWriteIn(e.target.value)} maxLength={60}
+                  aria-label="Gear to write in by name" placeholder="Write in gear by name"
+                  className="flex-1 min-w-0 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-2 py-2" />
+                <button type="submit" disabled={!canWriteIn}
+                  className="px-3 min-h-[40px] text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
+                  Add
+                </button>
+              </form>
+            </div>
 
             {character.specialty && SPECIALTY_GEAR[character.specialty] && (
               <div className="mb-4">
