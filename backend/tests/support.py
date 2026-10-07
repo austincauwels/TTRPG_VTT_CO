@@ -567,3 +567,10 @@ class StaleSocket:
 
     async def send_json(self, message):
         raise RuntimeError("socket is gone")
+
+
+def offer_intercept(target_id, mark_type):
+    """Opens the answer a mark offered to the allies opens (vtt/ws/handlers/marks.py), for
+    tests that send intercept_mark without having a mark land first."""
+    from vtt.ws.handlers import marks
+    marks.open_intercept(target_id, mark_type)

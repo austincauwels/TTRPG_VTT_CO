@@ -13,8 +13,14 @@ _pending_marks while an offer is open: using the ability spends it, and declinin
 (RULES_CHECK.md items 10, 11 and 22). Adrenaline Rush can be claimed once per offer
 (_pending_rush). Both are in memory: after a restart an open offer's decline still
 lands the mark it names, and an Adrenaline Rush offer is gone.
+
+A mark that sends the allies Behind Me and Premonitions offers opens one answer
+(_interceptable, for INTERCEPT_WINDOW seconds): the first ally to answer takes it, and
+later answers, or answers with no mark waiting, are refused, so one mark is never
+removed twice.
 """
 import secrets
+import time
 
 from sqlalchemy import or_
 
@@ -42,6 +48,32 @@ _pending_marks: dict = {}
 _pending_rush: dict = {}
 
 NO_RUSH_WAITING = "No Adrenaline Rush is waiting to be used."
+
+# (target character id, mark type) -> when each offered mark was offered (monotonic)
+_interceptable: dict = {}
+INTERCEPT_WINDOW = 120  # seconds an ally may still answer an offered mark
+NO_MARK_TO_ANSWER = "No ally's mark is waiting for that, or another ally answered it first."
+
+
+def open_intercept(target_id, m_type):
+    """A mark on target_id was offered to the allies: one of them may answer it."""
+    _interceptable.setdefault((target_id, m_type), []).append(time.monotonic())
+
+
+def _take_intercept(target_id, m_type) -> bool:
+    """Uses up the oldest answerable offer of this mark, if one is still open."""
+    key = (target_id, m_type)
+    now = time.monotonic()
+    open_ones = [t for t in _interceptable.get(key, []) if now - t < INTERCEPT_WINDOW]
+    if not open_ones:
+        _interceptable.pop(key, None)
+        return False
+    open_ones.pop(0)
+    if open_ones:
+        _interceptable[key] = open_ones
+    else:
+        _interceptable.pop(key, None)
+    return True
 
 
 async def _refuse(ctx, action, status, detail):
@@ -133,6 +165,8 @@ async def _offer_intercepts(ctx, character, m_type):
         or_(*[Character.role_ability.contains(a) for a in INTERCEPT_ABILITIES],
             *[Character.specialty_ability.contains(a) for a in INTERCEPT_ABILITIES]),
     ).all() if ctx.camp_id else []
+    if candidates:
+        open_intercept(character.id, m_type)
     for other in candidates:
         other_abilities = abilities_of(other)
         if "Behind Me" in other_abilities and (other.nerve_current or 0) >= 1:
@@ -147,7 +181,12 @@ async def _offer_intercepts(ctx, character, m_type):
 
 async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False, offer_intercepts=True,
                         soaks=True):
-    """take_mark's flow: a soak offer, then Death Defy for an enemy's mark, then the mark."""
+    """take_mark's flow: a soak offer, then Death Defy for an enemy's mark, then the mark.
+    A mark an open offer still holds lands first, as if that offer were declined (a new
+    mark, or Behind Me taking an ally's mark, used to replace it, and it was lost)."""
+    held = _pending_marks.pop(character.id, None)
+    if held:
+        await apply_mark(ctx, character, held["mark_type"], channel, held["offer_intercepts"])
     pending = {"mark_type": m_type, "is_from_enemy": bool(is_from_enemy), "offer_intercepts": offer_intercepts}
     options = _soak_options(character, m_type) if soaks else []
     if options:
@@ -168,12 +207,7 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
 async def handle_take_mark(ctx):
     m_type = ctx.payload.get("mark_type")
     if m_type:
-        # A mark taken while an offer still holds the last one: the held mark lands first,
-        # as if the offer were declined (it used to be replaced, and lost)
-        held = _pending_marks.pop(ctx.character.id, None)
-        if held:
-            await apply_mark(ctx, ctx.character, held["mark_type"], ctx.channel, held["offer_intercepts"])
-        # Whether an enemy dealt the mark is the table's call, and the desk does not ask,
+        # A mark an open offer still holds lands first (mark_or_offer). Whether an enemy dealt the mark is the table's call, and the desk does not ask,
         # so Death Defy is offered unless the payload says the mark is not from an enemy
         # (is_from_enemy false). The offer asks the player (RULES_CHECK.md item 24).
         await mark_or_offer(ctx, ctx.character, m_type, ctx.channel,
@@ -259,12 +293,16 @@ async def handle_intercept_mark(ctx):
         return
 
     if ab_name == "Behind Me" and ab_name in abilities and (character.nerve_current or 0) >= 1:
+        # Only a mark just offered to the allies, and only one ally per mark
+        target_char = db.query(Character).filter(Character.id == target_id).first()
+        if target_char is None or (getattr(target_char, f"{m_type}_marks", 0) or 0) < 1 \
+                or not _take_intercept(target_id, m_type):
+            await _refuse(ctx, "intercept_mark", 409, NO_MARK_TO_ANSWER)
+            return
         character.nerve_current = max(0, character.nerve_current - 1)
 
         # Remove the mark from the target (they no longer take it)
-        target_char = db.query(Character).filter(Character.id == target_id).first()
-        if target_char:
-            setattr(target_char, f"{m_type}_marks", max(0, (getattr(target_char, f"{m_type}_marks", 0) or 0) - 1))
+        setattr(target_char, f"{m_type}_marks", max(0, (getattr(target_char, f"{m_type}_marks", 0) or 0) - 1))
         db.commit()
         if target_char:
             await manager.broadcast(character_key(target_id), {"type": "character_update", "payload": get_char_dict(target_char)})
@@ -281,6 +319,9 @@ async def handle_intercept_mark(ctx):
         target_char = db.query(Character).filter(Character.id == target_id).first()
         if target_char is None or (getattr(target_char, f"{m_type}_marks", 0) or 0) < 1:
             await _refuse(ctx, "intercept_mark", 409, "There is no such mark to soak.")
+            return
+        if not _take_intercept(target_id, m_type):
+            await _refuse(ctx, "intercept_mark", 409, NO_MARK_TO_ANSWER)
             return
         character.intuition_resistance_spent = (character.intuition_resistance_spent or 0) + 1
         setattr(target_char, f"{m_type}_marks", getattr(target_char, f"{m_type}_marks") - 1)

@@ -200,7 +200,9 @@ WS_CASES = {
         payload=lambda c: {"ability": "Death Defy"}, expect=["character_update", "activity_log"]),
     "intercept_mark": dict(
         fields={"role_ability": "Premonitions", "intuition_max": 3},
-        before_connect=lambda client, c: support.update(Character, c.other_id, body_marks=1),
+        # an ally's mark offered to the table (intercepts answer an offered mark)
+        before_connect=lambda client, c: (support.update(Character, c.other_id, body_marks=1),
+                                          support.offer_intercept(c.other_id, "body")),
         payload=lambda c: {"ability": "Premonitions", "target_character_id": c.other_id, "mark_type": "body"},
         expect=["character_update", "activity_log"]),
     "apply_scar": dict(fields={"specialty_ability": "Hardened"},

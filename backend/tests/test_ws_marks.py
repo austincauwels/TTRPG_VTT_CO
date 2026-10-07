@@ -3,6 +3,7 @@ import pytest
 
 import engine
 import support
+from vtt.ws.handlers import marks
 from models import Character
 from vtt.ws.handlers import rolls
 
@@ -294,6 +295,7 @@ def test_intercept_behind_me(client):
                                   role_ability="Behind Me", specialty_ability="Adrenaline Rush")
     with support.ws_connect(client, guard["id"]) as wg, support.ws_connect(client, target["id"]) as wt, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
+        support.offer_intercept(target["id"], "body")
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
         msgs = wg.sync()
         assert support.types(msgs) == ["activity_log", "character_update", "ability_mark_offer"]
@@ -319,6 +321,7 @@ def _allies(client, target_fields, guard_fields):
 def test_intercept_behind_me_needs_nerve(client):
     target, guard = _allies(client, dict(body_marks=2), dict(nerve_current=0, role_ability="Behind Me"))
     with support.ws_connect(client, guard["id"]) as wg:
+        support.offer_intercept(target["id"], "body")
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
         assert wg.sync() == []
     assert support.fetch(Character, target["id"]).body_marks == 2
@@ -334,6 +337,7 @@ def test_intercept_target_must_be_in_the_same_campaign(client):
     loner = support.forge(client, brain_marks=1)
     with support.ws_connect(client, guard["id"]) as wg:
         for target in (far_away, loner):
+            support.offer_intercept(target["id"], "brain")
             wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="brain")
             assert wg.sync() == [{"type": "action_rejected", "payload": {
                 "action": "intercept_mark", "status": 403, "detail": "Not allowed."}}]
@@ -346,6 +350,7 @@ def test_intercept_can_incapacitate_interceptor(client):
     target, guard = _allies(client, dict(bleed_marks=1),
                             dict(nerve_current=1, bleed_marks=3, role_ability="Behind Me"))
     with support.ws_connect(client, guard["id"]) as wg:
+        support.offer_intercept(target["id"], "bleed")
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="bleed")
         msgs = wg.sync()
         assert support.types(msgs) == ["activity_log", "trigger_scar", "activity_log"]
@@ -359,6 +364,7 @@ def test_intercept_premonitions_soaks_the_targets_mark(client):
     target kept the mark. The ally soaks one mark of that track now."""
     target, seer = _allies(client, dict(body_marks=2), dict(intuition_max=3, specialty_ability="Premonitions"))
     with support.ws_connect(client, seer["id"]) as wsr, support.ws_connect(client, target["id"]) as wt:
+        support.offer_intercept(target["id"], "body")
         wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
         msgs = wsr.sync()
         assert support.types(msgs) == ["character_update", "activity_log"]
@@ -367,9 +373,58 @@ def test_intercept_premonitions_soaks_the_targets_mark(client):
         seen = wt.drain()
         assert support.types(seen) == ["character_update", "activity_log"]
         assert seen[0]["payload"]["body_marks"] == 1
+        support.offer_intercept(target["id"], "body")
         wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
         assert wsr.sync() == []  # no resistance left
     assert support.fetch(Character, target["id"]).body_marks == 1
+
+
+def test_one_mark_is_answered_by_one_ally(client):
+    """Fixed: Premonitions and Behind Me (both "when an ally is about to take" a mark,
+    pp. 27 and 32) could both answer the same mark and remove two. The first answer takes
+    the offered mark; a second, or an answer with no mark offered, is refused."""
+    camp = support.new_campaign(client)
+    target = support.active_member(client, camp, body_marks=1)
+    seer = support.active_member(client, camp, intuition_max=6, specialty_ability="Premonitions")
+    guard = support.active_member(client, camp, nerve_current=2, role_ability="Behind Me")
+    refused = [{"type": "action_rejected", "payload": {
+        "action": "intercept_mark", "status": 409, "detail": marks.NO_MARK_TO_ANSWER}}]
+    with support.ws_connect(client, target["id"]) as wt, support.ws_connect(client, seer["id"]) as wsr, \
+            support.ws_connect(client, guard["id"]) as wg:
+        # no mark offered yet: refused, nothing spent
+        wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
+        assert wsr.sync() == refused
+        wt.send("take_mark", mark_type="body")
+        wt.sync()
+        assert support.types(wsr.drain()) == ["ability_intercept_offer"]
+        assert support.types(wg.drain()) == ["ability_intercept_offer"]
+        wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
+        assert support.types(wsr.sync()) == ["character_update", "activity_log"]
+        wg.drain()  # the seer's log line
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
+        assert wg.sync() == refused
+    assert support.fetch(Character, target["id"]).body_marks == 1
+    assert support.fetch(Character, guard["id"]).nerve_current == 2
+
+
+def test_behind_me_lands_the_guards_own_held_mark_first(client):
+    """Fixed: with their own soak offer open (the mark held), a guard who used Behind Me
+    had the held mark replaced by the intercepted one, and lost. It lands first now."""
+    target, guard = _allies(client, dict(), dict(nerve_current=2, cunning_max=3,
+                                                    role_ability="Behind Me", specialty_ability="In the Trenches"))
+    with support.ws_connect(client, guard["id"]) as wg, support.ws_connect(client, target["id"]) as wt:
+        wg.send("take_mark", mark_type="body", is_from_enemy=False)
+        assert wg.sync()[0]["payload"]["action"] == "soak"  # the guard's own mark is held
+        wt.send("take_mark", mark_type="body", is_from_enemy=False)
+        wt.sync()
+        wg.drain()
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
+        msgs = wg.sync()
+        # the held mark lands, then the intercepted one is offered to the guard's soak
+        assert [m["payload"]["body_marks"] for m in msgs if m["type"] == "character_update"][-1] == 1
+        assert msgs[-1]["type"] == "ability_mark_offer"
+    assert support.fetch(Character, target["id"]).body_marks == 0
+    assert support.fetch(Character, guard["id"]).body_marks == 1
 
 
 def test_a_soaked_mark_stays_soaked_when_the_target_takes_another(client):
@@ -380,6 +435,7 @@ def test_a_soaked_mark_stays_soaked_when_the_target_takes_another(client):
     with support.ws_connect(client, target["id"]) as wt, support.ws_connect(client, seer["id"]) as wsr:
         wt.send("update_pen_font", pen_font="Kalam")  # the target's socket has loaded its row
         wt.sync()
+        support.offer_intercept(target["id"], "body")
         wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
         wsr.sync()
         wt.drain()
@@ -391,6 +447,7 @@ def test_a_soaked_mark_stays_soaked_when_the_target_takes_another(client):
 def test_premonitions_needs_a_mark_to_soak(client):
     target, seer = _allies(client, dict(bleed_marks=0), dict(intuition_max=3, specialty_ability="Premonitions"))
     with support.ws_connect(client, seer["id"]) as wsr:
+        support.offer_intercept(target["id"], "bleed")
         wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="bleed")
         assert wsr.sync() == [{"type": "action_rejected", "payload": {
             "action": "intercept_mark", "status": 409, "detail": "There is no such mark to soak."}}]
@@ -570,6 +627,7 @@ def test_intercept_offers_interceptor_a_soak_that_holds_the_mark(client, soak, m
                             dict(nerve_current=2, role_ability="Behind Me", specialty_ability=soak,
                                  **{"nerve_max": 3, **fields}))
     with support.ws_connect(client, guard["id"]) as wg:
+        support.offer_intercept(target["id"], mark_type)
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type=mark_type)
         msgs = wg.sync()
         assert support.types(msgs) == ["activity_log", "ability_mark_offer"]
@@ -595,6 +653,7 @@ def test_intercept_soak_skipped_when_used(client):
                                  specialty_ability="In the Trenches"))
     support.update(Character, guard["id"], ability_uses={"In the Trenches": 1})
     with support.ws_connect(client, guard["id"]) as wg:
+        support.offer_intercept(target["id"], "body")
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
         msgs = wg.sync()
         assert support.types(msgs) == ["activity_log", "character_update"]
@@ -606,6 +665,7 @@ def test_intercept_back_against_the_wall_does_not_block_the_mark(client):
     target, guard = _allies(client, dict(brain_marks=1),
                             dict(nerve_current=1, role_ability="Behind Me", specialty_ability="Back Against the Wall"))
     with support.ws_connect(client, guard["id"]) as wg:
+        support.offer_intercept(target["id"], "brain")
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="brain")
         msgs = wg.sync()
         assert support.types(msgs) == ["activity_log", "character_update"]
@@ -620,6 +680,7 @@ def test_intercept_unknown_target_is_rejected(client):
     camp = support.new_campaign(client)
     guard = support.active_member(client, camp, nerve_current=2, role_ability="Behind Me")
     with support.ws_connect(client, guard["id"]) as wg:
+        support.offer_intercept(987654321, "bleed")
         wg.send("intercept_mark", ability="Behind Me", target_character_id=987654321, mark_type="bleed")
         assert wg.sync() == [{"type": "action_rejected", "payload": {
             "action": "intercept_mark", "status": 404, "detail": "Character not found"}}]
@@ -667,6 +728,8 @@ def test_ability_results_reach_campaign_log_but_sheet_stays_private(client, abil
         payload = dict(payload, target_character_id=other["id"])
     if ability == "Premonitions":
         support.update(Character, other["id"], body_marks=1)  # a mark for the seer to soak
+    if action == "intercept_mark":
+        support.offer_intercept(other["id"], payload["mark_type"])  # offered to the allies
     if action == "use_post_roll_ability":
         # The roll each one answers (RULES_CHECK 28): a failed Cunning roll for Flourish,
         # a 3 for Learn from My Mistakes, a mixed Sense roll for Bending Spoons

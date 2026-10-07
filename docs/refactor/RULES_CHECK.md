@@ -182,7 +182,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: the offer goes out after the ally's mark is already applied. Using it burns the seer's Intuition resistance but does not remove the ally's mark (QUIRKS.md D6).
 - Rulebook (p. 32): when an ally is about to take marks, burn an Intuition resistance to warn them, "then, soak one of these marks."
 - Suggested fix: remove one mark from the ally when Premonitions is used (as Behind Me does), and send the offer before the mark lands.
-- Done (2026-10-06): Premonitions removes one mark of that track from the ally (409 when the ally has none). Not done: sending the offer before the mark lands. That needs the mark held across several players' desks with a timeout, and the mark already being removable afterwards gives the same result except for a fourth mark, which the Lightkeeper can undo by hand.
+- Done (2026-10-06): Premonitions removes one mark of that track from the ally (409 when the ally has none). Since 2026-10-07 only one ally answers each offered mark (Premonitions or Behind Me), and an answer with no mark offered is refused. Not done: sending the offer before the mark lands. That needs the mark held across several players' desks with a timeout, and the mark already being removable afterwards gives the same result except for a fourth mark, which the Lightkeeper can undo by hand.
 
 ### 24. Behind Me
 

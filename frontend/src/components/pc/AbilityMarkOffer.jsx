@@ -84,7 +84,7 @@ export const AbilityMarkOffer = () => {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [offer?.ability, offer?.character_id]);
+  }, [offer?.seq]);  // each offer gets its full time, even a second one of the same ability
 
   if (!offer || !config) return null;
 

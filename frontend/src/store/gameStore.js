@@ -32,6 +32,19 @@ const KEEP_NOT_SENT = 'Not connected to the table, so the kept die was not sent.
 let rollTimer = null;
 let queuedRoll = null;   // the roll frame waiting for the socket to open
 let rollSeq = 0;         // the id each roll_result's roll is given on this desk
+let offerSeq = 0;        // the id each ability offer is given, so each gets its own countdown
+
+// Ability offers wait their turn: one is shown, the rest queue behind it (an ally's
+// intercept offer used to replace a soak offer that held this investigator's own mark,
+// which was then never answered). A new offer holding this investigator's own mark
+// replaces an old one, whose mark the server has already landed.
+const holdsOwnMark = (offer) => !!offer && !offer.intercept && (offer.action === 'soak' || offer.action === 'escape');
+const queueOffer = (state, offer) => {
+  if (!state.abilityMarkOffer) return { abilityMarkOffer: offer };
+  if (holdsOwnMark(offer) && holdsOwnMark(state.abilityMarkOffer)) return { abilityMarkOffer: offer };
+  return { abilityMarkQueue: [...state.abilityMarkQueue, offer] };
+};
+const nextOffer = (state) => ({ abilityMarkOffer: state.abilityMarkQueue[0] || null, abilityMarkQueue: state.abilityMarkQueue.slice(1) });
 
 const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
 
@@ -165,7 +178,8 @@ const useGameStore = create(
       activityLog: [],
       pendingRoll: null,         // { action, driveSpend } — set before roll to show spend selector
       pendingRollMods: [],       // active ability modifier chip keys for the current pending roll
-      abilityMarkOffer: null,    // { ability, mark_type, character_id, options? } — mark intercept prompt
+      abilityMarkOffer: null,    // { ability, mark_type, character_id, options?, intercept?, seq } — mark intercept prompt
+      abilityMarkQueue: [],      // offers waiting behind the one shown
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
       advancementDeferred: false, // the player chose "Later" on the advancement dialog
       advancementError: null,     // why the server refused an advancement pick
@@ -666,10 +680,10 @@ const useGameStore = create(
             }));
           }
           else if (message.type === 'ability_mark_offer') {
-            set({ abilityMarkOffer: message.payload });
+            set(state => queueOffer(state, { ...message.payload, seq: ++offerSeq }));
           }
           else if (message.type === 'ability_intercept_offer') {
-            set({ abilityMarkOffer: message.payload });
+            set(state => queueOffer(state, { ...message.payload, intercept: true, seq: ++offerSeq }));
           }
           else if (message.type === 'gm_rejoin_invite') {
             set({ rejoinInvite: message.payload });
@@ -810,7 +824,7 @@ const useGameStore = create(
 
       resolveAbilityMark: (ability, choice) => {
         const { socket } = get();
-        set({ abilityMarkOffer: null });
+        set(nextOffer);
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'resolve_ability_mark', payload: { ability, choice } }));
         }
@@ -825,19 +839,19 @@ const useGameStore = create(
 
       interceptMark: (ability, targetCharacterId, markType) => {
         const { socket } = get();
-        set({ abilityMarkOffer: null });
+        set(nextOffer);
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'intercept_mark', payload: { ability, target_character_id: targetCharacterId, mark_type: markType } }));
         }
       },
 
-      dismissAbilityMarkOffer: () => set({ abilityMarkOffer: null }),
+      dismissAbilityMarkOffer: () => set(nextOffer),
 
       // A soak or Death Defy offer holds the mark back until it is answered. Declining it
       // (or letting its countdown run out) tells the server, which lets the mark land.
       declineAbilityMark: (offer) => {
         const { socket } = get();
-        set({ abilityMarkOffer: null });
+        set(nextOffer);
         if (offer && socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'resolve_ability_mark',
