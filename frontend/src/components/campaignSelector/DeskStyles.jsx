@@ -79,6 +79,10 @@ export const DeskStyles = () => (
       .hub-shade { animation: hubShadeSway 4.3s ease-in-out infinite; will-change: transform; }
       .candle-shadow { animation: candleShadowSway 4.3s ease-in-out infinite; }
       .cast { animation: castSway 4.3s ease-in-out infinite; will-change: transform; }
+      /* The smoke's SVG is a layer of its own here, where the light and shade over it are
+         layers already. Not on phones: in Safari that layer would make the full-screen
+         light and shade layers too. */
+      .candle-smoke { will-change: transform; }
       /* Each object's cast shadow is a layer of its own under the object, so the object's
          body is a layer too, with its blends, clips and paper drawn into it once. While a
          tome is hovered its glowing words get a small layer of their own, so the glow's
@@ -289,19 +293,23 @@ export const DeskStyles = () => (
       55%  { opacity: 1; transform: scale(1.12); }
       100% { opacity: 1; transform: scale(1); }
     }
-    /* Smoke off the unlit candles (CandleCluster.jsx): each thread's dash runs from the wick
-       to its tip, fading in and out on its way, three threads on staggered rhythms; and each
-       candle's plume wavers about its wick. Its SVG is a layer of its own, so only the
-       threads repaint. */
-    .candle-smoke { will-change: transform; }
+    /* Smoke off the unlit candles (CandleCluster.jsx): each thread grows up off its wick
+       (stretched from the wick) and drifts higher as it fades, three threads on staggered
+       rhythms, and each candle's plume wavers about its wick. Transform and opacity only:
+       a dash running along the threads cost Chrome a style pass and a repaint every frame. */
     .smoke-sway { animation: smokeSway 6.5s ease-in-out infinite; }
-    .smoke-strand { stroke-dasharray: 46 54; animation: smokeRise 5s linear infinite; }
+    .smoke-strand { animation: smokeRise 5s cubic-bezier(0.3, 0.6, 0.5, 1) infinite; }
     .smoke-still { display: none; }
     @keyframes smokeRise {
-      0%   { stroke-dashoffset: 46; opacity: 0; }
+      0%   { transform: translateY(0) scaleY(0.25); opacity: 0; }
       14%  { opacity: 1; }
       62%  { opacity: 0.7; }
-      100% { stroke-dashoffset: -100; opacity: 0; }
+      100% { transform: translateY(-3px) scaleY(1); opacity: 0; }
+    }
+    /* On a phone the cluster is about 100px wide, so the threads are drawn thicker there */
+    @media ${HUB_NARROW} {
+      .smoke-core { stroke-width: 1.8px; }
+      .smoke-haze { stroke-width: 4.4px; }
     }
     @keyframes smokeSway {
       0%, 100% { transform: rotate(0deg) translate(0, 0); }

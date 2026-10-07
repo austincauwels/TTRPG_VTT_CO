@@ -79,12 +79,28 @@ const SHAPES = CANDLES.map((c) => ({
 // The end of an unlit candle's wick, where its smoke starts
 const wickEnd = (c) => [c.x + c.r * 0.14, c.y + c.r * 0.09];
 
+// How far smoke may rise off a candle's wick before it would cross a candle above it
+// (with room for the threads' drift and the rise's last stretch), so no plume ends in
+// another candle's pool beside its flame
+function smokeRoom(c) {
+  const [wx, wy] = wickEnd(c);
+  let room = Infinity;
+  for (const d of CANDLES) {
+    if (d === c || d.y >= wy) continue;
+    const dx = Math.max(0, Math.abs(d.x - wx) - 4);
+    const reach = d.r * 1.12;
+    if (dx >= reach) continue;
+    room = Math.min(room, wy - d.y - Math.sqrt(reach * reach - dx * dx) - 5);
+  }
+  return room;
+}
+
 // A thread of smoke off a snuffed wick: a smooth line rising from the wick and drifting a
 // little, wavering more the higher it goes. Each candle has three, on one curve that frays
 // apart near the top, so together they read as one plume.
 function smokeStrand(c, k) {
   const [wx, wy] = wickEnd(c);
-  const len = 26 + 1.6 * c.r;
+  const len = Math.min(26 + 1.6 * c.r, smokeRoom(c));
   const pts = [];
   for (let i = 0; i <= 8; i++) {
     const t = i / 8;
@@ -159,11 +175,11 @@ const Candle = ({ c, s, lit, rhythm }) => (
   </g>
 );
 
-// The unlit candles' smoke, in an SVG of its own over the cluster: a layer of its own
-// (.candle-smoke, DeskStyles.jsx), so the moving threads repaint alone and never the
-// blurred shadows under them. Each thread's dash runs from the wick to its tip as it fades
-// (.smoke-strand), and each candle's plume wavers about its wick (.smoke-sway). Under
-// reduced motion only a still thread shows (.smoke-still).
+// The unlit candles' smoke, in an SVG of its own over the cluster (.candle-smoke,
+// DeskStyles.jsx). Each thread grows up off its wick and drifts higher as it fades
+// (.smoke-strand), and each candle's plume wavers about its wick (.smoke-sway): transforms
+// and opacity only, which the browser can run without repainting. Under reduced motion
+// only a still thread shows (.smoke-still).
 const Smoke = ({ lit }) => (
   <svg viewBox="0 0 230 190" className="candle-smoke absolute left-0 top-0 block w-full h-auto overflow-visible">
     {CANDLES.map((c, i) => {
@@ -174,9 +190,10 @@ const Smoke = ({ lit }) => (
           style={{ transformBox: 'view-box', transformOrigin: `${f2(wx)}px ${f2(wy)}px`, animationDuration: `${5.9 + i * 0.7}s` }}>
           {SMOKE[i].map((d, k) => (
             <g key={k} className="smoke-strand" fill="none" strokeLinecap="round"
-              style={{ animationDuration: `${SMOKE_RISE[k]}s`, animationDelay: `-${f2(SMOKE_START[k] + i * 0.9)}s` }}>
-              <path d={d} pathLength="100" stroke="#d9cdb8" strokeOpacity="0.08" strokeWidth="3.2" />
-              <path d={d} pathLength="100" stroke="#e6dccb" strokeOpacity="0.34" strokeWidth="1.1" />
+              style={{ transformBox: 'view-box', transformOrigin: `${f2(wx)}px ${f2(wy)}px`,
+                animationDuration: `${SMOKE_RISE[k]}s`, animationDelay: `-${f2(SMOKE_START[k] + i * 0.9)}s` }}>
+              <path className="smoke-haze" d={d} stroke="#d9cdb8" strokeOpacity="0.08" strokeWidth="3.2" />
+              <path className="smoke-core" d={d} stroke="#e6dccb" strokeOpacity="0.34" strokeWidth="1.1" />
             </g>
           ))}
           <path className="smoke-still" d={SMOKE[i][0]} stroke="#d9cdb8" strokeOpacity="0.18" strokeWidth="1.3"
