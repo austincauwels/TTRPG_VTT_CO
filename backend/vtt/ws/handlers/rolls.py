@@ -14,7 +14,7 @@ from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, drive_for
 from vtt.abilities import abilities_of, resistance_left
 from vtt.config import logger
 from models import Circle
-from vtt.circle_queries import STAMINA_DICE, circle_abilities, take_train_die, train_dice_left
+from vtt.circle_queries import STAMINA_DICE, circle_abilities, downed_members, take_train_die, train_dice_left
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.handlers.marks import apply_mark
 from vtt.ws.manager import manager
@@ -134,7 +134,7 @@ def _remember(character, action, cat, result, outcome):
                                     "outcome": outcome, "used": set()}
 
 
-def _plan_roll(character, act, spent, mods, payload, stamina_die=False):
+def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_die=False):
     """What a player's roll will be, before anything changes: the drive it spends, how
     many dice, gilds and drive points it uses, what else it costs, and the abilities that
     applied. Raises ValueError with words for the player when the roll cannot be made."""
@@ -183,6 +183,11 @@ def _plan_roll(character, act, spent, mods, payload, stamina_die=False):
     if stamina_die:
         extra += 1
         gilds += 1
+    # Nobody Left Behind (p. 41): +1d on a roll to protect a circle member who is down, or
+    # get them out of danger (the player's call, while one is down)
+    if rescue_die:
+        extra += 1
+        applied.append("Nobody Left Behind")
 
     # The drive must hold the spend and any cost from the same drive (p. 8)
     for drive in DRIVES:
@@ -229,8 +234,13 @@ async def handle_roll(ctx):
                 if not (stamina_circle and "Stamina Training" in circle_abilities(stamina_circle)
                         and (stamina_circle.stamina_dice_used or 0) < STAMINA_DICE):
                     stamina_circle = None
+            rescue = False
+            if "Nobody Left Behind" in mods and camp_id:
+                circle = db.query(Circle).filter(Circle.campaign_id == camp_id).first()
+                rescue = circle is not None and any(m["id"] != character.id for m in downed_members(circle, db))
             try:
-                plan = _plan_roll(character, act, spent, mods, payload, stamina_die=stamina_circle is not None)
+                plan = _plan_roll(character, act, spent, mods, payload, stamina_die=stamina_circle is not None,
+                                  rescue_die=rescue)
             except ValueError as refused:
                 db.rollback()
                 await _refuse(ctx, "roll", 422, str(refused))

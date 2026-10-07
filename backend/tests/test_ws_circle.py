@@ -422,6 +422,39 @@ def test_stamina_training_on_a_zero_rating_rolls_its_die(client, dice):
         assert roll["outcome"] == "mixed_success"
 
 
+def test_nobody_left_behind_adds_a_die_while_a_member_is_down(client, dice):
+    """Rulebook p. 41: when a circle member drops incapacitated, a roll to protect them or
+    get them out of danger has +1d. The circle names who is down, and goes out again when
+    that changes, so the desks offer the die only then."""
+    camp, (a, b), cid = _campaign(client, members=2, move=1)
+    support.update(Circle, cid, circle_ability="Nobody Left Behind")
+
+    def rolls(ws, count):
+        dice(*([2] * count))
+        ws.send("roll", action="move", drive_spent=0, ability_mods=["Nobody Left Behind"])
+        return len(ws.sync()[0]["payload"]["roll"]["dice"]) == count
+
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        assert rolls(wa, 1)   # nobody is down: no die
+        support.update(Character, b["id"], body_marks=3)
+        wb.send("take_mark", mark_type="body", is_from_enemy=False)
+        update = next(m for m in wa.drain(0.5) if m["type"] == "circle_update")
+        assert update["payload"]["incapacitated_members"] == [{"id": b["id"], "name": b["name"]}]
+        assert rolls(wa, 2)   # b is down: +1d
+        assert rolls(wb, 1)   # not for b's own rolls
+        wb.drain()
+        wb.send("revive_character")
+        wb.sync()
+        update = next(m for m in wa.drain(0.5) if m["type"] == "circle_update")
+        assert update["payload"]["incapacitated_members"] == []
+        assert rolls(wa, 1)
+    # Without the circle ability, no die
+    support.update(Circle, cid, circle_ability="Stamina Training")
+    support.update(Character, b["id"], incapacitated=True)
+    with support.ws_connect(client, a["id"]) as wa:
+        assert rolls(wa, 1)
+
+
 def test_stamina_training_adds_three_gilded_dice_an_assignment(client, dice):
     """RULES_CHECK 20: Stamina Training gives the circle three gilded dice to share each
     assignment, each added "as +1d to any roll" (rulebook p. 41); a player picks one on a

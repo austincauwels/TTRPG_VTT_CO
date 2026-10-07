@@ -102,6 +102,15 @@ export function getAvailableRollMods(character, action, circle = null) {
       autoApply: false, extraDice: 1, extraGild: true, driveSubstitute: null, shows: { dice: 1, gild: true, use: null },
     });
   }
+  // Nobody Left Behind (p. 41): while a circle member is down, +1d on a roll to protect them
+  // or get them out of danger (the server checks someone else is down)
+  const downed = (circle?.incapacitated_members || []).filter(m => m.id !== character.id);
+  if (circleAbilities.includes('Nobody Left Behind') && downed.length > 0) {
+    mods.push({
+      key: 'Nobody Left Behind', label: `Nobody Left Behind (protecting or rescuing ${downed.map(m => m.name).join(' or ')}: +1d)`,
+      autoApply: false, extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
+    });
+  }
   // Train (p. 41): a die the circle's resource gives for one roll this assignment, on the
   // roll the player picks
   if (character.train_bonus) {

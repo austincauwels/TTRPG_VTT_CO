@@ -27,6 +27,7 @@ from sqlalchemy import or_
 from models import Character
 from vtt.abilities import MARK_TYPES, abilities_of, count_use, resistance_left, uses_of
 from vtt.serializers import get_char_dict
+from vtt.ws.handlers.circle import announce_downed
 from vtt.ws.manager import character_key, manager
 
 # Abilities that can intercept marks on other players — used for efficient DB filtering
@@ -140,6 +141,7 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True):
         await manager.broadcast(channel, {"type": "trigger_scar", "payload": {
             "character_id": character.id, "mark_type": m_type, "character": get_char_dict(character)}})
         await _log(ctx, character, f"{character.name} has been incapacitated!", "danger")
+        await announce_downed(ctx)
         # The fourth mark is taken, as a scar (p. 14): Let Them In ("Whenever you take 1 or
         # more Bleed marks") and Adrenaline Rush ("For each mark you take") answer it too
         if m_type == "bleed" and "Let Them In" in abilities:

@@ -35,6 +35,21 @@ def resource_pool(circle, db: Session = None) -> int:
     return 1 + members
 
 
+def downed_members(circle, db: Session = None) -> list:
+    """With Nobody Left Behind (rulebook p. 41), the campaign's active members who are
+    incapacitated and alive, as {id, name}: a roll to protect them or get them out of
+    danger has +1d. Empty for a circle without the ability."""
+    if not circle.campaign_id or "Nobody Left Behind" not in circle_abilities(circle):
+        return []
+    db = db or object_session(circle)
+    if db is None:
+        return []
+    rows = db.query(Character.id, Character.name).filter(
+        Character.campaign_id == circle.campaign_id, Character.status == "active",
+        Character.incapacitated.is_(True), Character.is_dead.isnot(True)).order_by(Character.id).all()
+    return [{"id": cid, "name": name} for cid, name in rows]
+
+
 def fill_resources(circle, db: Session = None):
     """Sets each of Stitch, Refresh and Train to 1 plus the active members. (On
     2026-10-06 this split one pool of that size across the three, a misreading of p. 41

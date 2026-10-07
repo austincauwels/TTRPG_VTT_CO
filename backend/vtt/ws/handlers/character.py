@@ -10,6 +10,7 @@ from vtt.circle_queries import RESOURCES, circle_abilities
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import scar_ability
+from vtt.ws.handlers.circle import announce_downed
 from vtt.ws.manager import character_key, manager
 
 
@@ -62,6 +63,8 @@ async def handle_apply_scar(ctx):
             setattr(character, up, getattr(character, up) + 1)
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+    if character.is_dead:
+        await announce_downed(ctx)
     if use:
         said = {
             "Not Again": f"{character.name} used Not Again: a scar, and an automatic full success.",
@@ -89,6 +92,7 @@ async def handle_revive_character(ctx):
             "ink_color": getattr(character, "ink_color", "") or "",
         }
     }, db)
+    await announce_downed(ctx)
 
 
 GEAR_STAYS = "Marked gear stays until the Lightkeeper ends the assignment."

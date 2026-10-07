@@ -3,8 +3,8 @@ creation (votes, backstory answers, personal answers, relationships).
 """
 import json
 
-from models import Character, CircleVote, Relationship
-from vtt.circle_queries import relationships_list, resolve_circle, take_train_die, votes_dict
+from models import Character, Circle, CircleVote, Relationship
+from vtt.circle_queries import circle_abilities, relationships_list, resolve_circle, take_train_die, votes_dict
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.manager import manager
 
@@ -237,3 +237,14 @@ async def handle_circle_relationship_respond(ctx):
                 "type": "relationship_update",
                 "payload": {"relationships": relationships_list(db, rel.circle_id)}
             }, db)
+
+
+async def announce_downed(ctx):
+    """Nobody Left Behind (p. 41): the desks' +1d chip follows who in the circle is down,
+    so the circle goes out again when a member drops, dies or is back on their feet."""
+    if not ctx.camp_id:
+        return
+    circle = ctx.db.query(Circle).filter(Circle.campaign_id == ctx.camp_id).first()
+    if circle is not None and "Nobody Left Behind" in circle_abilities(circle):
+        await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
+            "type": "circle_update", "payload": get_circle_dict(circle)}, ctx.db)
