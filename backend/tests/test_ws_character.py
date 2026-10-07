@@ -448,3 +448,97 @@ def test_spend_sees_the_gm_opening_spending(client):
         assert support.types(ws.drain()) == ["circle_update"]
         ws.send("spend_resource", resource_type="stitch")
         assert support.types(ws.sync()) == ["character_update", "circle_update", "activity_log"]
+
+
+# --- use_ability: abilities used outside a roll (vtt/ability_uses.py) ---------------------
+
+def _use_rejected(status, detail):
+    return {"type": "action_rejected", "payload": {"action": "use_ability", "status": status, "detail": detail}}
+
+
+def test_use_ability_pays_a_drive_point(client):
+    """Scout (p. 27): "spend 1 Intuition to ask a question". The desk had no way to pay a
+    cost outside a roll: its drive pips only raise the drive."""
+    ch = support.forge(client, intuition_max=3, intuition_current=1, role_ability="Scout")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("use_ability", ability="Scout")
+        msgs = ws.sync()
+        assert msgs[0]["payload"]["intuition_current"] == 0
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} used Scout (1 Intuition)."
+        ws.send("use_ability", ability="Scout")
+        ws.send("use_ability", ability="Tactician")
+        ws.send("use_ability", ability="Juggling")
+        assert ws.sync() == [_use_rejected(409, "Not enough Intuition for Scout."),
+                             _use_rejected(409, f"{ch['name']} does not have Tactician."),
+                             _use_rejected(422, "That ability is not used this way.")]
+
+
+def test_use_ability_burns_a_resistance(client):
+    ch = support.forge(client, intuition_max=3, specialty_ability="Mind Palace")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("use_ability", ability="Mind Palace")
+        assert ws.sync()[0]["payload"]["intuition_resistance_spent"] == 1
+        ws.send("use_ability", ability="Mind Palace")
+        assert ws.sync() == [_use_rejected(409, "No Intuition resistance left for Mind Palace.")]
+
+
+def test_a_mark_taken_as_a_cost_is_not_soaked_or_intercepted(client):
+    """Occult Researcher (p. 27) takes a Brain mark by choice: it lands with no soak
+    offer and no ally's Behind Me offer."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, nerve_max=3, role_ability="Occult Researcher",
+                               specialty_ability="Compartmentalization")
+    guard = support.active_member(client, camp, nerve_current=2, role_ability="Behind Me")
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, guard["id"]) as wg:
+        ws.send("use_ability", ability="Occult Researcher")
+        msgs = ws.sync()
+        assert "ability_mark_offer" not in support.types(msgs)
+        assert [m["payload"]["brain_marks"] for m in msgs if m["type"] == "character_update"][-1] == 1
+        assert "ability_intercept_offer" not in support.types(wg.drain())
+
+
+def test_ritual_reinvigorate_and_last_moments(client):
+    ch = support.forge(client, nerve_max=3, nerve_resistance_spent=1, intuition_max=3,
+                       role_ability="Ritual", specialty_ability="Last Moments")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("use_ability", ability="Ritual")
+        assert ws.sync() == [_use_rejected(
+            422, "Choose how to use Ritual: Circle of Protection, Reinvigorate, Remote Viewing.")]
+        ws.send("use_ability", ability="Ritual", option="Reinvigorate", drive="nerve")
+        msgs = ws.sync()
+        assert msgs[1]["payload"]["message"] == (
+            f"{ch['name']} used Ritual: Reinvigorate (refreshed 1 Nerve resistance, took a Bleed mark).")
+        ws.send("use_ability", ability="Last Moments", option="still image")
+        ws.sync()
+    row = support.fetch(Character, ch["id"])
+    assert (row.nerve_resistance_spent, row.intuition_resistance_spent, row.bleed_marks) == (0, 1, 2)
+
+
+def test_field_experience_refreshes_the_circle_once_an_assignment(client):
+    """Field Experience (p. 29): once per assignment, "refresh 1 Nerve for everyone in
+    your circle"."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, nerve_max=3, nerve_current=1, specialty_ability="Field Experience")
+    ally = support.active_member(client, camp, nerve_max=3, nerve_current=0)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, ally["id"]) as wa:
+        ws.send("use_ability", ability="Field Experience")
+        assert ws.sync()[0]["payload"]["nerve_current"] == 2
+        assert wa.drain()[0]["payload"]["nerve_current"] == 1
+        ws.send("use_ability", ability="Field Experience")
+        assert ws.sync() == [_use_rejected(409, "Field Experience is used for this assignment.")]
+
+
+def test_volunteer_duty_refills_a_resource_instead_of_spending(client):
+    """Volunteer Duty (p. 29): between assignments, instead of spending resources, refill
+    1 point of one, and spend none this downtime."""
+    camp, member, cid = _resource_setup(client, specialty_ability="Volunteer Duty")
+    with support.ws_connect(client, member["id"]) as ws:
+        ws.send("use_ability", ability="Volunteer Duty", resource="stitch")
+        msgs = ws.sync()
+        assert next(m for m in msgs if m["type"] == "circle_update")["payload"]["stitch"] == 3
+        ws.send("spend_resource", resource_type="refresh")  # no spending this downtime
+        assert ws.sync() == []
+    camp2, member2, cid2 = _resource_setup(client, editable=False, specialty_ability="Volunteer Duty")
+    with support.ws_connect(client, member2["id"]) as ws:
+        ws.send("use_ability", ability="Volunteer Duty", resource="stitch")
+        assert ws.sync() == [_use_rejected(409, "Volunteer Duty is used between assignments, while resources are open.")]

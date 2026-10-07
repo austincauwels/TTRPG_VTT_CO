@@ -180,6 +180,7 @@ const useGameStore = create(
       pendingRollMods: [],       // active ability modifier chip keys for the current pending roll
       abilityMarkOffer: null,    // { ability, mark_type, character_id, options?, intercept?, seq } — mark intercept prompt
       abilityMarkQueue: [],      // offers waiting behind the one shown
+      abilityUseError: null,     // why the server refused an ability used outside a roll
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
       advancementDeferred: false, // the player chose "Later" on the advancement dialog
       advancementError: null,     // why the server refused an advancement pick
@@ -459,6 +460,9 @@ const useGameStore = create(
             }
             if (message.payload.action === 'resolve_gilded') {
               set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
+            }
+            if (message.payload.action === 'use_ability') {
+              set({ abilityUseError: message.payload.detail || 'That ability was not used.' });
             }
             // A burn answers a roll of that action; after a server restart there is none
             if (message.payload.action === 'burn_resistance') {
@@ -836,6 +840,18 @@ const useGameStore = create(
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'resolve_ability_mark', payload: { ability, choice } }));
         }
+      },
+
+      // An ability used outside a roll: the server pays its cost (backend/vtt/ability_uses.py)
+      useAbility: (ability, extra = {}) => {
+        const { socket } = get();
+        set({ abilityUseError: null });
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'use_ability', payload: { ability, ...extra } }));
+          return true;
+        }
+        set({ abilityUseError: 'Not connected. Try again in a moment.' });
+        return false;
       },
 
       usePostRollAbility: (ability, params = {}) => {

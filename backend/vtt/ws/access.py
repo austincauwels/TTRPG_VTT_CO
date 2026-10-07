@@ -355,7 +355,7 @@ PLAYER_CAMPAIGN_BROADCASTS = frozenset({
     "revive_character", "update_gear", "apply_advancement",
     "spend_resource", "submit_assignment_report", "circle_creation_vote", "circle_backstory_update",
     "circle_personal_answer", "circle_relationship_propose", "circle_relationship_respond",
-    "chat_message", "add_notebook_entry",
+    "chat_message", "add_notebook_entry", "use_ability",
 })
 
 

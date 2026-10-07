@@ -85,6 +85,7 @@ Frontend callers of `connect`: `CampaignSelector.enterAsPlayer` and `handleLastP
 | `gm_reset_character` | 2160 | `gmResetCharacter` | `role == "GM"` | GM |
 | `spend_resource` | 2189 | `spendCircleResource` | character resolved, GM toggle on, under 2 spends | Owner, active member, while GM toggle is on |
 | `apply_advancement` | 2236 | `applyAdvancement` | character resolved | Owner, only when an advancement is pending |
+| `use_ability` (since 2026-10-07) | handlers/character.py | `useAbility` | character resolved | Owner |
 | `update_circle` | 2258 | `updateCircle` (GM screens only) | none (non-GM may not raise resources) | GM |
 | `circle_creation_vote` | 2284 | `submitCircleVote` | ids present | Owner of `character_id`, active member, before finalize |
 | `circle_backstory_update` | 2322 | `updateBackstoryAnswer` | `question_key` present | Active members (and GM) before finalize, reserved keys blocked |
@@ -155,6 +156,8 @@ Validation gaps: `action` is not checked against the nine actions, so `getattr` 
 **`apply_scar`** (1985). Fields: `scar_text`, `shift_down`, `shift_up`, `skip_shifts` (the UI never sends `skip_shifts`). Appends the scar text, sets `scars_count`, and at 4 scars sets `is_dead` and `incapacitated`. If both shift names are attributes of the model, `shift_down` is above 0 and `shift_up` is below 3, moves one point from one to the other. The names are not limited to the nine actions; any numeric column qualifies, including `nerve_max` and the primary key `id`. Sends `character_update` to the sender. Nothing ties it to a pending `trigger_scar`.
 
 **`apply_advancement`** (2236). Fields: `choice`, `detail`, `character_id`. The UI sends `accessSession.characterId`, which is never set anywhere, so `JSON.stringify` drops the key and the server falls back to the socket's own character. Calls `engine.apply_advancement` (section 6). Nothing checks that an advancement was earned. Sends `character_update` to the sender and `activity_log` to the campaign.
+
+**`use_ability`** (since 2026-10-07). Fields: `ability`, and as the ability needs: `option`, `drive` (Ritual's Reinvigorate), `resource` (Volunteer Duty). Pays the cost the rulebook gives an ability used outside a roll (vtt/ability_uses.py): a drive point, a burned resistance, a mark taken as a cost (no soak, Death Defy or ally offered), or a once-per-assignment use; Field Experience refreshes 1 Nerve for every active member, Volunteer Duty refills a circle resource while resources are open. Refused with `action_rejected` (409 or 422) and nothing changed otherwise. Sends `character_update` to the sender (and to each member Field Experience refreshed), `circle_update` for Volunteer Duty, and an `activity_log` line to the campaign.
 
 ### 4.5 Marks, offers and intercepts
 

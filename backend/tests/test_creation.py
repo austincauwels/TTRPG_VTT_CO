@@ -18,6 +18,7 @@ FRONTEND = pathlib.Path(__file__).resolve().parents[2] / "frontend/src/component
 CREATOR = FRONTEND / "CharacterCreator.jsx"
 ADVANCEMENT = FRONTEND / "pc/CircleView.jsx"   # the advancement dialog's ability lists
 FORGE_PAYLOAD = FRONTEND.parent / "game/forgePayload.js"
+ABILITY_USES_JS = FRONTEND.parent / "game/abilityUses.js"   # the sheet's "Use" buttons
 
 # Prints the named object or array literals of a file as JSON. Each is plain data, so it
 # is cut out of the file and evaluated alone.
@@ -87,6 +88,16 @@ def test_the_advancement_dialogs_abilities_agree():
         r: d["abilities"] for r, d in creation.ROLES.items()}
     assert {s: tuple(a) for s, a in t["SPECIALTY_ABILITY_POOL"].items()} == {
         s: spec["abilities"] for d in creation.ROLES.values() for s, spec in d["specialties"].items()}
+
+
+def test_the_sheets_ability_uses_agree():
+    """The sheet's "Use" buttons name the abilities, and the options, the server pays for."""
+    from vtt.ability_uses import ABILITY_USES
+    t = _read(ABILITY_USES_JS, "ABILITY_USES")["ABILITY_USES"]
+    assert list(t) == list(ABILITY_USES)
+    for name, use in ABILITY_USES.items():
+        assert list(t[name].get("options", {})) == list(use.get("options", {})), name
+        assert name in creation.ALL_ABILITIES, name
 
 
 def test_each_specialty_starts_with_five_action_points_and_three_drive_points():

@@ -149,7 +149,7 @@ WS_MESSAGE_TYPES = [
     "refill_resources", "gm_end_assignment", "gm_reset_character", "spend_resource",
     "apply_advancement", "update_circle", "circle_creation_vote",
     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
-    "circle_relationship_respond", "chat_message", "add_notebook_entry",
+    "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
 ]
 
 
@@ -262,11 +262,14 @@ WS_CASES = {
     "add_notebook_entry": dict(
         payload=lambda c: {"campaign_id": c.camp_id, "title": "t", "content": "c", "visibility": "self"},
         expect=["notebook_entry"]),
+    # Scout spends 1 Intuition for a question (p. 27; vtt/ability_uses.py)
+    "use_ability": dict(fields={"role_ability": "Scout", "intuition_max": 3, "intuition_current": 3},
+                        payload=lambda c: {"ability": "Scout"}, expect=["character_update", "activity_log"]),
 }
 
 
 def test_ws_cases_cover_every_message_type():
-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 32
+    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 33
     assert list(WS_CASES) == WS_MESSAGE_TYPES
 
 
@@ -297,6 +300,7 @@ WS_NEEDS_CHARACTER = {
     "gm_update_tension", "update_drive", "resolve_gilded", "use_post_roll_ability",
     "update_pen_font", "take_mark", "resolve_ability_mark", "intercept_mark", "apply_scar",
     "revive_character", "burn_resistance", "update_gear", "spend_resource", "apply_advancement",
+    "use_ability",
 }
 
 

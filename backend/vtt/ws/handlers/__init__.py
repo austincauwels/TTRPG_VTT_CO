@@ -41,4 +41,6 @@ HANDLERS = {
     "circle_relationship_respond": (circle.handle_circle_relationship_respond, False),
     "chat_message":                (chat.handle_chat_message, False),
     "add_notebook_entry":          (chat.handle_add_notebook_entry, False),
+    # An ability used outside a roll, its cost paid (vtt/ability_uses.py)
+    "use_ability":                 (character.handle_use_ability, True),
 }

@@ -1,6 +1,7 @@
 import React, { useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
+import { ABILITY_USES } from '../../game/abilityUses';
 import useGameStore from '../../store/gameStore';
 import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
@@ -30,7 +31,7 @@ const DieGlyph = ({ className = '' }) => (
 // One pane of the ability index card: a printed heading, then each entry as its name in
 // bold capitals of the serif and its text in the serif (owner's round 4 item 13). An
 // optional entry with no text is left out; with nothing to show, the blank says so.
-const AbilityPane = ({ heading, entries, blank }) => {
+const AbilityPane = ({ heading, entries, blank, renderUse }) => {
   const shown = entries.filter(e => e.text || !e.optional);
   return (
     <div>
@@ -40,9 +41,51 @@ const AbilityPane = ({ heading, entries, blank }) => {
         <p key={e.name} className={`leading-relaxed${i > 0 ? ' mt-1' : ''}`}>
           <span className="font-bold uppercase text-ink">{e.name}:</span>{' '}
           {e.text || <span className="text-sepia italic">{blank}</span>}
+          {renderUse && renderUse(e.name)}
         </p>
       ))}
     </div>
+  );
+};
+
+// An ability used outside a roll: its cost on a button, and the choice it needs, if any
+// (game/abilityUses.js; the server pays the cost)
+const AbilityUse = ({ name, use, onUse }) => {
+  const optionKeys = use.options ? Object.keys(use.options) : null;
+  const [option, setOption] = useState(optionKeys ? optionKeys[0] : '');
+  const [choice, setChoice] = useState('');
+  const needsDrive = name === 'Ritual' && option === 'Reinvigorate';
+  const needsResource = use.needs === 'resource';
+  const send = () => onUse(name, {
+    ...(optionKeys ? { option } : {}),
+    ...(needsDrive ? { drive: choice } : {}),
+    ...(needsResource ? { resource: choice } : {}),
+  });
+  const select = 'ml-1 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5';
+  return (
+    <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle">
+      {optionKeys && (
+        <select aria-label={`How to use ${name}`} value={option} onChange={e => { setOption(e.target.value); setChoice(''); }} className={select}>
+          {optionKeys.map(k => <option key={k} value={k}>{use.options[k]}</option>)}
+        </select>
+      )}
+      {needsDrive && (
+        <select aria-label="Resistance to refresh" value={choice} onChange={e => setChoice(e.target.value)} className={select}>
+          <option value="">Resistance to refresh</option>
+          {['nerve', 'cunning', 'intuition'].map(d => <option key={d} value={d}>{d[0].toUpperCase() + d.slice(1)}</option>)}
+        </select>
+      )}
+      {needsResource && (
+        <select aria-label="Resource to refill" value={choice} onChange={e => setChoice(e.target.value)} className={select}>
+          <option value="">Resource to refill</option>
+          {['stitch', 'refresh', 'train'].map(r => <option key={r} value={r}>{r[0].toUpperCase() + r.slice(1)}</option>)}
+        </select>
+      )}
+      <button type="button" onClick={send} disabled={(needsDrive || needsResource) && !choice}
+        className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
+        Use ({use.cost})
+      </button>
+    </span>
   );
 };
 
@@ -240,8 +283,10 @@ const GEAR_ICONS = {
 };
 
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false }) => {
-  const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter } = useGameStore(useShallow(s => ({
+  const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError } = useGameStore(useShallow(s => ({
     character: s.character,
+    useAbility: s.useAbility,
+    abilityUseError: s.abilityUseError,
     circle: s.circle,
     setLocalCharacter: s.setLocalCharacter,
     updateDrive: s.updateDrive,
@@ -255,6 +300,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     isRolling: s.isRolling,
   })));
   const character = charProp || storeChar;
+  // The "Use" control for an ability with a cost outside a roll (not on a read-only sheet)
+  const renderAbilityUse = (name) => (!readOnly && ABILITY_USES[name]
+    ? <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} /> : null);
   const { held: heldMark, hold: holdMark, undo: undoMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
   // The player's own photo: the answer to a change is the sheet as the table now has it
   const photoInputRef = useRef(null);
@@ -567,16 +615,19 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               abilities; the player typed them, so they print too. */}
           <div className="pl-4 sm:pl-6 font-serif text-base text-ink break-words">
             {infoTab === 'role' && (
-              <AbilityPane heading={`${character.role || 'Role'} ability`}
+              <AbilityPane heading={`${character.role || 'Role'} ability`} renderUse={renderAbilityUse}
                 entries={[{ name: character.role_ability || 'Ability', text: ABILITY_TEXTS[character.role_ability] }]} blank="None chosen" />
             )}
             {infoTab === 'specialty' && (
               // Abilities taken by advancement follow the specialty's own after "; "
-              <AbilityPane heading={`${character.specialty || 'Specialty'} ability`}
+              <AbilityPane heading={`${character.specialty || 'Specialty'} ability`} renderUse={renderAbilityUse}
                 entries={(character.specialty_ability || '').split(';').map(n => n.trim()).filter(n => n && n !== 'None').length
                   ? (character.specialty_ability || '').split(';').map(n => n.trim()).filter(n => n && n !== 'None')
                       .map(name => ({ name, text: ABILITY_TEXTS[name] }))
                   : [{ name: 'Specialty', text: undefined }]} blank="None chosen" />
+            )}
+            {abilityUseError && infoTab !== 'profile' && (
+              <p role="alert" className="mt-2 text-sm font-serif text-oxblood">{abilityUseError}</p>
             )}
             {infoTab === 'profile' && (
               <AbilityPane heading="Catalyst and question" blank="Not written"
