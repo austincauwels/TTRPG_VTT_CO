@@ -1332,20 +1332,18 @@ const useGameStore = create(
       // ==========================================
       // GM ADMINISTRATIVE ACTIONS
       // ==========================================
-      gmAdjustTension: (markType, newValue) => {
-        const { socket, accessSession } = get();
+      // The Lightkeeper sets a character's marks in one track, 0 to 3 (the GM sheet's Marks
+      // row). True when it was sent.
+      gmSetMarks: (characterId, markType, newValue) => {
+        const { socket } = get();
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'gm_update_tension',
-            payload: {
-              mark_type: markType,
-              value: newValue,
-              role: accessSession?.role
-            }
+            payload: { character_id: characterId, mark_type: markType, value: newValue, role: 'GM' },
           }));
-        } else {
-          console.warn("Vault socket offline. Cannot transmit GM override.");
+          return true;
         }
+        return false;
       },
 
       // "Decide later": the form closes, the scar stays pending (a banner reopens it).

@@ -173,7 +173,7 @@ def _resources_editable(client, ctx):
 WS_CASES = {
     "gm_update_tension": dict(
         sender="gm", payload=lambda c: {"role": "GM", "character_id": c.char_id, "mark_type": "body", "value": 1},
-        expect=["character_update"]),
+        expect=["activity_log"]),
     "gm_update_circle": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id, "tension_label": "t"},
         expect=["circle_update"]),

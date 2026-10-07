@@ -80,21 +80,29 @@ def test_gm_messages_from_a_player_are_rejected(client):
 
 
 def test_gm_update_tension(client):
+    """The Lightkeeper corrects a character's marks (the GM sheet's Marks row). The player's
+    sheet is told and the table's log says so (only the GM's own socket used to hear)."""
     camp, (member,), _ = _campaign(client)
     outsider = support.active_member(client, support.new_campaign(client))
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("gm_update_tension", role="GM", mark_type="body", value=2, character_id=member["id"])
         msgs = gm.sync()
-        assert support.types(msgs) == ["character_update"]
-        assert msgs[0]["payload"]["id"] == member["id"]
-        assert msgs[0]["payload"]["body_marks"] == 2
-        assert wm.drain() == []  # the player is not told
+        assert support.types(msgs) == ["activity_log"]
+        assert msgs[0]["payload"]["message"] == f"The Lightkeeper set {member['name']}'s Body marks to 2."
+        seen = wm.drain()
+        assert support.types(seen) == ["character_update", "activity_log"]
+        assert (seen[0]["payload"]["id"], seen[0]["payload"]["body_marks"]) == (member["id"], 2)
         gm.send("gm_update_tension", role="GM", mark_type="body", value=3)  # no character on a GM socket
         assert gm.sync() == []
         gm.send("gm_update_tension", mark_type="body", value=3, character_id=outsider["id"])
         assert gm.sync() == [_rejected("gm_update_tension")]
+        # Only the three tracks, 0 to 3
+        for m_type, value in (("foo", 1), ("body", 4), ("body", -1), ("body", "2"), ("body", True), ("nerve_max", 1)):
+            gm.send("gm_update_tension", mark_type=m_type, value=value, character_id=member["id"])
+        assert gm.sync() == [_rejected("gm_update_tension", status=422,
+                                       detail="Marks are 0 to 3, in Body, Brain or Bleed.")] * 6
         gm.send("gm_update_tension", mark_type="body", value=1, character_id=member["id"])  # role not needed
-        assert gm.sync()[0]["payload"]["body_marks"] == 1
+        assert support.types(gm.sync()) == ["activity_log"]
     assert support.fetch(Character, member["id"]).body_marks == 1
     assert support.fetch(Character, outsider["id"]).body_marks == 0
 

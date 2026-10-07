@@ -8,7 +8,7 @@ because only GM screens send it. See docs/refactor/WEBSOCKET.md section 4.2 and
 docs/refactor/AUTH.md.
 """
 from models import Character, Circle
-from vtt.abilities import abilities_of
+from vtt.abilities import MARK_TYPES, abilities_of
 from vtt.circle_queries import circle_abilities, fill_resources, resolve_circle
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.manager import character_key, manager
@@ -38,15 +38,27 @@ async def _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum
 
 
 async def handle_gm_update_tension(ctx):
+    """The Lightkeeper sets a character's marks in one track, 0 to 3: a correction, or a
+    mark the app does not clear itself, such as Occult Researcher's Brain mark when there
+    is no detail (rulebook p. 27). Any name and value used to be stored, and only the
+    Lightkeeper's socket was told; the player's sheet and the table's log are told now."""
     db, payload, character, channel = ctx.db, ctx.payload, ctx.character, ctx.channel
     if not ctx.is_gm: return
 
     m_type = payload.get("mark_type")
     value = payload.get("value")
     if m_type and value is not None:
+        if m_type not in MARK_TYPES or type(value) is not int or not 0 <= value <= 3:
+            await manager.broadcast(channel, {"type": "action_rejected", "payload": {
+                "action": "gm_update_tension", "status": 422,
+                "detail": "Marks are 0 to 3, in Body, Brain or Bleed."}})
+            return
         setattr(character, f"{m_type}_marks", value)
         db.commit()
-        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
+        await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "activity_log", "payload": {
+            "message": f"The Lightkeeper set {character.name}'s {m_type.capitalize()} marks to {value}.",
+            "log_type": "field", "ink_color": ""}}, db)
 
 
 async def handle_gm_update_circle(ctx):
