@@ -27,6 +27,11 @@ const ABILITY_OFFER_CONFIG = {
     description: "Burn 1 Cunning resistance to soak this Body mark.",
     actionType: "soak",
   },
+  "Circle of Protection": {
+    icon: "GiShield",
+    description: "The Circle of Protection around you soaks this Body mark.",
+    actionType: "soak",
+  },
   "Death Defy": {
     icon: "GiHalfDead",
     description: "If an enemy dealt this mark, escape unscathed: you take no marks from it.",

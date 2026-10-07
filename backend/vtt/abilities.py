@@ -50,6 +50,17 @@ def uses_of(character, name: str) -> int:
     return value if isinstance(value, int) else 0
 
 
+def spend_use(character, name: str):
+    """Takes back one recorded use (a ward that has done its work), as a new dict."""
+    uses = _uses(character)
+    left = uses_of(character, name) - 1
+    if left > 0:
+        uses[name] = left
+    else:
+        uses.pop(name, None)
+    character.ability_uses = uses
+
+
 def count_use(character, name: str):
     """Records one use of an ability this assignment (ability_uses, reset when the
     Lightkeeper ends the assignment). A new dict, so the JSON column sees the change."""
@@ -83,3 +94,9 @@ def written_in(items) -> list:
 def counted_gear(items) -> list:
     """The gear that counts toward the limit: all but One Step Ahead's object."""
     return [i for i in items if i not in written_in(items)]
+
+
+# Ritual's Circle of Protection (p. 27) "soaks 1 Body mark for the person within". The
+# person it is cast on keeps it in their ability_uses under this name until it soaks a
+# mark or the assignment ends.
+WARD = "Circle of Protection ward"

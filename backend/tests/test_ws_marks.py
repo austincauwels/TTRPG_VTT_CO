@@ -322,6 +322,34 @@ def test_declining_death_defy_lands_every_held_mark(client):
     assert (row.body_marks, row.brain_marks, row.bleed_marks) == (2, 1, 1)
 
 
+def test_circle_of_protection_soaks_one_body_mark(client):
+    """Ritual's Circle of Protection (p. 27) "soaks 1 Body mark for the person within". The
+    ward is set on the ally, offered as a soak on their next Body mark, and gone once it
+    soaks one. It never soaked anything."""
+    camp = support.new_campaign(client)
+    weird = support.active_member(client, camp, specialty_ability="Ritual")
+    ally = support.active_member(client, camp, body_marks=1)
+    with support.ws_connect(client, weird["id"]) as ws, support.ws_connect(client, ally["id"]) as wa:
+        ws.send("use_ability", ability="Ritual", option="Circle of Protection", target_character_id=ally["id"])
+        ws.sync()
+        assert wa.drain()[0]["payload"]["ability_uses"] == {"Circle of Protection ward": 1}
+        wa.send("take_mark", mark_type="brain", is_from_enemy=False)   # a Brain mark: no offer
+        assert support.types(wa.sync()) == ["character_update"]
+        wa.send("take_mark", mark_type="body", is_from_enemy=False)
+        offer = wa.sync()[0]["payload"]
+        assert (offer["ability"], offer["action"]) == ("Circle of Protection", "soak")
+        wa.send("resolve_ability_mark", ability="Circle of Protection", choice="soak")
+        msgs = wa.sync()
+        assert msgs[0]["payload"]["ability_uses"] == {}
+        assert msgs[1]["payload"]["message"] == f"{ally['name']}'s Circle of Protection soaked the Body mark."
+        wa.send("take_mark", mark_type="body", is_from_enemy=False)   # the ward is spent
+        assert support.types(wa.sync()) == ["character_update"]
+        wa.send("resolve_ability_mark", ability="Circle of Protection", choice="soak")
+        assert wa.sync()[0]["payload"]["status"] == 409
+    row = support.fetch(Character, ally["id"])
+    assert (row.body_marks, row.brain_marks) == (2, 1)
+
+
 def test_intercept_behind_me(client):
     camp = support.new_campaign(client)
     target = support.active_member(client, camp, body_marks=2)

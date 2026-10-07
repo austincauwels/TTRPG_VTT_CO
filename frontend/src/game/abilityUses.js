@@ -3,7 +3,8 @@
 // (backend/vtt/ability_uses.py, which names the same abilities; tests/test_creation.py
 // checks that the two tables agree). cost is what the button says; options is a choice
 // the player makes; needs is a further choice (a resource, an object to write in, an
-// ally, or a split of drive points).
+// ally, or a split of drive points); target lets the player name an ally instead of
+// themselves (Ritual).
 export const ABILITY_USES = {
   'Scout':               { cost: '1 Intuition' },
   'Uncanny Eye':         { cost: '1 Intuition' },
@@ -20,7 +21,7 @@ export const ABILITY_USES = {
   'Occult Researcher':   { cost: 'take a Brain mark' },
   'Commune':             { cost: 'take a Brain mark' },
   'Ghostblade':          { cost: 'take a Body mark' },
-  'Ritual':              { cost: 'take a Bleed mark', options: { 'Circle of Protection': 'Circle of Protection', 'Reinvigorate': 'Reinvigorate (refresh 1 resistance)', 'Remote Viewing': 'Remote Viewing' } },
+  'Ritual':              { cost: 'take a Bleed mark', target: true, options: { 'Circle of Protection': 'Circle of Protection', 'Reinvigorate': 'Reinvigorate (refresh 1 resistance)', 'Remote Viewing': 'Remote Viewing' } },
   'I Know a Guy':        { cost: 'once per assignment' },
   'Insider Access':      { cost: 'once per assignment' },
   'University Resources': { cost: 'once per session' },

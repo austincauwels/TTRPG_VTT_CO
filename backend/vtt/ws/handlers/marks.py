@@ -26,7 +26,7 @@ import time
 from sqlalchemy import or_
 
 from models import Character
-from vtt.abilities import MARK_TYPES, abilities_of, count_use, resistance_left, uses_of
+from vtt.abilities import MARK_TYPES, WARD, abilities_of, count_use, resistance_left, spend_use, uses_of
 from vtt.serializers import get_char_dict
 from vtt.ws.handlers.circle import announce_downed
 from vtt.ws.manager import character_key, manager
@@ -103,8 +103,12 @@ def can_soak(character, ability) -> bool:
 
 
 def _soak_options(character, m_type):
-    return [{"ability": name, "resist_key": drive} for name, drive in SOAKS.get(m_type, [])
-            if can_soak(character, name)]
+    # A Circle of Protection around them (Ritual, p. 27) soaks a Body mark at no cost, so
+    # it is offered first
+    ward = [{"ability": "Circle of Protection", "resist_key": None}] \
+        if m_type == "body" and uses_of(character, WARD) >= 1 else []
+    return ward + [{"ability": name, "resist_key": drive} for name, drive in SOAKS.get(m_type, [])
+                   if can_soak(character, name)]
 
 
 def _can_defy(character) -> bool:
@@ -271,6 +275,23 @@ async def handle_resolve_ability_mark(ctx):
     ab_name = payload.get("ability")
     choice = payload.get("choice")
     abilities = abilities_of(character)
+    if ab_name == "Circle of Protection":
+        # The ward an ally's Ritual put around them: it is theirs to use, not an ability
+        if choice == "decline":
+            await _let_the_mark_land(ctx, character, payload, "soak")
+            return
+        held = _pending_marks.get(character.id)
+        if uses_of(character, WARD) < 1 or not held or held["mark_type"] != "body":
+            await _refuse(ctx, "resolve_ability_mark", 409, "No Circle of Protection is holding a Body mark back.")
+            if held:
+                await _let_the_mark_land(ctx, character, payload, "soak")
+            return
+        spend_use(character, WARD)
+        _pending_marks.pop(character.id, None)
+        db.commit()
+        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        await _log(ctx, character, f"{character.name}'s Circle of Protection soaked the Body mark.")
+        return
     if ab_name not in abilities:
         return
 

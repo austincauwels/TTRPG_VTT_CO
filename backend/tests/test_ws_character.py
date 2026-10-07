@@ -653,3 +653,22 @@ def test_blood_of_the_covenant_refreshes_drive_equal_to_intuition_resistance(cli
     with support.ws_connect(client, spent["id"]) as ws:
         ws.send("use_ability", ability="Blood of the Covenant", points={"nerve": 1})
         assert ws.sync() == [_use_rejected(409, "No Intuition resistance left for Blood of the Covenant.")]
+
+
+def test_ritual_on_an_ally(client):
+    """Ritual (p. 27): "perform a ritual on yourself or an ally". Reinvigorate refreshes the
+    ally's resistance and tells them; the Bleed mark is still the Weird's. It used to work
+    only on the Weird."""
+    camp, weird, ally = _member_pair(client, specialty_ability="Ritual")
+    support.update(Character, ally["id"], nerve_max=3, nerve_resistance_spent=1)
+    stranger = support.active_member(client, support.new_campaign(client))
+    with support.ws_connect(client, weird["id"]) as ws, support.ws_connect(client, ally["id"]) as wa:
+        ws.send("use_ability", ability="Ritual", option="Reinvigorate", drive="nerve", target_character_id=stranger["id"])
+        assert ws.sync() == [_use_rejected(422, "Choose yourself or an ally in your circle.")]
+        ws.send("use_ability", ability="Ritual", option="Reinvigorate", drive="nerve", target_character_id=ally["id"])
+        msgs = ws.sync()
+        log = next(m for m in msgs if m["type"] == "activity_log")
+        assert log["payload"]["message"] == (f"{weird['name']} used Ritual: Reinvigorate on {ally['name']} "
+                                             "(refreshed 1 Nerve resistance, took a Bleed mark).")
+        assert wa.drain()[0]["payload"]["nerve_resistance_spent"] == 0
+    assert support.fetch(Character, weird["id"]).bleed_marks == 1

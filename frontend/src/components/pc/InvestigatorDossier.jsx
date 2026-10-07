@@ -63,6 +63,8 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   // Blood of the Covenant: drive points, split as the player likes, up to the current
   // Intuition resistance
   const needsSplit = use.needs === 'split';
+  // Ritual is performed "on yourself or an ally" (p. 27)
+  const [target, setTarget] = useState('');
   const [split, setSplit] = useState({ nerve: 0, cunning: 0, intuition: 0 });
   const splitMax = needsSplit ? resistRemaining(character, 'intuition') : 0;
   const splitTotal = split.nerve + split.cunning + split.intuition;
@@ -74,6 +76,7 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
       ...(needsItem ? { item: choice.trim() } : {}),
       ...(needsAlly ? { ally_id: Number(choice) } : {}),
       ...(needsSplit ? { points: split } : {}),
+      ...(use.target && target ? { target_character_id: Number(target) } : {}),
     });
     if (sent && needsItem) setChoice('');
     if (sent && needsSplit) setSplit({ nerve: 0, cunning: 0, intuition: 0 });
@@ -84,6 +87,12 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
       {optionKeys && (
         <select aria-label={`How to use ${name}`} value={option} onChange={e => { setOption(e.target.value); setChoice(''); }} className={select}>
           {optionKeys.map(k => <option key={k} value={k}>{use.options[k]}</option>)}
+        </select>
+      )}
+      {use.target && (
+        <select aria-label={`${name} on`} value={target} onChange={e => setTarget(e.target.value)} className={select}>
+          <option value="">On yourself</option>
+          {allies.map(a => <option key={a.id} value={a.id}>On {a.name}</option>)}
         </select>
       )}
       {needsDrive && (

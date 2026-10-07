@@ -229,6 +229,7 @@ The roll screen (`frontend/src/components/pc/DiceVault.jsx`) checks some conditi
 - Done (2026-10-07): a Survey roll with Street Smarts counts for Flourish whatever drive paid for it, since Cunning could have. Left for the owner: Cool Under Pressure only applies "on any high-stakes roll" (p. 27), and the app cannot tell which rolls are high stakes, so with it every roll counts for Flourish.
 - Done (2026-10-07): Patch Up and Resuscitation (p. 30) are offered on the slip after a Focus roll, with a choice of ally (and, for Resuscitation on a 4-5, of the 3 drive points to pay). The server checks the roll, the ally and the cost.
 - Done (2026-10-07): Blood of the Covenant (p. 32) has a Use button: drive points in any split, up to the current Intuition resistance. "The first time a dangerous phenomenon inflicts a mark on anyone in your circle" is read as once per assignment, and whether it has happened is the player's call. The owner may want a different reading.
+- Done (2026-10-07): Ritual (p. 27) can be performed on an ally in the circle. Circle of Protection "soaks 1 Body mark for the person within": the ward is kept in that person's ability_uses and offered first as a soak on their next Body mark, which it takes at no cost. The app's reading is that the ward lasts until it soaks a mark or the assignment ends.
 
 ### 29. Once-per-assignment limits for roll abilities are not counted
 

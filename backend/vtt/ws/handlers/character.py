@@ -4,7 +4,7 @@ import json
 
 from engine import ALL_ACTIONS, apply_advancement
 from models import Character, Circle
-from vtt.abilities import (GEARED_UP_SLOT, ONE_STEP_AHEAD, count_use, counted_gear, gear_limit, has_ability,
+from vtt.abilities import (GEARED_UP_SLOT, ONE_STEP_AHEAD, WARD, count_use, counted_gear, gear_limit, has_ability,
                            resistance_left, uses_of, written_in)
 from vtt.ability_uses import ABILITY_USES, DRIVES, SCAR_ABILITIES
 from vtt.circle_queries import RESOURCES, circle_abilities
@@ -273,10 +273,20 @@ async def handle_use_ability(ctx):
                 and all(type(v) is int and v >= 0 for v in points.values()) and 1 <= sum(points.values()) <= left):
             await refuse(422, f"Choose up to {left} drive {'point' if left == 1 else 'points'} to refresh.")
             return
+    # Ritual is performed "on yourself or an ally" (p. 27)
+    target = character
+    target_id = payload.get("target_character_id")
+    if use.get("target") and target_id is not None and target_id != character.id:
+        target = db.query(Character).filter(
+            Character.id == target_id, Character.campaign_id == camp_id, Character.status == "active",
+        ).with_for_update().first() if camp_id and type(target_id) is int else None
+        if target is None:
+            await refuse(422, "Choose yourself or an ally in your circle.")
+            return
     reinvigorate = None
     if effect == "reinvigorate":
         reinvigorate = payload.get("drive")
-        if reinvigorate not in DRIVES or not (getattr(character, f"{reinvigorate}_resistance_spent", 0) or 0):
+        if reinvigorate not in DRIVES or not (getattr(target, f"{reinvigorate}_resistance_spent", 0) or 0):
             await refuse(409, "Choose a drive with a burned resistance to refresh.")
             return
 
@@ -291,8 +301,10 @@ async def handle_use_ability(ctx):
     if use.get("once"):
         count_use(character, name)
     if reinvigorate:
-        setattr(character, f"{reinvigorate}_resistance_spent", getattr(character, f"{reinvigorate}_resistance_spent") - 1)
+        setattr(target, f"{reinvigorate}_resistance_spent", getattr(target, f"{reinvigorate}_resistance_spent") - 1)
         paid.append(f"refreshed 1 {reinvigorate.capitalize()} resistance")
+    if effect == "ward":
+        count_use(target, WARD)   # it soaks the next Body mark (vtt/ws/handlers/marks.py)
     changed = []   # other characters this use changed
     if effect == "circle_nerve":
         # Field Experience (p. 29): "refresh 1 Nerve for everyone in your circle"
@@ -318,6 +330,8 @@ async def handle_use_ability(ctx):
     if step_item:
         character.gear = _gear_of(character) + [ONE_STEP_AHEAD + step_item]
         paid.append(f"wrote in {step_item}")
+    if target is not character:
+        changed.append(target)
     if ally is not None:
         count_use(ally, GEARED_UP_SLOT)
         changed.append(ally)
@@ -331,7 +345,7 @@ async def handle_use_ability(ctx):
     if circle is not None:
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)
     marks = [m for m in (use.get("mark"), extra_mark) if m]
-    label = f"{name}: {option}" if option else name
+    label = (f"{name}: {option}" if option else name) + (f" on {target.name}" if target is not character else "")
     taken = [f"took a {m.capitalize()} mark" for m in marks]
     detail = ", ".join(paid + taken)
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {

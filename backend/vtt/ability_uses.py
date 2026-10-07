@@ -12,6 +12,7 @@ Each entry may have:
 - once: once per assignment, counted in ability_uses.
 - options: a choice the player makes; an option may add a mark (Last Moments' still
   image) or name an effect.
+- target: the player may name an ally in the circle instead of themselves (Ritual).
 - effect: what the app plays out: Field Experience refreshes 1 Nerve for everyone in
   the circle, Volunteer Duty refills a circle resource, Reinvigorate refreshes 1
   resistance, One Step Ahead writes an object into a gear slot of its own, Geared Up
@@ -39,8 +40,8 @@ ABILITY_USES = {
     "Occult Researcher":   {"mark": "brain"},           # p. 27: clear it if there is no detail
     "Commune":             {"mark": "brain"},           # p. 32: then a Sense roll
     "Ghostblade":          {"mark": "body"},            # p. 32
-    "Ritual":              {"mark": "bleed",            # p. 27
-                            "options": {"Circle of Protection": None, "Reinvigorate": "reinvigorate",
+    "Ritual":              {"mark": "bleed", "target": True,  # p. 27: "on yourself or an ally"
+                            "options": {"Circle of Protection": "ward", "Reinvigorate": "reinvigorate",
                                         "Remote Viewing": None}},
     # Limited uses
     "I Know a Guy":        {"once": True},              # p. 27
