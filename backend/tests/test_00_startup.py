@@ -348,6 +348,29 @@ def test_init_db_alters_upgrade_a_legacy_schema(client, monkeypatch):
         assert _schema_columns(eng, schema) == cols
 
 
+def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client, monkeypatch, caplog):
+    """The first start after a deploy runs init_db on the live database: its seed rows
+    exist, and the columns added since the last release do not yet. The seed's lookup of
+    circle 1 loaded the whole row, failed on circles.stamina_dice_used, and logged
+    "Error seeding database" (found rehearsing the upgrade from main). It reads the id
+    alone now, and the new columns are added."""
+    added = [("circles", "stamina_dice_used"), ("characters", "warded_by_id"), ("characters", "train_dice"),
+             ("characters", "advancement_set")]
+    with support.isolated_schema() as (eng, Session, schema):
+        with eng.begin() as conn:
+            for table, col in added:
+                conn.execute(text(f"ALTER TABLE {table} DROP COLUMN {col}"))
+            conn.execute(text("INSERT INTO circles (id, name) VALUES (1, 'The Order of Light')"))
+            conn.execute(text("INSERT INTO users (id, username, email, hashed_password) VALUES (1, 'admin', 'a@b.c', 'x')"))
+        monkeypatch.setattr(main, "db_engine", eng)
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        with caplog.at_level("ERROR"):
+            main.init_db()
+        assert not [r for r in caplog.records if "Error seeding database" in r.getMessage()]
+        cols = _schema_columns(eng, schema)
+        assert all(key in cols for key in added)
+
+
 def _column_types(eng, schema):
     """(table, column) -> data_type, with text and character varying as one type
     (PostgreSQL treats an unlimited VARCHAR and TEXT the same)."""

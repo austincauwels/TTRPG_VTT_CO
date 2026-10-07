@@ -255,12 +255,14 @@ def init_db():
     have no Google sign-in (warn_password_only_accounts)."""
     db = SessionLocal()
     try:
-        circle = db.query(Circle).filter(Circle.id == 1).first()
+        # Column queries, so the seed also works on tables that predate a column added
+        # below: loading the whole row failed on the first start after an upgrade that
+        # added a column (circles.stamina_dice_used), and skipped the seed with an error.
+        circle = db.query(Circle.id).filter(Circle.id == 1).first()
         if not circle:
             circle = Circle(id=1, name="The Order of Light", stitch=1, refresh=1, train=1)
             db.add(circle)
 
-        # A column query, so the seed also works on a users table that predates google_sub.
         admin_user = db.query(User.id).filter(User.username == "admin").first()
         if not admin_user:
             new_admin = User(
