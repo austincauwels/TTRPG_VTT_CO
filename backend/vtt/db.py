@@ -137,6 +137,17 @@ INTEGER_FLAG_COLUMNS = [
 ]
 
 
+def rename_relationship_types():
+    """The rulebook's Bully relationship (pp. 34 to 37) was named Antagonist in the app.
+    Renames stored rows, including a counter's proposed type; safe on every start."""
+    try:
+        with db_engine.begin() as conn:
+            conn.execute(text("UPDATE relationships SET rel_type = 'Bully' WHERE rel_type = 'Antagonist'"))
+            conn.execute(text("UPDATE relationships SET counter_type = 'Bully' WHERE counter_type = 'Antagonist'"))
+    except Exception as e:
+        logger.error("Error renaming relationship types: %s", e)
+
+
 def convert_integer_flags():
     """Convert any column in INTEGER_FLAG_COLUMNS that is still an integer to BOOLEAN
     DEFAULT FALSE (0 becomes false, anything else true). Columns that are already
@@ -391,5 +402,6 @@ def init_db():
     ])
 
     convert_integer_flags()
+    rename_relationship_types()
     retire_published_passwords()
     warn_password_only_accounts()

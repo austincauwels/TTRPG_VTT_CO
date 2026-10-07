@@ -358,6 +358,23 @@ def _model_columns():
     return {(t.name, c.name) for t in main.Base.metadata.tables.values() for c in t.columns}
 
 
+def test_init_db_renames_antagonist_to_bully(client, monkeypatch):
+    """The rulebook's Bully relationship (p. 34) was named Antagonist in the app. init_db
+    renames stored rows, a counter's proposed type too, and leaves other types alone."""
+    with support.isolated_schema() as (eng, Session, schema):
+        with eng.begin() as conn:
+            conn.execute(text("INSERT INTO circles (id, name) VALUES (500, 'C')"))
+            conn.execute(text("INSERT INTO characters (id, name, status) VALUES (501, 'A', 'active'), (502, 'B', 'active')"))
+            conn.execute(text("INSERT INTO relationships (circle_id, from_character_id, to_character_id, rel_type, counter_type) "
+                              "VALUES (500, 501, 502, 'Antagonist', NULL), (500, 502, 501, 'Champion', 'Antagonist')"))
+        monkeypatch.setattr(main, "db_engine", eng)
+        monkeypatch.setattr(main, "SessionLocal", Session)
+        main.init_db()
+        with eng.connect() as conn:
+            rows = conn.execute(text("SELECT rel_type, counter_type FROM relationships ORDER BY id")).all()
+        assert [tuple(r) for r in rows] == [("Bully", None), ("Champion", "Bully")]
+
+
 def test_init_db_converts_an_integer_train_bonus_to_boolean(client, monkeypatch):
     """Bug fix: init_db used to add characters.train_bonus as INTEGER DEFAULT 0 while the
     model is Boolean. PostgreSQL refuses False for an integer column, so on a database
