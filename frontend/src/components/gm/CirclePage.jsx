@@ -455,9 +455,12 @@ export const CirclePage = () => {
               return (
                 <div key={key} className="py-2 first:pt-0">
                   <span className="font-serif font-black text-sm uppercase tracking-wide text-ink block mb-1">{label}</span>
-                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-1.5">
+                  {/* One row: filled pips are available, empty ones up to the maximum are
+                      spent, and dotted ones lie beyond the maximum */}
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                     <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Available</span>
                     <div className="flex flex-wrap gap-1">
+                      <span className="sr-only">{label}: {avail} of {maxCap} available.</span>
                       {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => {
                         const withinMax = i < maxCap;
                         const filled = i < avail;
@@ -476,26 +479,11 @@ export const CirclePage = () => {
                                 ? 'bg-oxblood border-oxblood cursor-pointer'
                                 : withinMax
                                   ? 'bg-transparent border-ink/40 hover:border-oxblood/50 cursor-pointer'
-                                  : 'bg-transparent border-dashed border-ink/15 opacity-30'
+                                  : 'bg-transparent border-dotted border-ink/30 opacity-40'
                             }`}
                           />
                         );
                       })}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                    <span className="font-sans text-xs text-sepia uppercase font-bold w-[5.5rem] shrink-0">Maximum</span>
-                    <div className="flex flex-wrap gap-1">
-                      {Array.from({ length: RESOURCE_MAX_SQUARES }).map((_, i) => (
-                        <div
-                          key={i}
-                          className={`w-3.5 h-3.5 rounded-sm border ${
-                            i < maxCap
-                              ? 'border-dashed border-ink/35 bg-black/5'
-                              : 'border-dotted border-ink/10 bg-transparent'
-                          }`}
-                        />
-                      ))}
                     </div>
                   </div>
                 </div>
