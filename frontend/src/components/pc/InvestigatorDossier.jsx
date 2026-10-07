@@ -1,7 +1,7 @@
 import React, { useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
-import { ABILITY_USES } from '../../game/abilityUses';
+import { ABILITY_USES, SCAR_ABILITIES } from '../../game/abilityUses';
 import useGameStore from '../../store/gameStore';
 import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
@@ -85,6 +85,25 @@ const AbilityUse = ({ name, use, onUse }) => {
         className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
       </button>
+    </span>
+  );
+};
+
+// An ability that takes a scar on purpose (Not Again, Forbidden Ritual): the button opens
+// the scar form. Not while another scar waits to be recorded, or once Not Again is used
+// this assignment.
+const ScarAbilityUse = ({ name, use, character, scarWaiting, onUse }) => {
+  const used = use.once && (character?.ability_uses?.[name] || 0) >= 1;
+  const why = character?.is_dead ? null
+    : scarWaiting ? 'Record the waiting scar first.'
+      : used ? 'Used this assignment.' : null;
+  return (
+    <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle">
+      <button type="button" onClick={() => onUse(name, use.mark || '')} disabled={!!character?.is_dead || !!scarWaiting || used}
+        className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
+        Use ({use.cost})
+      </button>
+      {why && <span className="text-sm italic text-sepia">{why}</span>}
     </span>
   );
 };
@@ -283,10 +302,12 @@ const GEAR_ICONS = {
 };
 
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false }) => {
-  const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError } = useGameStore(useShallow(s => ({
+  const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar } = useGameStore(useShallow(s => ({
     character: s.character,
     useAbility: s.useAbility,
     abilityUseError: s.abilityUseError,
+    openAbilityScar: s.openAbilityScar,
+    pendingScar: s.pendingScar,
     circle: s.circle,
     setLocalCharacter: s.setLocalCharacter,
     updateDrive: s.updateDrive,
@@ -301,8 +322,16 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   })));
   const character = charProp || storeChar;
   // The "Use" control for an ability with a cost outside a roll (not on a read-only sheet)
-  const renderAbilityUse = (name) => (!readOnly && ABILITY_USES[name]
-    ? <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} /> : null);
+  const renderAbilityUse = (name) => {
+    if (readOnly) return null;
+    if (ABILITY_USES[name]) return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} />;
+    if (SCAR_ABILITIES[name]) {
+      return <ScarAbilityUse key={name} name={name} use={SCAR_ABILITIES[name]} character={character}
+        scarWaiting={pendingScar && (pendingScar.characterId == null || pendingScar.characterId === character?.id)}
+        onUse={openAbilityScar} />;
+    }
+    return null;
+  };
   const { held: heldMark, hold: holdMark, undo: undoMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
   // The player's own photo: the answer to a change is the sheet as the table now has it
   const photoInputRef = useRef(null);

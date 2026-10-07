@@ -504,6 +504,38 @@ def test_hardened_and_not_again_keep_the_ratings(client):
         assert support.types(ws.sync()) == ["action_rejected"]
 
 
+def test_a_scar_taken_for_not_again_or_forbidden_ritual(client):
+    """Not Again (p. 29): a scar for an automatic full success, once per assignment, with
+    the ratings left alone. Forbidden Ritual (p. 32): a Bleed scar, which shifts a point
+    as a scar does. The desk sends the ability's name, and the table hears of it."""
+    lesson = support.forge(client, move=2, sense=0, specialty_ability="Not Again")
+    with support.ws_connect(client, lesson["id"]) as ws:
+        # Shifts sent with a Not Again scar are not applied
+        ws.send("apply_scar", scar_text="The lesson", shift_down="move", shift_up="sense", ability="Not Again")
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update", "activity_log"]
+        p = msgs[0]["payload"]
+        assert (p["move"], p["sense"], p["scars_list"], p["ability_uses"]) == (2, 0, ["The lesson"], {"Not Again": 1})
+        assert msgs[1]["payload"]["message"] == f"{lesson['name']} used Not Again: a scar, and an automatic full success."
+        ws.send("apply_scar", scar_text="Again", skip_shifts=True, ability="Not Again")
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "apply_scar", "status": 409, "detail": "Not Again is used for this assignment."}}]
+    ritual = support.forge(client, move=2, sense=0, specialty_ability="Forbidden Ritual")
+    with support.ws_connect(client, ritual["id"]) as ws:
+        ws.send("apply_scar", scar_text="Burned palms", skip_shifts=True, ability="Forbidden Ritual")
+        assert support.types(ws.sync()) == ["action_rejected"]   # a Bleed scar still shifts
+        ws.send("apply_scar", scar_text="Burned palms", shift_down="move", shift_up="sense", ability="Forbidden Ritual")
+        msgs = ws.sync()
+        assert (msgs[0]["payload"]["move"], msgs[0]["payload"]["sense"], msgs[0]["payload"]["scars_count"]) == (1, 1, 1)
+        assert msgs[1]["payload"]["message"] == f"{ritual['name']} used Forbidden Ritual and took a Bleed scar."
+        # Not this character's ability, or no such scar ability
+        ws.send("apply_scar", scar_text="x", skip_shifts=True, ability="Not Again")
+        ws.send("apply_scar", scar_text="x", shift_down="move", shift_up="sense", ability="Ritual")
+        ws.send("apply_scar", scar_text="x", shift_down="move", shift_up="sense", ability=["Not Again"])
+        assert [m["payload"]["status"] for m in ws.sync()] == [409, 422, 422]
+    assert support.fetch(Character, ritual["id"]).scars_count == 1
+
+
 def test_apply_scar_shift_limits(client):
     ch = support.forge(client, move=0, sense=3, read=1)
     with support.ws_connect(client, ch["id"]) as ws:

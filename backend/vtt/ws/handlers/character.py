@@ -5,10 +5,11 @@ import json
 from engine import ALL_ACTIONS, apply_advancement
 from models import Character, Circle
 from vtt.abilities import count_use, has_ability, resistance_left, uses_of
-from vtt.ability_uses import ABILITY_USES, DRIVES
+from vtt.ability_uses import ABILITY_USES, DRIVES, SCAR_ABILITIES
 from vtt.circle_queries import RESOURCES, circle_abilities
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.serializers import get_char_dict, get_circle_dict
+from vtt.ws.access import scar_ability
 from vtt.ws.manager import character_key, manager
 
 
@@ -46,9 +47,14 @@ async def handle_apply_scar(ctx):
         character.incapacitated = True
     down, up = payload.get("shift_down"), payload.get("shift_up")
     skip_shifts = payload.get("skip_shifts", False)
-    # A Not Again scar (p. 29) is once per assignment; vtt.ws.access checked it is unused
-    if payload.get("not_again") and has_ability(character, "Not Again"):
-        count_use(character, "Not Again")
+    # A scar taken for Not Again (p. 29) or Forbidden Ritual (p. 32); vtt.ws.access checked
+    # the ability, and that Not Again is unused this assignment
+    ability = scar_ability(payload)
+    use = SCAR_ABILITIES.get(ability) if has_ability(character, ability) else None
+    if use and use.get("once"):
+        count_use(character, ability)
+    if use and use.get("keeps_ratings"):
+        skip_shifts = True   # "Don't adjust your action ratings when you take this scar."
     # vtt.ws.access already rejects other names; this keeps the handler safe on its own.
     if not skip_shifts and down in ALL_ACTIONS and up in ALL_ACTIONS:
         if getattr(character, down) > 0 and getattr(character, up) < 3:
@@ -56,6 +62,15 @@ async def handle_apply_scar(ctx):
             setattr(character, up, getattr(character, up) + 1)
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+    if use:
+        said = {
+            "Not Again": f"{character.name} used Not Again: a scar, and an automatic full success.",
+            "Forbidden Ritual": f"{character.name} used Forbidden Ritual and took a Bleed scar.",
+        }[ability]
+        await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
+            "type": "activity_log",
+            "payload": {"message": said, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""},
+        }, db)
 
 
 async def handle_revive_character(ctx):

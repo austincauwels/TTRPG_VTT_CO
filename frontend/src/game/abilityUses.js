@@ -26,3 +26,13 @@ export const ABILITY_USES = {
   'Field Experience':    { cost: 'once per assignment: 1 Nerve back for everyone in the circle' },
   'Volunteer Duty':      { cost: 'instead of spending resources', needs: 'resource' },
 };
+
+// Abilities that take a scar on purpose (pp. 29 and 32). Their "Use" button opens the
+// scar form, which sends apply_scar with the ability's name; the server checks the
+// ability and counts Not Again's one use (backend/vtt/ability_uses.py SCAR_ABILITIES).
+// keepsRatings: the scar moves no action point; once: once per assignment; mark: the
+// kind of scar.
+export const SCAR_ABILITIES = {
+  'Not Again':        { cost: 'take a scar', keepsRatings: true, once: true },
+  'Forbidden Ritual': { cost: 'take a Bleed scar', mark: 'bleed' },
+};

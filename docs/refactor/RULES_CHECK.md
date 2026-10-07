@@ -100,6 +100,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - Rulebook (p. 31): Hardened lets you choose not to shift action points when you take a scar. Not Again (p. 29) also takes a scar without a shift. Otherwise a scar always shifts a point (p. 14).
 - Suggested fix: honor `skip_shifts` only for a character with Hardened, or for a Not Again scar.
 - Done (2026-10-06): a scar that keeps the ratings is refused (422) unless the character has Hardened, the scar is a Not Again scar (payload not_again, once per assignment, counted in ability_uses), or it is the fatal fourth scar. The desk only offers it to Hardened characters, now including one whose Hardened came from an advancement.
+- Done (2026-10-07): Not Again (p. 29) and Forbidden Ritual (p. 32) take a scar from the sheet. Their "Use" button opens the scar form; Not Again's leaves the ratings alone and is counted once per assignment, Forbidden Ritual's is a Bleed scar that shifts a point. The server checks the ability and logs the use to the table.
 
 ### 13. Death at the fourth scar
 

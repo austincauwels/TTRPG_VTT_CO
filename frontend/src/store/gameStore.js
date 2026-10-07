@@ -33,6 +33,8 @@ let rollTimer = null;
 let queuedRoll = null;   // the roll frame waiting for the socket to open
 let rollSeq = 0;         // the id each roll_result's roll is given on this desk
 let offerSeq = 0;        // the id each ability offer is given, so each gets its own countdown
+let scarFormSeq = 0;     // the id each scar form is opened with, so a new one starts blank
+const nextScarForm = () => { scarFormSeq += 1; return scarFormSeq; };
 
 // Ability offers wait their turn: one is shown, the rest queue behind it (an ally's
 // intercept offer used to replace a soak offer that held this investigator's own mark,
@@ -168,6 +170,8 @@ const useGameStore = create(
       showScarModal: false,
       scarModalData: null,
       pendingScar: null,         // { type, characterId }: a scar the player chose to decide later
+      scarError: null,           // why the server refused the last scar sent (the form reopens)
+      scarSent: null,            // { scarModalData, pendingScar } of the scar last sent
       isRolling: false,
       rollWaiting: false,        // the roll waits for the connection to come back
       rollError: null,           // why the last roll (or kept die) did not go through
@@ -215,6 +219,8 @@ const useGameStore = create(
           pendingScar: null,
           showScarModal: false,
           scarModalData: null,
+          scarError: null,
+          scarSent: null,
           character: null,
           characters: [],
           gmCampaigns: [],
@@ -436,7 +442,8 @@ const useGameStore = create(
             set({
               character: message.payload.character,
               showScarModal: true,
-              scarModalData: { type: message.payload.mark_type },
+              scarModalData: { type: message.payload.mark_type, seq: nextScarForm() },
+              scarError: null,
               pendingScar: {
                 type: message.payload.mark_type,
                 characterId: message.payload.character_id ?? message.payload.character?.id ?? null,
@@ -463,6 +470,17 @@ const useGameStore = create(
             }
             if (message.payload.action === 'use_ability') {
               set({ abilityUseError: message.payload.detail || 'That ability was not used.' });
+            }
+            // A refused scar was not recorded: the form opens again, as it was, with the reason
+            if (message.payload.action === 'apply_scar') {
+              const sent = get().scarSent;
+              const detail = message.payload.detail || 'The scar was not recorded.';
+              if (sent) {
+                set({ showScarModal: true, scarModalData: sent.scarModalData, pendingScar: sent.pendingScar,
+                  scarError: detail, scarSent: null });
+              } else {
+                set({ abilityUseError: detail });
+              }
             }
             // A burn answers a roll of that action; after a server restart there is none
             if (message.payload.action === 'burn_resistance') {
@@ -932,21 +950,26 @@ const useGameStore = create(
       },
 
       applyScar: (payloadData) => {
-        const { socket } = get();
+        const { socket, scarModalData, pendingScar } = get();
         if (socket && socket.readyState === WebSocket.OPEN) {
           const outPayload = typeof payloadData === 'string'
             ? { scar_text: payloadData, shift_down: null, shift_up: null }
             : {
                 scar_text: payloadData.scar_text,
                 shift_down: payloadData.shift_down,
-                shift_up: payloadData.shift_up
+                shift_up: payloadData.shift_up,
+                skip_shifts: !!payloadData.skip_shifts,
+                // Not Again or Forbidden Ritual (game/abilityUses.js SCAR_ABILITIES)
+                ...(payloadData.ability ? { ability: payloadData.ability } : {}),
               };
 
           socket.send(JSON.stringify({
             type: 'apply_scar',
             payload: outPayload
           }));
-          set({ showScarModal: false, scarModalData: null, pendingScar: null });
+          // Kept so that a refusal can open the same form again
+          set({ showScarModal: false, scarModalData: null, pendingScar: null, scarError: null,
+            scarSent: { scarModalData, pendingScar } });
           return true;
         }
         // Not sent: keep the scar pending and the form open so nothing typed is lost.
@@ -1328,6 +1351,11 @@ const useGameStore = create(
         scarModalData: state.scarModalData || (state.pendingScar ? { type: state.pendingScar.type } : null),
       })),
       closeScarModal: () => set({ showScarModal: false }),
+      // Not Again or Forbidden Ritual from the sheet: the scar form, for that ability
+      openAbilityScar: (ability, type = '') => set({
+        showScarModal: true, scarModalData: { type, ability, seq: nextScarForm() }, scarError: null,
+      }),
+      cancelAbilityScar: () => set({ showScarModal: false, scarModalData: null, scarError: null }),
 
       // ==========================================
       // CIRCLE CREATION ACTIONS

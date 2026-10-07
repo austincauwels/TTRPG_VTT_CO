@@ -48,4 +48,13 @@ ABILITY_USES = {
     "Volunteer Duty":      {"effect": "volunteer"},     # p. 29: between assignments
 }
 
+# Abilities that take a scar on purpose. Their "Use" button opens the desk's scar form,
+# which sends apply_scar with the ability's name (vtt/ws/handlers/character.py
+# handle_apply_scar). keeps_ratings: the scar moves no action point; once: once per
+# assignment, counted in ability_uses; mark: the kind of scar.
+SCAR_ABILITIES = {
+    "Not Again":        {"keeps_ratings": True, "once": True},  # p. 29: an automatic full success
+    "Forbidden Ritual": {"mark": "bleed"},                      # p. 32
+}
+
 DRIVES = ("nerve", "cunning", "intuition")

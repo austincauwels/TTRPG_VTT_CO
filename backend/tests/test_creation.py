@@ -98,6 +98,10 @@ def test_the_sheets_ability_uses_agree():
     for name, use in ABILITY_USES.items():
         assert list(t[name].get("options", {})) == list(use.get("options", {})), name
         assert name in creation.ALL_ABILITIES, name
+    # The abilities whose "Use" opens the scar form
+    from vtt.ability_uses import SCAR_ABILITIES
+    assert list(_read(ABILITY_USES_JS, "SCAR_ABILITIES")["SCAR_ABILITIES"]) == list(SCAR_ABILITIES)
+    assert set(SCAR_ABILITIES) <= set(creation.ALL_ABILITIES)
 
 
 def test_each_specialty_starts_with_five_action_points_and_three_drive_points():

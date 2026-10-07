@@ -11,6 +11,7 @@ decides on a stale copy of a row.
 from engine import ALL_ACTIONS
 from models import Campaign, Character, Circle, Relationship
 from vtt.abilities import MARK_TYPES, abilities_of, uses_of
+from vtt.ability_uses import SCAR_ABILITIES
 from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, ROSTER_STATUSES, campaign_facts, character_facts
 from vtt.circle_queries import VOTE_TYPES
 
@@ -242,6 +243,12 @@ KEEP_RATINGS_REFUSED = ("A scar shifts an action point: choose one action to low
                         "Only Hardened, or a Not Again scar, keeps the ratings as they are.")
 
 
+def scar_ability(payload):
+    """The ability a scar is taken for, if any: the desk names it, and not_again is the
+    older name of a Not Again scar."""
+    return payload.get("ability") or ("Not Again" if payload.get("not_again") else None)
+
+
 def may_keep_ratings(character, payload) -> bool:
     """Whether a scar may leave the action ratings as they are (rulebook p. 14): with
     Hardened (p. 31), for a Not Again scar (p. 29) while it is unused this assignment, or
@@ -249,17 +256,30 @@ def may_keep_ratings(character, payload) -> bool:
     abilities = abilities_of(character)
     if "Hardened" in abilities or (character.scars_count or 0) >= 3:
         return True
-    return bool(payload.get("not_again")) and "Not Again" in abilities and uses_of(character, "Not Again") < 1
+    return scar_ability(payload) == "Not Again" and "Not Again" in abilities and uses_of(character, "Not Again") < 1
 
 
 def _apply_scar(ctx, payload, character):
     """A scar may only move a point between two of the nine action ratings. Any other
     name used to reach every numeric column, including campaign_id and user_id. A scar
-    without a shift needs Hardened or one of the other cases in may_keep_ratings."""
+    without a shift needs Hardened or one of the other cases in may_keep_ratings. A scar
+    taken for an ability needs the ability, and Not Again an unused one."""
     for key in ("shift_down", "shift_up"):
         name = payload.get(key)
         if name and name not in ALL_ACTIONS:
             _forbid()
+    # A scar taken for Not Again or Forbidden Ritual (vtt/ability_uses.py SCAR_ABILITIES)
+    ability = scar_ability(payload)
+    if ability is not None:
+        use = SCAR_ABILITIES.get(ability) if isinstance(ability, str) else None
+        if use is None:
+            _invalid("No ability takes a scar that way.")
+        if ability not in abilities_of(character):
+            raise Rejected(409, f"{character.name} does not have {ability}.")
+        if use.get("once") and uses_of(character, ability) >= 1:
+            raise Rejected(409, f"{ability} is used for this assignment.")
+        if use.get("keeps_ratings"):
+            return
     keeps = payload.get("skip_shifts") or not (payload.get("shift_down") and payload.get("shift_up"))
     if keeps and not may_keep_ratings(character, payload):
         _invalid(KEEP_RATINGS_REFUSED)
