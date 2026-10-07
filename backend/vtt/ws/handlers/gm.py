@@ -17,6 +17,26 @@ TRACK = 12              # the Illumination track (rulebook p. 55)
 MILESTONES = (3, 6, 9)  # its milestones, printed on the circle sheet
 
 
+async def _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum):
+    """A log line for each milestone a rise in Illumination passed, a Resource Management
+    line after each when the circle has it, and a line when the track fills (RULES_CHECK.md
+    items 19 and 20)."""
+    if not (isinstance(old_illum, int) and isinstance(new_illum, int) and new_illum > old_illum):
+        return
+    circle_name = circle.name or "The Circle"
+
+    async def log(message):
+        await manager.broadcast_campaign(camp_code, camp_id, {
+            "type": "activity_log", "payload": {"message": message, "log_type": "field"}}, db)
+    for milestone in MILESTONES:
+        if old_illum < milestone <= new_illum:
+            await log(f"{circle_name} milestone reached!")
+            if "Resource Management" in circle_abilities(circle):
+                await log(f"Resource Management: {circle_name} gains one resource of its choice.")
+    if old_illum < TRACK <= new_illum:
+        await log(f"{circle_name}'s Illumination track is full: the circle can advance.")
+
+
 async def handle_gm_update_tension(ctx):
     db, payload, character, channel = ctx.db, ctx.payload, ctx.character, ctx.channel
     if not ctx.is_gm: return
@@ -162,6 +182,12 @@ async def handle_gm_end_assignment(ctx):
             ch.train_dice = 0
             ch.gear = []  # "Gear slots only reset once an assignment is complete" (p. 52)
         target_circle.stamina_dice_used = 0  # Stamina Training's dice come back
+        # Meticulous Notes (p. 27): "After an assignment, increase your Illumination track 1
+        # additional point because of the detailed notes your character returns with."
+        note_takers = [ch for ch in active_chars if "Meticulous Notes" in abilities_of(ch)]
+        old_illum = target_circle.illumination or 0
+        if note_takers:
+            target_circle.illumination = old_illum + len(note_takers)
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
         for ch in active_chars:
@@ -170,13 +196,11 @@ async def handle_gm_end_assignment(ctx):
             "type": "activity_log",
             "payload": {"message": "— Assignment ended. Ability uses and gear slots have been reset. —", "log_type": "field"},
         }, db)
-        # Meticulous Notes (p. 27): detailed notes add 1 Illumination after an assignment,
-        # which the Lightkeeper decides; the log reminds them
-        for ch in active_chars:
-            if "Meticulous Notes" in abilities_of(ch):
-                await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
-                    "message": f"Meticulous Notes: if {ch.name} kept detailed notes, the circle gains 1 Illumination.",
-                    "log_type": "field", "ink_color": getattr(ch, "ink_color", "") or ""}}, db)
+        for ch in note_takers:
+            await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
+                "message": f"Meticulous Notes: {ch.name}'s detailed notes add 1 Illumination.",
+                "log_type": "field", "ink_color": getattr(ch, "ink_color", "") or ""}}, db)
+        await _log_illumination(db, camp_code, camp_id, target_circle, old_illum, target_circle.illumination or 0)
 
 
 async def handle_gm_reset_character(ctx):
@@ -226,16 +250,6 @@ async def handle_update_circle(ctx):
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
         # A line for each milestone the change passed (it used to need the value to land
         # on one), and one when the track fills (RULES_CHECK.md items 19 and 20)
-        new_illum = getattr(target_circle, "illumination", 0) or 0
-        if "illumination" in payload and isinstance(new_illum, int) and isinstance(old_illum, int) and new_illum > old_illum:
-            circle_name = target_circle.name or "The Circle"
-            async def log(message):
-                await manager.broadcast_campaign(camp_code, camp_id, {
-                    "type": "activity_log", "payload": {"message": message, "log_type": "field"}}, db)
-            for milestone in MILESTONES:
-                if old_illum < milestone <= new_illum:
-                    await log(f"{circle_name} milestone reached!")
-                    if "Resource Management" in circle_abilities(target_circle):
-                        await log(f"Resource Management: {circle_name} gains one resource of its choice.")
-            if old_illum < TRACK <= new_illum:
-                await log(f"{circle_name}'s Illumination track is full: the circle can advance.")
+        if "illumination" in payload:
+            await _log_illumination(db, camp_code, camp_id, target_circle, old_illum,
+                                    getattr(target_circle, "illumination", 0) or 0)

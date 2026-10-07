@@ -379,6 +379,20 @@ def test_intercept_premonitions_soaks_the_targets_mark(client):
     assert support.fetch(Character, target["id"]).body_marks == 1
 
 
+def test_a_fourth_bleed_mark_still_brings_let_them_in_and_adrenaline_rush(client):
+    """The fourth mark is taken as a scar (p. 14), so Let Them In ("Whenever you take 1 or
+    more Bleed marks") and Adrenaline Rush ("For each mark you take", p. 27) answer it
+    too. Neither was offered for the mark that incapacitates."""
+    ch = support.forge(client, bleed_marks=3, nerve_max=3, nerve_current=1,
+                       role_ability="Adrenaline Rush", specialty_ability="Let Them In")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="bleed", is_from_enemy=False)
+        msgs = ws.sync()
+        assert support.types(msgs)[0] == "trigger_scar"
+        offers = [m["payload"]["ability"] for m in msgs if m["type"] == "ability_mark_offer"]
+        assert offers == ["Let Them In", "Adrenaline Rush"]
+
+
 def test_one_mark_is_answered_by_one_ally(client):
     """Fixed: Premonitions and Behind Me (both "when an ally is about to take" a mark,
     pp. 27 and 32) could both answer the same mark and remove two. The first answer takes

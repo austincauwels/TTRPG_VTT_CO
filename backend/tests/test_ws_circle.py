@@ -221,6 +221,23 @@ def test_refill_resources_counts_the_campaigns_members(client):
         assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (5, 5, 5, 5)
 
 
+def test_meticulous_notes_add_illumination_after_an_assignment(client):
+    """Rulebook p. 27: "After an assignment, increase your Illumination track 1 additional
+    point because of the detailed notes your character returns with." It was only a
+    reminder that made the point conditional."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Character, a["id"], role_ability="Meticulous Notes")
+    support.update(Circle, cid, illumination=2, name="The Moths")
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_end_assignment")
+        msgs = gm.sync()
+        assert msgs[0]["payload"]["illumination"] == 3
+        lines = [m["payload"]["message"] for m in msgs if m["type"] == "activity_log"]
+        assert lines[1:] == [f"Meticulous Notes: {a['name']}'s detailed notes add 1 Illumination.",
+                             "The Moths milestone reached!"]
+    assert support.fetch(Circle, cid).illumination == 3
+
+
 def test_gm_end_assignment(client):
     camp, (a, b), cid = _campaign(client, members=2)
     for ch in (a, b):
