@@ -30,7 +30,7 @@ const SPECIALTY_GILDED = {
   Magician:   'sway',
   Explorer:   'move',
   Soldier:    'strike',
-  Doctor:     'read',
+  Doctor:     'sneak',   // the book's Read (p. 26); key read is Focus
   Professor:  'read',
   Criminal:   'hide',
   Detective:  'control',

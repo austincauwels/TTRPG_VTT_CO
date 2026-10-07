@@ -33,6 +33,8 @@ function literal(name) {
   for (let j = i; j < s.length; j++) {
     const c = s[j];
     if (quote) { if (c === '\\') j++; else if (c === quote) quote = null; continue; }
+    if (c === '/' && s[j + 1] === '/') { j = s.indexOf('\n', j); continue; }      // a line comment
+    if (c === '/' && s[j + 1] === '*') { j = s.indexOf('*/', j) + 1; continue; }   // a block comment
     if (c === '"' || c === "'" || c === '`') quote = c;
     else if (c === open) depth++;
     else if (c === close && --depth === 0) return eval('(' + s.slice(i, j + 1) + ')');

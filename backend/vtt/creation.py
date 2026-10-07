@@ -10,7 +10,8 @@ A new investigator (rulebook p. 25 and 26):
   then adds 3 more points, with no action above 2;
 - starts with the specialty's 3 drive points and adds 6 more, with no drive above 6, at
   full drive and with no resistance spent;
-- gilds the specialty's action and one other;
+- gilds the specialty's action and one other (the keys are the app's: sneak is the
+  book's Read and read is its Focus, so the Doctor gilds sneak);
 - takes up to 3 items from the specialty's gear and the standard issue;
 - has no marks or scars.
 """
@@ -65,7 +66,7 @@ ROLES = {
         "abilities": ("Well-Read", "Occult Researcher", "Meticulous Notes"),
         "specialties": {
             "Doctor": _specialty(
-                {"control": 1, "sneak": 1, "survey": 1, "read": 2}, {"intuition": 3}, "read",
+                {"control": 1, "sneak": 1, "survey": 1, "read": 2}, {"intuition": 3}, "sneak",  # Read (p. 26)
                 ("Surgical Tools", "Heavy Sedatives", "Medical Journals"),
                 ("Patch Up", "Non-Combatant", "Dissection", "Resuscitation", "Lifesaver", "Anatomical Strike")),
             "Professor": _specialty(

@@ -233,12 +233,12 @@ def new_campaign(client, gm_user_id=None, name=None, code=None):
 
 
 # A sheet the character creator could make (vtt/creation.py): a Scholar and Doctor who
-# raised Move from 0, put 3 more points on Strike, Sway and Hide, gilded Focus (the
-# Doctor's) and Move, and put 2 more points on each drive.
+# raised Move from 0, put 3 more points on Strike, Sway and Hide, gilded Read (the
+# Doctor's, key sneak) and Move, and put 2 more points on each drive.
 SHEET = dict(
     role="Scholar", specialty="Doctor", role_ability="Well-Read", specialty_ability="Dissection",
     control=1, sneak=1, survey=1, read=2, move=1, strike=1, sway=1, hide=1, sense=0,
-    gilded_read=True, gilded_move=True,
+    gilded_sneak=True, gilded_move=True,
     nerve_max=2, nerve_current=2, cunning_max=2, cunning_current=2, intuition_max=5, intuition_current=5,
     gear=["Surgical Tools", "Lantern"],
 )
