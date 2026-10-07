@@ -126,12 +126,13 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 
 ## Circle resources and illumination
 
-### 16. Resource points are counted per resource, not in total
+### 16. Resource points: the member count (the per-resource reading was right)
 
 - App: a new circle gets Stitch 1, Refresh 1 and Train 1. The GM's refill sets each of the three to 1 plus the number of active members, so the circle gets three times the rulebook's total.
 - Rulebook (p. 41): at circle creation, "assign a number of resource points equal to 1 plus the number of circle members", shared across Stitch, Refresh and Train. Resources are only replenished when the Illumination Track is filled. Each player may spend up to two between assignments (the app's limit of 2 per assignment matches).
 - Suggested fix: refill to a total of 1 plus members and let the circle (or GM) split it, and tie the refill to circle advancement.
-- Done (2026-10-06): the pool is 1 plus the campaign's active members (vtt/circle_queries.py resource_pool, counted by campaign since members stay on circle 1), shared across the three. Finalize, the Lightkeeper's refill and the circle advance all fill it split as evenly as it goes, Stitch first (5 points: 2, 2, 1), and the Lightkeeper can move points afterwards. The advance replenishes the resources, as the rulebook says; the refill button stays for the Lightkeeper's own calls. max_capacity is the pool, so any one resource can hold all of it.
+- Done (2026-10-06): the count is 1 plus the campaign's active members (vtt/circle_queries.py resource_pool, counted by campaign since members stay on circle 1); a campaign circle used to count no one. The circle advance refills the resources, as the rulebook says; the refill button stays for the Lightkeeper's own calls.
+- Corrected (2026-10-07) against the rulebook text: each of Stitch, Refresh and Train gets 1 plus the members. The p. 41 sentence reads either way, but the worked example on p. 62 has four players with "4 in Stitch, 5 in Train, but only 3 left in Refresh" after spending 1, 0 and 2, that is 5 in each. The 2026-10-06 change shared one pool of that size across the three, which was wrong; the app's original amounts were right, and only its member count was broken. The Rulebook line above is this analysis's original misreading.
 
 ### 17. Train is spent automatically on the next roll
 

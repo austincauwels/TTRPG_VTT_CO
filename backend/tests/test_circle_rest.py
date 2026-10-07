@@ -229,9 +229,9 @@ def test_finalize_roster(client):
     assert body["backstory_answers"] == {"chapter_house": "Old mill", "q1": "yes", "selected_question_key": "q2"}
     assert body["chapter_house_location"] == "Old mill"
     assert body["is_finalized"] is True
-    # Fixed (RULES_CHECK 16): 1 + 3 members = 4 points shared across the three, and the
-    # pool counts the campaign's members (they stay on circle 1)
-    assert (body["stitch"], body["refresh"], body["train"]) == (2, 1, 1)
+    # 1 + 3 members = 4 in each resource (rulebook p. 41, the example on p. 62), counting
+    # the campaign's members (they stay on circle 1)
+    assert (body["stitch"], body["refresh"], body["train"]) == (4, 4, 4)
     assert body["max_capacity"] == 4
     assert support.fetch(Campaign, camp["id"]).roster_finalized is True
     row = support.fetch(Character, pending["id"])
@@ -263,7 +263,7 @@ def test_finalize_without_votes_keeps_defaults(client):
     assert body["name"] == "Unnamed Circle"
     assert body["circle_ability"] == ""
     assert body["backstory_answers"] == {}
-    assert (body["stitch"], body["refresh"], body["train"]) == (1, 1, 0)
+    assert (body["stitch"], body["refresh"], body["train"]) == (2, 2, 2)
 
 
 def test_finalize_wrong_circle_falls_back_to_campaign_circle(client):

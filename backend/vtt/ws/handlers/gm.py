@@ -134,7 +134,7 @@ async def handle_refill_resources(ctx):
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
         db.refresh(target_circle, with_for_update=True)  # see handle_gm_advance_circle
-        # 1 + the active members, shared across the three (RULES_CHECK.md item 16)
+        # 1 + the active members in each resource (RULES_CHECK.md item 16)
         fill_resources(target_circle, db)
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)

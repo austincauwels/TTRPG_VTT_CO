@@ -238,8 +238,8 @@ async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get
     circle.is_finalized = True
     campaign.roster_finalized = True
 
-    # Starting resources: 1 + the active members, shared across the three (rulebook
-    # p. 41; RULES_CHECK.md item 16). It used to give each resource that many.
+    # Starting resources: 1 + the active members in each of the three (rulebook
+    # p. 41, and the example on p. 62; RULES_CHECK.md item 16).
     fill_resources(circle, db)
 
     # Any character still pending when the roster is locked was not included — release them

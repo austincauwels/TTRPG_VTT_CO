@@ -108,7 +108,7 @@ Frontend callers of `connect`: `CampaignSelector.enterAsPlayer` and `handleLastP
 
 **`gm_advance_circle`** (2097). Fields: `role`, `circle_id`, `circle_ability`. Appends the ability text (newline separated) and sets `illumination = max(0, illumination - 12)`. It does not check that the track was full. Sends `activity_log` ("has advanced") and `circle_advanced {circle, campaign_id}` to the campaign. Players' clients open the advancement modal on `circle_advanced`. (Since 2026-10-06: it also gives each active member two advancement picks, four when the new ability is One Last Run, and refills the resources, RULES_CHECK.md items 14, 16 and 20.)
 
-**`refill_resources`** (2122). Fields: `role`, `circle_id`. Sets stitch, refresh and train to 1 plus the number of active members. Sends `circle_update` to the campaign. (Since 2026-10-06: the pool of 1 plus the campaign's active members is shared across the three, RULES_CHECK.md item 16.)
+**`refill_resources`** (2122). Fields: `role`, `circle_id`. Sets stitch, refresh and train to 1 plus the number of active members. Sends `circle_update` to the campaign. (Since 2026-10-06: the members are counted by campaign, so a campaign circle refills to 1 plus its members, RULES_CHECK.md item 16.)
 
 **`gm_end_assignment`** (2134). Fields: `role`, `circle_id` (the UI also sends `campaign_id`, which is ignored). Clears `location` and `atmosphere`, and for every active character in `camp_id` resets `ability_uses`, `resources_spent_assignment` and `train_bonus`. Sends `circle_update` to the campaign, `character_update` to each character's key, and an `activity_log` line.
 

@@ -200,16 +200,17 @@ def test_gm_advance_circle(client):
     assert support.fetch(Character, member["id"]).advancement_picks == 4
 
 
-def test_refill_resources_shares_the_pool(client):
-    """Fixed (RULES_CHECK 16): the pool is 1 + the campaign's active members, shared
-    across Stitch, Refresh and Train (it used to give each 1 + the members attached to
-    the circle, and campaign members stay on circle 1, so a campaign circle got 1 each)."""
+def test_refill_resources_counts_the_campaigns_members(client):
+    """Fixed (RULES_CHECK 16): each of Stitch, Refresh and Train refills to 1 + the
+    campaign's active members (rulebook p. 41; the p. 62 example has four players with 5
+    in each). It counted the members attached to the circle, and campaign members stay
+    on circle 1, so a campaign circle got 1 each."""
     camp, members, cid = _campaign(client, members=3)
     support.update(Circle, cid, stitch=0, refresh=0, train=0)
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("refill_resources", role="GM")
         p = gm.sync()[0]["payload"]
-        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (2, 1, 1, 4)
+        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (4, 4, 4, 4)
         # a rejoined character counts at once (the count is read fresh, not from the session)
         late = support.forge(client, user_id=support.make_user(pending_rejoin_campaign_id=camp["id"]).id)
         client.post("/campaign/rejoin", json={"character_id": late["id"], "campaign_code": camp["campaign_code"]},
@@ -217,7 +218,7 @@ def test_refill_resources_shares_the_pool(client):
         gm.drain()
         gm.send("refill_resources")
         p = gm.sync()[0]["payload"]
-        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (2, 2, 1, 5)
+        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (5, 5, 5, 5)
 
 
 def test_gm_end_assignment(client):
@@ -331,7 +332,7 @@ def test_advancing_the_circle_replenishes_its_resources(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("gm_advance_circle")
         circle = gm.sync()[-1]["payload"]["circle"]
-        assert (circle["stitch"], circle["refresh"], circle["train"]) == (1, 1, 1)
+        assert (circle["stitch"], circle["refresh"], circle["train"]) == (3, 3, 3)
 
 
 def test_one_last_run_gives_all_four_options(client):

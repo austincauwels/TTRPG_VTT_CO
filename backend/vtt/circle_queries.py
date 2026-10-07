@@ -22,9 +22,10 @@ def take_train_die(character, n=-1):
 
 
 def resource_pool(circle, db: Session = None) -> int:
-    """The circle's resource points: 1 plus its active members (rulebook p. 41), shared
-    across Stitch, Refresh and Train. A campaign's members are counted by campaign, since
-    they stay on the shared circle 1 (QUIRKS.md); circle 1 counts its own characters."""
+    """The resource points for each of Stitch, Refresh and Train: 1 plus the active
+    members (rulebook p. 41; the example on p. 62 has four players with 5 in each). A
+    campaign's members are counted by campaign, since they stay on the shared circle 1
+    (QUIRKS.md); circle 1 counts its own characters."""
     if circle.campaign_id:
         db = db or object_session(circle)
         members = db.query(Character.id).filter(
@@ -35,11 +36,12 @@ def resource_pool(circle, db: Session = None) -> int:
 
 
 def fill_resources(circle, db: Session = None):
-    """Sets Stitch, Refresh and Train to the pool split as evenly as it goes, Stitch
-    first (5 points: 2, 2, 1). The Lightkeeper can move points between them afterwards."""
-    total = resource_pool(circle, db)
-    for i, key in enumerate(RESOURCES):
-        setattr(circle, key, total // 3 + (1 if i < total % 3 else 0))
+    """Sets each of Stitch, Refresh and Train to 1 plus the active members. (On
+    2026-10-06 this split one pool of that size across the three, a misreading of p. 41
+    that the p. 62 example rules out.)"""
+    points = resource_pool(circle, db)
+    for key in RESOURCES:
+        setattr(circle, key, points)
 
 
 def circle_abilities(circle) -> list:
