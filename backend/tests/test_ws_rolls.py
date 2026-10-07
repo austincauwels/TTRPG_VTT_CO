@@ -1208,3 +1208,26 @@ def test_resuscitation_refusals(client, dice):
         wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
         assert wd.sync() == [RESUSCITATION_REFUSED]   # dead
     assert support.fetch(Character, ally["id"]).is_dead is True
+
+
+def test_great_wards_adds_a_die_to_the_warded_persons_move(client, dice):
+    """Great Wards (p. 27): the warded person "take[s] +1d on Move rolls against
+    phenomena". Only while the ward holds: a Weird in the same campaign who still has the
+    ability."""
+    camp = support.new_campaign(client)
+    weird = support.active_member(client, camp, specialty_ability="Great Wards")
+    ally = support.active_member(client, camp, move=1, strike=1)
+
+    def rolls(action, count):
+        dice(*([2] * count))
+        wa.send("roll", action=action, drive_spent=0, ability_mods=["Great Wards"])
+        return len(wa.sync()[0]["payload"]["roll"]["dice"]) == count
+
+    with support.ws_connect(client, ally["id"]) as wa:
+        assert rolls("move", 1)            # no ward yet
+        support.update(Character, ally["id"], warded_by_id=weird["id"])
+        assert rolls("move", 2)            # +1d on Move
+        assert rolls("strike", 1)          # not on another action
+        support.update(Character, weird["id"], specialty_ability="Ritual")
+        assert rolls("move", 1)            # the Weird no longer has it
+

@@ -4,7 +4,7 @@
 // checks that the two tables agree). cost is what the button says; options is a choice
 // the player makes; needs is a further choice (a resource, an object to write in, an
 // ally, or a split of drive points); target lets the player name an ally instead of
-// themselves (Ritual).
+// themselves (Ritual, Great Wards).
 export const ABILITY_USES = {
   'Scout':               { cost: '1 Intuition' },
   'Uncanny Eye':         { cost: '1 Intuition' },
@@ -30,6 +30,7 @@ export const ABILITY_USES = {
   'One Step Ahead':      { cost: 'once per assignment: write in an object', needs: 'item' },
   'Geared Up':           { cost: 'once per assignment: a gear slot for an ally', needs: 'ally' },
   'Blood of the Covenant': { cost: 'once per assignment: drive equal to your Intuition resistance', needs: 'split' },
+  'Great Wards':         { cost: 'inscribe the ward', target: true },
 };
 
 // Abilities that take a scar on purpose (pp. 29 and 32). Their "Use" button opens the

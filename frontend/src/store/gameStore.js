@@ -41,7 +41,7 @@ const nextScarForm = () => { scarFormSeq += 1; return scarFormSeq; };
 // which was then never answered). A new offer holding this investigator's own mark
 // replaces an old one, whose mark the server has already landed.
 const holdsOwnMark = (offer) => !!offer && !offer.intercept && (offer.action === 'soak' || offer.action === 'escape');
-// Let Them In answers "1 or more Bleed marks" (p. 31): several marks from one harm ask once
+// Let Them In answers "1 or more Bleed marks" (p. 27): several marks from one harm ask once
 const asksLetThemIn = (offer, other) => !!offer && !!other && offer.ability === 'Let Them In'
   && other.ability === 'Let Them In' && offer.character_id === other.character_id;
 const queueOffer = (state, offer) => {

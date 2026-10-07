@@ -330,6 +330,14 @@ async def handle_use_ability(ctx):
     if step_item:
         character.gear = _gear_of(character) + [ONE_STEP_AHEAD + step_item]
         paid.append(f"wrote in {step_item}")
+    if effect == "great_ward":
+        # One person at a time: the ward leaves whoever held it
+        for holder in db.query(Character).filter(Character.warded_by_id == character.id).with_for_update().all():
+            holder.warded_by_id = None
+            if holder is not target and holder is not character:
+                changed.append(holder)
+        target.warded_by_id = character.id
+        paid.append(f"the ward is on {'themselves' if target is character else target.name}")
     if target is not character:
         changed.append(target)
     if ally is not None:
@@ -345,7 +353,8 @@ async def handle_use_ability(ctx):
     if circle is not None:
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)
     marks = [m for m in (use.get("mark"), extra_mark) if m]
-    label = (f"{name}: {option}" if option else name) + (f" on {target.name}" if target is not character else "")
+    label = (f"{name}: {option}" if option else name) + \
+        (f" on {target.name}" if target is not character and effect != "great_ward" else "")
     taken = [f"took a {m.capitalize()} mark" for m in marks]
     detail = ", ".join(paid + taken)
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {

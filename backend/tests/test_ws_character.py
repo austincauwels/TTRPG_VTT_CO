@@ -672,3 +672,27 @@ def test_ritual_on_an_ally(client):
                                              "(refreshed 1 Nerve resistance, took a Bleed mark).")
         assert wa.drain()[0]["payload"]["nerve_resistance_spent"] == 0
     assert support.fetch(Character, weird["id"]).bleed_marks == 1
+
+
+def test_great_wards_moves_the_ward_to_one_person(client):
+    """Great Wards (p. 27): "inscribe and maintain a warding symbol on one person at a
+    time". Warding someone new takes the ward off the last person, and both are told."""
+    camp, weird, ally = _member_pair(client, specialty_ability="Great Wards")
+    third = support.active_member(client, camp)
+    stranger = support.active_member(client, support.new_campaign(client))
+    with support.ws_connect(client, weird["id"]) as ws, support.ws_connect(client, ally["id"]) as wa, \
+            support.ws_connect(client, third["id"]) as wt:
+        ws.send("use_ability", ability="Great Wards", target_character_id=ally["id"])
+        msgs = ws.sync()
+        assert msgs[-1]["payload"]["message"] == f"{weird['name']} used Great Wards (the ward is on {ally['name']})."
+        assert wa.drain()[0]["payload"]["warded_by_id"] == weird["id"]
+        wt.drain()
+        ws.send("use_ability", ability="Great Wards", target_character_id=third["id"])
+        ws.sync()
+        assert wa.drain()[0]["payload"]["warded_by_id"] is None
+        assert wt.drain()[0]["payload"]["warded_by_id"] == weird["id"]
+        ws.send("use_ability", ability="Great Wards", target_character_id=stranger["id"])
+        assert ws.sync() == [_use_rejected(422, "Choose yourself or an ally in your circle.")]
+        wa.send("use_ability", ability="Great Wards", target_character_id=ally["id"])   # not theirs
+        assert wa.sync() == [_use_rejected(409, f"{ally['name']} does not have Great Wards.")]
+    assert support.fetch(Character, third["id"]).warded_by_id == weird["id"]

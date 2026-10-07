@@ -111,6 +111,14 @@ export function getAvailableRollMods(character, action, circle = null) {
       autoApply: false, extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
     });
   }
+  // Great Wards (p. 27): whoever holds a Weird's ward takes +1d on Move rolls against
+  // phenomena (the player's call; the server checks the ward still holds)
+  if (character.warded_by_id && action === 'move') {
+    mods.push({
+      key: 'Great Wards', label: 'Great Wards (against a phenomenon: +1d)',
+      autoApply: false, extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
+    });
+  }
   // Train (p. 41): a die the circle's resource gives for one roll this assignment, on the
   // roll the player picks
   if (character.train_bonus) {

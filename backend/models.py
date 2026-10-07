@@ -266,6 +266,10 @@ class Character(SoftDeleted, Base):
     # advancement that brings One Last Run (rulebook p. 41)
     advancement_set = Column(Integer, default=2)
 
+    # Great Wards (rulebook p. 27): the Weird whose warding symbol this character holds,
+    # one person at a time. They take +1d on Move rolls against phenomena.
+    warded_by_id = Column(Integer, nullable=True)
+
     # Status
     incapacitated = Column(Boolean, default=False)
     is_dead = Column(Boolean, default=False)

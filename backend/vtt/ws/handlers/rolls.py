@@ -139,7 +139,7 @@ def _remember(character, action, cat, result, outcome):
                                     "outcome": outcome, "used": set()}
 
 
-def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_die=False):
+def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_die=False, ward_die=False):
     """What a player's roll will be, before anything changes: the drive it spends, how
     many dice, gilds and drive points it uses, what else it costs, and the abilities that
     applied. Raises ValueError with words for the player when the roll cannot be made."""
@@ -193,6 +193,11 @@ def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_d
     if rescue_die:
         extra += 1
         applied.append("Nobody Left Behind")
+    # Great Wards (p. 27): the person holding a Weird's ward takes +1d on Move rolls against
+    # phenomena (whether the roll is against one is the player's call)
+    if ward_die:
+        extra += 1
+        applied.append("Great Wards")
 
     # The drive must hold the spend and any cost from the same drive (p. 8)
     for drive in DRIVES:
@@ -243,9 +248,16 @@ async def handle_roll(ctx):
             if "Nobody Left Behind" in mods and camp_id:
                 circle = db.query(Circle).filter(Circle.campaign_id == camp_id).first()
                 rescue = circle is not None and any(m["id"] != character.id for m in downed_members(circle, db))
+            # The ward holds while the Weird who drew it is active in the same campaign and
+            # still has Great Wards
+            warder = db.get(Character, character.warded_by_id) \
+                if "Great Wards" in mods and act == "move" and character.warded_by_id else None
+            ward = warder is not None and warder.status == "active" and not warder.is_dead \
+                and (warder.id == character.id or warder.campaign_id == character.campaign_id) \
+                and "Great Wards" in abilities_of(warder)
             try:
                 plan = _plan_roll(character, act, spent, mods, payload, stamina_die=stamina_circle is not None,
-                                  rescue_die=rescue)
+                                  rescue_die=rescue, ward_die=ward)
             except ValueError as refused:
                 db.rollback()
                 await _refuse(ctx, "roll", 422, str(refused))

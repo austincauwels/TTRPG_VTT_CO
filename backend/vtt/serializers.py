@@ -86,6 +86,7 @@ def get_char_dict(char):
         "ability_uses": getattr(char, "ability_uses", None) or {},
         "train_bonus": bool(getattr(char, "train_bonus", False)),
         "train_dice": train_dice_left(char),
+        "warded_by_id": getattr(char, "warded_by_id", None),
         "resources_spent_assignment": getattr(char, "resources_spent_assignment", 0) or 0,
         "advancement_picks": getattr(char, "advancement_picks", 0) or 0,
         "advancement_taken": advancement_taken(char),

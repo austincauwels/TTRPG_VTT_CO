@@ -61,7 +61,7 @@ CHAR_DICT_KEYS = {
     "role_ability", "specialty_ability", "gear", "profile_pic", "status",
     "pen_font", "ink_color", "campaign_id", "personal_circle_answer",
     "ability_uses", "train_bonus", "train_dice", "resources_spent_assignment",
-    "advancement_picks", "advancement_taken",
+    "advancement_picks", "advancement_taken", "warded_by_id",
 }
 
 CIRCLE_DICT_KEYS = {

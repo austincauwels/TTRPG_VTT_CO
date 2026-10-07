@@ -457,7 +457,7 @@ def test_a_fourth_bleed_mark_still_brings_let_them_in_and_adrenaline_rush(client
 
 def test_an_endurance_save_on_a_bleed_mark_still_brings_let_them_in(client, dice):
     """Endurance keeps the character standing, but the Bleed mark is still taken: Let Them
-    In ("Whenever you take 1 or more Bleed marks", p. 31) answers it, before Adrenaline
+    In ("Whenever you take 1 or more Bleed marks", p. 27) answers it, before Adrenaline
     Rush. Only Adrenaline Rush was offered."""
     ch = support.forge(client, bleed_marks=3, nerve_max=3, specialty_ability="Endurance; Let Them In",
                        role_ability="Adrenaline Rush")

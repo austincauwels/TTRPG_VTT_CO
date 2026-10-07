@@ -164,7 +164,7 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True):
 
 
 async def _after_mark_taken(character, channel, m_type, abilities):
-    """Let Them In ("Whenever you take 1 or more Bleed marks", p. 31) and Adrenaline Rush
+    """Let Them In ("Whenever you take 1 or more Bleed marks", p. 27) and Adrenaline Rush
     ("For each mark you take", p. 27) answer every mark that lands: an ordinary one, the
     fourth, and one Endurance kept from incapacitating them."""
     if m_type == "bleed" and "Let Them In" in abilities:

@@ -400,6 +400,8 @@ def init_db():
         # One Last Run's set of four options (rulebook p. 41); others are sets of two
         ("advancement_set", "INTEGER DEFAULT 2"),
     ])
+    # Great Wards: who holds the Weird's ward (rulebook p. 27). Nobody does on existing rows.
+    add_columns("characters", [("warded_by_id", "INTEGER")])
 
     convert_integer_flags()
     rename_relationship_types()

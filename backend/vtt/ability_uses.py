@@ -12,12 +12,14 @@ Each entry may have:
 - once: once per assignment, counted in ability_uses.
 - options: a choice the player makes; an option may add a mark (Last Moments' still
   image) or name an effect.
-- target: the player may name an ally in the circle instead of themselves (Ritual).
+- target: the player may name an ally in the circle instead of themselves (Ritual,
+  Great Wards).
 - effect: what the app plays out: Field Experience refreshes 1 Nerve for everyone in
   the circle, Volunteer Duty refills a circle resource, Reinvigorate refreshes 1
   resistance, One Step Ahead writes an object into a gear slot of its own, Geared Up
   gives the ally the player picks a fourth gear slot, and Blood of the Covenant refreshes
   drive points, split as the player chooses, equal to the current Intuition resistance.
+  Great Wards moves the Weird's ward to the person chosen (characters.warded_by_id).
 """
 
 ABILITY_USES = {
@@ -54,6 +56,8 @@ ABILITY_USES = {
     # p. 32: "The first time a dangerous phenomenon inflicts a mark on anyone in your
     # circle", read as once per assignment; whether it has happened is the player's call
     "Blood of the Covenant": {"once": True, "effect": "covenant"},
+    # p. 27: "inscribe and maintain a warding symbol on one person at a time"
+    "Great Wards":         {"target": True, "effect": "great_ward"},
 }
 
 # Abilities that take a scar on purpose. Their "Use" button opens the desk's scar form,
