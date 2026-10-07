@@ -5,6 +5,7 @@ import { campaignErrorText, NETWORK_ERROR } from '../utils/campaignErrors';
 import { isEditableTarget, pageKeyBlocked } from './shared/a11y';
 
 import { lazyScreen, whenIdle } from './shared/lazyScreen';
+import { forgePayload } from '../game/forgePayload';
 
 import LoginScreen from './LoginScreen';
 import { ConfirmEmailPage } from './account/ConfirmEmailPage';
@@ -148,43 +149,7 @@ export const AppRouter = () => {
       savedCharacter = { id: characterData.existingCharacterId };
     } else {
       try {
-        const a = characterData.actions || {};
-        const ga = characterData.gildedActions || [];
-        const ALL_ACTIONS = ['move', 'strike', 'control', 'hide', 'sneak', 'sway', 'survey', 'read', 'sense'];
-        const gildedPayload = {};
-        ALL_ACTIONS.forEach(act => {
-          gildedPayload[`gilded_${act}`] = ga.includes(act);
-        });
-        const payload = {
-          name: characterData.name || "Unknown Investigator",
-          pronouns: characterData.pronouns || "Unlisted",
-          style: characterData.style || "",
-          catalyst: characterData.catalyst || "",
-          question: characterData.question || "",
-          role: characterData.role || "",
-          specialty: characterData.specialty || "",
-          role_ability: characterData.roleAbility || "None",
-          specialty_ability: characterData.specialtyAbility || "None",
-          gear: characterData.gear || [],
-          profile_pic: characterData.profilePic || null,
-          user_id: accessSession?.userId || null,
-          move:    a.move    || 0,
-          strike:  a.strike  || 0,
-          control: a.control || 0,
-          hide:    a.hide    || 0,
-          sneak:   a.sneak   || 0,
-          sway:    a.sway    || 0,
-          survey:  a.survey  || 0,
-          read:    a.read    || 0,
-          sense:   a.sense   || 0,
-          ...gildedPayload,
-          nerve_max:     characterData.nerve_max     || 1,
-          cunning_max:   characterData.cunning_max   || 1,
-          intuition_max: characterData.intuition_max || 1,
-          nerve_current:     characterData.nerve_max     || 1,
-          cunning_current:   characterData.cunning_max   || 1,
-          intuition_current: characterData.intuition_max || 1,
-        };
+        const payload = forgePayload(characterData, accessSession?.userId);
 
         const response = await apiFetch('/api/investigators/forge', {
           method: 'POST',

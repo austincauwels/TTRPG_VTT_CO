@@ -11,11 +11,13 @@ import subprocess
 
 import pytest
 
+import support
 from vtt import creation
 
 FRONTEND = pathlib.Path(__file__).resolve().parents[2] / "frontend/src/components"
 CREATOR = FRONTEND / "CharacterCreator.jsx"
 ADVANCEMENT = FRONTEND / "pc/CircleView.jsx"   # the advancement dialog's ability lists
+FORGE_PAYLOAD = FRONTEND.parent / "game/forgePayload.js"
 
 # Prints the named object or array literals of a file as JSON. Each is plain data, so it
 # is cut out of the file and evaluated alone.
@@ -91,3 +93,43 @@ def test_each_specialty_starts_with_five_action_points_and_three_drive_points():
             assert sum(spec["actions"].values()) == 5, name
             assert sum(spec["drives"].values()) == 3, name
             assert spec["gilded"] in spec["actions"], name
+
+
+# Runs the app's forgePayload (frontend/src/game/forgePayload.js) on the creator's choices
+BUILD_PAYLOAD = r"""
+const { pathToFileURL } = require('url');
+import(pathToFileURL(process.argv[1]).href).then(({ forgePayload }) => {
+  console.log(JSON.stringify(forgePayload(JSON.parse(process.argv[2]), null)));
+});
+"""
+
+
+def _app_payload(choices):
+    node = shutil.which("node")
+    if not node or not FORGE_PAYLOAD.exists():
+        if os.environ.get("REQUIRE_FRONTEND_TABLES"):
+            pytest.fail("needs Node and forgePayload.js")
+        pytest.skip("needs Node and forgePayload.js")
+    out = subprocess.run([node, "-e", BUILD_PAYLOAD, str(FORGE_PAYLOAD), json.dumps(choices)],
+                         capture_output=True, text=True, check=True)
+    return json.loads(out.stdout)
+
+
+def test_the_apps_forge_body_for_a_drive_left_at_0_is_accepted(client):
+    """Fixed: the app sent a drive the creator left at 0 as 1, so forge refused a valid
+    investigator ("Put 6 more points on the drives."). The choices are shaped as the
+    creator's handleComplete sends them."""
+    choices = {
+        "name": "Wren Hale", "pronouns": "", "style": "", "catalyst": "A letter", "question": "",
+        "role": "Face", "specialty": "Journalist", "roleAbility": "Sweet Talk", "specialtyAbility": "Open Book",
+        "gear": ["Camera", "Lantern"], "profilePic": None,
+        "actions": {"move": 1, "strike": 1, "control": 1, "hide": 1, "sneak": 1, "sway": 0,
+                    "survey": 2, "read": 1, "sense": 1},
+        "gildedActions": ["survey", "move"],
+        "nerve_max": 3, "cunning_max": 6, "intuition_max": 0,
+        "mode": "save", "campaignCode": "", "penFont": "Caveat",
+    }
+    body = _app_payload(choices)
+    assert (body["intuition_max"], body["intuition_current"]) == (0, 0)
+    r = client.post("/api/investigators/forge", json=body, headers=support.as_stranger())
+    assert r.status_code == 201, r.text
