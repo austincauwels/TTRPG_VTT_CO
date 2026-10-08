@@ -6,6 +6,7 @@ import { ConfirmAction } from '../shared/ConfirmAction';
 import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks';
 import { playPaperSound } from '../../game/rollSounds';
 import { Hourglass } from '../shared/Hourglass';
+import { TensionTimer } from '../shared/TensionTimer';
 
 const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -78,6 +79,9 @@ export const TensionClock = ({ readOnly = false }) => {
           {label || '—'}
         </div>
       )}
+
+      {/* The timer beside the hourglass, when the Lightkeeper shows one (TensionTimer.jsx) */}
+      <TensionTimer gm={isGM} />
     </div>
   );
 };
