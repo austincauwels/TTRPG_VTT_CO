@@ -6,6 +6,8 @@ import { tiltStyle } from '../shared/handPlaced';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey, pressable } from '../shared/a11y';
+import { InfoTerm } from '../shared/ActionInfo';
+import { RESOURCE_HELP, refillRule } from '../../game/circleResources';
 import { playPaperSound } from '../../game/rollSounds';
 
 // A small Clear button on the circle sheet. Clearing erases the value on the server, so
@@ -454,7 +456,10 @@ export const CirclePage = () => {
               const avail = circle?.[key] ?? maxCap;
               return (
                 <div key={key} className="py-2 first:pt-0">
-                  <span className="font-serif font-black text-sm uppercase tracking-wide text-ink block mb-1">{label}</span>
+                  {/* Its name, with what it does behind its "i": the slip lies to the right of
+                      the names, so the next name down is never under it */}
+                  <InfoTerm label={label} text={RESOURCE_HELP[key]} wide slipClassName="left-[6.5rem] right-0 -top-1"
+                    className="mb-1 font-serif font-black text-sm uppercase tracking-wide text-ink" />
                   {/* One row: filled pips are available, empty ones up to the maximum are
                       spent, and dotted ones lie beyond the maximum */}
                   <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -490,6 +495,10 @@ export const CirclePage = () => {
               );
             })}
           </div>
+          {/* When they come back: not after an assignment, only when the track fills */}
+          <p className="pt-2 pb-2.5 border-t border-dashed border-sepia/35 font-serif italic text-sm leading-snug text-sepia">
+            {refillRule(maxCap)}
+          </p>
 
           {/* Resource controls */}
           <div className="flex gap-2 flex-wrap pt-2.5 mt-1 border-t border-ink/25">

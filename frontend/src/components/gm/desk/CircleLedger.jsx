@@ -3,13 +3,16 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../../store/gameStore';
 import { tiltFor } from '../../shared/handPlaced';
 import { FormLine, PrinterMark, SerialNo, serialFor, stampDate } from '../../shared/PrintMarks';
+import { InfoTerm } from '../../shared/ActionInfo';
+import { RESOURCE_HELP, refillEntry } from '../../../game/circleResources';
 
 // The circle at a glance, on the GM's roster: an abstract of the charter on a ruled ledger
 // card lying under the investigators' cards. Illumination, the stores (what is left of
-// each, under its maximum), whether spending and reports are open, the circle's abilities
-// and whose report is in. The whole file is a press away (onOpen, the Circle tab). Its
-// rows run to the foot of the desk, as a ledger's do, and the card grows past it when its
-// rows need more room (OperationsPanel's roster grid).
+// each, under its maximum, what each does behind its "i", and when they refill), whether
+// spending and reports are open, the circle's abilities and whose report is in. The whole
+// file is a press away (onOpen, the Circle tab). Its rows run to the foot of the desk, as
+// a ledger's do, and the card grows past it when its rows need more room (OperationsPanel's
+// roster grid).
 const TRACK_SIZE = 12;
 // The rulebook's circle abilities, as the circle page and the Circle tab print them
 const CIRCLE_ABILITY_TEXT = {
@@ -81,7 +84,13 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
             const avail = circle[key] ?? maxCap;
             return (
               <div key={key} className="circle-ledger-row">
-                <dt>{label}</dt>
+                {/* What it does, on its "i". The slip lies over the row's pips, clear of the
+                    column of names. A ruled row keeps its pitch, so on a tablet the term's
+                    reach fills the row's 32px (touch-pip) rather than making it taller. */}
+                <dt>
+                  <InfoTerm label={label} text={RESOURCE_HELP[key]} slipClassName="left-[8.75rem] -top-1 w-[min(17rem,calc(100vw-4rem))]"
+                    hitClassName="touch-pip [--hit-y:-7px] [--hit-x:-4px]" />
+                </dt>
                 <dd className="flex items-center gap-1" role="img" aria-label={`${label}: ${avail} available, maximum ${maxCap}`}>
                   {Array.from({ length: Math.min(9, Math.max(avail, maxCap)) }).map((_, i) => (
                     <span key={i} aria-hidden="true" className={`block w-3 h-3 rounded-sm border ${i < avail ? 'bg-oxblood border-oxblood' : 'border-ink/40'}`} />
@@ -94,6 +103,10 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
           <div className="circle-ledger-row">
             <dt>Spending</dt>
             <dd className={circle.resources_editable ? 'text-seal-green font-semibold' : 'text-sepia'}>{circle.resources_editable ? 'Open' : 'Locked'}</dd>
+          </div>
+          <div className="circle-ledger-row !items-start py-1">
+            <dt className="pt-0.5">Refills</dt>
+            <dd className="text-sm leading-snug text-sepia">{refillEntry(maxCap)}</dd>
           </div>
           <div className="circle-ledger-row">
             <dt>Reports</dt>

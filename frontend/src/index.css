@@ -1094,6 +1094,30 @@
   rotate: -0.6deg;
 }
 
+/* A term with its own slip (InfoTerm in shared/ActionInfo.jsx: the circle's resources). The
+   slip shows while a mouse is over the term, while the term has keyboard focus, and once a
+   tap or a click has pinned it; Escape puts it away until the pointer or the focus leaves.
+   Shown by hover or focus it lets the pointer through, as a tooltip does, so the resource
+   pips under it can still be pressed; pinned, it takes the taps on it, so a tap meant to
+   read it never sets a pip. The term keeps the case and spacing of the label it stands
+   in for. */
+.info-term-button { text-transform: inherit; letter-spacing: inherit; }
+.info-term-button:focus-visible { outline: 2px solid rgb(var(--c-candle-gold)); outline-offset: 2px; }
+.info-term-slip { display: none; pointer-events: none; }
+.info-term.is-open .info-term-slip { pointer-events: auto; }
+.info-term.is-open .info-term-slip,
+.info-term-button:focus-visible + .info-term-slip { display: block; }
+@media (hover: hover) {
+  .info-term-button:hover + .info-term-slip { display: block; }
+}
+.info-term.is-hushed .info-term-slip { display: none; }
+/* The paper under a shown slip lies over its neighbours, so the slip is never under the
+   next paper */
+.hand-placed:has(.info-term.is-open, .info-term-button:focus-visible) { z-index: 30; }
+@media (hover: hover) {
+  .hand-placed:has(.info-term-button:hover) { z-index: 30; }
+}
+
 /* A small mark in a row of them (the Lightkeeper's Illumination dots, the circle's resource
    squares) on a tablet: it keeps its size and place and takes a finger over 44px of height
    and the whole width up to its neighbours (--hit-y, --hit-x: how far the target reaches
