@@ -11,7 +11,7 @@ from vtt.circle_queries import RESOURCES, circle_abilities
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import scar_ability
-from vtt.ws.handlers.circle import announce_downed
+from vtt.ws.handlers.circle import announce_death, announce_downed
 from vtt.ws.handlers.marks import awaiting_scar
 from vtt.ws.manager import character_key, manager
 
@@ -54,6 +54,7 @@ async def handle_apply_scar(ctx):
     character.scars_list = existing
     character.scars_count = len(existing)
     awaiting_scar.discard(character.id)
+    was_dead = bool(character.is_dead)
     if character.scars_count >= 4:
         character.is_dead = True
         character.incapacitated = True
@@ -74,6 +75,8 @@ async def handle_apply_scar(ctx):
             setattr(character, up, getattr(character, up) + 1)
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+    if character.is_dead and not was_dead:
+        await announce_death(ctx, character)
     if character.is_dead:
         await announce_downed(ctx)
     if use:

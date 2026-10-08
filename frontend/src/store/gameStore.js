@@ -799,6 +799,23 @@ const useGameStore = create(
               },
             }));
           }
+          else if (message.type === 'member_status') {
+            // A member died of the fourth scar, or the Lightkeeper lifted that death. A player's
+            // roster is read once, when the desk opens, and the circle's cards and the ally
+            // pickers leave the dead out (livingMembers), so the card takes the flag now. The
+            // server sends it to the players only: the GM desk has member_update.
+            if (!isForThisCampaign(message.payload)) return;
+            const { character_id: id, is_dead: isDead } = message.payload || {};
+            if (id == null) return;
+            set(state => ({
+              campaignRoster: {
+                ...state.campaignRoster,
+                active_investigators: Array.isArray(state.campaignRoster.active_investigators)
+                  ? state.campaignRoster.active_investigators.map(c => (c.id === id ? { ...c, is_dead: !!isDead } : c))
+                  : state.campaignRoster.active_investigators,
+              },
+            }));
+          }
           else if (message.type === 'member_update') {
             // The whole sheet of a character on this campaign's roster, after any change to
             // it (drive, resistance, marks, scars, gear, ability uses, advancement...). The
