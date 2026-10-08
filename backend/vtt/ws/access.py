@@ -79,13 +79,14 @@ def resolve_channel(db, user_id, game_id):
 GM_ONLY = frozenset({
     "gm_update_tension", "gm_update_circle", "gm_transition_scene", "gm_toggle_resource_edit",
     "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
-    "gm_reset_character", "update_circle",
+    "gm_reset_character", "update_circle", "gm_update_scars",
 })
 
 # A GM socket may aim these at a character of its campaign with payload.character_id.
 # Every other type acts for a character only on that character's own socket.
 GM_MAY_TARGET = frozenset({
     "gm_update_tension", "gm_reset_character", "update_drive", "take_mark", "revive_character", "update_gear",
+    "gm_update_scars",
 })
 
 
@@ -285,6 +286,28 @@ def _apply_scar(ctx, payload, character):
         _invalid(KEEP_RATINGS_REFUSED)
 
 
+SCAR_SLOTS = 4        # the fourth scar is fatal (p. 74)
+SCAR_TEXT_MAX = 500   # the scar form's description with its shift note fits well inside
+
+
+def _gm_update_scars(ctx, payload, character):
+    """The Lightkeeper's correction of a member's scars: the list as it should be, and the
+    list the trauma record showed when the change was made (previous). Each scar is a
+    description, trimmed, not empty, of up to SCAR_TEXT_MAX characters, and there are at
+    most four."""
+    _gm_only(ctx, payload, character)
+    scars, previous = payload.get("scars"), payload.get("previous")
+    if not isinstance(scars, list) or not isinstance(previous, list) \
+            or not all(isinstance(scar, str) for scar in scars):
+        _invalid("Scars are a list of descriptions.")
+    if len(scars) > SCAR_SLOTS:
+        _invalid(f"An investigator has at most {SCAR_SLOTS} scars.")
+    if not all(scar.strip() for scar in scars):
+        _invalid("A scar needs a description. Remove it instead of leaving it blank.")
+    if any(len(scar.strip()) > SCAR_TEXT_MAX for scar in scars):
+        _invalid(f"A scar is a description of up to {SCAR_TEXT_MAX} characters.")
+
+
 def _take_mark(ctx, payload, character):
     """The three mark tracks only. An unknown track used to be set on the loaded object
     and sent back as if it were a mark."""
@@ -353,6 +376,7 @@ RULES = {
     "gm_end_assignment": _gm_circle,
     "gm_reset_character": _gm_only,
     "update_circle": _gm_circle,
+    "gm_update_scars": _gm_update_scars,
     "intercept_mark": _intercept_mark,
     "spend_resource": _spend_resource,
     "submit_assignment_report": _member_circle_vote,

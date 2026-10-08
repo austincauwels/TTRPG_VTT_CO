@@ -43,4 +43,6 @@ HANDLERS = {
     "add_notebook_entry":          (chat.handle_add_notebook_entry, False),
     # An ability used outside a roll, its cost paid (vtt/ability_uses.py)
     "use_ability":                 (character.handle_use_ability, True),
+    # The Lightkeeper corrects a member's scars on the trauma record
+    "gm_update_scars":             (gm.handle_gm_update_scars, True),
 }

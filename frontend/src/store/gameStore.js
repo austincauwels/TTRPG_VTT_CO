@@ -192,6 +192,7 @@ const useGameStore = create(
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
       advancementDeferred: false, // the player chose "Later" on the advancement dialog
       advancementError: null,     // why the server refused an advancement pick
+      gmSheetRefusal: null,       // { action, detail, at }: a mark or scar correction the server refused
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
@@ -474,6 +475,10 @@ const useGameStore = create(
             }
             if (message.payload.action === 'use_ability') {
               set({ abilityUseError: message.payload.detail || 'That ability was not used.' });
+            }
+            // A correction on the Lightkeeper's trauma record: the sheet reloads and says why
+            if (message.payload.action === 'gm_update_scars' || message.payload.action === 'gm_update_tension') {
+              set({ gmSheetRefusal: { action: message.payload.action, detail: message.payload.detail || 'That change was not made.', at: Date.now() } });
             }
             // A refused scar was not recorded: the form opens again, as it was, with the reason
             if (message.payload.action === 'apply_scar') {
@@ -1340,6 +1345,20 @@ const useGameStore = create(
           socket.send(JSON.stringify({
             type: 'gm_update_tension',
             payload: { character_id: characterId, mark_type: markType, value: newValue, role: 'GM' },
+          }));
+          return true;
+        }
+        return false;
+      },
+
+      // The Lightkeeper rewords or removes a member's scars: the list as it should be, and
+      // the list the sheet showed, so a scar taken meanwhile is not lost (the server refuses)
+      gmSetScars: (characterId, scars, previous) => {
+        const { socket } = get();
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'gm_update_scars',
+            payload: { character_id: characterId, scars, previous, role: 'GM' },
           }));
           return true;
         }

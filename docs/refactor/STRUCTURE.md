@@ -46,7 +46,7 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 | `vtt/ws/context.py` | `WSContext`, the state passed to a handler | new |
 | `vtt/ws/access.py` | who may open which channel (`resolve_channel`, close codes 4401, 4403, 4404) and who may send which message (`check_target`, `check_message`) | new |
 | `vtt/ws/handlers/__init__.py` | `HANDLERS`: message type to (handler, needs_character) | new |
-| `vtt/ws/handlers/gm.py` | `gm_update_tension`, `gm_update_circle`, `gm_transition_scene`, `gm_toggle_resource_edit`, `gm_toggle_reports`, `gm_advance_circle`, `refill_resources`, `gm_end_assignment`, `gm_reset_character`, `update_circle` | WEBSOCKET.md 4.2 |
+| `vtt/ws/handlers/gm.py` | `gm_update_tension`, `gm_update_scars`, `gm_update_circle`, `gm_transition_scene`, `gm_toggle_resource_edit`, `gm_toggle_reports`, `gm_advance_circle`, `refill_resources`, `gm_end_assignment`, `gm_reset_character`, `update_circle` | WEBSOCKET.md 4.2 |
 | `vtt/ws/handlers/rolls.py` | `roll`, `resolve_gilded`, `use_post_roll_ability`, `burn_resistance` | WEBSOCKET.md 4.3 |
 | `vtt/ws/handlers/character.py` | `update_drive`, `update_pen_font`, `apply_scar`, `revive_character`, `update_gear`, `apply_advancement` | WEBSOCKET.md 4.4 |
 | `vtt/ws/handlers/marks.py` | `take_mark`, `resolve_ability_mark`, `intercept_mark`, `INTERCEPT_ABILITIES` | WEBSOCKET.md 4.5 |

@@ -336,6 +336,7 @@ NEEDS_CHARACTER = [
     ("spend_resource", dict(resource_type="stitch")),
     ("apply_advancement", dict(choice="add_action", detail="move")),
     ("gm_update_tension", dict(role="GM", mark_type="body", value=1)),
+    ("gm_update_scars", dict(role="GM", scars=[], previous=[])),
 ]
 
 

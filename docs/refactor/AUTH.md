@@ -103,12 +103,13 @@ A message that breaks a rule is answered with `{"type": "action_rejected", "payl
 The character a message acts on is `payload.character_id`, or the player channel's own character when the payload has none (a GM channel has none).
 
 - A player channel may only act for its own character: any other `character_id` is 403, one that matches no character is 404 (this includes 0 and 1.5, which used to fall through to "no character").
-- A GM channel may name a character only for `gm_update_tension`, `gm_reset_character`, `update_drive`, `take_mark`, `revive_character` and `update_gear`, and only a character on its own campaign's roster (active or pending, `ROSTER_STATUSES`), not a retired character still tagged with it. Any other type with a `character_id` is 403; so the GM cannot roll, vote, chat or answer as a player's character.
+- A GM channel may name a character only for `gm_update_tension`, `gm_update_scars`, `gm_reset_character`, `update_drive`, `take_mark`, `revive_character` and `update_gear`, and only a character on its own campaign's roster (active or pending, `ROSTER_STATUSES`), not a retired character still tagged with it. Any other type with a `character_id` is 403; so the GM cannot roll, vote, chat or answer as a player's character.
 - Messages that need a character and have none are still ignored without a reply, as before.
 
 | Type | Who may send it |
 |---|---|
 | gm_update_tension, gm_transition_scene, gm_reset_character | the GM |
+| gm_update_scars | the GM, for a member; `scars` and `previous` must be lists, `scars` at most 4 descriptions of 1 to 500 characters after trimming (else 422); the handler refuses (409) a stale `previous`, a longer list, or lifting a death once the owner has another character on the roster |
 | gm_update_circle | the GM, for the campaign's own circle (`circle_id` still defaults to 1, which belongs to no campaign, so the frontend now sends the real id) |
 | gm_toggle_resource_edit, gm_toggle_reports, gm_advance_circle, refill_resources, gm_end_assignment, update_circle | the GM, for the campaign's own circle (default: the circle loaded at connect) |
 | roll | the owner; on a GM channel without a character it is a Lightkeeper roll; a negative `drive_spent` is 422 (QUIRK D15); a player's roll must name one of the nine actions and may not spend more drive than it holds (422, from the handler) |

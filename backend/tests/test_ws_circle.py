@@ -107,6 +107,141 @@ def test_gm_update_tension(client):
     assert support.fetch(Character, outsider["id"]).body_marks == 0
 
 
+SCARS = ["A burn across the palm (-1 Strike, +1 Sense)", "Hears the bells at night", "A limp"]
+
+
+def test_gm_update_scars_rewords_and_removes(client):
+    """The Lightkeeper's trauma record edit: a scar reworded, then one removed. The
+    player's sheet is told, the table's log says so, and the action point the scar
+    shifted stays where it is."""
+    camp, (member,), _ = _campaign(client, scars_list=SCARS, scars_count=3, strike=0, sense=2)
+    name = member["name"]
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        reworded = ["A burn across the left palm (-1 Strike, +1 Sense)", "  Hears the bells at night ", "A limp"]
+        gm.send("gm_update_scars", role="GM", character_id=member["id"], scars=reworded, previous=SCARS)
+        msgs = gm.sync()
+        assert support.types(msgs) == ["activity_log"]
+        assert msgs[0]["payload"]["message"] == f"The Lightkeeper corrected {name}'s scars (3 of 4)."
+        seen = wm.drain()
+        assert support.types(seen) == ["character_update", "activity_log"]
+        stored = [reworded[0], "Hears the bells at night", "A limp"]  # trimmed
+        assert (seen[0]["payload"]["scars_list"], seen[0]["payload"]["scars_count"]) == (stored, 3)
+        # The same list again changes nothing and says nothing
+        gm.send("gm_update_scars", character_id=member["id"], scars=stored, previous=stored)
+        assert gm.sync() == []
+        assert wm.drain() == []
+        gm.send("gm_update_scars", character_id=member["id"], scars=[stored[0], stored[2]], previous=stored)
+        msgs = gm.sync()
+        assert msgs[0]["payload"]["message"] == f"The Lightkeeper removed a scar from {name}'s record (2 of 4)."
+        assert wm.drain()[0]["payload"]["scars_list"] == [stored[0], stored[2]]
+        gm.send("gm_update_scars", character_id=member["id"], scars=[], previous=[stored[0], stored[2]])
+        msgs = gm.sync()
+        assert msgs[0]["payload"]["message"] == f"The Lightkeeper removed 2 scars from {name}'s record (0 of 4)."
+    row = support.fetch(Character, member["id"])
+    assert (row.scars_list, row.scars_count) == ([], 0)
+    assert (row.strike, row.sense, row.is_dead) == (0, 2, False)
+
+
+def test_gm_update_scars_refusals(client):
+    """Only the campaign's Lightkeeper, only a member of their campaign, at most four
+    scars, each a description of 1 to 500 characters, made from the record as it is, and
+    no new scar (that comes through the scar form and its shift, p. 14)."""
+    camp, (member,), _ = _campaign(client, scars_list=SCARS[:2], scars_count=2)
+    outsider = support.active_member(client, support.new_campaign(client), scars_list=SCARS[:2], scars_count=2)
+    two = SCARS[:2]
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        # The player may not correct their own scars
+        wm.send("gm_update_scars", role="GM", character_id=member["id"], scars=[two[0]], previous=two)
+        assert wm.recv() == _rejected("gm_update_scars")
+        # Another campaign's member
+        gm.send("gm_update_scars", character_id=outsider["id"], scars=[two[0]], previous=two)
+        assert gm.sync() == [_rejected("gm_update_scars")]
+
+        def refused(detail, **payload):
+            gm.send("gm_update_scars", character_id=member["id"], **payload)
+            assert gm.sync() == [_rejected("gm_update_scars", status=422, detail=detail)]
+        not_a_list = "Scars are a list of descriptions."
+        refused(not_a_list, scars="A limp", previous=two)
+        refused(not_a_list, scars=[two[0], 7], previous=two)
+        refused(not_a_list, scars=[two[0]])                    # no previous
+        refused(not_a_list, scars=[two[0]], previous="nope")
+        refused("An investigator has at most 4 scars.", scars=["a", "b", "c", "d", "e"], previous=two)
+        blank = "A scar needs a description. Remove it instead of leaving it blank."
+        refused(blank, scars=[two[0], ""], previous=two)
+        refused(blank, scars=[two[0], "   "], previous=two)
+        refused("A scar is a description of up to 500 characters.", scars=[two[0], "x" * 501], previous=two)
+
+        # A new scar is not added here
+        gm.send("gm_update_scars", character_id=member["id"], scars=two + ["A new one"], previous=two)
+        assert gm.sync() == [_rejected("gm_update_scars", status=409,
+                                       detail="A new scar comes from a full mark track, through the scar form.")]
+        # Made from a record that has changed since (a scar the player took meanwhile)
+        gm.send("gm_update_scars", character_id=member["id"], scars=[two[0]], previous=[two[0]])
+        assert gm.sync() == [_rejected("gm_update_scars", status=409, detail=(
+            f"{member['name']}'s scars changed while you were editing. The record shows them as they are now."))]
+        assert wm.drain() == []
+        # 500 characters (after trimming) is allowed
+        gm.send("gm_update_scars", character_id=member["id"], scars=[two[0], " " + "x" * 500 + " "], previous=two)
+        assert support.types(gm.sync()) == ["activity_log"]
+    assert support.fetch(Character, member["id"]).scars_list == [two[0], "x" * 500]
+    assert support.fetch(Character, outsider["id"]).scars_list == two
+
+
+def test_gm_update_scars_below_four_lifts_the_death(client):
+    """The fourth scar is fatal (p. 74). One taken by mistake was a death by mistake: with
+    fewer than four the investigator is alive, and incapacitated until revived (p. 14),
+    even after a stray revive cleared it. Rewording a dead investigator's scars does not."""
+    four = SCARS + ["A fourth, taken by mistake"]
+    camp, (member,), cid = _campaign(client, scars_list=four, scars_count=4, is_dead=True, incapacitated=False)
+    support.update(Circle, cid, circle_ability="Nobody Left Behind")
+    name = member["name"]
+    roster = lambda: client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
+    assert member["id"] not in [c["id"] for c in roster()["active_investigators"]]
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        reworded = four[:3] + ["A fourth"]
+        gm.send("gm_update_scars", character_id=member["id"], scars=reworded, previous=four)
+        assert support.types(gm.sync()) == ["activity_log"]
+        assert wm.drain()[0]["payload"]["is_dead"] is True
+        gm.send("gm_update_scars", character_id=member["id"], scars=SCARS, previous=reworded)
+        msgs = gm.sync()
+        assert support.types(msgs) == ["activity_log", "circle_update"]
+        assert msgs[0]["payload"]["message"] == (
+            f"The Lightkeeper removed a scar from {name}'s record (3 of 4). {name} is alive, and incapacitated until revived.")
+        # Nobody Left Behind: the circle's desks hear that a member is down, not dead
+        assert msgs[1]["payload"]["incapacitated_members"] == [{"id": member["id"], "name": name}]
+        update = wm.drain()[0]["payload"]
+        assert (update["is_dead"], update["incapacitated"], update["scars_count"]) == (False, True, 3)
+    row = support.fetch(Character, member["id"])
+    assert (row.is_dead, row.incapacitated, row.scars_count, row.status) == (False, True, 3, "active")
+    assert member["id"] in [c["id"] for c in roster()["active_investigators"]]
+
+
+def test_gm_update_scars_keeps_a_death_once_the_player_has_a_new_investigator(client):
+    """The death opened the way for a new investigator. Once their player has one on the
+    roster, waiting or approved, the fourth scar and the death stand."""
+    four = SCARS + ["A fourth"]
+    camp = support.new_campaign(client)
+    owner = support.make_user()
+    dead = support.active_member(client, camp, user_id=owner.id, scars_list=four, scars_count=4,
+                                 is_dead=True, incapacitated=True)
+    successor = support.pending_member(client, camp, user_id=owner.id)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_update_scars", character_id=dead["id"], scars=SCARS, previous=four)
+        assert gm.sync() == [_rejected("gm_update_scars", status=409, detail=(
+            f"{dead['name']}'s player already has a new investigator on the roster, "
+            "so the fourth scar and the death stand."))]
+        # Rewording still works while the dead investigator is on the roster
+        gm.send("gm_update_scars", character_id=dead["id"], scars=SCARS + ["The fourth"], previous=four)
+        assert support.types(gm.sync()) == ["activity_log"]
+        # Approving the new investigator retires the dead one: no longer on the roster
+        assert support.approve(client, successor["id"]).status_code == 200
+        gm.recv_type("investigator_approved")
+        gm.send("gm_update_scars", character_id=dead["id"], scars=SCARS, previous=SCARS + ["The fourth"])
+        assert gm.sync() == [_rejected("gm_update_scars")]
+    row = support.fetch(Character, dead["id"])
+    assert (row.is_dead, row.scars_count, row.status) == (True, 4, "retired")
+
+
 def test_gm_transition_scene(client):
     camp, (member,), _ = _campaign(client)
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
