@@ -245,7 +245,7 @@ All 26 types the server emits have a handler in `gameStore.js`, and the store ha
 | `relationship_update` | relationship propose and respond | Campaign | Replaces relationships |
 | `notebook_entry` | WS `add_notebook_entry`; REST `POST /api/notebook/{id}/entries` (visibility `all`) | Campaign, or sender only | Appends if the id is new |
 | `investigator_joined` | REST `POST /campaign/join` | Campaign (pending characters excluded), or the code key | Updates pending roster when the code matches |
-| `investigator_approved` | REST approve, REST rejoin | Campaign | Campaign-checked; updates roster and own character |
+| `investigator_approved` | REST approve, REST rejoin | Campaign | Campaign-checked; updates roster and own character. The payload's sheets go on the roster cards as `member_update`'s do, with `role_class` from `role` (the GM's cards print it) |
 | `investigator_rejected` | REST reject | Campaign, plus the rejected character's key | Resets that character to unaffiliated |
 | `campaign_retired` | REST retire | Campaign (but see D3) | Campaign-checked; sends the user to HOME |
 | `campaign_deleted` | REST delete campaign | The GM's key and the key of every character the campaign let go (active or pending; retired ones stay with it); the GM's channel is then closed with 4404 (DELETION.md) | Sends the user to the hub with a notice; a player's channel opens again, the GM's closes |
