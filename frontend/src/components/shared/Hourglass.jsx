@@ -107,13 +107,19 @@ const GRAINS = [
   [9.6, 1.4, 0.3, 1], [2.6, 8, 0.35, 1], [13.6, 4, 0.3, 1], [7.6, 7.2, 0.35, 1],
 ];
 
+// The light on the sand is cream laid on in soft light, which lifts the oxblood to a
+// brighter red of its own hue; plain cream over it would only pale it toward pink, and
+// lamp-lit oxblood is never a fill (DESIGN.md)
+const LIT = { mixBlendMode: 'soft-light' };
+
 const Sand = ({ d, at, id }) => (
   <g className="transition-transform duration-[450ms] ease-in-out motion-reduce:transition-none"
     style={{ transform: `translateY(${+at.toFixed(2)}px)` }}>
     <path d={d} style={{ fill: 'rgb(var(--c-oxblood))' }} />
-    <path d={d} fill={`url(#${id}-sand-crest)`} />
+    <path d={d} fill={`url(#${id}-sand-crest)`} style={LIT} />
     <path d={d} fill={`url(#${id}-sand-shade)`} />
     <path d={d} fill={`url(#${id}-sand-grain)`} />
+    <path d={d} fill={`url(#${id}-sand-glint)`} style={LIT} />
   </g>
 );
 
@@ -211,14 +217,18 @@ export const Hourglass = ({ value = 0 }) => {
         <filter id={`${id}-dot`} x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="0.9" /></filter>
         {/* The sand: lit along its top, darker away from the lamp, and grained */}
         <linearGradient id={`${id}-sand-crest`} gradientUnits="userSpaceOnUse" x1="0" y1="-8" x2="0" y2="9">
-          <stop offset="0" style={{ stopColor: 'rgb(var(--c-oxblood-lit))', stopOpacity: 0.5 }} />
-          <stop offset="0.45" style={{ stopColor: 'rgb(var(--c-oxblood-lit))', stopOpacity: 0.22 }} />
-          <stop offset="1" style={{ stopColor: 'rgb(var(--c-oxblood-lit))', stopOpacity: 0 }} />
+          <stop offset="0" style={cream(0.875)} />
+          <stop offset="0.45" style={cream(0.385)} />
+          <stop offset="1" style={cream(0)} />
         </linearGradient>
         <pattern id={`${id}-sand-grain`} patternUnits="userSpaceOnUse" width="16" height="12">
-          {GRAINS.map(([x, y, r, light]) => (
-            <circle key={`${x}-${y}`} cx={x} cy={y} r={r}
-              style={{ fill: light ? 'rgb(var(--c-oxblood-lit) / 0.22)' : 'rgb(var(--c-ink) / 0.24)' }} />
+          {GRAINS.filter((g) => !g[3]).map(([x, y, r]) => (
+            <circle key={`${x}-${y}`} cx={x} cy={y} r={r} style={{ fill: 'rgb(var(--c-ink) / 0.24)' }} />
+          ))}
+        </pattern>
+        <pattern id={`${id}-sand-glint`} patternUnits="userSpaceOnUse" width="16" height="12">
+          {GRAINS.filter((g) => g[3]).map(([x, y, r]) => (
+            <circle key={`${x}-${y}`} cx={x} cy={y} r={r} style={{ fill: 'rgb(var(--c-cream) / 0.385)' }} />
           ))}
         </pattern>
         <linearGradient id={`${id}-sand-shade`} gradientUnits="userSpaceOnUse" x1="24" y1="0" x2="96" y2="0">
