@@ -124,6 +124,9 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
         if character is not None and campaign is not None and character.status not in MEMBER_STATUSES:
             shown_circle = _shared_circle(db)
 
+        # The two go out together: a desk counts the circle's timer from when the first of
+        # them arrived (frontend store/circleArrivals.js), since drawing the character can
+        # hold the circle's frame back on a desk that is still loading.
         if character:
             await websocket.send_json({"type": "character_update", "payload": get_char_dict(character)})
         await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(shown_circle)})
