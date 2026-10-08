@@ -328,7 +328,7 @@ export const SceneManager = () => {
       }));
       setLocation("");
       setAtmosphere("");
-      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. Ability uses are reset.` });
+      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. Ability uses and the tension clock are reset.` });
     } else {
       setReceipt({ ok: false, text: NOT_CONNECTED });
     }
@@ -395,7 +395,7 @@ export const SceneManager = () => {
           className="flex flex-col items-start gap-2 max-w-[11rem]"
           onConfirm={endAssignment}
           cancelLabel="Keep going"
-          armedHint="Press again to end it: the dispatch clears, and every player's ability uses and gear slots reset."
+          armedHint="Press again to end it: the dispatch clears, the tension clock empties, and every player's ability uses and gear slots reset."
           hintClassName="[&>p]:text-sm"
           renderButton={(armed, props) => (
             <button

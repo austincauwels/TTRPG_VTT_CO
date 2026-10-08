@@ -182,6 +182,10 @@ async def handle_gm_end_assignment(ctx):
         # Clear scene text
         target_circle.location = ""
         target_circle.atmosphere = ""
+        # Every assignment starts with an empty tension clock. Its name goes too: it named
+        # this assignment's threat, as the dispatch named its place
+        target_circle.tension_clock = 0
+        target_circle.tension_label = ""
         # Reset ability_uses for all active characters in this campaign
         active_chars = db.query(Character).filter(
             Character.campaign_id == camp_id,
@@ -206,7 +210,7 @@ async def handle_gm_end_assignment(ctx):
             await manager.broadcast(character_key(ch.id), {"type": "character_update", "payload": get_char_dict(ch)})
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",
-            "payload": {"message": "— Assignment ended. Ability uses and gear slots have been reset. —", "log_type": "field"},
+            "payload": {"message": "— Assignment ended. Ability uses, gear slots and the tension clock have been reset. —", "log_type": "field"},
         }, db)
         for ch in note_takers:
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {

@@ -259,7 +259,7 @@ def test_gm_end_assignment(client):
         msgs = gm.sync()
         assert support.types(msgs) == ["circle_update", "activity_log"]
         assert (msgs[0]["payload"]["location"], msgs[0]["payload"]["atmosphere"]) == ("", "")
-        assert msgs[1]["payload"] == {"message": f"{EM} Assignment ended. Ability uses and gear slots have been reset. {EM}",
+        assert msgs[1]["payload"] == {"message": f"{EM} Assignment ended. Ability uses, gear slots and the tension clock have been reset. {EM}",
                                       "log_type": "field"}
         got = wa.drain()
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
@@ -269,6 +269,26 @@ def test_gm_end_assignment(client):
         assert got[1]["payload"]["gear"] == []  # gear slots reset with the assignment (p. 52)
     assert support.fetch(Character, b["id"]).resources_spent_assignment == 0
     assert support.fetch(Character, outsider["id"]).resources_spent_assignment == 2
+
+
+def test_gm_end_assignment_empties_the_tension_clock(client):
+    """Every assignment starts with an empty clock. Circles made before the default became 0
+    kept a full clock (4) from one assignment to the next; End Assignment now empties it
+    and clears its name, at every desk. Another campaign's clock is left alone."""
+    camp, (a,), cid = _campaign(client)
+    other, _, other_cid = _campaign(client)
+    support.update(Circle, cid, tension_clock=4, tension_label="The tide comes in")
+    support.update(Circle, other_cid, tension_clock=3, tension_label="Theirs")
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+        gm.send("gm_end_assignment", role="GM")
+        [update] = [m for m in gm.sync() if m["type"] == "circle_update"]
+        assert (update["payload"]["tension_clock"], update["payload"]["tension_label"]) == (0, "")
+        [seen] = [m for m in wa.drain() if m["type"] == "circle_update"]
+        assert (seen["payload"]["tension_clock"], seen["payload"]["tension_label"]) == (0, "")
+    after = support.fetch(Circle, cid)
+    assert (after.tension_clock, after.tension_label) == (0, "")
+    theirs = support.fetch(Circle, other_cid)
+    assert (theirs.tension_clock, theirs.tension_label) == (3, "Theirs")
 
 
 def test_gm_reset_character(client):
