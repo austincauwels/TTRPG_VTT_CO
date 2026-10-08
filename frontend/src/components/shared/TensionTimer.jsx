@@ -1,10 +1,7 @@
 import React, { useEffect, useReducer, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { arrivedAt } from '../../store/circleArrivals';
-import { useRollSounds } from '../../game/rollSounds';
-import { playTimerChime, primeTimerChime } from '../../game/timerChime';
 import { tiltStyle } from './handPlaced';
 import { CrossMark, PauseMark, PlayMark, TurnBackMark } from './InkMarks';
 
@@ -16,11 +13,10 @@ import { CrossMark, PauseMark, PlayMark, TurnBackMark } from './InkMarks';
 // opens mid-countdown shows the same time as the rest. A circle saved from an earlier visit
 // shows no timer: it may have run on or changed since. The desk wakes only while the timer
 // runs, just after each shown second turns, and not at all while it stands still. At 0:00
-// it stops, turns oxblood and chimes (game/timerChime.js).
+// it stops and turns oxblood. The chime and what a screen reader hears are the desk's own
+// (TimerBell.jsx), so they come on every page of it, the hourglass's or not.
 
 const MAX_MS = 3 * 60 * 60 * 1000; // the server's limit, three hours
-// A desk that wakes this long after the end (a tab in the background) does not chime
-const CHIME_LATE_MS = 2000;
 
 // m:ss, or h:mm:ss from an hour. The shown second is rounded up, so a timer started at
 // 0:30 shows 0:30 for its first second and 0:00 only when it has run out.
@@ -129,14 +125,10 @@ const DurationFields = ({ shownMs, draft, setDraft, onCommit, disabled, minutesR
 // The hourglass's timer. Players (`gm` false) see the ticket while the Lightkeeper shows a
 // timer that has a duration; the Lightkeeper has the switch that shows it, the ticket with
 // its minutes and seconds, and start or pause, reset and clear beside the hourglass's own
-// − and +. A screen reader hears the timer start, pause and run out, and nothing between,
-// from a region kept on the page itself, so a phone's player hears it on any page of the
-// drawer.
+// − and +.
 export const TensionTimer = ({ gm = false }) => {
   const { circle, socket } = useGameStore(useShallow((s) => ({ circle: s.circle, socket: s.socket, connection: s.connectionState })));
   const socketReady = socket?.readyState === WebSocket.OPEN;
-  const [soundOn] = useRollSounds();
-  useEffect(() => { primeTimerChime(); }, []);
 
   // When the server sent this circle; undefined for one saved from an earlier visit
   const at = arrivedAt(circle);
@@ -159,37 +151,6 @@ export const TensionTimer = ({ gm = false }) => {
     : sentRunning && left > 0 ? 'running'
       : left <= 0 ? 'done'
         : left >= duration ? 'set' : 'paused';
-
-  // What a screen reader hears: start, pause and time's up only
-  const [said, setSaid] = useState('');
-  // The same words twice in a row differ by a no-break space, so they are heard again
-  const say = (text) => setSaid((prev) => (prev === text ? `${text}\u00a0` : text));
-  const before = useRef(null);
-  useEffect(() => {
-    if (!heard) return;
-    const was = before.current;
-    before.current = { running: sentRunning, duration };
-    if (!was || !visible) return;
-    if (sentRunning && !was.running) say('Timer started.');
-    else if (!sentRunning && was.running && duration === was.duration
-      && circle?.timer_remaining_ms > 0 && circle.timer_remaining_ms < duration) say('Timer paused.');
-  }, [circle]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Time's up is heard only on a desk that saw it count down to 0:00, and the chime only
-  // where this desk's own count got there, on time. A hidden timer is not being watched,
-  // so one that ran out while hidden says nothing when it is shown again.
-  const counting = useRef(false);
-  useEffect(() => {
-    if (!onShow) counting.current = false;
-    else if (state === 'running') counting.current = true;
-    else if (state === 'done' && counting.current) {
-      counting.current = false;
-      if (!onShow) return;
-      say("Time's up.");
-      const sent = Number(circle?.timer_remaining_ms) || 0;
-      if (soundOn && sentRunning && performance.now() - (at + sent) < CHIME_LATE_MS) playTimerChime();
-    }
-    else counting.current = false;
-  }, [state, onShow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = (action, extra = {}) => {
     if (socket?.readyState !== WebSocket.OPEN) return;
@@ -218,23 +179,13 @@ export const TensionTimer = ({ gm = false }) => {
   });
   const press = (action, next) => (e) => { pressed.current = { button: e.currentTarget, next }; send(action); };
 
-  const live = typeof document === 'undefined' ? null
-    : createPortal(<p role="status" className="sr-only">{said}</p>, document.body);
-  if (!gm) {
-    return (
-      <>
-        {live}
-        {onShow && <Ticket state={state} left={left} />}
-      </>
-    );
-  }
+  if (!gm) return onShow ? <Ticket state={state} left={left} /> : null;
 
   const button = 'w-9 h-9 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 rounded-full bg-gm-slate border border-moonlight-steel text-cream text-sm hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:pointer-events-none';
   const editing = state === 'none' || state === 'set';
   const startLabel = state === 'paused' ? 'Resume the timer' : 'Start the timer';
   return (
     <div className="flex flex-col items-center gap-3">
-      {live}
       {/* The switch: just the hourglass, or the hourglass and its timer, on every desk */}
       <button type="button" role="switch" aria-checked={visible} aria-label="Timer beside the hourglass"
         onClick={() => send(visible ? 'hide' : 'show')} disabled={!socketReady || !heard}

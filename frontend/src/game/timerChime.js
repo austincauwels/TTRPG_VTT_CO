@@ -1,9 +1,9 @@
 // ── The hourglass timer's chime ───────────────────────────────────────────────────
 // A small brass bell rung twice, on every desk that counts the Lightkeeper's timer down
-// to 0:00 while it is on show (components/shared/TensionTimer.jsx), under the table's
-// sound switch like the rest. It is drawn here with Web Audio, so no file loads for it:
-// each stroke is a few bell partials, struck at once and dying away, the higher ones
-// sooner. It is as loud as the Full Success chord (the same RMS as the chord's first
+// to 0:00 while it is on show (components/shared/TimerBell.jsx), whichever page of the
+// desk is open, under the table's sound switch like the rest. It is drawn here with Web
+// Audio, so no file loads for it: each stroke is a few bell partials, struck at once and
+// dying away, the higher ones sooner. It is as loud as the Full Success chord (the same RMS as the chord's first
 // 0.4 s; its peak is -11 dB).
 //
 // Browsers start audio only from a tap or a key press. The audio is woken by the first one

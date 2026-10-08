@@ -17,6 +17,7 @@ import { TensionSection } from './desk/TensionSection';
 import { FairelandsMap } from './desk/FairelandsMap';
 import { CircleLedger } from './desk/CircleLedger';
 import { ConnectionBanner } from '../shared/ConnectionBanner';
+import { TimerBell } from '../shared/TimerBell';
 import { livingMembers } from '../../game/roster';
 
 // The notebook, the map and the circle's file take the dice rail's width from xl too
@@ -117,6 +118,8 @@ export const OperationsPanel = () => {
     <div className="min-h-screen overflow-x-clip xl:h-[100dvh] xl:min-h-0 xl:flex xl:flex-col xl:overflow-hidden bg-gm-night text-cream font-serif bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] pb-12 xl:pb-0 relative">
 
       <ConnectionBanner />
+      {/* The timer's chime and its words, on every tab of the desk (TimerBell.jsx) */}
+      <TimerBell />
       <GMDeskHeader activeCampaignId={activeCampaignId} campaignName={activeCampaignName} campaignCode={activeCampaignCode} setStage={setStage} />
 
       {/* Below lg the three columns dissolve (display: contents) into one column, ordered
