@@ -7,6 +7,7 @@ import { useTypedText } from '../shared/useTypedText';
 import { SerialNo, BlankEntry, serialFor } from '../shared/PrintMarks';
 import { TurnOverMark, PushPin } from '../shared/Decorations';
 import { playPaperSound } from '../../game/rollSounds';
+import { livingMembers } from '../../game/roster';
 import { useFlatTurn } from '../shared/useFlatTurn';
 
 // The investigator's photograph, small, pinned to the corner of their card. Only when
@@ -255,7 +256,7 @@ export const TactileSidebar = ({ phonePart }) => {
         </div>
 
         {/* Other active investigators — flip cards */}
-        {(campaignRoster.active_investigators || [])
+        {livingMembers(campaignRoster.active_investigators)
           .filter(inv => inv.id !== character?.id)
           .map((inv, i) => (
             <RelationshipCard

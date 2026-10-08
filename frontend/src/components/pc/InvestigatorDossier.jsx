@@ -9,7 +9,8 @@ import { SafeIcon } from '../shared/SafeIcon';
 import { ScarIcon } from '../shared/ScarIcon';
 import { getAvailableRollMods } from './DiceVault';
 import { resistRemaining } from '../../game/rollMods';
-import { ACTION_LABEL, scarDisplayText } from '../../game/actions';
+import { ACTION_LABEL, SCAR_TEXT_MAX, scarDisplayText } from '../../game/actions';
+import { livingMembers } from '../../game/roster';
 import { useMarkUndo, MARK_NAME } from './useMarkUndo';
 import { useDialog } from '../shared/useDialog';
 import { tiltFor } from '../shared/handPlaced';
@@ -157,9 +158,6 @@ const ScarAbilityUse = ({ name, use, character, scarWaiting, onUse }) => {
   );
 };
 
-// The longest scar the server keeps (vtt/ws/access.py SCAR_TEXT_MAX)
-const SCAR_TEXT_MAX = 500;
-
 // One scar on the Lightkeeper's trauma record in edit mode: its words, which can be changed
 // and saved, and Remove, pressed twice. A scar left unchanged keeps its stored words.
 const ScarEditLine = ({ index, raw, draft, onDraft, onSave, onRemove, removeHint }) => {
@@ -182,7 +180,7 @@ const ScarEditLine = ({ index, raw, draft, onDraft, onSave, onRemove, removeHint
       />
       <div className="flex flex-wrap items-center gap-2 mt-1.5">
         {changed && (
-          <button type="button" onClick={onSave} disabled={blank}
+          <button type="button" onClick={onSave} disabled={blank} aria-label={`Save scar ${index + 1}`}
             className={`${small} border border-ink text-ink hover:bg-ink hover:text-cream disabled:opacity-40`}>
             Save
           </button>
@@ -426,7 +424,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   const renderAbilityUse = (name) => {
     if (readOnly) return null;
     if (ABILITY_USES[name]) {
-      const allies = (campaignRoster?.active_investigators || []).filter(inv => inv.id !== character?.id);
+      const allies = livingMembers(campaignRoster?.active_investigators).filter(inv => inv.id !== character?.id);
       return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} allies={allies} character={character} />;
     }
     if (SCAR_ABILITIES[name]) {
@@ -455,6 +453,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The Lightkeeper's edit of the trauma record, and the scars' words being changed, by line
   const [editingTrauma, setEditingTrauma] = useState(false);
   const [scarDrafts, setScarDrafts] = useState({});
+  // Save and "Yes, remove" go away once pressed, so keyboard focus moves on to a scar's
+  // words (that line's, or the next line's after a removal), or to Done when none is left
+  const scarLinesRef = useRef(null);
+  const traumaToggleRef = useRef(null);
+  const focusScarAfter = useRef(null);
+  useEffect(() => {
+    if (focusScarAfter.current == null) return;
+    const lines = scarLinesRef.current?.querySelectorAll('textarea') || [];
+    const target = lines[Math.min(focusScarAfter.current, lines.length - 1)] || traumaToggleRef.current;
+    focusScarAfter.current = null;
+    target?.focus({ preventScroll: true });
+  });
   const [infoTab, setInfoTab] = useState('role'); // 'role' | 'specialty' | 'profile'
   const [showGearModal, setShowGearModal] = useState(false);
   const [pendingGear, setPendingGear] = useState([]);
@@ -528,9 +538,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     const words = (scarDrafts[i] ?? '').trim();
     if (!words || !traumaEdit.setScars(scars.map((raw, j) => (j === i ? words : raw)))) return;
     setScarDrafts(({ [i]: _, ...rest }) => rest);
+    focusScarAfter.current = i;
   };
   const removeScar = (i) => {
     if (!traumaEdit.setScars(scars.filter((_, j) => j !== i))) return;
+    focusScarAfter.current = i;
     // The words being changed on the lines below move up with them
     setScarDrafts(d => Object.fromEntries(Object.entries(d)
       .filter(([k]) => Number(k) !== i).map(([k, v]) => [Number(k) > i ? Number(k) - 1 : Number(k), v])));
@@ -1220,10 +1232,12 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <ScarIcon size={20} className="text-ink shrink-0" /> Scars
             </h3>
             {editing ? (
-              <div className="scars-lines min-w-0">
+              <div ref={scarLinesRef} className="scars-lines min-w-0">
+                {/* Keyed by place, so a line (and the focus in it) stays put while its words
+                    are saved, or come back as the server has them */}
                 {scars.length > 0 ? scars.map((raw, i) => (
                   <ScarEditLine
-                    key={`${i}:${raw}`}
+                    key={i}
                     index={i}
                     raw={raw}
                     draft={scarDrafts[i]}
@@ -1267,6 +1281,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 </p>
               )}
               <button
+                ref={traumaToggleRef}
                 type="button"
                 onClick={toggleTraumaEdit}
                 aria-label={editing ? 'Done editing the trauma record' : 'Edit trauma record'}

@@ -138,7 +138,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: path `campaign_id`.
 - Trusted ids: `campaign_id`.
 - Tables: characters joined with circles (engine `get_campaign_roster`), campaigns.
-- Response: `{pending_investigators, active_investigators (dead excluded), roster_finalized}`; items are `CharacterRosterItem`.
+- Response: `{pending_investigators, active_investigators, roster_finalized}`; items are `CharacterRosterItem`. Since 2026-10-08 a dead investigator not yet replaced (still `active`) is listed with `is_dead: true`, so the GM desk can open the sheet (it shows them under Deceased); the frontend counts and offers only the living (`frontend/src/game/roster.js`). It used to be left out.
 
 **GET /campaign/{campaign_id}/circle-creation-state** (line 755, `def`)
 - Inputs: path `campaign_id`.

@@ -678,6 +678,23 @@ def test_apply_scar_shifts_only_action_ratings(client, down, up):
     assert row.user_id == support.owner_id(ch["id"])
 
 
+def test_apply_scar_words_are_text_of_up_to_500_characters(client):
+    """The scar form's words and its shift note fit in 500 characters (the description is
+    capped at 460). A longer scar, or one that is not text, used to be stored as it came, and
+    the Lightkeeper's trauma record then refused every correction around it."""
+    ch = support.forge(client, move=2, sense=0)
+    too_long = {"type": "action_rejected", "payload": {
+        "action": "apply_scar", "status": 422, "detail": "A scar is a description of up to 500 characters."}}
+    with support.ws_connect(client, ch["id"]) as ws:
+        for words in ("x" * 501, ["A limp"], 7, {"text": "A limp"}):
+            ws.send("apply_scar", scar_text=words, shift_down="move", shift_up="sense")
+            assert ws.sync() == [too_long]
+        ws.send("apply_scar", scar_text="x" * 500, shift_down="move", shift_up="sense")
+        assert ws.sync()[0]["payload"]["scars_list"] == ["x" * 500]
+    row = support.fetch(Character, ch["id"])
+    assert (row.scars_count, row.move, row.sense) == (1, 1, 1)
+
+
 def test_fourth_scar_kills(client):
     ch = support.forge(client, scars_count=3, scars_list=["a", "b", "c"])
     with support.ws_connect(client, ch["id"]) as ws:

@@ -187,6 +187,32 @@ def test_gm_update_scars_refusals(client):
     assert support.fetch(Character, outsider["id"]).scars_list == two
 
 
+def test_gm_update_scars_checks_only_the_scars_the_lightkeeper_rewords(client):
+    """A scar stored before the limit, longer than 500 characters (or blank), is left as it
+    is: it no longer blocks rewording or removing another scar. Words the Lightkeeper
+    writes are held to the limit, and may not be blank."""
+    long_one = "The bite of the thing in the cellar, " * 20 + "(-1 Strike, +1 Sense)"
+    stored = ["A limp", long_one, "  "]
+    camp, (member,), _ = _campaign(client, scars_list=stored, scars_count=3)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("gm_update_scars", character_id=member["id"], scars=["A bad limp", long_one, "  "], previous=stored)
+        assert support.types(gm.sync()) == ["activity_log"]
+        stored = ["A bad limp", long_one, ""]   # trimmed
+        assert wm.drain()[0]["payload"]["scars_list"] == stored
+        gm.send("gm_update_scars", character_id=member["id"], scars=stored[1:], previous=stored)
+        assert support.types(gm.sync()) == ["activity_log"]
+        stored = stored[1:]
+
+        def refused(detail, scars):
+            gm.send("gm_update_scars", character_id=member["id"], scars=scars, previous=stored)
+            assert gm.sync() == [_rejected("gm_update_scars", status=422, detail=detail)]
+        refused("A scar is a description of up to 500 characters.", [long_one + "!", ""])
+        refused("A scar needs a description. Remove it instead of leaving it blank.", [long_one, " "])
+        gm.send("gm_update_scars", character_id=member["id"], scars=["The bite in the cellar"], previous=stored)
+        assert support.types(gm.sync()) == ["activity_log"]
+    assert support.fetch(Character, member["id"]).scars_list == ["The bite in the cellar"]
+
+
 def test_gm_update_scars_below_four_lifts_the_death(client):
     """The fourth scar is fatal (p. 74). One taken by mistake was a death by mistake: with
     fewer than four the investigator is alive, and incapacitated until revived (p. 14),
@@ -195,8 +221,10 @@ def test_gm_update_scars_below_four_lifts_the_death(client):
     camp, (member,), cid = _campaign(client, scars_list=four, scars_count=4, is_dead=True, incapacitated=False)
     support.update(Circle, cid, circle_ability="Nobody Left Behind")
     name = member["name"]
-    roster = lambda: client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
-    assert member["id"] not in [c["id"] for c in roster()["active_investigators"]]
+    # The Lightkeeper's roster lists the dead investigator, so the sheet can be opened
+    roster = lambda: {c["id"]: c["is_dead"] for c in client.get(
+        f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()["active_investigators"]}
+    assert roster() == {member["id"]: True}
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         reworded = four[:3] + ["A fourth"]
         gm.send("gm_update_scars", character_id=member["id"], scars=reworded, previous=four)
@@ -213,7 +241,7 @@ def test_gm_update_scars_below_four_lifts_the_death(client):
         assert (update["is_dead"], update["incapacitated"], update["scars_count"]) == (False, True, 3)
     row = support.fetch(Character, member["id"])
     assert (row.is_dead, row.incapacitated, row.scars_count, row.status) == (False, True, 3, "active")
-    assert member["id"] in [c["id"] for c in roster()["active_investigators"]]
+    assert roster() == {member["id"]: False}
 
 
 def test_gm_update_scars_keeps_a_death_once_the_player_has_a_new_investigator(client):

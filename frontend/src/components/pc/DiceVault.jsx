@@ -11,6 +11,7 @@ import { usePostRollPrompts } from './dice/usePostRollPrompts';
 import { PassNotes } from './dice/PassNotes';
 import { RollResultBar } from './dice/RollResultBar';
 import { primeRollSounds } from '../../game/rollSounds';
+import { livingMembers } from '../../game/roster';
 
 // The roll modifier tables now live in game/rollMods.js; these names stay importable here.
 export { MAX_ABILITY_USES, ABILITY_ROLL_MODS, getAvailableRollMods } from '../../game/rollMods';
@@ -144,7 +145,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       drivePickerPrompt={drivePickerPrompt}
       setDrivePickerPrompt={setDrivePickerPrompt}
       setDismissedPrompts={setDismissedPrompts}
-      allies={(campaignRoster?.active_investigators || []).filter(inv => inv.id !== character?.id)}
+      allies={livingMembers(campaignRoster?.active_investigators).filter(inv => inv.id !== character?.id)}
     />
   );
 
