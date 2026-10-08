@@ -273,7 +273,7 @@ WS_CASES = {
     "gm_update_scars": dict(
         sender="gm", fields={"scars_list": ["s"], "scars_count": 1},
         payload=lambda c: {"role": "GM", "character_id": c.char_id, "scars": ["t"], "previous": ["s"]},
-        expect=["activity_log"]),
+        expect=["member_update", "activity_log"]),
 }
 
 

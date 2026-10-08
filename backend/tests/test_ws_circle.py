@@ -112,6 +112,13 @@ def test_gm_update_tension(client):
 SCARS = ["A burn across the palm (-1 Strike, +1 Sense)", "Hears the bells at night", "A limp"]
 
 
+def _after_member_update(msgs):
+    """A correction the Lightkeeper makes reaches their own desk first as member_update, the
+    investigator's whole sheet (vtt/ws/manager.py), then as what the correction sends."""
+    assert msgs and msgs[0]["type"] == "member_update", support.types(msgs)
+    return msgs[1:]
+
+
 def test_gm_update_scars_rewords_and_removes(client):
     """The Lightkeeper's trauma record edit: a scar reworded, then one removed. The
     player's sheet is told, the table's log says so, and the action point the scar
@@ -121,7 +128,7 @@ def test_gm_update_scars_rewords_and_removes(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         reworded = ["A burn across the left palm (-1 Strike, +1 Sense)", "  Hears the bells at night ", "A limp"]
         gm.send("gm_update_scars", role="GM", character_id=member["id"], scars=reworded, previous=SCARS)
-        msgs = gm.sync()
+        msgs = _after_member_update(gm.sync())
         assert support.types(msgs) == ["activity_log"]
         assert msgs[0]["payload"]["message"] == f"The Lightkeeper corrected {name}'s scars (3 of 4)."
         seen = wm.drain()
@@ -133,11 +140,11 @@ def test_gm_update_scars_rewords_and_removes(client):
         assert gm.sync() == []
         assert wm.drain() == []
         gm.send("gm_update_scars", character_id=member["id"], scars=[stored[0], stored[2]], previous=stored)
-        msgs = gm.sync()
+        msgs = _after_member_update(gm.sync())
         assert msgs[0]["payload"]["message"] == f"The Lightkeeper removed a scar from {name}'s record (2 of 4)."
         assert wm.drain()[0]["payload"]["scars_list"] == [stored[0], stored[2]]
         gm.send("gm_update_scars", character_id=member["id"], scars=[], previous=[stored[0], stored[2]])
-        msgs = gm.sync()
+        msgs = _after_member_update(gm.sync())
         assert msgs[0]["payload"]["message"] == f"The Lightkeeper removed 2 scars from {name}'s record (0 of 4)."
     row = support.fetch(Character, member["id"])
     assert (row.scars_list, row.scars_count) == ([], 0)
@@ -184,7 +191,7 @@ def test_gm_update_scars_refusals(client):
         assert wm.drain() == []
         # 500 characters (after trimming) is allowed
         gm.send("gm_update_scars", character_id=member["id"], scars=[two[0], " " + "x" * 500 + " "], previous=two)
-        assert support.types(gm.sync()) == ["activity_log"]
+        assert support.types(_after_member_update(gm.sync())) == ["activity_log"]
     assert support.fetch(Character, member["id"]).scars_list == [two[0], "x" * 500]
     assert support.fetch(Character, outsider["id"]).scars_list == two
 
@@ -198,11 +205,11 @@ def test_gm_update_scars_checks_only_the_scars_the_lightkeeper_rewords(client):
     camp, (member,), _ = _campaign(client, scars_list=stored, scars_count=3)
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("gm_update_scars", character_id=member["id"], scars=["A bad limp", long_one, "  "], previous=stored)
-        assert support.types(gm.sync()) == ["activity_log"]
+        assert support.types(_after_member_update(gm.sync())) == ["activity_log"]
         stored = ["A bad limp", long_one, ""]   # trimmed
         assert wm.drain()[0]["payload"]["scars_list"] == stored
         gm.send("gm_update_scars", character_id=member["id"], scars=stored[1:], previous=stored)
-        assert support.types(gm.sync()) == ["activity_log"]
+        assert support.types(_after_member_update(gm.sync())) == ["activity_log"]
         stored = stored[1:]
 
         def refused(detail, scars):
@@ -211,7 +218,7 @@ def test_gm_update_scars_checks_only_the_scars_the_lightkeeper_rewords(client):
         refused("A scar is a description of up to 500 characters.", [long_one + "!", ""])
         refused("A scar needs a description. Remove it instead of leaving it blank.", [long_one, " "])
         gm.send("gm_update_scars", character_id=member["id"], scars=["The bite in the cellar"], previous=stored)
-        assert support.types(gm.sync()) == ["activity_log"]
+        assert support.types(_after_member_update(gm.sync())) == ["activity_log"]
     assert support.fetch(Character, member["id"]).scars_list == ["The bite in the cellar"]
 
 
@@ -230,10 +237,10 @@ def test_gm_update_scars_below_four_lifts_the_death(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         reworded = four[:3] + ["A fourth"]
         gm.send("gm_update_scars", character_id=member["id"], scars=reworded, previous=four)
-        assert support.types(gm.sync()) == ["activity_log"]
+        assert support.types(_after_member_update(gm.sync())) == ["activity_log"]
         assert wm.drain()[0]["payload"]["is_dead"] is True
         gm.send("gm_update_scars", character_id=member["id"], scars=SCARS, previous=reworded)
-        msgs = gm.sync()
+        msgs = _after_member_update(gm.sync())
         assert support.types(msgs) == ["activity_log", "circle_update"]
         assert msgs[0]["payload"]["message"] == (
             f"The Lightkeeper removed a scar from {name}'s record (3 of 4). {name} is alive, and incapacitated until revived.")
@@ -262,7 +269,7 @@ def test_gm_update_scars_keeps_a_death_once_the_player_has_a_new_investigator(cl
             "so the fourth scar and the death stand."))]
         # Rewording still works while the dead investigator is on the roster
         gm.send("gm_update_scars", character_id=dead["id"], scars=SCARS + ["The fourth"], previous=four)
-        assert support.types(gm.sync()) == ["activity_log"]
+        assert support.types(_after_member_update(gm.sync())) == ["activity_log"]
         # Approving the new investigator retires the dead one: no longer on the roster
         assert support.approve(client, successor["id"]).status_code == 200
         gm.recv_type("investigator_approved")
