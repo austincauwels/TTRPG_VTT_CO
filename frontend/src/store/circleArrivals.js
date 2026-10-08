@@ -1,11 +1,12 @@
 import useGameStore from './gameStore';
 
 // ── When each circle reached this desk ────────────────────────────────────────────
-// The hourglass's timer (components/shared/TensionTimer.jsx) counts down from the time
-// left a circle carries, as the server sent it, and the moment the circle arrived here
-// (performance.now, never the desk's own clock). The moment is taken here, as the circle
-// lands in the store: main.jsx loads this file with the page, and the timer's own code
-// loads later with the desk, often after the socket's first frames are in. A circle the
+// The hourglass's timer (components/shared/TensionTimer.jsx, and the desk's TimerBell.jsx
+// that chimes at its end) counts down from the time left a circle carries, as the server
+// sent it, and the moment the circle arrived here (performance.now, never the desk's own
+// clock). The moment is taken here, as the circle lands in the store: main.jsx loads this
+// file with the page, and the timer's own code loads later with the desk, often after the
+// socket's first frames are in. A circle the
 // page found saved from an earlier visit gets no moment, since nothing says how old it
 // is: the timer waits for the server's.
 //
