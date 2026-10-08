@@ -64,11 +64,12 @@ export const RollModifications = ({
             <div className="min-w-0">
               <p className="font-sans text-xs font-black uppercase tracking-widest text-parchment-deep flex items-center gap-2">
                 {drive} resistance
+                {/* Filled: a point still there to burn; empty: burned (as on the sheet) */}
                 <span className="flex items-center gap-1" role="img" aria-label={`${left} of ${resistMax} left`}>
                   {Array.from({ length: resistMax }).map((_, i) => (
                     <svg key={i} aria-hidden="true" width="12" height="10" viewBox="0 0 14 12">
                       <polygon points="7,1 1,11 13,11" strokeWidth="1.5"
-                        style={{ fill: i < resistSpent ? 'rgb(var(--c-oxblood-lit))' : 'transparent', stroke: i < resistSpent ? 'rgb(var(--c-oxblood-lit))' : 'rgb(var(--c-parchment-deep))' }} />
+                        style={{ fill: i < left ? 'rgb(var(--c-parchment-deep))' : 'transparent', stroke: i < left ? 'rgb(var(--c-parchment-deep))' : 'rgb(var(--c-parchment-deep) / 0.45)' }} />
                     </svg>
                   ))}
                 </span>

@@ -774,8 +774,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         {domainCategories.map((cat) => {
           const currentDrive = character[`${cat.driveKey}_current`] || 0;
           const maxDrive = character[`${cat.driveKey}_max`] || 1;
+          // A resistance point for every 3 maximum drive (p. 13), less those burned
           const resistMax = Math.floor(maxDrive / 3);
-          const resistSpent = character[`${cat.driveKey}_resistance_spent`] || 0;
+          const resistLeft = Math.max(0, resistMax - (character[`${cat.driveKey}_resistance_spent`] || 0));
 
           return (
             <div key={cat.name} className="dossier-drive border-t-[3px] border-double border-b px-3 pt-2.5 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-3"
@@ -836,17 +837,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   </div>
                 </div>
 
-                {/* Resistance pips */}
+                {/* Resistance, read as the drive row is: a filled triangle is a point still
+                    there to burn, an empty one is burned */}
                 <div className="flex items-center justify-between pt-1.5 border-t border-ink/10">
                   <span className="font-sans text-xs text-sepia uppercase font-bold">Resistance</span>
-                  <div className="flex gap-2" role="img" aria-label={resistMax === 0 ? `${cat.name} resistance: none` : `${cat.name} resistance: ${resistSpent} of ${resistMax} spent`}>
+                  <div className="flex gap-2" role="img" aria-label={resistMax === 0 ? `${cat.name} resistance: none` : `${cat.name} resistance: ${resistLeft} of ${resistMax} left`}>
                     {Array.from({ length: resistMax }).map((_, i) => (
                       <svg key={i} aria-hidden="true" width="14" height="12" viewBox="0 0 14 12">
                         <polygon
                           points="7,1 1,11 13,11"
                           style={{
-                            fill: i < resistSpent ? 'rgb(var(--c-oxblood))' : 'transparent',
-                            stroke: i < resistSpent ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-ink))',
+                            fill: i < resistLeft ? `rgb(var(--c-drive-${cat.driveKey}))` : 'transparent',
+                            stroke: i < resistLeft ? `rgb(var(--c-drive-${cat.driveKey}))` : 'rgb(var(--c-ink) / 0.45)',
                           }}
                           strokeWidth="1.5"
                         />
