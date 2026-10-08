@@ -276,10 +276,13 @@ export const TactileSidebar = ({ phonePart }) => {
       </div>
 
       {/* Tension Clock (Synced with GM, read-only for players): the hourglass standing at
-          the foot of the rail. Alone on a phone's screen it stands larger. */}
+          the foot of the rail. Alone on a phone's screen it stands larger, half as large
+          again; laid out at most two thirds as wide as its place, it still fits the screen
+          scaled, and a long clock name wraps (a long word breaks) rather than run off both
+          edges. */}
       <div data-desk="watch" className={`pt-6 pb-4 px-1 xl:pt-1 xl:pb-1 xl:shrink-0 flex justify-center items-center relative z-20 ${
         phonePart === 'watch' ? 'max-md:pt-10 max-md:pb-32' : ''} ${onPhone('watch')}`}>
-        <div className={phonePart === 'watch' ? 'max-md:scale-150 max-md:origin-top' : undefined}>
+        <div className={phonePart === 'watch' ? 'max-md:scale-150 max-md:origin-top max-md:max-w-[calc(100%/1.5)] max-md:[overflow-wrap:anywhere]' : undefined}>
           <TensionClock readOnly />
         </div>
       </div>
