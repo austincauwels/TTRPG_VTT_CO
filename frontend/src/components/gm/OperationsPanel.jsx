@@ -156,12 +156,18 @@ export const OperationsPanel = () => {
 
             {activeTab === 'roster' && !selectedInvestigator && (
               // The roster is not a panel: its objects lie on the desk itself. From xl the
-              // investigators' business cards lie across the top; under them the requests or
-              // the sealed slip, with the circle's ledger card running to the foot of the
-              // desk, and the hourglass beside them. The desk is at least the column's
-              // height and grows with its papers (the column scrolls): a ledger card with
-              // many members runs on past the foot instead of spilling out of its paper.
-              <div className={`max-lg:contents p-2 lg:min-h-[850px] xl:min-h-full flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:gap-x-8 xl:gap-y-5 xl:px-2 xl:pt-1 xl:pb-2 ${
+              // investigators' business cards lie at the top, two across (three where there
+              // is room); under them the requests or the sealed slip, with the circle's
+              // ledger card running to the foot of the desk. The hourglass stands in a
+              // column of its own beside them all, from the top of the desk, and stays there
+              // while the column scrolls (sticky): its − and + and the countdown under it are
+              // in view however many cards there are and however long the ledger runs. Under
+              // the cards, as it stood before, the countdown started below the fold once the
+              // cards took a second row (four investigators at 1366 by 768). The desk is at
+              // least the column's height and grows with its papers (the column scrolls): a
+              // ledger card with many members runs on past the foot instead of spilling out
+              // of its paper.
+              <div className={`max-lg:contents p-2 lg:min-h-[850px] xl:min-h-full flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_13.5rem] 2xl:grid-cols-[minmax(0,1fr)_16rem] xl:gap-x-8 xl:gap-y-5 xl:px-2 xl:pt-1 xl:pb-2 ${
                 rosterFinalized ? 'xl:grid-rows-[auto_auto_1fr]' : 'xl:grid-rows-[auto_minmax(0,1fr)]'}`}>
 
                 {!rosterFinalized && (
@@ -195,19 +201,20 @@ export const OperationsPanel = () => {
                 )}
 
                 {/* ACTIVE CIRCLE MEMBERS */}
-                <ActiveCircleMembers className="order-4 lg:order-none xl:row-start-1 xl:col-span-2" campaignRoster={campaignRoster} onSelect={handleSelectInvestigator} />
+                <ActiveCircleMembers className="order-4 lg:order-none xl:row-start-1 xl:col-start-1" campaignRoster={campaignRoster} onSelect={handleSelectInvestigator} />
 
                 {/* Once finalized, the sealed slip below the investigators, and the circle's
                     ledger card under it */}
                 {rosterFinalized && (
-                  <FinalizedSlip className="order-5 lg:order-none xl:row-start-2 xl:col-span-2 xl:w-full xl:max-w-[40rem]" pressed={sealedNow} />
+                  <FinalizedSlip className="order-5 lg:order-none xl:row-start-2 xl:col-start-1 xl:w-full xl:max-w-[40rem]" pressed={sealedNow} />
                 )}
                 {rosterFinalized && (
                   <CircleLedger className="hidden xl:block xl:row-start-3 xl:col-start-1" onOpen={() => setActiveTab('circle')} />
                 )}
 
-                {/* TENSION CLOCK: lying beside them on desktop, right after the dice on phones */}
-                <TensionSection className={`order-2 lg:order-none xl:col-start-2 xl:mt-0 xl:self-center ${rosterFinalized ? 'xl:row-start-3' : 'xl:row-start-2'}`} />
+                {/* TENSION CLOCK: standing beside them on desktop, right after the dice on
+                    phones */}
+                <TensionSection className="order-2 lg:order-none xl:col-start-2 xl:row-span-full xl:mt-0 xl:self-start xl:sticky xl:top-3" />
 
 
               </div>

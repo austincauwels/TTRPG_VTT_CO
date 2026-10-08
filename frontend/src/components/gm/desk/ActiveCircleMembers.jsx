@@ -5,14 +5,16 @@ import { MourningCross } from '../../shared/InkMarks';
 import { deceasedMembers, livingMembers } from '../../../game/roster';
 
 // The investigators' business cards, lying on the desk. Below xl a moonlit rule names them;
-// on the desk that fits the screen the cards speak for themselves. A dead investigator not
-// yet replaced lies apart, under a Deceased rule, and is not one of the circle's members;
-// their card opens the sheet, where a fourth scar taken by mistake can be removed.
+// on the desk that fits the screen the cards speak for themselves, two across beside the
+// hourglass's column (OperationsPanel), three where there is room for three (.desk-cards).
+// A dead investigator not yet replaced lies apart, under a Deceased rule, and is not one of
+// the circle's members; their card opens the sheet, where a fourth scar taken by mistake
+// can be removed.
 export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }) => {
   const living = livingMembers(campaignRoster.active_investigators);
   const deceased = deceasedMembers(campaignRoster.active_investigators);
   return (
-    <div className={className}>
+    <div className={`desk-cards ${className}`}>
       <div className="flex items-center gap-3 mb-5 xl:sr-only">
         <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
         <h3 className="font-sans font-bold text-xs sm:text-sm uppercase tracking-widest text-moonlight-steel text-center">
@@ -28,7 +30,7 @@ export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }
           </span>
         </div>
       ) : (
-        <div className="flex flex-wrap xl:grid xl:grid-cols-3 gap-4 xl:gap-6 2xl:gap-8 pt-2 pb-2 xl:pt-3">
+        <div className="desk-cards-grid flex flex-wrap xl:grid xl:grid-cols-2 gap-4 xl:gap-6 2xl:gap-8 pt-2 pb-2 xl:pt-3">
           <AnimatePresence>
             {living.map((inv, i) => (
               <InvestigatorBusinessCard key={inv.id} inv={inv} index={i} onClick={() => onSelect(inv)} />
@@ -45,7 +47,7 @@ export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }
             </h3>
             <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
           </div>
-          <div className="flex flex-wrap xl:grid xl:grid-cols-3 gap-4 xl:gap-6 2xl:gap-8 pb-2">
+          <div className="desk-cards-grid flex flex-wrap xl:grid xl:grid-cols-2 gap-4 xl:gap-6 2xl:gap-8 pb-2">
             {deceased.map((inv, i) => (
               <InvestigatorBusinessCard key={inv.id} inv={inv} index={i + 1} deceased onClick={() => onSelect(inv)} />
             ))}
