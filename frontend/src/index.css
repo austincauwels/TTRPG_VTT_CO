@@ -1075,6 +1075,9 @@
   font-size: 1rem;
   line-height: 1.3;
   min-width: 0;
+  /* A narrow card (1280 wide) breaks a long word rather than run it off the paper */
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 /* A roll chit's die: only on hover where a pointer can hover, and on keyboard focus */
@@ -1093,6 +1096,20 @@
   box-shadow: inset 0 0 14px rgb(var(--c-sepia) / 0.14), 2px 6px 14px rgba(0, 0, 0, 0.3);
   rotate: -0.6deg;
 }
+
+/* A term with its own slip (InfoTerm in shared/ActionInfo.jsx: the circle's resources). The
+   slip shows while a mouse is over the term or the slip, while the term has keyboard focus,
+   and once a tap or a click has pinned it (is-shown, set by the term); Escape puts it away.
+   It takes the pointer, so the pointer can rest on it to read it and a tap meant to read it
+   never sets a resource under it. The term keeps the case and spacing of the label it stands
+   in for. */
+.info-term-button { text-transform: inherit; letter-spacing: inherit; }
+.info-term-button:focus-visible { outline: 2px solid rgb(var(--c-candle-gold)); outline-offset: 2px; }
+.info-term-slip { display: none; }
+.info-term.is-shown .info-term-slip { display: block; }
+/* The paper under a shown slip lies over its neighbours, so the slip is never under the
+   next paper */
+.hand-placed:has(.info-term.is-shown) { z-index: 30; }
 
 /* A small mark in a row of them (the Lightkeeper's Illumination dots, the circle's resource
    squares) on a tablet: it keeps its size and place and takes a finger over 44px of height

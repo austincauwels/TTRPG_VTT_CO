@@ -24,8 +24,9 @@ import { useSyncExternalStore } from 'react';
 //                                   never sound at once.
 //   public/sounds/tension-tick.mp3  the pocket watch ticking, for everyone, when the GM
 //                                   raises the tension: once for each slice now filled (the
-//                                   file holds four ticks a second apart). Lowering it is
-//                                   silent.
+//                                   file holds four ticks a second apart). Lowering it
+//                                   ticks once (owner's request, 2026-10-08: the clock
+//                                   ticks both ways).
 //   public/sounds/paper.mp3         for the person whose own screen moves paper: the hub's
 //                                   book opening and closing, the GM ticket flipping over,
 //                                   notebook page turns, the creator's role cards turning,
@@ -209,7 +210,7 @@ export const playRollSound = (text) => {
 // after the tick it needs.
 const TICK_STOPS_MS = [null, 720, 1720, 2740];
 
-// The GM raised the tension to `level` (1 to 4)
+// The GM raised the tension to `level` (1 to 4): that many ticks. A lowering plays 1.
 export const playTensionTick = (level) => {
   const n = Math.max(1, Math.min(4, Math.round(Number(level) || 1)));
   play('tension_tick', n < 4 ? { stopAfterMs: TICK_STOPS_MS[n] } : undefined);
