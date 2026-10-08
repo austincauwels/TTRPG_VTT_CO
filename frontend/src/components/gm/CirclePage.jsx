@@ -455,10 +455,11 @@ export const CirclePage = () => {
             {RESOURCES.map(({ label, key }) => {
               const avail = circle?.[key] ?? maxCap;
               return (
-                <div key={key} className="py-2 first:pt-0">
-                  {/* Its name, with what it does behind its "i": the slip lies to the right of
-                      the names, so the next name down is never under it */}
-                  <InfoTerm label={label} text={RESOURCE_HELP[key]} wide slipClassName="left-[6.5rem] right-0 -top-1"
+                <div key={key} className="relative py-2 first:pt-0">
+                  {/* Its name, with what it does behind its "i": the slip lies under the entry,
+                      to the right of the names, so neither this entry's squares nor the next
+                      name down are under it */}
+                  <InfoTerm label={label} text={RESOURCE_HELP[key]} wide anchored={false} slipClassName="left-[6.5rem] right-0 top-full -mt-1"
                     className="mb-1 font-serif font-black text-sm uppercase tracking-wide text-ink" />
                   {/* One row: filled pips are available, empty ones up to the maximum are
                       spent, and dotted ones lie beyond the maximum */}

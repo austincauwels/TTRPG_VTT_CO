@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 // What an action does, for touch screens (owner's round 4 item 9). A mouse shows it on
 // hover (the row's title); a touch screen has no hover, so each action row ends in a small
@@ -71,53 +71,116 @@ export const useActionInfo = () => {
 
 // A term that says what it means, on the same slip of paper (owner's request, 2026-10-08:
 // what each circle resource does). The term is a button with a small printed "i" after it.
-// Its slip shows while a mouse is over the term and while the term has keyboard focus, and
-// a tap (a touch screen has no hover) or a click pins it until a tap outside it. Escape
-// puts it away. A screen reader hears the words as the button's description. Hover and
-// focus show it in CSS (.info-term in index.css); the tap on another term unpins this one,
-// so one is pinned at a time without a shared hook.
+// Its slip shows while a mouse is over the term or the slip itself, so the pointer can go
+// onto it to read it, and while the term has keyboard focus; a tap (a touch screen has no
+// hover) or a click pins it until a tap outside it, until the focus leaves the term, or
+// until the "i" again. Escape puts it away wherever the focus is, until the term is pointed
+// at, focused or pressed again (WCAG 1.4.13). One slip shows at a time: a term that shows
+// its slip puts the last one's away. A screen reader hears the words as the button's
+// description.
 // slipClassName: where the slip lies. The callers lay it beside their column of terms, not
 // under the term, so the next term down can be pointed at or tapped straight away.
 // hitClassName: how the button takes a finger (44px tall on a touch screen by default; a
 // ruled row that must keep its pitch passes touch-pip, which reaches past the button to
 // fill the row instead).
 // wide: the term spans its row, so a slip can be placed against the row's right edge.
+// anchored: the slip is placed against the term; a caller that places it against a larger
+// box of its own (the term's whole entry) passes false and makes that box relative.
+// The term whose slip showed last, anywhere on the page (its putAway)
+let shownTerm = null;
+const showOnly = (putAway) => {
+  if (shownTerm && shownTerm !== putAway) shownTerm();
+  shownTerm = putAway;
+};
+// How long a slip stays after the pointer leaves the term, so it can cross to the slip
+const LEAVE_MS = 300;
+
 export const InfoTerm = ({
-  label, text, className = '', wide = false,
+  label, text, className = '', wide = false, anchored = true,
   slipClassName = 'left-0 top-full mt-1 w-[min(18rem,calc(100vw-2.5rem))]',
   hitClassName = '[@media(pointer:coarse)]:min-h-[44px]',
 }) => {
   const slipId = `${useId()}-slip`;
   const ref = useRef(null);
+  const leaveTimer = useRef(null);
   const [pinned, setPinned] = useState(false);
-  const [hushed, setHushed] = useState(false);
-  useEffect(() => {
-    if (!pinned) return undefined;
-    const onDown = (e) => { if (!ref.current?.contains(e.target)) setPinned(false); };
-    document.addEventListener('pointerdown', onDown, true);
-    return () => document.removeEventListener('pointerdown', onDown, true);
-  }, [pinned]);
-  const onKeyDown = (e) => {
-    if (e.key !== 'Escape' || hushed) return;
-    const shown = pinned || e.currentTarget.matches(':focus-visible') || e.currentTarget.matches(':hover');
-    if (!shown) return;
-    e.stopPropagation();
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const shown = pinned || hovered || focused;
+
+  // Put away (Escape, the "i" again, or another term's slip shown): hidden until the term
+  // is pointed at, focused or pressed again
+  const putAway = useCallback(() => {
+    clearTimeout(leaveTimer.current);
     setPinned(false);
-    setHushed(true);
+    setHovered(false);
+    setFocused(false);
+  }, []);
+  const show = () => showOnly(putAway);
+  useEffect(() => () => {
+    clearTimeout(leaveTimer.current);
+    if (shownTerm === putAway) shownTerm = null;
+  }, [putAway]);
+
+  // While it shows, Escape puts it away, whether the slip came by hover, focus or a pin and
+  // wherever the focus is; while pinned, a tap outside the term and its slip unpins it
+  useEffect(() => {
+    if (!shown) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      e.stopPropagation();
+      putAway();
+    };
+    const onDown = (e) => { if (!ref.current?.contains(e.target)) setPinned(false); };
+    document.addEventListener('keydown', onKey, true);
+    if (pinned) document.addEventListener('pointerdown', onDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('pointerdown', onDown, true);
+    };
+  }, [shown, pinned, putAway]);
+
+  // A mouse or a pen hovers; a finger only taps
+  const onEnterTerm = (e) => {
+    if (e.pointerType === 'touch') return;
+    clearTimeout(leaveTimer.current);
+    setHovered(true);
+    show();
+  };
+  const onEnterSlip = (e) => { if (e.pointerType !== 'touch') clearTimeout(leaveTimer.current); };
+  const onLeave = (e) => {
+    if (e.pointerType === 'touch') return;
+    clearTimeout(leaveTimer.current);
+    leaveTimer.current = setTimeout(() => setHovered(false), LEAVE_MS);
   };
   return (
     <span
       ref={ref}
-      className={`info-term relative ${wide ? 'flex w-full' : 'inline-flex max-w-full'} ${pinned ? 'is-open' : ''} ${hushed ? 'is-hushed' : ''} ${className}`}
+      className={`info-term ${anchored ? 'relative' : ''} ${wide ? 'flex w-full' : 'inline-flex max-w-full'} ${shown ? 'is-shown' : ''} ${className}`}
     >
       <button
         type="button"
         aria-label={`About ${label}`}
         aria-describedby={slipId}
-        onClick={() => { setHushed(false); setPinned(p => !p); }}
-        onKeyDown={onKeyDown}
-        onPointerLeave={() => setHushed(false)}
-        onBlur={() => setHushed(false)}
+        onClick={() => {
+          if (pinned) { putAway(); return; }
+          setPinned(true);
+          show();
+        }}
+        onPointerEnter={onEnterTerm}
+        onPointerLeave={onLeave}
+        onFocus={(e) => {
+          if (!e.currentTarget.matches(':focus-visible')) return;
+          setFocused(true);
+          show();
+        }}
+        onBlur={(e) => {
+          // The window losing focus (another tab) is not the focus leaving the term
+          if (!document.hasFocus() || ref.current?.contains(e.relatedTarget)) return;
+          setFocused(false);
+          setPinned(false);
+        }}
         className={`info-term-button group/info inline-flex items-center gap-1 rounded-sm text-left cursor-help ${hitClassName}`}
         style={{ touchAction: 'manipulation' }}
       >
@@ -126,9 +189,14 @@ export const InfoTerm = ({
           <InfoMark size={15} />
         </span>
       </button>
+      {/* A press on the slip keeps the focus on its term, so reading a pinned slip never
+          unpins it */}
       <span
         id={slipId}
         role="tooltip"
+        onPointerEnter={onEnterSlip}
+        onPointerLeave={onLeave}
+        onMouseDown={(e) => e.preventDefault()}
         className={`action-info-slip info-term-slip absolute z-30 px-3 py-2 rounded-[1px] font-serif font-normal normal-case tracking-normal text-base leading-snug text-ink text-left ${slipClassName}`}
       >
         <span className="font-bold uppercase">{label}:</span> {text}
