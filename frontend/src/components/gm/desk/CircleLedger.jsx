@@ -89,12 +89,16 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
           {RESOURCES.map(({ label, key }) => {
             const avail = circle[key] ?? maxCap;
             return (
-              <div key={key} className="circle-ledger-row">
+              <div key={key} className="circle-ledger-row relative">
                 {/* What it does, on its "i". The slip lies over the row's pips, clear of the
-                    column of names. A ruled row keeps its pitch, so on a tablet the term's
-                    reach fills the row's 32px (touch-pip) rather than making it taller. */}
+                    column of names, and placed against the row (anchored false), so it ends
+                    inside the card's right margin however narrow the card: it never lies over
+                    the hourglass beside the card. A ruled row keeps its pitch, so on a tablet
+                    the term's reach fills the row's 32px (touch-pip) rather than making it
+                    taller. */}
                 <dt>
-                  <InfoTerm label={label} text={RESOURCE_HELP[key]} slipClassName="left-[8.75rem] -top-1 w-[min(17rem,calc(100vw-4rem))]"
+                  <InfoTerm label={label} text={RESOURCE_HELP[key]} anchored={false}
+                    slipClassName="left-[8.75rem] -right-3 -top-1 max-w-[17rem]"
                     hitClassName="touch-pip [--hit-y:-7px] [--hit-x:-4px]" />
                 </dt>
                 {/* On a narrow card the count goes under the squares whole, rather than the

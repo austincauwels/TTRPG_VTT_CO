@@ -1046,6 +1046,15 @@
   background-image: repeating-linear-gradient(90deg, rgb(var(--c-sepia) / 0.05) 0 1px, transparent 1px 26px);
 }
 
+/* The investigators' cards on the GM's roster (ActiveCircleMembers.jsx): from xl two across
+   beside the hourglass's column, three once the cards' own column has room for three of a
+   readable width (from about 1860 wide). Below xl they wrap as a row of their own. The
+   two classes outweigh xl:grid-cols-2, which Tailwind prints after this sheet's rules. */
+.desk-cards { container: deskcards / inline-size; }
+@container deskcards (min-width: 38rem) {
+  .desk-cards .desk-cards-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 /* The GM's circle ledger card on the roster: cream, ruled at its rows' own pitch, its rows
    running on to the foot of the desk */
 .circle-ledger {
