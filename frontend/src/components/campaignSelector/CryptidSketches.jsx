@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { agedPaper } from './paperArt';
 
 // The loose papers on the hub's desk, each a physical object on aged, used paper (owner's
@@ -8,10 +8,11 @@ import { agedPaper } from './paperArt';
 // a pile, some under the Herald, the tomes or each other (owner, 2026-10-05), and is placed
 // by the object it lies under, so it stays with that object at every width; its size, its
 // place, its angle, its place in the pile and the screens it shows on are in
-// DeskStyles.jsx (Loose papers). However far a paper is turned, its shadow falls away from
-// the candles (useCastShadows.js measures it in the paper's own frame). Every image loads
-// lazily, so a screen never fetches the papers it leaves out. Decorative: hidden from
-// screen readers, no clicks.
+// DeskStyles.jsx (Loose papers). Each visit drops it a little differently about that place
+// and angle, and shuffles the pile (dropPapers below). However far a paper is turned, its
+// shadow falls away from the candles (useCastShadows.js measures it in the paper's own
+// frame, wherever this visit dropped it). Every image loads lazily, so a screen never
+// fetches the papers it leaves out. Decorative: hidden from screen readers, no clicks.
 //
 // Each is two layers on wide screens, like everything on the desk (The Smooth Hub Rule):
 // its cast shadow (.cast) and its body (.sketch-paper), where the cut, the stains and the
@@ -126,19 +127,79 @@ const PhotoCorners = ({ at, W, H }) => (
   </svg>
 );
 
-// The papers a notebook sketch takes the place of, in order, so the first sketch always
-// shows: on a wide desk the leaf by the tomes, the one by the candles and (from about
-// 1900px) the torn page; on phones and tablets, which show only the torn page and the
-// sketchbook leaf, the torn page. The red chalk sketchbook leaf, which every screen shows,
-// keeps the owner's art.
-export const NOTEBOOK_SLOTS = { wide: ['tomes', 'candles', 'page'], narrow: ['page'] };
-export const HUB_WIDE_QUERY = '(min-width: 1024px) and (orientation: landscape)';
-export const sketchInSlot = (sketches, which, wide) => {
-  const i = NOTEBOOK_SLOTS[wide ? 'wide' : 'narrow'].indexOf(which);
+// Each visit drops the papers a little differently (the user's request, 2026-10-08): one
+// draw as the hub mounts (dropPapers, kept in CampaignSelector's state), so a new visit or
+// a reload draws again and nothing moves while you stay. For each paper three numbers from
+// 0 to 1: where in its own ranges it lies across, down and turned (--jx, --jy, --jr). The
+// ranges are in DeskStyles.jsx (The drop), for each paper on each kind of screen, measured
+// so that every rule of the desk holds at their ends; a paper never changes size. Its place
+// in its layer of the pile (--pile, from 1): the papers of the tomes' row and those of the
+// Herald's group are each shuffled, and DeskStyles.jsx sets which of them share a layer
+// (--z), so none ever leaves its own. The sea monk and the lamia stay at the foot of the
+// row (no --pile, so 0), as they lay: raised over another paper, either one costs the hub
+// a compositing layer more (measured at 1280 and 1920 wide; The Smooth Hub Rule). Last,
+// the order in which the notebook's sketches take the papers.
+const PILES = [['sketchbook', 'photo', 'herald', 'candles'], ['page', 'postcard', 'bestiary']];
+// The papers a sketch from the user's notebook may lie on: the field sketches, the torn
+// page, the pinned print and the bestiary leaf. The red chalk sketchbook leaf keeps the
+// owner's art; the photograph and the postcard are not sheets anyone would draw on.
+const NOTEBOOK_PAPERS = ['tomes', 'candles', 'herald', 'page', 'pinned', 'bestiary'];
+const shuffled = (list) => {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+const unit = () => Math.random().toFixed(3);
+export const dropPapers = () => {
+  const style = Object.fromEntries(Object.keys(PAPERS).map((k) => [k, { '--jx': unit(), '--jy': unit(), '--jr': unit() }]));
+  PILES.forEach((pile) => shuffled(pile).forEach((k, i) => { style[k]['--pile'] = i + 1; }));
+  return { style, notebook: shuffled(NOTEBOOK_PAPERS) };
+};
+
+// The papers the desk shows at its present size, as DeskStyles.jsx decides it (the one
+// place that says so): read from the page when the hub mounts and again when the window
+// changes size, so the sketches always go to papers that are there.
+export const useShownPapers = (rootRef) => {
+  const [shown, setShown] = useState('');
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return undefined;
+    let frame = 0;
+    const read = () => setShown([...root.querySelectorAll('.sketch')]
+      .filter((el) => getComputedStyle(el).display !== 'none').map((el) => el.dataset.paper).join(' '));
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(read);
+    };
+    read();
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', schedule);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return shown;
+};
+
+// The papers the sketches take, in this visit's order among the papers the desk shows, so
+// a different print gives way each visit and the first sketch always shows wherever there
+// is a paper for it (on phones and tablets, which show only the torn page and the
+// sketchbook leaf, the torn page); a desk with fewer such papers than sketches leaves the
+// rest out.
+export const notebookSlots = (drop, shown) => {
+  const there = new Set(shown.split(' '));
+  return drop.notebook.filter((k) => there.has(k));
+};
+export const sketchInSlot = (sketches, which, slots) => {
+  const i = slots.indexOf(which);
   return i >= 0 ? sketches[i] || null : null;
 };
 
-export const CryptidSketch = ({ which, className = '', notebook = null }) => {
+export const CryptidSketch = ({ which, drop, className = '', notebook = null }) => {
   const p = PAPERS[which];
   const a = ART[which];
   const curl = p.curl ? CURL_AT[p.curl] : null;
@@ -150,7 +211,7 @@ export const CryptidSketch = ({ which, className = '', notebook = null }) => {
       data-cast="0.16"
       data-curl={p.curl || undefined}
       className={`sketch ${className}`}
-      style={{ aspectRatio: `${p.W} / ${p.H}`, '--shape': a.mask, ...castCut(p), ...(curl ? { '--curl-l': curl[0], '--curl-t': curl[1] } : null) }}
+      style={{ aspectRatio: `${p.W} / ${p.H}`, '--shape': a.mask, ...castCut(p), ...(curl ? { '--curl-l': curl[0], '--curl-t': curl[1] } : null), ...drop?.style[which] }}
     >
       <span className="cast" />
       <span className="sketch-paper">

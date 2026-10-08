@@ -9,7 +9,7 @@ import { HubNotice } from './campaignSelector/HubNotice';
 import { DeskStyles } from './campaignSelector/DeskStyles';
 import { DeskBackdrop } from './campaignSelector/DeskBackdrop';
 import { CandleCluster, CandleLight } from './campaignSelector/CandleCluster';
-import { CryptidSketch, HUB_WIDE_QUERY, sketchInSlot } from './campaignSelector/CryptidSketches';
+import { CryptidSketch, dropPapers, notebookSlots, sketchInSlot, useShownPapers } from './campaignSelector/CryptidSketches';
 import { HubHeader } from './campaignSelector/HubHeader';
 import { CaseLedgerTome } from './campaignSelector/CaseLedgerTome';
 import { LastPlayedTome } from './campaignSelector/LastPlayedTome';
@@ -61,9 +61,21 @@ export const CampaignSelector = () => {
     return () => (idle ? window.cancelIdleCallback(id) : clearTimeout(id));
   }, []);
 
+  const deskRef = useRef(null);
+  // Each visit drops the loose papers a little differently (the user's request,
+  // 2026-10-08): one draw as the hub mounts (dropPapers in CryptidSketches.jsx), kept until
+  // you leave, so nothing moves while you are here and a reload draws again. Each paper's
+  // place and angle vary about its own spot, within ranges for each paper and screen that
+  // keep the desk's rules, and the pile is shuffled where neither a rule nor the desk's
+  // layers depend on its order (DeskStyles.jsx, The drop).
+  const [drop] = useState(dropPapers);
+
   // A few sketches from the user's own notebooks, chosen at random on each visit, lie on the
-  // desk in place of some of the prints (owner's request, 2026-10-07; NOTEBOOK_SLOTS in
-  // CryptidSketches.jsx). The prints stay when there are none, or the call fails.
+  // desk in place of some of the prints (owner's request, 2026-10-07). They take papers in
+  // this visit's own order among those the desk shows at its size (notebookSlots in
+  // CryptidSketches.jsx), so on the wide desk a different print gives way each time (on
+  // phones and tablets the torn page is the only one that can). The prints stay when there
+  // are none, or the call fails.
   const [notebookSketches, setNotebookSketches] = useState([]);
   useEffect(() => {
     let live = true;
@@ -73,19 +85,12 @@ export const CampaignSelector = () => {
       .catch(() => {});
     return () => { live = false; };
   }, []);
-  // Which papers the desk shows depends on its size (DeskStyles.jsx), so the slots follow it
-  const [wideDesk, setWideDesk] = useState(() => !!window.matchMedia?.(HUB_WIDE_QUERY).matches);
-  useEffect(() => {
-    const mq = window.matchMedia?.(HUB_WIDE_QUERY);
-    if (!mq) return undefined;
-    const update = () => setWideDesk(mq.matches);
-    mq.addEventListener?.('change', update);
-    return () => mq.removeEventListener?.('change', update);
-  }, []);
-  const sketchFor = (which) => sketchInSlot(notebookSketches, which, wideDesk);
+  const shownPapers = useShownPapers(deskRef);
+  const slots = notebookSlots(drop, shownPapers);
+  const sketchFor = (which) => sketchInSlot(notebookSketches, which, slots);
 
-  // Every object on the desk throws its shadow away from the candles
-  const deskRef = useRef(null);
+  // Every object on the desk throws its shadow away from the candles, the papers from
+  // wherever this visit dropped them
   useCastShadows(deskRef, [!!lastPlayedCampaign]);
 
   // The chapter's three candles, and one more for each investigator in play or campaign
@@ -168,18 +173,20 @@ export const CampaignSelector = () => {
                 pile and on which screens it shows are in DeskStyles.jsx (Loose papers): from
                 lg placed by the tomes themselves, so at least a third of every picture
                 shows; on phones and tablets in the tomes' row's own size (cqw, cqh), only as
-                many as there is room for. The tomes lie over every paper and the pile's
-                order is set there too (z-index), not by the order below. */}
+                many as there is room for. The tomes lie over every paper, and the pile's
+                layers are set there too (z-index), not by the order below; within a layer
+                each visit shuffles the pile, and drops each paper a little off its spot
+                and angle (The drop). */}
             <div className="hub-tomes relative grid grid-cols-2 items-end justify-items-center gap-3 sm:gap-8 w-full max-w-[760px] lg:landscape:max-w-none lg:landscape:flex lg:landscape:gap-[2.2vw] lg:landscape:items-center lg:landscape:justify-center z-30">
               <HalcyonHerald phone />
-              <CryptidSketch which="pinned" />
-              <CryptidSketch which="photo" />
-              <CryptidSketch which="tomes" notebook={sketchFor('tomes')} />
-              <CryptidSketch which="herald" />
-              <CryptidSketch which="candles" notebook={sketchFor('candles')} />
-              <CryptidSketch which="page" notebook={sketchFor('page')} />
-              <CryptidSketch which="postcard" />
-              <CryptidSketch which="sketchbook" />
+              <CryptidSketch which="pinned" drop={drop} notebook={sketchFor('pinned')} />
+              <CryptidSketch which="photo" drop={drop} />
+              <CryptidSketch which="tomes" drop={drop} notebook={sketchFor('tomes')} />
+              <CryptidSketch which="herald" drop={drop} notebook={sketchFor('herald')} />
+              <CryptidSketch which="candles" drop={drop} notebook={sketchFor('candles')} />
+              <CryptidSketch which="page" drop={drop} notebook={sketchFor('page')} />
+              <CryptidSketch which="postcard" drop={drop} />
+              <CryptidSketch which="sketchbook" drop={drop} />
               <CaseLedgerTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
               <LastPlayedTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} />
             </div>
@@ -191,9 +198,9 @@ export const CampaignSelector = () => {
             {/* From lg, papers on the Herald round the tickets and under the Herald's edges,
                 placed in the Herald's own pixels as the Herald and the tickets are
                 (.hub-right > .sketch) */}
-            <CryptidSketch which="page" notebook={sketchFor('page')} />
-            <CryptidSketch which="postcard" />
-            <CryptidSketch which="bestiary" />
+            <CryptidSketch which="page" drop={drop} notebook={sketchFor('page')} />
+            <CryptidSketch which="postcard" drop={drop} />
+            <CryptidSketch which="bestiary" drop={drop} notebook={sketchFor('bestiary')} />
 
             {/* The tickets share a row below lg and never overlap; from lg up this wrapper
                 steps aside (display: contents) and they lie loose on the desk */}
