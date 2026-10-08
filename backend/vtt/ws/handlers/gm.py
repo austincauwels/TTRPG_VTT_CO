@@ -1,5 +1,6 @@
-"""GM messages: tension, scene, the circle toggles, advancing the circle, refilling resources,
-ending an assignment, resetting a character, and update_circle.
+"""GM messages: tension (a member's marks), a member's scars, scene, the circle toggles,
+advancing the circle, refilling resources, ending an assignment, resetting a character,
+and update_circle.
 
 Only the campaign's GM may send these (vtt.ws.access rejects them from anyone else,
 and ctx.is_gm comes from the login token, never from the payload's "role"). The
@@ -7,10 +8,15 @@ circle they name must be the GM's campaign circle. update_circle is grouped here
 because only GM screens send it. See docs/refactor/WEBSOCKET.md section 4.2 and
 docs/refactor/AUTH.md.
 """
+import json
+
 from models import Character, Circle
 from vtt.abilities import MARK_TYPES, abilities_of
+from vtt.auth import ROSTER_STATUSES
 from vtt.circle_queries import circle_abilities, fill_resources, resolve_circle
 from vtt.serializers import get_char_dict, get_circle_dict
+from vtt.ws.access import SCAR_SLOTS
+from vtt.ws.handlers.circle import announce_downed
 from vtt.ws.manager import character_key, manager
 
 TRACK = 12              # the Illumination track (rulebook p. 55)
@@ -59,6 +65,79 @@ async def handle_gm_update_tension(ctx):
         await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "activity_log", "payload": {
             "message": f"The Lightkeeper set {character.name}'s {m_type.capitalize()} marks to {value}.",
             "log_type": "field", "ink_color": ""}}, db)
+
+
+def _scars_of(character) -> list:
+    raw = character.scars_list
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raw = []
+    return list(raw) if isinstance(raw, list) else []
+
+
+async def _refuse_scars(ctx, detail):
+    await manager.broadcast(ctx.channel, {"type": "action_rejected", "payload": {
+        "action": "gm_update_scars", "status": 409, "detail": detail}})
+
+
+async def handle_gm_update_scars(ctx):
+    """The Lightkeeper corrects a member's scars on the trauma record: rewords one, or
+    removes one taken by mistake. vtt.ws.access checked the list (at most four
+    descriptions). A new scar is not added here: it comes from a full track, through the
+    scar form, which also shifts an action point (rulebook p. 14). Removing a scar does
+    not move that point back.
+
+    The fourth scar is fatal (p. 74), and apply_scar marks the investigator dead with it.
+    A fourth scar taken by mistake was a death by mistake, so with fewer than four the
+    investigator is alive again, and incapacitated until revived, as after any scar
+    (p. 14). Not once their player has another investigator on this campaign's roster: the
+    death opened the way for that one, and lifting it would leave the player two."""
+    db, payload, character = ctx.db, ctx.payload, ctx.character
+    if not ctx.is_gm: return
+    # The row as it is now, held, so that two corrections at once (two tabs) do not undo
+    # each other; previous is what the Lightkeeper's record showed
+    db.refresh(character, with_for_update=True)
+    current = _scars_of(character)
+    if payload["previous"] != current:
+        db.rollback()
+        await _refuse_scars(ctx, f"{character.name}'s scars changed while you were editing. "
+                                 "The record shows them as they are now.")
+        return
+    scars = [scar.strip() for scar in payload["scars"]]
+    if len(scars) > len(current):
+        db.rollback()
+        await _refuse_scars(ctx, "A new scar comes from a full mark track, through the scar form.")
+        return
+    if scars == current:
+        db.rollback()
+        return
+    lifts_death = bool(character.is_dead) and len(scars) < SCAR_SLOTS
+    if lifts_death and db.query(Character.id).filter(
+            Character.user_id == character.user_id, Character.campaign_id == character.campaign_id,
+            Character.id != character.id, Character.status.in_(ROSTER_STATUSES)).first() is not None:
+        db.rollback()
+        await _refuse_scars(ctx, f"{character.name}'s player already has a new investigator on the roster, "
+                                 "so the fourth scar and the death stand.")
+        return
+    character.scars_list = scars
+    character.scars_count = len(scars)
+    if lifts_death:
+        character.is_dead = False
+        character.incapacitated = True
+    db.commit()
+    await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
+    removed = len(current) - len(scars)
+    said = (f"The Lightkeeper removed {'a scar' if removed == 1 else f'{removed} scars'} from {character.name}'s record"
+            if removed else f"The Lightkeeper corrected {character.name}'s scars")
+    said += f" ({len(scars)} of {SCAR_SLOTS})."
+    if lifts_death:
+        said += f" {character.name} is alive, and incapacitated until revived."
+    await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "activity_log", "payload": {
+        "message": said, "log_type": "field", "ink_color": ""}}, db)
+    if lifts_death:
+        await announce_downed(ctx)
 
 
 async def handle_gm_update_circle(ctx):

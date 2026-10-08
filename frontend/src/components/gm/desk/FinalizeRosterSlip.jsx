@@ -2,6 +2,7 @@ import React from 'react';
 import { ConfirmAction } from '../../shared/ConfirmAction';
 import { WaxSeal } from '../../shared/WaxSeal';
 import { FormLine } from '../../shared/PrintMarks';
+import { livingMembers } from '../../../game/roster';
 
 const SLIP_PAPER = {
   clipPath: 'polygon(0% 2%, 99% 0%, 100% 98%, 1% 100%)',
@@ -14,8 +15,8 @@ const SLIP_PAPER = {
 // stays disabled until at least one investigator is in the circle. While it goes to the
 // server, the Lightkeeper's seal is pressed onto the slip.
 export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, campaignRoster, error }) => {
-  // The roster can hold the dead (deceased cards); only the living count toward the circle
-  const activeCount = (campaignRoster.active_investigators || []).filter(inv => !inv.is_dead).length;
+  // The dead are on the roster until replaced, but are not in the circle
+  const activeCount = livingMembers(campaignRoster.active_investigators).length;
   const noOneYet = activeCount === 0;
 
   return (

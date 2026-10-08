@@ -17,6 +17,7 @@ import { TensionSection } from './desk/TensionSection';
 import { FairelandsMap } from './desk/FairelandsMap';
 import { CircleLedger } from './desk/CircleLedger';
 import { ConnectionBanner } from '../shared/ConnectionBanner';
+import { livingMembers } from '../../game/roster';
 
 // The notebook, the map and the circle's file take the dice rail's width from xl too
 const wideTab = (tab) => tab === 'archives' || tab === 'map' || tab === 'circle';
@@ -226,7 +227,7 @@ export const OperationsPanel = () => {
                   the log and the notes lie on the desk, no panel around them. */}
               <div className="xl:h-full xl:flex xl:flex-col xl:pt-1">
                 <div className="xl:flex-1 xl:min-h-0">
-                  <DiceVault showGmControls logEntries={activityLog} playerList={(campaignRoster.active_investigators || []).filter(inv => !inv.is_dead)} />
+                  <DiceVault showGmControls logEntries={activityLog} playerList={livingMembers(campaignRoster.active_investigators)} />
                 </div>
               </div>
             </div>

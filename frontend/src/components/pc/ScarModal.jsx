@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import useGameStore from '../../store/gameStore';
-import { ACTION_LABEL, scarShiftNote } from '../../game/actions';
+import { ACTION_LABEL, SCAR_DESCRIPTION_MAX, scarShiftNote } from '../../game/actions';
 import { hasAbility } from '../../game/abilities';
 import { SCAR_ABILITIES } from '../../game/abilityUses';
 import { useDialog } from '../shared/useDialog';
@@ -52,6 +52,7 @@ const ScarModal = () => {
   const markName = rawType ? rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase() : 'Mark';
   // The fourth scar kills the investigator (FAQ, Death)
   const isFourthScar = (character?.scars_count || 0) >= 3;
+  const roomLeft = SCAR_DESCRIPTION_MAX - medicalNotes.length;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -211,14 +212,23 @@ const ScarModal = () => {
             <label htmlFor="scar-notes" className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-2 border-b border-parchment-deep pb-1">
               Describe the scar
             </label>
+            {/* The words and the shift note added after them fit the longest scar the
+                server keeps (game/actions.js) */}
             <textarea
               id="scar-notes"
               rows={3}
+              maxLength={SCAR_DESCRIPTION_MAX}
+              aria-describedby={roomLeft <= 40 ? 'scar-notes-left' : undefined}
               value={medicalNotes}
               onChange={(e) => setMedicalNotes(e.target.value)}
               className="w-full bg-transparent border-none rounded-none p-0 text-base font-serif leading-relaxed text-ink resize-none focus:ring-0 shadow-none placeholder-sepia/90 placeholder:italic"
               style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-oxblood)/0.08) 24px)', backgroundSize: '100% 24px', lineHeight: '24px' }}
             />
+            {roomLeft <= 40 && (
+              <p id="scar-notes-left" className="mt-1 text-right font-sans text-xs font-bold tabular-nums text-sepia">
+                {roomLeft === 0 ? 'No room left' : `${roomLeft} ${roomLeft === 1 ? 'character' : 'characters'} left`}
+              </p>
+            )}
           </div>
 
           {(errorMessage || scarError) && (

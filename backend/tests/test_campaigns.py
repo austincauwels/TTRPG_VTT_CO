@@ -690,7 +690,11 @@ def test_roster(client):
     assert set(body) == {"pending_investigators", "active_investigators", "roster_finalized"}
     assert body["roster_finalized"] is False
     assert [c["id"] for c in body["pending_investigators"]] == [pending["id"]]
-    assert [c["id"] for c in body["active_investigators"]] == [active["id"]]
+    # A dead investigator stays active until replaced, and is listed with is_dead (the desk
+    # shows them apart and counts only the living)
+    assert sorted((c["id"], c["is_dead"]) for c in body["active_investigators"]) == \
+        [(active["id"], False), (dead["id"], True)]
+    body["active_investigators"] = [c for c in body["active_investigators"] if c["id"] == active["id"]]
     assert body["active_investigators"][0] == {
         "id": active["id"], "name": active["name"], "role_class": "Muscle",
         "role_ability": "Tenacious", "specialty": "Soldier", "specialty_ability": "None",
