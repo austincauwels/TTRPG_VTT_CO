@@ -53,15 +53,20 @@ export const TimerBell = () => {
     if (at === undefined || !circle?.timer_visible) { counting.current = false; return undefined; }
     const sent = Math.max(0, Number(circle.timer_remaining_ms) || 0);
     const end = at + sent;
+    const ring = () => {
+      counting.current = false;
+      say("Time's up.");
+      if (sound.current && performance.now() - end < CHIME_LATE_MS) playTimerChime();
+    };
     if (circle.timer_running && end > performance.now()) {
       counting.current = true;
-      const id = setTimeout(() => {
-        counting.current = false;
-        say("Time's up.");
-        if (sound.current && performance.now() - end < CHIME_LATE_MS) playTimerChime();
-      }, end - performance.now());
+      const id = setTimeout(ring, end - performance.now());
       return () => clearTimeout(id);
     }
+    // A circle still running whose end had passed by the time it was looked at (another
+    // change to the circle sent in the timer's last moment): the end this desk was counting
+    // toward has come, so it rings as on time
+    if (circle.timer_running && counting.current) { ring(); return undefined; }
     // The server's word that it ran out came before this desk's own count got there (a
     // reconnect): it is heard, with no chime
     if (counting.current && !circle.timer_running && !sent && circle.timer_duration_ms > 0) say("Time's up.");
