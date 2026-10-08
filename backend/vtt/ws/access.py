@@ -77,7 +77,7 @@ def resolve_channel(db, user_id, game_id):
 
 # Only the campaign's GM may send these.
 GM_ONLY = frozenset({
-    "gm_update_tension", "gm_update_circle", "gm_transition_scene", "gm_toggle_resource_edit",
+    "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
     "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
     "gm_reset_character", "update_circle",
 })
@@ -345,6 +345,7 @@ def _add_notebook_entry(ctx, payload, character):
 RULES = {
     "gm_update_tension": _gm_only,
     "gm_update_circle": _gm_update_circle,
+    "gm_timer": _gm_circle,
     "gm_transition_scene": _gm_only,
     "gm_toggle_resource_edit": _gm_circle,
     "gm_toggle_reports": _gm_circle,
