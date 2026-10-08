@@ -157,9 +157,11 @@ export const OperationsPanel = () => {
               // The roster is not a panel: its objects lie on the desk itself. From xl the
               // investigators' business cards lie across the top; under them the requests or
               // the sealed slip, with the circle's ledger card running to the foot of the
-              // desk, and the pocket watch beside them.
-              <div className={`max-lg:contents p-2 lg:min-h-[850px] xl:min-h-0 xl:h-full flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:gap-x-8 xl:gap-y-5 xl:px-2 xl:pt-1 xl:pb-2 ${
-                rosterFinalized ? 'xl:grid-rows-[auto_auto_minmax(0,1fr)]' : 'xl:grid-rows-[auto_minmax(0,1fr)]'}`}>
+              // desk, and the pocket watch beside them. The desk is at least the column's
+              // height and grows with its papers (the column scrolls): a ledger card with
+              // many members runs on past the foot instead of spilling out of its paper.
+              <div className={`max-lg:contents p-2 lg:min-h-[850px] xl:min-h-full flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:gap-x-8 xl:gap-y-5 xl:px-2 xl:pt-1 xl:pb-2 ${
+                rosterFinalized ? 'xl:grid-rows-[auto_auto_1fr]' : 'xl:grid-rows-[auto_minmax(0,1fr)]'}`}>
 
                 {!rosterFinalized && (
                   <div className="order-5 lg:order-none xl:row-start-2 xl:col-start-1 min-w-0 xl:flex xl:flex-col xl:gap-5">
@@ -200,7 +202,7 @@ export const OperationsPanel = () => {
                   <FinalizedSlip className="order-5 lg:order-none xl:row-start-2 xl:col-span-2 xl:w-full xl:max-w-[40rem]" pressed={sealedNow} />
                 )}
                 {rosterFinalized && (
-                  <CircleLedger className="hidden xl:block xl:row-start-3 xl:col-start-1 xl:min-h-0 xl:h-full" onOpen={() => setActiveTab('circle')} />
+                  <CircleLedger className="hidden xl:block xl:row-start-3 xl:col-start-1" onOpen={() => setActiveTab('circle')} />
                 )}
 
                 {/* TENSION CLOCK: lying beside them on desktop, right after the dice on phones */}

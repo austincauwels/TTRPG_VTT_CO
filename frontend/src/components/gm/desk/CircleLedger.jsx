@@ -8,7 +8,8 @@ import { FormLine, PrinterMark, SerialNo, serialFor, stampDate } from '../../sha
 // card lying under the investigators' cards. Illumination, the stores (what is left of
 // each, under its maximum), whether spending and reports are open, the circle's abilities
 // and whose report is in. The whole file is a press away (onOpen, the Circle tab). Its
-// rows run to the foot of the desk, as a ledger's do.
+// rows run to the foot of the desk, as a ledger's do, and the card grows past it when its
+// rows need more room (OperationsPanel's roster grid).
 const TRACK_SIZE = 12;
 // The rulebook's circle abilities, as the circle page and the Circle tab print them
 const CIRCLE_ABILITY_TEXT = {
@@ -43,9 +44,13 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
       {/* The red margin line of a ledger card */}
       <span aria-hidden="true" className="absolute top-0 bottom-0 left-9 w-px bg-oxblood-lit/30 pointer-events-none" />
       <div className="relative pl-12 pr-4 pt-2.5 pb-3">
-        <div className="flex items-center gap-2" aria-hidden="true">
-          <PrinterMark size={12} />
-          <FormLine>Form C.O. 3 · Circle charter, abstract</FormLine>
+        {/* The serial is struck into the right margin; on a narrow card it drops under the
+            form line, and the form line wraps, rather than either running off the paper */}
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 -mr-3" aria-hidden="true">
+          <span className="flex items-center gap-1.5 min-w-0">
+            <PrinterMark size={12} />
+            <FormLine className="!whitespace-normal">Form C.O. 3 · Circle charter, abstract</FormLine>
+          </span>
           <SerialNo value={serialFor(`circle-${circle.id ?? ''}`)} className="ml-auto" />
         </div>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mt-1">
@@ -109,7 +114,7 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
               <div key={inv.id} className="circle-ledger-row">
                 <dt className="!normal-case !tracking-normal !font-serif !text-base !font-semibold flex items-center gap-1.5 min-w-0">
                   <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ background: inv.ink_color || 'rgb(var(--c-sepia))' }} />
-                  <span className="truncate" style={{ color: inv.ink_color || undefined }}>{inv.name}</span>
+                  <span className="truncate" title={inv.name} style={{ color: inv.ink_color || undefined }}>{inv.name}</span>
                 </dt>
                 <dd className={report ? 'text-seal-green font-semibold' : 'text-sepia italic'}>
                   {report ? `Report filed${(report.submitted_at || report.created_at) ? `, ${stampDate(report.submitted_at || report.created_at)}` : ''}` : 'No report yet'}
