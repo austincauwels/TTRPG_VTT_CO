@@ -142,7 +142,7 @@ def test_openapi_document_is_unchanged(client):
 # Every "type" the /ws/{game_id} receive loop acts on, in the order the handlers
 # appear in the original main.py.
 WS_MESSAGE_TYPES = [
-    "gm_update_tension", "gm_update_circle", "gm_transition_scene", "roll",
+    "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "roll",
     "update_drive", "resolve_gilded", "use_post_roll_ability", "update_pen_font",
     "take_mark", "resolve_ability_mark", "intercept_mark", "apply_scar",
     "revive_character", "burn_resistance", "update_gear", "gm_toggle_resource_edit",
@@ -179,6 +179,8 @@ WS_CASES = {
     "gm_update_circle": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id, "tension_label": "t"},
         expect=["circle_update"]),
+    "gm_timer": dict(
+        sender="gm", payload=lambda c: {"circle_id": c.circle_id, "action": "show"}, expect=["circle_update"]),
     "gm_transition_scene": dict(
         sender="gm", payload=lambda c: {"role": "GM", "scene_name": "s"},
         expect=["scene_transition"]),
@@ -328,7 +330,7 @@ def test_ws_access_table():
     assert set(access.RULES) <= set(WS_MESSAGE_TYPES)
     assert access.GM_MAY_TARGET <= set(WS_MESSAGE_TYPES)
     assert access.GM_ONLY == {
-        "gm_update_tension", "gm_update_circle", "gm_transition_scene", "gm_toggle_resource_edit",
+        "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
         "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
         "gm_reset_character", "update_circle", "gm_update_scars",
     }

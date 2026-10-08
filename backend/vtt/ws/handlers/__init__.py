@@ -6,11 +6,13 @@ True the message is ignored unless the endpoint resolved a character for it (fro
 payload.character_id, or from a numeric game_id). Types that are not listed are
 ignored. The order follows the original if/elif chain in main.py.
 """
-from vtt.ws.handlers import character, chat, circle, gm, marks, rolls
+from vtt.ws.handlers import character, chat, circle, gm, marks, rolls, timer
 
 HANDLERS = {
     "gm_update_tension":           (gm.handle_gm_update_tension, True),
     "gm_update_circle":            (gm.handle_gm_update_circle, False),
+    # The Lightkeeper's countdown beside the hourglass (vtt/countdown.py)
+    "gm_timer":                    (timer.handle_gm_timer, False),
     "gm_transition_scene":         (gm.handle_gm_transition_scene, False),
     "roll":                        (rolls.handle_roll, False),
     "update_drive":                (character.handle_update_drive, True),

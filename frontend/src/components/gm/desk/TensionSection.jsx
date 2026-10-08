@@ -1,8 +1,8 @@
 import React from 'react';
 import { TensionClock } from '../SceneManager';
 
-// The pocket watch lying on the desk. Below xl a moonlit rule names it; on the desk that
-// fits the screen it lies there on its own, a little larger from 2xl.
+// The hourglass standing on the desk. Below xl a moonlit rule names it; on the desk that
+// fits the screen it stands there on its own, a little larger from 2xl.
 export const TensionSection = ({ className = '' }) => (
   <div className={`mt-auto ${className}`}>
     <div className="flex items-center gap-3 mb-6 xl:sr-only">

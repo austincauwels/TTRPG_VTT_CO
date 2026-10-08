@@ -1,5 +1,5 @@
 """SQLAlchemy ORM models for all game entities: users, password reset links, email change links and their undo links, held usernames, campaigns, circles, characters, notebook entries, and relationship votes."""
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Float, Boolean, Text, Index, DateTime, event
+from sqlalchemy import BigInteger, Column, Integer, String, ForeignKey, JSON, Float, Boolean, Text, Index, DateTime, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, column_property, deferred, relationship, with_loader_criteria
 
@@ -149,6 +149,15 @@ class Circle(Base):
     # Single labeled tension clock (4 slices, starts empty and fills as tension rises)
     tension_clock = Column(Integer, default=0)
     tension_label = Column(String, default="")
+
+    # The Lightkeeper's countdown beside the hourglass (vtt/countdown.py): the duration set,
+    # the time left while it stands still, its end while it runs (epoch ms by the server's
+    # clock), and whether the desks show it
+    timer_duration_ms = Column(Integer, default=0)
+    timer_remaining_ms = Column(Integer, default=0)
+    timer_ends_at = Column(BigInteger, nullable=True)
+    timer_running = Column(Boolean, default=False)
+    timer_visible = Column(Boolean, default=False)
 
     # Scene manager fields broadcast to players
     location = Column(String, default="")

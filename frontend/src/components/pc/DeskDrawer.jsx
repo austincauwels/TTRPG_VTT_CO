@@ -19,7 +19,7 @@ export const DESK_PARTS = [
   { id: 'dice', label: 'Dice and log', icon: 'GiRollingDices', gap: true },
   { id: 'notes', label: 'Pass notes', icon: 'GiQuillInk' },
   { id: 'dispatch', label: 'From the Lightkeeper', icon: 'GiCandleLight' },
-  { id: 'watch', label: 'Pocket watch', icon: 'GiPocketWatch' },
+  { id: 'watch', label: 'Hourglass', icon: 'GiHourglass' },
 ];
 
 const SLIDE_MS = 220;

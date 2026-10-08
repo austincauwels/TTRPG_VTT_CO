@@ -103,7 +103,8 @@ def test_migrated_columns_exist(client):
     assert {"guard_patrol", "miasma_bleed", "location", "atmosphere", "chapter_house_location",
             "circle_ability", "insignia", "backstory_answers", "is_finalized", "illumination",
             "tension_clock", "tension_label", "resources_editable", "reports_open",
-            "campaign_id"} <= cols["circles"]
+            "campaign_id", "timer_duration_ms", "timer_remaining_ms", "timer_ends_at", "timer_running",
+            "timer_visible"} <= cols["circles"]
     assert {"gm_user_id", "roster_finalized", "is_retired", "deleted_at", "released_characters"} <= cols["campaigns"]
     assert {"role", "specialty", "personal_circle_answer", "nerve_resistance_spent",
             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
@@ -283,6 +284,11 @@ MIGRATED_COLUMNS = {
     ("circles", "resources_editable"): ("boolean", "false"),
     ("circles", "reports_open"): ("boolean", "false"),
     ("circles", "campaign_id"): ("integer", None),
+    ("circles", "timer_duration_ms"): ("integer", "0"),
+    ("circles", "timer_remaining_ms"): ("integer", "0"),
+    ("circles", "timer_ends_at"): ("bigint", None),
+    ("circles", "timer_running"): ("boolean", "false"),
+    ("circles", "timer_visible"): ("boolean", "false"),
     ("campaigns", "gm_user_id"): ("integer", None),
     ("campaigns", "roster_finalized"): ("boolean", "false"),
     ("campaigns", "deleted_at"): ("timestamp without time zone", None),

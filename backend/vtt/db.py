@@ -404,6 +404,15 @@ def init_db():
     ])
     # Great Wards: who holds the Weird's ward (rulebook p. 27). Nobody does on existing rows.
     add_columns("characters", [("warded_by_id", "INTEGER")])
+    # The Lightkeeper's countdown beside the hourglass (vtt/countdown.py). Existing circles
+    # get no timer, stopped and hidden. Its end is epoch milliseconds, past INTEGER's range.
+    add_columns("circles", [
+        ("timer_duration_ms",  "INTEGER DEFAULT 0"),
+        ("timer_remaining_ms", "INTEGER DEFAULT 0"),
+        ("timer_ends_at",      "BIGINT"),
+        ("timer_running",      "BOOLEAN DEFAULT FALSE"),
+        ("timer_visible",      "BOOLEAN DEFAULT FALSE"),
+    ])
 
     convert_integer_flags()
     rename_relationship_types()
