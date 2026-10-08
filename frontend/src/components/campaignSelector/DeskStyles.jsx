@@ -834,15 +834,20 @@ export const DeskStyles = () => (
            turns only back, so it always shows more of itself than there (on a small phone
            its spot shows about 30%, deep under the tome), and the sketchbook leaf goes 0 to
            4px down and only 4px right, so its corner stays under the Last Played tome's
-           head; on tablets both go only up (the page 4 to 12px) and turn 2 or 3deg, since
-           near 19:25 they show little of themselves. */
+           head; on tablets the torn page goes only up (4 to 12px) and left (to 12px) and
+           turns 3deg back to 2deg over, since near 19:25 it shows little of itself (right
+           or further over, it goes deeper under the Case Ledger), and the sketchbook
+           leaf, whose torn top lies just under the line beneath the Herald's headline,
+           never goes up or right and only turns back (to 4deg less): it goes 6 to 20px
+           left, which shows more of it, and at most 4px down, as near 19:25 lower shows
+           less (about 17% on its spot at 640 x 844). */
     @media (max-width: 639px) and (orientation: portrait) {
       .hub-tomes > .sketch[data-paper="page"] { --dx0: -14px; --dx1: -4px; --dy0: -8px; --dy1: -2px; --dr0: -6deg; --dr1: 0deg; }
       .hub-tomes > .sketch[data-paper="sketchbook"] { --dx0: -12px; --dx1: 4px; --dy0: 0px; --dy1: 4px; --dr0: -3deg; --dr1: 5deg; }
     }
     @media (min-width: 640px) and (max-width: 1023px) and (max-aspect-ratio: 19/25), (min-width: 1024px) and (orientation: portrait) and (max-aspect-ratio: 19/25) {
-      .hub-tomes > .sketch[data-paper="page"] { --dx0: -12px; --dx1: 6px; --dy0: -12px; --dy1: -4px; --dr0: -3deg; --dr1: 3deg; }
-      .hub-tomes > .sketch[data-paper="sketchbook"] { --dx0: -12px; --dx1: 4px; --dy0: -12px; --dy1: -2px; --dr0: -2deg; --dr1: 2deg; }
+      .hub-tomes > .sketch[data-paper="page"] { --dx0: -12px; --dx1: 0px; --dy0: -12px; --dy1: -4px; --dr0: -3deg; --dr1: 2deg; }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { --dx0: -20px; --dx1: -6px; --dy0: 0px; --dy1: 4px; --dr0: -4deg; --dr1: 0deg; }
     }
     @media ${HUB_WIDE} {
       .hub-tomes > .sketch[data-paper="sketchbook"] { --dx0: -20px; --dx1: 4px; --dy0: 0px; --dy1: 20px; --dr0: -8deg; --dr1: 0deg; }
