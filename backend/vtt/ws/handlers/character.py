@@ -263,6 +263,7 @@ async def handle_use_ability(ctx):
         ally_id = payload.get("ally_id")
         ally = db.query(Character).filter(
             Character.id == ally_id, Character.campaign_id == camp_id, Character.status == "active",
+            Character.is_dead.isnot(True),
         ).with_for_update().first() if camp_id and type(ally_id) is int and ally_id != character.id else None
         if ally is None:
             await refuse(422, "Choose an ally in your circle for the extra gear slot.")
@@ -286,6 +287,7 @@ async def handle_use_ability(ctx):
     if use.get("target") and target_id is not None and target_id != character.id:
         target = db.query(Character).filter(
             Character.id == target_id, Character.campaign_id == camp_id, Character.status == "active",
+            Character.is_dead.isnot(True),
         ).with_for_update().first() if camp_id and type(target_id) is int else None
         if target is None:
             await refuse(422, "Choose yourself or an ally in your circle.")

@@ -707,6 +707,28 @@ def test_ritual_on_an_ally(client):
     assert support.fetch(Character, weird["id"]).bleed_marks == 1
 
 
+
+def test_a_dead_ally_cannot_be_chosen(client):
+    """A dead investigator stays on the roster, so a picker's old choice can still name
+    them; Geared Up, Ritual and Great Wards refuse them as they do a stranger."""
+    camp, weird, ally = _member_pair(client, specialty_ability="Ritual")
+    soldier = support.active_member(client, camp, specialty_ability="Geared Up")
+    warder = support.active_member(client, camp, specialty_ability="Great Wards")
+    support.update(Character, ally["id"], is_dead=True, incapacitated=True, scars_count=4,
+                   nerve_max=3, nerve_resistance_spent=1)
+    for member, payload, detail in (
+            (soldier, {"ability": "Geared Up", "ally_id": ally["id"]},
+             "Choose an ally in your circle for the extra gear slot."),
+            (weird, {"ability": "Ritual", "option": "Reinvigorate", "drive": "nerve",
+                     "target_character_id": ally["id"]}, "Choose yourself or an ally in your circle."),
+            (warder, {"ability": "Great Wards", "target_character_id": ally["id"]},
+             "Choose yourself or an ally in your circle.")):
+        with support.ws_connect(client, member["id"]) as ws:
+            ws.send("use_ability", **payload)
+            assert ws.sync() == [_use_rejected(422, detail)]
+    row = support.fetch(Character, ally["id"])
+    assert (row.nerve_resistance_spent, row.ability_uses, row.warded_by_id) == (1, {}, None)
+
 def test_great_wards_moves_the_ward_to_one_person(client):
     """Great Wards (p. 27): "inscribe and maintain a warding symbol on one person at a
     time". Warding someone new takes the ward off the last person, and both are told."""

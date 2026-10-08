@@ -9,7 +9,9 @@ const promptSelect = 'bg-ink border border-parchment-deep/40 text-parchment-deep
 // A post-roll ability used on an ally (Patch Up, Resuscitation): which ally, and for
 // Resuscitation on a 4-5 which 3 drive points pay for it. The server checks the ally.
 const AllyPrompt = ({ prompt, allies, character, onUse, onSkip }) => {
-  const [ally, setAlly] = useState('');
+  const [chosen, setAlly] = useState('');
+  // An ally chosen before they died is no longer on the list, and the choice goes with them
+  const ally = allies.some(a => String(a.id) === chosen) ? chosen : '';
   const [split, setSplit] = useState({ nerve: 0, cunning: 0, intuition: 0 });
   const total = DRIVES.reduce((n, d) => n + split[d], 0);
   const ready = ally && (!prompt.driveSplit || total === prompt.driveSplit);

@@ -274,6 +274,7 @@ async def handle_roll(ctx):
             if helper_id is not None:
                 helper = db.query(Character).filter(
                     Character.id == helper_id, Character.campaign_id == camp_id, Character.status == "active",
+                    Character.is_dead.isnot(True),
                 ).with_for_update().first() if camp_id and type(helper_id) is int and helper_id != character.id else None
                 if helper is None or "Saw This Coming" not in abilities_of(helper) \
                         or uses_of(helper, "Saw This Coming") >= SAW_THIS_COMING_USES:
@@ -449,13 +450,14 @@ SUCCESS = ("full_success", "critical_success")
 
 
 def _ally(ctx, payload):
-    """The ally a post-roll ability names: an active member of the roller's campaign,
-    other than the roller, locked for the change."""
+    """The ally a post-roll ability names: a living, active member of the roller's
+    campaign, other than the roller, locked for the change."""
     target = payload.get("target_character_id")
     if not ctx.camp_id or type(target) is not int or target == ctx.character.id:
         return None
     return ctx.db.query(Character).filter(
         Character.id == target, Character.campaign_id == ctx.camp_id, Character.status == "active",
+        Character.is_dead.isnot(True),
     ).with_for_update().first()
 
 

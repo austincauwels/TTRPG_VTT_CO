@@ -70,15 +70,20 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const [split, setSplit] = useState({ nerve: 0, cunning: 0, intuition: 0 });
   const splitMax = needsSplit ? resistRemaining(character, 'intuition') : 0;
   const splitTotal = split.nerve + split.cunning + split.intuition;
+  // An ally chosen before they died or left the circle is no longer on the list, and the
+  // choice goes with them
+  const isAlly = (id) => allies.some(a => String(a.id) === String(id));
+  const targetNow = isAlly(target) ? target : '';
+  const choiceNow = needsAlly && !isAlly(choice) ? '' : choice;
   const send = () => {
     const sent = onUse(name, {
       ...(optionKeys ? { option } : {}),
-      ...(needsDrive ? { drive: choice } : {}),
-      ...(needsResource ? { resource: choice } : {}),
-      ...(needsItem ? { item: choice.trim() } : {}),
-      ...(needsAlly ? { ally_id: Number(choice) } : {}),
+      ...(needsDrive ? { drive: choiceNow } : {}),
+      ...(needsResource ? { resource: choiceNow } : {}),
+      ...(needsItem ? { item: choiceNow.trim() } : {}),
+      ...(needsAlly ? { ally_id: Number(choiceNow) } : {}),
       ...(needsSplit ? { points: split } : {}),
-      ...(use.target && target ? { target_character_id: Number(target) } : {}),
+      ...(use.target && targetNow ? { target_character_id: Number(targetNow) } : {}),
     });
     if (sent && needsItem) setChoice('');
     if (sent && needsSplit) setSplit({ nerve: 0, cunning: 0, intuition: 0 });
@@ -92,7 +97,7 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
         </select>
       )}
       {use.target && (
-        <select aria-label={`${name} on`} value={target} onChange={e => setTarget(e.target.value)} className={select}>
+        <select aria-label={`${name} on`} value={targetNow} onChange={e => setTarget(e.target.value)} className={select}>
           <option value="">On yourself</option>
           {allies.map(a => <option key={a.id} value={a.id}>On {a.name}</option>)}
         </select>
@@ -114,7 +119,7 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
           value={choice} onChange={e => setChoice(e.target.value)} className={`${select} w-40`} />
       )}
       {needsAlly && (
-        <select aria-label="Ally for the extra gear slot" value={choice} onChange={e => setChoice(e.target.value)} className={select}>
+        <select aria-label="Ally for the extra gear slot" value={choiceNow} onChange={e => setChoice(e.target.value)} className={select}>
           <option value="">{allies.length ? 'Ally for the extra slot' : 'No ally in your circle'}</option>
           {allies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
@@ -130,7 +135,7 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
       ))}
       {needsSplit && <span className="text-sm font-mono text-sepia">{splitTotal} / {splitMax}</span>}
       <button type="button" onClick={send}
-        disabled={(needsDrive || needsResource || needsAlly) ? !choice : needsItem ? !choice.trim()
+        disabled={(needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
           : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false}
         className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})

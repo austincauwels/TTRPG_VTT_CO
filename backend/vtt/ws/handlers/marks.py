@@ -203,6 +203,7 @@ async def _offer_intercepts(ctx, character, m_type):
     candidates = ctx.db.query(Character).filter(
         Character.campaign_id == ctx.camp_id,
         Character.status == "active",
+        Character.is_dead.isnot(True),
         Character.id != character.id,
         or_(*[Character.role_ability.contains(a) for a in INTERCEPT_ABILITIES],
             *[Character.specialty_ability.contains(a) for a in INTERCEPT_ABILITIES]),
