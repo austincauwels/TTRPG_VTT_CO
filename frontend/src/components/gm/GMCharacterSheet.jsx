@@ -48,11 +48,19 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   // each one that came after it started loading, before or after the fetch answers.
   const live = useGameStore(s => (rosterItem?.id != null ? s.memberSheets[rosterItem.id] : undefined));
   const liveAtFetch = useRef(undefined);
+  // None of those reach the desk while its socket is down, so the sheet loads again each
+  // time the socket opens again (memberResync), staying up meanwhile
+  const resync = useGameStore(s => s.memberResync);
+  const shownId = useRef(null);
 
   useEffect(() => {
     if (!rosterItem?.id) return;
-    setLoading(true);
-    setError(null);
+    let superseded = false;
+    const again = shownId.current === rosterItem.id;
+    if (!again) {
+      setLoading(true);
+      setError(null);
+    }
     liveAtFetch.current = useGameStore.getState().memberSheets[rosterItem.id];
     apiFetch(`/api/investigators/${rosterItem.id}`)
       .then(r => {
@@ -60,17 +68,22 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
         return r.json();
       })
       .then(data => {
+        if (superseded) return;
         // A member_update that came while the sheet loaded may be newer than this answer
         const newer = useGameStore.getState().memberSheets[rosterItem.id];
         setFullChar(newer && newer !== liveAtFetch.current ? { ...data, ...newer } : data);
+        shownId.current = rosterItem.id;
         setLoading(false);
       })
       .catch(e => {
+        // A sheet loading again keeps what it shows; the connection banner speaks for the desk
+        if (superseded || again) return;
         // fetch itself throws a TypeError when the server cannot be reached
         setError(e instanceof TypeError ? 'Could not reach the server. Check your connection and try again.' : e.message);
         setLoading(false);
       });
-  }, [rosterItem?.id, attempt]);
+    return () => { superseded = true; };
+  }, [rosterItem?.id, attempt, resync]);
 
   useEffect(() => {
     if (!live || live === liveAtFetch.current) return;

@@ -67,7 +67,7 @@ HTTP_ROUTES = [
     (["POST"], "/api/auth/email-change/undo", "undo_email_change", None, None),
     (["POST"], "/api/auth/me/google/remove", "remove_google_sign_in", None, None),
     (["GET"], "/api/investigators", "list_investigators", "list[CharacterRosterItem]", None),
-    (["GET"], "/api/investigators/{investigator_id}", "get_investigator", "CharacterResponse", None),
+    (["GET"], "/api/investigators/{investigator_id}", "get_investigator", "CharacterSheet", None),
     (["POST"], "/api/investigators/forge", "forge_investigator", "CharacterResponse", 201),
     (["PUT"], "/api/investigators/{investigator_id}/portrait", "set_portrait", None, None),
     (["DELETE"], "/api/investigators/{investigator_id}", "delete_investigator", None, None),

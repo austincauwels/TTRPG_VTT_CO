@@ -14,7 +14,8 @@ const SLIP_PAPER = {
 // stays disabled until at least one investigator is in the circle. While it goes to the
 // server, the Lightkeeper's seal is pressed onto the slip.
 export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, campaignRoster, error }) => {
-  const activeCount = campaignRoster.active_investigators?.length || 0;
+  // The roster can hold the dead (deceased cards); only the living count toward the circle
+  const activeCount = (campaignRoster.active_investigators || []).filter(inv => !inv.is_dead).length;
   const noOneYet = activeCount === 0;
 
   return (

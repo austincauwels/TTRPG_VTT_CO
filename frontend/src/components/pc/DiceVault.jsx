@@ -144,7 +144,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       drivePickerPrompt={drivePickerPrompt}
       setDrivePickerPrompt={setDrivePickerPrompt}
       setDismissedPrompts={setDismissedPrompts}
-      allies={(campaignRoster?.active_investigators || []).filter(inv => inv.id !== character?.id)}
+      allies={(campaignRoster?.active_investigators || []).filter(inv => inv.id !== character?.id && !inv.is_dead)}
     />
   );
 

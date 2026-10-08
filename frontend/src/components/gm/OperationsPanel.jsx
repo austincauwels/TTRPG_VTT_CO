@@ -226,7 +226,7 @@ export const OperationsPanel = () => {
                   the log and the notes lie on the desk, no panel around them. */}
               <div className="xl:h-full xl:flex xl:flex-col xl:pt-1">
                 <div className="xl:flex-1 xl:min-h-0">
-                  <DiceVault showGmControls logEntries={activityLog} playerList={campaignRoster.active_investigators} />
+                  <DiceVault showGmControls logEntries={activityLog} playerList={(campaignRoster.active_investigators || []).filter(inv => !inv.is_dead)} />
                 </div>
               </div>
             </div>
