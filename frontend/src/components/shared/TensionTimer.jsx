@@ -83,7 +83,7 @@ const split = (ms) => {
   const total = Math.round((ms || 0) / SEC);
   return total ? { m: String(Math.floor(total / 60)), s: String(total % 60).padStart(2, '0') } : { m: '', s: '' };
 };
-const draftMs = ({ m, s }) => Math.min(MAX_MS, ((parseInt(m, 10) || 0) * 60 + (parseInt(s, 10) || 0)) * SEC);
+const draftMs = ({ m, s }) => Math.min(MAX_MS, ((parseInt(m, 10) || 0) * 60 + Math.min(59, parseInt(s, 10) || 0)) * SEC);
 
 // The minutes and seconds on the Lightkeeper's ticket. They go to the server when focus
 // leaves them or on Enter (0:00 clears the timer); Escape puts them back. Either key keeps
@@ -91,7 +91,11 @@ const draftMs = ({ m, s }) => Math.min(MAX_MS, ((parseInt(m, 10) || 0) * 60 + (p
 // is what is typed and not yet sent.
 const DurationFields = ({ shownMs, draft, setDraft, onCommit, disabled, minutesRef }) => {
   const value = draft || split(shownMs);
-  const edit = (key) => (e) => setDraft({ ...value, [key]: e.target.value.replace(/\D/g, '') });
+  // Seconds stop at 59: 1:75 would go to the server as 2:15
+  const edit = (key) => (e) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    setDraft({ ...value, [key]: key === 's' && Number(digits) > 59 ? '59' : digits });
+  };
   const keys = (e) => {
     if (e.key !== 'Enter' && e.key !== 'Escape') return;
     const input = e.currentTarget;
@@ -171,10 +175,12 @@ export const TensionTimer = ({ gm = false }) => {
       && circle?.timer_remaining_ms > 0 && circle.timer_remaining_ms < duration) say('Timer paused.');
   }, [circle]); // eslint-disable-line react-hooks/exhaustive-deps
   // Time's up is heard only on a desk that saw it count down to 0:00, and the chime only
-  // where this desk's own count got there, on time
+  // where this desk's own count got there, on time. A hidden timer is not being watched,
+  // so one that ran out while hidden says nothing when it is shown again.
   const counting = useRef(false);
   useEffect(() => {
-    if (state === 'running') counting.current = true;
+    if (!onShow) counting.current = false;
+    else if (state === 'running') counting.current = true;
     else if (state === 'done' && counting.current) {
       counting.current = false;
       if (!onShow) return;
@@ -254,7 +260,12 @@ export const TensionTimer = ({ gm = false }) => {
                 <PauseMark />
               </button>
             ) : (
-              <button type="button" ref={startRef} onClick={() => send('start')} disabled={!socketReady || !(shownMs || (draft && draftMs(draft)))}
+              <button type="button" ref={startRef} onClick={() => {
+                // A time typed and not yet sent (a press that did not take focus from the
+                // fields) goes first, so the timer starts from what the ticket shows
+                if (draft) { setDraft(null); commit(draftMs(draft)); }
+                send('start');
+              }} disabled={!socketReady || !(shownMs || (draft && draftMs(draft)))}
                 aria-label={startLabel} title={state === 'paused' ? 'Resume' : 'Start'} className={button}>
                 <PlayMark className="translate-x-px" />
               </button>

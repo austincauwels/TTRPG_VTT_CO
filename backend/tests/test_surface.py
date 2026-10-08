@@ -280,7 +280,7 @@ WS_CASES = {
 
 
 def test_ws_cases_cover_every_message_type():
-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 34
+    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 35
     assert list(WS_CASES) == WS_MESSAGE_TYPES
 
 

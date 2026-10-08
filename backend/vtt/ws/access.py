@@ -125,7 +125,11 @@ def _sender_campaign(ctx):
 
 
 def _circle_of(ctx, circle_id, campaign_id):
-    """The circle must exist (404) and belong to that campaign (403)."""
+    """The circle must exist (404) and belong to that campaign (403). An id that is not a
+    whole number is refused (422) before the query: a string, an object or a bool used to
+    reach the database, fail there, and end the socket."""
+    if type(circle_id) is not int:
+        _invalid("circle_id must be a whole number.")
     row = ctx.db.query(Circle.id, Circle.campaign_id).filter(Circle.id == circle_id).first()
     if row is None:
         _not_found("Circle")

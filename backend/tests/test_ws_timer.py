@@ -196,3 +196,15 @@ def test_another_campaigns_circle_is_untouched(client, clock):
     assert (row_b.timer_duration_ms, row_b.timer_running, row_b.timer_visible) == (0, False, False)
     assert support.fetch(Circle, cid_a).timer_visible is True
     assert support.fetch(Circle, 1).timer_visible in (False, None)
+
+
+def test_a_circle_id_that_is_not_a_whole_number_is_refused(client, clock):
+    """A string, an object, a list or a bool as circle_id used to reach the database, fail
+    there and end the Lightkeeper's socket; vtt.ws.access refuses it first (422)."""
+    camp, _, cid = _campaign(client, members=0)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        for bad in ("abc", {"x": 1}, [cid], True, 1.5):
+            gm.send("gm_timer", circle_id=bad, action="show")
+            assert gm.sync() == [_rejected(422, "circle_id must be a whole number.")]
+        assert support.server_sockets(camp["campaign_code"])
+        assert _send(gm, circle_id=cid, action="show")["timer_visible"] is True
