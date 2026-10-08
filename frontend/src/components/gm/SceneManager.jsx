@@ -134,7 +134,7 @@ export const SceneManager = () => {
       }));
       setLocation("");
       setAtmosphere("");
-      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. Ability uses and the tension clock are reset.` });
+      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. Ability uses, gear slots and the hourglass are reset.` });
     } else {
       setReceipt({ ok: false, text: NOT_CONNECTED });
     }
