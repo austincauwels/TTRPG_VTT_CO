@@ -23,6 +23,12 @@ const CIRCLE_ABILITY_TEXT = {
   'Resource Management': 'When your circle hits a milestone on the Illumination Track, earn back 1 Stitch, Refresh, or Train resource.',
   'One Last Run':        'The next assignment is your last. Everyone takes all four advancement options instead of two.',
 };
+// Where a name too long for a narrow card's line (1280 wide) breaks, with a hyphen (soft
+// hyphens: the browser never hyphenates a capitalized word itself). Any other long word
+// still breaks inside the paper (.circle-ledger-row dd).
+const ABILITY_NAME_BREAKS = {
+  'Interdisciplinary': 'Inter\u00addis\u00adci\u00adpli\u00adnary',
+};
 const RESOURCES = [
   { label: 'Stitch', key: 'stitch' },
   { label: 'Refresh', key: 'refresh' },
@@ -91,11 +97,15 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
                   <InfoTerm label={label} text={RESOURCE_HELP[key]} slipClassName="left-[8.75rem] -top-1 w-[min(17rem,calc(100vw-4rem))]"
                     hitClassName="touch-pip [--hit-y:-7px] [--hit-x:-4px]" />
                 </dt>
-                <dd className="flex items-center gap-1" role="img" aria-label={`${label}: ${avail} available, maximum ${maxCap}`}>
-                  {Array.from({ length: Math.min(9, Math.max(avail, maxCap)) }).map((_, i) => (
-                    <span key={i} aria-hidden="true" className={`block w-3 h-3 rounded-sm border ${i < avail ? 'bg-oxblood border-oxblood' : 'border-ink/40'}`} />
-                  ))}
-                  <span aria-hidden="true" className="ml-1.5 font-mono tabular-nums text-sm text-sepia">{avail} · max {maxCap}</span>
+                {/* On a narrow card the count goes under the squares whole, rather than the
+                    squares narrowing and the count breaking over three lines */}
+                <dd className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5" role="img" aria-label={`${label}: ${avail} available, maximum ${maxCap}`}>
+                  <span className="flex flex-wrap gap-1">
+                    {Array.from({ length: Math.min(9, Math.max(avail, maxCap)) }).map((_, i) => (
+                      <span key={i} aria-hidden="true" className={`block shrink-0 w-3 h-3 rounded-sm border ${i < avail ? 'bg-oxblood border-oxblood' : 'border-ink/40'}`} />
+                    ))}
+                  </span>
+                  <span aria-hidden="true" className="font-mono tabular-nums text-sm text-sepia whitespace-nowrap">{avail} · max {maxCap}</span>
                 </dd>
               </div>
             );
@@ -139,7 +149,7 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
             <div key={ability} className="circle-ledger-row !items-start py-1">
               <dt className="pt-0.5">{i === 0 ? (abilities.length > 1 ? 'Abilities' : 'Ability') : ''}</dt>
               <dd className="text-sm leading-snug">
-                <span className="font-bold uppercase">{ability}: </span>
+                <span className="font-bold uppercase">{ABILITY_NAME_BREAKS[ability] || ability}: </span>
                 <span className="italic">{CIRCLE_ABILITY_TEXT[ability] || ''}</span>
               </dd>
             </div>

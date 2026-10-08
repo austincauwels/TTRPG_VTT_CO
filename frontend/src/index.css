@@ -1075,6 +1075,9 @@
   font-size: 1rem;
   line-height: 1.3;
   min-width: 0;
+  /* A narrow card (1280 wide) breaks a long word rather than run it off the paper */
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 /* A roll chit's die: only on hover where a pointer can hover, and on keyboard focus */
