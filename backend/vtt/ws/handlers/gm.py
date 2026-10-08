@@ -289,7 +289,7 @@ async def handle_gm_end_assignment(ctx):
             await manager.broadcast(character_key(ch.id), {"type": "character_update", "payload": get_char_dict(ch)})
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",
-            "payload": {"message": "— Assignment ended. Ability uses, gear slots and the tension clock have been reset. —", "log_type": "field"},
+            "payload": {"message": "— Assignment ended. Ability uses, gear slots and the hourglass have been reset. —", "log_type": "field"},
         }, db)
         for ch in note_takers:
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {

@@ -201,7 +201,7 @@ export const SceneManager = () => {
           className="flex flex-col items-start gap-2 max-w-[11rem]"
           onConfirm={endAssignment}
           cancelLabel="Keep going"
-          armedHint="Press again to end it: the dispatch clears, the tension clock empties, and every player's ability uses and gear slots reset."
+          armedHint="Press again to end it: the dispatch clears, the hourglass is turned back to the start, and every player's ability uses and gear slots reset."
           hintClassName="[&>p]:text-sm"
           renderButton={(armed, props) => (
             <button

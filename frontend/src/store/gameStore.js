@@ -11,7 +11,7 @@ const WS_CLOSE_REPLACED = 1001;
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 let reconnectTimer = null;
 let reconnectAttempts = 0;
-// The pocket watch's tension as this socket last saw it ({ id, value } of the circle), so
+// The hourglass's tension as this socket last saw it ({ id, value } of the circle), so
 // a change can tick. The first circle after a (re)connect only sets it, so opening a desk
 // or reconnecting never ticks for a change made while away.
 let tensionSeen = null;
@@ -422,7 +422,7 @@ const useGameStore = create(
             const value = next?.tension_clock ?? 0;
             tensionSeen = next ? { id: next.id, value } : null;
             set({ circle: next });
-            // The GM moved the pocket watch's hand: it ticks at every desk, up to the new
+            // The GM turned the tension up or down: the hourglass ticks at every desk, up to the new
             // level on a raise and once on a lowering (End Assignment's reset included)
             if (seen && next && seen.id === next.id && value !== seen.value) playTensionTick(value > seen.value ? value : 1);
           }

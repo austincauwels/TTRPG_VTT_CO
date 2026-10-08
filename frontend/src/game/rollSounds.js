@@ -22,8 +22,8 @@ import { useSyncExternalStore } from 'react';
 //                                   roll's log line, and they hear the dice then. The result
 //                                   sound waits until the dice have landed, so the two
 //                                   never sound at once.
-//   public/sounds/tension-tick.mp3  the pocket watch ticking, for everyone, when the GM
-//                                   raises the tension: once for each slice now filled (the
+//   public/sounds/tension-tick.mp3  the hourglass ticking, for everyone, when the GM
+//                                   raises the tension: once for each step now run (the
 //                                   file holds four ticks a second apart). Lowering it
 //                                   ticks once (owner's request, 2026-10-08: the clock
 //                                   ticks both ways).
@@ -205,7 +205,7 @@ export const playRollSound = (text) => {
   setTimeout(() => play(key), wait);
 };
 
-// ── The pocket watch ──────────────────────────────────────────────────────────────
+// ── The hourglass ─────────────────────────────────────────────────────────────────
 // The file's four ticks start at 0, 1.05, 2.05 and 3.05 seconds; it stops in the quiet
 // after the tick it needs.
 const TICK_STOPS_MS = [null, 720, 1720, 2740];

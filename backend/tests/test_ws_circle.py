@@ -433,7 +433,7 @@ def test_gm_end_assignment(client):
         assert support.types(msgs) == ["circle_update", "member_update", "member_update", "activity_log"]
         assert (msgs[0]["payload"]["location"], msgs[0]["payload"]["atmosphere"]) == ("", "")
         assert sorted(m["payload"]["id"] for m in msgs[1:3]) == sorted([a["id"], b["id"]])
-        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses, gear slots and the tension clock have been reset. {EM}",
+        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses, gear slots and the hourglass have been reset. {EM}",
                                       "log_type": "field"}
         got = wa.drain()
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
