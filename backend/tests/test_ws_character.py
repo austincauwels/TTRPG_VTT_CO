@@ -20,7 +20,9 @@ def _member_pair(client, **fields):
 
 # --- update_drive -----------------------------------------------------------
 
-def test_update_drive_sets_value_and_tells_only_the_sender(client):
+def test_update_drive_sets_value_and_tells_the_sender_and_the_gm(client):
+    """The other members hear nothing; the GM's socket gets the sheet as member_update
+    (tests/test_ws_gm_view.py)."""
     camp, a, b = _member_pair(client, nerve_max=3, nerve_current=3)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
@@ -30,7 +32,7 @@ def test_update_drive_sets_value_and_tells_only_the_sender(client):
         assert msg["payload"]["id"] == a["id"]
         assert msg["payload"]["nerve_current"] == 1
         wa.sync()
-        assert wb.drain() == [] and gm.drain() == []
+        assert wb.drain() == [] and gm.drain() == [{"type": "member_update", "payload": msg["payload"]}]
     assert support.fetch(Character, a["id"]).nerve_current == 1
 
 
@@ -91,13 +93,15 @@ def test_payload_character_id_of_someone_else_is_rejected(client):
 
 def test_gm_may_set_a_members_drive_but_not_an_outsiders(client):
     """update_drive is "owner (GM optional)": a GM socket may name a member of its
-    campaign; the character_update goes to the GM's own channel, as it always has."""
+    campaign; the character_update goes to the GM's own channel, as it always has, and
+    the member_update that every change to a member sends the GM follows it."""
     camp, a, b = _member_pair(client, nerve_current=2)
     outsider = support.active_member(client, support.new_campaign(client), nerve_current=2)
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
         gm.send("update_drive", pool="nerve", value=1, character_id=a["id"])
-        [msg] = gm.sync()
+        msg, live = gm.sync()
         assert (msg["type"], msg["payload"]["id"], msg["payload"]["nerve_current"]) == ("character_update", a["id"], 1)
+        assert live == {"type": "member_update", "payload": msg["payload"]}
         assert wa.drain() == []
         gm.send("update_drive", pool="nerve", value=0, character_id=outsider["id"])
         assert support.types(gm.sync()) == ["action_rejected"]
@@ -114,7 +118,7 @@ def test_gm_may_not_target_a_retired_character_of_its_campaign(client):
             gm.send(msg_type, character_id=a["id"], pool="nerve", value=0, mark_type="body", gear=["x"])
             assert support.types(gm.sync()) == ["action_rejected"], msg_type
         gm.send("update_drive", pool="nerve", value=1, character_id=b["id"])
-        assert support.types(gm.sync()) == ["character_update"]
+        assert support.types(gm.sync()) == ["character_update", "member_update"]
     row = support.fetch(Character, a["id"])
     assert (row.nerve_current, row.body_marks, row.gear) == (2, 0, [])
 
@@ -203,7 +207,7 @@ def test_apply_advancement_add_action(client):
         assert msgs[0]["payload"]["move"] == 3
         assert (msgs[0]["payload"]["advancement_picks"], msgs[0]["payload"]["advancement_taken"]) == (1, ["add_action"])
         assert msgs[1]["payload"]["message"] == f"{ch['name']} has advanced {EM} gained +1 move."
-        assert support.types(gm.drain()) == ["activity_log"]
+        assert support.types(gm.drain()) == ["member_update", "activity_log"]
         ws.send("apply_advancement", choice="add_action", detail="sense")  # the same option twice
         ws.send("apply_advancement", choice="mystery", detail="x")
         ws.send("apply_advancement", detail="move")  # no choice: ignored
@@ -358,7 +362,7 @@ def test_spend_stitch(client):
         assert p["resources_spent_assignment"] == 1
         assert msgs[1]["payload"]["stitch"] == 1
         assert msgs[2]["payload"]["message"] == f"{member['name']} used Stitch {EM} all marks cleared."
-        assert support.types(gm.drain()) == ["circle_update", "activity_log"]
+        assert support.types(gm.drain()) == ["member_update", "circle_update", "activity_log"]
     assert support.fetch(Circle, cid).stitch == 1
     assert support.fetch(Character, member["id"]).resources_spent_assignment == 1
 

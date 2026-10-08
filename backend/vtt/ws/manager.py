@@ -22,6 +22,11 @@ for that before it registered the new socket, so the new socket was deaf for tho
 seconds, and a second socket opened meanwhile was registered first and then pushed
 out by the first one when its wait ended: the channel's messages (a roll's result
 among them) went to a socket nobody listened on (beta, 2026-10-04).
+
+Every frame that carries a character's whole sheet (SHEET_IN) and goes out through
+broadcast also reaches the GM channel of that character's campaign, as member_update,
+while the character is on its roster (see broadcast). The Lightkeeper's roster and
+open sheet follow the players' changes that way, whichever handler made them.
 """
 import asyncio
 import json
@@ -30,11 +35,20 @@ from typing import List, Optional
 from fastapi import WebSocket
 
 from models import Character
+from vtt.auth import ROSTER_STATUSES
 
 CAMPAIGN_KEY_PREFIX = "campaign:"
 # The close code for a socket whose login token no longer works (the same code the
 # endpoint refuses such a token with; the browser then logs the user out).
 CLOSE_TOKEN_ENDED = 4401
+
+# The frames that carry a character's whole sheet (vtt.serializers.get_char_dict), and
+# where the sheet is in each one's payload
+SHEET_IN = {
+    "character_update": lambda payload: payload,
+    "roll_result": lambda payload: payload.get("character"),
+    "trigger_scar": lambda payload: payload.get("character"),
+}
 
 
 def character_key(character_id) -> str:
@@ -61,12 +75,20 @@ class ConnectionManager:
         self._arrivals = 0
         # Closes running on their own (close_later), kept so they are not collected
         self._closing: set = set()
+        # campaign id -> the key of its GM channel, for each campaign whose GM channel has
+        # opened here (a campaign's code never changes), so that a member's sheet finds
+        # its GM without a query
+        self._gm_channels: dict[int, str] = {}
 
-    async def connect(self, key: str, websocket: WebSocket, user_id: Optional[int] = None) -> bool:
+    async def connect(self, key: str, websocket: WebSocket, user_id: Optional[int] = None,
+                      campaign_id: Optional[int] = None) -> bool:
         """Accepts the socket and makes it the channel's only one: the last connection
         wins, and the sockets it replaces are closed with 1001 without waiting. Returns
         False, after closing it with 1001, for a socket that a newer one on the channel
-        overtook while it was being accepted (its caller must not serve it)."""
+        overtook while it was being accepted (its caller must not serve it).
+
+        campaign_id is given for a campaign's GM channel: the members' sheets go to it
+        (broadcast)."""
         self._arrivals += 1
         number = self._arrivals
         websocket.state.candela_arrival = number
@@ -79,6 +101,8 @@ class ConnectionManager:
             return False
         # Registered before anything else is awaited, so no other connect can come between
         self.active_connections[key] = [websocket]
+        if campaign_id is not None and key.startswith(CAMPAIGN_KEY_PREFIX):
+            self._gm_channels[campaign_id] = key
         for old_conn in current:
             if old_conn is not websocket:
                 self.close_later(old_conn, 1001)
@@ -161,9 +185,28 @@ class ConnectionManager:
                 pass
 
     async def broadcast(self, key: str, message: dict):
-        if key not in self.active_connections:
+        """Sends the message to the channel. A frame that carries a character's sheet
+        (SHEET_IN) also goes to the GM of the character's campaign, as member_update
+        {type, payload: the sheet}, whether or not anyone listens on key."""
+        if key in self.active_connections:
+            await self._send_text(key, encode(message))
+        await self._show_gm(message)
+
+    async def _show_gm(self, message: dict):
+        """member_update with the sheet the message carries, to the GM channel of the
+        sheet's campaign while the character is on its roster (active or pending, as
+        vtt.auth.ROSTER_STATUSES; the GM reads those sheets over REST too). The campaign
+        is the sheet's own campaign_id, so no other campaign's GM, and no player, ever
+        gets it. Nothing is read from the database, and nothing is encoded unless that
+        GM channel is open."""
+        where = SHEET_IN.get(message.get("type"))
+        payload = message.get("payload")
+        sheet = where(payload) if where is not None and isinstance(payload, dict) else None
+        if not isinstance(sheet, dict) or sheet.get("status") not in ROSTER_STATUSES:
             return
-        await self._send_text(key, encode(message))
+        gm_key = self._gm_channels.get(sheet.get("campaign_id"))
+        if gm_key is not None and self.active_connections.get(gm_key):
+            await self._send_text(gm_key, encode({"type": "member_update", "payload": sheet}))
 
     async def broadcast_users(self, user_ids, message: dict) -> int:
         """Sends the message to every open socket of these users, whatever channel it is

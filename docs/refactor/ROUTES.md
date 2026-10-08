@@ -195,10 +195,11 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **GET /api/investigators** (line 1022, `async def`, `response_model=List[CharacterRosterItem]`)
 - Returns every character in the database. Unused by the frontend.
 
-**GET /api/investigators/{investigator_id}** (line 1040, `async def`, `response_model=CharacterResponse`)
+**GET /api/investigators/{investigator_id}** (line 1040, `async def`, `response_model=CharacterSheet`, `CharacterResponse` before 2026-10-08)
 - Trusted ids: `investigator_id`.
 - Tables: characters. Parses `gear` and `scars_list` if stored as strings (mutates the ORM object, never committed).
-- Response fields are limited by `CharacterResponse` (no user_id or campaign_id). `circle_id` is an optional int: a character with NULL circle_id is returned with `circle_id: null` (before the bug-fix stage it was a required int, and such a character failed response validation with a 500).
+- Response fields are limited by the response model (no user_id; no campaign_id either before 2026-10-08). `circle_id` is an optional int: a character with NULL circle_id is returned with `circle_id: null` (before the bug-fix stage it was a required int, and such a character failed response validation with a 500).
+- Since 2026-10-08 the answer is `get_char_dict`, the sheet the WebSocket sends, and `CharacterSheet` adds its other fields to `CharacterResponse`: `is_dead`, `campaign_id`, `personal_circle_answer`, `ability_uses`, `train_bonus`, `train_dice`, `warded_by_id`, `resources_spent_assignment`, `advancement_picks` and `advancement_taken` (still no user_id). The Lightkeeper's copy of a sheet opens from it and used to show no Train die, death or ability uses until a change came over the socket.
 
 **POST /api/investigators/forge** (line 1055, `async def`, status 201, `response_model=CharacterResponse`)
 - Inputs: JSON `CharacterCreate` (all `CharacterBase` fields plus optional `user_id`).

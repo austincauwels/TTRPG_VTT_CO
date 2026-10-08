@@ -374,7 +374,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   const renderAbilityUse = (name) => {
     if (readOnly) return null;
     if (ABILITY_USES[name]) {
-      const allies = (campaignRoster?.active_investigators || []).filter(inv => inv.id !== character?.id);
+      const allies = (campaignRoster?.active_investigators || []).filter(inv => inv.id !== character?.id && !inv.is_dead);
       return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} allies={allies} character={character} />;
     }
     if (SCAR_ABILITIES[name]) {

@@ -18,7 +18,7 @@ def test_take_mark_plain(client):
         msgs = ws.sync()
         assert support.types(msgs) == ["character_update"]
         assert msgs[0]["payload"]["body_marks"] == 2
-        assert gm.drain() == []
+        assert gm.drain() == [{"type": "member_update", "payload": msgs[0]["payload"]}]
     assert support.fetch(Character, ch["id"]).body_marks == 2
 
 
@@ -54,7 +54,8 @@ def test_fourth_mark_incapacitates(client):
         assert msgs[0]["payload"]["character"]["incapacitated"] is True
         assert msgs[1]["payload"] == {"message": f"{ch['name']} has been incapacitated!",
                                       "log_type": "danger", "ink_color": engine.INK_COLORS[0]}
-        assert support.types(gm.drain()) == ["activity_log"]
+        # The GM gets the sheet trigger_scar carries
+        assert gm.drain() == [{"type": "member_update", "payload": msgs[0]["payload"]["character"]}, msgs[1]]
     row = support.fetch(Character, ch["id"])
     assert (row.brain_marks, row.incapacitated) == (0, True)
 
@@ -404,7 +405,10 @@ def test_intercept_behind_me(client):
         target_msgs = wt.drain()
         assert support.types(target_msgs) == ["character_update", "activity_log"]
         assert target_msgs[0]["payload"]["body_marks"] == 1
-        assert support.types(gm.drain()) == ["activity_log"]
+        # Both sheets reach the GM (member_update): the target's, then the guard's
+        gm_msgs = gm.drain()
+        assert gm_msgs == [{"type": "member_update", "payload": target_msgs[0]["payload"]}, msgs[0],
+                           {"type": "member_update", "payload": msgs[1]["payload"]}]
     assert support.fetch(Character, target["id"]).body_marks == 1
     assert support.fetch(Character, guard["id"]).body_marks == 1
 
@@ -701,7 +705,7 @@ def test_revive_character(client):
         assert p["is_dead"] is True  # untouched
         assert msgs[1]["payload"] == {"message": f"{ch['name']} has been revived and is operational.",
                                       "log_type": "field", "ink_color": engine.INK_COLORS[0]}
-        assert support.types(gm.drain()) == ["activity_log"]
+        assert gm.drain() == [{"type": "member_update", "payload": p}, msgs[1]]
 
 
 # --- the three soak maps: take_mark, resolve_ability_mark, intercept_mark ------
@@ -879,7 +883,8 @@ ACTOR_CASES = [
 @pytest.mark.parametrize("ability,fields,action,payload", ACTOR_CASES, ids=[c[0] for c in ACTOR_CASES])
 def test_ability_results_reach_campaign_log_but_sheet_stays_private(client, ability, fields, action, payload):
     """The activity_log goes to the GM and every active member; the character_update
-    goes only to the acting character's own channel."""
+    goes only to the acting character's own channel, and the GM gets the sheet as
+    member_update. The other members never see it."""
     camp = support.new_campaign(client)
     actor = support.active_member(client, camp, specialty_ability=ability, **fields)
     other = support.active_member(client, camp)
@@ -913,10 +918,12 @@ def test_ability_results_reach_campaign_log_but_sheet_stays_private(client, abil
         assert log["payload"]["ink_color"] == engine.INK_COLORS[0]
         assert log["payload"]["message"].startswith(f"{actor['name']} used {ability} {EM} ")
         seen = wo.drain()
+        sheets = [msgs[0]["payload"]]
         if ability == "Premonitions":
             # The ally whose mark was soaked gets their own sheet's update
             assert support.types(seen) == ["character_update", "activity_log"]
             assert (seen[0]["payload"]["id"], seen[0]["payload"]["body_marks"]) == (other["id"], 0)
+            sheets.append(seen[0]["payload"])
             seen = seen[1:]
         assert seen == [log]
-        assert gm.drain() == [log]
+        assert gm.drain() == [{"type": "member_update", "payload": s} for s in sheets] + [log]

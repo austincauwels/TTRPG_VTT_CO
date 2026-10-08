@@ -444,7 +444,9 @@ def test_an_active_characters_portrait_reaches_the_gm_and_the_members(client, by
         assert own_frames[0]["payload"]["id"] == ch["id"]
         assert own_frames[0]["payload"]["profile_pic"] == pic
         assert own_frames[1] == _portrait_update(ch, camp, pic)
-        assert gm.drain() == [_portrait_update(ch, camp, pic)]
+        # The GM also gets the whole sheet, as for every change to a member (member_update)
+        assert gm.drain() == [{"type": "member_update", "payload": own_frames[0]["payload"]},
+                              _portrait_update(ch, camp, pic)]
         assert mem.drain() == [_portrait_update(ch, camp, pic)]
         assert pend.drain() == []
         assert other.drain() == []
@@ -458,8 +460,10 @@ def test_a_pending_characters_portrait_reaches_the_gm_only(client):
             support.ws_connect(client, ch["id"]) as own, \
             support.ws_connect(client, member["id"]) as mem:
         assert put(client, ch["id"], None).status_code == 200
-        assert support.types(own.drain()) == ["character_update"]
-        assert gm.drain() == [_portrait_update(ch, camp, None)]
+        [own_frame] = own.drain()
+        assert own_frame["type"] == "character_update"
+        assert gm.drain() == [{"type": "member_update", "payload": own_frame["payload"]},
+                              _portrait_update(ch, camp, None)]
         assert mem.drain() == []
 
 

@@ -239,7 +239,7 @@ def test_a_player_who_left_the_campaign_no_longer_posts_to_it(client, how):
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         ws.send("update_gear", gear=["lamp"])
         assert support.types(ws.sync()) == ["character_update", "activity_log"]
-        assert support.types(gm.sync()) == ["activity_log"]
+        assert support.types(gm.sync()) == ["member_update", "activity_log"]
         if how == "moved":
             # join now refuses a character on a roster (409), so the move is made directly
             support.update(Character, ch["id"], campaign_id=other["id"], status="pending")
@@ -297,7 +297,7 @@ def test_a_pending_character_reaches_nothing_of_the_campaign(client):
             assert ws.sync() == [_rejected(msg_type)]
         assert gm.sync() == []
         gm.send("update_drive", character_id=waiting["id"], pool="nerve", value=2)  # the GM still may
-        assert support.types(gm.sync()) == ["character_update"]
+        assert support.types(gm.sync()) == ["character_update", "member_update"]
         ws.drain()
         assert support.approve(client, waiting["id"]).status_code == 200
         ws.recv_type("investigator_approved")
