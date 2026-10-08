@@ -253,6 +253,44 @@ def test_gm_update_scars_below_four_lifts_the_death(client):
     assert roster() == {member["id"]: False}
 
 
+def test_a_death_and_its_undo_reach_the_other_players(client):
+    """A player's desk reads the roster once and leaves the dead out of its circle cards
+    and ally pickers, so the campaign's players are told (member_status) when a member
+    dies of the fourth scar and when the Lightkeeper lifts that death. Only is_dead, as
+    the roster lists it; the GM's desk has the whole sheet (member_update) and is not sent
+    it. No other campaign hears it, and nor does a scar reworded while dead."""
+    camp = support.new_campaign(client)
+    dying = support.active_member(client, camp, scars_list=SCARS, scars_count=3)
+    ally = support.active_member(client, camp)
+    elsewhere = support.active_member(client, support.new_campaign(client))
+    status = lambda is_dead: {"type": "member_status", "payload": {
+        "character_id": dying["id"], "campaign_id": camp["id"], "is_dead": is_dead}}
+    four = SCARS + ["The last one"]
+    with support.ws_connect(client, dying["id"]) as wd, support.ws_connect(client, ally["id"]) as wa, \
+            support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, elsewhere["id"]) as we:
+        wd.send("apply_scar", scar_text="The last one", skip_shifts=True)
+        seen = wd.sync()
+        assert support.types(seen) == ["character_update", "member_status"]
+        assert seen[0]["payload"]["is_dead"] is True and seen[1] == status(True)
+        assert wa.drain() == [status(True)]
+        assert support.types(gm.drain()) == ["member_update"]
+        # Rewording a dead investigator's scars changes nothing on the players' rosters
+        gm.send("gm_update_scars", character_id=dying["id"], scars=SCARS + ["The last"], previous=four)
+        assert support.types(gm.sync()) == ["member_update", "activity_log"]
+        assert support.types(wa.drain()) == ["activity_log"]
+        assert support.types(wd.drain()) == ["character_update", "activity_log"]
+        gm.send("gm_update_scars", character_id=dying["id"], scars=SCARS, previous=SCARS + ["The last"])
+        assert support.types(gm.sync()) == ["member_update", "activity_log"]
+        seen = wa.drain()
+        assert support.types(seen) == ["member_status", "activity_log"]
+        assert seen[0] == status(False)
+        assert support.types(wd.drain()) == ["character_update", "member_status", "activity_log"]
+        assert we.drain() == []
+    # What the players' rosters read when they load
+    listed = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(ally["id"])).json()
+    assert {c["id"]: c["is_dead"] for c in listed["active_investigators"]} == {dying["id"]: False, ally["id"]: False}
+
+
 def test_gm_update_scars_keeps_a_death_once_the_player_has_a_new_investigator(client):
     """The death opened the way for a new investigator. Once their player has one on the
     roster, waiting or approved, the fourth scar and the death stand."""

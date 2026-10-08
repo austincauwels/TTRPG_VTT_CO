@@ -110,12 +110,15 @@ const onGmDesk = (get) => {
     String(socketGameId) === String(lastPlayedCampaign.campaignCode);
 };
 
+// A member's whole sheet on its roster card (the roster names the role role_class)
+const sheetOnCard = (card, sheet) => ({ ...card, ...sheet, role_class: sheet.role });
+
 // A member's whole sheet (member_update) on its roster card, pending or active. A member who
 // died keeps the card, flagged is_dead: the Lightkeeper's roster shows the dead as deceased
 // cards that still open the sheet, so whatever counts the living leaves them out itself.
 const withSheet = (roster, sheet) => {
   const patch = (list) => (Array.isArray(list)
-    ? list.map(c => (c.id === sheet.id ? { ...c, ...sheet, role_class: sheet.role } : c))
+    ? list.map(c => (c.id === sheet.id ? sheetOnCard(c, sheet) : c))
     : list);
   return { ...roster, pending_investigators: patch(roster.pending_investigators),
     active_investigators: patch(roster.active_investigators) };
@@ -610,6 +613,10 @@ const useGameStore = create(
             const { character: approvedChar, active_investigators } = message.payload;
             set(state => {
               const isMyCharacter = approvedChar?.id === state.character?.id;
+              // The members' whole sheets, each on its card as member_update puts it. A rejoin
+              // sends this with no roster fetch after it, and the cards lost their role line.
+              const cards = [...(state.campaignRoster.pending_investigators || []),
+                ...(state.campaignRoster.active_investigators || [])];
               return {
                 character: isMyCharacter ? approvedChar : state.character,
                 circleCreation: {
@@ -619,7 +626,8 @@ const useGameStore = create(
                 },
                 campaignRoster: {
                   ...state.campaignRoster,
-                  active_investigators: active_investigators || [],
+                  active_investigators: (active_investigators || [])
+                    .map(sheet => sheetOnCard(cards.find(c => c.id === sheet.id), sheet)),
                 },
               };
             });
@@ -796,6 +804,23 @@ const useGameStore = create(
               circleCreation: {
                 ...state.circleCreation,
                 activeInvestigators: patchAll(state.circleCreation.activeInvestigators),
+              },
+            }));
+          }
+          else if (message.type === 'member_status') {
+            // A member died of the fourth scar, or the Lightkeeper lifted that death. A player's
+            // roster is read once, when the desk opens, and the circle's cards and the ally
+            // pickers leave the dead out (livingMembers), so the card takes the flag now. The
+            // server sends it to the players only: the GM desk has member_update.
+            if (!isForThisCampaign(message.payload)) return;
+            const { character_id: id, is_dead: isDead } = message.payload || {};
+            if (id == null) return;
+            set(state => ({
+              campaignRoster: {
+                ...state.campaignRoster,
+                active_investigators: Array.isArray(state.campaignRoster.active_investigators)
+                  ? state.campaignRoster.active_investigators.map(c => (c.id === id ? { ...c, is_dead: !!isDead } : c))
+                  : state.campaignRoster.active_investigators,
               },
             }));
           }

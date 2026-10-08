@@ -116,7 +116,7 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
           </div>
           <div className="circle-ledger-row !items-start py-1">
             <dt className="pt-0.5">Refills</dt>
-            <dd className="text-sm leading-snug text-sepia">{refillEntry(maxCap)}</dd>
+            <dd className="text-sm leading-snug text-sepia">{refillEntry(maxCap, abilities)}</dd>
           </div>
           <div className="circle-ledger-row">
             <dt>Reports</dt>

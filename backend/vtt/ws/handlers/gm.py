@@ -16,7 +16,7 @@ from vtt.auth import ROSTER_STATUSES
 from vtt.circle_queries import circle_abilities, fill_resources, resolve_circle
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import SCAR_SLOTS
-from vtt.ws.handlers.circle import announce_downed
+from vtt.ws.handlers.circle import announce_death, announce_downed
 from vtt.ws.manager import character_key, manager
 
 TRACK = 12              # the Illumination track (rulebook p. 55)
@@ -128,6 +128,8 @@ async def handle_gm_update_scars(ctx):
         character.incapacitated = True
     db.commit()
     await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
+    if lifts_death:
+        await announce_death(ctx, character)
     removed = len(current) - len(scars)
     said = (f"The Lightkeeper removed {'a scar' if removed == 1 else f'{removed} scars'} from {character.name}'s record"
             if removed else f"The Lightkeeper corrected {character.name}'s scars")

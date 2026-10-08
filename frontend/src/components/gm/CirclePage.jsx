@@ -497,9 +497,10 @@ export const CirclePage = () => {
               );
             })}
           </div>
-          {/* When they come back: not after an assignment, only when the track fills */}
+          {/* When they come back: not after an assignment, only when the track fills, and one
+              at each milestone with Resource Management */}
           <p className="pt-2 pb-2.5 border-t border-dashed border-sepia/35 font-serif italic text-sm leading-snug text-sepia">
-            {refillRule(maxCap)}
+            {refillRule(maxCap, (circle?.circle_ability || '').split('\n'))}
           </p>
 
           {/* Resource controls */}
