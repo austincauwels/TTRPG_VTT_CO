@@ -43,22 +43,39 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   useEffect(() => { backRef.current?.focus({ preventScroll: true }); }, [rosterItem?.id]);
 
 
+  // Every change to this investigator, whoever makes it, reaches this desk as member_update
+  // with the whole sheet, and the store keeps the latest (memberSheets). The sheet follows
+  // each one that came after it started loading, before or after the fetch answers.
+  const live = useGameStore(s => (rosterItem?.id != null ? s.memberSheets[rosterItem.id] : undefined));
+  const liveAtFetch = useRef(undefined);
+
   useEffect(() => {
     if (!rosterItem?.id) return;
     setLoading(true);
     setError(null);
+    liveAtFetch.current = useGameStore.getState().memberSheets[rosterItem.id];
     apiFetch(`/api/investigators/${rosterItem.id}`)
       .then(r => {
         if (!r.ok) throw new Error(r.status === 404 ? 'This investigator no longer exists.' : 'The sheet could not be loaded. Try again in a moment.');
         return r.json();
       })
-      .then(data => { setFullChar(data); setLoading(false); })
+      .then(data => {
+        // A member_update that came while the sheet loaded may be newer than this answer
+        const newer = useGameStore.getState().memberSheets[rosterItem.id];
+        setFullChar(newer && newer !== liveAtFetch.current ? { ...data, ...newer } : data);
+        setLoading(false);
+      })
       .catch(e => {
         // fetch itself throws a TypeError when the server cannot be reached
         setError(e instanceof TypeError ? 'Could not reach the server. Check your connection and try again.' : e.message);
         setLoading(false);
       });
   }, [rosterItem?.id, attempt]);
+
+  useEffect(() => {
+    if (!live || live === liveAtFetch.current) return;
+    setFullChar(c => (c ? { ...c, ...live } : c));
+  }, [live]);
 
   if (!rosterItem) return null;
 

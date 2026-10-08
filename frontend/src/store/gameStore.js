@@ -180,6 +180,9 @@ const useGameStore = create(
       rollWaiting: false,        // the roll waits for the connection to come back
       rollError: null,           // why the last roll (or kept die) did not go through
       campaignRoster: { pending_investigators: [], active_investigators: [] },
+      // The GM desk: the latest sheet of each roster character, by id, as member_update
+      // brought it (the open GMCharacterSheet follows it)
+      memberSheets: {},
       notebookEntries: [],
       notebookLoadError: false,
       lastActivityLog: null,
@@ -231,6 +234,7 @@ const useGameStore = create(
           lastPlayedCampaign: null,
           circle: null,
           socket: null,
+          memberSheets: {},
           notebookEntries: [],
           lastActivityLog: null,
           pendingRoll: null,
@@ -299,7 +303,7 @@ const useGameStore = create(
         } else {
           clearRollTimer();
           queuedRoll = null;
-          set({ activityLog: [], lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null });
+          set({ activityLog: [], lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null, memberSheets: {} });
         }
         const apiBase = import.meta.env.VITE_API_URL || '';
         const wsProtocol = (apiBase.startsWith('https') || window.location.protocol === 'https:') ? 'wss:' : 'ws:';
@@ -758,6 +762,31 @@ const useGameStore = create(
               circleCreation: {
                 ...state.circleCreation,
                 activeInvestigators: patchAll(state.circleCreation.activeInvestigators),
+              },
+            }));
+          }
+          else if (message.type === 'member_update') {
+            // The whole sheet of a character on this campaign's roster, after any change to
+            // it (drive, resistance, marks, scars, gear, ability uses, advancement...). The
+            // server sends it to the campaign's GM channel only, and only the GM desk takes it.
+            // Its roster card takes it, and the open sheet reads memberSheets. A member who
+            // died leaves the active roster, as the roster route leaves them out.
+            const sheet = message.payload;
+            const { lastPlayedCampaign, socketGameId } = get();
+            const onGmDesk = lastPlayedCampaign?.type === 'gm' && socketGameId != null &&
+              String(socketGameId) === String(lastPlayedCampaign.campaignCode);
+            if (!onGmDesk || sheet?.id == null || !isForThisCampaign(sheet)) return;
+            const patchAll = (list) => (Array.isArray(list)
+              ? list.map(c => (c.id === sheet.id ? { ...c, ...sheet, role_class: sheet.role } : c))
+              : list);
+            set(state => ({
+              memberSheets: { ...state.memberSheets, [sheet.id]: sheet },
+              campaignRoster: {
+                ...state.campaignRoster,
+                pending_investigators: patchAll(state.campaignRoster.pending_investigators),
+                active_investigators: sheet.is_dead && Array.isArray(state.campaignRoster.active_investigators)
+                  ? state.campaignRoster.active_investigators.filter(c => c.id !== sheet.id)
+                  : patchAll(state.campaignRoster.active_investigators),
               },
             }));
           }

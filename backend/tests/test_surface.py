@@ -174,7 +174,7 @@ def _resources_editable(client, ctx):
 WS_CASES = {
     "gm_update_tension": dict(
         sender="gm", payload=lambda c: {"role": "GM", "character_id": c.char_id, "mark_type": "body", "value": 1},
-        expect=["activity_log"]),
+        expect=["member_update", "activity_log"]),
     "gm_update_circle": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id, "tension_label": "t"},
         expect=["circle_update"]),
@@ -222,16 +222,18 @@ WS_CASES = {
     "submit_assignment_report": dict(
         payload=lambda c: {"circle_id": c.circle_id, "character_id": c.char_id, "responses": {"q": "a"}},
         expect=["assignment_report_submitted"]),
+    # The GM's socket gets each changed member's sheet (member_update)
     "gm_advance_circle": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id},
-        expect=["activity_log", "circle_advanced"]),
+        expect=["member_update", "member_update", "activity_log", "circle_advanced"]),
     "refill_resources": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update"]),
     "gm_end_assignment": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id},
-        expect=["circle_update", "activity_log"]),
+        expect=["circle_update", "member_update", "member_update", "activity_log"]),
     "gm_reset_character": dict(
-        sender="gm", payload=lambda c: {"role": "GM", "character_id": c.char_id}, expect=["activity_log"]),
+        sender="gm", payload=lambda c: {"role": "GM", "character_id": c.char_id},
+        expect=["member_update", "activity_log"]),
     "spend_resource": dict(
         before_connect=_resources_editable,
         payload=lambda c: {"resource_type": "stitch"},

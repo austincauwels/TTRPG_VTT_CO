@@ -447,7 +447,9 @@ def test_campaign_context_is_fixed_when_the_socket_connects(client, dice):
         dice(3, 4)
         wl.send("roll", action="move", drive_spent=0)
         assert support.types(wl.sync()) == ["roll_result", "activity_log"]
-        assert gm.drain() == [] and wg.drain() == []
+        # The dice and the line stay on the socket's own channel; the sheet, which names
+        # the campaign the character is in now, reaches its GM (member_update)
+        assert support.types(gm.drain()) == ["member_update"] and wg.drain() == []
 
         wl.send("chat_message", message="two")
         msgs = wl.sync()
@@ -457,7 +459,7 @@ def test_campaign_context_is_fixed_when_the_socket_connects(client, dice):
         # intercept candidates are looked up with campaign_id IS NULL
         wl.send("take_mark", mark_type="body")
         assert support.types(wl.sync()) == ["character_update"]
-        assert wg.drain() == []
+        assert wg.drain() == [] and support.types(gm.drain()) == ["member_update"]
 
         # before tokens a player's update_circle edited the connect-time circle 1;
         # update_circle is GM only now

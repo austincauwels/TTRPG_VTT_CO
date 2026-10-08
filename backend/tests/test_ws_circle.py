@@ -81,17 +81,19 @@ def test_gm_messages_from_a_player_are_rejected(client):
 
 def test_gm_update_tension(client):
     """The Lightkeeper corrects a character's marks (the GM sheet's Marks row). The player's
-    sheet is told and the table's log says so (only the GM's own socket used to hear)."""
+    sheet is told and the table's log says so (only the GM's own socket used to hear).
+    The GM's socket gets the sheet back as member_update."""
     camp, (member,), _ = _campaign(client)
     outsider = support.active_member(client, support.new_campaign(client))
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("gm_update_tension", role="GM", mark_type="body", value=2, character_id=member["id"])
         msgs = gm.sync()
-        assert support.types(msgs) == ["activity_log"]
-        assert msgs[0]["payload"]["message"] == f"The Lightkeeper set {member['name']}'s Body marks to 2."
+        assert support.types(msgs) == ["member_update", "activity_log"]
+        assert msgs[1]["payload"]["message"] == f"The Lightkeeper set {member['name']}'s Body marks to 2."
         seen = wm.drain()
         assert support.types(seen) == ["character_update", "activity_log"]
         assert (seen[0]["payload"]["id"], seen[0]["payload"]["body_marks"]) == (member["id"], 2)
+        assert msgs[0]["payload"] == seen[0]["payload"]
         gm.send("gm_update_tension", role="GM", mark_type="body", value=3)  # no character on a GM socket
         assert gm.sync() == []
         gm.send("gm_update_tension", mark_type="body", value=3, character_id=outsider["id"])
@@ -102,7 +104,7 @@ def test_gm_update_tension(client):
         assert gm.sync() == [_rejected("gm_update_tension", status=422,
                                        detail="Marks are 0 to 3, in Body, Brain or Bleed.")] * 6
         gm.send("gm_update_tension", mark_type="body", value=1, character_id=member["id"])  # role not needed
-        assert support.types(gm.sync()) == ["activity_log"]
+        assert support.types(gm.sync()) == ["member_update", "activity_log"]
     assert support.fetch(Character, member["id"]).body_marks == 1
     assert support.fetch(Character, outsider["id"]).body_marks == 0
 
@@ -193,18 +195,19 @@ def test_gm_advance_circle(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("gm_advance_circle", role="GM", circle_ability="Seekers")
         msgs = gm.sync()
-        assert support.types(msgs) == ["activity_log", "circle_advanced"]
-        assert msgs[0]["payload"] == {"message": "The Moths has advanced!", "log_type": "field"}
-        assert msgs[1]["payload"]["campaign_id"] == camp["id"]
-        assert msgs[1]["payload"]["circle"]["circle_ability"] == "Hunters\nSeekers"
-        assert msgs[1]["payload"]["circle"]["illumination"] == 2
+        assert support.types(msgs) == ["member_update", "activity_log", "circle_advanced"]
+        assert msgs[1]["payload"] == {"message": "The Moths has advanced!", "log_type": "field"}
+        assert msgs[2]["payload"]["campaign_id"] == camp["id"]
+        assert msgs[2]["payload"]["circle"]["circle_ability"] == "Hunters\nSeekers"
+        assert msgs[2]["payload"]["circle"]["illumination"] == 2
         # Each member is given two advancement picks (RULES_CHECK 14)
         seen = wm.drain()
         assert support.types(seen) == ["character_update", "activity_log", "circle_advanced"]
         assert (seen[0]["payload"]["advancement_picks"], seen[0]["payload"]["advancement_taken"]) == (2, [])
+        assert msgs[0]["payload"] == seen[0]["payload"]
         gm.send("gm_advance_circle", role="GM")  # no ability, no full track: still advances
         msgs = gm.sync()
-        assert msgs[1]["payload"]["circle"]["illumination"] == 0
+        assert msgs[2]["payload"]["circle"]["illumination"] == 0
     assert support.fetch(Character, member["id"]).advancement_picks == 4
 
 
@@ -257,9 +260,10 @@ def test_gm_end_assignment(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
         gm.send("gm_end_assignment", role="GM", campaign_id=987654321)
         msgs = gm.sync()
-        assert support.types(msgs) == ["circle_update", "activity_log"]
+        assert support.types(msgs) == ["circle_update", "member_update", "member_update", "activity_log"]
         assert (msgs[0]["payload"]["location"], msgs[0]["payload"]["atmosphere"]) == ("", "")
-        assert msgs[1]["payload"] == {"message": f"{EM} Assignment ended. Ability uses and gear slots have been reset. {EM}",
+        assert sorted(m["payload"]["id"] for m in msgs[1:3]) == sorted([a["id"], b["id"]])
+        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses and gear slots have been reset. {EM}",
                                       "log_type": "field"}
         got = wa.drain()
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
@@ -279,9 +283,9 @@ def test_gm_reset_character(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("gm_reset_character", role="GM", character_id=member["id"])
         msgs = gm.sync()
-        assert msgs == [{"type": "activity_log", "payload": {
-            "message": f"{EM} {member['name']}'s session resources have been reset. {EM}", "log_type": "field"}}]
         got = wm.drain()
+        assert msgs == [{"type": "member_update", "payload": got[0]["payload"]}, {"type": "activity_log", "payload": {
+            "message": f"{EM} {member['name']}'s session resources have been reset. {EM}", "log_type": "field"}}]
         assert support.types(got) == ["character_update", "activity_log"]
         p = got[0]["payload"]
         assert (p["nerve_current"], p["cunning_current"], p["intuition_current"]) == (3, 6, 3)
@@ -290,7 +294,7 @@ def test_gm_reset_character(client):
         gm.send("gm_reset_character", role="GM")  # no character: ignored
         assert gm.sync() == [_rejected("gm_reset_character")]
         gm.send("gm_reset_character", character_id=member["id"])  # payload.role is ignored now
-        assert support.types(gm.sync()) == ["activity_log"]
+        assert support.types(gm.sync()) == ["member_update", "activity_log"]
     assert support.fetch(Character, foreign["id"]).nerve_current == 0
 
 
@@ -720,7 +724,8 @@ def test_advance_and_end_assignment_need_the_gm(client, role):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("gm_advance_circle", circle_ability="Seekers", **extra)
         gm.send("gm_end_assignment", **extra)
-        assert support.types(gm.sync()) == ["activity_log", "circle_advanced", "circle_update", "activity_log"]
+        assert support.types(gm.sync()) == ["member_update", "activity_log", "circle_advanced",
+                                            "circle_update", "member_update", "activity_log"]
     c = support.fetch(Circle, cid)
     assert (c.illumination, c.circle_ability, c.location, c.atmosphere) == (2, "Hunters\nSeekers", "", "")
 
