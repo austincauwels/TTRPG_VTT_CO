@@ -350,6 +350,10 @@ const useGameStore = create(
             set(state => ({ memberResync: state.memberResync + 1 }));
             const { lastPlayedCampaign, accessSession } = get();
             get().fetchRoster(lastPlayedCampaign.campaignId ?? accessSession?.campaignId, { keep: true });
+          } else if (keepLog && get().character?.campaign_id) {
+            // A player's desk: a death or a revival (member_status) that came while it was
+            // down is in the roster, which its circle's cards and ally pickers read
+            get().fetchRoster(get().character.campaign_id, { keep: true });
           }
         };
         socket.onerror = (err) => console.error("WebSocket connection error:", err);
