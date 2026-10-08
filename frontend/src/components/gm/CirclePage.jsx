@@ -6,7 +6,6 @@ import { tiltStyle } from '../shared/handPlaced';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey, pressable } from '../shared/a11y';
-import { InfoTerm } from '../shared/ActionInfo';
 import { RESOURCE_HELP, refillRule } from '../../game/circleResources';
 import { playPaperSound } from '../../game/rollSounds';
 
@@ -456,11 +455,13 @@ export const CirclePage = () => {
               const avail = circle?.[key] ?? maxCap;
               return (
                 <div key={key} className="relative py-2 first:pt-0">
-                  {/* Its name, with what it does behind its "i": the slip lies under the entry,
-                      to the right of the names, so neither this entry's squares nor the next
-                      name down are under it */}
-                  <InfoTerm label={label} text={RESOURCE_HELP[key]} wide anchored={false} slipClassName="left-[6.5rem] right-0 top-full -mt-1"
-                    className="mb-1 font-serif font-black text-sm uppercase tracking-wide text-ink" />
+                  {/* Its name and what it does, printed in the entry as on the player's circle
+                      page: a hover slip here lay over the next resource's squares and caught
+                      the presses meant for them */}
+                  <p className="mb-1 font-serif text-sm leading-snug text-ink">
+                    <span className="font-black uppercase tracking-wide mr-1.5">{label}</span>
+                    <span className="text-sepia">{RESOURCE_HELP[key]}</span>
+                  </p>
                   {/* One row: filled pips are available, empty ones up to the maximum are
                       spent, and dotted ones lie beyond the maximum */}
                   <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">

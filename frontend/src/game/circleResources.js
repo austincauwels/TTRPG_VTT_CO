@@ -1,6 +1,6 @@
-// What each circle resource does, behind its "i" on the charter card and the Lightkeeper's
-// circle page (rulebook p. 41; p. 45 for spending them between assignments). The player's
-// circle page prints its own words for each inline.
+// What each circle resource does (rulebook p. 41; p. 45 for spending them between
+// assignments): behind its "i" on the charter card, and printed in each entry on the
+// Lightkeeper's circle page. The player's circle page prints its own words for each inline.
 export const RESOURCE_HELP = {
   stitch: "Clears all of one investigator's marks: Body, Brain and Bleed.",
   refresh: "Restores all of one investigator's spent drive and resistance.",
