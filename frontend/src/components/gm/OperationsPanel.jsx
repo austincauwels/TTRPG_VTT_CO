@@ -157,7 +157,7 @@ export const OperationsPanel = () => {
               // The roster is not a panel: its objects lie on the desk itself. From xl the
               // investigators' business cards lie across the top; under them the requests or
               // the sealed slip, with the circle's ledger card running to the foot of the
-              // desk, and the pocket watch beside them.
+              // desk, and the hourglass beside them.
               <div className={`max-lg:contents p-2 lg:min-h-[850px] xl:min-h-0 xl:h-full flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:gap-x-8 xl:gap-y-5 xl:px-2 xl:pt-1 xl:pb-2 ${
                 rosterFinalized ? 'xl:grid-rows-[auto_auto_minmax(0,1fr)]' : 'xl:grid-rows-[auto_minmax(0,1fr)]'}`}>
 

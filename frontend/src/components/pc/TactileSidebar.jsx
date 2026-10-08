@@ -158,7 +158,7 @@ function RelationshipCard({ inv, myId, relationships, index }) {
 
 // phonePart: below md the drawer shows one part of the desk at a time (MainDeskView); this
 // rail shows only the Lightkeeper's note ('dispatch'), the circle's cards ('circle') or the
-// pocket watch ('watch'), and nothing for any other part.
+// hourglass ('watch'), and nothing for any other part.
 export const TactileSidebar = ({ phonePart }) => {
   const { character, circle, campaignRoster, circleCreation, fetchRoster } = useGameStore(useShallow(s => ({
     character: s.character,
@@ -181,8 +181,8 @@ export const TactileSidebar = ({ phonePart }) => {
   const onPhone = (part) => (phoneShows(part) ? '' : 'max-md:hidden');
   const anyOnPhone = phoneShows('dispatch') || phoneShows('circle') || phoneShows('watch');
 
-  // From xl the rail is as tall as the window: the GM's note at the top and the pocket
-  // watch at the foot always show, and only the circle's cards between them scroll if a
+  // From xl the rail is as tall as the window: the GM's note at the top and the
+  // hourglass at the foot always show, and only the circle's cards between them scroll if a
   // large circle ever runs longer than the screen.
   return (
     <div className={`lg:col-span-3 xl:col-span-1 space-y-6 mt-2 xl:mt-0 relative order-3 lg:order-none xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:space-y-0 xl:gap-2 max-md:flex max-md:flex-col max-md:space-y-0 max-md:gap-6 ${
@@ -274,8 +274,8 @@ export const TactileSidebar = ({ phonePart }) => {
         )}
       </div>
 
-      {/* Tension Clock (Synced with GM, read-only for players): the pocket watch lying at
-          the foot of the rail. Alone on a phone's screen it lies larger. */}
+      {/* Tension Clock (Synced with GM, read-only for players): the hourglass standing at
+          the foot of the rail. Alone on a phone's screen it stands larger. */}
       <div data-desk="watch" className={`pt-6 pb-4 px-1 xl:pt-1 xl:pb-1 xl:shrink-0 flex justify-center items-center relative z-20 ${
         phonePart === 'watch' ? 'max-md:pt-10 max-md:pb-32' : ''} ${onPhone('watch')}`}>
         <div className={phonePart === 'watch' ? 'max-md:scale-150 max-md:origin-top' : undefined}>
