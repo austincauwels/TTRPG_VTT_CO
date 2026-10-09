@@ -115,9 +115,9 @@ CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5
 # Handwriting fonts a character may use as pen_font (REST join and WebSocket update_pen_font).
 _SAFE_FONT_NAMES = {
     "Caveat", "Satisfy", "Kalam", "Shadows Into Light", "Amatic SC", "Permanent Marker",
-    "Reenie Beenie", "Zeyada", "Sacramento", "Homemade Apple", "Alex Brush",
+    "Reenie Beanie", "Zeyada", "Sacramento", "Homemade Apple", "Alex Brush",
     "Cedarville Cursive", "La Belle Aurore", "Charm", "Dawning of a New Day",
-    "Gaegu", "Grape Nuts", "Moondance", "Long Cang", "Indie Flower",
+    "Gaegu", "Grape Nuts", "Moon Dance", "Long Cang", "Indie Flower",
     "Patrick Hand", "Rock Salt", "Gochi Hand",
 }
 _ALLOWED_CAMPAIGN_CODE_RE = _re.compile(r"^[a-zA-Z0-9\-_]{3,32}$")

@@ -15,10 +15,10 @@ const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
 
 const PEN_FONTS = [
-  'Caveat', 'Reenie Beenie', 'Kalam', 'Indie Flower', 'Patrick Hand',
+  'Caveat', 'Reenie Beanie', 'Kalam', 'Indie Flower', 'Patrick Hand',
   'Shadows Into Light', 'Zeyada', 'Sacramento', 'Homemade Apple', 'Alex Brush',
   'Cedarville Cursive', 'La Belle Aurore', 'Charm', 'Dawning of a New Day',
-  'Gaegu', 'Grape Nuts', 'Moondance', 'Long Cang', 'Rock Salt', 'Gochi Hand',
+  'Gaegu', 'Grape Nuts', 'Moon Dance', 'Long Cang', 'Rock Salt', 'Gochi Hand',
 ];
 const ENTRIES_PER_SIDE = 3;
 
