@@ -64,6 +64,9 @@ function RelationshipCard({ inv, myId, relationships, index }) {
   const myRel = relationships.find(r => r.from_character_id === myId && r.to_character_id === inv.id);
   const theirRel = relationships.find(r => r.from_character_id === inv.id && r.to_character_id === myId);
   const hasAny = myRel || theirRel;
+  // Settled once either side is accepted: a relationship proposed to you and accepted read
+  // as pending on its front until you proposed one back (playtest, 2026-10-09)
+  const settled = myRel?.status === 'accepted' ? myRel : theirRel?.status === 'accepted' ? theirRel : null;
   // The card turns over on this screen, with the paper sound (owner's round 3 item 21). It
   // turns flat, as the Lightkeeper's report cards do: in 3D, WebKit (Safari) showed each
   // card's back mirrored over its front at rest (iPad pass, 2026-10-05).
@@ -105,8 +108,8 @@ function RelationshipCard({ inv, myId, relationships, index }) {
               </div>
               {/* Settled: the relationship in their ink. Proposed: its name in pencil beside
                   the empty outline of the stamp it is waiting for. None: a blank rule. */}
-              {myRel?.status === 'accepted' ? (
-                <p className="font-serif text-sm italic mt-1 pr-6" style={{ color: inkColor }}>{myRel.rel_type}</p>
+              {settled ? (
+                <p className="font-serif text-sm italic mt-1 pr-6" style={{ color: inkColor }}>{settled.rel_type}</p>
               ) : hasAny ? (
                 <p className="flex items-center gap-2 font-serif text-sm italic text-sepia mt-1 pr-6">
                   <span className="truncate">{(myRel || theirRel)?.rel_type}</span>
