@@ -43,6 +43,13 @@ export const TimerBell = () => {
       && circle.timer_remaining_ms > 0 && circle.timer_remaining_ms < duration) say('Timer paused.');
   }, [circle]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A timer that is hidden, cleared or switched off has nothing to say: the last words
+  // ("Time's up.") would otherwise stay in the region until the next timer starts
+  useEffect(() => {
+    if (arrivedAt(circle) === undefined) return;
+    if (!circle?.timer_visible || !(Number(circle?.timer_duration_ms) > 0)) setSaid('');
+  }, [circle]);
+
   // Time's up is heard only on a desk that saw it count down to 0:00, and the chime only
   // where this desk's own count got there, on time. A hidden timer is not being watched,
   // so one that ran out while hidden says nothing when it is shown again, and a desk that

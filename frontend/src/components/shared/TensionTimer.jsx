@@ -222,7 +222,7 @@ export const TensionTimer = ({ gm = false }) => {
               </button>
             )}
             <button type="button" onClick={press('reset', 'start')} disabled={!socketReady || editing}
-              aria-label={`Reset the timer to ${formatTime(duration)}`} title="Reset" className={button}>
+              aria-label={duration > 0 ? `Reset the timer to ${formatTime(duration)}` : 'Reset the timer'} title="Reset" className={button}>
               <TurnBackMark />
             </button>
             <button type="button" onClick={press('clear', 'minutes')} disabled={!socketReady || state === 'none'}
