@@ -70,16 +70,30 @@ def test_init_db_replaces_published_passwords(client):
     assert vtt_db.retire_published_passwords() == []
 
 
-def test_fresh_postgres_sequences_collide_with_seeded_ids(client):
-    """QUIRK: init_db inserts user 1 and circle 1 with explicit ids, which leaves the
-    PostgreSQL sequences untouched. The first register and the first auto-created
-    campaign circle on a new database get id 1 again and fail with a 500. The failed
-    insert consumes the value, so the second attempt works."""
+def test_fresh_postgres_sequences_follow_the_seeded_ids(client):
+    """Fixed (playtest, seed-id-sequence-collision; was a QUIRK): init_db inserts user 1
+    and circle 1 with explicit ids, which left the PostgreSQL sequences untouched, so the
+    first register and the first auto-created campaign circle on a new database got id 1
+    again and failed with a 500. init_db now moves each sequence past the seeded rows, and
+    both work the first time."""
     seqs = support.FRESH_DB["sequences_at_import"]
     if seqs:  # PostgreSQL only
-        assert seqs == {"users": (1, False), "circles": (1, False)}
-        assert support.FRESH_DB["first_register_status"] == 500
-        assert support.FRESH_DB["first_circle_status"] == 500
+        assert seqs == {"users": (1, True), "circles": (1, True)}
+        assert support.FRESH_DB["first_register_status"] == 201
+        assert support.FRESH_DB["first_circle_status"] == 200
+
+
+def test_advancing_the_sequences_never_moves_them_back(client):
+    """Run again on a database in use, the sequences only go forward: the next id is
+    still past every row."""
+    from vtt import db as vtt_db
+    if main.db_engine.dialect.name != "postgresql":
+        return
+    vtt_db.advance_seeded_sequences()
+    r = client.post("/api/auth/register", json={
+        "username": f"after_{support.uid()}", "email": f"after_{support.uid()}@example.test",
+        "password": "probe-password"})
+    assert r.status_code == 201, r.text
 
 
 def test_init_db_is_idempotent(client):
@@ -104,7 +118,7 @@ def test_migrated_columns_exist(client):
             "circle_ability", "insignia", "backstory_answers", "is_finalized", "illumination",
             "tension_clock", "tension_label", "resources_editable", "reports_open",
             "campaign_id", "timer_duration_ms", "timer_remaining_ms", "timer_ends_at", "timer_running",
-            "timer_visible"} <= cols["circles"]
+            "timer_visible", "dispatch_text"} <= cols["circles"]
     assert {"gm_user_id", "roster_finalized", "is_retired", "deleted_at", "released_characters"} <= cols["campaigns"]
     assert {"role", "specialty", "personal_circle_answer", "nerve_resistance_spent",
             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
@@ -289,6 +303,7 @@ MIGRATED_COLUMNS = {
     ("circles", "timer_ends_at"): ("bigint", None),
     ("circles", "timer_running"): ("boolean", "false"),
     ("circles", "timer_visible"): ("boolean", "false"),
+    ("circles", "dispatch_text"): ("text", "''::text"),
     ("campaigns", "gm_user_id"): ("integer", None),
     ("campaigns", "roster_finalized"): ("boolean", "false"),
     ("campaigns", "deleted_at"): ("timestamp without time zone", None),

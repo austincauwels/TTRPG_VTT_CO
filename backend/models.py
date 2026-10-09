@@ -159,9 +159,12 @@ class Circle(Base):
     timer_running = Column(Boolean, default=False)
     timer_visible = Column(Boolean, default=False)
 
-    # Scene manager fields broadcast to players
+    # Scene manager fields broadcast to players: the dispatch's location and atmosphere
+    # (the template's blanks), or the Lightkeeper's own words (dispatch_text); each send
+    # writes all three
     location = Column(String, default="")
     atmosphere = Column(String, default="")
+    dispatch_text = Column(String, default="")
 
     # Circle creation fields
     chapter_house_location = Column(String, nullable=True)

@@ -3,12 +3,12 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { TensionClock } from '../gm/SceneManager';
 import { tiltFor } from '../shared/handPlaced';
-import { useTypedText } from '../shared/useTypedText';
-import { SerialNo, BlankEntry, serialFor } from '../shared/PrintMarks';
+import { BlankEntry } from '../shared/PrintMarks';
 import { TurnOverMark, PushPin } from '../shared/Decorations';
 import { playPaperSound } from '../../game/rollSounds';
 import { livingMembers } from '../../game/roster';
 import { useFlatTurn } from '../shared/useFlatTurn';
+import { DispatchNote } from './DispatchNote';
 
 // The investigator's photograph, small, pinned to the corner of their card. Only when
 // there is one: a card without a photograph shows no empty frame.
@@ -64,6 +64,9 @@ function RelationshipCard({ inv, myId, relationships, index }) {
   const myRel = relationships.find(r => r.from_character_id === myId && r.to_character_id === inv.id);
   const theirRel = relationships.find(r => r.from_character_id === inv.id && r.to_character_id === myId);
   const hasAny = myRel || theirRel;
+  // Settled once either side is accepted: a relationship proposed to you and accepted read
+  // as pending on its front until you proposed one back (playtest, 2026-10-09)
+  const settled = myRel?.status === 'accepted' ? myRel : theirRel?.status === 'accepted' ? theirRel : null;
   // The card turns over on this screen, with the paper sound (owner's round 3 item 21). It
   // turns flat, as the Lightkeeper's report cards do: in 3D, WebKit (Safari) showed each
   // card's back mirrored over its front at rest (iPad pass, 2026-10-05).
@@ -105,8 +108,8 @@ function RelationshipCard({ inv, myId, relationships, index }) {
               </div>
               {/* Settled: the relationship in their ink. Proposed: its name in pencil beside
                   the empty outline of the stamp it is waiting for. None: a blank rule. */}
-              {myRel?.status === 'accepted' ? (
-                <p className="font-serif text-sm italic mt-1 pr-6" style={{ color: inkColor }}>{myRel.rel_type}</p>
+              {settled ? (
+                <p className="font-serif text-sm italic mt-1 pr-6" style={{ color: inkColor }}>{settled.rel_type}</p>
               ) : hasAny ? (
                 <p className="flex items-center gap-2 font-serif text-sm italic text-sepia mt-1 pr-6">
                   <span className="truncate">{(myRel || theirRel)?.rel_type}</span>
@@ -169,9 +172,6 @@ export const TactileSidebar = ({ phonePart }) => {
     fetchRoster: s.fetchRoster,
   })));
   const relationships = circleCreation?.relationships || [];
-  const location = circle?.location || '';
-  const atmosphere = circle?.atmosphere || '';
-  const typed = useTypedText([location, atmosphere]);
   const myPhoto = character?.profile_pic || character?.profilePic || null;
 
   useEffect(() => {
@@ -189,36 +189,8 @@ export const TactileSidebar = ({ phonePart }) => {
     <div className={`lg:col-span-3 xl:col-span-1 space-y-6 mt-2 xl:mt-0 relative order-3 lg:order-none xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:space-y-0 xl:gap-2 max-md:flex max-md:flex-col max-md:space-y-0 max-md:gap-6 ${
       anyOnPhone ? '' : 'max-md:hidden'}`}>
 
-      {/* The GM's dispatch, a library index card pinned to the desk a little crooked, its
-          bottom edge torn. A new dispatch types in while the desk is open. */}
-      <div className={`hand-placed lg:hover:rotate-0 transition-transform duration-200 relative xl:shrink-0 max-md:mt-3 ${onPhone('dispatch')}`}
-           style={{ '--tilt': '-1.2deg', filter: 'drop-shadow(5px 8px 9px rgba(0,0,0,0.6))' }}>
-        <PushPin size={22} className="absolute -top-2 left-1/2 -translate-x-1/2 z-20" />
-        <div className="deckle-bottom bg-cream text-ink border border-parchment-deep p-6 pb-7 xl:px-5 xl:pt-4 xl:pb-6 relative"
-             style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.14) 24px)', backgroundSize: '100% 24px', lineHeight: '24px' }}>
-          <div className="absolute top-0 bottom-0 left-6 xl:left-5 w-[1.5px] bg-oxblood/20 pointer-events-none" />
-          <div className="pl-6 pt-1 relative z-10">
-            <div className="flex items-baseline justify-between gap-2 mb-2">
-              <span className="block font-sans text-xs uppercase tracking-widest text-sepia font-black leading-none">From the Lightkeeper</span>
-              {location && <SerialNo value={serialFor(`${location}|${atmosphere}`, 4)} />}
-            </div>
-            <div className="space-y-2 font-bold font-serif">
-              <p className="text-base font-black border-b border-ink/10 pb-1 leading-tight">
-                <span className="font-sans text-xs uppercase font-black text-sepia mr-1">Location:</span>
-                {location
-                  ? <><span className="sr-only">{location}</span><span aria-hidden="true">{typed.parts[0]}{typed.typing && typed.parts[0].length < location.length && <span className="type-caret" />}</span></>
-                  : <span className="sr-only">none</span>}
-              </p>
-              <p className="text-sm leading-tight">
-                <span className="font-sans text-xs uppercase font-black text-sepia mr-1">Conditions:</span>
-                {atmosphere
-                  ? <><span className="sr-only">{atmosphere}</span><span aria-hidden="true">{typed.parts[1]}{typed.typing && typed.parts[0].length >= location.length && <span className="type-caret" />}</span></>
-                  : <span className="sr-only">none</span>}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* The Lightkeeper's dispatch, pinned to the desk (DispatchNote.jsx) */}
+      <DispatchNote circle={circle} className={`xl:shrink-0 max-md:mt-3 ${onPhone('dispatch')}`} />
 
       {/* Active Circle Registry: the members' cards pinned to the desk, each as tall as
           what is written on it. On a wide rail they lie two across. */}

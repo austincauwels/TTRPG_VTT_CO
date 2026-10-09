@@ -222,7 +222,9 @@ WS_CASES = {
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update"]),
     "gm_toggle_reports": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update"]),
+    # A report needs the Lightkeeper's reports open (handlers/circle.py)
     "submit_assignment_report": dict(
+        after_connect=lambda c, ws: support.update(Circle, c.circle_id, reports_open=True),
         payload=lambda c: {"circle_id": c.circle_id, "character_id": c.char_id, "responses": {"q": "a"}},
         expect=["assignment_report_submitted"]),
     # The GM's socket gets each changed member's sheet (member_update)

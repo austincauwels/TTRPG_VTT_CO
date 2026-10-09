@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useFlatTurn } from '../shared/useFlatTurn';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
@@ -30,10 +30,75 @@ const ClearButton = ({ label, armedHint, onConfirm, className = '' }) => (
     )}
   />
 );
+
 import { TurnOverMark } from '../shared/Decorations';
 import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
+
+// A line of the charter the Lightkeeper may change: its value with an Edit button, which
+// turns it into a field holding the value. Enter or leaving the field saves, Escape puts
+// the value back, and an empty field is never saved. With no value yet the field is open.
+// It replaced "Clear name", which erased the name for everyone before a new one could be
+// typed (owner, 2026-10-09: "instead of clear name for circle make it say edit").
+const EditableLine = ({ value, label, onSave, multiline = false, displayClassName, inputClassName }) => {
+  const [editing, setEditing] = useState(false);
+  const fieldRef = useRef(null);
+  const cancelled = useRef(false);
+  const open = editing || !value;
+
+  // Opened with Edit: the caret at the end of the value
+  useEffect(() => {
+    const el = fieldRef.current;
+    if (!editing || !el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [editing]);
+
+  const finish = (el) => {
+    const next = el.value.trim();
+    if (cancelled.current) el.value = value || '';
+    else if (next && next !== value) onSave(next);
+    cancelled.current = false;
+    setEditing(false);
+  };
+
+  if (!open) {
+    return (
+      <div className="flex flex-col items-start gap-1.5 mt-0.5">
+        <div className={displayClassName}>{value}</div>
+        <button type="button" onClick={() => setEditing(true)} aria-label={`Edit ${label.toLowerCase()}`}
+          className="shrink-0 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2 py-1 font-sans font-bold text-xs uppercase tracking-wider border rounded-sm transition-colors text-sepia hover:text-oxblood border-ink/20 hover:border-oxblood/50">
+          Edit
+        </button>
+      </div>
+    );
+  }
+  const Field = multiline ? 'textarea' : 'input';
+  return (
+    <Field
+      ref={fieldRef}
+      {...(multiline ? { rows: 2 } : { type: 'text' })}
+      aria-label={label}
+      placeholder={label}
+      defaultValue={value || ''}
+      onBlur={e => finish(e.target)}
+      onKeyDown={e => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          cancelled.current = true;
+          e.target.blur();
+        } else if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          e.target.blur();
+        }
+      }}
+      className={inputClassName}
+    />
+  );
+};
+
 
 const CIRCLE_QUESTIONS = [
   { key: 'q1', text: 'You have all known one another for a long time, but your circle was recently formed. Why were you brought together, and how do you each feel about it?' },
@@ -238,51 +303,26 @@ export const CirclePage = () => {
               <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
                 Circle name
               </span>
-              {circle?.name ? (
-                <div className="flex flex-col items-start gap-1.5 mt-0.5">
-                  <div className="text-xl font-serif font-black text-ink uppercase leading-tight max-w-full [overflow-wrap:anywhere]">
-                    {circle.name}
-                  </div>
-                  <ClearButton
-                    label="Clear name"
-                    armedHint="Press again to erase the circle's name for everyone. You can type a new one after."
-                    onConfirm={() => updateCircle({ circle_id: circId, name: '' })}
-                  />
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  placeholder="Circle name"
-                  defaultValue=""
-                  onBlur={e => e.target.value.trim() && updateCircle({ circle_id: circId, name: e.target.value.trim() })}
-                  className="mt-1 w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-2xl px-3 py-1 focus:border-oxblood uppercase"
-                />
-              )}
+              <EditableLine
+                value={circle?.name || ''}
+                label="Circle name"
+                onSave={name => updateCircle({ circle_id: circId, name })}
+                displayClassName="text-xl font-serif font-black text-ink uppercase leading-tight max-w-full [overflow-wrap:anywhere]"
+                inputClassName="mt-1 w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-2xl px-3 py-1 focus:border-oxblood uppercase"
+              />
             </div>
             <div>
               <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
                 Chapter house
               </span>
-              {circle?.chapter_house_location ? (
-                <div className="flex flex-col items-start gap-1.5 mt-0.5">
-                  <div className="font-serif text-sm text-oxblood italic leading-snug max-w-full">
-                    {circle.chapter_house_location}
-                  </div>
-                  <ClearButton
-                    label="Clear"
-                    armedHint="Press again to erase the chapter house for everyone. You can type a new one after."
-                    onConfirm={() => updateCircle({ circle_id: circId, chapter_house_location: '' })}
-                  />
-                </div>
-              ) : (
-                <textarea
-                  placeholder="Chapter house"
-                  defaultValue=""
-                  onBlur={e => e.target.value.trim() && updateCircle({ circle_id: circId, chapter_house_location: e.target.value.trim() })}
-                  rows={2}
-                  className="mt-0.5 w-full bg-cream border border-dashed border-parchment-deep text-oxblood font-serif text-sm px-3 py-1.5 focus:border-oxblood resize-none italic"
-                />
-              )}
+              <EditableLine
+                multiline
+                value={circle?.chapter_house_location || ''}
+                label="Chapter house"
+                onSave={place => updateCircle({ circle_id: circId, chapter_house_location: place })}
+                displayClassName="font-serif text-sm text-oxblood italic leading-snug max-w-full [overflow-wrap:anywhere] whitespace-pre-line"
+                inputClassName="mt-0.5 w-full bg-cream border border-dashed border-parchment-deep text-oxblood font-serif text-sm px-3 py-1.5 focus:border-oxblood resize-none italic"
+              />
             </div>
           </div>
 

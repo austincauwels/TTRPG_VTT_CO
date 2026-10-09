@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import useGameStore from '../../store/gameStore';
+import React, { useRef, useState } from 'react';
+import useGameStore, { assignmentOf } from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
 import { useDialog } from '../shared/useDialog';
@@ -406,6 +406,9 @@ export function AdvancementModal() {
   );
 }
 
+// A player's resource spends, at most one in this long (handleResourceClick)
+const SPEND_GAP_MS = 800;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const CircleView = () => {
@@ -413,15 +416,26 @@ export const CircleView = () => {
     circle, character, updateCircle, spendCircleResource, accessSession,
     submitAssignmentReport, circleAdvancement, dismissCircleAdvancement, applyAdvancement,
     circleCreation, respondToRelationship, proposeRelationship,
+    reportDrafts, setReportDraft, reportSending, reportError,
   } = useGameStore();
 
   const isGM = accessSession?.role === 'GM';
 
-  // Per-question checkboxes for illumination evaluation
-  const [evalQ, setEvalQ] = useState([false, false, false]);
-  // Per-key checkboxes: { 0: bool, 1: bool, 2: bool }
-  const [keyChecks, setKeyChecks] = useState({});
-  const [submitted, setSubmitted] = useState(false);
+  // The assignment report. Filed, it reads back what was sent (the server keeps it and
+  // refuses a second one unless it is amended), and the ticks not sent yet are a draft in
+  // the store, so leaving the tab or reloading keeps them (playtest: report-forgets-sent,
+  // key-ticks-lost)
+  const myReport = circleCreation?.reports?.[character?.id] ?? circleCreation?.reports?.[String(character?.id)] ?? null;
+  const [amending, setAmending] = useState(false);
+  const storedDraft = reportDrafts?.[character?.id];
+  const draft = storedDraft && storedDraft.assignment === assignmentOf(circle) ? storedDraft : null;
+  const filedResponses = myReport?.responses || {};
+  const showFiled = !!myReport && !amending;
+  // Per-question checkboxes for illumination evaluation, and per-key: { 0: bool, ... }
+  const evalQ = showFiled ? [0, 1, 2].map(i => !!filedResponses[`q${i}`]) : (draft?.evalQ || [false, false, false]);
+  const keyChecks = showFiled ? (filedResponses.keys_detail || {}) : (draft?.keyChecks || {});
+  const setEvalQ = (update) => setReportDraft(character?.id, { evalQ: update(evalQ), keyChecks });
+  const setKeyChecks = (update) => setReportDraft(character?.id, { evalQ, keyChecks: update(keyChecks) });
 
   // Relationship drafts for the shared relationship form
   const relForms = useRelationshipForms();
@@ -453,7 +467,12 @@ export const CircleView = () => {
       ? 'some'
       : 'none';
 
-  function handleResourceClick(key, pipIndex, avail) {
+  // One spend per gesture: a double-click, two clicks close together or Enter pressed
+  // twice spent twice, and used up both of the assignment's spends (playtest,
+  // resource-double-click-double-spend). The server answers fast enough that waiting for
+  // its answer would not catch the second click, so a spend is taken once per SPEND_GAP_MS.
+  const lastSpendAt = useRef(0);
+  function handleResourceClick(key, pipIndex, avail, event) {
     const wouldSpend = (pipIndex + 1) <= avail;
     if (wouldSpend) {
       if (isGM) {
@@ -461,6 +480,10 @@ export const CircleView = () => {
       } else {
         if (!circle?.resources_editable) return;
         if ((character?.resources_spent_assignment || 0) >= 2) return;
+        if (event?.detail > 1) return;
+        const now = Date.now();
+        if (now - lastSpendAt.current < SPEND_GAP_MS) return;
+        lastSpendAt.current = now;
         spendCircleResource(key);
       }
     } else {
@@ -470,7 +493,7 @@ export const CircleView = () => {
   }
 
   function handleSubmitReport() {
-    if (!circle?.reports_open || submitted) return;
+    if (!circle?.reports_open || showFiled || reportSending) return;
     const responses = {
       q0: evalQ[0],
       q1: evalQ[1],
@@ -478,11 +501,14 @@ export const CircleView = () => {
       keys_fulfilled: keysFulfilled,
       keys_detail: keyChecks,
     };
-    submitAssignmentReport(circId, character?.id, responses);
-    setSubmitted(true);
-    // Reset local state
-    setEvalQ([false, false, false]);
-    setKeyChecks({});
+    // The ticks stay on the form until the filed report comes back in their place
+    if (submitAssignmentReport(circId, character?.id, responses, { replace: !!myReport })) setAmending(false);
+  }
+
+  // Amend: the filed ticks become the draft, to change and send again in its place
+  function startAmending() {
+    setReportDraft(character?.id, { evalQ, keyChecks });
+    setAmending(true);
   }
 
   return (
@@ -595,13 +621,13 @@ export const CircleView = () => {
         {/* 3 Illumination Questions — checkboxes */}
         <div className="space-y-2 mb-3">
           {ILLUM_QUESTIONS.map((q, i) => (
-            <label key={i} className="flex items-start gap-2.5 cursor-pointer group">
+            <label key={i} className={`flex items-start gap-2.5 group [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:items-center ${showFiled ? 'cursor-default' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
                 checked={evalQ[i]}
                 onChange={() => setEvalQ(prev => { const n = [...prev]; n[i] = !n[i]; return n; })}
-                className="mt-0.5 w-4 h-4 accent-oxblood cursor-pointer shrink-0"
-                disabled={submitted}
+                className={`mt-0.5 w-4 h-4 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 accent-oxblood shrink-0 ${showFiled ? 'cursor-default' : 'cursor-pointer'}`}
+                disabled={showFiled}
               />
               <p className="font-serif text-sm text-ink/80 leading-snug italic group-hover:text-ink transition-colors">
                 "{q}"
@@ -618,13 +644,13 @@ export const CircleView = () => {
             </span>
             <div className="space-y-1">
               {myKeys.map((k, i) => (
-                <label key={i} className="flex items-center gap-2.5 cursor-pointer group">
+                <label key={i} className={`flex items-center gap-2.5 group [@media(pointer:coarse)]:min-h-[44px] ${showFiled ? 'cursor-default' : 'cursor-pointer'}`}>
                   <input
                     type="checkbox"
                     checked={!!keyChecks[i]}
                     onChange={() => setKeyChecks(prev => ({ ...prev, [i]: !prev[i] }))}
-                    className="w-3.5 h-3.5 accent-oxblood cursor-pointer"
-                    disabled={submitted}
+                    className={`w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 accent-oxblood shrink-0 ${showFiled ? 'cursor-default' : 'cursor-pointer'}`}
+                    disabled={showFiled}
                   />
                   <span className="font-serif text-sm text-ink/80 group-hover:text-ink transition-colors">{k}</span>
                 </label>
@@ -633,30 +659,49 @@ export const CircleView = () => {
           </div>
         )}
 
-        {/* Submit Report Button */}
-        <div className="flex items-center justify-between pt-2.5 border-t border-ink/10">
-          {submitted ? (
-            <span role="status" className="flex items-center gap-3">
-              <span className="sr-only">Report sent to the Lightkeeper</span>
-              <DateStamp label="Report sent" date={stampDate(new Date())} tone="green" tilt={-2} />
-            </span>
+        {/* Filed: the stamp, with Amend while reports are open. Not filed: Send report. */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-ink/10">
+          {showFiled ? (
+            <>
+              <span role="status" className="flex items-center gap-3">
+                <span className="sr-only">Report sent to the Lightkeeper. The boxes show what you filed.</span>
+                <DateStamp label="Report sent" date={stampDate(myReport.submitted_at)} tone="green" tilt={-2} />
+              </span>
+              {circle?.reports_open && (
+                <button type="button" onClick={startAmending}
+                  className="pen-host min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-1 font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink">
+                  <span className="pen-underline">Amend</span>
+                </button>
+              )}
+            </>
           ) : (
             <>
               <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider">
-                {circle?.reports_open ? 'Reports open' : 'Reports closed'}
+                {circle?.reports_open ? (myReport ? 'Amending your report' : 'Reports open') : 'Reports closed'}
               </span>
-              <button
-                onClick={handleSubmitReport}
-                disabled={!circle?.reports_open}
-                className={`px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-all ${
-                  circle?.reports_open
-                    ? 'bg-ink text-cream border-ink hover:bg-oxblood hover:border-oxblood'
-                    : 'bg-transparent text-sepia border-ink/20 cursor-not-allowed'
-                }`}
-              >
-                Send report
-              </button>
+              <span className="flex items-center gap-3">
+                {myReport && (
+                  <button type="button" onClick={() => setAmending(false)}
+                    className="pen-host min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-1 font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink">
+                    <span className="pen-underline">Cancel</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleSubmitReport}
+                  disabled={!circle?.reports_open || reportSending}
+                  className={`px-4 py-2 [@media(pointer:coarse)]:min-h-[44px] font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-all ${
+                    circle?.reports_open && !reportSending
+                      ? 'bg-ink text-cream border-ink hover:bg-oxblood hover:border-oxblood'
+                      : 'bg-transparent text-sepia border-ink/20 cursor-not-allowed'
+                  }`}
+                >
+                  {reportSending ? 'Sending…' : myReport ? 'Send amended report' : 'Send report'}
+                </button>
+              </span>
             </>
+          )}
+          {reportError && (
+            <p role="alert" className="basis-full font-serif text-sm italic text-oxblood leading-snug">{reportError}</p>
           )}
         </div>
       </CirclePaper>
@@ -720,7 +765,7 @@ export const CircleView = () => {
                       return (
                         <div
                           key={i}
-                          onClick={clickable ? () => handleResourceClick(key, i, avail) : undefined}
+                          onClick={clickable ? (e) => handleResourceClick(key, i, avail, e) : undefined}
                           role={clickable ? 'button' : undefined}
                           tabIndex={clickable ? 0 : undefined}
                           onKeyDown={clickable ? onActivateKey(() => handleResourceClick(key, i, avail)) : undefined}

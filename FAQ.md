@@ -15,7 +15,7 @@ All rolls are resolved server-side in `engine.py: roll_dice()` using Python's `s
 | 0 | Rolls 2d6, takes the **lower** value |
 | 1–6 | Rolls Nd6, takes the **highest** value |
 | Gilded, pool 1 | Rolls 1 gilded die; **auto-refreshes** 1 drive pip from the matching pool |
-| Gilded, pool 2+ | Rolls normally but pauses for a **gilded choice** — player picks between the gilded die result and the highest regular die result before the outcome is resolved |
+| Gilded, pool 2+ | Rolls normally but pauses for a **gilded choice** — player picks between the gilded die result and the highest regular die result before the outcome is resolved. The server holds the dice until a die is kept: a desk that reloads, or the player on another device, is shown the same choice again |
 
 **Outcomes** (based on highest or chosen value):
 - **Critical Success** — two or more dice show 6

@@ -3,7 +3,6 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { driveKeyFor } from '../../game/actions';
 import { ActivityLog } from './dice/ActivityLog';
-import { InviteRejoinSection } from './dice/InviteRejoinSection';
 import { GmDiceControls } from './dice/GmDiceControls';
 import { DiceTray } from './dice/DiceTray';
 import { RollModifications } from './dice/RollModifications';
@@ -185,8 +184,6 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
 
       {/* PASS NOTES (memo pad) */}
       <PassNotes playerList={playerList} circleCreation={circleCreation} showGmControls={showGmControls} sendChat={sendChat} className={`${onPhone('notes')} ${phonePart === 'notes' ? 'max-md:order-first' : ''}`} />
-
-      {showGmControls && <InviteRejoinSection />}
 
       {/* Phones: the latest roll pinned to the bottom of the screen, opening into the tray */}
       {!showGmControls && (

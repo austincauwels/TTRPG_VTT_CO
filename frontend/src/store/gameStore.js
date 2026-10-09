@@ -18,19 +18,29 @@ let tensionSeen = null;
 
 // A roll is never left hanging. One that cannot be sent waits for a connection that is
 // on its way back (sent when the new socket opens) or is refused; one that was sent
-// waits ROLL_REPLY_MS for its result. Either way the tray goes back to idle with
-// rollError when nothing comes. No answer on an open socket means the socket is dead
-// (a phone that slept keeps it "open" for a while), so the desk opens a new one.
+// waits ROLL_REPLY_MS for its result. No answer on an open socket means the socket is
+// dead (a phone that slept keeps it "open" for a while), so the desk opens a new one.
+// A roll that was sent may have reached the table, so it is never called "not thrown":
+// it carries a roll_id, and goes again with the same id on the new socket, where the
+// server answers a roll it has already made with that roll's result (playtest,
+// offline-roll-double: rolling again as told rolled twice). After ROLL_WAIT_MS with no
+// answer the tray gives up and says the roll may have counted.
 const ROLL_REPLY_MS = 6000;
 const ROLL_QUEUE_MS = 10000;
+const ROLL_WAIT_MS = 30000;
 const ROLL_NOT_SENT = 'Not connected to the table, so no dice were thrown. Roll again once the desk is back.';
-const ROLL_NO_REPLY = 'The dice did not come back from the table. Reconnecting; roll again in a moment.';
+const ROLL_LOST = 'The table has not answered. The roll may have counted, so check the log before you roll again.';
 const ROLL_DROPPED = 'The connection dropped before the dice came back. Roll again once the desk is back.';
 const ROLL_FAILED = 'The table could not make that roll. Roll again.';
 const ROLL_REFUSED = 'The table refused that roll.';
 const KEEP_NOT_SENT = 'Not connected to the table, so the kept die was not sent. Keep it again once the desk is back.';
 let rollTimer = null;
 let queuedRoll = null;   // the roll frame waiting for the socket to open
+let sentRoll = null;     // the roll frame sent at least once, waiting for its result
+let sentRollGiveUpAt = 0; // when the tray stops waiting for sentRoll
+let answeredRollId = null; // the roll_id of the last result shown, so a late copy is ignored
+const newRollId = () => globalThis.crypto?.randomUUID?.()
+  ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 let rollSeq = 0;         // the id each roll_result's roll is given on this desk
 let offerSeq = 0;        // the id each ability offer is given, so each gets its own countdown
 let scarFormSeq = 0;     // the id each scar form is opened with, so a new one starts blank
@@ -54,12 +64,39 @@ const nextOffer = (state) => ({ abilityMarkOffer: state.abilityMarkQueue[0] || n
 
 const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
 
+// The number of the circle's assignment, which End Assignment moves on (backend
+// vtt/assignment.py); 1 before the first
+export const assignmentOf = (circle) => {
+  const n = circle?.backstory_answers?.assignment;
+  return Number.isInteger(n) && n > 0 ? n : 1;
+};
+
+// A report the table has not answered within this long is not sent, as far as the form knows
+const REPORT_REPLY_MS = 8000;
+const REPORT_NO_REPLY = 'The table did not answer. If the stamp does not show, send the report again.';
+
 // The roll did not go through: the tray goes back to idle and says so
 const failRoll = (set, message) => {
   clearRollTimer();
   queuedRoll = null;
+  sentRoll = null;
   set({ isRolling: false, rollWaiting: false, rollError: message });
 };
+
+// A sent roll with no answer yet waits for the next socket, which sends it again with
+// its roll_id, until ROLL_WAIT_MS after it first went
+const waitToResend = (set, frame) => {
+  clearRollTimer();
+  queuedRoll = frame;
+  set({ rollWaiting: true });
+  rollTimer = setTimeout(() => {
+    rollTimer = null;
+    if (queuedRoll === frame) failRoll(set, ROLL_LOST);
+  }, Math.max(0, sentRollGiveUpAt - Date.now()));
+};
+
+// A roll that left this desk and has no answer, when its socket closes or is replaced
+const sentRollUnanswered = (get) => !queuedRoll && !!sentRoll && get().isRolling;
 
 const sendRoll = (set, get, frame) => {
   const { socket } = get();
@@ -68,14 +105,20 @@ const sendRoll = (set, get, frame) => {
   try {
     socket.send(JSON.stringify(frame));
   } catch {
-    failRoll(set, ROLL_NOT_SENT);
+    // Not sent this time; a roll sent before may still have reached the table
+    failRoll(set, sentRoll === frame ? ROLL_LOST : ROLL_NOT_SENT);
     return;
+  }
+  if (sentRoll !== frame) {
+    sentRoll = frame;
+    sentRollGiveUpAt = Date.now() + ROLL_WAIT_MS;
   }
   set({ rollWaiting: false });
   rollTimer = setTimeout(() => {
     rollTimer = null;
-    if (!get().isRolling) return;
-    failRoll(set, ROLL_NO_REPLY);
+    if (!get().isRolling || sentRoll !== frame) return;
+    if (Date.now() >= sentRollGiveUpAt) { failRoll(set, ROLL_LOST); return; }
+    waitToResend(set, frame);
     get().reconnect();
   }, ROLL_REPLY_MS);
 };
@@ -220,6 +263,14 @@ const useGameStore = create(
       advancementDeferred: false, // the player chose "Later" on the advancement dialog
       advancementError: null,     // why the server refused an advancement pick
       gmSheetRefusal: null,       // { action, detail, at }: a mark or scar correction the server refused
+      circleRefusal: null,        // { detail, at }: a gm_update_circle the server refused (the dispatch says so)
+      // The assignment report form: the ticks not sent yet, by character id, with the
+      // assignment they belong to ({ assignment, evalQ, keyChecks }), kept across tabs and
+      // reloads (playtest, key-ticks-lost); whether a report is on its way; why the server
+      // refused the last one
+      reportDrafts: {},
+      reportSending: false,
+      reportError: null,
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
@@ -253,6 +304,9 @@ const useGameStore = create(
           scarModalData: null,
           scarError: null,
           scarSent: null,
+          reportDrafts: {},
+          reportSending: false,
+          reportError: null,
           character: null,
           characters: [],
           gmCampaigns: [],
@@ -297,6 +351,7 @@ const useGameStore = create(
         }
         clearRollTimer();
         queuedRoll = null;
+        sentRoll = null;
         set({ socket: null, socketGameId: null, connectionState: 'idle', isRolling: false, rollWaiting: false, rollError: null });
       },
 
@@ -322,12 +377,14 @@ const useGameStore = create(
         reconnectTimer = null;
         tensionSeen = null;
         if (keepLog) {
-          // The same desk again: a roll waiting to be sent goes out on the new socket; one
-          // already sent on the old socket cannot come back on this one
-          if (!queuedRoll && get().isRolling) failRoll(set, ROLL_DROPPED);
+          // The same desk again: a roll waiting to be sent goes out on the new socket, and
+          // so does one sent on the old socket with no answer, with the same roll_id
+          if (sentRollUnanswered(get)) waitToResend(set, sentRoll);
+          else if (!queuedRoll && get().isRolling) failRoll(set, ROLL_DROPPED);
         } else {
           clearRollTimer();
           queuedRoll = null;
+          sentRoll = null;
           set({ activityLog: [], lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null, memberSheets: {} });
         }
         const apiBase = import.meta.env.VITE_API_URL || '';
@@ -361,10 +418,11 @@ const useGameStore = create(
           if (get().socket !== socket) return;
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
           if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
-          // A roll sent on this socket gets no answer now; one waiting to be sent waits on
-          // only while the desk reconnects by itself
+          // A roll waiting to be sent, or sent with no answer, waits on only while the desk
+          // reconnects by itself; the sent one goes again with its roll_id
           const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
-          if (closesForGood && queuedRoll) failRoll(set, ROLL_NOT_SENT);
+          if (closesForGood && (queuedRoll || sentRollUnanswered(get))) failRoll(set, sentRoll ? ROLL_LOST : ROLL_NOT_SENT);
+          else if (sentRollUnanswered(get)) waitToResend(set, sentRoll);
           else if (!queuedRoll && get().isRolling) failRoll(set, ROLL_DROPPED);
           if (event.code === WS_CLOSE_REPLACED) { set({ connectionState: 'replaced' }); return; }
           if (event.code === 4403 || event.code === 4404) { set({ connectionState: 'refused' }); return; }
@@ -428,14 +486,28 @@ const useGameStore = create(
             const seen = tensionSeen;
             const value = next?.tension_clock ?? 0;
             tensionSeen = next ? { id: next.id, value } : null;
+            // End Assignment moves the circle to its next assignment: the reports this desk
+            // holds belonged to the one that ended (the server cleared them)
+            const prev = get().circle;
+            if (prev && next && prev.id === next.id && assignmentOf(prev) !== assignmentOf(next)) {
+              set(state => ({ circleCreation: { ...state.circleCreation, reports: {} }, reportError: null }));
+            }
             set({ circle: next });
             // The GM turned the tension up or down: the hourglass ticks at every desk, up to the new
             // level on a raise and once on a lowering (End Assignment's reset included)
             if (seen && next && seen.id === next.id && value !== seen.value) playTensionTick(value > seen.value ? value : 1);
           }
           else if (message.type === 'roll_result') {
-            // Each roll gets an id here (the server sends none), so what is keyed on the
-            // roll, such as the post-roll ability prompts, sees a new roll as new
+            // A roll sent twice (a resend after a stall) can be answered twice: the copy
+            // of a result this desk has shown is ignored, so the dice do not land again
+            const rollId = message.payload.roll_id;
+            if (rollId && rollId === answeredRollId) return;
+            if (rollId) answeredRollId = rollId;
+            sentRoll = null;
+            queuedRoll = null;
+            // Each roll gets an id here (the server's roll_id is per throw, not per
+            // result), so what is keyed on the roll, such as the post-roll ability
+            // prompts, sees a new roll as new
             const roll = message.payload.roll ? { ...message.payload.roll, id: ++rollSeq } : message.payload.roll;
             clearRollTimer();
             set({
@@ -515,6 +587,19 @@ const useGameStore = create(
             }
             if (message.payload.action === 'use_ability') {
               set({ abilityUseError: message.payload.detail || 'That ability was not used.' });
+            }
+            // A report refused (reports closed, or already filed): the form says why
+            if (message.payload.action === 'submit_assignment_report') {
+              set({ reportSending: false, reportError: message.payload.detail || 'The report was not filed.' });
+              // "Already filed": the filed one, which this desk may not have heard of
+              // (its answer was lost), loads so the form shows it
+              const campaignId = get().character?.campaign_id;
+              if (campaignId) get().fetchCircleCreationState(campaignId);
+            }
+            // A dispatch (or the hourglass's change) the server refused: nothing of it was
+            // saved, and the dispatch's receipt says why
+            if (message.payload.action === 'gm_update_circle') {
+              set({ circleRefusal: { detail: message.payload.detail || 'That change was not made.', at: Date.now() } });
             }
             // A correction on the Lightkeeper's trauma record: the sheet reloads and says why
             if (message.payload.action === 'gm_update_scars' || message.payload.action === 'gm_update_tension') {
@@ -692,17 +777,24 @@ const useGameStore = create(
             });
           }
           else if (message.type === 'assignment_report_submitted') {
-            // GM receives the report payload; store it in circleCreation.reports
-            const { character_id, character_name, responses } = message.payload;
-            set(state => ({
-              circleCreation: {
-                ...state.circleCreation,
-                reports: {
-                  ...(state.circleCreation.reports || {}),
-                  [character_id]: { character_name, responses },
+            // A report filed: the Lightkeeper's desk and its author's get it. The author's
+            // form shows what was filed, and its draft goes.
+            const { character_id, character_name, responses, submitted_at } = message.payload;
+            const own = character_id === get().character?.id;
+            set(state => {
+              const drafts = { ...state.reportDrafts };
+              if (own) delete drafts[character_id];
+              return {
+                circleCreation: {
+                  ...state.circleCreation,
+                  reports: {
+                    ...(state.circleCreation.reports || {}),
+                    [character_id]: { character_name, responses, submitted_at },
+                  },
                 },
-              },
-            }));
+                ...(own ? { reportDrafts: drafts, reportSending: false, reportError: null } : {}),
+              };
+            });
           }
           else if (message.type === 'circle_advanced') {
             if (!isForThisCampaign(message.payload)) return;
@@ -891,7 +983,8 @@ const useGameStore = create(
         if (pendingGildedChoice || isRolling) return;
         const frame = {
           type: 'roll',
-          payload: { ...extra, action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods }
+          payload: { ...extra, action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods,
+            roll_id: newRollId() }
         };
         set({ lastRoll: null, lastRollKept: null, isRolling: true, rollWaiting: false, rollError: null });
         if (socket && socket.readyState === WebSocket.OPEN) {
@@ -1126,15 +1219,29 @@ const useGameStore = create(
         }
       },
 
-      submitAssignmentReport: (circleId, characterId, responses) => {
-        const { socket } = get();
+      // replace: an amended report, which takes the place of the one filed (the server
+      // refuses a second report without it)
+      submitAssignmentReport: (circleId, characterId, responses, { replace = false } = {}) => {
+        const { socket, reportSending } = get();
+        if (reportSending) return false;
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'submit_assignment_report',
-            payload: { circle_id: circleId, character_id: characterId, responses },
+            payload: { circle_id: circleId, character_id: characterId, responses, ...(replace ? { replace: true } : {}) },
           }));
+          set({ reportSending: true, reportError: null });
+          // An answer that never comes (a dead socket) does not lock the form
+          setTimeout(() => { if (get().reportSending) set({ reportSending: false, reportError: REPORT_NO_REPLY }); }, REPORT_REPLY_MS);
+          return true;
         }
+        set({ reportError: 'Not connected to the table, so the report was not sent. Send it again once the desk is back.' });
+        return false;
       },
+
+      // The report form's ticks before sending, for this assignment
+      setReportDraft: (characterId, draft) => set(state => ({
+        reportDrafts: { ...state.reportDrafts, [characterId]: { ...draft, assignment: assignmentOf(state.circle) } },
+      })),
 
       gmAdvanceCircle: (circleId, circleAbility) => {
         const { socket, accessSession } = get();
@@ -1643,6 +1750,7 @@ const useGameStore = create(
         circle: state.circle,
         rejoinInvite: state.rejoinInvite,
         pendingScar: state.pendingScar,
+        reportDrafts: state.reportDrafts,
       }),
 
       // A session saved before login tokens existed has no token, and the server

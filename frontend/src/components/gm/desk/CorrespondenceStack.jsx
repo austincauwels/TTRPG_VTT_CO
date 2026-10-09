@@ -1,8 +1,10 @@
 import React from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { PlayerRosterCard } from '../PlayerRosterCard';
+import { InvitePlayer } from './InvitePlayer';
 
-// Join requests, one card at a time with a pager.
+// Join requests, one card at a time with a pager, and under them the quiet Invite player
+// for a player the Lightkeeper brings back (InvitePlayer.jsx).
 export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIndex, handleStamp, handleReject, campaignCode, error, busy = false }) => (
   <>
     <div className="flex items-center gap-3 mb-4">
@@ -58,5 +60,6 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
       );
     })()}
     {error && <p role="alert" className="font-serif text-base text-oxblood-lit text-center mt-3">{error}</p>}
+    <InvitePlayer className="mt-3" />
   </>
 );

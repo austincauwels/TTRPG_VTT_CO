@@ -1,4 +1,6 @@
 """WebSocket circle and GM actions."""
+from datetime import datetime
+
 import pytest
 
 import support
@@ -62,6 +64,57 @@ def test_gm_update_circle_defaults_to_circle_one_and_ignores_role(client):
         assert (p["id"], p["stitch"], p["guard_patrol"]) == (cid, 5, 2)
         assert p["name"] == "Unnamed Circle"
     assert support.fetch(Circle, other_cid).atmosphere in ("", None)
+
+
+
+DISPATCH_TOO_LONG = {"status": 422, "detail": "A dispatch is text of up to 2000 characters."}
+
+
+def test_gm_update_circle_sends_a_dispatch_in_her_own_words(client):
+    """The Lightkeeper may write the dispatch in their own words instead of filling the template's
+    blanks. Each send writes all three fields, so the players' card shows exactly what
+    was sent: the Lightkeeper's own words (line breaks kept) and the location given, or the
+    template's location and atmosphere with no words of their own. Up to 2000 characters."""
+    camp, (member,), cid = _campaign(client)
+    own = "Meet at the lighthouse at dusk.\n\nBring lamps, and tell no one.\n"
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("gm_update_circle", circle_id=cid, dispatch_text=own, location="Saltmarsh Light", atmosphere="")
+        [msg] = gm.sync()
+        assert msg["type"] == "circle_update"
+        p = msg["payload"]
+        assert (p["dispatch_text"], p["location"], p["atmosphere"]) == (own, "Saltmarsh Light", "")
+        assert wm.drain() == [msg]
+        # The template again: the own words go
+        gm.send("gm_update_circle", circle_id=cid, dispatch_text="", location="Docks", atmosphere="Fog")
+        p = gm.sync()[0]["payload"]
+        assert (p["dispatch_text"], p["location"], p["atmosphere"]) == ("", "Docks", "Fog")
+        # The longest that may be written
+        gm.send("gm_update_circle", circle_id=cid, dispatch_text="x" * 2000, location="", atmosphere="")
+        assert gm.sync()[0]["payload"]["dispatch_text"] == "x" * 2000
+    assert support.fetch(Circle, cid).dispatch_text == "x" * 2000
+
+
+@pytest.mark.parametrize("bad", ["x" * 2001, 7, None, ["Docks"], {"text": "Docks"}, True])
+def test_gm_update_circle_refuses_a_dispatch_that_is_not_text_within_the_limit(client, bad):
+    """A dispatch in the Lightkeeper's own words that is longer than 2000 characters, or is not text, is
+    refused with 422 and nothing in the message is saved, the location and the tension
+    with it. No desk hears of it."""
+    camp, (member,), cid = _campaign(client)
+    support.update(Circle, cid, location="Docks", atmosphere="Fog", dispatch_text="", tension_clock=1)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("gm_update_circle", circle_id=cid, dispatch_text=bad, location="Elsewhere", atmosphere="",
+                tension_clock=3)
+        assert gm.sync() == [_rejected("gm_update_circle", **DISPATCH_TOO_LONG)]
+        assert wm.drain() == []
+    c = support.fetch(Circle, cid)
+    assert (c.location, c.atmosphere, c.dispatch_text, c.tension_clock) == ("Docks", "Fog", "", 1)
+
+
+def test_a_new_circle_has_no_dispatch_of_her_own(client):
+    camp, (member,), cid = _campaign(client)
+    with support.ws_connect(client, member["id"]) as wm:
+        circle = wm.initial[1]["payload"]
+    assert (circle["id"], circle["dispatch_text"]) == (cid, "")
 
 
 def test_gm_messages_from_a_player_are_rejected(client):
@@ -311,6 +364,7 @@ def test_gm_update_scars_keeps_a_death_once_the_player_has_a_new_investigator(cl
         # Approving the new investigator retires the dead one: no longer on the roster
         assert support.approve(client, successor["id"]).status_code == 200
         gm.recv_type("investigator_approved")
+        gm.recv_type("circle_update")  # the circle's pool grew with the new member
         gm.send("gm_update_scars", character_id=dead["id"], scars=SCARS, previous=SCARS + ["The fourth"])
         assert gm.sync() == [_rejected("gm_update_scars")]
     row = support.fetch(Character, dead["id"])
@@ -367,25 +421,68 @@ def test_gm_toggle_cannot_reach_another_campaigns_circle(client):
 
 
 def test_submit_assignment_report(client):
+    """Fixed (playtest, 2026-10-09): a report went to every player's desk, any number
+    could be sent while reports were closed, and a second one silently replaced the
+    first, so a stray Send wiped the filed keys. A report now goes to the Lightkeeper and
+    back to its author, with when it was filed; it needs reports open; and a second one
+    replaces the first only when it says so (the form's Amend)."""
     camp, (a, b), cid = _campaign(client, members=2)
-    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
-        wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True, "q1": False})
-        msgs = wa.sync()
-        expected = {"type": "assignment_report_submitted", "payload": {
-            "character_id": a["id"], "character_name": a["name"], "responses": {"q0": True, "q1": False}}}
-        assert msgs == [expected]
-        assert wb.drain() == [expected]  # every player sees every report
+    with support.ws_connect(client, camp["campaign_code"]) as gm, \
+            support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"keys_detail": {"0": True}})
+        assert wa.sync() == [_rejected("submit_assignment_report", status=409, detail="Reports are closed.")]
+        support.update(Circle, cid, reports_open=True)
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"keys_detail": {"0": True}})
+        [msg] = wa.sync()
+        p = msg["payload"]
+        assert msg["type"] == "assignment_report_submitted"
+        assert (p["character_id"], p["character_name"], p["responses"]) == (a["id"], a["name"], {"keys_detail": {"0": True}})
+        assert datetime.fromisoformat(p["submitted_at"]).tzinfo is not None
+        assert gm.drain() == [msg]
+        assert wb.drain() == []
         wa.send("submit_assignment_report", responses={"q0": True})  # needs character_id
         assert wa.sync() == []
-    assert support.fetch(Circle, cid).backstory_answers == {"reports": {str(a["id"]): {
-        "character_name": a["name"], "responses": {"q0": True, "q1": False}}}}
+        wa.send("submit_assignment_report", character_id=a["id"], responses={})
+        assert wa.sync() == [_rejected("submit_assignment_report", status=409, detail="Your report is already filed.")]
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"keys_detail": {"1": True}}, replace=True)
+        [amended] = wa.sync()
+        assert amended["payload"]["responses"] == {"keys_detail": {"1": True}}
+        assert gm.drain() == [amended]
+        assert wb.drain() == []
+    assert _undated(support.fetch(Circle, cid).backstory_answers) == {
+        "reports": {str(a["id"]): _report(a, {"keys_detail": {"1": True}})}}
+
+
+def test_reports_reach_only_the_lightkeeper_and_their_authors(client):
+    """Fixed (playtest, 2026-10-09): the circle every desk is sent carried every report, and
+    so did the circle-creation-state route. The circle leaves them out, and the route
+    gives the Lightkeeper every report and a member only their own."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Circle, cid, reports_open=True, backstory_answers={"chapter_house": "Mill"})
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"keys_detail": {"0": True}})
+        wa.sync()
+        wb.send("submit_assignment_report", character_id=b["id"], responses={"keys_detail": {}})
+        wb.sync()
+    with support.ws_connect(client, a["id"]) as wa:
+        assert wa.initial[-1]["payload"]["backstory_answers"] == {"chapter_house": "Mill"}
+
+    def reports(headers):
+        body = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=headers).json()
+        answers = body["backstory_answers"]
+        assert answers["chapter_house"] == "Mill"
+        return sorted(answers["reports"])
+    assert reports(support.as_gm(camp["id"])) == sorted([str(a["id"]), str(b["id"])])
+    assert reports(support.as_owner(a["id"])) == [str(a["id"])]
+    assert reports(support.as_owner(b["id"])) == [str(b["id"])]
 
 
 def test_submit_report_only_for_own_character(client):
     """Before tokens any character id was accepted, and unknown ids were reported as
-    Unknown. Now a player reports only for their own character (QUIRK kept: there is
-    still no reports_open check), and the GM cannot report for anyone."""
+    Unknown. Now a player reports only for their own character, and the GM cannot
+    report for anyone."""
     camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Circle, cid, reports_open=True)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
         wa.send("submit_assignment_report", character_id=987654321, responses={"x": 1})
         wa.send("submit_assignment_report", character_id=b["id"], responses={"x": 1})
@@ -464,14 +561,15 @@ def test_gm_end_assignment(client):
                        train_bonus=True, gear=["Lantern"])
     outsider = support.forge(client)
     support.update(Character, outsider["id"], resources_spent_assignment=2)
-    support.update(Circle, cid, location="Docks", atmosphere="Fog")
+    support.update(Circle, cid, location="Docks", atmosphere="Fog", dispatch_text="Bring lamps.")
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
         gm.send("gm_end_assignment", role="GM", campaign_id=987654321)
         msgs = gm.sync()
         assert support.types(msgs) == ["circle_update", "member_update", "member_update", "activity_log"]
         assert (msgs[0]["payload"]["location"], msgs[0]["payload"]["atmosphere"]) == ("", "")
+        assert msgs[0]["payload"]["dispatch_text"] == ""
         assert sorted(m["payload"]["id"] for m in msgs[1:3]) == sorted([a["id"], b["id"]])
-        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses, gear slots and the hourglass have been reset. {EM}",
+        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses, gear slots, the hourglass and the reports have been reset. {EM}",
                                       "log_type": "field"}
         got = wa.drain()
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
@@ -481,6 +579,35 @@ def test_gm_end_assignment(client):
         assert got[1]["payload"]["gear"] == []  # gear slots reset with the assignment (p. 52)
     assert support.fetch(Character, b["id"]).resources_spent_assignment == 0
     assert support.fetch(Character, outsider["id"]).resources_spent_assignment == 2
+    assert support.fetch(Circle, cid).dispatch_text == ""
+
+
+def test_gm_end_assignment_closes_and_clears_the_reports(client):
+    """Fixed (playtest, 2026-10-09): End Assignment left reports open with the finished
+    assignment's reports filed, so the next assignment opened on a live form and the
+    Lightkeeper could not tell old reports from new. It closes them and the reports go;
+    the circle's other answers stay, and its assignment number goes up, by which the
+    desks drop the reports they hold. Another campaign's are untouched."""
+    camp, (a,), cid = _campaign(client)
+    other, (o,), other_cid = _campaign(client)
+    filed = {str(a["id"]): _report(a, {"keys_detail": {"0": True}})}
+    support.update(Circle, cid, reports_open=True, backstory_answers={
+        "chapter_house": "Mill", "reports": filed})
+    support.update(Circle, other_cid, reports_open=True, backstory_answers={"reports": {str(o["id"]): {}}})
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+        gm.send("gm_end_assignment")
+        [update] = support.of_type(gm.sync(), "circle_update")
+        assert update["payload"]["reports_open"] is False
+        assert update["payload"]["backstory_answers"] == {"chapter_house": "Mill", "assignment": 2}
+        [seen] = support.of_type(wa.drain(), "circle_update")
+        assert seen == update
+        gm.send("gm_end_assignment")
+        [update] = support.of_type(gm.sync(), "circle_update")
+        assert update["payload"]["backstory_answers"]["assignment"] == 3
+    c = support.fetch(Circle, cid)
+    assert (c.reports_open, c.backstory_answers) == (False, {"chapter_house": "Mill", "assignment": 3})
+    theirs = support.fetch(Circle, other_cid)
+    assert (theirs.reports_open, theirs.backstory_answers) == (True, {"reports": {str(o["id"]): {}}})
 
 
 def test_gm_end_assignment_empties_the_tension_clock(client):
@@ -995,8 +1122,18 @@ def test_update_circle_player_claiming_gm_is_rejected(client):
 
 def _report(ch, responses):
     """A stored report: the shape of the assignment_report_submitted payload, which the
-    GM's report card reads after a reload."""
+    GM's report card reads after a reload (without its submitted_at, see _undated)."""
     return {"character_name": ch["name"], "responses": responses}
+
+
+def _undated(answers):
+    """backstory_answers with each report's submitted_at checked and taken out."""
+    reports = {}
+    for key, report in answers.get("reports", {}).items():
+        report = dict(report)
+        assert datetime.fromisoformat(report.pop("submitted_at")).tzinfo is not None
+        reports[key] = report
+    return {**answers, "reports": reports}
 
 
 def test_second_report_from_a_fresh_session_is_saved(client):
@@ -1006,19 +1143,22 @@ def test_second_report_from_a_fresh_session_is_saved(client):
     the report was broadcast but lost on reload. Reports were also stored as the bare
     responses, while the GM's report card reads {character_name, responses}."""
     camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Circle, cid, reports_open=True)
     with support.ws_connect(client, a["id"]) as wa:
         wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
         wa.sync()
         with support.ws_connect(client, b["id"]) as wb:  # loads the circle with a's report in it
             wb.send("submit_assignment_report", character_id=b["id"], responses={"q0": False})
             [msg] = wb.sync()
-            assert msg["payload"] == {"character_id": b["id"], "character_name": b["name"], "responses": {"q0": False}}
-            assert wa.drain() == [msg]
-    assert support.fetch(Circle, cid).backstory_answers == {"reports": {
+            assert msg["payload"] == {"character_id": b["id"], "character_name": b["name"], "responses": {"q0": False},
+                                      "submitted_at": msg["payload"]["submitted_at"]}
+            assert wa.drain() == []  # a's desk is not sent b's report
+    assert _undated(support.fetch(Circle, cid).backstory_answers) == {"reports": {
         str(a["id"]): _report(a, {"q0": True}), str(b["id"]): _report(b, {"q0": False})}}
     state = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp["id"])).json()
     assert state["backstory_answers"]["reports"][str(b["id"])] == {
-        "character_name": msg["payload"]["character_name"], "responses": msg["payload"]["responses"]}
+        "character_name": msg["payload"]["character_name"], "responses": msg["payload"]["responses"],
+        "submitted_at": msg["payload"]["submitted_at"]}
 
 
 def test_reports_from_sockets_opened_before_any_report_are_all_kept(client):
@@ -1026,14 +1166,15 @@ def test_reports_from_sockets_opened_before_any_report_are_all_kept(client):
     built a new dict holding only itself and the last report replaced the others. The
     handler now reads the row again before adding its report."""
     camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Circle, cid, reports_open=True)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
         wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
         wa.sync()
         wb.send("submit_assignment_report", character_id=b["id"], responses={"q0": False})
         wb.sync()
-        wa.send("submit_assignment_report", character_id=a["id"], responses={"q1": True})  # a report again
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"q1": True}, replace=True)  # amended
         wa.sync()
-    assert support.fetch(Circle, cid).backstory_answers == {"reports": {
+    assert _undated(support.fetch(Circle, cid).backstory_answers) == {"reports": {
         str(a["id"]): _report(a, {"q1": True}), str(b["id"]): _report(b, {"q0": False})}}
 
 
@@ -1042,11 +1183,12 @@ def test_report_after_circle_answers_is_saved(client):
     question) made the dict non-empty, so even the first report was lost."""
     camp, (a,), cid = _campaign(client)
     answers = {"chapter_house": "Mill", "selected_question_key": "q2"}
-    support.update(Circle, cid, backstory_answers=answers)
+    support.update(Circle, cid, backstory_answers=answers, reports_open=True)
     with support.ws_connect(client, a["id"]) as wa:
         wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
         assert support.types(wa.sync()) == ["assignment_report_submitted"]
-    assert support.fetch(Circle, cid).backstory_answers == {**answers, "reports": {str(a["id"]): _report(a, {"q0": True})}}
+    assert _undated(support.fetch(Circle, cid).backstory_answers) == {
+        **answers, "reports": {str(a["id"]): _report(a, {"q0": True})}}
 
 
 # --- the frontend's 'gm' fallback channel is gone ---------------------------------
