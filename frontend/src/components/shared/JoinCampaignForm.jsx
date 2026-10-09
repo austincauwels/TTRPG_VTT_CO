@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { PEN_FONTS } from '../campaignSelector/penFonts';
 import { CAMPAIGN_CODE_PATTERN, CAMPAIGN_CODE_RULE } from '../../utils/campaignErrors';
 
@@ -15,6 +15,7 @@ export const JoinCampaignForm = ({
   onSubmit, onCancel, autoFocus = false, submitLabel = 'Ask to join', busyLabel = 'Sending…',
 }) => {
   const [penListOpen, setPenListOpen] = useState(false);
+  const penTriggerRef = useRef(null);
   const currentPen = pen || 'Caveat';
   const trimmed = (code || '').trim();
   const codeLooksWrong = trimmed.length > 0 && !CAMPAIGN_CODE_PATTERN.test(trimmed);
@@ -47,12 +48,19 @@ export const JoinCampaignForm = ({
         )}
       </div>
 
-      <div>
+      <div onKeyDown={(e) => {
+        // Escape closes the list and nothing around it (the dialog it sits in)
+        if (e.key === 'Escape' && penListOpen) {
+          e.preventDefault(); e.stopPropagation();
+          setPenListOpen(false);
+          penTriggerRef.current?.focus();
+        }
+      }}>
         <span id={`${idPrefix}-pen-label`} className={labelClass}>Handwriting</span>
         <button
           type="button"
+          ref={penTriggerRef}
           onClick={() => setPenListOpen(v => !v)}
-          aria-haspopup="listbox"
           aria-expanded={penListOpen}
           aria-labelledby={`${idPrefix}-pen-label`}
           className={`${fieldClass} flex items-center justify-between hover:bg-cream transition-colors`}
@@ -61,14 +69,13 @@ export const JoinCampaignForm = ({
           <span aria-hidden="true" className="text-sm text-sepia ml-2 shrink-0">{penListOpen ? '▲' : '▼'}</span>
         </button>
         {penListOpen && (
-          <div role="listbox" aria-labelledby={`${idPrefix}-pen-label`} className="max-h-52 overflow-y-auto border border-sepia/40 border-t-0 bg-cream">
+          <div role="group" aria-labelledby={`${idPrefix}-pen-label`} className="max-h-52 overflow-y-auto border border-sepia/40 border-t-0 bg-cream">
             {PEN_FONTS.map(font => (
               <button
                 key={font}
                 type="button"
-                role="option"
-                aria-selected={currentPen === font}
-                onClick={() => { onPenChange(font); setPenListOpen(false); }}
+                aria-pressed={currentPen === font}
+                onClick={() => { onPenChange(font); setPenListOpen(false); penTriggerRef.current?.focus(); }}
                 className="w-full px-3 py-2 text-left hover:bg-sepia/10 transition-colors"
                 style={{
                   fontFamily: font,
