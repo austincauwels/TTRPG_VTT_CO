@@ -2,11 +2,14 @@
 
 Updated 9 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
+Resume: none
+
 ## For the next chat: start here
 
 You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 6 stands, then do "Next phase". Keep the chat lean:
 
 - Robert hit his **weekly usage limit** on 9 October. Before any run of more than about 6 agents, say roughly how big it is and ask. Prefer one implementer plus one reviewer over wide fan-outs.
+- **The hourly check-in.** A Routine ("Candela: resume an interrupted phase", hourly) reads the `Resume:` line at the top of this file. `none` means it stops at once. When you start a phase, set it to `Resume: <phase> on branch <branch>, started <date>` and push; commit and push work in progress at least every hour, since an interrupted container keeps nothing; set it back to `Resume: none` when the phase ends or when you stop to wait for Robert. A resumed session sees only what was pushed.
 - At the end of each phase, **rewrite this file** (keep it under about 200 lines), commit it to this branch (`playtest-harness`, folder `handoff/`) and push it. Then tell Robert it is a good point to start a new chat.
 - Robert's own preferences: plain language, short answers, no em dashes; log durable decisions and facts to his Obsidian vault with the Galga `append_daily_log` tool, after reading the vault's `CLAUDE.md`, using wiki-links such as [[Austin]], [[Candela Obscura Campaign]] and [[GaterGrid Server]].
 - The session may start in another repo (SNAP). This repo is not in its list by name: attach it with `add_repo` (owner `austincauwels`, repo `TTRPG_VTT_CO`, access `push`) and clone it to `/home/user/ttrpg_vtt_co`.
@@ -15,7 +18,7 @@ You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web
 
 Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message so he can set it before starting the next chat. As your first step, check your own model (the `get_session` tool) and effort. If they differ from the recommendation below, tell him in one line and carry on.
 
-**Next phase (PR 7): Sonnet 5.5 at medium effort, ultracode off.** PR 7 is a batch of small, well-specified fixes (effort S in the report), each with its root cause and fix written out. Leave the connection items (`offline-not-shown`, `stale-connection-slips`) and anything touching the WebSocket protocol for an Opus 5.5 high chat (PR 8).
+**Next phase (PR 8): Sonnet 5.5 at medium effort, ultracode off.** PR 8 is a batch of small, well-specified fixes (effort S in the report), each with its root cause and fix written out. Leave the connection items (`offline-not-shown`, `stale-connection-slips`) and anything touching the WebSocket protocol for an Opus 5.5 high chat (PR 9).
 
 Rules of thumb for later phases:
 
@@ -33,18 +36,17 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Where things stand
 
-- `main` is at **4794611** (PR 5, live on candela.gatergrid.com).
-- **PR 6 is open, not merged:** https://github.com/austincauwels/TTRPG_VTT_CO/pull/6 from branch `claude/confident-lovelace-dvc87b`, ten commits on `main`. Merge only when Robert says so; then he deploys (see below) and players reload. Check its CI first: the full backend suite passed locally (1,788 passed, 1 skipped) and `vite build` passes.
-- PR 6 holds:
-  - Desk tweaks: Invite player moved by the join requests; the dispatch is in the Lightkeeper's own words by default with the template optional (new circle column `dispatch_text`); Edit instead of Clear name (and the chapter house) on the circle page.
-  - Playtest fixes: `report-forgets-sent`, `key-ticks-lost`, `reports-broadcast-all`, `end-assignment-reports-open` (reports read back, Amend, private, closed and cleared by End Assignment); `gilded-reload-free-reroll` (held roll re-sent on connect); `offline-roll-double` (`roll_id`, resent after a stall, answered from memory); `resource-double-click-double-spend`; `seed-id-sequence-collision`; `stray-tape`, `your-circle-pending-label`, `circle-resources-pre-seal`.
-  - All checked in Chromium on desktop, tablet and phone sizes (details in each commit).
+- `main` is at **2289797**: the merge of PR 6 (merged 9 October, CI green after one re-run of a Docker Hub pull timeout). **Not deployed yet**: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload. The release adds the circle column `dispatch_text` (added at startup).
+- PR 6 held:
+  - Desk tweaks: Invite player moved by the join requests; the dispatch is in the Lightkeeper's own words by default with the template optional; Edit instead of Clear name (and the chapter house) on the circle page.
+  - Playtest fixes: `report-forgets-sent`, `key-ticks-lost`, `reports-broadcast-all`, `end-assignment-reports-open`, `gilded-reload-free-reroll`, `offline-roll-double` (`roll_id`), `resource-double-click-double-spend`, `seed-id-sequence-collision`, `stray-tape`, `your-circle-pending-label`, `circle-resources-pre-seal`.
+- **PR 7 is open, not merged:** https://github.com/austincauwels/TTRPG_VTT_CO/pull/7, the hourglass's sand drains with a running countdown and shows the tension again when it stops (Robert asked for it on 9 October). Frontend only, checked in Chromium. Merge when Robert says so.
 - The saved patches (`handoff/patches/`) are all in PR 6 and were removed from this branch.
 - **AI playtest results** stay here in `playtest/results/2026-10-08/` (`report.json`, `report.md`); the setup to run another is in `playtest/` (start with `playtest/HANDOFF.md`). Robert's private page with the logs: https://claude.ai/artifact/8wcvWkCfptWqtFf15XTaRG
 
-## Next phase: PR 7
+## Next phase: PR 8
 
-The report's remaining **effort S** bugs, one commit each, on a branch from `main` (or from PR 6's branch if it is not merged yet, so the two do not conflict in `CircleView.jsx`, `gameStore.js` and `rolls.py`). Suggested order, dice and rules first:
+The report's remaining **effort S** bugs, one commit each, on a branch from `main`. Suggested order, dice and rules first:
 
 - Dice and rules: `rule-of-six-stepper`, `burn-offer-stale`, `lk-mark-skips-abilities`, `advancement-log-raw-keys`, `advanced-role-ability-wrong-tab`, `patch-up-prompt-stale`.
 - Circle formation: `name-vote-reorders`, `name-case-duplicates`, `long-name-overflow`, `suggest-button-offscreen-phone`.
@@ -52,13 +54,12 @@ The report's remaining **effort S** bugs, one commit each, on a branch from `mai
 - Notebook: `sketch-caption-replaces-title`, `notebook-uploads-not-broadcast`, `notebook-toc-page-number`.
 - Sheet and accessibility: `pen-fonts-missing`, `pen-listbox-no-arrows`, `style-never-shown`, `catalyst-linebreaks`, `timer-status-stale`.
 
-Then PR 8 (Opus 5.5 high): `offline-not-shown`, `stale-connection-slips` and the effort M bugs (`report-questions-tally`, `activity-log-not-persisted`, `relationship-question-in-answer`, `ability-offers-expire`, `vote-tie-leading`, `pending-join-not-live`, `keyboard-focus-dropped`, `patch-up-free-rider`, `ws-token-in-url`) and the top-ten UX list in `report.json`.
+Then PR 9 (Opus 5.5 high): `offline-not-shown`, `stale-connection-slips` and the effort M bugs (`report-questions-tally`, `activity-log-not-persisted`, `relationship-question-in-answer`, `ability-offers-expire`, `vote-tie-leading`, `pending-join-not-live`, `keyboard-focus-dropped`, `patch-up-free-rider`, `ws-token-in-url`) and the top-ten UX list in `report.json`.
 
 ### Open questions for Robert
 
-- Merge PR 6? Then deploy and tell the players to reload.
-- He asked whether the hourglass empties with the timer. It does not: the sand shows tension only, and the timer is separate. Should the sand drain with a running countdown, then go back to tension when it stops?
-- An optional hourly check-in that resumes work after a usage limit resets (offered, never answered).
+- Deploy `main` (PR 6), and merge and deploy PR 7?
+- Answered 9 October: merge PR 6 (yes), the sand drains with the timer (yes, PR 7), an hourly check-in that resumes interrupted work (yes, set up as above).
 
 ## How the browser checks were done in PR 6
 
