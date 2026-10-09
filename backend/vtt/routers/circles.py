@@ -13,7 +13,7 @@ from vtt.auth import (
     MEMBER_STATUSES, campaign_or_404, character_or_404, forbidden, get_current_user, is_gm, require_gm,
     require_gm_or_member, require_owner,
 )
-from vtt.circle_queries import VOTE_TYPES, fill_resources, get_or_create_campaign_circle, relationships_list, votes_dict
+from vtt.circle_queries import VOTE_TYPES, canonical_name_suggestion, fill_resources, get_or_create_campaign_circle, relationships_list, votes_dict
 from vtt.db import get_db
 from vtt.schemas import CircleVoteSubmit, FinalizeRosterRequest, RelationshipPropose, RelationshipRespond
 from vtt.serializers import get_char_dict, get_circle_dict
@@ -80,6 +80,7 @@ def submit_circle_vote(body: CircleVoteSubmit, db: Session = Depends(get_db),
         # Checked before anything is stored; an unknown type used to be saved and then 500.
         raise HTTPException(status_code=422, detail="Unknown vote type.")
     if body.vote_type == "name_suggest":
+        body.value = canonical_name_suggestion(db, body.circle_id, body.value)
         count = db.query(CircleVote).filter(
             CircleVote.circle_id == body.circle_id,
             CircleVote.character_id == body.character_id,

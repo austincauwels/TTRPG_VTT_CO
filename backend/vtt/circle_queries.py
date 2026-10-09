@@ -102,6 +102,23 @@ def get_or_create_campaign_circle(db: Session, campaign_id: int) -> Circle:
 VOTE_TYPES = ("name_suggest", "name_vote", "ability", "question", "insignia")
 
 
+NAME_MAX = 80
+
+
+def canonical_name_suggestion(db: Session, circle_id: int, value) -> str:
+    """A suggested circle name with its spaces collapsed and cut to NAME_MAX. One that matches
+    an earlier suggestion, ignoring case, is returned in that suggestion's spelling, so the
+    votes for it merge instead of splitting."""
+    text = " ".join(str(value or "").split())[:NAME_MAX].strip()
+    if not text:
+        return ""
+    for (known,) in db.query(CircleVote.value).filter(
+            CircleVote.circle_id == circle_id, CircleVote.vote_type == "name_suggest").order_by(CircleVote.id):
+        if known and known.casefold() == text.casefold():
+            return known
+    return text
+
+
 def votes_dict(db: Session, circle_id: int) -> dict:
     all_votes = db.query(CircleVote).filter(CircleVote.circle_id == circle_id).all()
     result = {vote_type: [] for vote_type in VOTE_TYPES}

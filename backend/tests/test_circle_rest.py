@@ -55,6 +55,17 @@ def test_name_suggest_keeps_five_distinct_per_character(client):
     assert len(support.fetch_all(CircleVote, circle_id=cid, vote_type="name_suggest")) == 5
 
 
+def test_name_suggest_merges_case_and_spacing_variants_and_caps_the_length(client):
+    camp, (a, b), cid = _setup(client)
+    _vote(client, cid, a["id"], "name_suggest", "The Ninth Night")
+    _vote(client, cid, b["id"], "name_suggest", "the  ninth night ")
+    r = _vote(client, cid, a["id"], "name_suggest", "THE NINTH NIGHT")  # already hers: ignored
+    assert sorted(v["character_id"] for v in r.json()["votes"]) == sorted([a["id"], b["id"]])
+    assert {v["value"] for v in r.json()["votes"]} == {"The Ninth Night"}
+    r = _vote(client, cid, a["id"], "name_suggest", "W" * 5000)
+    assert max(len(v["value"]) for v in r.json()["votes"]) == 80
+
+
 def test_vote_only_for_own_character_in_the_circles_campaign(client):
     """Before tokens votes were accepted for any circle id and any character id."""
     camp, (a, _), cid = _setup(client)

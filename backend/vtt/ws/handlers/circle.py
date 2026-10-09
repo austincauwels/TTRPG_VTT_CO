@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from models import Character, Circle, CircleVote, Relationship
 from vtt.assignment import REPORTS, answers_of, reports_of
-from vtt.circle_queries import circle_abilities, relationships_list, resolve_circle, take_train_die, votes_dict
+from vtt.circle_queries import canonical_name_suggestion, circle_abilities, relationships_list, resolve_circle, take_train_die, votes_dict
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.manager import campaign_key, manager
 
@@ -117,6 +117,8 @@ async def handle_circle_creation_vote(ctx):
     char_id = payload.get("character_id")
     v_type = payload.get("vote_type")
     v_value = payload.get("value", "")
+    if v_type == "name_suggest" and char_id:
+        v_value = canonical_name_suggestion(db, c_id, v_value)
     if char_id and v_type and v_value:
         if v_type == "name_suggest":
             count = db.query(CircleVote).filter(
