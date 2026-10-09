@@ -695,6 +695,11 @@
       },
       "CharacterRosterItem": {
         "properties": {
+          "catalyst": {
+            "default": "",
+            "title": "Catalyst",
+            "type": "string"
+          },
           "circle_name": {
             "anyOf": [
               {
@@ -753,6 +758,11 @@
               }
             ],
             "title": "Profile Pic"
+          },
+          "pronouns": {
+            "default": "Unlisted",
+            "title": "Pronouns",
+            "type": "string"
           },
           "role_ability": {
             "anyOf": [
