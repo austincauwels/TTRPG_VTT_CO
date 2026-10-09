@@ -206,7 +206,7 @@ def test_apply_advancement_add_action(client):
         assert support.types(msgs) == ["character_update", "activity_log"]
         assert msgs[0]["payload"]["move"] == 3
         assert (msgs[0]["payload"]["advancement_picks"], msgs[0]["payload"]["advancement_taken"]) == (1, ["add_action"])
-        assert msgs[1]["payload"]["message"] == f"{ch['name']} has advanced {EM} gained +1 move."
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} has advanced {EM} gained +1 Move."
         assert support.types(gm.drain()) == ["member_update", "activity_log"]
         ws.send("apply_advancement", choice="add_action", detail="sense")  # the same option twice
         ws.send("apply_advancement", choice="mystery", detail="x")
@@ -221,21 +221,24 @@ def test_apply_advancement_add_action(client):
 
 def test_apply_advancement_other_choices(client):
     ch = support.forge(client, nerve_max=3, nerve_current=1, specialty_ability="Dissection")
-    support.update(Character, ch["id"], advancement_picks=3)
+    support.update(Character, ch["id"], advancement_picks=4)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("apply_advancement", choice="add_drive", detail="nerve")
         msgs = ws.sync()
-        assert msgs[-1]["payload"]["message"] == f"{ch['name']} has advanced {EM} gained +2 nerve drive."
+        assert msgs[-1]["payload"]["message"] == f"{ch['name']} has advanced {EM} gained +2 Nerve drive."
         ws.send("apply_advancement", choice="new_ability", detail="  Steel Mind ")
         msgs = ws.sync()
         assert msgs[-1]["payload"]["message"] == f"{ch['name']} has advanced {EM} learned a new ability:   Steel Mind ."
+        ws.send("apply_advancement", choice="add_drive", detail="nerve,cunning")
+        msgs = ws.sync()
+        assert msgs[-1]["payload"]["message"] == f"{ch['name']} has advanced {EM} gained +1 Nerve and +1 Cunning drive."
         ws.send("apply_advancement", choice="gild_action", detail="sense")
         msgs = ws.sync()
-        assert msgs[-1]["payload"]["message"] == f"{ch['name']} has advanced {EM} gilded their sense action."
+        assert msgs[-1]["payload"]["message"] == f"{ch['name']} has advanced {EM} gilded their Sense action."
         ws.send("apply_advancement", choice="add_action", detail="move")  # no pick left
         assert ws.sync() == [_rejected("No advancement is waiting to be chosen.")]
     row = support.fetch(Character, ch["id"])
-    assert (row.nerve_max, row.nerve_current) == (5, 3)
+    assert (row.nerve_max, row.nerve_current) == (6, 4)
     # Still one string, but every ability check splits it (vtt/abilities.py, QUIRKS D12)
     assert row.specialty_ability == "Dissection; Steel Mind"
     assert row.gilded_sense is True
@@ -249,8 +252,8 @@ def test_apply_advancement_other_choices(client):
     ("new_ability", "Dissection", {"specialty_ability": "Dissection"},
      "Dissection is already one of this investigator's abilities.", 409),
     ("gild_action", "charm", {}, "Unknown action: charm", 422),
-    ("gild_action", "sense", {"gilded_sense": True}, "sense is already gilded.", 409),
-    ("add_action", "move", {"move": 3}, "move is already at maximum (3)", 409),
+    ("gild_action", "sense", {"gilded_sense": True}, "Sense is already gilded.", 409),
+    ("add_action", "move", {"move": 3}, "Move is already at maximum (3)", 409),
 ])
 def test_apply_advancement_refusals(client, choice, detail, fields, error, status):
     """Fixed (RULES_CHECK 14): each pick is checked; a refused one changes nothing."""

@@ -9,6 +9,7 @@ from vtt.abilities import (GEARED_UP_SLOT, ONE_STEP_AHEAD, WARD, count_use, coun
 from vtt.ability_uses import ABILITY_USES, DRIVES, SCAR_ABILITIES
 from vtt.circle_queries import RESOURCES, circle_abilities
 from vtt.config import _SAFE_FONT_NAMES
+from vtt.creation import ACTION_LABELS
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import scar_ability
 from vtt.ws.handlers.circle import announce_death, announce_downed
@@ -178,13 +179,19 @@ async def handle_apply_advancement(ctx):
                 "type": "character_update",
                 "payload": get_char_dict(character),
             })
-            label_map = {
-                "add_action": f"gained +1 {adv_detail}",
-                "add_drive":  f"gained +2 {adv_detail} drive",
-                "new_ability": f"learned a new ability: {adv_detail}",
-                "gild_action": f"gilded their {adv_detail} action",
-            }
-            log_msg = f"{character.name} has advanced — {label_map.get(adv_choice, adv_choice)}."
+            def _action_name(key):
+                return ACTION_LABELS.get(key, key)
+            if adv_choice == "add_drive":
+                drives = [d.strip().capitalize() for d in str(adv_detail).split(",") if d.strip()]
+                drive_text = " and ".join(f"+1 {d}" for d in drives) if len(drives) > 1 else f"+2 {drives[0] if drives else adv_detail}"
+                adv_text = f"gained {drive_text} drive"
+            else:
+                adv_text = {
+                    "add_action": f"gained +1 {_action_name(adv_detail)}",
+                    "new_ability": f"learned a new ability: {adv_detail}",
+                    "gild_action": f"gilded their {_action_name(adv_detail)} action",
+                }.get(adv_choice, adv_choice)
+            log_msg = f"{character.name} has advanced — {adv_text}."
             await manager.broadcast_campaign(camp_code, camp_id, {
                 "type": "activity_log",
                 "payload": {"message": log_msg, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""},
