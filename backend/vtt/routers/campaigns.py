@@ -20,10 +20,11 @@ from vtt.auth import (
     campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
     require_gm_of_character, require_gm_or_member, require_owner, require_self,
 )
+from vtt.circle_queries import fill_resources
 from vtt.config import _ALLOWED_CAMPAIGN_CODE_RE, _SAFE_FONT_NAMES
 from vtt.db import get_db, releases_locks_on_error
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
-from vtt.serializers import get_char_dict
+from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import CLOSE_NOT_FOUND
 from vtt.ws.manager import campaign_key, character_key, manager
 
@@ -133,6 +134,23 @@ async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', 
             await manager.broadcast(campaign_key(code), payload)
     return result
 
+async def _announce_members_changed(db: Session, campaign: Campaign):
+    """The campaign's circle to its desks after a member joined: each resource's maximum
+    is 1 plus the members (resource_pool), and before the seal each resource is filled to
+    it, as the seal fills it (rulebook p. 41: 1 plus the circle's members at creation).
+    Approving sent no circle_update and filled nothing, so with four members approved the
+    Lightkeeper's open page read each resource as "1 of 1", and after a reload as "1 of 5"
+    with four squares that looked spent (playtest, 2026-10-09)."""
+    circle = db.query(Circle).filter(Circle.campaign_id == campaign.id).first()
+    if circle is None:
+        return
+    if not circle.is_finalized:
+        fill_resources(circle, db)
+        db.commit()
+    await manager.broadcast_campaign(campaign.campaign_code, campaign.id, {
+        "type": "circle_update", "payload": get_circle_dict(circle)}, db)
+
+
 @router.post("/campaign/approve/{character_id}")
 async def approve_character(character_id: int, db: Session = Depends(get_db),
                             user: User = Depends(get_current_user)):
@@ -156,6 +174,7 @@ async def approve_character(character_id: int, db: Session = Depends(get_db),
                 "campaign_id": char.campaign_id,
             }
         }, db)
+        await _announce_members_changed(db, campaign)
     return result
 
 @router.post("/campaign/reject/{character_id}")
@@ -365,6 +384,7 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
             "campaign_id": campaign.id,
         },
     }, db)
+    await _announce_members_changed(db, campaign)
     return {"success": True, "character": get_char_dict(new_char)}
 
 

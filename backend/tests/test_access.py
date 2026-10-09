@@ -301,6 +301,7 @@ def test_a_pending_character_reaches_nothing_of_the_campaign(client):
         ws.drain()
         assert support.approve(client, waiting["id"]).status_code == 200
         ws.recv_type("investigator_approved")
+        ws.recv_type("circle_update")  # now a member: the circle, its pool grown by one
         gm.drain()
         ws.send("chat_message", message="hello")
         assert support.types(ws.sync()) == ["activity_log"]

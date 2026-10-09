@@ -362,6 +362,7 @@ def test_gm_update_scars_keeps_a_death_once_the_player_has_a_new_investigator(cl
         # Approving the new investigator retires the dead one: no longer on the roster
         assert support.approve(client, successor["id"]).status_code == 200
         gm.recv_type("investigator_approved")
+        gm.recv_type("circle_update")  # the circle's pool grew with the new member
         gm.send("gm_update_scars", character_id=dead["id"], scars=SCARS, previous=SCARS + ["The fourth"])
         assert gm.sync() == [_rejected("gm_update_scars")]
     row = support.fetch(Character, dead["id"])
