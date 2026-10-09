@@ -10,6 +10,26 @@ You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web
 - At the end of each phase, **rewrite this file** (keep it under about 200 lines), commit it to this branch (`playtest-harness`, folder `handoff/`) and push it. Then tell Robert it is a good point to start a new chat.
 - Robert's own preferences: plain language, short answers, no em dashes; log durable decisions and facts to his Obsidian vault with the Galga `append_daily_log` tool, after reading the vault's `CLAUDE.md`, using wiki-links such as [[Austin]], [[Candela Obscura Campaign]] and [[GaterGrid Server]].
 
+## Model and effort
+
+Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message so he can set it before starting the next chat. As your first step, check your own model (the `get_session` tool) and effort. If they differ from the recommendation below, tell him in one line and carry on.
+
+**Next phase (PR 6): Opus 5.5 at high effort, ultracode off.** PR 6 starts with the hardest bugs in the backlog: rolls counted twice during a connection stall, a gilded roll that must survive a reload, and a report form that silently overwrites. These are races and protocol changes, where a cheaper model is more likely to ship a subtle bug.
+
+Rules of thumb for later phases:
+
+| Work | Model | Effort |
+|---|---|---|
+| Routine: applying patches, small UI fixes, wording, docs, PR housekeeping, deploy help | Sonnet 5.5 | medium |
+| Races, the WebSocket protocol, rules logic, data loss, a final review before a PR | Opus 5.5 | high |
+| A stubborn bug that resisted one attempt | Opus 5.5 | xhigh (never max) |
+| Workflow agents doing mechanical sweeps (renames, copy edits, finding call sites) | Haiku 5.5 or Sonnet 5.5, passed per agent | low |
+| Workflow implementers on well-specified fixes | Sonnet 5.5, passed per agent | medium |
+| Workflow reviewers and verifiers | Opus 5.5 | high |
+| A second AI playtest: player seats / Lightkeeper / triage and verification | Sonnet 5.5 medium / Opus 5.5 high / Opus 5.5 high | as listed |
+
+Leave **ultracode off** by default. It turns every task into a multi-agent workflow, which is what used up the weekly limit. Ask for a workflow by name ("use a workflow") only for a playtest or a large batch, and say its size first.
+
 ## Where things stand
 
 - `main` is at **4794611**: the merge of PR 5 (live Lightkeeper sheets, the hourglass and its countdown timer, the trauma record's Edit, resource help, hub papers placed differently each visit). It is **live** on candela.gatergrid.com, and the new bundle was confirmed.
