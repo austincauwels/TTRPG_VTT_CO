@@ -406,6 +406,9 @@ export function AdvancementModal() {
   );
 }
 
+// A player's resource spends, at most one in this long (handleResourceClick)
+const SPEND_GAP_MS = 800;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const CircleView = () => {
@@ -464,7 +467,12 @@ export const CircleView = () => {
       ? 'some'
       : 'none';
 
-  function handleResourceClick(key, pipIndex, avail) {
+  // One spend per gesture: a double-click, two clicks close together or Enter pressed
+  // twice spent twice, and used up both of the assignment's spends (playtest,
+  // resource-double-click-double-spend). The server answers fast enough that waiting for
+  // its answer would not catch the second click, so a spend is taken once per SPEND_GAP_MS.
+  const lastSpendAt = useRef(0);
+  function handleResourceClick(key, pipIndex, avail, event) {
     const wouldSpend = (pipIndex + 1) <= avail;
     if (wouldSpend) {
       if (isGM) {
@@ -472,6 +480,10 @@ export const CircleView = () => {
       } else {
         if (!circle?.resources_editable) return;
         if ((character?.resources_spent_assignment || 0) >= 2) return;
+        if (event?.detail > 1) return;
+        const now = Date.now();
+        if (now - lastSpendAt.current < SPEND_GAP_MS) return;
+        lastSpendAt.current = now;
         spendCircleResource(key);
       }
     } else {
@@ -753,7 +765,7 @@ export const CircleView = () => {
                       return (
                         <div
                           key={i}
-                          onClick={clickable ? () => handleResourceClick(key, i, avail) : undefined}
+                          onClick={clickable ? (e) => handleResourceClick(key, i, avail, e) : undefined}
                           role={clickable ? 'button' : undefined}
                           tabIndex={clickable ? 0 : undefined}
                           onKeyDown={clickable ? onActivateKey(() => handleResourceClick(key, i, avail)) : undefined}
