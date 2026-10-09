@@ -9,7 +9,10 @@ import React from 'react';
 //
 // kind picks the paper: 'charter' (a certificate with a printed double frame), 'ruled'
 // (a ruled form), 'manila' (the stores' ledger card), 'laid' (older laid paper) and
-// 'plain'. tape lays a strip of tape over its top edge.
+// 'plain'. tape lays a strip of tape over its top edge. The strip is lifted by a transform,
+// not a negative top: in the columns the part above the paper's top was laid in the column
+// before, so a paper at the head of a column left a strip of tape on the bare desk at the
+// foot of the one before it.
 const PAPER = {
   charter: 'bg-cream circle-paper-charter',
   ruled: 'bg-cream paper-ruled',
@@ -25,7 +28,7 @@ export const CirclePaper = ({ kind = 'plain', tilt = 0, tape = false, className 
     {...rest}
   >
     {tape && (
-      <span aria-hidden="true" className="absolute z-10 -top-2.5 left-1/2 -translate-x-1/2 w-16 h-4 bg-parchment-deep/80 -rotate-2 border border-ink/5 mix-blend-multiply shadow-sm pointer-events-none" />
+      <span aria-hidden="true" className="absolute z-10 top-0 left-1/2 -translate-x-1/2 -translate-y-2.5 w-16 h-4 bg-parchment-deep/80 -rotate-2 border border-ink/5 mix-blend-multiply shadow-sm pointer-events-none" />
     )}
     {children}
   </section>
