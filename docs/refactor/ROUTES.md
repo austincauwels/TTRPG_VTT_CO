@@ -57,7 +57,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 | POST | /campaign/reject/{character_id} | reject_character | 512 | yes | gameStore.rejectInvestigator (GM panel) | GM of the character's campaign |
 | POST | /campaign/{campaign_id}/retire | retire_campaign | 545 | yes | OperationsPanel.jsx | GM of that campaign |
 | POST | /campaign/rejoin | rejoin_campaign | 568 | yes | AppRouter.jsx | owner of the character, if invited or their old character there died |
-| POST | /campaign/{campaign_id}/invite-rejoin | invite_rejoin | 638 | yes | DiceVault.jsx (GM controls only) | GM of that campaign |
+| POST | /campaign/{campaign_id}/invite-rejoin | invite_rejoin | 638 | yes | gm/desk/InvitePlayer.jsx (the Lightkeeper's roster; DiceVault.jsx until 2026-10-09) | GM of that campaign |
 | GET | /campaign/{campaign_id}/roster | get_roster | 663 | no | OperationsPanel.jsx, TactileSidebar.jsx | GM or member of that campaign |
 | GET | /campaign/{campaign_id}/circle-creation-state | get_circle_creation_state | 755 | yes (may create circle) | MainDeskView.jsx, OperationsPanel.jsx | GM or member of that campaign |
 | POST | /circle/vote | submit_circle_vote | 771 | yes | none (WS used instead) | owner of character_id, member of the circle's campaign |

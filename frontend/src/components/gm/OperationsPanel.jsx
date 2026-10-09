@@ -11,6 +11,7 @@ import { NotebookView } from '../shared/NotebookView';
 import { GMDeskHeader } from './desk/GMDeskHeader';
 import { CorrespondenceStack } from './desk/CorrespondenceStack';
 import { FinalizeRosterSlip, FinalizedSlip } from './desk/FinalizeRosterSlip';
+import { InvitePlayer } from './desk/InvitePlayer';
 import { CircleFormationStatus } from './desk/CircleFormationStatus';
 import { ActiveCircleMembers } from './desk/ActiveCircleMembers';
 import { TensionSection } from './desk/TensionSection';
@@ -206,10 +207,14 @@ export const OperationsPanel = () => {
                 {/* ACTIVE CIRCLE MEMBERS */}
                 <ActiveCircleMembers className="order-4 lg:order-none xl:row-start-1 xl:col-start-1" campaignRoster={campaignRoster} onSelect={handleSelectInvestigator} />
 
-                {/* Once finalized, the sealed slip below the investigators, and the circle's
-                    ledger card under it */}
+                {/* Once finalized, the sealed slip below the investigators, with Invite player
+                    under it where the join requests were, and the circle's ledger card under
+                    them */}
                 {rosterFinalized && (
-                  <FinalizedSlip className="order-5 lg:order-none xl:row-start-2 xl:col-start-1 xl:w-full xl:max-w-[40rem]" pressed={sealedNow} />
+                  <div className="order-5 lg:order-none xl:row-start-2 xl:col-start-1 xl:w-full xl:max-w-[40rem] flex flex-col gap-3">
+                    <FinalizedSlip pressed={sealedNow} />
+                    <InvitePlayer align="start" />
+                  </div>
                 )}
                 {rosterFinalized && (
                   <CircleLedger className="hidden xl:block xl:row-start-3 xl:col-start-1" onOpen={() => setActiveTab('circle')} />
