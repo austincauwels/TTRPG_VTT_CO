@@ -1,0 +1,147 @@
+From 06b0f0aa96277248a18e5c5e7bfe1fc70ac04196 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 20:44:50 +0000
+Subject: [PATCH] WIP: a gilded roll waiting for its choice survives a
+ reconnect (unfinished, untested)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014FkQPZduZdnxNMYq78A69X
+---
+ FAQ.md                           |  2 +-
+ backend/tests/test_ws_rolls.py   | 31 +++++++++++++++++++++++++++++++
+ backend/vtt/ws/endpoint.py       |  3 +++
+ backend/vtt/ws/handlers/rolls.py | 13 +++++++++++++
+ docs/refactor/QUIRKS.md          |  6 ++++++
+ docs/refactor/WEBSOCKET.md       |  2 +-
+ 6 files changed, 55 insertions(+), 2 deletions(-)
+
+diff --git a/FAQ.md b/FAQ.md
+index e30b86e..a406c59 100644
+--- a/FAQ.md
++++ b/FAQ.md
+@@ -15,7 +15,7 @@ All rolls are resolved server-side in `engine.py: roll_dice()` using Python's `s
+ | 0 | Rolls 2d6, takes the **lower** value |
+ | 1–6 | Rolls Nd6, takes the **highest** value |
+ | Gilded, pool 1 | Rolls 1 gilded die; **auto-refreshes** 1 drive pip from the matching pool |
+-| Gilded, pool 2+ | Rolls normally but pauses for a **gilded choice** — player picks between the gilded die result and the highest regular die result before the outcome is resolved |
++| Gilded, pool 2+ | Rolls normally but pauses for a **gilded choice** — player picks between the gilded die result and the highest regular die result before the outcome is resolved. The server holds the dice until a die is kept: a desk that reloads, or the player on another device, is shown the same choice again |
+ 
+ **Outcomes** (based on highest or chosen value):
+ - **Critical Success** — two or more dice show 6
+diff --git a/backend/tests/test_ws_rolls.py b/backend/tests/test_ws_rolls.py
+index ee043f1..57fd047 100644
+--- a/backend/tests/test_ws_rolls.py
++++ b/backend/tests/test_ws_rolls.py
+@@ -225,6 +225,37 @@ def test_a_secret_roll_shows_no_dice(client, dice):
+         assert support.types(gm.drain()) == ["member_update", "member_update"]
+ 
+ 
++def test_a_desk_that_opens_again_is_offered_the_held_gilded_roll(client, dice):
++    """Fixed (playtest, gilded-reload-free-reroll): a desk reloaded while a gilded roll
++    waited for its die forgot the roll, nothing had logged it, and the next roll replaced
++    it: a free reroll, with the drive it spent lost. A desk that opens on the channel is
++    sent the held roll again (the same dice and the sheet as it is now), and a die can
++    still be kept: the roll counts once."""
++    camp = support.new_campaign(client)
++    ch = support.active_member(client, camp, control=2, gilded_control=True, nerve_max=4, nerve_current=4)
++    dice(4, 6, 2)
++    with support.ws_connect(client, ch["id"]) as ws:
++        ws.send("roll", action="control", drive_spent=1)
++        [first] = ws.sync()
++        assert first["payload"]["roll"]["needs_gilded_choice"] is True
++    with support.ws_connect(client, ch["id"]) as again, support.ws_connect(client, camp["campaign_code"]) as gm:
++        assert support.types(again.initial) == ["character_update", "circle_update"]
++        held = again.recv()
++        assert held == {"type": "roll_result", "payload": {
++            "character_id": ch["id"], "action": "control", "roll": first["payload"]["roll"],
++            "character": again.initial[0]["payload"]}}
++        assert held["payload"]["character"]["nerve_current"] == 3
++        again.send("resolve_gilded", action="control", chosen_type="regular", chosen_value=0)
++        msgs = again.sync()
++        assert support.types(msgs) == ["roll_kept", "activity_log"]
++        assert msgs[1]["payload"]["message"] == f"{ch['name']} rolled control {EM} 6 {DOT} Full Success."
++        assert support.types(gm.drain()) == ["dice_thrown", "activity_log"]
++    # Kept: a desk opening now has nothing waiting for it
++    with support.ws_connect(client, ch["id"]) as third:
++        assert third.sync() == []
++    assert support.fetch(Character, ch["id"]).nerve_current == 3
++
++
+ def test_resolve_gilded_reads_the_held_dice_and_cannot_be_replayed(client, dice):
+     """Fixed (QUIRKS D8): the kept die's value comes from the dice the server rolled, not
+     from chosen_value, and a choice with no roll waiting is refused (409) and changes nothing."""
+diff --git a/backend/vtt/ws/endpoint.py b/backend/vtt/ws/endpoint.py
+index 2344b6f..655ba53 100644
+--- a/backend/vtt/ws/endpoint.py
++++ b/backend/vtt/ws/endpoint.py
+@@ -42,6 +42,7 @@ from vtt.serializers import get_char_dict, get_circle_dict
+ from vtt.ws.access import CLOSE_UNAUTHENTICATED, Rejected, check_message, check_target, resolve_channel
+ from vtt.ws.context import WSContext
+ from vtt.ws.handlers import HANDLERS
++from vtt.ws.handlers.rolls import send_held_roll
+ from vtt.ws.manager import campaign_key, character_key, manager
+ 
+ router = APIRouter()
+@@ -132,6 +133,8 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
+         if character:
+             await websocket.send_json({"type": "character_update", "payload": get_char_dict(character)})
+         await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(shown_circle)})
++        if character:
++            await send_held_roll(websocket, character)
+ 
+         ctx = WSContext(game_id=game_id, db=db, circle=circle, camp_code=camp_code, camp_id=camp_id,
+                         user_id=user_id, is_gm=is_gm, own_char_id=own_char_id, channel=channel)
+diff --git a/backend/vtt/ws/handlers/rolls.py b/backend/vtt/ws/handlers/rolls.py
+index 7bd5eb5..5969750 100644
+--- a/backend/vtt/ws/handlers/rolls.py
++++ b/backend/vtt/ws/handlers/rolls.py
+@@ -34,6 +34,19 @@ _pending_gilded: dict = {}
+ NO_CHOICE_WAITING = "No roll is waiting for a die to be kept. Roll again."
+ 
+ 
++async def send_held_roll(websocket, character):
++    """A desk that opens on a character whose gilded roll still waits for its die to be
++    kept (a reload, the player back on another device) gets that roll_result again, the
++    same dice, so it asks for the choice again. It used to forget the roll: its buttons
++    were live, the next roll replaced the held one (a free reroll), and the drive spent on
++    it was lost."""
++    held = _pending_gilded.get(character.id)
++    if held is not None:
++        await websocket.send_json({"type": "roll_result", "payload": {
++            "character_id": character.id, "action": held["action"], "roll": held["roll"],
++            "character": get_char_dict(character)}})
++
++
+ async def _refuse(ctx, action, status, detail):
+     """An action_rejected frame to the sender's own channel, as vtt.ws.access sends."""
+     await manager.broadcast(ctx.channel, {"type": "action_rejected", "payload": {
+diff --git a/docs/refactor/QUIRKS.md b/docs/refactor/QUIRKS.md
+index 01c4976..a710d19 100644
+--- a/docs/refactor/QUIRKS.md
++++ b/docs/refactor/QUIRKS.md
+@@ -129,3 +129,9 @@ A hand review of the sign-in and campaign access code (routers/auth.py, routers/
+ - Gear slots (rulebook check 2026-10-07): "PCs have the capacity for three pieces of gear... Gear slots only reset once an assignment is complete" (p. 52). A player could unmark gear at any time, freeing a used slot, and ending the assignment never cleared it; the gear dialog also dropped any marked item it did not list. A player's update_gear that unmarks an item is now refused (409), the Lightkeeper may still correct the list, gm_end_assignment clears every member's gear, and the dialog keeps every marked item, locked. Tests: test_update_gear, test_the_gm_may_correct_marked_gear, test_gm_end_assignment.
+ - ability_uses (pre-deploy review 2026-10-07): get_char_dict sent a string ability_uses through unparsed (the quirk above), and the desk's gear slots and once-per-assignment Use buttons read it as an object. On a database whose column is TEXT, a Geared Up ally saw three slots and every Use button looked ready. It is now parsed like gear and scars, and anything unreadable is sent as {}. Tests: test_char_dict_parses_string_ability_uses, test_roll_with_string_ability_uses_works.
+ - Row locks on a refused ability (pre-deploy review 2026-10-07): use_ability locked the campaign circle for Volunteer Duty and the target for Ritual, and its refusals (resources not open, already spent, no burned resistance) returned with the lock held until that socket's next message. Any other write to the row, such as the GM opening resources or the ally's own roll, waited 5 seconds for it, stalled every socket meanwhile, and failed. The refusal now rolls back first, and the socket loop ends each message's transaction after its handler (vtt/ws/endpoint.py). Test: test_a_refused_use_ability_leaves_no_row_locked.
++
++## Dice, connection and abilities (playtest, 2026-10-09)
++
++Found by the AI playtest of 2026-10-08 and verified on a fresh copy (its report's keys in brackets). Each fix has its own commit and test.
++
++- A gilded roll waiting for its die (gilded-reload-free-reroll): the server held the dice but never offered them again, so a desk reloaded during the choice forgot the roll, nothing had logged it, and the next roll replaced it: a free reroll, with the drive the first one spent lost. A socket that opens on the character now gets the held roll's roll_result again. Test: test_a_desk_that_opens_again_is_offered_the_held_gilded_roll.
+diff --git a/docs/refactor/WEBSOCKET.md b/docs/refactor/WEBSOCKET.md
+index f898a11..86321a2 100644
+--- a/docs/refactor/WEBSOCKET.md
++++ b/docs/refactor/WEBSOCKET.md
+@@ -17,7 +17,7 @@ Setup, in order:
+ 4. Campaign: the character's campaign if it has one, else the campaign whose `campaign_code == game_id`.
+ 5. Circle: `get_or_create_campaign_circle(campaign.id)` (this inserts an "Unnamed Circle" if the campaign has none, so connecting can write to the database). Without a campaign it uses circle id 1, and creates circle id 1 if it is missing.
+ 6. `camp_code = campaign.campaign_code` (or `game_id` when there is no campaign) and `camp_id = campaign.id` (or None). These are resolved once and never refreshed for the life of the socket.
+-7. The server sends `character_update` (only when a character was resolved) and then `circle_update`, to this socket only. Since the security review a pending or retired character's socket gets circle 1 here instead of its campaign's circle (AUTH.md).
++7. The server sends `character_update` (only when a character was resolved) and then `circle_update`, to this socket only. Since the security review a pending or retired character's socket gets circle 1 here instead of its campaign's circle (AUTH.md). Since 2026-10-09 a character whose gilded roll still waits for its die to be kept (`_pending_gilded`) also gets that roll's `roll_result` again, the same dice and the sheet as it is now, after `circle_update`: a desk reloaded during the choice used to forget the roll, and its next roll replaced the held one (a free reroll, with the drive the first had spent lost).
+ 
+ Receive loop (main.py:1496-2516):
+ 
+-- 
+2.43.0
+

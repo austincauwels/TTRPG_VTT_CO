@@ -1,0 +1,199 @@
+From b9c5ecd1f1c4554252ed274568583511195f8241 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 09:30:19 +0000
+Subject: [PATCH 3/4] Circle resources read right before the seal
+
+Approving an investigator sent no circle update and filled nothing, so with
+four approved the Lightkeeper's open Circle page read each resource as "1 of
+1" and "refills to 1 (1 plus the circle's members)", and after a reload as
+"1 of 5" with four squares that looked spent. An approval or a rejoin now
+sends the campaign's circle to every desk, and before the seal fills each
+resource to 1 plus the members first, as the seal does (rulebook p. 41).
+After the seal only the maximum grows. The note under the resources puts the
+rule before the number: "each refills to 1 plus the circle's members (now 5)".
+
+Tests: the approve and rejoin broadcasts carry the circle, and a new test
+approves three before the seal and one after. Checked in Chromium: four
+approvals with the Lightkeeper's desk open read 5 of 5, and the same after a
+reload.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014FkQPZduZdnxNMYq78A69X
+---
+ backend/tests/test_rest_broadcasts.py | 44 +++++++++++++++++++++++----
+ backend/vtt/routers/campaigns.py      | 22 +++++++++++++-
+ docs/refactor/WEBSOCKET.md            |  2 +-
+ frontend/src/game/circleResources.js  |  8 +++--
+ 4 files changed, 65 insertions(+), 11 deletions(-)
+
+diff --git a/backend/tests/test_rest_broadcasts.py b/backend/tests/test_rest_broadcasts.py
+index 44f6fc2..73b71bd 100644
+--- a/backend/tests/test_rest_broadcasts.py
++++ b/backend/tests/test_rest_broadcasts.py
+@@ -4,6 +4,7 @@ broadcast_campaign(code, id) sends to the campaign code channel (the GM) and to
+ every character in the campaign whose status is active at the time of the call.
+ """
+ import support
++from models import Circle
+ 
+ 
+ def _types(ws):
+@@ -35,14 +36,45 @@ def test_approve_broadcasts_to_gm_and_active_members(client):
+             support.ws_connect(client, member["id"]) as mem, \
+             support.ws_connect(client, ch["id"]) as newbie:
+         support.approve(client, ch["id"])
+-        [msg] = gm.drain()
++        msg, circle = gm.drain()
+         assert msg["type"] == "investigator_approved"
+         assert msg["payload"]["character"]["id"] == ch["id"]
+         assert msg["payload"]["character"]["status"] == "active"
+         assert sorted(c["id"] for c in msg["payload"]["active_investigators"]) == sorted([member["id"], ch["id"]])
+         assert msg["payload"]["campaign_id"] == camp["id"]
+-        assert _types(mem) == ["investigator_approved"]
+-        assert _types(newbie) == ["investigator_approved"]
++        # Then the circle: before the seal each resource is 1 plus the members (playtest,
++        # 2026-10-09: it stayed at 1 and no desk was told the maximum had grown)
++        assert circle["type"] == "circle_update"
++        p = circle["payload"]
++        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (3, 3, 3, 3)
++        assert _types(mem) == ["investigator_approved", "circle_update"]
++        assert _types(newbie) == ["investigator_approved", "circle_update"]
++
++
++def test_approving_fills_the_resources_only_before_the_seal(client):
++    """Rulebook p. 41: "At circle creation, assign a number of resource points equal to 1
++    plus the number of circle members." Each approval before the seal fills each resource
++    to that, as the seal does; after it, a new member raises the maximum the desks show
++    but leaves what the circle has, which comes back only when the track fills. With no
++    circle yet (nobody has opened the campaign) there is nothing to fill or send."""
++    camp = support.new_campaign(client)
++    first = support.active_member(client, camp)
++    assert support.campaign_circle(camp["id"]) is None
++    with support.ws_connect(client, camp["campaign_code"]) as gm:
++        cid = gm.initial[-1]["payload"]["id"]
++        for n in range(2, 5):
++            support.approve(client, support.pending_member(client, camp)["id"])
++            p = support.of_type(gm.drain(), "circle_update")[0]["payload"]
++            assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (n + 1, n + 1, n + 1, n + 1)
++        r = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid},
++                        headers=support.as_gm(camp))
++        assert r.status_code == 200
++        support.update(Circle, cid, refresh=2)  # spent since the seal
++        gm.drain()
++        support.approve(client, support.pending_member(client, camp)["id"])
++        p = support.of_type(gm.drain(), "circle_update")[0]["payload"]
++        assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (5, 2, 5, 6)
++    assert first["id"]
+ 
+ 
+ def test_reject_notifies_campaign_and_rejected_character(client):
+@@ -85,13 +117,13 @@ def test_rejoin_sends_approved_then_joined_mid_campaign(client):
+         client.post("/campaign/rejoin", json={"character_id": ch["id"], "campaign_code": camp["campaign_code"]},
+                     headers=support.as_owner(ch["id"]))
+         msgs = gm.drain()
+-        assert support.types(msgs) == ["investigator_approved", "character_joined_mid_campaign"]
++        assert support.types(msgs) == ["investigator_approved", "character_joined_mid_campaign", "circle_update"]
+         assert msgs[0]["payload"]["character"]["id"] == ch["id"]
+         assert msgs[1]["payload"]["new_character"]["id"] == ch["id"]
+         assert sorted(c["id"] for c in msgs[1]["payload"]["active_investigators"]) == sorted([member["id"], ch["id"]])
+         assert msgs[1]["payload"]["campaign_id"] == camp["id"]
+-        assert _types(mem) == ["investigator_approved", "character_joined_mid_campaign"]
+-        assert _types(newbie) == ["investigator_approved", "character_joined_mid_campaign"]
++        assert _types(mem) == ["investigator_approved", "character_joined_mid_campaign", "circle_update"]
++        assert _types(newbie) == ["investigator_approved", "character_joined_mid_campaign", "circle_update"]
+ 
+ 
+ def test_invite_rejoin_reaches_every_character_of_the_user(client):
+diff --git a/backend/vtt/routers/campaigns.py b/backend/vtt/routers/campaigns.py
+index 5d55e47..ec54964 100644
+--- a/backend/vtt/routers/campaigns.py
++++ b/backend/vtt/routers/campaigns.py
+@@ -20,10 +20,11 @@ from vtt.auth import (
+     campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
+     require_gm_of_character, require_gm_or_member, require_owner, require_self,
+ )
++from vtt.circle_queries import fill_resources
+ from vtt.config import _ALLOWED_CAMPAIGN_CODE_RE, _SAFE_FONT_NAMES
+ from vtt.db import get_db, releases_locks_on_error
+ from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
+-from vtt.serializers import get_char_dict
++from vtt.serializers import get_char_dict, get_circle_dict
+ from vtt.ws.access import CLOSE_NOT_FOUND
+ from vtt.ws.manager import campaign_key, character_key, manager
+ 
+@@ -133,6 +134,23 @@ async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat',
+             await manager.broadcast(campaign_key(code), payload)
+     return result
+ 
++async def _announce_members_changed(db: Session, campaign: Campaign):
++    """The campaign's circle to its desks after a member joined: each resource's maximum
++    is 1 plus the members (resource_pool), and before the seal each resource is filled to
++    it, as the seal fills it (rulebook p. 41: 1 plus the circle's members at creation).
++    Approving sent no circle_update and filled nothing, so with four members approved the
++    Lightkeeper's open page read each resource as "1 of 1", and after a reload as "1 of 5"
++    with four squares that looked spent (playtest, 2026-10-09)."""
++    circle = db.query(Circle).filter(Circle.campaign_id == campaign.id).first()
++    if circle is None:
++        return
++    if not circle.is_finalized:
++        fill_resources(circle, db)
++        db.commit()
++    await manager.broadcast_campaign(campaign.campaign_code, campaign.id, {
++        "type": "circle_update", "payload": get_circle_dict(circle)}, db)
++
++
+ @router.post("/campaign/approve/{character_id}")
+ async def approve_character(character_id: int, db: Session = Depends(get_db),
+                             user: User = Depends(get_current_user)):
+@@ -156,6 +174,7 @@ async def approve_character(character_id: int, db: Session = Depends(get_db),
+                 "campaign_id": char.campaign_id,
+             }
+         }, db)
++        await _announce_members_changed(db, campaign)
+     return result
+ 
+ @router.post("/campaign/reject/{character_id}")
+@@ -365,6 +384,7 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
+             "campaign_id": campaign.id,
+         },
+     }, db)
++    await _announce_members_changed(db, campaign)
+     return {"success": True, "character": get_char_dict(new_char)}
+ 
+ 
+diff --git a/docs/refactor/WEBSOCKET.md b/docs/refactor/WEBSOCKET.md
+index f898a11..e034f41 100644
+--- a/docs/refactor/WEBSOCKET.md
++++ b/docs/refactor/WEBSOCKET.md
+@@ -228,7 +228,7 @@ All 26 types the server emits have a handler in `gameStore.js`, and the store ha
+ | `character_update` | connect; most character handlers; `gm_end_assignment`; `gm_reset_character`; Behind Me target | Sender's key, or the affected character's key | Replaces `character` with the payload, no campaign check; triggers circle creation fetch; adds a "deceased" log line on first incapacitation |
+ | `member_update` (since 2026-10-08) | `manager.broadcast`, for every `character_update`, `roll_result` and `trigger_scar` it sends (the frames that carry a whole sheet), whatever the handler; not the connect-time `character_update` | The GM key of the sheet's own `campaign_id`, while the character is active or pending there; never a player's key, never another campaign's GM. The manager learns each campaign's GM key when that GM's socket connects, so no query is made | `{type, payload: the sheet}`. GM desk only (campaign-checked): stored in `memberSheets` by id, merged into the matching `campaignRoster` entry (a member who died keeps the entry, flagged `is_dead`, for the deceased card; what counts or addresses the living leaves them out), and the open `GMCharacterSheet` follows it. The frame never reaches a GM socket that is down, so when the GM desk's socket opens again (`keepLog`) the store reloads the roster without clearing it and bumps `memberResync`, and the open sheet loads again |
+ | `member_status` (since 2026-10-08) | `apply_scar` when the fourth scar kills; `gm_update_scars` when it lifts a death (`announce_death` in `handlers/circle.py`) | Campaign, except the GM key, whose desk has the sheet through `member_update`; only for an active member of the socket's campaign | `{character_id, campaign_id, is_dead}`, which the roster route already lists for members. Campaign-checked; sets `is_dead` on the matching `campaignRoster.active_investigators` card. A player's roster is read once, when the desk opens, so without it the circle's cards and the ally pickers (`livingMembers`) kept a dead ally until a reload, and left out a revived one |
+-| `circle_update` | connect; GM circle handlers; `update_circle`; `spend_resource`; `refill_resources`; `gm_end_assignment` | Campaign (connect: sender only) | Replaces `circle`, no campaign check |
++| `circle_update` | connect; GM circle handlers; `update_circle`; `spend_resource`; `refill_resources`; `gm_end_assignment`; REST approve and rejoin (since 2026-10-09: after `investigator_approved`, and after `character_joined_mid_campaign` for a rejoin, so each desk has the new maximum; before the seal each resource is first filled to 1 plus the members, as the seal fills it) | Campaign (connect: sender only) | Replaces `circle`, no campaign check |
+ | `roll_result` | `roll`, `burn_resistance` | Sender's key | Sets `lastRoll`, `character`, clears rolling state, sets `pendingGildedChoice` when needed |
+ | `roll_kept` (since 2026-10-07) | `resolve_gilded` | Sender's key, secret rolls too | `{character_id, action, index, is_gilded, value, outcome}`: the server's result for the kept die. Sets `lastRollKept`; the dice vault's outcome slip, post-roll prompts and resistance offer read it |
+ | `roll_error` | `roll` exception | Sender's key | Clears `isRolling`; the message text is not shown |
+diff --git a/frontend/src/game/circleResources.js b/frontend/src/game/circleResources.js
+index 081cf6d..58767bf 100644
+--- a/frontend/src/game/circleResources.js
++++ b/frontend/src/game/circleResources.js
+@@ -16,10 +16,12 @@ const earnsBackAtMilestones = (abilities) =>
+ // When they come back (p. 41): not after an assignment. Each refills when the Illumination
+ // track fills, to 1 plus the members (fill_resources in backend/vtt/circle_queries.py), and
+ // a circle with Resource Management earns one back at each milestone. Printed under the
+-// resources on both circle pages, with the spending limit (p. 45).
++// resources on both circle pages, with the spending limit (p. 45). The rule comes first and
++// the number after it: "refills to 1 (1 plus the circle's members)" read as a contradiction
++// (playtest, 2026-10-09).
+ export const refillRule = (maxCap, abilities) => (earnsBackAtMilestones(abilities)
+-  ? `Each player may spend up to two between assignments. Spent resources come back only on the Illumination track: Resource Management earns back one Stitch, Refresh or Train, the circle's choice, at each milestone (3, 6 and 9), and each refills to ${maxCap} (1 plus the circle's members) when the track fills.`
+-  : `Each player may spend up to two between assignments. Spent resources do not come back after an assignment: each refills to ${maxCap} (1 plus the circle's members) when the Illumination track fills.`);
++  ? `Each player may spend up to two between assignments. Spent resources come back only on the Illumination track: Resource Management earns back one Stitch, Refresh or Train, the circle's choice, at each milestone (3, 6 and 9), and each refills to 1 plus the circle's members (now ${maxCap}) when the track fills.`
++  : `Each player may spend up to two between assignments. Spent resources do not come back after an assignment: each refills to 1 plus the circle's members (now ${maxCap}) when the Illumination track fills.`);
+ 
+ // The same, as the charter card's ledger entry, which shows each maximum already
+ export const refillEntry = (maxCap, abilities) => (earnsBackAtMilestones(abilities)
+-- 
+2.43.0
+

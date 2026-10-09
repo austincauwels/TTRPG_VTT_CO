@@ -1,0 +1,46 @@
+From be75f089251e0621a2029007cc90413bf4c7fd1a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 09:30:07 +0000
+Subject: [PATCH 2/4] Your Circle: a relationship accepted on either side reads
+ as settled
+
+A relationship another player proposed and you accepted showed on their card
+as pending (the empty stamp, "not yet accepted" for screen readers) until you
+proposed one back, while the card's back said it was accepted. The front now
+shows whichever side is accepted, yours first. Checked in Chromium: Ada
+proposes Champion, Bram accepts, Ada's card on Bram's desk reads Champion.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014FkQPZduZdnxNMYq78A69X
+---
+ frontend/src/components/pc/TactileSidebar.jsx | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/frontend/src/components/pc/TactileSidebar.jsx b/frontend/src/components/pc/TactileSidebar.jsx
+index 2d2fa97..a971b1e 100644
+--- a/frontend/src/components/pc/TactileSidebar.jsx
++++ b/frontend/src/components/pc/TactileSidebar.jsx
+@@ -64,6 +64,9 @@ function RelationshipCard({ inv, myId, relationships, index }) {
+   const myRel = relationships.find(r => r.from_character_id === myId && r.to_character_id === inv.id);
+   const theirRel = relationships.find(r => r.from_character_id === inv.id && r.to_character_id === myId);
+   const hasAny = myRel || theirRel;
++  // Settled once either side is accepted: a relationship proposed to you and accepted read
++  // as pending on its front until you proposed one back (playtest, 2026-10-09)
++  const settled = myRel?.status === 'accepted' ? myRel : theirRel?.status === 'accepted' ? theirRel : null;
+   // The card turns over on this screen, with the paper sound (owner's round 3 item 21). It
+   // turns flat, as the Lightkeeper's report cards do: in 3D, WebKit (Safari) showed each
+   // card's back mirrored over its front at rest (iPad pass, 2026-10-05).
+@@ -105,8 +108,8 @@ function RelationshipCard({ inv, myId, relationships, index }) {
+               </div>
+               {/* Settled: the relationship in their ink. Proposed: its name in pencil beside
+                   the empty outline of the stamp it is waiting for. None: a blank rule. */}
+-              {myRel?.status === 'accepted' ? (
+-                <p className="font-serif text-sm italic mt-1 pr-6" style={{ color: inkColor }}>{myRel.rel_type}</p>
++              {settled ? (
++                <p className="font-serif text-sm italic mt-1 pr-6" style={{ color: inkColor }}>{settled.rel_type}</p>
+               ) : hasAny ? (
+                 <p className="flex items-center gap-2 font-serif text-sm italic text-sepia mt-1 pr-6">
+                   <span className="truncate">{(myRel || theirRel)?.rel_type}</span>
+-- 
+2.43.0
+
