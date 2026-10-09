@@ -2,7 +2,7 @@
 
 Updated 9 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
-Resume: none
+Resume: PR 8 (small fixes) on branch claude/quirky-johnson-xkyudf, started 2026-10-09
 
 ## For the next chat: start here
 
