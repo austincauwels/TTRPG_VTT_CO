@@ -7,7 +7,9 @@ import React, { useId } from 'react';
 // run: at 0 it all lies in the upper bulb, at 4 the upper bulb is empty and the lower one
 // full, in four even steps. While sand is left above, a thin stream falls from the neck.
 // The sand moves to a new level by transform alone, over a few hundred ms (at once under
-// reduced motion), and nothing moves while the value stands still.
+// reduced motion), and nothing moves while the value stands still. `run` (0 to 1), when
+// given, sets how much has run instead: the Lightkeeper's countdown (TensionClock), which
+// moves the sand on steadily, a little each second.
 const W = 120;
 const H = 188;
 const CX = 60;
@@ -89,8 +91,9 @@ const levelFor = (area) => {
 // upper bulb holds `a`.
 const SAND = areaBelow(FULL);
 const ALL = BELOW[0];
-const UPPER_AT = [0, 1, 2, 3, 4].map((k) => (k === 4 ? NECK + 12 : levelFor(SAND * (4 - k) / 4)));
-const LOWER_AT = [0, 1, 2, 3, 4].map((k) => (k === 0 ? 2 * NECK - SEAT + 12 : 2 * NECK - levelFor(ALL - SAND * k / 4)));
+// `f` is the share of the sand that has run, 0 to 1
+const upperAt = (f) => (f >= 1 ? NECK + 12 : levelFor(SAND * (1 - f)));
+const lowerAt = (f) => (f <= 0 ? 2 * NECK - SEAT + 12 : 2 * NECK - levelFor(ALL - SAND * f));
 
 // The sand's surface above, drawn from y 0: level, with the shallow dish the running sand
 // makes over the neck. And the pile below, highest under the stream.
@@ -112,8 +115,8 @@ const GRAINS = [
 // lamp-lit oxblood is never a fill (DESIGN.md)
 const LIT = { mixBlendMode: 'soft-light' };
 
-const Sand = ({ d, at, id }) => (
-  <g className="transition-transform duration-[450ms] ease-in-out motion-reduce:transition-none"
+const Sand = ({ d, at, id, steady }) => (
+  <g className={`transition-transform motion-reduce:transition-none ${steady ? 'duration-1000 ease-linear' : 'duration-[450ms] ease-in-out'}`}
     style={{ transform: `translateY(${+at.toFixed(2)}px)` }}>
     <path d={d} style={{ fill: 'rgb(var(--c-oxblood))' }} />
     <path d={d} fill={`url(#${id}-sand-crest)`} style={LIT} />
@@ -123,9 +126,11 @@ const Sand = ({ d, at, id }) => (
   </g>
 );
 
-export const Hourglass = ({ value = 0 }) => {
+export const Hourglass = ({ value = 0, run = null }) => {
   const id = useId().replace(/:/g, '');
   const step = Math.max(0, Math.min(4, Math.round(Number(value) || 0)));
+  const steady = run != null;
+  const ran = steady ? Math.max(0, Math.min(1, Number(run) || 0)) : step / 4;
   const cream = (a) => ({ stopColor: 'rgb(var(--c-cream))', stopOpacity: a });
   const gold = (a) => ({ stopColor: 'rgb(var(--c-candle-gold))', stopOpacity: a });
   const sepia = (a) => ({ stopColor: 'rgb(var(--c-sepia))', stopOpacity: a });
@@ -245,13 +250,13 @@ export const Hourglass = ({ value = 0 }) => {
 
       {/* The sand above, the stream while some is left there, and the pile below */}
       <g clipPath={`url(#${id}-upper)`}>
-        <Sand d={SAND_TOP} at={UPPER_AT[step]} id={id} />
+        <Sand d={SAND_TOP} at={upperAt(ran)} id={id} steady={steady} />
       </g>
       <g clipPath={`url(#${id}-lower)`}>
         <rect x={CX - 0.6} y={NECK - 1} width="1.2" height={NECK - SEAT + 1}
           className="transition-opacity duration-300 motion-reduce:transition-none"
-          style={{ fill: 'rgb(var(--c-oxblood))', opacity: step < 4 ? 1 : 0 }} />
-        <Sand d={SAND_PILE} at={LOWER_AT[step]} id={id} />
+          style={{ fill: 'rgb(var(--c-oxblood))', opacity: ran < 1 ? 1 : 0 }} />
+        <Sand d={SAND_PILE} at={lowerAt(ran)} id={id} steady={steady} />
       </g>
 
       {/* The glass in front: its edge, the lamp's window feathered down the left of each bulb,
