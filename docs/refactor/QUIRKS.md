@@ -3,7 +3,7 @@
 The characterization tests in backend/tests pin these AS THEY ARE, so the refactor
 does not change them by accident. Each fix later gets its own commit and flips its test.
 
-- On a fresh PostgreSQL database, users_id_seq and circles_id_seq start at (1, not called) because init_db inserts user 1 and circle 1 with explicit ids. The first register and the first auto-created campaign circle both return 500. The failed insert consumes the value, so the second attempt works.
+- On a fresh PostgreSQL database, users_id_seq and circles_id_seq start at (1, not called) because init_db inserts user 1 and circle 1 with explicit ids. The first register and the first auto-created campaign circle both return 500. The failed insert consumes the value, so the second attempt works. Fixed 2026-10-09 (playtest, seed-id-sequence-collision): init_db moves both sequences past the seeded rows (advance_seeded_sequences), so both work the first time. Tests: test_fresh_postgres_sequences_follow_the_seeded_ids, test_advancing_the_sequences_never_moves_them_back.
 - Seeded admin/admin can log in on every new database.
 - Register always returns campaignCode 'fairelands-01' (hard-coded). Usernames are case-sensitive for register and login, but invite-rejoin matches them case-insensitively.
 - Forge: a missing user_id, user_id 0, or an unknown user_id makes the character belong to user 1. The client sets every stat with no bounds. The character is always placed on circle 1.

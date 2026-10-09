@@ -242,6 +242,33 @@ def warn_password_only_accounts():
     return count
 
 
+# The tables whose rows init_db seeds with explicit ids
+SEEDED_TABLES = ("users", "circles")
+
+
+def advance_seeded_sequences():
+    """On PostgreSQL, moves the users and circles id sequences past the rows the seed
+    inserted with explicit ids (user 1, circle 1). An explicit id leaves its sequence
+    alone, so on a new database the first sign-up and the first campaign's circle were
+    given id 1 again and failed once (QUIRKS.md; playtest, seed-id-sequence-collision).
+    A sequence is only ever moved forward."""
+    if db_engine.dialect.name != "postgresql":
+        return
+    try:
+        with db_engine.begin() as conn:
+            for table in SEEDED_TABLES:
+                seq = conn.execute(text("SELECT pg_get_serial_sequence(:t, 'id')"), {"t": table}).scalar()
+                if not seq:
+                    continue
+                last_value, is_called = conn.execute(text(f"SELECT last_value, is_called FROM {seq}")).one()
+                highest = conn.execute(text(f"SELECT MAX(id) FROM {table}")).scalar()
+                next_id = last_value + 1 if is_called else last_value
+                if highest is not None and next_id <= highest:
+                    conn.execute(text("SELECT setval(:seq, :value, true)"), {"seq": seq, "value": highest})
+    except Exception as e:
+        logger.error("Could not move the id sequences past the seeded rows: %s", e)
+
+
 def init_db():
     """Seed required rows, run additive ALTER TABLE migrations, then retire published
     passwords. Each migration is idempotent: add_columns skips a column that exists
@@ -279,6 +306,7 @@ def init_db():
         logger.error("Error seeding database: %s", e)
     finally:
         db.close()
+    advance_seeded_sequences()
 
     # The additive migrations, in the order they were written. add_columns skips a
     # column that exists already and logs any other failure.
