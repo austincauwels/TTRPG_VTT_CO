@@ -243,6 +243,8 @@ const useGameStore = create(
       isRolling: false,
       rollWaiting: false,        // the roll waits for the connection to come back
       rollError: null,           // why the last roll (or kept die) did not go through
+      dismissedPrompts: [],      // post-roll ability prompts used or skipped on the last roll (kept here, so the Notebook trip does not bring them back)
+      postRollTried: null,       // the post-roll ability last sent, taken back from dismissed if the server refuses it
       campaignRoster: { pending_investigators: [], active_investigators: [] },
       // The GM desk: the latest sheet of each roster character, by id, as member_update
       // brought it (the open GMCharacterSheet follows it)
@@ -513,6 +515,8 @@ const useGameStore = create(
             set({
               lastRoll: roll,
               lastRollKept: null,
+              dismissedPrompts: [],
+              postRollTried: null,
               tableRoll: null, // this desk's own roll is the newest on its felt
               character: message.payload.character,
               isRolling: false,
@@ -618,7 +622,13 @@ const useGameStore = create(
             }
             // A burn answers a roll of that action; after a server restart there is none
             if (message.payload.action === 'burn_resistance' || message.payload.action === 'use_post_roll_ability') {
-              set({ rollError: message.payload.detail || ROLL_REFUSED });
+              // A refused post-roll ability gets its prompt back, so another ally can be tried
+              const tried = message.payload.action === 'use_post_roll_ability' ? get().postRollTried : null;
+              set(state => ({
+                rollError: message.payload.detail || ROLL_REFUSED,
+                dismissedPrompts: tried ? state.dismissedPrompts.filter(k => k !== tried) : state.dismissedPrompts,
+                postRollTried: null,
+              }));
             }
           }
           else if (message.type === 'notebook_entry') {
@@ -989,7 +999,7 @@ const useGameStore = create(
           payload: { ...extra, action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods,
             roll_id: newRollId() }
         };
-        set({ lastRoll: null, lastRollKept: null, isRolling: true, rollWaiting: false, rollError: null });
+        set({ lastRoll: null, lastRollKept: null, isRolling: true, rollWaiting: false, rollError: null, dismissedPrompts: [], postRollTried: null });
         if (socket && socket.readyState === WebSocket.OPEN) {
           sendRoll(set, get, frame);
           return;
@@ -1052,8 +1062,15 @@ const useGameStore = create(
         return false;
       },
 
+      // Used or skipped: the prompt is dismissed for this roll, and the last refusal is cleared
+      dismissPostRollPrompt: (key) => set(state => ({
+        dismissedPrompts: state.dismissedPrompts.includes(key) ? state.dismissedPrompts : [...state.dismissedPrompts, key],
+        rollError: null,
+      })),
+
       usePostRollAbility: (ability, params = {}) => {
         const { socket } = get();
+        set({ postRollTried: ability });
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'use_post_roll_ability', payload: { ability, ...params } }));
         }
