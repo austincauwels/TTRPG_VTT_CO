@@ -141,6 +141,43 @@ def fetch_notebook_entries(campaign_id: int, role: str = "player", character_id:
             visible.append(e)
     return visible
 
+async def _announce_entry(db: Session, campaign_id: int, entry: NotebookEntry, log_message=None, ink_color=""):
+    """Tells every desk of the campaign about an entry (notebook_entry), and logs a line when
+    log_message is given. A desk that holds the entry already takes the new copy."""
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        return
+    await manager.broadcast_campaign(campaign.campaign_code, campaign_id, {
+        "type": "notebook_entry",
+        "payload": {
+            "id": entry.id,
+            "title": entry.title,
+            "content": entry.content,
+            "author_name": entry.author_name,
+            "author_type": entry.author_type,
+            "entry_type": entry.entry_type,
+            "visibility": entry.visibility,
+            "character_id": entry.character_id,
+            "page_number": entry.page_number,
+            "pen_font": entry.pen_font,
+            "ink_color": entry.ink_color,
+            "image_data": entry.image_data,
+            "created_at": entry.created_at or None,
+            "is_deleted": entry.is_deleted,
+            "has_scene": entry.has_scene,
+        },
+    }, db)
+    if log_message:
+        await manager.broadcast_campaign(campaign.campaign_code, campaign_id, {
+            "type": "activity_log",
+            "payload": {
+                "message": log_message,
+                "log_type": "field",
+                "ink_color": ink_color if ink_color != '#1a1a1a' else "",
+            }
+        }, db)
+
+
 @router.post("/api/notebook/{campaign_id}/entries", response_model=NotebookEntryResponse, status_code=201)
 async def add_notebook_entry(campaign_id: int, entry_data: NotebookEntryCreate, db: Session = Depends(get_db),
                              user: User = Depends(get_current_user)):
@@ -164,36 +201,7 @@ async def add_notebook_entry(campaign_id: int, entry_data: NotebookEntryCreate, 
     )
     # Don't broadcast ephemeral or gm_only entries to activity log
     if entry_data.visibility == 'all':
-        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
-        if campaign:
-            entry_payload = {
-                "id": entry.id,
-                "title": entry.title,
-                "content": entry.content,
-                "author_name": entry.author_name,
-                "author_type": entry.author_type,
-                "entry_type": entry.entry_type,
-                "visibility": entry.visibility,
-                "character_id": entry.character_id,
-                "page_number": entry.page_number,
-                "pen_font": entry.pen_font,
-                "ink_color": entry.ink_color,
-                "image_data": entry.image_data,
-                "created_at": entry.created_at or None,
-                "is_deleted": entry.is_deleted,
-            }
-            await manager.broadcast_campaign(campaign.campaign_code, campaign_id, {
-                "type": "notebook_entry",
-                "payload": entry_payload,
-            }, db)
-            await manager.broadcast_campaign(campaign.campaign_code, campaign_id, {
-                "type": "activity_log",
-                "payload": {
-                    "message": f"{author_name} has archived a journal entry.",
-                    "log_type": "field",
-                    "ink_color": ink_color if ink_color != '#1a1a1a' else "",
-                }
-            }, db)
+        await _announce_entry(db, campaign_id, entry, f"{author_name} has archived a journal entry.", ink_color)
     return entry
 
 @router.put("/api/notebook/entries/{entry_id}", response_model=NotebookEntryResponse)
@@ -264,6 +272,7 @@ async def upload_notebook_image(
         image_data   = image_data,
         sketch_scene = sketch_scene,
     )
+    await _announce_entry(db, campaign_id, entry, f"{author_name} has archived a journal entry.", ink_color)
     return {
         "id": entry.id,
         "page_number": entry.page_number,
@@ -325,4 +334,6 @@ async def redraw_sketch(
     entry.sketch_scene = sketch_scene
     db.commit()
     db.refresh(entry)
+    if entry.visibility == "all":
+        await _announce_entry(db, entry.campaign_id, entry)
     return entry

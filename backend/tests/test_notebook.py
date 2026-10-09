@@ -632,17 +632,27 @@ def test_redraw_with_the_picture_alone_drops_the_drawing(client):
     assert listed["has_scene"] is False
 
 
-def test_drawn_sketch_and_redraw_do_not_broadcast(client):
-    """Like every upload, a drawn sketch sends no socket message, so no frame ever
-    carries a scene; a redraw sends none either."""
+def test_drawn_sketch_and_redraw_are_broadcast(client):
+    """A drawn sketch reaches every desk as notebook_entry with its log line, and a redraw
+    sends the entry again (the desks that hold it take the new picture). The frame carries
+    only has_scene, never the scene itself."""
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as mem:
         entry = _draw(client, camp, member).json()
+        for socket in (gm, mem):
+            msgs = socket.drain()
+            assert support.types(msgs) == ["notebook_entry", "activity_log"]
+            assert msgs[0]["payload"]["id"] == entry["id"] and msgs[0]["payload"]["has_scene"] is True
+            assert "sketch_scene" not in msgs[0]["payload"]
         r = client.put(f"/api/notebook/entries/{entry['id']}/sketch", files=_redraw_files(),
                        headers=support.as_owner(member["id"]))
         assert r.status_code == 200
-        assert gm.drain() == [] and mem.drain() == []
+        for socket in (gm, mem):
+            msgs = socket.drain()
+            assert support.types(msgs) == ["notebook_entry"]
+            assert msgs[0]["payload"]["id"] == entry["id"]
+            assert msgs[0]["payload"]["image_data"] == r.json()["image_data"]
 
 
 def _upload_sketch(client, camp, member, title, entry_type="sketch"):

@@ -183,7 +183,8 @@ def test_notebook_entry_broadcast_only_for_visibility_all(client):
         assert support.types(msgs) == ["notebook_entry", "activity_log"]
         assert set(msgs[0]["payload"]) == {"id", "title", "content", "author_name", "author_type",
                                            "entry_type", "visibility", "character_id", "page_number",
-                                           "pen_font", "ink_color", "image_data", "created_at", "is_deleted"}
+                                           "pen_font", "ink_color", "image_data", "created_at", "is_deleted",
+                                           "has_scene"}
         assert msgs[0]["payload"]["id"] == entry["id"]
         assert msgs[1]["payload"] == {"message": f"{member['name']} has archived a journal entry.", "log_type": "field",
                                       "ink_color": entry["ink_color"]}
@@ -199,10 +200,13 @@ def test_notebook_entry_log_has_no_ink_without_character(client):
         assert msgs[1]["payload"]["ink_color"] == ""
 
 
-def test_upload_does_not_broadcast(client):
+def test_upload_is_broadcast_with_a_log_line(client):
     camp = support.new_campaign(client)
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         r = client.post(f"/api/notebook/{camp['id']}/upload",
                         files={"file": ("a.png", b"\x89PNG....", "image/png")}, headers=support.as_gm(camp))
         assert r.status_code == 201
-        assert gm.drain() == []
+        msgs = gm.drain()
+        assert support.types(msgs) == ["notebook_entry", "activity_log"]
+        assert msgs[0]["payload"]["id"] == r.json()["id"]
+        assert msgs[0]["payload"]["image_data"] == r.json()["image_data"]

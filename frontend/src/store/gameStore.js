@@ -623,7 +623,10 @@ const useGameStore = create(
           }
           else if (message.type === 'notebook_entry') {
             set(state => {
-              if (state.notebookEntries.some(e => e.id === message.payload.id)) return state;
+              // An entry this desk holds takes the new copy (a redrawn sketch)
+              if (state.notebookEntries.some(e => e.id === message.payload.id)) {
+                return { notebookEntries: state.notebookEntries.map(e => (e.id === message.payload.id ? { ...e, ...message.payload } : e)) };
+              }
               return { notebookEntries: [...state.notebookEntries, message.payload] };
             });
           }
