@@ -301,6 +301,7 @@ const useGameStore = create(
 
         set({
           accessSession: null,
+          advancementDeferred: false,
           pendingScar: null,
           showScarModal: false,
           scarModalData: null,
@@ -1286,6 +1287,7 @@ const useGameStore = create(
 
       // "Later": the picks stay on the character (advancement_picks) and the dialog comes
       // back with the next advance or the next visit to the desk
+      resumeCircleAdvancement: () => set({ advancementDeferred: false }),
       dismissCircleAdvancement: () => set({ circleAdvancement: null, advancementDeferred: true, advancementError: null }),
 
       // One pick of the circle's advancement; the server checks it (engine.apply_advancement)

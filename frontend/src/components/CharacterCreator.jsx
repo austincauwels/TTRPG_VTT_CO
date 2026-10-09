@@ -1497,7 +1497,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             <div
               className="fixed inset-0 z-[500] flex items-center justify-center p-4"
               style={{ background: 'rgb(var(--c-night) / 0.85)' }}
-              onClick={() => { if (!savingMode) setShowJoinInput(false); }}
+              onClick={(e) => { if (e.detail > 1) return; /* the second click of a double-click that opened it */ if (!savingMode) setShowJoinInput(false); }}
             >
               <div
                 ref={joinDialogRef}
