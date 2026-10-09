@@ -1,0 +1,7 @@
+{
+  "dm": { "viewport": { "width": 1440, "height": 900 }, "cdp": 9301 },
+  "ada": { "viewport": { "width": 1920, "height": 1080 }, "cdp": 9302 },
+  "bram": { "viewport": { "width": 390, "height": 844 }, "cdp": 9303, "touch": true, "mobile": true },
+  "cass": { "viewport": { "width": 1366, "height": 768 }, "cdp": 9304 },
+  "dev": { "viewport": { "width": 820, "height": 1180 }, "cdp": 9305, "touch": true, "mobile": true }
+}

@@ -1,0 +1,13 @@
+# A run's working files; copy what is worth keeping into results/
+/node_modules/
+/profiles/
+/logs/
+/shots/
+/memory/
+/scripts/
+/verify/
+/page/
+/table.jsonl
+/table.md
+/findings.jsonl
+/secret.txt

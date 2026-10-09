@@ -1,0 +1,8 @@
+{
+  "name": "candela-vtt-playtest",
+  "private": true,
+  "description": "AI playtest harness for Candela VTT: persistent browser seats, table talk and findings logging",
+  "dependencies": {
+    "playwright": "1.56.1"
+  }
+}
