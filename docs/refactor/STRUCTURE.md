@@ -33,6 +33,7 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 | `vtt/serializers.py` | `get_char_dict`, `get_circle_dict` | 1352 to 1445 |
 | `vtt/deletion.py` | deleting characters and campaigns (soft delete), the undo and the admin restore, each under row locks; `backend/restore_deleted.py` is the admin's command line for it (DELETION.md) | new |
 | `vtt/circle_queries.py` | `get_or_create_campaign_circle`, `votes_dict` and `relationships_list` (were `_votes_dict` and `_relationships_list`), `resolve_circle` | 721 to 753, 1447 to 1454 |
+| `vtt/countdown.py` | the Lightkeeper's countdown beside the hourglass: its actions (`apply_action`), the duration limits and the timer fields of `get_circle_dict` (`timer_fields`, the time left as of the server's `now_ms`) | new |
 | `vtt/application.py` | `app`, limiter state and handler, CORS, router includes in the old route order | 244 to 255, 944 |
 | `vtt/routers/campaigns.py` | `/campaign/create` through `/campaign/{campaign_id}/roster` | 450 to 688 |
 | `vtt/routers/circles.py` | circle-creation-state, `/circle/vote`, `/circle/relationship/*`, `/campaign/finalize-roster` | 755 to 942 |
@@ -46,12 +47,13 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 | `vtt/ws/context.py` | `WSContext`, the state passed to a handler | new |
 | `vtt/ws/access.py` | who may open which channel (`resolve_channel`, close codes 4401, 4403, 4404) and who may send which message (`check_target`, `check_message`) | new |
 | `vtt/ws/handlers/__init__.py` | `HANDLERS`: message type to (handler, needs_character) | new |
-| `vtt/ws/handlers/gm.py` | `gm_update_tension`, `gm_update_circle`, `gm_transition_scene`, `gm_toggle_resource_edit`, `gm_toggle_reports`, `gm_advance_circle`, `refill_resources`, `gm_end_assignment`, `gm_reset_character`, `update_circle` | WEBSOCKET.md 4.2 |
+| `vtt/ws/handlers/gm.py` | `gm_update_tension`, `gm_update_scars`, `gm_update_circle`, `gm_transition_scene`, `gm_toggle_resource_edit`, `gm_toggle_reports`, `gm_advance_circle`, `refill_resources`, `gm_end_assignment`, `gm_reset_character`, `update_circle` | WEBSOCKET.md 4.2 |
 | `vtt/ws/handlers/rolls.py` | `roll`, `resolve_gilded`, `use_post_roll_ability`, `burn_resistance` | WEBSOCKET.md 4.3 |
 | `vtt/ws/handlers/character.py` | `update_drive`, `update_pen_font`, `apply_scar`, `revive_character`, `update_gear`, `apply_advancement` | WEBSOCKET.md 4.4 |
 | `vtt/ws/handlers/marks.py` | `take_mark`, `resolve_ability_mark`, `intercept_mark`, `INTERCEPT_ABILITIES` | WEBSOCKET.md 4.5 |
 | `vtt/ws/handlers/circle.py` | `submit_assignment_report`, `spend_resource`, `circle_creation_vote`, `circle_backstory_update`, `circle_personal_answer`, `circle_relationship_propose`, `circle_relationship_respond` | WEBSOCKET.md 4.6 |
 | `vtt/ws/handlers/chat.py` | `chat_message`, `add_notebook_entry` | WEBSOCKET.md 4.7 |
+| `vtt/ws/handlers/timer.py` | `gm_timer` | WEBSOCKET.md 4.2 |
 
 `engine.py` and `models.py` stay where they were.
 

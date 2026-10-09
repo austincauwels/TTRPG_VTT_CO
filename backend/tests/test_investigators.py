@@ -5,6 +5,7 @@ import support
 from models import Character
 from vtt import creation
 from vtt.routers import investigators
+from vtt.serializers import get_char_dict
 
 RESPONSE_KEYS = {
     "name", "pronouns", "style", "catalyst", "question", "role", "specialty",
@@ -17,6 +18,13 @@ RESPONSE_KEYS = {
     "intuition_current", "intuition_max", "intuition_resistance_spent",
     "body_marks", "brain_marks", "bleed_marks", "scars_count", "scars_list", "incapacitated",
     "id", "circle_id", "status", "pen_font", "ink_color",
+}
+# What GET /api/investigators/{id} adds to the forge's answer: the rest of the sheet the
+# socket sends (vtt.serializers.get_char_dict)
+SHEET_KEYS = {
+    "is_dead", "campaign_id", "personal_circle_answer", "ability_uses", "train_bonus",
+    "train_dice", "warded_by_id", "resources_spent_assignment", "advancement_picks",
+    "advancement_taken",
 }
 
 
@@ -181,6 +189,27 @@ def test_get_investigator(client):
     r = client.get(f"/api/investigators/{made['id']}", headers=support.as_owner(made["id"]))
     assert r.status_code == 200
     assert r.json() == made
+
+
+def test_get_investigator_is_the_whole_sheet(client):
+    """The answer carries every field the socket's sheet does (get_char_dict): the
+    Lightkeeper's copy of a sheet opens from it, and it used to show no Train die, no
+    death and no ability uses until a change came over the socket."""
+    camp = support.new_campaign(client)
+    made = support.active_member(client, camp)
+    support.update(Character, made["id"], train_bonus=True, train_dice=2, is_dead=True,
+                   ability_uses={"Flourish": 1}, warded_by_id=made["id"], advancement_picks=1,
+                   advancement_taken=["action"], resources_spent_assignment=1,
+                   personal_circle_answer="The lighthouse")
+    r = client.get(f"/api/investigators/{made['id']}", headers=support.as_gm(camp))
+    assert r.status_code == 200
+    body = r.json()
+    assert body == get_char_dict(support.fetch(Character, made["id"]))
+    assert set(body) == RESPONSE_KEYS | SHEET_KEYS
+    assert (body["train_bonus"], body["train_dice"], body["is_dead"], body["ability_uses"]) == (
+        True, 2, True, {"Flourish": 1})
+    assert (body["campaign_id"], body["warded_by_id"], body["advancement_taken"]) == (
+        camp["id"], made["id"], ["action"])
 
 
 def test_get_investigator_not_found(client):

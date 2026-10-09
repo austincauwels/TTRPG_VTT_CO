@@ -138,7 +138,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: path `campaign_id`.
 - Trusted ids: `campaign_id`.
 - Tables: characters joined with circles (engine `get_campaign_roster`), campaigns.
-- Response: `{pending_investigators, active_investigators (dead excluded), roster_finalized}`; items are `CharacterRosterItem`.
+- Response: `{pending_investigators, active_investigators, roster_finalized}`; items are `CharacterRosterItem`. Since 2026-10-08 a dead investigator not yet replaced (still `active`) is listed with `is_dead: true`, so the GM desk can open the sheet (it shows them under Deceased); the frontend counts and offers only the living (`frontend/src/game/roster.js`). It used to be left out.
 
 **GET /campaign/{campaign_id}/circle-creation-state** (line 755, `def`)
 - Inputs: path `campaign_id`.
@@ -195,10 +195,11 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **GET /api/investigators** (line 1022, `async def`, `response_model=List[CharacterRosterItem]`)
 - Returns every character in the database. Unused by the frontend.
 
-**GET /api/investigators/{investigator_id}** (line 1040, `async def`, `response_model=CharacterResponse`)
+**GET /api/investigators/{investigator_id}** (line 1040, `async def`, `response_model=CharacterSheet`, `CharacterResponse` before 2026-10-08)
 - Trusted ids: `investigator_id`.
 - Tables: characters. Parses `gear` and `scars_list` if stored as strings (mutates the ORM object, never committed).
-- Response fields are limited by `CharacterResponse` (no user_id or campaign_id). `circle_id` is an optional int: a character with NULL circle_id is returned with `circle_id: null` (before the bug-fix stage it was a required int, and such a character failed response validation with a 500).
+- Response fields are limited by the response model (no user_id; no campaign_id either before 2026-10-08). `circle_id` is an optional int: a character with NULL circle_id is returned with `circle_id: null` (before the bug-fix stage it was a required int, and such a character failed response validation with a 500).
+- Since 2026-10-08 the answer is `get_char_dict`, the sheet the WebSocket sends, and `CharacterSheet` adds its other fields to `CharacterResponse`: `is_dead`, `campaign_id`, `personal_circle_answer`, `ability_uses`, `train_bonus`, `train_dice`, `warded_by_id`, `resources_spent_assignment`, `advancement_picks` and `advancement_taken` (still no user_id). The Lightkeeper's copy of a sheet opens from it and used to show no Train die, death or ability uses until a change came over the socket.
 
 **POST /api/investigators/forge** (line 1055, `async def`, status 201, `response_model=CharacterResponse`)
 - Inputs: JSON `CharacterCreate` (all `CharacterBase` fields plus optional `user_id`).
@@ -302,7 +303,7 @@ Intended: a numeric channel only for the owner of that character; a code channel
 | submit_assignment_report | 2074 | circle_id, character_id, responses | circle_id, character_id | circles.backstory_answers.reports | CircleView | owner of character_id, member | No "and character" guard. |
 | gm_advance_circle | 2097 | role, circle_id, circle_ability | circle_id | circles (circle_ability appended, illumination minus 12) | CirclePage | GM | Sends `activity_log` and `circle_advanced`. |
 | refill_resources | 2122 | role, circle_id | circle_id | circles stitch/refresh/train | CirclePage | GM | Capacity counts `circle.characters` (see legacy fallbacks). |
-| gm_end_assignment | 2134 | role, circle_id, campaign_id (ignored) | circle_id | circles (location, atmosphere cleared), characters (ability_uses, resources_spent_assignment, train_bonus reset for active members) | SceneManager | GM | |
+| gm_end_assignment | 2134 | role, circle_id, campaign_id (ignored) | circle_id | circles (location, atmosphere, tension_label cleared; tension_clock and stamina_dice_used set to 0; illumination +1 per member with Meticulous Notes), characters (ability_uses, resources_spent_assignment, train_bonus, train_dice and gear reset for active members) | SceneManager | GM | Sends `circle_update`, `character_update` to each member, and `activity_log`. |
 | gm_reset_character | 2160 | role, character_id | character_id (scoped to camp_id) | characters drives, resistances, ability_uses | GMCharacterSheet | GM | One of the few scoped lookups. |
 | spend_resource | 2189 | resource_type, circle_id (ignored) | character_id | circles resource -1, characters | CircleView | owner, member | Uses the connection's circle; requires resources_editable; max 2 per assignment. |
 | apply_advancement | 2236 | choice, detail, character_id | character_id | characters | CircleView | owner, after a circle advancement | No server gate on when advancement is allowed. Frontend sends `accessSession.characterId`, which is normally undefined, so the channel id is used. |

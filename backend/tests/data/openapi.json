@@ -811,6 +811,344 @@
         "title": "CharacterRosterItem",
         "type": "object"
       },
+      "CharacterSheet": {
+        "description": "GET /api/investigators/{id}: the whole sheet, the same fields as the WebSocket's\ncharacter_update (vtt.serializers.get_char_dict). The Lightkeeper's copy of a sheet\nopens from it, so it shows a waiting Train die, a death and the uses of this\nassignment before any change has come over the socket.",
+        "properties": {
+          "ability_uses": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Ability Uses",
+            "type": "object"
+          },
+          "advancement_picks": {
+            "default": 0,
+            "title": "Advancement Picks",
+            "type": "integer"
+          },
+          "advancement_taken": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Advancement Taken",
+            "type": "array"
+          },
+          "bleed_marks": {
+            "default": 0,
+            "title": "Bleed Marks",
+            "type": "integer"
+          },
+          "body_marks": {
+            "default": 0,
+            "title": "Body Marks",
+            "type": "integer"
+          },
+          "brain_marks": {
+            "default": 0,
+            "title": "Brain Marks",
+            "type": "integer"
+          },
+          "campaign_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Id"
+          },
+          "catalyst": {
+            "default": "",
+            "title": "Catalyst",
+            "type": "string"
+          },
+          "circle_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Circle Id"
+          },
+          "control": {
+            "default": 0,
+            "title": "Control",
+            "type": "integer"
+          },
+          "cunning_current": {
+            "default": 1,
+            "title": "Cunning Current",
+            "type": "integer"
+          },
+          "cunning_max": {
+            "default": 1,
+            "title": "Cunning Max",
+            "type": "integer"
+          },
+          "cunning_resistance_spent": {
+            "default": 0,
+            "title": "Cunning Resistance Spent",
+            "type": "integer"
+          },
+          "gear": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Gear",
+            "type": "array"
+          },
+          "gilded_control": {
+            "default": false,
+            "title": "Gilded Control",
+            "type": "boolean"
+          },
+          "gilded_hide": {
+            "default": false,
+            "title": "Gilded Hide",
+            "type": "boolean"
+          },
+          "gilded_move": {
+            "default": false,
+            "title": "Gilded Move",
+            "type": "boolean"
+          },
+          "gilded_read": {
+            "default": false,
+            "title": "Gilded Read",
+            "type": "boolean"
+          },
+          "gilded_sense": {
+            "default": false,
+            "title": "Gilded Sense",
+            "type": "boolean"
+          },
+          "gilded_sneak": {
+            "default": false,
+            "title": "Gilded Sneak",
+            "type": "boolean"
+          },
+          "gilded_strike": {
+            "default": false,
+            "title": "Gilded Strike",
+            "type": "boolean"
+          },
+          "gilded_survey": {
+            "default": false,
+            "title": "Gilded Survey",
+            "type": "boolean"
+          },
+          "gilded_sway": {
+            "default": false,
+            "title": "Gilded Sway",
+            "type": "boolean"
+          },
+          "hide": {
+            "default": 0,
+            "title": "Hide",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "incapacitated": {
+            "default": false,
+            "title": "Incapacitated",
+            "type": "boolean"
+          },
+          "ink_color": {
+            "default": "",
+            "title": "Ink Color",
+            "type": "string"
+          },
+          "intuition_current": {
+            "default": 1,
+            "title": "Intuition Current",
+            "type": "integer"
+          },
+          "intuition_max": {
+            "default": 1,
+            "title": "Intuition Max",
+            "type": "integer"
+          },
+          "intuition_resistance_spent": {
+            "default": 0,
+            "title": "Intuition Resistance Spent",
+            "type": "integer"
+          },
+          "is_dead": {
+            "default": false,
+            "title": "Is Dead",
+            "type": "boolean"
+          },
+          "move": {
+            "default": 0,
+            "title": "Move",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nerve_current": {
+            "default": 1,
+            "title": "Nerve Current",
+            "type": "integer"
+          },
+          "nerve_max": {
+            "default": 1,
+            "title": "Nerve Max",
+            "type": "integer"
+          },
+          "nerve_resistance_spent": {
+            "default": 0,
+            "title": "Nerve Resistance Spent",
+            "type": "integer"
+          },
+          "pen_font": {
+            "default": "Caveat",
+            "title": "Pen Font",
+            "type": "string"
+          },
+          "personal_circle_answer": {
+            "default": "",
+            "title": "Personal Circle Answer",
+            "type": "string"
+          },
+          "profile_pic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Pic"
+          },
+          "pronouns": {
+            "default": "Unlisted",
+            "title": "Pronouns",
+            "type": "string"
+          },
+          "question": {
+            "default": "",
+            "title": "Question",
+            "type": "string"
+          },
+          "read": {
+            "default": 0,
+            "title": "Read",
+            "type": "integer"
+          },
+          "resources_spent_assignment": {
+            "default": 0,
+            "title": "Resources Spent Assignment",
+            "type": "integer"
+          },
+          "role": {
+            "default": "",
+            "title": "Role",
+            "type": "string"
+          },
+          "role_ability": {
+            "default": "None",
+            "title": "Role Ability",
+            "type": "string"
+          },
+          "scars_count": {
+            "default": 0,
+            "title": "Scars Count",
+            "type": "integer"
+          },
+          "scars_list": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Scars List",
+            "type": "array"
+          },
+          "sense": {
+            "default": 0,
+            "title": "Sense",
+            "type": "integer"
+          },
+          "sneak": {
+            "default": 0,
+            "title": "Sneak",
+            "type": "integer"
+          },
+          "specialty": {
+            "default": "",
+            "title": "Specialty",
+            "type": "string"
+          },
+          "specialty_ability": {
+            "default": "None",
+            "title": "Specialty Ability",
+            "type": "string"
+          },
+          "status": {
+            "default": "unaffiliated",
+            "title": "Status",
+            "type": "string"
+          },
+          "strike": {
+            "default": 0,
+            "title": "Strike",
+            "type": "integer"
+          },
+          "style": {
+            "default": "",
+            "title": "Style",
+            "type": "string"
+          },
+          "survey": {
+            "default": 0,
+            "title": "Survey",
+            "type": "integer"
+          },
+          "sway": {
+            "default": 0,
+            "title": "Sway",
+            "type": "integer"
+          },
+          "train_bonus": {
+            "default": false,
+            "title": "Train Bonus",
+            "type": "boolean"
+          },
+          "train_dice": {
+            "default": 0,
+            "title": "Train Dice",
+            "type": "integer"
+          },
+          "warded_by_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warded By Id"
+          }
+        },
+        "required": [
+          "name",
+          "id"
+        ],
+        "title": "CharacterSheet",
+        "type": "object"
+      },
       "CharacterSummaryItem": {
         "properties": {
           "campaign_code": {
@@ -2415,7 +2753,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CharacterResponse"
+                  "$ref": "#/components/schemas/CharacterSheet"
                 }
               }
             },

@@ -67,7 +67,7 @@ HTTP_ROUTES = [
     (["POST"], "/api/auth/email-change/undo", "undo_email_change", None, None),
     (["POST"], "/api/auth/me/google/remove", "remove_google_sign_in", None, None),
     (["GET"], "/api/investigators", "list_investigators", "list[CharacterRosterItem]", None),
-    (["GET"], "/api/investigators/{investigator_id}", "get_investigator", "CharacterResponse", None),
+    (["GET"], "/api/investigators/{investigator_id}", "get_investigator", "CharacterSheet", None),
     (["POST"], "/api/investigators/forge", "forge_investigator", "CharacterResponse", 201),
     (["PUT"], "/api/investigators/{investigator_id}/portrait", "set_portrait", None, None),
     (["DELETE"], "/api/investigators/{investigator_id}", "delete_investigator", None, None),
@@ -142,7 +142,7 @@ def test_openapi_document_is_unchanged(client):
 # Every "type" the /ws/{game_id} receive loop acts on, in the order the handlers
 # appear in the original main.py.
 WS_MESSAGE_TYPES = [
-    "gm_update_tension", "gm_update_circle", "gm_transition_scene", "roll",
+    "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "roll",
     "update_drive", "resolve_gilded", "use_post_roll_ability", "update_pen_font",
     "take_mark", "resolve_ability_mark", "intercept_mark", "apply_scar",
     "revive_character", "burn_resistance", "update_gear", "gm_toggle_resource_edit",
@@ -151,6 +151,7 @@ WS_MESSAGE_TYPES = [
     "apply_advancement", "update_circle", "circle_creation_vote",
     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
     "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
+    "gm_update_scars",
 ]
 
 
@@ -174,10 +175,12 @@ def _resources_editable(client, ctx):
 WS_CASES = {
     "gm_update_tension": dict(
         sender="gm", payload=lambda c: {"role": "GM", "character_id": c.char_id, "mark_type": "body", "value": 1},
-        expect=["activity_log"]),
+        expect=["member_update", "activity_log"]),
     "gm_update_circle": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id, "tension_label": "t"},
         expect=["circle_update"]),
+    "gm_timer": dict(
+        sender="gm", payload=lambda c: {"circle_id": c.circle_id, "action": "show"}, expect=["circle_update"]),
     "gm_transition_scene": dict(
         sender="gm", payload=lambda c: {"role": "GM", "scene_name": "s"},
         expect=["scene_transition"]),
@@ -222,16 +225,18 @@ WS_CASES = {
     "submit_assignment_report": dict(
         payload=lambda c: {"circle_id": c.circle_id, "character_id": c.char_id, "responses": {"q": "a"}},
         expect=["assignment_report_submitted"]),
+    # The GM's socket gets each changed member's sheet (member_update)
     "gm_advance_circle": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id},
-        expect=["activity_log", "circle_advanced"]),
+        expect=["member_update", "member_update", "activity_log", "circle_advanced"]),
     "refill_resources": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update"]),
     "gm_end_assignment": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id},
-        expect=["circle_update", "activity_log"]),
+        expect=["circle_update", "member_update", "member_update", "activity_log"]),
     "gm_reset_character": dict(
-        sender="gm", payload=lambda c: {"role": "GM", "character_id": c.char_id}, expect=["activity_log"]),
+        sender="gm", payload=lambda c: {"role": "GM", "character_id": c.char_id},
+        expect=["member_update", "activity_log"]),
     "spend_resource": dict(
         before_connect=_resources_editable,
         payload=lambda c: {"resource_type": "stitch"},
@@ -266,11 +271,16 @@ WS_CASES = {
     # Scout spends 1 Intuition for a question (p. 27; vtt/ability_uses.py)
     "use_ability": dict(fields={"role_ability": "Scout", "intuition_max": 3, "intuition_current": 3},
                         payload=lambda c: {"ability": "Scout"}, expect=["character_update", "activity_log"]),
+    # The Lightkeeper rewords a scar on the trauma record
+    "gm_update_scars": dict(
+        sender="gm", fields={"scars_list": ["s"], "scars_count": 1},
+        payload=lambda c: {"role": "GM", "character_id": c.char_id, "scars": ["t"], "previous": ["s"]},
+        expect=["member_update", "activity_log"]),
 }
 
 
 def test_ws_cases_cover_every_message_type():
-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 33
+    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 35
     assert list(WS_CASES) == WS_MESSAGE_TYPES
 
 
@@ -301,7 +311,7 @@ WS_NEEDS_CHARACTER = {
     "gm_update_tension", "update_drive", "resolve_gilded", "use_post_roll_ability",
     "update_pen_font", "take_mark", "resolve_ability_mark", "intercept_mark", "apply_scar",
     "revive_character", "burn_resistance", "update_gear", "spend_resource", "apply_advancement",
-    "use_ability",
+    "use_ability", "gm_update_scars",
 }
 
 
@@ -315,14 +325,14 @@ def test_ws_access_table():
     """The GM-only types are exactly the ones whose rule is a GM rule, and every rule
     and GM-target type is a real message type."""
     from vtt.ws import access
-    gm_rules = (access._gm_only, access._gm_circle, access._gm_update_circle)
+    gm_rules = (access._gm_only, access._gm_circle, access._gm_update_circle, access._gm_update_scars)
     assert access.GM_ONLY == {t for t, rule in access.RULES.items() if rule in gm_rules}
     assert set(access.RULES) <= set(WS_MESSAGE_TYPES)
     assert access.GM_MAY_TARGET <= set(WS_MESSAGE_TYPES)
     assert access.GM_ONLY == {
-        "gm_update_tension", "gm_update_circle", "gm_transition_scene", "gm_toggle_resource_edit",
+        "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
         "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
-        "gm_reset_character", "update_circle",
+        "gm_reset_character", "update_circle", "gm_update_scars",
     }
 
 

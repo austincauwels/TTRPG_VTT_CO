@@ -18,7 +18,7 @@ from vtt.auth import (
 from vtt.creation import creation_problem
 from vtt.db import get_db
 from vtt.portraits import check_portrait, refuse_too_many_portrait_changes, served_portrait
-from vtt.schemas import CharacterCreate, CharacterResponse, CharacterRosterItem, PortraitUpdate
+from vtt.schemas import CharacterCreate, CharacterResponse, CharacterRosterItem, CharacterSheet, PortraitUpdate
 from vtt.serializers import get_char_dict
 from vtt.ws.access import CLOSE_NOT_FOUND
 from vtt.ws.manager import campaign_key, character_key, manager
@@ -47,7 +47,7 @@ async def list_investigators(db: Session = Depends(get_db), user: User = Depends
         for c in characters
     ]
 
-@router.get("/api/investigators/{investigator_id}", response_model=CharacterResponse)
+@router.get("/api/investigators/{investigator_id}", response_model=CharacterSheet)
 async def get_investigator(investigator_id: int, db: Session = Depends(get_db),
                            user: User = Depends(get_current_user)):
     require_owner_or_gm(db, user, character_or_404(db, investigator_id, detail="Investigator dossier not found."))
@@ -62,7 +62,8 @@ async def get_investigator(investigator_id: int, db: Session = Depends(get_db),
         try: character.scars_list = json.loads(character.scars_list)
         except: character.scars_list = []
 
-    return character
+    # The sheet as the socket sends it, so a sheet read here lacks nothing a live one has
+    return get_char_dict(character)
 
 @router.post("/api/investigators/forge", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
 async def forge_investigator(character_data: CharacterCreate, db: Session = Depends(get_db),

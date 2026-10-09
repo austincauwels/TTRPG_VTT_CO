@@ -3,12 +3,16 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../../store/gameStore';
 import { tiltFor } from '../../shared/handPlaced';
 import { FormLine, PrinterMark, SerialNo, serialFor, stampDate } from '../../shared/PrintMarks';
+import { InfoTerm } from '../../shared/ActionInfo';
+import { RESOURCE_HELP, refillEntry } from '../../../game/circleResources';
 
 // The circle at a glance, on the GM's roster: an abstract of the charter on a ruled ledger
 // card lying under the investigators' cards. Illumination, the stores (what is left of
-// each, under its maximum), whether spending and reports are open, the circle's abilities
-// and whose report is in. The whole file is a press away (onOpen, the Circle tab). Its
-// rows run to the foot of the desk, as a ledger's do.
+// each, under its maximum, what each does behind its "i", and when they refill), whether
+// spending and reports are open, the circle's abilities and whose report is in. The whole
+// file is a press away (onOpen, the Circle tab). Its rows run to the foot of the desk, as
+// a ledger's do, and the card grows past it when its rows need more room (OperationsPanel's
+// roster grid).
 const TRACK_SIZE = 12;
 // The rulebook's circle abilities, as the circle page and the Circle tab print them
 const CIRCLE_ABILITY_TEXT = {
@@ -18,6 +22,12 @@ const CIRCLE_ABILITY_TEXT = {
   'Interdisciplinary':   'Once per campaign, each character may choose an ability from a role or specialty outside their own during advancement.',
   'Resource Management': 'When your circle hits a milestone on the Illumination Track, earn back 1 Stitch, Refresh, or Train resource.',
   'One Last Run':        'The next assignment is your last. Everyone takes all four advancement options instead of two.',
+};
+// Where a name too long for a narrow card's line (1280 wide) breaks, with a hyphen (soft
+// hyphens: the browser never hyphenates a capitalized word itself). Any other long word
+// still breaks inside the paper (.circle-ledger-row dd).
+const ABILITY_NAME_BREAKS = {
+  'Interdisciplinary': 'Inter\u00addis\u00adci\u00adpli\u00adnary',
 };
 const RESOURCES = [
   { label: 'Stitch', key: 'stitch' },
@@ -43,9 +53,13 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
       {/* The red margin line of a ledger card */}
       <span aria-hidden="true" className="absolute top-0 bottom-0 left-9 w-px bg-oxblood-lit/30 pointer-events-none" />
       <div className="relative pl-12 pr-4 pt-2.5 pb-3">
-        <div className="flex items-center gap-2" aria-hidden="true">
-          <PrinterMark size={12} />
-          <FormLine>Form C.O. 3 · Circle charter, abstract</FormLine>
+        {/* The serial is struck into the right margin; on a narrow card it drops under the
+            form line, and the form line wraps, rather than either running off the paper */}
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 -mr-3" aria-hidden="true">
+          <span className="flex items-center gap-1.5 min-w-0">
+            <PrinterMark size={12} />
+            <FormLine className="!whitespace-normal">Form C.O. 3 · Circle charter, abstract</FormLine>
+          </span>
           <SerialNo value={serialFor(`circle-${circle.id ?? ''}`)} className="ml-auto" />
         </div>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mt-1">
@@ -75,13 +89,27 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
           {RESOURCES.map(({ label, key }) => {
             const avail = circle[key] ?? maxCap;
             return (
-              <div key={key} className="circle-ledger-row">
-                <dt>{label}</dt>
-                <dd className="flex items-center gap-1" role="img" aria-label={`${label}: ${avail} available, maximum ${maxCap}`}>
-                  {Array.from({ length: Math.min(9, Math.max(avail, maxCap)) }).map((_, i) => (
-                    <span key={i} aria-hidden="true" className={`block w-3 h-3 rounded-sm border ${i < avail ? 'bg-oxblood border-oxblood' : 'border-ink/40'}`} />
-                  ))}
-                  <span aria-hidden="true" className="ml-1.5 font-mono tabular-nums text-sm text-sepia">{avail} · max {maxCap}</span>
+              <div key={key} className="circle-ledger-row relative">
+                {/* What it does, on its "i". The slip lies over the row's pips, clear of the
+                    column of names, and placed against the row (anchored false), so it ends
+                    inside the card's right margin however narrow the card: it never lies over
+                    the hourglass beside the card. A ruled row keeps its pitch, so on a tablet
+                    the term's reach fills the row's 32px (touch-pip) rather than making it
+                    taller. */}
+                <dt>
+                  <InfoTerm label={label} text={RESOURCE_HELP[key]} anchored={false}
+                    slipClassName="left-[8.75rem] -right-3 -top-1 max-w-[17rem]"
+                    hitClassName="touch-pip [--hit-y:-7px] [--hit-x:-4px]" />
+                </dt>
+                {/* On a narrow card the count goes under the squares whole, rather than the
+                    squares narrowing and the count breaking over three lines */}
+                <dd className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5" role="img" aria-label={`${label}: ${avail} available, maximum ${maxCap}`}>
+                  <span className="flex flex-wrap gap-1">
+                    {Array.from({ length: Math.min(9, Math.max(avail, maxCap)) }).map((_, i) => (
+                      <span key={i} aria-hidden="true" className={`block shrink-0 w-3 h-3 rounded-sm border ${i < avail ? 'bg-oxblood border-oxblood' : 'border-ink/40'}`} />
+                    ))}
+                  </span>
+                  <span aria-hidden="true" className="font-mono tabular-nums text-sm text-sepia whitespace-nowrap">{avail} · max {maxCap}</span>
                 </dd>
               </div>
             );
@@ -89,6 +117,10 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
           <div className="circle-ledger-row">
             <dt>Spending</dt>
             <dd className={circle.resources_editable ? 'text-seal-green font-semibold' : 'text-sepia'}>{circle.resources_editable ? 'Open' : 'Locked'}</dd>
+          </div>
+          <div className="circle-ledger-row !items-start py-1">
+            <dt className="pt-0.5">Refills</dt>
+            <dd className="text-sm leading-snug text-sepia">{refillEntry(maxCap, abilities)}</dd>
           </div>
           <div className="circle-ledger-row">
             <dt>Reports</dt>
@@ -109,7 +141,7 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
               <div key={inv.id} className="circle-ledger-row">
                 <dt className="!normal-case !tracking-normal !font-serif !text-base !font-semibold flex items-center gap-1.5 min-w-0">
                   <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ background: inv.ink_color || 'rgb(var(--c-sepia))' }} />
-                  <span className="truncate" style={{ color: inv.ink_color || undefined }}>{inv.name}</span>
+                  <span className="truncate" title={inv.name} style={{ color: inv.ink_color || undefined }}>{inv.name}</span>
                 </dt>
                 <dd className={report ? 'text-seal-green font-semibold' : 'text-sepia italic'}>
                   {report ? `Report filed${(report.submitted_at || report.created_at) ? `, ${stampDate(report.submitted_at || report.created_at)}` : ''}` : 'No report yet'}
@@ -121,7 +153,7 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
             <div key={ability} className="circle-ledger-row !items-start py-1">
               <dt className="pt-0.5">{i === 0 ? (abilities.length > 1 ? 'Abilities' : 'Ability') : ''}</dt>
               <dd className="text-sm leading-snug">
-                <span className="font-bold uppercase">{ability}: </span>
+                <span className="font-bold uppercase">{ABILITY_NAME_BREAKS[ability] || ability}: </span>
                 <span className="italic">{CIRCLE_ABILITY_TEXT[ability] || ''}</span>
               </dd>
             </div>

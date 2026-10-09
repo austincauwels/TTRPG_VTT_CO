@@ -14,18 +14,49 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
 
-  const { gmResetCharacter, gmSetMarks } = useGameStore(useShallow(s => ({ gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks })));
-  const [marksError, setMarksError] = useState(null);
+  const { gmResetCharacter, gmSetMarks, gmSetScars } = useGameStore(useShallow(s => ({
+    gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetScars: s.gmSetScars })));
+  // Corrections on the trauma record (its Edit button, on this copy of the sheet only)
+  const [traumaError, setTraumaError] = useState(null);
+  const notConnected = 'Not connected to the table. Try again in a moment.';
   // A mark the app does not clear itself (Occult Researcher's with no detail, p. 27), or a
   // mis-tap: the Lightkeeper sets the track, and the player's sheet follows
   const setMarks = (type, value) => {
-    setMarksError(null);
+    setTraumaError(null);
     if (!gmSetMarks(rosterItem.id, type, value)) {
-      setMarksError('Not connected to the table. Try again in a moment.');
-      return;
+      setTraumaError(notConnected);
+      return false;
     }
     setFullChar(c => (c ? { ...c, [`${type}_marks`]: value } : c));
+    return true;
   };
+  // A scar reworded, or removed when it was taken by mistake. Below four scars a dead
+  // investigator is alive again and incapacitated (the fourth scar is the fatal one, p. 74;
+  // the server's rule, handle_gm_update_scars).
+  const setScars = (scars) => {
+    setTraumaError(null);
+    if (!gmSetScars(rosterItem.id, scars, fullChar?.scars_list || [])) {
+      setTraumaError(notConnected);
+      return false;
+    }
+    setFullChar(c => (c ? {
+      ...c, scars_list: scars, scars_count: scars.length,
+      ...(c.is_dead && scars.length < 4 ? { is_dead: false, incapacitated: true } : {}),
+    } : c));
+    return true;
+  };
+  // A correction the server refused: say why, and show the sheet as the server has it
+  const refusal = useGameStore(s => s.gmSheetRefusal);
+  const refusalSeen = useRef(refusal?.at);
+  useEffect(() => {
+    if (!refusal || refusal.at === refusalSeen.current || !rosterItem?.id) return;
+    refusalSeen.current = refusal.at;
+    setTraumaError(refusal.detail);
+    apiFetch(`/api/investigators/${rosterItem.id}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => { if (data) setFullChar(data); })
+      .catch(() => {});
+  }, [refusal?.at]);
   // The roster takes the portrait_update frames, so a photo changed while this sheet is
   // open shows here too (it was fetched once, when the sheet opened)
   const rosterPic = useGameStore(s => {
@@ -43,22 +74,52 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   useEffect(() => { backRef.current?.focus({ preventScroll: true }); }, [rosterItem?.id]);
 
 
+  // Every change to this investigator, whoever makes it, reaches this desk as member_update
+  // with the whole sheet, and the store keeps the latest (memberSheets). The sheet follows
+  // each one that came after it started loading, before or after the fetch answers.
+  const live = useGameStore(s => (rosterItem?.id != null ? s.memberSheets[rosterItem.id] : undefined));
+  const liveAtFetch = useRef(undefined);
+  // None of those reach the desk while its socket is down, so the sheet loads again each
+  // time the socket opens again (memberResync), staying up meanwhile
+  const resync = useGameStore(s => s.memberResync);
+  const shownId = useRef(null);
+
   useEffect(() => {
     if (!rosterItem?.id) return;
-    setLoading(true);
-    setError(null);
+    let superseded = false;
+    const again = shownId.current === rosterItem.id;
+    if (!again) {
+      setLoading(true);
+      setError(null);
+    }
+    liveAtFetch.current = useGameStore.getState().memberSheets[rosterItem.id];
     apiFetch(`/api/investigators/${rosterItem.id}`)
       .then(r => {
         if (!r.ok) throw new Error(r.status === 404 ? 'This investigator no longer exists.' : 'The sheet could not be loaded. Try again in a moment.');
         return r.json();
       })
-      .then(data => { setFullChar(data); setLoading(false); })
+      .then(data => {
+        if (superseded) return;
+        // A member_update that came while the sheet loaded may be newer than this answer
+        const newer = useGameStore.getState().memberSheets[rosterItem.id];
+        setFullChar(newer && newer !== liveAtFetch.current ? { ...data, ...newer } : data);
+        shownId.current = rosterItem.id;
+        setLoading(false);
+      })
       .catch(e => {
+        // A sheet loading again keeps what it shows; the connection banner speaks for the desk
+        if (superseded || again) return;
         // fetch itself throws a TypeError when the server cannot be reached
         setError(e instanceof TypeError ? 'Could not reach the server. Check your connection and try again.' : e.message);
         setLoading(false);
       });
-  }, [rosterItem?.id, attempt]);
+    return () => { superseded = true; };
+  }, [rosterItem?.id, attempt, resync]);
+
+  useEffect(() => {
+    if (!live || live === liveAtFetch.current) return;
+    setFullChar(c => (c ? { ...c, ...live } : c));
+  }, [live]);
 
   if (!rosterItem) return null;
 
@@ -107,28 +168,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
 
         {fullChar && !loading && (
           <>
-            <InvestigatorDossier character={sheet} readOnly />
-            <div className="mt-6 pt-4 border-t border-ink/10">
-              <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-2">Correct marks</span>
-              <div className="flex flex-wrap gap-x-6 gap-y-2">
-                {['body', 'brain', 'bleed'].map(type => {
-                  const label = type[0].toUpperCase() + type.slice(1);
-                  const value = fullChar[`${type}_marks`] || 0;
-                  const step = 'w-9 h-9 [@media(pointer:fine)]:w-7 [@media(pointer:fine)]:h-7 border border-ink/40 rounded-sm font-sans font-black text-ink hover:bg-ink/5 disabled:opacity-30';
-                  return (
-                    <div key={type} className="flex items-center gap-2">
-                      <span className="font-sans text-sm font-bold uppercase tracking-wider text-ink w-12">{label}</span>
-                      <button type="button" className={step} disabled={value <= 0} onClick={() => setMarks(type, value - 1)}
-                        aria-label={`Remove a ${label} mark from ${fullChar.name || 'this investigator'}`}>−</button>
-                      <span className="font-mono tabular-nums text-base w-4 text-center" aria-label={`${label} marks`}>{value}</span>
-                      <button type="button" className={step} disabled={value >= 3} onClick={() => setMarks(type, value + 1)}
-                        aria-label={`Add a ${label} mark to ${fullChar.name || 'this investigator'}`}>+</button>
-                    </div>
-                  );
-                })}
-              </div>
-              {marksError && <p role="alert" className="mt-2 text-sm font-serif text-oxblood">{marksError}</p>}
-            </div>
+            <InvestigatorDossier character={sheet} readOnly traumaEdit={{ setMarks, setScars, error: traumaError }} />
             <ConfirmAction
               className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-3"
               onConfirm={() => gmResetCharacter(rosterItem.id)}

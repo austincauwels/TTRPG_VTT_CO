@@ -77,15 +77,16 @@ def resolve_channel(db, user_id, game_id):
 
 # Only the campaign's GM may send these.
 GM_ONLY = frozenset({
-    "gm_update_tension", "gm_update_circle", "gm_transition_scene", "gm_toggle_resource_edit",
+    "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
     "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
-    "gm_reset_character", "update_circle",
+    "gm_reset_character", "update_circle", "gm_update_scars",
 })
 
 # A GM socket may aim these at a character of its campaign with payload.character_id.
 # Every other type acts for a character only on that character's own socket.
 GM_MAY_TARGET = frozenset({
     "gm_update_tension", "gm_reset_character", "update_drive", "take_mark", "revive_character", "update_gear",
+    "gm_update_scars",
 })
 
 
@@ -124,7 +125,11 @@ def _sender_campaign(ctx):
 
 
 def _circle_of(ctx, circle_id, campaign_id):
-    """The circle must exist (404) and belong to that campaign (403)."""
+    """The circle must exist (404) and belong to that campaign (403). An id that is not a
+    whole number is refused (422) before the query: a string, an object or a bool used to
+    reach the database, fail there, and end the socket."""
+    if type(circle_id) is not int:
+        _invalid("circle_id must be a whole number.")
     row = ctx.db.query(Circle.id, Circle.campaign_id).filter(Circle.id == circle_id).first()
     if row is None:
         _not_found("Circle")
@@ -259,11 +264,23 @@ def may_keep_ratings(character, payload) -> bool:
     return scar_ability(payload) == "Not Again" and "Not Again" in abilities and uses_of(character, "Not Again") < 1
 
 
+SCAR_SLOTS = 4        # the fourth scar is fatal (p. 74)
+# The longest scar kept. The scar form's description is capped 40 characters short of it,
+# room for the shift note it adds (ScarModal.jsx, SCAR_DESCRIPTION_MAX in game/actions.js).
+SCAR_TEXT_MAX = 500
+SCAR_TOO_LONG = f"A scar is a description of up to {SCAR_TEXT_MAX} characters."
+
+
 def _apply_scar(ctx, payload, character):
     """A scar may only move a point between two of the nine action ratings. Any other
     name used to reach every numeric column, including campaign_id and user_id. A scar
     without a shift needs Hardened or one of the other cases in may_keep_ratings. A scar
-    taken for an ability needs the ability, and Not Again an unused one."""
+    taken for an ability needs the ability, and Not Again an unused one. Its words are
+    text of up to SCAR_TEXT_MAX characters: a longer scar, or one that was not text, used
+    to be stored as it came."""
+    text = payload.get("scar_text")
+    if text is not None and (not isinstance(text, str) or len(text) > SCAR_TEXT_MAX):
+        _invalid(SCAR_TOO_LONG)
     for key in ("shift_down", "shift_up"):
         name = payload.get(key)
         if name and name not in ALL_ACTIONS:
@@ -283,6 +300,28 @@ def _apply_scar(ctx, payload, character):
     keeps = payload.get("skip_shifts") or not (payload.get("shift_down") and payload.get("shift_up"))
     if keeps and not may_keep_ratings(character, payload):
         _invalid(KEEP_RATINGS_REFUSED)
+
+
+def _gm_update_scars(ctx, payload, character):
+    """The Lightkeeper's correction of a member's scars: the list as it should be, and the
+    list the trauma record showed when the change was made (previous). There are at most
+    four. Each scar the Lightkeeper rewords is a description, trimmed, not empty, of up to
+    SCAR_TEXT_MAX characters. A scar left as it was (one in previous, which the handler
+    holds to the stored list) is not checked again: one stored before the limit, longer
+    than it, used to block removing any other scar."""
+    _gm_only(ctx, payload, character)
+    scars, previous = payload.get("scars"), payload.get("previous")
+    if not isinstance(scars, list) or not isinstance(previous, list) \
+            or not all(isinstance(scar, str) for scar in scars):
+        _invalid("Scars are a list of descriptions.")
+    if len(scars) > SCAR_SLOTS:
+        _invalid(f"An investigator has at most {SCAR_SLOTS} scars.")
+    kept = {scar for scar in previous if isinstance(scar, str)}
+    reworded = [scar for scar in scars if scar not in kept]
+    if not all(scar.strip() for scar in reworded):
+        _invalid("A scar needs a description. Remove it instead of leaving it blank.")
+    if any(len(scar.strip()) > SCAR_TEXT_MAX for scar in reworded):
+        _invalid(SCAR_TOO_LONG)
 
 
 def _take_mark(ctx, payload, character):
@@ -345,6 +384,7 @@ def _add_notebook_entry(ctx, payload, character):
 RULES = {
     "gm_update_tension": _gm_only,
     "gm_update_circle": _gm_update_circle,
+    "gm_timer": _gm_circle,
     "gm_transition_scene": _gm_only,
     "gm_toggle_resource_edit": _gm_circle,
     "gm_toggle_reports": _gm_circle,
@@ -353,6 +393,7 @@ RULES = {
     "gm_end_assignment": _gm_circle,
     "gm_reset_character": _gm_only,
     "update_circle": _gm_circle,
+    "gm_update_scars": _gm_update_scars,
     "intercept_mark": _intercept_mark,
     "spend_resource": _spend_resource,
     "submit_assignment_report": _member_circle_vote,

@@ -11,8 +11,8 @@ const WS_CLOSE_REPLACED = 1001;
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 let reconnectTimer = null;
 let reconnectAttempts = 0;
-// The pocket watch's tension as this socket last saw it ({ id, value } of the circle), so
-// a raise can tick. The first circle after a (re)connect only sets it, so opening a desk
+// The hourglass's tension as this socket last saw it ({ id, value } of the circle), so
+// a change can tick. The first circle after a (re)connect only sets it, so opening a desk
 // or reconnecting never ticks for a change made while away.
 let tensionSeen = null;
 
@@ -103,6 +103,27 @@ const deletionRequest = async (path, method) => {
   }
 };
 
+// Whether this socket serves the GM desk (the GM's socket is opened on the campaign's code)
+const onGmDesk = (get) => {
+  const { lastPlayedCampaign, socketGameId } = get();
+  return lastPlayedCampaign?.type === 'gm' && socketGameId != null &&
+    String(socketGameId) === String(lastPlayedCampaign.campaignCode);
+};
+
+// A member's whole sheet on its roster card (the roster names the role role_class)
+const sheetOnCard = (card, sheet) => ({ ...card, ...sheet, role_class: sheet.role });
+
+// A member's whole sheet (member_update) on its roster card, pending or active. A member who
+// died keeps the card, flagged is_dead: the Lightkeeper's roster shows the dead as deceased
+// cards that still open the sheet, so whatever counts the living leaves them out itself.
+const withSheet = (roster, sheet) => {
+  const patch = (list) => (Array.isArray(list)
+    ? list.map(c => (c.id === sheet.id ? sheetOnCard(c, sheet) : c))
+    : list);
+  return { ...roster, pending_investigators: patch(roster.pending_investigators),
+    active_investigators: patch(roster.active_investigators) };
+};
+
 // The characters a campaign delete lets go (the server's deletion.RELEASED_STATUSES);
 // retired ones stay with the campaign and are hidden with it.
 const RELEASED_STATUSES = ['active', 'pending'];
@@ -180,6 +201,12 @@ const useGameStore = create(
       rollWaiting: false,        // the roll waits for the connection to come back
       rollError: null,           // why the last roll (or kept die) did not go through
       campaignRoster: { pending_investigators: [], active_investigators: [] },
+      // The GM desk: the latest sheet of each roster character, by id, as member_update
+      // brought it (the open GMCharacterSheet follows it)
+      memberSheets: {},
+      // The GM desk: counts the times its socket opened again after a drop. Nothing reached
+      // the desk meanwhile, so the roster loads again, and so does an open sheet (it reads this)
+      memberResync: 0,
       notebookEntries: [],
       notebookLoadError: false,
       lastActivityLog: null,
@@ -192,6 +219,7 @@ const useGameStore = create(
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
       advancementDeferred: false, // the player chose "Later" on the advancement dialog
       advancementError: null,     // why the server refused an advancement pick
+      gmSheetRefusal: null,       // { action, detail, at }: a mark or scar correction the server refused
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
@@ -231,6 +259,7 @@ const useGameStore = create(
           lastPlayedCampaign: null,
           circle: null,
           socket: null,
+          memberSheets: {},
           notebookEntries: [],
           lastActivityLog: null,
           pendingRoll: null,
@@ -299,7 +328,7 @@ const useGameStore = create(
         } else {
           clearRollTimer();
           queuedRoll = null;
-          set({ activityLog: [], lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null });
+          set({ activityLog: [], lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null, memberSheets: {} });
         }
         const apiBase = import.meta.env.VITE_API_URL || '';
         const wsProtocol = (apiBase.startsWith('https') || window.location.protocol === 'https:') ? 'wss:' : 'ws:';
@@ -315,6 +344,17 @@ const useGameStore = create(
           if (get().socket !== socket) return;
           set({ connectionState: 'open' });
           if (queuedRoll) sendRoll(set, get, queuedRoll);
+          // The GM desk opened again (a drop, a laptop waking, "Use this tab"): the members'
+          // changes made while it was down never came, so what it shows loads again
+          if (keepLog && onGmDesk(get)) {
+            set(state => ({ memberResync: state.memberResync + 1 }));
+            const { lastPlayedCampaign, accessSession } = get();
+            get().fetchRoster(lastPlayedCampaign.campaignId ?? accessSession?.campaignId, { keep: true });
+          } else if (keepLog && get().character?.campaign_id) {
+            // A player's desk: a death or a revival (member_status) that came while it was
+            // down is in the roster, which its circle's cards and ally pickers read
+            get().fetchRoster(get().character.campaign_id, { keep: true });
+          }
         };
         socket.onerror = (err) => console.error("WebSocket connection error:", err);
         socket.onclose = (event) => {
@@ -389,8 +429,9 @@ const useGameStore = create(
             const value = next?.tension_clock ?? 0;
             tensionSeen = next ? { id: next.id, value } : null;
             set({ circle: next });
-            // The GM raised the tension on the pocket watch: it ticks at every desk
-            if (seen && next && seen.id === next.id && value > seen.value) playTensionTick(value);
+            // The GM turned the tension up or down: the hourglass ticks at every desk, up to the new
+            // level on a raise and once on a lowering (End Assignment's reset included)
+            if (seen && next && seen.id === next.id && value !== seen.value) playTensionTick(value > seen.value ? value : 1);
           }
           else if (message.type === 'roll_result') {
             // Each roll gets an id here (the server sends none), so what is keyed on the
@@ -474,6 +515,10 @@ const useGameStore = create(
             }
             if (message.payload.action === 'use_ability') {
               set({ abilityUseError: message.payload.detail || 'That ability was not used.' });
+            }
+            // A correction on the Lightkeeper's trauma record: the sheet reloads and says why
+            if (message.payload.action === 'gm_update_scars' || message.payload.action === 'gm_update_tension') {
+              set({ gmSheetRefusal: { action: message.payload.action, detail: message.payload.detail || 'That change was not made.', at: Date.now() } });
             }
             // A refused scar was not recorded: the form opens again, as it was, with the reason
             if (message.payload.action === 'apply_scar') {
@@ -572,6 +617,10 @@ const useGameStore = create(
             const { character: approvedChar, active_investigators } = message.payload;
             set(state => {
               const isMyCharacter = approvedChar?.id === state.character?.id;
+              // The members' whole sheets, each on its card as member_update puts it. A rejoin
+              // sends this with no roster fetch after it, and the cards lost their role line.
+              const cards = [...(state.campaignRoster.pending_investigators || []),
+                ...(state.campaignRoster.active_investigators || [])];
               return {
                 character: isMyCharacter ? approvedChar : state.character,
                 circleCreation: {
@@ -581,7 +630,8 @@ const useGameStore = create(
                 },
                 campaignRoster: {
                   ...state.campaignRoster,
-                  active_investigators: active_investigators || [],
+                  active_investigators: (active_investigators || [])
+                    .map(sheet => sheetOnCard(cards.find(c => c.id === sheet.id), sheet)),
                 },
               };
             });
@@ -759,6 +809,36 @@ const useGameStore = create(
                 ...state.circleCreation,
                 activeInvestigators: patchAll(state.circleCreation.activeInvestigators),
               },
+            }));
+          }
+          else if (message.type === 'member_status') {
+            // A member died of the fourth scar, or the Lightkeeper lifted that death. A player's
+            // roster is read once, when the desk opens, and the circle's cards and the ally
+            // pickers leave the dead out (livingMembers), so the card takes the flag now. The
+            // server sends it to the players only: the GM desk has member_update.
+            if (!isForThisCampaign(message.payload)) return;
+            const { character_id: id, is_dead: isDead } = message.payload || {};
+            if (id == null) return;
+            set(state => ({
+              campaignRoster: {
+                ...state.campaignRoster,
+                active_investigators: Array.isArray(state.campaignRoster.active_investigators)
+                  ? state.campaignRoster.active_investigators.map(c => (c.id === id ? { ...c, is_dead: !!isDead } : c))
+                  : state.campaignRoster.active_investigators,
+              },
+            }));
+          }
+          else if (message.type === 'member_update') {
+            // The whole sheet of a character on this campaign's roster, after any change to
+            // it (drive, resistance, marks, scars, gear, ability uses, advancement...). The
+            // server sends it to the campaign's GM channel only, and only the GM desk takes it.
+            // Its roster card takes it (a member who died keeps the card, flagged is_dead),
+            // and the open sheet reads memberSheets.
+            const sheet = message.payload;
+            if (!onGmDesk(get) || sheet?.id == null || !isForThisCampaign(sheet)) return;
+            set(state => ({
+              memberSheets: { ...state.memberSheets, [sheet.id]: sheet },
+              campaignRoster: withSheet(state.campaignRoster, sheet),
             }));
           }
         };
@@ -1098,14 +1178,22 @@ const useGameStore = create(
       // ==========================================
       // CAMPAIGN APPROVAL FLOW ACTIONS
       // ==========================================
-      fetchRoster: async (campaignId) => {
+      // keep: the cards stay on the desk while the roster loads again (the GM desk's socket
+      // opened again after a drop)
+      fetchRoster: async (campaignId, { keep = false } = {}) => {
         if (!campaignId) return;
-        set({ campaignRoster: { pending_investigators: [], active_investigators: [], roster_finalized: false } });
+        if (!keep) set({ campaignRoster: { pending_investigators: [], active_investigators: [], roster_finalized: false } });
+        const sheetsAtFetch = get().memberSheets;
         try {
           const res = await apiFetch(`/campaign/${campaignId}/roster`);
           if (res.ok) {
             const data = await res.json();
-            set({ campaignRoster: data });
+            // A member_update that came while the roster loaded is newer than this answer
+            set(state => ({
+              campaignRoster: Object.entries(state.memberSheets)
+                .filter(([id, sheet]) => sheet !== sheetsAtFetch[id])
+                .reduce((roster, [, sheet]) => withSheet(roster, sheet), data),
+            }));
           }
         } catch (err) {
           console.error("Failed to fetch campaign roster:", err);
@@ -1340,6 +1428,20 @@ const useGameStore = create(
           socket.send(JSON.stringify({
             type: 'gm_update_tension',
             payload: { character_id: characterId, mark_type: markType, value: newValue, role: 'GM' },
+          }));
+          return true;
+        }
+        return false;
+      },
+
+      // The Lightkeeper rewords or removes a member's scars: the list as it should be, and
+      // the list the sheet showed, so a scar taken meanwhile is not lost (the server refuses)
+      gmSetScars: (characterId, scars, previous) => {
+        const { socket } = get();
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'gm_update_scars',
+            payload: { character_id: characterId, scars, previous, role: 'GM' },
           }));
           return true;
         }

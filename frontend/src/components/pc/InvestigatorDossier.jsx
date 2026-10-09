@@ -9,7 +9,8 @@ import { SafeIcon } from '../shared/SafeIcon';
 import { ScarIcon } from '../shared/ScarIcon';
 import { getAvailableRollMods } from './DiceVault';
 import { resistRemaining } from '../../game/rollMods';
-import { ACTION_LABEL, scarDisplayText } from '../../game/actions';
+import { ACTION_LABEL, SCAR_TEXT_MAX, scarDisplayText } from '../../game/actions';
+import { livingMembers } from '../../game/roster';
 import { useMarkUndo, MARK_NAME } from './useMarkUndo';
 import { useDialog } from '../shared/useDialog';
 import { tiltFor } from '../shared/handPlaced';
@@ -18,6 +19,7 @@ import { PhotoMount } from '../shared/PhotoMount';
 import { usePortraitChange } from './usePortraitChange';
 import { TickMark } from '../shared/InkMarks';
 import { ActionInfo, useActionInfo } from '../shared/ActionInfo';
+import { ConfirmAction } from '../shared/ConfirmAction';
 
 // A die face (three pips). The whole action row is the roll; this die only shows on hover
 // or keyboard focus (.action-die in index.css), never as a standing icon on every row.
@@ -68,15 +70,20 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const [split, setSplit] = useState({ nerve: 0, cunning: 0, intuition: 0 });
   const splitMax = needsSplit ? resistRemaining(character, 'intuition') : 0;
   const splitTotal = split.nerve + split.cunning + split.intuition;
+  // An ally chosen before they died or left the circle is no longer on the list, and the
+  // choice goes with them
+  const isAlly = (id) => allies.some(a => String(a.id) === String(id));
+  const targetNow = isAlly(target) ? target : '';
+  const choiceNow = needsAlly && !isAlly(choice) ? '' : choice;
   const send = () => {
     const sent = onUse(name, {
       ...(optionKeys ? { option } : {}),
-      ...(needsDrive ? { drive: choice } : {}),
-      ...(needsResource ? { resource: choice } : {}),
-      ...(needsItem ? { item: choice.trim() } : {}),
-      ...(needsAlly ? { ally_id: Number(choice) } : {}),
+      ...(needsDrive ? { drive: choiceNow } : {}),
+      ...(needsResource ? { resource: choiceNow } : {}),
+      ...(needsItem ? { item: choiceNow.trim() } : {}),
+      ...(needsAlly ? { ally_id: Number(choiceNow) } : {}),
       ...(needsSplit ? { points: split } : {}),
-      ...(use.target && target ? { target_character_id: Number(target) } : {}),
+      ...(use.target && targetNow ? { target_character_id: Number(targetNow) } : {}),
     });
     if (sent && needsItem) setChoice('');
     if (sent && needsSplit) setSplit({ nerve: 0, cunning: 0, intuition: 0 });
@@ -90,7 +97,7 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
         </select>
       )}
       {use.target && (
-        <select aria-label={`${name} on`} value={target} onChange={e => setTarget(e.target.value)} className={select}>
+        <select aria-label={`${name} on`} value={targetNow} onChange={e => setTarget(e.target.value)} className={select}>
           <option value="">On yourself</option>
           {allies.map(a => <option key={a.id} value={a.id}>On {a.name}</option>)}
         </select>
@@ -112,7 +119,7 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
           value={choice} onChange={e => setChoice(e.target.value)} className={`${select} w-40`} />
       )}
       {needsAlly && (
-        <select aria-label="Ally for the extra gear slot" value={choice} onChange={e => setChoice(e.target.value)} className={select}>
+        <select aria-label="Ally for the extra gear slot" value={choiceNow} onChange={e => setChoice(e.target.value)} className={select}>
           <option value="">{allies.length ? 'Ally for the extra slot' : 'No ally in your circle'}</option>
           {allies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
@@ -128,7 +135,7 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
       ))}
       {needsSplit && <span className="text-sm font-mono text-sepia">{splitTotal} / {splitMax}</span>}
       <button type="button" onClick={send}
-        disabled={(needsDrive || needsResource || needsAlly) ? !choice : needsItem ? !choice.trim()
+        disabled={(needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
           : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false}
         className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
@@ -153,6 +160,51 @@ const ScarAbilityUse = ({ name, use, character, scarWaiting, onUse }) => {
       </button>
       {why && <span className="text-sm italic text-sepia">{why}</span>}
     </span>
+  );
+};
+
+// One scar on the Lightkeeper's trauma record in edit mode: its words, which can be changed
+// and saved, and Remove, pressed twice. A scar left unchanged keeps its stored words.
+const ScarEditLine = ({ index, raw, draft, onDraft, onSave, onRemove, removeHint }) => {
+  const id = useId();
+  const shown = String(scarDisplayText(raw) ?? '');
+  const value = draft ?? shown;
+  const changed = draft != null && draft.trim() !== shown.trim();
+  const blank = !value.trim();
+  const small = 'min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest rounded-sm transition-colors';
+  return (
+    <div className="py-1.5 border-b border-dotted border-ink/25 last:border-b-0">
+      <label htmlFor={id} className="sr-only">Scar {index + 1}</label>
+      <textarea
+        id={id}
+        rows={2}
+        maxLength={SCAR_TEXT_MAX}
+        value={value}
+        onChange={e => onDraft(e.target.value)}
+        className="block w-full bg-cream/60 border border-ink/30 rounded-sm px-2 py-1 font-serif text-base italic text-ink leading-snug resize-y focus:border-oxblood focus:outline-none"
+      />
+      <div className="flex flex-wrap items-center gap-2 mt-1.5">
+        {changed && (
+          <button type="button" onClick={onSave} disabled={blank} aria-label={`Save scar ${index + 1}`}
+            className={`${small} border border-ink text-ink hover:bg-ink hover:text-cream disabled:opacity-40`}>
+            Save
+          </button>
+        )}
+        <ConfirmAction
+          className="contents"
+          hintClassName="basis-full"
+          onConfirm={onRemove}
+          armedHint={removeHint}
+          renderButton={(armed, props) => (
+            <button {...props} aria-label={armed ? undefined : `Remove scar ${index + 1}`}
+              className={`${small} border ${armed ? 'bg-oxblood text-cream border-ink' : 'border-oxblood/50 text-oxblood hover:bg-oxblood/10'}`}>
+              {armed ? 'Yes, remove' : 'Remove'}
+            </button>
+          )}
+        />
+        {changed && blank && <span className="font-serif text-sm italic text-oxblood">A scar needs words. Remove it instead.</span>}
+      </div>
+    </div>
   );
 };
 
@@ -349,7 +401,10 @@ const GEAR_ICONS = {
   "Occult Supplies": "GiCauldron", "Ritual Dagger": "GiKnifeThrust",
 };
 
-export const InvestigatorDossier = ({ character: charProp = null, readOnly = false }) => {
+// traumaEdit (the Lightkeeper's copy only): { setMarks(type, value), setScars(list), error }.
+// It gives the trauma record an Edit button that sets the mark tracks and rewords or
+// removes scars right on the record (GMCharacterSheet.jsx).
+export const InvestigatorDossier = ({ character: charProp = null, readOnly = false, traumaEdit = null }) => {
   const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster } = useGameStore(useShallow(s => ({
     character: s.character,
     useAbility: s.useAbility,
@@ -374,7 +429,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   const renderAbilityUse = (name) => {
     if (readOnly) return null;
     if (ABILITY_USES[name]) {
-      const allies = (campaignRoster?.active_investigators || []).filter(inv => inv.id !== character?.id);
+      const allies = livingMembers(campaignRoster?.active_investigators).filter(inv => inv.id !== character?.id);
       return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} allies={allies} character={character} />;
     }
     if (SCAR_ABILITIES[name]) {
@@ -399,6 +454,21 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     onSaved: (saved) => {
       if (saved?.id != null && useGameStore.getState().character?.id === saved.id) setLocalCharacter(saved);
     },
+  });
+  // The Lightkeeper's edit of the trauma record, and the scars' words being changed, by line
+  const [editingTrauma, setEditingTrauma] = useState(false);
+  const [scarDrafts, setScarDrafts] = useState({});
+  // Save and "Yes, remove" go away once pressed, so keyboard focus moves on to a scar's
+  // words (that line's, or the next line's after a removal), or to Done when none is left
+  const scarLinesRef = useRef(null);
+  const traumaToggleRef = useRef(null);
+  const focusScarAfter = useRef(null);
+  useEffect(() => {
+    if (focusScarAfter.current == null) return;
+    const lines = scarLinesRef.current?.querySelectorAll('textarea') || [];
+    const target = lines[Math.min(focusScarAfter.current, lines.length - 1)] || traumaToggleRef.current;
+    focusScarAfter.current = null;
+    target?.focus({ preventScroll: true });
   });
   const [infoTab, setInfoTab] = useState('role'); // 'role' | 'specialty' | 'profile'
   const [showGearModal, setShowGearModal] = useState(false);
@@ -463,6 +533,33 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   ];
 
   if (!character) return null;
+
+  // The trauma record in edit mode (the Lightkeeper's copy): each change goes to the table
+  // at once; Done also saves scar words changed and not yet saved
+  const editing = !!traumaEdit && editingTrauma;
+  const scars = Array.isArray(character.scars_list) ? character.scars_list : [];
+  const scarChanged = (j) => scarDrafts[j] != null && scarDrafts[j].trim() !== String(scarDisplayText(scars[j]) ?? '').trim();
+  const saveScar = (i) => {
+    const words = (scarDrafts[i] ?? '').trim();
+    if (!words || !traumaEdit.setScars(scars.map((raw, j) => (j === i ? words : raw)))) return;
+    setScarDrafts(({ [i]: _, ...rest }) => rest);
+    focusScarAfter.current = i;
+  };
+  const removeScar = (i) => {
+    if (!traumaEdit.setScars(scars.filter((_, j) => j !== i))) return;
+    focusScarAfter.current = i;
+    // The words being changed on the lines below move up with them
+    setScarDrafts(d => Object.fromEntries(Object.entries(d)
+      .filter(([k]) => Number(k) !== i).map(([k, v]) => [Number(k) > i ? Number(k) - 1 : Number(k), v])));
+  };
+  const toggleTraumaEdit = () => {
+    if (!editing) { setScarDrafts({}); setEditingTrauma(true); return; }
+    const changed = scars.map((_, j) => scarChanged(j));
+    if (changed.some((c, j) => c && !scarDrafts[j].trim())) return; // the blank line says why
+    if (changed.some(Boolean) && !traumaEdit.setScars(scars.map((raw, j) => (changed[j] ? scarDrafts[j].trim() : raw)))) return;
+    setScarDrafts({});
+    setEditingTrauma(false);
+  };
 
   // The photo. On the player's own desk it can be added or changed (owner's item 15); the
   // GM's copy of the sheet only shows it.
@@ -774,8 +871,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         {domainCategories.map((cat) => {
           const currentDrive = character[`${cat.driveKey}_current`] || 0;
           const maxDrive = character[`${cat.driveKey}_max`] || 1;
+          // A resistance point for every 3 maximum drive (p. 13), less those burned
           const resistMax = Math.floor(maxDrive / 3);
-          const resistSpent = character[`${cat.driveKey}_resistance_spent`] || 0;
+          const resistLeft = Math.max(0, resistMax - (character[`${cat.driveKey}_resistance_spent`] || 0));
 
           return (
             <div key={cat.name} className="dossier-drive border-t-[3px] border-double border-b px-3 pt-2.5 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-3"
@@ -836,17 +934,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   </div>
                 </div>
 
-                {/* Resistance pips */}
+                {/* Resistance, read as the drive row is: a filled triangle is a point still
+                    there to burn, an empty one is burned */}
                 <div className="flex items-center justify-between pt-1.5 border-t border-ink/10">
                   <span className="font-sans text-xs text-sepia uppercase font-bold">Resistance</span>
-                  <div className="flex gap-2" role="img" aria-label={resistMax === 0 ? `${cat.name} resistance: none` : `${cat.name} resistance: ${resistSpent} of ${resistMax} spent`}>
+                  <div className="flex gap-2" role="img" aria-label={resistMax === 0 ? `${cat.name} resistance: none` : `${cat.name} resistance: ${resistLeft} of ${resistMax} left`}>
                     {Array.from({ length: resistMax }).map((_, i) => (
                       <svg key={i} aria-hidden="true" width="14" height="12" viewBox="0 0 14 12">
                         <polygon
                           points="7,1 1,11 13,11"
                           style={{
-                            fill: i < resistSpent ? 'rgb(var(--c-oxblood))' : 'transparent',
-                            stroke: i < resistSpent ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-ink))',
+                            fill: i < resistLeft ? `rgb(var(--c-drive-${cat.driveKey}))` : 'transparent',
+                            stroke: i < resistLeft ? `rgb(var(--c-drive-${cat.driveKey}))` : 'rgb(var(--c-ink) / 0.45)',
                           }}
                           strokeWidth="1.5"
                         />
@@ -1005,8 +1104,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <SafeIcon name="GiBleedingEye" size={20} className="text-oxblood shrink-0" /> Marks
             </h3>
             {/* Each box is its own target: only the next empty box takes a mark. A mark is
-                held for a few seconds with an Undo before it goes to the table. */}
-            <div className={`mark-tracks flex flex-col ${readOnly ? 'gap-2' : 'gap-1'}`}>
+                held for a few seconds with an Undo before it goes to the table. In the
+                Lightkeeper's edit, any box sets the track: to that box, or, for the last
+                filled box, to the one before it. */}
+            <div className={`mark-tracks flex flex-col ${readOnly && !editing ? 'gap-2' : 'gap-1'}`}>
               {['body', 'brain', 'bleed'].map((type) => {
                 const name = MARK_NAME[type];
                 const marked = character?.[`${type}_marks`] || 0;
@@ -1015,7 +1116,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 const trackFull = next >= 3;
                 // 44px targets on phones; on a wide record (index.css) the boxes keep to
                 // one line beside their labels.
-                const cell = readOnly ? 'w-7 h-9' : 'w-11 h-11 md:w-9';
+                const cell = readOnly && !editing ? 'w-7 h-9' : 'w-11 h-11 md:w-9';
                 return (
                   <div key={type} className="mark-row flex justify-between items-center gap-2">
                     {readOnly ? (
@@ -1031,7 +1132,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         {name} <span aria-hidden="true">+</span>
                       </button>
                     )}
-                    <div className="flex" role="group" aria-label={`${name} marks: ${marked} of 3`}>
+                    <div className={`flex${editing ? ' rounded-sm outline-dashed outline-1 outline-offset-2 outline-oxblood/50' : ''}`} role="group" aria-label={`${name} marks: ${marked} of 3`}>
                       {[0, 1, 2].map((i) => {
                         const filled = i < marked;
                         const isHeld = heldHere && i === marked;
@@ -1042,13 +1143,30 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             aria-hidden="true"
                             style={filled ? { transform: `rotate(${MARK_TILT[i]}deg)` } : undefined}
                             className={`block w-5 h-7 border-2 shadow-inner rounded-sm transition-colors duration-150 ${
-                              filled ? 'bg-oxblood border-ink'
+                              // in the Lightkeeper's edit a box hints at its change on hover
+                              // only where there is one, so a tapped box does not look half done
+                              filled ? `bg-oxblood border-ink${editing ? ' [@media(hover:hover)]:group-hover/box:bg-oxblood/55' : ''}`
                                 : isHeld ? 'bg-oxblood/45 border-oxblood border-dashed'
                                 : isNext ? 'border-ink group-hover/box:bg-oxblood/15 group-hover/box:border-oxblood'
+                                : editing ? 'border-ink [@media(hover:hover)]:group-hover/box:bg-oxblood/15 [@media(hover:hover)]:group-hover/box:border-oxblood'
                                 : 'border-ink/70'
                             }`}
                           />
                         );
+                        if (editing) {
+                          const to = i + 1 === marked ? i : i + 1;
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => traumaEdit.setMarks(type, to)}
+                              aria-label={`Set ${name} marks to ${to}`}
+                              className={`mark-cell group/box ${cell} flex items-center justify-center rounded-sm`}
+                            >
+                              {box}
+                            </button>
+                          );
+                        }
                         return isNext ? (
                           <button
                             key={i}
@@ -1118,24 +1236,70 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <h3 className="trauma-head scars-head font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
               <ScarIcon size={20} className="text-ink shrink-0" /> Scars
             </h3>
-            <div className="scars-lines min-w-0"
-                 style={{
-                   backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.16) 24px)',
-                   backgroundSize: '100% 24px',
-                   lineHeight: '24px'
-                 }}>
-              {character?.scars_list?.length > 0 ? (
-                character.scars_list.map((scar, i) => (
-                  <p key={i} className="font-serif text-base text-ink italic pl-1">{scarDisplayText(scar)}</p>
-                ))
-              ) : (
-                <span className="sr-only">No scars</span>
-              )}
-            </div>
+            {editing ? (
+              <div ref={scarLinesRef} className="scars-lines min-w-0">
+                {/* Keyed by place, so a line (and the focus in it) stays put while its words
+                    are saved, or come back as the server has them */}
+                {scars.length > 0 ? scars.map((raw, i) => (
+                  <ScarEditLine
+                    key={i}
+                    index={i}
+                    raw={raw}
+                    draft={scarDrafts[i]}
+                    onDraft={(words) => setScarDrafts(d => ({ ...d, [i]: words }))}
+                    onSave={() => saveScar(i)}
+                    onRemove={() => removeScar(i)}
+                    removeHint={`Press again to remove this scar from ${character.name ? `${character.name}'s` : 'the'} record.${
+                      character.is_dead && scars.length === 4 ? ` With three scars, ${character.name || 'the investigator'} is alive again, and incapacitated until revived.` : ''}`}
+                  />
+                )) : (
+                  <p className="font-serif text-base italic text-sepia pl-1">No scars.</p>
+                )}
+              </div>
+            ) : (
+              <div className="scars-lines min-w-0"
+                   style={{
+                     backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.16) 24px)',
+                     backgroundSize: '100% 24px',
+                     lineHeight: '24px'
+                   }}>
+                {character?.scars_list?.length > 0 ? (
+                  character.scars_list.map((scar, i) => (
+                    <p key={i} className="font-serif text-base text-ink italic pl-1">{scarDisplayText(scar)}</p>
+                  ))
+                ) : (
+                  <span className="sr-only">No scars</span>
+                )}
+              </div>
+            )}
             <span className="scars-count font-mono tabular-nums text-sm font-bold bg-ink text-cream px-2.5 py-0.5 rounded-sm whitespace-nowrap" aria-label={`${character?.scars_count || 0} of 4 scars`}>
               {character?.scars_count || 0} / 4
             </span>
           </div>
+
+          {/* The Lightkeeper's Edit: corrections made right on the record */}
+          {traumaEdit && (
+            <div className="trauma-edit col-span-full flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5 mt-3 pt-2 border-t border-dotted border-ink/30">
+              {editing && (
+                <p className="font-serif text-sm italic text-sepia leading-snug min-w-0 flex-1 basis-56">
+                  Press a box to fill its track to it, or the last filled box to clear it. Removing a scar does not move back the action point it shifted.
+                </p>
+              )}
+              <button
+                ref={traumaToggleRef}
+                type="button"
+                onClick={toggleTraumaEdit}
+                aria-label={editing ? 'Done editing the trauma record' : 'Edit trauma record'}
+                className={`shrink-0 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest border rounded-sm transition-colors ${
+                  editing ? 'bg-ink text-cream border-ink hover:brightness-125' : 'border-ink/60 text-ink hover:bg-ink hover:text-cream'}`}
+              >
+                {editing ? 'Done' : 'Edit'}
+              </button>
+              {traumaEdit.error && (
+                <p role="alert" className="basis-full font-serif text-base text-oxblood leading-snug">{traumaEdit.error}</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

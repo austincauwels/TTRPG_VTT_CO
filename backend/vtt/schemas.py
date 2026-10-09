@@ -1,6 +1,6 @@
 """Pydantic request and response models for the REST routes."""
 import re as _re
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -369,6 +369,23 @@ class CharacterResponse(CharacterBase):
     def portrait_as_served(cls, v):
         # A stored portrait that breaks the portrait rule is sent as none (vtt/portraits.py).
         return served_portrait(v)
+
+class CharacterSheet(CharacterResponse):
+    """GET /api/investigators/{id}: the whole sheet, the same fields as the WebSocket's
+    character_update (vtt.serializers.get_char_dict). The Lightkeeper's copy of a sheet
+    opens from it, so it shows a waiting Train die, a death and the uses of this
+    assignment before any change has come over the socket."""
+    is_dead: bool = False
+    campaign_id: Optional[int] = None
+    personal_circle_answer: str = ""
+    # Ability name to uses this assignment, as vtt.abilities.ability_uses reads them
+    ability_uses: Dict[str, Any] = {}
+    train_bonus: bool = False
+    train_dice: int = 0
+    warded_by_id: Optional[int] = None
+    resources_spent_assignment: int = 0
+    advancement_picks: int = 0
+    advancement_taken: List[str] = []
 
 class CharacterRosterItem(BaseModel):
     id: int

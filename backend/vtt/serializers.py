@@ -8,6 +8,7 @@ from vtt.circle_queries import (STAMINA_DICE, circle_abilities, downed_members, 
                                 train_dice_left)
 
 from vtt.abilities import ability_uses
+from vtt.countdown import timer_fields
 from vtt.portraits import served_portrait
 
 
@@ -128,4 +129,7 @@ def get_circle_dict(circle):
         "illumination": getattr(circle, "illumination", 0) or 0,
         "resources_editable": bool(getattr(circle, "resources_editable", False)),
         "reports_open": bool(getattr(circle, "reports_open", False)),
+        # The Lightkeeper's countdown beside the hourglass, with the time left as of now
+        # (vtt/countdown.py)
+        **timer_fields(circle),
     }

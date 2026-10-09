@@ -11,7 +11,7 @@ from vtt.circle_queries import RESOURCES, circle_abilities
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import scar_ability
-from vtt.ws.handlers.circle import announce_downed
+from vtt.ws.handlers.circle import announce_death, announce_downed
 from vtt.ws.handlers.marks import awaiting_scar
 from vtt.ws.manager import character_key, manager
 
@@ -54,6 +54,7 @@ async def handle_apply_scar(ctx):
     character.scars_list = existing
     character.scars_count = len(existing)
     awaiting_scar.discard(character.id)
+    was_dead = bool(character.is_dead)
     if character.scars_count >= 4:
         character.is_dead = True
         character.incapacitated = True
@@ -74,6 +75,8 @@ async def handle_apply_scar(ctx):
             setattr(character, up, getattr(character, up) + 1)
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+    if character.is_dead and not was_dead:
+        await announce_death(ctx, character)
     if character.is_dead:
         await announce_downed(ctx)
     if use:
@@ -260,6 +263,7 @@ async def handle_use_ability(ctx):
         ally_id = payload.get("ally_id")
         ally = db.query(Character).filter(
             Character.id == ally_id, Character.campaign_id == camp_id, Character.status == "active",
+            Character.is_dead.isnot(True),
         ).with_for_update().first() if camp_id and type(ally_id) is int and ally_id != character.id else None
         if ally is None:
             await refuse(422, "Choose an ally in your circle for the extra gear slot.")
@@ -283,6 +287,7 @@ async def handle_use_ability(ctx):
     if use.get("target") and target_id is not None and target_id != character.id:
         target = db.query(Character).filter(
             Character.id == target_id, Character.campaign_id == camp_id, Character.status == "active",
+            Character.is_dead.isnot(True),
         ).with_for_update().first() if camp_id and type(target_id) is int else None
         if target is None:
             await refuse(422, "Choose yourself or an ally in your circle.")

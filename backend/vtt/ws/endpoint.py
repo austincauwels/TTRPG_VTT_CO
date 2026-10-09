@@ -95,7 +95,9 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
     # The manager key: a character channel and a campaign channel never share one,
     # even when an all-digit campaign code equals a character id (QUIRK D13).
     channel = character_key(own_char_id) if character is not None else campaign_key(campaign.campaign_code)
-    if not await manager.connect(channel, websocket, user_id=user_id):
+    # A GM channel names its campaign, so the members' sheets reach it (manager.broadcast)
+    gm_of = campaign.id if character is None and campaign is not None else None
+    if not await manager.connect(channel, websocket, user_id=user_id, campaign_id=gm_of):
         # A newer socket on this channel got in while this one was being accepted
         logger.info("WebSocket replaced while it opened: game_id=%s", game_id)
         return
@@ -124,6 +126,9 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
         if character is not None and campaign is not None and character.status not in MEMBER_STATUSES:
             shown_circle = _shared_circle(db)
 
+        # The two go out together: a desk counts the circle's timer from when the first of
+        # them arrived (frontend store/circleArrivals.js), since drawing the character can
+        # hold the circle's frame back on a desk that is still loading.
         if character:
             await websocket.send_json({"type": "character_update", "payload": get_char_dict(character)})
         await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(shown_circle)})

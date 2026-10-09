@@ -6,6 +6,7 @@ import { useDialog } from '../shared/useDialog';
 import { onActivateKey } from '../shared/a11y';
 import { FormLine, SerialNo, DateStamp, PrinterMark, BlankEntry, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
+import { refillRule } from '../../game/circleResources';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -744,6 +745,12 @@ export const CircleView = () => {
             );
           })}
         </div>
+        {/* What each does is printed above; when they come back is not (owner's question,
+            2026-10-08): not after an assignment, only when the track fills, and one at each
+            milestone with Resource Management */}
+        <p className="mt-2.5 pt-2 border-t border-dashed border-sepia/35 font-serif italic text-sm leading-snug text-sepia">
+          {refillRule(maxCap, (circle?.circle_ability || '').split('\n'))}
+        </p>
       </CirclePaper>
 
       {/* IV. The circle's history: its question, and this investigator's answer */}

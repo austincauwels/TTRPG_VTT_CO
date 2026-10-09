@@ -6,6 +6,7 @@ import { tiltStyle } from '../shared/handPlaced';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey, pressable } from '../shared/a11y';
+import { RESOURCE_HELP, refillRule } from '../../game/circleResources';
 import { playPaperSound } from '../../game/rollSounds';
 
 // A small Clear button on the circle sheet. Clearing erases the value on the server, so
@@ -453,8 +454,14 @@ export const CirclePage = () => {
             {RESOURCES.map(({ label, key }) => {
               const avail = circle?.[key] ?? maxCap;
               return (
-                <div key={key} className="py-2 first:pt-0">
-                  <span className="font-serif font-black text-sm uppercase tracking-wide text-ink block mb-1">{label}</span>
+                <div key={key} className="relative py-2 first:pt-0">
+                  {/* Its name and what it does, printed in the entry as on the player's circle
+                      page: a hover slip here lay over the next resource's squares and caught
+                      the presses meant for them */}
+                  <p className="mb-1 font-serif text-sm leading-snug text-ink">
+                    <span className="font-black uppercase tracking-wide mr-1.5">{label}</span>
+                    <span className="text-sepia">{RESOURCE_HELP[key]}</span>
+                  </p>
                   {/* One row: filled pips are available, empty ones up to the maximum are
                       spent, and dotted ones lie beyond the maximum */}
                   <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -490,6 +497,11 @@ export const CirclePage = () => {
               );
             })}
           </div>
+          {/* When they come back: not after an assignment, only when the track fills, and one
+              at each milestone with Resource Management */}
+          <p className="pt-2 pb-2.5 border-t border-dashed border-sepia/35 font-serif italic text-sm leading-snug text-sepia">
+            {refillRule(maxCap, (circle?.circle_ability || '').split('\n'))}
+          </p>
 
           {/* Resource controls */}
           <div className="flex gap-2 flex-wrap pt-2.5 mt-1 border-t border-ink/25">

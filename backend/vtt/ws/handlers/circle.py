@@ -6,7 +6,7 @@ import json
 from models import Character, Circle, CircleVote, Relationship
 from vtt.circle_queries import circle_abilities, relationships_list, resolve_circle, take_train_die, votes_dict
 from vtt.serializers import get_char_dict, get_circle_dict
-from vtt.ws.manager import manager
+from vtt.ws.manager import campaign_key, manager
 
 
 async def handle_submit_assignment_report(ctx):
@@ -248,3 +248,18 @@ async def announce_downed(ctx):
     if circle is not None and "Nobody Left Behind" in circle_abilities(circle):
         await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
             "type": "circle_update", "payload": get_circle_dict(circle)}, ctx.db)
+
+
+async def announce_death(ctx, character):
+    """member_status {character_id, campaign_id, is_dead} to the campaign's players when a
+    member's death changes: the fourth scar (apply_scar), or the Lightkeeper lifting one
+    taken by mistake (gm_update_scars). A player's desk reads the roster once, and its
+    circle cards and ally pickers leave the dead out, so they follow it without a reload.
+    It carries only what the roster already tells the members; the GM's desk is not sent
+    it, as member_update brings it the whole sheet. Nothing for a character that is not an
+    active member of the socket's campaign, which no player's roster lists."""
+    if not ctx.camp_id or character.status != "active" or character.campaign_id != ctx.camp_id:
+        return
+    await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "member_status", "payload": {
+        "character_id": character.id, "campaign_id": ctx.camp_id, "is_dead": bool(character.is_dead)}},
+        ctx.db, exclude=campaign_key(ctx.camp_code))

@@ -25,7 +25,7 @@ export {
   GiMedal, GiMedallist, GiMeshNetwork, GiMicrophone, GiMinions, GiMoon, GiMountainClimbing,
   GiMuscleUp, GiNewspaper, GiNinjaMask, GiNotebook, GiOilySpiral, GiOnSight,
   GiOppositeHearts, GiOrbital, GiOrganigram, GiOuroboros, GiPadlock, GiPaperClip, GiPapers,
-  GiParanoia, GiPathDistance, GiPistolGun, GiPocketWatch, GiPublicSpeaker, GiQuillInk,
+  GiParanoia, GiPathDistance, GiPistolGun, GiPublicSpeaker, GiQuillInk,
   GiRabbit, GiRadarSweep, GiRaggedWound, GiRearAura, GiRevolver, GiRollingDices,
   GiRosaShield, GiRuneStone, GiScalpel, GiScrollUnfurled, GiSemiClosedEye, GiShield,
   GiShouting, GiSinkingShip, GiSnatch, GiSpectacles, GiSpellBook, GiSpoon, GiStarFormation,

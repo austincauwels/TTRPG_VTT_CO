@@ -673,25 +673,35 @@ export const DeskStyles = () => (
        multiplied over it and its creases, curl and flap drawn over that. The body
        (.sketch-paper) is one layer on wide screens: the mask, the stains and the art inside
        it are drawn once. A mask cuts away a box-shadow, so the paper's contact shadow lies
-       under it as a shadow of its own, a little inside the cut, away from the candles. */
-    .sketch { position: absolute; isolation: isolate; pointer-events: none; display: none; }
+       under it as a shadow of its own, a little inside the cut, away from the candles. Its
+       one transform moves it by this visit's drop and turns it about its middle by its own
+       angle (--r) and the drop's (The drop, below). */
+    .sketch {
+      position: absolute; isolation: isolate; pointer-events: none; display: none;
+      transform:
+        translate(calc(var(--dx0, 0px) + var(--jx, 0) * (var(--dx1, 0px) - var(--dx0, 0px))),
+          calc(var(--dy0, 0px) + var(--jy, 0) * (var(--dy1, 0px) - var(--dy0, 0px))))
+        rotate(calc(var(--r, 0deg) + var(--dr0, 0deg) + var(--jr, 0) * (var(--dr1, 0deg) - var(--dr0, 0deg))));
+    }
     /* Where the papers lie: dropped on the desk, not hung in a gallery (owner, 2026-10-05:
        "the photos could stand to be a bit more scattered, they shouldn't all be facing the
        viewer, and some should be under the newspaper, each other, etc."). Each lies at its
        own angle, most crooked by 5 to 25 degrees and, from lg, one or two turned well over
-       (on its side or upside down). They overlap each other in a set order (z-index, a
-       paper's place in the pile), tuck under the tomes (z-index 20 in the tomes' row) and
-       under the Herald (a paper of the Herald's group below the Herald's z-index 10), and a
-       few run off the leather or the screen. Every paper is at least as large as a railway
-       ticket on the same screen, in area and in its shorter side, the three larger prints
-       (the bestiary page, the sea monster, the sea monk) about a quarter larger (owner,
-       2026-10-05). None lies over the candles, a tome's title, a ticket or the Herald's
-       masthead and headline, or runs under the header; from lg at least about a third of
-       each shows, enough to know it (below lg 30%). A desk shows only as many as it has room
-       for at that size. Each is a plain block turned about its middle (no new layers, The
-       Smooth Hub Rule), and its shadow is measured in its own turned frame, so it still
-       falls away from the candles (useCastShadows.js). Checked at 25 sizes by
-       candela-ui-review/2026-10-05-hub-sketch-size/work/hub-check.mjs. */
+       (on its side or upside down). They overlap each other in a pile (z-index, a paper's
+       place in the pile), tuck under the tomes (z-index 20 in the tomes' row) and under the
+       Herald (a paper of the Herald's group below the Herald's z-index 10), and a few run
+       off the leather or the screen. Each visit drops them a little differently, each paper
+       a little off its spot and angle and the pile shuffled where no rule depends on its
+       order (The drop, below). Every paper is at least as large as a railway ticket on the
+       same screen, in area and in its shorter side, the three larger prints (the bestiary
+       page, the sea monster, the sea monk) about a quarter larger (owner, 2026-10-05). None
+       lies over the candles, a tome's title, a ticket or the Herald's masthead and headline,
+       or runs under the header; from lg at least about a third of each shows, enough to
+       know it (below lg 30%). A desk shows only as many as it has room for at that size.
+       Each is a plain block turned about its middle (no new layers, The Smooth Hub Rule),
+       and its shadow is measured in its own turned frame, so it still falls away from the
+       candles (useCastShadows.js). Checked at 25 sizes by
+       candela-ui-review/2026-10-05-hub-sketch-size/work/hub-check.mjs; the drop at 70. */
     .hub-tomes .tome { z-index: 20; }
     .herald-phone { z-index: 2; }
     /* Phones: the torn page on the left, one corner under the folded Herald, and the
@@ -701,8 +711,8 @@ export const DeskStyles = () => (
        (--tomeH), never higher than just under the candles or the Herald's headline. */
     @media (max-width: 639px) {
       .hub-tomes { --tw: calc(50cqw - 6px); --tomeH: calc(1.36 * min(50cqw - 6px, 73.5cqh - 14px)); }
-      .hub-tomes > .sketch[data-paper="page"] { display: block; z-index: 1; width: calc(var(--tw) * 1.16); left: -2cqw; top: max(6px, calc(100cqh - var(--tomeH) + 18px - var(--tw) * 1.16 * 1.197)); transform: rotate(-14deg); }
-      .hub-tomes > .sketch[data-paper="sketchbook"] { display: block; z-index: 3; width: calc(var(--tw) * 1.1); left: 44cqw; top: max(24px, calc(100cqh - var(--tomeH) + 24px - var(--tw) * 1.1 * 1.148)); transform: rotate(9deg); }
+      .hub-tomes > .sketch[data-paper="page"] { display: block; z-index: 1; width: calc(var(--tw) * 1.16); left: -2cqw; top: max(6px, calc(100cqh - var(--tomeH) + 18px - var(--tw) * 1.16 * 1.197)); --r: -14deg; }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { display: block; z-index: 3; width: calc(var(--tw) * 1.1); left: 44cqw; top: max(24px, calc(100cqh - var(--tomeH) + 24px - var(--tw) * 1.1 * 1.148)); --r: 9deg; }
     }
     /* Tablets: the same two, as large as the largest tablet ticket (264 x 300), the page
        lying against the Herald's edge and under it where they meet. A tablet much wider for
@@ -710,16 +720,22 @@ export const DeskStyles = () => (
        shows none. */
     @media (min-width: 640px) and (max-width: 1023px) and (max-aspect-ratio: 19/25), (min-width: 1024px) and (orientation: portrait) and (max-aspect-ratio: 19/25) {
       .hub-tomes { --tomeH: calc(1.36 * min(50cqw - 16px, 73.5cqh - 14px, 400px)); }
-      .hub-tomes > .sketch[data-paper="page"] { display: block; z-index: 1; width: 276px; left: 0; top: max(4px, calc(100cqh - var(--tomeH) + 60px - 330px)); transform: rotate(-13deg); }
-      .hub-tomes > .sketch[data-paper="sketchbook"] { display: block; z-index: 3; width: 266px; left: calc(50cqw + 10px); top: max(22px, calc(100cqh - var(--tomeH) + 60px - 305px)); transform: rotate(9deg); }
+      .hub-tomes > .sketch[data-paper="page"] { display: block; z-index: 1; width: 276px; left: 0; top: max(4px, calc(100cqh - var(--tomeH) + 60px - 330px)); --r: -13deg; }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { display: block; z-index: 3; width: 266px; left: calc(50cqw + 10px); top: max(22px, calc(100cqh - var(--tomeH) + 60px - 305px)); --r: 9deg; }
     }
     /* From lg the ticket is 230 x 330 at every width, so the papers have fixed sizes. A
-       paper's width, place, angle and place in the pile are --w, --x, --y, --r and --z.
+       paper's width, place, angle and layer in the pile are --w, --x, --y, --r and --z.
        Those in the tomes' row are placed by the tomes (--T a tome's width, --G the gap,
        --x0 where the Case Ledger starts, --strip the candles' strip, --a1 just right of the
-       candles), under the tomes and over the Herald; those of the Herald's group
-       (.hub-right) in the Herald's own pixels, as the Herald and the tickets are, under the
-       Herald (--z 5) or on it (--z 20), and always under the tickets. The pile:
+       candles), under the tomes and over the Herald, all in one layer (--z 1); those of the
+       Herald's group (.hub-right) in the Herald's own pixels, as the Herald and the tickets
+       are, under the Herald (--z 5) or on it (--z 20), and always under the tickets. Within
+       a layer each visit shuffles the pile: --pile adds 1 to 4 in the tomes' row (z-index 2
+       to 5, under the tomes' 20; the sea monk and the lamia keep 0, at the foot, as they
+       lay, where they need no compositing layer) and 1 to 3 in the Herald's group (6 to 8
+       under the Herald's 10, 21 to 23 under the tickets' 30), so no paper ever leaves its
+       layer.
+       Where they lie, before the drop moves them:
          above the tomes, right of the candles: the sketchbook leaf (12deg), and from 1500px
            the sea monster on its side (82deg) beside it, under the leaf, the Herald's corner
            and the Last Played tome. The sea monster lies as high as the header allows:
@@ -728,9 +744,9 @@ export const DeskStyles = () => (
          left of the Case Ledger, from 1880px: the sea monk (-21deg), under the tome and
            running off the leather;
          under the tomes' feet: the photograph (7deg) over the lamia print (-24deg; upside
-           down below 1500px), on a desk 1000px tall the griffin (-6deg) under both its
-           neighbours, and the figures (24deg) lying over the Herald's corner and under the
-           New Character ticket;
+           down below 1500px), on a desk 1000px tall the griffin (-6deg) between the lamia
+           and the figures (24deg), which lie over the Herald's corner and under the New
+           Character ticket; the lamia lies under the rest, which change places each visit;
          on the Herald, under the Lightkeeper's ticket and beside the New Character one: the
            postcard (13deg);
          from 1880px the bestiary leaf on its side (-96deg) under the Herald's foot, running
@@ -742,13 +758,13 @@ export const DeskStyles = () => (
        its row runs off the screen's foot with about half of each paper showing. */
     @media ${HUB_WIDE} {
       .hub-tomes { --a1: calc(max(0px, var(--x0)) + var(--cw) * 0.552 + var(--candle-nudge, 0px) + 40px); }
-      .hub-tomes > .sketch, .hub-right > .sketch { width: var(--w); left: var(--x); top: var(--y); transform: rotate(var(--r)); z-index: var(--z); }
-      .hub-tomes > .sketch[data-paper="sketchbook"] { --w: 260px; --x: calc(var(--a1) + 14px); --y: calc(-1 * min(206px, var(--strip) + 22px)); --r: 12deg; --z: 4; }
+      .hub-tomes > .sketch, .hub-right > .sketch { width: var(--w); left: var(--x); top: var(--y); z-index: calc(var(--z) + var(--pile, 0)); }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { --w: 260px; --x: calc(var(--a1) + 14px); --y: calc(-1 * min(206px, var(--strip) + 22px)); --r: 12deg; --z: 1; }
       .hub-tomes > .sketch[data-paper="pinned"] { --w: 244px; --x: calc(var(--x0) - 195px); --y: calc(var(--T) * 0.16); --r: -21deg; --z: 1; }
-      .hub-tomes > .sketch[data-paper="photo"] { --w: 286px; --x: calc(var(--x0) - 10px); --y: calc(100% - 30px); --r: 7deg; --z: 3; }
-      .hub-tomes > .sketch[data-paper="tomes"] { --w: 322px; --x: calc(var(--x0) + var(--T) * 0.72); --y: calc(100% - 50px); --r: -24deg; --z: 2; }
+      .hub-tomes > .sketch[data-paper="photo"] { --w: 286px; --x: calc(var(--x0) - 10px); --y: calc(100% - 30px); --r: 7deg; --z: 1; }
+      .hub-tomes > .sketch[data-paper="tomes"] { --w: 322px; --x: calc(var(--x0) + var(--T) * 0.72); --y: calc(100% - 50px); --r: -24deg; --z: 1; }
       .hub-tomes > .sketch[data-paper="herald"] { --w: 272px; --x: calc(var(--x0) + var(--T) * 1.5); --y: calc(100% - 20px); --r: -6deg; --z: 1; }
-      .hub-tomes > .sketch[data-paper="candles"] { --w: 240px; --x: calc(var(--x0) + var(--T) * 2.15 + var(--G)); --y: calc(100% - 110px); --r: 24deg; --z: 2; }
+      .hub-tomes > .sketch[data-paper="candles"] { --w: 240px; --x: calc(var(--x0) + var(--T) * 2.15 + var(--G)); --y: calc(100% - 110px); --r: 24deg; --z: 1; }
       .hub-right > .sketch[data-paper="page"] { --w: 282px; --x: -309px; --y: max(-180px, calc(374px - 50vh)); --r: 82deg; --z: 5; }
       .hub-right > .sketch[data-paper="postcard"] { --w: 362px; --x: 301px; --y: 389px; --r: 13deg; --z: 20; }
       .hub-right > .sketch[data-paper="bestiary"] { --w: 252px; --x: 556px; --y: 514px; --r: -96deg; --z: 5; }
@@ -770,6 +786,94 @@ export const DeskStyles = () => (
     @media (min-width: 1880px) and (min-height: 1000px) and (orientation: landscape) { .hub-tomes > .sketch[data-paper="herald"] { display: block; } }
     @media (min-width: 1880px) and (max-height: 999px) {
       .hub-right > .sketch[data-paper="bestiary"] { --x: 646px; --y: 321px; --r: -100deg; --z: 20; }
+    }
+    /* ── The drop: each visit lays the papers down a little differently (the user's
+       request, 2026-10-08: "can we make the position of the pictures on the hub
+       randomized") ──
+       As the hub mounts it draws three numbers from 0 to 1 for each paper (--jx, --jy,
+       --jr; dropPapers in CryptidSketches.jsx) and keeps them until you leave, so nothing
+       moves while you are here and a reload draws again. Each picks a point in that paper's
+       own ranges for this screen: a shift across (--dx0 to --dx1), a shift down (--dy0 to
+       --dy1) and a turn (--dr0 to --dr1), from its spot and angle above. The paper keeps its
+       size, stays one plain block turned about its middle, and its shadow is measured where
+       it fell. A paper with no ranges lies where it was set (a phone held sideways).
+       The ranges were measured, not guessed: every paper at the ends of all its ranges at
+       once, and at random points between, in shuffled piles, at 70 sizes from 320 x 568 to
+       2560 x 1440, keeps every rule above and stays under the tome it was tucked under;
+       and no drop costs a compositing layer (each paper at every corner of its ranges at
+       16 sizes from 1024 x 700 up, and whole visits against the hub as it lay before).
+       Where a paper shows less than its share even on its spot (the torn page on a phone
+       320 to 360px wide or a tablet near 19:25, the sea monster at 1500 x 900), the torn
+       page only moves the way that shows more of it, and the sea monster shows about as
+       much as there.
+       Most go 12 to 24px either way and 5 or 6 degrees; some only one way, where a rule is
+       close:
+         the sketchbook leaf lies 2px below the header on most desks, so it only goes down
+           (0 to 20px) and only turns back toward square (to 8deg less); it goes 20px left
+           but only 4px right, where it would hide more of the sea monster and the Herald's
+           Vol. line; on a desk 900 to 999px tall, where the sea monster shows least, not
+           right at all and down only 10px;
+         the sea monster, as high as the header allows, goes 4px left to 16px right, 8px up
+           to 2px down, and turns 4deg back to 8deg further over (further over only lowers
+           its highest corner); on a desk that scrolls never up and never back, and from
+           1700px wide, where its spot comes near the header (from about 1820px up to 10px
+           under it), 12 to 18px lower than its spot; on a desk 900 to 999px tall never
+           left or down, and 1deg back to 2deg over;
+         in the row under the tomes' feet the photograph, the lamia and the griffin go up
+           20px but down only 4, so their heads stay under the tomes; below 1500px the
+           lamia, upside down there, goes only left and up and turns only the one way, up to
+           6deg (right, down or round the other way, it costs a compositing layer more);
+           on a desk 900 to 999px tall, where the row runs off the screen's foot, never
+           down, and the photograph lies over the rest of the row (--z 7) and goes only
+           left, up 6px and back 3deg;
+         the sea monk goes only 12px left, so it stays under the Case Ledger, and only
+           16px down (lower, on a desk 2560px wide, it costs a compositing layer more);
+         the figures go 10px up and 12px left at most, where the New Character ticket would
+           hide too much of them;
+         on phones the torn page lies 4 to 14px left of its spot and 2 to 8px higher and
+           turns only back, so it always shows more of itself than there (on a small phone
+           its spot shows about 30%, deep under the tome), and the sketchbook leaf goes 0 to
+           4px down and only 4px right, so its corner stays under the Last Played tome's
+           head; on tablets the torn page goes only up (4 to 12px) and left (to 12px) and
+           turns 3deg back to 2deg over, since near 19:25 it shows little of itself (right
+           or further over, it goes deeper under the Case Ledger), and the sketchbook
+           leaf, whose torn top lies just under the line beneath the Herald's headline,
+           never goes up or right and only turns back (to 4deg less): it goes 6 to 20px
+           left, which shows more of it, and at most 4px down, as near 19:25 lower shows
+           less (about 17% on its spot at 640 x 844). */
+    @media (max-width: 639px) and (orientation: portrait) {
+      .hub-tomes > .sketch[data-paper="page"] { --dx0: -14px; --dx1: -4px; --dy0: -8px; --dy1: -2px; --dr0: -6deg; --dr1: 0deg; }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { --dx0: -12px; --dx1: 4px; --dy0: 0px; --dy1: 4px; --dr0: -3deg; --dr1: 5deg; }
+    }
+    @media (min-width: 640px) and (max-width: 1023px) and (max-aspect-ratio: 19/25), (min-width: 1024px) and (orientation: portrait) and (max-aspect-ratio: 19/25) {
+      .hub-tomes > .sketch[data-paper="page"] { --dx0: -12px; --dx1: 0px; --dy0: -12px; --dy1: -4px; --dr0: -3deg; --dr1: 2deg; }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { --dx0: -20px; --dx1: -6px; --dy0: 0px; --dy1: 4px; --dr0: -4deg; --dr1: 0deg; }
+    }
+    @media ${HUB_WIDE} {
+      .hub-tomes > .sketch[data-paper="sketchbook"] { --dx0: -20px; --dx1: 4px; --dy0: 0px; --dy1: 20px; --dr0: -8deg; --dr1: 0deg; }
+      .hub-tomes > .sketch[data-paper="pinned"] { --dx0: -12px; --dx1: 24px; --dy0: -24px; --dy1: 16px; --dr0: -6deg; --dr1: 6deg; }
+      .hub-tomes > .sketch[data-paper="photo"] { --dx0: -24px; --dx1: 24px; --dy0: -20px; --dy1: 4px; --dr0: -5deg; --dr1: 4deg; }
+      .hub-tomes > .sketch[data-paper="tomes"] { --dx0: -24px; --dx1: 24px; --dy0: -20px; --dy1: 4px; --dr0: -6deg; --dr1: 6deg; }
+      .hub-tomes > .sketch[data-paper="herald"] { --dx0: -24px; --dx1: 24px; --dy0: -20px; --dy1: 4px; --dr0: -5deg; --dr1: 5deg; }
+      .hub-tomes > .sketch[data-paper="candles"] { --dx0: -12px; --dx1: 24px; --dy0: -10px; --dy1: 20px; --dr0: -6deg; --dr1: 6deg; }
+      .hub-right > .sketch[data-paper="page"] { --dx0: -4px; --dx1: 16px; --dy0: -8px; --dy1: 2px; --dr0: -4deg; --dr1: 8deg; }
+      .hub-right > .sketch[data-paper="postcard"] { --dx0: -24px; --dx1: 24px; --dy0: -20px; --dy1: 20px; --dr0: -6deg; --dr1: 6deg; }
+      .hub-right > .sketch[data-paper="bestiary"] { --dx0: -24px; --dx1: 24px; --dy0: -20px; --dy1: 20px; --dr0: -6deg; --dr1: 6deg; }
+    }
+    @media ${HUB_WIDE} and (max-width: 1499px) {
+      .hub-tomes > .sketch[data-paper="tomes"] { --dx1: 0px; --dy1: 0px; --dr1: 0deg; }
+    }
+    @media ${HUB_WIDE} and (max-height: 899px) {
+      .hub-right > .sketch[data-paper="page"] { --dy0: 0px; --dy1: 2px; --dr0: 0deg; --dr1: 8deg; }
+    }
+    @media (min-width: 1700px) and (max-height: 899px) and (orientation: landscape) {
+      .hub-right > .sketch[data-paper="page"] { --dy0: 12px; --dy1: 18px; }
+    }
+    @media ${HUB_WIDE} and (min-height: 900px) and (max-height: 999px) {
+      .hub-tomes > .sketch[data-paper="photo"] { --z: 7; --dx0: -16px; --dx1: 0px; --dy0: -6px; --dy1: 0px; --dr0: -3deg; --dr1: 0deg; }
+      .hub-tomes > .sketch[data-paper="tomes"] { --dy0: -20px; --dy1: 0px; }
+      .hub-tomes > .sketch[data-paper="sketchbook"] { --dx1: 0px; --dy1: 10px; }
+      .hub-right > .sketch[data-paper="page"] { --dx0: 0px; --dy1: 0px; --dr0: -1deg; --dr1: 2deg; }
     }
     /* A paper's cast shadow is a plain fill, a little inside its cut, with a dog-eared or
        torn-off corner taken out by a hard gradient stop (--cut-at, --cut) before the blur.

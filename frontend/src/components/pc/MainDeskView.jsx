@@ -14,6 +14,7 @@ import { AbilityMarkOffer } from './AbilityMarkOffer';
 import { CircleCreationPopup } from './CircleCreationPopup';
 import { RelationshipIntroPopup } from './RelationshipIntroPopup';
 import { ConnectionBanner } from '../shared/ConnectionBanner';
+import { TimerBell } from '../shared/TimerBell';
 import { MARK_NAME } from './useMarkUndo';
 import { useDialog } from '../shared/useDialog';
 import { WaxSeal } from '../shared/WaxSeal';
@@ -105,6 +106,8 @@ export const MainDeskView = () => {
 
       {/* Held at the top of the screen from md; below md it hangs under the slim band */}
       <ConnectionBanner className="max-md:hidden sticky top-0 z-[850]" />
+      {/* The timer's chime and its words, on every tab and drawer page (TimerBell.jsx) */}
+      <TimerBell />
 
       {/* HEADER */}
       <header className="w-full bg-night relative border-b border-ink/40 shadow-xl max-md:sr-only xl:sr-only">

@@ -436,8 +436,10 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
         )
     return {
         "pending_investigators": [to_item(c) for c in raw["pending_investigators"]],
-        # Exclude deceased investigators — they stay in the DB as "active" until
-        # their replacement is approved, but they should not appear in the live roster.
-        "active_investigators": [to_item(c) for c in raw["active_investigators"] if not c.is_dead],
+        # A dead investigator stays active until their player's new one is approved, and is
+        # listed with is_dead, so the Lightkeeper can open the sheet (a fourth scar taken by
+        # mistake is removed there, which lifts the death). The desk shows them apart, and
+        # nothing that counts members counts them.
+        "active_investigators": [to_item(c) for c in raw["active_investigators"]],
         "roster_finalized": bool(campaign.roster_finalized) if campaign else False,
     }
