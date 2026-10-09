@@ -2,7 +2,7 @@
 
 Updated 9 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
-Resume: PR 8 (small fixes) on branch claude/quirky-johnson-xkyudf, started 2026-10-09
+Resume: none
 
 ## For the next chat: start here
 
@@ -18,7 +18,7 @@ You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web
 
 Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message so he can set it before starting the next chat. As your first step, check your own model (the `get_session` tool) and effort. If they differ from the recommendation below, tell him in one line and carry on.
 
-**Next phase (PR 8): Sonnet 5.5 at medium effort, ultracode off.** PR 8 is a batch of small, well-specified fixes (effort S in the report), each with its root cause and fix written out. Leave the connection items (`offline-not-shown`, `stale-connection-slips`) and anything touching the WebSocket protocol for an Opus 5.5 high chat (PR 9).
+**Next phase (PR 9): Opus 5.5 at high effort, ultracode off.** Connection items (`offline-not-shown`, `stale-connection-slips`), the WebSocket protocol and the effort M bugs. Check PR 8 in a browser first if Robert wants (see below).
 
 Rules of thumb for later phases:
 
@@ -36,30 +36,19 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Where things stand
 
-- `main` is at **2289797**: the merge of PR 6 (merged 9 October, CI green after one re-run of a Docker Hub pull timeout). **Not deployed yet**: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload. The release adds the circle column `dispatch_text` (added at startup).
-- PR 6 held:
-  - Desk tweaks: Invite player moved by the join requests; the dispatch is in the Lightkeeper's own words by default with the template optional; Edit instead of Clear name (and the chapter house) on the circle page.
-  - Playtest fixes: `report-forgets-sent`, `key-ticks-lost`, `reports-broadcast-all`, `end-assignment-reports-open`, `gilded-reload-free-reroll`, `offline-roll-double` (`roll_id`), `resource-double-click-double-spend`, `seed-id-sequence-collision`, `stray-tape`, `your-circle-pending-label`, `circle-resources-pre-seal`.
-- **PR 7 is open, not merged:** https://github.com/austincauwels/TTRPG_VTT_CO/pull/7, the hourglass's sand drains with a running countdown and shows the tension again when it stops (Robert asked for it on 9 October). Frontend only, checked in Chromium. Merge when Robert says so.
-- The saved patches (`handoff/patches/`) are all in PR 6 and were removed from this branch.
-- **AI playtest results** stay here in `playtest/results/2026-10-08/` (`report.json`, `report.md`); the setup to run another is in `playtest/` (start with `playtest/HANDOFF.md`). Robert's private page with the logs: https://claude.ai/artifact/8wcvWkCfptWqtFf15XTaRG
+- `main` is at **2289797** (PR 6 merged, deployed status unknown: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload).
+- **PR 7 is open, not merged:** https://github.com/austincauwels/TTRPG_VTT_CO/pull/7 (hourglass sand drains with the countdown). Merge when Robert says so.
+- **PR 8 is open, not merged:** https://github.com/austincauwels/TTRPG_VTT_CO/pull/8, branch `claude/quirky-johnson-xkyudf`, all 22 effort-S bugs of the old list. Full backend suite passed (1,790). Frontend only built, **not checked in a browser** (the phone fit of the circle-name row, the pen picker keys, the "Choose advancements" button, the caption change are the ones worth a look). Open leftover: the sheet's ability tab resets on a tab switch (`patch-up-prompt-stale`, minor). `lk-mark-skips-abilities` got the wording fix only; a separate "Deal a mark" control (through `mark_or_offer`) is still open. Startup renames stored pen fonts; no schema change.
+- **AI playtest results** stay in `playtest/results/2026-10-08/`; setup in `playtest/` (start with `playtest/HANDOFF.md`). Robert's private page: https://claude.ai/artifact/8wcvWkCfptWqtFf15XTaRG
 
-## Next phase: PR 8
+## Next phase: PR 9 (Opus 5.5 high)
 
-The report's remaining **effort S** bugs, one commit each, on a branch from `main`. Suggested order, dice and rules first:
-
-- Dice and rules: `rule-of-six-stepper`, `burn-offer-stale`, `lk-mark-skips-abilities`, `advancement-log-raw-keys`, `advanced-role-ability-wrong-tab`, `patch-up-prompt-stale`.
-- Circle formation: `name-vote-reorders`, `name-case-duplicates`, `long-name-overflow`, `suggest-button-offscreen-phone`.
-- Lightkeeper desk and joining: `join-requests-lose-details`, `join-dialog-double-click`, `roster-order-unstable`, `advancement-later-no-way-back`.
-- Notebook: `sketch-caption-replaces-title`, `notebook-uploads-not-broadcast`, `notebook-toc-page-number`.
-- Sheet and accessibility: `pen-fonts-missing`, `pen-listbox-no-arrows`, `style-never-shown`, `catalyst-linebreaks`, `timer-status-stale`.
-
-Then PR 9 (Opus 5.5 high): `offline-not-shown`, `stale-connection-slips` and the effort M bugs (`report-questions-tally`, `activity-log-not-persisted`, `relationship-question-in-answer`, `ability-offers-expire`, `vote-tie-leading`, `pending-join-not-live`, `keyboard-focus-dropped`, `patch-up-free-rider`, `ws-token-in-url`) and the top-ten UX list in `report.json`.
+`offline-not-shown`, `stale-connection-slips` and the effort M bugs (`report-questions-tally`, `activity-log-not-persisted`, `relationship-question-in-answer`, `ability-offers-expire`, `vote-tie-leading`, `pending-join-not-live`, `keyboard-focus-dropped`, `patch-up-free-rider`, `ws-token-in-url`), plus the "Deal a mark" control and the top-ten UX list in `report.json`.
 
 ### Open questions for Robert
 
-- Deploy `main` (PR 6), and merge and deploy PR 7?
-- Answered 9 October: merge PR 6 (yes), the sand drains with the timer (yes, PR 7), an hourly check-in that resumes interrupted work (yes, set up as above).
+- Merge PR 7 and PR 8, then deploy `main`?
+- Check PR 8 in a browser before merging, or merge on CI?
 
 ## How the browser checks were done in PR 6
 
