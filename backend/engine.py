@@ -115,7 +115,7 @@ def get_campaign_roster(db: Session, campaign_id: int):
     all_chars = db.query(Character).options(joinedload(Character.circle)).filter(
         Character.campaign_id == campaign_id,
         Character.status.in_(["pending", "active"])
-    ).all()
+    ).order_by(Character.id).all()
 
     pending = [c for c in all_chars if c.status == "pending"]
     active  = [c for c in all_chars if c.status == "active"]

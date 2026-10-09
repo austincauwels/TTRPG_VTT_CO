@@ -45,7 +45,7 @@ def get_circle_creation_state(campaign_id: int, db: Session = Depends(get_db),
     active = db.query(Character).filter(
         Character.campaign_id == campaign_id,
         Character.status == "active"
-    ).all()
+    ).order_by(Character.id).all()
     return {
         "circle_id": circle.id,
         "is_finalized": bool(getattr(circle, "is_finalized", False)),
