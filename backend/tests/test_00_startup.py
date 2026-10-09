@@ -104,7 +104,7 @@ def test_migrated_columns_exist(client):
             "circle_ability", "insignia", "backstory_answers", "is_finalized", "illumination",
             "tension_clock", "tension_label", "resources_editable", "reports_open",
             "campaign_id", "timer_duration_ms", "timer_remaining_ms", "timer_ends_at", "timer_running",
-            "timer_visible"} <= cols["circles"]
+            "timer_visible", "dispatch_text"} <= cols["circles"]
     assert {"gm_user_id", "roster_finalized", "is_retired", "deleted_at", "released_characters"} <= cols["campaigns"]
     assert {"role", "specialty", "personal_circle_answer", "nerve_resistance_spent",
             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
@@ -289,6 +289,7 @@ MIGRATED_COLUMNS = {
     ("circles", "timer_ends_at"): ("bigint", None),
     ("circles", "timer_running"): ("boolean", "false"),
     ("circles", "timer_visible"): ("boolean", "false"),
+    ("circles", "dispatch_text"): ("text", "''::text"),
     ("campaigns", "gm_user_id"): ("integer", None),
     ("campaigns", "roster_finalized"): ("boolean", "false"),
     ("campaigns", "deleted_at"): ("timestamp without time zone", None),

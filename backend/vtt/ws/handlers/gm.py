@@ -150,7 +150,7 @@ async def handle_gm_update_circle(ctx):
     target_circle = db.query(Circle).filter(Circle.id == circle_id).first()
     if target_circle:
         for field in ["stitch", "refresh", "train", "guard_patrol", "miasma_bleed",
-                      "location", "atmosphere", "tension_clock", "tension_label"]:
+                      "location", "atmosphere", "dispatch_text", "tension_clock", "tension_label"]:
             if field in payload:
                 setattr(target_circle, field, payload[field])
         db.commit()
@@ -260,9 +260,10 @@ async def handle_gm_end_assignment(ctx):
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
         db.refresh(target_circle, with_for_update=True)  # see handle_gm_advance_circle
-        # Clear scene text
+        # Clear the dispatch, the template's blanks and the Lightkeeper's own words alike
         target_circle.location = ""
         target_circle.atmosphere = ""
+        target_circle.dispatch_text = ""
         # Every assignment starts with an empty tension clock. Its name goes too: it named
         # this assignment's threat, as the dispatch named its place
         target_circle.tension_clock = 0

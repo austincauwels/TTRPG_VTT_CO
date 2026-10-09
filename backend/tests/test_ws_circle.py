@@ -64,6 +64,57 @@ def test_gm_update_circle_defaults_to_circle_one_and_ignores_role(client):
     assert support.fetch(Circle, other_cid).atmosphere in ("", None)
 
 
+
+DISPATCH_TOO_LONG = {"status": 422, "detail": "A dispatch is text of up to 2000 characters."}
+
+
+def test_gm_update_circle_sends_a_dispatch_in_her_own_words(client):
+    """The Lightkeeper may write the dispatch in their own words instead of filling the template's
+    blanks. Each send writes all three fields, so the players' card shows exactly what
+    was sent: the Lightkeeper's own words (line breaks kept) and the location given, or the
+    template's location and atmosphere with no words of their own. Up to 2000 characters."""
+    camp, (member,), cid = _campaign(client)
+    own = "Meet at the lighthouse at dusk.\n\nBring lamps, and tell no one.\n"
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("gm_update_circle", circle_id=cid, dispatch_text=own, location="Saltmarsh Light", atmosphere="")
+        [msg] = gm.sync()
+        assert msg["type"] == "circle_update"
+        p = msg["payload"]
+        assert (p["dispatch_text"], p["location"], p["atmosphere"]) == (own, "Saltmarsh Light", "")
+        assert wm.drain() == [msg]
+        # The template again: the own words go
+        gm.send("gm_update_circle", circle_id=cid, dispatch_text="", location="Docks", atmosphere="Fog")
+        p = gm.sync()[0]["payload"]
+        assert (p["dispatch_text"], p["location"], p["atmosphere"]) == ("", "Docks", "Fog")
+        # The longest that may be written
+        gm.send("gm_update_circle", circle_id=cid, dispatch_text="x" * 2000, location="", atmosphere="")
+        assert gm.sync()[0]["payload"]["dispatch_text"] == "x" * 2000
+    assert support.fetch(Circle, cid).dispatch_text == "x" * 2000
+
+
+@pytest.mark.parametrize("bad", ["x" * 2001, 7, None, ["Docks"], {"text": "Docks"}, True])
+def test_gm_update_circle_refuses_a_dispatch_that_is_not_text_within_the_limit(client, bad):
+    """A dispatch in the Lightkeeper's own words that is longer than 2000 characters, or is not text, is
+    refused with 422 and nothing in the message is saved, the location and the tension
+    with it. No desk hears of it."""
+    camp, (member,), cid = _campaign(client)
+    support.update(Circle, cid, location="Docks", atmosphere="Fog", dispatch_text="", tension_clock=1)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("gm_update_circle", circle_id=cid, dispatch_text=bad, location="Elsewhere", atmosphere="",
+                tension_clock=3)
+        assert gm.sync() == [_rejected("gm_update_circle", **DISPATCH_TOO_LONG)]
+        assert wm.drain() == []
+    c = support.fetch(Circle, cid)
+    assert (c.location, c.atmosphere, c.dispatch_text, c.tension_clock) == ("Docks", "Fog", "", 1)
+
+
+def test_a_new_circle_has_no_dispatch_of_her_own(client):
+    camp, (member,), cid = _campaign(client)
+    with support.ws_connect(client, member["id"]) as wm:
+        circle = wm.initial[1]["payload"]
+    assert (circle["id"], circle["dispatch_text"]) == (cid, "")
+
+
 def test_gm_messages_from_a_player_are_rejected(client):
     """Before tokens a player socket that sent role GM got GM powers."""
     camp, (member,), cid = _campaign(client)
@@ -464,12 +515,13 @@ def test_gm_end_assignment(client):
                        train_bonus=True, gear=["Lantern"])
     outsider = support.forge(client)
     support.update(Character, outsider["id"], resources_spent_assignment=2)
-    support.update(Circle, cid, location="Docks", atmosphere="Fog")
+    support.update(Circle, cid, location="Docks", atmosphere="Fog", dispatch_text="Bring lamps.")
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
         gm.send("gm_end_assignment", role="GM", campaign_id=987654321)
         msgs = gm.sync()
         assert support.types(msgs) == ["circle_update", "member_update", "member_update", "activity_log"]
         assert (msgs[0]["payload"]["location"], msgs[0]["payload"]["atmosphere"]) == ("", "")
+        assert msgs[0]["payload"]["dispatch_text"] == ""
         assert sorted(m["payload"]["id"] for m in msgs[1:3]) == sorted([a["id"], b["id"]])
         assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses, gear slots and the hourglass have been reset. {EM}",
                                       "log_type": "field"}
@@ -481,6 +533,7 @@ def test_gm_end_assignment(client):
         assert got[1]["payload"]["gear"] == []  # gear slots reset with the assignment (p. 52)
     assert support.fetch(Character, b["id"]).resources_spent_assignment == 0
     assert support.fetch(Character, outsider["id"]).resources_spent_assignment == 2
+    assert support.fetch(Circle, cid).dispatch_text == ""
 
 
 def test_gm_end_assignment_empties_the_tension_clock(client):

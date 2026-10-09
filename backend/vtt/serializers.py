@@ -112,6 +112,7 @@ def get_circle_dict(circle):
         "tension_label": getattr(circle, "tension_label", None) or "",
         "location": getattr(circle, "location", None) or "",
         "atmosphere": getattr(circle, "atmosphere", None) or "",
+        "dispatch_text": getattr(circle, "dispatch_text", None) or "",
         # The resource pool (1 plus the active members, rulebook p. 41): any one resource
         # can hold all of it
         "max_capacity": resource_pool(circle),

@@ -413,6 +413,9 @@ def init_db():
         ("timer_running",      "BOOLEAN DEFAULT FALSE"),
         ("timer_visible",      "BOOLEAN DEFAULT FALSE"),
     ])
+    # The Lightkeeper's dispatch in their own words, beside the template's location and
+    # atmosphere. Existing circles get none.
+    add_columns("circles", [("dispatch_text", "TEXT DEFAULT ''")])
 
     convert_integer_flags()
     rename_relationship_types()

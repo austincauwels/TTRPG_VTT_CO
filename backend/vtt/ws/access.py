@@ -151,10 +151,22 @@ def _gm_circle(ctx, payload, character):
     _circle_of(ctx, _default_circle(ctx, payload), ctx.camp_id)
 
 
+# The longest dispatch the Lightkeeper may write in their own words (SceneManager.jsx has
+# the same limit)
+DISPATCH_TEXT_MAX = 2000
+DISPATCH_TOO_LONG = f"A dispatch is text of up to {DISPATCH_TEXT_MAX} characters."
+
+
 def _gm_update_circle(ctx, payload, character):
     # Unlike the other circle messages this one has always defaulted to circle 1.
     _gm_only(ctx, payload, character)
     _circle_of(ctx, payload.get("circle_id") or 1, ctx.camp_id)
+    # The dispatch in the Lightkeeper's own words is text within the limit, or nothing of the message
+    # is saved
+    if "dispatch_text" in payload:
+        text = payload["dispatch_text"]
+        if not isinstance(text, str) or len(text) > DISPATCH_TEXT_MAX:
+            _invalid(DISPATCH_TOO_LONG)
 
 
 def _intercept_mark(ctx, payload, character):

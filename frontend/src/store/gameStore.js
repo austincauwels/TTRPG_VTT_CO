@@ -220,6 +220,7 @@ const useGameStore = create(
       advancementDeferred: false, // the player chose "Later" on the advancement dialog
       advancementError: null,     // why the server refused an advancement pick
       gmSheetRefusal: null,       // { action, detail, at }: a mark or scar correction the server refused
+      circleRefusal: null,        // { detail, at }: a gm_update_circle the server refused (the dispatch says so)
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
@@ -515,6 +516,11 @@ const useGameStore = create(
             }
             if (message.payload.action === 'use_ability') {
               set({ abilityUseError: message.payload.detail || 'That ability was not used.' });
+            }
+            // A dispatch (or the hourglass's change) the server refused: nothing of it was
+            // saved, and the dispatch's receipt says why
+            if (message.payload.action === 'gm_update_circle') {
+              set({ circleRefusal: { detail: message.payload.detail || 'That change was not made.', at: Date.now() } });
             }
             // A correction on the Lightkeeper's trauma record: the sheet reloads and says why
             if (message.payload.action === 'gm_update_scars' || message.payload.action === 'gm_update_tension') {

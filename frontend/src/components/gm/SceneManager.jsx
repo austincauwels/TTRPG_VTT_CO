@@ -86,19 +86,50 @@ export const TensionClock = ({ readOnly = false }) => {
   );
 };
 
-// ── Scene Manager (dispatch memo + location/atmosphere inputs) ─────────────────
+// ── Scene Manager: the dispatch letter ─────────────────────────────────────────
+// The Lightkeeper writes the dispatch in their own words, with a location line if
+// wanted, or fills the template's blanks (location and atmosphere). The choice is
+// kept in this browser; own words are the default. Each send writes all three
+// fields, so the players' note shows exactly what went out (TactileSidebar.jsx).
+
+// The longest dispatch in the Lightkeeper's own words (the server's limit, vtt/ws/access.py)
+export const DISPATCH_TEXT_MAX = 2000;
+
+const MODE_KEY = 'candela-dispatch-mode';
+const readMode = () => {
+  try { return localStorage.getItem(MODE_KEY) === 'template' ? 'template' : 'own'; } catch { return 'own'; }
+};
+const keepMode = (mode) => {
+  try { localStorage.setItem(MODE_KEY, mode); } catch { /* a private window: this visit only */ }
+};
+
+// A refusal that comes this soon after a send answers that send
+const REFUSAL_WINDOW_MS = 5000;
+
 export const SceneManager = () => {
-  const { circle, socket, accessSession } = useGameStore();
+  const { circle, socket, accessSession, circleRefusal } = useGameStore();
+
+  const [mode, setModeState] = useState(readMode);
+  const setMode = (next) => { setModeState(next); keepMode(next); };
 
   const [location,   setLocation]   = useState(circle?.location   || "");
   const [atmosphere, setAtmosphere] = useState(circle?.atmosphere || "");
+  const [ownText,    setOwnText]    = useState(circle?.dispatch_text || "");
 
   // Sync inputs when circle data arrives (from Zustand rehydration or WebSocket update)
   useEffect(() => { setLocation(circle?.location   || ""); }, [circle?.location]);
   useEffect(() => { setAtmosphere(circle?.atmosphere || ""); }, [circle?.atmosphere]);
+  useEffect(() => { setOwnText(circle?.dispatch_text || ""); }, [circle?.dispatch_text]);
 
   // A short receipt under the stamps: what went out and when, or why it did not.
-  const [receipt, setReceipt] = useState(null); // { ok, text }
+  const [receipt, setReceipt] = useState(null); // { ok, text, sentAt? }
+
+  // The server refused the dispatch just sent (nothing of it was saved): say so
+  useEffect(() => {
+    if (!circleRefusal || !receipt?.sentAt) return;
+    const after = circleRefusal.at - receipt.sentAt;
+    if (after >= 0 && after < REFUSAL_WINDOW_MS) setReceipt({ ok: false, text: `Not sent: ${circleRefusal.detail}` });
+  }, [circleRefusal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The letter goes out: the sheet shifts under the stamp with the paper sound (owner's
   // round 3 item 21). Still under reduced motion, where only the sound remains.
@@ -113,14 +144,19 @@ export const SceneManager = () => {
     );
   };
 
+  // Every field of the dispatch goes each time: the own words and a location, or the
+  // template's two blanks, and the other kind emptied
   const broadcastScene = () => {
     if (socket && socket.readyState === WebSocket.OPEN) {
+      const dispatch = mode === 'own'
+        ? { dispatch_text: ownText.trim(), location, atmosphere: '' }
+        : { dispatch_text: '', location, atmosphere };
       socket.send(JSON.stringify({
         type: 'gm_update_circle',
-        payload: { role: accessSession?.role, circle_id: circle?.id || 1, location, atmosphere },
+        payload: { role: accessSession?.role, circle_id: circle?.id || 1, ...dispatch },
       }));
       sendOff();
-      setReceipt({ ok: true, text: `Dispatched at ${clockTime()}.` });
+      setReceipt({ ok: true, text: `Dispatched at ${clockTime()}.`, sentAt: Date.now() });
     } else {
       setReceipt({ ok: false, text: NOT_CONNECTED });
     }
@@ -134,6 +170,7 @@ export const SceneManager = () => {
       }));
       setLocation("");
       setAtmosphere("");
+      setOwnText("");
       setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. Ability uses, gear slots and the hourglass are reset.` });
     } else {
       setReceipt({ ok: false, text: NOT_CONNECTED });
@@ -166,7 +203,55 @@ export const SceneManager = () => {
         <p className="font-serif italic text-base text-sepia leading-snug">Office of the Lightkeeper: Priority Dispatch</p>
       </div>
 
-      {/* Typed body */}
+      {/* Own words or the template, kept in this browser */}
+      <div role="group" aria-label="Dispatch" className="-mt-2 mb-4 xl:-mt-1 xl:mb-3 flex justify-center gap-6">
+        {[['own', 'Own words'], ['template', 'Template']].map(([key, label]) => (
+          <button key={key} type="button" onClick={() => setMode(key)} aria-pressed={mode === key}
+            className={`pen-host min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-1 font-sans font-black text-xs uppercase tracking-widest transition-colors ${
+              mode === key ? 'text-ink' : 'text-sepia hover:text-ink'}`}>
+            <span className={`pen-underline ${mode === key ? 'is-inked' : ''}`}>{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {mode === 'own' ? (
+        // The own words on the letter's lines, and a location line if one is given
+        <div className="font-serif text-base leading-[28px] text-left text-ink">
+          <div className="flex flex-wrap items-baseline gap-x-3">
+            <label htmlFor="dispatch-location" className="font-sans text-xs font-black uppercase tracking-widest text-sepia">Location</label>
+            <input
+              id="dispatch-location"
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="flex-1 min-w-[8rem] bg-transparent border-b border-dashed border-sepia focus:border-oxblood px-1 text-oxblood font-bold font-serif italic"
+              spellCheck="false"
+            />
+          </div>
+          <textarea
+            value={ownText}
+            onChange={(e) => setOwnText(e.target.value)}
+            maxLength={DISPATCH_TEXT_MAX}
+            rows={6}
+            aria-label="Your dispatch"
+            aria-describedby="dispatch-count"
+            className="mt-3 block w-full min-h-[176px] max-h-[460px] resize-none bg-parchment border border-dashed border-sepia/60 focus:border-oxblood px-2 pt-1 pb-0 font-serif text-base leading-[28px] text-ink custom-scrollbar"
+            style={{
+              fieldSizing: 'content',
+              // The letter's own lines under the words, scrolling with them
+              backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.16) 28px)',
+              backgroundSize: '100% 28px',
+              backgroundPosition: '0 4px',
+              backgroundAttachment: 'local',
+            }}
+          />
+          <p id="dispatch-count" className={`mt-1 text-right font-mono text-xs tabular-nums leading-5 ${
+            ownText.length >= DISPATCH_TEXT_MAX ? 'text-oxblood' : 'text-sepia'}`}>
+            {ownText.length} / {DISPATCH_TEXT_MAX}<span className="sr-only"> characters</span>
+          </p>
+        </div>
+      ) : (
+      /* The template: typed body with two blanks */
       <div className="font-serif text-base leading-[28px] text-left text-ink">
         To the investigators of {circleName}: proceed with haste to
         <input
@@ -193,6 +278,7 @@ export const SceneManager = () => {
         <br />
         Secure the area. Light the Way.
       </div>
+      )}
 
       {/* Stamp buttons; End Assignment asks for a second press and says what it clears */}
       <div className="mt-8 xl:mt-5 flex justify-between items-start gap-4 relative">
@@ -232,7 +318,9 @@ export const SceneManager = () => {
             </div>
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-50 pointer-events-none mix-blend-overlay" />
           </button>
-          <p id="dispatch-effect" className="sr-only">Sends the location and atmosphere to every player's desk.</p>
+          <p id="dispatch-effect" className="sr-only">
+            {mode === 'own' ? "Sends your dispatch and its location to every player's desk." : "Sends the location and atmosphere to every player's desk."}
+          </p>
         </div>
       </div>
       <div className="mt-6 xl:mt-4 flex items-center gap-2" aria-hidden="true">
