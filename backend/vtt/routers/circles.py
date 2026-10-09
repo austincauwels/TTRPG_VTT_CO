@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from models import Campaign, Character, Circle, CircleVote, Relationship, User
+from vtt.assignment import REPORTS, answers_of, reports_of
 from vtt.auth import (
-    MEMBER_STATUSES, campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
+    MEMBER_STATUSES, campaign_or_404, character_or_404, forbidden, get_current_user, is_gm, require_gm,
     require_gm_or_member, require_owner,
 )
 from vtt.circle_queries import VOTE_TYPES, fill_resources, get_or_create_campaign_circle, relationships_list, votes_dict
@@ -38,7 +39,8 @@ def _require_member_of(character, campaign_id):
 @router.get("/campaign/{campaign_id}/circle-creation-state")
 def get_circle_creation_state(campaign_id: int, db: Session = Depends(get_db),
                               user: User = Depends(get_current_user)):
-    require_gm_or_member(db, user, campaign_or_404(db, campaign_id))
+    campaign = campaign_or_404(db, campaign_id)
+    require_gm_or_member(db, user, campaign)
     circle = get_or_create_campaign_circle(db, campaign_id)
     active = db.query(Character).filter(
         Character.campaign_id == campaign_id,
@@ -50,8 +52,23 @@ def get_circle_creation_state(campaign_id: int, db: Session = Depends(get_db),
         "active_investigators": [get_char_dict(c) for c in active],
         "votes": votes_dict(db, circle.id),
         "relationships": relationships_list(db, circle.id),
-        "backstory_answers": get_circle_dict(circle)["backstory_answers"],
+        "backstory_answers": _answers_for(circle, user, campaign, active),
     }
+
+
+def _answers_for(circle, user: User, campaign, active) -> dict:
+    """The circle's backstory answers with the assignment reports the caller may read: every
+    one for the Lightkeeper, a member's own alone (vtt/assignment.py). Each member was sent
+    every report."""
+    answers = get_circle_dict(circle)["backstory_answers"]
+    stored = answers_of(circle)
+    if REPORTS not in stored or not isinstance(answers, dict):
+        return answers
+    reports = reports_of(stored)
+    if not is_gm(user.id, campaign):
+        own = {str(c.id) for c in active if c.user_id == user.id}
+        reports = {key: report for key, report in reports.items() if key in own}
+    return {**answers, REPORTS: reports}
 
 @router.post("/circle/vote")
 def submit_circle_vote(body: CircleVoteSubmit, db: Session = Depends(get_db),

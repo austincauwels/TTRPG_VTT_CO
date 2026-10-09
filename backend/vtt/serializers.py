@@ -8,6 +8,7 @@ from vtt.circle_queries import (STAMINA_DICE, circle_abilities, downed_members, 
                                 train_dice_left)
 
 from vtt.abilities import ability_uses
+from vtt.assignment import without_reports
 from vtt.countdown import timer_fields
 from vtt.portraits import served_portrait
 
@@ -125,7 +126,9 @@ def get_circle_dict(circle):
         "chapter_house_location": getattr(circle, "chapter_house_location", None) or "",
         "circle_ability": getattr(circle, "circle_ability", None) or "",
         "insignia": getattr(circle, "insignia", None) or "",
-        "backstory_answers": backstory,
+        # Without the assignment reports, which go to the Lightkeeper and their authors
+        # only (vtt/assignment.py)
+        "backstory_answers": without_reports(backstory) if isinstance(backstory, dict) else backstory,
         "is_finalized": bool(getattr(circle, "is_finalized", False)),
         "illumination": getattr(circle, "illumination", 0) or 0,
         "resources_editable": bool(getattr(circle, "resources_editable", False)),

@@ -2,14 +2,28 @@
 creation (votes, backstory answers, personal answers, relationships).
 """
 import json
+from datetime import datetime, timezone
 
 from models import Character, Circle, CircleVote, Relationship
+from vtt.assignment import REPORTS, answers_of, reports_of
 from vtt.circle_queries import circle_abilities, relationships_list, resolve_circle, take_train_die, votes_dict
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.manager import campaign_key, manager
 
 
+async def refuse(ctx, action, status, detail):
+    """action_rejected to the sender, after letting go of any row the message locked."""
+    ctx.db.rollback()
+    await manager.broadcast(ctx.channel, {"type": "action_rejected", "payload": {
+        "action": action, "status": status, "detail": detail}})
+
+
 async def handle_submit_assignment_report(ctx):
+    """A player's assignment report: which of their Illumination Keys they fulfilled
+    (rulebook p. 54). One each, while the Lightkeeper has reports open; another replaces
+    it only when it says so (replace: true, the form's Amend), so a stray Send no longer
+    wipes a filed report (playtest, 2026-10-09). It goes to the Lightkeeper and back to
+    its author, never to the other players (vtt/assignment.py)."""
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     char_id = payload.get("character_id")
@@ -20,29 +34,30 @@ async def handle_submit_assignment_report(ctx):
             # Read the row again, locked until the commit, so reports other sockets
             # saved after this session loaded the circle are kept.
             db.refresh(target_circle, with_for_update=True)
-            raw = target_circle.backstory_answers
-            if isinstance(raw, str):
-                try: existing = json.loads(raw)
-                except: existing = {}
-            else:
-                existing = raw
-            # New dicts, not the loaded ones changed in place: the JSON column does not
-            # track in-place changes, so assigning the same object back saved nothing.
-            existing = dict(existing) if isinstance(existing, dict) else {}
-            reports = existing.get("reports")
-            reports = dict(reports) if isinstance(reports, dict) else {}
+            if not target_circle.reports_open:
+                await refuse(ctx, "submit_assignment_report", 409, "Reports are closed.")
+                return
+            # A new dict (answers_of): the JSON column does not track in-place changes,
+            # so assigning the same object back saved nothing.
+            existing = answers_of(target_circle)
+            reports = reports_of(existing)
+            if str(char_id) in reports and payload.get("replace") is not True:
+                await refuse(ctx, "submit_assignment_report", 409, "Your report is already filed.")
+                return
             reporter = db.query(Character).filter(Character.id == char_id).first()
             reporter_name = reporter.name if reporter else "Unknown"
-            # The shape of the broadcast payload, which the GM's report card reads
-            # after a reload too.
-            reports[str(char_id)] = {"character_name": reporter_name, "responses": responses}
-            existing["reports"] = reports
+            # The shape of the frame below, which the GM's report card reads after a
+            # reload too, with when it was filed for its date stamp
+            report = {"character_name": reporter_name, "responses": responses,
+                      "submitted_at": datetime.now(timezone.utc).isoformat()}
+            reports[str(char_id)] = report
+            existing[REPORTS] = reports
             target_circle.backstory_answers = existing
             db.commit()
-            await manager.broadcast_campaign(camp_code, camp_id, {
-                "type": "assignment_report_submitted",
-                "payload": {"character_id": char_id, "character_name": reporter_name, "responses": responses},
-            }, db)
+            message = {"type": "assignment_report_submitted", "payload": {"character_id": char_id, **report}}
+            if camp_id:
+                await manager.broadcast(campaign_key(camp_code), message)
+            await manager.broadcast(ctx.channel, message)
 
 
 async def handle_spend_resource(ctx):

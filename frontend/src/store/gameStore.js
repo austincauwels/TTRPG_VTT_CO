@@ -54,6 +54,17 @@ const nextOffer = (state) => ({ abilityMarkOffer: state.abilityMarkQueue[0] || n
 
 const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
 
+// The number of the circle's assignment, which End Assignment moves on (backend
+// vtt/assignment.py); 1 before the first
+export const assignmentOf = (circle) => {
+  const n = circle?.backstory_answers?.assignment;
+  return Number.isInteger(n) && n > 0 ? n : 1;
+};
+
+// A report the table has not answered within this long is not sent, as far as the form knows
+const REPORT_REPLY_MS = 8000;
+const REPORT_NO_REPLY = 'The table did not answer. If the stamp does not show, send the report again.';
+
 // The roll did not go through: the tray goes back to idle and says so
 const failRoll = (set, message) => {
   clearRollTimer();
@@ -221,6 +232,13 @@ const useGameStore = create(
       advancementError: null,     // why the server refused an advancement pick
       gmSheetRefusal: null,       // { action, detail, at }: a mark or scar correction the server refused
       circleRefusal: null,        // { detail, at }: a gm_update_circle the server refused (the dispatch says so)
+      // The assignment report form: the ticks not sent yet, by character id, with the
+      // assignment they belong to ({ assignment, evalQ, keyChecks }), kept across tabs and
+      // reloads (playtest, key-ticks-lost); whether a report is on its way; why the server
+      // refused the last one
+      reportDrafts: {},
+      reportSending: false,
+      reportError: null,
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
@@ -254,6 +272,9 @@ const useGameStore = create(
           scarModalData: null,
           scarError: null,
           scarSent: null,
+          reportDrafts: {},
+          reportSending: false,
+          reportError: null,
           character: null,
           characters: [],
           gmCampaigns: [],
@@ -429,6 +450,12 @@ const useGameStore = create(
             const seen = tensionSeen;
             const value = next?.tension_clock ?? 0;
             tensionSeen = next ? { id: next.id, value } : null;
+            // End Assignment moves the circle to its next assignment: the reports this desk
+            // holds belonged to the one that ended (the server cleared them)
+            const prev = get().circle;
+            if (prev && next && prev.id === next.id && assignmentOf(prev) !== assignmentOf(next)) {
+              set(state => ({ circleCreation: { ...state.circleCreation, reports: {} }, reportError: null }));
+            }
             set({ circle: next });
             // The GM turned the tension up or down: the hourglass ticks at every desk, up to the new
             // level on a raise and once on a lowering (End Assignment's reset included)
@@ -516,6 +543,14 @@ const useGameStore = create(
             }
             if (message.payload.action === 'use_ability') {
               set({ abilityUseError: message.payload.detail || 'That ability was not used.' });
+            }
+            // A report refused (reports closed, or already filed): the form says why
+            if (message.payload.action === 'submit_assignment_report') {
+              set({ reportSending: false, reportError: message.payload.detail || 'The report was not filed.' });
+              // "Already filed": the filed one, which this desk may not have heard of
+              // (its answer was lost), loads so the form shows it
+              const campaignId = get().character?.campaign_id;
+              if (campaignId) get().fetchCircleCreationState(campaignId);
             }
             // A dispatch (or the hourglass's change) the server refused: nothing of it was
             // saved, and the dispatch's receipt says why
@@ -698,17 +733,24 @@ const useGameStore = create(
             });
           }
           else if (message.type === 'assignment_report_submitted') {
-            // GM receives the report payload; store it in circleCreation.reports
-            const { character_id, character_name, responses } = message.payload;
-            set(state => ({
-              circleCreation: {
-                ...state.circleCreation,
-                reports: {
-                  ...(state.circleCreation.reports || {}),
-                  [character_id]: { character_name, responses },
+            // A report filed: the Lightkeeper's desk and its author's get it. The author's
+            // form shows what was filed, and its draft goes.
+            const { character_id, character_name, responses, submitted_at } = message.payload;
+            const own = character_id === get().character?.id;
+            set(state => {
+              const drafts = { ...state.reportDrafts };
+              if (own) delete drafts[character_id];
+              return {
+                circleCreation: {
+                  ...state.circleCreation,
+                  reports: {
+                    ...(state.circleCreation.reports || {}),
+                    [character_id]: { character_name, responses, submitted_at },
+                  },
                 },
-              },
-            }));
+                ...(own ? { reportDrafts: drafts, reportSending: false, reportError: null } : {}),
+              };
+            });
           }
           else if (message.type === 'circle_advanced') {
             if (!isForThisCampaign(message.payload)) return;
@@ -1132,15 +1174,29 @@ const useGameStore = create(
         }
       },
 
-      submitAssignmentReport: (circleId, characterId, responses) => {
-        const { socket } = get();
+      // replace: an amended report, which takes the place of the one filed (the server
+      // refuses a second report without it)
+      submitAssignmentReport: (circleId, characterId, responses, { replace = false } = {}) => {
+        const { socket, reportSending } = get();
+        if (reportSending) return false;
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'submit_assignment_report',
-            payload: { circle_id: circleId, character_id: characterId, responses },
+            payload: { circle_id: circleId, character_id: characterId, responses, ...(replace ? { replace: true } : {}) },
           }));
+          set({ reportSending: true, reportError: null });
+          // An answer that never comes (a dead socket) does not lock the form
+          setTimeout(() => { if (get().reportSending) set({ reportSending: false, reportError: REPORT_NO_REPLY }); }, REPORT_REPLY_MS);
+          return true;
         }
+        set({ reportError: 'Not connected to the table, so the report was not sent. Send it again once the desk is back.' });
+        return false;
       },
+
+      // The report form's ticks before sending, for this assignment
+      setReportDraft: (characterId, draft) => set(state => ({
+        reportDrafts: { ...state.reportDrafts, [characterId]: { ...draft, assignment: assignmentOf(state.circle) } },
+      })),
 
       gmAdvanceCircle: (circleId, circleAbility) => {
         const { socket, accessSession } = get();
@@ -1649,6 +1705,7 @@ const useGameStore = create(
         circle: state.circle,
         rejoinInvite: state.rejoinInvite,
         pendingScar: state.pendingScar,
+        reportDrafts: state.reportDrafts,
       }),
 
       // A session saved before login tokens existed has no token, and the server

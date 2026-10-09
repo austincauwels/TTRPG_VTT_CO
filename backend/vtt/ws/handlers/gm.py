@@ -12,6 +12,7 @@ import json
 
 from models import Character, Circle
 from vtt.abilities import MARK_TYPES, abilities_of
+from vtt.assignment import clear_paperwork
 from vtt.auth import ROSTER_STATUSES
 from vtt.circle_queries import circle_abilities, fill_resources, resolve_circle
 from vtt.serializers import get_char_dict, get_circle_dict
@@ -280,6 +281,9 @@ async def handle_gm_end_assignment(ctx):
             ch.train_dice = 0
             ch.gear = []  # "Gear slots only reset once an assignment is complete" (p. 52)
         target_circle.stamina_dice_used = 0  # Stamina Training's dice come back
+        # The reports close, and this assignment's reports, tally and spends go
+        # (vtt/assignment.py): they stayed open and filed into the next assignment
+        clear_paperwork(target_circle)
         # Meticulous Notes (p. 27): "After an assignment, increase your Illumination track 1
         # additional point because of the detailed notes your character returns with."
         note_takers = [ch for ch in active_chars if "Meticulous Notes" in abilities_of(ch)]
@@ -292,7 +296,7 @@ async def handle_gm_end_assignment(ctx):
             await manager.broadcast(character_key(ch.id), {"type": "character_update", "payload": get_char_dict(ch)})
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",
-            "payload": {"message": "— Assignment ended. Ability uses, gear slots and the hourglass have been reset. —", "log_type": "field"},
+            "payload": {"message": "— Assignment ended. Ability uses, gear slots, the hourglass and the reports have been reset. —", "log_type": "field"},
         }, db)
         for ch in note_takers:
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
