@@ -18,19 +18,29 @@ let tensionSeen = null;
 
 // A roll is never left hanging. One that cannot be sent waits for a connection that is
 // on its way back (sent when the new socket opens) or is refused; one that was sent
-// waits ROLL_REPLY_MS for its result. Either way the tray goes back to idle with
-// rollError when nothing comes. No answer on an open socket means the socket is dead
-// (a phone that slept keeps it "open" for a while), so the desk opens a new one.
+// waits ROLL_REPLY_MS for its result. No answer on an open socket means the socket is
+// dead (a phone that slept keeps it "open" for a while), so the desk opens a new one.
+// A roll that was sent may have reached the table, so it is never called "not thrown":
+// it carries a roll_id, and goes again with the same id on the new socket, where the
+// server answers a roll it has already made with that roll's result (playtest,
+// offline-roll-double: rolling again as told rolled twice). After ROLL_WAIT_MS with no
+// answer the tray gives up and says the roll may have counted.
 const ROLL_REPLY_MS = 6000;
 const ROLL_QUEUE_MS = 10000;
+const ROLL_WAIT_MS = 30000;
 const ROLL_NOT_SENT = 'Not connected to the table, so no dice were thrown. Roll again once the desk is back.';
-const ROLL_NO_REPLY = 'The dice did not come back from the table. Reconnecting; roll again in a moment.';
+const ROLL_LOST = 'The table has not answered. The roll may have counted, so check the log before you roll again.';
 const ROLL_DROPPED = 'The connection dropped before the dice came back. Roll again once the desk is back.';
 const ROLL_FAILED = 'The table could not make that roll. Roll again.';
 const ROLL_REFUSED = 'The table refused that roll.';
 const KEEP_NOT_SENT = 'Not connected to the table, so the kept die was not sent. Keep it again once the desk is back.';
 let rollTimer = null;
 let queuedRoll = null;   // the roll frame waiting for the socket to open
+let sentRoll = null;     // the roll frame sent at least once, waiting for its result
+let sentRollGiveUpAt = 0; // when the tray stops waiting for sentRoll
+let answeredRollId = null; // the roll_id of the last result shown, so a late copy is ignored
+const newRollId = () => globalThis.crypto?.randomUUID?.()
+  ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 let rollSeq = 0;         // the id each roll_result's roll is given on this desk
 let offerSeq = 0;        // the id each ability offer is given, so each gets its own countdown
 let scarFormSeq = 0;     // the id each scar form is opened with, so a new one starts blank
@@ -69,8 +79,24 @@ const REPORT_NO_REPLY = 'The table did not answer. If the stamp does not show, s
 const failRoll = (set, message) => {
   clearRollTimer();
   queuedRoll = null;
+  sentRoll = null;
   set({ isRolling: false, rollWaiting: false, rollError: message });
 };
+
+// A sent roll with no answer yet waits for the next socket, which sends it again with
+// its roll_id, until ROLL_WAIT_MS after it first went
+const waitToResend = (set, frame) => {
+  clearRollTimer();
+  queuedRoll = frame;
+  set({ rollWaiting: true });
+  rollTimer = setTimeout(() => {
+    rollTimer = null;
+    if (queuedRoll === frame) failRoll(set, ROLL_LOST);
+  }, Math.max(0, sentRollGiveUpAt - Date.now()));
+};
+
+// A roll that left this desk and has no answer, when its socket closes or is replaced
+const sentRollUnanswered = (get) => !queuedRoll && !!sentRoll && get().isRolling;
 
 const sendRoll = (set, get, frame) => {
   const { socket } = get();
@@ -79,14 +105,20 @@ const sendRoll = (set, get, frame) => {
   try {
     socket.send(JSON.stringify(frame));
   } catch {
-    failRoll(set, ROLL_NOT_SENT);
+    // Not sent this time; a roll sent before may still have reached the table
+    failRoll(set, sentRoll === frame ? ROLL_LOST : ROLL_NOT_SENT);
     return;
+  }
+  if (sentRoll !== frame) {
+    sentRoll = frame;
+    sentRollGiveUpAt = Date.now() + ROLL_WAIT_MS;
   }
   set({ rollWaiting: false });
   rollTimer = setTimeout(() => {
     rollTimer = null;
-    if (!get().isRolling) return;
-    failRoll(set, ROLL_NO_REPLY);
+    if (!get().isRolling || sentRoll !== frame) return;
+    if (Date.now() >= sentRollGiveUpAt) { failRoll(set, ROLL_LOST); return; }
+    waitToResend(set, frame);
     get().reconnect();
   }, ROLL_REPLY_MS);
 };
@@ -319,6 +351,7 @@ const useGameStore = create(
         }
         clearRollTimer();
         queuedRoll = null;
+        sentRoll = null;
         set({ socket: null, socketGameId: null, connectionState: 'idle', isRolling: false, rollWaiting: false, rollError: null });
       },
 
@@ -344,12 +377,14 @@ const useGameStore = create(
         reconnectTimer = null;
         tensionSeen = null;
         if (keepLog) {
-          // The same desk again: a roll waiting to be sent goes out on the new socket; one
-          // already sent on the old socket cannot come back on this one
-          if (!queuedRoll && get().isRolling) failRoll(set, ROLL_DROPPED);
+          // The same desk again: a roll waiting to be sent goes out on the new socket, and
+          // so does one sent on the old socket with no answer, with the same roll_id
+          if (sentRollUnanswered(get)) waitToResend(set, sentRoll);
+          else if (!queuedRoll && get().isRolling) failRoll(set, ROLL_DROPPED);
         } else {
           clearRollTimer();
           queuedRoll = null;
+          sentRoll = null;
           set({ activityLog: [], lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null, memberSheets: {} });
         }
         const apiBase = import.meta.env.VITE_API_URL || '';
@@ -383,10 +418,11 @@ const useGameStore = create(
           if (get().socket !== socket) return;
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
           if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
-          // A roll sent on this socket gets no answer now; one waiting to be sent waits on
-          // only while the desk reconnects by itself
+          // A roll waiting to be sent, or sent with no answer, waits on only while the desk
+          // reconnects by itself; the sent one goes again with its roll_id
           const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
-          if (closesForGood && queuedRoll) failRoll(set, ROLL_NOT_SENT);
+          if (closesForGood && (queuedRoll || sentRollUnanswered(get))) failRoll(set, sentRoll ? ROLL_LOST : ROLL_NOT_SENT);
+          else if (sentRollUnanswered(get)) waitToResend(set, sentRoll);
           else if (!queuedRoll && get().isRolling) failRoll(set, ROLL_DROPPED);
           if (event.code === WS_CLOSE_REPLACED) { set({ connectionState: 'replaced' }); return; }
           if (event.code === 4403 || event.code === 4404) { set({ connectionState: 'refused' }); return; }
@@ -462,8 +498,16 @@ const useGameStore = create(
             if (seen && next && seen.id === next.id && value !== seen.value) playTensionTick(value > seen.value ? value : 1);
           }
           else if (message.type === 'roll_result') {
-            // Each roll gets an id here (the server sends none), so what is keyed on the
-            // roll, such as the post-roll ability prompts, sees a new roll as new
+            // A roll sent twice (a resend after a stall) can be answered twice: the copy
+            // of a result this desk has shown is ignored, so the dice do not land again
+            const rollId = message.payload.roll_id;
+            if (rollId && rollId === answeredRollId) return;
+            if (rollId) answeredRollId = rollId;
+            sentRoll = null;
+            queuedRoll = null;
+            // Each roll gets an id here (the server's roll_id is per throw, not per
+            // result), so what is keyed on the roll, such as the post-roll ability
+            // prompts, sees a new roll as new
             const roll = message.payload.roll ? { ...message.payload.roll, id: ++rollSeq } : message.payload.roll;
             clearRollTimer();
             set({
@@ -939,7 +983,8 @@ const useGameStore = create(
         if (pendingGildedChoice || isRolling) return;
         const frame = {
           type: 'roll',
-          payload: { ...extra, action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods }
+          payload: { ...extra, action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods,
+            roll_id: newRollId() }
         };
         set({ lastRoll: null, lastRollKept: null, isRolling: true, rollWaiting: false, rollError: null });
         if (socket && socket.readyState === WebSocket.OPEN) {

@@ -42,6 +42,7 @@ from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import CLOSE_UNAUTHENTICATED, Rejected, check_message, check_target, resolve_channel
 from vtt.ws.context import WSContext
 from vtt.ws.handlers import HANDLERS
+from vtt.ws.handlers.rolls import send_held_roll
 from vtt.ws.manager import campaign_key, character_key, manager
 
 router = APIRouter()
@@ -132,6 +133,8 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
         if character:
             await websocket.send_json({"type": "character_update", "payload": get_char_dict(character)})
         await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(shown_circle)})
+        if character:
+            await send_held_roll(websocket, character)
 
         ctx = WSContext(game_id=game_id, db=db, circle=circle, camp_code=camp_code, camp_id=camp_id,
                         user_id=user_id, is_gm=is_gm, own_char_id=own_char_id, channel=channel)

@@ -33,6 +33,54 @@ _pending_gilded: dict = {}
 
 NO_CHOICE_WAITING = "No roll is waiting for a die to be kept. Roll again."
 
+# The last roll each channel sent with a roll_id, and the roll_result that answered it:
+# {channel: {"roll_id", "payload"}}. A desk that heard nothing back (a connection that
+# stalled without closing) sends the same roll again, with the same id, once it has
+# reconnected; the server answers it with the result it already gave instead of rolling
+# and charging the drive a second time (playtest, offline-roll-double). In memory only,
+# like _pending_gilded: after a restart a resent roll is rolled.
+_roll_replies: dict = {}
+ROLL_ID_MAX = 64
+ALREADY_KEPT = "That roll already counted and its die was kept. See the log."
+
+
+def _roll_id(payload):
+    """The roll's id from the desk (any short text), or None."""
+    rid = payload.get("roll_id")
+    return rid if isinstance(rid, str) and 0 < len(rid) <= ROLL_ID_MAX else None
+
+
+async def _answer_again(ctx, answered):
+    """The same roll sent again: its roll_result again, to the sender's channel only, with
+    the sheet as it is now. Nothing is rolled, charged or logged. A gilded roll whose die
+    has been kept since (on another device) is not offered again: the choice is made."""
+    reply = dict(answered["payload"])
+    character = ctx.character
+    if reply["roll"].get("needs_gilded_choice"):
+        held = _pending_gilded.get(character.id) if character is not None else None
+        if held is None or held.get("roll_id") != answered["roll_id"]:
+            await _refuse(ctx, "roll", 409, ALREADY_KEPT)
+            return
+    if character is not None:
+        reply["character"] = get_char_dict(character)
+    await manager.broadcast(ctx.channel, {"type": "roll_result", "payload": reply})
+
+
+async def send_held_roll(websocket, character):
+    """A desk that opens on a character whose gilded roll still waits for its die to be
+    kept (a reload, the player back on another device) gets that roll_result again, the
+    same dice, so it asks for the choice again. It used to forget the roll: its buttons
+    were live, the next roll replaced the held one (a free reroll), and the drive spent on
+    it was lost."""
+    held = _pending_gilded.get(character.id)
+    if held is not None:
+        payload = {"character_id": character.id, "action": held["action"], "roll": held["roll"],
+                   "character": get_char_dict(character)}
+        # Its id, so a desk that never lost the roll (it only reconnected) knows it
+        if held.get("roll_id"):
+            payload["roll_id"] = held["roll_id"]
+        await websocket.send_json({"type": "roll_result", "payload": payload})
+
 
 async def _refuse(ctx, action, status, detail):
     """An action_rejected frame to the sender's own channel, as vtt.ws.access sends."""
@@ -63,7 +111,7 @@ async def _dice_thrown(ctx, character, action, roll, rating, kept=None):
     }, ctx.db, exclude=ctx.channel)
 
 
-def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0):
+def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0, roll_id=None):
     """For a roll that has just landed on the roller's felt: True when its dice tumble
     now and the table is told; False for a secret roll, which is never shown, and for
     a gilded choice, whose dice are held until a die is kept (secret or not)."""
@@ -77,6 +125,7 @@ def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0):
             _pending_gilded[character.id] = {
                 "action": action, "roll": dict(roll), "rating": _rating(character, action),
                 "cat": cat or drive_for_action(action), "spent": spent, "secret": bool(is_secret),
+                "roll_id": roll_id,
             }
             return False
     return not is_secret
@@ -233,6 +282,12 @@ def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_d
 async def handle_roll(ctx):
     db, payload, character, target_char_id, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.channel, ctx.camp_code, ctx.camp_id
     try:
+        # The same roll again (the desk resent it after a stall): its result, not a new roll
+        roll_id = _roll_id(payload)
+        answered = _roll_replies.get(channel) if roll_id else None
+        if answered is not None and answered["roll_id"] == roll_id:
+            await _answer_again(ctx, answered)
+            return
         act = payload.get("action")
         if not act:
             raise ValueError("roll action missing 'action' field")
@@ -310,10 +365,14 @@ async def handle_roll(ctx):
         res["drive_spent_key"] = cat
         res["action"] = act
 
-        await manager.broadcast(channel, {
-            "type": "roll_result",
-            "payload": {"character_id": target_char_id, "action": act, "roll": res, "character": get_char_dict(character) if character else None}
-        })
+        reply = {"character_id": target_char_id, "action": act, "roll": res,
+                 "character": get_char_dict(character) if character else None}
+        if roll_id:
+            # Remembered before anything is sent, so the same roll arriving on a new
+            # socket meanwhile is answered from it
+            reply["roll_id"] = roll_id
+            _roll_replies[channel] = {"roll_id": roll_id, "payload": reply}
+        await manager.broadcast(channel, {"type": "roll_result", "payload": reply})
         if character and stamina_circle is not None:
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(stamina_circle)}, db)
         if character and helper is not None:
@@ -325,7 +384,7 @@ async def handle_roll(ctx):
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
                 "message": f"{helper.name} saw this coming: +1d on {character.name}'s roll.",
                 "log_type": "field", "ink_color": getattr(helper, "ink_color", "") or ""}}, db)
-        if _hold_or_throw(character, act, res, is_secret, cat, spent):
+        if _hold_or_throw(character, act, res, is_secret, cat, spent, roll_id):
             await _dice_thrown(ctx, character, act, res, _rating(character, act))
 
         if not res.get("needs_gilded_choice"):

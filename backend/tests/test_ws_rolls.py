@@ -225,6 +225,102 @@ def test_a_secret_roll_shows_no_dice(client, dice):
         assert support.types(gm.drain()) == ["member_update", "member_update"]
 
 
+def test_a_desk_that_opens_again_is_offered_the_held_gilded_roll(client, dice):
+    """Fixed (playtest, gilded-reload-free-reroll): a desk reloaded while a gilded roll
+    waited for its die forgot the roll, nothing had logged it, and the next roll replaced
+    it: a free reroll, with the drive it spent lost. A desk that opens on the channel is
+    sent the held roll again (the same dice and the sheet as it is now), and a die can
+    still be kept: the roll counts once."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, control=2, gilded_control=True, nerve_max=4, nerve_current=4)
+    dice(4, 6, 2)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="control", drive_spent=1)
+        [first] = ws.sync()
+        assert first["payload"]["roll"]["needs_gilded_choice"] is True
+    with support.ws_connect(client, ch["id"]) as again, support.ws_connect(client, camp["campaign_code"]) as gm:
+        assert support.types(again.initial) == ["character_update", "circle_update"]
+        held = again.recv()
+        assert held == {"type": "roll_result", "payload": {
+            "character_id": ch["id"], "action": "control", "roll": first["payload"]["roll"],
+            "character": again.initial[0]["payload"]}}
+        assert held["payload"]["character"]["nerve_current"] == 3
+        again.send("resolve_gilded", action="control", chosen_type="regular", chosen_value=0)
+        msgs = again.sync()
+        assert support.types(msgs) == ["roll_kept", "activity_log"]
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} rolled control {EM} 6 {DOT} Full Success."
+        assert support.types(gm.drain()) == ["dice_thrown", "activity_log"]
+    # Kept: a desk opening now has nothing waiting for it
+    with support.ws_connect(client, ch["id"]) as third:
+        assert third.sync() == []
+    assert support.fetch(Character, ch["id"]).nerve_current == 3
+
+
+def test_a_roll_sent_again_with_its_id_is_answered_not_rolled_again(client, dice):
+    """Fixed (playtest, offline-roll-double): a connection that stalled without closing
+    lost the roll's result, the desk said it was not thrown, and rolling again as told
+    rolled a second time and spent the drive again. A roll may carry a roll_id; the same
+    id again (the desk resends it after reconnecting) gets the first result back, on the
+    sender's channel only, with the sheet as it is now: nothing is rolled, charged or
+    logged. A new id is a new roll."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=2, nerve_max=3, nerve_current=3)
+    dice(5, 3, 2)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=1, roll_id="r-1")
+        msgs = ws.sync()
+        assert support.types(msgs) == ["roll_result", "activity_log"]
+        first = msgs[0]["payload"]
+        assert first["roll_id"] == "r-1"
+    with support.ws_connect(client, ch["id"]) as again, support.ws_connect(client, camp["campaign_code"]) as gm:
+        again.send("roll", action="move", drive_spent=1, roll_id="r-1")
+        assert again.sync() == [{"type": "roll_result", "payload": first}]
+        # The Lightkeeper's desk gets the sheet it mirrors, and no dice or log line
+        assert support.types(gm.drain()) == ["member_update"]
+        # A new roll
+        dice(1, 1, 4)
+        again.send("roll", action="move", drive_spent=1, roll_id="r-2")
+        msgs = again.sync()
+        assert support.types(msgs) == ["roll_result", "activity_log"]
+        assert (msgs[0]["payload"]["roll_id"], msgs[0]["payload"]["roll"]["result"]) == ("r-2", 4)
+        assert msgs[0]["payload"]["character"]["nerve_current"] == 1
+    assert support.fetch(Character, ch["id"]).nerve_current == 1
+
+
+@pytest.mark.parametrize("bad", [7, "", "x" * 65, None, ["r"]])
+def test_a_roll_id_that_is_not_short_text_is_ignored(client, dice, bad):
+    """Without a usable id each roll is rolled, as before roll ids, and the reply has none."""
+    ch = support.forge(client, move=1)
+    dice(4, 4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        for _ in range(2):
+            ws.send("roll", action="move", drive_spent=0, roll_id=bad)
+            [msg] = support.of_type(ws.sync(), "roll_result")
+            assert "roll_id" not in msg["payload"]
+
+
+def test_a_gilded_roll_sent_again_offers_its_choice_until_a_die_is_kept(client, dice):
+    """The same gilded roll again while its die waits is offered again, the same dice;
+    once a die is kept (on this desk or another) it is refused, since the roll counted."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, control=2, gilded_control=True)
+    dice(4, 6)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="control", drive_spent=0, roll_id="g-1")
+        [first] = ws.sync()
+        assert first["payload"]["roll"]["needs_gilded_choice"] is True
+    with support.ws_connect(client, ch["id"]) as ws:
+        [held] = ws.sync()  # offered on connect
+        assert held["payload"]["roll_id"] == "g-1"
+        ws.send("roll", action="control", drive_spent=0, roll_id="g-1")
+        assert ws.sync() == [held]
+        ws.send("resolve_gilded", action="control", chosen_type="regular", chosen_value=0)
+        assert support.types(ws.sync()) == ["roll_kept", "activity_log"]
+        ws.send("roll", action="control", drive_spent=0, roll_id="g-1")
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "roll", "status": 409, "detail": "That roll already counted and its die was kept. See the log."}}]
+
+
 def test_resolve_gilded_reads_the_held_dice_and_cannot_be_replayed(client, dice):
     """Fixed (QUIRKS D8): the kept die's value comes from the dice the server rolled, not
     from chosen_value, and a choice with no roll waiting is refused (409) and changes nothing."""
