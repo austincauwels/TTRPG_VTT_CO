@@ -1406,7 +1406,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               </div>
               <div className="p-4 rounded-sm" style={{ background: 'rgb(var(--c-parchment-deep)/0.18)', border: '1px dashed rgb(var(--c-sepia)/0.22)' }}>
                 <span className="block text-xs sm:text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-1">Catalyst</span>
-                <p className="text-base italic text-ink/80 leading-relaxed">"{catalyst}"</p>
+                <p className="text-base italic text-ink/80 leading-relaxed whitespace-pre-line">"{catalyst}"</p>
               </div>
             </div>
 

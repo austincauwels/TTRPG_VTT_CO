@@ -30,7 +30,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, busy = false
           {[data.pronouns, data.role_class || data.role, data.specialty].filter(Boolean).join(' · ')}
         </p>
         {data.catalyst && (
-          <p className="font-serif text-sm italic text-sepia break-words leading-snug mt-0.5">"{data.catalyst}"</p>
+          <p className="font-serif text-sm italic text-sepia break-words whitespace-pre-line leading-snug mt-0.5">"{data.catalyst}"</p>
         )}
       </div>
       {(onStamp || onReject) && (
