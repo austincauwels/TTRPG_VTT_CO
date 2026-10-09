@@ -4,23 +4,24 @@ Updated 9 October 2026 (Pacific). This file is the hand-off between chats. A new
 
 ## For the next chat: start here
 
-You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, apply what is in "Next phase", and keep the chat lean:
+You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 6 stands, then do "Next phase". Keep the chat lean:
 
 - Robert hit his **weekly usage limit** on 9 October. Before any run of more than about 6 agents, say roughly how big it is and ask. Prefer one implementer plus one reviewer over wide fan-outs.
 - At the end of each phase, **rewrite this file** (keep it under about 200 lines), commit it to this branch (`playtest-harness`, folder `handoff/`) and push it. Then tell Robert it is a good point to start a new chat.
 - Robert's own preferences: plain language, short answers, no em dashes; log durable decisions and facts to his Obsidian vault with the Galga `append_daily_log` tool, after reading the vault's `CLAUDE.md`, using wiki-links such as [[Austin]], [[Candela Obscura Campaign]] and [[GaterGrid Server]].
+- The session may start in another repo (SNAP). This repo is not in its list by name: attach it with `add_repo` (owner `austincauwels`, repo `TTRPG_VTT_CO`, access `push`) and clone it to `/home/user/ttrpg_vtt_co`.
 
 ## Model and effort
 
 Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message so he can set it before starting the next chat. As your first step, check your own model (the `get_session` tool) and effort. If they differ from the recommendation below, tell him in one line and carry on.
 
-**Next phase (PR 6): Opus 5.5 at high effort, ultracode off.** PR 6 starts with the hardest bugs in the backlog: rolls counted twice during a connection stall, a gilded roll that must survive a reload, and a report form that silently overwrites. These are races and protocol changes, where a cheaper model is more likely to ship a subtle bug.
+**Next phase (PR 7): Sonnet 5.5 at medium effort, ultracode off.** PR 7 is a batch of small, well-specified fixes (effort S in the report), each with its root cause and fix written out. Leave the connection items (`offline-not-shown`, `stale-connection-slips`) and anything touching the WebSocket protocol for an Opus 5.5 high chat (PR 8).
 
 Rules of thumb for later phases:
 
 | Work | Model | Effort |
 |---|---|---|
-| Routine: applying patches, small UI fixes, wording, docs, PR housekeeping, deploy help | Sonnet 5.5 | medium |
+| Routine: small UI fixes, wording, docs, PR housekeeping, deploy help | Sonnet 5.5 | medium |
 | Races, the WebSocket protocol, rules logic, data loss, a final review before a PR | Opus 5.5 | high |
 | A stubborn bug that resisted one attempt | Opus 5.5 | xhigh (never max) |
 | Workflow agents doing mechanical sweeps (renames, copy edits, finding call sites) | Haiku 5.5 or Sonnet 5.5, passed per agent | low |
@@ -32,51 +33,41 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Where things stand
 
-- `main` is at **4794611**: the merge of PR 5 (live Lightkeeper sheets, the hourglass and its countdown timer, the trauma record's Edit, resource help, hub papers placed differently each visit). It is **live** on candela.gatergrid.com, and the new bundle was confirmed.
-- Merged PRs: #3 (b7ed87a), #4 (1fc2d88), #5 (4794611). There is no open PR.
-- **AI playtest:** an AI Lightkeeper and four AI players played a full session and logged 277 findings. Every bug was then reproduced on a fresh copy, with its cause in the code. Results are on this branch in `playtest/results/2026-10-08/`. `report.json` and `report.md` hold the ranked bugs, each with root cause, fix and effort, and a top-ten "fix these first" list. The setup to run another playtest is in `playtest/` (start with `playtest/HANDOFF.md`). Robert also has a private page with all the logs: https://claude.ai/artifact/8wcvWkCfptWqtFf15XTaRG
+- `main` is at **4794611** (PR 5, live on candela.gatergrid.com).
+- **PR 6 is open, not merged:** https://github.com/austincauwels/TTRPG_VTT_CO/pull/6 from branch `claude/confident-lovelace-dvc87b`, ten commits on `main`. Merge only when Robert says so; then he deploys (see below) and players reload. Check its CI first: the full backend suite passed locally (1,788 passed, 1 skipped) and `vite build` passes.
+- PR 6 holds:
+  - Desk tweaks: Invite player moved by the join requests; the dispatch is in the Lightkeeper's own words by default with the template optional (new circle column `dispatch_text`); Edit instead of Clear name (and the chapter house) on the circle page.
+  - Playtest fixes: `report-forgets-sent`, `key-ticks-lost`, `reports-broadcast-all`, `end-assignment-reports-open` (reports read back, Amend, private, closed and cleared by End Assignment); `gilded-reload-free-reroll` (held roll re-sent on connect); `offline-roll-double` (`roll_id`, resent after a stall, answered from memory); `resource-double-click-double-spend`; `seed-id-sequence-collision`; `stray-tape`, `your-circle-pending-label`, `circle-resources-pre-seal`.
+  - All checked in Chromium on desktop, tablet and phone sizes (details in each commit).
+- The saved patches (`handoff/patches/`) are all in PR 6 and were removed from this branch.
+- **AI playtest results** stay here in `playtest/results/2026-10-08/` (`report.json`, `report.md`); the setup to run another is in `playtest/` (start with `playtest/HANDOFF.md`). Robert's private page with the logs: https://claude.ai/artifact/8wcvWkCfptWqtFf15XTaRG
 
-## Next phase: PR 6
+## Next phase: PR 7
 
-Robert asked for two things: three desk tweaks, and fixes from the playtest. One PR is fine.
+The report's remaining **effort S** bugs, one commit each, on a branch from `main` (or from PR 6's branch if it is not merged yet, so the two do not conflict in `CircleView.jsx`, `gameStore.js` and `rolls.py`). Suggested order, dice and rules first:
 
-### Desk tweaks (his words in quotes)
+- Dice and rules: `rule-of-six-stepper`, `burn-offer-stale`, `lk-mark-skips-abilities`, `advancement-log-raw-keys`, `advanced-role-ability-wrong-tab`, `patch-up-prompt-stale`.
+- Circle formation: `name-vote-reorders`, `name-case-duplicates`, `long-name-overflow`, `suggest-button-offscreen-phone`.
+- Lightkeeper desk and joining: `join-requests-lose-details`, `join-dialog-double-click`, `roster-order-unstable`, `advancement-later-no-way-back`.
+- Notebook: `sketch-caption-replaces-title`, `notebook-uploads-not-broadcast`, `notebook-toc-page-number`.
+- Sheet and accessibility: `pen-fonts-missing`, `pen-listbox-no-arrows`, `style-never-shown`, `catalyst-linebreaks`, `timer-status-stale`.
 
-1. "Invite player back is too front and center for something typically done once in a blue moon, also just use invite player as the text." **Done** in patch `desk-tweaks/0001`: renamed "Invite player" and moved to a quiet text button by the Roster's join requests, out of the table column.
-2. "The dispatch template is corny, and should be an optional template, if the light keeper has their own dispatch they can send that." **Half done** in patch `desk-tweaks/0002` (WIP, untested). The plan: writing her own is the default; "Use the template" keeps today's wording as an option; the choice is remembered per browser. Her own text goes in a new circle column `dispatch_text`, limited to 2000 characters and validated in `gm_update_circle`, sent in `get_circle_dict` and cleared by End Assignment. The players' card shows exactly what was sent, line breaks kept. Finish it, test it, then check it in the browser on phone, tablet and desktop.
-3. "Instead of clear name for circle make it say edit." **Not started.** On the Lightkeeper's circle page (`CirclePage.jsx`), the two-press "Clear name" becomes "Edit". The name turns into an input holding the current name: Enter or leaving the field saves, Escape cancels, and an empty name is never saved. Give the chapter house the same treatment if it uses the same pattern.
-
-### Playtest fixes
-
-Robert has not picked a size yet. Recommend **lean first** and ask. Lean means:
-
-- the four high-severity bugs: `report-forgets-sent`, `gilded-reload-free-reroll`, `offline-roll-double`, `resource-double-click-double-spend`;
-- finishing the half-done work below;
-- any of the report's cheap fixes (effort S) that touch the same code.
-
-Everything else from `report.json` (44 bugs, top-ten UX items) can follow in PR 7. Partial work already exists:
-
-- `pr6-circle/0001-0003` are done: the report form's tape, relationship labels on Your Circle, and resources before the seal. `pr6-circle/0004` is a WIP start on `report-forgets-sent` and the report tally (it adds `backend/vtt/assignment.py`).
-- `pr6-dice/0001` is a WIP start on `gilded-reload-free-reroll`: the server re-sends a pending gilded choice on connect.
-
-Treat the WIP patches as drafts. Read them, keep what is right, and test everything.
+Then PR 8 (Opus 5.5 high): `offline-not-shown`, `stale-connection-slips` and the effort M bugs (`report-questions-tally`, `activity-log-not-persisted`, `relationship-question-in-answer`, `ability-offers-expire`, `vote-tie-leading`, `pending-join-not-live`, `keyboard-focus-dropped`, `patch-up-free-rider`, `ws-token-in-url`) and the top-ten UX list in `report.json`.
 
 ### Open questions for Robert
 
-- PR 6 size: lean (recommended) or the full list?
+- Merge PR 6? Then deploy and tell the players to reload.
 - He asked whether the hourglass empties with the timer. It does not: the sand shows tension only, and the timer is separate. Should the sand drain with a running countdown, then go back to tension when it stops?
 - An optional hourly check-in that resumes work after a usage limit resets (offered, never answered).
 
-## Saved work in progress: `handoff/patches/`
+## How the browser checks were done in PR 6
 
-Each series applies cleanly on top of `main` (4794611):
-```
-git fetch origin playtest-harness main
-git checkout -b <your branch> origin/main
-git show origin/playtest-harness:handoff/patches/desk-tweaks/0001-Invite-player-a-quiet-button-by-the-join-requests-of.patch | git am
-# or check out the branch into a folder and run: git am <folder>/handoff/patches/<series>/*.patch
-```
-Apply `desk-tweaks`, `pr6-circle` and `pr6-dice` in any order. They touch different code, apart from small overlaps in `gm.py` and `serializers.py`.
+No frontend test runner exists, so changes were checked in Chromium with Playwright 1.56 (`/opt/pw-browsers/chromium-1194`):
+- Backend on port 8300 with its own database; `vite preview` on 4300 with a copy of `vite.config.js` pointing at 8300 (kept out of git via `.git/info/exclude`).
+- A table built through the API (register, `/campaign/create`, forge, join, approve). The circle exists only after a desk or `circle-creation-state` touches it; then seal it in SQL (`is_finalized`, `reports_open`, `resources_editable`).
+- Each desk opened by writing the store's `candela-vtt-storage` (accessSession from the register answer, stage `DESK` or `GM_DASH`, lastPlayedCampaign) with `addInitScript`.
+- A stall was made with `page.routeWebSocket`, holding back the server's frames on one connection only.
+- A gilded die waiting for its choice wobbles, so Playwright never sees it stable: press Enter on it instead of clicking.
 
 ## How to work in this repo
 
