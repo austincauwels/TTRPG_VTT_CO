@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import * as Gi from "./shared/gameIcons";
 import { JoinCampaignForm } from './shared/JoinCampaignForm';
 import { ConfirmAction } from './shared/ConfirmAction';
@@ -501,6 +501,24 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   const d = (field, fallback) => (draft && draft[field] !== undefined && draft[field] !== null ? draft[field] : fallback);
 
   const [step, setStep] = useState(() => d('step', 1));
+  // A new step opens at its top (playtest, creator-step-scroll-position). The page is the
+  // window, and it kept its place: the browser's scroll anchoring held the Back and Advance
+  // row where it was, so each step opened at its foot. Advance, Back and Select this Path
+  // also put the focus on the new step's heading (the button pressed is gone or far below);
+  // a step tab keeps it, in the tab row. A draft opening on its step moves nothing.
+  const stepHeadingRef = useRef(null);
+  const stepMoved = useRef(null);
+  const openStep = (n, focusHeading = true) => {
+    stepMoved.current = focusHeading ? 'heading' : 'top';
+    setStep(n);
+  };
+  useLayoutEffect(() => {
+    const moved = stepMoved.current;
+    stepMoved.current = null;
+    if (!moved) return;
+    window.scrollTo({ top: 0 });
+    if (moved === 'heading') stepHeadingRef.current?.focus({ preventScroll: true });
+  }, [step]);
   // Step 3 on a tablet: what each action does, behind its printed "i" (shared/ActionInfo.jsx)
   const infoId = useId();
   const [infoFor, toggleInfo] = useActionInfo();
@@ -628,7 +646,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
     setLockedGilded(SPECIALTY_GILDED[card.specialtyName] || '');
     setFreeGilded('');
     setSelectedGear([]);
-    setStep(2);
+    openStep(2);
   };
 
   const toggleGear = (item) => {
@@ -740,7 +758,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           const active = step === n;
           const [num, ...words] = label.split(' ');
           return (
-            <button key={n} type="button" onClick={() => unlocked && setStep(n)}
+            <button key={n} type="button" onClick={() => unlocked && n !== step && openStep(n, false)}
               disabled={!unlocked}
               aria-current={active ? 'step' : undefined}
               aria-label={`Step ${n}, ${words.join(' ').toLowerCase()}${unlocked ? '' : ', locked until the earlier steps are done'}`}
@@ -769,7 +787,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           `}</style>
 
           <div className="text-center mb-6">
-            <h2 className="font-display text-3xl sm:text-5xl uppercase tracking-[0.08em] text-cream"
+            <h2 ref={stepHeadingRef} tabIndex={-1} className="font-display text-3xl sm:text-5xl uppercase tracking-[0.08em] text-cream"
               style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}>Choose Your Path</h2>
           </div>
 
@@ -1017,7 +1035,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
         <PaperSheet printLine="Form C.O. 7 · Investigator record" serial={formSerial}>
           <div className="animate-fadeIn space-y-6">
             <div className="text-center pb-4" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
-              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Investigator Profile</h2>
+              <h2 ref={stepHeadingRef} tabIndex={-1} className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Investigator Profile</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
                 {specialty} · {role}
               </p>
@@ -1133,7 +1151,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
         <PaperSheet printLine="Form C.O. 7 · Investigator record" serial={formSerial}>
           <div className="animate-fadeIn space-y-6">
             <div className="text-center pb-5" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
-              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Action Ratings &amp; Drive</h2>
+              <h2 ref={stepHeadingRef} tabIndex={-1} className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Action Ratings &amp; Drive</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
                 {specialty} · {role}
               </p>
@@ -1332,7 +1350,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
         <PaperSheet printLine="Form C.O. 7 · Investigator record" serial={formSerial}>
           <div className="animate-fadeIn space-y-7">
             <div className="text-center pb-5" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
-              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Specialty Gear &amp; Final Dossier</h2>
+              <h2 ref={stepHeadingRef} tabIndex={-1} className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Specialty Gear &amp; Final Dossier</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
                 {specialty} · {role}
               </p>
@@ -1420,13 +1438,13 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
       {/* ── BOTTOM NAV BUTTONS ── */}
       {step > 1 && (
         <div className="flex flex-wrap justify-between items-center gap-3 mt-5">
-          <button onClick={() => setStep(step - 1)}
+          <button onClick={() => openStep(step - 1)}
             className="px-5 py-2 text-base border border-cream/25 font-sans font-black uppercase tracking-widest text-cream/75 hover:bg-cream/5 hover:text-cream transition-all rounded">
             ← Back
           </button>
           {step < 4 ? (
             <button
-              onClick={() => canAdvance && setStep(step + 1)}
+              onClick={() => canAdvance && openStep(step + 1)}
               disabled={!canAdvance}
               className="px-7 py-2 text-base font-sans font-black uppercase tracking-widest rounded transition-all shadow"
               style={{

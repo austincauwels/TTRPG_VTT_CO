@@ -344,7 +344,7 @@ Tactile and stamped: small, heavy, uppercase, tracked.
 - **Notebook fields:** handwriting pen font over ruled lines, with the Markdown marks and Preview over them (see Notes in Markdown).
 
 ### Navigation
-- **Creator step bar:** four equal tabs in an ink bar with a 1px dark border and 4px corners. Active tab is oxblood with cream text; inactive tabs are ink with dimmed cream text. Labels are numbered ("1. Choose Path").
+- **Creator step bar:** four equal tabs in an ink bar with a 1px dark border and 4px corners. Active tab is oxblood with cream text; inactive tabs are ink with dimmed cream text. Labels are numbered ("1. Choose Path"). A new step opens at the top of the page, never where the last one was scrolled to; Advance, Back and Select this Path also move the focus to the new step's title, while a tab keeps it (playtest, 2026-10-10).
 - **GM desk tabs:** torn paper strips in cream, each at its own fixed angle (about 1 degree), with a small icon and tracked serif uppercase label, stacked in the left rail. The active slip's label is underlined in pen.
 - **Fountain-pen underline** (`.pen-underline` on the label, `.pen-host` on the control): an uneven oxblood stroke that draws itself left to right under a tab on hover or keyboard focus (with the gold focus ring) and stays inked on the active GM slip. Used on the GM slips and the player desk tabs.
 - **Notebook tabs:** folder tabs on the book's top edge; active tab is cream paper, inactive tabs are dark brown with gold text.
