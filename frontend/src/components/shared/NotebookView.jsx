@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useId, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useId, useCallback } from 'react';
 import useGameStore from '../../store/gameStore';
 import { ConfirmAction } from './ConfirmAction';
 import { CameraIcon, PencilIcon } from './NotebookIcons';
@@ -51,6 +51,85 @@ function formatDate(isoStr) {
     return new Date(isoStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch { return isoStr; }
 }
+
+// ── Unsent writing ─────────────────────────────────────────────────────────────
+// What the writer has not sent yet (a private note, a field entry's title and text) is kept
+// in this browser as it is typed, under the account, the campaign and the seat (the
+// investigator, or the Lightkeeper), so a step to the Investigator tab or the chapter hub,
+// or a reload, keeps it, and nobody else who signs in on this browser ever sees it
+// (playtest, private-note-draft-lost). Pinning or adding the entry clears it. Storage can be
+// full, blocked or missing (private windows), so every access is wrapped, as the creator's
+// draft is, and the notebook works the same without it.
+const notebookDraftKey = ({ accessSession, character }, isGMProp) => {
+  const isGM = isGMProp !== null ? isGMProp : accessSession?.role === 'GM';
+  const campaignId = accessSession?.campaignId || character?.campaign_id;
+  const seat = isGM ? 'lightkeeper' : character?.id;
+  if (accessSession?.userId == null || !campaignId || seat == null) return null;
+  return `candela-notebook-draft:${accessSession.userId}:${campaignId}:${seat}`;
+};
+const readKept = (key) => {
+  if (!key) return '';
+  try { return window.localStorage.getItem(key) || ''; } catch { return ''; }
+};
+const writeKept = (key, text) => {
+  if (!key) return;
+  try {
+    if (text) window.localStorage.setItem(key, text);
+    else window.localStorage.removeItem(key);
+  } catch { /* the draft is a convenience */ }
+};
+// useState for a piece of unsent writing, kept under key
+const useKeptText = (key) => {
+  const [text, setText] = useState(() => readKept(key));
+  const keep = useCallback((value) => { setText(value); writeKept(key, value); }, [key]);
+  return [text, keep];
+};
+// A picture waiting beside the entry (a drawing with its strokes, or a chosen photograph,
+// and its caption) is too large for storage, so it waits in this page under the same key:
+// leaving the notebook keeps it, a reload does not.
+const stagedPictures = new Map();
+// The part of the book open when it was left (field, note or lk), under the same key, so a
+// step to another tab and back finds it as it was. Opened afresh, a book with an unsent
+// private note opens on Private Notes.
+const openParts = new Map();
+
+// A pin or an add still on its way, under the key and what it sends (':note' or ':entry'):
+// { done, picture }. It clears what it sent from storage when it lands, and a book opened
+// again meanwhile (a step to another tab and back) shows it sending and takes its answer,
+// so writing that went is never offered to send again.
+const sending = new Map();
+const useSending = (key, onAnswer) => {
+  const [request, setRequest] = useState(() => (key && sending.get(key)) || null);
+  const answer = useRef(onAnswer);
+  answer.current = onAnswer;
+  useEffect(() => {
+    if (!request) return undefined;
+    let live = true;
+    request.done.then((result) => {
+      if (!live) return;
+      setRequest(null);
+      answer.current(result);
+    });
+    return () => { live = false; };
+  }, [request]);
+  const send = (picture, run) => {
+    const next = { picture };
+    next.done = run().catch(() => ({ success: false })).finally(() => { if (sending.get(key) === next) sending.delete(key); });
+    if (key) sending.set(key, next);
+    setRequest(next);
+  };
+  return [request, send];
+};
+
+// Unsent writing in a part of the book not open: a small dot in the tab's own lettering
+const UnsentMark = ({ what }) => (
+  <>
+    <span aria-hidden="true" className="inline-block w-2 h-2 ml-1.5 -mt-0.5 rounded-full bg-current align-middle" />
+    <span className="sr-only">, unsent {what}</span>
+  </>
+);
+
+const isFieldEntry = (e) => !e.is_deleted && (e.entry_type === 'field_log' || e.entry_type === 'sketch' || e.entry_type === 'photo');
 
 // The foot of a page: the page number, and the register's printed line between. A page
 // with a turned-up corner keeps its number clear of the corner.
@@ -364,8 +443,14 @@ function EphemeralNote({ entry, onDelete }) {
 }
 
 // `fit`: on a desk that fits the screen (xl and up), the binder fills its column's height
-// and the book takes what the tabs leave, instead of its fixed 800px spread.
-export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
+// and the book takes what the tabs leave, instead of its fixed 800px spread. Each seat in
+// each campaign has its own book, so its unsent writing is its own (draftKey).
+export const NotebookView = ({ isGM = null, fit = false }) => {
+  const draftKey = useGameStore((s) => notebookDraftKey(s, isGM));
+  return <Notebook key={draftKey || 'unkept'} draftKey={draftKey} isGM={isGM} fit={fit} />;
+};
+
+const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
   const {
     notebookEntries,
     character,
@@ -386,30 +471,33 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
 
   const [currentSpread, setCurrentSpread]               = useState(0);
   const [selectedAuthorFilter, setSelectedAuthorFilter] = useState(null);
-  const [newEntryTitle, setNewEntryTitle]               = useState('');
-  const [newEntryContent, setNewEntryContent]           = useState('');
-  const [isSubmitting, setIsSubmitting]                 = useState(false);
+  // The entry being written and the private note being written: kept in this browser
+  const [newEntryTitle, setNewEntryTitle]               = useKeptText(draftKey && `${draftKey}:title`);
+  const [newEntryContent, setNewEntryContent]           = useKeptText(draftKey && `${draftKey}:text`);
   const [submitError, setSubmitError]                   = useState('');
+  // The part of the book it opens on (openParts)
+  const [openPart] = useState(() => (draftKey && openParts.get(draftKey))
+    || (readKept(draftKey && `${draftKey}:note`).trim() ? 'note' : 'field'));
   // Ephemeral notes section
-  const [showEphemeral, setShowEphemeral]               = useState(false);
-  const [ephemeralText, setEphemeralText]               = useState('');
-  const [isAddingEphemeral, setIsAddingEphemeral]       = useState(false);
+  const [showEphemeral, setShowEphemeral]               = useState(openPart === 'note');
+  const [ephemeralText, setEphemeralText]               = useKeptText(draftKey && `${draftKey}:note`);
   const [ephemeralError, setEphemeralError]             = useState('');
   const [deleteError, setDeleteError]                   = useState('');
   // Lightkeeper resources — single continuous note
-  const [showLKResources, setShowLKResources]           = useState(false);
+  const [showLKResources, setShowLKResources]           = useState(openPart === 'lk');
   const [lkContent, setLkContent]                       = useState('');
   const [lkSaveStatus, setLkSaveStatus]                 = useState('saved');
   const lkEntryId                                       = useRef(null);
   const lkSaveTimer                                     = useRef(null);
-  // Image upload — staged, not auto-submitted
+  // Image upload: staged, not auto-submitted. A staged picture waits in this page while
+  // the notebook is closed (stagedPictures)
   const sketchInputRef  = useRef(null);
   const photoInputRef   = useRef(null);
-  const [uploadCaption, setUploadCaption]               = useState('');
-  const [isUploading, setIsUploading]                   = useState(false);
-  const [pendingImageFile, setPendingImageFile]         = useState(null);
-  const [pendingImagePreview, setPendingImagePreview]   = useState(null);
-  const [pendingImageType, setPendingImageType]         = useState(null);
+  const [waiting]                                       = useState(() => (draftKey && stagedPictures.get(draftKey)) || {});
+  const [uploadCaption, setUploadCaption]               = useState(waiting.caption || '');
+  const [pendingImageFile, setPendingImageFile]         = useState(waiting.file || null);
+  const [pendingImagePreview, setPendingImagePreview]   = useState(waiting.preview || null);
+  const [pendingImageType, setPendingImageType]         = useState(waiting.type || null);
   const [uploadError, setUploadError]                   = useState('');
   // Markdown: each writing field has its marks and a Preview that shows the note in its place
   const entryTextRef     = useRef(null);
@@ -423,14 +511,58 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
   // { mode: 'redraw', entry, loading, error, elements } when the author takes a sketch up
   // again. A drawing made for a new entry waits, with its scene, beside the staged picture.
   const [sketchSheet, setSketchSheet]                   = useState(null);
-  const [pendingScene, setPendingScene]                 = useState(null);
+  const [pendingScene, setPendingScene]                 = useState(waiting.scene || null);
+  // An add or a pin on its way, sent from this book or from an earlier copy of it (sending)
+  const [entryRequest, sendEntry] = useSending(draftKey && `${draftKey}:entry`, (result) => answerEntry(result));
+  const [noteRequest, sendNote]   = useSending(draftKey && `${draftKey}:note`, (result) => answerNote(result));
+  const isSubmitting      = !!entryRequest;
+  const isUploading       = !!entryRequest?.picture;
+  const isAddingEphemeral = !!noteRequest;
+
+  useEffect(() => {
+    if (draftKey) openParts.set(draftKey, showEphemeral ? 'note' : showLKResources ? 'lk' : 'field');
+  }, [draftKey, showEphemeral, showLKResources]);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    if (pendingImageFile) {
+      stagedPictures.set(draftKey, {
+        file: pendingImageFile, preview: pendingImagePreview, type: pendingImageType, scene: pendingScene, caption: uploadCaption,
+      });
+    } else {
+      stagedPictures.delete(draftKey);
+    }
+  }, [draftKey, pendingImageFile, pendingImagePreview, pendingImageType, pendingScene, uploadCaption]);
+
+  // The private note's box grows with what is written, from four lines (it was two, and
+  // showed only the last line typed); again when the window's width rewraps the note, and
+  // once the pen's font has loaded. Measuring drops the box to four lines for a moment,
+  // which would pull a long note's panel or page up from under the caret, so each one
+  // scrolled is put back where it stood.
+  const fitNoteBox = useCallback(() => {
+    const box = ephemeralTextRef.current;
+    if (!box) return;
+    const scrolled = [];
+    for (let el = box.parentElement; el; el = el.parentElement) {
+      if (el.scrollTop) scrolled.push([el, el.scrollTop]);
+    }
+    box.style.height = 'auto';
+    box.style.height = `${box.scrollHeight}px`;
+    scrolled.forEach(([el, top]) => { el.scrollTop = top; });
+  }, []);
+  useLayoutEffect(fitNoteBox, [ephemeralText, ephemeralPreview, showEphemeral, fitNoteBox]);
+  useEffect(() => {
+    window.addEventListener('resize', fitNoteBox);
+    document.fonts?.ready?.then(fitNoteBox, () => {});
+    return () => window.removeEventListener('resize', fitNoteBox);
+  }, [fitNoteBox]);
 
   useEffect(() => {
     if (campaignId) fetchNotebookEntries(campaignId);
   }, [campaignId]);
 
   // Split entries by type for display
-  const fieldEntries      = notebookEntries.filter(e => !e.is_deleted && (e.entry_type === 'field_log' || e.entry_type === 'sketch' || e.entry_type === 'photo'));
+  const fieldEntries      = notebookEntries.filter(isFieldEntry);
   const ephemeralEntries  = notebookEntries.filter(e => !e.is_deleted && e.entry_type === 'ephemeral');
   const lkEntries         = notebookEntries.filter(e => !e.is_deleted && e.entry_type === 'lightkeeper');
 
@@ -481,79 +613,99 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
   const authorColor = isGM ? GM_INK_COLOR : (character?.ink_color || 'rgb(var(--c-oxblood))');
   const authorName  = isGM ? (accessSession?.name || 'Lightkeeper') : (character?.name || 'Unknown');
 
-  const handleSubmitEntry = async () => {
+  const handleSubmitEntry = () => {
+    if (isSubmitting) return;
     if (!newEntryTitle.trim() || (!newEntryContent.trim() && !pendingImageFile)) {
       setSubmitError('Give the entry a title, and write something or add an image.');
       return;
     }
     if (!campaignId) { setSubmitError('This notebook belongs to a campaign, and you are not in one. Join a campaign to write entries.'); return; }
     if (!isGM && !character?.name) { setSubmitError('Your investigator is still loading. Wait a moment, then try again.'); return; }
-    setIsSubmitting(true);
     setSubmitError('');
     setUploadError('');
 
-    let result;
-    if (pendingImageFile) {
-      setIsUploading(true);
-      result = await uploadNotebookImage(
-        campaignId, pendingImageFile,
-        // The title the player typed stays the title; a caption goes in italics at the head of
-        // the entry's text, under the picture
-        newEntryTitle.trim(),
-        [uploadCaption.trim() && `*${uploadCaption.trim().replace(/\*/g, '')}*`, newEntryContent.trim()].filter(Boolean).join('\n\n'),
-        authorName, isGM ? 'gm' : 'player',
-        pendingImageType,
-        isGM ? null : character?.id,
-        pendingImageType === 'sketch' ? pendingScene : null,
-      );
-      setIsUploading(false);
-      if (!result.success) {
-        if (result.tooLarge) {
-          // The server takes pictures of up to 2 MB, and a drawing of up to 1 MB
-          setUploadError(pendingScene && /drawing/i.test(result.detail || '')
-            ? result.detail
-            : 'That image is larger than 2 MB. Choose a smaller file, or a smaller copy of it.');
-        } else {
-          setSubmitError('The image did not upload, so the entry was not saved. Check your connection and try again.');
-        }
-        setIsSubmitting(false);
-        return;
+    const title = newEntryTitle.trim();
+    const text = newEntryContent.trim();
+    const picture = pendingImageFile
+      ? { file: pendingImageFile, type: pendingImageType, scene: pendingScene, caption: uploadCaption.trim() }
+      : null;
+    const key = draftKey;
+    sendEntry(!!picture, async () => {
+      const result = picture
+        ? await uploadNotebookImage(
+          campaignId, picture.file,
+          // The title the player typed stays the title; a caption goes in italics at the head
+          // of the entry's text, under the picture
+          title,
+          [picture.caption && `*${picture.caption.replace(/\*/g, '')}*`, text].filter(Boolean).join('\n\n'),
+          authorName, isGM ? 'gm' : 'player',
+          picture.type,
+          isGM ? null : character?.id,
+          picture.type === 'sketch' ? picture.scene : null,
+        )
+        : await submitNotebookEntry(
+          campaignId, title, text,
+          authorName, isGM ? 'gm' : 'player',
+          isGM ? null : character?.id,
+        );
+      // What went is unsent no longer, whether or not the book is still open
+      if (result.success && result.entry && key) {
+        writeKept(`${key}:title`, '');
+        writeKept(`${key}:text`, '');
+        stagedPictures.delete(key);
       }
-      clearPendingImage();
-    } else {
-      result = await submitNotebookEntry(
-        campaignId, newEntryTitle.trim(), newEntryContent.trim(),
-        authorName, isGM ? 'gm' : 'player',
-        isGM ? null : character?.id,
-      );
-    }
+      return { ...result, picture: !!picture, scene: !!picture?.scene };
+    });
+  };
 
-    setIsSubmitting(false);
+  // The add's answer, in whichever copy of the book is open when it comes
+  const answerEntry = (result) => {
+    if (result.picture && !result.success) {
+      if (result.tooLarge) {
+        // The server takes pictures of up to 2 MB, and a drawing of up to 1 MB
+        setUploadError(result.scene && /drawing/i.test(result.detail || '')
+          ? result.detail
+          : 'That image is larger than 2 MB. Choose a smaller file, or a smaller copy of it.');
+      } else {
+        setSubmitError('The image did not upload, so the entry was not saved. Check your connection and try again.');
+      }
+      return;
+    }
     if (result.success && result.entry) {
+      if (result.picture) clearPendingImage();
       setNewEntryTitle('');
       setNewEntryContent('');
       setUploadCaption('');
       setEntryPreview(false);
-      const newIdx = fieldEntries.length;
-      setCurrentSpread(Math.floor(newIdx / perSpread) + 1);
+      // The page the new entry went on
+      const entries = useGameStore.getState().notebookEntries.filter(isFieldEntry);
+      const at = entries.findIndex(e => e.id === result.entry.id);
+      setCurrentSpread(Math.floor((at === -1 ? entries.length : at) / perSpread) + 1);
     } else if (!result.tooLarge) {
       setSubmitError('The entry was not saved. Check your connection and try again; your text is still here.');
     }
   };
 
-  const handleAddEphemeral = async () => {
+  const handleAddEphemeral = () => {
     if (!ephemeralText.trim() || isAddingEphemeral) return;
     if (!campaignId) { setEphemeralError('Notes belong to a campaign, and you are not in one. Join a campaign to keep notes.'); return; }
-    setIsAddingEphemeral(true);
     setEphemeralError('');
-    const result = await submitNotebookEntry(
-      campaignId, 'Private Note', ephemeralText.trim(),
-      authorName, isGM ? 'gm' : 'player',
-      isGM ? null : character?.id,
-      'ephemeral', 'self',
-    );
-    setIsAddingEphemeral(false);
-    if (result?.success) { setEphemeralText(''); setEphemeralPreview(false); }
+    const note = ephemeralText.trim();
+    const key = draftKey;
+    sendNote(false, async () => {
+      const result = (await submitNotebookEntry(
+        campaignId, 'Private Note', note,
+        authorName, isGM ? 'gm' : 'player',
+        isGM ? null : character?.id,
+        'ephemeral', 'self',
+      )) || {};
+      if (result.success && key) writeKept(`${key}:note`, '');
+      return result;
+    });
+  };
+
+  const answerNote = (result) => {
+    if (result.success) { setEphemeralText(''); setEphemeralPreview(false); }
     else setEphemeralError('The note was not saved. Check your connection and try again; your text is still here.');
   };
 
@@ -603,6 +755,8 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
   };
 
   const clearPendingImage = () => {
+    // At once, not in the effect: an upload that ends after the notebook closed clears it too
+    if (draftKey) stagedPictures.delete(draftKey);
     setUploadCaption('');
     setPendingImageFile(null);
     setPendingImagePreview(null);
@@ -771,12 +925,14 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
           {
             label: 'Field Notes',
             active: !showEphemeral && !isLKView,
+            unsent: (newEntryTitle.trim() || newEntryContent.trim() || pendingImageFile) && 'entry',
             onClick: () => { setShowEphemeral(false); setShowLKResources(false); },
             activeColor: 'rgb(var(--c-parchment))', activeText: 'rgb(var(--c-ink))', inactiveColor: 'rgb(var(--c-sepia) / 0.75)', inactiveText: 'rgb(var(--c-parchment-deep))',
           },
           {
             label: `Private Notes${ephemeralEntries.length > 0 ? ` (${ephemeralEntries.length})` : ''}`,
             active: showEphemeral,
+            unsent: ephemeralText.trim() && 'note',
             onClick: () => { setShowEphemeral(true); setShowLKResources(false); },
             activeColor: 'rgb(var(--c-parchment))', activeText: 'rgb(var(--c-ink))', inactiveColor: 'rgb(var(--c-sepia) / 0.75)', inactiveText: 'rgb(var(--c-parchment-deep))',
           },
@@ -805,6 +961,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
             }}
           >
             {tab.label}
+            {tab.unsent && !tab.active && <UnsentMark what={tab.unsent} />}
           </button>
         ))}
       </div>
@@ -841,7 +998,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
             padding: '24px 20px 20px',
           }}>
             {ephemeralPreview ? (
-              <NoteMarkdown text={ephemeralText} className="font-serif text-[24px] leading-[1.7] text-ink/80 min-h-[80px] py-0.5"
+              <NoteMarkdown text={ephemeralText} className="font-serif text-[24px] leading-[1.7] text-ink/80 min-h-[6.8em] py-0.5"
                 style={{ fontFamily: authorFont, color: authorColor }} />
             ) : (
               <textarea
@@ -850,7 +1007,8 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                 onChange={e => setEphemeralText(e.target.value)}
                 placeholder="Private note"
                 aria-label="Private note"
-                className="w-full bg-transparent border-none resize-none font-serif text-[24px] leading-[1.7] text-ink/80 placeholder-sepia/90 min-h-[80px]"
+                rows={4}
+                className="w-full bg-transparent border-none resize-none overflow-hidden font-serif text-[24px] leading-[1.7] text-ink/80 placeholder-sepia/90"
                 style={{ fontFamily: authorFont, color: authorColor }}
                 onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleAddEphemeral(); } }}
               />
@@ -861,7 +1019,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
               <button
                 onClick={handleAddEphemeral}
                 disabled={!ephemeralText.trim() || isAddingEphemeral}
-                className="ml-auto min-h-[40px] font-sans font-black text-sm uppercase tracking-widest text-ink px-3 py-1 border border-ink/30 hover:bg-black/5 disabled:opacity-50 transition-all"
+                className="ml-auto min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] font-sans font-black text-sm uppercase tracking-widest text-ink px-3 py-1 border border-ink/30 hover:bg-black/5 disabled:opacity-50 transition-all"
               >
                 {isAddingEphemeral ? 'Saving…' : 'Pin note'}
               </button>

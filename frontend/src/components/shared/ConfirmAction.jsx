@@ -30,7 +30,7 @@ export const useConfirmStep = () => {
     action();
   };
 
-  return { armed, press, disarm: () => setArmed(false), ref };
+  return { armed, press, arm: () => setArmed(true), disarm: () => setArmed(false), ref };
 };
 
 // Hint and Cancel colors for the two grounds the pattern sits on.

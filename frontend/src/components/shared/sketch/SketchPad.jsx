@@ -6,6 +6,7 @@ import '@excalidraw/excalidraw/index.css';
 import './sketchPad.css';
 import { useConfirmStep } from '../ConfirmAction';
 import { FormLine, PrinterMark } from '../PrintMarks';
+import { holdBack } from '../../stageHistory';
 
 // The drawing sheet itself, loaded only when a sketch is opened (loadSketchPad.js), so
 // Excalidraw stays out of the main bundle. Excalidraw is the paper's canvas and nothing
@@ -16,6 +17,12 @@ import { FormLine, PrinterMark } from '../PrintMarks';
 // and select make none). A tool picked any other way (a key) goes back to the last of
 // ours; pasted or dropped pictures are refused; the server keeps the same kinds only
 // (backend vtt/sketch_scenes.py).
+//
+// Every tool stays in hand until another is picked, as the pen always did (playtest,
+// sketch-tool-reverts): Excalidraw otherwise drops back to select after one box, line or
+// word, and the next stroke drags what was drawn. Its own lock button is hidden with the
+// rest of its toolbar and a tablet has no Q key, so the sheet sets each tool locked, and
+// locks it again if Excalidraw lets go (its Q key unlocks and picks select).
 
 const { Excalidraw, exportToBlob } = ExcalidrawLib;
 const CAPTURE_NOW = ExcalidrawLib.CaptureUpdateAction?.IMMEDIATELY;
@@ -139,8 +146,12 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
 
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The browser's Back, or a phone's back gesture, with something drawn keeps the sheet and
+  // the desk under it, and turns Cancel to Discard as a first press of it does
+  useEffect(() => (dirty ? holdBack(cancelStep.arm) : undefined), [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
-    if (api) api.setActiveTool({ type: 'freedraw' });
+    if (api) api.setActiveTool({ type: 'freedraw', locked: true });
   }, [api]);
 
   const onChange = useCallback((elements, appState) => {
@@ -159,10 +170,13 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
     if (!api) return;
     const now = appState.activeTool?.type;
     if (now && !TOOL_TYPES.has(now)) {
-      api.setActiveTool({ type: lastTool.current });
-    } else if (now && now !== lastTool.current) {
-      lastTool.current = now;
-      setTool(now);
+      api.setActiveTool({ type: lastTool.current, locked: true });
+    } else if (now) {
+      if (now !== lastTool.current) {
+        lastTool.current = now;
+        setTool(now);
+      }
+      if (!appState.activeTool.locked) api.setActiveTool({ type: now, locked: true });
     }
     if (anyPopupOpen(appState)) api.updateScene({ appState: CLOSED_POPUPS });
   }, [api, initialElements]);
@@ -170,7 +184,7 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
   const pickTool = (type) => {
     lastTool.current = type;
     setTool(type);
-    api?.setActiveTool({ type });
+    api?.setActiveTool({ type, locked: true });
   };
 
   // A colour or a nib applies to what comes next, and to what is selected

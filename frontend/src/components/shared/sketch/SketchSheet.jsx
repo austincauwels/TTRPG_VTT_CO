@@ -8,8 +8,9 @@ import { loadSketchPad } from './loadSketchPad';
 // drawn sketch. This frame is in the main bundle; the drawing itself (SketchPad, with
 // Excalidraw) arrives when the sheet opens.
 //
-// Escape and Cancel close it; once something is drawn, Escape does nothing and Cancel
-// asks a second press, so a drawing is never lost by accident. A phone, upright or held
+// Escape and Cancel close it; once something is drawn, Escape does nothing, the browser's
+// Back keeps it (SketchPad) and Cancel asks a second press, so a drawing is never lost by
+// accident. A phone, upright or held
 // sideways, gets the whole screen; a screen at least 640 wide and over 500 tall (framed,
 // tailwind.config.js) gets a large sheet on the dimmed desk.
 
