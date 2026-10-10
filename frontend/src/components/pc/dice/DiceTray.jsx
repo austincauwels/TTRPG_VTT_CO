@@ -29,7 +29,9 @@ const rollKey = (roll) =>
 
 // The paper slip under the felt: who rolled (in their ink), what was thrown and which die
 // counts, then the outcome stamp. Player inks are dark by design, so the name sits on
-// paper, not on the felt. The red number is a numbering machine's, for the look only.
+// paper, not on the felt. The red number is a numbering machine's, for the look only. A
+// secret roll (the Lightkeeper's Secret) says so under the name: no other desk was told
+// of it, and its line in the log is on this desk alone.
 const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, rating }) => {
   const outcomeKey = lastRoll.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll.dice) : null);
   const outcome = OUTCOME[outcomeKey];
@@ -41,6 +43,14 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
         <span className="font-serif font-bold text-lg leading-snug truncate" style={{ color: rollerInk || 'rgb(var(--c-ink))' }}>{rollerName}</span>
         <SerialNo value={serialFor(key)} className="shrink-0" />
       </div>
+      {lastRoll.is_secret && (
+        <p data-secret-roll="" className="mb-0.5 flex flex-wrap items-baseline gap-x-1.5 font-serif italic text-sm leading-snug text-sepia">
+          <span className="not-italic font-sans text-xs font-black uppercase tracking-widest border border-sepia/70 rounded-sm px-1.5 py-px">
+            Secret<span className="sr-only">:</span>
+          </span>
+          only you saw this
+        </p>
+      )}
       <p className="font-serif text-base leading-snug">{rollPoolText(lastRoll, keptDie, rating)}</p>
       {gildedPending ? (
         <p className="mt-2 mb-0.5">

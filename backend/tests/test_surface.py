@@ -314,6 +314,24 @@ def test_ws_message_type_is_handled(client, dice, msg_type):
         assert support.server_sockets(ws.key)  # the handler did not end the connection
 
 
+def test_a_secret_roll_answers_its_sender_alone(client, dice):
+    """roll with is_secret: the sender's channel gets roll_result (its roll marked
+    is_secret) and the roll's activity_log line (is_secret, "(Secret) ..."); no other
+    channel gets a frame of it, beyond the GM's member_update for a player's sheet."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=1)
+    dice(4, 4)
+    with support.ws_connect(client, ch["id"]) as player, support.ws_connect(client, camp["campaign_code"]) as gm:
+        for ws, other, action, others_get in ((gm, player, "Lightkeeper", []), (player, gm, "move", ["member_update"])):
+            ws.send("roll", action=action, drive_spent=1 if ws is gm else 0, is_secret=True)
+            msgs = ws.sync()
+            assert support.types(msgs) == ["roll_result", "activity_log"]
+            assert msgs[0]["payload"]["roll"]["is_secret"] is True
+            assert msgs[1]["payload"]["is_secret"] is True
+            assert msgs[1]["payload"]["message"].startswith("(Secret) ")
+            assert support.types(other.sync()) == others_get
+
+
 # Types the endpoint ignores unless it resolved a character for the message.
 WS_NEEDS_CHARACTER = {
     "gm_update_tension", "update_drive", "resolve_gilded", "use_post_roll_ability",

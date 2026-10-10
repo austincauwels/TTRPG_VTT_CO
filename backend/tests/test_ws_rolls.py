@@ -4,8 +4,10 @@ gets dice_thrown when the dice start tumbling on the roller's felt (vtt/ws/handl
 import pytest
 
 import engine
+import main
 import support
 from models import Character
+from vtt.ws.manager import campaign_key, character_key
 
 EM, DOT = support.EM, support.DOT
 
@@ -74,15 +76,25 @@ def test_roll_pool_capped_at_six(client, dice):
     assert support.fetch(Character, ch["id"]).nerve_current == 6
 
 
-def test_secret_roll_is_not_logged(client, dice):
+def test_a_secret_roll_is_logged_for_its_roller_alone(client, dice):
+    """Fixed (playtest, secret-roll-indistinct): a secret roll wrote no line at all, so
+    nothing of it stayed on the roller's own desk. Its roll says it is secret, and its
+    line, "(Secret) ...", goes to the roller's own channel only."""
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, move=1)
+    other = support.active_member(client, camp)
     dice(4)
-    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm, \
+            support.ws_connect(client, other["id"]) as wo:
         ws.send("roll", action="move", drive_spent=0, is_secret=True)
-        assert support.types(ws.sync()) == ["roll_result"]
+        msgs = ws.sync()
+        assert support.types(msgs) == ["roll_result", "activity_log"]
+        assert msgs[0]["payload"]["roll"]["is_secret"] is True
+        assert msgs[1]["payload"] == {"message": f"(Secret) {ch['name']} rolled move {EM} 4 {DOT} Mixed Success.",
+                                      "log_type": "roll", "ink_color": engine.INK_COLORS[0], "is_secret": True}
         # Only the sheet reaches the GM (member_update): no dice and no line
         assert support.types(gm.drain()) == ["member_update"]
+        assert wo.sync() == []
 
 
 def test_zero_dice_roll_keeps_lower(client, dice):
@@ -218,8 +230,13 @@ def test_a_secret_roll_shows_no_dice(client, dice):
         dice(3, 5)
         ws.send("roll", action="move", drive_spent=0, is_secret=True)
         ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=5)
-        # the roller's own desk is told the kept die's result
-        assert support.types(ws.sync()) == ["roll_result", "roll_result", "roll_kept"]
+        # the roller's own desk is told the kept die's result, and its own log gets each
+        # roll's line once the result is known (the gilded one when its die is kept)
+        msgs = ws.sync()
+        assert support.types(msgs) == ["roll_result", "activity_log", "roll_result", "roll_kept", "activity_log"]
+        assert [m["payload"]["message"] for m in support.of_type(msgs, "activity_log")] == [
+            f"(Secret) {ch['name']} rolled strike {EM} 4 {DOT} Mixed Success.",
+            f"(Secret) {ch['name']} rolled move {EM} 5 {DOT} Mixed Success."]
         # Fixed: a secret roll's choice is told to no one else, neither dice nor a line.
         # The GM gets each roll's sheet (member_update) and nothing more.
         assert support.types(gm.drain()) == ["member_update", "member_update"]
@@ -438,15 +455,19 @@ def test_single_gilded_die_refreshes_drive(client, dice):
             f"{ch['name']} rolled move {EM} 4 {DOT} Mixed Success. [gilded {EM} nerve Drive refreshed]")
 
 
-def test_secret_single_gilded_die_refreshes_without_a_line(client, dice):
-    """Fixed (RULES_CHECK 6): the gilded refresh follows the dice, secret or not; a
-    secret roll still sends no log line."""
+def test_secret_single_gilded_die_refreshes_with_a_line_for_the_roller_alone(client, dice):
+    """Fixed (RULES_CHECK 6): the gilded refresh follows the dice, secret or not. A
+    secret roll's line goes to the roller alone (it sent none before playtest
+    secret-roll-indistinct)."""
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, move=1, gilded_move=True, nerve_max=3, nerve_current=1)
     dice(4)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         ws.send("roll", action="move", drive_spent=0, is_secret=True)
-        assert support.types(ws.sync()) == ["roll_result", "character_update"]
+        msgs = ws.sync()
+        assert support.types(msgs) == ["roll_result", "character_update", "activity_log"]
+        assert msgs[2]["payload"]["message"] == (
+            f"(Secret) {ch['name']} rolled move {EM} 4 {DOT} Mixed Success. [gilded {EM} nerve Drive refreshed]")
         assert support.types(gm.drain()) == ["member_update", "member_update"]   # the sheets only
     assert support.fetch(Character, ch["id"]).nerve_current == 2
 
@@ -469,6 +490,90 @@ def test_lightkeeper_roll_on_gm_socket(client, dice):
         assert seen[0]["payload"] == {
             "character_id": None, "campaign_id": camp["id"], "name": "Lightkeeper", "ink_color": "",
             "action": "lk", "rating": None, "roll": msgs[0]["payload"]["roll"], "kept": None}
+
+
+def test_a_lightkeeper_secret_roll_reaches_her_desk_alone(client, dice):
+    """Fixed (playtest, secret-roll-indistinct): the Lightkeeper's secret roll looked like
+    an open one, and nothing of it stayed on her desk once a player's roll took her felt.
+    Its roll says it is secret and her own log gets its line, "(Secret) ...". No player's
+    desk gets any frame of it, and the same roll sent again (its roll_id) is answered on
+    her channel alone, with no second line."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp)
+    b = support.active_member(client, camp)
+    dice(2, 6)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa, \
+            support.ws_connect(client, b["id"]) as wb:
+        gm.send("roll", action="Lightkeeper", drive_spent=2, is_secret=True, roll_id="lk-1")
+        msgs = gm.sync()
+        assert support.types(msgs) == ["roll_result", "activity_log"]
+        assert msgs[0]["payload"]["character_id"] is None
+        assert msgs[0]["payload"]["roll"]["is_secret"] is True
+        assert msgs[1]["payload"] == {"message": f"(Secret) Lightkeeper rolled {EM} 6 {DOT} Full Success.",
+                                      "log_type": "roll", "ink_color": "", "is_secret": True}
+        gm.send("roll", action="Lightkeeper", drive_spent=2, is_secret=True, roll_id="lk-1")
+        assert gm.sync() == [msgs[0]]
+        # The players' desks get nothing at all: no dice, no line, no sheet
+        assert wa.sync() == [] and wb.sync() == []
+        # An open roll is not marked, and the table gets its dice and line as before
+        dice(3)
+        gm.send("roll", action="Lightkeeper", drive_spent=1)
+        msgs = gm.sync()
+        assert "is_secret" not in msgs[0]["payload"]["roll"] and "is_secret" not in msgs[1]["payload"]
+        for ws in (wa, wb):
+            assert support.types(ws.sync()) == ["dice_thrown", "activity_log"]
+
+
+def test_a_secret_line_is_kept_for_the_lightkeepers_desk_alone(client, dice):
+    """The log's history, which a socket gets as activity_history when it opens, keeps
+    the secret line for the Lightkeeper's channel only: a player's reload, second tab or
+    first visit never gets it, and the Lightkeeper's next desk does. The server holds it
+    nowhere else (the history lives in memory; no route reads it)."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp)
+    late = support.active_member(client, camp)   # no desk open while the roll was made
+    dice(3)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+        gm.send("roll", action="Lightkeeper", drive_spent=1, is_secret=True)
+        gm.sync()
+        # and one open line, so the players' channels have a history to be sent
+        wa.send("chat_message", message="hello", target="@Circle")
+        wa.sync()
+    for who in (a, late):
+        with support.ws_connect(client, who["id"]) as ws:
+            entries = ws.recv_type("activity_history")["payload"]["entries"]
+            assert [e["log_type"] for e in entries] == ["chat"]
+            assert not any("Secret" in e["message"] or "is_secret" in e for e in entries)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        entries = gm.recv_type("activity_history")["payload"]["entries"]
+        assert [(e["message"], e.get("is_secret")) for e in entries] == [
+            (f"(Secret) Lightkeeper rolled {EM} 3 {DOT} Failure.", True),
+            (f"{a['name']}: hello", None)]
+    holders = {key for key, lines in main.manager._history.items()
+               for camp_id, line in lines if camp_id == camp["id"] and line.get("is_secret")}
+    assert holders == {campaign_key(camp["campaign_code"])}
+    assert all(not line.get("is_secret") for key in (character_key(a["id"]), character_key(late["id"]))
+               for _, line in main.manager._history.get(key, ()))
+
+
+def test_a_held_secret_roll_stays_secret_on_a_desk_that_opens_again(client, dice):
+    """A secret gilded roll offered again to a desk that opens (a reload during the
+    choice) is still marked secret, and its kept die's line goes to the roller alone."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, control=2, gilded_control=True)
+    dice(4, 6)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="control", drive_spent=0, is_secret=True)
+        [first] = ws.sync()
+        assert first["payload"]["roll"]["is_secret"] is True
+    with support.ws_connect(client, ch["id"]) as again, support.ws_connect(client, camp["campaign_code"]) as gm:
+        held = again.recv()
+        assert held["type"] == "roll_result" and held["payload"]["roll"] == first["payload"]["roll"]
+        again.send("resolve_gilded", action="control", chosen_type="regular", chosen_value=0)
+        msgs = again.sync()
+        assert support.types(msgs) == ["roll_kept", "activity_log"]
+        assert msgs[1]["payload"]["message"] == f"(Secret) {ch['name']} rolled control {EM} 6 {DOT} Full Success."
+        assert gm.sync() == []
 
 
 def test_roll_without_action_sends_roll_error(client):
@@ -1055,7 +1160,8 @@ def test_overspending_drive_is_refused(client):
 # Each case rolls with drive_spent=1 and a rating of 1 in the action, so the base
 # pool is 2 dice. The drives have different sizes so a lambda that reads the wrong
 # drive changes the count: nerve 3/3 (1 resistance pip), cunning 6/6 (2 pips),
-# intuition 9/9 (3 pips). Rolls are secret, so only roll_result comes back.
+# intuition 9/9 (3 pips). Rolls are secret, so only the roller hears of them: roll_result
+# and the roll's (Secret) line.
 # Columns: ability, action, dice in the pool, first die gilded, drive the spend
 # came from, (nerve, cunning, intuition) currents afterwards, brain marks afterwards.
 
@@ -1116,12 +1222,18 @@ def _mod_roll(client, dice, ability, action, n_dice, **extra):
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("roll", action=action, drive_spent=1, is_secret=True, ability_mods=[ability])
         msgs = ws.sync()
-    # A secret roll answers with its result alone; Back Against the Wall's mark follows it
+    # A secret roll answers with its result and, unless a die waits to be kept, its own
+    # (Secret) line; a refreshed drive and Back Against the Wall's mark send the sheet
     assert support.types(msgs)[0] == "roll_result"
-    assert all(t == "character_update" for t in support.types(msgs)[1:])
+    lines = support.of_type(msgs, "activity_log")
+    assert len(lines) == (0 if msgs[0]["payload"]["roll"]["needs_gilded_choice"] else 1)
+    assert all(line["payload"]["is_secret"] is True and line["payload"]["message"].startswith("(Secret) ")
+               for line in lines)
+    sheets = [m for m in msgs[1:] if m["type"] != "activity_log"]
+    assert all(m["type"] == "character_update" for m in sheets)
     payload = dict(msgs[0]["payload"])
-    if len(msgs) > 1:
-        payload["character"] = msgs[-1]["payload"]
+    if sheets:
+        payload["character"] = sheets[-1]["payload"]
     return payload
 
 

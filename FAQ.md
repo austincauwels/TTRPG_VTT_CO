@@ -65,7 +65,7 @@ Burning resistance: spends 1 pip and rerolls using **only the action rating** (n
 
 ### Can the GM roll dice?
 
-Yes. When a GM client sends a `roll` message, no character is attached. Drive spent is interpreted directly as the pool size. GM rolls can be marked **secret**, in which case the result is only sent to the GM's connection and not broadcast to the activity log or other players.
+Yes. When a GM client sends a `roll` message, no character is attached. Drive spent is interpreted directly as the pool size. GM rolls can be marked **secret**, in which case the result is only sent to the GM's connection and not broadcast to the activity log or other players. Since 2026-10-10 the Lightkeeper's own log keeps a secret roll's line, "(Secret) Lightkeeper rolled a 4: Mixed success.", and her result slip reads "Secret: only you saw this", so the result is still on her desk after a player's roll takes the felt. The line goes to her channel alone and is kept only in her channel's history: no player's desk gets it, live, on a reload or on a first visit. It plays no result sound.
 
 ---
 

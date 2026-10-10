@@ -65,6 +65,7 @@ let queuedRoll = null;   // the roll frame waiting for the socket to open
 let sentRoll = null;     // the roll frame sent at least once, waiting for its result
 let sentRollGiveUpAt = 0; // when the tray stops waiting for sentRoll
 let answeredRollId = null; // the roll_id of the last result shown, so a late copy is ignored
+let rollDesk = null;     // the channel (character id or campaign code) the felt's roll was made on
 const newRollId = () => globalThis.crypto?.randomUUID?.()
   ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 let rollSeq = 0;         // the id each roll_result's roll is given on this desk
@@ -95,14 +96,16 @@ const LOG_LINES = 50;
 const clockTime = (date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 const LOG_TYPES = ['roll', 'chat', 'danger', 'environment'];
 // A line of the log from an activity_log payload (a string, or { message, log_type,
-// ink_color, at }). at is when the server sent it (ISO 8601), so a line replayed after a
-// reconnect keeps its own time.
+// ink_color, at, is_secret }). at is when the server sent it (ISO 8601), so a line
+// replayed after a reconnect keeps its own time. is_secret marks the line of a secret
+// roll, which only the roller's own desk is sent.
 const logLine = (payload) => {
   const text = typeof payload === 'string' ? payload : payload?.message;
   const at = typeof payload === 'object' && payload?.at ? new Date(payload.at) : null;
   const type = LOG_TYPES.includes(payload?.log_type) ? payload.log_type : 'field';
   const inkColor = (typeof payload === 'object' && payload?.ink_color) ? payload.ink_color : null;
-  return { text, type, time: clockTime(at && !Number.isNaN(at.getTime()) ? at : new Date()), inkColor };
+  const secret = typeof payload === 'object' && payload?.is_secret === true;
+  return { text, type, time: clockTime(at && !Number.isNaN(at.getTime()) ? at : new Date()), inkColor, secret };
 };
 
 // The number of the circle's assignment, which End Assignment moves on (backend
@@ -368,8 +371,20 @@ const useGameStore = create(
       // Safely close the connection and wipe the local session data
       logout: () => {
         get().disconnect();
+        // Nothing of this user's desk stays in the tab for whoever signs in next: not the
+        // felt's roll (a Lightkeeper's secret one among them) and not the log
+        answeredRollId = null;
+        rollDesk = null;
 
         set({
+          lastRoll: null,
+          lastRollKept: null,
+          tableRoll: null,
+          pendingGildedChoice: null,
+          dismissedPrompts: [],
+          postRollTried: null,
+          activityLog: [],
+          unseen: {},
           accessSession: null,
           advancementDeferred: false,
           pendingScar: null,
@@ -462,6 +477,15 @@ const useGameStore = create(
           sentRoll = null;
           set({ activityLog: [], unseen: {}, lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null, memberSheets: {} });
         }
+        // Another desk in this tab starts with an empty felt: the roll on it was made at
+        // the desk before, by another investigator or by the Lightkeeper, whose secret roll
+        // would show there with its result. The same desk again keeps its roll (a trip to
+        // the hub), and a held gilded roll comes back from the server.
+        if (rollDesk !== null && String(rollDesk) !== String(gameId)) {
+          answeredRollId = null;
+          set({ lastRoll: null, lastRollKept: null, pendingGildedChoice: null, dismissedPrompts: [], postRollTried: null });
+        }
+        rollDesk = gameId;
         const apiBase = import.meta.env.VITE_API_URL || '';
         const wsProtocol = (apiBase.startsWith('https') || window.location.protocol === 'https:') ? 'wss:' : 'ws:';
         const wsHost = apiBase ? apiBase.replace(/^https?:\/\//, '') : window.location.host;
@@ -752,8 +776,9 @@ const useGameStore = create(
               lastActivityLog: payload,
               activityLog: [...state.activityLog, line].slice(-LOG_LINES),
             }));
-            // A roll's final result reaches every desk at the table once, as this line
-            if (line.type === 'roll') playRollSound(line.text);
+            // A roll's final result reaches every desk at the table once, as this line. A
+            // secret roll's line plays nothing: its result stays off any audio the desk shares.
+            if (line.type === 'roll' && !line.secret) playRollSound(line.text);
           }
           else if (message.type === 'activity_history') {
             // The lines this channel was sent lately, oldest first, as the socket opens:

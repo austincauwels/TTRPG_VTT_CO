@@ -9,6 +9,10 @@ when a die is kept (the roll's dice wait for that choice). Its payload:
 "action", "rating" (the roller's rating in the action, or None), "roll" (the dice,
 result and outcome, as in roll_result) and "kept" (None, or {"index", "is_gilded",
 "value"} for the die kept in a gilded choice)}. A secret roll sends none.
+
+A secret roll is the roller's alone: its roll carries "is_secret": True, and its line
+in the Activity Log goes to the roller's own channel only (_log_roll), so the
+Lightkeeper's secret roll leaves a trace on her own desk and nowhere else.
 """
 from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, drive_for_action, roll_dice
 from vtt.abilities import abilities_of, count_use, resistance_left, uses_of
@@ -109,6 +113,22 @@ async def _dice_thrown(ctx, character, action, roll, rating, kept=None):
             "kept": kept,
         },
     }, ctx.db, exclude=ctx.channel)
+
+
+async def _log_roll(ctx, character, message, secret=False):
+    """A roll's line in the Activity Log (log_type "roll"), for the whole table. A secret
+    roll's line starts "(Secret) ", carries "is_secret": True and goes to the roller's own
+    channel only: the Lightkeeper's desk for her roll, the player's for theirs. broadcast
+    keeps it in that channel's history alone, so no other desk gets it live or when it
+    opens. A secret roll used to write no line at all, so the Lightkeeper's secret result
+    was gone from her desk as soon as a player's roll took her felt (playtest,
+    secret-roll-indistinct)."""
+    payload = {"message": message, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
+    if secret:
+        await manager.broadcast(ctx.channel, {"type": "activity_log", "payload": {
+            **payload, "message": f"(Secret) {message}", "is_secret": True}}, campaign_id=ctx.camp_id)
+    else:
+        await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "activity_log", "payload": payload}, ctx.db)
 
 
 def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0, roll_id=None):
@@ -304,7 +324,8 @@ async def handle_roll(ctx):
         if not act:
             raise ValueError("roll action missing 'action' field")
         spent = int(payload.get("drive_spent", 0))
-        is_secret = payload.get("is_secret", False)
+        # Any true value keeps the roll secret, as it always has
+        is_secret = bool(payload.get("is_secret", False))
         raw_mods = payload.get("ability_mods", [])
         # Each ability once, whatever the client lists (RULES_CHECK.md item 29)
         mods = list(dict.fromkeys(m for m in raw_mods if isinstance(m, str))) if isinstance(raw_mods, list) else []
@@ -376,6 +397,10 @@ async def handle_roll(ctx):
             char_name = "Lightkeeper"
         res["drive_spent_key"] = cat
         res["action"] = act
+        # The roller's slip says the roll was secret. The mark stays with the roll, so the
+        # held dice of a gilded choice and a roll sent again keep it too.
+        if is_secret:
+            res["is_secret"] = True
         if character:
             if "Patch Up" in mods and act == "read" and "Patch Up" in abilities_of(character):
                 _patch_up_declared.add(character.id)
@@ -416,7 +441,8 @@ async def handle_roll(ctx):
                 log_msg = f"Lightkeeper rolled — {result_val} · {outcome_label}."
 
             # The gilded refresh and Well-Read follow the dice, so they apply to a secret
-            # roll too (RULES_CHECK.md item 6); only its log line stays with the roller.
+            # roll too (RULES_CHECK.md item 6); only its log line stays with the roller
+            # (_log_roll).
             post_roll_dirty = False
             # The gilded die refreshes "the drive that encompasses that action" (p. 8),
             # even when the roll spent another drive (Cool Under Pressure, Street Smarts)
@@ -437,11 +463,7 @@ async def handle_roll(ctx):
                 db.commit()
                 await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
-            if not is_secret:
-                await manager.broadcast_campaign(camp_code, camp_id, {
-                    "type": "activity_log",
-                    "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
-                }, db)
+            await _log_roll(ctx, character, log_msg, secret=is_secret)
             _remember(character, act, cat, result_val, outcome_key)
 
         # Back Against the Wall's and Mind Over Matter's price: a Brain mark, taken as any
@@ -460,8 +482,9 @@ async def handle_resolve_gilded(ctx):
     "gilded"), which earns back 1 drive, or the best regular one (anything else). The die
     and its value come from the held dice; the client's chosen_value is ignored. Two or
     more 6s with a 6 kept is a critical success. Well-Read refunds spent Intuition on a
-    kept 3 or less, as on any roll. A secret roll's choice is told to no one else."""
-    db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
+    kept 3 or less, as on any roll. A secret roll's choice is told to no one else: its
+    line goes to the roller's own channel alone."""
+    db, payload, character, channel = ctx.db, ctx.payload, ctx.character, ctx.channel
     r_act = payload.get("action")
     pending = _pending_gilded.get(character.id)
     if pending is None or pending["action"] != r_act:
@@ -507,10 +530,7 @@ async def handle_resolve_gilded(ctx):
         shown = {**roll, "needs_gilded_choice": False, "result": chosen_value, "outcome": outcome_key}
         await _dice_thrown(ctx, character, r_act, shown, pending["rating"],
                            kept={"index": index, "is_gilded": want_gilded, "value": chosen_value})
-        await manager.broadcast_campaign(camp_code, camp_id, {
-            "type": "activity_log",
-            "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
-        }, db)
+    await _log_roll(ctx, character, log_msg, secret=pending["secret"])
     if changed:
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
@@ -674,7 +694,7 @@ async def handle_use_post_roll_ability(ctx):
 async def handle_burn_resistance(ctx):
     """Burns a resistance point of the action's own drive (rulebook p. 13; the client's
     drive_key is ignored) and rerolls the action rating."""
-    db, payload, character, target_char_id, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.channel, ctx.camp_code, ctx.camp_id
+    db, payload, character, target_char_id, channel = ctx.db, ctx.payload, ctx.character, ctx.target_char_id, ctx.channel
     act = payload.get("action")
     if act not in ACTION_KEYS:
         if act:
@@ -716,7 +736,4 @@ async def handle_burn_resistance(ctx):
     else:
         log_msg = f"{character.name} burned resistance on {act} — {result['result']} · {outcome_label}.{refreshed}"
         _remember(character, act, drive_key, result["result"], result["outcome"])
-    await manager.broadcast_campaign(camp_code, camp_id, {
-        "type": "activity_log",
-        "payload": {"message": log_msg, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
-    }, db)
+    await _log_roll(ctx, character, log_msg)
