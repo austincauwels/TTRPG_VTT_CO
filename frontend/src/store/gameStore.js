@@ -1149,6 +1149,16 @@ const useGameStore = create(
         }
       },
 
+      // The Lightkeeper gives a member a circle-resource spend back (lowers their count of
+      // two), and with resourceType puts that resource back in the circle's pool too
+      gmReturnSpend: (characterId, resourceType) => {
+        const { socket, circle } = get();
+        if (socket?.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'gm_return_spend', payload: {
+          character_id: characterId, circle_id: circle?.id, role: 'GM', ...(resourceType ? { resource_type: resourceType } : {}) } }));
+        return true;
+      },
+
       resolveAbilityMark: (ability, choice) => {
         const { socket } = get();
         set(nextOffer);

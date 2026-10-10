@@ -8,14 +8,45 @@ import { apiFetch } from '../../utils/api';
 import { EdgeLine } from '../shared/PrintMarks';
 import { ConfirmAction } from '../shared/ConfirmAction';
 
+// How many of the member's two circle-resource spends this assignment are used, with a way
+// to give one back (a ruling at the table, said in the log). The pool can get the resource
+// back too (playtest, lk-resource-repair).
+const SpendBack = ({ character, onGive }) => {
+  const used = character?.resources_spent_assignment || 0;
+  const [resource, setResource] = useState('');
+  return (
+    <div className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
+        Circle spends this assignment <span className="font-mono tabular-nums text-sm text-oxblood ml-1">{used} / 2</span>
+      </span>
+      <label className="flex items-center gap-2 font-serif text-sm text-ink">
+        Put back in the pool
+        <select value={resource} onChange={(e) => setResource(e.target.value)}
+          className="min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] bg-cream border border-ink/30 rounded-sm px-1.5 font-sans text-sm">
+          <option value="">Nothing</option>
+          <option value="stitch">Stitch</option>
+          <option value="refresh">Refresh</option>
+          <option value="train">Train</option>
+        </select>
+      </label>
+      <button type="button" aria-disabled={used <= 0}
+        onClick={() => { if (used > 0) onGive(resource || undefined); }}
+        className={`font-sans text-xs font-black uppercase tracking-widest px-4 py-2 min-h-[40px] border rounded transition ${
+          used > 0 ? 'text-oxblood border-oxblood/50 hover:bg-oxblood/10' : 'text-sepia/60 border-ink/20 cursor-not-allowed'}`}>
+        Give a spend back
+      </button>
+    </div>
+  );
+};
+
 export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   const [fullChar, setFullChar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
 
-  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark } = useGameStore(useShallow(s => ({
-    gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark })));
+  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark, gmReturnSpend } = useGameStore(useShallow(s => ({
+    gmReturnSpend: s.gmReturnSpend, gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark })));
   // Corrections on the trauma record (its Edit button, on this copy of the sheet only)
   const [traumaError, setTraumaError] = useState(null);
   const notConnected = 'Not connected to the table. Try again in a moment.';
@@ -179,6 +210,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
         {fullChar && !loading && (
           <>
             <InvestigatorDossier character={sheet} readOnly traumaEdit={{ setMarks, setScars, dealMark, error: traumaError }} />
+            <SpendBack character={sheet} onGive={(resource) => gmReturnSpend(rosterItem.id, resource)} />
             <ConfirmAction
               className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-3"
               onConfirm={() => gmResetCharacter(rosterItem.id)}

@@ -86,7 +86,7 @@ GM_ONLY = frozenset({
 # Every other type acts for a character only on that character's own socket.
 GM_MAY_TARGET = frozenset({
     "gm_update_tension", "gm_reset_character", "update_drive", "take_mark", "revive_character", "update_gear",
-    "gm_update_scars",
+    "gm_update_scars", "gm_return_spend",
 })
 
 

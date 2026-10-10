@@ -19,6 +19,7 @@ import { FairelandsMap } from './desk/FairelandsMap';
 import { CircleLedger } from './desk/CircleLedger';
 import { ConnectionBanner } from '../shared/ConnectionBanner';
 import { TimerBell } from '../shared/TimerBell';
+import { TableStrip } from '../shared/TableStrip';
 import { livingMembers } from '../../game/roster';
 
 // The notebook, the map and the circle's file take the dice rail's width from xl too
@@ -103,6 +104,10 @@ export const OperationsPanel = () => {
 
   const handleSelectInvestigator = (inv) => setSelectedInvestigator(inv);
 
+  // Leaving the roster closes the sheet that was open, so the Roster tab brings back the
+  // roster, not the last sheet (playtest, section-hides-table-column)
+  useEffect(() => { if (activeTab !== 'roster') setSelectedInvestigator(null); }, [activeTab]);
+
   // Below lg the tab strip stays at the top while the page scrolls, so a new tab or an
   // opened character sheet would start off screen. Bring the top of the desk back into view.
   const mainRef = useRef(null);
@@ -138,6 +143,12 @@ export const OperationsPanel = () => {
           {/* LEFT PANEL */}
           <div className={`max-lg:contents ${activeTab === 'map' ? 'lg:col-span-2' : 'lg:col-span-3'} xl:col-span-1 flex flex-col gap-6 xl:gap-4 xl:min-h-0 xl:overflow-y-auto xl:overflow-x-hidden xl:-mx-3 xl:px-3 xl:pb-3 custom-scrollbar`}>
             <GMSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+            {/* Where the hourglass and the timer are out of sight (an open sheet, the circle,
+                notebook and map take the table's column), the strip keeps the tension, the
+                clock and the newest log line in view */}
+            {!(activeTab === 'roster' && !selectedInvestigator) && (
+              <TableStrip withLog className="order-2 lg:order-none rounded-sm shadow-md xl:shrink-0" />
+            )}
             {activeTab === 'roster' && (
               <div className="order-3 lg:order-none">
                 <SceneManager />

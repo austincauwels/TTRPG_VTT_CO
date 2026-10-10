@@ -151,7 +151,7 @@ WS_MESSAGE_TYPES = [
     "apply_advancement", "update_circle", "circle_creation_vote",
     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
     "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
-    "gm_update_scars",
+    "gm_update_scars", "gm_return_spend",
 ]
 
 
@@ -178,7 +178,7 @@ WS_CASES = {
         expect=["member_update", "activity_log"]),
     "gm_update_circle": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id, "tension_label": "t"},
-        expect=["circle_update"]),
+        expect=["circle_update", "activity_log"]),
     "gm_timer": dict(
         sender="gm", payload=lambda c: {"circle_id": c.circle_id, "action": "show"}, expect=["circle_update"]),
     "gm_transition_scene": dict(
@@ -221,12 +221,12 @@ WS_CASES = {
     "gm_toggle_resource_edit": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update"]),
     "gm_toggle_reports": dict(
-        sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update"]),
+        sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update", "activity_log"]),
     # A report needs the Lightkeeper's reports open (handlers/circle.py)
     "submit_assignment_report": dict(
         after_connect=lambda c, ws: support.update(Circle, c.circle_id, reports_open=True),
         payload=lambda c: {"circle_id": c.circle_id, "character_id": c.char_id, "responses": {"q": "a"}},
-        expect=["assignment_report_submitted"]),
+        expect=["assignment_report_submitted", "activity_log"]),
     # The GM's socket gets each changed member's sheet (member_update)
     "gm_advance_circle": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id},
@@ -250,7 +250,7 @@ WS_CASES = {
         expect=["character_update", "activity_log"]),
     "update_circle": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id, "tension_label": "x"},
-        expect=["circle_update"]),
+        expect=["circle_update", "activity_log"]),
     "circle_creation_vote": dict(
         payload=lambda c: {"circle_id": c.circle_id, "character_id": c.char_id, "vote_type": "ability", "value": "v"},
         expect=["vote_update"]),
@@ -278,11 +278,17 @@ WS_CASES = {
         sender="gm", fields={"scars_list": ["s"], "scars_count": 1},
         payload=lambda c: {"role": "GM", "character_id": c.char_id, "scars": ["t"], "previous": ["s"]},
         expect=["member_update", "activity_log"]),
+    # The Lightkeeper gives a member a spend back
+    "gm_return_spend": dict(
+        sender="gm",
+        before_connect=lambda client, c: support.update(Character, c.char_id, resources_spent_assignment=1),
+        payload=lambda c: {"role": "GM", "character_id": c.char_id},
+        expect=["member_update", "activity_log"]),
 }
 
 
 def test_ws_cases_cover_every_message_type():
-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 35
+    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 36
     assert list(WS_CASES) == WS_MESSAGE_TYPES
 
 
@@ -334,7 +340,7 @@ def test_ws_access_table():
     assert access.GM_ONLY == {
         "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
         "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
-        "gm_reset_character", "update_circle", "gm_update_scars",
+        "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
     }
 
 

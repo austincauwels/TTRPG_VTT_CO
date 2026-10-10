@@ -488,6 +488,11 @@ export const CircleView = () => {
   // resource-double-click-double-spend). The server answers fast enough that waiting for
   // its answer would not catch the second click, so a spend is taken once per SPEND_GAP_MS.
   const lastSpendAt = useRef(0);
+  // Why a player cannot spend now, said once above the buttons (not only in a hover title)
+  const spendBlock = isGM ? null
+    : !circle?.resources_editable ? 'Spending is locked until the Lightkeeper opens it.'
+    : (character?.resources_spent_assignment || 0) >= 2 ? 'You have spent both of your two this assignment.'
+    : null;
   function handleResourceClick(key, pipIndex, avail, event) {
     const wouldSpend = (pipIndex + 1) <= avail;
     if (wouldSpend) {
@@ -506,6 +511,26 @@ export const CircleView = () => {
       if (!isGM) return;
       updateCircle({ circle_id: circId, [key]: pipIndex + 1 });
     }
+  }
+
+  // A player spends a resource in two presses: the first asks, the second spends (the
+  // pips were 16 px squares 4 px apart, and one tap spent for the whole circle; playtest,
+  // resource-spend-no-guard). The question lapses after a few seconds.
+  const [confirmKey, setConfirmKey] = useState(null);
+  useEffect(() => {
+    if (!confirmKey) return undefined;
+    const t = setTimeout(() => setConfirmKey(null), 4000);
+    return () => clearTimeout(t);
+  }, [confirmKey]);
+  const spendHeld = useRef(false);
+  function pressSpend(key) {
+    if (spendHeld.current) return;
+    if (confirmKey !== key) { setConfirmKey(key); return; }
+    spendHeld.current = true;
+    setTimeout(() => { spendHeld.current = false; }, SPEND_GAP_MS);
+    lastSpendAt.current = Date.now();
+    setConfirmKey(null);
+    spendCircleResource(key);
   }
 
   function handleSubmitReport() {
@@ -734,7 +759,7 @@ export const CircleView = () => {
           <span className="font-sans text-xs font-bold uppercase tracking-wider text-sepia">
             {circle?.resources_editable ? (
               !isGM && (
-                <>Spent this assignment <span className="font-mono tabular-nums text-sm text-oxblood ml-1">{character?.resources_spent_assignment || 0} / 2</span></>
+                <>Your spends <span className="font-mono tabular-nums text-sm text-oxblood ml-1">{character?.resources_spent_assignment || 0} / 2</span></>
               )
             ) : (
               <span className="flex items-center gap-1.5">
@@ -745,10 +770,16 @@ export const CircleView = () => {
           </span>
         </div>
 
+        {!isGM && (spendBlock || confirmKey) && (
+          <p id="resource-reason" className="mb-2 font-serif text-sm italic leading-snug text-sepia">
+            {spendBlock || 'Press again to spend it. It is spent for the whole circle.'}
+          </p>
+        )}
         <div className="divide-y divide-dashed divide-sepia/35">
           {RESOURCES.map(({ label, key, desc }) => {
             const avail = circle?.[key] ?? maxCap;
             const spentAll = !isGM && (character?.resources_spent_assignment || 0) >= 2;
+            const cannot = !isGM && (!!spendBlock || avail <= 0);
             return (
               <div key={key} className="py-2 first:pt-0 last:pb-0">
                 <p className="font-serif text-sm leading-snug text-ink">
@@ -767,7 +798,7 @@ export const CircleView = () => {
                       const filled = i < avail;
                       const wouldAdd = (i + 1) > avail;
                       const playerCanSpend = !wouldAdd && circle?.resources_editable && !spentAll && avail > 0;
-                      const clickable = withinMax && (isGM || (!wouldAdd && playerCanSpend));
+                      const clickable = withinMax && isGM;
                       const titleText = !withinMax
                         ? 'Beyond current maximum'
                         : wouldAdd && !isGM
@@ -803,6 +834,21 @@ export const CircleView = () => {
                     })}
                   </div>
                 </div>
+                {!isGM && (
+                  <button
+                    type="button"
+                    onClick={() => { if (!cannot) pressSpend(key); }}
+                    aria-disabled={cannot}
+                    aria-describedby={spendBlock ? 'resource-reason' : undefined}
+                    className={`mt-2 w-full min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-colors ${
+                      cannot ? 'border-ink/20 text-sepia/60 cursor-not-allowed'
+                        : confirmKey === key ? 'bg-oxblood border-oxblood text-cream'
+                        : 'border-ink text-ink hover:bg-ink hover:text-cream'}`}
+                  >
+                    {avail <= 0 && !spendBlock ? `No ${label} left`
+                      : confirmKey === key ? `Press again: spend 1 ${label}` : `Spend 1 ${label}`}
+                  </button>
+                )}
               </div>
             );
           })}
