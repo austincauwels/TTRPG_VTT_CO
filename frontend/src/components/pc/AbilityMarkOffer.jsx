@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 
@@ -142,6 +142,22 @@ export const AbilityMarkOffer = () => {
     };
   }, [offer?.seq]);
 
+  // Below xl the page scrolls under the card, which is fixed over its foot, where the trauma
+  // record is: the spacer after the desk is the card's height, so the record (a held box and
+  // the line that says what holds it) scrolls clear above the card. On a phone nothing could
+  // be scrolled out from under it.
+  const [cardHeight, setCardHeight] = useState(0);
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    if (!box) { setCardHeight(0); return undefined; }
+    const measure = () => setCardHeight(box.offsetHeight);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [offer?.seq, !!config]);
+
   if (!offer || !config) return null;
 
   const charName = offer.character_name || 'an ally';
@@ -166,6 +182,8 @@ export const AbilityMarkOffer = () => {
   };
 
   return (
+    <>
+    <div aria-hidden="true" className="xl:hidden" style={{ height: cardHeight + 16 }} />
     <div
       ref={boxRef}
       role="alertdialog"
@@ -247,5 +265,6 @@ export const AbilityMarkOffer = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };

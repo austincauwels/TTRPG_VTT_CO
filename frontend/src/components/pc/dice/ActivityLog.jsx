@@ -105,6 +105,21 @@ export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
   }, [logEntries.length]);
+  // A log put away (a phone's other parts of the desk show one at a time) cannot scroll, so
+  // lines that came meanwhile were below the fold when it showed again, at its oldest line:
+  // shown again, it goes to the newest
+  useEffect(() => {
+    const node = logContainerRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return undefined;
+    let shown = node.clientHeight > 0;
+    const ro = new ResizeObserver(() => {
+      const now = node.clientHeight > 0;
+      if (now && !shown) node.scrollTop = node.scrollHeight;
+      shown = now;
+    });
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
 
   return (
   <div data-desk="log" data-gm={gm || undefined} className={`font-sans flex flex-col xl:flex-1 xl:min-h-[9rem] shadow-[3px_8px_18px_rgba(0,0,0,0.6)] ${className}`}

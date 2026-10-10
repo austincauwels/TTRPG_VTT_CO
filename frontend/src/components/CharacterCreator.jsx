@@ -101,7 +101,7 @@ const ROLES = {
           "Escape Artist": { icon: "GiBreakingChain", text: "Spend 1 Nerve to automatically escape ropes, cuffs, manacles, or a creature that has grappled you." },
           "Practiced Patter": { icon: "GiDiscussion", text: "You've long rehearsed for a moment like this. When making a Sway or Hide roll, you may spend Intuition instead of Cunning." },
           "Uncanny Eye": { icon: "GiSunkenEye", text: "You may spend 1 Intuition to ask the Lightkeeper a question: How can I leverage something here to my advantage? What here doesn't work the way it appears? What is out of place here?" },
-          "Flourish": { icon: "GiJuggler", text: "You know how to cover your mistakes with flair. On a roll where you could spend Cunning, if you fail or get a mixed success, you may spend 2 Cunning to push the result up one tier — from a miss to mixed success or mixed success to full success." },
+          "Flourish": { icon: "GiJuggler", text: "You know how to cover your mistakes with flair. On a roll where you could spend Cunning, if you fail or get a mixed success, you may spend 2 Cunning to push the result up one tier: from a miss to mixed success or mixed success to full success." },
           "The Prestige": { icon: "GiMedallist", text: "Your magic is usually all smoke and mirrors, but you have one trick you've learned that's real. Roll Sense when you perform it, and on a success, take a Bleed mark. Circle one option when you take this ability: change appearance, levitate, summon mundane object, teleport a short distance, or throw your voice." }
         }
       }
@@ -129,7 +129,7 @@ const ROLES = {
           "Mind Over Matter": { icon: "GiHelmetHeadShot", text: "When you are told to use a specific action on a roll, you may take a Brain mark to utilize an alternative action instead. You may also spend the drive that corresponds with your chosen action. Describe how you adapt to your situation." },
           "Tenacious": { icon: "GiLifeBar", text: "When you have 1 or more Bleed marks, gild an additional die on Move, Strike, and Control rolls while in danger." },
           "Narrow Escape": { icon: "GiHourglass", text: "You've been in numerous hairy situations during your fearless exploits. Add +1d to your Move roll when you attempt to escape a trap or ambush." },
-          "Not Again": { icon: "GiDread", text: "Once per assignment, you may take a scar to have an automatic full success on an action. If you do, it's as if you've had this scar all along — tell your circle how you got it, and why the lesson you learned is helping you succeed here. Don't adjust your action ratings when you take this scar." }
+          "Not Again": { icon: "GiDread", text: "Once per assignment, you may take a scar to have an automatic full success on an action. If you do, it's as if you've had this scar all along: tell your circle how you got it, and why the lesson you learned is helping you succeed here. Don't adjust your action ratings when you take this scar." }
         }
       },
       "Soldier": {
@@ -268,7 +268,7 @@ const ROLES = {
           "Ghostblade": { icon: "GiDaggerRose", text: "You can attune a ritual knife to yourself. If you coat it in your blood (take a Body mark), it is particularly effective against magickal beings and can strike invisible or ethereal enemies." },
           "Blood of the Covenant": { icon: "GiCauldron", text: "The first time a dangerous phenomenon inflicts a mark on anyone in your circle, you refresh a number of points, in any drive, equal to your current Intuition resistance." },
           "Speak Their Language": { icon: "GiBrokenTablet", text: "You can speak the supernatural language of any phenomenon you encounter. Describe what strange or terrifying way you communicate with each other." },
-          "Play the Bait": { icon: "GiRabbit", text: "You know how to draw the attention of a phenomenon — you just have to play the bait. Make a Sense roll to bring a nearby phenomenon toward you." },
+          "Play the Bait": { icon: "GiRabbit", text: "You know how to draw the attention of a phenomenon: you just have to play the bait. Make a Sense roll to bring a nearby phenomenon toward you." },
           "Extend Your Senses": { icon: "GiBleedingEye", text: "When you make a Sense roll to understand more about a phenomenon you've encountered, also add a number of dice equal to your current Intuition resistance to the roll." },
           "Forbidden Ritual": { icon: "GiMagicSwirl", text: "You know a highly complex and extremely dangerous ritual that will achieve a desired outcome. When you use this ritual, immediately take a Bleed scar. Determine what the ritual is and what its effects are: change the environment, conjure a phenomenon, or save a dying person." }
         }
@@ -883,7 +883,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                   onConfirm={startOver}
                   cancelLabel="Keep it"
                   armedHint="Press again to clear every choice and start from the first card."
-                  cancelSize="min-h-[36px] [@media(pointer:coarse)]:min-h-[44px]"
                   renderButton={(armed, props) => (
                     <button
                       {...props}
@@ -1176,13 +1175,13 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
 
             {/* ── Step A: Free Raise ── */}
             <div className="rounded-sm p-4" style={{ background:'rgb(var(--c-parchment-deep)/0.2)', border:'1px solid rgb(var(--c-sepia)/0.18)' }}>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between gap-3 mb-3">
                 <h3 className="text-lg font-serif font-bold text-oxblood">
                   A. Raise One Starting-Zero Action to 1
                 </h3>
                 {freeRaiseKey
-                  ? <span className="text-xs font-sans font-black uppercase tracking-widest text-seal-green"><TickMark /> {actionKeyLabel[freeRaiseKey]}</span>
-                  : <span className="text-xs font-sans font-black uppercase tracking-widest text-sepia">choose one</span>
+                  ? <span className="shrink-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest text-seal-green"><TickMark /> {actionKeyLabel[freeRaiseKey]}</span>
+                  : <span className="shrink-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest text-sepia">choose one</span>
                 }
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1214,7 +1213,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 <h3 className="text-lg font-serif font-bold text-oxblood">
                   B. Distribute 3 Free Action Points (max 2 per action)
                 </h3>
-                <span className={`shrink-0 text-xs font-sans font-black uppercase tracking-widest ${freePtsUsed===3?'text-seal-green':'text-sepia'}`}>
+                <span className={`shrink-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest ${freePtsUsed===3?'text-seal-green':'text-sepia'}`}>
                   {freePtsUsed}/3 placed
                 </span>
               </div>
@@ -1309,11 +1308,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
 
             {/* ── Step C: Drive distribution ── */}
             <div className="rounded-sm p-4" style={{ background:'rgb(var(--c-parchment-deep)/0.15)', border:'1px solid rgb(var(--c-sepia)/0.18)' }}>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between gap-3 mb-4">
                 <h3 className="text-lg font-serif font-bold text-oxblood">
                   C. Distribute 6 Drive Points
                 </h3>
-                <span className={`text-xs font-sans font-black uppercase tracking-widest ${drivesPtsUsed===6?'text-seal-green':'text-sepia'}`}>
+                <span className={`shrink-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest ${drivesPtsUsed===6?'text-seal-green':'text-sepia'}`}>
                   {drivesPtsUsed}/6 placed
                 </span>
               </div>
@@ -1455,7 +1454,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   { label: "Investigator", value: name },
-                  { label: "Pronouns",     value: pronouns || '—' },
+                  { label: "Pronouns",     value: pronouns || 'Not given' },
                   { label: "Role · Specialty", value: `${role} · ${specialty}` },
                   { label: "Gear Selected", value: `${selectedGear.length} of 3 items` },
                 ].map(({ label, value }) => (

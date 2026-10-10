@@ -96,11 +96,12 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
   const rels = relationshipsAmong(circleCreation.relationships, members);
   const waiting = waitingRelationships(rels);
   const proposers = new Set(rels.map(r => r.from_character_id));
-  // Who has a relationship to answer, and how many, in the members' order
+  // Who has a relationship to answer, and how many, in the members' order. The count keeps
+  // to one line (a no-break space): a phone broke it as "(2" and "relationships)".
   const answering = members
     .map(inv => [inv, waiting.filter(r => answererOf(r) === inv.id).length])
     .filter(([, k]) => k > 0)
-    .map(([inv, k]) => (k > 1 ? `${inv.name} (${k} relationships)` : inv.name));
+    .map(([inv, k]) => (k > 1 ? `${inv.name} (${k}\u00a0relationships)` : inv.name));
 
   return (
     <div className="mt-3 hand-placed bg-parchment text-ink border border-sepia/30 rounded-sm shadow-[2px_6px_14px_rgba(0,0,0,0.55)]" style={{ '--tilt': '-0.5deg' }}>

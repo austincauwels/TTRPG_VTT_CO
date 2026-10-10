@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiFetch, configureApiAuth, WS_CLOSE_UNAUTHENTICATED } from '../utils/api';
 import { playRollSound, playDiceTumble, playTensionTick } from '../game/rollSounds';
 
@@ -152,6 +152,23 @@ const scarArrived = (state, characterId, type) => {
 // An ability used outside a roll is paid when the next sheet comes, within this long; a
 // use the server dropped without a word does not take a later change for its payment
 const USE_ANSWER_MS = 10000;
+
+// A socket's unanswered requests go with it, however it goes (dropped, replaced by the
+// heartbeat or the browser going offline, closed on purpose). A mark sent on it is on
+// the next socket's first sheet if the server had it, and the server sends again an
+// offer that still holds one; a mark it never had would stay drawn held, and the next
+// sheet would be read as an ability use's payment.
+const forgetUnanswered = (set, get) => {
+  if (get().abilityUseSent) set({ abilityUseSent: null });
+  if (get().heldMarks?.landing.length) set(state => heldMarksAre({ ...state.heldMarks, landing: [] }));
+};
+// What one desk's mark offers and ability uses leave in the store: another desk in the
+// tab, or whoever signs in next, starts without them (the server sends again any offer
+// still holding a mark when its desk opens)
+const NO_OFFERS = {
+  abilityMarkOffer: null, abilityMarkQueue: [], heldMarks: null, abilityMarkRefused: null,
+  abilityUseSent: null, abilityUsed: null, abilityUseError: null,
+};
 
 const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
 
@@ -332,6 +349,15 @@ const closeSocketOn = (get, channel) => {
   };
 };
 
+// The session is kept in localStorage, which can refuse (a full store, blocked site data):
+// a refused write keeps it in this page only. Unguarded, the refusal was thrown out of the
+// state change that wrote it, into the screen being drawn, and the hub did not draw.
+const quietStorage = {
+  getItem: (name) => { try { return window.localStorage.getItem(name); } catch { return null; } },
+  setItem: (name, value) => { try { window.localStorage.setItem(name, value); } catch { /* this page only */ } },
+  removeItem: (name) => { try { window.localStorage.removeItem(name); } catch { /* nothing kept */ } },
+};
+
 const useGameStore = create(
   persist(
     (set, get) => ({
@@ -400,6 +426,7 @@ const useGameStore = create(
       // playtest, mark-undo-then-death-defy: the box went empty for the offer's 30 seconds)
       heldMarks: null,
       abilityUseError: null,     // why the server refused an ability used outside a roll
+      abilityMarkRefused: null,  // why the server refused an answer to a mark offer (its mark then landed)
       abilityUseSent: null,      // { ability, at }: the use_ability that waits for the server's answer
       abilityUsed: null,         // { ability, at }: the last use the server paid for, which its button says
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
@@ -449,6 +476,7 @@ const useGameStore = create(
         rollDesk = null;
 
         set({
+          ...NO_OFFERS,
           lastRoll: null,
           lastRollKept: null,
           tableRoll: null,
@@ -509,6 +537,7 @@ const useGameStore = create(
           socket.onmessage = null;
           socket.onerror = null;
           try { socket.close(1000); } catch { /* already closed */ }
+          forgetUnanswered(set, get);
         }
         clearRollTimer();
         queuedRoll = null;
@@ -533,6 +562,8 @@ const useGameStore = create(
           previous.onmessage = null;
           previous.onerror = null;
           try { previous.close(1000); } catch { /* already closed */ }
+          // Its onclose does not run, so what it waited for goes here
+          forgetUnanswered(set, get);
         }
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
@@ -555,7 +586,7 @@ const useGameStore = create(
         // the hub), and a held gilded roll comes back from the server.
         if (rollDesk !== null && String(rollDesk) !== String(gameId)) {
           answeredRollId = null;
-          set({ lastRoll: null, lastRollKept: null, pendingGildedChoice: null, dismissedPrompts: [], postRollTried: null });
+          set({ ...NO_OFFERS, lastRoll: null, lastRollKept: null, pendingGildedChoice: null, dismissedPrompts: [], postRollTried: null });
         }
         rollDesk = gameId;
         const apiBase = import.meta.env.VITE_API_URL || '';
@@ -616,11 +647,8 @@ const useGameStore = create(
           stopHeartbeat();
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
           if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
-          // An ability use with no answer yet: the next socket's sheet does not say it was paid
-          if (get().abilityUseSent) set({ abilityUseSent: null });
-          // Marks on their way with no answer yet: the next socket's sheet has those that
-          // landed, and the server sends again an offer that holds one
-          if (get().heldMarks?.landing.length) set(state => heldMarksAre({ ...state.heldMarks, landing: [] }));
+          // An ability use or marks on their way with no answer yet
+          forgetUnanswered(set, get);
           // A roll waiting to be sent, or sent with no answer, waits on only while the desk
           // reconnects by itself; the sent one goes again with its roll_id
           const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
@@ -810,6 +838,12 @@ const useGameStore = create(
             }
             if (message.payload.action === 'resolve_gilded') {
               set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
+            }
+            // An answer to an offer refused ("In the Trenches cannot soak this mark: ...",
+            // after which the held mark lands; a drive point no longer waiting): the record
+            // says why, where it said nothing
+            if (message.payload.action === 'resolve_ability_mark') {
+              set({ abilityMarkRefused: message.payload.detail || 'That answer was not taken.' });
             }
             if (message.payload.action === 'use_ability') {
               set({ abilityUseError: message.payload.detail || 'That ability was not used.', abilityUseSent: null, abilityUsed: null });
@@ -1112,7 +1146,7 @@ const useGameStore = create(
           }
           else if (message.type === 'ability_mark_offer') {
             const offer = { ...message.payload, seq: ++offerSeq, received_at: Date.now() };
-            set(state => ({ ...queueOffer(state, offer), ...(holdsOwnMark(offer) ? offerHolds(state, offer) : {}) }));
+            set(state => ({ ...queueOffer(state, offer), ...(holdsOwnMark(offer) ? { ...offerHolds(state, offer), abilityMarkRefused: null } : {}) }));
           }
           else if (message.type === 'mark_offer_closed') {
             // The offer's mark landed because another mark came (backend marks.py
@@ -1172,12 +1206,16 @@ const useGameStore = create(
             if (!isForThisCampaign(message.payload)) return;
             const { character_id: id, is_dead: isDead } = message.payload || {};
             if (id == null) return;
+            // So do the formation papers, whose Circle Relationships leave the dead out
+            const flag = (list) => (Array.isArray(list) ? list.map(c => (c.id === id ? { ...c, is_dead: !!isDead } : c)) : list);
             set(state => ({
               campaignRoster: {
                 ...state.campaignRoster,
-                active_investigators: Array.isArray(state.campaignRoster.active_investigators)
-                  ? state.campaignRoster.active_investigators.map(c => (c.id === id ? { ...c, is_dead: !!isDead } : c))
-                  : state.campaignRoster.active_investigators,
+                active_investigators: flag(state.campaignRoster.active_investigators),
+              },
+              circleCreation: {
+                ...state.circleCreation,
+                activeInvestigators: flag(state.circleCreation.activeInvestigators),
               },
             }));
           }
@@ -2061,6 +2099,7 @@ const useGameStore = create(
     }),
     {
       name: 'candela-vtt-storage', // The key used in localStorage
+      storage: createJSONStorage(() => quietStorage),
 
       // Partialize prevents non-serializable objects (like WebSockets) from breaking local storage
       partialize: (state) => ({

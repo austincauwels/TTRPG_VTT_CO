@@ -289,12 +289,16 @@ export function AdvancementModal() {
                             const alreadyGilded = id === 'gild_action' && gildedKeys.includes(a.key);
                             const unavailable = atMax || alreadyGilded;
                             const chosen = details[id] === a.key;
+                            // The name in one string: an sr-only reason beside the label was
+                            // named with a stray space ("Focus , already gilded")
+                            const reason = atMax ? ', already at 3' : id === 'add_action' ? `, rating ${currentRating}` : alreadyGilded ? ', already gilded' : '';
                             return (
                               <button
                                 key={a.key}
                                 type="button"
                                 disabled={unavailable}
                                 aria-pressed={chosen}
+                                aria-label={`${a.label}${reason}`}
                                 onClick={() => setDetails(d => ({ ...d, [id]: d[id] === a.key ? '' : a.key }))}
                                 className={`w-full flex items-center gap-1.5 text-left px-2 py-1 [@media(pointer:coarse)]:min-h-[44px] rounded-sm border font-serif text-sm leading-tight transition-colors ${
                                   chosen
@@ -308,9 +312,6 @@ export function AdvancementModal() {
                                 <span className="min-w-0">
                                   {a.label}
                                   {id === 'add_action' && <span aria-hidden="true"> ({currentRating})</span>}
-                                  <span className="sr-only">
-                                    {atMax ? ', already at 3' : id === 'add_action' ? `, rating ${currentRating}` : alreadyGilded ? ', already gilded' : ''}
-                                  </span>
                                 </span>
                               </button>
                             );

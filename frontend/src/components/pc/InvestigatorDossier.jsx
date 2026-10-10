@@ -288,7 +288,7 @@ const ABILITY_TEXTS = {
   "Escape Artist": "Spend 1 Nerve to automatically escape ropes, cuffs, manacles, or a creature that has grappled you.",
   "Practiced Patter": "You've long rehearsed for a moment like this. When making a Sway or Hide roll, you may spend Intuition instead of Cunning.",
   "Uncanny Eye": "You may spend 1 Intuition to ask the Lightkeeper a question: How can I leverage something here to my advantage? What here doesn't work the way it appears? What is out of place here?",
-  "Flourish": "You know how to cover your mistakes with flair. On a roll where you could spend Cunning, if you fail or get a mixed success, you may spend 2 Cunning to push the result up one tier — from a miss to mixed success or mixed success to full success.",
+  "Flourish": "You know how to cover your mistakes with flair. On a roll where you could spend Cunning, if you fail or get a mixed success, you may spend 2 Cunning to push the result up one tier: from a miss to mixed success or mixed success to full success.",
   "The Prestige": "Your magic is usually all smoke and mirrors, but you have one trick you've learned that's real. Roll Sense when you perform it, and on a success, take a Bleed mark. Circle one option when you take this ability: change appearance, levitate, summon mundane object, teleport a short distance, or throw your voice.",
   // ── EXPLORER (specialty) ───────────────────────────────────────────────────
   "Obscure Lexicon": "When you encounter an ancient or esoteric language, you can spend 1 Intuition to understand what it says.",
@@ -296,7 +296,7 @@ const ABILITY_TEXTS = {
   "Mind Over Matter": "When you are told to use a specific action on a roll, you may take a Brain mark to utilize an alternative action instead. You may also spend the drive that corresponds with your chosen action. Describe how you adapt to your situation.",
   "Tenacious": "When you have 1 or more Bleed marks, gild an additional die on Move, Strike, and Control rolls while in danger.",
   "Narrow Escape": "You've been in numerous hairy situations during your fearless exploits. Add +1d to your Move roll when you attempt to escape a trap or ambush.",
-  "Not Again": "Once per assignment, you may take a scar to have an automatic full success on an action. If you do, it's as if you've had this scar all along — tell your circle how you got it, and why the lesson you learned is helping you succeed here. Don't adjust your action ratings when you take this scar.",
+  "Not Again": "Once per assignment, you may take a scar to have an automatic full success on an action. If you do, it's as if you've had this scar all along: tell your circle how you got it, and why the lesson you learned is helping you succeed here. Don't adjust your action ratings when you take this scar.",
   // ── SOLDIER (specialty) ────────────────────────────────────────────────────
   "Basic Training": "You have tactical experience in high-pressure situations. When you make a Survey roll in a dangerous place, also add a number of dice equal to your current Nerve resistance.",
   "Geared Up": "You and one ally in your circle may mark an additional gear slot during each assignment.",
@@ -343,7 +343,7 @@ const ABILITY_TEXTS = {
   "Ghostblade": "You can attune a ritual knife to yourself. If you coat it in your blood (take a Body mark), it is particularly effective against magickal beings and can strike invisible or ethereal enemies.",
   "Blood of the Covenant": "The first time a dangerous phenomenon inflicts a mark on anyone in your circle, you refresh a number of points, in any drive, equal to your current Intuition resistance.",
   "Speak Their Language": "You can speak the supernatural language of any phenomenon you encounter. Describe what strange or terrifying way you communicate with each other.",
-  "Play the Bait": "You know how to draw the attention of a phenomenon — you just have to play the bait. Make a Sense roll to bring a nearby phenomenon toward you.",
+  "Play the Bait": "You know how to draw the attention of a phenomenon: you just have to play the bait. Make a Sense roll to bring a nearby phenomenon toward you.",
   "Extend Your Senses": "When you make a Sense roll to understand more about a phenomenon you've encountered, also add a number of dice equal to your current Intuition resistance to the roll.",
   "Forbidden Ritual": "You know a highly complex and extremely dangerous ritual that will achieve a desired outcome. When you use this ritual, immediately take a Bleed scar. Determine what the ritual is and what its effects are: change the environment, conjure a phenomenon, or save a dying person.",
 };
@@ -479,7 +479,14 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     }
     return null;
   };
-  const { held: heldMark, hold: holdMark, undo: undoMark, flush: flushMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
+  const { held: heldMark, hold: holdUndoMark, undo: undoMark, flush: flushMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
+  // Why the table refused an answer to a soak or Death Defy offer, whose mark then landed;
+  // the next mark taken puts it away
+  const markRefused = useGameStore(s => s.abilityMarkRefused);
+  const holdMark = (type) => {
+    if (useGameStore.getState().abilityMarkRefused) useGameStore.setState({ abilityMarkRefused: null });
+    holdUndoMark(type);
+  };
   // The marks an open soak or Death Defy offer holds back, and those on their way to the
   // sheet (store heldMarks): drawn held, like a mark waiting for its Undo, until the sheet
   // has them
@@ -490,6 +497,20 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   const tableHolds = (type) => (tableHeld ? [...(heldOffer?.types || []),
     ...tableHeld.landing.filter(m => m.undoId == null || m.undoId !== heldMark?.id).map(m => m.type)]
     .filter(t => t === type).length : 0);
+  // A note under the marks (the Undo strip, the held line, a refusal) that runs the record
+  // past the foot of a desk column that scrolls inside itself (xl) brings the record's foot
+  // back into view, its top kept in view: the Undo it offers is for the next five seconds.
+  // A sheet whose ability text runs long has no room for it at 1440x900.
+  const recordRef = useRef(null);
+  useEffect(() => {
+    const record = recordRef.current;
+    const column = record?.closest('[data-desk=sheet]');
+    if (!column || !/(auto|scroll)/.test(getComputedStyle(column).overflowY)) return;
+    const r = record.getBoundingClientRect();
+    const c = column.getBoundingClientRect();
+    const below = r.bottom - c.bottom;
+    if (below > 0) column.scrollTop += Math.min(below, Math.max(0, r.top - c.top));
+  }, [heldMark?.id, heldOffer?.seq, !!markRefused, !!markSendError]);
   // Death Defy escapes every mark of one harm (p. 27): a mark still held for undo when its
   // offer appears goes now, so it joins the harm the offer counts
   useEffect(() => {
@@ -1015,7 +1036,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       </svg>
                     ))}
                     {resistMax === 0 && (
-                      <span className="font-mono text-xs text-sepia italic">—</span>
+                      <span className="font-mono text-xs text-sepia italic">none</span>
                     )}
                   </div>
                 </div>
@@ -1166,7 +1187,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           them; the scars are written on its ruled lines, their count at the end. One under
           the other on a narrow sheet, a line each on a wide one (.trauma-c in index.css). */}
       <div className="dossier-trauma trauma-c">
-        <div className="trauma-record relative bg-cream border-2 border-dashed border-ink/60 rounded-sm shadow-sm">
+        <div ref={recordRef} className="trauma-record relative bg-cream border-2 border-dashed border-ink/60 rounded-sm shadow-sm">
           <FormLine className="trauma-form">Form C.O. 14 · Trauma record</FormLine>
 
           <div data-desk="marks" className="trauma-marks">
@@ -1285,6 +1306,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               )}
             </div>
 
+            {/* The notes on held marks: one under the other on a narrow record, side by side
+                and in smaller type on a wide one (.mark-notes in index.css), where the two
+                stacked made the sheet's column scroll at 1440x900 */}
+            {(heldOffer || (!readOnly && heldMark)) && (
+            <div className="mark-notes">
             {/* Marks an open soak or Death Defy offer holds, drawn held above: what holds them */}
             {heldOffer && (
               <p className="mark-held font-serif text-base text-ink leading-snug border border-dashed border-oxblood/40 px-3 py-2 rounded-sm">
@@ -1295,7 +1321,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 soak or Death Defy is offered that first, so the strip says when it goes to the
                 table, never that it was taken (playtest, mark-undo-then-death-defy) */}
             {!readOnly && heldMark && (
-              <div role="status" className="mark-held flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 px-3 py-2 rounded-sm">
+              <div role="status" className="mark-held mark-undo flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 px-3 py-2 rounded-sm">
                 <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-40">
                   {MARK_NAME[heldMark.type]} mark: {undoFillsTrack ? 'the track is full, so it brings a scar. It' : 'it'} goes
                   to the table when the Undo runs out.
@@ -1307,6 +1333,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   Undo <span className="font-mono tabular-nums">{markSecondsLeft}s</span>
                 </button>
               </div>
+            )}
+            </div>
+            )}
+            {!readOnly && markRefused && (
+              <p role="alert" className="mark-held font-serif text-base text-oxblood leading-snug">{markRefused}</p>
             )}
             {!readOnly && markSendError && (
               <p role="alert" className="mark-held font-serif text-base text-oxblood leading-snug">{markSendError}</p>

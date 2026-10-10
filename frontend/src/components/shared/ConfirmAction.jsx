@@ -43,15 +43,17 @@ const TONES = {
 
 // renderButton(armed, props) draws the button; spread props onto it (onClick,
 // aria-describedby, disabled, type). idleHint is shown before the first press (optional);
-// armedHint says what the second press does. Only the armed hint is a live region, as it
-// answers the press; the idle hint is read with the button and is not announced when it
-// changes (the Finalize slip's changes whenever a player proposes or accepts a
-// relationship). The wrapper takes className, so a caller can use "contents" to let the
-// button and the hint sit in its own flex row.
-// cancelSize sets Cancel's height (44px where the row is meant for a thumb).
+// armedHint says what the second press does. The armed hint is announced through a
+// status region that is always there and is given the words on the press (a live region
+// inserted together with its words is often not read, notably by VoiceOver); the visible
+// hint is read with the button and is not announced when it changes (the Finalize slip's
+// idle hint changes whenever a player proposes or accepts a relationship). The wrapper
+// takes className, so a caller can use "contents" to let the button and the hint sit in
+// its own flex row.
+// cancelSize sets Cancel's height: 36px with a mouse, 44px on a touch screen by default.
 export const ConfirmAction = ({
   onConfirm, renderButton, idleHint, armedHint, cancelLabel = 'Cancel',
-  tone = 'paper', disabled = false, className = '', hintClassName = '', cancelSize = 'min-h-[36px]',
+  tone = 'paper', disabled = false, className = '', hintClassName = '', cancelSize = 'min-h-[36px] [@media(pointer:coarse)]:min-h-[44px]',
 }) => {
   const { armed, press, disarm, ref } = useConfirmStep();
   const hintId = useId();
@@ -76,12 +78,11 @@ export const ConfirmAction = ({
         onClick: () => press(onConfirm),
         'aria-describedby': hint ? hintId : undefined,
       })}
+      <span role="status" className="sr-only">{armed ? armedHint : ''}</span>
       {(hint || armed) && (
         <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${hintClassName}`}>
-          {/* Keyed, so the armed hint comes in as a new live region, as it does where
-              there is no idle hint */}
           {hint && (
-            <p key={armed ? 'armed' : 'idle'} id={hintId} aria-live={armed ? 'polite' : undefined} className={`font-serif italic text-base leading-snug ${armed ? colors.armed : colors.idle}`}>
+            <p id={hintId} className={`font-serif italic text-base leading-snug ${armed ? colors.armed : colors.idle}`}>
               {hint}
             </p>
           )}

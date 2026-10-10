@@ -223,15 +223,19 @@ function ReportFlipCard({ inv, report }) {
           onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); turn(); } }}
           className={`${paper} cursor-pointer p-4 pb-2.5 gap-3 ${flipped ? '' : 'overflow-hidden'}`}
         >
-          <h3 ref={headRef} tabIndex={-1} className="font-sans text-xs font-black uppercase tracking-widest text-oxblood border-b border-ink/10 pb-1.5">
+          {/* px-1 inside -mx-1: the focus ring that comes to it on a turn has room from its first letter */}
+          <h3 ref={headRef} tabIndex={-1} className="-mx-1 px-1 font-sans text-xs font-black uppercase tracking-widest text-oxblood border-b border-ink/10 pb-1.5">
             {inv.name}'s Report
           </h3>
           {!report && <EmptyStamp label="No report yet" tilt={-2} className="self-center" />}
 
-          {/* Illumination keys: a drawn tick or cross by each, and the word for it */}
+          {/* Illumination keys: a drawn tick or cross by each, and the word for it. A rule
+              over them only under the empty stamp: under the heading's own rule it drew a
+              second rule with nothing between. The label names the list, which a screen
+              reader reads with it, so it is not read a second time as text. */}
           {specialtyKeys.length > 0 && (
-            <div className="border-t border-ink/10 pt-2.5">
-              <p id={keysId} className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-1.5">
+            <div className={report ? undefined : 'border-t border-ink/10 pt-2.5'}>
+              <p id={keysId} aria-hidden={keysInWords ? undefined : 'true'} className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-1.5">
                 {inv.specialty} Keys
               </p>
               {keysInWords ? (

@@ -501,7 +501,11 @@ def test_a_question_ability_asks_one_of_its_questions(client, name, drive, quest
     names the one asked. They stay usable while the drive lasts."""
     ch = support.forge(client, **{f"{drive}_max": 3, f"{drive}_current": 2}, specialty_ability=name)
     with support.ws_connect(client, ch["id"]) as ws:
+        # A desk loaded before this change sends no option at all, and has no select to
+        # pick one from: it is told to reload
         ws.send("use_ability", ability=name)
+        assert ws.sync() == [_use_rejected(422, f"Reload the page to choose the question to ask with {name}.")]
+        ws.send("use_ability", ability=name, option="")
         ws.send("use_ability", ability=name, option="Who did it?")
         # Not text: refused the same way (a list or an object ended the socket)
         ws.send("use_ability", ability=name, option={"a": 1})

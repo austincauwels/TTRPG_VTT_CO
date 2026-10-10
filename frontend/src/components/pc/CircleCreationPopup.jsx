@@ -8,6 +8,7 @@ import { FormLine, SerialNo, PrinterMark, RuledBox, serialFor } from '../shared/
 import { TickMark } from '../shared/InkMarks';
 import { tallyVotes, leadingVote, isTied, TIE_RULE } from '../../game/votes';
 import { CIRCLE_QUESTIONS, INSIGNIA_OPTIONS } from '../../game/circleFormation';
+import { livingMembers } from '../../game/roster';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 // The questions and the insignia are in game/circleFormation.js, which the Lightkeeper's
@@ -128,7 +129,9 @@ export const CircleCreationPopup = () => {
   // Relationship drafts (the shared form keeps them here so they survive a collapsed section)
   const relForms = useRelationshipForms();
 
-  const others = activeInvestigators.filter(inv => inv.id !== myId);
+  // The dead stay on the roster (flagged is_dead) until replaced, but answer nothing: they
+  // leave Circle Relationships, as they leave the Lightkeeper's papers
+  const others = livingMembers(activeInvestigators).filter(inv => inv.id !== myId);
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 

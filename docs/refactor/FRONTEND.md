@@ -140,7 +140,7 @@ All in the `onmessage` if/else chain in gameStore.js:106-353. Only one branch ru
 
 ## 4. What the browser stores
 
-- One `localStorage` key: `candela-vtt-storage`, written by zustand `persist` with its default JSON storage. The value is `{"state": {...}, "version": 0}`. No `version` or `migrate` is configured.
+- One `localStorage` key: `candela-vtt-storage`, written by zustand `persist` through `createJSONStorage` over a storage whose every call is wrapped (`quietStorage`, since 2026-10-10: a refused write, such as a full store, used to throw into the screen being drawn, and the hub did not draw; now the session is kept in the page only). The value is `{"state": {...}, "version": 0}`. No `version` or `migrate` is configured.
 - Persisted fields (the `partialize` list): `accessSession`, `stage`, `character`, `characters`, `gmCampaigns`, `lastPlayedCampaign`, `circle`, `rejoinInvite`.
 - Not persisted: `socket`, `circleCreation`, `notebookEntries`, `activityLog`, `campaignRoster`, `lastRoll`, roll and modal state.
 - Nothing else uses `localStorage`, `sessionStorage`, cookies or IndexedDB.

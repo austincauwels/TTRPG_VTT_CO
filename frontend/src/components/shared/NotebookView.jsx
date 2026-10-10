@@ -59,7 +59,8 @@ function formatDate(isoStr) {
 // or a reload, keeps it, and nobody else who signs in on this browser ever sees it
 // (playtest, private-note-draft-lost). Pinning or adding the entry clears it. Storage can be
 // full, blocked or missing (private windows), so every access is wrapped, as the creator's
-// draft is, and the notebook works the same without it.
+// draft is. The writing is also kept in this page (keptInPage), which a storage that throws
+// falls back to: a step to another tab and back keeps it there too, a reload does not.
 const notebookDraftKey = ({ accessSession, character }, isGMProp) => {
   const isGM = isGMProp !== null ? isGMProp : accessSession?.role === 'GM';
   const campaignId = accessSession?.campaignId || character?.campaign_id;
@@ -67,12 +68,15 @@ const notebookDraftKey = ({ accessSession, character }, isGMProp) => {
   if (accessSession?.userId == null || !campaignId || seat == null) return null;
   return `candela-notebook-draft:${accessSession.userId}:${campaignId}:${seat}`;
 };
+const keptInPage = new Map();
 const readKept = (key) => {
   if (!key) return '';
-  try { return window.localStorage.getItem(key) || ''; } catch { return ''; }
+  try { return window.localStorage.getItem(key) || ''; } catch { return keptInPage.get(key) || ''; }
 };
 const writeKept = (key, text) => {
   if (!key) return;
+  if (text) keptInPage.set(key, text);
+  else keptInPage.delete(key);
   try {
     if (text) window.localStorage.setItem(key, text);
     else window.localStorage.removeItem(key);
@@ -121,10 +125,13 @@ const useSending = (key, onAnswer) => {
   return [request, send];
 };
 
-// Unsent writing in a part of the book not open: a small dot in the tab's own lettering
+// Unsent writing in a part of the book not open: a small dot in the tab's own lettering,
+// under the label's middle in the tab's foot margin, so it never takes a line of its own (a
+// phone's "Private Notes (5)" filled its tab, the dot went to a line under it and the closed
+// tab stood taller than the open one) and the label does not move when it comes
 const UnsentMark = ({ what }) => (
   <>
-    <span aria-hidden="true" className="inline-block w-2 h-2 ml-1.5 -mt-0.5 rounded-full bg-current align-middle" />
+    <span aria-hidden="true" className="absolute left-1/2 top-full -translate-x-1/2 -mt-px w-1.5 h-1.5 rounded-full bg-current" />
     <span className="sr-only">, unsent {what}</span>
   </>
 );
@@ -345,7 +352,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
           <NoteMarkdown text={entry.content} className="text-[26px] leading-[2.8rem]" style={{ fontFamily: entry.pen_font, color: entry.ink_color }} />
         )}
         <div className="text-[18px] mt-2" style={{ fontFamily: entry.pen_font, color: entry.ink_color, opacity: 0.5 }}>
-          — {entry.author_name} · {formatDate(entry.created_at)}
+          {entry.author_name} · {formatDate(entry.created_at)}
         </div>
       </div>
     );
@@ -378,7 +385,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
         {entry.title}
       </h3>
       <div className="text-[20px] mb-3" style={{ fontFamily: entry.pen_font, color: entry.ink_color, opacity: 0.55 }}>
-        — {entry.author_name} · {formatDate(entry.created_at)}
+        {entry.author_name} · {formatDate(entry.created_at)}
       </div>
       <NoteMarkdown text={entry.content} className="text-[28px] leading-[3rem]" style={{ fontFamily: entry.pen_font, color: entry.ink_color }} />
     </div>
@@ -960,8 +967,10 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
               zIndex: tab.active ? 20 : 5,
             }}
           >
-            {tab.label}
-            {tab.unsent && !tab.active && <UnsentMark what={tab.unsent} />}
+            <span className="relative inline-block">
+              {tab.label}
+              {tab.unsent && !tab.active && <UnsentMark what={tab.unsent} />}
+            </span>
           </button>
         ))}
       </div>

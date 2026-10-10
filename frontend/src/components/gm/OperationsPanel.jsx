@@ -146,9 +146,11 @@ export const OperationsPanel = () => {
             <GMSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
             {/* Where the hourglass and the timer are out of sight (an open sheet, the circle,
                 notebook and map take the table's column), the strip keeps the tension, the
-                clock and the newest log line in view */}
+                clock and the newest log line in view. Below lg it stays under the tab strip,
+                above the sheet, circle or notebook: with the dice's order it fell after them,
+                to the foot of the page. */}
             {!(activeTab === 'roster' && !selectedInvestigator) && (
-              <TableStrip withLog className="order-2 lg:order-none rounded-sm shadow-md xl:shrink-0" />
+              <TableStrip withLog className="rounded-sm shadow-md xl:shrink-0" />
             )}
             {activeTab === 'roster' && (
               <div className="order-3 lg:order-none">
