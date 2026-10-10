@@ -36,8 +36,8 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Where things stand
 
-- `main` is at **be7dbff** (PR 6, 7 and 8 merged 10 October UTC). **Not deployed yet**: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload. That release adds the circle column `dispatch_text` and renames stored pen fonts at startup.
-- **PR 9 is open**, not merged: https://github.com/austincauwels/TTRPG_VTT_CO/pull/9 (branch `claude/pr9-connection`, 12 commits). It has no schema change. Backend suite 1,805 passed, and an independent review's four findings were fixed. It covers:
+- `main` is at **da2b4c1**, with PR 6, 7, 8 and 9 all merged (PR 9 on 9 October, Pacific). Robert deployed through PR 8; PR 9 is **not deployed yet**. To deploy, he runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload. PR 9 has no schema change.
+- **PR 9 merged**: https://github.com/austincauwels/TTRPG_VTT_CO/pull/9 (branch `claude/pr9-connection`, 12 commits, CI green). It has no schema change. Backend suite 1,805 passed, and an independent review's four findings were fixed. It covers:
   - Connection: heartbeat ping/pong, the offline banner, the Activity Log kept on the server and replayed as `activity_history`, stale slips cleared, the token sent as a `bearer.<token>` subprotocol.
   - Bugs: `vote-tie-leading`, `relationship-question-in-answer`, `ability-offers-expire`, `pending-join-not-live`, `report-questions-tally` (the Lightkeeper ticks the questions and the page totals by p. 55), `keyboard-focus-dropped`, and `patch-up-free-rider` (Patch Up is declared with a chip before the Focus roll).
   - Deal a mark on the Lightkeeper's trauma record (`lk-mark-skips-abilities`).
@@ -47,7 +47,7 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Next phase: PR 10 (Sonnet 5.5 medium)
 
-Before starting, merge or rebase on PR 9 if Robert has merged it. These are what remains of the report's top-ten UX list (`report.json`, `top_fixes`); read each item's `fix`:
+Branch from the newest `main`. These are what remains of the report's top-ten UX list (`report.json`, `top_fixes`); read each item's `fix`:
 - `silent-table-changes`: log every Lightkeeper table event (dispatch, tension, timer, reports), and add a "new" dot on the phone's Menu and drawer rows until the player has looked.
 - Keep the table in view: `hourglass-offscreen-small-screens`, `section-hides-table-column`, `left-rail-squeezed`, `log-squeezed-by-slip`. This means a compact tension, timer and newest-log strip on the phone, the tablet and every non-Roster section, plus inner scrolling for the side columns at laptop heights.
 - Dice wording: `rule-of-six-stepper` (S), `gilded-choice-unexplained`.
@@ -55,7 +55,7 @@ Before starting, merge or rebase on PR 9 if Robert has merged it. These are what
 
 ### Open questions for Robert
 
-- Deploy `main`, and merge PR 9 when ready (deploy again after it).
+- Deploy `main` (PR 9).
 
 ## How the browser checks were done in PR 6
 
