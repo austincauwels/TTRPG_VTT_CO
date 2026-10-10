@@ -10,7 +10,7 @@ import { PhotoMount } from './shared/PhotoMount';
 import { playPaperSound } from '../game/rollSounds';
 import { portraitDataUrl } from '../utils/api';
 import { TickMark } from './shared/InkMarks';
-import { ActionInfo, useActionInfo } from './shared/ActionInfo';
+import { ActionInfo, InfoTerm, useActionInfo } from './shared/ActionInfo';
 
 const ILLUMINATION_KEYS = {
   Journalist: ['Gather Statements', 'Hunt Down a Lead', 'Speak Truth to Power'],
@@ -1229,13 +1229,19 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                   : <span className="shrink-0 text-xs font-sans font-black uppercase tracking-widest text-sepia">choose one</span>
                 }
               </div>
-              {/* The key to the rows' marks. Each row says the same to a screen reader. */}
-              <p aria-hidden="true" className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 font-sans text-xs font-black uppercase tracking-wider text-sepia">
-                <span className="inline-flex items-center gap-2"><span className="action-pip filled" style={SPECIALTY_PIP} />From your specialty</span>
-                <span className="inline-flex items-center gap-2"><span className="action-pip filled" />Your points</span>
-                <span className="inline-flex items-center gap-2"><GildStar gilded />Gilded</span>
-                <span className="inline-flex items-center gap-2.5"><GildStar gilded fixed />Gilded by your specialty</span>
-              </p>
+              {/* The key to the rows' marks, behind its "i": shown on hover, keyboard focus or a
+                  tap, never printed on the page (Robert, 2026-10-10: help on demand, not a line
+                  under everything). Each row also says the same to a screen reader. */}
+              <div className="mb-4 font-sans text-xs font-black uppercase tracking-wider text-sepia">
+                <InfoTerm label="Key to the marks" text={
+                  <span className="mt-1.5 grid gap-1.5 font-sans text-sm normal-case tracking-normal font-normal">
+                    <span className="flex items-center gap-2"><span aria-hidden="true" className="action-pip filled" style={SPECIALTY_PIP} />From your specialty<span className="sr-only">,</span></span>
+                    <span className="flex items-center gap-2"><span aria-hidden="true" className="action-pip filled" />Your points<span className="sr-only">,</span></span>
+                    <span className="flex items-center gap-2"><GildStar gilded />Gilded<span className="sr-only">,</span></span>
+                    <span className="flex items-center gap-2.5"><GildStar gilded fixed />Gilded by your specialty</span>
+                  </span>
+                } />
+              </div>
               <div className="grid grid-cols-1 lg:grid-cols-3 md:[@media(pointer:coarse)]:max-xl:grid-cols-1 gap-4">
                 {ACTION_DRIVES.map(di => {
                   const gKey = di.drive.toLowerCase();
