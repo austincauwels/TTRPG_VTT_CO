@@ -10,7 +10,7 @@ circle_update to the campaign, as gm_update_circle does.
 from vtt import countdown
 from vtt.circle_queries import resolve_circle
 from vtt.serializers import get_circle_dict
-from vtt.ws.manager import manager
+from vtt.ws.manager import log_line, manager
 
 
 async def _refuse(ctx, status, detail):
@@ -43,3 +43,14 @@ async def handle_gm_timer(ctx):
     db.commit()
     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
         "type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
+    said = {"set": "set the timer to {total}", "start": "started the timer ({left} left)", "pause": "paused the timer ({left} left)",
+            "reset": "reset the timer to {total}", "clear": "cleared the timer"}.get(action)
+    if said:
+        now = countdown.now_ms()
+        await log_line(db, ctx.camp_code, ctx.camp_id, "The Lightkeeper " + said.format(
+            total=_clock(target_circle.timer_duration_ms), left=_clock(countdown.time_left(target_circle, now))) + ".")
+
+
+def _clock(ms) -> str:
+    seconds = (int(ms or 0) + 999) // 1000
+    return f"{seconds // 60}:{seconds % 60:02d}"

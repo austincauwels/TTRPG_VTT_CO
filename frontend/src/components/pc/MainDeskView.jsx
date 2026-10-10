@@ -23,9 +23,10 @@ import { Watermark, FormLine, EdgeLine, serialFor } from '../shared/PrintMarks';
 import { AccountMenu } from '../shared/AccountMenu';
 import { MourningCross } from '../shared/InkMarks';
 import { PhoneDeskNav } from './DeskDrawer';
+import { TableStrip, NewDot } from '../shared/TableStrip';
 
 export const MainDeskView = () => {
-  const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar } = useGameStore(useShallow(s => ({
+  const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar, unseen, markSeen } = useGameStore(useShallow(s => ({
     character: s.character,
     circle: s.circle,
     circleCreation: s.circleCreation,
@@ -42,6 +43,8 @@ export const MainDeskView = () => {
     pendingScar: s.pendingScar,
     showScarModal: s.showScarModal,
     reopenScar: s.reopenScar,
+    unseen: s.unseen,
+    markSeen: s.markSeen,
   })));
   // A scar the player chose to decide later, for the investigator on this desk
   const scarWaiting = pendingScar && !showScarModal && !character?.is_dead &&
@@ -86,6 +89,15 @@ export const MainDeskView = () => {
     window.scrollTo({ top: 0 });
   };
   const onPhone = (show) => (show ? '' : 'max-md:hidden');
+  // A change the Lightkeeper made counts as seen once its part is in front of the player:
+  // the dispatch and the hourglass from md on, where they stand on the desk, and below md
+  // when their page of the drawer is open; the reports when the Circle page is
+  useEffect(() => {
+    const wide = !!window.matchMedia?.('(min-width: 768px)').matches;
+    if (wide) markSeen('dispatch', 'watch');
+    else if (current === 'dispatch' || current === 'watch') markSeen(current);
+    if (current === 'circle') markSeen('circle');
+  }, [current, unseen]); // eslint-disable-line react-hooks/exhaustive-deps
   // From xl the Circle tab's papers lie loose on the desk instead of on one sheet, over the
   // sheet's column and the felt's (as the Notebook tab takes the whole desk)
   const circleOnDesk = activeTab === 'circle';
@@ -203,6 +215,7 @@ export const MainDeskView = () => {
                 >
                   {/* The pen underline draws under a tab that is not open yet */}
                   <span className={activeTab === tabName ? undefined : 'pen-underline'}>{labels[tabName]}</span>
+                  {tabName === 'circle' && unseen.circle && activeTab !== 'circle' && <NewDot className="ml-1.5 align-middle" />}
                 </button>
               );
             })}
@@ -225,6 +238,9 @@ export const MainDeskView = () => {
         {/* Phones: the connection message rides under the band, so a page scrolled down
             never has it over the Menu and the die */}
         <ConnectionBanner className="md:hidden relative" />
+        {/* Phones: the tension and the timer ride under the band wherever the player is
+            (the hourglass itself is on the drawer's Hourglass page) */}
+        {current !== 'watch' && <TableStrip withLog className="md:hidden" />}
       </div>
 
       {/* DYNAMIC VIEW ROUTING */}
@@ -244,6 +260,9 @@ export const MainDeskView = () => {
             </button>
           </div>
         )}
+        {/* A tablet's rail falls to the foot of the page, and the notebook covers the desk at
+            every size: the strip keeps the table in view (from xl the desk shows it itself) */}
+        <TableStrip withLog className={`max-md:hidden mb-3 xl:shrink-0 ${activeTab === 'archives' ? '' : 'xl:hidden'}`} />
         {activeTab === 'archives' ? (
           <div className="xl:flex-1 xl:min-h-0">
             <NotebookView isGM={false} fit />
@@ -253,8 +272,7 @@ export const MainDeskView = () => {
           // sheet in the middle, the dice, the log and the pass notes on the right. Each
           // column is as tall as the window and keeps its papers in view.
           <div className="grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-[minmax(15rem,1fr)_minmax(0,3.1fr)_minmax(19rem,1.3fr)] gap-6 xl:gap-x-6 2xl:gap-x-8 items-start xl:items-stretch xl:flex-1 xl:min-h-0">
-            <TactileSidebar phonePart={current} />
-            <div className={`lg:col-span-6 ${circleOnDesk ? 'xl:col-span-2' : 'xl:col-span-1'} order-1 lg:order-none min-w-0 xl:min-h-0 ${onPhone(phonePart === 'sheet')}`}>
+            <div className={`lg:col-span-6 lg:col-start-4 lg:row-start-1 xl:col-start-2 ${circleOnDesk ? 'xl:col-span-2' : 'xl:col-span-1'} order-1 lg:order-none min-w-0 xl:min-h-0 ${onPhone(phonePart === 'sheet')}`}>
               {/* The investigator's sheet. From xl its printed edge line has a strip of its
                   own at the foot, under a hairline, so nothing scrolls beneath it. The Circle
                   tab is not one sheet there: its papers lie on the desk side by side. */}
@@ -272,6 +290,9 @@ export const MainDeskView = () => {
               </div>
             </div>
             <div className={circleOnDesk ? 'contents xl:hidden' : 'contents'}><DiceVault phonePart={current} /></div>
+            {/* After the dice in the page, so a screen reader and Tab meet the sheet and the
+                dice first as a tablet draws them; placed in the first column from lg */}
+            <TactileSidebar phonePart={current} />
           </div>
         )}
         <ScarModal />

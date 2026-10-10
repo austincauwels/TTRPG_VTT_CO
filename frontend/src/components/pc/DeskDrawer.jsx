@@ -7,6 +7,8 @@ import { CrossMark } from '../shared/InkMarks';
 import { tiltFor } from '../shared/handPlaced';
 import { DieFace, DIE_BODY } from './dice/Die';
 import { agedPaper } from '../campaignSelector/paperArt';
+import useGameStore from '../../store/gameStore';
+import { NewDot } from '../shared/TableStrip';
 
 // The player desk below md (owner's round 4 item 14): the member ID strip is a slim band
 // with a die that brings up the dice and log in one tap, and a brass drawer pull that slides
@@ -58,7 +60,7 @@ const SLIP_PAPER = Object.fromEntries(DESK_PARTS.map((part, i) => {
 // One slip in the drawer: a torn strip of aged paper, a little crooked, its label inked
 // under with the pen while it is the part on show (the brighter, cleaner slip). Its shadow
 // is the button's drop-shadow, which follows the torn edge.
-const Slip = ({ part, active, onChoose, index }) => {
+const Slip = ({ part, active, onChoose, index, isNew }) => {
   const paper = SLIP_PAPER[part.id];
   return (
     <button
@@ -87,6 +89,7 @@ const Slip = ({ part, active, onChoose, index }) => {
         <span className={`relative pen-underline font-serif uppercase tracking-[0.12em] text-base leading-tight ${active ? 'is-inked font-bold' : 'font-semibold'}`}>
           {part.label}
         </span>
+        {isNew && <span className="relative ml-auto"><NewDot /></span>}
       </span>
     </button>
   );
@@ -96,6 +99,9 @@ export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
   // closed, open, or closing (sliding back in before it leaves the page)
   const [phase, setPhase] = useState('closed');
   const open = phase === 'open';
+  // Parts with a change from the Lightkeeper the player has not looked at (a "new" dot)
+  const unseen = useGameStore((s) => s.unseen);
+  const anyNew = ['dispatch', 'watch', 'circle'].some((k) => unseen[k]);
 
   const close = useCallback(() => setPhase(reducedMotion() ? 'closed' : 'closing'), []);
   useEffect(() => {
@@ -157,6 +163,7 @@ export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
       >
         <DrawerPull />
         Menu
+        {anyNew && <span className="-ml-0.5"><NewDot /></span>}
       </button>
 
       {phase !== 'closed' && createPortal(
@@ -183,7 +190,7 @@ export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
 
             <nav aria-label="Desk" className="mt-5 flex flex-col gap-2.5 px-1">
               {DESK_PARTS.map((part, i) => (
-                <Slip key={part.id} part={part} index={i} active={current === part.id} onChoose={choose} />
+                <Slip key={part.id} part={part} index={i} active={current === part.id} onChoose={choose} isNew={!!unseen[part.id]} />
               ))}
             </nav>
 

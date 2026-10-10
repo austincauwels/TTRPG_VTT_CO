@@ -18,10 +18,47 @@ from vtt.circle_queries import circle_abilities, fill_resources, resolve_circle
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import SCAR_SLOTS
 from vtt.ws.handlers.circle import announce_death, announce_downed
-from vtt.ws.manager import character_key, manager
+from vtt.ws.manager import character_key, log_line, manager
 
 TRACK = 12              # the Illumination track (rulebook p. 55)
 MILESTONES = (3, 6, 9)  # its milestones, printed on the circle sheet
+
+
+RESOURCE_NAMES = ("stitch", "refresh", "train")
+TABLE_FIELDS = ("stitch", "refresh", "train", "location", "atmosphere", "dispatch_text",
+                "tension_clock", "tension_label")
+
+
+def table_before(circle) -> dict:
+    """The circle's table fields as they stand, to compare with table_lines afterwards."""
+    return {key: getattr(circle, key, None) for key in TABLE_FIELDS}
+
+
+def table_lines(before: dict, circle) -> list:
+    """What the Lightkeeper changed at the table, in words the log can print: the dispatch,
+    the tension and the circle's resources (playtest, silent-table-changes and
+    lk-resource-repair: these reached every desk without a word)."""
+    lines = []
+    now = {key: getattr(circle, key, None) for key in TABLE_FIELDS}
+    if any((now[k] or "") != (before[k] or "") for k in ("location", "atmosphere", "dispatch_text")):
+        written = any((now[k] or "").strip() for k in ("location", "atmosphere", "dispatch_text"))
+        had = any((before[k] or "").strip() for k in ("location", "atmosphere", "dispatch_text"))
+        if not written:
+            lines.append("The Lightkeeper cleared the dispatch.")
+        elif had:
+            lines.append("The Lightkeeper sent a new dispatch.")
+        else:
+            lines.append("The Lightkeeper sent a dispatch.")
+    old_t, new_t = before["tension_clock"] or 0, now["tension_clock"] or 0
+    if isinstance(old_t, int) and isinstance(new_t, int) and old_t != new_t:
+        lines.append(f"The Lightkeeper {'raised' if new_t > old_t else 'lowered'} the tension to {new_t} of 4.")
+    if (now["tension_label"] or "") != (before["tension_label"] or "") and (now["tension_label"] or "").strip():
+        lines.append(f"The Lightkeeper named the tension: {str(now['tension_label']).strip()[:80]}.")
+    for key in RESOURCE_NAMES:
+        old_v, new_v = before[key] or 0, now[key] or 0
+        if isinstance(old_v, int) and isinstance(new_v, int) and old_v != new_v:
+            lines.append(f"The Lightkeeper set the circle's {key.capitalize()} to {new_v} (was {old_v}).")
+    return lines
 
 
 async def _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum):
@@ -150,12 +187,15 @@ async def handle_gm_update_circle(ctx):
     circle_id = payload.get("circle_id") or 1
     target_circle = db.query(Circle).filter(Circle.id == circle_id).first()
     if target_circle:
+        before = table_before(target_circle)
         for field in ["stitch", "refresh", "train", "guard_patrol", "miasma_bleed",
                       "location", "atmosphere", "dispatch_text", "tension_clock", "tension_label"]:
             if field in payload:
                 setattr(target_circle, field, payload[field])
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
+        for line in table_lines(before, target_circle):
+            await log_line(db, camp_code, camp_id, line)
 
 
 async def handle_gm_transition_scene(ctx):
@@ -191,6 +231,8 @@ async def handle_gm_toggle_reports(ctx):
         target_circle.reports_open = not bool(getattr(target_circle, "reports_open", False))
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
+        await log_line(db, camp_code, camp_id, "The Lightkeeper opened the assignment reports."
+                       if target_circle.reports_open else "The Lightkeeper closed the assignment reports.")
 
 
 async def handle_gm_advance_circle(ctx):
@@ -343,6 +385,7 @@ async def handle_update_circle(ctx):
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
         old_illum = getattr(target_circle, "illumination", 0) or 0
+        before = table_before(target_circle)
         for field in ["name", "stitch", "refresh", "train", "guard_patrol", "miasma_bleed", "location", "atmosphere",
                       "chapter_house_location", "circle_ability", "illumination",
                       "tension_clock", "tension_label"]:
@@ -350,6 +393,8 @@ async def handle_update_circle(ctx):
                 setattr(target_circle, field, payload[field])
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
+        for line in table_lines(before, target_circle):
+            await log_line(db, camp_code, camp_id, line)
         # A line for the change itself, which the table could not see (playtest,
         # report-questions-tally), then one for each milestone the change passed (it used
         # to need the value to land on one), and one when the track fills (RULES_CHECK.md
@@ -364,3 +409,34 @@ async def handle_update_circle(ctx):
                 await manager.broadcast_campaign(camp_code, camp_id, {
                     "type": "activity_log", "payload": {"message": said, "log_type": "field"}}, db)
             await _log_illumination(db, camp_code, camp_id, target_circle, old_illum, new_illum)
+
+
+async def handle_gm_return_spend(ctx):
+    """Give a member a circle-resource spend back (playtest, lk-resource-repair). Fields:
+    `character_id`, and optionally `resource_type` (stitch, refresh or train) to put that
+    resource back in the circle's pool too. It lowers the member's spends this assignment
+    by one (never below 0) and says so in the log. Nothing else of the member changes: a
+    Stitch, Refresh or Train already used stays used."""
+    db, payload, camp_code, camp_id = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id
+    if not ctx.is_gm: return
+    target = db.query(Character).filter(
+        Character.id == payload.get("character_id"), Character.campaign_id == camp_id).first()
+    if target is None:
+        return
+    spent = getattr(target, "resources_spent_assignment", 0) or 0
+    if spent <= 0:
+        await manager.broadcast(ctx.channel, {"type": "action_rejected", "payload": {
+            "action": "gm_return_spend", "status": 409, "detail": f"{target.name} has no spend to give back."}})
+        return
+    target.resources_spent_assignment = spent - 1
+    said = f"The Lightkeeper gave {target.name} a spend back ({spent - 1} of 2 used this assignment)"
+    resource = payload.get("resource_type")
+    circle = resolve_circle(db, payload.get("circle_id") or (ctx.circle.id if ctx.circle else 1), camp_id)
+    if resource in RESOURCE_NAMES and circle is not None:
+        setattr(circle, resource, (getattr(circle, resource, 0) or 0) + 1)
+        said += f", and a {resource.capitalize()} to the circle"
+    db.commit()
+    await manager.broadcast(character_key(target.id), {"type": "character_update", "payload": get_char_dict(target)})
+    if resource in RESOURCE_NAMES and circle is not None:
+        await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)
+    await log_line(db, camp_code, camp_id, said + ".")

@@ -2,17 +2,17 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDialog } from '../../shared/useDialog';
 import { CrossMark } from '../../shared/InkMarks';
-import { OUTCOME, outcomeForKept, rollPoolText } from '../../../game/outcomes';
+import { OUTCOME, keepChoices, outcomeForKept, rollPoolText } from '../../../game/outcomes';
 import { DieFace, DIE_BODY } from './Die';
 
 // The same dice as the tray, small: her ivory and gold bodies, standard pips
-const MiniDie = ({ die, counts, dim, onClick }) => {
+const MiniDie = ({ die, counts, dim, onClick, label }) => {
   const base = `flex items-center justify-center rounded ${die.is_gilded ? DIE_BODY.gilded : DIE_BODY.regular}`;
   if (onClick) {
     return (
       <button type="button" onClick={onClick}
         className={`${base} w-11 h-11 p-0.5 ring-2 ring-cream/70 active:scale-95 transition-transform`}
-        aria-label={`Keep the ${die.is_gilded ? 'gilded' : 'highest'} die, ${die.value}`}>
+        aria-label={label || `Keep the ${die.is_gilded ? 'gilded' : 'highest'} die, ${die.value}`}>
         <DieFace value={die.value} />
       </button>
     );
@@ -166,7 +166,7 @@ export const RollResultBar = ({
             {gildedPending ? (
               <div className="flex items-center gap-2 shrink-0">
                 {dice.map((die, idx) => getIsCandidate(die, idx)
-                  ? <MiniDie key={idx} die={die} onClick={() => onDieClick(die, idx)} />
+                  ? <MiniDie key={idx} die={die} onClick={() => onDieClick(die, idx)} label={keepChoices(lastRoll).find((c) => c.idx === idx)?.label} />
                   : null)}
               </div>
             ) : (
