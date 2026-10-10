@@ -36,7 +36,7 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Where things stand
 
-- `main` is at **da2b4c1**, with PR 6, 7, 8 and 9 all merged (PR 9 on 9 October, Pacific). Robert deployed through PR 8; PR 9 is **not deployed yet**. To deploy, he runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload. PR 9 has no schema change.
+- `main` is at **da2b4c1**, with PR 6, 7, 8 and 9 all merged (PR 9 on 9 October, Pacific). **Deployed** (through PR 9). To deploy later work, Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload.
 - **PR 9 merged**: https://github.com/austincauwels/TTRPG_VTT_CO/pull/9 (branch `claude/pr9-connection`, 12 commits, CI green). It has no schema change. Backend suite 1,805 passed, and an independent review's four findings were fixed. It covers:
   - Connection: heartbeat ping/pong, the offline banner, the Activity Log kept on the server and replayed as `activity_history`, stale slips cleared, the token sent as a `bearer.<token>` subprotocol.
   - Bugs: `vote-tie-leading`, `relationship-question-in-answer`, `ability-offers-expire`, `pending-join-not-live`, `report-questions-tally` (the Lightkeeper ticks the questions and the page totals by p. 55), `keyboard-focus-dropped`, and `patch-up-free-rider` (Patch Up is declared with a chip before the Focus roll).
@@ -55,7 +55,7 @@ Branch from the newest `main`. These are what remains of the report's top-ten UX
 
 ### Open questions for Robert
 
-- Deploy `main` (PR 9).
+- None.
 
 ## How the browser checks were done in PR 6
 
