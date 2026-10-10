@@ -460,7 +460,7 @@ def test_campaign_context_is_fixed_when_the_socket_connects(client, dice):
 
         # intercept candidates are looked up with campaign_id IS NULL
         wl.send("take_mark", mark_type="body")
-        assert support.types(wl.sync()) == ["character_update"]
+        assert support.types(wl.sync()) == ["character_update", "activity_log"]
         assert wg.drain() == [] and support.types(gm.drain()) == ["member_update"]
 
         # before tokens a player's update_circle edited the connect-time circle 1;

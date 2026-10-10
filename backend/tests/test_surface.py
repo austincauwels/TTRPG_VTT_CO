@@ -198,7 +198,7 @@ WS_CASES = {
         after_connect=lambda c, ws: (ws.send("roll", action="sneak", drive_spent=0), ws.sync()),
         payload=lambda c: {"ability": "Flourish"}, expect=["character_update", "activity_log"]),
     "update_pen_font": dict(payload=lambda c: {"pen_font": "Kalam"}, expect=["character_update"]),
-    "take_mark": dict(payload=lambda c: {"mark_type": "body"}, expect=["character_update"]),
+    "take_mark": dict(payload=lambda c: {"mark_type": "body"}, expect=["character_update", "activity_log"]),
     "resolve_ability_mark": dict(
         fields={"specialty_ability": "Death Defy"},
         payload=lambda c: {"ability": "Death Defy"}, expect=["character_update", "activity_log"]),

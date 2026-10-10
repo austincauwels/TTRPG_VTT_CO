@@ -1379,7 +1379,7 @@ def test_resuscitation_refusals(client, dice):
         assert wd.sync() == [RESUSCITATION_REFUSED]   # standing
         wa.drain()
         wa.send("take_mark", mark_type="bleed", is_from_enemy=False)   # a fourth mark: the fourth scar
-        assert support.types(wa.sync())[0] == "trigger_scar"
+        assert support.types(wa.sync())[:2] == ["activity_log", "trigger_scar"]
         wd.drain()
         wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
         assert wd.sync() == [RESUSCITATION_REFUSED]

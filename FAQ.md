@@ -101,6 +101,8 @@ Characters have three mark tracks: **Body**, **Brain**, and **Bleed** (0–3 eac
 
 If none of these apply (or the player declines), the mark is applied and the character sheet is updated in real time.
 
+Since 2026-10-10 every mark that lands this way, taken on the player's own sheet or dealt by the Lightkeeper, writes a line in the Activity Log on every desk with the track's count ("Dr. Imogen Thale took a Body mark (1 of 3)."), and names the offer the player let go ("passed on Death Defy and took a Bleed mark (1 of 3)."), whether they pressed "Take the mark" or its countdown ran out. A mark an ability takes as its cost (Ritual, Occult Researcher, Back Against the Wall, Bending Spoons) is named in that ability's own line instead, so it is not logged twice.
+
 ### What happens on the 4th mark?
 
 When any mark track would reach 4:
