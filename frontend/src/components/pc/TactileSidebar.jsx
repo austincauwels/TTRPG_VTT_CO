@@ -186,7 +186,7 @@ export const TactileSidebar = ({ phonePart }) => {
   // hourglass at the foot always show, and only the circle's cards between them scroll if a
   // large circle ever runs longer than the screen.
   return (
-    <div className={`lg:col-span-3 xl:col-span-1 space-y-6 mt-2 xl:mt-0 relative order-3 lg:order-none xl:h-full xl:min-h-0 xl:flex xl:flex-col xl:space-y-0 xl:gap-2 max-md:flex max-md:flex-col max-md:space-y-0 max-md:gap-6 ${
+    <div className={`lg:col-span-3 lg:col-start-1 lg:row-start-1 xl:col-span-1 space-y-6 mt-2 xl:mt-0 relative order-3 lg:order-none xl:h-full xl:min-h-0 xl:pt-3 xl:overflow-y-auto xl:overflow-x-hidden xl:flex xl:flex-col xl:space-y-0 xl:gap-2 max-md:flex max-md:flex-col max-md:space-y-0 max-md:gap-6 ${
       anyOnPhone ? '' : 'max-md:hidden'}`}>
 
       {/* The Lightkeeper's dispatch, pinned to the desk (DispatchNote.jsx) */}
@@ -194,7 +194,7 @@ export const TactileSidebar = ({ phonePart }) => {
 
       {/* Active Circle Registry: the members' cards pinned to the desk, each as tall as
           what is written on it. On a wide rail they lie two across. */}
-      <div data-desk="circle" className={`px-1 xl:flex-1 xl:min-h-0 xl:overflow-y-auto xl:overflow-x-hidden xl:-mx-3 xl:px-3 xl:pt-1 xl:pb-2 custom-scrollbar ${onPhone('circle')}`}>
+      <div data-desk="circle" className={`px-1 xl:flex-1 xl:min-h-[7.5rem] xl:overflow-y-auto xl:overflow-x-hidden xl:-mx-3 xl:px-3 xl:pt-1 xl:pb-2 custom-scrollbar ${onPhone('circle')}`}>
         <span className="block font-sans text-sm font-black text-cream/70 uppercase tracking-widest leading-none mb-4 xl:mb-2.5">Your Circle</span>
 
         <div className="grid grid-cols-1 xl:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3 xl:gap-x-4 items-start">

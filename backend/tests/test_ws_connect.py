@@ -199,7 +199,7 @@ def test_numeric_campaign_code_and_character_id_channels(client):
             ws.send("update_pen_font", pen_font="Kalam")
             assert support.types(ws.sync()) == ["character_update"]
             gm.send("gm_toggle_reports")
-            assert support.types(gm.sync()) == ["circle_update"]
+            assert support.types(gm.sync()) == ["circle_update", "activity_log"]
             assert ws.drain() == [] and gm.drain() == []
     assert support.ws_close_code(client, char_id, token=support.as_stranger()["Authorization"][7:]) == 4403
 
@@ -244,7 +244,7 @@ def test_character_id_equal_to_a_campaign_code_cannot_take_over_the_gm_channel(c
             assert whisper["payload"]["message"].endswith(": for the GM only")
             assert rogue.sync() == []
         gm.send("gm_toggle_reports")
-        assert support.types(gm.sync()) == ["circle_update"]
+        assert support.types(gm.sync()) == ["circle_update", "activity_log"]
 
 
 def test_bad_json_and_unknown_types_are_ignored(client):

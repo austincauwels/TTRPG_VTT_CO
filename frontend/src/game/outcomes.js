@@ -1,4 +1,4 @@
-import { ACTION_LABEL } from './actions';
+import { ACTION_LABEL, driveKeyFor } from './actions';
 
 // The rulebook's outcome words for the server's outcome keys (engine.OUTCOME_LABELS),
 // each with its own color on the dark felt. The word always appears with the color, so
@@ -83,4 +83,24 @@ export const rulebookLogText = (text) => {
     .replace(/\[gilded \u2014 (\w+) Drive refreshed\]/g, (_, drive) => `(Gilded die kept: 1 ${capital(drive)} refreshed)`)
     .replace(/\[Well-Read \u2014 (\d+) Intuition refunded\]/g, '(Well-Read: $1 Intuition back)')
     .replace(/ \u2014 /g, ': ');
+};
+
+// The two dice a gilded roll offers, each with what keeping it does (playtest,
+// gilded-choice-unexplained): keeping the gilded die gives one point back to the action's
+// drive, and the regular die does not. One wording for the slip and the phone's bar:
+//   "Keep the gilded 4: Mixed success, 1 Nerve back"   "Keep the 4: Mixed success"
+const DRIVE_NAME = { nerve: 'Nerve', cunning: 'Cunning', intuition: 'Intuition' };
+export const keepChoices = (roll) => {
+  const dice = roll?.dice || [];
+  const choices = [];
+  const add = (idx, gilded) => {
+    const die = dice[idx];
+    if (!die) return;
+    const word = OUTCOME[outcomeForKept(die.value, dice)].word;
+    const back = gilded ? `, 1 ${DRIVE_NAME[driveKeyFor(roll.action)]} back` : '';
+    choices.push({ idx, die, label: `Keep the ${gilded ? 'gilded ' : ''}${die.value}: ${word}${back}` });
+  };
+  add(roll?.gilded_idx, true);
+  add(roll?.highest_regular_idx, false);
+  return choices;
 };

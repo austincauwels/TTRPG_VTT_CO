@@ -79,14 +79,14 @@ def resolve_channel(db, user_id, game_id):
 GM_ONLY = frozenset({
     "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
     "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
-    "gm_reset_character", "update_circle", "gm_update_scars",
+    "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
 })
 
 # A GM socket may aim these at a character of its campaign with payload.character_id.
 # Every other type acts for a character only on that character's own socket.
 GM_MAY_TARGET = frozenset({
     "gm_update_tension", "gm_reset_character", "update_drive", "take_mark", "revive_character", "update_gear",
-    "gm_update_scars",
+    "gm_update_scars", "gm_return_spend",
 })
 
 
@@ -404,6 +404,7 @@ RULES = {
     "refill_resources": _gm_circle,
     "gm_end_assignment": _gm_circle,
     "gm_reset_character": _gm_only,
+    "gm_return_spend": _gm_circle,
     "update_circle": _gm_circle,
     "gm_update_scars": _gm_update_scars,
     "intercept_mark": _intercept_mark,

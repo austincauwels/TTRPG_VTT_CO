@@ -191,6 +191,23 @@ const deletionRequest = async (path, method) => {
 };
 
 // Whether this socket serves the GM desk (the GM's socket is opened on the campaign's code)
+// What the Lightkeeper changed that a player has not looked at yet, as the desk parts the
+// "new" dots sit on (playtest, silent-table-changes): the dispatch, the hourglass and its
+// timer ('watch'), and the reports opening ('circle'). Only changes to a circle this desk
+// already held count (a saved circle too, so what changed while the player was away shows).
+const unseenFrom = (prev, next) => {
+  if (!prev || !next || prev.id !== next.id) return [];
+  const keys = [];
+  const words = (c) => [c.dispatch_text, c.location, c.atmosphere].map((t) => t || '').join('\n');
+  if (words(prev) !== words(next) && words(next).trim()) keys.push('dispatch');
+  const timer = (c) => `${c.timer_visible ? 1 : 0}|${c.timer_running ? 1 : 0}|${c.timer_duration_ms || 0}`;
+  const tensionMoved = (prev.tension_clock || 0) !== (next.tension_clock || 0);
+  const timerMoved = timer(prev) !== timer(next) && next.timer_visible && (next.timer_duration_ms || 0) > 0;
+  if (tensionMoved || timerMoved) keys.push('watch');
+  if (!prev.reports_open && next.reports_open) keys.push('circle');
+  return keys;
+};
+
 const onGmDesk = (get) => {
   const { lastPlayedCampaign, socketGameId } = get();
   return lastPlayedCampaign?.type === 'gm' && socketGameId != null &&
@@ -300,6 +317,11 @@ const useGameStore = create(
       notebookLoadError: false,
       lastActivityLog: null,
       activityLog: [],
+      // Desk parts with a change the player has not looked at yet ('dispatch', 'watch',
+      // 'circle'), the "new" dots; markSeen clears them
+      unseen: {},
+      markSeen: (...keys) => set((state) => (keys.some((k) => state.unseen[k])
+        ? { unseen: Object.fromEntries(Object.entries(state.unseen).filter(([k]) => !keys.includes(k))) } : {})),
       pendingRoll: null,         // { action, driveSpend } — set before roll to show spend selector
       pendingRollMods: [],       // active ability modifier chip keys for the current pending roll
       abilityMarkOffer: null,    // { ability, mark_type, character_id, options?, intercept?, seq } — mark intercept prompt
@@ -438,7 +460,7 @@ const useGameStore = create(
           clearRollTimer();
           queuedRoll = null;
           sentRoll = null;
-          set({ activityLog: [], lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null, memberSheets: {} });
+          set({ activityLog: [], unseen: {}, lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null, memberSheets: {} });
         }
         const apiBase = import.meta.env.VITE_API_URL || '';
         const wsProtocol = (apiBase.startsWith('https') || window.location.protocol === 'https:') ? 'wss:' : 'ws:';
@@ -574,6 +596,10 @@ const useGameStore = create(
               set(state => ({ circleCreation: { ...state.circleCreation, reports: {} }, reportError: null }));
             }
             set({ circle: next });
+            if (!onGmDesk(get)) {
+              const fresh = unseenFrom(prev, next);
+              if (fresh.length) set((state) => ({ unseen: { ...state.unseen, ...Object.fromEntries(fresh.map((k) => [k, true])) } }));
+            }
             // The GM turned the tension up or down: the hourglass ticks at every desk, up to the new
             // level on a raise and once on a lowering (End Assignment's reset included)
             if (seen && next && seen.id === next.id && value !== seen.value) playTensionTick(value > seen.value ? value : 1);
@@ -902,7 +928,7 @@ const useGameStore = create(
             const { character: myChar, socketGameId } = get();
             const onCharacterChannel = myChar?.id != null && String(socketGameId) === String(myChar.id);
             setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
-            set({ stage: 'HOME', character: null, circle: null, activityLog: [], lastActivityLog: null });
+            set({ stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null });
           }
           else if (message.type === 'campaign_deleted') {
             if (!isForThisCampaign(message.payload)) return;
@@ -915,7 +941,7 @@ const useGameStore = create(
             setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
             set(state => ({
               ...withoutCampaign(state, id, code),
-              stage: 'HOME', character: null, circle: null, activityLog: [], lastActivityLog: null,
+              stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null,
               hubNotice: onCharacterChannel ? `The Lightkeeper deleted campaign ${name}.` : `Campaign ${name} was deleted.`,
             }));
             get().fetchUserData(get().accessSession?.userId);
@@ -1121,6 +1147,16 @@ const useGameStore = create(
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'gm_reset_character', payload: { character_id: characterId, role: 'GM' } }));
         }
+      },
+
+      // The Lightkeeper gives a member a circle-resource spend back (lowers their count of
+      // two), and with resourceType puts that resource back in the circle's pool too
+      gmReturnSpend: (characterId, resourceType) => {
+        const { socket, circle } = get();
+        if (socket?.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'gm_return_spend', payload: {
+          character_id: characterId, circle_id: circle?.id, role: 'GM', ...(resourceType ? { resource_type: resourceType } : {}) } }));
+        return true;
       },
 
       resolveAbilityMark: (ability, choice) => {

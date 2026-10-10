@@ -47,4 +47,6 @@ HANDLERS = {
     "use_ability":                 (character.handle_use_ability, True),
     # The Lightkeeper corrects a member's scars on the trauma record
     "gm_update_scars":             (gm.handle_gm_update_scars, True),
+    # The Lightkeeper gives a member a circle-resource spend back
+    "gm_return_spend":             (gm.handle_gm_return_spend, False),
 }

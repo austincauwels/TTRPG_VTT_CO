@@ -232,3 +232,9 @@ Entry types: `field_log`, `ephemeral`, `lightkeeper`, `sketch`, `photo`.
 Visibility levels: `all` (everyone sees it), `gm_only` (only the GM), `self` (only the author). Images are stored as base64 data in the `image_data` column with a 2 MB size limit enforced on upload.
 
 Entries are soft-deleted (`is_deleted = true`) rather than removed from the database, so the page numbering sequence stays intact.
+
+## What the Lightkeeper's changes look like on the players' desks (since 2026-10-10)
+
+- The dispatch, the tension, the timer (set, start, pause, reset, clear), the reports opening and closing, a filed or amended report and the Lightkeeper's edits of Stitch, Refresh and Train each write a line in the Activity Log. A phone shows a "new" dot on the Menu and the matching drawer row until the player has opened that part.
+- A player spends a circle resource in two presses (the first asks). A spend is used for the whole circle; each player has two per assignment. The Lightkeeper can give a member one back from the member's sheet, optionally returning the resource to the circle's pool, and the log says so.
+- Keeping the gilded die in a gilded roll gives one point back to the action's drive; keeping the regular die does not. The slip says what each choice does before it is made.

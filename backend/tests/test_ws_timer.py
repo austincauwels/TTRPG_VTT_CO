@@ -34,10 +34,16 @@ def _rejected(status, detail):
     return {"type": "action_rejected", "payload": {"action": "gm_timer", "status": status, "detail": detail}}
 
 
+def _updates(frames):
+    """The circle_update frames of what a desk was sent (the log lines are left out)."""
+    return [m for m in frames if m["type"] == "circle_update"]
+
+
 def _send(gm, **payload):
     """One gm_timer from the Lightkeeper; returns the timer as the campaign is sent it."""
     gm.send("gm_timer", **payload)
-    [msg] = gm.sync()
+    # The change also writes a line in the log (test_the_timer_writes_its_changes_in_the_log)
+    [msg] = [m for m in gm.sync() if m["type"] == "circle_update"]
     assert msg["type"] == "circle_update"
     return _timer(msg["payload"])
 
@@ -77,7 +83,7 @@ def test_the_lightkeeper_sets_starts_pauses_resumes_resets_and_clears_it(client,
         assert _send(gm, action="clear") == {
             "timer_duration_ms": 0, "timer_remaining_ms": 0, "timer_running": False, "timer_visible": True}
         # The player's desk was sent every change, as the Lightkeeper's was
-        seen = wm.drain()
+        seen = _updates(wm.drain())
         assert support.types(seen) == ["circle_update"] * 9
         assert _timer(seen[-1]["payload"])["timer_duration_ms"] == 0
     row = support.fetch(Circle, cid)
@@ -105,7 +111,7 @@ def test_show_and_hide(client, clock):
         # Hiding it leaves it running
         assert _send(gm, action="hide") == {
             "timer_duration_ms": 90_000, "timer_remaining_ms": 89_000, "timer_running": True, "timer_visible": False}
-        assert [_timer(m["payload"])["timer_visible"] for m in wm.drain()] == [False, False, True, False]
+        assert [_timer(m["payload"])["timer_visible"] for m in _updates(wm.drain())] == [False, False, True, False]
     assert support.fetch(Circle, cid).timer_visible is False
 
 
@@ -208,3 +214,23 @@ def test_a_circle_id_that_is_not_a_whole_number_is_refused(client, clock):
             assert gm.sync() == [_rejected(422, "circle_id must be a whole number.")]
         assert support.server_sockets(camp["campaign_code"])
         assert _send(gm, circle_id=cid, action="show")["timer_visible"] is True
+
+
+def test_the_timer_writes_its_changes_in_the_log(client, clock):
+    """Set, start, pause, reset and clear each leave a line for every desk (playtest,
+    silent-table-changes); showing and hiding it do not."""
+    camp, (member,), cid = _campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        for payload in (dict(action="show"), dict(action="set", duration_ms=90_000), dict(action="start")):
+            _send(gm, **payload)
+        clock.now += 30_000
+        for payload in (dict(action="pause"), dict(action="reset"), dict(action="hide"), dict(action="clear")):
+            _send(gm, **payload)
+        lines = [m["payload"]["message"] for m in wm.drain() if m["type"] == "activity_log"]
+    assert lines == [
+        "The Lightkeeper set the timer to 1:30.",
+        "The Lightkeeper started the timer (1:30 left).",
+        "The Lightkeeper paused the timer (1:00 left).",
+        "The Lightkeeper reset the timer to 1:30.",
+        "The Lightkeeper cleared the timer.",
+    ]

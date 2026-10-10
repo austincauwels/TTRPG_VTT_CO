@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useRef } from 'react';
-import { OUTCOME, outcomeForKept, rollPoolText } from '../../../game/outcomes';
+import { OUTCOME, keepChoices, outcomeForKept, rollPoolText } from '../../../game/outcomes';
 import { useRollSounds } from '../../../game/rollSounds';
 import { onActivateKey } from '../../shared/a11y';
 import { tiltFor } from '../../shared/handPlaced';
@@ -47,6 +47,10 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
           <span className="inline-block font-sans text-xs font-black uppercase tracking-widest text-sepia border border-dashed border-sepia/70 rounded-sm px-2 py-1">
             Keep one die
           </span>
+          {/* What each die would do, so the choice is made knowing it */}
+          <span className="block mt-1.5 font-serif text-base leading-snug">
+            {keepChoices(lastRoll).map((c) => <span key={c.idx} className="block">{c.label}</span>)}
+          </span>
         </p>
       ) : outcome ? (
         <p className="mt-2 mb-0.5">
@@ -59,6 +63,11 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
           >
             {outcome.word}
           </span>
+          {keptDie && lastRoll.dice?.[keptDie.idx]?.is_gilded && (
+            <span className="block mt-1.5 font-serif text-base leading-snug text-sepia">
+              {keepChoices(lastRoll).find((c) => c.idx === keptDie.idx)?.label.replace(/^.*?, /, '')}
+            </span>
+          )}
         </p>
       ) : null}
     </div>
@@ -174,7 +183,7 @@ export const DiceTray = forwardRef(({
                     tabIndex: 0,
                     'data-keep-die': '',
                     onKeyDown: onActivateKey(clickHandler),
-                    'aria-label': `Keep the ${die.is_gilded ? 'gilded' : 'highest regular'} die, ${die.value}`,
+                    'aria-label': keepChoices(lastRoll).find((c) => c.idx === idx)?.label || `Keep the ${die.is_gilded ? 'gilded' : 'highest regular'} die, ${die.value}`,
                   } : { 'aria-hidden': true })}
                   onClick={clickHandler}
                   onTouchEnd={clickHandler ? (e) => { e.preventDefault(); clickHandler(); } : undefined}

@@ -38,12 +38,18 @@ def test_gm_update_circle_on_the_shared_circle_one_is_rejected(client):
         assert wm.drain() == []
         gm.send("gm_update_circle", circle_id=cid, tension_clock=2,
                 tension_label="Watch", location="Docks", atmosphere="Fog")
-        [msg] = gm.sync()
-        assert msg["type"] == "circle_update"
+        sent = gm.sync()
+        [msg] = support.of_type(sent, "circle_update")
+        # What changed at the table is said in the log, to every desk (silent-table-changes)
+        assert [m["payload"]["message"] for m in support.of_type(sent, "activity_log")] == [
+            "The Lightkeeper sent a dispatch.",
+            "The Lightkeeper raised the tension to 2 of 4.",
+            "The Lightkeeper named the tension: Watch.",
+        ]
         assert msg["payload"]["id"] == cid
         assert (msg["payload"]["tension_clock"], msg["payload"]["tension_label"]) == (2, "Watch")
         assert (msg["payload"]["location"], msg["payload"]["atmosphere"]) == ("Docks", "Fog")
-        assert wm.drain() == [msg]
+        assert wm.drain() == sent
     assert support.fetch(Circle, 1).location == before.location
     assert support.fetch(Circle, cid).location == "Docks"
 
@@ -79,11 +85,10 @@ def test_gm_update_circle_sends_a_dispatch_in_her_own_words(client):
     own = "Meet at the lighthouse at dusk.\n\nBring lamps, and tell no one.\n"
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("gm_update_circle", circle_id=cid, dispatch_text=own, location="Saltmarsh Light", atmosphere="")
-        [msg] = gm.sync()
-        assert msg["type"] == "circle_update"
+        [msg] = support.of_type(gm.sync(), "circle_update")
         p = msg["payload"]
         assert (p["dispatch_text"], p["location"], p["atmosphere"]) == (own, "Saltmarsh Light", "")
-        assert wm.drain() == [msg]
+        assert support.of_type(wm.drain(), "circle_update") == [msg]
         # The template again: the own words go
         gm.send("gm_update_circle", circle_id=cid, dispatch_text="", location="Docks", atmosphere="Fog")
         p = gm.sync()[0]["payload"]
@@ -398,8 +403,8 @@ def test_gm_toggles(client):
         # payload.role is ignored now: these two toggle as well
         gm.send("gm_toggle_reports")
         gm.send("gm_toggle_resource_edit", role="player")
-        assert support.types(gm.sync()) == ["circle_update"] * 2
-        assert support.types(wm.drain()) == ["circle_update"] * 5
+        assert support.types(gm.sync()) == ["circle_update", "activity_log", "circle_update"]
+        assert support.types(support.of_type(wm.drain(), "circle_update")) == ["circle_update"] * 5
     c = support.fetch(Circle, cid)
     assert (c.resources_editable, c.reports_open) == (True, False)
 
@@ -433,22 +438,25 @@ def test_submit_assignment_report(client):
         assert wa.sync() == [_rejected("submit_assignment_report", status=409, detail="Reports are closed.")]
         support.update(Circle, cid, reports_open=True)
         wa.send("submit_assignment_report", character_id=a["id"], responses={"keys_detail": {"0": True}})
-        [msg] = wa.sync()
+        sent = wa.sync()
+        [msg] = support.of_type(sent, "assignment_report_submitted")
+        assert [m["payload"]["message"] for m in support.of_type(sent, "activity_log")] == [f"{a['name']} filed an assignment report."]
         p = msg["payload"]
-        assert msg["type"] == "assignment_report_submitted"
         assert (p["character_id"], p["character_name"], p["responses"]) == (a["id"], a["name"], {"keys_detail": {"0": True}})
         assert datetime.fromisoformat(p["submitted_at"]).tzinfo is not None
-        assert gm.drain() == [msg]
-        assert wb.drain() == []
+        assert support.of_type(gm.drain(), "assignment_report_submitted") == [msg]
+        assert [m["type"] for m in wb.drain()] == ["activity_log"]  # the line, not the report
         wa.send("submit_assignment_report", responses={"q0": True})  # needs character_id
         assert wa.sync() == []
         wa.send("submit_assignment_report", character_id=a["id"], responses={})
         assert wa.sync() == [_rejected("submit_assignment_report", status=409, detail="Your report is already filed.")]
         wa.send("submit_assignment_report", character_id=a["id"], responses={"keys_detail": {"1": True}}, replace=True)
-        [amended] = wa.sync()
+        sent = wa.sync()
+        [amended] = support.of_type(sent, "assignment_report_submitted")
+        assert [m["payload"]["message"] for m in support.of_type(sent, "activity_log")] == [f"{a['name']} amended their assignment report."]
         assert amended["payload"]["responses"] == {"keys_detail": {"1": True}}
-        assert gm.drain() == [amended]
-        assert wb.drain() == []
+        assert support.of_type(gm.drain(), "assignment_report_submitted") == [amended]
+        assert support.types(wb.drain()) == ["activity_log"]
     assert _undated(support.fetch(Circle, cid).backstory_answers) == {
         "reports": {str(a["id"]): _report(a, {"keys_detail": {"1": True}})}}
 
@@ -660,11 +668,11 @@ def test_update_circle_as_gm(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("update_circle", role="GM", name="Lanterns", stitch=5, chapter_house_location="Mill",
                 circle_ability="Hunters", tension_clock=1, ignored_field="x")
-        [msg] = gm.sync()
+        [msg] = support.of_type(gm.sync(), "circle_update")
         p = msg["payload"]
         assert (p["id"], p["name"], p["stitch"], p["chapter_house_location"], p["circle_ability"],
                 p["tension_clock"]) == (cid, "Lanterns", 5, "Mill", "Hunters", 1)
-        assert wm.drain() == [msg]
+        assert support.of_type(wm.drain(), "circle_update") == [msg]
 
 
 def test_update_circle_from_a_player_is_rejected(client):
@@ -866,8 +874,7 @@ def test_update_circle_string_resource(client):
         assert support.server_sockets(member["id"])
         wm.drain()
         gm.send("update_circle", stitch="5")
-        [msg] = gm.sync()
-        assert msg["type"] == "circle_update"
+        [msg] = support.of_type(gm.sync(), "circle_update")
     assert support.fetch(Circle, cid).stitch == 5
 
 
@@ -1156,10 +1163,11 @@ def test_second_report_from_a_fresh_session_is_saved(client):
         wa.sync()
         with support.ws_connect(client, b["id"]) as wb:  # loads the circle with a's report in it
             wb.send("submit_assignment_report", character_id=b["id"], responses={"q0": False})
-            [msg] = wb.sync()
+            [msg] = support.of_type(wb.sync(), "assignment_report_submitted")
             assert msg["payload"] == {"character_id": b["id"], "character_name": b["name"], "responses": {"q0": False},
                                       "submitted_at": msg["payload"]["submitted_at"]}
-            assert wa.drain() == []  # a's desk is not sent b's report
+            # a's desk is not sent b's report, only the line that says it was filed
+            assert [m["type"] for m in wa.drain()] == ["activity_log"]
     assert _undated(support.fetch(Circle, cid).backstory_answers) == {"reports": {
         str(a["id"]): _report(a, {"q0": True}), str(b["id"]): _report(b, {"q0": False})}}
     state = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp["id"])).json()
@@ -1193,7 +1201,7 @@ def test_report_after_circle_answers_is_saved(client):
     support.update(Circle, cid, backstory_answers=answers, reports_open=True)
     with support.ws_connect(client, a["id"]) as wa:
         wa.send("submit_assignment_report", character_id=a["id"], responses={"q0": True})
-        assert support.types(wa.sync()) == ["assignment_report_submitted"]
+        assert support.types(wa.sync()) == ["assignment_report_submitted", "activity_log"]
     assert _undated(support.fetch(Circle, cid).backstory_answers) == {
         **answers, "reports": {str(a["id"]): _report(a, {"q0": True})}}
 
@@ -1251,3 +1259,67 @@ def test_gm_end_assignment_only_on_own_circle(client):
     assert support.fetch(Character, member["id"]).ability_uses == {"Steel Mind": 1}
     assert support.fetch(Character, stray["id"]).resources_spent_assignment == 2
     assert support.fetch(Circle, cid).location == "Docks"
+
+
+def test_the_lightkeeper_resource_and_report_changes_are_logged(client):
+    """The circle's resources, the dispatch cleared, the tension lowered, and the reports
+    opening and closing each leave a line (playtest: lk-resource-repair,
+    silent-table-changes)."""
+    camp, (member,), cid = _campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("update_circle", circle_id=cid, refresh=4, tension_clock=3, location="Docks")
+        gm.send("update_circle", circle_id=cid, refresh=4, tension_clock=1, location="", atmosphere="", dispatch_text="")
+        gm.send("gm_toggle_reports", circle_id=cid)
+        gm.send("gm_toggle_reports", circle_id=cid)
+        gm.sync()
+        lines = [m["payload"]["message"] for m in support.of_type(wm.drain(), "activity_log")]
+    assert lines[2].startswith("The Lightkeeper set the circle's Refresh to 4 (was ")
+    assert lines[:2] + lines[3:] == [
+        "The Lightkeeper sent a dispatch.",
+        "The Lightkeeper raised the tension to 3 of 4.",
+        "The Lightkeeper cleared the dispatch.",
+        "The Lightkeeper lowered the tension to 1 of 4.",
+        "The Lightkeeper opened the assignment reports.",
+        "The Lightkeeper closed the assignment reports.",
+    ]
+
+
+def test_the_lightkeeper_gives_a_spend_back(client):
+    camp, (member,), cid = _campaign(client)
+    support.update(Character, member["id"], resources_spent_assignment=2)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        before = support.fetch(Circle, cid).stitch
+        gm.send("gm_return_spend", character_id=member["id"], resource_type="stitch", circle_id=cid)
+        sent = gm.sync()
+        assert support.types(sent) == ["member_update", "circle_update", "activity_log"]
+        assert sent[-1]["payload"]["message"] == (
+            f"The Lightkeeper gave {member['name']} a spend back (1 of 2 used this assignment), and a Stitch to the circle.")
+        assert support.of_type(wm.drain(), "character_update")[0]["payload"]["resources_spent_assignment"] == 1
+        # Without a resource only the member's count moves; at 0 there is nothing to give back
+        gm.send("gm_return_spend", character_id=member["id"])
+        gm.send("gm_return_spend", character_id=member["id"])
+        refused = [m for m in gm.sync() if m["type"] == "action_rejected"]
+    assert [m["payload"]["status"] for m in refused] == [409]
+    assert support.fetch(Character, member["id"]).resources_spent_assignment == 0
+    assert support.fetch(Circle, cid).stitch == before + 1
+
+
+def test_a_player_cannot_give_a_spend_back(client):
+    camp, (member,), cid = _campaign(client)
+    support.update(Character, member["id"], resources_spent_assignment=2)
+    with support.ws_connect(client, member["id"]) as wm:
+        wm.send("gm_return_spend", character_id=member["id"])
+        assert [m["type"] for m in wm.sync()] == ["action_rejected"]
+    assert support.fetch(Character, member["id"]).resources_spent_assignment == 2
+
+
+def test_a_lightkeeper_cannot_give_a_spend_back_on_another_campaigns_circle(client):
+    camp, (member,), cid = _campaign(client)
+    other, _, other_cid = _campaign(client)
+    support.update(Character, member["id"], resources_spent_assignment=1)
+    before = support.fetch(Circle, other_cid).stitch
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_return_spend", character_id=member["id"], resource_type="stitch", circle_id=other_cid)
+        assert [m["type"] for m in gm.sync()] == ["action_rejected"]
+    assert support.fetch(Circle, other_cid).stitch == before
+    assert support.fetch(Character, member["id"]).resources_spent_assignment == 1

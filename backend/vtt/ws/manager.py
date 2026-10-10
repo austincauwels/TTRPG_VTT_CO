@@ -306,3 +306,9 @@ class ConnectionManager:
             await self._send_text(key, text)
 
 manager = ConnectionManager()
+
+
+async def log_line(db, camp_code, camp_id, message: str, log_type: str = "field"):
+    """One line in the campaign's Activity Log (kept in the history like any other)."""
+    await manager.broadcast_campaign(camp_code, camp_id, {
+        "type": "activity_log", "payload": {"message": message, "log_type": log_type}}, db)

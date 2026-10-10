@@ -8,7 +8,7 @@ from models import Character, Circle, CircleVote, Relationship
 from vtt.assignment import REPORTS, answers_of, reports_of
 from vtt.circle_queries import canonical_name_suggestion, circle_abilities, relationships_list, resolve_circle, take_train_die, votes_dict
 from vtt.serializers import get_char_dict, get_circle_dict
-from vtt.ws.manager import campaign_key, manager
+from vtt.ws.manager import campaign_key, log_line, manager
 
 
 async def refuse(ctx, action, status, detail):
@@ -46,6 +46,7 @@ async def handle_submit_assignment_report(ctx):
                 return
             reporter = db.query(Character).filter(Character.id == char_id).first()
             reporter_name = reporter.name if reporter else "Unknown"
+            amended = str(char_id) in reports
             # The shape of the frame below, which the GM's report card reads after a
             # reload too, with when it was filed for its date stamp
             report = {"character_name": reporter_name, "responses": responses,
@@ -58,6 +59,7 @@ async def handle_submit_assignment_report(ctx):
             if camp_id:
                 await manager.broadcast(campaign_key(camp_code), message)
             await manager.broadcast(ctx.channel, message)
+            await log_line(db, camp_code, camp_id, f"{reporter_name} {'amended their' if amended else 'filed an'} assignment report.")
 
 
 async def handle_spend_resource(ctx):
