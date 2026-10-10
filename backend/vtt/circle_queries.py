@@ -120,7 +120,10 @@ def canonical_name_suggestion(db: Session, circle_id: int, value) -> str:
 
 
 def votes_dict(db: Session, circle_id: int) -> dict:
-    all_votes = db.query(CircleVote).filter(CircleVote.circle_id == circle_id).all()
+    """The circle's votes by type, each list in the order the votes were first cast (by
+    id), so that every desk breaks a tie as the seal does: to the option voted for first
+    (playtest, vote-tie-leading)."""
+    all_votes = db.query(CircleVote).filter(CircleVote.circle_id == circle_id).order_by(CircleVote.id).all()
     result = {vote_type: [] for vote_type in VOTE_TYPES}
     for v in all_votes:
         vtype = v.vote_type
