@@ -12,7 +12,9 @@ result and outcome, as in roll_result) and "kept" (None, or {"index", "is_gilded
 
 A secret roll is the roller's alone: its roll carries "is_secret": True, and its line
 in the Activity Log goes to the roller's own channel only (_log_roll), so the
-Lightkeeper's secret roll leaves a trace on her own desk and nowhere else.
+Lightkeeper's secret roll leaves a trace on her own desk and nowhere else. A resistance
+burned on it rerolls in secret, and a post-roll ability used on it logs to the roller
+alone, as its own line does.
 """
 from engine import OUTCOME_LABELS, burn_resistance, calculate_outcome, drive_for_action, roll_dice
 from vtt.abilities import abilities_of, count_use, resistance_left, uses_of
@@ -115,15 +117,15 @@ async def _dice_thrown(ctx, character, action, roll, rating, kept=None):
     }, ctx.db, exclude=ctx.channel)
 
 
-async def _log_roll(ctx, character, message, secret=False):
-    """A roll's line in the Activity Log (log_type "roll"), for the whole table. A secret
-    roll's line starts "(Secret) ", carries "is_secret": True and goes to the roller's own
-    channel only: the Lightkeeper's desk for her roll, the player's for theirs. broadcast
-    keeps it in that channel's history alone, so no other desk gets it live or when it
-    opens. A secret roll used to write no line at all, so the Lightkeeper's secret result
-    was gone from her desk as soon as a player's roll took her felt (playtest,
-    secret-roll-indistinct)."""
-    payload = {"message": message, "log_type": "roll", "ink_color": getattr(character, "ink_color", "") or ""}
+async def _log_roll(ctx, character, message, secret=False, log_type="roll"):
+    """A roll's line in the Activity Log (log_type "roll", or "field" for an ability used
+    on it), for the whole table. A secret roll's line starts "(Secret) ", carries
+    "is_secret": True and goes to the roller's own channel only: the Lightkeeper's desk
+    for her roll, the player's for theirs. broadcast keeps it in that channel's history
+    alone, so no other desk gets it live or when it opens. A secret roll used to write no
+    line at all, so the Lightkeeper's secret result was gone from her desk as soon as a
+    player's roll took her felt (playtest, secret-roll-indistinct)."""
+    payload = {"message": message, "log_type": log_type, "ink_color": getattr(character, "ink_color", "") or ""}
     if secret:
         await manager.broadcast(ctx.channel, {"type": "activity_log", "payload": {
             **payload, "message": f"(Secret) {message}", "is_secret": True}}, campaign_id=ctx.camp_id)
@@ -208,8 +210,9 @@ ROLL_MODS = {
 }
 
 # The last roll each character made, for the post-roll abilities (RULES_CHECK.md item
-# 28): its action, drive, result and outcome, and which of them were used on it. Set when
-# a roll's result is known (at once, or when a die is kept). In memory only.
+# 28): its action, drive, result and outcome, whether it was secret, and which of them
+# were used on it. Set when a roll's result is known (at once, or when a die is kept).
+# In memory only.
 _last_roll: dict = {}
 # Characters whose last roll was declared a Patch Up (p. 30: "you can make a Focus roll to
 # heal 1 Body mark on an ally"): the roll is the heal, so it is chosen before the roll, as
@@ -218,11 +221,11 @@ _last_roll: dict = {}
 _patch_up_declared: set = set()
 
 
-def _remember(character, action, cat, result, outcome):
+def _remember(character, action, cat, result, outcome, secret=False):
     if character is not None:
         _last_roll[character.id] = {"action": action, "cat": cat, "result": result,
                                     "outcome": outcome, "used": set(),
-                                    "campaign_id": character.campaign_id}
+                                    "campaign_id": character.campaign_id, "secret": bool(secret)}
 
 
 def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_die=False, ward_die=False,
@@ -464,7 +467,7 @@ async def handle_roll(ctx):
                 await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
 
             await _log_roll(ctx, character, log_msg, secret=is_secret)
-            _remember(character, act, cat, result_val, outcome_key)
+            _remember(character, act, cat, result_val, outcome_key, is_secret)
 
         # Back Against the Wall's and Mind Over Matter's price: a Brain mark, taken as any
         # mark is (RULES_CHECK.md item 21). It is the player's choice, so no soak or ally is
@@ -516,7 +519,7 @@ async def handle_resolve_gilded(ctx):
         log_msg += f" [Well-Read — {spent} Intuition refunded]"
     if changed:
         db.commit()
-    _remember(character, r_act, r_cat, chosen_value, outcome_key)
+    _remember(character, r_act, r_cat, chosen_value, outcome_key, pending["secret"])
 
     # The roller's own desk learns the kept die's result, so its outcome slip, the
     # post-roll ability prompts and the resistance offer follow the server's scoring (they
@@ -575,8 +578,9 @@ async def handle_use_post_roll_ability(ctx):
     fresh = last is not None and ab_name not in last["used"]
 
     async def log(message):
-        await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "activity_log", "payload": {
-            "message": message, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
+        # An ability used on a secret roll tells its result, so its line stays with the
+        # roller as the roll's own did
+        await _log_roll(ctx, character, message, secret=bool(last and last.get("secret")), log_type="field")
 
     if ab_name == "Flourish":
         # "a roll where you could spend Cunning" (p. 28): a Cunning action, a roll that spent
@@ -712,6 +716,11 @@ async def handle_burn_resistance(ctx):
         return
     # The reroll's drive, as on any roll, so the desk's post-roll prompts can read it
     result["drive_spent_key"] = drive_key
+    # A secret roll's reroll is secret too: its slip says so, no other desk sees its dice,
+    # and its line and a die kept from it stay with the roller
+    secret = bool(last.get("secret"))
+    if secret:
+        result["is_secret"] = True
     # A burn rerolls the same roll, so a Patch Up it was declared as still stands
     if act == "read" and character.id in _patch_up_declared:
         result["declared"] = ["Patch Up"]
@@ -728,12 +737,12 @@ async def handle_burn_resistance(ctx):
         "type": "roll_result",
         "payload": {"character_id": target_char_id, "action": act, "roll": result, "character": get_char_dict(character)}
     })
-    if _hold_or_throw(character, act, result, False, drive_key):
+    if _hold_or_throw(character, act, result, secret, drive_key):
         await _dice_thrown(ctx, character, act, result, _rating(character, act))
     if result.get("needs_gilded_choice"):
         # The result is the die the player keeps; resolve_gilded logs it
         log_msg = f"{character.name} burned resistance on {act}."
     else:
         log_msg = f"{character.name} burned resistance on {act} — {result['result']} · {outcome_label}.{refreshed}"
-        _remember(character, act, drive_key, result["result"], result["outcome"])
-    await _log_roll(ctx, character, log_msg)
+        _remember(character, act, drive_key, result["result"], result["outcome"], secret)
+    await _log_roll(ctx, character, log_msg, secret=secret)

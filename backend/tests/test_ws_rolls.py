@@ -576,6 +576,52 @@ def test_a_held_secret_roll_stays_secret_on_a_desk_that_opens_again(client, dice
         assert gm.sync() == []
 
 
+def test_what_answers_a_players_secret_roll_stays_with_the_roller(client, dice):
+    """A player's secret roll (the server takes one; the desk has no button for it): a
+    resistance burned on it rerolls in secret, and the kept dice and a post-roll ability
+    used on it write their lines to the roller's own channel alone. No other desk gets
+    its dice or a line, live or in the history it is sent when it opens. The burn used to
+    show its dice and log its result to the whole table, and so did Flourish."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, hide=2, gilded_hide=True, cunning_max=6, cunning_current=6,
+                               role_ability="Flourish")
+    other = support.active_member(client, camp)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm, \
+            support.ws_connect(client, other["id"]) as wo:
+        dice(2, 3)
+        ws.send("roll", action="hide", drive_spent=0, is_secret=True)
+        ws.send("resolve_gilded", action="hide", chosen_type="regular")
+        dice(4, 2)
+        ws.send("burn_resistance", action="hide")
+        ws.send("resolve_gilded", action="hide", chosen_type="gilded")
+        ws.send("use_post_roll_ability", ability="Flourish")
+        msgs = ws.sync()
+        rolls = [m["payload"]["roll"] for m in support.of_type(msgs, "roll_result")]
+        assert [(r.get("is_secret"), r.get("is_resistance_roll")) for r in rolls] == [(True, None), (True, True)]
+        assert [(m["payload"]["message"], m["payload"]["log_type"], m["payload"]["is_secret"])
+                for m in support.of_type(msgs, "activity_log")] == [
+            (f"(Secret) {ch['name']} rolled hide {EM} 3 {DOT} Failure.", "roll", True),
+            (f"(Secret) {ch['name']} burned resistance on hide.", "roll", True),
+            (f"(Secret) {ch['name']} rolled hide {EM} 4 {DOT} Mixed Success. [gilded {EM} cunning Drive refreshed]",
+             "roll", True),
+            (f"(Secret) {ch['name']} used Flourish {EM} result pushed up one tier, to Full Success.", "field", True)]
+        # The Lightkeeper's desk gets the sheets (member_update), the other player nothing
+        assert set(support.types(gm.drain())) == {"member_update"}
+        assert wo.sync() == []
+        # One open line, so every channel has a history to be sent when it opens
+        wo.send("chat_message", message="hello", target="@Circle")
+        wo.sync()
+    for key in (other["id"], camp["campaign_code"]):
+        with support.ws_connect(client, key) as again:
+            entries = again.recv_type("activity_history")["payload"]["entries"]
+            assert [(e["message"], e.get("is_secret")) for e in entries] == [(f"{other['name']}: hello", None)]
+    holders = {key for key, lines in main.manager._history.items()
+               for camp_id, line in lines if camp_id == camp["id"] and line.get("is_secret")}
+    assert holders == {character_key(ch["id"])}
+    row = support.fetch(Character, ch["id"])
+    assert (row.cunning_resistance_spent, row.cunning_current) == (1, 4)
+
+
 def test_roll_without_action_sends_roll_error(client):
     ch = support.forge(client)
     with support.ws_connect(client, ch["id"]) as ws:
