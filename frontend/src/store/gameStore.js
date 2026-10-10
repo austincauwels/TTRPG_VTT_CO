@@ -148,6 +148,10 @@ const scarArrived = (state, characterId, type) => {
   return i < 0 ? {} : heldMarksAre({ ...held, landing: held.landing.filter((_, j) => j !== i) });
 };
 
+// An ability used outside a roll is paid when the next sheet comes, within this long; a
+// use the server dropped without a word does not take a later change for its payment
+const USE_ANSWER_MS = 10000;
+
 const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
 
 // The Activity Log keeps this many lines, oldest first
@@ -393,7 +397,7 @@ const useGameStore = create(
       // playtest, mark-undo-then-death-defy: the box went empty for the offer's 30 seconds)
       heldMarks: null,
       abilityUseError: null,     // why the server refused an ability used outside a roll
-      abilityUseSent: null,      // the ability whose use_ability waits for the server's answer
+      abilityUseSent: null,      // { ability, at }: the use_ability that waits for the server's answer
       abilityUsed: null,         // { ability, at }: the last use the server paid for, which its button says
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
       advancementDeferred: false, // the player chose "Later" on the advancement dialog
@@ -633,8 +637,13 @@ const useGameStore = create(
             // The sheet, and the held marks that were on their way and are on it now
             set(state => ({ character: incoming, ...sheetArrived(state, prevChar, incoming) }));
             // The answer to an ability used outside a roll: the server paid its cost (a
-            // refusal is action_rejected instead)
-            if (get().abilityUseSent) set(state => ({ abilityUsed: { ability: state.abilityUseSent, at: Date.now() }, abilityUseSent: null }));
+            // refusal is action_rejected instead). A use with no answer for a while was
+            // dropped, and a sheet now is some other change.
+            const used = get().abilityUseSent;
+            if (used) {
+              set(Date.now() - used.at < USE_ANSWER_MS
+                ? { abilityUsed: { ability: used.ability, at: Date.now() }, abilityUseSent: null } : { abilityUseSent: null });
+            }
             // A pending scar that was recorded elsewhere (another tab) must not be recorded twice.
             const waiting = get().pendingScar;
             if (waiting && incoming?.id === waiting.characterId && waiting.scarsAtTrigger != null &&
@@ -1269,7 +1278,7 @@ const useGameStore = create(
         set({ abilityUseError: null });
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'use_ability', payload: { ability, ...extra } }));
-          set({ abilityUseSent: ability, abilityUsed: null });
+          set({ abilityUseSent: { ability, at: Date.now() }, abilityUsed: null });
           return true;
         }
         set({ abilityUseError: 'Not connected. Try again in a moment.' });

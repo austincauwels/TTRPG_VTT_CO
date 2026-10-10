@@ -503,7 +503,10 @@ def test_a_question_ability_asks_one_of_its_questions(client, name, drive, quest
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("use_ability", ability=name)
         ws.send("use_ability", ability=name, option="Who did it?")
-        assert ws.sync() == [_use_rejected(422, f"Choose the question to ask with {name}.")] * 2
+        # Not text: refused the same way (a list or an object ended the socket)
+        ws.send("use_ability", ability=name, option={"a": 1})
+        ws.send("use_ability", ability=name, option=[question])
+        assert ws.sync() == [_use_rejected(422, f"Choose the question to ask with {name}.")] * 4
         assert getattr(support.fetch(Character, ch["id"]), f"{drive}_current") == 2
         ws.send("use_ability", ability=name, option=question)
         msgs = ws.sync()

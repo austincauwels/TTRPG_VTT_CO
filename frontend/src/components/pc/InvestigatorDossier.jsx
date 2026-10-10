@@ -94,6 +94,8 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const isAlly = (id) => allies.some(a => String(a.id) === String(id));
   const targetNow = isAlly(target) ? target : '';
   const choiceNow = needsAlly && !isAlly(choice) ? '' : choice;
+  const questionRef = useRef(null);
+  const buttonRef = useRef(null);
   const send = () => {
     const sent = onUse(name, {
       ...(optionKeys ? { option } : {}),
@@ -106,14 +108,19 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
     });
     if (sent && needsItem) setChoice('');
     if (sent && needsSplit) setSplit({ nerve: 0, cunning: 0, intuition: 0 });
-    if (sent && use.ask) setOption('');
+    if (sent && use.ask) {
+      setOption('');
+      // Use goes disabled with the focus on it (a keyboard, a screen reader), which would
+      // drop to the page: it goes to the question, where the next use starts
+      if (document.activeElement === buttonRef.current) questionRef.current?.focus({ preventScroll: true });
+    }
   };
   // 44px and 16px text on every touch screen (Safari zooms the page onto a smaller field)
   const select = 'ml-1 max-w-full min-w-0 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:text-base';
   return (
     <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle max-w-full">
       {optionKeys && (
-        <select aria-label={use.ask ? `Question for ${name}` : `How to use ${name}`} value={option}
+        <select ref={questionRef} aria-label={use.ask ? `Question for ${name}` : `How to use ${name}`} value={option}
           onChange={e => { setOption(e.target.value); setChoice(''); }} className={select}>
           {use.ask && <option value="">Question to ask</option>}
           {optionKeys.map(k => <option key={k} value={k}>{use.options[k]}</option>)}
@@ -157,7 +164,7 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
         </label>
       ))}
       {needsSplit && <span className="text-sm font-mono text-sepia">{splitTotal} / {splitMax}</span>}
-      <button type="button" onClick={send}
+      <button ref={buttonRef} type="button" onClick={send}
         disabled={(use.ask && !option) || ((needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
           : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false)}
         className="ml-1 px-2 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:px-3 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">

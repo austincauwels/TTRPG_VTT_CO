@@ -59,7 +59,7 @@ All use counts are reset to `{}` for every active character when the GM fires **
 
 ### How are the question abilities used?
 
-Scout (1 Intuition), Uncanny Eye (1 Intuition) and Tactician (1 Nerve) each ask the Lightkeeper one of three questions, in the rulebook's words. On the sheet the player picks the question first ("Question to ask" starts blank), then presses Use; the server refuses a use without one of the three, and spends nothing. The Activity Log names the question: "Mira used Tactician: How do I get to safety? (1 Nerve)." They have no use limit, so the choice goes back to blank after each use, and the button says "Spent 1 Nerve" for a few seconds once the server has paid.
+Scout (1 Intuition), Uncanny Eye (1 Intuition) and Tactician (1 Nerve) each ask the Lightkeeper one of three questions, in the rulebook's words. On the sheet the player picks the question first ("Question to ask" starts blank), then presses Use; the server refuses a use without one of the three, and spends nothing. The Activity Log names the question: "Mira used Tactician: How do I get to safety? (1 Nerve)." They have no use limit, so the choice goes back to blank after each use, and a line after the button says "Spent 1 Nerve" for a few seconds once the server has paid.
 
 | Ability | Questions |
 |---------|-----------|

@@ -222,6 +222,9 @@ async def handle_use_ability(ctx):
         await refuse(409, f"{character.name} does not have {name}.")
         return
     option = payload.get("option") or ""
+    if not isinstance(option, str):
+        # A list or an object is no option: looked up, it ended the socket (unhashable)
+        option = None
     options = use.get("options")
     if options is not None and option not in options:
         await refuse(422, f"Choose the question to ask with {name}." if use.get("ask")
