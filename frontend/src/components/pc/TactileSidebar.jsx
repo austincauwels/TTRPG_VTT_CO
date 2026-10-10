@@ -186,7 +186,7 @@ export const TactileSidebar = ({ phonePart }) => {
   // hourglass at the foot always show, and only the circle's cards between them scroll if a
   // large circle ever runs longer than the screen.
   return (
-    <div className={`lg:col-span-3 lg:col-start-1 lg:row-start-1 xl:col-span-1 space-y-6 mt-2 xl:mt-0 relative order-3 lg:order-none xl:h-full xl:min-h-0 xl:overflow-y-auto xl:overflow-x-hidden xl:flex xl:flex-col xl:space-y-0 xl:gap-2 max-md:flex max-md:flex-col max-md:space-y-0 max-md:gap-6 ${
+    <div className={`lg:col-span-3 lg:col-start-1 lg:row-start-1 xl:col-span-1 space-y-6 mt-2 xl:mt-0 relative order-3 lg:order-none xl:h-full xl:min-h-0 xl:pt-3 xl:overflow-y-auto xl:overflow-x-hidden xl:flex xl:flex-col xl:space-y-0 xl:gap-2 max-md:flex max-md:flex-col max-md:space-y-0 max-md:gap-6 ${
       anyOnPhone ? '' : 'max-md:hidden'}`}>
 
       {/* The Lightkeeper's dispatch, pinned to the desk (DispatchNote.jsx) */}

@@ -423,6 +423,9 @@ async def handle_gm_return_spend(ctx):
         Character.id == payload.get("character_id"), Character.campaign_id == camp_id).first()
     if target is None:
         return
+    # Read both rows again, locked until the commit, so a spend landing at the same moment
+    # is not overwritten
+    db.refresh(target, with_for_update=True)
     spent = getattr(target, "resources_spent_assignment", 0) or 0
     if spent <= 0:
         await manager.broadcast(ctx.channel, {"type": "action_rejected", "payload": {
@@ -433,6 +436,7 @@ async def handle_gm_return_spend(ctx):
     resource = payload.get("resource_type")
     circle = resolve_circle(db, payload.get("circle_id") or (ctx.circle.id if ctx.circle else 1), camp_id)
     if resource in RESOURCE_NAMES and circle is not None:
+        db.refresh(circle, with_for_update=True)
         setattr(circle, resource, (getattr(circle, resource, 0) or 0) + 1)
         said += f", and a {resource.capitalize()} to the circle"
     db.commit()

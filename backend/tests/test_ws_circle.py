@@ -1311,3 +1311,15 @@ def test_a_player_cannot_give_a_spend_back(client):
         wm.send("gm_return_spend", character_id=member["id"])
         assert [m["type"] for m in wm.sync()] == ["action_rejected"]
     assert support.fetch(Character, member["id"]).resources_spent_assignment == 2
+
+
+def test_a_lightkeeper_cannot_give_a_spend_back_on_another_campaigns_circle(client):
+    camp, (member,), cid = _campaign(client)
+    other, _, other_cid = _campaign(client)
+    support.update(Character, member["id"], resources_spent_assignment=1)
+    before = support.fetch(Circle, other_cid).stitch
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_return_spend", character_id=member["id"], resource_type="stitch", circle_id=other_cid)
+        assert [m["type"] for m in gm.sync()] == ["action_rejected"]
+    assert support.fetch(Circle, other_cid).stitch == before
+    assert support.fetch(Character, member["id"]).resources_spent_assignment == 1

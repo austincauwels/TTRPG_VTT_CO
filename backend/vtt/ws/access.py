@@ -404,7 +404,7 @@ RULES = {
     "refill_resources": _gm_circle,
     "gm_end_assignment": _gm_circle,
     "gm_reset_character": _gm_only,
-    "gm_return_spend": _gm_only,
+    "gm_return_spend": _gm_circle,
     "update_circle": _gm_circle,
     "gm_update_scars": _gm_update_scars,
     "intercept_mark": _intercept_mark,

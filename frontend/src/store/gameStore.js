@@ -194,7 +194,7 @@ const deletionRequest = async (path, method) => {
 // What the Lightkeeper changed that a player has not looked at yet, as the desk parts the
 // "new" dots sit on (playtest, silent-table-changes): the dispatch, the hourglass and its
 // timer ('watch'), and the reports opening ('circle'). Only changes to a circle this desk
-// already held count, so opening the desk marks nothing.
+// already held count (a saved circle too, so what changed while the player was away shows).
 const unseenFrom = (prev, next) => {
   if (!prev || !next || prev.id !== next.id) return [];
   const keys = [];

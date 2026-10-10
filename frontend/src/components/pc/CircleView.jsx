@@ -523,9 +523,12 @@ export const CircleView = () => {
     return () => clearTimeout(t);
   }, [confirmKey]);
   const spendHeld = useRef(false);
+  const askedAt = useRef(0);
   function pressSpend(key) {
     if (spendHeld.current) return;
-    if (confirmKey !== key) { setConfirmKey(key); return; }
+    // A double-click is one press: the second press has to be a deliberate one
+    if (confirmKey !== key) { askedAt.current = Date.now(); setConfirmKey(key); return; }
+    if (Date.now() - askedAt.current < 500) return;
     spendHeld.current = true;
     setTimeout(() => { spendHeld.current = false; }, SPEND_GAP_MS);
     lastSpendAt.current = Date.now();
