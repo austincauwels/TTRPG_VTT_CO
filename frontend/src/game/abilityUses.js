@@ -2,17 +2,28 @@
 // "Use" button on the sheet's ability card sends use_ability; the server pays the cost
 // (backend/vtt/ability_uses.py, which names the same abilities; tests/test_creation.py
 // checks that the two tables agree). cost is what the button says; options is a choice
-// the player makes; needs is a further choice (a resource, an object to write in, an
+// the player makes; ask: the options are the questions the ability asks, in the
+// rulebook's words, and the choice starts blank, so Use waits for one (playtest,
+// tactician-one-tap); needs is a further choice (a resource, an object to write in, an
 // ally, or a split of drive points); target lets the player name an ally instead of
 // themselves (Ritual, Great Wards).
 export const ABILITY_USES = {
-  'Scout':               { cost: '1 Intuition' },
-  'Uncanny Eye':         { cost: '1 Intuition' },
+  'Scout':               { cost: '1 Intuition', ask: true, options: {
+    'What do I notice here that others do not see?': 'What do I notice here that others do not see?',
+    'What in this place might be of use to us?': 'What in this place might be of use to us?',
+    'What path should we follow?': 'What path should we follow?' } },
+  'Uncanny Eye':         { cost: '1 Intuition', ask: true, options: {
+    'How can I leverage something here to my advantage?': 'How can I leverage something here to my advantage?',
+    "What here doesn't work the way it appears?": "What here doesn't work the way it appears?",
+    'What is out of place here?': 'What is out of place here?' } },
   'Well-Researched':     { cost: '1 Intuition' },
   'Obscure Lexicon':     { cost: '1 Intuition' },
   'Miasma':              { cost: '1 Intuition' },
   'Escape Artist':       { cost: '1 Nerve' },
-  'Tactician':           { cost: '1 Nerve' },
+  'Tactician':           { cost: '1 Nerve', ask: true, options: {
+    'How do I get to safety?': 'How do I get to safety?',
+    'What poses the largest immediate threat to my circle?': 'What poses the largest immediate threat to my circle?',
+    'Where is the target going to move next?': 'Where is the target going to move next?' } },
   'Tricks of the Trade': { cost: '1 Nerve' },
   'Press Conference':    { cost: '1 Cunning' },
   'Sticky Fingers':      { cost: '1 Cunning' },

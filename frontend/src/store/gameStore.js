@@ -354,6 +354,8 @@ const useGameStore = create(
       // (playtest, mark-undo-then-death-defy: the box went empty for the offer's 30 seconds)
       heldMarks: null,
       abilityUseError: null,     // why the server refused an ability used outside a roll
+      abilityUseSent: null,      // the ability whose use_ability waits for the server's answer
+      abilityUsed: null,         // { ability, at }: the last use the server paid for, which its button says
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
       advancementDeferred: false, // the player chose "Later" on the advancement dialog
       advancementError: null,     // why the server refused an advancement pick
@@ -541,6 +543,8 @@ const useGameStore = create(
           stopHeartbeat();
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
           if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
+          // An ability use with no answer yet: the next socket's sheet does not say it was paid
+          if (get().abilityUseSent) set({ abilityUseSent: null });
           // A roll waiting to be sent, or sent with no answer, waits on only while the desk
           // reconnects by itself; the sent one goes again with its roll_id
           const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
@@ -587,6 +591,9 @@ const useGameStore = create(
             set({ character: incoming });
             // The held marks that were on their way are on this sheet now
             if (get().heldMarks?.landing) set({ heldMarks: null });
+            // The answer to an ability used outside a roll: the server paid its cost (a
+            // refusal is action_rejected instead)
+            if (get().abilityUseSent) set(state => ({ abilityUsed: { ability: state.abilityUseSent, at: Date.now() }, abilityUseSent: null }));
             // A pending scar that was recorded elsewhere (another tab) must not be recorded twice.
             const waiting = get().pendingScar;
             if (waiting && incoming?.id === waiting.characterId && waiting.scarsAtTrigger != null &&
@@ -725,7 +732,7 @@ const useGameStore = create(
               set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
             }
             if (message.payload.action === 'use_ability') {
-              set({ abilityUseError: message.payload.detail || 'That ability was not used.' });
+              set({ abilityUseError: message.payload.detail || 'That ability was not used.', abilityUseSent: null, abilityUsed: null });
             }
             // A report refused (reports closed, or already filed): the form says why
             if (message.payload.action === 'submit_assignment_report') {
@@ -1210,6 +1217,7 @@ const useGameStore = create(
         set({ abilityUseError: null });
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'use_ability', payload: { ability, ...extra } }));
+          set({ abilityUseSent: ability, abilityUsed: null });
           return true;
         }
         set({ abilityUseError: 'Not connected. Try again in a moment.' });

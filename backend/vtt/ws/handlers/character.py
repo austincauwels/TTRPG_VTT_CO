@@ -224,7 +224,8 @@ async def handle_use_ability(ctx):
     option = payload.get("option") or ""
     options = use.get("options")
     if options is not None and option not in options:
-        await refuse(422, f"Choose how to use {name}: " + ", ".join(o for o in options if o) + ".")
+        await refuse(422, f"Choose the question to ask with {name}." if use.get("ask")
+                     else f"Choose how to use {name}: " + ", ".join(o for o in options if o) + ".")
         return
     # An option either adds a mark (Last Moments' still image) or names an effect (Ritual's
     # Reinvigorate)

@@ -52,11 +52,30 @@ const AbilityPane = ({ heading, entries, blank, renderUse }) => {
   );
 };
 
+// What a use cost, said after the server paid it ("Spent 1 Nerve"), from the button's words
+const spentWords = (cost) => (/^\d/.test(cost) ? `Spent ${cost}`
+  : cost.startsWith('burn ') ? `Burned ${cost.slice(5)}`
+    : cost.startsWith('take ') ? `Took ${cost.slice(5)}` : 'Used');
+const SPENT_SHOWN_MS = 5000;
+
 // An ability used outside a roll: its cost on a button, and the choice it needs, if any
-// (game/abilityUses.js; the server pays the cost)
+// (game/abilityUses.js; the server pays the cost). A question ability (ask) starts on no
+// question, so Use waits for the one asked and one stray tap spends nothing, and goes back
+// to none after each use. Once the server has paid, the line after the button says what it
+// cost for a few seconds (playtest, tactician-one-tap: Nerve went with no change near the
+// button).
 const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const optionKeys = use.options ? Object.keys(use.options) : null;
-  const [option, setOption] = useState(optionKeys ? optionKeys[0] : '');
+  const [option, setOption] = useState(optionKeys && !use.ask ? optionKeys[0] : '');
+  const usedAt = useGameStore(s => (s.abilityUsed?.ability === name ? s.abilityUsed.at : null));
+  const [spentShown, setSpentShown] = useState(false);
+  useEffect(() => {
+    const left = usedAt ? usedAt + SPENT_SHOWN_MS - Date.now() : 0;
+    setSpentShown(left > 0);
+    if (left <= 0) return undefined;
+    const t = setTimeout(() => setSpentShown(false), left);
+    return () => clearTimeout(t);
+  }, [usedAt]);
   const [choice, setChoice] = useState('');
   const needsDrive = name === 'Ritual' && option === 'Reinvigorate';
   const needsResource = use.needs === 'resource';
@@ -87,12 +106,16 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
     });
     if (sent && needsItem) setChoice('');
     if (sent && needsSplit) setSplit({ nerve: 0, cunning: 0, intuition: 0 });
+    if (sent && use.ask) setOption('');
   };
-  const select = 'ml-1 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5';
+  // 44px and 16px text on every touch screen (Safari zooms the page onto a smaller field)
+  const select = 'ml-1 max-w-full min-w-0 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:text-base';
   return (
-    <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle">
+    <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle max-w-full">
       {optionKeys && (
-        <select aria-label={`How to use ${name}`} value={option} onChange={e => { setOption(e.target.value); setChoice(''); }} className={select}>
+        <select aria-label={use.ask ? `Question for ${name}` : `How to use ${name}`} value={option}
+          onChange={e => { setOption(e.target.value); setChoice(''); }} className={select}>
+          {use.ask && <option value="">Question to ask</option>}
           {optionKeys.map(k => <option key={k} value={k}>{use.options[k]}</option>)}
         </select>
       )}
@@ -135,11 +158,12 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
       ))}
       {needsSplit && <span className="text-sm font-mono text-sepia">{splitTotal} / {splitMax}</span>}
       <button type="button" onClick={send}
-        disabled={(needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
-          : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false}
-        className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
+        disabled={(use.ask && !option) || ((needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
+          : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false)}
+        className="ml-1 px-2 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:px-3 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
       </button>
+      <span role="status" className="text-sm italic text-sepia">{spentShown ? spentWords(use.cost) : ''}</span>
     </span>
   );
 };
@@ -155,7 +179,7 @@ const ScarAbilityUse = ({ name, use, character, scarWaiting, onUse }) => {
   return (
     <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle">
       <button type="button" onClick={() => onUse(name, use.mark || '')} disabled={!!character?.is_dead || !!scarWaiting || used}
-        className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
+        className="ml-1 px-2 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:px-3 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
       </button>
       {why && <span className="text-sm italic text-sepia">{why}</span>}

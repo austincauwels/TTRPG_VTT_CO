@@ -57,6 +57,16 @@ Yes. The server tracks uses in `character.ability_uses` (a JSON dict). Limits:
 
 All use counts are reset to `{}` for every active character when the GM fires **End Assignment** (`gm_end_assignment`).
 
+### How are the question abilities used?
+
+Scout (1 Intuition), Uncanny Eye (1 Intuition) and Tactician (1 Nerve) each ask the Lightkeeper one of three questions, in the rulebook's words. On the sheet the player picks the question first ("Question to ask" starts blank), then presses Use; the server refuses a use without one of the three, and spends nothing. The Activity Log names the question: "Mira used Tactician: How do I get to safety? (1 Nerve)." They have no use limit, so the choice goes back to blank after each use, and the button says "Spent 1 Nerve" for a few seconds once the server has paid.
+
+| Ability | Questions |
+|---------|-----------|
+| Scout | What do I notice here that others do not see? What in this place might be of use to us? What path should we follow? |
+| Uncanny Eye | How can I leverage something here to my advantage? What here doesn't work the way it appears? What is out of place here? |
+| Tactician | How do I get to safety? What poses the largest immediate threat to my circle? Where is the target going to move next? |
+
 ### How does resistance work?
 
 Each drive pool has a **resistance track** equal to `drive_max ÷ 3` (e.g., a Drive 3 pool has 1 resistance pip; Drive 6 has 2).
