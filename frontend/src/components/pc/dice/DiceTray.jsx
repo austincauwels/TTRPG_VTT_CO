@@ -46,7 +46,7 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
       {lastRoll.is_secret && (
         <p data-secret-roll="" className="mb-0.5 flex flex-wrap items-baseline gap-x-1.5 font-serif italic text-sm leading-snug text-sepia">
           <span className="not-italic font-sans text-xs font-black uppercase tracking-widest border border-sepia/70 rounded-sm px-1.5 py-px">
-            Secret<span className="sr-only">:</span>
+            Secret<span className="sr-only">: </span>
           </span>
           only you saw this
         </p>
