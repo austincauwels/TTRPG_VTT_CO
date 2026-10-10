@@ -15,6 +15,12 @@ _pending_marks while an offer is open: using the ability spends it, and declinin
 (_pending_rush). Both are in memory: after a restart an open offer's decline still
 lands the mark it names, and an Adrenaline Rush offer is gone.
 
+The desk draws a held mark as held, not taken, while its offer is open. A desk that
+opens while a mark is held gets its offer again (send_held_mark), and when a held mark
+lands because another mark came, the desk is told the offer is closed
+(mark_offer_closed), so its card does not stay up and land the mark a second time when
+its countdown runs out.
+
 A mark that sends the allies Behind Me and Premonitions offers opens one answer
 (_interceptable, for INTERCEPT_WINDOW seconds): the first ally to answer takes it, and
 later answers, or answers with no mark waiting, are refused, so one mark is never
@@ -254,11 +260,28 @@ async def _land(ctx, character, held, channel, passed_on=None):
                          announce=True, passed_on=None if i else passed_on)
 
 
+async def _offer(channel, held, offer):
+    """Sends an offer that holds the character's mark, kept with it for send_held_mark."""
+    held["offer"] = offer
+    await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": offer})
+
+
 async def _offer_defy(character, channel, held):
-    count = 1 + len(held.get("more", []))
-    await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {
+    # mark_types: every mark of the harm, so the desk draws each one held
+    types = [held["mark_type"], *held.get("more", [])]
+    await _offer(channel, held, {
         "ability": "Death Defy", "mark_type": held["mark_type"], "character_id": character.id,
-        "action": "escape", "count": count}})
+        "action": "escape", "count": len(types), "mark_types": types})
+
+
+async def send_held_mark(websocket, character):
+    """A desk that opens while an offer holds the character's mark (a reload, the player
+    back on another device, a dropped connection) gets that offer again, so the sheet
+    draws the mark held and the offer's countdown can still land it. Before, the mark
+    waited unseen, with no countdown, until the character's next mark landed it."""
+    held = _pending_marks.get(character.id)
+    if held and held.get("offer"):
+        await websocket.send_json({"type": "ability_mark_offer", "payload": held["offer"]})
 
 
 async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False, offer_intercepts=True,
@@ -280,14 +303,18 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
         await _offer_defy(character, channel, held)
         return
     if held:
+        # The desk's card for it closes: answered later, it would land the mark again
+        await manager.broadcast(channel, {"type": "mark_offer_closed", "payload": {
+            "character_id": character.id, "ability": held.get("offer", {}).get("ability"),
+            "mark_type": held["mark_type"]}})
         await _land(ctx, character, held, channel)
     pending = {"mark_type": m_type, "is_from_enemy": bool(is_from_enemy), "offer_intercepts": offer_intercepts}
     options = _soak_options(character, m_type) if soaks else []
     if options:
         _pending_marks[character.id] = {**pending, "stage": "soak"}
-        await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {
+        await _offer(channel, _pending_marks[character.id], {
             "ability": options[0]["ability"], "mark_type": m_type, "character_id": character.id,
-            "options": options, "action": "soak"}})
+            "options": options, "action": "soak"})
         return
     if is_from_enemy and _can_defy(character):
         _pending_marks[character.id] = {**pending, "stage": "escape"}

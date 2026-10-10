@@ -116,7 +116,8 @@ def test_a_declined_soak_still_offers_death_defy_for_an_enemys_mark(client):
         assert ws.sync()[0]["payload"]["action"] == "soak"
         ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body")
         assert ws.sync() == [{"type": "ability_mark_offer", "payload": {
-            "ability": "Death Defy", "mark_type": "body", "character_id": ch["id"], "action": "escape", "count": 1}}]
+            "ability": "Death Defy", "mark_type": "body", "character_id": ch["id"], "action": "escape", "count": 1,
+            "mark_types": ["body"]}}]
         ws.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body")
         msgs = ws.sync()
         assert msgs[0]["payload"]["body_marks"] == 1
@@ -161,18 +162,81 @@ def test_death_defy_offer_unless_not_from_an_enemy(client):
     enemy; the player judges whether an enemy dealt it."""
     ch = support.forge(client, specialty_ability="Death Defy")
     offer = [{"type": "ability_mark_offer", "payload": {
-        "ability": "Death Defy", "mark_type": "bleed", "character_id": ch["id"], "action": "escape", "count": 1}}]
+        "ability": "Death Defy", "mark_type": "bleed", "character_id": ch["id"], "action": "escape", "count": 1,
+        "mark_types": ["bleed"]}}]
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="bleed", is_from_enemy=True)
         assert ws.sync() == offer
         # as the desk sends it: another enemy mark while the offer is open is the same harm,
         # and waits with the first (test_death_defy_escapes_every_mark_of_one_harm)
         ws.send("take_mark", mark_type="bleed")
-        assert ws.sync() == [{**offer[0], "payload": {**offer[0]["payload"], "count": 2}}]
+        assert ws.sync() == [{**offer[0], "payload": {**offer[0]["payload"], "count": 2,
+                                                      "mark_types": ["bleed", "bleed"]}}]
         ws.send("take_mark", mark_type="bleed", is_from_enemy=False)  # the held two, then this one
         updates = [m["payload"]["bleed_marks"] for m in ws.sync() if m["type"] == "character_update"]
         assert updates == [1, 2, 3]
     assert support.fetch(Character, ch["id"]).bleed_marks == 3
+
+
+def test_a_death_defy_offer_names_every_mark_it_holds(client):
+    """The offer says which marks the harm holds (mark_types), so the desk draws each one
+    held in its own track while the offer is open (playtest, mark-undo-then-death-defy)."""
+    ch = support.forge(client, specialty_ability="Death Defy")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", is_from_enemy=True)
+        ws.send("take_mark", mark_type="bleed", is_from_enemy=True)
+        assert [m["payload"]["mark_types"] for m in ws.sync()] == [["body"], ["body", "bleed"]]
+
+
+def test_a_desk_that_opens_again_is_offered_the_held_mark(client):
+    """Fixed (playtest, mark-undo-then-death-defy): a desk reloaded, or a connection lost,
+    while an offer held the mark forgot the offer. The mark waited unseen, with no
+    countdown to land it, until the character's next mark. A desk that opens on the
+    channel is sent the offer again, after the circle, and its answer lands the mark once."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, cunning_max=3, role_ability="Death Defy",
+                               specialty_ability="In the Trenches")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body")
+        [soak] = ws.sync()
+        assert soak["payload"]["action"] == "soak"
+    with support.ws_connect(client, ch["id"]) as again:
+        assert support.types(again.initial) == ["character_update", "circle_update"]
+        assert again.recv() == soak
+        again.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body")
+        [defy] = again.sync()
+        assert defy["payload"] == {"ability": "Death Defy", "mark_type": "body", "character_id": ch["id"],
+                                   "action": "escape", "count": 1, "mark_types": ["body"]}
+    with support.ws_connect(client, ch["id"]) as third:
+        assert third.recv() == defy   # the offer open now, not the soak answered before
+        third.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body")
+        assert support.of_type(third.sync(), "character_update")[0]["payload"]["body_marks"] == 1
+    # Answered: a desk opening now has nothing waiting for it (only the log's lines)
+    with support.ws_connect(client, ch["id"]) as fourth:
+        assert support.types(fourth.sync()) == ["activity_history"]
+    assert support.fetch(Character, ch["id"]).body_marks == 1
+
+
+def test_a_held_mark_that_lands_early_closes_its_offer(client):
+    """A mark an open offer holds lands first when another mark comes. The desk's card for
+    it stayed up, and its countdown then sent "Take the mark", which (with nothing held,
+    as after a restart) landed the mark a second time. The desk is told the offer is
+    closed (mark_offer_closed) before the mark lands."""
+    ch = support.forge(client, cunning_max=3, specialty_ability="In the Trenches")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", is_from_enemy=False)
+        ws.sync()
+        ws.send("take_mark", mark_type="bleed", is_from_enemy=False)
+        msgs = ws.sync()
+        assert support.types(msgs) == ["mark_offer_closed", "character_update", "activity_log",
+                                       "character_update", "activity_log"]
+        assert msgs[0]["payload"] == {"character_id": ch["id"], "ability": "In the Trenches", "mark_type": "body"}
+        assert (msgs[1]["payload"]["body_marks"], msgs[3]["payload"]["bleed_marks"]) == (1, 1)
+        # Answered or not, a closed offer is not offered again
+    with support.ws_connect(client, ch["id"]) as again:
+        assert support.types(again.sync()) == ["activity_history"]
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.bleed_marks) == (1, 1)
 
 
 def test_endurance_six_keeps_the_character_standing(client, dice):
@@ -337,8 +401,8 @@ def test_declining_death_defy_lands_every_held_mark(client):
         # A mark that is not an enemy's is not part of the harm: the held ones land first
         ws.send("take_mark", mark_type="body", is_from_enemy=True)
         ws.send("take_mark", mark_type="bleed", is_from_enemy=False)
-        assert support.types(ws.sync()) == ["ability_mark_offer", "character_update", "activity_log",
-                                            "character_update", "activity_log"]
+        assert support.types(ws.sync()) == ["ability_mark_offer", "mark_offer_closed", "character_update",
+                                            "activity_log", "character_update", "activity_log"]
     row = support.fetch(Character, ch["id"])
     assert (row.body_marks, row.brain_marks, row.bleed_marks) == (2, 1, 1)
 
@@ -812,7 +876,7 @@ def test_body_soak_ignores_brain_abilities_and_brain_ignores_body(client):
         assert ws.sync()[0]["payload"]["options"] == [{"ability": "In the Trenches", "resist_key": "cunning"}]
         ws.send("take_mark", mark_type="brain")  # the body mark the offer held lands first
         msgs = ws.sync()
-        assert msgs[0]["payload"]["body_marks"] == 1
+        assert support.of_type(msgs, "character_update")[0]["payload"]["body_marks"] == 1
         assert msgs[-1]["payload"]["options"] == [{"ability": "Compartmentalization", "resist_key": "nerve"}]
 
 
@@ -1063,6 +1127,6 @@ def test_a_held_mark_that_lands_when_another_comes_is_logged(client):
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="body", is_from_enemy=False)
         assert support.types(ws.sync()) == ["ability_mark_offer"]
-        ws.send("take_mark", mark_type="bleed", is_from_enemy=False)
+        ws.send("take_mark", mark_type="bleed", is_from_enemy=False)   # (and closes the offer)
         lines = [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"]
         assert lines == [f"{ch['name']} took a Body mark (1 of 3).", f"{ch['name']} took a Bleed mark (1 of 3)."]

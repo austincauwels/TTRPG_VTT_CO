@@ -208,6 +208,14 @@ const ScarEditLine = ({ index, raw, draft, onDraft, onSave, onRemove, removeHint
   );
 };
 
+// The marks an offer holds, in words: "Bleed mark", "2 Body marks", "Body and Bleed marks"
+const heldMarkWords = (types) => {
+  const parts = ['body', 'brain', 'bleed'].map(t => [t, types.filter(x => x === t).length])
+    .filter(([, n]) => n > 0).map(([t, n]) => (n > 1 ? `${n} ${MARK_NAME[t]}` : MARK_NAME[t]));
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  return `${list} mark${types.length > 1 ? 's' : ''}`;
+};
+
 const ROLE_ICONS = {
   'Face': 'GiDramaMasks',
   'Muscle': 'GiMuscleUp',
@@ -441,12 +449,15 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     return null;
   };
   const { held: heldMark, hold: holdMark, undo: undoMark, flush: flushMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
+  // The marks an open soak or Death Defy offer holds back (store heldMarks): drawn held,
+  // like a mark waiting for its Undo, until the offer is answered and the sheet has them
+  const offerHeld = useGameStore(s => s.heldMarks);
+  const heldByOffer = !readOnly && offerHeld && offerHeld.characterId === character?.id ? offerHeld : null;
   // Death Defy escapes every mark of one harm (p. 27): a mark still held for undo when its
   // offer appears goes now, so it joins the harm the offer counts
-  const markOffer = useGameStore(s => s.abilityMarkOffer);
   useEffect(() => {
-    if (markOffer?.ability === 'Death Defy' && markOffer.character_id === storeChar?.id) flushMark();
-  }, [markOffer?.seq]);
+    if (heldByOffer?.ability === 'Death Defy' && !heldByOffer.landing && heldByOffer.characterId === storeChar?.id) flushMark();
+  }, [heldByOffer?.seq]);
   // The player's own photo: the answer to a change is the sheet as the table now has it
   const photoInputRef = useRef(null);
   const portrait = usePortraitChange({
@@ -538,6 +549,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The trauma record in edit mode (the Lightkeeper's copy): each change goes to the table
   // at once; Done also saves scar words changed and not yet saved
   const editing = !!traumaEdit && editingTrauma;
+  // The mark waiting for its Undo fills its track, after any an offer holds: a scar
+  const undoFillsTrack = !!heldMark && (character[`${heldMark.type}_marks`] || 0)
+    + (heldByOffer ? heldByOffer.types.filter(t => t === heldMark.type).length : 0) >= 3;
   // Deal a mark (the Lightkeeper's copy): whether an enemy dealt it, and the last one sent
   const [dealFromEnemy, setDealFromEnemy] = useState(true);
   const [dealtNote, setDealtNote] = useState('');
@@ -1124,15 +1138,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <SafeIcon name="GiBleedingEye" size={20} className="text-oxblood shrink-0" /> Marks
             </h3>
             {/* Each box is its own target: only the next empty box takes a mark. A mark is
-                held for a few seconds with an Undo before it goes to the table. In the
-                Lightkeeper's edit, any box sets the track: to that box, or, for the last
-                filled box, to the one before it. */}
+                held for a few seconds with an Undo before it goes to the table, and while a
+                soak or Death Defy offer holds it there; a held mark's box is drawn half
+                inked with a dashed edge. In the Lightkeeper's edit, any box sets the track:
+                to that box, or, for the last filled box, to the one before it. */}
             <div className={`mark-tracks flex flex-col ${readOnly && !editing ? 'gap-2' : 'gap-1'}`}>
               {['body', 'brain', 'bleed'].map((type) => {
                 const name = MARK_NAME[type];
                 const marked = character?.[`${type}_marks`] || 0;
                 const heldHere = !readOnly && heldMark?.type === type;
-                const next = marked + (heldHere ? 1 : 0); // index of the box the next tap fills
+                const offerHolds = heldByOffer ? heldByOffer.types.filter(t => t === type).length : 0;
+                const held = offerHolds + (heldHere ? 1 : 0);
+                const next = marked + held; // index of the box the next tap fills
                 const trackFull = next >= 3;
                 // 44px targets on phones; on a wide record (index.css) the boxes keep to
                 // one line beside their labels.
@@ -1152,10 +1169,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         {name} <span aria-hidden="true">+</span>
                       </button>
                     )}
-                    <div className={`flex${editing ? ' rounded-sm outline-dashed outline-1 outline-offset-2 outline-oxblood/50' : ''}`} role="group" aria-label={`${name} marks: ${marked} of 3`}>
+                    <div className={`flex${editing ? ' rounded-sm outline-dashed outline-1 outline-offset-2 outline-oxblood/50' : ''}`} role="group"
+                      aria-label={`${name} marks: ${marked} of 3${held ? `, ${held} held` : ''}`}>
                       {[0, 1, 2].map((i) => {
                         const filled = i < marked;
-                        const isHeld = heldHere && i === marked;
+                        const isHeld = !filled && i < next;
                         const isNext = !readOnly && i === next;
                         // A filled mark is inked by hand, so each box sits a little askew
                         const box = (
@@ -1231,12 +1249,20 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               )}
             </div>
 
+            {/* Marks an open soak or Death Defy offer holds, drawn held above: what holds them */}
+            {heldByOffer && !heldByOffer.landing && (
+              <p className="mark-held font-serif text-base text-ink leading-snug border border-dashed border-oxblood/40 px-3 py-2 rounded-sm">
+                {heldMarkWords(heldByOffer.types)} held for {heldByOffer.ability}.
+              </p>
+            )}
+            {/* A mark waiting for its Undo is not on the record yet, and an investigator with a
+                soak or Death Defy is offered that first, so the strip says when it goes to the
+                table, never that it was taken (playtest, mark-undo-then-death-defy) */}
             {!readOnly && heldMark && (
               <div role="status" className="mark-held flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 px-3 py-2 rounded-sm">
                 <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-40">
-                  {(character?.[`${heldMark.type}_marks`] || 0) >= 3
-                    ? `${MARK_NAME[heldMark.type]} track is full: this mark brings a scar.`
-                    : `${MARK_NAME[heldMark.type]} mark taken.`}
+                  {MARK_NAME[heldMark.type]} mark: {undoFillsTrack ? 'the track is full, so it brings a scar. It' : 'it'} goes
+                  to the table when the Undo runs out.
                 </p>
                 <button
                   onClick={undoMark}
