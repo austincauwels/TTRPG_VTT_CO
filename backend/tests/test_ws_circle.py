@@ -799,7 +799,7 @@ def test_nobody_left_behind_adds_a_die_while_a_member_is_down(client, dice):
     def rolls(ws, count):
         dice(*([2] * count))
         ws.send("roll", action="move", drive_spent=0, ability_mods=["Nobody Left Behind"])
-        return len(ws.sync()[0]["payload"]["roll"]["dice"]) == count
+        return len(support.of_type(ws.sync(), "roll_result")[0]["payload"]["roll"]["dice"]) == count
 
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
         assert rolls(wa, 1)   # nobody is down: no die

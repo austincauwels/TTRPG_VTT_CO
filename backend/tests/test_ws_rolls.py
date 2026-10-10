@@ -250,9 +250,9 @@ def test_a_desk_that_opens_again_is_offered_the_held_gilded_roll(client, dice):
         assert support.types(msgs) == ["roll_kept", "activity_log"]
         assert msgs[1]["payload"]["message"] == f"{ch['name']} rolled control {EM} 6 {DOT} Full Success."
         assert support.types(gm.drain()) == ["dice_thrown", "activity_log"]
-    # Kept: a desk opening now has nothing waiting for it
+    # Kept: a desk opening now has nothing waiting for it (only the log's lines)
     with support.ws_connect(client, ch["id"]) as third:
-        assert third.sync() == []
+        assert support.types(third.sync()) == ["activity_history"]
     assert support.fetch(Character, ch["id"]).nerve_current == 3
 
 
@@ -274,9 +274,12 @@ def test_a_roll_sent_again_with_its_id_is_answered_not_rolled_again(client, dice
         assert first["roll_id"] == "r-1"
     with support.ws_connect(client, ch["id"]) as again, support.ws_connect(client, camp["campaign_code"]) as gm:
         again.send("roll", action="move", drive_spent=1, roll_id="r-1")
-        assert again.sync() == [{"type": "roll_result", "payload": first}]
+        # Each desk that opens gets the log's lines first, the first roll's line among them
+        msgs = again.sync()
+        assert support.types(msgs) == ["activity_history", "roll_result"]
+        assert msgs[1] == {"type": "roll_result", "payload": first}
         # The Lightkeeper's desk gets the sheet it mirrors, and no dice or log line
-        assert support.types(gm.drain()) == ["member_update"]
+        assert support.types(gm.drain()) == ["activity_history", "member_update"]
         # A new roll
         dice(1, 1, 4)
         again.send("roll", action="move", drive_spent=1, roll_id="r-2")
