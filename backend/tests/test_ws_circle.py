@@ -1014,6 +1014,39 @@ def test_circle_relationship_respond_on_gm_socket_is_rejected(client):
     assert support.fetch(Relationship, rel_id).status == "proposed"
 
 
+def test_a_relationship_waiting_at_the_seal_can_still_be_answered(client):
+    """The Lightkeeper's Finalize slip says the relationships still waiting can be
+    accepted after the seal (playtest, lk-formation-status-thin). Finalizing leaves them
+    as they stand, and the party whose turn it is still accepts or counters one from the
+    Circle tab, with the update reaching the Lightkeeper too."""
+    camp, (a, b, c), cid = _campaign(client, members=3)
+    with support.ws_connect(client, a["id"]) as wa:
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"], rel_type="Rivals")
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=c["id"], rel_type="Allies")
+        rels = support.of_type(wa.sync(), "relationship_update")[-1]["payload"]["relationships"]
+    to_b, to_c = (next(r["id"] for r in rels if r["to_character_id"] == who["id"]) for who in (b, c))
+    r = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid},
+                    headers=support.as_gm(camp))
+    assert r.status_code == 200 and r.json()["is_finalized"] is True
+    assert [row.status for row in support.fetch_all(Relationship, circle_id=cid)] == ["proposed", "proposed"]
+
+    with support.ws_connect(client, b["id"]) as wb, support.ws_connect(client, c["id"]) as wc, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
+        wb.send("circle_relationship_respond", relationship_id=to_b, action="accept")
+        [msg] = wb.sync()
+        assert msg["type"] == "relationship_update"
+        assert support.of_type(gm.drain(), "relationship_update") == [msg]
+        assert wc.drain() == [msg]
+        wc.send("circle_relationship_respond", relationship_id=to_c, action="counter",
+                counter_type="Family", counter_lore="cousins")
+        [msg] = wc.sync()
+        assert support.of_type(gm.drain(), "relationship_update") == [msg]
+    accepted, countered = support.fetch(Relationship, to_b), support.fetch(Relationship, to_c)
+    assert (accepted.status, accepted.last_actor_id) == ("accepted", b["id"])
+    assert (countered.status, countered.rel_type, countered.lore, countered.last_actor_id) == (
+        "proposed", "Family", "cousins", c["id"])
+
+
 def test_ws_propose_again_resets_the_existing_relationship(client):
     camp, (a, b), cid = _campaign(client, members=2)
     rel_id = client.post("/circle/relationship/propose", json={

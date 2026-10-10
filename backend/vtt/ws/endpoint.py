@@ -46,6 +46,7 @@ from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import CLOSE_UNAUTHENTICATED, Rejected, check_message, check_target, resolve_channel
 from vtt.ws.context import WSContext
 from vtt.ws.handlers import HANDLERS
+from vtt.ws.handlers.marks import send_held_mark
 from vtt.ws.handlers.rolls import send_held_roll
 from vtt.ws.manager import campaign_key, character_key, manager
 
@@ -156,6 +157,7 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
         await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(shown_circle)})
         if character:
             await send_held_roll(websocket, character)
+            await send_held_mark(websocket, character)
         # The Activity Log lines this channel was sent lately, so the desk's log is whole
         # again after a reload or a drop (sent only when there are some)
         history = manager.history_for(channel, camp_id)

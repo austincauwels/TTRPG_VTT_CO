@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiFetch, configureApiAuth, WS_CLOSE_UNAUTHENTICATED } from '../utils/api';
 import { playRollSound, playDiceTumble, playTensionTick } from '../game/rollSounds';
 
@@ -65,28 +65,111 @@ let queuedRoll = null;   // the roll frame waiting for the socket to open
 let sentRoll = null;     // the roll frame sent at least once, waiting for its result
 let sentRollGiveUpAt = 0; // when the tray stops waiting for sentRoll
 let answeredRollId = null; // the roll_id of the last result shown, so a late copy is ignored
+let rollDesk = null;     // the channel (character id or campaign code) the felt's roll was made on
 const newRollId = () => globalThis.crypto?.randomUUID?.()
   ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 let rollSeq = 0;         // the id each roll_result's roll is given on this desk
 let offerSeq = 0;        // the id each ability offer is given, so each gets its own countdown
+let markAnswerOut = false; // the last answer sent was to an offer that held this investigator's own mark
 let scarFormSeq = 0;     // the id each scar form is opened with, so a new one starts blank
 const nextScarForm = () => { scarFormSeq += 1; return scarFormSeq; };
 
 // Ability offers wait their turn: one is shown, the rest queue behind it (an ally's
 // intercept offer used to replace a soak offer that held this investigator's own mark,
-// which was then never answered). A new offer holding this investigator's own mark
-// replaces an old one, whose mark the server has already landed.
+// which was then never answered). The server holds one such mark at a time, so a new
+// offer holding this investigator's own mark replaces an old one, shown or waiting,
+// whose mark the server has already landed or counted in the new one: a waiting one
+// used to stay, and its answer then landed the new offer's mark.
 const holdsOwnMark = (offer) => !!offer && !offer.intercept && (offer.action === 'soak' || offer.action === 'escape');
 // Let Them In answers "1 or more Bleed marks" (p. 27): several marks from one harm ask once
 const asksLetThemIn = (offer, other) => !!offer && !!other && offer.ability === 'Let Them In'
   && other.ability === 'Let Them In' && offer.character_id === other.character_id;
 const queueOffer = (state, offer) => {
   if ([state.abilityMarkOffer, ...state.abilityMarkQueue].some(o => asksLetThemIn(offer, o))) return {};
-  if (!state.abilityMarkOffer) return { abilityMarkOffer: offer };
-  if (holdsOwnMark(offer) && holdsOwnMark(state.abilityMarkOffer)) return { abilityMarkOffer: offer };
-  return { abilityMarkQueue: [...state.abilityMarkQueue, offer] };
+  const queue = holdsOwnMark(offer) ? state.abilityMarkQueue.filter(o => !holdsOwnMark(o)) : state.abilityMarkQueue;
+  if (!state.abilityMarkOffer) return { abilityMarkOffer: offer, abilityMarkQueue: queue };
+  if (holdsOwnMark(offer) && holdsOwnMark(state.abilityMarkOffer)) return { abilityMarkOffer: offer, abilityMarkQueue: queue };
+  return { abilityMarkQueue: [...queue, offer] };
 };
 const nextOffer = (state) => ({ abilityMarkOffer: state.abilityMarkQueue[0] || null, abilityMarkQueue: state.abilityMarkQueue.slice(1) });
+// The offer holding this investigator's own mark goes, shown or waiting (the server
+// closed it: its mark landed when another came)
+const withoutOwnOffer = (state) => {
+  const queue = state.abilityMarkQueue.filter(o => !holdsOwnMark(o));
+  return holdsOwnMark(state.abilityMarkOffer)
+    ? { abilityMarkOffer: queue[0] || null, abilityMarkQueue: queue.slice(1) }
+    : { abilityMarkQueue: queue };
+};
+// The marks the sheet draws held (store heldMarks): those an open soak or Death Defy offer
+// holds back (offer), and those on their way onto the sheet (landing). A mark is on its
+// way from when its Undo runs out, or its offer is let go ("Take the mark", the countdown,
+// the server closing it) or used, until the sheet with it arrives, so its box never goes
+// empty in between (playtest, mark-undo-then-death-defy). Death Defy's offer names every
+// mark of the harm (mark_types).
+const typesOf = (offer) => (Array.isArray(offer.mark_types) ? offer.mark_types : [offer.mark_type]);
+const heldMarksAre = (held) => ({ heldMarks: held && (held.offer || held.landing.length) ? held : null });
+// An offer holds its marks: one sent from the sheet that it now holds (a soak offered for
+// it, Death Defy counting it in the harm) is held there, no longer on its way
+const offerHolds = (state, offer) => {
+  const types = typesOf(offer);
+  const left = [...types];
+  const was = state.heldMarks?.characterId === offer.character_id ? state.heldMarks.landing : [];
+  const landing = was.filter((m) => {
+    const i = m.answer ? -1 : left.indexOf(m.type);
+    if (i >= 0) left.splice(i, 1);
+    return i < 0;
+  });
+  return { heldMarks: { characterId: offer.character_id, offer: { types, ability: offer.ability, seq: offer.seq }, landing } };
+};
+// The open offer's marks go on their way: let go, or used (answer: the soak or Death Defy
+// keeps them off the sheet, or the server refuses it and lands them). Only the offer with
+// that seq: a card answered after another replaced it holds nothing now.
+const offerLets = (state, answer, seq) => {
+  const held = state.heldMarks;
+  if (!held?.offer || held.offer.seq !== seq) return {};
+  return heldMarksAre({ ...held, offer: null, landing: [...held.landing, ...held.offer.types.map(type => ({ type, answer }))] });
+};
+// The sheet arrived. A mark on its way is on it when its track rose, one mark a box; on a
+// full track, at the next sheet (Endurance keeps it at three; a fourth that brings a scar
+// goes with trigger_scar). A used offer's marks wait for its answer: a sheet with none of
+// them landed (soaked or escaped) takes them all away, else each goes as it lands.
+const sheetArrived = (state, prev, incoming) => {
+  const held = state.heldMarks;
+  if (!held?.landing.length || !prev || prev.id !== held.characterId || incoming?.id !== held.characterId) return {};
+  const rose = Object.fromEntries(['body', 'brain', 'bleed'].map(t => [t, (incoming[`${t}_marks`] || 0) - (prev[`${t}_marks`] || 0)]));
+  const answered = !held.landing.some(m => m.answer && rose[m.type] > 0);
+  return heldMarksAre({ ...held, landing: held.landing.filter((m) => {
+    if (rose[m.type] > 0) { rose[m.type] -= 1; return false; }
+    return m.answer ? !answered : (prev[`${m.type}_marks`] || 0) < 3;
+  }) });
+};
+// A fourth mark brought a scar: it is on the record, as the scar
+const scarArrived = (state, characterId, type) => {
+  const held = state.heldMarks;
+  const i = held?.characterId === characterId ? held.landing.findIndex(m => m.type === type) : -1;
+  return i < 0 ? {} : heldMarksAre({ ...held, landing: held.landing.filter((_, j) => j !== i) });
+};
+
+// An ability used outside a roll is paid when the next sheet comes, within this long; a
+// use the server dropped without a word does not take a later change for its payment
+const USE_ANSWER_MS = 10000;
+
+// A socket's unanswered requests go with it, however it goes (dropped, replaced by the
+// heartbeat or the browser going offline, closed on purpose). A mark sent on it is on
+// the next socket's first sheet if the server had it, and the server sends again an
+// offer that still holds one; a mark it never had would stay drawn held, and the next
+// sheet would be read as an ability use's payment.
+const forgetUnanswered = (set, get) => {
+  if (get().abilityUseSent) set({ abilityUseSent: null });
+  if (get().heldMarks?.landing.length) set(state => heldMarksAre({ ...state.heldMarks, landing: [] }));
+};
+// What one desk's mark offers and ability uses leave in the store: another desk in the
+// tab, or whoever signs in next, starts without them (the server sends again any offer
+// still holding a mark when its desk opens)
+const NO_OFFERS = {
+  abilityMarkOffer: null, abilityMarkQueue: [], heldMarks: null, abilityMarkRefused: null,
+  abilityUseSent: null, abilityUsed: null, abilityUseError: null,
+};
 
 const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
 
@@ -95,14 +178,16 @@ const LOG_LINES = 50;
 const clockTime = (date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 const LOG_TYPES = ['roll', 'chat', 'danger', 'environment'];
 // A line of the log from an activity_log payload (a string, or { message, log_type,
-// ink_color, at }). at is when the server sent it (ISO 8601), so a line replayed after a
-// reconnect keeps its own time.
+// ink_color, at, is_secret }). at is when the server sent it (ISO 8601), so a line
+// replayed after a reconnect keeps its own time. is_secret marks the line of a secret
+// roll, which only the roller's own desk is sent.
 const logLine = (payload) => {
   const text = typeof payload === 'string' ? payload : payload?.message;
   const at = typeof payload === 'object' && payload?.at ? new Date(payload.at) : null;
   const type = LOG_TYPES.includes(payload?.log_type) ? payload.log_type : 'field';
   const inkColor = (typeof payload === 'object' && payload?.ink_color) ? payload.ink_color : null;
-  return { text, type, time: clockTime(at && !Number.isNaN(at.getTime()) ? at : new Date()), inkColor };
+  const secret = typeof payload === 'object' && payload?.is_secret === true;
+  return { text, type, time: clockTime(at && !Number.isNaN(at.getTime()) ? at : new Date()), inkColor, secret };
 };
 
 // The number of the circle's assignment, which End Assignment moves on (backend
@@ -265,6 +350,15 @@ const closeSocketOn = (get, channel) => {
   };
 };
 
+// The session is kept in localStorage, which can refuse (a full store, blocked site data):
+// a refused write keeps it in this page only. Unguarded, the refusal was thrown out of the
+// state change that wrote it, into the screen being drawn, and the hub did not draw.
+const quietStorage = {
+  getItem: (name) => { try { return window.localStorage.getItem(name); } catch { return null; } },
+  setItem: (name, value) => { try { window.localStorage.setItem(name, value); } catch { /* this page only */ } },
+  removeItem: (name) => { try { window.localStorage.removeItem(name); } catch { /* nothing kept */ } },
+};
+
 const useGameStore = create(
   persist(
     (set, get) => ({
@@ -326,7 +420,16 @@ const useGameStore = create(
       pendingRollMods: [],       // active ability modifier chip keys for the current pending roll
       abilityMarkOffer: null,    // { ability, mark_type, character_id, options?, intercept?, seq } — mark intercept prompt
       abilityMarkQueue: [],      // offers waiting behind the one shown
+      // The marks the sheet draws held, as it does a mark waiting for its Undo: those an open
+      // soak or Death Defy offer holds back (the server's _pending_marks), and those on their
+      // way until the sheet arrives with them. { characterId, offer: { types, ability, seq }
+      // or null, landing: [{ type, answer }] } (offerHolds and the helpers after it;
+      // playtest, mark-undo-then-death-defy: the box went empty for the offer's 30 seconds)
+      heldMarks: null,
       abilityUseError: null,     // why the server refused an ability used outside a roll
+      abilityMarkRefused: null,  // why the server refused an answer to a mark offer (its mark then landed)
+      abilityUseSent: null,      // { ability, at }: the use_ability that waits for the server's answer
+      abilityUsed: null,         // { ability, at }: the last use the server paid for, which its button says
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
       advancementDeferred: false, // the player chose "Later" on the advancement dialog
       advancementError: null,     // why the server refused an advancement pick
@@ -368,8 +471,21 @@ const useGameStore = create(
       // Safely close the connection and wipe the local session data
       logout: () => {
         get().disconnect();
+        // Nothing of this user's desk stays in the tab for whoever signs in next: not the
+        // felt's roll (a Lightkeeper's secret one among them) and not the log
+        answeredRollId = null;
+        rollDesk = null;
 
         set({
+          ...NO_OFFERS,
+          lastRoll: null,
+          lastRollKept: null,
+          tableRoll: null,
+          pendingGildedChoice: null,
+          dismissedPrompts: [],
+          postRollTried: null,
+          activityLog: [],
+          unseen: {},
           accessSession: null,
           advancementDeferred: false,
           pendingScar: null,
@@ -422,6 +538,7 @@ const useGameStore = create(
           socket.onmessage = null;
           socket.onerror = null;
           try { socket.close(1000); } catch { /* already closed */ }
+          forgetUnanswered(set, get);
         }
         clearRollTimer();
         queuedRoll = null;
@@ -446,6 +563,8 @@ const useGameStore = create(
           previous.onmessage = null;
           previous.onerror = null;
           try { previous.close(1000); } catch { /* already closed */ }
+          // Its onclose does not run, so what it waited for goes here
+          forgetUnanswered(set, get);
         }
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
@@ -462,6 +581,15 @@ const useGameStore = create(
           sentRoll = null;
           set({ activityLog: [], unseen: {}, lastActivityLog: null, isRolling: false, rollWaiting: false, rollError: null, pendingRoll: null, tableRoll: null, memberSheets: {} });
         }
+        // Another desk in this tab starts with an empty felt: the roll on it was made at
+        // the desk before, by another investigator or by the Lightkeeper, whose secret roll
+        // would show there with its result. The same desk again keeps its roll (a trip to
+        // the hub), and a held gilded roll comes back from the server.
+        if (rollDesk !== null && String(rollDesk) !== String(gameId)) {
+          answeredRollId = null;
+          set({ ...NO_OFFERS, lastRoll: null, lastRollKept: null, pendingGildedChoice: null, dismissedPrompts: [], postRollTried: null });
+        }
+        rollDesk = gameId;
         const apiBase = import.meta.env.VITE_API_URL || '';
         const wsProtocol = (apiBase.startsWith('https') || window.location.protocol === 'https:') ? 'wss:' : 'ws:';
         const wsHost = apiBase ? apiBase.replace(/^https?:\/\//, '') : window.location.host;
@@ -497,15 +625,21 @@ const useGameStore = create(
           }, HEARTBEAT_TICK_MS);
           if (queuedRoll) sendRoll(set, get, queuedRoll);
           // The GM desk opened again (a drop, a laptop waking, "Use this tab"): the members'
-          // changes made while it was down never came, so what it shows loads again
+          // changes made while it was down never came, so what it shows loads again. So do
+          // the formation papers and the reports: the votes, answers and relationships that
+          // came meanwhile are what the Lightkeeper reads before finalizing.
           if (keepLog && onGmDesk(get)) {
             set(state => ({ memberResync: state.memberResync + 1 }));
             const { lastPlayedCampaign, accessSession } = get();
-            get().fetchRoster(lastPlayedCampaign.campaignId ?? accessSession?.campaignId, { keep: true });
+            const campaignId = lastPlayedCampaign.campaignId ?? accessSession?.campaignId;
+            get().fetchRoster(campaignId, { keep: true });
+            get().fetchCircleCreationState(campaignId);
           } else if (keepLog && get().character?.campaign_id) {
             // A player's desk: a death or a revival (member_status) that came while it was
-            // down is in the roster, which its circle's cards and ally pickers read
+            // down is in the roster, which its circle's cards and ally pickers read, and the
+            // other players' votes are on its formation papers
             get().fetchRoster(get().character.campaign_id, { keep: true });
+            if (get().character.status === 'active') get().fetchCircleCreationState(get().character.campaign_id);
           }
         };
         socket.onerror = (err) => console.error("WebSocket connection error:", err);
@@ -514,6 +648,8 @@ const useGameStore = create(
           stopHeartbeat();
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
           if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
+          // An ability use or marks on their way with no answer yet
+          forgetUnanswered(set, get);
           // A roll waiting to be sent, or sent with no answer, waits on only while the desk
           // reconnects by itself; the sent one goes again with its roll_id
           const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
@@ -557,7 +693,16 @@ const useGameStore = create(
           if (message.type === 'character_update') {
             const incoming = message.payload;
             const prevChar = get().character;
-            set({ character: incoming });
+            // The sheet, and the held marks that were on their way and are on it now
+            set(state => ({ character: incoming, ...sheetArrived(state, prevChar, incoming) }));
+            // The answer to an ability used outside a roll: the server paid its cost (a
+            // refusal is action_rejected instead). A use with no answer for a while was
+            // dropped, and a sheet now is some other change.
+            const used = get().abilityUseSent;
+            if (used) {
+              set(Date.now() - used.at < USE_ANSWER_MS
+                ? { abilityUsed: { ability: used.ability, at: Date.now() }, abilityUseSent: null } : { abilityUseSent: null });
+            }
             // A pending scar that was recorded elsewhere (another tab) must not be recorded twice.
             const waiting = get().pendingScar;
             if (waiting && incoming?.id === waiting.characterId && waiting.scarsAtTrigger != null &&
@@ -666,6 +811,7 @@ const useGameStore = create(
           }
           else if (message.type === 'trigger_scar') {
             set({
+              ...scarArrived(get(), message.payload.character_id, message.payload.mark_type),
               character: message.payload.character,
               showScarModal: true,
               scarModalData: { type: message.payload.mark_type, seq: nextScarForm() },
@@ -694,8 +840,24 @@ const useGameStore = create(
             if (message.payload.action === 'resolve_gilded') {
               set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
             }
+            // An answer to an offer that held the investigator's own mark refused ("In the
+            // Trenches cannot soak this mark: ...", after which the held mark lands): the record
+            // says why, where it said nothing. A drive point no longer waiting holds no mark, so
+            // it is not put under the marks
+            if (message.payload.action === 'resolve_ability_mark' && markAnswerOut) {
+              markAnswerOut = false;
+              set({ abilityMarkRefused: message.payload.detail || 'That answer was not taken.' });
+            }
             if (message.payload.action === 'use_ability') {
-              set({ abilityUseError: message.payload.detail || 'That ability was not used.' });
+              set({ abilityUseError: message.payload.detail || 'That ability was not used.', abilityUseSent: null, abilityUsed: null });
+            }
+            // A mark the server refused does not land: the last one sent is no longer held
+            if (message.payload.action === 'take_mark') {
+              set((state) => {
+                const landing = state.heldMarks?.landing || [];
+                const last = landing.map(m => !m.answer).lastIndexOf(true);
+                return last < 0 ? {} : heldMarksAre({ ...state.heldMarks, landing: landing.filter((_, i) => i !== last) });
+              });
             }
             // A report refused (reports closed, or already filed): the form says why
             if (message.payload.action === 'submit_assignment_report') {
@@ -752,8 +914,9 @@ const useGameStore = create(
               lastActivityLog: payload,
               activityLog: [...state.activityLog, line].slice(-LOG_LINES),
             }));
-            // A roll's final result reaches every desk at the table once, as this line
-            if (line.type === 'roll') playRollSound(line.text);
+            // A roll's final result reaches every desk at the table once, as this line. A
+            // secret roll's line plays nothing: its result stays off any audio the desk shares.
+            if (line.type === 'roll' && !line.secret) playRollSound(line.text);
           }
           else if (message.type === 'activity_history') {
             // The lines this channel was sent lately, oldest first, as the socket opens:
@@ -928,7 +1091,16 @@ const useGameStore = create(
             const { character: myChar, socketGameId } = get();
             const onCharacterChannel = myChar?.id != null && String(socketGameId) === String(myChar.id);
             setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
-            set({ stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null });
+            // The campaign leaves the Lightkeeper's ledger and Last Session tome, as the
+            // server's list of their campaigns leaves it out, so neither the tome nor the
+            // browser's Forward (stageHistory.js) opens its desk again
+            const { campaign_id: id, campaign_code: code } = message.payload;
+            set(state => ({
+              stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null,
+              gmCampaigns: state.gmCampaigns.filter(c => c.id !== id),
+              lastPlayedCampaign: state.lastPlayedCampaign?.type === 'gm' && state.lastPlayedCampaign.campaignCode === code
+                ? null : state.lastPlayedCampaign,
+            }));
           }
           else if (message.type === 'campaign_deleted') {
             if (!isForThisCampaign(message.payload)) return;
@@ -976,7 +1148,15 @@ const useGameStore = create(
             }));
           }
           else if (message.type === 'ability_mark_offer') {
-            set(state => queueOffer(state, { ...message.payload, seq: ++offerSeq, received_at: Date.now() }));
+            const offer = { ...message.payload, seq: ++offerSeq, received_at: Date.now() };
+            // A soak offer starts a new mark's chain and puts away the last refusal; a Death Defy
+            // offer can follow the soak just refused, so it keeps the reason up
+            set(state => ({ ...queueOffer(state, offer), ...(holdsOwnMark(offer) ? { ...offerHolds(state, offer), ...(offer.action === 'soak' ? { abilityMarkRefused: null } : {}) } : {}) }));
+          }
+          else if (message.type === 'mark_offer_closed') {
+            // The offer's mark landed because another mark came (backend marks.py
+            // mark_or_offer): its card goes, so its countdown cannot land the mark again
+            set(state => ({ ...withoutOwnOffer(state), ...offerLets(state, false, state.heldMarks?.offer?.seq) }));
           }
           else if (message.type === 'ability_intercept_offer') {
             set(state => queueOffer(state, { ...message.payload, intercept: true, seq: ++offerSeq, received_at: Date.now() }));
@@ -1031,12 +1211,16 @@ const useGameStore = create(
             if (!isForThisCampaign(message.payload)) return;
             const { character_id: id, is_dead: isDead } = message.payload || {};
             if (id == null) return;
+            // So do the formation papers, whose Circle Relationships leave the dead out
+            const flag = (list) => (Array.isArray(list) ? list.map(c => (c.id === id ? { ...c, is_dead: !!isDead } : c)) : list);
             set(state => ({
               campaignRoster: {
                 ...state.campaignRoster,
-                active_investigators: Array.isArray(state.campaignRoster.active_investigators)
-                  ? state.campaignRoster.active_investigators.map(c => (c.id === id ? { ...c, is_dead: !!isDead } : c))
-                  : state.campaignRoster.active_investigators,
+                active_investigators: flag(state.campaignRoster.active_investigators),
+              },
+              circleCreation: {
+                ...state.circleCreation,
+                activeInvestigators: flag(state.circleCreation.activeInvestigators),
               },
             }));
           }
@@ -1045,12 +1229,19 @@ const useGameStore = create(
             // it (drive, resistance, marks, scars, gear, ability uses, advancement...). The
             // server sends it to the campaign's GM channel only, and only the GM desk takes it.
             // Its roster card takes it (a member who died keeps the card, flagged is_dead),
-            // and the open sheet reads memberSheets.
+            // and the open sheet reads memberSheets. So does its entry on the formation
+            // papers, which hold the same sheet: a death or a new name there follows the
+            // roster, as the Finalize slip's count does.
             const sheet = message.payload;
             if (!onGmDesk(get) || sheet?.id == null || !isForThisCampaign(sheet)) return;
             set(state => ({
               memberSheets: { ...state.memberSheets, [sheet.id]: sheet },
               campaignRoster: withSheet(state.campaignRoster, sheet),
+              circleCreation: {
+                ...state.circleCreation,
+                activeInvestigators: state.circleCreation.activeInvestigators.map(inv =>
+                  (inv.id === sheet.id ? { ...inv, ...sheet } : inv)),
+              },
             }));
           }
         };
@@ -1159,11 +1350,16 @@ const useGameStore = create(
         return true;
       },
 
-      resolveAbilityMark: (ability, choice) => {
+      // offerId: the server's id of an offer that holds this investigator's own mark, so an
+      // answer to one it has since closed is not taken for the next (backend marks.py)
+      resolveAbilityMark: (ability, choice, offerId) => {
         const { socket } = get();
-        set(nextOffer);
+        markAnswerOut = holdsOwnMark(get().abilityMarkOffer);
+        // Used: its marks stay held until the answer, which keeps them off the sheet or lands them
+        set(state => ({ ...nextOffer(state),
+          ...(holdsOwnMark(state.abilityMarkOffer) ? offerLets(state, true, state.abilityMarkOffer.seq) : {}) }));
         if (socket?.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: 'resolve_ability_mark', payload: { ability, choice } }));
+          socket.send(JSON.stringify({ type: 'resolve_ability_mark', payload: { ability, choice, offer_id: offerId } }));
         }
       },
 
@@ -1173,6 +1369,7 @@ const useGameStore = create(
         set({ abilityUseError: null });
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'use_ability', payload: { ability, ...extra } }));
+          set({ abilityUseSent: { ability, at: Date.now() }, abilityUsed: null });
           return true;
         }
         set({ abilityUseError: 'Not connected. Try again in a moment.' });
@@ -1204,14 +1401,15 @@ const useGameStore = create(
       dismissAbilityMarkOffer: () => set(nextOffer),
 
       // A soak or Death Defy offer holds the mark back until it is answered. Declining it
-      // (or letting its countdown run out) tells the server, which lets the mark land.
-      declineAbilityMark: (offer) => {
+      // (or letting its countdown run out, timedOut) tells the server, which lets the mark land.
+      declineAbilityMark: (offer, timedOut = false) => {
         const { socket } = get();
-        set(nextOffer);
+        set(state => ({ ...nextOffer(state), ...(holdsOwnMark(offer) ? offerLets(state, false, offer.seq) : {}) }));
         if (offer && socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'resolve_ability_mark',
-            payload: { ability: offer.ability, choice: 'decline', mark_type: offer.mark_type },
+            payload: { ability: offer.ability, choice: 'decline', mark_type: offer.mark_type, offer_id: offer.offer_id,
+              ...(timedOut ? { timed_out: true } : {}) },
           }));
         }
       },
@@ -1243,14 +1441,21 @@ const useGameStore = create(
         }
       },
 
-      // Resolves to whether the mark went out, so the sheet can say when it did not.
-      takeMark: (markType) => {
+      // Resolves to whether the mark went out, so the sheet can say when it did not. A mark
+      // that went out is on its way: its box stays held until the table answers. undoId: the
+      // sheet's hold it comes from (useMarkUndo), so the sheet does not count it twice.
+      takeMark: (markType, undoId) => {
         const { socket } = get();
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'take_mark',
             payload: { mark_type: markType }
           }));
+          set((state) => {
+            const characterId = state.character?.id;
+            const held = state.heldMarks?.characterId === characterId ? state.heldMarks : { characterId, offer: null, landing: [] };
+            return { heldMarks: { ...held, landing: [...held.landing, { type: markType, answer: false, undoId }] } };
+          });
           return true;
         }
         return false;
@@ -1900,6 +2105,7 @@ const useGameStore = create(
     }),
     {
       name: 'candela-vtt-storage', // The key used in localStorage
+      storage: createJSONStorage(() => quietStorage),
 
       // Partialize prevents non-serializable objects (like WebSockets) from breaking local storage
       partialize: (state) => ({

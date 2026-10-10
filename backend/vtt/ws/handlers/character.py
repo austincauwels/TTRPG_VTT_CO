@@ -222,9 +222,16 @@ async def handle_use_ability(ctx):
         await refuse(409, f"{character.name} does not have {name}.")
         return
     option = payload.get("option") or ""
+    if not isinstance(option, str):
+        # A list or an object is no option: looked up, it ended the socket (unhashable)
+        option = None
     options = use.get("options")
     if options is not None and option not in options:
-        await refuse(422, f"Choose how to use {name}: " + ", ".join(o for o in options if o) + ".")
+        # A desk loaded before the question abilities asked (no option key at all) has no
+        # question select, so it is told how to get one rather than to choose
+        await refuse(422, (f"Reload the page to choose the question to ask with {name}." if "option" not in payload
+                           else f"Choose the question to ask with {name}.") if use.get("ask")
+                     else f"Choose how to use {name}: " + ", ".join(o for o in options if o) + ".")
         return
     # An option either adds a mark (Last Moments' still image) or names an effect (Ritual's
     # Reinvigorate)

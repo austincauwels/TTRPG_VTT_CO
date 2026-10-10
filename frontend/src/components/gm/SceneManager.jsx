@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ConfirmAction } from '../shared/ConfirmAction';
-import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks';
+import { FormLine, SerialNo, PrinterMark, BlankEntry, serialFor } from '../shared/PrintMarks';
 import { playPaperSound } from '../../game/rollSounds';
 import { Hourglass } from '../shared/Hourglass';
 import { TensionTimer, formatTime, useTimeLeft } from '../shared/TensionTimer';
@@ -89,7 +89,7 @@ export const TensionClock = ({ readOnly = false }) => {
         />
       ) : (
         <div className="font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 shadow-sm min-w-[9rem] text-center">
-          {label || '—'}
+          {label || <BlankEntry label="No clock name" />}
         </div>
       )}
 

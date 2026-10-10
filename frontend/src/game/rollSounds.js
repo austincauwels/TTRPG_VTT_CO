@@ -10,8 +10,10 @@ import { useSyncExternalStore } from 'react';
 //                                   zero-rating roll, the kept die of a gilded roll)
 // Nothing plays for a Mixed success, a Critical success, or a Failure of 2 or 3. The cue is
 // the roll's line in the activity log. The server sends it to every desk at the table (the
-// players and the GM) once, when the final result is known: after a gilded choice, never
-// for a secret roll, and never again on a reconnect, since the log is not replayed.
+// players and the GM) once, when the final result is known: after a gilded choice. A
+// secret roll's line, which only the roller's own desk is sent, plays nothing, so its
+// result stays off any audio the desk shares; and the lines a desk is sent again when it
+// opens (activity_history) play nothing either.
 //
 // Owner's round 3 items 19 to 21 (the files are free to use or his own, his decision):
 //   public/sounds/dice-roll.mp3     dice on the felt, for everyone at the table, as they

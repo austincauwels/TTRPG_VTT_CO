@@ -7,17 +7,12 @@ import { useDialog } from '../shared/useDialog';
 import { FormLine, SerialNo, PrinterMark, RuledBox, serialFor } from '../shared/PrintMarks';
 import { TickMark } from '../shared/InkMarks';
 import { tallyVotes, leadingVote, isTied, TIE_RULE } from '../../game/votes';
+import { CIRCLE_QUESTIONS, INSIGNIA_OPTIONS } from '../../game/circleFormation';
+import { livingMembers } from '../../game/roster';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
-
-const CIRCLE_QUESTIONS = [
-  { key: 'q1', text: 'You have all known one another for a long time, but your circle was recently formed. Why were you brought together, and how do you each feel about it?' },
-  { key: 'q2', text: "You all share a common goal that's secret to the Lightkeepers of Candela Obscura. What is it?" },
-  { key: 'q3', text: "You've never met, but members of your circle are infamous. What did they do, and how do you each feel about it?" },
-  { key: 'q4', text: 'Your circle was retired, but Candela Obscura recently brought you back. Why were you all dismissed, and why did they call you in again?' },
-  { key: 'q5', text: 'Your circle once did something incredibly heroic. What did you do, and do other people know about it?' },
-  { key: 'q6', text: 'Your circle once did something horribly evil. What did you do, and how do you seek absolution?' },
-];
+// The questions and the insignia are in game/circleFormation.js, which the Lightkeeper's
+// desk reads too.
 
 const CIRCLE_ABILITIES = [
   { key: 'Stamina Training', description: 'Your circle has three gilded dice at the beginning of every assignment that anyone may add as +1d to any roll. Once a die has been rolled, it is expended.' },
@@ -26,17 +21,6 @@ const CIRCLE_ABILITIES = [
   { key: 'Interdisciplinary', description: 'When choosing a new ability during character advancement, once per campaign, each character may choose an ability from a character role or specialty outside their own.' },
   { key: 'Resource Management', description: 'When your circle hits a milestone on the Illumination Track, earn back 1 Stitch, Refresh, or Train resource.' },
   { key: 'One Last Run', description: 'When you select this ability, the next assignment is your last. Everyone gets to take all four options during this character advancement instead of only two.' },
-];
-
-const INSIGNIA_OPTIONS = [
-  { key: 'GiOuroboros',    label: 'Ouroboros' },
-  { key: 'GiOrbital',      label: 'Orbital Ring' },
-  { key: 'GiCompass',      label: 'Compass' },
-  { key: 'GiOilySpiral',   label: 'Oily Spiral' },
-  { key: 'GiMoon',         label: 'Moon' },
-  { key: 'GiGoldShell',    label: 'Gilded Shell' },
-  { key: 'GiGlowingHands', label: 'Radiant Hands' },
-  { key: 'GiCandleLight',  label: 'Candlelight' },
 ];
 
 // The relationship tables now live in game/relationships.js; these names stay importable here.
@@ -145,7 +129,9 @@ export const CircleCreationPopup = () => {
   // Relationship drafts (the shared form keeps them here so they survive a collapsed section)
   const relForms = useRelationshipForms();
 
-  const others = activeInvestigators.filter(inv => inv.id !== myId);
+  // The dead stay on the roster (flagged is_dead) until replaced, but answer nothing: they
+  // leave Circle Relationships, as they leave the Lightkeeper's papers
+  const others = livingMembers(activeInvestigators).filter(inv => inv.id !== myId);
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 

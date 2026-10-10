@@ -57,6 +57,16 @@ Yes. The server tracks uses in `character.ability_uses` (a JSON dict). Limits:
 
 All use counts are reset to `{}` for every active character when the GM fires **End Assignment** (`gm_end_assignment`).
 
+### How are the question abilities used?
+
+Scout (1 Intuition), Uncanny Eye (1 Intuition) and Tactician (1 Nerve) each ask the Lightkeeper one of three questions, in the rulebook's words. On the sheet the player picks the question first ("Question to ask" starts blank), then presses Use; the server refuses a use without one of the three, and spends nothing. The Activity Log names the question: "Mira used Tactician: How do I get to safety? (1 Nerve)." They have no use limit, so the choice goes back to blank after each use, and a line after the button says "Spent 1 Nerve" for a few seconds once the server has paid.
+
+| Ability | Questions |
+|---------|-----------|
+| Scout | What do I notice here that others do not see? What in this place might be of use to us? What path should we follow? |
+| Uncanny Eye | How can I leverage something here to my advantage? What here doesn't work the way it appears? What is out of place here? |
+| Tactician | How do I get to safety? What poses the largest immediate threat to my circle? Where is the target going to move next? |
+
 ### How does resistance work?
 
 Each drive pool has a **resistance track** equal to `drive_max ÷ 3` (e.g., a Drive 3 pool has 1 resistance pip; Drive 6 has 2).
@@ -65,7 +75,7 @@ Burning resistance: spends 1 pip and rerolls using **only the action rating** (n
 
 ### Can the GM roll dice?
 
-Yes. When a GM client sends a `roll` message, no character is attached. Drive spent is interpreted directly as the pool size. GM rolls can be marked **secret**, in which case the result is only sent to the GM's connection and not broadcast to the activity log or other players.
+Yes. When a GM client sends a `roll` message, no character is attached. Drive spent is interpreted directly as the pool size. GM rolls can be marked **secret**, in which case the result and its log line go to the Lightkeeper's own desk only, never to the players. Her result slip reads "Secret: only you saw this" and her own log keeps the line, "(Secret) Lightkeeper rolled a 4: Mixed success.", so the result is still on her desk after a player's roll takes the felt (since 2026-10-10; before that a secret roll wrote no line at all). The line goes to her channel alone and is kept only in her channel's history: no player's desk gets it, live, on a reload or on a first visit. It plays no result sound.
 
 ---
 
@@ -100,6 +110,8 @@ Characters have three mark tracks: **Body**, **Brain**, and **Bleed** (0–3 eac
 3. **Cross-player intercepts:** If any *other* active character in the campaign has "Behind Me" (costs 1 Nerve current) or "Premonitions" (costs 1 Intuition resistance pip), they receive an intercept offer on their screen simultaneously.
 
 If none of these apply (or the player declines), the mark is applied and the character sheet is updated in real time.
+
+Since 2026-10-10 every mark that lands this way, taken on the player's own sheet or dealt by the Lightkeeper, writes a line in the Activity Log on every desk with the track's count ("Dr. Imogen Thale took a Body mark (1 of 3)."), and names the offer the player let go: "passed on Death Defy and took a Bleed mark (1 of 3)." when they pressed "Take the mark", "let Death Defy run out and took a Bleed mark (1 of 3)." when its countdown ran out. A mark an ability takes as its cost (Ritual, Occult Researcher, Back Against the Wall, Bending Spoons) is named in that ability's own line instead, so it is not logged twice.
 
 ### What happens on the 4th mark?
 
@@ -172,6 +184,16 @@ All votes are stored in the `CircleVote` table. When the GM finalises the circle
 
 Players also propose and respond to **Relationships** with other circle members (stored in the `Relationship` table), which appear as flip-cards on the Tactile Sidebar during play.
 
+A tie goes to the option voted for first, on every desk and at the seal. The formation papers open on a player's desk as soon as the Lightkeeper approves their investigator, and close for everyone when the Lightkeeper finalizes the circle.
+
+### What does the Lightkeeper see while the circle forms?
+
+Since 2026-10-10 the Lightkeeper's desk shows the formation papers as they stand, open until the seal (they fold with a press): whose desks they are open on, then each part in the papers' order. The circle question that leads, with its words; the name the seal would take (the name voted for most, or with no votes the name suggested most); the chapter house as written; the circle ability; the insignia, drawn; and the relationships, confirmed out of proposed, with who still has one to answer. A tie names the options tied and says the first voted for wins. Under each vote, every investigator has a tick once they have voted (or answered the question, or proposed a relationship) and an open ring until then. The chapter house has no ticks: any member may write it, and the server keeps the answer but not who wrote it. All of it comes from the circle creation state every member is sent, loaded again whenever the desk reconnects; nothing private to a player is added.
+
+### What happens to relationships still waiting at the seal?
+
+Nothing: finalizing leaves them as they are, and the player whose turn it is can still accept or counter them on the Circle tab afterwards. The Finalize slip counts them ("2 relationships still waiting for an answer. They can still be accepted after the seal.") and reads "4 in the circle (up to 5)". Its second press also says that any join request still waiting is turned away, since finalizing releases those characters.
+
 ---
 
 ## Advancement
@@ -232,6 +254,8 @@ Entry types: `field_log`, `ephemeral`, `lightkeeper`, `sketch`, `photo`.
 Visibility levels: `all` (everyone sees it), `gm_only` (only the GM), `self` (only the author). Images are stored as base64 data in the `image_data` column with a 2 MB size limit enforced on upload.
 
 Entries are soft-deleted (`is_deleted = true`) rather than removed from the database, so the page numbering sequence stays intact.
+
+Nothing reaches the server until it is pinned or added. Until then a private note and a field entry's title and text are kept in the browser's `localStorage` under the account, the campaign and the seat (`candela-notebook-draft:<user id>:<campaign id>:<character id, or lightkeeper>`), so leaving the notebook or reloading keeps them, and pinning or adding clears them, even when the notebook was left before the server answered. They stay after Sign out, as the creator's draft does: the app never shows them to another account, but anyone who can read that browser's storage can. Where the browser refuses storage (a private window, a full or blocked store), the writing is kept in the open page instead: leaving the notebook keeps it, a reload does not. A picture staged for an entry waits in the open page only (DESIGN.md, Notes in Markdown).
 
 ## What the Lightkeeper's changes look like on the players' desks (since 2026-10-10)
 

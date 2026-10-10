@@ -12,6 +12,10 @@ Each entry may have:
 - once: once per assignment, counted in ability_uses.
 - options: a choice the player makes; an option may add a mark (Last Moments' still
   image) or name an effect.
+- ask: the options are the questions the ability asks the Lightkeeper, in the rulebook's
+  words (Scout, Uncanny Eye, Tactician). The player picks one before the drive is spent,
+  and the log names it: one tap on Use spent the point and the log said only "used
+  Tactician" (playtest, tactician-one-tap).
 - target: the player may name an ally in the circle instead of themselves (Ritual,
   Great Wards).
 - effect: what the app plays out: Field Experience refreshes 1 Nerve for everyone in
@@ -24,13 +28,22 @@ Each entry may have:
 
 ABILITY_USES = {
     # 1 drive point for a question or an effect the table plays out
-    "Scout":               {"drive": "intuition"},      # p. 27
-    "Uncanny Eye":         {"drive": "intuition"},      # p. 28
+    "Scout":               {"drive": "intuition", "ask": True,   # p. 27
+                            "options": dict.fromkeys(("What do I notice here that others do not see?",
+                                                      "What in this place might be of use to us?",
+                                                      "What path should we follow?"))},
+    "Uncanny Eye":         {"drive": "intuition", "ask": True,   # p. 28
+                            "options": dict.fromkeys(("How can I leverage something here to my advantage?",
+                                                      "What here doesn't work the way it appears?",
+                                                      "What is out of place here?"))},
     "Well-Researched":     {"drive": "intuition"},      # p. 28
     "Obscure Lexicon":     {"drive": "intuition"},      # p. 29
     "Miasma":              {"drive": "intuition"},      # p. 32
     "Escape Artist":       {"drive": "nerve"},          # p. 28
-    "Tactician":           {"drive": "nerve"},          # p. 29
+    "Tactician":           {"drive": "nerve", "ask": True,       # p. 29: "in a dangerous scenario"
+                            "options": dict.fromkeys(("How do I get to safety?",
+                                                      "What poses the largest immediate threat to my circle?",
+                                                      "Where is the target going to move next?"))},
     "Tricks of the Trade": {"drive": "nerve"},          # p. 31: before a Hide or Sway roll
     "Press Conference":    {"drive": "cunning"},        # p. 28
     "Sticky Fingers":      {"drive": "cunning"},        # p. 31: after a successful melee attack

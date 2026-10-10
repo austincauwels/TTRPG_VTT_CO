@@ -53,7 +53,7 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 - App: on a secret roll (`is_secret`) neither the single gilded die refresh nor the Well-Read refund happens (QUIRKS.md D7). Well-Read is also never checked on a roll resolved through `resolve_gilded`.
 - Rulebook: taking the gilded result refreshes 1 drive point (p. 8), and Well-Read refunds spent Intuition on a result of 3 or less (p. 27). Neither depends on whether the roll is shown to others.
 - Suggested fix: apply both on secret rolls (without the public log line) and apply Well-Read in `resolve_gilded` when the chosen value is 3 or less and Intuition was spent.
-- Done (2026-10-06): a secret roll applies the gilded refresh and Well-Read and only keeps its log line to itself; resolve_gilded checks Well-Read on the kept die, and a secret roll's choice no longer reaches the table's log.
+- Done (2026-10-06): a secret roll applies the gilded refresh and Well-Read and only keeps its log line to itself; resolve_gilded checks Well-Read on the kept die, and a secret roll's choice no longer reaches the table's log. (Since 2026-10-10 that line is written, "(Secret) ...", to the roller's own desk alone.)
 
 ### 7. The Lightkeeper's roll
 

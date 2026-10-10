@@ -140,7 +140,7 @@ All in the `onmessage` if/else chain in gameStore.js:106-353. Only one branch ru
 
 ## 4. What the browser stores
 
-- One `localStorage` key: `candela-vtt-storage`, written by zustand `persist` with its default JSON storage. The value is `{"state": {...}, "version": 0}`. No `version` or `migrate` is configured.
+- One `localStorage` key: `candela-vtt-storage`, written by zustand `persist` through `createJSONStorage` over a storage whose every call is wrapped (`quietStorage`, since 2026-10-10: a refused write, such as a full store, used to throw into the screen being drawn, and the hub did not draw; now the session is kept in the page only). The value is `{"state": {...}, "version": 0}`. No `version` or `migrate` is configured.
 - Persisted fields (the `partialize` list): `accessSession`, `stage`, `character`, `characters`, `gmCampaigns`, `lastPlayedCampaign`, `circle`, `rejoinInvite`.
 - Not persisted: `socket`, `circleCreation`, `notebookEntries`, `activityLog`, `campaignRoster`, `lastRoll`, roll and modal state.
 - Nothing else uses `localStorage`, `sessionStorage`, cookies or IndexedDB.
@@ -388,7 +388,7 @@ Several game tables are copied between files. A shared `src/data/` folder remove
 | `PEN_FONTS` | CharacterCreator, CampaignSelector | identical, safe to share |
 | `PEN_FONTS` | NotebookView | different order; keep separate or keep the order |
 | `ILLUMINATION_KEYS` | CharacterCreator, CircleView, CirclePage | identical in all three, safe to share |
-| `CIRCLE_QUESTIONS` | CircleView, CircleCreationPopup, CirclePage | identical in all three, safe to share |
+| `CIRCLE_QUESTIONS` | CircleView, CircleCreationPopup, CirclePage | shared since 2026-10-10: `game/circleFormation.js`, with the papers' `INSIGNIA_OPTIONS`, which the Lightkeeper's formation papers (gm/desk/CircleFormationStatus.jsx) read too |
 | Circle ability descriptions | CircleView (object), CircleCreationPopup (array), CirclePage (object) | CircleView and CircleCreationPopup have the same text in different shapes; CirclePage uses shorter wording for Nobody Left Behind, Interdisciplinary and One Last Run, so it must keep its own copy to avoid a visible text change |
 | `TRACK_SIZE`, `RESOURCE_MAX_SQUARES` | CircleView, CirclePage | same values |
 | `DRIVE_FLAVOR`, `ACTION_FLAVOR` | CharacterCreator, InvestigatorDossier | same text, different whitespace |

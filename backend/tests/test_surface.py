@@ -155,6 +155,13 @@ WS_MESSAGE_TYPES = [
 ]
 
 
+def _take_a_held_mark(ctx, ws):
+    """The player takes a mark an offer holds (Death Defy's), and keeps the offer's id."""
+    ws.send("take_mark", mark_type="body")
+    [offer] = ws.sync()
+    ctx.offer_id = offer["payload"]["offer_id"]
+
+
 def _propose_first(ctx, ws):
     """The other member proposes to the player's character (over REST, as its owner)."""
     r = support.CLIENT.post("/circle/relationship/propose", json={
@@ -198,10 +205,12 @@ WS_CASES = {
         after_connect=lambda c, ws: (ws.send("roll", action="sneak", drive_spent=0), ws.sync()),
         payload=lambda c: {"ability": "Flourish"}, expect=["character_update", "activity_log"]),
     "update_pen_font": dict(payload=lambda c: {"pen_font": "Kalam"}, expect=["character_update"]),
-    "take_mark": dict(payload=lambda c: {"mark_type": "body"}, expect=["character_update"]),
+    "take_mark": dict(payload=lambda c: {"mark_type": "body"}, expect=["character_update", "activity_log"]),
+    # Death Defy used on the mark its offer holds, named by the offer's id (handlers/marks.py)
     "resolve_ability_mark": dict(
-        fields={"specialty_ability": "Death Defy"},
-        payload=lambda c: {"ability": "Death Defy"}, expect=["character_update", "activity_log"]),
+        fields={"specialty_ability": "Death Defy"}, after_connect=_take_a_held_mark,
+        payload=lambda c: {"ability": "Death Defy", "choice": "escape", "offer_id": c.offer_id},
+        expect=["character_update", "activity_log"]),
     "intercept_mark": dict(
         fields={"role_ability": "Premonitions", "intuition_max": 3},
         # an ally's mark offered to the table (intercepts answer an offered mark)
@@ -270,9 +279,10 @@ WS_CASES = {
     "add_notebook_entry": dict(
         payload=lambda c: {"campaign_id": c.camp_id, "title": "t", "content": "c", "visibility": "self"},
         expect=["notebook_entry"]),
-    # Scout spends 1 Intuition for a question (p. 27; vtt/ability_uses.py)
+    # Scout spends 1 Intuition for one of its questions (p. 27; vtt/ability_uses.py)
     "use_ability": dict(fields={"role_ability": "Scout", "intuition_max": 3, "intuition_current": 3},
-                        payload=lambda c: {"ability": "Scout"}, expect=["character_update", "activity_log"]),
+                        payload=lambda c: {"ability": "Scout", "option": "What path should we follow?"},
+                        expect=["character_update", "activity_log"]),
     # The Lightkeeper rewords a scar on the trauma record
     "gm_update_scars": dict(
         sender="gm", fields={"scars_list": ["s"], "scars_count": 1},
@@ -312,6 +322,29 @@ def test_ws_message_type_is_handled(client, dice, msg_type):
         ws.send(msg_type, **case["payload"](ctx))
         assert support.types(ws.sync()) == case["expect"]
         assert support.server_sockets(ws.key)  # the handler did not end the connection
+
+
+def test_a_secret_roll_answers_its_sender_alone(client, dice):
+    """roll with is_secret: the sender's channel gets roll_result (its roll marked
+    is_secret) and the roll's activity_log line (is_secret, "(Secret) ..."); no other
+    channel gets a frame of it, beyond the GM's member_update for a player's sheet. A
+    burn_resistance on a player's secret roll answers the same way (the roll it answers
+    makes it secret, not its payload)."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=1, nerve_max=3)
+    dice(4, 4, 5)
+    with support.ws_connect(client, ch["id"]) as player, support.ws_connect(client, camp["campaign_code"]) as gm:
+        for ws, other, msg_type, payload, others_get in (
+                (gm, player, "roll", {"action": "Lightkeeper", "drive_spent": 1, "is_secret": True}, []),
+                (player, gm, "roll", {"action": "move", "drive_spent": 0, "is_secret": True}, ["member_update"]),
+                (player, gm, "burn_resistance", {"action": "move"}, ["member_update"])):
+            ws.send(msg_type, **payload)
+            msgs = ws.sync()
+            assert support.types(msgs) == ["roll_result", "activity_log"]
+            assert msgs[0]["payload"]["roll"]["is_secret"] is True
+            assert msgs[1]["payload"]["is_secret"] is True
+            assert msgs[1]["payload"]["message"].startswith("(Secret) ")
+            assert support.types(other.sync()) == others_get
 
 
 # Types the endpoint ignores unless it resolved a character for the message.

@@ -3,6 +3,7 @@ import { ConfirmAction } from '../../shared/ConfirmAction';
 import { WaxSeal } from '../../shared/WaxSeal';
 import { FormLine } from '../../shared/PrintMarks';
 import { livingMembers } from '../../../game/roster';
+import { relationshipsAmong, waitingRelationships } from '../../../game/circleFormation';
 
 const SLIP_PAPER = {
   clipPath: 'polygon(0% 2%, 99% 0%, 100% 98%, 1% 100%)',
@@ -13,11 +14,24 @@ const SLIP_PAPER = {
 // follows the torn edge (a box-shadow would be clipped away).
 // Finalizing cannot be undone, so it takes two presses (the shared confirm pattern) and
 // stays disabled until at least one investigator is in the circle. While it goes to the
-// server, the Lightkeeper's seal is pressed onto the slip.
-export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, campaignRoster, error }) => {
+// server, the Lightkeeper's seal is pressed onto the slip. Under it, the relationships
+// still waiting for an answer: they keep their Accept and Counter after the seal, on the
+// players' Circle tab (playtest, lk-formation-status-thin: the slip said nothing of them,
+// and "4 of 5 investigators" read as one missing).
+export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, campaignRoster, circleCreation, error }) => {
   // The dead are on the roster until replaced, but are not in the circle
   const activeCount = livingMembers(campaignRoster.active_investigators).length;
   const noOneYet = activeCount === 0;
+  const waiting = waitingRelationships(relationshipsAmong(
+    circleCreation?.relationships, livingMembers(circleCreation?.activeInvestigators))).length;
+  const requests = (campaignRoster.pending_investigators || []).length;
+  const waitingLine = waiting === 0 ? ''
+    : `${waiting} relationship${waiting === 1 ? '' : 's'} still waiting for an answer. ${waiting === 1 ? 'It' : 'They'} can still be accepted after the seal.`;
+  const armedHint = [
+    `Press again to finalize with ${activeCount} investigator${activeCount === 1 ? '' : 's'}. Every player's formation papers close, and this cannot be undone.`,
+    requests === 0 ? '' : `${requests === 1 ? 'The request' : `The ${requests} requests`} still waiting to join ${requests === 1 ? 'is' : 'are'} turned away.`,
+    waitingLine,
+  ].filter(Boolean).join(' ');
 
   return (
     <>
@@ -27,7 +41,8 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
       disabled={isFinalizingRoster || noOneYet}
       onConfirm={handleFinalizeRoster}
       cancelLabel="Not yet"
-      armedHint={`Press again to finalize with ${activeCount} of 5 investigators. Every player's formation papers close, and this cannot be undone.`}
+      idleHint={waitingLine || undefined}
+      armedHint={armedHint}
       renderButton={(armed, props) => (
         <button
           {...props}
@@ -38,7 +53,7 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
             style={SLIP_PAPER}
           >
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                 <div className="flex items-center gap-3">
                   <WaxSeal size={32} />
                   <span className={`font-serif font-bold uppercase tracking-[0.12em] text-base ${armed ? 'text-oxblood' : 'text-ink'}`}>
@@ -46,7 +61,7 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
                   </span>
                 </div>
                 <span className="font-mono text-xs tabular-nums text-sepia">
-                  {activeCount} of 5 investigators
+                  {activeCount} in the circle (up to 5)
                 </span>
               </div>
               <FormLine className="text-left">Form C.O. 3 · Circle charter</FormLine>

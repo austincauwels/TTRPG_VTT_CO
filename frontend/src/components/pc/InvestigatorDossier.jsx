@@ -52,11 +52,30 @@ const AbilityPane = ({ heading, entries, blank, renderUse }) => {
   );
 };
 
+// What a use cost, said after the server paid it ("Spent 1 Nerve"), from the button's words
+const spentWords = (cost) => (/^\d/.test(cost) ? `Spent ${cost}`
+  : cost.startsWith('burn ') ? `Burned ${cost.slice(5)}`
+    : cost.startsWith('take ') ? `Took ${cost.slice(5)}` : 'Used');
+const SPENT_SHOWN_MS = 5000;
+
 // An ability used outside a roll: its cost on a button, and the choice it needs, if any
-// (game/abilityUses.js; the server pays the cost)
+// (game/abilityUses.js; the server pays the cost). A question ability (ask) starts on no
+// question, so Use waits for the one asked and one stray tap spends nothing, and goes back
+// to none after each use. Once the server has paid, the line after the button says what it
+// cost for a few seconds (playtest, tactician-one-tap: Nerve went with no change near the
+// button).
 const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const optionKeys = use.options ? Object.keys(use.options) : null;
-  const [option, setOption] = useState(optionKeys ? optionKeys[0] : '');
+  const [option, setOption] = useState(optionKeys && !use.ask ? optionKeys[0] : '');
+  const usedAt = useGameStore(s => (s.abilityUsed?.ability === name ? s.abilityUsed.at : null));
+  const [spentShown, setSpentShown] = useState(false);
+  useEffect(() => {
+    const left = usedAt ? usedAt + SPENT_SHOWN_MS - Date.now() : 0;
+    setSpentShown(left > 0);
+    if (left <= 0) return undefined;
+    const t = setTimeout(() => setSpentShown(false), left);
+    return () => clearTimeout(t);
+  }, [usedAt]);
   const [choice, setChoice] = useState('');
   const needsDrive = name === 'Ritual' && option === 'Reinvigorate';
   const needsResource = use.needs === 'resource';
@@ -75,6 +94,8 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const isAlly = (id) => allies.some(a => String(a.id) === String(id));
   const targetNow = isAlly(target) ? target : '';
   const choiceNow = needsAlly && !isAlly(choice) ? '' : choice;
+  const questionRef = useRef(null);
+  const buttonRef = useRef(null);
   const send = () => {
     const sent = onUse(name, {
       ...(optionKeys ? { option } : {}),
@@ -87,12 +108,21 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
     });
     if (sent && needsItem) setChoice('');
     if (sent && needsSplit) setSplit({ nerve: 0, cunning: 0, intuition: 0 });
+    if (sent && use.ask) {
+      setOption('');
+      // Use goes disabled with the focus on it (a keyboard, a screen reader), which would
+      // drop to the page: it goes to the question, where the next use starts
+      if (document.activeElement === buttonRef.current) questionRef.current?.focus({ preventScroll: true });
+    }
   };
-  const select = 'ml-1 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5';
+  // 44px and 16px text on every touch screen (Safari zooms the page onto a smaller field)
+  const select = 'ml-1 max-w-full min-w-0 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:text-base';
   return (
-    <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle">
+    <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle max-w-full">
       {optionKeys && (
-        <select aria-label={`How to use ${name}`} value={option} onChange={e => { setOption(e.target.value); setChoice(''); }} className={select}>
+        <select ref={questionRef} aria-label={use.ask ? `Question for ${name}` : `How to use ${name}`} value={option}
+          onChange={e => { setOption(e.target.value); setChoice(''); }} className={select}>
+          {use.ask && <option value="">Question to ask</option>}
           {optionKeys.map(k => <option key={k} value={k}>{use.options[k]}</option>)}
         </select>
       )}
@@ -134,12 +164,13 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
         </label>
       ))}
       {needsSplit && <span className="text-sm font-mono text-sepia">{splitTotal} / {splitMax}</span>}
-      <button type="button" onClick={send}
-        disabled={(needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
-          : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false}
-        className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
+      <button ref={buttonRef} type="button" onClick={send}
+        disabled={(use.ask && !option) || ((needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
+          : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false)}
+        className="ml-1 px-2 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:px-3 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
       </button>
+      <span role="status" className="text-sm italic text-sepia">{spentShown ? spentWords(use.cost) : ''}</span>
     </span>
   );
 };
@@ -155,7 +186,7 @@ const ScarAbilityUse = ({ name, use, character, scarWaiting, onUse }) => {
   return (
     <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle">
       <button type="button" onClick={() => onUse(name, use.mark || '')} disabled={!!character?.is_dead || !!scarWaiting || used}
-        className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
+        className="ml-1 px-2 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:px-3 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
       </button>
       {why && <span className="text-sm italic text-sepia">{why}</span>}
@@ -208,6 +239,14 @@ const ScarEditLine = ({ index, raw, draft, onDraft, onSave, onRemove, removeHint
   );
 };
 
+// The marks an offer holds, in words: "Bleed mark", "2 Body marks", "Body and Bleed marks"
+const heldMarkWords = (types) => {
+  const parts = ['body', 'brain', 'bleed'].map(t => [t, types.filter(x => x === t).length])
+    .filter(([, n]) => n > 0).map(([t, n]) => (n > 1 ? `${n} ${MARK_NAME[t]}` : MARK_NAME[t]));
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  return `${list} mark${types.length > 1 ? 's' : ''}`;
+};
+
 const ROLE_ICONS = {
   'Face': 'GiDramaMasks',
   'Muscle': 'GiMuscleUp',
@@ -249,7 +288,7 @@ const ABILITY_TEXTS = {
   "Escape Artist": "Spend 1 Nerve to automatically escape ropes, cuffs, manacles, or a creature that has grappled you.",
   "Practiced Patter": "You've long rehearsed for a moment like this. When making a Sway or Hide roll, you may spend Intuition instead of Cunning.",
   "Uncanny Eye": "You may spend 1 Intuition to ask the Lightkeeper a question: How can I leverage something here to my advantage? What here doesn't work the way it appears? What is out of place here?",
-  "Flourish": "You know how to cover your mistakes with flair. On a roll where you could spend Cunning, if you fail or get a mixed success, you may spend 2 Cunning to push the result up one tier — from a miss to mixed success or mixed success to full success.",
+  "Flourish": "You know how to cover your mistakes with flair. On a roll where you could spend Cunning, if you fail or get a mixed success, you may spend 2 Cunning to push the result up one tier: from a miss to mixed success or mixed success to full success.",
   "The Prestige": "Your magic is usually all smoke and mirrors, but you have one trick you've learned that's real. Roll Sense when you perform it, and on a success, take a Bleed mark. Circle one option when you take this ability: change appearance, levitate, summon mundane object, teleport a short distance, or throw your voice.",
   // ── EXPLORER (specialty) ───────────────────────────────────────────────────
   "Obscure Lexicon": "When you encounter an ancient or esoteric language, you can spend 1 Intuition to understand what it says.",
@@ -257,7 +296,7 @@ const ABILITY_TEXTS = {
   "Mind Over Matter": "When you are told to use a specific action on a roll, you may take a Brain mark to utilize an alternative action instead. You may also spend the drive that corresponds with your chosen action. Describe how you adapt to your situation.",
   "Tenacious": "When you have 1 or more Bleed marks, gild an additional die on Move, Strike, and Control rolls while in danger.",
   "Narrow Escape": "You've been in numerous hairy situations during your fearless exploits. Add +1d to your Move roll when you attempt to escape a trap or ambush.",
-  "Not Again": "Once per assignment, you may take a scar to have an automatic full success on an action. If you do, it's as if you've had this scar all along — tell your circle how you got it, and why the lesson you learned is helping you succeed here. Don't adjust your action ratings when you take this scar.",
+  "Not Again": "Once per assignment, you may take a scar to have an automatic full success on an action. If you do, it's as if you've had this scar all along: tell your circle how you got it, and why the lesson you learned is helping you succeed here. Don't adjust your action ratings when you take this scar.",
   // ── SOLDIER (specialty) ────────────────────────────────────────────────────
   "Basic Training": "You have tactical experience in high-pressure situations. When you make a Survey roll in a dangerous place, also add a number of dice equal to your current Nerve resistance.",
   "Geared Up": "You and one ally in your circle may mark an additional gear slot during each assignment.",
@@ -304,7 +343,7 @@ const ABILITY_TEXTS = {
   "Ghostblade": "You can attune a ritual knife to yourself. If you coat it in your blood (take a Body mark), it is particularly effective against magickal beings and can strike invisible or ethereal enemies.",
   "Blood of the Covenant": "The first time a dangerous phenomenon inflicts a mark on anyone in your circle, you refresh a number of points, in any drive, equal to your current Intuition resistance.",
   "Speak Their Language": "You can speak the supernatural language of any phenomenon you encounter. Describe what strange or terrifying way you communicate with each other.",
-  "Play the Bait": "You know how to draw the attention of a phenomenon — you just have to play the bait. Make a Sense roll to bring a nearby phenomenon toward you.",
+  "Play the Bait": "You know how to draw the attention of a phenomenon: you just have to play the bait. Make a Sense roll to bring a nearby phenomenon toward you.",
   "Extend Your Senses": "When you make a Sense roll to understand more about a phenomenon you've encountered, also add a number of dice equal to your current Intuition resistance to the roll.",
   "Forbidden Ritual": "You know a highly complex and extremely dangerous ritual that will achieve a desired outcome. When you use this ritual, immediately take a Bleed scar. Determine what the ritual is and what its effects are: change the environment, conjure a phenomenon, or save a dying person.",
 };
@@ -440,13 +479,48 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     }
     return null;
   };
-  const { held: heldMark, hold: holdMark, undo: undoMark, flush: flushMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
+  const { held: heldMark, hold: holdUndoMark, undo: undoMark, flush: flushMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
+  // Why the table refused an answer to a soak or Death Defy offer, whose mark then landed;
+  // the next mark taken puts it away
+  const markRefused = useGameStore(s => s.abilityMarkRefused);
+  const holdMark = (type) => {
+    if (useGameStore.getState().abilityMarkRefused) useGameStore.setState({ abilityMarkRefused: null });
+    holdUndoMark(type);
+  };
+  // The marks an open soak or Death Defy offer holds back, and those on their way to the
+  // sheet (store heldMarks): drawn held, like a mark waiting for its Undo, until the sheet
+  // has them
+  const storeHeld = useGameStore(s => s.heldMarks);
+  const tableHeld = !readOnly && storeHeld && storeHeld.characterId === character?.id ? storeHeld : null;
+  const heldOffer = tableHeld?.offer || null;
+  // (a mark the Undo has just sent counts as the Undo's until the Undo lets it go)
+  const tableHolds = (type) => (tableHeld ? [...(heldOffer?.types || []),
+    ...tableHeld.landing.filter(m => m.undoId == null || m.undoId !== heldMark?.id).map(m => m.type)]
+    .filter(t => t === type).length : 0);
+  // A note under the marks (the Undo strip, the held line, a refusal) that runs the record
+  // past the foot of a desk column that scrolls inside itself (xl) brings the record's foot
+  // back into view, its top kept in view: the Undo it offers is for the next five seconds.
+  // A sheet whose ability text runs long has no room for it at 1440x900.
+  const recordRef = useRef(null);
+  const recordSeen = useRef(false);
+  useEffect(() => {
+    // Only for a note that comes up while the sheet is open: on opening the desk, or after a
+    // tab switch, the column keeps its top, even with a refusal still said under the marks
+    if (!recordSeen.current) { recordSeen.current = true; return; }
+    if (!heldMark && !heldOffer && !markRefused && !markSendError) return;
+    const record = recordRef.current;
+    const column = record?.closest('[data-desk=sheet]');
+    if (!column || !/(auto|scroll)/.test(getComputedStyle(column).overflowY)) return;
+    const r = record.getBoundingClientRect();
+    const c = column.getBoundingClientRect();
+    const below = r.bottom - c.bottom;
+    if (below > 0) column.scrollTop += Math.min(below, Math.max(0, r.top - c.top));
+  }, [heldMark?.id, heldOffer?.seq, !!markRefused, !!markSendError]);
   // Death Defy escapes every mark of one harm (p. 27): a mark still held for undo when its
   // offer appears goes now, so it joins the harm the offer counts
-  const markOffer = useGameStore(s => s.abilityMarkOffer);
   useEffect(() => {
-    if (markOffer?.ability === 'Death Defy' && markOffer.character_id === storeChar?.id) flushMark();
-  }, [markOffer?.seq]);
+    if (heldOffer?.ability === 'Death Defy' && tableHeld.characterId === storeChar?.id) flushMark();
+  }, [heldOffer?.seq]);
   // The player's own photo: the answer to a change is the sheet as the table now has it
   const photoInputRef = useRef(null);
   const portrait = usePortraitChange({
@@ -538,6 +612,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The trauma record in edit mode (the Lightkeeper's copy): each change goes to the table
   // at once; Done also saves scar words changed and not yet saved
   const editing = !!traumaEdit && editingTrauma;
+  // The mark waiting for its Undo fills its track, after any the table holds: a scar
+  const undoFillsTrack = !!heldMark && (character[`${heldMark.type}_marks`] || 0) + tableHolds(heldMark.type) >= 3;
   // Deal a mark (the Lightkeeper's copy): whether an enemy dealt it, and the last one sent
   const [dealFromEnemy, setDealFromEnemy] = useState(true);
   const [dealtNote, setDealtNote] = useState('');
@@ -965,7 +1041,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       </svg>
                     ))}
                     {resistMax === 0 && (
-                      <span className="font-mono text-xs text-sepia italic">—</span>
+                      <span className="font-mono text-xs text-sepia italic">none</span>
                     )}
                   </div>
                 </div>
@@ -1116,7 +1192,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           them; the scars are written on its ruled lines, their count at the end. One under
           the other on a narrow sheet, a line each on a wide one (.trauma-c in index.css). */}
       <div className="dossier-trauma trauma-c">
-        <div className="trauma-record relative bg-cream border-2 border-dashed border-ink/60 rounded-sm shadow-sm">
+        <div ref={recordRef} className="trauma-record relative bg-cream border-2 border-dashed border-ink/60 rounded-sm shadow-sm">
           <FormLine className="trauma-form">Form C.O. 14 · Trauma record</FormLine>
 
           <div data-desk="marks" className="trauma-marks">
@@ -1124,15 +1200,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <SafeIcon name="GiBleedingEye" size={20} className="text-oxblood shrink-0" /> Marks
             </h3>
             {/* Each box is its own target: only the next empty box takes a mark. A mark is
-                held for a few seconds with an Undo before it goes to the table. In the
-                Lightkeeper's edit, any box sets the track: to that box, or, for the last
-                filled box, to the one before it. */}
+                held for a few seconds with an Undo before it goes to the table, while a soak
+                or Death Defy offer holds it there, and on its way until the sheet has it; a
+                held mark's box is drawn half inked with a dashed edge. In the Lightkeeper's
+                edit, any box sets the track: to that box, or, for the last filled box, to the
+                one before it. */}
             <div className={`mark-tracks flex flex-col ${readOnly && !editing ? 'gap-2' : 'gap-1'}`}>
               {['body', 'brain', 'bleed'].map((type) => {
                 const name = MARK_NAME[type];
                 const marked = character?.[`${type}_marks`] || 0;
                 const heldHere = !readOnly && heldMark?.type === type;
-                const next = marked + (heldHere ? 1 : 0); // index of the box the next tap fills
+                const held = tableHolds(type) + (heldHere ? 1 : 0);
+                const next = marked + held; // index of the box the next tap fills
                 const trackFull = next >= 3;
                 // 44px targets on phones; on a wide record (index.css) the boxes keep to
                 // one line beside their labels.
@@ -1152,10 +1231,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         {name} <span aria-hidden="true">+</span>
                       </button>
                     )}
-                    <div className={`flex${editing ? ' rounded-sm outline-dashed outline-1 outline-offset-2 outline-oxblood/50' : ''}`} role="group" aria-label={`${name} marks: ${marked} of 3`}>
+                    <div className={`flex${editing ? ' rounded-sm outline-dashed outline-1 outline-offset-2 outline-oxblood/50' : ''}`} role="group"
+                      aria-label={`${name} marks: ${marked} of 3${held ? `, ${held} held` : ''}`}>
                       {[0, 1, 2].map((i) => {
                         const filled = i < marked;
-                        const isHeld = heldHere && i === marked;
+                        const isHeld = !filled && i < next;
                         const isNext = !readOnly && i === next;
                         // A filled mark is inked by hand, so each box sits a little askew
                         const box = (
@@ -1231,20 +1311,38 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               )}
             </div>
 
+            {/* The notes on held marks: one under the other on a narrow record, side by side
+                and in smaller type on a wide one (.mark-notes in index.css), where the two
+                stacked made the sheet's column scroll at 1440x900 */}
+            {(heldOffer || (!readOnly && heldMark)) && (
+            <div className="mark-notes">
+            {/* Marks an open soak or Death Defy offer holds, drawn held above: what holds them */}
+            {heldOffer && (
+              <p className="mark-held font-serif text-base text-ink leading-snug border border-dashed border-oxblood/40 px-3 py-2 rounded-sm">
+                {heldMarkWords(heldOffer.types)} held for {heldOffer.ability}.
+              </p>
+            )}
+            {/* A mark waiting for its Undo is not on the record yet, and an investigator with a
+                soak or Death Defy is offered that first, so the strip says when it goes to the
+                table, never that it was taken (playtest, mark-undo-then-death-defy) */}
             {!readOnly && heldMark && (
-              <div role="status" className="mark-held flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 px-3 py-2 rounded-sm">
+              <div role="status" className="mark-held mark-undo flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 px-3 py-2 rounded-sm">
                 <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-40">
-                  {(character?.[`${heldMark.type}_marks`] || 0) >= 3
-                    ? `${MARK_NAME[heldMark.type]} track is full: this mark brings a scar.`
-                    : `${MARK_NAME[heldMark.type]} mark taken.`}
+                  {MARK_NAME[heldMark.type]} mark: {undoFillsTrack ? 'the track is full, so it brings a scar. It' : 'it'} goes
+                  to the table when the Undo runs out.
                 </p>
                 <button
                   onClick={undoMark}
-                  className="shrink-0 min-h-[40px] px-3 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood hover:bg-oxblood hover:text-cream rounded-sm transition-colors"
+                  className="shrink-0 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood hover:bg-oxblood hover:text-cream rounded-sm transition-colors"
                 >
                   Undo <span className="font-mono tabular-nums">{markSecondsLeft}s</span>
                 </button>
               </div>
+            )}
+            </div>
+            )}
+            {!readOnly && markRefused && (
+              <p role="alert" className="mark-held font-serif text-base text-oxblood leading-snug">{markRefused}</p>
             )}
             {!readOnly && markSendError && (
               <p role="alert" className="mark-held font-serif text-base text-oxblood leading-snug">{markSendError}</p>

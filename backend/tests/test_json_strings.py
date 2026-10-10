@@ -151,7 +151,7 @@ def test_take_mark_with_string_ability_uses_works(client):
     support.update(Character, ch["id"], ability_uses='{"Death Defy": 1}')
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="body", is_from_enemy=True)  # Death Defy is used up
-        assert support.types(ws.sync()) == ["character_update"]
+        assert support.types(ws.sync()) == ["character_update", "activity_log"]
         assert support.server_sockets(ch["id"])
     assert support.fetch(Character, ch["id"]).body_marks == 2
 

@@ -138,10 +138,6 @@
     background-color: rgb(var(--c-oxblood));
     border-color: rgb(var(--c-oxblood));
   }
-  .action-pip.gilded {
-    background-color: rgb(var(--c-candle-gold));
-    border-color: rgb(var(--c-sepia));
-  }
   .animate-dieTumble {
     /* Using a cubic-bezier for a snappy, heavy drop effect */
     animation: dieTumble 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
@@ -958,6 +954,8 @@
 .trauma-c .trauma-marks .trauma-head { padding-bottom: 0.25rem; margin-bottom: 0.75rem; border-bottom: 1px solid rgb(var(--c-ink) / 0.3); }
 .trauma-c .mark-status { margin-top: 0.75rem; }
 .trauma-c .mark-held { margin-top: 0.75rem; }
+.trauma-c .mark-notes { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem; }
+.trauma-c .mark-notes > .mark-held { margin: 0; }
 .trauma-c .trauma-scars {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -999,6 +997,15 @@
     .trauma-c .mark-cell > span { width: 1.125rem; height: 1.375rem; }
     .trauma-c .mark-status { margin: 0; justify-self: end; justify-content: flex-end; }
     .trauma-c .mark-held { grid-column: 2 / -1; margin: 0.25rem 0 0.125rem; }
+    /* The line naming the offer that holds a mark and the Undo strip share one row, in
+       smaller type, so with both up the record still fits the 1440x900 desk (they stood
+       one under the other, 62px past the sheet's foot) */
+    .trauma-c .mark-notes { grid-column: 2 / -1; flex-direction: row; align-items: stretch; gap: 0.5rem; margin: 0.25rem 0 0; }
+    .trauma-c .mark-notes > .mark-held { flex: 0 1 auto; padding-top: 0.125rem; padding-bottom: 0.125rem; font-size: 0.875rem; line-height: 1.125rem; }
+    .trauma-c .mark-notes > .mark-held:only-child,
+    .trauma-c .mark-notes > .mark-undo { flex: 1 1 0; min-width: 0; }
+    .trauma-c .mark-notes > .mark-held > p { font-size: 0.875rem; line-height: 1.125rem; }
+    .trauma-c .mark-notes button { min-height: 2rem; padding-left: 0.625rem; padding-right: 0.625rem; }
     .trauma-c .trauma-scars {
       align-items: start;
       margin-top: 0.3125rem;

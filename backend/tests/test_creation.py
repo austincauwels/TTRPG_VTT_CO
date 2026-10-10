@@ -99,6 +99,11 @@ def test_the_sheets_ability_uses_agree():
     for name, use in ABILITY_USES.items():
         assert list(t[name].get("options", {})) == list(use.get("options", {})), name
         assert name in creation.ALL_ABILITIES, name
+        # A question ability's choice starts blank on the desk, and the server takes no
+        # blank one, so Use waits for a question (playtest, tactician-one-tap)
+        assert bool(t[name].get("ask")) == bool(use.get("ask")), name
+        if use.get("ask"):
+            assert "" not in use["options"] and len(use["options"]) == 3, name
     # The abilities whose "Use" opens the scar form
     from vtt.ability_uses import SCAR_ABILITIES
     assert list(_read(ABILITY_USES_JS, "SCAR_ABILITIES")["SCAR_ABILITIES"]) == list(SCAR_ABILITIES)
