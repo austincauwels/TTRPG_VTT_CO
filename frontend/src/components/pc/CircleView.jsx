@@ -75,6 +75,12 @@ const ALL_ACTIONS = [
   { key: 'sense',   label: 'Sense',   group: 'Intuition' },
 ];
 
+// A gilded action, however the row spells it (true, 1 or "true"), as the sheet reads it
+const isGildedAction = (character, key) => {
+  const v = character?.[`gilded_${key}`];
+  return v === true || v === 1 || v === 'true';
+};
+
 const ADV_PICKS = [
   { id: 'add_action', label: 'Add 1 action point',                    desc: 'Raise any action rating by 1 (max 3)' },
   { id: 'add_drive',  label: 'Add 2 drive points',                    desc: 'Raise a drive pool maximum by 2' },
@@ -212,7 +218,7 @@ export function AdvancementModal() {
               set opens; closing used to hide them until the page was reloaded */}
           <button
             onClick={picksLeft > 0 ? () => { setSubmitted(false); setSelectedPicks([]); setDetails({}); } : close}
-            className="w-full py-2 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream hover:bg-oxblood rounded-sm transition-all"
+            className="w-full py-2 [@media(pointer:coarse)]:min-h-[44px] font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream hover:bg-oxblood rounded-sm transition-all"
           >
             {advancementError && picksLeft > 0 ? 'Choose again' : picksLeft > 0 ? 'Next advancement' : 'Close'}
           </button>
@@ -270,40 +276,65 @@ export function AdvancementModal() {
                 </label>
 
                 {/* Detail selectors — only shown when this pick is selected */}
-                {isSelected && (id === 'add_action' || id === 'gild_action') && (
+                {/* One action, chosen like the drives below: pressed in oxblood (aria-pressed),
+                    pressed again to clear. An action that cannot take the pick keeps its place
+                    in sepia with no frame, and its reason is in its name: already gilded (the
+                    sheet's gilded dot, with a key under the grid) or already at 3, the most a
+                    rating goes (the "(3)" beside it). 44px on a touch screen (playtest,
+                    advancement-gild-picker). */}
+                {isSelected && (id === 'add_action' || id === 'gild_action') && (() => {
+                  const gildedKeys = ALL_ACTIONS.filter(a => isGildedAction(character, a.key)).map(a => a.key);
+                  return (
                   <div className="px-3 pb-3">
                     <p id={`adv-${id}-label`} className="block font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-1">Action</p>
-                    <div className="grid grid-cols-3 gap-1" role="group" aria-labelledby={`adv-${id}-label`}>
+                    <div className="grid grid-cols-3 gap-1.5" role="group" aria-labelledby={`adv-${id}-label`}>
                       {['Nerve', 'Cunning', 'Intuition'].map(group => (
-                        <div key={group}>
-                          <div className="font-sans font-bold text-xs uppercase tracking-wider text-sepia mb-0.5">{group}</div>
+                        <div key={group} className="space-y-1 min-w-0">
+                          <div className="font-sans font-bold text-xs uppercase tracking-wider text-sepia">{group}</div>
                           {ALL_ACTIONS.filter(a => a.group === group).map(a => {
                             const currentRating = character?.[a.key] || 0;
                             const atMax = currentRating >= 3 && id === 'add_action';
-                            const alreadyGilded = character?.[`gilded_${a.key}`] && id === 'gild_action';
+                            const alreadyGilded = id === 'gild_action' && gildedKeys.includes(a.key);
                             const unavailable = atMax || alreadyGilded;
+                            const chosen = details[id] === a.key;
                             return (
                               <button
                                 key={a.key}
+                                type="button"
                                 disabled={unavailable}
-                                onClick={() => setDetails(d => ({ ...d, [id]: a.key }))}
-                                className={`w-full text-left px-2 py-0.5 rounded-sm font-serif text-xs transition-all ${
-                                  details[id] === a.key
-                                    ? 'bg-oxblood text-cream'
+                                aria-pressed={chosen}
+                                onClick={() => setDetails(d => ({ ...d, [id]: d[id] === a.key ? '' : a.key }))}
+                                className={`w-full flex items-center gap-1.5 text-left px-2 py-1 [@media(pointer:coarse)]:min-h-[44px] rounded-sm border font-serif text-sm leading-tight transition-colors ${
+                                  chosen
+                                    ? 'bg-oxblood border-oxblood text-cream'
                                     : unavailable
-                                      ? 'text-sepia cursor-not-allowed'
-                                      : 'hover:bg-oxblood/10 text-ink/70'
+                                      ? 'border-transparent text-sepia cursor-not-allowed'
+                                      : 'border-parchment-deep text-ink [@media(hover:hover)]:hover:border-oxblood [@media(hover:hover)]:hover:bg-oxblood/10'
                                 }`}
                               >
-                                {a.label} {id === 'add_action' ? `(${currentRating})` : alreadyGilded ? '✦' : ''}
+                                {alreadyGilded && <span aria-hidden="true" className="w-2.5 h-2.5 shrink-0 bg-candle-gold border border-sepia rounded-full" />}
+                                <span className="min-w-0">
+                                  {a.label}
+                                  {id === 'add_action' && <span aria-hidden="true"> ({currentRating})</span>}
+                                  <span className="sr-only">
+                                    {atMax ? ', already at 3' : id === 'add_action' ? `, rating ${currentRating}` : alreadyGilded ? ', already gilded' : ''}
+                                  </span>
+                                </span>
                               </button>
                             );
                           })}
                         </div>
                       ))}
                     </div>
+                    {id === 'gild_action' && gildedKeys.length > 0 && (
+                      <p aria-hidden="true" className="mt-2 flex items-center gap-1.5 font-serif text-sm italic text-sepia">
+                        <span className="w-2.5 h-2.5 shrink-0 bg-candle-gold border border-sepia rounded-full" />
+                        Already gilded
+                      </p>
+                    )}
                   </div>
-                )}
+                  );
+                })()}
 
                 {isSelected && id === 'add_drive' && (
                   <div className="px-3 pb-3">
@@ -327,7 +358,7 @@ export function AdvancementModal() {
                             onClick={toggle}
                             disabled={!on && atMax}
                             aria-pressed={on}
-                            className={`flex-1 py-1 rounded-sm font-sans font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-40 ${
+                            className={`flex-1 py-1 [@media(pointer:coarse)]:min-h-[44px] rounded-sm font-sans font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-40 ${
                               on ? 'bg-oxblood text-cream' : 'border border-parchment-deep hover:border-oxblood text-sepia'
                             }`}
                           >
@@ -359,7 +390,7 @@ export function AdvancementModal() {
                           id="adv-new-ability"
                           value={details[id] || ''}
                           onChange={e => setDetails(d => ({ ...d, [id]: e.target.value }))}
-                          className="w-full border border-parchment-deep rounded-sm px-2 py-1.5 font-serif text-sm bg-cream focus:border-oxblood text-ink"
+                          className="w-full border border-parchment-deep rounded-sm px-2 py-1.5 [@media(pointer:coarse)]:min-h-[44px] font-serif text-sm [@media(pointer:coarse)]:text-base bg-cream focus:border-oxblood text-ink"
                         >
                           <option value="" aria-label="None"></option>
                           {(() => {
@@ -403,13 +434,13 @@ export function AdvancementModal() {
           <button
             onClick={handleConfirm}
             disabled={!isReady()}
-            className="flex-1 py-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:bg-oxblood rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-2 [@media(pointer:coarse)]:min-h-[44px] font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:bg-oxblood rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Confirm Advancement ({selectedPicks.length}/{MAX_PICKS})
           </button>
           <button
             onClick={close}
-            className="px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border border-ink/20 text-sepia hover:text-ink hover:border-ink rounded-sm transition-all"
+            className="px-4 py-2 [@media(pointer:coarse)]:min-h-[44px] font-sans text-xs font-black uppercase tracking-widest border border-ink/20 text-sepia hover:text-ink hover:border-ink rounded-sm transition-all"
           >
             Later
           </button>
