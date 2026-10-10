@@ -1,12 +1,12 @@
 # Candela VTT: status and next phase
 
-Updated 9 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
+Updated 9 October 2026, evening (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
-Resume: PR 9 on branch claude/pr9-connection, started 10 October 2026
+Resume: none
 
 ## For the next chat: start here
 
-You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 6 stands, then do "Next phase". Keep the chat lean:
+You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 9 stands, then do "Next phase". Keep the chat lean:
 
 - Robert hit his **weekly usage limit** on 9 October. Before any run of more than about 6 agents, say roughly how big it is and ask. Prefer one implementer plus one reviewer over wide fan-outs.
 - **The hourly check-in.** A Routine ("Candela: resume an interrupted phase", hourly) reads the `Resume:` line at the top of this file. `none` means it stops at once. When you start a phase, set it to `Resume: <phase> on branch <branch>, started <date>` and push; commit and push work in progress at least every hour, since an interrupted container keeps nothing; set it back to `Resume: none` when the phase ends or when you stop to wait for Robert. A resumed session sees only what was pushed.
@@ -18,7 +18,7 @@ You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web
 
 Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message so he can set it before starting the next chat. As your first step, check your own model (the `get_session` tool) and effort. If they differ from the recommendation below, tell him in one line and carry on.
 
-**Next phase (PR 9): Opus 5.5 at high effort, ultracode off.** Connection items (`offline-not-shown`, `stale-connection-slips`), the WebSocket protocol and the effort M bugs. Check PR 8 in a browser first if Robert wants (see below).
+**Next phase (PR 10): Sonnet 5.5 at medium effort, ultracode off.** Mostly layout and wording on the desks (the top-ten UX list below). Switch to Opus 5.5 high only for the "log every Lightkeeper event" part if it touches the WebSocket protocol, and for the final review before the PR.
 
 Rules of thumb for later phases:
 
@@ -36,18 +36,26 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Where things stand
 
-- `main` is at **be7dbff** with PR 6, PR 7 and PR 8 all merged (10 October). **Not deployed yet**: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload. The release adds the circle column `dispatch_text` and renames stored pen fonts at startup.
-- PR 8 was checked in Chromium before merging: Suggest and the 0/5 count fit at 390 px, a long name wraps, a case or spacing duplicate says "Already suggested", Style and catalyst line breaks show, and the pen picker's Escape closes only the list. Not browser-checked: the "Choose advancements (N)" button, the Rule of Six chip and the caption change.
-- Open leftovers from PR 8: the sheet's ability tab resets on a tab switch; `lk-mark-skips-abilities` got the wording fix only, a "Deal a mark" control is still open.
-- **AI playtest results** stay in `playtest/results/2026-10-08/`; setup in `playtest/` (start with `playtest/HANDOFF.md`). Robert's private page: https://claude.ai/artifact/8wcvWkCfptWqtFf15XTaRG
+- `main` is at **be7dbff** (PR 6, 7 and 8 merged 10 October UTC). **Not deployed yet**: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload. That release adds the circle column `dispatch_text` and renames stored pen fonts at startup.
+- **PR 9 is open**, not merged: https://github.com/austincauwels/TTRPG_VTT_CO/pull/9 (branch `claude/pr9-connection`, 12 commits). It has no schema change. Backend suite 1,805 passed, and an independent review's four findings were fixed. It covers:
+  - Connection: heartbeat ping/pong, the offline banner, the Activity Log kept on the server and replayed as `activity_history`, stale slips cleared, the token sent as a `bearer.<token>` subprotocol.
+  - Bugs: `vote-tie-leading`, `relationship-question-in-answer`, `ability-offers-expire`, `pending-join-not-live`, `report-questions-tally` (the Lightkeeper ticks the questions and the page totals by p. 55), `keyboard-focus-dropped`, and `patch-up-free-rider` (Patch Up is declared with a chip before the Focus roll).
+  - Deal a mark on the Lightkeeper's trauma record (`lk-mark-skips-abilities`).
+- PR 9 was browser-checked in Chromium for everything in the bullets above except the offer card's focus and Escape, the hub's approval notice, and the keyboard focus moves on the creator arrows and dice tray.
+- Open leftovers: the sheet's ability tab resets on a tab switch (from PR 8); the server's activity history and held offers live in memory, so a server restart empties them.
+- **AI playtest results** are in `playtest/results/2026-10-08/` and the setup in `playtest/` (start with `playtest/HANDOFF.md`). Robert's private page: https://claude.ai/artifact/8wcvWkCfptWqtFf15XTaRG
 
-## Next phase: PR 9 (Opus 5.5 high)
+## Next phase: PR 10 (Sonnet 5.5 medium)
 
-`offline-not-shown`, `stale-connection-slips` and the effort M bugs (`report-questions-tally`, `activity-log-not-persisted`, `relationship-question-in-answer`, `ability-offers-expire`, `vote-tie-leading`, `pending-join-not-live`, `keyboard-focus-dropped`, `patch-up-free-rider`, `ws-token-in-url`), plus the "Deal a mark" control and the top-ten UX list in `report.json`.
+Before starting, merge or rebase on PR 9 if Robert has merged it. These are what remains of the report's top-ten UX list (`report.json`, `top_fixes`); read each item's `fix`:
+- `silent-table-changes`: log every Lightkeeper table event (dispatch, tension, timer, reports), and add a "new" dot on the phone's Menu and drawer rows until the player has looked.
+- Keep the table in view: `hourglass-offscreen-small-screens`, `section-hides-table-column`, `left-rail-squeezed`, `log-squeezed-by-slip`. This means a compact tension, timer and newest-log strip on the phone, the tablet and every non-Roster section, plus inner scrolling for the side columns at laptop heights.
+- Dice wording: `rule-of-six-stepper` (S), `gilded-choice-unexplained`.
+- Resources: `resource-spend-no-guard` (Undo, locked squares that look locked) and `lk-resource-repair` (a logged "give a spend back" for the Lightkeeper).
 
 ### Open questions for Robert
 
-- Deploy `main`.
+- Deploy `main`, and merge PR 9 when ready (deploy again after it).
 
 ## How the browser checks were done in PR 6
 
@@ -77,6 +85,6 @@ No frontend test runner exists, so changes were checked in Chromium with Playwri
   su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/candela-pg/data -l /var/tmp/candela-pg/pg.log -o '-p 5433' start"
   python3 -m venv ~/.venv-candela && ~/.venv-candela/bin/pip install -r backend/requirements.txt -r backend/requirements-dev.txt
   ```
-  Then run `~/.venv-candela/bin/python -m pytest -q` in `backend/`, with `DATABASE_URL=postgresql://postgres@localhost:5433/<a throwaway db>`, `SECRET_KEY` set to any hex and `CORS_ORIGINS=http://localhost:5173`. Create the database first and drop it after. The full suite was 1,768 tests and took about 5 minutes. The CI workflow runs the same suite on every PR.
+  Then run `~/.venv-candela/bin/python -m pytest -q` in `backend/`, with `DATABASE_URL=postgresql://postgres@localhost:5433/<a throwaway db>`, `SECRET_KEY` set to any hex and `CORS_ORIGINS=http://localhost:5173`. Create the database first and drop it after. The full suite was 1,805 tests and took about 4 minutes. The CI workflow runs the same suite on every PR.
 - **Frontend:** `cd frontend && npm ci && npx vite build`. For browser checks, use Playwright with the Chromium in `/opt/pw-browsers`. `playtest/package.json` and `playtest/lib.js` show how. Serve a build with `vite preview`, using a copy of `frontend/vite.config.js` whose proxy targets point at your backend's port; never commit that copy.
-- **Known quirk:** on a fresh database, the first sign-up and the first campaign's socket fail once (`seed-id-sequence-collision` in the report). Retry, or fix it in this PR: it is effort S.
+- **Browser check harness from PR 9:** to build a table over the API, register users (`/api/auth/register`), create a campaign (`/campaign/create`), forge (`/api/investigators/forge`), join, approve, then GET `circle-creation-state`. Seal it in SQL (`circles.is_finalized`, `campaigns.roster_finalized`, `reports_open`). Seed the desk by writing `candela-vtt-storage` in an init script guarded by sessionStorage, so a reload keeps the live state. The global Playwright is at `/opt/node22/lib/node_modules/playwright`. `page.routeWebSocket` with `connectToServer` passes the subprotocol through, so it can stall one socket.
