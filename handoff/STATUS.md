@@ -2,7 +2,7 @@
 
 Updated 10 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
-Resume: none
+Resume: UX batch (report items 11-15, 17-23) on branch claude/admiring-clarke-rnlb9p, started 10 October 2026
 
 ## For the next chat: start here
 
