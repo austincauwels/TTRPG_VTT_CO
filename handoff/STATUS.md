@@ -1,12 +1,12 @@
 # Candela VTT: status and next phase
 
-Updated 9 October 2026, evening (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
+Updated 10 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
-Resume: PR 10 (table in view, new dots, log lines, gilded wording, resources) on branch claude/elegant-curie-9sa9z6, started 2026-10-10
+Resume: none
 
 ## For the next chat: start here
 
-You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 9 stands, then do "Next phase". Keep the chat lean:
+You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 10 stands, then do "Next phase". Keep the chat lean:
 
 - Robert hit his **weekly usage limit** on 9 October. Before any run of more than about 6 agents, say roughly how big it is and ask. Prefer one implementer plus one reviewer over wide fan-outs.
 - **The hourly check-in.** A Routine ("Candela: resume an interrupted phase", hourly) reads the `Resume:` line at the top of this file. `none` means it stops at once. When you start a phase, set it to `Resume: <phase> on branch <branch>, started <date>` and push; commit and push work in progress at least every hour, since an interrupted container keeps nothing; set it back to `Resume: none` when the phase ends or when you stop to wait for Robert. A resumed session sees only what was pushed.
@@ -18,7 +18,7 @@ You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web
 
 Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message so he can set it before starting the next chat. As your first step, check your own model (the `get_session` tool) and effort. If they differ from the recommendation below, tell him in one line and carry on.
 
-**Next phase (PR 10): Sonnet 5.5 at medium effort, ultracode off.** Mostly layout and wording on the desks (the top-ten UX list below). Switch to Opus 5.5 high only for the "log every Lightkeeper event" part if it touches the WebSocket protocol, and for the final review before the PR.
+**Next phase (PR 10 fixes, then the leftovers below): Sonnet 5.5 at medium effort, ultracode off.** Opus 5.5 high only for a final review before a PR.
 
 Rules of thumb for later phases:
 
@@ -36,22 +36,20 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Where things stand
 
-- `main` is at **da2b4c1**, with PR 6, 7, 8 and 9 all merged (PR 9 on 9 October, Pacific). **Deployed** (through PR 9). To deploy later work, Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload.
-- **PR 9 merged**: https://github.com/austincauwels/TTRPG_VTT_CO/pull/9 (branch `claude/pr9-connection`, 12 commits, CI green). It has no schema change. Backend suite 1,805 passed, and an independent review's four findings were fixed. It covers:
-  - Connection: heartbeat ping/pong, the offline banner, the Activity Log kept on the server and replayed as `activity_history`, stale slips cleared, the token sent as a `bearer.<token>` subprotocol.
-  - Bugs: `vote-tie-leading`, `relationship-question-in-answer`, `ability-offers-expire`, `pending-join-not-live`, `report-questions-tally` (the Lightkeeper ticks the questions and the page totals by p. 55), `keyboard-focus-dropped`, and `patch-up-free-rider` (Patch Up is declared with a chip before the Focus roll).
-  - Deal a mark on the Lightkeeper's trauma record (`lk-mark-skips-abilities`).
-- PR 9 was browser-checked in Chromium for everything in the bullets above except the offer card's focus and Escape, the hub's approval notice, and the keyboard focus moves on the creator arrows and dice tray.
-- Open leftovers: the sheet's ability tab resets on a tab switch (from PR 8); the server's activity history and held offers live in memory, so a server restart empties them.
-- **AI playtest results** are in `playtest/results/2026-10-08/` and the setup in `playtest/` (start with `playtest/HANDOFF.md`). Robert's private page: https://claude.ai/artifact/8wcvWkCfptWqtFf15XTaRG
+- `main` is at **da2b4c1** (PR 6 to 9 merged and deployed). **PR 10 is open, not merged**: branch `claude/elegant-curie-9sa9z6`, 4 commits on `main`. Robert merges it and deploys with `cd ~/projects/gatergrid-web && bash candela/update.sh`; players reload. No schema change.
+- **PR 10 contains** (from the playtest's top-ten UX list):
+  - Table in view: a `TableStrip` (tension, timer, newest log line) under the phone's band, on the tablet's page, over the notebook, and on the Lightkeeper's pages that replace the table column; player rail scrolls as a whole with a floor for Your Circle, the log keeps 9 rem, the dice column scrolls inside itself; on a tablet the rail follows the dice in the page; the Lightkeeper's Roster tab opens the roster, not the last sheet.
+  - "New" dots on the phone Menu, drawer rows and the md+ Circle tab (store `unseen`, `markSeen`).
+  - Log lines for the dispatch, tension, timer, reports opening/closing, a filed or amended report and the Lightkeeper's resource edits (`table_lines`, `log_line` in the backend).
+  - Gilded choice wording (`keepChoices`); circle resources spent in two presses with the reason printed; `gm_return_spend` and "Give a spend back" on the Lightkeeper's sheet.
+  - Checked: backend suite passed on a fresh database (1,812 tests with the new ones); Chromium checks of the dots, strip, drawer, two-press spend, spend back, gilded wording, and the xl and lg layouts. An Opus review found a cross-campaign hole in `gm_return_spend`, a double-click spend and a lost update; all fixed.
+- Not done in PR 10: `rule-of-six-stepper` was already fixed in PR 8 (the optional "stop the stepper where no action can use another die" is not done); an Undo after a spend (the two-press ask replaced it; the Lightkeeper can give a spend back); `log-squeezed-by-slip` and `left-rail-squeezed` are fixed by the CSS floors but were checked only at 1366x768 and 1100x800 with two members, not with a long slip; at lg and up Tab order now follows the page (sheet, dice, rail) not the screen (rail first), a deliberate trade for tablets.
+- Open leftovers: the sheet's ability tab resets on a tab switch (from PR 8); the server's activity history and held offers live in memory, so a restart empties them.
+- **AI playtest results** are in `playtest/results/2026-10-08/` (start with `playtest/HANDOFF.md`). Next candidates from the report's ranked UX list after PR 10: the items below its top ten (read `report.json`, `ux`).
 
-## Next phase: PR 10 (Sonnet 5.5 medium)
+## Next phase
 
-Branch from the newest `main`. These are what remains of the report's top-ten UX list (`report.json`, `top_fixes`); read each item's `fix`:
-- `silent-table-changes`: log every Lightkeeper table event (dispatch, tension, timer, reports), and add a "new" dot on the phone's Menu and drawer rows until the player has looked.
-- Keep the table in view: `hourglass-offscreen-small-screens`, `section-hides-table-column`, `left-rail-squeezed`, `log-squeezed-by-slip`. This means a compact tension, timer and newest-log strip on the phone, the tablet and every non-Roster section, plus inner scrolling for the side columns at laptop heights.
-- Dice wording: `rule-of-six-stepper` (S), `gilded-choice-unexplained`.
-- Resources: `resource-spend-no-guard` (Undo, locked squares that look locked) and `lk-resource-repair` (a logged "give a spend back" for the Lightkeeper).
+Wait for Robert to merge PR 10 (or send review comments), then pick from the report's remaining UX items or run a second AI playtest.
 
 ### Open questions for Robert
 
