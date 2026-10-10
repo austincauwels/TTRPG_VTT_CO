@@ -271,7 +271,19 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
 
 
 async def handle_take_mark(ctx):
+    """A mark taken on the player's own sheet, or dealt by the Lightkeeper to a member
+    (the GM socket names character_id). A dealt mark goes the same way as a taken one, so
+    soaks, Death Defy, the allies' Behind Me and Premonitions, and Let Them In are offered;
+    the offers go to the player's channel, where they are answered. The trauma record's
+    Edit sets a track without any of them, and the Lightkeeper used it for every story
+    consequence, so those abilities were silently lost (playtest, lk-mark-skips-abilities)."""
     m_type = ctx.payload.get("mark_type")
+    if m_type and ctx.is_gm:
+        character = ctx.character
+        await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark.", "danger")
+        await mark_or_offer(ctx, character, m_type, character_key(character.id),
+                            is_from_enemy=ctx.payload.get("is_from_enemy") is not False)
+        return
     if m_type:
         # A mark an open offer still holds lands first (mark_or_offer). Whether an enemy dealt the mark is the table's call, and the desk does not ask,
         # so Death Defy is offered unless the payload says the mark is not from an enemy

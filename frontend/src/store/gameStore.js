@@ -1650,6 +1650,21 @@ const useGameStore = create(
         return false;
       },
 
+      // The Lightkeeper deals a member a mark: it goes the way a mark the player takes does,
+      // so soaks, Death Defy, the allies' offers and Let Them In come up on the player's desk
+      // (the server, handle_take_mark). fromEnemy: Death Defy is offered for it.
+      gmDealMark: (characterId, markType, fromEnemy) => {
+        const { socket } = get();
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'take_mark',
+            payload: { character_id: characterId, mark_type: markType, is_from_enemy: !!fromEnemy },
+          }));
+          return true;
+        }
+        return false;
+      },
+
       // The Lightkeeper rewords or removes a member's scars: the list as it should be, and
       // the list the sheet showed, so a scar taken meanwhile is not lost (the server refuses)
       gmSetScars: (characterId, scars, previous) => {

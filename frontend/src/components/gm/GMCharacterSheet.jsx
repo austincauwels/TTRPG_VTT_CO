@@ -14,8 +14,8 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
 
-  const { gmResetCharacter, gmSetMarks, gmSetScars } = useGameStore(useShallow(s => ({
-    gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetScars: s.gmSetScars })));
+  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark } = useGameStore(useShallow(s => ({
+    gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark })));
   // Corrections on the trauma record (its Edit button, on this copy of the sheet only)
   const [traumaError, setTraumaError] = useState(null);
   const notConnected = 'Not connected to the table. Try again in a moment.';
@@ -28,6 +28,16 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
       return false;
     }
     setFullChar(c => (c ? { ...c, [`${type}_marks`]: value } : c));
+    return true;
+  };
+  // A mark dealt in the story: the sheet follows when it lands (member_update), since the
+  // player may soak it or escape it first
+  const dealMark = (type, fromEnemy) => {
+    setTraumaError(null);
+    if (!gmDealMark(rosterItem.id, type, fromEnemy)) {
+      setTraumaError(notConnected);
+      return false;
+    }
     return true;
   };
   // A scar reworded, or removed when it was taken by mistake. Below four scars a dead
@@ -168,7 +178,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
 
         {fullChar && !loading && (
           <>
-            <InvestigatorDossier character={sheet} readOnly traumaEdit={{ setMarks, setScars, error: traumaError }} />
+            <InvestigatorDossier character={sheet} readOnly traumaEdit={{ setMarks, setScars, dealMark, error: traumaError }} />
             <ConfirmAction
               className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-3"
               onConfirm={() => gmResetCharacter(rosterItem.id)}

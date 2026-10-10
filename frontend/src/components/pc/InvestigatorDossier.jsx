@@ -401,7 +401,8 @@ const GEAR_ICONS = {
   "Occult Supplies": "GiCauldron", "Ritual Dagger": "GiKnifeThrust",
 };
 
-// traumaEdit (the Lightkeeper's copy only): { setMarks(type, value), setScars(list), error }.
+// traumaEdit (the Lightkeeper's copy only): { setMarks(type, value), setScars(list),
+// dealMark(type, fromEnemy), error }.
 // It gives the trauma record an Edit button that sets the mark tracks and rewords or
 // removes scars right on the record (GMCharacterSheet.jsx).
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false, traumaEdit = null }) => {
@@ -537,6 +538,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The trauma record in edit mode (the Lightkeeper's copy): each change goes to the table
   // at once; Done also saves scar words changed and not yet saved
   const editing = !!traumaEdit && editingTrauma;
+  // Deal a mark (the Lightkeeper's copy): whether an enemy dealt it, and the last one sent
+  const [dealFromEnemy, setDealFromEnemy] = useState(true);
+  const [dealtNote, setDealtNote] = useState('');
   const scars = Array.isArray(character.scars_list) ? character.scars_list : [];
   const scarChanged = (j) => scarDrafts[j] != null && scarDrafts[j].trim() !== String(scarDisplayText(scars[j]) ?? '').trim();
   const saveScar = (i) => {
@@ -1298,8 +1302,27 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <div className="trauma-edit col-span-full flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5 mt-3 pt-2 border-t border-dotted border-ink/30">
               {editing && (
                 <p className="font-serif text-sm italic text-sepia leading-snug min-w-0 flex-1 basis-56">
-                  Press a box to fill its track to it, or the last filled box to clear it. Removing a scar does not move back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, ask the player to take it on their sheet.
+                  Press a box to fill its track to it, or the last filled box to clear it. Removing a scar does not move back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, use Deal a mark.
                 </p>
+              )}
+              {/* Deal a mark: a story consequence, which offers what a mark the player takes
+                  offers (playtest, lk-mark-skips-abilities) */}
+              {!editing && traumaEdit.dealMark && (
+                <div role="group" aria-label="Deal a mark" className="flex flex-wrap items-center gap-x-2 gap-y-1.5 min-w-0 flex-1 basis-64">
+                  <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">Deal a mark</span>
+                  {['body', 'brain', 'bleed'].map(type => (
+                    <button key={type} type="button"
+                      onClick={() => { if (traumaEdit.dealMark(type, dealFromEnemy)) setDealtNote(`${type[0].toUpperCase()}${type.slice(1)} mark dealt. The player's desk offers any ability that answers it.`); }}
+                      className="min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood rounded-sm hover:bg-oxblood hover:text-cream transition-colors">
+                      {type}
+                    </button>
+                  ))}
+                  <label className="flex items-center gap-1.5 font-serif text-sm text-ink/80 cursor-pointer [@media(pointer:coarse)]:min-h-[44px]">
+                    <input type="checkbox" checked={dealFromEnemy} onChange={e => setDealFromEnemy(e.target.checked)} className="accent-oxblood w-4 h-4" />
+                    From an enemy
+                  </label>
+                  {dealtNote && <p role="status" className="basis-full font-serif text-sm italic text-sepia leading-snug">{dealtNote}</p>}
+                </div>
               )}
               <button
                 ref={traumaToggleRef}
