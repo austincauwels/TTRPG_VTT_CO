@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import * as Gi from "./shared/gameIcons";
 import { JoinCampaignForm } from './shared/JoinCampaignForm';
 import { ConfirmAction } from './shared/ConfirmAction';
@@ -362,6 +362,22 @@ const SafeIcon = ({ name, size = 18, className = "", style: s }) => {
   return React.createElement(Gi[name], { size, className, style: s });
 };
 
+// The gild star beside an action in step 3, and in its key. Open, a bare star in the
+// current ink: the action can take the free gild. Gilded, the star on a gold disc in a sepia
+// ring, as the sheet's gilded dot is drawn (gold alone is too faint on the paper). The
+// specialty's gild also carries a small padlock: it is fixed, where the free one can move.
+// Every gilded action shows the disc whatever its rating; the rating pips never carry the
+// gild, since an action at 0 has no pip to gild (playtest, creator-touch-targets).
+const GildStar = ({ gilded = false, fixed = false }) => (
+  <span aria-hidden="true" className={`relative shrink-0 w-5 h-5 flex items-center justify-center rounded-full ${gilded ? 'bg-candle-gold border-[1.5px] border-sepia text-sepia' : ''}`}>
+    <Gi.GiStarFormation size={gilded ? 12 : 15} />
+    {fixed && <Gi.GiPadlock size={11} className="absolute -right-1 -bottom-1.5 p-px rounded-full bg-parchment text-ink" />}
+  </span>
+);
+
+// A rating pip the specialty gave, faded in a sepia ring; the player's own points are full
+const SPECIALTY_PIP = { opacity: 0.5, outline: '2px solid rgb(var(--c-sepia)/0.5)', outlineOffset: '-1px' };
+
 // Art-deco SVG corner ornament — rotated for each corner
 const DecoCorner = ({ color, rot = 0 }) => (
   <svg viewBox="0 0 44 44" width="50" height="50" fill="none"
@@ -501,6 +517,24 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   const d = (field, fallback) => (draft && draft[field] !== undefined && draft[field] !== null ? draft[field] : fallback);
 
   const [step, setStep] = useState(() => d('step', 1));
+  // A new step opens at its top (playtest, creator-step-scroll-position). The page is the
+  // window, and it kept its place: the browser's scroll anchoring held the Back and Advance
+  // row where it was, so each step opened at its foot. Advance, Back and Select this Path
+  // also put the focus on the new step's heading (the button pressed is gone or far below);
+  // a step tab keeps it, in the tab row. A draft opening on its step moves nothing.
+  const stepHeadingRef = useRef(null);
+  const stepMoved = useRef(null);
+  const openStep = (n, focusHeading = true) => {
+    stepMoved.current = focusHeading ? 'heading' : 'top';
+    setStep(n);
+  };
+  useLayoutEffect(() => {
+    const moved = stepMoved.current;
+    stepMoved.current = null;
+    if (!moved) return;
+    window.scrollTo({ top: 0 });
+    if (moved === 'heading') stepHeadingRef.current?.focus({ preventScroll: true });
+  }, [step]);
   // Step 3 on a tablet: what each action does, behind its printed "i" (shared/ActionInfo.jsx)
   const infoId = useId();
   const [infoFor, toggleInfo] = useActionInfo();
@@ -628,7 +662,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
     setLockedGilded(SPECIALTY_GILDED[card.specialtyName] || '');
     setFreeGilded('');
     setSelectedGear([]);
-    setStep(2);
+    openStep(2);
   };
 
   const toggleGear = (item) => {
@@ -740,11 +774,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           const active = step === n;
           const [num, ...words] = label.split(' ');
           return (
-            <button key={n} type="button" onClick={() => unlocked && setStep(n)}
+            <button key={n} type="button" onClick={() => unlocked && n !== step && openStep(n, false)}
               disabled={!unlocked}
               aria-current={active ? 'step' : undefined}
               aria-label={`Step ${n}, ${words.join(' ').toLowerCase()}${unlocked ? '' : ', locked until the earlier steps are done'}`}
-              className={`${active ? 'flex-[3] sm:flex-1' : 'flex-1'} py-3 sm:py-4 px-1 border-r border-sepia/50 last:border-r-0 transition-colors font-black tracking-wider sm:tracking-widest uppercase ${
+              className={`${active ? 'flex-[3] sm:flex-1' : 'flex-1'} py-3 sm:py-4 px-1 [@media(pointer:coarse)]:min-h-[44px] border-r border-sepia/50 last:border-r-0 transition-colors font-black tracking-wider sm:tracking-widest uppercase ${
                 active   ? 'bg-oxblood text-cream' :
                 unlocked ? 'text-cream/75 hover:bg-black/20 hover:text-cream cursor-pointer' :
                            'cursor-not-allowed text-cream/55'
@@ -769,7 +803,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           `}</style>
 
           <div className="text-center mb-6">
-            <h2 className="font-display text-3xl sm:text-5xl uppercase tracking-[0.08em] text-cream"
+            <h2 ref={stepHeadingRef} tabIndex={-1} className="font-display text-3xl sm:text-5xl uppercase tracking-[0.08em] text-cream"
               style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}>Choose Your Path</h2>
           </div>
 
@@ -849,10 +883,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                   onConfirm={startOver}
                   cancelLabel="Keep it"
                   armedHint="Press again to clear every choice and start from the first card."
+                  cancelSize="min-h-[36px] [@media(pointer:coarse)]:min-h-[44px]"
                   renderButton={(armed, props) => (
                     <button
                       {...props}
-                      className={`min-h-[36px] px-3 font-sans text-xs font-bold uppercase tracking-widest border rounded transition-colors ${
+                      className={`min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-bold uppercase tracking-widest border rounded transition-colors ${
                         armed ? 'bg-oxblood text-cream border-ink' : 'text-cream/65 border-cream/15 hover:text-cream hover:border-cream/40'
                       }`}
                     >
@@ -1017,7 +1052,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
         <PaperSheet printLine="Form C.O. 7 · Investigator record" serial={formSerial}>
           <div className="animate-fadeIn space-y-6">
             <div className="text-center pb-4" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
-              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Investigator Profile</h2>
+              <h2 ref={stepHeadingRef} tabIndex={-1} className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Investigator Profile</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
                 {specialty} · {role}
               </p>
@@ -1049,14 +1084,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                     />
                     <label
                       id="creator-portrait-button" htmlFor="creator-portrait"
-                      className="mt-2 flex items-center justify-center gap-1.5 min-h-[40px] px-2 py-1.5 rounded border-2 border-oxblood text-oxblood bg-transparent font-sans text-xs font-black uppercase tracking-wider leading-tight text-center cursor-pointer transition-colors hover:bg-oxblood hover:text-cream peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-candle-gold peer-disabled:opacity-60 peer-disabled:cursor-wait"
+                      className="mt-2 flex items-center justify-center gap-1.5 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-2 py-1.5 rounded border-2 border-oxblood text-oxblood bg-transparent font-sans text-xs font-black uppercase tracking-wider leading-tight text-center cursor-pointer transition-colors hover:bg-oxblood hover:text-cream peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-candle-gold peer-disabled:opacity-60 peer-disabled:cursor-wait"
                     >
                       {portraitBusy ? 'Adding…' : profilePic ? 'Change portrait' : 'Add portrait'}
                     </label>
                     {profilePic && !portraitBusy && (
                       <button type="button" onClick={() => { setProfilePic(null); setPortraitError(''); }}
                         aria-label="Remove portrait"
-                        className="mt-1 w-full min-h-[32px] font-sans text-xs font-bold uppercase tracking-wider text-sepia hover:text-oxblood underline-offset-4 hover:underline transition-colors">
+                        className="mt-1 w-full min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] font-sans text-xs font-bold uppercase tracking-wider text-sepia hover:text-oxblood underline-offset-4 hover:underline transition-colors">
                         Remove
                       </button>
                     )}
@@ -1066,14 +1101,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                     <div>
                       <label htmlFor="creator-name" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Full Name *</label>
                       <input id="creator-name" type="text" required aria-required="true" value={name} onChange={e => setName(e.target.value)}
-                        className="w-full bg-transparent font-serif font-bold text-lg placeholder-sepia/90 placeholder:font-normal placeholder:italic pb-1 md:[@media(pointer:coarse)]:min-h-[44px]"
+                        className="w-full bg-transparent font-serif font-bold text-lg placeholder-sepia/90 placeholder:font-normal placeholder:italic pb-1 [@media(pointer:coarse)]:min-h-[44px]"
                         style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
                     <div>
                       <label htmlFor="creator-pronouns" className="block text-sm font-sans font-black uppercase tracking-[0.18em] text-oxblood mb-1">Gender / Pronouns</label>
                       <input id="creator-pronouns" type="text" value={pronouns} onChange={e => setPronouns(e.target.value)}
                         placeholder="She/her, he/they"
-                        className="w-full bg-transparent font-serif italic text-lg placeholder-sepia/90 pb-1 md:[@media(pointer:coarse)]:min-h-[44px]"
+                        className="w-full bg-transparent font-serif italic text-lg placeholder-sepia/90 pb-1 [@media(pointer:coarse)]:min-h-[44px]"
                         style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.38)' }} />
                     </div>
                   </div>
@@ -1133,7 +1168,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
         <PaperSheet printLine="Form C.O. 7 · Investigator record" serial={formSerial}>
           <div className="animate-fadeIn space-y-6">
             <div className="text-center pb-5" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
-              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Action Ratings &amp; Drive</h2>
+              <h2 ref={stepHeadingRef} tabIndex={-1} className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Action Ratings &amp; Drive</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
                 {specialty} · {role}
               </p>
@@ -1156,10 +1191,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                   return (
                     // An action that already has 2 free points would go to 3, past the
                     // limit of 2 at creation (rulebook p. 25), which the server refuses
-                    <button key={k} onClick={() => setFreeRaiseKey(sel ? null : k)}
+                    <button key={k} type="button" onClick={() => setFreeRaiseKey(sel ? null : k)}
+                      aria-pressed={sel}
                       disabled={!sel && (freeAdditions[k] || 0) >= 2}
                       title={!sel && (freeAdditions[k] || 0) >= 2 ? 'Already at 2 from your free points' : undefined}
-                      className="disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] md:[@media(pointer:coarse)]:px-4 text-sm font-sans font-black uppercase tracking-wider rounded-sm transition-all"
+                      className="disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:px-4 text-sm font-sans font-black uppercase tracking-wider rounded-sm transition-all"
                       style={{
                         background: sel ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-parchment-deep)/0.5)',
                         color: sel ? 'rgb(var(--c-cream))' : 'rgb(var(--c-sepia))',
@@ -1174,14 +1210,33 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
 
             {/* ── Step B: Action distribution grid ── */}
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between gap-3 mb-2">
                 <h3 className="text-lg font-serif font-bold text-oxblood">
                   B. Distribute 3 Free Action Points (max 2 per action)
                 </h3>
-                <span className={`text-xs font-sans font-black uppercase tracking-widest ${freePtsUsed===3?'text-seal-green':'text-sepia'}`}>
+                <span className={`shrink-0 text-xs font-sans font-black uppercase tracking-widest ${freePtsUsed===3?'text-seal-green':'text-sepia'}`}>
                   {freePtsUsed}/3 placed
                 </span>
               </div>
+              {/* The free gild has a line of its own, with the open star each row carries, so
+                  the stars read as the place to choose it (it was found only in the checklist) */}
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <h4 className="flex items-center gap-2 text-base font-serif font-bold text-oxblood">
+                  <span className="text-sepia"><GildStar /></span>
+                  Gild One More Action
+                </h4>
+                {freeGilded
+                  ? <span className="shrink-0 text-xs font-sans font-black uppercase tracking-widest text-seal-green"><TickMark /> {actionKeyLabel[freeGilded]}</span>
+                  : <span className="shrink-0 text-xs font-sans font-black uppercase tracking-widest text-sepia">choose one</span>
+                }
+              </div>
+              {/* The key to the rows' marks. Each row says the same to a screen reader. */}
+              <p aria-hidden="true" className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 font-sans text-xs font-black uppercase tracking-wider text-sepia">
+                <span className="inline-flex items-center gap-2"><span className="action-pip filled" style={SPECIALTY_PIP} />From your specialty</span>
+                <span className="inline-flex items-center gap-2"><span className="action-pip filled" />Your points</span>
+                <span className="inline-flex items-center gap-2"><GildStar gilded />Gilded</span>
+                <span className="inline-flex items-center gap-2.5"><GildStar gilded fixed />Gilded by your specialty</span>
+              </p>
               <div className="grid grid-cols-1 lg:grid-cols-3 md:[@media(pointer:coarse)]:max-xl:grid-cols-1 gap-4">
                 {ACTION_DRIVES.map(di => {
                   const gKey = di.drive.toLowerCase();
@@ -1198,47 +1253,48 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           const total   = locked + raised + free;
                           const isLockedGilded = lockedGilded === key;
                           const isFreeGilded   = freeGilded === key;
-                          const isGilded       = isLockedGilded || isFreeGilded;
+                          // On every touch screen the gild star, the "i" and the steppers are
+                          // 44px. A phone has no room for them and the pips on one line, so
+                          // there the pips go under the name (the wrapper below is a column);
+                          // elsewhere it steps aside (contents) and the order classes keep
+                          // name, "i", pips and steppers in a row.
                           return (
                             <div key={key} className="relative flex items-center gap-2">
                               {isLockedGilded ? (
-                                <span className="shrink-0 w-5 h-5 md:[@media(pointer:coarse)]:w-6 flex items-center justify-center" title="Specialty gilded action (locked)" role="img" aria-label={`${label} is gilded by your specialty`}>
-                                  <Gi.GiStarFormation aria-hidden="true" size={13} style={{ color: 'rgb(var(--c-candle-gold))' }} />
+                                <span className="shrink-0 w-5 h-5 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:pl-0.5 flex items-center" role="img" aria-label={`${label} is gilded by your specialty`}>
+                                  <GildStar gilded fixed />
                                 </span>
                               ) : (
                                 <button type="button" onClick={() => toggleFreeGilded(key)}
                                   aria-pressed={isFreeGilded}
-                                  aria-label={isFreeGilded ? `${label} is your free gilded action. Remove the gild` : freeGilded ? `Move your free gild to ${label}` : `Gild ${label} (free choice)`}
-                                  title={isFreeGilded ? 'Remove free gild' : freeGilded ? 'Replace free gild' : 'Gild this action (free choice)'}
-                                  className="shrink-0 w-7 h-7 -m-1 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 md:[@media(pointer:coarse)]:-my-2.5 md:[@media(pointer:coarse)]:-ml-2.5 md:[@media(pointer:coarse)]:-mr-1.5 flex items-center justify-center rounded-sm transition-opacity hover:opacity-100"
-                                  style={{ opacity: isFreeGilded ? 1 : 0.7 }}>
-                                  <Gi.GiStarFormation aria-hidden="true" size={13} style={{ color: isFreeGilded ? 'rgb(var(--c-candle-gold))' : 'rgb(var(--c-sepia))' }} />
+                                  aria-label={`Gild ${label}`}
+                                  title={isFreeGilded ? 'Remove the free gild' : freeGilded ? `Move the free gild here from ${actionKeyLabel[freeGilded]}` : 'Gild this action'}
+                                  className="shrink-0 w-7 h-7 -m-1 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:-my-2.5 [@media(pointer:coarse)]:-ml-2.5 [@media(pointer:coarse)]:-mr-1.5 flex items-center justify-center rounded-sm text-sepia [@media(hover:hover)]:hover:text-oxblood transition-colors">
+                                  <GildStar gilded={isFreeGilded} />
                                 </button>
                               )}
-                              <span className="text-sm font-serif font-bold text-ink w-16 shrink-0 group/act relative cursor-help">
-                                {label}
-                                <span className="hidden group-hover/act:block absolute left-0 top-full mt-1 z-10 w-64 text-base font-serif font-normal italic text-ink bg-cream border border-sepia/40 rounded px-2 py-1 shadow pointer-events-none leading-snug">
-                                  {ACTION_FLAVOR[key]}
+                              <div className="contents max-sm:[@media(pointer:coarse)]:flex max-sm:[@media(pointer:coarse)]:flex-col max-sm:[@media(pointer:coarse)]:gap-1 max-sm:[@media(pointer:coarse)]:shrink-0">
+                                <span className="order-1 text-sm font-serif font-bold text-ink w-16 shrink-0 group/act relative cursor-help">
+                                  {label}
+                                  <span className="hidden group-hover/act:block absolute left-0 top-full mt-1 z-10 w-64 text-base font-serif font-normal italic text-ink bg-cream border border-sepia/40 rounded px-2 py-1 shadow pointer-events-none leading-snug">
+                                    {ACTION_FLAVOR[key]}
+                                  </span>
                                 </span>
-                              </span>
-                              <ActionInfo id={`${infoId}-${key}`} label={label} text={ACTION_FLAVOR[key]}
-                                open={infoFor === `${infoId}-${key}`} onToggle={() => toggleInfo(`${infoId}-${key}`)} />
-                              <div className="flex gap-1 flex-1" role="img" aria-label={`${label}: ${total} of 3${isGilded ? ', gilded' : ''}`}>
-                                {[1,2,3].map(n => {
-                                  let cls = '';
-                                  if (n <= locked) cls = 'action-pip filled opacity-50';
-                                  else if (n === locked+1 && raised===1) cls = isGilded&&n===total ? 'action-pip gilded' : 'action-pip filled';
-                                  else if (n <= total) cls = isGilded&&n===total ? 'action-pip gilded' : 'action-pip filled';
-                                  else cls = 'action-pip';
-                                  return <div key={n} className={cls} style={n<=locked?{outline:'2px solid rgb(var(--c-sepia)/0.5)', outlineOffset:'-1px'}:{}} />;
-                                })}
+                                <div className="order-3 flex gap-1 flex-1 max-sm:[@media(pointer:coarse)]:flex-none" role="img" aria-label={`${label}: ${total} of 3${locked ? `, ${locked} from your specialty` : ''}`}>
+                                  {[1,2,3].map(n => (
+                                    <div key={n} className={n <= total ? 'action-pip filled' : 'action-pip'}
+                                      style={n <= locked ? SPECIALTY_PIP : undefined} />
+                                  ))}
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0">
+                              <ActionInfo id={`${infoId}-${key}`} label={label} text={ACTION_FLAVOR[key]} show="hidden [@media(pointer:coarse)]:flex order-2"
+                                open={infoFor === `${infoId}-${key}`} onToggle={() => toggleInfo(`${infoId}-${key}`)} />
+                              <div className="order-4 ml-auto flex items-center gap-1 shrink-0">
                                 <button type="button" onClick={() => adjustFreePoints(key,-1)} disabled={free<=0} aria-label={`Take a free point off ${label}`}
-                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
+                                  className="w-7 h-7 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                                   style={{ color:'rgb(var(--c-oxblood))', borderColor:'rgb(var(--c-oxblood) / 0.31)' }}>−</button>
                                 <button type="button" onClick={() => adjustFreePoints(key,1)} disabled={total>=2||freePtsUsed>=3} aria-label={`Put a free point on ${label}`}
-                                  className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
+                                  className="w-7 h-7 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                                   style={{ color:'rgb(var(--c-oxblood))', borderColor:'rgb(var(--c-oxblood) / 0.31)' }}>+</button>
                               </div>
                             </div>
@@ -1286,13 +1342,15 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                             }} />
                         ))}
                       </div>
-                      <div className="flex gap-2 items-center">
+                      {/* 44px steppers on a touch screen; the gap and the count close up so
+                          three drives side by side still fit a phone held sideways (640px) */}
+                      <div className="flex gap-2 [@media(pointer:coarse)]:gap-1.5 items-center">
                         <button type="button" onClick={() => adjustDrive(key,-1)} disabled={addVal<=0} aria-label={`Take a point off ${label}`}
-                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
+                          className="w-7 h-7 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>−</button>
-                        <span className="text-sm font-sans font-black w-8 text-center" style={{ color }}>+{addVal}</span>
+                        <span className="text-sm font-sans font-black w-8 [@media(pointer:coarse)]:w-6 text-center" style={{ color }}>+{addVal}</span>
                         <button type="button" onClick={() => adjustDrive(key,1)} disabled={drivesPtsUsed>=6 || total>=DRIVE_START_MAX} aria-label={`Put a point on ${label}`}
-                          className="w-7 h-7 [@media(pointer:coarse)]:w-9 [@media(pointer:coarse)]:h-9 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
+                          className="w-7 h-7 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>+</button>
                       </div>
                     </div>
@@ -1317,7 +1375,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
 
             {/* Which actions are gilded: the specialty's, and the free one once it is chosen */}
             <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-sans text-xs font-black uppercase tracking-widest text-sepia">
-              <Gi.GiStarFormation aria-hidden="true" size={13} style={{ color: 'rgb(var(--c-candle-gold))' }} />
+              <GildStar gilded />
               <span>Gilded: {[lockedGilded, freeGilded].filter(Boolean).map(k => actionKeyLabel[k]).join(', ') || 'none'}</span>
             </p>
           </div>
@@ -1332,7 +1390,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
         <PaperSheet printLine="Form C.O. 7 · Investigator record" serial={formSerial}>
           <div className="animate-fadeIn space-y-7">
             <div className="text-center pb-5" style={{ borderBottom: '1px solid rgb(var(--c-sepia)/0.22)' }}>
-              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Specialty Gear &amp; Final Dossier</h2>
+              <h2 ref={stepHeadingRef} tabIndex={-1} className="font-display text-3xl sm:text-4xl uppercase tracking-[0.06em] text-oxblood">Specialty Gear &amp; Final Dossier</h2>
               <p className="text-base sm:text-lg font-serif italic text-sepia mt-1">
                 {specialty} · {role}
               </p>
@@ -1420,15 +1478,15 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
       {/* ── BOTTOM NAV BUTTONS ── */}
       {step > 1 && (
         <div className="flex flex-wrap justify-between items-center gap-3 mt-5">
-          <button onClick={() => setStep(step - 1)}
-            className="px-5 py-2 text-base border border-cream/25 font-sans font-black uppercase tracking-widest text-cream/75 hover:bg-cream/5 hover:text-cream transition-all rounded">
+          <button onClick={() => openStep(step - 1)}
+            className="px-5 py-2 [@media(pointer:coarse)]:min-h-[44px] text-base border border-cream/25 font-sans font-black uppercase tracking-widest text-cream/75 hover:bg-cream/5 hover:text-cream transition-all rounded">
             ← Back
           </button>
           {step < 4 ? (
             <button
-              onClick={() => canAdvance && setStep(step + 1)}
+              onClick={() => canAdvance && openStep(step + 1)}
               disabled={!canAdvance}
-              className="px-7 py-2 text-base font-sans font-black uppercase tracking-widest rounded transition-all shadow"
+              className="px-7 py-2 [@media(pointer:coarse)]:min-h-[44px] text-base font-sans font-black uppercase tracking-widest rounded transition-all shadow"
               style={{
                 background: canAdvance ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-ink)/0.6)',
                 color: canAdvance ? 'rgb(var(--c-cream))' : 'rgb(var(--c-cream)/0.45)',
@@ -1445,14 +1503,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 <button
                   onClick={() => handleComplete('rejoin')}
                   disabled={!!savingMode}
-                  className="px-6 py-2.5 text-sm font-sans font-black uppercase tracking-widest border border-ink rounded hover:brightness-125 transition disabled:opacity-60 disabled:cursor-wait"
+                  className="px-6 py-2.5 [@media(pointer:coarse)]:min-h-[44px] text-sm font-sans font-black uppercase tracking-widest border border-ink rounded hover:brightness-125 transition disabled:opacity-60 disabled:cursor-wait"
                   style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
                   {savingMode === 'rejoin' ? 'Saving…' : savedCharacterId ? `Rejoin ${rejoinContext.campaignName}` : `Save and rejoin ${rejoinContext.campaignName}`}
                 </button>
                 <button
                   onClick={() => handleComplete('save')}
                   disabled={!!savingMode}
-                  className="px-6 py-2.5 text-sm border border-cream/25 text-cream/75 hover:text-cream hover:bg-cream/5 rounded font-sans font-black uppercase tracking-widest transition-colors disabled:opacity-60 disabled:cursor-wait"
+                  className="px-6 py-2.5 [@media(pointer:coarse)]:min-h-[44px] text-sm border border-cream/25 text-cream/75 hover:text-cream hover:bg-cream/5 rounded font-sans font-black uppercase tracking-widest transition-colors disabled:opacity-60 disabled:cursor-wait"
                   style={{ background: 'transparent' }}>
                   {savingMode === 'save' ? 'Saving…' : savedCharacterId ? 'Go to the chapter hub' : 'Save for later'}
                 </button>
@@ -1463,14 +1521,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               <button
                 onClick={() => handleComplete('save')}
                 disabled={!!savingMode}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border border-sepia font-sans font-black uppercase tracking-widest rounded transition-all disabled:opacity-60 disabled:cursor-wait"
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 [@media(pointer:coarse)]:min-h-[44px] text-sm leading-tight border border-sepia font-sans font-black uppercase tracking-widest rounded transition-all disabled:opacity-60 disabled:cursor-wait"
                 style={{ background: 'rgb(var(--c-parchment)/0.6)', color: 'rgb(var(--c-sepia))' }}>
                 {savingMode === 'save' ? 'Saving…' : savedCharacterId ? 'Go to the chapter hub' : 'Save for Later'}
               </button>
               <button
                 onClick={() => { setSaveError(''); setShowJoinInput(true); }}
                 disabled={!!savingMode}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 text-sm leading-tight border-2 border-ink font-sans font-black uppercase tracking-widest rounded shadow-md transition-all disabled:opacity-60 disabled:cursor-wait"
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 [@media(pointer:coarse)]:min-h-[44px] text-sm leading-tight border-2 border-ink font-sans font-black uppercase tracking-widest rounded shadow-md transition-all disabled:opacity-60 disabled:cursor-wait"
                 style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
                 {savedCharacterId ? 'Join a campaign' : 'Save and join a campaign'}
               </button>
@@ -1487,7 +1545,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 <button
                   onClick={retrySave}
                   disabled={!!savingMode}
-                  className="shrink-0 min-h-[40px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition disabled:opacity-60"
+                  className="shrink-0 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition disabled:opacity-60"
                 >
                   {savingMode ? 'Saving…' : 'Try again'}
                 </button>
