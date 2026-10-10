@@ -53,6 +53,10 @@ export const ABILITY_ROLL_MODS = {
   // Shooting is a Control roll in the rulebook (p. 50)
   "Sharpshooter":        { actions: ['strike','control'],        extraDice: () => 2, extraGild: false, costDrive: 'nerve', condition: (ch) => (ch.nerve_current || 0) > 0, chipLabel: (ch) => `Sharpshooter (spend 1 Nerve for +2d, ${ch.nerve_current ?? '?'} left)` },
   "Dissection":          { actions: ['read'],                    extraDice: () => 0, extraGild: true,  chipLabel: () => 'Dissection (gild extra die)' },
+  // Patch Up (p. 30): "make a Focus roll to heal 1 Body mark on an ally": the roll is the
+  // heal, so it is chosen here, before the roll, and the ally after it (it was offered
+  // after any Focus roll; playtest, patch-up-free-rider)
+  "Patch Up":            { actions: ['read'],                    extraDice: () => 0, extraGild: false, chipLabel: () => "Patch Up (this Focus roll heals an ally's Body mark)" },
   "Born in the Shadows": { actions: ['hide'],                    extraDice: () => 0, extraGild: true,  chipLabel: () => 'Born in the Shadows (gild extra die)' },
 };
 

@@ -1232,6 +1232,7 @@ def test_back_against_the_wall_without_a_spend_takes_no_mark(client, dice):
 POST_REFUSED = lambda detail, status=409: {"type": "action_rejected", "payload": {  # noqa: E731
     "action": "use_post_roll_ability", "status": status, "detail": detail}}
 PATCH_UP_REFUSED = POST_REFUSED("Patch Up needs a Focus roll, an ally in your circle with a Body mark, and the Intuition to pay.")
+PATCH_UP_UNDECLARED = POST_REFUSED("Patch Up is chosen before the roll: pick it on your Focus roll, then roll.")
 RESUSCITATION_REFUSED = POST_REFUSED(
     "Resuscitation needs a Focus roll of 4 or more and an incapacitated ally whose scar is not their fourth.")
 
@@ -1252,8 +1253,8 @@ def test_patch_up_heals_an_allys_body_mark(client, dice, face, cost, brain):
     camp, doc, ally = _doctor_and_ally(client, "Patch Up", {"body_marks": 2})
     dice(face)
     with support.ws_connect(client, doc["id"]) as wd, support.ws_connect(client, ally["id"]) as wa:
-        wd.send("roll", action="read", drive_spent=0)
-        wd.sync()
+        wd.send("roll", action="read", drive_spent=0, ability_mods=["Patch Up"])
+        assert wd.sync()[0]["payload"]["roll"]["declared"] == ["Patch Up"]
         wa.drain()
         if brain:   # a 3 or less needs the Brain mark
             wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])
@@ -1262,7 +1263,7 @@ def test_patch_up_heals_an_allys_body_mark(client, dice, face, cost, brain):
         wd.sync()
         assert wa.drain()[0]["payload"]["body_marks"] == 1
         wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"], take_brain_mark=brain)
-        assert wd.sync() == [PATCH_UP_REFUSED]   # once on a roll
+        assert wd.sync() == [PATCH_UP_UNDECLARED]   # once on a roll
     row = support.fetch(Character, doc["id"])
     assert (row.intuition_current, row.brain_marks) == (3 - cost, 1 if brain else 0)
     assert support.fetch(Character, ally["id"]).body_marks == 1
@@ -1273,21 +1274,45 @@ def test_patch_up_refusals(client, dice):
     stranger = support.active_member(client, support.new_campaign(client), body_marks=1)
     with support.ws_connect(client, doc["id"]) as wd:
         dice(6)
-        wd.send("roll", action="sway", drive_spent=0)   # not a Focus roll
-        wd.sync()
+        wd.send("roll", action="sway", drive_spent=0, ability_mods=["Patch Up"])   # not a Focus roll
+        assert "declared" not in wd.sync()[0]["payload"]["roll"]
         support.update(Character, ally["id"], body_marks=1)
         wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])
-        assert wd.sync() == [PATCH_UP_REFUSED]
+        assert wd.sync() == [PATCH_UP_UNDECLARED]
         dice(5)
-        wd.send("roll", action="read", drive_spent=0)
+        wd.send("roll", action="read", drive_spent=0, ability_mods=["Patch Up"])
         wd.sync()
         for target in (ally["id"], doc["id"], stranger["id"]):   # 2 Intuition short; self; another campaign
             wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=target)
         support.update(Character, ally["id"], body_marks=0)
         support.update(Character, doc["id"], intuition_current=3)
         wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])   # no Body mark
-        assert wd.sync() == [PATCH_UP_REFUSED] * 4
+        assert wd.sync() == [PATCH_UP_REFUSED] * 3 + [POST_REFUSED(f"{ally['name']} has no Body mark to heal.")]
     assert support.fetch(Character, stranger["id"]).body_marks == 1
+
+
+def test_patch_up_is_chosen_before_the_focus_roll(client, dice):
+    """Fixed (playtest, patch-up-free-rider): "you can make a Focus roll to heal 1 Body
+    mark on an ally" (p. 30), so the Focus roll is the heal. It was offered after any
+    Focus roll, so one investigation roll also healed. A Focus roll heals only when the
+    roll was declared a Patch Up (its "Patch Up" chip); the roll says so."""
+    camp, doc, ally = _doctor_and_ally(client, "Patch Up", {"body_marks": 1})
+    with support.ws_connect(client, doc["id"]) as wd:
+        dice(6)
+        wd.send("roll", action="read", drive_spent=0)
+        assert "declared" not in wd.sync()[0]["payload"]["roll"]
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])
+        assert wd.sync() == [PATCH_UP_UNDECLARED]
+        # A declared roll heals; the next roll, not declared, ends the declaration
+        dice(6)
+        wd.send("roll", action="read", drive_spent=0, ability_mods=["Patch Up"])
+        wd.sync()
+        dice(6)
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])
+        assert wd.sync() == [PATCH_UP_UNDECLARED]
+    assert support.fetch(Character, ally["id"]).body_marks == 1
 
 
 @pytest.mark.parametrize("face", [6, 5])
