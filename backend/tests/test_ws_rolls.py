@@ -1315,6 +1315,22 @@ def test_patch_up_is_chosen_before_the_focus_roll(client, dice):
     assert support.fetch(Character, ally["id"]).body_marks == 1
 
 
+def test_a_burn_keeps_the_rolls_patch_up(client, dice):
+    """A burn rerolls the same roll, so its Patch Up still stands, and the reroll says so
+    (the desk's prompt reads it)."""
+    camp, doc, ally = _doctor_and_ally(client, "Patch Up", {"body_marks": 1}, intuition_max=3)
+    with support.ws_connect(client, doc["id"]) as wd:
+        dice(1)
+        wd.send("roll", action="read", drive_spent=0, ability_mods=["Patch Up"])
+        wd.sync()
+        dice(6)
+        wd.send("burn_resistance", action="read")
+        assert wd.sync()[0]["payload"]["roll"]["declared"] == ["Patch Up"]
+        wd.send("use_post_roll_ability", ability="Patch Up", target_character_id=ally["id"])
+        wd.sync()
+    assert support.fetch(Character, ally["id"]).body_marks == 0
+
+
 @pytest.mark.parametrize("face", [6, 5])
 def test_resuscitation_revives_a_scarred_ally(client, dice, face):
     """Resuscitation (p. 30): when an ally takes a scar, a Focus roll revives them. On a

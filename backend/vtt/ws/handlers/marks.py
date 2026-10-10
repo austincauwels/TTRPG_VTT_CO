@@ -280,8 +280,16 @@ async def handle_take_mark(ctx):
     m_type = ctx.payload.get("mark_type")
     if m_type and ctx.is_gm:
         character = ctx.character
+        key = character_key(character.id)
+        if not manager.active_connections.get(key):
+            # No desk is open to answer an offer, and a held mark would wait for one: it
+            # lands now, with what follows any mark (the allies' offers, a scar at four)
+            await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark. "
+                                       "Their desk is closed, so it landed without a soak or Death Defy.", "danger")
+            await apply_mark(ctx, character, m_type, key)
+            return
         await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark.", "danger")
-        await mark_or_offer(ctx, character, m_type, character_key(character.id),
+        await mark_or_offer(ctx, character, m_type, key,
                             is_from_enemy=ctx.payload.get("is_from_enemy") is not False)
         return
     if m_type:

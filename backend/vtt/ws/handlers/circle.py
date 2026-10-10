@@ -141,9 +141,11 @@ async def handle_circle_creation_vote(ctx):
                 CircleVote.character_id == char_id,
                 CircleVote.vote_type == v_type,
             ).first()
-            if existing_vote:
-                existing_vote.value = v_value
-            else:
+            # A changed vote is cast anew (a new row, so a new id): a tie goes to the
+            # option voted for first, and a vote moved to another option is cast now
+            if existing_vote is None or existing_vote.value != v_value:
+                if existing_vote is not None:
+                    db.delete(existing_vote)
                 db.add(CircleVote(circle_id=c_id, character_id=char_id, vote_type=v_type, value=v_value))
             db.commit()
         updated_votes = votes_dict(db, c_id)

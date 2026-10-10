@@ -692,6 +692,9 @@ async def handle_burn_resistance(ctx):
         return
     # The reroll's drive, as on any roll, so the desk's post-roll prompts can read it
     result["drive_spent_key"] = drive_key
+    # A burn rerolls the same roll, so a Patch Up it was declared as still stands
+    if act == "read" and character.id in _patch_up_declared:
+        result["declared"] = ["Patch Up"]
     outcome_label = OUTCOME_LABELS.get(result.get("outcome", ""), "")
     # A gilded die that counts earns back 1 drive (rulebook p. 8) on a reroll too: a zero
     # rating whose gilded die is the lower one, or a pool that is all gilded

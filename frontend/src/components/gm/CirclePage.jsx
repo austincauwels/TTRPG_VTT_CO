@@ -265,12 +265,12 @@ export const CirclePage = () => {
   const tally = tallyReports(investigators, reports, answers);
   const addTally = () => {
     if (tally.total <= 0 || thisTally?.added != null) return;
-    setIllum(illum + tally.total);
-    setIllumTally(circId, { answers, added: tally.total });
+    // Recorded as added only once it went to the table (not while the desk reconnects)
+    if (setIllum(illum + tally.total)) setIllumTally(circId, { answers, added: tally.total });
   };
 
   function setIllum(n) {
-    updateCircle({ circle_id: circId, illumination: n });
+    return updateCircle({ circle_id: circId, illumination: n });
   }
 
   function setResource(key, n) {

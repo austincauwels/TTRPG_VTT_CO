@@ -1277,7 +1277,9 @@ const useGameStore = create(
             type: 'update_circle',
             payload: { ...updates, role: accessSession?.role }
           }));
+          return true;
         }
+        return false;
       },
 
       updatePenFont: (penFont) => {

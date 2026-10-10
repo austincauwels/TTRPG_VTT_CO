@@ -279,6 +279,19 @@ def test_a_tie_goes_to_the_option_voted_for_first_whatever_the_row_order(client)
     assert (body["name"], body["circle_ability"], body["insignia"]) == ("The Harrow Watch", "Hunters", "Moth")
 
 
+def test_a_changed_vote_is_cast_anew(client):
+    """A tie goes to the option voted for first: a vote moved to another option counts as
+    cast when it moved, not when its voter first voted."""
+    camp, (a, b), cid = _setup(client)
+    _vote(client, cid, a["id"], "name_vote", "Ember")
+    _vote(client, cid, b["id"], "name_vote", "Ash")
+    _vote(client, cid, a["id"], "name_vote", "Cinder")
+    _vote(client, cid, b["id"], "name_vote", "Ash")   # the same vote again changes nothing
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid},
+                       headers=support.as_gm(camp)).json()
+    assert body["name"] == "Ash"
+
+
 def test_finalize_only_by_the_gm(client):
     camp, (a, _), cid = _setup(client)
     for headers in (support.as_owner(a["id"]), support.as_gm(support.new_campaign(client))):

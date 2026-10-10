@@ -986,3 +986,17 @@ def test_an_enemys_mark_the_lightkeeper_deals_offers_death_defy_to_the_player(cl
         wc.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body")
         wc.sync()
     assert support.fetch(Character, ch["id"]).body_marks == 1
+
+
+def test_a_mark_dealt_while_the_players_desk_is_closed_lands_at_once(client):
+    """No desk is open to answer a soak or Death Defy, and a held mark would wait for one
+    that never comes: the mark lands at once, and the log says why nothing was offered."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, role_ability="Death Defy", specialty_ability="In the Trenches",
+                               cunning_max=3)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("take_mark", character_id=ch["id"], mark_type="body")
+        lines = [m["payload"]["message"] for m in gm.sync() if m["type"] == "activity_log"]
+        assert lines[0] == (f"The Lightkeeper dealt {ch['name']} a Body mark. "
+                            "Their desk is closed, so it landed without a soak or Death Defy.")
+    assert support.fetch(Character, ch["id"]).body_marks == 1
