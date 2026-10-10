@@ -231,10 +231,10 @@ def test_intercept_offers_go_to_eligible_campaign_members(client):
         wh.sync()
         assert wg.drain() == [{"type": "ability_intercept_offer", "payload": {
             "ability": "Behind Me", "mark_type": "body", "character_id": hurt["id"],
-            "character_name": hurt["name"], "action": "intercept"}}]
+            "character_name": hurt["name"], "action": "intercept", "expires_in": 120}}]
         assert wsr.drain() == [{"type": "ability_intercept_offer", "payload": {
             "ability": "Premonitions", "mark_type": "body", "character_id": hurt["id"],
-            "character_name": hurt["name"], "action": "soak"}}]
+            "character_name": hurt["name"], "action": "soak", "expires_in": 120}}]
         assert wt.drain() == [] and wo.drain() == []
 
 
@@ -366,7 +366,7 @@ def test_non_combatant_lets_each_ally_recover_a_drive_point(client):
         wd.sync()
         offer = next(m for m in wa.drain(0.5) if m["type"] == "ability_mark_offer")["payload"]
         assert offer == {"ability": "Non-Combatant", "mark_type": "brain", "character_id": doctor["id"],
-                         "character_name": doctor["name"], "action": "drive_refresh"}
+                         "character_name": doctor["name"], "action": "drive_refresh", "expires_in": 120}
         assert any(m["type"] == "ability_mark_offer" for m in wo.drain(0.5))
         assert not any(m["type"] == "ability_mark_offer" for m in wx.drain(0.5))
         wa.send("resolve_ability_mark", ability="Non-Combatant", choice="nerve")

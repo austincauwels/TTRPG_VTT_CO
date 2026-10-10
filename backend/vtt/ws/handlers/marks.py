@@ -195,11 +195,13 @@ async def _offer_non_combatant(ctx, doctor, m_type):
         _non_combatant[ally.id] = [t for t in _non_combatant.get(ally.id, []) if t > now] + [now + INTERCEPT_WINDOW]
         await manager.broadcast(character_key(ally.id), {"type": "ability_mark_offer", "payload": {
             "ability": "Non-Combatant", "mark_type": m_type, "character_id": doctor.id,
-            "character_name": doctor.name, "action": "drive_refresh"}})
+            "character_name": doctor.name, "action": "drive_refresh", "expires_in": INTERCEPT_WINDOW}})
 
 
 async def _offer_intercepts(ctx, character, m_type):
-    """Behind Me and Premonitions offers to the character's fellow members."""
+    """Behind Me and Premonitions offers to the character's fellow members. Each says how
+    long it stays open (expires_in, seconds), so the ally's card lasts as long as the
+    server takes an answer: it vanished after 20 seconds (playtest, ability-offers-expire)."""
     candidates = ctx.db.query(Character).filter(
         Character.campaign_id == ctx.camp_id,
         Character.status == "active",
@@ -215,11 +217,11 @@ async def _offer_intercepts(ctx, character, m_type):
         if "Behind Me" in other_abilities and (other.nerve_current or 0) >= 1:
             await manager.broadcast(character_key(other.id), {"type": "ability_intercept_offer", "payload": {
                 "ability": "Behind Me", "mark_type": m_type, "character_id": character.id,
-                "character_name": character.name, "action": "intercept"}})
+                "character_name": character.name, "action": "intercept", "expires_in": INTERCEPT_WINDOW}})
         if "Premonitions" in other_abilities and resistance_left(other, "intuition") > 0:
             await manager.broadcast(character_key(other.id), {"type": "ability_intercept_offer", "payload": {
                 "ability": "Premonitions", "mark_type": m_type, "character_id": character.id,
-                "character_name": character.name, "action": "soak"}})
+                "character_name": character.name, "action": "soak", "expires_in": INTERCEPT_WINDOW}})
 
 
 async def _land(ctx, character, held, channel):

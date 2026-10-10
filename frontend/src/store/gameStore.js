@@ -946,10 +946,10 @@ const useGameStore = create(
             }));
           }
           else if (message.type === 'ability_mark_offer') {
-            set(state => queueOffer(state, { ...message.payload, seq: ++offerSeq }));
+            set(state => queueOffer(state, { ...message.payload, seq: ++offerSeq, received_at: Date.now() }));
           }
           else if (message.type === 'ability_intercept_offer') {
-            set(state => queueOffer(state, { ...message.payload, intercept: true, seq: ++offerSeq }));
+            set(state => queueOffer(state, { ...message.payload, intercept: true, seq: ++offerSeq, received_at: Date.now() }));
           }
           else if (message.type === 'gm_rejoin_invite') {
             set({ rejoinInvite: message.payload });

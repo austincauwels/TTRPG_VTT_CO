@@ -5,6 +5,15 @@ import { SafeIcon } from '../shared/SafeIcon';
 // Offers stay up long enough to read and decide during play, and the countdown pauses
 // while the pointer is over the offer or focus is inside it.
 const MIN_OFFER_SECONDS = 20;
+// An offer the server takes an answer to for a while (an ally's Behind Me or
+// Premonitions, Non-Combatant's drive point) says how long: expires_in seconds from when
+// it arrived. Its card lasts that long, less this margin for the answer's way back, and
+// never pauses, since the server's window does not (playtest, ability-offers-expire: the
+// card vanished after 20 seconds of a 2-minute window).
+const WINDOW_MARGIN_SECONDS = 3;
+
+const isTextEntry = (el) => !!el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+const clock = (seconds) => (seconds >= 60 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : `${seconds}s`);
 
 const ABILITY_OFFER_CONFIG = {
   "Adrenaline Rush": {
@@ -80,10 +89,25 @@ export const AbilityMarkOffer = () => {
   holdsRef.current = holdsOwnMark ? offer : null;
   const passUp = () => (holdsRef.current ? declineAbilityMark(holdsRef.current) : dismissAbilityMarkOffer());
 
-  const autoDismissSeconds = offer?.action === 'info' || config?.isIntercept ? MIN_OFFER_SECONDS : 30;
+  const windowed = Number.isFinite(offer?.expires_in);
+  const autoDismissSeconds = windowed ? Math.max(1, offer.expires_in - WINDOW_MARGIN_SECONDS)
+    : offer?.action === 'info' || config?.isIntercept ? MIN_OFFER_SECONDS : 30;
 
   useEffect(() => {
     if (!offer) { setTimeLeft(null); setDriveChoice(null); return; }
+    if (windowed) {
+      // Counted from when the offer arrived, so one that waited behind another is not given more
+      const deadline = (offer.received_at ?? Date.now()) + autoDismissSeconds * 1000;
+      const tick = () => {
+        const left = Math.ceil((deadline - Date.now()) / 1000);
+        if (left <= 0) { setTimeLeft(null); passUp(); return false; }
+        setTimeLeft(left);
+        return true;
+      };
+      if (!tick()) return undefined;
+      const interval = setInterval(() => { if (!tick()) clearInterval(interval); }, 1000);
+      return () => clearInterval(interval);
+    }
     setTimeLeft(autoDismissSeconds);
     const interval = setInterval(() => {
       if (pausedRef.current) return;
@@ -95,6 +119,27 @@ export const AbilityMarkOffer = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [offer?.seq]);  // each offer gets its full time, even a second one of the same ability
+
+  // A keyboard user is taken to the offer as it opens, unless they are typing (a note, a
+  // form), and back where they were when it closes: it sat last in the Tab order, 34 Tabs
+  // from the top, and dropped focus to the page after Use (ability-offers-expire)
+  const boxRef = useRef(null);
+  const primaryRef = useRef(null);
+  useEffect(() => {
+    if (!offer) return undefined;
+    const before = document.activeElement;
+    if (!isTextEntry(before)) {
+      (primaryRef.current || boxRef.current?.querySelector('button'))?.focus({ preventScroll: true });
+    }
+    const box = boxRef.current;
+    return () => {
+      // Closing: focus that was inside the offer goes back
+      const inside = box && box.contains(document.activeElement);
+      if ((inside || document.activeElement === document.body) && before && before !== document.body && before.isConnected) {
+        before.focus({ preventScroll: true });
+      }
+    };
+  }, [offer?.seq]);
 
   if (!offer || !config) return null;
 
@@ -120,8 +165,14 @@ export const AbilityMarkOffer = () => {
 
   return (
     <div
-      role="dialog"
+      ref={boxRef}
+      role="alertdialog"
       aria-label={`${offer.ability} offer`}
+      aria-describedby={`offer-desc-${offer.seq}`}
+      onKeyDown={(e) => {
+        // Escape lets the offer go, unless letting it go would land a mark: that stays a press
+        if (e.key === 'Escape' && !holdsOwnMark) { e.stopPropagation(); passUp(); }
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
@@ -137,10 +188,12 @@ export const AbilityMarkOffer = () => {
               {offer.ability}
             </span>
           </div>
-          <span className="font-mono tabular-nums text-xs text-parchment-deep/80">{paused ? `Paused · ${timeLeft}s` : `${timeLeft}s`}</span>
+          <span className="font-mono tabular-nums text-xs text-parchment-deep/80" aria-hidden="true">
+            {timeLeft == null ? '' : paused && !windowed ? `Paused · ${clock(timeLeft)}` : `${clock(timeLeft)} left`}
+          </span>
         </div>
 
-        <p className="font-serif text-sm text-parchment-deep mb-3 leading-relaxed">{desc}</p>
+        <p id={`offer-desc-${offer.seq}`} className="font-serif text-sm text-parchment-deep mb-3 leading-relaxed">{desc}</p>
 
         {/* Drive picker for Adrenaline Rush */}
         {offer.action === 'drive_refresh' && (
@@ -166,6 +219,7 @@ export const AbilityMarkOffer = () => {
         <div className="flex gap-2">
           {offer.action !== 'info' && (
             <button
+              ref={offer.action === 'drive_refresh' ? undefined : primaryRef}
               onClick={handleAccept}
               disabled={offer.action === 'drive_refresh' && !driveChoice}
               className="flex-1 min-h-[40px] py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-oxblood border border-ink text-cream hover:brightness-125 transition rounded-sm disabled:opacity-40"
