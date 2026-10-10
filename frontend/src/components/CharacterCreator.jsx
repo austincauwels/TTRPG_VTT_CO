@@ -1191,7 +1191,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                   return (
                     // An action that already has 2 free points would go to 3, past the
                     // limit of 2 at creation (rulebook p. 25), which the server refuses
-                    <button key={k} onClick={() => setFreeRaiseKey(sel ? null : k)}
+                    <button key={k} type="button" onClick={() => setFreeRaiseKey(sel ? null : k)}
+                      aria-pressed={sel}
                       disabled={!sel && (freeAdditions[k] || 0) >= 2}
                       title={!sel && (freeAdditions[k] || 0) >= 2 ? 'Already at 2 from your free points' : undefined}
                       className="disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:px-4 text-sm font-sans font-black uppercase tracking-wider rounded-sm transition-all"
@@ -1260,14 +1261,14 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           return (
                             <div key={key} className="relative flex items-center gap-2">
                               {isLockedGilded ? (
-                                <span className="shrink-0 w-5 h-5 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:pl-0.5 flex items-center" title="Gilded by your specialty (fixed)" role="img" aria-label={`${label} is gilded by your specialty`}>
+                                <span className="shrink-0 w-5 h-5 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:pl-0.5 flex items-center" role="img" aria-label={`${label} is gilded by your specialty`}>
                                   <GildStar gilded fixed />
                                 </span>
                               ) : (
                                 <button type="button" onClick={() => toggleFreeGilded(key)}
                                   aria-pressed={isFreeGilded}
                                   aria-label={`Gild ${label}`}
-                                  title={isFreeGilded ? 'Remove the free gild' : freeGilded ? 'Move the free gild here' : 'Gild this action'}
+                                  title={isFreeGilded ? 'Remove the free gild' : freeGilded ? `Move the free gild here from ${actionKeyLabel[freeGilded]}` : 'Gild this action'}
                                   className="shrink-0 w-7 h-7 -m-1 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:-my-2.5 [@media(pointer:coarse)]:-ml-2.5 [@media(pointer:coarse)]:-mr-1.5 flex items-center justify-center rounded-sm text-sepia [@media(hover:hover)]:hover:text-oxblood transition-colors">
                                   <GildStar gilded={isFreeGilded} />
                                 </button>
