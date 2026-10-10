@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useId, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useId, useCallback } from 'react';
 import useGameStore from '../../store/gameStore';
 import { ConfirmAction } from './ConfirmAction';
 import { CameraIcon, PencilIcon } from './NotebookIcons';
@@ -51,6 +51,43 @@ function formatDate(isoStr) {
     return new Date(isoStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch { return isoStr; }
 }
+
+// ── Unsent writing ─────────────────────────────────────────────────────────────
+// What the writer has not sent yet (a private note, a field entry's title and text) is kept
+// in this browser as it is typed, under the account, the campaign and the seat (the
+// investigator, or the Lightkeeper), so a step to the Investigator tab or the chapter hub,
+// or a reload, keeps it, and nobody else who signs in on this browser ever sees it
+// (playtest, private-note-draft-lost). Pinning or adding the entry clears it. Storage can be
+// full, blocked or missing (private windows), so every access is wrapped, as the creator's
+// draft is, and the notebook works the same without it.
+const notebookDraftKey = ({ accessSession, character }, isGMProp) => {
+  const isGM = isGMProp !== null ? isGMProp : accessSession?.role === 'GM';
+  const campaignId = accessSession?.campaignId || character?.campaign_id;
+  const seat = isGM ? 'lightkeeper' : character?.id;
+  if (accessSession?.userId == null || !campaignId || seat == null) return null;
+  return `candela-notebook-draft:${accessSession.userId}:${campaignId}:${seat}`;
+};
+const readKept = (key) => {
+  if (!key) return '';
+  try { return window.localStorage.getItem(key) || ''; } catch { return ''; }
+};
+const writeKept = (key, text) => {
+  if (!key) return;
+  try {
+    if (text) window.localStorage.setItem(key, text);
+    else window.localStorage.removeItem(key);
+  } catch { /* the draft is a convenience */ }
+};
+// useState for a piece of unsent writing, kept under key
+const useKeptText = (key) => {
+  const [text, setText] = useState(() => readKept(key));
+  const keep = useCallback((value) => { setText(value); writeKept(key, value); }, [key]);
+  return [text, keep];
+};
+// A picture waiting beside the entry (a drawing with its strokes, or a chosen photograph,
+// and its caption) is too large for storage, so it waits in this page under the same key:
+// leaving the notebook keeps it, a reload does not.
+const stagedPictures = new Map();
 
 // The foot of a page: the page number, and the register's printed line between. A page
 // with a turned-up corner keeps its number clear of the corner.
@@ -364,8 +401,14 @@ function EphemeralNote({ entry, onDelete }) {
 }
 
 // `fit`: on a desk that fits the screen (xl and up), the binder fills its column's height
-// and the book takes what the tabs leave, instead of its fixed 800px spread.
-export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
+// and the book takes what the tabs leave, instead of its fixed 800px spread. Each seat in
+// each campaign has its own book, so its unsent writing is its own (draftKey).
+export const NotebookView = ({ isGM = null, fit = false }) => {
+  const draftKey = useGameStore((s) => notebookDraftKey(s, isGM));
+  return <Notebook key={draftKey || 'unkept'} draftKey={draftKey} isGM={isGM} fit={fit} />;
+};
+
+const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
   const {
     notebookEntries,
     character,
@@ -386,13 +429,14 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
 
   const [currentSpread, setCurrentSpread]               = useState(0);
   const [selectedAuthorFilter, setSelectedAuthorFilter] = useState(null);
-  const [newEntryTitle, setNewEntryTitle]               = useState('');
-  const [newEntryContent, setNewEntryContent]           = useState('');
+  // The entry being written and the private note being written: kept in this browser
+  const [newEntryTitle, setNewEntryTitle]               = useKeptText(draftKey && `${draftKey}:title`);
+  const [newEntryContent, setNewEntryContent]           = useKeptText(draftKey && `${draftKey}:text`);
   const [isSubmitting, setIsSubmitting]                 = useState(false);
   const [submitError, setSubmitError]                   = useState('');
   // Ephemeral notes section
   const [showEphemeral, setShowEphemeral]               = useState(false);
-  const [ephemeralText, setEphemeralText]               = useState('');
+  const [ephemeralText, setEphemeralText]               = useKeptText(draftKey && `${draftKey}:note`);
   const [isAddingEphemeral, setIsAddingEphemeral]       = useState(false);
   const [ephemeralError, setEphemeralError]             = useState('');
   const [deleteError, setDeleteError]                   = useState('');
@@ -402,14 +446,16 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
   const [lkSaveStatus, setLkSaveStatus]                 = useState('saved');
   const lkEntryId                                       = useRef(null);
   const lkSaveTimer                                     = useRef(null);
-  // Image upload — staged, not auto-submitted
+  // Image upload: staged, not auto-submitted. A staged picture waits in this page while
+  // the notebook is closed (stagedPictures)
   const sketchInputRef  = useRef(null);
   const photoInputRef   = useRef(null);
-  const [uploadCaption, setUploadCaption]               = useState('');
+  const [waiting]                                       = useState(() => (draftKey && stagedPictures.get(draftKey)) || {});
+  const [uploadCaption, setUploadCaption]               = useState(waiting.caption || '');
   const [isUploading, setIsUploading]                   = useState(false);
-  const [pendingImageFile, setPendingImageFile]         = useState(null);
-  const [pendingImagePreview, setPendingImagePreview]   = useState(null);
-  const [pendingImageType, setPendingImageType]         = useState(null);
+  const [pendingImageFile, setPendingImageFile]         = useState(waiting.file || null);
+  const [pendingImagePreview, setPendingImagePreview]   = useState(waiting.preview || null);
+  const [pendingImageType, setPendingImageType]         = useState(waiting.type || null);
   const [uploadError, setUploadError]                   = useState('');
   // Markdown: each writing field has its marks and a Preview that shows the note in its place
   const entryTextRef     = useRef(null);
@@ -423,7 +469,34 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
   // { mode: 'redraw', entry, loading, error, elements } when the author takes a sketch up
   // again. A drawing made for a new entry waits, with its scene, beside the staged picture.
   const [sketchSheet, setSketchSheet]                   = useState(null);
-  const [pendingScene, setPendingScene]                 = useState(null);
+  const [pendingScene, setPendingScene]                 = useState(waiting.scene || null);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    if (pendingImageFile) {
+      stagedPictures.set(draftKey, {
+        file: pendingImageFile, preview: pendingImagePreview, type: pendingImageType, scene: pendingScene, caption: uploadCaption,
+      });
+    } else {
+      stagedPictures.delete(draftKey);
+    }
+  }, [draftKey, pendingImageFile, pendingImagePreview, pendingImageType, pendingScene, uploadCaption]);
+
+  // The private note's box grows with what is written, from four lines (it was two, and
+  // showed only the last line typed); again when the window's width rewraps the note, and
+  // once the pen's font has loaded
+  const fitNoteBox = useCallback(() => {
+    const box = ephemeralTextRef.current;
+    if (!box) return;
+    box.style.height = 'auto';
+    box.style.height = `${box.scrollHeight}px`;
+  }, []);
+  useLayoutEffect(fitNoteBox, [ephemeralText, ephemeralPreview, showEphemeral, fitNoteBox]);
+  useEffect(() => {
+    window.addEventListener('resize', fitNoteBox);
+    document.fonts?.ready?.then(fitNoteBox, () => {});
+    return () => window.removeEventListener('resize', fitNoteBox);
+  }, [fitNoteBox]);
 
   useEffect(() => {
     if (campaignId) fetchNotebookEntries(campaignId);
@@ -603,6 +676,8 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
   };
 
   const clearPendingImage = () => {
+    // At once, not in the effect: an upload that ends after the notebook closed clears it too
+    if (draftKey) stagedPictures.delete(draftKey);
     setUploadCaption('');
     setPendingImageFile(null);
     setPendingImagePreview(null);
@@ -841,7 +916,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
             padding: '24px 20px 20px',
           }}>
             {ephemeralPreview ? (
-              <NoteMarkdown text={ephemeralText} className="font-serif text-[24px] leading-[1.7] text-ink/80 min-h-[80px] py-0.5"
+              <NoteMarkdown text={ephemeralText} className="font-serif text-[24px] leading-[1.7] text-ink/80 min-h-[6.8em] py-0.5"
                 style={{ fontFamily: authorFont, color: authorColor }} />
             ) : (
               <textarea
@@ -850,7 +925,8 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                 onChange={e => setEphemeralText(e.target.value)}
                 placeholder="Private note"
                 aria-label="Private note"
-                className="w-full bg-transparent border-none resize-none font-serif text-[24px] leading-[1.7] text-ink/80 placeholder-sepia/90 min-h-[80px]"
+                rows={4}
+                className="w-full bg-transparent border-none resize-none overflow-hidden font-serif text-[24px] leading-[1.7] text-ink/80 placeholder-sepia/90"
                 style={{ fontFamily: authorFont, color: authorColor }}
                 onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleAddEphemeral(); } }}
               />
