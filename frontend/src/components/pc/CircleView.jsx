@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import useGameStore, { assignmentOf } from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
@@ -132,7 +132,9 @@ function getAvailableAbilities(character, circle) {
 }
 
 export function AdvancementModal() {
-  const { character, circle, circleAdvancement, applyAdvancement, dismissCircleAdvancement, advancementDeferred, advancementError } = useGameStore();
+  const { character, circle, circleAdvancement, applyAdvancement, dismissCircleAdvancement, resumeCircleAdvancement, advancementDeferred, advancementError } = useGameStore();
+  // "Later" lasts until the next visit to the desk (this mounts with it)
+  useEffect(() => { resumeCircleAdvancement(); }, [resumeCircleAdvancement]);
   // selectedPicks: array of up to 2 pick ids
   const [selectedPicks, setSelectedPicks]   = useState([]);
   // details keyed by pick id: action key, drive key, or ability text
@@ -184,7 +186,18 @@ export function AdvancementModal() {
 
   // Modal only renders inside MainDeskView (player context). Its "applied" slip shows
   // until it is closed, even once the server has used up the picks (that used to hide it).
-  if (!character || (!open && !submitted)) return null;
+  if (!character || (!open && !submitted)) {
+    // Picks put off with Later stay one press away
+    if (character && picksLeft > 0 && advancementDeferred) {
+      return (
+        <button type="button" onClick={resumeCircleAdvancement}
+          className="fixed bottom-24 left-3 sm:bottom-4 sm:left-4 z-[400] min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream border border-candle-gold/70 hover:bg-oxblood rounded-sm shadow-lg">
+          Choose advancements ({picksLeft})
+        </button>
+      );
+    }
+    return null;
+  }
 
   if (submitted) {
     return (

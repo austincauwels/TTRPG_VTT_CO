@@ -53,6 +53,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   const rawRating = shownTable ? Number(shownTable.rating ?? NaN)
     : !showGmControls && lastRoll?.action && character ? Number(character[lastRoll.action]) : NaN;
   const rollRating = Number.isFinite(rawRating) ? rawRating : null;
+  // Another player's roll after this desk's own settles it: the server no longer takes a
+  // burn or a post-roll ability for the older roll, so they are no longer offered
+  const settled = !showGmControls && !!tableRoll;
   const gildedPending = !shownTable && !!(pendingGildedChoice && lastRoll?.needs_gilded_choice);
   // After a gilded choice, the server's result for the kept die (roll_kept). The post-roll
   // prompts and the resistance offer read the roll with that result, under its own id so
@@ -63,13 +66,13 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     : lastRoll), [lastRoll, resolved]);
 
   const { visiblePrompts, setDismissedPrompts, drivePickerPrompt, setDrivePickerPrompt } =
-    usePostRollPrompts({ lastRoll: scoredRoll, character, showGmControls });
+    usePostRollPrompts({ lastRoll: settled ? null : scoredRoll, character, showGmControls });
 
   // Resistance state after last roll
   const lastRollDriveKey = lastRoll?.action ? driveKeyFor(lastRoll.action) : null;
   const resistMax   = lastRollDriveKey ? Math.floor((character?.[lastRollDriveKey + '_max'] || 1) / 3) : 0;
   const resistSpent = lastRollDriveKey ? (character?.[lastRollDriveKey + '_resistance_spent'] || 0) : 0;
-  const canResist   = !gildedPending && scoredRoll && scoredRoll.outcome !== 'full_success' && scoredRoll.outcome !== 'critical_success' && resistMax > resistSpent && !showGmControls;
+  const canResist   = !settled && !gildedPending && scoredRoll && scoredRoll.outcome !== 'full_success' && scoredRoll.outcome !== 'critical_success' && resistMax > resistSpent && !showGmControls;
 
   // Skew values are stable per-roll — computed once when lastRoll changes, not on every render
   const dieSkews = useMemo(() => {

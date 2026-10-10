@@ -264,6 +264,8 @@ def test_list_investigators(client):
         "specialty_ability": "None",
         "profile_pic": None,
         "circle_name": None,
+        "pronouns": "Unlisted",
+        "catalyst": "",
         "status": "unaffiliated",
         # QUIRK: these three are never filled in by this route, so they show defaults.
         "is_dead": False,

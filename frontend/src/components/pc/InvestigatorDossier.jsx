@@ -42,7 +42,7 @@ const AbilityPane = ({ heading, entries, blank, renderUse }) => {
       <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood block mb-1">{heading}</span>
       {shown.length === 0 && <span className="text-sepia italic">{blank}</span>}
       {shown.map((e, i) => (
-        <p key={e.name} className={`leading-relaxed${i > 0 ? ' mt-1' : ''}`}>
+        <p key={e.name} className={`leading-relaxed whitespace-pre-line${i > 0 ? ' mt-1' : ''}`}>
           <span className="font-bold uppercase text-ink">{e.name}:</span>{' '}
           {e.text || <span className="text-sepia italic">{blank}</span>}
           {renderUse && renderUse(e.name)}
@@ -625,6 +625,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     setPendingGear([...gear]);
     setShowGearModal(true);
   };
+  // Abilities after the first are those taken by advancement: role ones go on the Role tab
+  const advancedAbilities = (character.specialty_ability || '').split(';').map(n => n.trim()).filter(n => n && n !== 'None');
+  const specialtyAbilities = advancedAbilities.filter(n => !ROLE_FROM_ABILITY[n]);
   const displayRole = character.role || ROLE_FROM_ABILITY[character.role_ability] || '';
   const displaySpecialty = character.specialty || SPECIALTY_FROM_ABILITY[(character.specialty_ability || '').split(';')[0].trim()] || '';
   const roleIcon = ROLE_ICONS[displayRole] || 'GiEyeShield';
@@ -823,15 +826,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               abilities; the player typed them, so they print too. */}
           <div className="pl-4 sm:pl-6 font-serif text-base text-ink break-words">
             {infoTab === 'role' && (
+              // A role ability taken by advancement is stored after the specialty's, so it is
+              // listed here, with the role's own
               <AbilityPane heading={`${character.role || 'Role'} ability`} renderUse={renderAbilityUse}
-                entries={[{ name: character.role_ability || 'Ability', text: ABILITY_TEXTS[character.role_ability] }]} blank="None chosen" />
+                entries={[{ name: character.role_ability || 'Ability', text: ABILITY_TEXTS[character.role_ability] },
+                  ...advancedAbilities.filter(n => ROLE_FROM_ABILITY[n]).map(name => ({ name, text: ABILITY_TEXTS[name] }))]}
+                blank="None chosen" />
             )}
             {infoTab === 'specialty' && (
               // Abilities taken by advancement follow the specialty's own after "; "
               <AbilityPane heading={`${character.specialty || 'Specialty'} ability`} renderUse={renderAbilityUse}
-                entries={(character.specialty_ability || '').split(';').map(n => n.trim()).filter(n => n && n !== 'None').length
-                  ? (character.specialty_ability || '').split(';').map(n => n.trim()).filter(n => n && n !== 'None')
-                      .map(name => ({ name, text: ABILITY_TEXTS[name] }))
+                entries={specialtyAbilities.length
+                  ? specialtyAbilities.map(name => ({ name, text: ABILITY_TEXTS[name] }))
                   : [{ name: 'Specialty', text: undefined }]} blank="None chosen" />
             )}
             {abilityUseError && infoTab !== 'profile' && (
@@ -841,6 +847,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <AbilityPane heading="Catalyst and question" blank="Not written"
                 entries={[
                   { name: 'Catalyst', text: character.catalyst, optional: true },
+                  { name: 'Style', text: character.style, optional: true },
                   { name: 'Question', text: character.question, optional: true },
                 ]} />
             )}
@@ -962,6 +969,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <div className="space-y-1.5 flex flex-col justify-center">
                 {cat.actions.map((act) => {
                   const actionValue = character[act.key] || 0;
+                  // Dice past the sixth are not rolled (p. 11): show what the roll will use
+                  const shownSpend = Math.min(preSpend[cat.driveKey] || 0, Math.max(0, 6 - actionValue));
                   const isGilded = character[`gilded_${act.key}`] === true || character[`gilded_${act.key}`] === 1 || character[`gilded_${act.key}`] === "true";
 
                   const availMods = !readOnly ? getAvailableRollMods(character, act.key, circle) : [];
@@ -1030,13 +1039,14 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                               : 'border-ink/25 bg-cream shadow-[0_1px_0_rgb(var(--c-ink)/0.18),1px_2px_4px_rgb(var(--c-ink)/0.08)] [@media(hover:hover)]:hover:-translate-y-px [@media(hover:hover)]:hover:border-oxblood/60 [@media(hover:hover)]:hover:text-oxblood [@media(hover:hover)]:hover:shadow-[0_1px_0_rgb(var(--c-ink)/0.2),2px_5px_9px_rgb(var(--c-ink)/0.16)] active:translate-y-px active:shadow-none active:bg-oxblood/[0.05]'
                           }`}
                           style={{ touchAction: 'manipulation' }}
-                          aria-label={`Roll ${act.label}${isGilded ? ', gilded' : ''}, rating ${actionValue}${preSpend[cat.driveKey] > 0 ? `, plus ${preSpend[cat.driveKey]} from ${cat.name}` : ''}`}
+                          aria-label={`Roll ${act.label}${isGilded ? ', gilded' : ''}, rating ${actionValue}${shownSpend > 0 ? `, plus ${shownSpend} from ${cat.name}${shownSpend < preSpend[cat.driveKey] ? ' (Rule of Six)' : ''}` : ''}`}
                         >
                           <span className="flex-1 min-w-0 font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5">
                             {isGilded && <span aria-hidden="true" className="w-2 h-2 shrink-0 bg-candle-gold border border-sepia rounded-full" />}
                             <span className={rollBlocked ? undefined : 'pen-underline'}>{act.label}</span>
-                            {preSpend[cat.driveKey] > 0 && (
-                              <span className="font-mono tabular-nums text-xs text-oxblood font-black">+{preSpend[cat.driveKey]}d</span>
+                            {shownSpend > 0 && (
+                              <span className="font-mono tabular-nums text-xs text-oxblood font-black"
+                                title={shownSpend < preSpend[cat.driveKey] ? 'Rule of Six: no more than six dice' : undefined}>+{shownSpend}d{shownSpend < preSpend[cat.driveKey] ? ' (max)' : ''}</span>
                             )}
                           </span>
                           {!rollBlocked && <DieGlyph className="action-die shrink-0 text-oxblood" />}
@@ -1282,7 +1292,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <div className="trauma-edit col-span-full flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5 mt-3 pt-2 border-t border-dotted border-ink/30">
               {editing && (
                 <p className="font-serif text-sm italic text-sepia leading-snug min-w-0 flex-1 basis-56">
-                  Press a box to fill its track to it, or the last filled box to clear it. Removing a scar does not move back the action point it shifted.
+                  Press a box to fill its track to it, or the last filled box to clear it. Removing a scar does not move back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, ask the player to take it on their sheet.
                 </p>
               )}
               <button

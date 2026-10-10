@@ -453,6 +453,8 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
             is_dead=bool(getattr(c, "is_dead", False)),
             pen_font=getattr(c, "pen_font", "Caveat") or "Caveat",
             ink_color=getattr(c, "ink_color", "") or "",
+            pronouns=getattr(c, "pronouns", "Unlisted") or "Unlisted",
+            catalyst=getattr(c, "catalyst", "") or "",
         )
     return {
         "pending_investigators": [to_item(c) for c in raw["pending_investigators"]],

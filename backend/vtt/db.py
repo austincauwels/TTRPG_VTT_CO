@@ -445,6 +445,13 @@ def init_db():
     # atmosphere. Existing circles get none.
     add_columns("circles", [("dispatch_text", "TEXT DEFAULT ''")])
 
+    # Two pens were saved under misspelt family names (Reenie Beenie, Moondance); the
+    # server's list now knows the real ones, so stored choices move over.
+    for table in ("characters", "notebook_entries"):
+        for old, new in (("Reenie Beenie", "Reenie Beanie"), ("Moondance", "Moon Dance")):
+            run_migration(f"UPDATE {table} SET pen_font = '{new}' WHERE pen_font = '{old}'",
+                          f"Could not rename the pen font {old} in {table}")
+
     convert_integer_flags()
     rename_relationship_types()
     retire_published_passwords()

@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import useGameStore from '../../../store/gameStore';
 import { abilitiesOf } from '../../../game/abilities';
 import { driveKeyFor } from '../../../game/actions';
 
@@ -56,13 +57,17 @@ export const usePostRollPrompts = ({ lastRoll, character, showGmControls }) => {
     return prompts;
   }, [lastRoll?.id, character?.specialty_ability, character?.role_ability]);
 
-  const [dismissedPrompts, setDismissedPrompts] = useState([]);
+  // The dismissed prompts live in the store (reset by each roll), not here: this hook's
+  // component is unmounted by a visit to the Notebook, which brought them back
+  const dismissedPrompts = useGameStore(s => s.dismissedPrompts);
+  const setDismissedPrompts = useCallback((update) => {
+    const next = typeof update === 'function' ? update(useGameStore.getState().dismissedPrompts) : update;
+    useGameStore.setState({ dismissedPrompts: next, rollError: null });
+  }, []);
   const [drivePickerPrompt, setDrivePickerPrompt] = useState(null);
   const visiblePrompts = postRollAbilityPrompts.filter(p => !dismissedPrompts.includes(p.key));
 
-  // Reset dismissed prompts when a new roll arrives
   useEffect(() => {
-    setDismissedPrompts([]);
     setDrivePickerPrompt(null);
   }, [lastRoll?.id]);
 

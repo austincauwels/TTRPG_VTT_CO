@@ -150,9 +150,18 @@ export const CircleCreationPopup = () => {
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
+  const [nameNote, setNameNote] = useState('');
+
   const handleNameSuggest = () => {
-    const trimmed = nameDraft.trim();
+    const trimmed = nameDraft.trim().replace(/\s+/g, ' ');
     if (!trimmed || mySuggestionCount >= 5) return;
+    // A name already on the list (any case or spacing) is voted for, not suggested again
+    const known = allSuggestedNames.find(n => n.toLowerCase() === trimmed.toLowerCase());
+    if (known) {
+      setNameNote(`Already suggested: vote for “${known}”.`);
+      return;
+    }
+    setNameNote('');
     submitCircleVote(circleId, myId, 'name_suggest', trimmed);
     setNameDraft('');
   };
@@ -268,12 +277,13 @@ export const CircleCreationPopup = () => {
               <input
                 type="text"
                 value={nameDraft}
-                onChange={e => setNameDraft(e.target.value)}
+                onChange={e => { setNameDraft(e.target.value); setNameNote(''); }}
+                maxLength={80}
                 onKeyDown={e => e.key === 'Enter' && handleNameSuggest()}
                 placeholder="Circle name"
                 aria-label="Circle name to suggest"
                 disabled={mySuggestionCount >= 5}
-                className="flex-1 border border-sepia/40 bg-cream/70 px-4 py-2.5 font-serif text-lg text-ink focus:border-sepia rounded-sm disabled:opacity-40"
+                className="flex-1 min-w-0 border border-sepia/40 bg-cream/70 px-4 py-2.5 font-serif text-lg text-ink focus:border-sepia rounded-sm disabled:opacity-40"
               />
               <button
                 onClick={handleNameSuggest}
@@ -284,12 +294,12 @@ export const CircleCreationPopup = () => {
               </button>
               <span className="font-mono tabular-nums text-sm text-sepia shrink-0" aria-label={`${mySuggestionCount} of 5 suggestions used`}>{mySuggestionCount}/5</span>
             </div>
+            {nameNote && <p role="status" className="font-serif italic text-sm text-sepia -mt-3 mb-4">{nameNote}</p>}
 
             {allSuggestedNames.length > 0 ? (
               <div className="space-y-2">
                 <p className="font-sans font-bold text-sm uppercase tracking-[0.15em] text-sepia mb-2">Suggested names</p>
                 {allSuggestedNames
-                  .sort((a, b) => (nameVoteTally[b] || 0) - (nameVoteTally[a] || 0))
                   .map((name) => {
                     const voteCount = nameVoteTally[name] || 0;
                     const suggestCount = nameSuggestions.filter(v => v.value === name).length;
@@ -305,6 +315,7 @@ export const CircleCreationPopup = () => {
                       >
                         <button
                           onClick={() => handleNameVote(name)}
+                          aria-label={`Vote for ${name}`}
                           className={`font-mono text-sm px-3 py-1 border rounded-full transition-colors shrink-0 ${
                             isMineVote
                               ? 'bg-ink text-cream border-ink'
@@ -313,7 +324,7 @@ export const CircleCreationPopup = () => {
                         >
                           {isMineVote ? <><TickMark /> Voted</> : 'Vote'}
                         </button>
-                        <span className="font-serif text-lg text-ink flex-1">{name}</span>
+                        <span className="font-serif text-lg text-ink flex-1 min-w-0 [overflow-wrap:anywhere]">{name}</span>
                         <div className="flex items-center gap-2 shrink-0">
                           {isMySuggestion && (
                             <span className="font-serif italic text-sm text-sepia">yours</span>
@@ -479,7 +490,7 @@ export const CircleCreationPopup = () => {
           </div>
 
           {/* The foot of the form: a box left blank for the Lightkeeper's seal */}
-          <div className="mt-6 flex items-end justify-between gap-4" aria-hidden="true">
+          <div className="mt-6 flex flex-wrap items-end justify-between gap-4" aria-hidden="true">
             <FormLine>Candela Obscura · Chapter registry</FormLine>
             <RuledBox label="Lightkeeper's seal" lines={2} />
           </div>

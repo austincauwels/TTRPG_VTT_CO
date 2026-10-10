@@ -115,7 +115,7 @@ def get_campaign_roster(db: Session, campaign_id: int):
     all_chars = db.query(Character).options(joinedload(Character.circle)).filter(
         Character.campaign_id == campaign_id,
         Character.status.in_(["pending", "active"])
-    ).all()
+    ).order_by(Character.id).all()
 
     pending = [c for c in all_chars if c.status == "pending"]
     active  = [c for c in all_chars if c.status == "active"]
@@ -282,7 +282,7 @@ def apply_advancement(db: Session, character, choice: str, detail: str = "", int
       appended to specialty_ability after "; " (vtt/abilities.py reads it back).
     - gild_action: an action that is not gilded yet."""
     from vtt.abilities import abilities_of
-    from vtt.creation import new_ability_problem
+    from vtt.creation import ACTION_LABELS, new_ability_problem
     from vtt.serializers import advancement_taken
 
     if choice not in ADVANCEMENT_CHOICES:
@@ -299,7 +299,7 @@ def apply_advancement(db: Session, character, choice: str, detail: str = "", int
             return {"error": f"Unknown action: {detail}", "status": 422}
         current = getattr(character, detail, 0) or 0
         if current >= 3:
-            return {"error": f"{detail} is already at maximum (3)", "status": 409}
+            return {"error": f"{ACTION_LABELS.get(detail, detail)} is already at maximum (3)", "status": 409}
         setattr(character, detail, current + 1)
 
     elif choice == "add_drive":
@@ -334,7 +334,7 @@ def apply_advancement(db: Session, character, choice: str, detail: str = "", int
         if detail not in ALL_ACTIONS:
             return {"error": f"Unknown action: {detail}", "status": 422}
         if getattr(character, f"gilded_{detail}", False):
-            return {"error": f"{detail} is already gilded.", "status": 409}
+            return {"error": f"{ACTION_LABELS.get(detail, detail)} is already gilded.", "status": 409}
         setattr(character, f"gilded_{detail}", True)
 
     # Picks come in sets of different options: two to an advancement, or all four for the

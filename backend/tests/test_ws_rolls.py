@@ -758,6 +758,37 @@ def test_a_burn_answers_a_roll_of_that_action(client, dice):
     assert support.fetch(Character, ch["id"]).nerve_resistance_spent == 1
 
 
+def test_the_next_roll_at_the_table_settles_earlier_rolls(client, dice):
+    """Another player's roll ends the chance to burn or use a post-roll ability on an earlier
+    one (the table has moved past it); a roll in another campaign does not."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=1, nerve_max=6)
+    b = support.active_member(client, camp, strike=1)
+    other = support.forge(client, strike=1)
+    refused = [{"type": "action_rejected", "payload": {
+        "action": "burn_resistance", "status": 409, "detail": "Burn a resistance after a roll of that action."}}]
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
+            support.ws_connect(client, other["id"]) as wo:
+        dice(2)
+        wa.send("roll", action="move", drive_spent=0)
+        wa.sync()
+        dice(2)
+        wo.send("roll", action="strike", drive_spent=0)
+        wo.sync()
+        dice(3)
+        wa.send("burn_resistance", action="move")  # a roll elsewhere does not settle it
+        assert wa.sync()[0]["payload"]["roll"]["is_resistance_roll"] is True
+        dice(2)
+        wa.send("roll", action="move", drive_spent=0)
+        wa.sync()
+        dice(2)
+        wb.send("roll", action="strike", drive_spent=0)
+        wb.sync()
+        wa.drain()  # the table's rolls and log lines
+        wa.send("burn_resistance", action="move")
+        assert wa.sync() == refused
+
+
 def test_a_burn_answers_only_the_newest_roll(client, dice):
     """A roll waiting for its gilded die to be kept replaces the last one: a burn for an
     older roll's action is refused and the waiting choice is kept (it used to reroll the

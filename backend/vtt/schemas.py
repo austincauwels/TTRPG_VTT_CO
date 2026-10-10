@@ -400,6 +400,8 @@ class CharacterRosterItem(BaseModel):
     is_dead: bool = False
     pen_font: Optional[str] = "Caveat"
     ink_color: Optional[str] = ""
+    pronouns: str = "Unlisted"
+    catalyst: str = ""
     class Config:
         from_attributes = True
 

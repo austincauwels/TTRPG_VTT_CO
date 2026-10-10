@@ -15,10 +15,10 @@ const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
 
 const PEN_FONTS = [
-  'Caveat', 'Reenie Beenie', 'Kalam', 'Indie Flower', 'Patrick Hand',
+  'Caveat', 'Reenie Beanie', 'Kalam', 'Indie Flower', 'Patrick Hand',
   'Shadows Into Light', 'Zeyada', 'Sacramento', 'Homemade Apple', 'Alex Brush',
   'Cedarville Cursive', 'La Belle Aurore', 'Charm', 'Dawning of a New Day',
-  'Gaegu', 'Grape Nuts', 'Moondance', 'Long Cang', 'Rock Salt', 'Gochi Hand',
+  'Gaegu', 'Grape Nuts', 'Moon Dance', 'Long Cang', 'Rock Salt', 'Gochi Hand',
 ];
 const ENTRIES_PER_SIDE = 3;
 
@@ -497,8 +497,10 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
       setIsUploading(true);
       result = await uploadNotebookImage(
         campaignId, pendingImageFile,
-        uploadCaption || newEntryTitle.trim() || (pendingImageType === 'sketch' ? 'Field Sketch' : 'Photograph'),
-        newEntryContent.trim(),
+        // The title the player typed stays the title; a caption goes in italics at the head of
+        // the entry's text, under the picture
+        newEntryTitle.trim(),
+        [uploadCaption.trim() && `*${uploadCaption.trim().replace(/\*/g, '')}*`, newEntryContent.trim()].filter(Boolean).join('\n\n'),
         authorName, isGM ? 'gm' : 'player',
         pendingImageType,
         isGM ? null : character?.id,
@@ -601,6 +603,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
   };
 
   const clearPendingImage = () => {
+    setUploadCaption('');
     setPendingImageFile(null);
     setPendingImagePreview(null);
     setPendingImageType(null);
@@ -1015,7 +1018,7 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
                           </span>
                           <span aria-hidden="true" className="flex-1 min-w-[0.75rem] sm:min-w-[1.5rem] self-end mb-3 border-b-2 border-dotted border-sepia/35" />
                           <span className="font-mono tabular-nums text-base text-sepia shrink-0 group-hover:text-ink">
-                            p.{entry.page_number}
+                            p.{entrySpread(entry)}
                           </span>
                         </button>
                         {canDelete && (
@@ -1132,9 +1135,9 @@ export const NotebookView = ({ isGM: isGMProp = null, fit = false }) => {
 
                   {/* Image upload — staged preview */}
                   <div className="flex gap-2 items-center flex-wrap">
-                    <input type="text" value={uploadCaption} onChange={e => setUploadCaption(e.target.value)}
-                      placeholder="Caption (optional)"
-                      className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 text-lg font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 md:[@media(pointer:coarse)]:min-h-[44px]" />
+                    {pendingImageFile && <input type="text" value={uploadCaption} onChange={e => setUploadCaption(e.target.value)}
+                      placeholder="Caption (optional)" aria-label="Caption for the picture (optional)"
+                      className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 text-lg font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 md:[@media(pointer:coarse)]:min-h-[44px]" />}
                     <button onClick={openNewSketch} disabled={isUploading || !!pendingImageFile}
                       className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
                       <span className="inline-flex items-center gap-1.5"><PencilIcon size={16} /> Sketch</span>

@@ -121,6 +121,12 @@ def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0, roll_i
         # roll once its result is known (_remember), never an older one while a die
         # waits to be kept
         _last_roll.pop(character.id, None)
+        # and the next roll at the table settles everyone else's: a burn or a post-roll
+        # ability cannot turn back a result the table has moved past
+        if character.campaign_id is not None:
+            for other_id in [k for k, v in _last_roll.items()
+                             if v.get("campaign_id") == character.campaign_id and k != character.id]:
+                _last_roll.pop(other_id, None)
         if roll.get("needs_gilded_choice"):
             _pending_gilded[character.id] = {
                 "action": action, "roll": dict(roll), "rating": _rating(character, action),
@@ -190,7 +196,8 @@ _last_roll: dict = {}
 def _remember(character, action, cat, result, outcome):
     if character is not None:
         _last_roll[character.id] = {"action": action, "cat": cat, "result": result,
-                                    "outcome": outcome, "used": set()}
+                                    "outcome": outcome, "used": set(),
+                                    "campaign_id": character.campaign_id}
 
 
 def _plan_roll(character, act, spent, mods, payload, stamina_die=False, rescue_die=False, ward_die=False,

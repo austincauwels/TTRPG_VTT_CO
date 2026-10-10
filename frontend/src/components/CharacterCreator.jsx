@@ -1406,7 +1406,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               </div>
               <div className="p-4 rounded-sm" style={{ background: 'rgb(var(--c-parchment-deep)/0.18)', border: '1px dashed rgb(var(--c-sepia)/0.22)' }}>
                 <span className="block text-xs sm:text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-1">Catalyst</span>
-                <p className="text-base italic text-ink/80 leading-relaxed">"{catalyst}"</p>
+                <p className="text-base italic text-ink/80 leading-relaxed whitespace-pre-line">"{catalyst}"</p>
               </div>
             </div>
 
@@ -1497,7 +1497,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             <div
               className="fixed inset-0 z-[500] flex items-center justify-center p-4"
               style={{ background: 'rgb(var(--c-night) / 0.85)' }}
-              onClick={() => { if (!savingMode) setShowJoinInput(false); }}
+              onClick={(e) => { if (e.detail > 1) return; /* the second click of a double-click that opened it */ if (!savingMode) setShowJoinInput(false); }}
             >
               <div
                 ref={joinDialogRef}

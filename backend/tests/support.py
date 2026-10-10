@@ -584,4 +584,5 @@ def last_roll(char_id, action, outcome="failure", result=2):
     from engine import drive_for_action
     from vtt.ws.handlers import rolls
     rolls._last_roll[char_id] = {"action": action, "cat": drive_for_action(action), "result": result,
-                                 "outcome": outcome, "used": set()}
+                                 "outcome": outcome, "used": set(),
+                                 "campaign_id": None}

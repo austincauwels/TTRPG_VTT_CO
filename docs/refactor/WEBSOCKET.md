@@ -243,7 +243,7 @@ All 26 types the server emits have a handler in `gameStore.js`, and the store ha
 | `backstory_update` | `circle_backstory_update` | Campaign | Sets one backstory answer |
 | `personal_answer_update` | `circle_personal_answer` | Campaign | Updates own character and the investigator list |
 | `relationship_update` | relationship propose and respond | Campaign | Replaces relationships |
-| `notebook_entry` | WS `add_notebook_entry`; REST `POST /api/notebook/{id}/entries` (visibility `all`) | Campaign, or sender only | Appends if the id is new |
+| `notebook_entry` | WS `add_notebook_entry`; REST `POST /api/notebook/{id}/entries` (visibility `all`), `POST /api/notebook/{id}/upload` and `PUT /api/notebook/entries/{id}/sketch` (a redraw, no log line) | Campaign, or sender only | Appends if the id is new; merges into the entry if the desk holds it |
 | `investigator_joined` | REST `POST /campaign/join` | Campaign (pending characters excluded), or the code key | Updates pending roster when the code matches |
 | `investigator_approved` | REST approve, REST rejoin | Campaign | Campaign-checked; updates roster and own character. The payload's sheets go on the roster cards as `member_update`'s do, with `role_class` from `role` (the GM's cards print it) |
 | `investigator_rejected` | REST reject | Campaign, plus the rejected character's key | Resets that character to unaffiliated |

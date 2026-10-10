@@ -679,6 +679,7 @@ def test_roster(client):
     support.update(Character, dead["id"], is_dead=True)
     retired = support.active_member(client, camp)
     support.update(Character, retired["id"], status="retired")
+    support.update(Character, active["id"], pronouns="she/her", catalyst="Lost a brother\nto the fog")
     r = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp))
     assert r.status_code == 200
     body = r.json()
@@ -692,7 +693,8 @@ def test_roster(client):
     assert [c["id"] for c in body["pending_investigators"]] == [pending["id"]]
     # A dead investigator stays active until replaced, and is listed with is_dead (the desk
     # shows them apart and counts only the living)
-    assert sorted((c["id"], c["is_dead"]) for c in body["active_investigators"]) == \
+    # in a fixed order (by id), so the cards do not shuffle between visits
+    assert [(c["id"], c["is_dead"]) for c in body["active_investigators"]] == \
         [(active["id"], False), (dead["id"], True)]
     body["active_investigators"] = [c for c in body["active_investigators"] if c["id"] == active["id"]]
     assert body["active_investigators"][0] == {
@@ -700,6 +702,7 @@ def test_roster(client):
         "role_ability": "Tenacious", "specialty": "Soldier", "specialty_ability": "None",
         "profile_pic": None, "circle_name": "The Order of Light", "status": "active",
         "is_dead": False, "pen_font": "Caveat", "ink_color": engine.INK_COLORS[0],
+        "pronouns": "she/her", "catalyst": "Lost a brother\nto the fog",
     }
 
 
