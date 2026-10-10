@@ -11,6 +11,7 @@ import LoginScreen from './LoginScreen';
 import { ConfirmEmailPage } from './account/ConfirmEmailPage';
 import { UndoEmailChangePage } from './account/UndoEmailChangePage';
 import { accountPageOpen, emailTokenFromAddress, undoTokenFromAddress, watchAddress } from './account/accountAddress';
+import { settleArrival, useStageHistory } from './stageHistory';
 
 // The screens behind the sign-in slip load when first shown (shared/lazyScreen.js); App
 // wraps the router in a Suspense that keeps the night stage up meanwhile.
@@ -21,46 +22,20 @@ const CharacterCreator = lazyScreen(() => import('./CharacterCreator'), 'Charact
 const AccountPage = lazyScreen(() => import('./account/AccountPage'), 'AccountPage');
 const SIGNED_IN_SCREENS = [CampaignSelector, MainDeskView, OperationsPanel, CharacterCreator, AccountPage];
 
-// The first time the creator opens after the page loads. A page brought back by the
-// browser's Back button with the creator still saved as the screen came back from the
-// creator's own history entry, so it goes to the chapter hub instead.
-let firstCreatorVisit = true;
-
-// Three ways out of the character creator to the chapter hub: the header link, Escape,
-// and the browser's Back button. The creator gets its own history entry for Back; leaving
-// any other way (the link, Escape, a save) takes that entry off again, so Back from the
-// hub does not land on it. The draft stays in this browser for the account either way.
-const useCreatorExits = (stage, setStage) => {
+// Escape leaves the creator for the chapter hub, as its header link does. The first Escape
+// in a field only leaves the field. The draft stays in this browser for the account.
+const useCreatorEscape = (stage, setStage) => {
   useEffect(() => {
     if (stage !== 'CHARACTER_CREATION') return undefined;
-    const marked = !!window.history.state?.candelaCreator;
-    if (firstCreatorVisit) {
-      firstCreatorVisit = false;
-      const nav = window.performance?.getEntriesByType?.('navigation')?.[0];
-      if (!marked && nav?.type === 'back_forward') { setStage('HOME'); return undefined; }
-    }
-    if (!marked) {
-      try { window.history.pushState({ ...(window.history.state || {}), candelaCreator: true }, ''); } catch { /* no history */ }
-    }
-
-    const onPop = (e) => { if (!e.state?.candelaCreator) setStage('HOME'); };
     const onKey = (e) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
       if (document.querySelector('[aria-modal="true"]')) return;
-      // The first Escape in a field only leaves the field; the next one leaves the creator
       if (isEditableTarget(e.target)) { e.target.blur(); return; }
       if (pageKeyBlocked(e)) return;
       setStage('HOME');
     };
-    window.addEventListener('popstate', onPop);
     document.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('popstate', onPop);
-      document.removeEventListener('keydown', onKey);
-      if (useGameStore.getState().stage !== 'CHARACTER_CREATION' && window.history.state?.candelaCreator) {
-        window.history.back();
-      }
-    };
+    return () => document.removeEventListener('keydown', onKey);
   }, [stage]);
 };
 
@@ -72,6 +47,13 @@ const resetTokenFromAddress = () => {
   if (typeof window === 'undefined' || !RESET_PATH.test(window.location.pathname)) return null;
   return new URLSearchParams(window.location.search).get('token') || '';
 };
+
+// As the page loads, before the first screen draws, the screen this browser kept gives way
+// to the one the history entry was made for (stageHistory.js). The account page and the
+// emailed links keep entries of their own.
+if (resetTokenFromAddress() === null && !accountPageOpen() && emailTokenFromAddress() === null && undoTokenFromAddress() === null) {
+  settleArrival();
+}
 
 export const AppRouter = () => {
   const {
@@ -102,7 +84,11 @@ export const AppRouter = () => {
   const onOwnAddress = resetToken !== null || emailToken !== null || undoToken !== null
     || (accountOpen && !!accessSession);
 
-  useCreatorExits(onOwnAddress ? null : stage, setStage);
+  // Back and Forward between the hub, the creator and the desks (stageHistory.js), and
+  // Escape out of the creator
+  const routedStage = onOwnAddress ? null : stage;
+  useStageHistory(routedStage);
+  useCreatorEscape(routedStage, setStage);
 
   // Once someone is signed in, the other screens' code is fetched while the browser is
   // idle, so moving between the hub, the creator and the desks never waits on it
