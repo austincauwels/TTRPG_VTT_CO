@@ -444,11 +444,10 @@ export const CircleView = () => {
   const draft = storedDraft && storedDraft.assignment === assignmentOf(circle) ? storedDraft : null;
   const filedResponses = myReport?.responses || {};
   const showFiled = !!myReport && !amending;
-  // Per-question checkboxes for illumination evaluation, and per-key: { 0: bool, ... }
-  const evalQ = showFiled ? [0, 1, 2].map(i => !!filedResponses[`q${i}`]) : (draft?.evalQ || [false, false, false]);
+  // The keys this investigator fulfilled: { 0: bool, ... }. The circle's three questions
+  // are the Lightkeeper's to answer once, on their page (playtest, report-questions-tally)
   const keyChecks = showFiled ? (filedResponses.keys_detail || {}) : (draft?.keyChecks || {});
-  const setEvalQ = (update) => setReportDraft(character?.id, { evalQ: update(evalQ), keyChecks });
-  const setKeyChecks = (update) => setReportDraft(character?.id, { evalQ, keyChecks: update(keyChecks) });
+  const setKeyChecks = (update) => setReportDraft(character?.id, { keyChecks: update(keyChecks) });
 
   // Relationship drafts for the shared relationship form
   const relForms = useRelationshipForms();
@@ -508,9 +507,6 @@ export const CircleView = () => {
   function handleSubmitReport() {
     if (!circle?.reports_open || showFiled || reportSending) return;
     const responses = {
-      q0: evalQ[0],
-      q1: evalQ[1],
-      q2: evalQ[2],
       keys_fulfilled: keysFulfilled,
       keys_detail: keyChecks,
     };
@@ -520,7 +516,7 @@ export const CircleView = () => {
 
   // Amend: the filed ticks become the draft, to change and send again in its place
   function startAmending() {
-    setReportDraft(character?.id, { evalQ, keyChecks });
+    setReportDraft(character?.id, { keyChecks });
     setAmending(true);
   }
 
@@ -631,22 +627,17 @@ export const CircleView = () => {
         </h3>
         <FormLine className="block mt-1 mb-3">Form C.O. 11 · Assignment report</FormLine>
 
-        {/* 3 Illumination Questions — checkboxes */}
-        <div className="space-y-2 mb-3">
-          {ILLUM_QUESTIONS.map((q, i) => (
-            <label key={i} className={`flex items-start gap-2.5 group [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:items-center ${showFiled ? 'cursor-default' : 'cursor-pointer'}`}>
-              <input
-                type="checkbox"
-                checked={evalQ[i]}
-                onChange={() => setEvalQ(prev => { const n = [...prev]; n[i] = !n[i]; return n; })}
-                className={`mt-0.5 w-4 h-4 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 accent-oxblood shrink-0 ${showFiled ? 'cursor-default' : 'cursor-pointer'}`}
-                disabled={showFiled}
-              />
-              <p className="font-serif text-sm text-ink/80 leading-snug italic group-hover:text-ink transition-colors">
-                "{q}"
-              </p>
-            </label>
-          ))}
+        {/* The circle's three questions, which the table answers together and the
+            Lightkeeper ticks once on their page */}
+        <div className="mb-3">
+          <ol className="space-y-1 list-decimal pl-5 marker:font-mono marker:text-xs marker:text-sepia">
+            {ILLUM_QUESTIONS.map((q, i) => (
+              <li key={i} className="font-serif text-sm text-ink/80 leading-snug italic">"{q}"</li>
+            ))}
+          </ol>
+          <p className="font-serif text-xs text-sepia leading-snug mt-1.5">
+            The circle answers these together, and the Lightkeeper marks them. Below, tick the keys you fulfilled.
+          </p>
         </div>
 
         {/* Illumination Keys — individual checkboxes */}

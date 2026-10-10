@@ -197,6 +197,10 @@ Advancement is not gated by any point system in the VTT — it's applied wheneve
 
 The illumination track is a 0–12 numeric value on the Circle. Players can increment it (the GM can also edit it directly). Every time it hits a multiple of 3 (3, 6, 9), the server fires a campaign-wide milestone notification. At 12, the track rolls over: `new_value = current - 12`, representing the circle completing a full chapter of illumination.
 
+### What is an assignment's report worth?
+
+By the book (p. 55): 1 Illumination for each of the circle's three Illumination questions answered yes, then for the Illumination Keys 2 if some of the investigators fulfilled one and 4 if every one of them did (nothing if none did). Since 2026-10-10 the Lightkeeper ticks the three questions once, for the circle, on their Circle page, and the players' reports carry only their keys. Under the report cards the page totals it (a living investigator with no report filed counts as no key) and adds it with one press, "Add N Illumination", once per assignment. Every change to the track is logged, such as "The Ninth Night gains 2 Illumination (3 to 5)." Before, each player's report carried the three questions too, so one yes could come in four times, nothing totalled the reports, and the playtest's circle counted keys at 1 each and advanced about 5 Illumination early.
+
 ---
 
 ## Post-Roll Abilities

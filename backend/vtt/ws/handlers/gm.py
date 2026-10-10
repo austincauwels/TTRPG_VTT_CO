@@ -350,8 +350,17 @@ async def handle_update_circle(ctx):
                 setattr(target_circle, field, payload[field])
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
-        # A line for each milestone the change passed (it used to need the value to land
-        # on one), and one when the track fills (RULES_CHECK.md items 19 and 20)
+        # A line for the change itself, which the table could not see (playtest,
+        # report-questions-tally), then one for each milestone the change passed (it used
+        # to need the value to land on one), and one when the track fills (RULES_CHECK.md
+        # items 19 and 20)
         if "illumination" in payload:
-            await _log_illumination(db, camp_code, camp_id, target_circle, old_illum,
-                                    getattr(target_circle, "illumination", 0) or 0)
+            new_illum = getattr(target_circle, "illumination", 0) or 0
+            if isinstance(new_illum, int) and new_illum != old_illum:
+                name = target_circle.name or "The Circle"
+                change = new_illum - old_illum
+                said = (f"{name} gains {change} Illumination ({old_illum} to {new_illum})." if change > 0
+                        else f"{name} loses {-change} Illumination ({old_illum} to {new_illum}).")
+                await manager.broadcast_campaign(camp_code, camp_id, {
+                    "type": "activity_log", "payload": {"message": said, "log_type": "field"}}, db)
+            await _log_illumination(db, camp_code, camp_id, target_circle, old_illum, new_illum)

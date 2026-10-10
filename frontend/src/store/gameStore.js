@@ -311,10 +311,14 @@ const useGameStore = create(
       gmSheetRefusal: null,       // { action, detail, at }: a mark or scar correction the server refused
       circleRefusal: null,        // { detail, at }: a gm_update_circle the server refused (the dispatch says so)
       // The assignment report form: the ticks not sent yet, by character id, with the
-      // assignment they belong to ({ assignment, evalQ, keyChecks }), kept across tabs and
+      // assignment they belong to ({ assignment, keyChecks }), kept across tabs and
       // reloads (playtest, key-ticks-lost); whether a report is on its way; why the server
       // refused the last one
       reportDrafts: {},
+      // The Lightkeeper's answers to the circle's three Illumination questions, by circle id,
+      // for the assignment they belong to, and how much Illumination they were added as
+      // ({ assignment, answers: [bool, bool, bool], added: number | null })
+      illumTallies: {},
       reportSending: false,
       reportError: null,
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
@@ -1336,6 +1340,13 @@ const useGameStore = create(
       },
 
       // The report form's ticks before sending, for this assignment
+      setIllumTally: (circleId, patch) => set(state => {
+        const assignment = assignmentOf(state.circle);
+        const prev = state.illumTallies[circleId];
+        const current = prev && prev.assignment === assignment ? prev : { assignment, answers: [false, false, false], added: null };
+        return { illumTallies: { ...state.illumTallies, [circleId]: { ...current, ...patch, assignment } } };
+      }),
+
       setReportDraft: (characterId, draft) => set(state => ({
         reportDrafts: { ...state.reportDrafts, [characterId]: { ...draft, assignment: assignmentOf(state.circle) } },
       })),
@@ -1849,6 +1860,7 @@ const useGameStore = create(
         rejoinInvite: state.rejoinInvite,
         pendingScar: state.pendingScar,
         reportDrafts: state.reportDrafts,
+        illumTallies: state.illumTallies,
       }),
 
       // A session saved before login tokens existed has no token, and the server
