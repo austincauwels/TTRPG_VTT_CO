@@ -2,7 +2,7 @@
 
 Updated 9 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
-Resume: none
+Resume: PR 9 on branch claude/pr9-connection, started 10 October 2026
 
 ## For the next chat: start here
 
