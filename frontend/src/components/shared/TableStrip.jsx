@@ -4,6 +4,7 @@ import useGameStore from '../../store/gameStore';
 import { arrivedAt } from '../../store/circleArrivals';
 import { SafeIcon } from './SafeIcon';
 import { formatTime, useTimeLeft } from './TensionTimer';
+import { rulebookLogText } from '../../game/outcomes';
 
 // ── The table strip ───────────────────────────────────────────────────────────────
 // The hourglass's tension, the running timer and the newest line of the log in one slim
@@ -22,6 +23,8 @@ export const TableStrip = ({ withLog = false, className = '' }) => {
   const tension = Math.max(0, Math.min(4, Number(circle?.tension_clock) || 0));
   const last = withLog ? activityLog[activityLog.length - 1] : null;
   if (tension === 0 && !onShow && !last) return null;
+  // The server's lines in the rulebook's words, as the log shows them; chat as written
+  const lastText = last && (last.type === 'chat' ? last.text : rulebookLogText(last.text));
 
   const done = onShow && left <= 0;
   const paused = onShow && !circle?.timer_running && !done && left < duration;
@@ -43,8 +46,8 @@ export const TableStrip = ({ withLog = false, className = '' }) => {
         </p>
       )}
       {last && (
-        <p className="min-w-0 flex-1 truncate font-serif italic text-sm text-sepia" title={last.text}>
-          <span className="sr-only">Newest log line: </span>{last.text}
+        <p className="min-w-0 flex-1 truncate font-serif italic text-sm text-sepia" title={lastText}>
+          <span className="sr-only">Newest log line: </span>{lastText}
         </p>
       )}
     </div>
