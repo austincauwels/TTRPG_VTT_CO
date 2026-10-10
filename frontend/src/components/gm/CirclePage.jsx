@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useFlatTurn } from '../shared/useFlatTurn';
-import useGameStore from '../../store/gameStore';
+import useGameStore, { assignmentOf } from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { tiltStyle } from '../shared/handPlaced';
 import { ConfirmAction } from '../shared/ConfirmAction';
@@ -35,6 +35,7 @@ import { TurnOverMark } from '../shared/Decorations';
 import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
+import { tallyReports } from '../../game/illumination';
 
 // A line of the charter the Lightkeeper may change: its value with an Edit button, which
 // turns it into a field holding the value. Enter or leaving the field saves, Escape puts
@@ -203,18 +204,6 @@ function ReportFlipCard({ inv, report }) {
             {inv.name}'s Report
           </span>
 
-          {/* Standard illumination questions */}
-          <div className="flex flex-col gap-1.5">
-            {ILLUM_QUESTIONS.map((q, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <span className={`mt-0.5 text-xs font-black shrink-0 ${responses[`q${i}`] ? 'text-seal-green' : 'text-sepia'}`}>
-                  {responses[`q${i}`] ? <TickMark /> : <CrossMark />}
-                </span>
-                <span className="font-serif text-xs text-sepia leading-snug">{q}</span>
-              </div>
-            ))}
-          </div>
-
           {/* Illumination keys */}
           {specialtyKeys.length > 0 && (
             <div className="border-t border-ink/10 pt-2.5">
@@ -248,6 +237,7 @@ export const CirclePage = () => {
   const {
     circle, circleCreation, updateCircle,
     gmToggleResourceEdit, gmToggleReports, gmAdvanceCircle, refillResources,
+    illumTallies, setIllumTally,
   } = useGameStore();
 
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
@@ -267,8 +257,20 @@ export const CirclePage = () => {
 
   const trackFull = illum >= TRACK_SIZE;
 
+  // The report's worth: the circle's questions, answered here once, and the keys the
+  // investigators' reports filed (game/illumination.js)
+  const savedTally = illumTallies?.[circId];
+  const thisTally = savedTally && savedTally.assignment === assignmentOf(circle) ? savedTally : null;
+  const answers = thisTally?.answers || [false, false, false];
+  const tally = tallyReports(investigators, reports, answers);
+  const addTally = () => {
+    if (tally.total <= 0 || thisTally?.added != null) return;
+    // Recorded as added only once it went to the table (not while the desk reconnects)
+    if (setIllum(illum + tally.total)) setIllumTally(circId, { answers, added: tally.total });
+  };
+
   function setIllum(n) {
-    updateCircle({ circle_id: circId, illumination: n });
+    return updateCircle({ circle_id: circId, illumination: n });
   }
 
   function setResource(key, n) {
@@ -441,12 +443,46 @@ export const CirclePage = () => {
               Illumination Questions
             </h3>
             <FormLine className="block mt-1 mb-2.5">Form C.O. 11 · Assignment report</FormLine>
-            <div className="space-y-2">
+            {/* Answered once, for the circle, by the table: each yes is 1 Illumination */}
+            <div className="space-y-1">
               {ILLUM_QUESTIONS.map((q, i) => (
-                <p key={i} className="font-serif text-sm text-ink/80 leading-snug italic border-b border-ink/10 pb-1.5 last:border-0">
-                  <span className="font-mono text-xs text-sepia not-italic mr-2">{i + 1}.</span>"{q}"
-                </p>
+                <label key={i} className="flex items-start gap-2.5 cursor-pointer border-b border-ink/10 pb-1.5 last:border-0 [@media(pointer:coarse)]:min-h-[44px]">
+                  <input type="checkbox" checked={!!answers[i]} disabled={thisTally?.added != null}
+                    onChange={() => setIllumTally(circId, { answers: answers.map((a, j) => (j === i ? !a : a)) })}
+                    className="mt-0.5 w-4 h-4 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 accent-oxblood shrink-0" />
+                  <span className="font-serif text-sm text-ink/80 leading-snug italic">"{q}"</span>
+                </label>
               ))}
+            </div>
+
+            {/* The tally: the questions, then the keys by the book's rule */}
+            <div className="mt-3 pt-2.5 border-t border-ink/10 space-y-1.5" aria-live="polite">
+              <p className="font-serif text-sm text-ink/85 leading-snug flex justify-between gap-3">
+                <span>Questions answered yes</span>
+                <span className="font-mono tabular-nums">+{tally.questions}</span>
+              </p>
+              <p className="font-serif text-sm text-ink/85 leading-snug flex justify-between gap-3">
+                <span>
+                  Keys: {tally.members === 0 ? 'no investigators' : tally.withKey === 0 ? 'no report has one'
+                    : tally.withKey === tally.members ? `every investigator (${tally.withKey} of ${tally.members})`
+                    : `some investigators (${tally.withKey} of ${tally.members})`}
+                </span>
+                <span className="font-mono tabular-nums">+{tally.keys}</span>
+              </p>
+              <p className="font-serif italic text-xs text-sepia leading-snug">
+                Keys are worth 2 when some of you fulfilled one, 4 when all of you did (p. 55). A report not filed counts as no key.
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <span className="font-sans font-black text-xs uppercase tracking-widest text-ink">Total +{tally.total}</span>
+                {thisTally?.added != null ? (
+                  <span role="status" className="font-serif italic text-sm text-seal-green">Added {thisTally.added} Illumination</span>
+                ) : (
+                  <button type="button" onClick={addTally} disabled={tally.total <= 0}
+                    className="min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream border border-ink rounded-sm hover:bg-oxblood disabled:opacity-40">
+                    Add {tally.total} Illumination
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* GM Toggle: Open Reports */}

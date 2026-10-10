@@ -195,11 +195,13 @@ async def _offer_non_combatant(ctx, doctor, m_type):
         _non_combatant[ally.id] = [t for t in _non_combatant.get(ally.id, []) if t > now] + [now + INTERCEPT_WINDOW]
         await manager.broadcast(character_key(ally.id), {"type": "ability_mark_offer", "payload": {
             "ability": "Non-Combatant", "mark_type": m_type, "character_id": doctor.id,
-            "character_name": doctor.name, "action": "drive_refresh"}})
+            "character_name": doctor.name, "action": "drive_refresh", "expires_in": INTERCEPT_WINDOW}})
 
 
 async def _offer_intercepts(ctx, character, m_type):
-    """Behind Me and Premonitions offers to the character's fellow members."""
+    """Behind Me and Premonitions offers to the character's fellow members. Each says how
+    long it stays open (expires_in, seconds), so the ally's card lasts as long as the
+    server takes an answer: it vanished after 20 seconds (playtest, ability-offers-expire)."""
     candidates = ctx.db.query(Character).filter(
         Character.campaign_id == ctx.camp_id,
         Character.status == "active",
@@ -215,11 +217,11 @@ async def _offer_intercepts(ctx, character, m_type):
         if "Behind Me" in other_abilities and (other.nerve_current or 0) >= 1:
             await manager.broadcast(character_key(other.id), {"type": "ability_intercept_offer", "payload": {
                 "ability": "Behind Me", "mark_type": m_type, "character_id": character.id,
-                "character_name": character.name, "action": "intercept"}})
+                "character_name": character.name, "action": "intercept", "expires_in": INTERCEPT_WINDOW}})
         if "Premonitions" in other_abilities and resistance_left(other, "intuition") > 0:
             await manager.broadcast(character_key(other.id), {"type": "ability_intercept_offer", "payload": {
                 "ability": "Premonitions", "mark_type": m_type, "character_id": character.id,
-                "character_name": character.name, "action": "soak"}})
+                "character_name": character.name, "action": "soak", "expires_in": INTERCEPT_WINDOW}})
 
 
 async def _land(ctx, character, held, channel):
@@ -269,7 +271,27 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
 
 
 async def handle_take_mark(ctx):
+    """A mark taken on the player's own sheet, or dealt by the Lightkeeper to a member
+    (the GM socket names character_id). A dealt mark goes the same way as a taken one, so
+    soaks, Death Defy, the allies' Behind Me and Premonitions, and Let Them In are offered;
+    the offers go to the player's channel, where they are answered. The trauma record's
+    Edit sets a track without any of them, and the Lightkeeper used it for every story
+    consequence, so those abilities were silently lost (playtest, lk-mark-skips-abilities)."""
     m_type = ctx.payload.get("mark_type")
+    if m_type and ctx.is_gm:
+        character = ctx.character
+        key = character_key(character.id)
+        if not manager.active_connections.get(key):
+            # No desk is open to answer an offer, and a held mark would wait for one: it
+            # lands now, with what follows any mark (the allies' offers, a scar at four)
+            await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark. "
+                                       "Their desk is closed, so it landed without a soak or Death Defy.", "danger")
+            await apply_mark(ctx, character, m_type, key)
+            return
+        await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark.", "danger")
+        await mark_or_offer(ctx, character, m_type, key,
+                            is_from_enemy=ctx.payload.get("is_from_enemy") is not False)
+        return
     if m_type:
         # A mark an open offer still holds lands first (mark_or_offer). Whether an enemy dealt the mark is the table's call, and the desk does not ask,
         # so Death Defy is offered unless the payload says the mark is not from an enemy

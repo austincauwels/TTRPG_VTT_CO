@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RELATIONSHIP_DATA, RELATIONSHIP_TYPES } from '../../../game/relationships';
+import { RELATIONSHIP_DATA, RELATIONSHIP_TYPES, joinLore, splitLore } from '../../../game/relationships';
 
 // The one relationship form: propose a relationship to another investigator, and accept
 // or counter one they proposed. Used in the circle formation papers, the new-member
@@ -8,8 +8,8 @@ import { RELATIONSHIP_DATA, RELATIONSHIP_TYPES } from '../../../game/relationshi
 // half-written answer survives a collapsed section or a closed card.
 
 export const useRelationshipForms = () => {
-  const [drafts, setDrafts] = useState({});     // { toId: { relType, lore, promptIdx } }
-  const [counters, setCounters] = useState({}); // { relId: { open, relType, lore } }
+  const [drafts, setDrafts] = useState({});     // { toId: { open, relType, promptIdx, answer } }
+  const [counters, setCounters] = useState({}); // { relId: { open, relType, promptIdx, answer } }
   return { drafts, setDrafts, counters, setCounters };
 };
 
@@ -18,28 +18,34 @@ const fieldClass = 'w-full border border-sepia/40 bg-cream/80 px-3 py-2 font-ser
 const primaryButton = 'px-4 py-2 bg-oxblood text-cream border border-ink rounded-sm font-sans font-black uppercase tracking-widest text-sm hover:brightness-125 transition disabled:opacity-40';
 const quietButton = 'px-4 py-2 border border-sepia/50 text-sepia hover:text-ink hover:border-ink/50 rounded-sm font-sans font-black uppercase tracking-widest text-sm transition-colors';
 
-// Relationship type, an optional prompt question, and the answer.
-const RelationshipFields = ({ idPrefix, relType, lore, onType, onPrompt, onLore }) => (
+// Relationship type, an optional prompt question, and the answer. The chosen question is
+// kept as its index and shown above the answer box, never in it; tapping it again lets it go.
+// A new type keeps the answer, and lets the question go (each type has its own).
+const RelationshipFields = ({ idPrefix, form, onChange }) => {
+  const { relType, promptIdx, answer } = form;
+  const questions = (relType && RELATIONSHIP_DATA[relType]) || null;
+  const question = questions && Number.isInteger(promptIdx) ? questions[promptIdx] : null;
+  return (
   <div className="space-y-3">
     <div>
       <label htmlFor={`${idPrefix}-type`} className={labelClass}>Relationship</label>
-      <select id={`${idPrefix}-type`} value={relType || ''} onChange={e => onType(e.target.value)} className={fieldClass}>
+      <select id={`${idPrefix}-type`} value={relType || ''} onChange={e => onChange({ relType: e.target.value, promptIdx: null })} className={fieldClass}>
         <option value="" aria-label="None"></option>
         {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
     </div>
 
-    {relType && RELATIONSHIP_DATA[relType] && (
+    {questions && (
       <div className="space-y-1.5">
         <p className={labelClass}>Question (optional)</p>
-        {RELATIONSHIP_DATA[relType].map((q, qi) => {
-          const chosen = lore === q;
+        {questions.map((q, qi) => {
+          const chosen = promptIdx === qi;
           return (
             <button
               key={qi}
               type="button"
               aria-pressed={chosen}
-              onClick={() => onPrompt(q, qi)}
+              onClick={() => onChange({ promptIdx: chosen ? null : qi })}
               className={`w-full text-left text-base font-serif px-3 py-2 border rounded-sm transition-colors leading-snug ${
                 chosen ? 'border-oxblood bg-oxblood/5 text-ink' : 'border-parchment-deep bg-cream/50 text-sepia hover:border-sepia/50 hover:text-ink'
               }`}
@@ -53,20 +59,52 @@ const RelationshipFields = ({ idPrefix, relType, lore, onType, onPrompt, onLore 
 
     <div>
       <label htmlFor={`${idPrefix}-lore`} className={labelClass}>Your answer</label>
+      {question && <p id={`${idPrefix}-q`} className="font-serif italic text-base text-sepia leading-snug mb-1.5">{question}</p>}
       <textarea
         id={`${idPrefix}-lore`}
-        value={lore || ''}
-        onChange={e => onLore(e.target.value)}
+        value={answer || ''}
+        onChange={e => onChange({ answer: e.target.value })}
         rows={3}
         disabled={!relType}
+        aria-describedby={question ? `${idPrefix}-q` : undefined}
         className={`${fieldClass} resize-none disabled:opacity-50`}
       />
     </div>
   </div>
-);
+  );
+};
+
+// A relationship's words: its question, if it answers one, then the answer
+const LoreText = ({ rel }) => {
+  const { promptIdx, answer } = splitLore(rel.rel_type, rel.lore);
+  const question = Number.isInteger(promptIdx) ? RELATIONSHIP_DATA[rel.rel_type][promptIdx] : null;
+  if (!question && !answer) return null;
+  return (
+    <span className="block mt-0.5">
+      {question && <span className="block font-serif text-base text-sepia">{question}</span>}
+      {answer && <span className="block italic text-base text-sepia whitespace-pre-line">{answer}</span>}
+    </span>
+  );
+};
+
+// A form that starts from a stored relationship (Counter, Edit)
+const formFrom = (rel) => ({ relType: rel.rel_type, ...splitLore(rel.rel_type, rel.lore) });
 
 // One relationship as it stands, with Accept and Counter when it is this player's turn.
-const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship }) => {
+// focusRequest: a ref set when this player's press (Propose, Accept, Send counter) is about
+// to replace the button they pressed; the status takes focus when the answer lands, so it
+// does not fall to the page (playtest, keyboard-focus-dropped)
+const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship, onEdit, focusRequest }) => {
+  const boxRef = useRef(null);
+  useEffect(() => {
+    if (!focusRequest?.current) return;
+    const active = document.activeElement;
+    if (!active || active === document.body) {
+      focusRequest.current = false;
+      boxRef.current?.focus();
+    }
+  }, [rel.id, rel.status, rel.last_actor_id, rel.rel_type, rel.lore]);
+  const respond = (...args) => { if (focusRequest) focusRequest.current = true; respondToRelationship(...args); };
   const { counters, setCounters } = forms;
   const counter = counters[rel.id] || {};
   const setCounter = (patch) => setCounters(c => ({ ...c, [rel.id]: { ...c[rel.id], ...patch } }));
@@ -79,19 +117,27 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
 
   const sendCounter = () => {
     if (!counter.relType) return;
-    respondToRelationship(rel.id, 'counter', counter.relType, counter.lore || '');
+    respond(rel.id, 'counter', counter.relType, joinLore(counter.relType, counter.promptIdx, counter.answer));
     setCounters(c => { const n = { ...c }; delete n[rel.id]; return n; });
   };
 
   return (
-    <div className={`p-3 border rounded-sm space-y-2 ${accepted ? 'bg-seal-green/10 border-seal-green/50' : myTurn ? 'bg-parchment border-oxblood/40' : 'bg-cream border-parchment-deep'}`}>
+    <div ref={boxRef} tabIndex={-1} className={`p-3 border rounded-sm space-y-2 ${accepted ? 'bg-seal-green/10 border-seal-green/50' : myTurn ? 'bg-parchment border-oxblood/40' : 'bg-cream border-parchment-deep'}`}>
       <p className="font-serif text-lg text-ink leading-snug">
         <strong>{rel.rel_type}</strong>
-        {rel.lore && <span className="block italic text-base text-sepia mt-0.5">{rel.lore}</span>}
+        <LoreText rel={rel} />
       </p>
 
       {accepted && <p className="font-sans font-bold text-xs uppercase tracking-widest text-seal-green">Confirmed by you both</p>}
-      {theirTurn && <p className="font-serif italic text-base text-sepia">Waiting for {theirName}</p>}
+      {theirTurn && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <p className="font-serif italic text-base text-sepia">Waiting for {theirName}</p>
+          {/* Your own proposal can be changed while it waits (proposing again replaces it) */}
+          {onEdit && rel.from_character_id === myId && (
+            <button type="button" onClick={onEdit} className={quietButton}>Edit</button>
+          )}
+        </div>
+      )}
 
       {myTurn && (
         <>
@@ -99,8 +145,10 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
             {countered ? `${theirName} suggested this change.` : `${theirName} proposed this.`}
           </p>
           <div className="flex gap-2 flex-wrap">
-            <button type="button" onClick={() => respondToRelationship(rel.id, 'accept')} className={primaryButton}>Accept</button>
-            <button type="button" onClick={() => setCounter({ open: !counter.open })} aria-expanded={!!counter.open} className={quietButton}>
+            <button type="button" onClick={() => respond(rel.id, 'accept')} className={primaryButton}>Accept</button>
+            {/* Counter starts from what was proposed, so a small change is a small edit */}
+            <button type="button" onClick={() => setCounter(counter.open ? { open: false } : { ...(counter.relType ? {} : formFrom(rel)), open: true })}
+              aria-expanded={!!counter.open} className={quietButton}>
               {counter.open ? 'Cancel counter' : 'Counter'}
             </button>
           </div>
@@ -113,14 +161,7 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
                 className="overflow-hidden"
               >
                 <div className="pt-2 space-y-3 border-t border-sepia/20">
-                  <RelationshipFields
-                    idPrefix={`counter-${rel.id}`}
-                    relType={counter.relType}
-                    lore={counter.lore}
-                    onType={v => setCounter({ relType: v, lore: '' })}
-                    onPrompt={q => setCounter({ lore: q })}
-                    onLore={v => setCounter({ lore: v })}
-                  />
+                  <RelationshipFields idPrefix={`counter-${rel.id}`} form={counter} onChange={setCounter} />
                   <button type="button" onClick={sendCounter} disabled={!counter.relType} className={primaryButton}>Send counter</button>
                 </div>
               </motion.div>
@@ -141,14 +182,26 @@ export const RelationshipNegotiation = ({
   const draft = drafts[inv.id] || {};
   const setDraft = (patch) => setDrafts(d => ({ ...d, [inv.id]: { ...d[inv.id], ...patch } }));
   const formOpen = !compact || !!draft.open || !!draft.relType;
+  const [editing, setEditing] = useState(false);
+  const focusRequest = useRef(false);
 
   const mine = relationships.find(r => r.from_character_id === myId && r.to_character_id === inv.id);
   const theirs = relationships.find(r => r.from_character_id === inv.id && r.to_character_id === myId);
 
   const propose = () => {
     if (!draft.relType || !circleId) return;
-    proposeRelationship(circleId, myId, inv.id, draft.relType, draft.lore || '');
+    focusRequest.current = true;
+    proposeRelationship(circleId, myId, inv.id, draft.relType, joinLore(draft.relType, draft.promptIdx, draft.answer));
+    setEditing(false);
   };
+  const startEdit = () => {
+    setDraft({ ...formFrom(mine), open: true });
+    setEditing(true);
+    // The Edit button gives way to the form: focus goes to its first field
+    setTimeout(() => document.getElementById(`propose-${inv.id}-type`)?.focus(), 0);
+  };
+  // Only a proposal still waiting on them is edited: once they answer, the form gives way
+  const isEditing = editing && !!mine && mine.status !== 'accepted' && mine.last_actor_id === myId;
 
   const subtitle = [inv.role || inv.role_class, inv.specialty].filter(Boolean).join(' · ');
 
@@ -162,26 +215,21 @@ export const RelationshipNegotiation = ({
 
       <div>
         <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>Your relationship to {inv.name}</h4>
-        {mine ? (
-          <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship} />
+        {mine && !isEditing ? (
+          <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
+            onEdit={startEdit} focusRequest={focusRequest} />
         ) : !formOpen ? (
           <button type="button" aria-expanded={false} onClick={() => setDraft({ open: true })} className={quietButton}>
             Propose a relationship
           </button>
         ) : (
           <div className="space-y-3">
-            <RelationshipFields
-              idPrefix={`propose-${inv.id}`}
-              relType={draft.relType}
-              lore={draft.lore}
-              onType={v => setDraft({ relType: v, lore: '' })}
-              onPrompt={q => setDraft({ lore: q })}
-              onLore={v => setDraft({ lore: v })}
-            />
+            <RelationshipFields idPrefix={`propose-${inv.id}`} form={draft} onChange={setDraft} />
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <button type="button" onClick={propose} disabled={!draft.relType} className={primaryButton}>
-                Propose to {inv.name}
+                {isEditing ? 'Send the change' : `Propose to ${inv.name}`}
               </button>
+              {isEditing && <button type="button" onClick={() => setEditing(false)} className={quietButton}>Cancel</button>}
             </div>
           </div>
         )}
@@ -190,7 +238,8 @@ export const RelationshipNegotiation = ({
       {theirs && (
         <div className={compact ? 'pt-2' : 'pt-3 border-t border-parchment-deep'}>
           <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>{inv.name}'s relationship to you</h4>
-          <RelationshipStatus rel={theirs} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship} />
+          <RelationshipStatus rel={theirs} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
+            focusRequest={focusRequest} />
         </div>
       )}
     </div>

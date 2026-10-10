@@ -6,6 +6,7 @@ import { RelationshipNegotiation, useRelationshipForms } from './relationships/R
 import { useDialog } from '../shared/useDialog';
 import { FormLine, SerialNo, PrinterMark, RuledBox, serialFor } from '../shared/PrintMarks';
 import { TickMark } from '../shared/InkMarks';
+import { tallyVotes, leadingVote, isTied, TIE_RULE } from '../../game/votes';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -49,16 +50,13 @@ const EXAMPLE_LOCATIONS = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function tallyVotes(votes) {
-  const tally = {};
-  for (const v of votes) tally[v.value] = (tally[v.value] || 0) + 1;
-  return tally;
-}
+// { value: count } of a kind's votes, for looking an option up
+const countsOf = (votes) => Object.fromEntries(tallyVotes(votes));
 
-function leadingValue(tally) {
-  if (!Object.keys(tally).length) return null;
-  return Object.entries(tally).sort((a, b) => b[1] - a[1])[0][0];
-}
+// Under a vote whose lead is shared: which option the seal takes
+const TieNote = ({ votes }) => (isTied(votes)
+  ? <p className="font-serif italic text-sm text-sepia mt-3">Tied. {TIE_RULE}</p>
+  : null);
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
@@ -119,29 +117,30 @@ export const CircleCreationPopup = () => {
   const [nameDraft, setNameDraft] = useState('');
   const nameSuggestions = votes.name_suggest || [];
   const nameVotes = votes.name_vote || [];
-  const nameVoteTally = tallyVotes(nameVotes);
+  const nameVoteTally = countsOf(nameVotes);
+  const leadingName = leadingVote(nameVotes)?.value ?? null;
   const myNameVote = nameVotes.find(v => v.character_id === myId)?.value || null;
   const mySuggestionCount = nameSuggestions.filter(v => v.character_id === myId).length;
   const allSuggestedNames = [...new Set(nameSuggestions.map(v => v.value))];
 
   // ── Question section state ──
   const questionVotes = votes.question || [];
-  const questionTally = tallyVotes(questionVotes);
-  const leadingQuestion = leadingValue(questionTally);
+  const questionTally = countsOf(questionVotes);
+  const leadingQuestion = leadingVote(questionVotes)?.value ?? null;
   const myQuestionVote = questionVotes.find(v => v.character_id === myId)?.value || null;
   const [personalAnswer, setPersonalAnswer] = useState(character?.personal_circle_answer || '');
 
   // ── Ability section state ──
   const abilityVotes = votes.ability || [];
-  const abilityTally = tallyVotes(abilityVotes);
+  const abilityTally = countsOf(abilityVotes);
   const myAbilityVote = abilityVotes.find(v => v.character_id === myId)?.value || null;
-  const leadingAbility = leadingValue(abilityTally);
+  const leadingAbility = leadingVote(abilityVotes)?.value ?? null;
 
   // ── Insignia section state ──
   const insigniaVotes = votes.insignia || [];
-  const insigniaTally = tallyVotes(insigniaVotes);
+  const insigniaTally = countsOf(insigniaVotes);
   const myInsigniaVote = insigniaVotes.find(v => v.character_id === myId)?.value || null;
-  const leadingInsignia = leadingValue(insigniaTally);
+  const leadingInsignia = leadingVote(insigniaVotes)?.value ?? null;
 
   // Relationship drafts (the shared form keeps them here so they survive a collapsed section)
   const relForms = useRelationshipForms();
@@ -246,6 +245,7 @@ export const CircleCreationPopup = () => {
                 );
               })}
             </div>
+            <TieNote votes={questionVotes} />
 
             {leadingQuestion && (
               <div className="mt-5 bg-cream/50 border border-sepia/40 rounded-sm p-4">
@@ -303,7 +303,7 @@ export const CircleCreationPopup = () => {
                   .map((name) => {
                     const voteCount = nameVoteTally[name] || 0;
                     const suggestCount = nameSuggestions.filter(v => v.value === name).length;
-                    const isLeading = voteCount > 0 && voteCount === Math.max(...Object.values(nameVoteTally), 0);
+                    const isLeading = name === leadingName;
                     const isMineVote = myNameVote === name;
                     const isMySuggestion = nameSuggestions.some(v => v.character_id === myId && v.value === name);
                     return (
@@ -342,6 +342,7 @@ export const CircleCreationPopup = () => {
                       </div>
                     );
                   })}
+                <TieNote votes={nameVotes} />
               </div>
             ) : null}
           </Section>
@@ -424,6 +425,7 @@ export const CircleCreationPopup = () => {
                 );
               })}
             </div>
+            <TieNote votes={abilityVotes} />
           </Section>
 
           {/* ── SECTION V: System Insignia ── */}
@@ -448,11 +450,13 @@ export const CircleCreationPopup = () => {
                     {count > 0 && (
                       <span className="font-mono text-sm bg-ink text-cream px-2 py-0.5 rounded-full">{count}</span>
                     )}
+                    {isLeading && count > 0 && <span className="font-serif italic text-sm text-oxblood">leading</span>}
                     {isMine && <span className="font-serif italic text-sm text-sepia">your vote</span>}
                   </button>
                 );
               })}
             </div>
+            <TieNote votes={insigniaVotes} />
           </Section>
 
           {/* ── SECTION VI: Relationship Matrix ── */}

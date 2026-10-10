@@ -33,12 +33,14 @@ export const usePostRollPrompts = ({ lastRoll, character, showGmControls }) => {
     if (abilities.has('Bending Spoons') && lastRoll.action === 'sense' && isMixed) {
       prompts.push({ key: 'Bending Spoons', label: 'Bending Spoons: take 1 Bleed mark to make it a success', params: {} });
     }
-    // Patch Up (p. 30) after a Focus roll (key read): heal 1 Body mark on an ally, for 1
+    // Patch Up (p. 30) after a Focus roll (key read) declared a Patch Up with its chip
+    // (the server says so in the roll's declared): heal 1 Body mark on an ally, for 1
     // Intuition on a 6, 2 on a 4-5, and on a 3 or less a Brain mark and 2 Intuition
     const isSuccess = outcome === 'full_success' || outcome === 'critical_success';
     const focus = lastRoll.action === 'read' && !!outcome;
     const patchCost = isSuccess ? 1 : 2;
-    if (abilities.has('Patch Up') && focus && (character.intuition_current || 0) >= patchCost) {
+    const patchDeclared = Array.isArray(lastRoll.declared) && lastRoll.declared.includes('Patch Up');
+    if (abilities.has('Patch Up') && focus && patchDeclared && (character.intuition_current || 0) >= patchCost) {
       prompts.push({
         key: 'Patch Up', allyPicker: true, params: isFail ? { take_brain_mark: true } : {},
         label: isFail ? "Patch Up: take a Brain mark and spend 2 Intuition to heal 1 of an ally's Body marks"

@@ -1,7 +1,9 @@
 """/circle/* REST routes (unused by the frontend) and /campaign/finalize-roster."""
 import pytest
 
+import main
 import support
+from sqlalchemy import text
 from models import Campaign, Character, Circle, CircleVote, Relationship
 
 
@@ -248,6 +250,46 @@ def test_finalize_roster(client):
     row = support.fetch(Character, pending["id"])
     assert (row.status, row.campaign_id) == ("unaffiliated", None)
     assert client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()["roster_finalized"] is True
+
+
+def test_a_tie_goes_to_the_option_voted_for_first_whatever_the_row_order(client):
+    """The seal took the tie's winner from the votes in whatever order the database
+    returned them, and a vote row written again as it was (rows move
+    on disk, and a plan change after an ANALYZE reads them another way) moved the winner although no vote changed
+    (playtest, vote-tie-leading). The votes are now read in the order they were cast, at
+    the seal and on the papers, so a tie goes to the option voted for first."""
+    camp, (a, b), cid = _setup(client)
+    _vote(client, cid, a["id"], "name_vote", "The Harrow Watch")
+    _vote(client, cid, b["id"], "name_vote", "The Ninth Night")
+    for kind, first, second in (("ability", "Hunters", "Scholars"), ("insignia", "Moth", "Key")):
+        _vote(client, cid, a["id"], kind, first)
+        _vote(client, cid, b["id"], kind, second)
+    with main.db_engine.begin() as conn:
+        # Writes each first vote's row again, as it was, ids and all, which puts it after
+        # the second in the table (and in its index)
+        rows = conn.execute(text("DELETE FROM circle_votes WHERE circle_id = :c AND character_id = :a "
+                                 "RETURNING id, circle_id, character_id, vote_type, value"),
+                            {"c": cid, "a": a["id"]}).mappings().all()
+        conn.execute(text("INSERT INTO circle_votes (id, circle_id, character_id, vote_type, value) "
+                          "VALUES (:id, :circle_id, :character_id, :vote_type, :value)"), [dict(r) for r in rows])
+    state = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp)).json()
+    assert [v["value"] for v in state["votes"]["name_vote"]] == ["The Harrow Watch", "The Ninth Night"]
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid},
+                       headers=support.as_gm(camp)).json()
+    assert (body["name"], body["circle_ability"], body["insignia"]) == ("The Harrow Watch", "Hunters", "Moth")
+
+
+def test_a_changed_vote_is_cast_anew(client):
+    """A tie goes to the option voted for first: a vote moved to another option counts as
+    cast when it moved, not when its voter first voted."""
+    camp, (a, b), cid = _setup(client)
+    _vote(client, cid, a["id"], "name_vote", "Ember")
+    _vote(client, cid, b["id"], "name_vote", "Ash")
+    _vote(client, cid, a["id"], "name_vote", "Cinder")
+    _vote(client, cid, b["id"], "name_vote", "Ash")   # the same vote again changes nothing
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid},
+                       headers=support.as_gm(camp)).json()
+    assert body["name"] == "Ash"
 
 
 def test_finalize_only_by_the_gm(client):

@@ -21,6 +21,7 @@ import { RosterBook } from './campaignSelector/RosterBook';
 import { useCastShadows } from './campaignSelector/useCastShadows';
 import { warmPaperSound } from '../game/rollSounds';
 import { apiFetch } from '../utils/api';
+import { usePendingApprovalWatch } from './campaignSelector/usePendingApprovalWatch';
 
 export const CampaignSelector = () => {
   const {
@@ -53,6 +54,7 @@ export const CampaignSelector = () => {
   }, [accessSession?.userId]);
 
   useAutoLastPlayed({ lastPlayedCampaign, characters, gmCampaigns, setLastPlayed });
+  usePendingApprovalWatch({ characters, userId: accessSession?.userId, fetchUserData, setHubNotice });
 
   // Load the paper sound while the desk is idle, not on the first turn of the book
   useEffect(() => {

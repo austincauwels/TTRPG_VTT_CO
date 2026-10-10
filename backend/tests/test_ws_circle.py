@@ -685,15 +685,21 @@ def test_update_circle_milestone_log(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("update_circle", role="GM", illumination=3)
         msgs = gm.sync()
-        assert support.types(msgs) == ["circle_update", "activity_log"]
-        assert msgs[1]["payload"] == {"message": "The Moths milestone reached!", "log_type": "field"}
+        assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
+        # Every change says so (playtest, report-questions-tally: a plain +1 left no line)
+        assert msgs[1]["payload"] == {"message": "The Moths gains 1 Illumination (2 to 3).", "log_type": "field"}
+        assert msgs[2]["payload"] == {"message": "The Moths milestone reached!", "log_type": "field"}
         gm.send("update_circle", role="GM", illumination=4)
-        gm.send("update_circle", role="GM", illumination=3)  # going down: no log
-        assert support.types(gm.sync()) == ["circle_update"] * 2
+        gm.send("update_circle", role="GM", illumination=3)  # going down: no milestone
+        assert [m["payload"]["message"] for m in gm.sync() if m["type"] == "activity_log"] == [
+            "The Moths gains 1 Illumination (3 to 4).", "The Moths loses 1 Illumination (4 to 3)."]
+        gm.send("update_circle", role="GM", illumination=3)  # no change: no line
+        assert support.types(gm.sync()) == ["circle_update"]
         # Fixed (RULES_CHECK 19): every milestone passed gets its line, and a full track says so
         gm.send("update_circle", role="GM", illumination=12)
         msgs = gm.sync()
         assert [m["payload"]["message"] for m in msgs[1:]] == [
+            "The Moths gains 9 Illumination (3 to 12).",
             "The Moths milestone reached!", "The Moths milestone reached!",
             "The Moths's Illumination track is full: the circle can advance."]
 
@@ -705,7 +711,7 @@ def test_resource_management_reminds_at_each_milestone(client):
     support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Hunters\nResource Management")
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("update_circle", illumination=7)
-        lines = [m["payload"]["message"] for m in gm.sync()[1:]]
+        lines = [m["payload"]["message"] for m in gm.sync()[2:]]
         assert lines == ["The Moths milestone reached!", "Resource Management: The Moths gains one resource of its choice.",
                          "The Moths milestone reached!", "Resource Management: The Moths gains one resource of its choice."]
 
@@ -799,7 +805,7 @@ def test_nobody_left_behind_adds_a_die_while_a_member_is_down(client, dice):
     def rolls(ws, count):
         dice(*([2] * count))
         ws.send("roll", action="move", drive_spent=0, ability_mods=["Nobody Left Behind"])
-        return len(ws.sync()[0]["payload"]["roll"]["dice"]) == count
+        return len(support.of_type(ws.sync(), "roll_result")[0]["payload"]["roll"]["dice"]) == count
 
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
         assert rolls(wa, 1)   # nobody is down: no die
@@ -1103,8 +1109,9 @@ def test_milestone_log_for_unnamed_circle(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("update_circle", role="GM", illumination=6)
         msgs = gm.sync()
-        assert support.types(msgs) == ["circle_update", "activity_log"]
-        assert msgs[1]["payload"] == {"message": "The Circle milestone reached!", "log_type": "field"}
+        assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
+        assert msgs[1]["payload"] == {"message": "The Circle gains 1 Illumination (5 to 6).", "log_type": "field"}
+        assert msgs[2]["payload"] == {"message": "The Circle milestone reached!", "log_type": "field"}
 
 
 def test_update_circle_player_claiming_gm_is_rejected(client):

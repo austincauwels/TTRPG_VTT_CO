@@ -136,7 +136,7 @@ function RelationshipCard({ inv, myId, relationships, index }) {
                 {myRel.status !== 'accepted' && (
                   <span className="font-serif italic text-sm text-sepia ml-1">(not yet accepted)</span>
                 )}
-                {myRel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1">{myRel.lore}</p> : null}
+                {myRel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1 whitespace-pre-line">{myRel.lore}</p> : null}
               </div>
             ) : (
               <p className="font-serif text-base text-sepia italic mb-2"><span className="font-sans not-italic font-bold text-xs uppercase">You to them: </span>none</p>
@@ -148,7 +148,7 @@ function RelationshipCard({ inv, myId, relationships, index }) {
                 {theirRel.status !== 'accepted' && (
                   <span className="font-serif italic text-sm text-sepia ml-1">(not yet accepted)</span>
                 )}
-                {theirRel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1">{theirRel.lore}</p> : null}
+                {theirRel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1 whitespace-pre-line">{theirRel.lore}</p> : null}
               </div>
             ) : (
               <p className="font-serif text-base text-sepia italic"><span className="font-sans not-italic font-bold text-xs uppercase">Them to you: </span>none</p>

@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import useGameStore from '../../../store/gameStore';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { TargetDropdown } from './TargetDropdown';
 import { FormLine } from '../../shared/PrintMarks';
@@ -21,12 +22,20 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
   ];
 
   const [sendError, setSendError] = useState('');
+  const connectionState = useGameStore(s => s.connectionState);
+  // Once the desk is connected again, "not connected" is old news (playtest,
+  // stale-connection-slips); the note is still in the field to send
+  useEffect(() => {
+    if (connectionState === 'open') setSendError('');
+  }, [connectionState]);
 
   const handleSendChat = () => {
     if (!chatMessage.trim()) return;
     // A note that cannot go out stays in the field.
     if (sendChat(chatTarget, chatMessage.trim()) === false) {
-      setSendError('Not sent: the desk is not connected to the table. Your note is kept; send it again once the connection is back.');
+      setSendError(connectionState === 'replaced'
+        ? 'Not sent: this desk is open in another tab. Your note is kept; press Use this tab to send it from here.'
+        : 'Not sent: the desk is not connected to the table. Your note is kept; send it again once the connection is back.');
       return;
     }
     setSendError('');

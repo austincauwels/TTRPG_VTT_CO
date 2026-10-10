@@ -11,6 +11,7 @@ import main
 import support
 from models import Campaign, Character, Circle, User
 from vtt.ws import endpoint
+from vtt.ws import manager as manager_module
 from vtt.ws.manager import campaign_key
 
 
@@ -676,3 +677,106 @@ def test_close_user_does_not_wait_for_a_stale_socket(client):
         assert time.monotonic() - started < 2.0
         assert support.server_sockets(key) == []
         assert support.wait_until(lambda: stale.close_codes == [4401])
+
+
+# --- the heartbeat, the log's history and the token's way in (PR 9) ----------------------------
+
+def test_a_ping_is_answered_with_a_pong(client):
+    """The desk's heartbeat: a socket that answers is alive. A ping with no payload, on a
+    player or a GM socket, gets pong and nothing else."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp)
+    for key in (ch["id"], camp["campaign_code"]):
+        with support.ws_connect(client, key) as ws:
+            ws.send_text(json.dumps({"type": "ping"}))
+            assert ws.recv()["type"] == "pong"
+            assert ws.sync() == []
+
+
+def test_a_socket_that_opens_gets_the_channels_recent_log(client):
+    """The Activity Log lived only in the tab, so a reload, a second tab or a trip to the
+    hub emptied it, and lines sent while a desk was away never reached it (playtest,
+    activity-log-not-persisted). A channel's lines are kept, and a socket that opens gets
+    them as activity_history, oldest first, each with when it was sent."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp)
+    b = support.active_member(client, camp)
+    with support.ws_connect(client, a["id"]) as wa:
+        wa.send("chat_message", message="first", target="@Circle")
+        wa.send("chat_message", message="second", target="@Circle")
+        wa.sync()
+    # b was not connected when the lines went, and still gets them
+    with support.ws_connect(client, b["id"]) as wb:
+        history = wb.recv_type("activity_history")["payload"]["entries"]
+        assert [e["message"].split(": ", 1)[1] for e in history] == ["first", "second"]
+        assert all(e["log_type"] == "chat" and e["at"] for e in history)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        assert len(gm.recv_type("activity_history")["payload"]["entries"]) == 2
+
+
+def test_a_channel_with_no_log_gets_no_history_frame(client):
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp)
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert "activity_history" not in support.types(ws.sync())
+
+
+def test_a_private_note_stays_in_the_history_of_who_could_read_it(client):
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp)
+    b = support.active_member(client, camp)
+    c = support.active_member(client, camp)
+    with support.ws_connect(client, a["id"]) as wa:
+        wa.send("chat_message", message="psst", target=f"@{b['name']}")
+        wa.sync()
+    for who, sees in ((a, True), (b, True), (c, False)):
+        with support.ws_connect(client, who["id"]) as ws:
+            got = support.of_type(ws.sync(), "activity_history")
+            assert bool(got) is sees
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        assert support.of_type(gm.sync(), "activity_history")
+
+
+def test_the_history_keeps_each_campaigns_lines_apart():
+    """A character that moves to another campaign never sees the old one's lines on
+    its channel, private notes among them."""
+    mgr = main.ConnectionManager()
+    asyncio.run(mgr.broadcast("7", {"type": "activity_log", "payload": {"message": "old"}}, campaign_id=1))
+    asyncio.run(mgr.broadcast("7", {"type": "activity_log", "payload": {"message": "new"}}, campaign_id=2))
+    asyncio.run(mgr.broadcast("7", {"type": "character_update", "payload": {}}))
+    assert [e["message"] for e in mgr.history_for("7", 2)] == ["new"]
+    assert [e["message"] for e in mgr.history_for("7", 1)] == ["old"]
+    assert mgr.history_for("7", None) == []
+    mgr.close_channel("7", 4404)
+    assert mgr.history_for("7", 2) == []
+
+
+def test_the_history_keeps_the_newest_lines():
+    mgr = main.ConnectionManager()
+    for n in range(manager_module.HISTORY_LINES + 5):
+        asyncio.run(mgr.broadcast("7", {"type": "activity_log", "payload": {"message": str(n)}}))
+    kept = mgr.history_for("7", None)
+    assert len(kept) == manager_module.HISTORY_LINES
+    assert kept[-1]["message"] == str(manager_module.HISTORY_LINES + 4)
+
+
+def test_the_token_can_come_as_a_subprotocol(client):
+    """The browser printed the socket's URL, login token and all, in its console on
+    every failed reconnect (playtest, ws-token-in-url). The desk now sends the token as
+    the subprotocol "bearer.<token>" next to "candela", and the server answers with
+    "candela"."""
+    ch = support.forge(client)
+    token = support.token_for(support.owner_id(ch["id"]))
+    with client.websocket_connect(f"/ws/{ch['id']}", subprotocols=["candela", f"bearer.{token}"]) as session:
+        assert session.accepted_subprotocol == "candela"
+        assert json.loads(session.receive_text())["type"] == "character_update"
+    assert support.wait_server_dropped(ch["id"])
+
+
+def test_a_bad_subprotocol_token_is_refused_with_4401(client):
+    ch = support.forge(client)
+    with client.websocket_connect(f"/ws/{ch['id']}", subprotocols=["candela", "bearer.nonsense"]) as session:
+        assert session.accepted_subprotocol == "candela"
+        with pytest.raises(WebSocketDisconnect) as closed:
+            session.receive_text()
+        assert closed.value.code == 4401

@@ -11,6 +11,26 @@ const WS_CLOSE_REPLACED = 1001;
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 let reconnectTimer = null;
 let reconnectAttempts = 0;
+
+// A connection can die without closing: a network that goes quiet (no FIN or RST) keeps
+// the socket "open" in Chromium, and the desk used to notice only when the server closed
+// it about 40 seconds later, after a mark sent meanwhile was lost (playtest,
+// offline-not-shown). So the desk pings: after HEARTBEAT_IDLE_MS with nothing heard it
+// sends a ping, and a ping with no answer (pong, or any other frame) within
+// HEARTBEAT_WAIT_MS means the socket is dead, so the desk opens a new one. The check runs
+// every HEARTBEAT_TICK_MS. Only an unanswered ping counts, so a background tab whose
+// timers the browser slows down never takes its own quiet for a dead socket.
+const HEARTBEAT_TICK_MS = 5000;
+const HEARTBEAT_IDLE_MS = 10000;
+const HEARTBEAT_WAIT_MS = 15000;
+let heartbeatTimer = null;
+let lastHeardAt = 0;
+let pingSentAt = 0; // when the unanswered ping went, or 0
+const stopHeartbeat = () => { clearInterval(heartbeatTimer); heartbeatTimer = null; pingSentAt = 0; };
+const sendPing = (socket) => {
+  try { socket.send(JSON.stringify({ type: 'ping' })); } catch { return; }
+  pingSentAt = Date.now();
+};
 // The hourglass's tension as this socket last saw it ({ id, value } of the circle), so
 // a change can tick. The first circle after a (re)connect only sets it, so opening a desk
 // or reconnecting never ticks for a change made while away.
@@ -34,6 +54,12 @@ const ROLL_DROPPED = 'The connection dropped before the dice came back. Roll aga
 const ROLL_FAILED = 'The table could not make that roll. Roll again.';
 const ROLL_REFUSED = 'The table refused that roll.';
 const KEEP_NOT_SENT = 'Not connected to the table, so the kept die was not sent. Keep it again once the desk is back.';
+// Another tab or device has this desk: only "Use this tab" brings it back here
+const ROLL_REPLACED = 'This desk is open in another tab. Press Use this tab to roll here.';
+const KEEP_REPLACED = 'This desk is open in another tab. Press Use this tab to keep a die here.';
+// What the desk said only because it was not connected, which is old news once it is
+// again (playtest, stale-connection-slips)
+const CONNECTION_ERRORS = [ROLL_NOT_SENT, ROLL_DROPPED, KEEP_NOT_SENT, ROLL_REPLACED, KEEP_REPLACED];
 let rollTimer = null;
 let queuedRoll = null;   // the roll frame waiting for the socket to open
 let sentRoll = null;     // the roll frame sent at least once, waiting for its result
@@ -64,6 +90,21 @@ const nextOffer = (state) => ({ abilityMarkOffer: state.abilityMarkQueue[0] || n
 
 const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
 
+// The Activity Log keeps this many lines, oldest first
+const LOG_LINES = 50;
+const clockTime = (date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+const LOG_TYPES = ['roll', 'chat', 'danger', 'environment'];
+// A line of the log from an activity_log payload (a string, or { message, log_type,
+// ink_color, at }). at is when the server sent it (ISO 8601), so a line replayed after a
+// reconnect keeps its own time.
+const logLine = (payload) => {
+  const text = typeof payload === 'string' ? payload : payload?.message;
+  const at = typeof payload === 'object' && payload?.at ? new Date(payload.at) : null;
+  const type = LOG_TYPES.includes(payload?.log_type) ? payload.log_type : 'field';
+  const inkColor = (typeof payload === 'object' && payload?.ink_color) ? payload.ink_color : null;
+  return { text, type, time: clockTime(at && !Number.isNaN(at.getTime()) ? at : new Date()), inkColor };
+};
+
 // The number of the circle's assignment, which End Assignment moves on (backend
 // vtt/assignment.py); 1 before the first
 export const assignmentOf = (circle) => {
@@ -82,6 +123,9 @@ const failRoll = (set, message) => {
   sentRoll = null;
   set({ isRolling: false, rollWaiting: false, rollError: message });
 };
+
+// Why a roll did not leave this desk: another tab has it, or it is not connected
+const notSent = (get) => (get().connectionState === 'replaced' ? ROLL_REPLACED : ROLL_NOT_SENT);
 
 // A sent roll with no answer yet waits for the next socket, which sends it again with
 // its roll_id, until ROLL_WAIT_MS after it first went
@@ -106,7 +150,7 @@ const sendRoll = (set, get, frame) => {
     socket.send(JSON.stringify(frame));
   } catch {
     // Not sent this time; a roll sent before may still have reached the table
-    failRoll(set, sentRoll === frame ? ROLL_LOST : ROLL_NOT_SENT);
+    failRoll(set, sentRoll === frame ? ROLL_LOST : notSent(get));
     return;
   }
   if (sentRoll !== frame) {
@@ -267,10 +311,14 @@ const useGameStore = create(
       gmSheetRefusal: null,       // { action, detail, at }: a mark or scar correction the server refused
       circleRefusal: null,        // { detail, at }: a gm_update_circle the server refused (the dispatch says so)
       // The assignment report form: the ticks not sent yet, by character id, with the
-      // assignment they belong to ({ assignment, evalQ, keyChecks }), kept across tabs and
+      // assignment they belong to ({ assignment, keyChecks }), kept across tabs and
       // reloads (playtest, key-ticks-lost); whether a report is on its way; why the server
       // refused the last one
       reportDrafts: {},
+      // The Lightkeeper's answers to the circle's three Illumination questions, by circle id,
+      // for the assignment they belong to, and how much Illumination they were added as
+      // ({ assignment, answers: [bool, bool, bool], added: number | null })
+      illumTallies: {},
       reportSending: false,
       reportError: null,
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
@@ -344,6 +392,7 @@ const useGameStore = create(
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
         reconnectAttempts = 0;
+        stopHeartbeat();
         const { socket } = get();
         if (socket) {
           socket.onopen = null;
@@ -378,6 +427,7 @@ const useGameStore = create(
         }
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
+        stopHeartbeat();
         tensionSeen = null;
         if (keepLog) {
           // The same desk again: a roll waiting to be sent goes out on the new socket, and
@@ -393,16 +443,36 @@ const useGameStore = create(
         const apiBase = import.meta.env.VITE_API_URL || '';
         const wsProtocol = (apiBase.startsWith('https') || window.location.protocol === 'https:') ? 'wss:' : 'ws:';
         const wsHost = apiBase ? apiBase.replace(/^https?:\/\//, '') : window.location.host;
-        // Browsers cannot set headers on a WebSocket, so the login token goes in the query string.
+        // Browsers cannot set headers on a WebSocket, so the login token goes as a
+        // subprotocol, "bearer.<token>", next to "candela", which the server answers with.
+        // It used to go in the URL, which the browser prints in its console whenever the
+        // socket fails, so a screenshot of the console gave the login away (playtest,
+        // ws-token-in-url).
         const token = get().accessSession?.token || '';
-        const wsUrl = `${wsProtocol}//${wsHost}/ws/${gameId}?token=${encodeURIComponent(token)}`;
+        const wsUrl = `${wsProtocol}//${wsHost}/ws/${gameId}`;
 
-        const socket = new WebSocket(wsUrl);
+        const socket = new WebSocket(wsUrl, token ? ['candela', `bearer.${token}`] : ['candela']);
 
         socket.onopen = () => {
           reconnectAttempts = 0;
           if (get().socket !== socket) return;
-          set({ connectionState: 'open' });
+          // What the desk said because it was not connected no longer holds
+          set(state => ({ connectionState: 'open',
+            rollError: CONNECTION_ERRORS.includes(state.rollError) ? null : state.rollError }));
+          lastHeardAt = Date.now();
+          heartbeatTimer = setInterval(() => {
+            if (get().socket !== socket) { clearInterval(heartbeatTimer); heartbeatTimer = null; return; }
+            const now = Date.now();
+            if (pingSentAt && now - pingSentAt > HEARTBEAT_WAIT_MS) {
+              // No answer: the socket is dead though it looks open. A new one takes over
+              // (a roll sent on this one goes again with its roll_id), and the banner
+              // shows until it opens.
+              set({ connectionState: 'reconnecting' });
+              get().connect(gameId, { keepLog: true });
+            } else if (!pingSentAt && now - lastHeardAt >= HEARTBEAT_IDLE_MS) {
+              sendPing(socket);
+            }
+          }, HEARTBEAT_TICK_MS);
           if (queuedRoll) sendRoll(set, get, queuedRoll);
           // The GM desk opened again (a drop, a laptop waking, "Use this tab"): the members'
           // changes made while it was down never came, so what it shows loads again
@@ -419,12 +489,15 @@ const useGameStore = create(
         socket.onerror = (err) => console.error("WebSocket connection error:", err);
         socket.onclose = (event) => {
           if (get().socket !== socket) return;
+          stopHeartbeat();
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
           if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
           // A roll waiting to be sent, or sent with no answer, waits on only while the desk
           // reconnects by itself; the sent one goes again with its roll_id
           const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
-          if (closesForGood && (queuedRoll || sentRollUnanswered(get))) failRoll(set, sentRoll ? ROLL_LOST : ROLL_NOT_SENT);
+          if (closesForGood && (queuedRoll || sentRollUnanswered(get))) {
+            failRoll(set, sentRoll ? ROLL_LOST : event.code === WS_CLOSE_REPLACED ? ROLL_REPLACED : ROLL_NOT_SENT);
+          }
           else if (sentRollUnanswered(get)) waitToResend(set, sentRoll);
           else if (!queuedRoll && get().isRolling) failRoll(set, ROLL_DROPPED);
           if (event.code === WS_CLOSE_REPLACED) { set({ connectionState: 'replaced' }); return; }
@@ -440,7 +513,11 @@ const useGameStore = create(
         };
 
         socket.onmessage = (event) => {
+          // Anything from the server answers a ping
+          lastHeardAt = Date.now();
+          pingSentAt = 0;
           const message = JSON.parse(event.data);
+          if (message.type === 'pong') return;
 
           // Returns the campaign id for the current session (player or GM)
           const activeCampaignId = () => {
@@ -478,10 +555,11 @@ const useGameStore = create(
             const becameDead = incoming.is_dead === true && !prevChar?.is_dead;
             const becameDown = incoming.incapacitated === true && !prevChar?.incapacitated && !incoming.is_dead;
             if (becameDead || becameDown) {
-              const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-              set(state => ({
-                activityLog: [{ text: becameDead ? `${incoming.name} is deceased.` : `${incoming.name} is incapacitated.`, type: 'danger', time, inkColor: incoming.ink_color }, ...state.activityLog].slice(0, 50),
-              }));
+              // At the foot of the log, with the newest lines (it went to the top, the far
+              // end of the log from where a line had just landed)
+              const line = { text: becameDead ? `${incoming.name} is deceased.` : `${incoming.name} is incapacitated.`,
+                type: 'danger', time: clockTime(new Date()), inkColor: incoming.ink_color };
+              set(state => ({ activityLog: [...state.activityLog, line].slice(-LOG_LINES) }));
             }
           }
           else if (message.type === 'circle_update') {
@@ -643,20 +721,22 @@ const useGameStore = create(
           }
           else if (message.type === 'activity_log') {
             const payload = message.payload;
-            const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-            const text = typeof payload === 'string' ? payload : payload.message;
-            let logType = 'field';
-            if (payload.log_type === 'roll') logType = 'roll';
-            else if (payload.log_type === 'chat') logType = 'chat';
-            else if (payload.log_type === 'danger') logType = 'danger';
-            else if (payload.log_type === 'environment') logType = 'environment';
-            const inkColor = (typeof payload === 'object' && payload.ink_color) ? payload.ink_color : null;
+            const line = logLine(payload);
             set(state => ({
               lastActivityLog: payload,
-              activityLog: [...state.activityLog, { text, type: logType, time, inkColor }].slice(-50),
+              activityLog: [...state.activityLog, line].slice(-LOG_LINES),
             }));
             // A roll's final result reaches every desk at the table once, as this line
-            if (logType === 'roll') playRollSound(text);
+            if (line.type === 'roll') playRollSound(line.text);
+          }
+          else if (message.type === 'activity_history') {
+            // The lines this channel was sent lately, oldest first, as the socket opens:
+            // a reload, a second tab, a trip to the hub or a dropped connection no longer
+            // empties the log or loses what came meanwhile (playtest,
+            // activity-log-not-persisted). They replace the log, quietly: no sound
+            // plays for a line that is not new.
+            const lines = Array.isArray(message.payload?.entries) ? message.payload.entries : [];
+            set({ activityLog: lines.map(logLine).slice(-LOG_LINES) });
           }
           else if (message.type === 'vote_update') {
             const { vote_type, votes } = message.payload;
@@ -870,10 +950,10 @@ const useGameStore = create(
             }));
           }
           else if (message.type === 'ability_mark_offer') {
-            set(state => queueOffer(state, { ...message.payload, seq: ++offerSeq }));
+            set(state => queueOffer(state, { ...message.payload, seq: ++offerSeq, received_at: Date.now() }));
           }
           else if (message.type === 'ability_intercept_offer') {
-            set(state => queueOffer(state, { ...message.payload, intercept: true, seq: ++offerSeq }));
+            set(state => queueOffer(state, { ...message.payload, intercept: true, seq: ++offerSeq, received_at: Date.now() }));
           }
           else if (message.type === 'gm_rejoin_invite') {
             set({ rejoinInvite: message.payload });
@@ -1017,7 +1097,7 @@ const useGameStore = create(
           }, ROLL_QUEUE_MS);
           return;
         }
-        failRoll(set, ROLL_NOT_SENT);
+        failRoll(set, notSent(get));
       },
 
       selectRollAction: (action, initialDriveSpend = 0) => set({ pendingRoll: { action, driveSpend: initialDriveSpend }, pendingRollMods: [] }),
@@ -1104,7 +1184,7 @@ const useGameStore = create(
         const { socket } = get();
         // The choice stays open until the kept die can reach the table
         if (!socket || socket.readyState !== WebSocket.OPEN) {
-          set({ rollError: KEEP_NOT_SENT });
+          set({ rollError: get().connectionState === 'replaced' ? KEEP_REPLACED : KEEP_NOT_SENT });
           return false;
         }
         socket.send(JSON.stringify({
@@ -1197,7 +1277,9 @@ const useGameStore = create(
             type: 'update_circle',
             payload: { ...updates, role: accessSession?.role }
           }));
+          return true;
         }
+        return false;
       },
 
       updatePenFont: (penFont) => {
@@ -1260,6 +1342,13 @@ const useGameStore = create(
       },
 
       // The report form's ticks before sending, for this assignment
+      setIllumTally: (circleId, patch) => set(state => {
+        const assignment = assignmentOf(state.circle);
+        const prev = state.illumTallies[circleId];
+        const current = prev && prev.assignment === assignment ? prev : { assignment, answers: [false, false, false], added: null };
+        return { illumTallies: { ...state.illumTallies, [circleId]: { ...current, ...patch, assignment } } };
+      }),
+
       setReportDraft: (characterId, draft) => set(state => ({
         reportDrafts: { ...state.reportDrafts, [characterId]: { ...draft, assignment: assignmentOf(state.circle) } },
       })),
@@ -1563,6 +1652,21 @@ const useGameStore = create(
         return false;
       },
 
+      // The Lightkeeper deals a member a mark: it goes the way a mark the player takes does,
+      // so soaks, Death Defy, the allies' offers and Let Them In come up on the player's desk
+      // (the server, handle_take_mark). fromEnemy: Death Defy is offered for it.
+      gmDealMark: (characterId, markType, fromEnemy) => {
+        const { socket } = get();
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'take_mark',
+            payload: { character_id: characterId, mark_type: markType, is_from_enemy: !!fromEnemy },
+          }));
+          return true;
+        }
+        return false;
+      },
+
       // The Lightkeeper rewords or removes a member's scars: the list as it should be, and
       // the list the sheet showed, so a scar taken meanwhile is not lost (the server refuses)
       gmSetScars: (characterId, scars, previous) => {
@@ -1773,6 +1877,7 @@ const useGameStore = create(
         rejoinInvite: state.rejoinInvite,
         pendingScar: state.pendingScar,
         reportDrafts: state.reportDrafts,
+        illumTallies: state.illumTallies,
       }),
 
       // A session saved before login tokens existed has no token, and the server
@@ -1811,8 +1916,20 @@ if (typeof window !== 'undefined') {
     if (connectionState === 'reconnecting' && socketGameId != null) connect(socketGameId, { keepLog: true });
   };
   window.addEventListener('online', retryNow);
+  // The browser knows the network went: the banner shows at once, and the desk reconnects
+  // (and catches up) when it comes back, rather than trusting a socket that may be dead
+  window.addEventListener('offline', () => {
+    const { connectionState, socketGameId, connect } = useGameStore.getState();
+    if (socketGameId == null || !['open', 'connecting'].includes(connectionState)) return;
+    useGameStore.setState({ connectionState: 'reconnecting' });
+    connect(socketGameId, { keepLog: true });
+  });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') retryNow();
+    if (document.visibilityState !== 'visible') return;
+    retryNow();
+    // A tab coming back asks at once whether its socket still answers
+    const { connectionState, socket } = useGameStore.getState();
+    if (connectionState === 'open' && socket?.readyState === WebSocket.OPEN && !pingSentAt) sendPing(socket);
   });
 }
 

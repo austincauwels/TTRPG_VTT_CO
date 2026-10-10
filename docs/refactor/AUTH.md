@@ -68,7 +68,7 @@ Not changed: the request and response shapes (`author_name` is still sent but ig
 
 ## WebSocket
 
-The browser cannot set headers on a WebSocket, so it connects to `/ws/{game_id}?token=<token>`. nginx logs paths without query strings; uvicorn does log the query string of a WebSocket, so a log filter on the `uvicorn.error`, `uvicorn.access` and `candela` loggers replaces `token=...` with `token=<redacted>` (`vtt/config.py`).
+The browser cannot set headers on a WebSocket. Since 2026-10-10 the desk sends its token as a subprotocol, `new WebSocket('/ws/{game_id}', ['candela', 'bearer.<token>'])`, and the server accepts with `candela`; the token used to go in the URL, which the browser prints in its console whenever the socket fails (playtest, `ws-token-in-url`). The server still takes `/ws/{game_id}?token=<token>`, for a desk loaded before the change. nginx logs paths without query strings; uvicorn does log the query string of a WebSocket, so a log filter on the `uvicorn.error`, `uvicorn.access` and `candela` loggers replaces `token=...` with `token=<redacted>` (`vtt/config.py`).
 
 ### Connecting
 
@@ -136,7 +136,7 @@ Not changed: game rules that are not about who is acting (pending offers, `repor
 
 - The token is kept in the persisted session (`accessSession.token`, localStorage key `candela-vtt-storage`).
 - Every API call goes through `apiFetch` in `utils/api.js`, which adds `Authorization: Bearer`. A 401 on a call that carried a token logs the user out (session cleared, back to the login screen).
-- The WebSocket URL gets `?token=`. A 4401 close logs the user out the same way; `action_rejected` is logged to the console (and ends a pending roll).
+- The WebSocket gets the token as its `bearer.<token>` subprotocol (it got `?token=` before 2026-10-10). A 4401 close logs the user out the same way; `action_rejected` is logged to the console (and ends a pending roll).
 - A session persisted before this change has no token; on load it is cleared and the login screen is shown.
 - SceneManager sends the campaign's circle id instead of 1 (see gm_update_circle above).
 

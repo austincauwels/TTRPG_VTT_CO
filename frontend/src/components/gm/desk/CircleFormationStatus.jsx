@@ -1,6 +1,7 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BlankEntry, FormLine } from '../../shared/PrintMarks';
+import { leadingVote } from '../../../game/votes';
 
 // Vote leaders and answers while the circle is forming, on the circle's formation papers
 // (Form C.O. 4) lying on the desk, folded until opened. The open state lives in
@@ -35,9 +36,8 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
             {/* Name vote leader */}
             {(() => {
               const nameVotes = circleCreation.votes?.name_vote || [];
-              const tally = {};
-              nameVotes.forEach(v => { tally[v.value] = (tally[v.value] || 0) + 1; });
-              const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
+              const lead = leadingVote(nameVotes);
+              const leader = lead && [lead.value, lead.count];
               const suggestCount = (circleCreation.votes?.name_suggest || []).length;
               return (
                 <div className="flex justify-between items-center">
@@ -51,9 +51,8 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
             {/* Ability vote leader */}
             {(() => {
               const abilityVotes = circleCreation.votes?.ability || [];
-              const tally = {};
-              abilityVotes.forEach(v => { tally[v.value] = (tally[v.value] || 0) + 1; });
-              const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
+              const lead = leadingVote(abilityVotes);
+              const leader = lead && [lead.value, lead.count];
               return (
                 <div className="flex justify-between items-center">
                   <span className="font-sans font-bold text-xs text-sepia uppercase tracking-widest shrink-0">Circle Ability</span>
@@ -66,9 +65,8 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
             {/* Insignia vote leader */}
             {(() => {
               const insVotes = circleCreation.votes?.insignia || [];
-              const tally = {};
-              insVotes.forEach(v => { tally[v.value] = (tally[v.value] || 0) + 1; });
-              const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
+              const lead = leadingVote(insVotes);
+              const leader = lead && [lead.value, lead.count];
               return leader ? (
                 <div className="flex justify-between items-center">
                   <span className="font-sans font-bold text-xs text-sepia uppercase tracking-widest shrink-0">Insignia</span>
@@ -79,9 +77,8 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
             {/* Question vote leader */}
             {(() => {
               const qVotes = circleCreation.votes?.question || [];
-              const tally = {};
-              qVotes.forEach(v => { tally[v.value] = (tally[v.value] || 0) + 1; });
-              const leader = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
+              const lead = leadingVote(qVotes);
+              const leader = lead && [lead.value, lead.count];
               return (
                 <div className="flex justify-between items-center">
                   <span className="font-sans font-bold text-xs text-sepia uppercase tracking-widest shrink-0">Question</span>

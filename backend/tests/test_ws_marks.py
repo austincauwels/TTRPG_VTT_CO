@@ -231,10 +231,10 @@ def test_intercept_offers_go_to_eligible_campaign_members(client):
         wh.sync()
         assert wg.drain() == [{"type": "ability_intercept_offer", "payload": {
             "ability": "Behind Me", "mark_type": "body", "character_id": hurt["id"],
-            "character_name": hurt["name"], "action": "intercept"}}]
+            "character_name": hurt["name"], "action": "intercept", "expires_in": 120}}]
         assert wsr.drain() == [{"type": "ability_intercept_offer", "payload": {
             "ability": "Premonitions", "mark_type": "body", "character_id": hurt["id"],
-            "character_name": hurt["name"], "action": "soak"}}]
+            "character_name": hurt["name"], "action": "soak", "expires_in": 120}}]
         assert wt.drain() == [] and wo.drain() == []
 
 
@@ -366,7 +366,7 @@ def test_non_combatant_lets_each_ally_recover_a_drive_point(client):
         wd.sync()
         offer = next(m for m in wa.drain(0.5) if m["type"] == "ability_mark_offer")["payload"]
         assert offer == {"ability": "Non-Combatant", "mark_type": "brain", "character_id": doctor["id"],
-                         "character_name": doctor["name"], "action": "drive_refresh"}
+                         "character_name": doctor["name"], "action": "drive_refresh", "expires_in": 120}
         assert any(m["type"] == "ability_mark_offer" for m in wo.drain(0.5))
         assert not any(m["type"] == "ability_mark_offer" for m in wx.drain(0.5))
         wa.send("resolve_ability_mark", ability="Non-Combatant", choice="nerve")
@@ -944,3 +944,59 @@ def test_ability_results_reach_campaign_log_but_sheet_stays_private(client, abil
             seen = seen[1:]
         assert seen == [log]
         assert gm.drain() == [{"type": "member_update", "payload": s} for s in sheets] + [log]
+
+
+# --- the Lightkeeper deals a mark ----------------------------------------------------------------
+
+def test_a_mark_the_lightkeeper_deals_offers_what_a_mark_taken_offers(client):
+    """Fixed (playtest, lk-mark-skips-abilities): the Lightkeeper's only mark control set
+    the track, so no soak, Death Defy, Behind Me, Premonitions or Let Them In was offered
+    for a story consequence. A take_mark from the GM socket naming a member now goes the
+    way the player's own does, its offers to the player's desk, and the log says the
+    Lightkeeper dealt it."""
+    camp = support.new_campaign(client)
+    edda = support.active_member(client, camp, role_ability="Let Them In")
+    jonah = support.active_member(client, camp, role_ability="Behind Me", nerve_current=2)
+    with support.ws_connect(client, edda["id"]) as we, support.ws_connect(client, jonah["id"]) as wj, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("take_mark", character_id=edda["id"], mark_type="bleed", is_from_enemy=False)
+        sent = gm.sync()
+        assert "ability_mark_offer" not in support.types(sent)
+        lines = [m["payload"]["message"] for m in sent if m["type"] == "activity_log"]
+        assert lines[0] == f"The Lightkeeper dealt {edda['name']} a Bleed mark."
+        got = we.drain(0.5)
+        assert support.of_type(got, "character_update")[0]["payload"]["bleed_marks"] == 1
+        assert {"ability": "Let Them In", "mark_type": "bleed", "character_id": edda["id"],
+                "action": "info"} in [m["payload"] for m in got if m["type"] == "ability_mark_offer"]
+        offer = next(m for m in wj.drain(0.5) if m["type"] == "ability_intercept_offer")["payload"]
+        assert (offer["ability"], offer["character_id"]) == ("Behind Me", edda["id"])
+    assert support.fetch(Character, edda["id"]).bleed_marks == 1
+
+
+def test_an_enemys_mark_the_lightkeeper_deals_offers_death_defy_to_the_player(client):
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, role_ability="Death Defy")
+    with support.ws_connect(client, ch["id"]) as wc, support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("take_mark", character_id=ch["id"], mark_type="body")
+        gm.sync()
+        offer = next(m for m in wc.drain(0.5) if m["type"] == "ability_mark_offer")["payload"]
+        assert (offer["ability"], offer["action"]) == ("Death Defy", "escape")
+        # Held for the player's answer: nothing landed yet
+        assert support.fetch(Character, ch["id"]).body_marks == 0
+        wc.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body")
+        wc.sync()
+    assert support.fetch(Character, ch["id"]).body_marks == 1
+
+
+def test_a_mark_dealt_while_the_players_desk_is_closed_lands_at_once(client):
+    """No desk is open to answer a soak or Death Defy, and a held mark would wait for one
+    that never comes: the mark lands at once, and the log says why nothing was offered."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, role_ability="Death Defy", specialty_ability="In the Trenches",
+                               cunning_max=3)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("take_mark", character_id=ch["id"], mark_type="body")
+        lines = [m["payload"]["message"] for m in gm.sync() if m["type"] == "activity_log"]
+        assert lines[0] == (f"The Lightkeeper dealt {ch['name']} a Body mark. "
+                            "Their desk is closed, so it landed without a soak or Death Defy.")
+    assert support.fetch(Character, ch["id"]).body_marks == 1

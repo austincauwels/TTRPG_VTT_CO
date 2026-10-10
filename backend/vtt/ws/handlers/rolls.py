@@ -191,6 +191,11 @@ ROLL_MODS = {
 # 28): its action, drive, result and outcome, and which of them were used on it. Set when
 # a roll's result is known (at once, or when a die is kept). In memory only.
 _last_roll: dict = {}
+# Characters whose last roll was declared a Patch Up (p. 30: "you can make a Focus roll to
+# heal 1 Body mark on an ally"): the roll is the heal, so it is chosen before the roll, as
+# the roll's "Patch Up" chip, not offered after any Focus roll (playtest,
+# patch-up-free-rider). Set by each roll. In memory only.
+_patch_up_declared: set = set()
 
 
 def _remember(character, action, cat, result, outcome):
@@ -371,6 +376,12 @@ async def handle_roll(ctx):
             char_name = "Lightkeeper"
         res["drive_spent_key"] = cat
         res["action"] = act
+        if character:
+            if "Patch Up" in mods and act == "read" and "Patch Up" in abilities_of(character):
+                _patch_up_declared.add(character.id)
+                res["declared"] = ["Patch Up"]
+            else:
+                _patch_up_declared.discard(character.id)
 
         reply = {"character_id": target_char_id, "action": act, "roll": res,
                  "character": get_char_dict(character) if character else None}
@@ -510,6 +521,7 @@ POST_ROLL_REFUSED = {
     "Learn from My Mistakes": "Learn from My Mistakes needs a roll of 3 or less.",
     "Bending Spoons": "Bending Spoons needs a mixed success on a Sense roll.",
     "Patch Up": "Patch Up needs a Focus roll, an ally in your circle with a Body mark, and the Intuition to pay.",
+    "Patch Up undeclared": "Patch Up is chosen before the roll: pick it on your Focus roll, then roll.",
     "Resuscitation": "Resuscitation needs a Focus roll of 4 or more and an incapacitated ally whose scar is not their fourth.",
 }
 SUCCESS = ("full_success", "critical_success")
@@ -594,6 +606,16 @@ async def handle_use_post_roll_ability(ctx):
         ally = _ally(ctx, payload)
         failed = fresh and last["outcome"] == "failure"
         cost = 1 if fresh and last["outcome"] in SUCCESS else 2
+        # The specific reasons first: a roll not declared a Patch Up, and an ally with
+        # nothing to heal (the player's desk cannot see allies' Body marks)
+        if character.id not in _patch_up_declared:
+            db.rollback()
+            await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED["Patch Up undeclared"])
+            return
+        if ally is not None and (ally.body_marks or 0) < 1:
+            db.rollback()
+            await _refuse(ctx, "use_post_roll_ability", 409, f"{ally.name} has no Body mark to heal.")
+            return
         if not (fresh and last["action"] == "read" and ally is not None and (ally.body_marks or 0) >= 1
                 and (not failed or payload.get("take_brain_mark") is True)
                 and (character.intuition_current or 0) >= cost):
@@ -601,6 +623,7 @@ async def handle_use_post_roll_ability(ctx):
             await _refuse(ctx, "use_post_roll_ability", 409, POST_ROLL_REFUSED[ab_name])
             return
         last["used"].add(ab_name)
+        _patch_up_declared.discard(character.id)
         character.intuition_current -= cost
         ally.body_marks -= 1
         db.commit()
@@ -669,6 +692,9 @@ async def handle_burn_resistance(ctx):
         return
     # The reroll's drive, as on any roll, so the desk's post-roll prompts can read it
     result["drive_spent_key"] = drive_key
+    # A burn rerolls the same roll, so a Patch Up it was declared as still stands
+    if act == "read" and character.id in _patch_up_declared:
+        result["declared"] = ["Patch Up"]
     outcome_label = OUTCOME_LABELS.get(result.get("outcome", ""), "")
     # A gilded die that counts earns back 1 drive (rulebook p. 8) on a reroll too: a zero
     # rating whose gilded die is the lower one, or a pool that is all gilded

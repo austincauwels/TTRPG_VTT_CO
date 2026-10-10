@@ -126,3 +126,23 @@ export const RELATIONSHIP_DATA = {
 };
 
 export const RELATIONSHIP_TYPES = Object.keys(RELATIONSHIP_DATA);
+
+// A relationship's lore is the prompt question it answers, if one was chosen, then the
+// answer on the next line. The form keeps the two apart (the question as an index), and
+// joins them only to send: it used to paste the question into the answer box, where a
+// tap in the middle of it typed the answer into the question (playtest,
+// relationship-question-in-answer).
+export const joinLore = (relType, promptIdx, answer) => {
+  const question = Number.isInteger(promptIdx) ? RELATIONSHIP_DATA[relType]?.[promptIdx] : null;
+  const text = (answer || '').trim();
+  return question ? (text ? `${question}\n${text}` : question) : text;
+};
+
+// The other way: { promptIdx (or null), answer } of a stored lore, for a form that
+// starts from it (Counter, Edit)
+export const splitLore = (relType, lore) => {
+  const text = lore || '';
+  const idx = (RELATIONSHIP_DATA[relType] || []).findIndex(q => text.startsWith(q));
+  if (idx < 0) return { promptIdx: null, answer: text };
+  return { promptIdx: idx, answer: text.slice(RELATIONSHIP_DATA[relType][idx].length).trim() };
+};

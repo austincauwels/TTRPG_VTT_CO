@@ -77,7 +77,7 @@ export const AppRouter = () => {
   const {
     stage, setLocalCharacter, setStage, connect, accessSession, joinCampaign,
     fetchUserData, setLastPlayed, character, lastPlayedCampaign, characters,
-    rejoinInvite, setRejoinInvite,
+    rejoinInvite, setRejoinInvite, setHubNotice,
   } = useGameStore();
 
   const [resetToken, setResetToken] = useState(resetTokenFromAddress);
@@ -198,6 +198,11 @@ export const AppRouter = () => {
       }
     }
     await fetchUserData(accessSession?.userId);
+    // Asking to join lands on the hub: it says the request went (it used to say nothing)
+    if (characterData.mode === 'join' && characterData.campaignCode) {
+      const name = characterData.name || savedCharacter?.name || 'Your investigator';
+      setHubNotice(`${name} asked to join. The hub will say when the Lightkeeper answers.`);
+    }
     setStage('HOME');
     return { ok: true };
   };

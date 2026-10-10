@@ -102,9 +102,11 @@ def submit_circle_vote(body: CircleVoteSubmit, db: Session = Depends(get_db),
             CircleVote.character_id == body.character_id,
             CircleVote.vote_type == body.vote_type,
         ).first()
-        if existing:
-            existing.value = body.value
-        else:
+        # A changed vote is cast anew (a new row, so a new id): a tie goes to the option
+        # voted for first, and a vote moved to another option is cast now
+        if existing is None or existing.value != body.value:
+            if existing is not None:
+                db.delete(existing)
             db.add(CircleVote(circle_id=body.circle_id, character_id=body.character_id,
                               vote_type=body.vote_type, value=body.value))
         db.commit()
@@ -206,7 +208,11 @@ async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get
     if not circle:
         raise HTTPException(status_code=404, detail="No circle found for this campaign")
 
-    # Tally name: prefer name_vote, fall back to name_suggest count
+    # Tally name: prefer name_vote, fall back to name_suggest count. A tie goes to the
+    # option voted for first: the votes come in id order, the tally keeps the order each
+    # option first appears in, and max keeps the first of equal counts. Without the order
+    # the database's row order broke ties, so the seal could differ from what the papers
+    # showed (playtest, vote-tie-leading).
     def _tally_winner(votes_list):
         if not votes_list: return None
         tally: dict = {}
@@ -217,7 +223,7 @@ async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get
     # Load all votes for this circle in one query, then group in Python
     all_circle_votes = db.query(CircleVote).filter(
         CircleVote.circle_id == circle.id
-    ).all()
+    ).order_by(CircleVote.id).all()
     votes_by_type: dict = {}
     for v in all_circle_votes:
         votes_by_type.setdefault(v.vote_type, []).append(v)
