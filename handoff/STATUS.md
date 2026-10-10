@@ -9,7 +9,7 @@ Resume: none
 You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 11 stands, then do "Next phase". Keep the chat lean:
 
 - Robert hit his **weekly usage limit** on 9 October. Before any run of more than about 6 agents, say roughly how big it is and ask, unless he has turned ultracode on for the chat. Prefer one implementer plus one reviewer over wide fan-outs.
-- **The hourly check-in is broken.** The Routine "Candela: resume an interrupted phase" (hourly at :29) reads the `Resume:` line at the top of this file, but its sessions have **no GitHub access**: each run on 10 October stopped at the first step and sent Robert a push notification. Leave `Resume: none` until Robert fixes the Routine's environment (GitHub access for this repo) or deletes it. See "Open questions".
+- **No resume Routine.** The hourly "Candela: resume an interrupted phase" Routine was deleted on 10 October: its sessions had no GitHub access, so each run only sent a notification. The `Resume:` line below is kept as a note for a person or a new chat; nothing reads it on a schedule. Push work in progress at least hourly anyway, since an interrupted container keeps nothing.
 - At the end of each phase, **rewrite this file** (keep it under about 200 lines), commit it to this branch (`playtest-harness`, folder `handoff/`) and push it. Then tell Robert it is a good point to start a new chat.
 - Robert's own preferences: plain language, short answers, no em dashes; log durable decisions and facts to his Obsidian vault with the Galga `append_daily_log` tool, after reading the vault's `CLAUDE.md`, using wiki-links such as [[Austin]], [[Candela Obscura Campaign]] and [[GaterGrid Server]].
 - The session may start in another repo (SNAP). This repo is not in its list by name: attach it with `add_repo` (owner `austincauwels`, repo `TTRPG_VTT_CO`, access `push`) and clone it to `/home/user/ttrpg_vtt_co`.
@@ -18,7 +18,7 @@ You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web
 
 Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message so he can set it before starting the next chat. As your first step, check your own model (the `get_session` tool) and effort. If they differ from the recommendation below, tell him in one line and carry on.
 
-**Next phase (merge and deploy PR 11, then the low items or a second playtest): Sonnet 5.5 at medium effort, ultracode off.** For a second AI playtest, see the table.
+**Next phase (merge and deploy PR 12, then the low items or a second playtest): Sonnet 5.5 at medium effort, ultracode off.** For a second AI playtest, see the table.
 
 Rules of thumb for later phases:
 
@@ -36,8 +36,10 @@ Leave **ultracode off** by default. The PR 11 phase ran with ultracode on at Rob
 
 ## Where things stand
 
-- `main` is at **4b54a69** (PR 6 to PR 10), all **live** on candela.gatergrid.com.
-- **PR 11** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/11, branch `claude/admiring-clarke-rnlb9p`) is **open, not merged, not deployed**. It fixes the playtest report's remaining medium items, 11 to 15 and 17 to 23 (16 was done in PR 10):
+- `main` is at **b73b4c3**: PR 11 merged on 10 October (CI green). Robert ran the update before the merge, so **PR 11 is live only after he runs `bash candela/update.sh` again**.
+- **PR 12** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/12, branch `claude/admiring-clarke-rnlb9p`) is **open**. It applies Robert's ruling on the No Instructions Rule (below) and moves the creator's key to the marks behind an "i".
+- **Robert's ruling on instructions (10 October):** help is fine when it waits to be asked for, behind a hover, focus or a tap on a printed "i" (`InfoTerm`, `ActionInfo`), or in a section given over to instructions. What he does not want is help printed on the page all the time, a subline under every item that turns the screen into a block of text. DESIGN.md says so.
+- **PR 11** fixes the playtest report's remaining medium items, 11 to 15 and 17 to 23 (16 was done in PR 10):
   - Creator and advancement (11, 12, 13):
     - each step opens at its top;
     - 44px controls on a phone;
@@ -65,7 +67,6 @@ Leave **ultracode off** by default. The PR 11 phase ran with ultracode on at Rob
 
 ### Leftovers from PR 11 (known, accepted)
 
-- `DESIGN.md`'s No Instructions Rule now has an exception for a printed key that names marks (the creator's gild key under part B), marked as waiting for the owner. If Austin rejects it, the `aria-hidden` key in `CharacterCreator.jsx` goes.
 - The report's "gold top pip on every gilded action" was not done: an action rated 0 has no pip. The star beside the name marks every gild.
 - The creator's step 3 row overflows below about 356px wide, as it did before.
 - The Lightkeeper's copy of a sheet does not show held marks; the item 15 log line tells her instead.
@@ -86,13 +87,12 @@ Leave **ultracode off** by default. The PR 11 phase ran with ultracode on at Rob
 
 ## Next phase
 
-1. Watch PR 11: CI on its head, then Robert's merge and deploy (`bash candela/update.sh`, players reload).
+1. Watch PR 12: CI on its head, then Robert's merge and deploy (`bash candela/update.sh`, players reload). Robert must also deploy PR 11, merged after his last update.
 2. Then pick from the report's low items (24 to 67 in `playtest/results/2026-10-08/report.json`, `ux`), or run a second AI playtest against the new build (`playtest/HANDOFF.md`).
 
 ### Open questions for Robert
 
-- The hourly resume Routine has no GitHub access in its environment, so it can only notify. Fix its environment (give it this repo) or delete it. Its id is `trig_016NS73is9K4M2tu7kzDftLy`.
-- Ask Austin about the creator's printed gild key (the No Instructions Rule exception) once PR 11 is live.
+- None.
 
 ## How the browser checks were done in PR 6
 
