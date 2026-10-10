@@ -18,7 +18,7 @@ You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web
 
 Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message so he can set it before starting the next chat. As your first step, check your own model (the `get_session` tool) and effort. If they differ from the recommendation below, tell him in one line and carry on.
 
-**Next phase (merge and deploy PR 12, then the low items or a second playtest): Sonnet 5.5 at medium effort, ultracode off.** For a second AI playtest, see the table.
+**Next phase (the low items or a second playtest): Sonnet 5.5 at medium effort, ultracode off.** For a second AI playtest, see the table.
 
 Rules of thumb for later phases:
 
@@ -36,8 +36,8 @@ Leave **ultracode off** by default. The PR 11 phase ran with ultracode on at Rob
 
 ## Where things stand
 
-- `main` is at **b73b4c3**: PR 11 merged on 10 October (CI green). Robert ran the update before the merge, so **PR 11 is live only after he runs `bash candela/update.sh` again**.
-- **PR 12** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/12, branch `claude/admiring-clarke-rnlb9p`) is **open**. It applies Robert's ruling on the No Instructions Rule (below) and moves the creator's key to the marks behind an "i".
+- `main` is at **730cfda**: PR 11 and PR 12 merged on 10 October (CI green). They are live once Robert runs `bash candela/update.sh` after the merges (check the served bundle has "Key to the marks").
+- **PR 12** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/12) applies Robert's ruling on the No Instructions Rule (below) and moves the creator's key to the marks behind an "i".
 - **Robert's ruling on instructions (10 October):** help is fine when it waits to be asked for, behind a hover, focus or a tap on a printed "i" (`InfoTerm`, `ActionInfo`), or in a section given over to instructions. What he does not want is help printed on the page all the time, a subline under every item that turns the screen into a block of text. DESIGN.md says so.
 - **PR 11** fixes the playtest report's remaining medium items, 11 to 15 and 17 to 23 (16 was done in PR 10):
   - Creator and advancement (11, 12, 13):
@@ -87,7 +87,7 @@ Leave **ultracode off** by default. The PR 11 phase ran with ultracode on at Rob
 
 ## Next phase
 
-1. Watch PR 12: CI on its head, then Robert's merge and deploy (`bash candela/update.sh`, players reload). Robert must also deploy PR 11, merged after his last update.
+1. Confirm PR 11 and 12 are deployed (`bash candela/update.sh`, players reload).
 2. Then pick from the report's low items (24 to 67 in `playtest/results/2026-10-08/report.json`, `ux`), or run a second AI playtest against the new build (`playtest/HANDOFF.md`).
 
 ### Open questions for Robert
