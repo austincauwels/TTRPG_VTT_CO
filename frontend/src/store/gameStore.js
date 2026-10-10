@@ -497,15 +497,21 @@ const useGameStore = create(
           }, HEARTBEAT_TICK_MS);
           if (queuedRoll) sendRoll(set, get, queuedRoll);
           // The GM desk opened again (a drop, a laptop waking, "Use this tab"): the members'
-          // changes made while it was down never came, so what it shows loads again
+          // changes made while it was down never came, so what it shows loads again. So do
+          // the formation papers and the reports: the votes, answers and relationships that
+          // came meanwhile are what the Lightkeeper reads before finalizing.
           if (keepLog && onGmDesk(get)) {
             set(state => ({ memberResync: state.memberResync + 1 }));
             const { lastPlayedCampaign, accessSession } = get();
-            get().fetchRoster(lastPlayedCampaign.campaignId ?? accessSession?.campaignId, { keep: true });
+            const campaignId = lastPlayedCampaign.campaignId ?? accessSession?.campaignId;
+            get().fetchRoster(campaignId, { keep: true });
+            get().fetchCircleCreationState(campaignId);
           } else if (keepLog && get().character?.campaign_id) {
             // A player's desk: a death or a revival (member_status) that came while it was
-            // down is in the roster, which its circle's cards and ally pickers read
+            // down is in the roster, which its circle's cards and ally pickers read, and the
+            // other players' votes are on its formation papers
             get().fetchRoster(get().character.campaign_id, { keep: true });
+            if (get().character.status === 'active') get().fetchCircleCreationState(get().character.campaign_id);
           }
         };
         socket.onerror = (err) => console.error("WebSocket connection error:", err);
@@ -1045,12 +1051,19 @@ const useGameStore = create(
             // it (drive, resistance, marks, scars, gear, ability uses, advancement...). The
             // server sends it to the campaign's GM channel only, and only the GM desk takes it.
             // Its roster card takes it (a member who died keeps the card, flagged is_dead),
-            // and the open sheet reads memberSheets.
+            // and the open sheet reads memberSheets. So does its entry on the formation
+            // papers, which hold the same sheet: a death or a new name there follows the
+            // roster, as the Finalize slip's count does.
             const sheet = message.payload;
             if (!onGmDesk(get) || sheet?.id == null || !isForThisCampaign(sheet)) return;
             set(state => ({
               memberSheets: { ...state.memberSheets, [sheet.id]: sheet },
               campaignRoster: withSheet(state.campaignRoster, sheet),
+              circleCreation: {
+                ...state.circleCreation,
+                activeInvestigators: state.circleCreation.activeInvestigators.map(inv =>
+                  (inv.id === sheet.id ? { ...inv, ...sheet } : inv)),
+              },
             }));
           }
         };

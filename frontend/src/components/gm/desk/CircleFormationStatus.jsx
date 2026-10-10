@@ -100,7 +100,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
   const answering = members
     .map(inv => [inv, waiting.filter(r => answererOf(r) === inv.id).length])
     .filter(([, k]) => k > 0)
-    .map(([inv, k]) => (k > 1 ? `${inv.name} (${k})` : inv.name));
+    .map(([inv, k]) => (k > 1 ? `${inv.name} (${k} relationships)` : inv.name));
 
   return (
     <div className="mt-3 hand-placed bg-parchment text-ink border border-sepia/30 rounded-sm shadow-[2px_6px_14px_rgba(0,0,0,0.55)]" style={{ '--tilt': '-0.5deg' }}>
@@ -109,7 +109,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
           type="button"
           onClick={() => setShowCircleStatus(s => !s)}
           aria-expanded={showCircleStatus}
-          aria-controls="circle-formation-status"
+          aria-controls={showCircleStatus ? 'circle-formation-status' : undefined}
           className="pen-host w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-black/5 transition-colors"
         >
           <span className="flex flex-col">
@@ -182,11 +182,14 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
                 {n > 0 && <Marks caption="Voted" members={members} done={inv => nameVoters.has(inv.id)} doneWord="voted" notWord="not voted yet" />}
               </Part>
 
-              {/* III. The chapter house: one answer the circle writes together */}
+              {/* III. The chapter house: one answer the circle writes together. The server
+                  keeps what was written, not who wrote it (backstory_update), so it has no
+                  ticks, and the papers say why. */}
               <Part title="III. Chapter house">
                 {house
                   ? <p className="font-serif italic text-sm text-ink/85 leading-snug whitespace-pre-line [overflow-wrap:anywhere]">{house}</p>
                   : <Lead><BlankEntry label="Not written yet" /></Lead>}
+                {n > 0 && <p className="font-serif italic text-sm text-sepia leading-snug">One answer for the whole circle: the papers keep what was written, not who wrote it.</p>}
               </Part>
 
               {/* IV. The circle ability */}
