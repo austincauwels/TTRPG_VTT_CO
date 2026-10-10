@@ -21,8 +21,8 @@ let reconnectAttempts = 0;
 // every HEARTBEAT_TICK_MS. Only an unanswered ping counts, so a background tab whose
 // timers the browser slows down never takes its own quiet for a dead socket.
 const HEARTBEAT_TICK_MS = 5000;
-const HEARTBEAT_IDLE_MS = 15000;
-const HEARTBEAT_WAIT_MS = 20000;
+const HEARTBEAT_IDLE_MS = 10000;
+const HEARTBEAT_WAIT_MS = 15000;
 let heartbeatTimer = null;
 let lastHeardAt = 0;
 let pingSentAt = 0; // when the unanswered ping went, or 0
