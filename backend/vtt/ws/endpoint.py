@@ -1,8 +1,12 @@
 """The /ws/{game_id} endpoint: connection setup and the message loop.
 
 A numeric game_id is a character's channel, anything else a campaign code (the GM
-channel). The browser sends its login token as the query parameter "token", because
-it cannot set headers on a WebSocket. Without a valid token the socket is closed
+channel). A browser cannot set headers on a WebSocket, so the desk sends its login token
+as a subprotocol: it asks for the protocols "candela" and "bearer.<token>", and the
+server answers with "candela" (SUBPROTOCOL). The token used to go in the URL, and the
+browser prints a failed socket's URL in its console on every reconnect, token and all
+(playtest, ws-token-in-url). The query parameter "token" still works, for a desk
+loaded before that change. Without a valid token the socket is closed
 with 4401 before any message is read; a channel the user may not open is closed
 with 4403, and an unknown one with 4404 (see vtt.ws.access). The token is never
 logged.
@@ -47,15 +51,31 @@ from vtt.ws.manager import campaign_key, character_key, manager
 
 router = APIRouter()
 
+# The subprotocol the desk asks for along with its token, which the server's answer names
+SUBPROTOCOL = "candela"
+TOKEN_PROTOCOL_PREFIX = "bearer."
+
+
+def _offered_token(websocket: WebSocket):
+    """The login token the socket carries, and the subprotocol to answer with (None
+    when the client asked for none): the "bearer.<token>" subprotocol, else the query
+    parameter "token"."""
+    offered = [p.strip() for p in websocket.headers.get("sec-websocket-protocol", "").split(",") if p.strip()]
+    answer = SUBPROTOCOL if SUBPROTOCOL in offered else None
+    for protocol in offered:
+        if protocol.startswith(TOKEN_PROTOCOL_PREFIX):
+            return protocol[len(TOKEN_PROTOCOL_PREFIX):], answer
+    return websocket.query_params.get("token"), answer
+
 
 async def _reject(websocket: WebSocket, action: str, status: int, detail: str):
     await websocket.send_json({"type": "action_rejected", "payload": {
         "action": action, "status": status, "detail": detail}})
 
 
-async def _refuse(websocket: WebSocket, game_id: str, code: int):
+async def _refuse(websocket: WebSocket, game_id: str, code: int, subprotocol=None):
     logger.info("WebSocket refused: game_id=%s code=%s", game_id, code)
-    await websocket.accept()
+    await websocket.accept(subprotocol=subprotocol)
     await websocket.close(code=code)
 
 
@@ -63,17 +83,18 @@ async def _refuse(websocket: WebSocket, game_id: str, code: int):
 async def websocket_endpoint(websocket: WebSocket, game_id: str):
     db = _db.SessionLocal()
     try:
-        user = user_for_token(db, websocket.query_params.get("token"))
+        token, subprotocol = _offered_token(websocket)
+        user = user_for_token(db, token)
         if user is None:
-            await _refuse(websocket, game_id, CLOSE_UNAUTHENTICATED)
+            await _refuse(websocket, game_id, CLOSE_UNAUTHENTICATED, subprotocol)
             return
         channel = resolve_channel(db, user.id, game_id)
         if isinstance(channel, int):
-            await _refuse(websocket, game_id, channel)
+            await _refuse(websocket, game_id, channel, subprotocol)
             return
         # The stamp the token carries (user_for_token checked that it matches).
         await _serve(websocket, db, game_id, user.id, session_stamp(user.hashed_password, user.session_epoch),
-                     *channel)
+                     *channel, subprotocol=subprotocol)
     finally:
         db.close()
 
@@ -90,7 +111,7 @@ def _shared_circle(db):
 
 
 async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: str, character, campaign,
-                 is_gm: bool):
+                 is_gm: bool, subprotocol=None):
     logger.info("WebSocket connected: game_id=%s user_id=%s", game_id, user_id)
     own_char_id = character.id if character is not None else None
     # The manager key: a character channel and a campaign channel never share one,
@@ -98,7 +119,7 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
     channel = character_key(own_char_id) if character is not None else campaign_key(campaign.campaign_code)
     # A GM channel names its campaign, so the members' sheets reach it (manager.broadcast)
     gm_of = campaign.id if character is None and campaign is not None else None
-    if not await manager.connect(channel, websocket, user_id=user_id, campaign_id=gm_of):
+    if not await manager.connect(channel, websocket, user_id=user_id, campaign_id=gm_of, subprotocol=subprotocol):
         # A newer socket on this channel got in while this one was being accepted
         logger.info("WebSocket replaced while it opened: game_id=%s", game_id)
         return
@@ -135,6 +156,11 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
         await websocket.send_json({"type": "circle_update", "payload": get_circle_dict(shown_circle)})
         if character:
             await send_held_roll(websocket, character)
+        # The Activity Log lines this channel was sent lately, so the desk's log is whole
+        # again after a reload or a drop (sent only when there are some)
+        history = manager.history_for(channel, camp_id)
+        if history:
+            await websocket.send_json({"type": "activity_history", "payload": {"entries": history}})
 
         ctx = WSContext(game_id=game_id, db=db, circle=circle, camp_code=camp_code, camp_id=camp_id,
                         user_id=user_id, is_gm=is_gm, own_char_id=own_char_id, channel=channel)
@@ -150,6 +176,11 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
             if not isinstance(message, dict):
                 continue
             action = message.get("type")
+            # The desk's heartbeat: a socket that still answers is alive (its client
+            # reconnects after a ping goes unanswered). Nothing else is read for it.
+            if action == "ping":
+                await websocket.send_json({"type": "pong"})
+                continue
             payload = message.get("payload")
             if payload is None:
                 payload = {}

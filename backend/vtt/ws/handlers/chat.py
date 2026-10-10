@@ -71,7 +71,7 @@ async def handle_chat_message(ctx):
         if target_char:
             notify_ids.add(character_key(target_char.id))
         for nid in notify_ids:
-            await manager.broadcast(nid, chat_payload)
+            await manager.broadcast(nid, chat_payload, campaign_id=chat_campaign_id)
 
 
 async def handle_add_notebook_entry(ctx):

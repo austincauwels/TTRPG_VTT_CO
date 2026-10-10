@@ -18,11 +18,15 @@ Setup, in order:
 5. Circle: `get_or_create_campaign_circle(campaign.id)` (this inserts an "Unnamed Circle" if the campaign has none, so connecting can write to the database). Without a campaign it uses circle id 1, and creates circle id 1 if it is missing.
 6. `camp_code = campaign.campaign_code` (or `game_id` when there is no campaign) and `camp_id = campaign.id` (or None). These are resolved once and never refreshed for the life of the socket.
 7. The server sends `character_update` (only when a character was resolved) and then `circle_update`, to this socket only. Since the security review a pending or retired character's socket gets circle 1 here instead of its campaign's circle (AUTH.md). Since 2026-10-09 a character whose gilded roll still waits for its die to be kept (`_pending_gilded`) also gets that roll's `roll_result` again, the same dice and the sheet as it is now, after `circle_update`: a desk reloaded during the choice used to forget the roll, and its next roll replaced the held one (a free reroll, with the drive the first had spent lost).
+8. Since 2026-10-10 a socket whose channel has Activity Log lines kept (section 2) gets them as `activity_history {entries}` after that, oldest first. Each entry is an `activity_log` payload plus `at`, when it was sent (ISO 8601, UTC). Only the lines of the socket's campaign come (`camp_id`), and none at all means no frame.
+
+Since 2026-10-10 the desk sends its login token as a subprotocol: `new WebSocket(url, ['candela', 'bearer.<token>'])`, and the server accepts with `candela`. The browser printed the URL, token and all, in its console on every failed reconnect (playtest, `ws-token-in-url`). `?token=` still works, for a desk loaded before the change.
 
 Receive loop (main.py:1496-2516):
 
 - `receive_text()`, then `json.loads`. Text that is not JSON is skipped.
 - `type` and `payload` (default `{}`) are read from the message. Unknown types are ignored with no reply.
+- Since 2026-10-10 `ping` (no payload) is answered with `pong` at once, before anything else is read. It is the desk's heartbeat: after 15 seconds with nothing heard the desk pings, and a ping with no answer (`pong` or any other frame) within 20 seconds means the socket is dead though it looks open, so the desk opens a new one. Chromium keeps a socket open through a network that goes quiet, and a mark sent into it was lost (playtest, `offline-not-shown`). The desk also shows the banner and reconnects at once on the browser's `offline` event.
 - Target character for the message: `payload.character_id` when present, otherwise `int(game_id)` when the path is numeric, otherwise None. The `character` variable is reassigned on every message. Any message carrying a `character_id` therefore acts on that character, whichever socket sent it.
 - Only the `roll` handler has its own try/except. An exception in any other handler (wrong type in a field, KeyError, NameError, a database error on commit) leaves the loop, is logged as "WebSocket fatal error", removes the socket from the manager and ends the connection. Since the bug-fix stage, a JSON message that is not an object (a list, a number) is ignored like invalid JSON, a null payload counts as `{}`, and a payload that is not an object gets `action_rejected` with status 422 (for a known type; an unknown type is ignored). Before, both ended the connection, because `.get` was called on them.
 - `WebSocketDisconnect` calls `manager.disconnect`. The session is closed in `finally`.
@@ -36,6 +40,7 @@ main.py:1285-1350. One module-level instance, `manager`.
 - `disconnect`: removes the socket from its list. Empty lists stay in the dict.
 - `broadcast(key, message)`: sends to each socket on the key, one awaited send at a time. Sockets that raise are dropped from the list.
 - `broadcast_all`: defined, never called.
+- The Activity Log history (since 2026-10-10): every `activity_log` sent through `broadcast` or `broadcast_campaign` is kept for each channel key it was meant for, whether or not a socket listened then, the last 100 per key (`HISTORY_LINES`), each with the campaign it came from (`broadcast_campaign`'s `campaign_id`; `broadcast`'s optional `campaign_id`, which private notes pass) and when it was sent. `history_for(key, campaign_id)` returns a key's lines of that campaign; the endpoint sends them on connect (section 1, step 8). A reload, a second tab or a trip to the hub emptied the desk's log, and lines sent while a desk was away never reached it (playtest, `activity-log-not-persisted`). `close_channel` forgets the key's lines. Like the sockets, the history is in memory, so a server restart empties it.
 - `broadcast_campaign(code, campaign_id, message, db)`: without a `campaign_id` it is the same as `broadcast(code)`. Otherwise it queries the campaign's characters with status `active` (one query per call) and sends to the campaign code key plus `str(id)` of each of them. Pending, retired and unaffiliated characters are not included. Dead characters keep status `active` and are included.
 - There are no locks, no send timeouts, no message size or rate limits. The state lives in one process. A second uvicorn worker or a second instance would hold a separate map and broadcasts would miss half the clients.
 
@@ -234,7 +239,9 @@ All 26 types the server emits have a handler in `gameStore.js`, and the store ha
 | `roll_error` | `roll` exception | Sender's key | Clears `isRolling`; the message text is not shown |
 | `trigger_scar` | `take_mark`, `intercept_mark` at 4 marks | Sender's key | Sets `character`, opens the scar modal |
 | `scene_transition` | `gm_transition_scene` | Sender's key | console.log only |
-| `activity_log` | many handlers; REST notebook POST | Campaign; whispers to sender, GM and target | Appends to `activityLog` (last 50) |
+| `activity_log` | many handlers; REST notebook POST | Campaign; whispers to sender, GM and target | Appends to `activityLog` (last 50). Since 2026-10-10 every one is also kept in the history of each channel it was meant for (section 2) |
+| `activity_history` (since 2026-10-10) | connect, when the channel has lines kept | Sender only | `{entries}`: the channel's recent `activity_log` payloads, each with `at`. Replaces `activityLog`, each line timed by its `at`; no sound plays |
+| `pong` (since 2026-10-10) | `ping` | Sender only | Only that the socket is alive |
 | `ability_mark_offer` | `take_mark`, `intercept_mark` | Sender's key | Sets `abilityMarkOffer` |
 | `ability_intercept_offer` | `take_mark` | Other characters' keys | Sets `abilityMarkOffer` (same slot) |
 | `assignment_report_submitted` | `submit_assignment_report` | GM key and sender's key (campaign before 2026-10-09) | Stores in `circleCreation.reports`; on its author's desk it also clears the form's draft |
