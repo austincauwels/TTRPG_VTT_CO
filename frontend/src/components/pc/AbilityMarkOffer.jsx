@@ -158,7 +158,8 @@ export const AbilityMarkOffer = () => {
     } else if (offer.action === 'info') {
       dismissAbilityMarkOffer();
     } else {
-      resolveAbilityMark(offer.ability, offer.action);
+      // The offer's id goes back with the answer: one the server has since closed is ignored
+      resolveAbilityMark(offer.ability, offer.action, offer.offer_id);
     }
     setDriveChoice(null);
   };
@@ -222,7 +223,7 @@ export const AbilityMarkOffer = () => {
               ref={offer.action === 'drive_refresh' ? undefined : primaryRef}
               onClick={handleAccept}
               disabled={offer.action === 'drive_refresh' && !driveChoice}
-              className="flex-1 min-h-[40px] py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-oxblood border border-ink text-cream hover:brightness-125 transition rounded-sm disabled:opacity-40"
+              className="flex-1 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-oxblood border border-ink text-cream hover:brightness-125 transition rounded-sm disabled:opacity-40"
             >
               {config.isIntercept ? 'Intercept' : 'Use'}
             </button>
@@ -230,7 +231,7 @@ export const AbilityMarkOffer = () => {
           {offer.action === 'info' && <span className="flex-1" aria-hidden="true" />}
           <button
             onClick={passUp}
-            className="min-h-[40px] px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-widest border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm"
+            className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-widest border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm"
           >
             {offer.action === 'info' ? 'Close' : holdsOwnMark ? 'Take the mark' : 'Not now'}
           </button>

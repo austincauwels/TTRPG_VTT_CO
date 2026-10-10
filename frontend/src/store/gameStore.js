@@ -98,17 +98,55 @@ const withoutOwnOffer = (state) => {
     ? { abilityMarkOffer: queue[0] || null, abilityMarkQueue: queue.slice(1) }
     : { abilityMarkQueue: queue };
 };
-// The marks such an offer holds: Death Defy's names every mark of the harm
-const heldMarksOf = (offer) => ({
-  characterId: offer.character_id,
-  types: Array.isArray(offer.mark_types) ? offer.mark_types : [offer.mark_type],
-  ability: offer.ability,
-  seq: offer.seq,
-  landing: false,
-});
-// The held marks are on their way onto the sheet (declined, or closed by the server):
-// they stay drawn held until the sheet with them on it arrives, not empty meanwhile
-const landingMarks = (state) => (state.heldMarks ? { heldMarks: { ...state.heldMarks, landing: true } } : {});
+// The marks the sheet draws held (store heldMarks): those an open soak or Death Defy offer
+// holds back (offer), and those on their way onto the sheet (landing). A mark is on its
+// way from when its Undo runs out, or its offer is let go ("Take the mark", the countdown,
+// the server closing it) or used, until the sheet with it arrives, so its box never goes
+// empty in between (playtest, mark-undo-then-death-defy). Death Defy's offer names every
+// mark of the harm (mark_types).
+const typesOf = (offer) => (Array.isArray(offer.mark_types) ? offer.mark_types : [offer.mark_type]);
+const heldMarksAre = (held) => ({ heldMarks: held && (held.offer || held.landing.length) ? held : null });
+// An offer holds its marks: one sent from the sheet that it now holds (a soak offered for
+// it, Death Defy counting it in the harm) is held there, no longer on its way
+const offerHolds = (state, offer) => {
+  const types = typesOf(offer);
+  const left = [...types];
+  const was = state.heldMarks?.characterId === offer.character_id ? state.heldMarks.landing : [];
+  const landing = was.filter((m) => {
+    const i = m.answer ? -1 : left.indexOf(m.type);
+    if (i >= 0) left.splice(i, 1);
+    return i < 0;
+  });
+  return { heldMarks: { characterId: offer.character_id, offer: { types, ability: offer.ability, seq: offer.seq }, landing } };
+};
+// The open offer's marks go on their way: let go, or used (answer: the soak or Death Defy
+// keeps them off the sheet, or the server refuses it and lands them). Only the offer with
+// that seq: a card answered after another replaced it holds nothing now.
+const offerLets = (state, answer, seq) => {
+  const held = state.heldMarks;
+  if (!held?.offer || held.offer.seq !== seq) return {};
+  return heldMarksAre({ ...held, offer: null, landing: [...held.landing, ...held.offer.types.map(type => ({ type, answer }))] });
+};
+// The sheet arrived. A mark on its way is on it when its track rose, one mark a box; on a
+// full track, at the next sheet (Endurance keeps it at three; a fourth that brings a scar
+// goes with trigger_scar). A used offer's marks wait for its answer: a sheet with none of
+// them landed (soaked or escaped) takes them all away, else each goes as it lands.
+const sheetArrived = (state, prev, incoming) => {
+  const held = state.heldMarks;
+  if (!held?.landing.length || !prev || prev.id !== held.characterId || incoming?.id !== held.characterId) return {};
+  const rose = Object.fromEntries(['body', 'brain', 'bleed'].map(t => [t, (incoming[`${t}_marks`] || 0) - (prev[`${t}_marks`] || 0)]));
+  const answered = !held.landing.some(m => m.answer && rose[m.type] > 0);
+  return heldMarksAre({ ...held, landing: held.landing.filter((m) => {
+    if (rose[m.type] > 0) { rose[m.type] -= 1; return false; }
+    return m.answer ? !answered : (prev[`${m.type}_marks`] || 0) < 3;
+  }) });
+};
+// A fourth mark brought a scar: it is on the record, as the scar
+const scarArrived = (state, characterId, type) => {
+  const held = state.heldMarks;
+  const i = held?.characterId === characterId ? held.landing.findIndex(m => m.type === type) : -1;
+  return i < 0 ? {} : heldMarksAre({ ...held, landing: held.landing.filter((_, j) => j !== i) });
+};
 
 const clearRollTimer = () => { clearTimeout(rollTimer); rollTimer = null; };
 
@@ -348,10 +386,11 @@ const useGameStore = create(
       pendingRollMods: [],       // active ability modifier chip keys for the current pending roll
       abilityMarkOffer: null,    // { ability, mark_type, character_id, options?, intercept?, seq } — mark intercept prompt
       abilityMarkQueue: [],      // offers waiting behind the one shown
-      // The marks an open soak or Death Defy offer holds back from the sheet (the server's
-      // _pending_marks): { characterId, types, ability, seq, landing }. The sheet draws them
-      // held, as it does a mark waiting for its Undo, until the offer is answered
-      // (playtest, mark-undo-then-death-defy: the box went empty for the offer's 30 seconds)
+      // The marks the sheet draws held, as it does a mark waiting for its Undo: those an open
+      // soak or Death Defy offer holds back (the server's _pending_marks), and those on their
+      // way until the sheet arrives with them. { characterId, offer: { types, ability, seq }
+      // or null, landing: [{ type, answer }] } (offerHolds and the helpers after it;
+      // playtest, mark-undo-then-death-defy: the box went empty for the offer's 30 seconds)
       heldMarks: null,
       abilityUseError: null,     // why the server refused an ability used outside a roll
       abilityUseSent: null,      // the ability whose use_ability waits for the server's answer
@@ -545,6 +584,9 @@ const useGameStore = create(
           if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
           // An ability use with no answer yet: the next socket's sheet does not say it was paid
           if (get().abilityUseSent) set({ abilityUseSent: null });
+          // Marks on their way with no answer yet: the next socket's sheet has those that
+          // landed, and the server sends again an offer that holds one
+          if (get().heldMarks?.landing.length) set(state => heldMarksAre({ ...state.heldMarks, landing: [] }));
           // A roll waiting to be sent, or sent with no answer, waits on only while the desk
           // reconnects by itself; the sent one goes again with its roll_id
           const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
@@ -588,9 +630,8 @@ const useGameStore = create(
           if (message.type === 'character_update') {
             const incoming = message.payload;
             const prevChar = get().character;
-            set({ character: incoming });
-            // The held marks that were on their way are on this sheet now
-            if (get().heldMarks?.landing) set({ heldMarks: null });
+            // The sheet, and the held marks that were on their way and are on it now
+            set(state => ({ character: incoming, ...sheetArrived(state, prevChar, incoming) }));
             // The answer to an ability used outside a roll: the server paid its cost (a
             // refusal is action_rejected instead)
             if (get().abilityUseSent) set(state => ({ abilityUsed: { ability: state.abilityUseSent, at: Date.now() }, abilityUseSent: null }));
@@ -702,7 +743,7 @@ const useGameStore = create(
           }
           else if (message.type === 'trigger_scar') {
             set({
-              ...(get().heldMarks?.landing ? { heldMarks: null } : {}),
+              ...scarArrived(get(), message.payload.character_id, message.payload.mark_type),
               character: message.payload.character,
               showScarModal: true,
               scarModalData: { type: message.payload.mark_type, seq: nextScarForm() },
@@ -733,6 +774,14 @@ const useGameStore = create(
             }
             if (message.payload.action === 'use_ability') {
               set({ abilityUseError: message.payload.detail || 'That ability was not used.', abilityUseSent: null, abilityUsed: null });
+            }
+            // A mark the server refused does not land: the last one sent is no longer held
+            if (message.payload.action === 'take_mark') {
+              set((state) => {
+                const landing = state.heldMarks?.landing || [];
+                const last = landing.map(m => !m.answer).lastIndexOf(true);
+                return last < 0 ? {} : heldMarksAre({ ...state.heldMarks, landing: landing.filter((_, i) => i !== last) });
+              });
             }
             // A report refused (reports closed, or already filed): the form says why
             if (message.payload.action === 'submit_assignment_report') {
@@ -1014,12 +1063,12 @@ const useGameStore = create(
           }
           else if (message.type === 'ability_mark_offer') {
             const offer = { ...message.payload, seq: ++offerSeq, received_at: Date.now() };
-            set(state => ({ ...queueOffer(state, offer), ...(holdsOwnMark(offer) ? { heldMarks: heldMarksOf(offer) } : {}) }));
+            set(state => ({ ...queueOffer(state, offer), ...(holdsOwnMark(offer) ? offerHolds(state, offer) : {}) }));
           }
           else if (message.type === 'mark_offer_closed') {
             // The offer's mark landed because another mark came (backend marks.py
             // mark_or_offer): its card goes, so its countdown cannot land the mark again
-            set(state => ({ ...withoutOwnOffer(state), ...landingMarks(state) }));
+            set(state => ({ ...withoutOwnOffer(state), ...offerLets(state, false, state.heldMarks?.offer?.seq) }));
           }
           else if (message.type === 'ability_intercept_offer') {
             set(state => queueOffer(state, { ...message.payload, intercept: true, seq: ++offerSeq, received_at: Date.now() }));
@@ -1202,12 +1251,15 @@ const useGameStore = create(
         return true;
       },
 
-      resolveAbilityMark: (ability, choice) => {
+      // offerId: the server's id of an offer that holds this investigator's own mark, so an
+      // answer to one it has since closed is not taken for the next (backend marks.py)
+      resolveAbilityMark: (ability, choice, offerId) => {
         const { socket } = get();
-        // Used: the soak or Death Defy keeps the held marks off the sheet
-        set(state => ({ ...nextOffer(state), ...(holdsOwnMark(state.abilityMarkOffer) ? { heldMarks: null } : {}) }));
+        // Used: its marks stay held until the answer, which keeps them off the sheet or lands them
+        set(state => ({ ...nextOffer(state),
+          ...(holdsOwnMark(state.abilityMarkOffer) ? offerLets(state, true, state.abilityMarkOffer.seq) : {}) }));
         if (socket?.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: 'resolve_ability_mark', payload: { ability, choice } }));
+          socket.send(JSON.stringify({ type: 'resolve_ability_mark', payload: { ability, choice, offer_id: offerId } }));
         }
       },
 
@@ -1252,11 +1304,11 @@ const useGameStore = create(
       // (or letting its countdown run out) tells the server, which lets the mark land.
       declineAbilityMark: (offer) => {
         const { socket } = get();
-        set(state => ({ ...nextOffer(state), ...(holdsOwnMark(offer) ? landingMarks(state) : {}) }));
+        set(state => ({ ...nextOffer(state), ...(holdsOwnMark(offer) ? offerLets(state, false, offer.seq) : {}) }));
         if (offer && socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'resolve_ability_mark',
-            payload: { ability: offer.ability, choice: 'decline', mark_type: offer.mark_type },
+            payload: { ability: offer.ability, choice: 'decline', mark_type: offer.mark_type, offer_id: offer.offer_id },
           }));
         }
       },
@@ -1288,14 +1340,21 @@ const useGameStore = create(
         }
       },
 
-      // Resolves to whether the mark went out, so the sheet can say when it did not.
-      takeMark: (markType) => {
+      // Resolves to whether the mark went out, so the sheet can say when it did not. A mark
+      // that went out is on its way: its box stays held until the table answers. undoId: the
+      // sheet's hold it comes from (useMarkUndo), so the sheet does not count it twice.
+      takeMark: (markType, undoId) => {
         const { socket } = get();
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'take_mark',
             payload: { mark_type: markType }
           }));
+          set((state) => {
+            const characterId = state.character?.id;
+            const held = state.heldMarks?.characterId === characterId ? state.heldMarks : { characterId, offer: null, landing: [] };
+            return { heldMarks: { ...held, landing: [...held.landing, { type: markType, answer: false, undoId }] } };
+          });
           return true;
         }
         return false;

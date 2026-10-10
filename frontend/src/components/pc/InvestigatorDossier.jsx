@@ -473,15 +473,21 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     return null;
   };
   const { held: heldMark, hold: holdMark, undo: undoMark, flush: flushMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
-  // The marks an open soak or Death Defy offer holds back (store heldMarks): drawn held,
-  // like a mark waiting for its Undo, until the offer is answered and the sheet has them
-  const offerHeld = useGameStore(s => s.heldMarks);
-  const heldByOffer = !readOnly && offerHeld && offerHeld.characterId === character?.id ? offerHeld : null;
+  // The marks an open soak or Death Defy offer holds back, and those on their way to the
+  // sheet (store heldMarks): drawn held, like a mark waiting for its Undo, until the sheet
+  // has them
+  const storeHeld = useGameStore(s => s.heldMarks);
+  const tableHeld = !readOnly && storeHeld && storeHeld.characterId === character?.id ? storeHeld : null;
+  const heldOffer = tableHeld?.offer || null;
+  // (a mark the Undo has just sent counts as the Undo's until the Undo lets it go)
+  const tableHolds = (type) => (tableHeld ? [...(heldOffer?.types || []),
+    ...tableHeld.landing.filter(m => m.undoId == null || m.undoId !== heldMark?.id).map(m => m.type)]
+    .filter(t => t === type).length : 0);
   // Death Defy escapes every mark of one harm (p. 27): a mark still held for undo when its
   // offer appears goes now, so it joins the harm the offer counts
   useEffect(() => {
-    if (heldByOffer?.ability === 'Death Defy' && !heldByOffer.landing && heldByOffer.characterId === storeChar?.id) flushMark();
-  }, [heldByOffer?.seq]);
+    if (heldOffer?.ability === 'Death Defy' && tableHeld.characterId === storeChar?.id) flushMark();
+  }, [heldOffer?.seq]);
   // The player's own photo: the answer to a change is the sheet as the table now has it
   const photoInputRef = useRef(null);
   const portrait = usePortraitChange({
@@ -573,9 +579,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The trauma record in edit mode (the Lightkeeper's copy): each change goes to the table
   // at once; Done also saves scar words changed and not yet saved
   const editing = !!traumaEdit && editingTrauma;
-  // The mark waiting for its Undo fills its track, after any an offer holds: a scar
-  const undoFillsTrack = !!heldMark && (character[`${heldMark.type}_marks`] || 0)
-    + (heldByOffer ? heldByOffer.types.filter(t => t === heldMark.type).length : 0) >= 3;
+  // The mark waiting for its Undo fills its track, after any the table holds: a scar
+  const undoFillsTrack = !!heldMark && (character[`${heldMark.type}_marks`] || 0) + tableHolds(heldMark.type) >= 3;
   // Deal a mark (the Lightkeeper's copy): whether an enemy dealt it, and the last one sent
   const [dealFromEnemy, setDealFromEnemy] = useState(true);
   const [dealtNote, setDealtNote] = useState('');
@@ -1162,17 +1167,17 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <SafeIcon name="GiBleedingEye" size={20} className="text-oxblood shrink-0" /> Marks
             </h3>
             {/* Each box is its own target: only the next empty box takes a mark. A mark is
-                held for a few seconds with an Undo before it goes to the table, and while a
-                soak or Death Defy offer holds it there; a held mark's box is drawn half
-                inked with a dashed edge. In the Lightkeeper's edit, any box sets the track:
-                to that box, or, for the last filled box, to the one before it. */}
+                held for a few seconds with an Undo before it goes to the table, while a soak
+                or Death Defy offer holds it there, and on its way until the sheet has it; a
+                held mark's box is drawn half inked with a dashed edge. In the Lightkeeper's
+                edit, any box sets the track: to that box, or, for the last filled box, to the
+                one before it. */}
             <div className={`mark-tracks flex flex-col ${readOnly && !editing ? 'gap-2' : 'gap-1'}`}>
               {['body', 'brain', 'bleed'].map((type) => {
                 const name = MARK_NAME[type];
                 const marked = character?.[`${type}_marks`] || 0;
                 const heldHere = !readOnly && heldMark?.type === type;
-                const offerHolds = heldByOffer ? heldByOffer.types.filter(t => t === type).length : 0;
-                const held = offerHolds + (heldHere ? 1 : 0);
+                const held = tableHolds(type) + (heldHere ? 1 : 0);
                 const next = marked + held; // index of the box the next tap fills
                 const trackFull = next >= 3;
                 // 44px targets on phones; on a wide record (index.css) the boxes keep to
@@ -1274,9 +1279,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             </div>
 
             {/* Marks an open soak or Death Defy offer holds, drawn held above: what holds them */}
-            {heldByOffer && !heldByOffer.landing && (
+            {heldOffer && (
               <p className="mark-held font-serif text-base text-ink leading-snug border border-dashed border-oxblood/40 px-3 py-2 rounded-sm">
-                {heldMarkWords(heldByOffer.types)} held for {heldByOffer.ability}.
+                {heldMarkWords(heldOffer.types)} held for {heldOffer.ability}.
               </p>
             )}
             {/* A mark waiting for its Undo is not on the record yet, and an investigator with a
@@ -1290,7 +1295,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 </p>
                 <button
                   onClick={undoMark}
-                  className="shrink-0 min-h-[40px] px-3 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood hover:bg-oxblood hover:text-cream rounded-sm transition-colors"
+                  className="shrink-0 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood hover:bg-oxblood hover:text-cream rounded-sm transition-colors"
                 >
                   Undo <span className="font-mono tabular-nums">{markSecondsLeft}s</span>
                 </button>

@@ -1,4 +1,6 @@
 """WebSocket harm: take_mark, resolve_ability_mark, intercept_mark, apply_scar, revive_character."""
+from unittest.mock import ANY
+
 import pytest
 
 import engine
@@ -76,7 +78,8 @@ def test_soak_offer_holds_the_mark_until_it_is_answered(client):
         ws.send("take_mark", mark_type="body")
         assert ws.sync() == [{"type": "ability_mark_offer", "payload": {
             "ability": "In the Trenches", "mark_type": "body", "character_id": ch["id"],
-            "options": [{"ability": "In the Trenches", "resist_key": "cunning"}], "action": "soak"}}]
+            "options": [{"ability": "In the Trenches", "resist_key": "cunning"}], "action": "soak",
+            "offer_id": ANY}}]
     assert support.fetch(Character, ch["id"]).body_marks == 1
 
 
@@ -117,7 +120,7 @@ def test_a_declined_soak_still_offers_death_defy_for_an_enemys_mark(client):
         ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body")
         assert ws.sync() == [{"type": "ability_mark_offer", "payload": {
             "ability": "Death Defy", "mark_type": "body", "character_id": ch["id"], "action": "escape", "count": 1,
-            "mark_types": ["body"]}}]
+            "mark_types": ["body"], "offer_id": ANY}}]
         ws.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body")
         msgs = ws.sync()
         assert msgs[0]["payload"]["body_marks"] == 1
@@ -163,7 +166,7 @@ def test_death_defy_offer_unless_not_from_an_enemy(client):
     ch = support.forge(client, specialty_ability="Death Defy")
     offer = [{"type": "ability_mark_offer", "payload": {
         "ability": "Death Defy", "mark_type": "bleed", "character_id": ch["id"], "action": "escape", "count": 1,
-        "mark_types": ["bleed"]}}]
+        "mark_types": ["bleed"], "offer_id": ANY}}]
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="bleed", is_from_enemy=True)
         assert ws.sync() == offer
@@ -206,7 +209,7 @@ def test_a_desk_that_opens_again_is_offered_the_held_mark(client):
         again.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body")
         [defy] = again.sync()
         assert defy["payload"] == {"ability": "Death Defy", "mark_type": "body", "character_id": ch["id"],
-                                   "action": "escape", "count": 1, "mark_types": ["body"]}
+                                   "action": "escape", "count": 1, "mark_types": ["body"], "offer_id": ANY}
     with support.ws_connect(client, ch["id"]) as third:
         assert third.recv() == defy   # the offer open now, not the soak answered before
         third.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body")
@@ -225,18 +228,88 @@ def test_a_held_mark_that_lands_early_closes_its_offer(client):
     ch = support.forge(client, cunning_max=3, specialty_ability="In the Trenches")
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="body", is_from_enemy=False)
-        ws.sync()
+        [offer] = ws.sync()
         ws.send("take_mark", mark_type="bleed", is_from_enemy=False)
         msgs = ws.sync()
         assert support.types(msgs) == ["mark_offer_closed", "character_update", "activity_log",
                                        "character_update", "activity_log"]
         assert msgs[0]["payload"] == {"character_id": ch["id"], "ability": "In the Trenches", "mark_type": "body"}
         assert (msgs[1]["payload"]["body_marks"], msgs[3]["payload"]["bleed_marks"]) == (1, 1)
+        # A card that answers anyway (the closing came too late) names a closed offer
+        ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body",
+                offer_id=offer["payload"]["offer_id"])
+        assert ws.sync() == []
         # Answered or not, a closed offer is not offered again
     with support.ws_connect(client, ch["id"]) as again:
         assert support.types(again.sync()) == ["activity_history"]
     row = support.fetch(Character, ch["id"])
     assert (row.body_marks, row.bleed_marks) == (1, 1)
+
+
+def test_an_answer_to_a_closed_offer_is_ignored(client):
+    """Fixed (review of mark-undo-then-death-defy): mark_offer_closed helps only a desk that
+    reads it before it answers. A "Take the mark" already on its way when the offer closed
+    answered the next held mark: it landed the Brain mark the soak held, as "passed on
+    Death Defy", and the soak's own card then landed it again by the restart rule. Each
+    offer has an id, and an answer to one the server no longer holds is ignored."""
+    ch = support.forge(client, nerve_max=3, role_ability="Death Defy", specialty_ability="Compartmentalization")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", is_from_enemy=True)
+        [defy] = ws.sync()
+        assert defy["payload"]["ability"] == "Death Defy"
+        assert defy["payload"]["offer_id"].startswith(f"{marks._BOOT}.")
+        # The Lightkeeper deals a Brain mark, not an enemy's: the held Body mark lands first
+        ws.send("take_mark", mark_type="brain", is_from_enemy=False)
+        msgs = ws.sync()
+        assert support.types(msgs) == ["mark_offer_closed", "character_update", "activity_log", "ability_mark_offer"]
+        soak = msgs[-1]["payload"]
+        assert (soak["ability"], soak["action"]) == ("Compartmentalization", "soak")
+        assert soak["offer_id"] != defy["payload"]["offer_id"]
+        # The player's answers to the Death Defy card, sent before the closing reached them
+        ws.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body",
+                offer_id=defy["payload"]["offer_id"])
+        ws.send("resolve_ability_mark", ability="Death Defy", choice="escape", offer_id=defy["payload"]["offer_id"])
+        assert ws.sync() == []
+        # The soak's own card answers it: the Brain mark lands once
+        ws.send("resolve_ability_mark", ability="Compartmentalization", choice="decline", mark_type="brain",
+                offer_id=soak["offer_id"])
+        assert [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"] == [
+            f"{ch['name']} passed on Compartmentalization and took a Brain mark (1 of 3)."]
+        # A second desk's card for it, answered after the first: nothing is held now
+        ws.send("resolve_ability_mark", ability="Compartmentalization", choice="decline", mark_type="brain",
+                offer_id=soak["offer_id"])
+        assert ws.sync() == []
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.brain_marks, row.nerve_resistance_spent, row.ability_uses) == (1, 1, 0, {})
+
+
+def test_an_answer_to_a_death_defy_offer_counted_again_is_ignored(client):
+    """A Death Defy offer that counts another mark of the harm is a new offer: an answer to
+    the one before it (the player passed on one mark, not two) waits for the new card."""
+    ch = support.forge(client, specialty_ability="Death Defy")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", is_from_enemy=True)
+        ws.send("take_mark", mark_type="bleed", is_from_enemy=True)
+        first, second = [m["payload"] for m in ws.sync()]
+        assert (first["count"], second["count"]) == (1, 2) and first["offer_id"] != second["offer_id"]
+        ws.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body",
+                offer_id=first["offer_id"])
+        assert ws.sync() == []
+        ws.send("resolve_ability_mark", ability="Death Defy", choice="escape", offer_id=second["offer_id"])
+        assert ws.sync()[1]["payload"]["message"] == f"{ch['name']} used Death Defy {EM} escaped 2 marks unscathed!"
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.bleed_marks, row.ability_uses) == (0, 0, {"Death Defy": 1})
+
+
+def test_an_answer_from_before_a_restart_still_lands_its_mark(client):
+    """The restart rule stays: with nothing held, an answer whose offer_id is not this
+    process's (the server restarted with the card open) lands the mark it names."""
+    ch = support.forge(client, cunning_max=3, specialty_ability="In the Trenches")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body",
+                offer_id="0000ffff.7")
+        assert support.types(ws.sync()) == ["character_update", "activity_log"]
+    assert support.fetch(Character, ch["id"]).body_marks == 1
 
 
 def test_endurance_six_keeps_the_character_standing(client, dice):
@@ -863,7 +936,8 @@ def test_brain_soak_offers_what_is_left(client):
         ws.send("take_mark", mark_type="brain")
         assert ws.sync() == [{"type": "ability_mark_offer", "payload": {
             "ability": "Steel Mind", "mark_type": "brain", "character_id": ch["id"],
-            "options": [{"ability": "Steel Mind", "resist_key": "intuition"}], "action": "soak"}}]
+            "options": [{"ability": "Steel Mind", "resist_key": "intuition"}], "action": "soak",
+            "offer_id": ANY}}]
 
 
 def test_body_soak_ignores_brain_abilities_and_brain_ignores_body(client):
@@ -901,7 +975,8 @@ def test_intercept_offers_interceptor_a_soak_that_holds_the_mark(client, soak, m
         assert msgs[0]["payload"]["message"] == f"{guard['name']} used Behind Me to intercept a mark for {target['name']}!"
         resist = {"In the Trenches": "cunning", "Compartmentalization": "nerve", "Steel Mind": "intuition"}[soak]
         assert msgs[1]["payload"] == {"ability": soak, "mark_type": mark_type, "character_id": guard["id"],
-                                      "options": [{"ability": soak, "resist_key": resist}], "action": "soak"}
+                                      "options": [{"ability": soak, "resist_key": resist}], "action": "soak",
+                                      "offer_id": ANY}
         g = support.fetch(Character, guard["id"])
         assert (g.nerve_current, getattr(g, f"{mark_type}_marks")) == (1, 0)
         assert getattr(support.fetch(Character, target["id"]), f"{mark_type}_marks") == 1

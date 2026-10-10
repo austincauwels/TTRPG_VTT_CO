@@ -155,6 +155,13 @@ WS_MESSAGE_TYPES = [
 ]
 
 
+def _take_a_held_mark(ctx, ws):
+    """The player takes a mark an offer holds (Death Defy's), and keeps the offer's id."""
+    ws.send("take_mark", mark_type="body")
+    [offer] = ws.sync()
+    ctx.offer_id = offer["payload"]["offer_id"]
+
+
 def _propose_first(ctx, ws):
     """The other member proposes to the player's character (over REST, as its owner)."""
     r = support.CLIENT.post("/circle/relationship/propose", json={
@@ -199,9 +206,11 @@ WS_CASES = {
         payload=lambda c: {"ability": "Flourish"}, expect=["character_update", "activity_log"]),
     "update_pen_font": dict(payload=lambda c: {"pen_font": "Kalam"}, expect=["character_update"]),
     "take_mark": dict(payload=lambda c: {"mark_type": "body"}, expect=["character_update", "activity_log"]),
+    # Death Defy used on the mark its offer holds, named by the offer's id (handlers/marks.py)
     "resolve_ability_mark": dict(
-        fields={"specialty_ability": "Death Defy"},
-        payload=lambda c: {"ability": "Death Defy"}, expect=["character_update", "activity_log"]),
+        fields={"specialty_ability": "Death Defy"}, after_connect=_take_a_held_mark,
+        payload=lambda c: {"ability": "Death Defy", "choice": "escape", "offer_id": c.offer_id},
+        expect=["character_update", "activity_log"]),
     "intercept_mark": dict(
         fields={"role_ability": "Premonitions", "intuition_max": 3},
         # an ally's mark offered to the table (intercepts answer an offered mark)

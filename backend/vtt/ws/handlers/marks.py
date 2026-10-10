@@ -21,6 +21,13 @@ lands because another mark came, the desk is told the offer is closed
 (mark_offer_closed), so its card does not stay up and land the mark a second time when
 its countdown runs out.
 
+Each offer that holds a mark has an offer_id, which the desk sends back with its answer.
+An answer already on its way when the offer closed, one to an offer already answered, or
+one to a Death Defy offer since counted again names an offer the server no longer holds,
+and is ignored (_stale_answer): it used to answer the next held mark, or with nothing
+held land its mark again. The id starts with this process's own (_BOOT), so an answer
+from before a restart is still told apart, and lands the mark it names.
+
 A mark that sends the allies Behind Me and Premonitions offers opens one answer
 (_interceptable, for INTERCEPT_WINDOW seconds): the first ally to answer takes it, and
 later answers, or answers with no mark waiting, are refused, so one mark is never
@@ -31,6 +38,7 @@ Lightkeeper, or taken for an ally with Behind Me) writes a line in the Activity 
 the track's count, and names the offer the player passed on. A mark taken as an
 ability's cost does not: the use's own line names it (playtest, self-mark-no-log).
 """
+import itertools
 import secrets
 import time
 
@@ -54,9 +62,14 @@ SOAKS = {
 }
 SOAK_RESISTANCE = {name: drive for options in SOAKS.values() for name, drive in options}
 ONCE_PER_ASSIGNMENT = {"Compartmentalization": 1, "Steel Mind": 1, "In the Trenches": 1, "Death Defy": 1}
+# The offers that hold the character's own mark until they are answered
+HOLDS_A_MARK = {"Circle of Protection", "Death Defy", *SOAK_RESISTANCE}
 
 # character id -> the mark an open soak or Death Defy offer holds back
 _pending_marks: dict = {}
+# The ids of the offers that hold a mark: this process's own, then a count
+_BOOT = secrets.token_hex(4)
+_offer_ids = itertools.count(1)
 # Characters whose fourth mark asked for a scar not yet recorded (handle_apply_scar
 # clears it). Resuscitation reads it: a scar still waiting counts. In memory only.
 awaiting_scar: set = set()
@@ -261,9 +274,23 @@ async def _land(ctx, character, held, channel, passed_on=None):
 
 
 async def _offer(channel, held, offer):
-    """Sends an offer that holds the character's mark, kept with it for send_held_mark."""
-    held["offer"] = offer
+    """Sends an offer that holds the character's mark, kept with it for send_held_mark.
+    Each is a new offer with its own offer_id, a Death Defy offer counted again too."""
+    held["offer"] = offer = {**offer, "offer_id": f"{_BOOT}.{next(_offer_ids)}"}
     await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": offer})
+
+
+def _stale_answer(character, payload) -> bool:
+    """The answer names an offer the server no longer holds (see the module's docstring).
+    One without an offer_id (a desk loaded before ids) is taken as it always was, and so
+    is one from before a restart when nothing is held (the restart rule)."""
+    offer_id = payload.get("offer_id")
+    if not isinstance(offer_id, str):
+        return False
+    held = _pending_marks.get(character.id)
+    if held:
+        return held.get("offer", {}).get("offer_id") != offer_id
+    return offer_id.startswith(f"{_BOOT}.")
 
 
 async def _offer_defy(character, channel, held):
@@ -394,6 +421,9 @@ async def handle_resolve_ability_mark(ctx):
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await _log(ctx, character, f"{character.name} recovered 1 {choice.capitalize()} (Non-Combatant).")
+        return
+    if ab_name in HOLDS_A_MARK and _stale_answer(character, payload):
+        # Its mark has landed, or waits for the offer that replaced it: nothing to answer
         return
     if ab_name == "Circle of Protection":
         # The ward an ally's Ritual put around them: it is theirs to use, not an ability
