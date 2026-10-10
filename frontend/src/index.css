@@ -138,10 +138,6 @@
     background-color: rgb(var(--c-oxblood));
     border-color: rgb(var(--c-oxblood));
   }
-  .action-pip.gilded {
-    background-color: rgb(var(--c-candle-gold));
-    border-color: rgb(var(--c-sepia));
-  }
   .animate-dieTumble {
     /* Using a cubic-bezier for a snappy, heavy drop effect */
     animation: dieTumble 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
