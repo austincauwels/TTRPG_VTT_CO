@@ -8,11 +8,14 @@ export const MARK_NAME = { body: 'Body', brain: 'Brain', bleed: 'Bleed' };
 // mis-tap can be undone: the server has no message that removes a mark. Taking another mark
 // sends the held one at once. Leaving the sheet or closing the page sends a held mark
 // rather than dropping it, because the player did mean to take it. flush sends it now.
+// takeMark(type, id) gets the hold's id, which the store keeps with the mark on its way, so
+// a render that has the store's copy and not yet this hook's release counts the mark once.
+let holdSeq = 0;
 export const useMarkUndo = (takeMark) => {
-  const heldRef = useRef(null);          // { type, timer }
+  const heldRef = useRef(null);          // { type, timer, id }
   const takeMarkRef = useRef(takeMark);
   takeMarkRef.current = takeMark;
-  const [held, setHeld] = useState(null); // { type, until }
+  const [held, setHeld] = useState(null); // { type, until, id }
   const [now, setNow] = useState(() => Date.now());
   const [sendError, setSendError] = useState('');
 
@@ -22,7 +25,7 @@ export const useMarkUndo = (takeMark) => {
     clearTimeout(h.timer);
     heldRef.current = null;
     setHeld(null);
-    const ok = takeMarkRef.current(h.type);
+    const ok = takeMarkRef.current(h.type, h.id);
     setSendError(ok === false
       ? `The ${MARK_NAME[h.type]} mark was not taken: the desk is not connected to the table. Take it again once the connection is back.`
       : '');
@@ -32,8 +35,9 @@ export const useMarkUndo = (takeMark) => {
     send();
     setSendError('');
     const until = Date.now() + MARK_UNDO_SECONDS * 1000;
-    heldRef.current = { type, timer: setTimeout(send, MARK_UNDO_SECONDS * 1000) };
-    setHeld({ type, until });
+    holdSeq += 1;
+    heldRef.current = { type, timer: setTimeout(send, MARK_UNDO_SECONDS * 1000), id: holdSeq };
+    setHeld({ type, until, id: holdSeq });
     setNow(Date.now());
   };
 

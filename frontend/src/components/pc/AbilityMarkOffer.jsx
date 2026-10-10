@@ -87,7 +87,8 @@ export const AbilityMarkOffer = () => {
   const holdsOwnMark = !!config && !config.isIntercept && (offer.action === 'soak' || offer.action === 'escape');
   const holdsRef = useRef(null);
   holdsRef.current = holdsOwnMark ? offer : null;
-  const passUp = () => (holdsRef.current ? declineAbilityMark(holdsRef.current) : dismissAbilityMarkOffer());
+  // timedOut: the countdown ran out, which the log does not call the player's choice
+  const passUp = (timedOut = false) => (holdsRef.current ? declineAbilityMark(holdsRef.current, timedOut) : dismissAbilityMarkOffer());
 
   const windowed = Number.isFinite(offer?.expires_in);
   const autoDismissSeconds = windowed ? Math.max(1, offer.expires_in - WINDOW_MARGIN_SECONDS)
@@ -100,7 +101,7 @@ export const AbilityMarkOffer = () => {
       const deadline = (offer.received_at ?? Date.now()) + autoDismissSeconds * 1000;
       const tick = () => {
         const left = Math.ceil((deadline - Date.now()) / 1000);
-        if (left <= 0) { setTimeLeft(null); passUp(); return false; }
+        if (left <= 0) { setTimeLeft(null); passUp(true); return false; }
         setTimeLeft(left);
         return true;
       };
@@ -113,7 +114,7 @@ export const AbilityMarkOffer = () => {
       if (pausedRef.current) return;
       setTimeLeft(prev => {
         if (prev == null) return prev;
-        if (prev <= 1) { passUp(); return null; }
+        if (prev <= 1) { passUp(true); return null; }
         return prev - 1;
       });
     }, 1000);
@@ -158,7 +159,8 @@ export const AbilityMarkOffer = () => {
     } else if (offer.action === 'info') {
       dismissAbilityMarkOffer();
     } else {
-      resolveAbilityMark(offer.ability, offer.action);
+      // The offer's id goes back with the answer: one the server has since closed is ignored
+      resolveAbilityMark(offer.ability, offer.action, offer.offer_id);
     }
     setDriveChoice(null);
   };
@@ -222,15 +224,15 @@ export const AbilityMarkOffer = () => {
               ref={offer.action === 'drive_refresh' ? undefined : primaryRef}
               onClick={handleAccept}
               disabled={offer.action === 'drive_refresh' && !driveChoice}
-              className="flex-1 min-h-[40px] py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-oxblood border border-ink text-cream hover:brightness-125 transition rounded-sm disabled:opacity-40"
+              className="flex-1 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-oxblood border border-ink text-cream hover:brightness-125 transition rounded-sm disabled:opacity-40"
             >
               {config.isIntercept ? 'Intercept' : 'Use'}
             </button>
           )}
           {offer.action === 'info' && <span className="flex-1" aria-hidden="true" />}
           <button
-            onClick={passUp}
-            className="min-h-[40px] px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-widest border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm"
+            onClick={() => passUp()}
+            className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-widest border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm"
           >
             {offer.action === 'info' ? 'Close' : holdsOwnMark ? 'Take the mark' : 'Not now'}
           </button>

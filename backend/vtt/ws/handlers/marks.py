@@ -15,11 +15,30 @@ _pending_marks while an offer is open: using the ability spends it, and declinin
 (_pending_rush). Both are in memory: after a restart an open offer's decline still
 lands the mark it names, and an Adrenaline Rush offer is gone.
 
+The desk draws a held mark as held, not taken, while its offer is open. A desk that
+opens while a mark is held gets its offer again (send_held_mark), and when a held mark
+lands because another mark came, the desk is told the offer is closed
+(mark_offer_closed), so its card does not stay up and land the mark a second time when
+its countdown runs out.
+
+Each offer that holds a mark has an offer_id, which the desk sends back with its answer.
+An answer already on its way when the offer closed, one to an offer already answered, or
+one to a Death Defy offer since counted again names an offer the server no longer holds,
+and is ignored (_stale_answer): it used to answer the next held mark, or with nothing
+held land its mark again. The id starts with this process's own (_BOOT), so an answer
+from before a restart is still told apart, and lands the mark it names.
+
 A mark that sends the allies Behind Me and Premonitions offers opens one answer
 (_interceptable, for INTERCEPT_WINDOW seconds): the first ally to answer takes it, and
 later answers, or answers with no mark waiting, are refused, so one mark is never
 removed twice.
+
+A mark that lands through mark_or_offer (one taken on the sheet, dealt by the
+Lightkeeper, or taken for an ally with Behind Me) writes a line in the Activity Log with
+the track's count, and names the offer the player passed on. A mark taken as an
+ability's cost does not: the use's own line names it (playtest, self-mark-no-log).
 """
+import itertools
 import secrets
 import time
 
@@ -43,9 +62,14 @@ SOAKS = {
 }
 SOAK_RESISTANCE = {name: drive for options in SOAKS.values() for name, drive in options}
 ONCE_PER_ASSIGNMENT = {"Compartmentalization": 1, "Steel Mind": 1, "In the Trenches": 1, "Death Defy": 1}
+# The offers that hold the character's own mark until they are answered
+HOLDS_A_MARK = {"Circle of Protection", "Death Defy", *SOAK_RESISTANCE}
 
 # character id -> the mark an open soak or Death Defy offer holds back
 _pending_marks: dict = {}
+# The ids of the offers that hold a mark: this process's own, then a count
+_BOOT = secrets.token_hex(4)
+_offer_ids = itertools.count(1)
 # Characters whose fourth mark asked for a scar not yet recorded (handle_apply_scar
 # clears it). Resuscitation reads it: a scar still waiting counts. In memory only.
 awaiting_scar: set = set()
@@ -123,12 +147,34 @@ async def _offer_rush(character, channel, m_type):
         "ability": "Adrenaline Rush", "mark_type": m_type, "character_id": character.id, "action": "drive_refresh"}})
 
 
-async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True):
-    """The mark lands on the character, whose channel is channel. Commits."""
+def _taken(character, m_type, val, passed_on=None) -> str:
+    """The log's line for a mark that lands: "Iris took a Body mark (2 of 3).", or "took a
+    fourth Body mark." when the track was full. passed_on says how the offer before it was
+    let go ("passed on Death Defy", "let Death Defy run out", _let_go)."""
+    took = f"took a fourth {m_type.capitalize()} mark" if val >= 4 \
+        else f"took a {m_type.capitalize()} mark ({val} of 3)"
+    return f"{character.name} " + (f"{passed_on} and " if passed_on else "") + took + "."
+
+
+def _let_go(ability, payload) -> str:
+    """How the log says an offer was let go: the player's "Take the mark", or its countdown
+    running out (the desk sends timed_out), which is not the player's choice."""
+    return f"let {ability} run out" if payload.get("timed_out") is True else f"passed on {ability}"
+
+
+async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True, announce=False, passed_on=None):
+    """The mark lands on the character, whose channel is channel. Commits.
+
+    announce: the log says so, with the track's count (_taken). mark_or_offer announces
+    every mark; an ability that takes a mark as its cost does not, since its use's own
+    line names the mark. passed_on says how the offer before it was let go (_taken)."""
     db = ctx.db
     abilities = abilities_of(character)
     val = (getattr(character, f"{m_type}_marks", 0) or 0) + 1
 
+    if val >= 4 and announce:
+        # Before Endurance's roll or the incapacitation, which follow from it
+        await _log(ctx, character, _taken(character, m_type, val, passed_on))
     if val >= 4 and "Endurance" in abilities:
         # Endurance (p. 27): roll a die per Nerve resistance point left; a 6 keeps them standing
         remaining = resistance_left(character, "nerve")
@@ -159,6 +205,8 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True):
     setattr(character, f"{m_type}_marks", val)
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+    if announce:
+        await _log(ctx, character, _taken(character, m_type, val, passed_on))
 
     await _after_mark_taken(ctx, character, channel, m_type, abilities)
     if offer_intercepts:
@@ -224,28 +272,64 @@ async def _offer_intercepts(ctx, character, m_type):
                 "character_name": character.name, "action": "soak", "expires_in": INTERCEPT_WINDOW}})
 
 
-async def _land(ctx, character, held, channel):
-    """The marks an offer held: its own, and any more of the same harm (Death Defy)."""
-    for m_type in [held["mark_type"], *held.get("more", [])]:
-        await apply_mark(ctx, character, m_type, channel, held["offer_intercepts"])
+async def _land(ctx, character, held, channel, passed_on=None):
+    """The marks an offer held: its own, and any more of the same harm (Death Defy). The
+    first one's log line names the offer let go."""
+    for i, m_type in enumerate([held["mark_type"], *held.get("more", [])]):
+        await apply_mark(ctx, character, m_type, channel, held["offer_intercepts"],
+                         announce=True, passed_on=None if i else passed_on)
+
+
+async def _offer(channel, held, offer):
+    """Sends an offer that holds the character's mark, kept with it for send_held_mark.
+    Each is a new offer with its own offer_id, a Death Defy offer counted again too."""
+    held["offer"] = offer = {**offer, "offer_id": f"{_BOOT}.{next(_offer_ids)}"}
+    await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": offer})
+
+
+def _stale_answer(character, payload) -> bool:
+    """The answer names an offer the server no longer holds (see the module's docstring).
+    One without an offer_id (a desk loaded before ids) is taken as it always was, and so
+    is one from before a restart when nothing is held (the restart rule)."""
+    offer_id = payload.get("offer_id")
+    if not isinstance(offer_id, str):
+        return False
+    held = _pending_marks.get(character.id)
+    if held:
+        return held.get("offer", {}).get("offer_id") != offer_id
+    return offer_id.startswith(f"{_BOOT}.")
 
 
 async def _offer_defy(character, channel, held):
-    count = 1 + len(held.get("more", []))
-    await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {
+    # mark_types: every mark of the harm, so the desk draws each one held
+    types = [held["mark_type"], *held.get("more", [])]
+    await _offer(channel, held, {
         "ability": "Death Defy", "mark_type": held["mark_type"], "character_id": character.id,
-        "action": "escape", "count": count}})
+        "action": "escape", "count": len(types), "mark_types": types})
+
+
+async def send_held_mark(websocket, character):
+    """A desk that opens while an offer holds the character's mark (a reload, the player
+    back on another device, a dropped connection) gets that offer again, so the sheet
+    draws the mark held and the offer's countdown can still land it. Before, the mark
+    waited unseen, with no countdown, until the character's next mark landed it."""
+    held = _pending_marks.get(character.id)
+    if held and held.get("offer"):
+        await websocket.send_json({"type": "ability_mark_offer", "payload": held["offer"]})
 
 
 async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False, offer_intercepts=True,
-                        soaks=True):
+                        soaks=True, passed_on=None):
     """take_mark's flow: a soak offer, then Death Defy for an enemy's mark, then the mark.
     A mark an open offer still holds lands first, as if that offer were declined (a new
     mark, or Behind Me taking an ally's mark, used to replace it, and it was lost).
 
     Death Defy escapes "1 or more marks from an enemy" (p. 27): another enemy mark that
     arrives while it is offered is taken as part of the same harm. It waits with the
-    first, the offer counts it, and one use escapes them all."""
+    first, the offer counts it, and one use escapes them all.
+
+    Every mark that lands here is announced in the log (apply_mark); passed_on says how
+    the soak before it was let go (_let_the_mark_land)."""
     held = _pending_marks.pop(character.id, None)
     if held and held.get("stage") == "escape" and is_from_enemy:
         held["more"] = [*held.get("more", []), m_type]
@@ -253,21 +337,25 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
         await _offer_defy(character, channel, held)
         return
     if held:
+        # The desk's card for it closes: answered later, it would land the mark again
+        await manager.broadcast(channel, {"type": "mark_offer_closed", "payload": {
+            "character_id": character.id, "ability": held.get("offer", {}).get("ability"),
+            "mark_type": held["mark_type"]}})
         await _land(ctx, character, held, channel)
     pending = {"mark_type": m_type, "is_from_enemy": bool(is_from_enemy), "offer_intercepts": offer_intercepts}
     options = _soak_options(character, m_type) if soaks else []
     if options:
         _pending_marks[character.id] = {**pending, "stage": "soak"}
-        await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": {
+        await _offer(channel, _pending_marks[character.id], {
             "ability": options[0]["ability"], "mark_type": m_type, "character_id": character.id,
-            "options": options, "action": "soak"}})
+            "options": options, "action": "soak"})
         return
     if is_from_enemy and _can_defy(character):
         _pending_marks[character.id] = {**pending, "stage": "escape"}
         await _offer_defy(character, channel, _pending_marks[character.id])
         return
     _pending_marks.pop(character.id, None)
-    await apply_mark(ctx, character, m_type, channel, offer_intercepts)
+    await apply_mark(ctx, character, m_type, channel, offer_intercepts, announce=True, passed_on=passed_on)
 
 
 async def handle_take_mark(ctx):
@@ -286,7 +374,7 @@ async def handle_take_mark(ctx):
             # lands now, with what follows any mark (the allies' offers, a scar at four)
             await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark. "
                                        "Their desk is closed, so it landed without a soak or Death Defy.", "danger")
-            await apply_mark(ctx, character, m_type, key)
+            await apply_mark(ctx, character, m_type, key, announce=True)
             return
         await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark.", "danger")
         await mark_or_offer(ctx, character, m_type, key,
@@ -300,10 +388,12 @@ async def handle_take_mark(ctx):
                             is_from_enemy=ctx.payload.get("is_from_enemy") is not False)
 
 
-async def _let_the_mark_land(ctx, character, payload, after):
+async def _let_the_mark_land(ctx, character, payload, after, declined=None):
     """A declined soak or Death Defy: the held mark goes on (after a declined soak, Death
     Defy can still be offered for an enemy's mark). Without a held mark (a restart),
-    the payload's mark_type lands."""
+    the payload's mark_type lands. declined is the ability the player let go, which the
+    log names (None when the server refused it)."""
+    passed_on = _let_go(declined, payload) if declined else None
     pending = _pending_marks.pop(character.id, None)
     if pending is None:
         m_type = payload.get("mark_type")
@@ -312,9 +402,10 @@ async def _let_the_mark_land(ctx, character, payload, after):
         pending = {"mark_type": m_type, "is_from_enemy": False, "offer_intercepts": True}
     if after == "soak":
         await mark_or_offer(ctx, character, pending["mark_type"], ctx.channel, soaks=False,
-                            is_from_enemy=pending["is_from_enemy"], offer_intercepts=pending["offer_intercepts"])
+                            is_from_enemy=pending["is_from_enemy"], offer_intercepts=pending["offer_intercepts"],
+                            passed_on=passed_on)
     else:
-        await _land(ctx, character, pending, ctx.channel)
+        await _land(ctx, character, pending, ctx.channel, passed_on)
 
 
 async def handle_resolve_ability_mark(ctx):
@@ -339,10 +430,13 @@ async def handle_resolve_ability_mark(ctx):
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await _log(ctx, character, f"{character.name} recovered 1 {choice.capitalize()} (Non-Combatant).")
         return
+    if ab_name in HOLDS_A_MARK and _stale_answer(character, payload):
+        # Its mark has landed, or waits for the offer that replaced it: nothing to answer
+        return
     if ab_name == "Circle of Protection":
         # The ward an ally's Ritual put around them: it is theirs to use, not an ability
         if choice == "decline":
-            await _let_the_mark_land(ctx, character, payload, "soak")
+            await _let_the_mark_land(ctx, character, payload, "soak", ab_name)
             return
         held = _pending_marks.get(character.id)
         if uses_of(character, WARD) < 1 or not held or held["mark_type"] != "body":
@@ -374,7 +468,7 @@ async def handle_resolve_ability_mark(ctx):
 
     elif ab_name in SOAK_RESISTANCE:
         if choice == "decline":
-            await _let_the_mark_land(ctx, character, payload, "soak")
+            await _let_the_mark_land(ctx, character, payload, "soak", ab_name)
             return
         if not can_soak(character, ab_name):
             await _refuse(ctx, "resolve_ability_mark", 409,
@@ -394,7 +488,8 @@ async def handle_resolve_ability_mark(ctx):
     elif ab_name == "Death Defy":
         if choice == "decline" or not _can_defy(character):
             if choice == "decline" or character.id in _pending_marks:
-                await _let_the_mark_land(ctx, character, payload, "escape")
+                await _let_the_mark_land(ctx, character, payload, "escape",
+                                         ab_name if choice == "decline" else None)
             return
         count_use(character, "Death Defy")
         escaped = _pending_marks.pop(character.id, None)

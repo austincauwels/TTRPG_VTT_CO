@@ -155,6 +155,13 @@ WS_MESSAGE_TYPES = [
 ]
 
 
+def _take_a_held_mark(ctx, ws):
+    """The player takes a mark an offer holds (Death Defy's), and keeps the offer's id."""
+    ws.send("take_mark", mark_type="body")
+    [offer] = ws.sync()
+    ctx.offer_id = offer["payload"]["offer_id"]
+
+
 def _propose_first(ctx, ws):
     """The other member proposes to the player's character (over REST, as its owner)."""
     r = support.CLIENT.post("/circle/relationship/propose", json={
@@ -198,10 +205,12 @@ WS_CASES = {
         after_connect=lambda c, ws: (ws.send("roll", action="sneak", drive_spent=0), ws.sync()),
         payload=lambda c: {"ability": "Flourish"}, expect=["character_update", "activity_log"]),
     "update_pen_font": dict(payload=lambda c: {"pen_font": "Kalam"}, expect=["character_update"]),
-    "take_mark": dict(payload=lambda c: {"mark_type": "body"}, expect=["character_update"]),
+    "take_mark": dict(payload=lambda c: {"mark_type": "body"}, expect=["character_update", "activity_log"]),
+    # Death Defy used on the mark its offer holds, named by the offer's id (handlers/marks.py)
     "resolve_ability_mark": dict(
-        fields={"specialty_ability": "Death Defy"},
-        payload=lambda c: {"ability": "Death Defy"}, expect=["character_update", "activity_log"]),
+        fields={"specialty_ability": "Death Defy"}, after_connect=_take_a_held_mark,
+        payload=lambda c: {"ability": "Death Defy", "choice": "escape", "offer_id": c.offer_id},
+        expect=["character_update", "activity_log"]),
     "intercept_mark": dict(
         fields={"role_ability": "Premonitions", "intuition_max": 3},
         # an ally's mark offered to the table (intercepts answer an offered mark)
@@ -270,9 +279,10 @@ WS_CASES = {
     "add_notebook_entry": dict(
         payload=lambda c: {"campaign_id": c.camp_id, "title": "t", "content": "c", "visibility": "self"},
         expect=["notebook_entry"]),
-    # Scout spends 1 Intuition for a question (p. 27; vtt/ability_uses.py)
+    # Scout spends 1 Intuition for one of its questions (p. 27; vtt/ability_uses.py)
     "use_ability": dict(fields={"role_ability": "Scout", "intuition_max": 3, "intuition_current": 3},
-                        payload=lambda c: {"ability": "Scout"}, expect=["character_update", "activity_log"]),
+                        payload=lambda c: {"ability": "Scout", "option": "What path should we follow?"},
+                        expect=["character_update", "activity_log"]),
     # The Lightkeeper rewords a scar on the trauma record
     "gm_update_scars": dict(
         sender="gm", fields={"scars_list": ["s"], "scars_count": 1},

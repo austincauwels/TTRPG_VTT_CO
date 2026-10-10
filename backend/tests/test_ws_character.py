@@ -476,16 +476,45 @@ def test_use_ability_pays_a_drive_point(client):
     cost outside a roll: its drive pips only raise the drive."""
     ch = support.forge(client, intuition_max=3, intuition_current=1, role_ability="Scout")
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("use_ability", ability="Scout")
+        ws.send("use_ability", ability="Scout", option="What path should we follow?")
         msgs = ws.sync()
         assert msgs[0]["payload"]["intuition_current"] == 0
-        assert msgs[1]["payload"]["message"] == f"{ch['name']} used Scout (1 Intuition)."
-        ws.send("use_ability", ability="Scout")
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} used Scout: What path should we follow? (1 Intuition)."
+        ws.send("use_ability", ability="Scout", option="What path should we follow?")
         ws.send("use_ability", ability="Tactician")
         ws.send("use_ability", ability="Juggling")
         assert ws.sync() == [_use_rejected(409, "Not enough Intuition for Scout."),
                              _use_rejected(409, f"{ch['name']} does not have Tactician."),
                              _use_rejected(422, "That ability is not used this way.")]
+
+
+@pytest.mark.parametrize("name, drive, question", [
+    ("Scout", "intuition", "What do I notice here that others do not see?"),
+    ("Uncanny Eye", "intuition", "What here doesn't work the way it appears?"),
+    ("Tactician", "nerve", "What poses the largest immediate threat to my circle?"),
+])
+def test_a_question_ability_asks_one_of_its_questions(client, name, drive, question):
+    """Fixed (playtest, tactician-one-tap): Tactician's "Use (1 Nerve)" spent the point on
+    one tap, and the log said only "used Tactician", not which of its three questions was
+    asked. Scout, Uncanny Eye and Tactician (pp. 27 to 29) name one of their questions, in
+    the rulebook's words: without one, or with another, nothing is spent, and the log
+    names the one asked. They stay usable while the drive lasts."""
+    ch = support.forge(client, **{f"{drive}_max": 3, f"{drive}_current": 2}, specialty_ability=name)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("use_ability", ability=name)
+        ws.send("use_ability", ability=name, option="Who did it?")
+        # Not text: refused the same way (a list or an object ended the socket)
+        ws.send("use_ability", ability=name, option={"a": 1})
+        ws.send("use_ability", ability=name, option=[question])
+        assert ws.sync() == [_use_rejected(422, f"Choose the question to ask with {name}.")] * 4
+        assert getattr(support.fetch(Character, ch["id"]), f"{drive}_current") == 2
+        ws.send("use_ability", ability=name, option=question)
+        msgs = ws.sync()
+        assert msgs[0]["payload"][f"{drive}_current"] == 1
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} used {name}: {question} (1 {drive.capitalize()})."
+        ws.send("use_ability", ability=name, option=question)   # asked again
+        assert ws.sync()[0]["payload"][f"{drive}_current"] == 0
+    assert getattr(support.fetch(Character, ch["id"]), f"{drive}_current") == 0
 
 
 def test_use_ability_burns_a_resistance(client):

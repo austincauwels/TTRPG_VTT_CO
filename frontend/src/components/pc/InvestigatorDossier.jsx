@@ -52,11 +52,30 @@ const AbilityPane = ({ heading, entries, blank, renderUse }) => {
   );
 };
 
+// What a use cost, said after the server paid it ("Spent 1 Nerve"), from the button's words
+const spentWords = (cost) => (/^\d/.test(cost) ? `Spent ${cost}`
+  : cost.startsWith('burn ') ? `Burned ${cost.slice(5)}`
+    : cost.startsWith('take ') ? `Took ${cost.slice(5)}` : 'Used');
+const SPENT_SHOWN_MS = 5000;
+
 // An ability used outside a roll: its cost on a button, and the choice it needs, if any
-// (game/abilityUses.js; the server pays the cost)
+// (game/abilityUses.js; the server pays the cost). A question ability (ask) starts on no
+// question, so Use waits for the one asked and one stray tap spends nothing, and goes back
+// to none after each use. Once the server has paid, the line after the button says what it
+// cost for a few seconds (playtest, tactician-one-tap: Nerve went with no change near the
+// button).
 const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const optionKeys = use.options ? Object.keys(use.options) : null;
-  const [option, setOption] = useState(optionKeys ? optionKeys[0] : '');
+  const [option, setOption] = useState(optionKeys && !use.ask ? optionKeys[0] : '');
+  const usedAt = useGameStore(s => (s.abilityUsed?.ability === name ? s.abilityUsed.at : null));
+  const [spentShown, setSpentShown] = useState(false);
+  useEffect(() => {
+    const left = usedAt ? usedAt + SPENT_SHOWN_MS - Date.now() : 0;
+    setSpentShown(left > 0);
+    if (left <= 0) return undefined;
+    const t = setTimeout(() => setSpentShown(false), left);
+    return () => clearTimeout(t);
+  }, [usedAt]);
   const [choice, setChoice] = useState('');
   const needsDrive = name === 'Ritual' && option === 'Reinvigorate';
   const needsResource = use.needs === 'resource';
@@ -75,6 +94,8 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const isAlly = (id) => allies.some(a => String(a.id) === String(id));
   const targetNow = isAlly(target) ? target : '';
   const choiceNow = needsAlly && !isAlly(choice) ? '' : choice;
+  const questionRef = useRef(null);
+  const buttonRef = useRef(null);
   const send = () => {
     const sent = onUse(name, {
       ...(optionKeys ? { option } : {}),
@@ -87,12 +108,21 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
     });
     if (sent && needsItem) setChoice('');
     if (sent && needsSplit) setSplit({ nerve: 0, cunning: 0, intuition: 0 });
+    if (sent && use.ask) {
+      setOption('');
+      // Use goes disabled with the focus on it (a keyboard, a screen reader), which would
+      // drop to the page: it goes to the question, where the next use starts
+      if (document.activeElement === buttonRef.current) questionRef.current?.focus({ preventScroll: true });
+    }
   };
-  const select = 'ml-1 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5';
+  // 44px and 16px text on every touch screen (Safari zooms the page onto a smaller field)
+  const select = 'ml-1 max-w-full min-w-0 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:text-base';
   return (
-    <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle">
+    <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle max-w-full">
       {optionKeys && (
-        <select aria-label={`How to use ${name}`} value={option} onChange={e => { setOption(e.target.value); setChoice(''); }} className={select}>
+        <select ref={questionRef} aria-label={use.ask ? `Question for ${name}` : `How to use ${name}`} value={option}
+          onChange={e => { setOption(e.target.value); setChoice(''); }} className={select}>
+          {use.ask && <option value="">Question to ask</option>}
           {optionKeys.map(k => <option key={k} value={k}>{use.options[k]}</option>)}
         </select>
       )}
@@ -134,12 +164,13 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
         </label>
       ))}
       {needsSplit && <span className="text-sm font-mono text-sepia">{splitTotal} / {splitMax}</span>}
-      <button type="button" onClick={send}
-        disabled={(needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
-          : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false}
-        className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
+      <button ref={buttonRef} type="button" onClick={send}
+        disabled={(use.ask && !option) || ((needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
+          : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false)}
+        className="ml-1 px-2 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:px-3 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
       </button>
+      <span role="status" className="text-sm italic text-sepia">{spentShown ? spentWords(use.cost) : ''}</span>
     </span>
   );
 };
@@ -155,7 +186,7 @@ const ScarAbilityUse = ({ name, use, character, scarWaiting, onUse }) => {
   return (
     <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle">
       <button type="button" onClick={() => onUse(name, use.mark || '')} disabled={!!character?.is_dead || !!scarWaiting || used}
-        className="ml-1 px-2 py-0.5 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
+        className="ml-1 px-2 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:px-3 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
       </button>
       {why && <span className="text-sm italic text-sepia">{why}</span>}
@@ -206,6 +237,14 @@ const ScarEditLine = ({ index, raw, draft, onDraft, onSave, onRemove, removeHint
       </div>
     </div>
   );
+};
+
+// The marks an offer holds, in words: "Bleed mark", "2 Body marks", "Body and Bleed marks"
+const heldMarkWords = (types) => {
+  const parts = ['body', 'brain', 'bleed'].map(t => [t, types.filter(x => x === t).length])
+    .filter(([, n]) => n > 0).map(([t, n]) => (n > 1 ? `${n} ${MARK_NAME[t]}` : MARK_NAME[t]));
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  return `${list} mark${types.length > 1 ? 's' : ''}`;
 };
 
 const ROLE_ICONS = {
@@ -441,12 +480,21 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     return null;
   };
   const { held: heldMark, hold: holdMark, undo: undoMark, flush: flushMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
+  // The marks an open soak or Death Defy offer holds back, and those on their way to the
+  // sheet (store heldMarks): drawn held, like a mark waiting for its Undo, until the sheet
+  // has them
+  const storeHeld = useGameStore(s => s.heldMarks);
+  const tableHeld = !readOnly && storeHeld && storeHeld.characterId === character?.id ? storeHeld : null;
+  const heldOffer = tableHeld?.offer || null;
+  // (a mark the Undo has just sent counts as the Undo's until the Undo lets it go)
+  const tableHolds = (type) => (tableHeld ? [...(heldOffer?.types || []),
+    ...tableHeld.landing.filter(m => m.undoId == null || m.undoId !== heldMark?.id).map(m => m.type)]
+    .filter(t => t === type).length : 0);
   // Death Defy escapes every mark of one harm (p. 27): a mark still held for undo when its
   // offer appears goes now, so it joins the harm the offer counts
-  const markOffer = useGameStore(s => s.abilityMarkOffer);
   useEffect(() => {
-    if (markOffer?.ability === 'Death Defy' && markOffer.character_id === storeChar?.id) flushMark();
-  }, [markOffer?.seq]);
+    if (heldOffer?.ability === 'Death Defy' && tableHeld.characterId === storeChar?.id) flushMark();
+  }, [heldOffer?.seq]);
   // The player's own photo: the answer to a change is the sheet as the table now has it
   const photoInputRef = useRef(null);
   const portrait = usePortraitChange({
@@ -538,6 +586,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The trauma record in edit mode (the Lightkeeper's copy): each change goes to the table
   // at once; Done also saves scar words changed and not yet saved
   const editing = !!traumaEdit && editingTrauma;
+  // The mark waiting for its Undo fills its track, after any the table holds: a scar
+  const undoFillsTrack = !!heldMark && (character[`${heldMark.type}_marks`] || 0) + tableHolds(heldMark.type) >= 3;
   // Deal a mark (the Lightkeeper's copy): whether an enemy dealt it, and the last one sent
   const [dealFromEnemy, setDealFromEnemy] = useState(true);
   const [dealtNote, setDealtNote] = useState('');
@@ -1124,15 +1174,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <SafeIcon name="GiBleedingEye" size={20} className="text-oxblood shrink-0" /> Marks
             </h3>
             {/* Each box is its own target: only the next empty box takes a mark. A mark is
-                held for a few seconds with an Undo before it goes to the table. In the
-                Lightkeeper's edit, any box sets the track: to that box, or, for the last
-                filled box, to the one before it. */}
+                held for a few seconds with an Undo before it goes to the table, while a soak
+                or Death Defy offer holds it there, and on its way until the sheet has it; a
+                held mark's box is drawn half inked with a dashed edge. In the Lightkeeper's
+                edit, any box sets the track: to that box, or, for the last filled box, to the
+                one before it. */}
             <div className={`mark-tracks flex flex-col ${readOnly && !editing ? 'gap-2' : 'gap-1'}`}>
               {['body', 'brain', 'bleed'].map((type) => {
                 const name = MARK_NAME[type];
                 const marked = character?.[`${type}_marks`] || 0;
                 const heldHere = !readOnly && heldMark?.type === type;
-                const next = marked + (heldHere ? 1 : 0); // index of the box the next tap fills
+                const held = tableHolds(type) + (heldHere ? 1 : 0);
+                const next = marked + held; // index of the box the next tap fills
                 const trackFull = next >= 3;
                 // 44px targets on phones; on a wide record (index.css) the boxes keep to
                 // one line beside their labels.
@@ -1152,10 +1205,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         {name} <span aria-hidden="true">+</span>
                       </button>
                     )}
-                    <div className={`flex${editing ? ' rounded-sm outline-dashed outline-1 outline-offset-2 outline-oxblood/50' : ''}`} role="group" aria-label={`${name} marks: ${marked} of 3`}>
+                    <div className={`flex${editing ? ' rounded-sm outline-dashed outline-1 outline-offset-2 outline-oxblood/50' : ''}`} role="group"
+                      aria-label={`${name} marks: ${marked} of 3${held ? `, ${held} held` : ''}`}>
                       {[0, 1, 2].map((i) => {
                         const filled = i < marked;
-                        const isHeld = heldHere && i === marked;
+                        const isHeld = !filled && i < next;
                         const isNext = !readOnly && i === next;
                         // A filled mark is inked by hand, so each box sits a little askew
                         const box = (
@@ -1231,16 +1285,24 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               )}
             </div>
 
+            {/* Marks an open soak or Death Defy offer holds, drawn held above: what holds them */}
+            {heldOffer && (
+              <p className="mark-held font-serif text-base text-ink leading-snug border border-dashed border-oxblood/40 px-3 py-2 rounded-sm">
+                {heldMarkWords(heldOffer.types)} held for {heldOffer.ability}.
+              </p>
+            )}
+            {/* A mark waiting for its Undo is not on the record yet, and an investigator with a
+                soak or Death Defy is offered that first, so the strip says when it goes to the
+                table, never that it was taken (playtest, mark-undo-then-death-defy) */}
             {!readOnly && heldMark && (
               <div role="status" className="mark-held flex flex-wrap items-center justify-between gap-2 border border-oxblood/40 bg-oxblood/5 px-3 py-2 rounded-sm">
                 <p className="font-serif text-base text-ink leading-snug min-w-0 flex-1 basis-40">
-                  {(character?.[`${heldMark.type}_marks`] || 0) >= 3
-                    ? `${MARK_NAME[heldMark.type]} track is full: this mark brings a scar.`
-                    : `${MARK_NAME[heldMark.type]} mark taken.`}
+                  {MARK_NAME[heldMark.type]} mark: {undoFillsTrack ? 'the track is full, so it brings a scar. It' : 'it'} goes
+                  to the table when the Undo runs out.
                 </p>
                 <button
                   onClick={undoMark}
-                  className="shrink-0 min-h-[40px] px-3 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood hover:bg-oxblood hover:text-cream rounded-sm transition-colors"
+                  className="shrink-0 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest border border-oxblood text-oxblood hover:bg-oxblood hover:text-cream rounded-sm transition-colors"
                 >
                   Undo <span className="font-mono tabular-nums">{markSecondsLeft}s</span>
                 </button>
