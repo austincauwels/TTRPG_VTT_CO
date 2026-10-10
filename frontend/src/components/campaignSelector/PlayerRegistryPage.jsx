@@ -76,9 +76,9 @@ export const PlayerRegistryPage = ({
                     style={{ border: '1px dashed rgb(var(--c-sepia) / 0.3)', background: 'rgb(var(--c-parchment-deep) / 0.25)' }}>
                     <span aria-hidden="true" className="text-sepia text-lg shrink-0">◌</span>
                     <div className="flex-1 min-w-0 max-sm:min-w-[calc(100%-2.5rem)]">
-                      <p className="font-serif font-bold text-xl text-ink/80 truncate">{char.name}</p>
+                      <p className="font-serif font-bold text-xl text-ink/80 truncate" title={char.name}>{char.name}</p>
                       {char.campaign_name && (
-                        <p className="font-serif italic text-base text-sepia truncate">{char.campaign_name}</p>
+                        <p className="font-serif italic text-base text-sepia truncate" title={char.campaign_name}>{char.campaign_name}</p>
                       )}
                     </div>
                     <button
