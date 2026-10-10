@@ -6,7 +6,8 @@ import { ConfirmAction } from '../shared/ConfirmAction';
 import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks';
 import { playPaperSound } from '../../game/rollSounds';
 import { Hourglass } from '../shared/Hourglass';
-import { TensionTimer } from '../shared/TensionTimer';
+import { TensionTimer, formatTime, useTimeLeft } from '../shared/TensionTimer';
+import { arrivedAt } from '../../store/circleArrivals';
 
 const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -15,7 +16,10 @@ const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reco
 // ── The tension clock: an hourglass on the desk ───────────────────────────────────
 // Starts with all the sand above and runs a quarter of it down per step, from 0 to 4
 // (Hourglass.jsx). The Lightkeeper's − and + stand either side of the glass at its waist,
-// and the clock's name under it is theirs to write; players see both read-only.
+// and the clock's name under it is theirs to write; players see both read-only. While the
+// Lightkeeper's countdown is on show and partly run (running or paused), the sand shows
+// the time instead, draining with it; once it runs out or is reset or cleared, the sand
+// shows the tension again (owner, 2026-10-09).
 export const TensionClock = ({ readOnly = false }) => {
   const { circle, socket, accessSession, lastPlayedCampaign } = useGameStore(useShallow(s => ({
     circle: s.circle,
@@ -28,6 +32,13 @@ export const TensionClock = ({ readOnly = false }) => {
 
   const currentVal = circle?.tension_clock ?? 0;
   const label = circle?.tension_label ?? '';
+
+  // The countdown's share run, while it is on show and between its start and its end
+  const at = arrivedAt(circle);
+  const duration = Math.max(0, Number(circle?.timer_duration_ms) || 0);
+  const timerOn = at !== undefined && !!circle?.timer_visible && duration > 0;
+  const left = useTimeLeft(circle, at, timerOn);
+  const draining = timerOn && left > 0 && left < duration;
 
   const sendUpdate = (updates) => {
     if (socket?.readyState === WebSocket.OPEN) {
@@ -49,8 +60,10 @@ export const TensionClock = ({ readOnly = false }) => {
     <div className="flex flex-col items-center gap-3 select-none">
       {/* The hourglass's place on the desk, 144 by 188, the glass 120 wide in it */}
       <div className="relative w-36 h-[188px] flex justify-center">
-        <div role="img" aria-label={`Tension ${currentVal} of 4`}>
-          <Hourglass value={currentVal} />
+        <div role="img" aria-label={draining
+          ? `Tension ${currentVal} of 4. The sand shows the timer: ${formatTime(left)} left`
+          : `Tension ${currentVal} of 4`}>
+          <Hourglass value={currentVal} run={draining ? 1 - left / duration : null} />
         </div>
 
         {/* The Lightkeeper's − and + at the glass's waist, either side of it */}

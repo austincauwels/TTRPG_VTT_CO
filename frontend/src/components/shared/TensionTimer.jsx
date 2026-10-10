@@ -30,7 +30,7 @@ export const formatTime = (ms) => {
 
 // The time left on this desk now, counted from `at`, when the circle arrived. `active` is
 // false while the timer is not on show, so a hidden timer schedules nothing either.
-const useTimeLeft = (circle, at, active) => {
+export const useTimeLeft = (circle, at, active) => {
   const running = !!circle?.timer_running && at !== undefined;
   const sent = Math.max(0, Number(circle?.timer_remaining_ms) || 0);
   const leftNow = () => (running ? Math.max(0, sent - (performance.now() - at)) : sent);
