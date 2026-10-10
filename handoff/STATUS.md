@@ -36,7 +36,7 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Where things stand
 
-- `main` is at **4b54a69**: PR 6 to PR 10 merged (PR 10 merged 10 October, CI green). PR 6 to 9 are live; **PR 10 is not deployed yet**: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload. No schema change.
+- `main` is at **4b54a69**: PR 6 to PR 10 merged (PR 10 merged 10 October, CI green). All of it is **live** on candela.gatergrid.com (PR 10 deployed 10 October; the served bundle has "Give a spend back").
 - **PR 10 contains** (from the playtest's top-ten UX list):
   - Table in view: a `TableStrip` (tension, timer, newest log line) under the phone's band, on the tablet's page, over the notebook, and on the Lightkeeper's pages that replace the table column; player rail scrolls as a whole with a floor for Your Circle, the log keeps 9 rem, the dice column scrolls inside itself; on a tablet the rail follows the dice in the page; the Lightkeeper's Roster tab opens the roster, not the last sheet.
   - "New" dots on the phone Menu, drawer rows and the md+ Circle tab (store `unseen`, `markSeen`).
@@ -49,7 +49,7 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Next phase
 
-PR 10 is merged (10 October); once Robert has deployed it, pick from the report's remaining UX items or run a second AI playtest.
+PR 10 is merged and live (10 October). Next, pick from the report's remaining UX items or run a second AI playtest.
 
 ### Open questions for Robert
 
