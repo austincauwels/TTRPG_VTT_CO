@@ -440,6 +440,10 @@ export const CircleView = () => {
   // key-ticks-lost)
   const myReport = circleCreation?.reports?.[character?.id] ?? circleCreation?.reports?.[String(character?.id)] ?? null;
   const [amending, setAmending] = useState(false);
+  // Send report gives way to the stamp: focus goes to the stamp, not the page
+  // (playtest, keyboard-focus-dropped)
+  const stampRef = useRef(null);
+  const sentHere = useRef(false);
   const storedDraft = reportDrafts?.[character?.id];
   const draft = storedDraft && storedDraft.assignment === assignmentOf(circle) ? storedDraft : null;
   const filedResponses = myReport?.responses || {};
@@ -511,8 +515,17 @@ export const CircleView = () => {
       keys_detail: keyChecks,
     };
     // The ticks stay on the form until the filed report comes back in their place
-    if (submitAssignmentReport(circId, character?.id, responses, { replace: !!myReport })) setAmending(false);
+    if (submitAssignmentReport(circId, character?.id, responses, { replace: !!myReport })) {
+      setAmending(false);
+      sentHere.current = true;
+    }
   }
+  useEffect(() => {
+    if (!showFiled || !sentHere.current) return;
+    sentHere.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body) stampRef.current?.focus();
+  }, [showFiled, myReport?.submitted_at]);
 
   // Amend: the filed ticks become the draft, to change and send again in its place
   function startAmending() {
@@ -667,7 +680,7 @@ export const CircleView = () => {
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-ink/10">
           {showFiled ? (
             <>
-              <span role="status" className="flex items-center gap-3">
+              <span role="status" ref={stampRef} tabIndex={-1} className="flex items-center gap-3">
                 <span className="sr-only">Report sent to the Lightkeeper. The boxes show what you filed.</span>
                 <DateStamp label="Report sent" date={stampDate(myReport.submitted_at)} tone="green" tilt={-2} />
               </span>

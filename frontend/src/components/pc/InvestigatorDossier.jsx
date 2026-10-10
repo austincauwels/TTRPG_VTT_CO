@@ -894,11 +894,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   <span className="font-serif font-bold text-lg uppercase tracking-wide" style={{ color: `rgb(var(--c-drive-${cat.driveKey}))` }} title={DRIVE_FLAVOR[cat.driveKey]}>{cat.name}</span>
                   {!readOnly && (
                     <div className="flex items-center gap-1 md:[@media(pointer:coarse)]:basis-full md:[@media(pointer:coarse)]:justify-end">
+                      {/* aria-disabled, not disabled, at either end: a disabled button
+                          drops keyboard focus to the page (keyboard-focus-dropped) */}
                       <button
                         onClick={() => setPreSpend(p => ({ ...p, [cat.driveKey]: Math.max(0, (p[cat.driveKey] || 0) - 1) }))}
-                        disabled={(preSpend[cat.driveKey] || 0) <= 0}
+                        aria-disabled={(preSpend[cat.driveKey] || 0) <= 0}
                         aria-label={`Spend one less ${cat.name}`}
-                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
+                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 aria-disabled:opacity-30 transition-colors"
                       >−</button>
                       <span className={`font-mono tabular-nums text-xs font-black w-7 text-center ${(preSpend[cat.driveKey] || 0) > 0 ? 'text-oxblood' : 'text-sepia'}`}>+{preSpend[cat.driveKey] || 0}d</span>
                       <button
@@ -907,9 +909,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                           return { ...p, [cat.driveKey]: Math.min(maxSpend, (p[cat.driveKey] || 0) + 1) };
                         })}
                         // Up to six dice (p. 11): the roll keeps only what fits after the rating
-                        disabled={(preSpend[cat.driveKey] || 0) >= Math.min(currentDrive, 6)}
+                        aria-disabled={(preSpend[cat.driveKey] || 0) >= Math.min(currentDrive, 6)}
                         aria-label={`Spend one more ${cat.name} for +1d`}
-                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 disabled:opacity-30 transition-colors"
+                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 aria-disabled:opacity-30 transition-colors"
                       >+</button>
                     </div>
                   )}
@@ -1004,9 +1006,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       ) : (
                         // The whole row is the roll: a paper chit that lifts and gets a pen
                         // underline under its name on hover, and sinks when pressed
+                        // aria-disabled while a roll is out, so the row keeps keyboard focus (a
+                        // disabled one dropped it to the page; keyboard-focus-dropped)
                         <button
-                          disabled={rollBlocked}
+                          aria-disabled={rollBlocked}
+                          data-roll-row=""
                           onClick={() => {
+                            if (rollBlocked) return;
                             // Street Smarts lets a Survey roll spend any drive: the one the
                             // player put a spend on (the server spends what the roll names)
                             let spendKey = cat.driveKey;

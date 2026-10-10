@@ -817,16 +817,19 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
 
               {/* Prev / counter / Next */}
               <div className="flex items-center gap-5">
-                <button type="button" aria-label="Previous card" onClick={() => flip('backward')} disabled={currentIndex === 0 || animState !== 'idle'}
-                  className="w-11 h-11 flex items-center justify-center rounded-full font-black text-2xl transition-all disabled:opacity-20 hover:bg-white/10"
+                {/* Never disabled: a disabled button drops keyboard focus to the page, and
+                    the flip already ignores a press mid-turn or at either end (playtest,
+                    keyboard-focus-dropped) */}
+                <button type="button" aria-label="Previous card" onClick={() => flip('backward')} aria-disabled={currentIndex === 0}
+                  className="w-11 h-11 flex items-center justify-center rounded-full font-black text-2xl transition-all aria-disabled:opacity-20 hover:bg-white/10"
                   style={{ border: '1px solid rgb(var(--c-cream)/0.2)', color: 'rgb(var(--c-cream))' }}>
                   ‹
                 </button>
                 <span className="text-sm font-mono tabular-nums text-cream/70 min-w-[56px] text-center">
                   {currentIndex + 1} / {allCards.length}
                 </span>
-                <button type="button" aria-label="Next card" onClick={() => flip('forward')} disabled={currentIndex >= allCards.length - 1 || animState !== 'idle'}
-                  className="w-11 h-11 flex items-center justify-center rounded-full font-black text-2xl transition-all disabled:opacity-20 hover:bg-white/10"
+                <button type="button" aria-label="Next card" onClick={() => flip('forward')} aria-disabled={currentIndex >= allCards.length - 1}
+                  className="w-11 h-11 flex items-center justify-center rounded-full font-black text-2xl transition-all aria-disabled:opacity-20 hover:bg-white/10"
                   style={{ border: '1px solid rgb(var(--c-cream)/0.2)', color: 'rgb(var(--c-cream))' }}>
                   ›
                 </button>

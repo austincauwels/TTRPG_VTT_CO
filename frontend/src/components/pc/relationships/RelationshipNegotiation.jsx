@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RELATIONSHIP_DATA, RELATIONSHIP_TYPES, joinLore, splitLore } from '../../../game/relationships';
 
@@ -91,7 +91,20 @@ const LoreText = ({ rel }) => {
 const formFrom = (rel) => ({ relType: rel.rel_type, ...splitLore(rel.rel_type, rel.lore) });
 
 // One relationship as it stands, with Accept and Counter when it is this player's turn.
-const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship, onEdit }) => {
+// focusRequest: a ref set when this player's press (Propose, Accept, Send counter) is about
+// to replace the button they pressed; the status takes focus when the answer lands, so it
+// does not fall to the page (playtest, keyboard-focus-dropped)
+const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship, onEdit, focusRequest }) => {
+  const boxRef = useRef(null);
+  useEffect(() => {
+    if (!focusRequest?.current) return;
+    const active = document.activeElement;
+    if (!active || active === document.body) {
+      focusRequest.current = false;
+      boxRef.current?.focus();
+    }
+  }, [rel.id, rel.status, rel.last_actor_id, rel.rel_type, rel.lore]);
+  const respond = (...args) => { if (focusRequest) focusRequest.current = true; respondToRelationship(...args); };
   const { counters, setCounters } = forms;
   const counter = counters[rel.id] || {};
   const setCounter = (patch) => setCounters(c => ({ ...c, [rel.id]: { ...c[rel.id], ...patch } }));
@@ -104,12 +117,12 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
 
   const sendCounter = () => {
     if (!counter.relType) return;
-    respondToRelationship(rel.id, 'counter', counter.relType, joinLore(counter.relType, counter.promptIdx, counter.answer));
+    respond(rel.id, 'counter', counter.relType, joinLore(counter.relType, counter.promptIdx, counter.answer));
     setCounters(c => { const n = { ...c }; delete n[rel.id]; return n; });
   };
 
   return (
-    <div className={`p-3 border rounded-sm space-y-2 ${accepted ? 'bg-seal-green/10 border-seal-green/50' : myTurn ? 'bg-parchment border-oxblood/40' : 'bg-cream border-parchment-deep'}`}>
+    <div ref={boxRef} tabIndex={-1} className={`p-3 border rounded-sm space-y-2 ${accepted ? 'bg-seal-green/10 border-seal-green/50' : myTurn ? 'bg-parchment border-oxblood/40' : 'bg-cream border-parchment-deep'}`}>
       <p className="font-serif text-lg text-ink leading-snug">
         <strong>{rel.rel_type}</strong>
         <LoreText rel={rel} />
@@ -132,7 +145,7 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
             {countered ? `${theirName} suggested this change.` : `${theirName} proposed this.`}
           </p>
           <div className="flex gap-2 flex-wrap">
-            <button type="button" onClick={() => respondToRelationship(rel.id, 'accept')} className={primaryButton}>Accept</button>
+            <button type="button" onClick={() => respond(rel.id, 'accept')} className={primaryButton}>Accept</button>
             {/* Counter starts from what was proposed, so a small change is a small edit */}
             <button type="button" onClick={() => setCounter(counter.open ? { open: false } : { ...(counter.relType ? {} : formFrom(rel)), open: true })}
               aria-expanded={!!counter.open} className={quietButton}>
@@ -170,16 +183,23 @@ export const RelationshipNegotiation = ({
   const setDraft = (patch) => setDrafts(d => ({ ...d, [inv.id]: { ...d[inv.id], ...patch } }));
   const formOpen = !compact || !!draft.open || !!draft.relType;
   const [editing, setEditing] = useState(false);
+  const focusRequest = useRef(false);
 
   const mine = relationships.find(r => r.from_character_id === myId && r.to_character_id === inv.id);
   const theirs = relationships.find(r => r.from_character_id === inv.id && r.to_character_id === myId);
 
   const propose = () => {
     if (!draft.relType || !circleId) return;
+    focusRequest.current = true;
     proposeRelationship(circleId, myId, inv.id, draft.relType, joinLore(draft.relType, draft.promptIdx, draft.answer));
     setEditing(false);
   };
-  const startEdit = () => { setDraft({ ...formFrom(mine), open: true }); setEditing(true); };
+  const startEdit = () => {
+    setDraft({ ...formFrom(mine), open: true });
+    setEditing(true);
+    // The Edit button gives way to the form: focus goes to its first field
+    setTimeout(() => document.getElementById(`propose-${inv.id}-type`)?.focus(), 0);
+  };
   // Only a proposal still waiting on them is edited: once they answer, the form gives way
   const isEditing = editing && !!mine && mine.status !== 'accepted' && mine.last_actor_id === myId;
 
@@ -197,7 +217,7 @@ export const RelationshipNegotiation = ({
         <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>Your relationship to {inv.name}</h4>
         {mine && !isEditing ? (
           <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
-            onEdit={startEdit} />
+            onEdit={startEdit} focusRequest={focusRequest} />
         ) : !formOpen ? (
           <button type="button" aria-expanded={false} onClick={() => setDraft({ open: true })} className={quietButton}>
             Propose a relationship
@@ -218,7 +238,8 @@ export const RelationshipNegotiation = ({
       {theirs && (
         <div className={compact ? 'pt-2' : 'pt-3 border-t border-parchment-deep'}>
           <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>{inv.name}'s relationship to you</h4>
-          <RelationshipStatus rel={theirs} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship} />
+          <RelationshipStatus rel={theirs} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
+            focusRequest={focusRequest} />
         </div>
       )}
     </div>
