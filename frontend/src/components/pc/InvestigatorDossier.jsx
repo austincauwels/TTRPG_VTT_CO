@@ -502,8 +502,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // back into view, its top kept in view: the Undo it offers is for the next five seconds.
   // A sheet whose ability text runs long has no room for it at 1440x900.
   const recordRef = useRef(null);
+  const recordSeen = useRef(false);
   useEffect(() => {
-    // Only for a note that is up: on opening the desk, or after a tab switch, the column keeps its top
+    // Only for a note that comes up while the sheet is open: on opening the desk, or after a
+    // tab switch, the column keeps its top, even with a refusal still said under the marks
+    if (!recordSeen.current) { recordSeen.current = true; return; }
     if (!heldMark && !heldOffer && !markRefused && !markSendError) return;
     const record = recordRef.current;
     const column = record?.closest('[data-desk=sheet]');

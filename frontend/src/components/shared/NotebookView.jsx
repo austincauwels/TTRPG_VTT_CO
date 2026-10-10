@@ -59,8 +59,9 @@ function formatDate(isoStr) {
 // or a reload, keeps it, and nobody else who signs in on this browser ever sees it
 // (playtest, private-note-draft-lost). Pinning or adding the entry clears it. Storage can be
 // full, blocked or missing (private windows), so every access is wrapped, as the creator's
-// draft is. The writing is also kept in this page (keptInPage), which a storage that throws
-// falls back to: a step to another tab and back keeps it there too, a reload does not.
+// draft is. The writing is also kept in this page (keptInPage), which is read first while the
+// page lives, so a store that refuses a write (full) or throws keeps it for a step to another
+// tab and back too; after a reload the page's copy is gone and storage is read.
 const notebookDraftKey = ({ accessSession, character }, isGMProp) => {
   const isGM = isGMProp !== null ? isGMProp : accessSession?.role === 'GM';
   const campaignId = accessSession?.campaignId || character?.campaign_id;
@@ -71,12 +72,13 @@ const notebookDraftKey = ({ accessSession, character }, isGMProp) => {
 const keptInPage = new Map();
 const readKept = (key) => {
   if (!key) return '';
-  try { return window.localStorage.getItem(key) || ''; } catch { return keptInPage.get(key) || ''; }
+  if (keptInPage.has(key)) return keptInPage.get(key);
+  try { return window.localStorage.getItem(key) || ''; } catch { return ''; }
 };
 const writeKept = (key, text) => {
   if (!key) return;
-  if (text) keptInPage.set(key, text);
-  else keptInPage.delete(key);
+  // A cleared draft is kept as '' so an older one a full store could not remove never comes back
+  keptInPage.set(key, text || '');
   try {
     if (text) window.localStorage.setItem(key, text);
     else window.localStorage.removeItem(key);

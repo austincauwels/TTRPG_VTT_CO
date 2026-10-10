@@ -70,6 +70,7 @@ const newRollId = () => globalThis.crypto?.randomUUID?.()
   ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 let rollSeq = 0;         // the id each roll_result's roll is given on this desk
 let offerSeq = 0;        // the id each ability offer is given, so each gets its own countdown
+let markAnswerOut = false; // the last answer sent was to an offer that held this investigator's own mark
 let scarFormSeq = 0;     // the id each scar form is opened with, so a new one starts blank
 const nextScarForm = () => { scarFormSeq += 1; return scarFormSeq; };
 
@@ -839,10 +840,12 @@ const useGameStore = create(
             if (message.payload.action === 'resolve_gilded') {
               set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
             }
-            // An answer to an offer refused ("In the Trenches cannot soak this mark: ...",
-            // after which the held mark lands; a drive point no longer waiting): the record
-            // says why, where it said nothing
-            if (message.payload.action === 'resolve_ability_mark') {
+            // An answer to an offer that held the investigator's own mark refused ("In the
+            // Trenches cannot soak this mark: ...", after which the held mark lands): the record
+            // says why, where it said nothing. A drive point no longer waiting holds no mark, so
+            // it is not put under the marks
+            if (message.payload.action === 'resolve_ability_mark' && markAnswerOut) {
+              markAnswerOut = false;
               set({ abilityMarkRefused: message.payload.detail || 'That answer was not taken.' });
             }
             if (message.payload.action === 'use_ability') {
@@ -1146,7 +1149,9 @@ const useGameStore = create(
           }
           else if (message.type === 'ability_mark_offer') {
             const offer = { ...message.payload, seq: ++offerSeq, received_at: Date.now() };
-            set(state => ({ ...queueOffer(state, offer), ...(holdsOwnMark(offer) ? { ...offerHolds(state, offer), abilityMarkRefused: null } : {}) }));
+            // A soak offer starts a new mark's chain and puts away the last refusal; a Death Defy
+            // offer can follow the soak just refused, so it keeps the reason up
+            set(state => ({ ...queueOffer(state, offer), ...(holdsOwnMark(offer) ? { ...offerHolds(state, offer), ...(offer.action === 'soak' ? { abilityMarkRefused: null } : {}) } : {}) }));
           }
           else if (message.type === 'mark_offer_closed') {
             // The offer's mark landed because another mark came (backend marks.py
@@ -1349,6 +1354,7 @@ const useGameStore = create(
       // answer to one it has since closed is not taken for the next (backend marks.py)
       resolveAbilityMark: (ability, choice, offerId) => {
         const { socket } = get();
+        markAnswerOut = holdsOwnMark(get().abilityMarkOffer);
         // Used: its marks stay held until the answer, which keeps them off the sheet or lands them
         set(state => ({ ...nextOffer(state),
           ...(holdsOwnMark(state.abilityMarkOffer) ? offerLets(state, true, state.abilityMarkOffer.seq) : {}) }));
