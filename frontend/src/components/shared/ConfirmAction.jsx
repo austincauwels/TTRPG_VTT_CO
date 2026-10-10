@@ -43,8 +43,11 @@ const TONES = {
 
 // renderButton(armed, props) draws the button; spread props onto it (onClick,
 // aria-describedby, disabled, type). idleHint is shown before the first press (optional);
-// armedHint says what the second press does. The wrapper takes className, so a caller
-// can use "contents" to let the button and the hint sit in its own flex row.
+// armedHint says what the second press does. Only the armed hint is a live region, as it
+// answers the press; the idle hint is read with the button and is not announced when it
+// changes (the Finalize slip's changes whenever a player proposes or accepts a
+// relationship). The wrapper takes className, so a caller can use "contents" to let the
+// button and the hint sit in its own flex row.
 // cancelSize sets Cancel's height (44px where the row is meant for a thumb).
 export const ConfirmAction = ({
   onConfirm, renderButton, idleHint, armedHint, cancelLabel = 'Cancel',
@@ -75,8 +78,10 @@ export const ConfirmAction = ({
       })}
       {(hint || armed) && (
         <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${hintClassName}`}>
+          {/* Keyed, so the armed hint comes in as a new live region, as it does where
+              there is no idle hint */}
           {hint && (
-            <p id={hintId} aria-live="polite" className={`font-serif italic text-base leading-snug ${armed ? colors.armed : colors.idle}`}>
+            <p key={armed ? 'armed' : 'idle'} id={hintId} aria-live={armed ? 'polite' : undefined} className={`font-serif italic text-base leading-snug ${armed ? colors.armed : colors.idle}`}>
               {hint}
             </p>
           )}

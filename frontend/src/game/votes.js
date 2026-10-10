@@ -19,6 +19,14 @@ export function leadingVote(votes) {
   return lead;
 }
 
+// Every value that shares the most votes, in the order each was first voted for (so the
+// first is the one that leads); empty with no votes
+export function leaders(votes) {
+  const tally = tallyVotes(votes);
+  const top = Math.max(0, ...tally.map(([, count]) => count));
+  return top ? tally.filter(([, count]) => count === top).map(([value]) => value) : [];
+}
+
 // The words the papers print under a vote
 export const TIE_RULE = 'A tie goes to the option voted for first.';
 

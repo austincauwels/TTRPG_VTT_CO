@@ -388,7 +388,7 @@ Several game tables are copied between files. A shared `src/data/` folder remove
 | `PEN_FONTS` | CharacterCreator, CampaignSelector | identical, safe to share |
 | `PEN_FONTS` | NotebookView | different order; keep separate or keep the order |
 | `ILLUMINATION_KEYS` | CharacterCreator, CircleView, CirclePage | identical in all three, safe to share |
-| `CIRCLE_QUESTIONS` | CircleView, CircleCreationPopup, CirclePage | identical in all three, safe to share |
+| `CIRCLE_QUESTIONS` | CircleView, CircleCreationPopup, CirclePage | shared since 2026-10-10: `game/circleFormation.js`, with the papers' `INSIGNIA_OPTIONS`, which the Lightkeeper's formation papers (gm/desk/CircleFormationStatus.jsx) read too |
 | Circle ability descriptions | CircleView (object), CircleCreationPopup (array), CirclePage (object) | CircleView and CircleCreationPopup have the same text in different shapes; CirclePage uses shorter wording for Nobody Left Behind, Interdisciplinary and One Last Run, so it must keep its own copy to avoid a visible text change |
 | `TRACK_SIZE`, `RESOURCE_MAX_SQUARES` | CircleView, CirclePage | same values |
 | `DRIVE_FLAVOR`, `ACTION_FLAVOR` | CharacterCreator, InvestigatorDossier | same text, different whitespace |

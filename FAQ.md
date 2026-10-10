@@ -184,6 +184,16 @@ All votes are stored in the `CircleVote` table. When the GM finalises the circle
 
 Players also propose and respond to **Relationships** with other circle members (stored in the `Relationship` table), which appear as flip-cards on the Tactile Sidebar during play.
 
+A tie goes to the option voted for first, on every desk and at the seal. The formation papers open on a player's desk as soon as the Lightkeeper approves their investigator, and close for everyone when the Lightkeeper finalizes the circle.
+
+### What does the Lightkeeper see while the circle forms?
+
+Since 2026-10-10 the Lightkeeper's desk shows the formation papers as they stand, open until the seal (they fold with a press): whose desks they are open on, then each part in the papers' order. The circle question that leads, with its words; the name the seal would take (the name voted for most, or with no votes the name suggested most); the chapter house as written; the circle ability; the insignia, drawn; and the relationships, confirmed out of proposed, with who still has one to answer. A tie names the options tied and says the first voted for wins. Under each vote, every investigator has a tick once they have voted (or answered the question, or proposed a relationship) and an open ring until then. The chapter house has no ticks: any member may write it, and the server keeps the answer but not who wrote it. All of it comes from the circle creation state every member is sent, loaded again whenever the desk reconnects; nothing private to a player is added.
+
+### What happens to relationships still waiting at the seal?
+
+Nothing: finalizing leaves them as they are, and the player whose turn it is can still accept or counter them on the Circle tab afterwards. The Finalize slip counts them ("2 relationships still waiting for an answer. They can still be accepted after the seal.") and reads "4 in the circle (up to 5)". Its second press also says that any join request still waiting is turned away, since finalizing releases those characters.
+
 ---
 
 ## Advancement
