@@ -1454,7 +1454,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   { label: "Investigator", value: name },
-                  { label: "Pronouns",     value: pronouns || 'Not given' },
+                  { label: "Pronouns",     value: pronouns || 'Unlisted' },
                   { label: "Role · Specialty", value: `${role} · ${specialty}` },
                   { label: "Gear Selected", value: `${selectedGear.length} of 3 items` },
                 ].map(({ label, value }) => (

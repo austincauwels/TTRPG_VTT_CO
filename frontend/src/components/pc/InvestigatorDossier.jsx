@@ -503,6 +503,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // A sheet whose ability text runs long has no room for it at 1440x900.
   const recordRef = useRef(null);
   useEffect(() => {
+    // Only for a note that is up: on opening the desk, or after a tab switch, the column keeps its top
+    if (!heldMark && !heldOffer && !markRefused && !markSendError) return;
     const record = recordRef.current;
     const column = record?.closest('[data-desk=sheet]');
     if (!column || !/(auto|scroll)/.test(getComputedStyle(column).overflowY)) return;
