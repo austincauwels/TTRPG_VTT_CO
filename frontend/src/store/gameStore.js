@@ -928,7 +928,16 @@ const useGameStore = create(
             const { character: myChar, socketGameId } = get();
             const onCharacterChannel = myChar?.id != null && String(socketGameId) === String(myChar.id);
             setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
-            set({ stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null });
+            // The campaign leaves the Lightkeeper's ledger and Last Session tome, as the
+            // server's list of their campaigns leaves it out, so neither the tome nor the
+            // browser's Forward (stageHistory.js) opens its desk again
+            const { campaign_id: id, campaign_code: code } = message.payload;
+            set(state => ({
+              stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null,
+              gmCampaigns: state.gmCampaigns.filter(c => c.id !== id),
+              lastPlayedCampaign: state.lastPlayedCampaign?.type === 'gm' && state.lastPlayedCampaign.campaignCode === code
+                ? null : state.lastPlayedCampaign,
+            }));
           }
           else if (message.type === 'campaign_deleted') {
             if (!isForThisCampaign(message.payload)) return;

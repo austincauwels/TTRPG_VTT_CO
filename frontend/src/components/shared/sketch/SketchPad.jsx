@@ -6,6 +6,7 @@ import '@excalidraw/excalidraw/index.css';
 import './sketchPad.css';
 import { useConfirmStep } from '../ConfirmAction';
 import { FormLine, PrinterMark } from '../PrintMarks';
+import { holdBack } from '../../stageHistory';
 
 // The drawing sheet itself, loaded only when a sketch is opened (loadSketchPad.js), so
 // Excalidraw stays out of the main bundle. Excalidraw is the paper's canvas and nothing
@@ -144,6 +145,10 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
   }), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The browser's Back, or a phone's back gesture, with something drawn keeps the sheet and
+  // the desk under it, and turns Cancel to Discard as a first press of it does
+  useEffect(() => (dirty ? holdBack(cancelStep.arm) : undefined), [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (api) api.setActiveTool({ type: 'freedraw', locked: true });
