@@ -2,7 +2,7 @@
 
 Updated 9 October 2026, evening (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
-Resume: none
+Resume: PR 10 (table in view, new dots, log lines, gilded wording, resources) on branch claude/elegant-curie-9sa9z6, started 2026-10-10
 
 ## For the next chat: start here
 
