@@ -30,7 +30,8 @@ export const OperationsPanel = () => {
   const [pendingIndex, setPendingIndex] = useState(0);
   const [selectedInvestigator, setSelectedInvestigator] = useState(null);
   const [isFinalizingRoster, setIsFinalizingRoster] = useState(false);
-  const [showCircleStatus, setShowCircleStatus] = useState(false);
+  // The formation papers lie open until the seal (the Lightkeeper may fold them)
+  const [showCircleStatus, setShowCircleStatus] = useState(true);
   const [requestError, setRequestError] = useState('');
   const [requestBusy, setRequestBusy] = useState(false);
   const [finalizeError, setFinalizeError] = useState('');
@@ -203,10 +204,11 @@ export const OperationsPanel = () => {
                       handleFinalizeRoster={handleFinalizeRoster}
                       isFinalizingRoster={isFinalizingRoster}
                       campaignRoster={campaignRoster}
+                      circleCreation={circleCreation}
                       error={finalizeError}
                     />
 
-                    {/* Circle Formation Status summary */}
+                    {/* The formation papers as they stand on the players' desks */}
                     <CircleFormationStatus
                       showCircleStatus={showCircleStatus}
                       setShowCircleStatus={setShowCircleStatus}

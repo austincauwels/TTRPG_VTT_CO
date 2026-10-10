@@ -36,6 +36,7 @@ import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankQuestionCa
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
 import { tallyReports } from '../../game/illumination';
+import { CIRCLE_QUESTIONS } from '../../game/circleFormation';
 
 // A line of the charter the Lightkeeper may change: its value with an Edit button, which
 // turns it into a field holding the value. Enter or leaving the field saves, Escape puts
@@ -100,15 +101,6 @@ const EditableLine = ({ value, label, onSave, multiline = false, displayClassNam
   );
 };
 
-
-const CIRCLE_QUESTIONS = [
-  { key: 'q1', text: 'You have all known one another for a long time, but your circle was recently formed. Why were you brought together, and how do you each feel about it?' },
-  { key: 'q2', text: "You all share a common goal that's secret to the Lightkeepers of Candela Obscura. What is it?" },
-  { key: 'q3', text: "You've never met, but members of your circle are infamous. What did they do, and how do you each feel about it?" },
-  { key: 'q4', text: 'Your circle was retired, but Candela Obscura recently brought you back. Why were you all dismissed, and why did they call you in again?' },
-  { key: 'q5', text: 'Your circle once did something incredibly heroic. What did you do, and do other people know about it?' },
-  { key: 'q6', text: 'Your circle once did something horribly evil. What did you do, and how do you seek absolution?' },
-];
 
 const CIRCLE_ABILITY_DESCRIPTIONS = {
   'Stamina Training':    'Your circle has three gilded dice at the beginning of every assignment that anyone may add as +1d to any roll. Once a die has been rolled, it is expended.',
