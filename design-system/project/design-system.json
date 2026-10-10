@@ -1,0 +1,159 @@
+{
+  "v": 3,
+  "layout": "files",
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-10-10T04:36:09Z"
+  },
+  "title": "Candela Obscura VTT",
+  "namespace": "CandelaObscura",
+  "libraries": [],
+  "sections": {},
+  "groups": [
+    "Logos",
+    "Icons",
+    "Desk papers"
+  ],
+  "assetGroups": {
+    "Logos": {
+      "name": "Logos",
+      "tile": "m",
+      "order": [
+        "candle-mark.svg",
+        "candle-mark-touch.png"
+      ],
+      "files": {
+        "candle-mark.svg": {
+          "name": "candle-mark.svg",
+          "blob": "6c6d88db8da4edf307c1cfc5b22ea72b",
+          "size": 1019,
+          "type": "image/svg+xml"
+        },
+        "candle-mark-touch.png": {
+          "name": "candle-mark-touch.png",
+          "blob": "fe215915248a089573d8d9be8e004e1a",
+          "size": 7548,
+          "type": "image/png"
+        }
+      }
+    },
+    "Icons": {
+      "name": "Icons",
+      "tile": "xs",
+      "order": [
+        "tick.svg",
+        "cross.svg",
+        "play.svg",
+        "mourning-cross.svg",
+        "pause.svg",
+        "turn-back.svg",
+        "seal-candle-holder.svg"
+      ],
+      "files": {
+        "tick.svg": {
+          "name": "tick.svg",
+          "blob": "5a503545866471263b062eb81e221a3e",
+          "size": 200,
+          "type": "image/svg+xml"
+        },
+        "cross.svg": {
+          "name": "cross.svg",
+          "blob": "5ebe370c5d6b3c3e993ea1f394757f6b",
+          "size": 201,
+          "type": "image/svg+xml"
+        },
+        "play.svg": {
+          "name": "play.svg",
+          "blob": "b9dd97aeae4113ffbeacf6e1a65a2080",
+          "size": 178,
+          "type": "image/svg+xml"
+        },
+        "mourning-cross.svg": {
+          "name": "mourning-cross.svg",
+          "blob": "b06270fc06a080d5f7103c1bf95e1e01",
+          "size": 138,
+          "type": "image/svg+xml"
+        },
+        "pause.svg": {
+          "name": "pause.svg",
+          "blob": "7980f88ac8747fe2bb0bd2dcac344aaa",
+          "size": 173,
+          "type": "image/svg+xml"
+        },
+        "turn-back.svg": {
+          "name": "turn-back.svg",
+          "blob": "a1b5c3e3e2068c39c5ef932aa47ab3a0",
+          "size": 258,
+          "type": "image/svg+xml"
+        },
+        "seal-candle-holder.svg": {
+          "name": "seal-candle-holder.svg",
+          "blob": "596b0f0fbdf502bdb76f997bf64755ba",
+          "size": 1293,
+          "type": "image/svg+xml"
+        }
+      }
+    },
+    "Desk papers": {
+      "name": "Desk papers",
+      "tile": "l",
+      "order": [
+        "sea-monster.webp",
+        "bestiary-lions.webp",
+        "sea-monk.webp",
+        "blemmye.webp",
+        "sea-swine.webp",
+        "red-ink-creature.webp"
+      ],
+      "files": {
+        "sea-monster.webp": {
+          "name": "sea-monster.webp",
+          "blob": "6c72dcbe4b1a80da0e8ce9a3fe48c586",
+          "size": 90708,
+          "type": "image/webp"
+        },
+        "bestiary-lions.webp": {
+          "name": "bestiary-lions.webp",
+          "blob": "4c107ec33fe598316647a4593bb99202",
+          "size": 107666,
+          "type": "image/webp"
+        },
+        "sea-monk.webp": {
+          "name": "sea-monk.webp",
+          "blob": "001bb45db432133936c3934983356f8c",
+          "size": 29248,
+          "type": "image/webp"
+        },
+        "blemmye.webp": {
+          "name": "blemmye.webp",
+          "blob": "92e29b80830f3a68be31154cb6a74898",
+          "size": 104706,
+          "type": "image/webp"
+        },
+        "sea-swine.webp": {
+          "name": "sea-swine.webp",
+          "blob": "a77402c1c083bf77349d40a5141a7acf",
+          "size": 80326,
+          "type": "image/webp"
+        },
+        "red-ink-creature.webp": {
+          "name": "red-ink-creature.webp",
+          "blob": "a30fc06ea687da583163ae4d3d936912",
+          "size": 57052,
+          "type": "image/webp"
+        }
+      }
+    }
+  },
+  "blobs": {},
+  "docs": {
+    "readme": "project/README.md",
+    "sections": []
+  },
+  "lastChange": {
+    "by": "Robert Gater",
+    "at": "2026-10-10T04:36:09Z",
+    "via": "Claude Code \u00b7 GitHub austincauwels/TTRPG_VTT_CO@da2b4c1",
+    "note": "Extracted from DESIGN.md, tailwind.config.js and index.css: 42 colors in two themes, 16 text styles, 13 components, 15 assets."
+  }
+}

@@ -1,0 +1,166 @@
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Charm:wght@400;700&family=Caveat:wght@400;700&display=swap");
+
+/* Candela Obscura VTT: component styles, hand-written from frontend/src/index.css and the
+   Tailwind class recipes in frontend/src/components. Every value comes from tokens.css;
+   alpha comes from color-mix over the same tokens. */
+
+body { margin: 0; background: var(--stage); color: var(--ink); font-family: var(--font-serif); -webkit-font-smoothing: antialiased; }
+.co-stage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); padding: var(--space-lg) var(--space-xl); }
+.co-stage-col { display: flex; flex-direction: column; gap: var(--space-md); padding: var(--space-lg) var(--space-xl); }
+.co-on-paper { background: var(--parchment); }
+::selection { background: var(--oxblood); color: var(--cream); }
+
+/* Keyboard focus: a 2px candle-gold outline with a 2px ink band inside it. Gold carries it
+   at night, the ink band carries it on paper. */
+.co-focus:focus-visible, .co-btn:focus-visible, .co-tab:focus-visible, .co-chip:focus-visible, .co-field input:focus-visible {
+  outline: 2px solid var(--candle-gold); outline-offset: 2px; box-shadow: 0 0 0 2px var(--ink);
+}
+
+/* ---------- Button ---------- */
+.co-btn {
+  font-family: var(--font-sans); font-weight: 900; font-size: 12px; line-height: 16px;
+  letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;
+  padding: var(--space-sm) 28px; min-height: 40px; border-radius: var(--radius-md);
+  border: 1px solid var(--ink); cursor: pointer; transition: filter .15s ease, background-color .15s ease, color .15s ease;
+}
+.co-btn-lg { font-size: 16px; line-height: 24px; }
+.co-btn-primary { background: var(--oxblood); color: var(--cream); box-shadow: 0 1px 3px rgba(0,0,0,.3), 0 1px 2px -1px rgba(0,0,0,.3); }
+.co-btn-primary:hover { filter: brightness(1.25); }
+.co-btn-primary:disabled { background: color-mix(in srgb, var(--ink) 60%, transparent); color: color-mix(in srgb, var(--cream) 45%, transparent); cursor: not-allowed; filter: none; box-shadow: none; }
+.co-btn-ghost { background: transparent; border-color: color-mix(in srgb, var(--cream) 25%, transparent); color: color-mix(in srgb, var(--cream) 75%, transparent); padding-inline: 20px; }
+.co-btn-ghost:hover { background: color-mix(in srgb, var(--cream) 5%, transparent); color: var(--cream); }
+.co-btn-gold { background: var(--candle-gold); color: var(--ink); padding: 6px 12px; min-height: 0; box-shadow: var(--shadow-brass); transition: transform .15s ease, box-shadow .15s ease; }
+.co-btn-gold:active { transform: translateY(1px); box-shadow: none; }
+.co-btn-outline { background: transparent; border-color: color-mix(in srgb, var(--oxblood) 50%, transparent); color: var(--oxblood); padding-inline: 16px; }
+.co-btn-outline:hover { background: color-mix(in srgb, var(--oxblood) 10%, transparent); }
+.co-btn-moon { background: transparent; border-color: color-mix(in srgb, var(--moonlight-steel) 40%, transparent); color: var(--moonlight-steel); padding-inline: 16px; }
+
+/* ---------- Step tabs (the creator's progress bar) ---------- */
+.co-steps { display: flex; border: 1px solid color-mix(in srgb, var(--sepia) 50%, transparent); background: var(--ink); border-radius: var(--radius-md); overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,.3); }
+.co-tab {
+  flex: 1; padding: var(--space-lg) 4px; border: 0; border-right: 1px solid color-mix(in srgb, var(--sepia) 50%, transparent);
+  background: transparent; color: color-mix(in srgb, var(--cream) 75%, transparent);
+  font-family: var(--font-sans); font-weight: 900; font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+}
+.co-tab:last-child { border-right: 0; }
+.co-tab:hover { background: rgba(0,0,0,.2); color: var(--cream); }
+.co-tab[aria-current] { background: var(--oxblood); color: var(--cream); }
+.co-tab:disabled { color: color-mix(in srgb, var(--cream) 55%, transparent); cursor: not-allowed; background: transparent; }
+
+/* ---------- Paper sheet ---------- */
+.co-paper {
+  position: relative; overflow: hidden; background-color: var(--parchment); color: var(--ink);
+  border: 3px double var(--sepia); border-radius: var(--radius-sm); box-shadow: var(--shadow-sheet);
+  background-image:
+    radial-gradient(color-mix(in srgb, var(--sepia) 5%, transparent) 1px, transparent 0),
+    linear-gradient(color-mix(in srgb, var(--sepia) 2.5%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px, 100% var(--space-rule);
+}
+.co-paper-body { position: relative; z-index: 1; padding: var(--space-panel); }
+.co-paper::before { content: ''; position: absolute; width: 320px; height: 240px; top: -60px; left: -80px; border-radius: 50%; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--sepia) 12%, transparent) 0%, transparent 70%); pointer-events: none; }
+.co-paper .co-fold { position: absolute; left: 0; width: 100%; border-top: 1px solid color-mix(in srgb, var(--sepia) 11%, transparent); pointer-events: none; }
+.co-bracket { position: absolute; width: 28px; height: 28px; border: 0 solid color-mix(in srgb, var(--sepia) 50%, transparent); pointer-events: none; }
+.co-bracket.tl { top: 8px; left: 8px; border-top-width: 2px; border-left-width: 2px; }
+.co-bracket.tr { top: 8px; right: 8px; border-top-width: 2px; border-right-width: 2px; }
+.co-bracket.bl { bottom: 8px; left: 8px; border-bottom-width: 2px; border-left-width: 2px; }
+.co-bracket.br { bottom: 8px; right: 8px; border-bottom-width: 2px; border-right-width: 2px; }
+.co-watermark { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transform: rotate(-28deg); pointer-events: none; font-family: var(--font-serif); font-weight: 700; font-size: 100px; letter-spacing: 0.08em; white-space: nowrap; color: var(--sepia); opacity: .032; }
+.co-well { background: color-mix(in srgb, var(--parchment-deep) 30%, transparent); border: 1px solid color-mix(in srgb, var(--sepia) 30%, transparent); border-radius: var(--radius-sm); box-shadow: var(--shadow-well); padding: var(--space-lg); }
+.co-ruled { background-image: linear-gradient(transparent calc(var(--space-rule) - 1px), color-mix(in srgb, var(--sepia) 12%, transparent) var(--space-rule)); background-size: 100% var(--space-rule); }
+.co-hand-placed { transform: rotate(calc(var(--tilt, 0deg) * var(--tilt-scale, 1))); }
+@media (max-width: 639px) { .co-hand-placed { --tilt-scale: 0.7; } }
+
+/* ---------- Ledger field ---------- */
+.co-field { display: flex; flex-direction: column; gap: 4px; }
+.co-field label { font-family: var(--font-sans); font-weight: 900; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sepia); }
+.co-field input {
+  background: transparent; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--sepia) 38%, transparent); border-radius: 0;
+  padding: 0 0 4px; font-family: var(--font-serif); font-weight: 700; font-size: 18px; line-height: 1.3; color: var(--ink);
+}
+.co-field input::placeholder { color: color-mix(in srgb, var(--ink) 20%, transparent); }
+.co-field input:focus { outline: none; border-bottom-color: var(--oxblood); }
+.co-field input.co-mono { font-family: var(--font-mono); font-weight: 400; font-size: 16px; }
+.co-field .co-error { font-family: var(--font-serif); font-size: 16px; color: var(--oxblood); }
+
+/* ---------- Chips ---------- */
+.co-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px var(--space-sm); border-radius: var(--radius-sm); font-family: var(--font-sans); font-weight: 900; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+.co-chip-tag { background: var(--ink); color: var(--candle-gold); }
+.co-chip-gear { background: transparent; border: 1px solid color-mix(in srgb, var(--sepia) 60%, transparent); color: var(--ink); font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 16px; letter-spacing: 0; text-transform: none; }
+.co-chip-raise { min-height: 36px; padding: 0 12px; background: var(--parchment); border: 1px solid var(--sepia); color: var(--ink); cursor: pointer; }
+.co-chip-raise[aria-pressed="true"] { background: var(--oxblood); border-color: var(--oxblood); color: var(--cream); }
+
+/* ---------- Action pips and drive squares ---------- */
+.co-pip { width: 13px; height: 13px; border-radius: var(--radius-full); border: 1.5px solid var(--sepia); display: inline-block; flex-shrink: 0; box-sizing: border-box; }
+.co-pip.filled { background: var(--oxblood); border-color: var(--oxblood); }
+.co-pip.gilded { background: var(--candle-gold); border-color: var(--sepia); }
+.co-drive-sq { width: 14px; height: 14px; display: inline-block; border: 1.5px solid var(--drive, var(--sepia)); box-sizing: border-box; }
+.co-drive-sq.filled { background: var(--drive, var(--sepia)); }
+.co-chit { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: 4px var(--space-sm); min-height: 34px; background: color-mix(in srgb, var(--cream) 55%, transparent); border: 1px solid color-mix(in srgb, var(--sepia) 25%, transparent); border-radius: var(--radius-sm); font-family: var(--font-sans); font-weight: 900; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.co-chit:hover { transform: translateY(-1px); box-shadow: 1px 3px 6px rgba(0,0,0,.18); }
+.co-chit:active { transform: translateY(1px); box-shadow: none; }
+.co-pips { display: inline-flex; gap: var(--space-xs); }
+
+/* ---------- Mark boxes (trauma record) ---------- */
+.co-mark { width: 20px; height: 20px; border: 2px solid var(--ink); box-shadow: var(--shadow-well); display: inline-block; box-sizing: border-box; background: transparent; }
+.co-mark.filled { background: var(--oxblood); transform: rotate(var(--tilt, -1deg)); }
+.co-mark-row { display: flex; align-items: center; gap: var(--space-sm); }
+.co-mark-label { font-family: var(--font-sans); font-weight: 900; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); min-width: 52px; }
+
+/* ---------- Print furniture ---------- */
+.co-print-small { font-family: var(--font-serif); font-size: 10.5px; line-height: 1.2; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: color-mix(in srgb, var(--sepia) 62%, transparent); white-space: nowrap; }
+.co-print-serial { font-family: var(--font-mono); font-size: 12px; line-height: 1; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--oxblood) 68%, transparent); white-space: nowrap; }
+.co-print-edge { font-family: var(--font-serif); font-size: 9.5px; line-height: 1; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: color-mix(in srgb, var(--sepia) 42%, transparent); white-space: nowrap; overflow: hidden; }
+.co-print-stamp { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 3px 7px 2px; border: 1.5px solid currentColor; border-radius: var(--radius-sm); font-family: var(--font-sans); font-weight: 900; font-size: 10px; line-height: 1; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap; opacity: .72; transform: rotate(var(--tilt, -2deg)); }
+.co-print-stamp[data-tone="oxblood"] { color: var(--oxblood); }
+.co-print-stamp[data-tone="green"] { color: var(--seal-green); }
+.co-print-stamp[data-tone="sepia"] { color: var(--sepia); }
+.co-print-stamp .date { font-family: var(--font-mono); font-weight: 700; letter-spacing: 0.06em; }
+.co-print-stamp-empty { display: inline-block; width: 5.75rem; height: 2rem; border: 1.5px dashed color-mix(in srgb, var(--sepia) 50%, transparent); border-radius: var(--radius-sm); transform: rotate(var(--tilt, -2deg)); }
+.co-print-blank { display: inline-block; width: 4.5rem; height: .95em; vertical-align: baseline; border-bottom: 1px dotted currentColor; opacity: .6; }
+.co-print-box { display: inline-block; min-width: 7.5rem; padding: 4px 6px 6px; border: 1px solid color-mix(in srgb, var(--sepia) 32%, transparent); }
+.co-print-box-line { display: block; height: 14px; border-bottom: 1px dotted color-mix(in srgb, var(--sepia) 40%, transparent); }
+
+/* ---------- Ink stamp (a roll's outcome) ---------- */
+.co-ink-stamp {
+  display: inline-block; transform: rotate(var(--tilt, -2deg)); padding: 6px 8px 4px; border: 2px solid currentColor; border-radius: var(--radius-sm);
+  font-family: var(--font-display); font-weight: 400; font-size: 24px; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'%3E%3Cpath fill-rule='evenodd' d='M0 0H46V46H0ZM14.1 7.6a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M2.8 37.1a0.35 0.35 0 1 0 0.7 0a0.35 0.35 0 1 0 -0.7 0M16.2 3.6a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M9.7 4.8a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M3.2 25.9a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M28.4 26.7a0.35 0.35 0 1 0 0.7 0a0.35 0.35 0 1 0 -0.7 0M25.9 18.5a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M18.5 24.8a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M14.1 36.9a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M25.1 28.2a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M30.4 19.8a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M20.9 41.6a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M13.1 36a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M34.8 4.6a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M23 39.5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M5.6 19.4a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M42.4 4.4a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M15.3 16.4a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M38.2 31.6a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M40.1 12.2a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0'/%3E%3C/svg%3E") 0 0 / 46px 46px repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'%3E%3Cpath fill-rule='evenodd' d='M0 0H46V46H0ZM14.1 7.6a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M2.8 37.1a0.35 0.35 0 1 0 0.7 0a0.35 0.35 0 1 0 -0.7 0M16.2 3.6a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M9.7 4.8a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M3.2 25.9a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M28.4 26.7a0.35 0.35 0 1 0 0.7 0a0.35 0.35 0 1 0 -0.7 0M25.9 18.5a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M18.5 24.8a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M14.1 36.9a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0M25.1 28.2a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M30.4 19.8a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M20.9 41.6a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M13.1 36a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M34.8 4.6a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M23 39.5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M5.6 19.4a0.55 0.55 0 1 0 1.1 0a0.55 0.55 0 1 0 -1.1 0M42.4 4.4a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0M15.3 16.4a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M38.2 31.6a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0M40.1 12.2a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0'/%3E%3C/svg%3E") 0 0 / 46px 46px repeat;
+}
+.co-ink-stamp[data-outcome="failure"] { color: var(--oxblood); }
+.co-ink-stamp[data-outcome="mixed"] { color: var(--sepia); }
+.co-ink-stamp[data-outcome="full"] { color: var(--seal-green); }
+.co-ink-stamp[data-outcome="critical"] { color: var(--ink); background: var(--candle-gold); }
+
+/* ---------- Wax seal (shares of its own width, so it holds at 32px and 128px) ---------- */
+.co-seal { display: inline-block; position: relative; flex-shrink: 0; width: var(--seal-size, 40px); height: var(--seal-size, 40px); container-type: size; pointer-events: none; }
+.co-seal-body { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 48%; border: 1px solid var(--material-wax-rim); background: linear-gradient(to bottom right, var(--material-wax-light), var(--material-wax), var(--material-wax-dark)); box-shadow: 3.6cqw 8.9cqw 17.9cqw rgba(0,0,0,.85), inset 0 1.8cqw 3.6cqw rgba(255,255,255,.2); transform: rotate(var(--tilt-seal)); }
+.co-seal-ring { display: flex; align-items: center; justify-content: center; width: 71.4%; height: 71.4%; padding: 1.8cqw; box-sizing: border-box; border-radius: var(--radius-full); border: 1px dashed rgba(0,0,0,.2); box-shadow: inset 0 1.8cqw 3.6cqw rgba(0,0,0,.05); }
+.co-seal-mark { width: 77.5%; height: 77.5%; fill: var(--material-wax-mark); filter: drop-shadow(0 max(1px, 1.3cqw) max(.5px, .9cqw) rgba(255,255,255,.1)); transform: translateY(-0.9cqw); }
+
+/* ---------- Pen underline (tabs and nav slips) ---------- */
+.co-pen { position: relative; }
+.co-pen::after {
+  content: ''; position: absolute; left: -4%; right: -4%; bottom: -.38em; height: .34em; background-color: var(--oxblood);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M1 5.4C30 3.2 58 6.4 96 4.6S158 2.4 199 3.4L198.6 5C160 4.6 132 7.4 96 6.6S34 5.6 1.6 7.2Z'/%3E%3C/svg%3E") no-repeat 0 0 / 100% 100%;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M1 5.4C30 3.2 58 6.4 96 4.6S158 2.4 199 3.4L198.6 5C160 4.6 132 7.4 96 6.6S34 5.6 1.6 7.2Z'/%3E%3C/svg%3E") no-repeat 0 0 / 100% 100%;
+  clip-path: inset(0 100% 0 0); transition: clip-path .38s cubic-bezier(.22,1,.36,1); pointer-events: none;
+}
+@media (hover: hover) { .co-pen-host:hover .co-pen::after { clip-path: inset(0 0 0 0); } }
+.co-pen-host:focus-visible .co-pen::after, .co-pen.is-inked::after { clip-path: inset(0 0 0 0); }
+.co-slip { display: inline-flex; align-items: center; gap: var(--space-sm); padding: 10px var(--space-lg); min-height: 44px; background: var(--cream); color: var(--ink); border: 0; font-family: var(--font-serif); font-weight: 700; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; box-shadow: var(--shadow-object); cursor: pointer; transform: rotate(var(--tilt, 0deg)); }
+.co-slip:focus-visible { outline: 2px solid var(--candle-gold); outline-offset: 2px; }
+
+/* ---------- Die ---------- */
+.co-die { width: 44px; height: 44px; border-radius: var(--radius-md); border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); background: var(--cream); color: var(--ink); display: inline-block; transform: rotate(var(--tilt, 0deg)); box-shadow: 2px 3px 6px rgba(0,0,0,.45); }
+.co-die svg { width: 100%; height: 100%; display: block; fill: currentColor; }
+.co-die.gilded { background-image: linear-gradient(to bottom right, var(--material-gilt-light), var(--material-gilt-dark)); border: 2px solid var(--candle-gold); box-shadow: var(--shadow-gilded-halo); }
+.co-die.counts { outline: 2px solid var(--seal-green-lit); outline-offset: 3px; }
+.co-felt { background: var(--material-felt); border: 6px solid var(--material-tray-wood); border-radius: var(--radius-sm); }
+
+/* ---------- Ink marks ---------- */
+.co-inkmark { display: inline-block; width: .9em; height: .9em; vertical-align: -.08em; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+
+@media (prefers-reduced-motion: reduce) {
+  .co-pen::after, .co-btn, .co-chit, .co-btn-gold { transition: none !important; }
+}

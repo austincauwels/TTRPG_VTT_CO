@@ -1,0 +1,55 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Candela Obscura VTT</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--stage); color: var(--cream); font-family: var(--font-serif); overflow: hidden; }
+  .cover { position: relative; width: 960px; height: 288px; overflow: hidden; }
+  .art { position: absolute; top: 0; left: 480px; width: 480px; height: 288px; overflow: hidden; }
+  .art svg { display: block; width: 480px; height: 288px; }
+  .deep { fill: var(--parchment-deep); }
+  .paper { fill: var(--parchment); }
+  .rule { stroke: var(--sepia); stroke-opacity: .38; stroke-width: 1; }
+  .ink { fill: var(--oxblood); }
+  .gold { fill: var(--candle-gold); }
+  .seal { fill: var(--seal-green-lit); }
+  .sq { rx: var(--radius-sm); }
+  .words { position: absolute; left: var(--space-xl); bottom: var(--space-xl); max-width: 440px; }
+  .name { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 60px; line-height: .95; letter-spacing: .04em; white-space: nowrap; color: var(--cream); }
+  .tag { margin: var(--space-sm) 0 0 2px; font-family: var(--font-serif); font-style: italic; font-size: 14px; line-height: 20px; color: var(--parchment-deep); }
+</style>
+</head>
+<body>
+<div class="cover">
+  <div class="art" aria-hidden="true">
+    <svg viewBox="0 0 480 288" width="480" height="288">
+      <!--
+        blocks      parchment 240x312 and parchment-deep 216x264 bled off the top; oxblood slip 168x72; candle-gold disc r=24; seal-green-lit band 72x24
+        arrangement two sheets lying crooked on the night desk (tilt-max 2deg and -tilt-min), a slip laid across the paper's foot, a gilded pip and a seal at the side
+        pattern     a few hairline rules: ruled writing lines on the parchment every space-rule (28px), sepia at the ledger field's 38% strength; "vertical rhythm on paper comes from hairlines and ruled lines"
+        scales      space-rule 28, space-xl 24, space-lg 16; radius-sm on the sheets and slip, radius-full on the pip
+      -->
+      <rect class="deep sq" x="24" y="-24" width="216" height="264" transform="rotate(-2 132 108)"/>
+      <g transform="rotate(1.5 252 132)">
+        <rect class="paper sq" x="132" y="-24" width="240" height="312"/>
+        <line class="rule" x1="148" y1="60" x2="356" y2="60"/>
+        <line class="rule" x1="148" y1="88" x2="356" y2="88"/>
+        <line class="rule" x1="148" y1="116" x2="356" y2="116"/>
+        <line class="rule" x1="148" y1="144" x2="356" y2="144"/>
+        <line class="rule" x1="148" y1="172" x2="356" y2="172"/>
+      </g>
+      <rect class="ink sq" x="96" y="192" width="168" height="72" transform="rotate(-1 180 228)"/>
+      <circle class="gold" cx="420" cy="72" r="24"/>
+      <rect class="seal sq" x="396" y="216" width="72" height="24"/>
+    </svg>
+  </div>
+  <div class="words">
+    <h1 class="name">Candela<br>Obscura VTT</h1>
+    <p class="tag">The Candlelit Desk: parchment, oxblood ink and gold on a lamp-black stage.</p>
+  </div>
+</div>
+</body>
+</html>
