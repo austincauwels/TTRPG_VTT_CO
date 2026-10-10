@@ -100,6 +100,28 @@ def test_declining_a_soak_lands_the_mark(client):
     assert (row.body_marks, row.cunning_resistance_spent, row.ability_uses) == (2, 0, {})
 
 
+def test_an_offer_whose_countdown_runs_out_is_logged_as_run_out(client):
+    """The card's countdown sends the decline with timed_out: the log says the offer ran
+    out, not that the player passed it on, since the countdown chose (playtest,
+    mark-undo-then-death-defy: "the second decides for you if it runs out")."""
+    ch = support.forge(client, cunning_max=3, role_ability="Death Defy", specialty_ability="In the Trenches")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", is_from_enemy=False)
+        [soak] = ws.sync()
+        ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body",
+                offer_id=soak["payload"]["offer_id"], timed_out=True)
+        assert [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"] == [
+            f"{ch['name']} let In the Trenches run out and took a Body mark (1 of 3)."]
+        ws.send("take_mark", mark_type="bleed", is_from_enemy=True)
+        [defy] = ws.sync()
+        ws.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="bleed",
+                offer_id=defy["payload"]["offer_id"], timed_out=True)
+        assert [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"] == [
+            f"{ch['name']} let Death Defy run out and took a Bleed mark (1 of 3)."]
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.bleed_marks, row.ability_uses) == (1, 1, {})
+
+
 def test_accepting_a_soak_keeps_the_mark_off(client):
     ch = support.forge(client, body_marks=1, cunning_max=3, specialty_ability="In the Trenches")
     with support.ws_connect(client, ch["id"]) as ws:

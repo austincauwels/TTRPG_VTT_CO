@@ -87,7 +87,8 @@ export const AbilityMarkOffer = () => {
   const holdsOwnMark = !!config && !config.isIntercept && (offer.action === 'soak' || offer.action === 'escape');
   const holdsRef = useRef(null);
   holdsRef.current = holdsOwnMark ? offer : null;
-  const passUp = () => (holdsRef.current ? declineAbilityMark(holdsRef.current) : dismissAbilityMarkOffer());
+  // timedOut: the countdown ran out, which the log does not call the player's choice
+  const passUp = (timedOut = false) => (holdsRef.current ? declineAbilityMark(holdsRef.current, timedOut) : dismissAbilityMarkOffer());
 
   const windowed = Number.isFinite(offer?.expires_in);
   const autoDismissSeconds = windowed ? Math.max(1, offer.expires_in - WINDOW_MARGIN_SECONDS)
@@ -100,7 +101,7 @@ export const AbilityMarkOffer = () => {
       const deadline = (offer.received_at ?? Date.now()) + autoDismissSeconds * 1000;
       const tick = () => {
         const left = Math.ceil((deadline - Date.now()) / 1000);
-        if (left <= 0) { setTimeLeft(null); passUp(); return false; }
+        if (left <= 0) { setTimeLeft(null); passUp(true); return false; }
         setTimeLeft(left);
         return true;
       };
@@ -113,7 +114,7 @@ export const AbilityMarkOffer = () => {
       if (pausedRef.current) return;
       setTimeLeft(prev => {
         if (prev == null) return prev;
-        if (prev <= 1) { passUp(); return null; }
+        if (prev <= 1) { passUp(true); return null; }
         return prev - 1;
       });
     }, 1000);
@@ -230,7 +231,7 @@ export const AbilityMarkOffer = () => {
           )}
           {offer.action === 'info' && <span className="flex-1" aria-hidden="true" />}
           <button
-            onClick={passUp}
+            onClick={() => passUp()}
             className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-widest border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm"
           >
             {offer.action === 'info' ? 'Close' : holdsOwnMark ? 'Take the mark' : 'Not now'}

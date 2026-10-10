@@ -149,10 +149,17 @@ async def _offer_rush(character, channel, m_type):
 
 def _taken(character, m_type, val, passed_on=None) -> str:
     """The log's line for a mark that lands: "Iris took a Body mark (2 of 3).", or "took a
-    fourth Body mark." when the track was full. passed_on is the offer the player let go."""
+    fourth Body mark." when the track was full. passed_on says how the offer before it was
+    let go ("passed on Death Defy", "let Death Defy run out", _let_go)."""
     took = f"took a fourth {m_type.capitalize()} mark" if val >= 4 \
         else f"took a {m_type.capitalize()} mark ({val} of 3)"
-    return f"{character.name} " + (f"passed on {passed_on} and " if passed_on else "") + took + "."
+    return f"{character.name} " + (f"{passed_on} and " if passed_on else "") + took + "."
+
+
+def _let_go(ability, payload) -> str:
+    """How the log says an offer was let go: the player's "Take the mark", or its countdown
+    running out (the desk sends timed_out), which is not the player's choice."""
+    return f"let {ability} run out" if payload.get("timed_out") is True else f"passed on {ability}"
 
 
 async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True, announce=False, passed_on=None):
@@ -160,7 +167,7 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True, ann
 
     announce: the log says so, with the track's count (_taken). mark_or_offer announces
     every mark; an ability that takes a mark as its cost does not, since its use's own
-    line names the mark. passed_on names the offer the player declined first."""
+    line names the mark. passed_on says how the offer before it was let go (_taken)."""
     db = ctx.db
     abilities = abilities_of(character)
     val = (getattr(character, f"{m_type}_marks", 0) or 0) + 1
@@ -267,7 +274,7 @@ async def _offer_intercepts(ctx, character, m_type):
 
 async def _land(ctx, character, held, channel, passed_on=None):
     """The marks an offer held: its own, and any more of the same harm (Death Defy). The
-    first one's log line names the offer passed on."""
+    first one's log line names the offer let go."""
     for i, m_type in enumerate([held["mark_type"], *held.get("more", [])]):
         await apply_mark(ctx, character, m_type, channel, held["offer_intercepts"],
                          announce=True, passed_on=None if i else passed_on)
@@ -321,8 +328,8 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
     arrives while it is offered is taken as part of the same harm. It waits with the
     first, the offer counts it, and one use escapes them all.
 
-    Every mark that lands here is announced in the log (apply_mark); passed_on is the
-    soak declined before it (_let_the_mark_land)."""
+    Every mark that lands here is announced in the log (apply_mark); passed_on says how
+    the soak before it was let go (_let_the_mark_land)."""
     held = _pending_marks.pop(character.id, None)
     if held and held.get("stage") == "escape" and is_from_enemy:
         held["more"] = [*held.get("more", []), m_type]
@@ -381,11 +388,12 @@ async def handle_take_mark(ctx):
                             is_from_enemy=ctx.payload.get("is_from_enemy") is not False)
 
 
-async def _let_the_mark_land(ctx, character, payload, after, passed_on=None):
+async def _let_the_mark_land(ctx, character, payload, after, declined=None):
     """A declined soak or Death Defy: the held mark goes on (after a declined soak, Death
     Defy can still be offered for an enemy's mark). Without a held mark (a restart),
-    the payload's mark_type lands. passed_on is the ability the player declined, for the
-    log (None when the server refused it)."""
+    the payload's mark_type lands. declined is the ability the player let go, which the
+    log names (None when the server refused it)."""
+    passed_on = _let_go(declined, payload) if declined else None
     pending = _pending_marks.pop(character.id, None)
     if pending is None:
         m_type = payload.get("mark_type")

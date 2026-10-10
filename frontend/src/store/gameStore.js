@@ -1301,14 +1301,15 @@ const useGameStore = create(
       dismissAbilityMarkOffer: () => set(nextOffer),
 
       // A soak or Death Defy offer holds the mark back until it is answered. Declining it
-      // (or letting its countdown run out) tells the server, which lets the mark land.
-      declineAbilityMark: (offer) => {
+      // (or letting its countdown run out, timedOut) tells the server, which lets the mark land.
+      declineAbilityMark: (offer, timedOut = false) => {
         const { socket } = get();
         set(state => ({ ...nextOffer(state), ...(holdsOwnMark(offer) ? offerLets(state, false, offer.seq) : {}) }));
         if (offer && socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'resolve_ability_mark',
-            payload: { ability: offer.ability, choice: 'decline', mark_type: offer.mark_type, offer_id: offer.offer_id },
+            payload: { ability: offer.ability, choice: 'decline', mark_type: offer.mark_type, offer_id: offer.offer_id,
+              ...(timedOut ? { timed_out: true } : {}) },
           }));
         }
       },
