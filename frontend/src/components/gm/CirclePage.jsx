@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { useFlatTurn } from '../shared/useFlatTurn';
 import useGameStore, { assignmentOf } from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { tiltStyle } from '../shared/handPlaced';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { useDialog } from '../shared/useDialog';
-import { onActivateKey, pressable } from '../shared/a11y';
+import { onActivateKey } from '../shared/a11y';
 import { RESOURCE_HELP, refillRule } from '../../game/circleResources';
 import { playPaperSound } from '../../game/rollSounds';
 
@@ -138,6 +138,15 @@ const ILLUMINATION_KEYS = {
   Occultist:  ['Consult Arcane Texts', 'Collect Oddities', 'Act Bizarre'],
 };
 
+// Each investigator's report, a card that turns over (her original flip). The front is the
+// button that turns it; the back is read as it is written, for a screen reader too: a
+// heading, then the investigator's keys as a list, each with "Ticked" or "Not ticked" beside
+// its drawn mark, and its own Turn back button (Escape turns it back too). The whole card
+// was one button before, named "<name>'s report: turn back to the front", so a screen reader
+// never heard which keys anyone claimed (playtest, report-cards-sr). Focus follows each
+// turn to the face that comes up, the back's heading or the front, so it never drops to the
+// page when the face it was on is put away (the heading opens nothing, so no phone keyboard
+// rises).
 function ReportFlipCard({ inv, report }) {
   const [flipped, setFlipped] = useState(false);
   // The card turns flat (shared/useFlatTurn.js): the report cards lie in the circle papers'
@@ -146,30 +155,49 @@ function ReportFlipCard({ inv, report }) {
   // over the papers there, and during a 3D turn the second column's papers went blank
   // (iPad pass, 2026-10-05).
   const { ref: cardRef, turn: turnFlat } = useFlatTurn({ ms: 400 });
-  const turn = () => { playPaperSound(); turnFlat(() => setFlipped(f => !f)); };
+  const frontRef = useRef(null);
+  const headRef = useRef(null);
+  const focusAfterTurn = useRef(false);
+  const keysId = useId();
+  const turn = () => {
+    focusAfterTurn.current = true;
+    playPaperSound();
+    turnFlat(() => setFlipped(f => !f));
+  };
+  useEffect(() => {
+    if (!focusAfterTurn.current) return;
+    focusAfterTurn.current = false;
+    (flipped ? headRef.current : frontRef.current)?.focus({ preventScroll: true });
+  }, [flipped]);
+
   const responses = report?.responses || {};
   const specialtyKeys = ILLUMINATION_KEYS[inv.specialty] || [];
   const keysDetail = responses.keys_detail || {};
+  // A report filed before the keys were ticked one by one says only "some" or "all"
+  const keysInWords = report && !responses.keys_detail && ['some', 'all'].includes(responses.keys_fulfilled)
+    ? responses.keys_fulfilled : null;
   // Only the face that is up is drawn; it sets the card's height
   const face = (up) => (up ? undefined : { display: 'none' });
+  const paper = 'bg-cream border border-sepia/25 shadow-[2px_6px_14px_rgba(0,0,0,0.38)] min-h-[9.5rem] flex flex-col';
 
   return (
-    <div
-      className="cursor-pointer select-none"
-      style={{ width: '100%' }}
-      {...pressable(turn, flipped ? `${inv.name}'s report: turn back to the front` : `${inv.name}: ${report ? 'read the report' : 'no report yet, turn the card'}`)}
-      aria-pressed={flipped}
-    >
+    <div className="select-none" style={{ width: '100%' }}>
       <div ref={cardRef} style={{ position: 'relative', width: '100%' }}>
-        {/* Front */}
+        {/* Front: the button that turns the card */}
         <div
+          ref={frontRef}
           style={face(!flipped)}
-          className="bg-cream border border-sepia/25 shadow-[2px_6px_14px_rgba(0,0,0,0.38)] px-4 pt-3 pb-2.5 min-h-[9.5rem] flex flex-col items-center gap-2"
+          role="button"
+          tabIndex={0}
+          aria-label={`${inv.name}: ${report ? 'read the report' : 'no report yet, turn the card'}`}
+          onClick={() => turn()}
+          onKeyDown={onActivateKey(() => turn())}
+          className={`${paper} cursor-pointer px-4 pt-3 pb-2.5 items-center gap-2`}
         >
           {inv.ink_color && (
             <div className="w-5 h-5 rounded-full" style={{ background: inv.ink_color }} />
           )}
-          <FormLine className="self-stretch text-center" aria-hidden="true">Form C.O. 11 · Assignment report</FormLine>
+          <FormLine className="self-stretch text-center">Form C.O. 11 · Assignment report</FormLine>
           <span className="font-sans text-lg font-black uppercase tracking-wide text-ink text-center leading-tight break-words max-w-full">
             {inv.name}
           </span>
@@ -187,38 +215,60 @@ function ReportFlipCard({ inv, report }) {
           <TurnOverMark className="mt-auto text-sepia/70" />
         </div>
 
-        {/* Back */}
+        {/* Back: what the report claims. A press anywhere on it turns it back for a mouse
+            or a finger; the keyboard and screen readers have its Turn back button. */}
         <div
           style={face(flipped)}
-          className={`bg-cream border border-sepia/25 shadow-[2px_6px_14px_rgba(0,0,0,0.38)] p-4 min-h-[9.5rem] flex flex-col gap-3 ${flipped ? '' : 'overflow-hidden'}`}
+          onClick={() => turn()}
+          onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); turn(); } }}
+          className={`${paper} cursor-pointer p-4 pb-2.5 gap-3 ${flipped ? '' : 'overflow-hidden'}`}
         >
-          <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood border-b border-ink/10 pb-1.5">
+          <h3 ref={headRef} tabIndex={-1} className="font-sans text-xs font-black uppercase tracking-widest text-oxblood border-b border-ink/10 pb-1.5">
             {inv.name}'s Report
-          </span>
+          </h3>
+          {!report && <EmptyStamp label="No report yet" tilt={-2} className="self-center" />}
 
-          {/* Illumination keys */}
+          {/* Illumination keys: a drawn tick or cross by each, and the word for it */}
           {specialtyKeys.length > 0 && (
             <div className="border-t border-ink/10 pt-2.5">
-              <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1.5">
+              <p id={keysId} className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-1.5">
                 {inv.specialty} Keys
-              </span>
-              <div className="flex flex-col gap-1">
-                {specialtyKeys.map((key, i) => {
-                  const checked = !!(keysDetail[i] || keysDetail[String(i)]);
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className={`text-xs font-black shrink-0 ${checked ? 'text-seal-green' : 'text-sepia'}`}>
-                        {checked ? <TickMark /> : <CrossMark />}
-                      </span>
-                      <span className={`font-serif text-sm leading-snug ${checked ? 'text-ink' : 'text-sepia'}`}>
-                        {key}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              </p>
+              {keysInWords ? (
+                <p className="font-serif text-sm leading-snug text-ink">Fulfilled: {keysInWords}</p>
+              ) : (
+                <ul aria-labelledby={keysId} className="flex flex-col gap-1">
+                  {specialtyKeys.map((key, i) => {
+                    const checked = !!report && !!(keysDetail[i] || keysDetail[String(i)]);
+                    return (
+                      <li key={i} className="flex items-center gap-2">
+                        <span aria-hidden="true" className={`text-xs font-black shrink-0 ${checked ? 'text-seal-green' : 'text-sepia'}`}>
+                          {!report
+                            ? <span className="inline-block w-[0.8em] h-[0.8em] border-b border-dotted border-current" />
+                            : checked ? <TickMark /> : <CrossMark />}
+                        </span>
+                        {report && <span className="sr-only">{checked ? 'Ticked:' : 'Not ticked:'}</span>}
+                        <span className={`font-serif text-sm leading-snug ${checked ? 'text-ink' : 'text-sepia'}`}>
+                          {key}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           )}
+
+          {/* The front's turn-over mark, here a button of its own */}
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); turn(); }}
+            aria-label={`Turn ${inv.name}'s report back to the front`}
+            title="Turn back"
+            className="mt-auto self-center -mb-1.5 w-9 h-9 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 flex items-center justify-center rounded-sm text-sepia/70 hover:text-oxblood hover:bg-sepia/10 transition-colors"
+          >
+            <TurnOverMark />
+          </button>
         </div>
       </div>
     </div>
