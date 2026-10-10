@@ -233,7 +233,7 @@ Visibility levels: `all` (everyone sees it), `gm_only` (only the GM), `self` (on
 
 Entries are soft-deleted (`is_deleted = true`) rather than removed from the database, so the page numbering sequence stays intact.
 
-Nothing reaches the server until it is pinned or added. Until then a private note and a field entry's title and text are kept in the browser's `localStorage` under the account, the campaign and the seat (`candela-notebook-draft:<user id>:<campaign id>:<character id, or lightkeeper>`), so leaving the notebook or reloading keeps them, and pinning or adding clears them. A picture staged for an entry waits in the open page only (DESIGN.md, Notes in Markdown).
+Nothing reaches the server until it is pinned or added. Until then a private note and a field entry's title and text are kept in the browser's `localStorage` under the account, the campaign and the seat (`candela-notebook-draft:<user id>:<campaign id>:<character id, or lightkeeper>`), so leaving the notebook or reloading keeps them, and pinning or adding clears them, even when the notebook was left before the server answered. They stay after Sign out, as the creator's draft does: the app never shows them to another account, but anyone who can read that browser's storage can. A picture staged for an entry waits in the open page only (DESIGN.md, Notes in Markdown).
 
 ## What the Lightkeeper's changes look like on the players' desks (since 2026-10-10)
 
