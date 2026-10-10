@@ -36,9 +36,9 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ## Where things stand
 
-- `main` is at **96da624**: PR 6 and PR 7 (the hourglass sand drains with a running countdown) merged. Deploy status unknown: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload.
-- PR 8 merges cleanly on top of PR 7 (checked 10 October: `TensionTimer.jsx` auto-merges and `vite build` passes).
-- **PR 8 is open, not merged:** https://github.com/austincauwels/TTRPG_VTT_CO/pull/8, branch `claude/quirky-johnson-xkyudf`, all 22 effort-S bugs of the old list. Full backend suite passed (1,790). Frontend only built, **not checked in a browser** (the phone fit of the circle-name row, the pen picker keys, the "Choose advancements" button, the caption change are the ones worth a look). Open leftover: the sheet's ability tab resets on a tab switch (`patch-up-prompt-stale`, minor). `lk-mark-skips-abilities` got the wording fix only; a separate "Deal a mark" control (through `mark_or_offer`) is still open. Startup renames stored pen fonts; no schema change.
+- `main` is at **be7dbff** with PR 6, PR 7 and PR 8 all merged (10 October). **Not deployed yet**: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload. The release adds the circle column `dispatch_text` and renames stored pen fonts at startup.
+- PR 8 was checked in Chromium before merging: Suggest and the 0/5 count fit at 390 px, a long name wraps, a case or spacing duplicate says "Already suggested", Style and catalyst line breaks show, and the pen picker's Escape closes only the list. Not browser-checked: the "Choose advancements (N)" button, the Rule of Six chip and the caption change.
+- Open leftovers from PR 8: the sheet's ability tab resets on a tab switch; `lk-mark-skips-abilities` got the wording fix only, a "Deal a mark" control is still open.
 - **AI playtest results** stay in `playtest/results/2026-10-08/`; setup in `playtest/` (start with `playtest/HANDOFF.md`). Robert's private page: https://claude.ai/artifact/8wcvWkCfptWqtFf15XTaRG
 
 ## Next phase: PR 9 (Opus 5.5 high)
@@ -47,8 +47,7 @@ Leave **ultracode off** by default. It turns every task into a multi-agent workf
 
 ### Open questions for Robert
 
-- Merge PR 8, then deploy `main`? (PR 7 was merged on 10 October.)
-- Check PR 8 in a browser before merging, or merge on CI?
+- Deploy `main`.
 
 ## How the browser checks were done in PR 6
 
