@@ -10,7 +10,7 @@ You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web
 
 - Robert hit his **weekly usage limit** on 9 October. Before any run of more than about 6 agents, say roughly how big it is and ask, unless he has turned ultracode on for the chat. Prefer one implementer plus one reviewer over wide fan-outs.
 - **No resume Routine.** The hourly "Candela: resume an interrupted phase" Routine was deleted on 10 October: its sessions had no GitHub access, so each run only sent a notification. The `Resume:` line below is kept as a note for a person or a new chat; nothing reads it on a schedule. Push work in progress at least hourly anyway, since an interrupted container keeps nothing.
-- At the end of each phase, **rewrite this file** (keep it under about 200 lines), commit it to this branch (`playtest-harness`, folder `handoff/`) and push it. Then tell Robert it is a good point to start a new chat.
+- At the end of each phase, **rewrite this file** (keep it under about 200 lines), commit it to this branch (`playtest-harness`, folder `handoff/`) and push it. Then tell Robert it is a good point to start a new chat, give the model and effort for the next one, and **end your last message with the start prompt** from "Start prompt for the next chat" below, verbatim in a code block, so he can paste it.
 - Robert's own preferences: plain language, short answers, no em dashes; log durable decisions and facts to his Obsidian vault with the Galga `append_daily_log` tool, after reading the vault's `CLAUDE.md`, using wiki-links such as [[Austin]], [[Candela Obscura Campaign]] and [[GaterGrid Server]].
 - The session may start in another repo (SNAP). This repo is not in its list by name: attach it with `add_repo` (owner `austincauwels`, repo `TTRPG_VTT_CO`, access `push`) and clone it to `/home/user/ttrpg_vtt_co`.
 
@@ -93,6 +93,28 @@ Leave **ultracode off** by default. The PR 11 phase ran with ultracode on at Rob
 ### Open questions for Robert
 
 - None.
+
+## Start prompt for the next chat
+
+Robert pastes this as the first message of each new chat. Keep this section when rewriting the file, and change the prompt only if he asks.
+
+```
+Continue Candela VTT (GitHub austincauwels/TTRPG_VTT_CO).
+
+1. If the repo is not in this session, attach it with add_repo (owner austincauwels, repo TTRPG_VTT_CO, access push) and clone it.
+2. Read handoff/STATUS.md on the playtest-harness branch. It is the source of truth; follow its rules.
+3. Check your model and effort with get_session. If they differ from STATUS.md's recommendation, say so in one line and carry on.
+4. Check the state of any open PR named in STATUS.md (CI, reviews, merged or not) before starting new work.
+5. Do the "Next phase". If it offers a choice, give me your recommendation in a few lines and wait for my pick.
+
+Ground rules:
+- Plain language, short answers, no em dashes.
+- Before a run of more than about 6 agents, say how big it is and ask, unless I've turned ultracode on.
+- Work on the branch this session assigns. Push work in progress at least hourly.
+- Open a PR when a phase is done. Merge only when I say so. Never deploy; I run candela/update.sh.
+- Log durable decisions to my Obsidian vault with the Galga append_daily_log tool, after reading the vault's CLAUDE.md.
+- At the end of the phase, rewrite handoff/STATUS.md (under about 200 lines) and push it to playtest-harness. Then tell me the model and effort to use for the next chat, and that it's a good point to start fresh.
+```
 
 ## How the browser checks were done in PR 6
 
