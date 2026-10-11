@@ -109,7 +109,9 @@ export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
       atFoot.current = true;
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
-  }, [logEntries.length]);
+  // Keyed on the newest line, not the count: the store keeps 50 lines, so past that the count stays
+  // fixed while lines keep coming
+  }, [logEntries.length, logEntries[logEntries.length - 1]]);
   // A log put away (a phone's other parts of the desk show one at a time) cannot scroll, so
   // lines that came meanwhile were below the fold when it showed again, at its oldest line:
   // shown again, it goes to the newest

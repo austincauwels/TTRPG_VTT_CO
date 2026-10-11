@@ -49,6 +49,14 @@ def test_update_drive_writes_a_log_line_only_when_the_value_changes(client):
         gm.drain()
 
 
+def test_a_drive_the_lightkeeper_sets_is_logged_in_her_name(client):
+    camp, a, b = _member_pair(client, nerve_max=3, nerve_current=3)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_drive", character_id=a["id"], pool="nerve", value=1)
+        logs = [m for m in gm.sync() if m["type"] == "activity_log"]
+        assert [m["payload"]["message"] for m in logs] == [f"The Lightkeeper set {a['name']}'s Nerve to 1 of 3."]
+
+
 DRIVE_REFUSED = {"type": "action_rejected", "payload": {
     "action": "update_drive", "status": 422, "detail": "A drive is a whole number from 0 to its maximum."}}
 

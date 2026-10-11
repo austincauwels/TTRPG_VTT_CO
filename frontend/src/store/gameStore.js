@@ -1915,6 +1915,17 @@ const useGameStore = create(
         return false;
       },
 
+      // The Lightkeeper sets one of a member's drives from her copy of the sheet; the server
+      // (handle_update_drive) writes the table's log line and the player's sheet follows
+      gmSetDrive: (characterId, pool, value) => {
+        const { socket } = get();
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'update_drive', payload: { character_id: characterId, pool, value } }));
+          return true;
+        }
+        return false;
+      },
+
       // The Lightkeeper deals a member a mark: it goes the way a mark the player takes does,
       // so soaks, Death Defy, the allies' offers and Let Them In come up on the player's desk
       // (the server, handle_take_mark). fromEnemy: Death Defy is offered for it.

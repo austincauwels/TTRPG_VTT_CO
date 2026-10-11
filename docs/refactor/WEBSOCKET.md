@@ -161,7 +161,7 @@ Validation gaps: `action` is not checked against the nine actions, so `getattr` 
 
 ### 4.4 Character sheet messages
 
-**`update_drive`** (1698). Fields: `pool`, `value`. Sets `{pool}_current = value`; the pool must be nerve, cunning or intuition and the value a whole number from 0 to its maximum (422 otherwise). Sends `character_update` to the sender. Since 2026-10-11 a value that differs from the old one also writes an `activity_log` line to the campaign (log_type `field`): "<name> set Nerve to 2 of 3." (playtest 2, `drive-pips-still-one-way`). The desk's last filled pip now clears one point, so a mistaken tap can be undone.
+**`update_drive`** (1698). Fields: `pool`, `value`. Sets `{pool}_current = value`; the pool must be nerve, cunning or intuition and the value a whole number from 0 to its maximum (422 otherwise). Sends `character_update` to the sender. Since 2026-10-11 a value that differs from the old one also writes an `activity_log` line to the campaign (log_type `field`): "<name> set Nerve to 2 of 3." (playtest 2, `drive-pips-still-one-way`). When the Lightkeeper sets it (`character_id` in the payload, from the sheet's trauma edit) the line reads "The Lightkeeper set <name>'s Nerve to 2 of 3."; none is written for a character still waiting to be approved. The desk's last filled pip now clears one point, so a mistaken tap can be undone.
 
 **`update_pen_font`** (1757). Field: `pen_font`, which must be in `_SAFE_FONT_NAMES`. Sends `character_update` to the sender. Sent from `NotebookView`.
 

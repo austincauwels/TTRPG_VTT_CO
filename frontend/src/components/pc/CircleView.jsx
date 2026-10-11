@@ -139,7 +139,7 @@ export function AdvancementWaiting() {
   const picksLeft = character?.advancement_picks || 0;
   if (!character || picksLeft <= 0 || !advancementDeferred) return null;
   return (
-    <div role="status" className="mb-4 xl:mb-3 xl:shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-candle-gold rounded-sm px-4 py-3 xl:py-2 shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
+    <div role="status" className="mb-4 xl:mb-3 xl:shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-sepia rounded-sm px-4 py-3 xl:py-2 shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
       <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60">
         <strong className="font-bold">Advancement picks are waiting.</strong>{' '}
         {picksLeft === 1 ? 'One is' : `${picksLeft} are`} still to choose.
@@ -460,7 +460,7 @@ export function AdvancementModal() {
         </div>
 
         {/* Held at the foot of the scrolling dialog, so Confirm and Later stay in view on a phone */}
-        <div className="flex gap-3 sticky bottom-0 -mx-5 sm:-mx-8 -mb-5 sm:-mb-8 px-5 sm:px-8 pt-3 pb-5 sm:pb-8 bg-cream border-t border-ink/15">
+        <div className="flex gap-3 sticky -bottom-5 sm:-bottom-8 -mx-5 sm:-mx-8 -mb-5 sm:-mb-8 px-5 sm:px-8 pt-3 pb-5 sm:pb-8 bg-cream border-t border-ink/15">
           <button
             onClick={handleConfirm}
             disabled={!isReady()}

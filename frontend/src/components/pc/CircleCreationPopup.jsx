@@ -333,7 +333,7 @@ export const CircleCreationPopup = () => {
                         >
                           {isMineVote ? <><TickMark /> Voted</> : 'Vote'}
                         </button>
-                        <span className="font-serif text-lg text-ink flex-1 basis-40 min-w-0 [overflow-wrap:anywhere]">{name}</span>
+                        <span className="font-serif text-lg text-ink flex-1 basis-28 min-w-0 [overflow-wrap:anywhere]">{name}</span>
                         {/* The tags wrap under a long name on a phone instead of squeezing it to nothing */}
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 max-w-full">
                           {isMySuggestion && (

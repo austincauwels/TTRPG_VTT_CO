@@ -34,12 +34,13 @@ async def handle_update_drive(ctx):
         setattr(character, f"{pool}_current", value)
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
-        # A pip set by hand, up or down, tells the table; a spend or a refill from a roll has its own line
-        if value != before:
+        # A pip set by hand, up or down, tells the table (not for a character still waiting to be approved); a spend or a refill from a roll has its own line
+        if value != before and character.status == "active":
+            who = f"The Lightkeeper set {character.name}'s" if ctx.is_gm else f"{character.name} set"
             await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
                 "type": "activity_log",
                 "payload": {
-                    "message": f"{character.name} set {pool.capitalize()} to {value} of {maximum}.",
+                    "message": f"{who} {pool.capitalize()} to {value} of {maximum}.",
                     "log_type": "field", "ink_color": getattr(character, "ink_color", "") or "",
                 },
             }, db)
