@@ -206,7 +206,6 @@ def test_route_table_order(client):
         ("/campaign/approve/{character_id}", ["POST"]),
         ("/campaign/reject/{character_id}", ["POST"]),
         ("/campaign/{campaign_id}/retire", ["POST"]),
-        ("/campaign/{campaign_id}/unretire", ["POST"]),
         ("/campaign/withdraw/{character_id}", ["POST"]),
         ("/campaign/{campaign_id}", ["DELETE"]),
         ("/campaign/{campaign_id}/restore", ["POST"]),
@@ -253,7 +252,6 @@ def test_route_table_order(client):
         ("/api/notebook/entries/{entry_id}/sketch", ["PUT"]),
         ("/api/users/{user_id}/characters", ["GET"]),
         ("/api/users/{user_id}/campaigns", ["GET"]),
-        ("/api/users/{user_id}/retired-campaigns", ["GET"]),
         ("/ws/{game_id}", []),
     ]
 

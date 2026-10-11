@@ -3327,50 +3327,6 @@
         "summary": "Get User Characters"
       }
     },
-    "/api/users/{user_id}/retired-campaigns": {
-      "get": {
-        "description": "The campaigns the user ran and retired (deleted ones are left out), for the ledger's\nRetired list, where each can be restored (POST /campaign/{id}/unretire).",
-        "operationId": "get_user_retired_campaigns_api_users__user_id__retired_campaigns_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "user_id",
-            "required": true,
-            "schema": {
-              "title": "User Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/CampaignSummaryItem"
-                  },
-                  "title": "Response Get User Retired Campaigns Api Users  User Id  Retired Campaigns Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get User Retired Campaigns"
-      }
-    },
     "/campaign/approve/{character_id}": {
       "post": {
         "operationId": "approve_character_campaign_approve__character_id__post",
@@ -3907,44 +3863,6 @@
           }
         },
         "summary": "Get Roster"
-      }
-    },
-    "/campaign/{campaign_id}/unretire": {
-      "post": {
-        "description": "Brings back a retired campaign for its GM: it takes members again and is back in the\nledger. Nothing else changes. The living investigators the retire let go stay with their\nplayers (they may be in another campaign by now) and the dead ones stay retired with it.\nA campaign that is not retired is answered the same way (retrying is safe).",
-        "operationId": "unretire_campaign_campaign__campaign_id__unretire_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "campaign_id",
-            "required": true,
-            "schema": {
-              "title": "Campaign Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Unretire Campaign"
       }
     },
     "/circle/relationship/propose": {

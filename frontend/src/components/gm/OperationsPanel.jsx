@@ -67,6 +67,14 @@ export const OperationsPanel = () => {
     if (pendingIndex >= count) setPendingIndex(count - 1);
   }, [campaignRoster.pending_investigators?.length]);
 
+  // A request that left the campaign some other way (the player took it back, another tab
+  // answered it) leaves no strip to press on its open sheet
+  useEffect(() => {
+    if (selectedInvestigator?.status !== 'pending') return;
+    const waiting = campaignRoster.pending_investigators || [];
+    if (!waiting.some(p => p.id === selectedInvestigator.id)) setSelectedInvestigator(null);
+  }, [campaignRoster.pending_investigators]);
+
   // The store actions resolve to false when the server refused or could not be reached
   const REQUEST_FAILED = 'That did not go through. Check your connection, then try again.';
 
@@ -174,6 +182,7 @@ export const OperationsPanel = () => {
                   onApprove={async (id) => { if (await handleStamp(id)) setSelectedInvestigator(null); }}
                   onReject={async (id) => { if (await handleReject(id)) setSelectedInvestigator(null); }}
                   busy={requestBusy}
+                  error={requestError}
                 />
               </AnimatePresence>
             )}

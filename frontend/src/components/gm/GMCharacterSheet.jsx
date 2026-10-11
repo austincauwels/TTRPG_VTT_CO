@@ -55,7 +55,7 @@ const SpendBack = ({ character, onGive }) => {
   );
 };
 
-export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, busy = false }) => {
+export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, busy = false, error: requestError = '' }) => {
   const [fullChar, setFullChar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -274,6 +274,9 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                   </button>
                 )}
               />
+            )}
+            {requestError && (
+              <p role="alert" className="basis-full font-serif text-base text-oxblood leading-snug">{requestError}</p>
             )}
           </div>
         )}

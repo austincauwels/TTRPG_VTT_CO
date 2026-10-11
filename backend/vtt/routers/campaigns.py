@@ -1,4 +1,4 @@
-"""Campaign and roster routes: create, join, approve, reject, withdraw, retire, unretire, delete (and undo
+"""Campaign and roster routes: create, join, approve, reject, withdraw, retire, delete (and undo
 that), rejoin, invite to rejoin, roster.
 
 Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
@@ -269,23 +269,6 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
     for key in [campaign_key(campaign.campaign_code)] + [character_key(c.id) for c in released]:
         await manager.broadcast(key, message)
     return {"ok": True}
-
-
-@router.post("/campaign/{campaign_id}/unretire")
-def unretire_campaign(campaign_id: int, db: Session = Depends(get_db),
-                      user: User = Depends(get_current_user)):
-    """Brings back a retired campaign for its GM: it takes members again and is back in the
-    ledger. Nothing else changes. The living investigators the retire let go stay with their
-    players (they may be in another campaign by now) and the dead ones stay retired with it.
-    A campaign that is not retired is answered the same way (retrying is safe)."""
-    require_gm(user, campaign_or_404(db, campaign_id))
-    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).populate_existing() \
-        .with_for_update().first()
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    campaign.is_retired = False
-    db.commit()
-    return {"ok": True, "id": campaign.id, "name": campaign.name, "campaign_code": campaign.campaign_code}
 
 
 @router.post("/campaign/withdraw/{character_id}")

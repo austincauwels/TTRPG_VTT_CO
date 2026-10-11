@@ -56,9 +56,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 | POST | /campaign/approve/{character_id} | approve_character | 489 | yes | gameStore.approveInvestigator (GM panel) | GM of the character's campaign |
 | POST | /campaign/reject/{character_id} | reject_character | 512 | yes | gameStore.rejectInvestigator (GM panel) | GM of the character's campaign |
 | POST | /campaign/{campaign_id}/retire | retire_campaign | 545 | yes | OperationsPanel.jsx | GM of that campaign |
-| POST | /campaign/{campaign_id}/unretire | unretire_campaign | - | no | gameStore.unretireCampaign (ledger Retired list) | GM of that campaign |
 | POST | /campaign/withdraw/{character_id} | withdraw_request | - | yes | gameStore.withdrawRequest (registry) | the character's owner |
-| GET | /api/users/{user_id}/retired-campaigns | get_user_retired_campaigns | - | no | gameStore.fetchUserData | the logged-in user themself |
 | POST | /campaign/rejoin | rejoin_campaign | 568 | yes | AppRouter.jsx | owner of the character, if invited or their old character there died |
 | POST | /campaign/{campaign_id}/invite-rejoin | invite_rejoin | 638 | yes | gm/desk/InvitePlayer.jsx (the Lightkeeper's roster; DiceVault.jsx until 2026-10-09) | GM of that campaign |
 | GET | /campaign/{campaign_id}/roster | get_roster | 663 | no | OperationsPanel.jsx, TactileSidebar.jsx | GM or member of that campaign |
@@ -121,10 +119,6 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Tables: campaigns (is_retired true), characters (living active and pending set to `unaffiliated` with no campaign and no ink; dead ones set to `retired`).
 - Broadcast: `campaign_retired` `{campaign_id, campaign_code}` to the GM channel and the character channel of each living investigator it let go (dead ones stay with the campaign, and their owners are not told).
 - Response: `{"ok": true}`. 404 if the campaign is missing.
-
-**POST /campaign/{campaign_id}/unretire** (`def`)
-- Inputs: path `campaign_id`. Tables: campaigns (is_retired false, row locked). No broadcast.
-- Puts nobody back: the living investigators the retire let go stay free (they may be in another campaign now), the dead ones stay `retired` with the campaign. Safe to repeat. Response `{ok, id, name, campaign_code}`.
 
 **POST /campaign/withdraw/{character_id}** (`async def`)
 - Owner only. A `pending` character goes to `unaffiliated` with no campaign (row locked). 409 "This request is no longer waiting." otherwise.
@@ -269,7 +263,7 @@ The next two routes were added after the baseline, with the sketch sheet, in `vt
 - Trusted ids: `user_id`. Tables: characters, campaigns. Anyone can list anyone's characters.
 - Since 2026-10-11 each item carries `is_dead` (a dead investigator keeps status `active` on its roster), so the hub's invite banner names only a living investigator as the one coming back retires.
 
-**GET /api/users/{user_id}/retired-campaigns** (`def`, `response_model=List[CampaignSummaryItem]`): the user's own retired campaigns (deleted ones left out), newest first, for the ledger's Retired list. `GET .../campaigns` items also carry `pending_count`, the join requests waiting, for the "requests waiting" badge.
+`GET .../campaigns` items also carry `pending_count`, the join requests waiting, for the "requests waiting" badge.
 
 **GET /api/users/{user_id}/campaigns** (line 1275, `def`, `response_model=List[CampaignSummaryItem]`)
 - Trusted ids: `user_id`. Tables: campaigns (non-retired with that GM). Returns campaign codes, which are the GM WebSocket channel names.

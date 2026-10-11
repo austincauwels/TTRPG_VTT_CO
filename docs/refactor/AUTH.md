@@ -33,7 +33,6 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /campaign/approve/{character_id} | GM of the character's campaign (a character with no campaign has no GM: 403) |
 | POST /campaign/reject/{character_id} | GM of the character's campaign |
 | POST /campaign/{campaign_id}/retire | GM of that campaign |
-| POST /campaign/{campaign_id}/unretire | GM of that campaign |
 | POST /campaign/withdraw/{character_id} | the character's owner |
 | DELETE /campaign/{campaign_id} | GM of that campaign; the characters on its roster go back to their owners, retired ones stay with it (DELETION.md) |
 | POST /campaign/{campaign_id}/restore | GM of that campaign, within two minutes of deleting it; anyone else, or a campaign that is not deleted, is 404 (DELETION.md) |

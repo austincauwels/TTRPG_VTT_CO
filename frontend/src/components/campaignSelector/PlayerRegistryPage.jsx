@@ -28,7 +28,9 @@ export const PlayerRegistryPage = ({
     if (result.success) return;
     setWithdrawError(result.status === 409
       ? `The Lightkeeper had already answered ${char.name}'s request.`
-      : `${char.name}'s request was not withdrawn. Check your connection and try again.`);
+      : result.status === 0
+        ? `Could not reach the server, so ${char.name}'s request was not withdrawn. Check your connection and try again.`
+        : `${char.name}'s request was not withdrawn. Try again in a moment.`);
   };
   const deleteControl = (char) => (
     <RowDelete
@@ -49,7 +51,7 @@ export const PlayerRegistryPage = ({
 
     <div className="flex-1 overflow-y-auto px-4 lg:px-7 py-4 space-y-5">
       <DeleteError text={removal.error} />
-      {withdrawError && <p role="alert" className="font-serif text-base text-oxblood-lit">{withdrawError}</p>}
+      <DeleteError text={withdrawError} />
       <DeletedSlips deleted={removal.deleted} onUndo={removal.undo} />
       {isLoadingBook ? (
         <p className="font-serif text-xl italic text-sepia">Loading your investigators…</p>

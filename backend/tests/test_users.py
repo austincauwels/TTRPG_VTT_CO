@@ -83,19 +83,6 @@ def test_user_gm_campaigns_counts_the_requests_waiting(client):
     assert (row["investigator_count"], row["pending_count"]) == (3, 2)
 
 
-def test_user_retired_campaigns(client):
-    u = support.make_user()
-    live = support.new_campaign(client, gm_user_id=u.id)
-    retired = support.new_campaign(client, gm_user_id=u.id)
-    client.post(f"/campaign/{retired['id']}/retire", headers=support.as_user(u.id))
-    support.new_campaign(client)  # someone else's, not retired
-    r = client.get(f"/api/users/{u.id}/retired-campaigns", headers=support.as_user(u.id))
-    assert r.status_code == 200
-    assert [c["id"] for c in r.json()] == [retired["id"]]
-    assert live["id"] not in [c["id"] for c in r.json()]
-    assert client.get(f"/api/users/{u.id}/retired-campaigns", headers=support.as_stranger()).status_code == 403
-
-
 def test_user_gm_campaigns_of_someone_else_is_403(client):
     """The campaign code is also the GM WebSocket channel name. Before tokens any caller
     could read any user's codes."""

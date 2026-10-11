@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import useGameStore from '../../store/gameStore';
 
 // While one of the player's investigators waits for a Lightkeeper's approval, the hub asks
 // again every POLL_MS, and says so when the answer comes.
@@ -20,6 +21,11 @@ export const usePendingApprovalWatch = ({ characters, userId, fetchUserData, set
       const was = before[c.id];
       if (was?.status !== 'pending' || c.status === 'pending') continue;
       const campaign = was.campaign || 'the campaign';
+      // A request the player took back is no decision of the Lightkeeper's
+      if (c.status === 'unaffiliated' && useGameStore.getState().withdrawnIds.includes(c.id)) {
+        setHubNotice(`You withdrew ${c.name}'s request.`);
+        continue;
+      }
       if (c.status === 'active') {
         setHubNotice(`The Lightkeeper let ${c.name} into ${campaign}. Open the Case Ledger and press Play.`);
       } else if (c.status === 'unaffiliated') {

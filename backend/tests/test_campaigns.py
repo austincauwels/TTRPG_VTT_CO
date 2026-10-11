@@ -653,38 +653,6 @@ def test_a_retired_campaign_takes_no_new_members(client):
                        headers=support.as_stranger()).status_code == 403
 
 
-# --- unretire ---------------------------------------------------------------
-
-def test_unretire_brings_the_campaign_back_without_putting_anyone_back(client):
-    camp = support.new_campaign(client)
-    gm = support.as_gm(camp)
-    living = support.active_member(client, camp)
-    fallen = support.active_member(client, camp)
-    support.update(Character, fallen["id"], is_dead=True)
-    assert client.post(f"/campaign/{camp['id']}/retire", headers=gm).status_code == 200
-    for headers in (support.as_owner(living["id"]), support.as_stranger()):
-        assert client.post(f"/campaign/{camp['id']}/unretire", headers=headers).status_code == 403
-    assert support.fetch(Campaign, camp["id"]).is_retired is True
-
-    r = client.post(f"/campaign/{camp['id']}/unretire", headers=gm)
-    assert r.status_code == 200
-    assert r.json() == {"ok": True, "id": camp["id"], "name": camp["name"], "campaign_code": camp["campaign_code"]}
-    assert support.fetch(Campaign, camp["id"]).is_retired is False
-    # the retire let the living one go and it stays free; the dead one stays retired with it
-    row = support.fetch(Character, living["id"])
-    assert (row.status, row.campaign_id) == ("unaffiliated", None)
-    row = support.fetch(Character, fallen["id"])
-    assert (row.status, row.campaign_id) == ("retired", camp["id"])
-    # it takes members again, and retrying is safe
-    again = support.forge(client)
-    assert support.join(client, again["id"], camp["campaign_code"]).status_code == 200
-    assert client.post(f"/campaign/{camp['id']}/unretire", headers=gm).status_code == 200
-
-
-def test_unretire_unknown_campaign(client):
-    assert client.post("/campaign/987654321/unretire", headers=support.as_stranger()).status_code == 404
-
-
 # --- withdraw ---------------------------------------------------------------
 
 def test_withdraw_takes_back_a_waiting_request(client):
@@ -992,3 +960,13 @@ def test_circle_creation_state_with_content(client):
         "id": rel["id"], "from_character_id": a["id"], "to_character_id": b["id"],
         "rel_type": "Rivals", "lore": "feud", "status": "proposed", "last_actor_id": a["id"]}]
     assert body["backstory_answers"] == {"chapter_house": "Mill", "reports": {str(a["id"]): {"q0": True}}}
+
+
+def test_approve_after_a_withdraw_is_refused(client):
+    camp = support.new_campaign(client)
+    mine = support.pending_member(client, camp)
+    assert client.post(f"/campaign/withdraw/{mine['id']}", headers=support.as_owner(mine["id"])).status_code == 200
+    r = client.post(f"/campaign/approve/{mine['id']}", headers=support.as_gm(camp))
+    assert r.status_code >= 400
+    row = support.fetch(Character, mine["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
