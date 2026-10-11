@@ -8,7 +8,7 @@ import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ScarIcon } from '../shared/ScarIcon';
 import { getAvailableRollMods } from './DiceVault';
-import { resistRemaining } from '../../game/rollMods';
+import { resistRemaining, previewPool } from '../../game/rollMods';
 import { ACTION_LABEL, SCAR_TEXT_MAX, scarDisplayText } from '../../game/actions';
 import { livingMembers } from '../../game/roster';
 import { useMarkUndo, MARK_NAME } from './useMarkUndo';
@@ -18,7 +18,7 @@ import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks
 import { PhotoMount } from '../shared/PhotoMount';
 import { usePortraitChange } from './usePortraitChange';
 import { TickMark } from '../shared/InkMarks';
-import { ActionInfo, useActionInfo } from '../shared/ActionInfo';
+import { ActionInfo, InfoTerm, useActionInfo } from '../shared/ActionInfo';
 import { ConfirmAction } from '../shared/ConfirmAction';
 
 // A die face (three pips). The whole action row is the roll; this die only shows on hover
@@ -612,6 +612,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The trauma record in edit mode (the Lightkeeper's copy): each change goes to the table
   // at once; Done also saves scar words changed and not yet saved
   const editing = !!traumaEdit && editingTrauma;
+  // whose record the Lightkeeper's edit is on, in the hint and the toggle's name
+  const recordOf = character?.name ? `${character.name}'s ` : 'the ';
   // The mark waiting for its Undo fills its track, after any the table holds: a scar
   const undoFillsTrack = !!heldMark && (character[`${heldMark.type}_marks`] || 0) + tableHolds(heldMark.type) >= 3;
   // Deal a mark (the Lightkeeper's copy): whether an enemy dealt it, and the last one sent
@@ -774,7 +776,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       <div data-desk="identity" className="dossier-ident grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-x-6 sm:gap-y-2 pb-2">
         <div className="sm:col-span-2 min-w-0">
           <span className="block font-sans text-xs font-black uppercase tracking-normal text-sepia leading-tight">Investigator</span>
-          <div className="text-xl font-serif font-black border-b border-ink pb-0.5 text-ink uppercase mt-1 truncate">{character.name}</div>
+          <div className="text-xl font-serif font-black border-b border-ink pb-0.5 text-ink uppercase mt-1 break-words leading-tight">{character.name}</div>
         </div>
         {/* Role class + specialty badges */}
         {(displayRole || displaySpecialty) ? (
@@ -1058,6 +1060,36 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
                   const availMods = !readOnly ? getAvailableRollMods(character, act.key, circle) : [];
                   const selectedMods = activeMods[act.key] || [];
+                  // What the picked abilities make of the pool, said before the roll
+                  // The drive the roll spends and how much, as the roll will send it: the same
+                  // for the click and for the preview, so the button states the pool it rolls
+                  const rollSpend = () => {
+                    // Street Smarts lets a Survey roll spend any drive: the one the
+                    // player put a spend on (the server spends what the roll names)
+                    let spendKey = cat.driveKey;
+                    let extra = {};
+                    if (act.key === 'survey' && selectedMods.includes('Street Smarts')) {
+                      const chosen = ['intuition', 'nerve', 'cunning'].find(d => (preSpend[d] || 0) > 0);
+                      if (chosen) { spendKey = chosen; extra = { drive: chosen }; }
+                    }
+                    // Cool Under Pressure and Practiced Patter spend another drive: the
+                    // server takes the spend from it, so the spend is read from its stepper
+                    const substitute = availMods.find(m => selectedMods.includes(m.key) && m.driveSubstitute && m.driveSubstitute !== 'any');
+                    if (substitute) spendKey = substitute.driveSubstitute;
+                    let spend = preSpend[spendKey] || 0;
+                    // Sharpshooter costs 1 Nerve on top of what is spent on the roll
+                    if (selectedMods.includes('Sharpshooter') && spendKey === 'nerve') {
+                      spend = Math.min(spend, Math.max(0, (character.nerve_current || 0) - 1));
+                    }
+                    return { spendKey, spend, extra };
+                  };
+                  const pickedSpend = rollSpend();
+                  const preview = previewPool({ rating: actionValue, gilded: isGilded, spend: pickedSpend.spend, drive: pickedSpend.spendKey, mods: availMods, selectedKeys: selectedMods });
+                  const previewText = preview
+                    ? (preview.zero
+                      ? `no dice, 2 rolled, lowest counts${preview.gilds > 0 ? `, ${preview.gilds >= 2 ? 'both' : preview.gilds} gilded` : ''}`
+                      : `${preview.dice} ${preview.dice === 1 ? 'die' : 'dice'}${preview.gilds > 0 ? `, ${preview.gilds >= preview.dice ? 'all' : preview.gilds} gilded` : ''}`)
+                    : '';
 
                   const ratingPips = (
                     <span className="flex gap-1 shrink-0" role="img" aria-label={`${act.label} rating: ${actionValue} of 3`}>
@@ -1094,23 +1126,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                           data-roll-row=""
                           onClick={() => {
                             if (rollBlocked) return;
-                            // Street Smarts lets a Survey roll spend any drive: the one the
-                            // player put a spend on (the server spends what the roll names)
-                            let spendKey = cat.driveKey;
-                            let extra = {};
-                            if (act.key === 'survey' && selectedMods.includes('Street Smarts')) {
-                              const chosen = ['intuition', 'nerve', 'cunning'].find(d => (preSpend[d] || 0) > 0);
-                              if (chosen) { spendKey = chosen; extra = { drive: chosen }; }
-                            }
-                            // Cool Under Pressure and Practiced Patter spend another drive: the
-                            // server takes the spend from it, so the spend is read from its stepper
-                            const substitute = availMods.find(m => selectedMods.includes(m.key) && m.driveSubstitute && m.driveSubstitute !== 'any');
-                            if (substitute) spendKey = substitute.driveSubstitute;
-                            let spend = preSpend[spendKey] || 0;
-                            // Sharpshooter costs 1 Nerve on top of what is spent on the roll
-                            if (selectedMods.includes('Sharpshooter') && spendKey === 'nerve') {
-                              spend = Math.min(spend, Math.max(0, (character.nerve_current || 0) - 1));
-                            }
+                            const { spendKey, spend, extra: spendExtra } = rollSpend();
+                            let extra = spendExtra;
                             // Saw This Coming names the ally who adds the die
                             const helper = availMods.find(m => m.helper && selectedMods.includes(m.key));
                             if (helper) extra = { ...extra, saw_this_coming_from: helper.helper };
@@ -1126,7 +1143,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                               : 'border-ink/25 bg-cream shadow-[0_1px_0_rgb(var(--c-ink)/0.18),1px_2px_4px_rgb(var(--c-ink)/0.08)] [@media(hover:hover)]:hover:-translate-y-px [@media(hover:hover)]:hover:border-oxblood/60 [@media(hover:hover)]:hover:text-oxblood [@media(hover:hover)]:hover:shadow-[0_1px_0_rgb(var(--c-ink)/0.2),2px_5px_9px_rgb(var(--c-ink)/0.16)] active:translate-y-px active:shadow-none active:bg-oxblood/[0.05]'
                           }`}
                           style={{ touchAction: 'manipulation' }}
-                          aria-label={`Roll ${act.label}${isGilded ? ', gilded' : ''}, rating ${actionValue}${shownSpend > 0 ? `, plus ${shownSpend} from ${cat.name}${shownSpend < preSpend[cat.driveKey] ? ' (Rule of Six)' : ''}` : ''}`}
+                          aria-label={`Roll ${act.label}${isGilded ? ', gilded' : ''}, rating ${actionValue}${shownSpend > 0 ? `, plus ${shownSpend} from ${cat.name}${shownSpend < preSpend[cat.driveKey] ? ' (Rule of Six)' : ''}` : ''}${preview ? `. With ${preview.names.join(' and ')}: ${previewText}` : ''}`}
                         >
                           <span className="flex-1 min-w-0 font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5">
                             {isGilded && <span aria-hidden="true" className="w-2 h-2 shrink-0 bg-candle-gold border border-sepia rounded-full" />}
@@ -1134,6 +1151,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             {shownSpend > 0 && (
                               <span className="font-mono tabular-nums text-xs text-oxblood font-black"
                                 title={shownSpend < preSpend[cat.driveKey] ? 'Rule of Six: no more than six dice' : undefined}>+{shownSpend}d{shownSpend < preSpend[cat.driveKey] ? ' (max)' : ''}</span>
+                            )}
+                            {preview && (
+                              <span aria-hidden="true" className="font-mono tabular-nums text-xs text-sepia font-bold normal-case tracking-normal whitespace-nowrap">
+                                {preview.zero ? '0d, lowest of 2' : `${preview.dice}d`}{preview.gilds > 0 ? `, ${preview.gilds >= (preview.zero ? 2 : preview.dice) ? 'all' : preview.gilds} gilded` : ''}
+                              </span>
                             )}
                           </span>
                           {!rollBlocked && <DieGlyph className="action-die shrink-0 text-oxblood" />}
@@ -1261,7 +1283,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                               key={i}
                               type="button"
                               onClick={() => traumaEdit.setMarks(type, to)}
-                              aria-label={`Set ${name} marks to ${to}`}
+                              aria-label={i + 1 === marked ? `Clear ${name} mark ${i + 1}` : `Set ${name} marks to ${to}`}
                               className={`mark-cell group/box ${cell} flex items-center justify-center rounded-sm`}
                             >
                               {box}
@@ -1353,7 +1375,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           {/* The scars, written on the record's ruled lines */}
           <div data-desk="scars" className="trauma-scars">
             <h3 className="trauma-head scars-head font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
-              <ScarIcon size={20} className="text-ink shrink-0" /> Scars
+              <ScarIcon size={20} className="text-ink shrink-0" />
+              {editing
+                ? <InfoTerm label="Scars" text="A new scar comes when a full track takes another mark: fill the track to 3 and have the player take the next mark on their sheet." />
+                : ' Scars'}
             </h3>
             {editing ? (
               <div ref={scarLinesRef} className="scars-lines min-w-0">
@@ -1401,7 +1426,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <div className="trauma-edit col-span-full flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5 mt-3 pt-2 border-t border-dotted border-ink/30">
               {editing && (
                 <p className="font-serif text-sm italic text-sepia leading-snug min-w-0 flex-1 basis-56">
-                  Press a box to fill its track to it, or the last filled box to clear it. Removing a scar does not move back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, use Deal a mark.
+                  Editing {recordOf}trauma record. Press a box to fill its track to it, or the last filled box to clear it. Removing a scar does not move back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, use Deal a mark.
                 </p>
               )}
               {/* Deal a mark: a story consequence, which offers what a mark the player takes
@@ -1427,7 +1452,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 ref={traumaToggleRef}
                 type="button"
                 onClick={toggleTraumaEdit}
-                aria-label={editing ? 'Done editing the trauma record' : 'Edit trauma record'}
+                aria-label={editing ? `Done editing ${recordOf}trauma record` : `Edit ${recordOf}trauma record`}
                 className={`shrink-0 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest border rounded-sm transition-colors ${
                   editing ? 'bg-ink text-cream border-ink hover:brightness-125' : 'border-ink/60 text-ink hover:bg-ink hover:text-cream'}`}
               >

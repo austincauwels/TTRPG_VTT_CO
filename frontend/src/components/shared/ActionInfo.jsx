@@ -199,7 +199,7 @@ export const InfoTerm = ({
         onPointerEnter={onEnterSlip}
         onPointerLeave={onLeave}
         onMouseDown={(e) => e.preventDefault()}
-        className={`action-info-slip info-term-slip absolute z-30 px-3 py-2 rounded-[1px] font-serif font-normal normal-case tracking-normal text-base leading-snug text-ink text-left ${slipClassName}`}
+        className={`action-info-slip info-term-slip absolute z-30 px-3 py-2 rounded-[1px] whitespace-normal font-serif font-normal normal-case tracking-normal text-base leading-snug text-ink text-left ${slipClassName}`}
       >
         <span className="font-bold uppercase">{label}:</span> {text}
       </span>

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiFetch, configureApiAuth, WS_CLOSE_UNAUTHENTICATED } from '../utils/api';
 import { playRollSound, playDiceTumble, playTensionTick } from '../game/rollSounds';
+import { driveKeyFor } from '../game/actions';
 
 // Reconnecting after a dropped connection. The server closes an older socket on the same
 // channel with 1001 when a newer one opens (another tab or device), so 1001 never
@@ -195,6 +196,22 @@ const logLine = (payload) => {
 export const assignmentOf = (circle) => {
   const n = circle?.backstory_answers?.assignment;
   return Number.isInteger(n) && n > 0 ? n : 1;
+};
+
+// Whether this desk's own latest roll is waiting on the player: a gilded die to keep, or a
+// Burn and reroll still on offer (the dice vault's canResist, which needs the vault open).
+// The phone's dice button shows a dot for it once the roll bar has faded. A roll another
+// player's roll has settled is no longer offered (the server refuses the burn).
+export const postRollChoiceWaiting = (s) => {
+  if (s.tableRoll || !s.lastRoll) return false;
+  if (s.pendingGildedChoice && s.lastRoll.needs_gilded_choice) return true;
+  const kept = s.lastRollKept && s.lastRollKept.rollId === s.lastRoll.id ? s.lastRollKept : null;
+  const outcome = kept ? kept.outcome : s.lastRoll.outcome;
+  if (!outcome || outcome === 'full_success' || outcome === 'critical_success') return false;
+  const drive = s.lastRoll.action ? driveKeyFor(s.lastRoll.action) : null;
+  if (!drive || !s.character) return false;
+  const max = Math.floor((s.character[`${drive}_max`] || 1) / 3);
+  return max > (s.character[`${drive}_resistance_spent`] || 0);
 };
 
 // A report the table has not answered within this long is not sent, as far as the form knows

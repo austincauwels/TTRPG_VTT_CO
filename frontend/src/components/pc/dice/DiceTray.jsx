@@ -41,7 +41,7 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
     <div role="status" data-result-slip="" tabIndex={-1} className="hand-placed relative -mt-1 mx-2 bg-parchment text-ink px-4 pt-2.5 pb-3 shadow-[2px_6px_12px_rgba(0,0,0,0.6)] border border-sepia/30 rounded-sm"
       style={{ '--tilt': `${tiltFor(`slip-${key}`, { min: 0.4, max: 1 })}deg` }}>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="font-serif font-bold text-lg leading-snug truncate" style={{ color: rollerInk || 'rgb(var(--c-ink))' }}>{rollerName}</span>
+        <span title={rollerName} className="font-serif font-bold text-lg leading-snug line-clamp-2 break-words min-w-0" style={{ color: rollerInk || 'rgb(var(--c-ink))' }}>{rollerName}</span>
         <SerialNo value={serialFor(key)} className="shrink-0" />
       </div>
       {lastRoll.is_secret && (

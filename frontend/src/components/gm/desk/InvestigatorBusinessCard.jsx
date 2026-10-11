@@ -9,6 +9,14 @@ import { MourningCross } from '../../shared/InkMarks';
 // stay easy to read; a card straightens when picked up (hover).
 // A deceased investigator's card (deceased) has a black mourning band in place of the ink
 // stripe, its photo in grey, and DECEASED stamped under the role; it still opens the sheet.
+// A long word in a narrow column used to split mid-word ("CASSAN / DRA"). The name shrinks
+// to fit its longest word instead, to 14px at the least; words still wrap at the spaces,
+// and break-words splits one only when even 14px cannot hold it.
+const nameFit = (name) => {
+  const longest = Math.max(1, ...String(name || '').split(/\s+/).map(w => w.length));
+  return longest > 6 ? { fontSize: `${Math.max(14, Math.min(24, Math.floor(150 / longest)))}px` } : undefined;
+};
+
 export const InvestigatorBusinessCard = ({ inv, onClick, index = 0, deceased = false }) => {
   const rotation = tiltFor(inv.id ?? inv.name, { min: 0.8, max: 2, sign: index % 2 ? 1 : -1 });
   const penFont = inv.pen_font || 'Caveat';
@@ -46,7 +54,7 @@ export const InvestigatorBusinessCard = ({ inv, onClick, index = 0, deceased = f
             <SerialNo value={serialFor(inv.id ?? inv.name)} className="absolute bottom-2 right-3 text-[11px]" />
             <p
               className="text-2xl xl:text-xl 2xl:text-2xl font-bold leading-tight mb-2 break-words text-ink"
-              style={{ fontFamily: penFont }}
+              style={{ fontFamily: penFont, ...nameFit(inv.name) }}
             >
               {inv.name}
             </p>
