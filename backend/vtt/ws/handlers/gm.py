@@ -59,8 +59,8 @@ def table_lines(before: dict, circle) -> list:
             # The place is named, so the log still says where each dispatch sent them
             where = f": {_clip(now['location'])}" if (now["location"] or "").strip() else ""
             lines.append(f"The Lightkeeper sent a {'new ' if had else ''}dispatch{where}.")
-    if (now["name"] or "").strip() and (now["name"] or "") != (before["name"] or ""):
-        lines.append(f"The Lightkeeper renamed the circle to {str(now['name']).strip()}.")
+    if (now["name"] or "").strip() and (now["name"] or "").strip() != (before["name"] or "").strip():
+        lines.append(f"The Lightkeeper renamed the circle to {_clip(now['name'])}.")
     old_t, new_t = before["tension_clock"] or 0, now["tension_clock"] or 0
     if isinstance(old_t, int) and isinstance(new_t, int) and old_t != new_t:
         lines.append(f"The Lightkeeper {'raised' if new_t > old_t else 'lowered'} the tension to {new_t} of 4.")

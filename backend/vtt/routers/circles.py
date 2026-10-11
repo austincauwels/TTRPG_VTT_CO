@@ -17,7 +17,15 @@ from vtt.circle_queries import VOTE_TYPES, canonical_name_suggestion, fill_resou
 from vtt.db import get_db
 from vtt.schemas import CircleVoteSubmit, FinalizeRosterRequest, RelationshipPropose, RelationshipRespond
 from vtt.serializers import get_char_dict, get_circle_dict
+from vtt.ws.handlers.gm import _clip
 from vtt.ws.manager import log_line, manager
+
+# Insignia keys and the names the desks show (frontend/src/game/circleFormation.js INSIGNIA_OPTIONS)
+INSIGNIA_LABELS = {
+    "GiOuroboros": "Ouroboros", "GiOrbital": "Orbital Ring", "GiCompass": "Compass",
+    "GiOilySpiral": "Oily Spiral", "GiMoon": "Moon", "GiGoldShell": "Gilded Shell",
+    "GiGlowingHands": "Radiant Hands", "GiCandleLight": "Candlelight",
+}
 
 router = APIRouter()
 
@@ -288,7 +296,9 @@ async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get
             "rejected_character_ids": rejected_ids,
         }
     }, db)
-    sealed = [str(x).strip() for x in (circle.name, circle.circle_ability, circle.insignia) if x and str(x).strip()]
+    insignia = str(circle.insignia or "").strip()
+    insignia = INSIGNIA_LABELS.get(insignia, insignia[2:] if insignia.startswith("Gi") else insignia)
+    sealed = [str(x).strip() for x in (_clip(circle.name or ""), circle.circle_ability, insignia) if x and str(x).strip()]
     await log_line(db, campaign.campaign_code, body.campaign_id,
                    "The Lightkeeper sealed the circle" + (": " + ", ".join(sealed) if sealed else "") + ".")
     return get_circle_dict(circle)

@@ -1099,9 +1099,9 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
             </div>
 
             {/* Continuous note area */}
-            <div className="px-4 sm:px-8 py-4" style={LINED_PAPER}>
+            <div className="px-4 sm:px-8 py-4" style={{ ...LINED_PAPER, backgroundPosition: '0 16px' }}>
               {lkPreview ? (
-                <NoteMarkdown text={lkContent} className="px-2 text-[24px] leading-[28px] font-serif text-ink py-0.5"
+                <NoteMarkdown text={lkContent} className="px-2 text-[24px] leading-[28px] font-serif text-ink"
                   style={{ minHeight: '700px' }} />
               ) : (
                 <textarea

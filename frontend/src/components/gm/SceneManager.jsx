@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ConfirmAction } from '../shared/ConfirmAction';
-import { FormLine, SerialNo, PrinterMark, BlankEntry, serialFor } from '../shared/PrintMarks';
+import { FormLine, SerialNo, PrinterMark, BlankEntry, serialFor, dispatchSerial } from '../shared/PrintMarks';
 import { playPaperSound } from '../../game/rollSounds';
 import { Hourglass } from '../shared/Hourglass';
 import { TensionTimer, formatTime, useTimeLeft } from '../shared/TensionTimer';
