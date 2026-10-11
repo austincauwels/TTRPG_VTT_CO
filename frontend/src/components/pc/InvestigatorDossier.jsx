@@ -1261,7 +1261,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       {[0, 1, 2].map((i) => {
                         const filled = i < marked;
                         const isHeld = !filled && i < next;
-                        const isNext = !readOnly && i === next;
+                        const isNext = !readOnly && !dead && i === next;
                         // A filled mark is inked by hand, so each box sits a little askew
                         const box = (
                           <span
@@ -1329,7 +1329,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               {character?.incapacitated && !character?.is_dead && (!readOnly || traumaEdit?.revive) && (
                 <button
                   onClick={readOnly ? traumaEdit.revive : reviveCharacter}
-                  className="min-h-[32px] [@media(pointer:coarse)]:min-h-[40px] px-2.5 py-1 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
+                  className="min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-2.5 py-1 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
                 >
                   Revive
                 </button>

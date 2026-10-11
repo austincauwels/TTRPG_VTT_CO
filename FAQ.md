@@ -126,7 +126,7 @@ The `trigger_scar` event opens the Scar Modal on the affected player's screen. T
 
 The server appends the scar text to `character.scars_list` (a JSON array) and increments `scars_count`. The Action Point Shift is applied to the two specified action columns.
 
-After an incapacitation, **a GM can revive the character** (`revive_character` action, the Revive button on the Lightkeeper's copy of the sheet), which clears the `incapacitated` flag and resets all three mark tracks to 0 so the character can act again.
+After an incapacitation, **a GM can revive the character** (`revive_character` action, the Revive button on the Lightkeeper's copy of the sheet), which clears the `incapacitated` flag so the character can act again. The track that overfilled was already cleared when the scar was taken; the other tracks keep their marks.
 
 ---
 

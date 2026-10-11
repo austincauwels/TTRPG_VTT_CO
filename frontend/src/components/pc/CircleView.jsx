@@ -146,7 +146,7 @@ export function AdvancementModal() {
   // taken in this advancement, which the other pick must differ from
   const picksLeft = character?.advancement_picks || 0;
   const taken = Array.isArray(character?.advancement_taken) ? character.advancement_taken : [];
-  const open = !!character && picksLeft > 0 && !advancementDeferred;
+  const open = !!character && !character.is_dead && picksLeft > 0 && !advancementDeferred;
   const close = () => { setSubmitted(false); setSelectedPicks([]); setDetails({}); dismissCircleAdvancement(); };
   const dialogRef = useDialog({ open: open || submitted, onClose: close, view: submitted });
 
@@ -202,7 +202,7 @@ export function AdvancementModal() {
   // until it is closed, even once the server has used up the picks (that used to hide it).
   if (!character || (!open && !submitted)) {
     // Picks put off with Later stay one press away
-    if (character && picksLeft > 0 && advancementDeferred) {
+    if (character && !character.is_dead && picksLeft > 0 && advancementDeferred) {
       return (
         <button type="button" onClick={resumeCircleAdvancement}
           className="fixed bottom-24 left-3 sm:bottom-4 sm:left-4 z-[400] min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream border border-candle-gold/70 hover:bg-oxblood rounded-sm shadow-lg">
@@ -981,6 +981,7 @@ export const CircleView = () => {
                 circleId={circleId}
                 forms={relForms}
                 proposeRelationship={proposeRelationship}
+                proposeBlocked={!!character?.is_dead}
                 respondToRelationship={respondToRelationship}
               />
             ))}

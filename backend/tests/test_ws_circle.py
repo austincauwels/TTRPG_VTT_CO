@@ -204,7 +204,7 @@ def test_gm_update_scars_rewords_and_removes(client):
         gm.send("gm_update_scars", character_id=member["id"], scars=[], previous=[stored[0], stored[2]])
         msgs = _after_member_update(gm.sync())
         assert msgs[0]["payload"]["message"] == (f"The Lightkeeper removed 2 scars from {name}'s record (0 of 4). "
-                                                 "Its action shift is taken back: (-1 Strike, +1 Sense).")
+                                                 "The shift is undone: (-1 Strike, +1 Sense).")
     row = support.fetch(Character, member["id"])
     assert (row.scars_list, row.scars_count) == ([], 0)
     assert (row.strike, row.sense, row.is_dead) == (1, 1, False)
@@ -555,6 +555,16 @@ def test_gm_advance_circle(client):
         msgs = gm.sync()
         assert msgs[2]["payload"]["circle"]["illumination"] == 0
     assert support.fetch(Character, member["id"]).advancement_picks == 4
+
+
+def test_gm_advance_circle_gives_a_dead_member_no_picks(client):
+    """A dead investigator may not apply an advancement, so is given none (playtest,
+    dead-investigator-still-acts)."""
+    camp, (member,), cid = _campaign(client, scars_list=SCARS + ["d"], scars_count=4, is_dead=True)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_advance_circle", role="GM")
+        gm.sync()
+    assert (support.fetch(Character, member["id"]).advancement_picks or 0) == 0
 
 
 def test_refill_resources_counts_the_campaigns_members(client):

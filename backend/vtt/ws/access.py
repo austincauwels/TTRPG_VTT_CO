@@ -451,7 +451,7 @@ def _still_in_connect_campaign(ctx):
 DEAD_REFUSED = frozenset({
     "roll", "resolve_gilded", "use_post_roll_ability", "burn_resistance", "take_mark",
     "resolve_ability_mark", "intercept_mark", "spend_resource", "update_drive", "update_gear",
-    "apply_advancement", "use_ability", "circle_relationship_propose",
+    "apply_advancement", "use_ability", "circle_relationship_propose", "revive_character",
 })
 
 

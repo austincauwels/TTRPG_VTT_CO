@@ -203,7 +203,7 @@ async def handle_gm_update_scars(ctx):
             if removed else f"The Lightkeeper corrected {character.name}'s scars")
     said += f" ({len(scars)} of {SCAR_SLOTS})."
     if undone:
-        said += f" Its action shift is taken back: {', '.join(undone)}."
+        said += f" {'Their shifts are' if len(undone) > 1 else 'The shift is'} undone: {', '.join(undone)}."
     if lifts_death:
         said += f" {character.name} is alive, and incapacitated until revived."
     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "activity_log", "payload": {
@@ -291,6 +291,8 @@ async def handle_gm_advance_circle(ctx):
         grant = 4 if (new_ability or "").strip() == "One Last Run" else 2
         members = db.query(Character).filter(
             Character.campaign_id == camp_id, Character.status == "active").all() if camp_id else []
+        # A dead investigator is not asked to choose: the sheet is a record
+        members = [m for m in members if not m.is_dead]
         for member in members:
             if not (member.advancement_picks or 0):
                 member.advancement_taken = []
