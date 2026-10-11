@@ -1256,6 +1256,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     ) : (
                       <button
                         onClick={() => holdMark(type)}
+                        // A held Enter that took a mark by its box (focus comes here) takes
+                        // no second one as the key repeats
+                        onKeyDown={(e) => { if (e.repeat && e.key === 'Enter') e.preventDefault(); }}
                         aria-label={trackFull
                           ? `Take a ${name} mark. The track is full, so this mark brings a scar.`
                           : `Take a ${name} mark`}
@@ -1303,7 +1306,15 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         return isNext ? (
                           <button
                             key={i}
-                            onClick={() => holdMark(type)}
+                            onClick={(e) => {
+                              // The box is drawn held now, which is no button: focus goes to
+                              // the track's name, so it is not dropped to the page, and an offer
+                              // that opens for the mark gives it back there (playtest 2,
+                              // death-defy-focus-returns-to-page)
+                              const label = e.currentTarget.closest('.mark-row')?.querySelector('.mark-label');
+                              holdMark(type);
+                              label?.focus({ preventScroll: true });
+                            }}
                             aria-label={`Take ${name} mark ${i + 1} of 3`}
                             className={`mark-cell group/box ${cell} flex items-center justify-center rounded-sm`}
                           >

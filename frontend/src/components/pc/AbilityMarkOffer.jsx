@@ -71,7 +71,7 @@ const ABILITY_OFFER_CONFIG = {
 };
 
 export const AbilityMarkOffer = () => {
-  const { abilityMarkOffer, resolveAbilityMark, interceptMark, dismissAbilityMarkOffer, declineAbilityMark } = useGameStore();
+  const { abilityMarkOffer, resolveAbilityMark, interceptMark, dismissAbilityMarkOffer, declineAbilityMark, interceptRefused } = useGameStore();
   const [driveChoice, setDriveChoice] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [hovered, setHovered] = useState(false);
@@ -128,6 +128,8 @@ export const AbilityMarkOffer = () => {
   const primaryRef = useRef(null);
   useEffect(() => {
     if (!offer) return undefined;
+    // A refused answer's note gives way to the next offer
+    if (useGameStore.getState().interceptRefused) useGameStore.setState({ interceptRefused: null });
     const before = document.activeElement;
     if (!isTextEntry(before)) {
       (primaryRef.current || boxRef.current?.querySelector('button'))?.focus({ preventScroll: true });
@@ -158,7 +160,29 @@ export const AbilityMarkOffer = () => {
     return () => ro.disconnect();
   }, [offer?.seq, !!config]);
 
-  if (!offer || !config) return null;
+  if (!offer || !config) {
+    // An answer to an ally's mark the server refused (another ally took it first): the
+    // card went with the press, so its place says why (playtest 2, ally-offer-cards-lost-or-stale)
+    if (!interceptRefused) return null;
+    return (
+      <div role="alert" className="fixed bottom-24 left-4 right-4 sm:left-auto sm:w-80 lg:bottom-6 lg:right-6 z-[9998] animate-fadeIn">
+        <div className="bg-ink border border-parchment-deep/40 rounded-sm shadow-[0_8px_24px_rgba(0,0,0,0.7)] px-4 py-3">
+          <p className="font-sans text-xs font-black uppercase tracking-widest text-cream mb-2">
+            {interceptRefused.ability ? `${interceptRefused.ability} not used` : 'Not used'}
+          </p>
+          <p className="font-serif text-sm text-parchment-deep mb-3 leading-relaxed">{interceptRefused.detail}</p>
+          <div className="flex justify-end">
+            <button
+              onClick={() => useGameStore.setState({ interceptRefused: null })}
+              className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-widest border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream transition-colors rounded-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const charName = offer.character_name || 'an ally';
   // Death Defy names how many marks of the harm it escapes

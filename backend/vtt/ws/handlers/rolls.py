@@ -67,6 +67,11 @@ async def _answer_again(ctx, answered):
         if held is None or held.get("roll_id") != answered["roll_id"]:
             await _refuse(ctx, "roll", 409, ALREADY_KEPT)
             return
+        if held.get("settled"):
+            reply["settled"] = True
+    elif character is not None and character.id in _settled_roll:
+        # Settled meanwhile (the table rolled on): the desk offers no burn on it
+        reply["settled"] = True
     if character is not None:
         reply["character"] = get_char_dict(character)
     await manager.broadcast(ctx.channel, {"type": "roll_result", "payload": reply})
@@ -85,7 +90,14 @@ async def send_held_roll(websocket, character):
         # Its id, so a desk that never lost the roll (it only reconnected) knows it
         if held.get("roll_id"):
             payload["roll_id"] = held["roll_id"]
+        # Held over End Assignment: the die is still kept, but not burned on
+        if held.get("settled"):
+            payload["settled"] = True
         await websocket.send_json({"type": "roll_result", "payload": payload})
+    elif character.id in _settled_roll:
+        # Their last roll was settled while this desk was away (it missed the dice that
+        # settled it): the roll it still shows offers no burn the server would refuse
+        await websocket.send_json({"type": "roll_settled", "payload": {"character_id": character.id}})
 
 
 async def _refuse(ctx, action, status, detail):
@@ -100,8 +112,28 @@ def _rating(character, action):
     return getattr(character, action, None)
 
 
+def settle_rolls(campaign_id, keep=None, held=False):
+    """The table has moved past its members' last rolls: a burn or a post-roll ability
+    can no longer turn one back. keep is the roller whose own roll stays open. held (End
+    Assignment) settles the gilded rolls still waiting too: their die is kept and scored,
+    but the roll is not burned on (resolve_gilded)."""
+    if campaign_id is None:
+        return
+    for other_id in [k for k, v in _last_roll.items() if v.get("campaign_id") == campaign_id and k != keep]:
+        _last_roll.pop(other_id, None)
+        _settled_roll.add(other_id)
+    if held:
+        for pending in _pending_gilded.values():
+            if pending.get("campaign_id") == campaign_id:
+                pending["settled"] = True
+
+
 async def _dice_thrown(ctx, character, action, roll, rating, kept=None):
-    """Tells the rest of the table that these dice are tumbling now (dice_thrown)."""
+    """Tells the rest of the table that these dice are tumbling now (dice_thrown). They
+    settle everyone else's roll, the Lightkeeper's dice too, as they settle it on the
+    desks: a secret roll the table never sees does not, and a gilded roll does when its
+    die is kept (playtest 2, roll-settling-client-server-mismatch)."""
+    settle_rolls(ctx.camp_id, keep=character.id if character is not None else None)
     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
         "type": "dice_thrown",
         "payload": {
@@ -155,17 +187,14 @@ def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0, roll_i
         # roll once its result is known (_remember), never an older one while a die
         # waits to be kept
         _last_roll.pop(character.id, None)
-        # and the next roll at the table settles everyone else's: a burn or a post-roll
-        # ability cannot turn back a result the table has moved past
-        if character.campaign_id is not None:
-            for other_id in [k for k, v in _last_roll.items()
-                             if v.get("campaign_id") == character.campaign_id and k != character.id]:
-                _last_roll.pop(other_id, None)
+        _settled_roll.discard(character.id)
+        # (the next roll at the table settles everyone else's when its dice are thrown:
+        # _dice_thrown)
         if roll.get("needs_gilded_choice"):
             _pending_gilded[character.id] = {
                 "action": action, "roll": dict(roll), "rating": _rating(character, action),
                 "cat": cat or drive_for_action(action), "spent": spent, "secret": bool(is_secret),
-                "roll_id": roll_id, "burned": burned,
+                "roll_id": roll_id, "burned": burned, "campaign_id": character.campaign_id,
             }
             return False
     return not is_secret
@@ -231,10 +260,14 @@ _last_roll: dict = {}
 # the roll's "Patch Up" chip, not offered after any Focus roll (playtest,
 # patch-up-free-rider). Set by each roll. In memory only.
 _patch_up_declared: set = set()
+# Characters whose last roll the table has settled (settle_rolls), so a desk that missed
+# the dice that settled it is told when it opens (send_held_roll). In memory only.
+_settled_roll: set = set()
 
 
 def _remember(character, action, cat, result, outcome, secret=False):
     if character is not None:
+        _settled_roll.discard(character.id)
         _last_roll[character.id] = {"action": action, "cat": cat, "result": result,
                                     "outcome": outcome, "used": set(),
                                     "campaign_id": character.campaign_id, "secret": bool(secret)}
@@ -535,7 +568,11 @@ async def handle_resolve_gilded(ctx):
         log_msg += f" [Well-Read — {spent} Intuition refunded]"
     if changed:
         db.commit()
-    _remember(character, r_act, r_cat, chosen_value, outcome_key, pending["secret"])
+    # A roll held over End Assignment is settled: no burn or post-roll ability answers it
+    if pending.get("settled"):
+        _settled_roll.add(character.id)
+    else:
+        _remember(character, r_act, r_cat, chosen_value, outcome_key, pending["secret"])
 
     # The roller's own desk learns the kept die's result, so its outcome slip, the
     # post-roll ability prompts and the resistance offer follow the server's scoring (they

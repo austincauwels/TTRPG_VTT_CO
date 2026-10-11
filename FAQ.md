@@ -73,6 +73,8 @@ Each drive pool has a **resistance track** equal to `drive_max ÷ 3` (e.g., a Dr
 
 Burning resistance: spends 1 pip and rerolls using **only the action rating** (no drive added). Some abilities scale on how many resistance pips remain unspent (e.g., Open Book adds those pips as bonus dice on Sway).
 
+A burn answers your own last roll, until the table moves past it: another roll at the table whose dice everyone sees (the Lightkeeper's open roll too, and a gilded roll once its die is kept), or End Assignment. A secret roll does not. A gilded roll of yours whose die you keep after someone else's roll can still be burned on, until the next roll at the table or End Assignment. A gilded roll whose die is still to be kept when the Lightkeeper ends the assignment is scored when you keep it, but cannot be burned on. A desk that was away while your roll was settled is told so when it reconnects, and offers no burn for it.
+
 ### Can the GM roll dice?
 
 Yes. When a GM client sends a `roll` message, no character is attached. Drive spent is interpreted directly as the pool size. GM rolls can be marked **secret**, in which case the result and its log line go to the Lightkeeper's own desk only, never to the players. Her result slip reads "Secret: only you saw this" and her own log keeps the line, "(Secret) Lightkeeper rolled a 4: Mixed success (2 dice: 1, 4)." (every roll line names its dice, since a tray shows only its owner's rolls), so the result is still on her desk after a player's roll takes the felt (since 2026-10-10; before that a secret roll wrote no line at all). The line goes to her channel alone and is kept only in her channel's history: no player's desk gets it, live, on a reload or on a first visit. It plays no result sound.
@@ -107,7 +109,7 @@ Characters have three mark tracks: **Body**, **Brain**, and **Bleed** (0–3 eac
 
 1. **Soak offers (self):** Compartmentalization (Brain, costs Nerve resistance), Steel Mind (Brain, costs Intuition resistance), In the Trenches (Body, costs Cunning resistance). If an offer is available, a popup is sent to the player first; the mark is only applied if they decline.
 2. **Death Defy:** If the mark comes from an enemy (`is_from_enemy: true`) and the character has this ability with a use remaining, they can escape the mark entirely (1 use/assignment).
-3. **Cross-player intercepts:** If any *other* active character in the campaign has "Behind Me" (costs 1 Nerve current) or "Premonitions" (costs 1 Intuition resistance pip), they receive an intercept offer on their screen simultaneously.
+3. **Cross-player intercepts:** If any *other* active character in the campaign has "Behind Me" (costs 1 Nerve current) or "Premonitions" (costs 1 Intuition resistance pip), they receive an intercept offer on their screen simultaneously. The first ally to answer takes the mark, and the other allies' offers for it close. An offer stays open for two minutes and comes back, with the time left, if the ally's page reloads in that time.
 
 If none of these apply (or the player declines), the mark is applied and the character sheet is updated in real time.
 

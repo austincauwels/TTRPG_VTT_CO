@@ -941,6 +941,136 @@ def test_the_next_roll_at_the_table_settles_earlier_rolls(client, dice):
         assert wa.sync() == refused
 
 
+def test_the_lightkeepers_open_roll_settles_the_members_rolls(client, dice):
+    """Fixed (playtest 2, roll-settling-client-server-mismatch): the Lightkeeper's roll
+    settled a member's roll on the desks but not on the server, so a desk that missed her
+    dice (a reconnect) could still burn. Her open roll settles it; her secret roll, which
+    no desk sees, does not."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=1, nerve_max=6)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+        dice(2)
+        wa.send("roll", action="move", drive_spent=0)
+        wa.sync()
+        dice(3)
+        gm.send("roll", action="Lightkeeper", drive_spent=1, is_secret=True)
+        gm.sync()
+        dice(2)
+        wa.send("burn_resistance", action="move")
+        assert wa.sync()[0]["payload"]["roll"]["is_resistance_roll"] is True
+        dice(4)
+        gm.send("roll", action="Lightkeeper", drive_spent=1)
+        gm.sync()
+        wa.drain()
+        wa.send("burn_resistance", action="move")
+        assert wa.sync() == [{"type": "action_rejected", "payload": {
+            "action": "burn_resistance", "status": 409, "detail": "Burn a resistance after a roll of that action."}}]
+    assert support.fetch(Character, a["id"]).nerve_resistance_spent == 1
+
+
+def test_a_gilded_roll_settles_the_table_when_its_die_is_kept(client, dice):
+    """Fixed (playtest 2, roll-settling-client-server-mismatch): a gilded roll settled the
+    others' rolls as it was rolled, while the desks saw its dice only when its die was
+    kept. Its dice settle them when they are thrown, and a roll whose die is kept after
+    another roll is decided after it, so its own burn stands."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=2, gilded_move=True, nerve_max=6)
+    b = support.active_member(client, camp, strike=1, nerve_max=6)
+    refused = [{"type": "action_rejected", "payload": {
+        "action": "burn_resistance", "status": 409, "detail": "Burn a resistance after a roll of that action."}}]
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        dice(2)
+        wb.send("roll", action="strike", drive_spent=0)
+        wb.sync()
+        dice(3, 5)
+        wa.drain()
+        wa.send("roll", action="move", drive_spent=0)
+        assert wa.sync()[0]["payload"]["roll"]["needs_gilded_choice"] is True
+        dice(2)
+        wb.drain()
+        wb.send("burn_resistance", action="strike")  # no dice thrown yet: still open
+        assert wb.sync()[0]["payload"]["roll"]["is_resistance_roll"] is True
+        dice(1)
+        wb.send("roll", action="strike", drive_spent=0)  # while a's die waits
+        wb.sync()
+        wa.send("resolve_gilded", action="move", chosen_type="regular")
+        wa.sync()
+        wb.drain()
+        wb.send("burn_resistance", action="strike")
+        assert wb.sync() == refused
+        dice(4, 6)
+        wa.drain()
+        wa.send("burn_resistance", action="move")
+        assert wa.sync()[0]["payload"]["roll"]["is_resistance_roll"] is True
+
+
+def test_end_assignment_settles_the_last_rolls(client, dice):
+    """Fixed (playtest 2, stale-burn-offer-after-end-assignment): the last roll of an
+    assignment could still be burned on after End Assignment."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=1, nerve_max=6)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+        dice(2)
+        wa.send("roll", action="move", drive_spent=0)
+        wa.sync()
+        gm.send("gm_end_assignment")
+        gm.sync()
+        wa.drain()
+        wa.send("burn_resistance", action="move")
+        assert wa.sync() == [{"type": "action_rejected", "payload": {
+            "action": "burn_resistance", "status": 409, "detail": "Burn a resistance after a roll of that action."}}]
+    assert support.fetch(Character, a["id"]).nerve_resistance_spent == 0
+
+
+def test_a_gilded_choice_held_over_end_assignment_is_settled(client, dice):
+    """Fixed (playtest 2 review, stale-burn-offer-after-end-assignment): a gilded roll
+    whose die was still to be kept at End Assignment became burnable again when the die
+    was kept, and a desk that reopened during the choice offered that burn. The die is
+    still kept and scored; the roll comes back marked settled, and its burn is refused."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=2, gilded_move=True, nerve_max=6)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        with support.ws_connect(client, a["id"]) as wa:
+            dice(3, 5)
+            wa.send("roll", action="move", drive_spent=0)
+            assert wa.sync()[0]["payload"]["roll"]["needs_gilded_choice"] is True
+            gm.send("gm_end_assignment")
+            gm.sync()
+        with support.ws_connect(client, a["id"]) as wa:
+            held = support.of_type(wa.sync(), "roll_result")
+            assert held[0]["payload"]["settled"] is True
+            wa.send("resolve_gilded", action="move", chosen_type="regular")
+            assert support.of_type(wa.sync(), "roll_kept")[0]["payload"]["outcome"] == "mixed_success"
+            wa.send("burn_resistance", action="move")
+            assert wa.sync() == [{"type": "action_rejected", "payload": {
+                "action": "burn_resistance", "status": 409, "detail": "Burn a resistance after a roll of that action."}}]
+    assert support.fetch(Character, a["id"]).nerve_resistance_spent == 0
+
+
+def test_a_desk_that_missed_the_settling_dice_is_told_when_it_opens(client, dice):
+    """Fixed (playtest 2 review, roll-settling-client-server-mismatch): a desk that was
+    away while another roll settled its own still offered the burn, which the server then
+    refused. It gets roll_settled as it opens; once the character rolls again it does not."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=1, nerve_max=6)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        with support.ws_connect(client, a["id"]) as wa:
+            dice(2)
+            wa.send("roll", action="move", drive_spent=0)
+            wa.sync()
+        dice(4)
+        gm.send("roll", action="Lightkeeper", drive_spent=1)
+        gm.sync()
+        with support.ws_connect(client, a["id"]) as wa:
+            assert support.of_type(wa.sync(), "roll_settled") == [
+                {"type": "roll_settled", "payload": {"character_id": a["id"]}}]
+            dice(2)
+            wa.send("roll", action="move", drive_spent=0)
+            wa.sync()
+        with support.ws_connect(client, a["id"]) as wa:
+            assert support.of_type(wa.sync(), "roll_settled") == []
+
+
 def test_a_burn_answers_only_the_newest_roll(client, dice):
     """A roll waiting for its gilded die to be kept replaces the last one: a burn for an
     older roll's action is refused and the waiting choice is kept (it used to reroll the

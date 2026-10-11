@@ -23,6 +23,7 @@ export const MAX_ABILITY_USES = {
 // extraGild: whether to gild an extra die
 // driveSubstitute: alternate drive category string, or 'any'
 // autoApply: shown as locked chip, always active when conditions met
+// declares: a chip that changes nothing in the pool but names what the roll is for
 export const ABILITY_ROLL_MODS = {
   "Sweet Talk":          { actions: ['sneak'],                   extraDice: () => 1, extraGild: false, gildIfCunningResist2: true, chipLabel: (ch) => `Sweet Talk (+1d${resistRemaining(ch,'cunning') >= 2 ? ', gilded' : ''})` },
   "Open Book":           { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Open Book (+${resistRemaining(ch,'cunning')}d)` },
@@ -56,8 +57,9 @@ export const ABILITY_ROLL_MODS = {
   "Dissection":          { actions: ['read'],                    extraDice: () => 0, extraGild: true,  chipLabel: () => 'Dissection (gild extra die)' },
   // Patch Up (p. 30): "make a Focus roll to heal 1 Body mark on an ally": the roll is the
   // heal, so it is chosen here, before the roll, and the ally after it (it was offered
-  // after any Focus roll; playtest, patch-up-free-rider)
-  "Patch Up":            { actions: ['read'],                    extraDice: () => 0, extraGild: false, chipLabel: () => "Patch Up (this Focus roll heals an ally's Body mark)" },
+  // after any Focus roll; playtest, patch-up-free-rider). It adds nothing to the dice, so
+  // declares keeps its chip (playtest 2, patch-up-chip-never-shown)
+  "Patch Up":            { actions: ['read'],                    extraDice: () => 0, extraGild: false, declares: true, chipLabel: () => "Patch Up (this Focus roll heals an ally's Body mark)" },
   "Born in the Shadows": { actions: ['hide'],                    extraDice: () => 0, extraGild: true,  chipLabel: () => 'Born in the Shadows (gild extra die)' },
 };
 
@@ -83,7 +85,7 @@ export function getAvailableRollMods(character, action, circle = null) {
     const maxUses = MAX_ABILITY_USES[abilityName];
     if (maxUses && (uses[abilityName] || 0) >= maxUses) return;
     const extra = typeof def.extraDice === 'function' ? def.extraDice(character) : def.extraDice;
-    if (!def.autoApply && extra === 0 && !def.extraGild && !def.driveSubstitute && !def.costBrainMark && !def.firstPoint) return;
+    if (!def.autoApply && extra === 0 && !def.extraGild && !def.driveSubstitute && !def.costBrainMark && !def.firstPoint && !def.declares) return;
     mods.push({
       key: abilityName,
       label: def.chipLabel(character),
