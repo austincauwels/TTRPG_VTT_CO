@@ -2,11 +2,13 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { driveKeyFor } from '../../game/actions';
+import { keepChoices } from '../../game/outcomes';
 import { ActivityLog } from './dice/ActivityLog';
 import { GmDiceControls } from './dice/GmDiceControls';
 import { DiceTray } from './dice/DiceTray';
 import { RollModifications } from './dice/RollModifications';
 import { usePostRollPrompts } from './dice/usePostRollPrompts';
+import { InfoTerm } from '../shared/ActionInfo';
 import { PassNotes } from './dice/PassNotes';
 import { RollResultBar } from './dice/RollResultBar';
 import { primeRollSounds } from '../../game/rollSounds';
@@ -88,7 +90,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   // the next roll. On the GM's felt a player's kept die comes with their dice.
   const [kept, setKept] = useState(null);
   const tableKept = shownTable?.kept && Number.isInteger(shownTable.kept.index)
-    ? { roll: lastRoll, value: shownTable.kept.value, idx: shownTable.kept.index } : null;
+    ? { roll: lastRoll, value: shownTable.kept.value, idx: shownTable.kept.index,
+      // The roster does not carry the roller's drives, so no "1 X back" is claimed here
+      back: '' } : null;
   const keptDie = shownTable ? tableKept
     : kept && kept.roll === lastRoll ? kept
     : resolved ? { roll: lastRoll, value: resolved.value, idx: resolved.index } : null;
@@ -113,7 +117,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     if (!gildedPending) return;
     // Kept only once the choice reached the table; offline the choice stays open
     if (resolveGildedChoice(pendingGildedChoice.action, die.is_gilded ? 'gilded' : 'regular', die.value)) {
-      setKept({ roll: lastRoll, value: die.value, idx });
+      // What the keep gave back is read now, before the sheet's drive moves
+      const back = keepChoices(lastRoll, character).find((c) => c.idx === idx)?.back || '';
+      setKept({ roll: lastRoll, value: die.value, idx, back });
     }
   };
 
@@ -134,7 +140,19 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   // Load the roll sounds while the desk is open, so the first one plays on time
   useEffect(() => { primeRollSounds(); }, []);
 
+  // A roll that was open to a burn or an ability and was closed by the next roll at the table
+  // says so, on request, where the choices were (playtest, burn-offer-closes-on-anyones-roll)
+  // Whether a burn was ever possible: the same test as canResist, minus the settling
+  const couldOffer = !gildedPending && !!scoredRoll && !!lastRoll?.dice
+    && scoredRoll.outcome !== 'full_success' && scoredRoll.outcome !== 'critical_success' && resistMax > resistSpent;
+  const closedByNextRoll = !showGmControls && lastRollSettled && !character?.is_dead && couldOffer;
   const showRollModifications = !showGmControls && (canResist || visiblePrompts.length > 0);
+  const settledNote = (
+    <InfoTerm label="Roll settled" ariaLabel="Roll settled: why there is no burn"
+      text="The table has moved on (another roll or the assignment's end), so this roll can no longer be burned or changed."
+      className="font-serif italic text-sm text-parchment-deep"
+      markClassName="text-parchment-deep group-hover/info:text-cream" />
+  );
   const onPhone = (...parts) => (phonePart === undefined || parts.includes(phonePart) ? '' : 'max-md:hidden');
   const phoneEmpty = phonePart !== undefined && phonePart !== 'dice' && phonePart !== 'notes';
   const rollModifications = (
@@ -180,12 +198,18 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
           rollerInk={rollerInk}
           keptDie={keptDie}
           rating={rollRating}
+          character={showGmControls ? null : character}
           rollHint={!showGmControls}
         />
       </div>
 
       {/* ROLL MODIFICATIONS */}
       {showRollModifications && <div className={onPhone('dice') || undefined}>{rollModifications}</div>}
+      {closedByNextRoll && !showRollModifications && (
+        <div className={onPhone('dice') || undefined}>
+          {settledNote}
+        </div>
+      )}
 
       {/* ACTIVITY LOG */}
       <ActivityLog logEntries={logEntries} gm={showGmControls} className={onPhone('dice', 'notes')} />
@@ -208,6 +232,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
           onDieClick={handleDieClick}
           trayInView={trayInView}
           rating={rollRating}
+          character={showGmControls ? null : character}
           hasChoices={showRollModifications}
         >
           <DiceTray
@@ -223,9 +248,11 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
             rollerInk={rollerInk}
             keptDie={keptDie}
             rating={rollRating}
+            character={showGmControls ? null : character}
             rollHint
           />
           {showRollModifications && rollModifications}
+          {closedByNextRoll && !showRollModifications && settledNote}
         </RollResultBar>
       )}
     </div>

@@ -33,7 +33,7 @@ const rollKey = (roll) =>
 // paper, not on the felt. The red number is a numbering machine's, for the look only. A
 // secret roll (the Lightkeeper's Secret) says so under the name: no other desk was told
 // of it, and its line in the log is on this desk alone.
-const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, rating }) => {
+const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, rating, character, onDieClick }) => {
   const outcomeKey = lastRoll.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll.dice) : null);
   const outcome = OUTCOME[outcomeKey];
   const key = rollKey(lastRoll);
@@ -58,9 +58,15 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
           <span className="inline-block font-sans text-xs font-black uppercase tracking-widest text-sepia border border-dashed border-sepia/70 rounded-sm px-2 py-1">
             Keep one die
           </span>
-          {/* What each die would do, so the choice is made knowing it */}
+          {/* What each die would do, so the choice is made knowing it; each line does what
+              its die does */}
           <span className="block mt-1.5 font-serif text-base leading-snug">
-            {keepChoices(lastRoll).map((c) => <span key={c.idx} className="block">{c.label}</span>)}
+            {keepChoices(lastRoll, character).map((c) => (
+              <button key={c.idx} type="button" onClick={() => onDieClick?.(c.die, c.idx)}
+                className="block w-full min-h-[44px] mb-1.5 last:mb-0 px-3 py-1.5 text-left font-serif text-base leading-snug text-ink border border-sepia/60 rounded-sm bg-parchment-deep/60 hover:bg-parchment-deep active:scale-[0.99]">
+                {c.label}
+              </button>
+            ))}
           </span>
         </p>
       ) : outcome ? (
@@ -74,9 +80,9 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
           >
             {outcome.word}
           </span>
-          {keptDie && lastRoll.dice?.[keptDie.idx]?.is_gilded && (
+          {keptDie?.back && lastRoll.dice?.[keptDie.idx]?.is_gilded && (
             <span className="block mt-1.5 font-serif text-base leading-snug text-sepia">
-              {keepChoices(lastRoll).find((c) => c.idx === keptDie.idx)?.label.replace(/^.*?, /, '')}
+              {keptDie.back}
             </span>
           )}
         </p>
@@ -149,7 +155,7 @@ const FocusFollowsRoll = ({ gildedPending }) => {
 
 export const DiceTray = forwardRef(({
   lastRoll, isRolling, gildedPending, dieSkews, getIsCandidate, onDieClick,
-  rollerName, rollerInk, keptDie, rating = null, rollWaiting = false, rollError = null, rollHint = false,
+  rollerName, rollerInk, keptDie, rating = null, character = null, rollWaiting = false, rollError = null, rollHint = false,
 }, ref) => (
   <div ref={ref} className="xl:shrink-0">
   <FocusFollowsRoll gildedPending={!!gildedPending} />
@@ -194,7 +200,7 @@ export const DiceTray = forwardRef(({
                     tabIndex: 0,
                     'data-keep-die': '',
                     onKeyDown: onActivateKey(clickHandler),
-                    'aria-label': keepChoices(lastRoll).find((c) => c.idx === idx)?.label || `Keep the ${die.is_gilded ? 'gilded' : 'highest regular'} die, ${die.value}`,
+                    'aria-label': keepChoices(lastRoll, character).find((c) => c.idx === idx)?.label || `Keep the ${die.is_gilded ? 'gilded' : 'highest regular'} die, ${die.value}`,
                   } : { 'aria-hidden': true })}
                   onClick={clickHandler}
                   onTouchEnd={clickHandler ? (e) => { e.preventDefault(); clickHandler(); } : undefined}
@@ -212,7 +218,7 @@ export const DiceTray = forwardRef(({
       ) : (
         // The player's tray keeps how to roll behind an "i"; the Lightkeeper's just says it is empty
         rollHint ? (
-          <InfoTerm label="No dice thrown yet" text="To roll, tap an action on your sheet." ariaLabel="How to roll" markClassName="text-candle-gold group-hover/info:text-cream" className="font-serif italic text-candle-gold text-lg" />
+          <InfoTerm label="No dice thrown yet" text="To roll, tap an action on your sheet." ariaLabel="How to roll" slipClassName="left-1/2 -translate-x-1/2 top-full mt-1 w-[min(18rem,calc(100vw-2.5rem))]" markClassName="text-candle-gold group-hover/info:text-cream" className="font-serif italic text-candle-gold text-lg" />
         ) : (
           <span className="font-serif italic text-candle-gold/80 text-lg">No dice thrown yet</span>
         )
@@ -220,7 +226,7 @@ export const DiceTray = forwardRef(({
     </div>
   </div>
   {!isRolling && lastRoll?.dice && (
-    <ResultSlip lastRoll={lastRoll} rollerName={rollerName} rollerInk={rollerInk} gildedPending={gildedPending} keptDie={keptDie} rating={rating} />
+    <ResultSlip lastRoll={lastRoll} rollerName={rollerName} rollerInk={rollerInk} gildedPending={gildedPending} keptDie={keptDie} rating={rating} character={character} onDieClick={onDieClick} />
   )}
   {!isRolling && rollError && <RollErrorSlip message={rollError} afterSlip={!!lastRoll?.dice} />}
   </div>

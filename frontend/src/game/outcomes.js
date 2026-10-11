@@ -89,16 +89,21 @@ export const rulebookLogText = (text) => {
 // gilded-choice-unexplained): keeping the gilded die gives one point back to the action's
 // drive, and the regular die does not. One wording for the slip and the phone's bar:
 //   "Keep the gilded 4: Mixed success, 1 Nerve back"   "Keep the 4: Mixed success"
+// When the drive is already full (character given) nothing would come back, so the
+// gilded line says so no more than the plain one: "Keep the gilded 4: Mixed success".
+// Each choice also carries `back` ("1 Nerve back" or ''), for the line after the keep.
 const DRIVE_NAME = { nerve: 'Nerve', cunning: 'Cunning', intuition: 'Intuition' };
-export const keepChoices = (roll) => {
+export const keepChoices = (roll, character = null) => {
   const dice = roll?.dice || [];
   const choices = [];
   const add = (idx, gilded) => {
     const die = dice[idx];
     if (!die) return;
     const word = OUTCOME[outcomeForKept(die.value, dice)].word;
-    const back = gilded ? `, 1 ${DRIVE_NAME[driveKeyFor(roll.action)]} back` : '';
-    choices.push({ idx, die, label: `Keep the ${gilded ? 'gilded ' : ''}${die.value}: ${word}${back}` });
+    const drive = driveKeyFor(roll.action);
+    const full = !!character && drive && Number(character[`${drive}_current`]) >= Number(character[`${drive}_max`]);
+    const back = gilded && !full ? `1 ${DRIVE_NAME[drive]} back` : '';
+    choices.push({ idx, die, back, label: `Keep the ${gilded ? 'gilded ' : ''}${die.value}: ${word}${back ? `, ${back}` : ''}` });
   };
   add(roll?.gilded_idx, true);
   add(roll?.highest_regular_idx, false);

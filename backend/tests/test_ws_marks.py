@@ -1433,3 +1433,14 @@ def test_marks_on_an_investigator_already_down_are_logged_as_another_scar(client
         ws.send("take_mark", mark_type="bleed")
         said = [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"]
     assert said[-1] == f"{ch['name']} takes another scar: a fourth Bleed mark while down."
+
+
+def test_commune_use_line_reminds_of_the_sense_roll(client):
+    """Commune takes its Brain mark when used; the Sense roll it calls for is the
+    player's next step, so the line says so (playtest, commune-use-not-tied-to-roll)."""
+    ch = support.forge(client, specialty_ability="Commune")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("use_ability", ability="Commune")
+        lines = [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"]
+        assert lines == [f"{ch['name']} used Commune (took a Brain mark, then roll Sense)."]
+    assert support.fetch(Character, ch["id"]).brain_marks == 1

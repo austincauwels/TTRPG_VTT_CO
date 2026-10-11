@@ -1515,7 +1515,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           <div ref={gearDialogRef} role="dialog" aria-modal="true" aria-labelledby="gear-dialog-title" className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
             style={{ background: 'rgb(var(--c-parchment))', border: '3px double rgb(var(--c-sepia)/0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
             <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-2">Change Gear</h2>
-            <p className="text-sm font-serif italic text-sepia mb-5">Mark an item when you use it. Marked gear stays until the Lightkeeper ends the assignment, when everyone's gear is cleared, to be chosen again.</p>
+            <p className="text-sm font-serif italic text-sepia mb-3">Choose the gear you carry. A chosen item is marked and stays until the Lightkeeper ends the assignment, when everyone's gear is cleared, to be chosen again.</p>
+            {/* Why the rest are greyed, at the top where a phone shows it */}
+            <p role="status" className="mb-2 text-xs font-sans font-black text-sepia">
+              {pendingCount < slots ? '' : swappable ? `All ${slots} gear slots are marked. Untick one to swap.` : `All ${slots} gear slots are marked until the assignment ends.`}
+            </p>
             {/* The sheet's blank gear line (p. 53): circle gear, or gear found on the way,
                 written in by name. Marked items stay; new ones can be taken off until saved. */}
             <div className="mb-4">
@@ -1548,11 +1552,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 </button>
               </form>
               {/* Shown only while it matters: the reason Add is greyed, and the length near its cut */}
-              {writeInName && (pendingCount >= slots || writeIn.length >= 45) && (
-                <p role="status" className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-xs font-sans font-black text-sepia">
-                  <span>{pendingCount >= slots ? (swappable ? `All ${slots} gear slots are marked. Untick one to swap.` : `All ${slots} gear slots are marked until the assignment ends.`) : ''}</span>
-                  {writeIn.length >= 45 && <span className="tabular-nums">{writeIn.length} / 60</span>}
-                </p>
+              {writeIn.length >= 45 && (
+                <p className="mt-1.5 text-right text-xs font-sans font-black text-sepia tabular-nums">{writeIn.length} / 60</p>
               )}
             </div>
 
@@ -1564,7 +1565,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     const sel = pendingGear.includes(item);
                     return (
                       <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingCount < slots && setPendingGear(g=>[...g,item])}
-                        className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
+                        aria-disabled={!sel && pendingCount >= slots && !gear.includes(item) ? true : undefined}
+                        className={`w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm ${!sel && pendingCount >= slots ? 'opacity-50' : ''}`}
                         style={{ background: sel ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.3)', border:`1px solid ${sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia)/0.22)'}` }}>
                         <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/40'}`}>{sel&&<TickMark />}</div>
                         <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />
@@ -1583,7 +1585,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   const sel = pendingGear.includes(item);
                   return (
                     <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingCount < slots && setPendingGear(g=>[...g,item])}
-                      className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
+                      aria-disabled={!sel && pendingCount >= slots && !gear.includes(item) ? true : undefined}
+                        className={`w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm ${!sel && pendingCount >= slots ? 'opacity-50' : ''}`}
                       style={{ background: sel ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.15)', border:`1px solid ${sel?'rgb(var(--c-oxblood) / 0.5)':'rgb(var(--c-sepia)/0.15)'}` }}>
                       <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/35'}`}>{sel&&<TickMark />}</div>
                       <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />

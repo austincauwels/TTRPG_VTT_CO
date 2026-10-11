@@ -25,7 +25,7 @@ export const MAX_ABILITY_USES = {
 // autoApply: shown as locked chip, always active when conditions met
 // declares: a chip that changes nothing in the pool but names what the roll is for
 export const ABILITY_ROLL_MODS = {
-  "Sweet Talk":          { actions: ['sneak'],                   extraDice: () => 1, extraGild: false, gildIfCunningResist2: true, chipLabel: (ch) => `Sweet Talk (+1d${resistRemaining(ch,'cunning') >= 2 ? ', gilded' : ''})` },
+  "Sweet Talk":          { actions: ['sneak'],                   extraDice: () => 1, extraGild: false, gildIfCunningResist2: true, chipLabel: (ch) => `Sweet Talk (after small talk with the target: +1d${resistRemaining(ch,'cunning') >= 2 ? ', gilded' : ''})` },
   "Open Book":           { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Open Book (+${resistRemaining(ch,'cunning')}d)` },
   // The first drive point spent counts twice: no die until drive is spent (firstPoint names the
   // drive, as first_point does on the server)

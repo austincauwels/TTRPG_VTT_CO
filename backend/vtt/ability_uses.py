@@ -24,6 +24,7 @@ Each entry may have:
   gives the ally the player picks a fourth gear slot, and Blood of the Covenant refreshes
   drive points, split as the player chooses, equal to the current Intuition resistance.
   Great Wards moves the Weird's ward to the person chosen (characters.warded_by_id).
+- then: the player's next step, added to the log line (Commune: roll Sense).
 """
 
 ABILITY_USES = {
@@ -53,7 +54,7 @@ ABILITY_USES = {
                             "options": {"": None, "still image": "bleed"}},
     # A mark taken as the cost
     "Occult Researcher":   {"mark": "brain"},           # p. 27: clear it if there is no detail
-    "Commune":             {"mark": "brain"},           # p. 32: then a Sense roll
+    "Commune":             {"mark": "brain", "then": "roll Sense"},  # p. 32: the line reminds of the roll
     "Ghostblade":          {"mark": "body"},            # p. 32
     "Ritual":              {"mark": "bleed", "target": True,  # p. 27: "on yourself or an ally"
                             "options": {"Circle of Protection": "ward", "Reinvigorate": "reinvigorate",
