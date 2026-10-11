@@ -804,7 +804,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         ) : null}
         <div className="min-w-0 sm:col-start-3 sm:row-start-1">
           <span className="block font-sans text-xs font-black uppercase tracking-normal text-sepia leading-tight">Pronouns</span>
-          <div className="text-sm font-bold italic border-b border-ink pb-1 text-ink/70 mt-1.5 truncate">{character.pronouns || 'Not given'}</div>
+          <div className="text-sm font-bold italic border-b border-ink pb-1 text-ink/70 mt-1.5 truncate">{character.pronouns && character.pronouns !== 'Unlisted' ? character.pronouns : 'Not given'}</div>
         </div>
       </div>
 

@@ -57,12 +57,14 @@ export const JoinCampaignForm = ({
         }
       }}>
         <span id={`${idPrefix}-pen-label`} className={labelClass}>Handwriting</span>
+        <p id={`${idPrefix}-pen-note`} className="font-serif italic text-sm text-sepia mb-1">Your notebook entries are written in this pen. You can change it later in the Notebook.</p>
         <button
           type="button"
           ref={penTriggerRef}
           onClick={() => setPenListOpen(v => !v)}
           aria-expanded={penListOpen}
           aria-labelledby={`${idPrefix}-pen-label`}
+          aria-describedby={`${idPrefix}-pen-note`}
           className={`${fieldClass} flex items-center justify-between hover:bg-cream transition-colors`}
         >
           <span className="text-xl text-ink" style={{ fontFamily: currentPen }}>{currentPen}</span>

@@ -419,7 +419,7 @@ export const CirclePage = () => {
                   onKeyDown={onActivateKey(() => setIllum(filled && illum === i + 1 ? i : i + 1))}
                   tabIndex={0}
                   role="button"
-                  aria-label={`Set Illumination to ${filled && illum === i + 1 ? i : i + 1}`}
+                  aria-label={filled && illum === i + 1 ? `Illumination ${i + 1}, current. Press to lower to ${i}` : `Set Illumination to ${i + 1}`}
                   title={`Illumination ${i + 1}`}
                   className={`touch-pip [--hit-y:-14px] [--hit-x:-4px] w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
                     filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'

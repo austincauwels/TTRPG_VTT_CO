@@ -21,7 +21,7 @@ const quietButton = 'px-4 py-2 border border-sepia/50 text-sepia hover:text-ink 
 // Relationship type, an optional prompt question, and the answer. The chosen question is
 // kept as its index and shown above the answer box, never in it; tapping it again lets it go.
 // A new type keeps the answer, and lets the question go (each type has its own).
-const RelationshipFields = ({ idPrefix, form, onChange, person }) => {
+const RelationshipFields = ({ idPrefix, form, onChange, person, verb = 'Relationship to' }) => {
   const { relType, promptIdx, answer } = form;
   const questions = (relType && RELATIONSHIP_DATA[relType]) || null;
   const question = questions && Number.isInteger(promptIdx) ? questions[promptIdx] : null;
@@ -29,7 +29,7 @@ const RelationshipFields = ({ idPrefix, form, onChange, person }) => {
   <div className="space-y-3">
     <div>
       <label htmlFor={`${idPrefix}-type`} className={labelClass}>Relationship</label>
-      <select id={`${idPrefix}-type`} aria-label={`Relationship to ${person}`} value={relType || ''} onChange={e => onChange({ relType: e.target.value, promptIdx: null })} className={fieldClass}>
+      <select id={`${idPrefix}-type`} aria-label={`${verb} ${person}`} value={relType || ''} onChange={e => onChange({ relType: e.target.value, promptIdx: null })} className={fieldClass}>
         <option value="" aria-label="None"></option>
         {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
@@ -162,7 +162,7 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
                 className="overflow-hidden"
               >
                 <div className="pt-2 space-y-3 border-t border-sepia/20">
-                  <RelationshipFields idPrefix={`counter-${rel.id}`} form={counter} onChange={setCounter} person={theirName} />
+                  <RelationshipFields idPrefix={`counter-${rel.id}`} form={counter} onChange={setCounter} person={theirName} verb="Counter relationship to" />
                   <button type="button" onClick={sendCounter} disabled={!counter.relType} className={primaryButton}>Send counter</button>
                 </div>
               </motion.div>

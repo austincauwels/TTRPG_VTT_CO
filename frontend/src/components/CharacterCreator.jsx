@@ -824,7 +824,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 items-center lg:items-start">
 
             {/* ── LEFT: stacked card deck ── */}
-            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px]">
+            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px] [@media(max-height:760px)]:[--card-w:140px]">
 
               {/* Card stack */}
               <div onPointerDown={swipeDown} onPointerUp={swipeUp} onPointerCancel={() => { swipeStart.current = null; }}
@@ -1281,7 +1281,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           return (
                             <div key={key} className="relative flex items-center gap-2">
                               {isLockedGilded ? (
-                                <span className="shrink-0 w-5 h-5 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:pl-0.5 flex items-center" role="img" aria-label={`${label} is gilded by your specialty`}>
+                                <span className="shrink-0 w-5 h-5 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:pl-0.5 flex items-center" role="img" title="Gilded by your specialty" aria-label={`${label} is gilded by your specialty`}>
                                   <GildStar gilded fixed />
                                 </span>
                               ) : (
@@ -1398,7 +1398,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             {/* Which actions are gilded: the specialty's, and the free one once it is chosen */}
             <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-sans text-xs font-black uppercase tracking-widest text-sepia">
               <GildStar gilded />
-              <span>Gilded: {[lockedGilded, freeGilded].filter(Boolean).map(k => actionKeyLabel[k]).join(', ') || 'none'}</span>
+              <span>Gilded: {[lockedGilded, freeGilded].filter(Boolean).map(k => actionKeyLabel[k]).join(', ') || 'none'}{lockedGilded && ` (${actionKeyLabel[lockedGilded]} is your specialty's)`}</span>
             </p>
           </div>
         </PaperSheet>
