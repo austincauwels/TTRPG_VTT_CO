@@ -74,7 +74,7 @@ async def _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum
             "type": "activity_log", "payload": {"message": message, "log_type": "field"}}, db)
     for milestone in MILESTONES:
         if old_illum < milestone <= new_illum:
-            await log(f"{circle_name} milestone reached!")
+            await log(f"{circle_name} milestone {milestone} reached!")
             if "Resource Management" in circle_abilities(circle):
                 await log(f"Resource Management: {circle_name} gains one resource of its choice.")
     if old_illum < TRACK <= new_illum:
@@ -273,9 +273,11 @@ async def handle_gm_advance_circle(ctx):
         for member in members:
             await manager.broadcast(character_key(member.id), {"type": "character_update", "payload": get_char_dict(member)})
         circle_name = target_circle.name or "The Circle"
+        gained = (new_ability or "").strip()
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",
-            "payload": {"message": f"{circle_name} has advanced!", "log_type": "field"},
+            "payload": {"message": f"{circle_name} has advanced and gained {gained}!" if gained
+                        else f"{circle_name} has advanced!", "log_type": "field"},
         }, db)
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "circle_advanced",

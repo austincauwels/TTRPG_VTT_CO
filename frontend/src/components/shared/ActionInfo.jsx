@@ -21,7 +21,7 @@ export const ActionInfo = ({ id, label, text, open, onToggle, show = 'hidden [@m
     <button
       type="button"
       data-action-info={id}
-      aria-label={`About ${label}`}
+      aria-label={ariaLabel || `About ${label}`}
       aria-expanded={open}
       aria-controls={`${id}-slip`}
       onClick={onToggle}
@@ -83,6 +83,8 @@ export const useActionInfo = () => {
 // hitClassName: how the button takes a finger (44px tall on a touch screen by default; a
 // ruled row that must keep its pitch passes touch-pip, which reaches past the button to
 // fill the row instead).
+// ariaLabel: the button's name when "About <label>" would misdescribe the slip.
+// markClassName: the colour of the "i" (and its hover colour) where the paper is dark.
 // wide: the term spans its row, so a slip can be placed against the row's right edge.
 // anchored: the slip is placed against the term; a caller that places it against a larger
 // box of its own (the term's whole entry) passes false and makes that box relative.
@@ -96,7 +98,7 @@ const showOnly = (putAway) => {
 const LEAVE_MS = 300;
 
 export const InfoTerm = ({
-  label, text, className = '', wide = false, anchored = true,
+  label, text, className = '', wide = false, anchored = true, ariaLabel, markClassName = 'text-sepia group-hover/info:text-oxblood',
   slipClassName = 'left-0 top-full mt-1 w-[min(18rem,calc(100vw-2.5rem))]',
   hitClassName = '[@media(pointer:coarse)]:min-h-[44px]',
 }) => {
@@ -185,7 +187,7 @@ export const InfoTerm = ({
         style={{ touchAction: 'manipulation' }}
       >
         {label}
-        <span className={`shrink-0 transition-colors ${pinned ? 'text-oxblood' : 'text-sepia group-hover/info:text-oxblood'}`}>
+        <span className={`shrink-0 transition-colors ${pinned ? 'text-oxblood' : markClassName}`}>
           <InfoMark size={15} />
         </span>
       </button>

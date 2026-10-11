@@ -508,7 +508,9 @@
 .md-note .md-h3 { font-size: 1.08em; }
 .md-note > :is(.md-h1, .md-h2, .md-h3) + * { margin-top: 0.15em; }
 .md-note strong { font-weight: 700; }
-.md-note em { font-style: italic; }
+/* The pen fonts have no italic face, so emphasis is also underlined; links get a dotted
+   underline to stay distinct from it. */
+.md-note em { font-style: italic; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
 .md-note del { text-decoration-line: line-through; text-decoration-thickness: 0.07em; }
 .md-note ul { list-style: disc outside; padding-left: 1.05em; }
 .md-note ol { list-style: decimal outside; padding-left: 1.35em; }
@@ -575,6 +577,7 @@
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
 }
+.md-note .md-link { text-decoration-style: dotted; }
 .md-note .md-link:hover,
 .md-inline .md-link:hover { text-decoration-thickness: 2px; }
 .md-note .md-img-alt { font-style: italic; opacity: 0.8; }
@@ -1034,6 +1037,16 @@
 }
 @container circlepapers (min-width: 62rem) {
   .circle-papers-flow { column-count: 3; column-gap: 1.5rem; }
+  /* With the relationships paper on the desk (the player's tab) the papers are a grid, the
+     relationships pinned to the third column, so the last Accept shortens that paper
+     without the others reflowing from under the mouse. */
+  .circle-papers-flow:has(> [data-circle-paper='relationships']) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+  .circle-papers-flow > [data-circle-paper='relationships'] { grid-column: 3; grid-row: 1 / span 4; }
 }
 .circle-paper { box-shadow: 2px 6px 14px rgb(0 0 0 / 0.38), inset 0 0 28px rgb(var(--c-sepia) / 0.06); }
 /* The charter: a certificate with a printed double frame inside its edge */
