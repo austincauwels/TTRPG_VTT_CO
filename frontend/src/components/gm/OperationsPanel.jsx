@@ -67,12 +67,20 @@ export const OperationsPanel = () => {
     if (pendingIndex >= count) setPendingIndex(count - 1);
   }, [campaignRoster.pending_investigators?.length]);
 
+  // A request that left the campaign some other way (the player took it back, another tab
+  // answered it) leaves no strip to press on its open sheet
+  useEffect(() => {
+    if (selectedInvestigator?.status !== 'pending') return;
+    const waiting = campaignRoster.pending_investigators || [];
+    if (!waiting.some(p => p.id === selectedInvestigator.id)) setSelectedInvestigator(null);
+  }, [campaignRoster.pending_investigators]);
+
   // The store actions resolve to false when the server refused or could not be reached
   const REQUEST_FAILED = 'That did not go through. Check your connection, then try again.';
 
   // One request at a time, so a double tap cannot approve or reject twice.
   const handleStamp = async (characterId) => {
-    if (requestBusy) return;
+    if (requestBusy) return false;
     setRequestBusy(true);
     setRequestError('');
     const p = approveInvestigator(characterId, activeCampaignId);
@@ -80,10 +88,11 @@ export const OperationsPanel = () => {
     const ok = await p;
     setRequestBusy(false);
     if (ok === false) setRequestError(`The investigator was not approved. ${REQUEST_FAILED}`);
+    return ok !== false;
   };
 
   const handleReject = async (characterId) => {
-    if (requestBusy) return;
+    if (requestBusy) return false;
     setRequestBusy(true);
     setRequestError('');
     const p = rejectInvestigator(characterId, activeCampaignId);
@@ -91,6 +100,7 @@ export const OperationsPanel = () => {
     const ok = await p;
     setRequestBusy(false);
     if (ok === false) setRequestError(`The request was not rejected. ${REQUEST_FAILED}`);
+    return ok !== false;
   };
 
   const handleFinalizeRoster = async () => {
@@ -168,6 +178,11 @@ export const OperationsPanel = () => {
                   key={selectedInvestigator.id}
                   character={selectedInvestigator}
                   onClose={() => setSelectedInvestigator(null)}
+                  // a request's sheet carries the decision, and closes once it is made
+                  onApprove={async (id) => { if (await handleStamp(id)) setSelectedInvestigator(null); }}
+                  onReject={async (id) => { if (await handleReject(id)) setSelectedInvestigator(null); }}
+                  busy={requestBusy}
+                  error={requestError}
                 />
               </AnimatePresence>
             )}

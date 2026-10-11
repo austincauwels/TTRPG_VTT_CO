@@ -63,8 +63,15 @@ def get_user_gm_campaigns(user_id: int, db: Session = Depends(get_db), user: Use
             Character.campaign_id.in_([c.id for c in campaigns]),
             Character.status.in_(deletion.RELEASED_STATUSES),
         ).group_by(Character.campaign_id).all())
+    waiting = {}
+    if campaigns:
+        waiting = dict(db.query(Character.campaign_id, func.count(Character.id)).filter(
+            Character.campaign_id.in_([c.id for c in campaigns]),
+            Character.status == "pending",
+        ).group_by(Character.campaign_id).all())
     return [
         CampaignSummaryItem(id=c.id, name=c.name, campaign_code=c.campaign_code,
-                            investigator_count=counts.get(c.id, 0))
+                            investigator_count=counts.get(c.id, 0), pending_count=waiting.get(c.id, 0))
         for c in campaigns
     ]
+

@@ -206,6 +206,7 @@ def test_route_table_order(client):
         ("/campaign/approve/{character_id}", ["POST"]),
         ("/campaign/reject/{character_id}", ["POST"]),
         ("/campaign/{campaign_id}/retire", ["POST"]),
+        ("/campaign/withdraw/{character_id}", ["POST"]),
         ("/campaign/{campaign_id}", ["DELETE"]),
         ("/campaign/{campaign_id}/restore", ["POST"]),
         ("/campaign/rejoin", ["POST"]),

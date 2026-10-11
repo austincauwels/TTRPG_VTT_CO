@@ -60,6 +60,11 @@ export const LightkeeperLedgerPage = ({
                 <p className="font-serif text-base text-sepia">
                   Campaign code <span className="font-mono text-ink break-all">{camp.campaign_code}</span>
                 </p>
+                {camp.pending_count > 0 && (
+                  <p className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood mt-0.5">
+                    {camp.pending_count === 1 ? '1 request waiting' : `${camp.pending_count} requests waiting`}
+                  </p>
+                )}
               </div>
               <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">Run →</span>
             </button>

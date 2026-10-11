@@ -425,6 +425,7 @@ const useGameStore = create(
       character: null,
       characters: [],          // all characters belonging to the logged-in user
       gmCampaigns: [],         // campaigns the user manages as GM
+      withdrawnIds: [],        // join requests this player took back (the hub does not call those a decision)
       lastPlayedCampaign: null, // { type:'player'|'gm', characterId?, campaignCode, campaignName }
       circle: null,
       lastRoll: null,
@@ -2247,6 +2248,15 @@ const useGameStore = create(
       restoreCampaign: async (campaignId) => {
         const result = await deletionRequest(`/campaign/${campaignId}/restore`, 'POST');
         if (result.success) await get().fetchUserData(get().accessSession?.userId);
+        return result;
+      },
+
+      // The player takes back a join request that is still waiting. A 409 means the
+      // Lightkeeper answered meanwhile, so the hub reads the list again either way.
+      withdrawRequest: async (characterId) => {
+        const result = await deletionRequest(`/campaign/withdraw/${characterId}`, 'POST');
+        if (result.success) set(st => ({ withdrawnIds: [...st.withdrawnIds, characterId] }));
+        await get().fetchUserData(get().accessSession?.userId);
         return result;
       },
 

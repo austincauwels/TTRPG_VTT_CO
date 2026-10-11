@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { UnaffiliatedCharacterRow } from './UnaffiliatedCharacterRow';
 import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
@@ -6,7 +6,7 @@ import { useDeleteUndo } from './useDeleteUndo';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
 
 // Why a character on a roster has no Delete (read out with its unpressable control)
-const NOT_DELETABLE = { active: 'In a campaign', pending: 'Waiting for the Lightkeeper' };
+const NOT_DELETABLE = { active: 'In a campaign' };
 
 export const PlayerRegistryPage = ({
   isLoadingBook, characters, enterAsPlayer, refreshBook,
@@ -15,6 +15,23 @@ export const PlayerRegistryPage = ({
   const deleteCharacter = useGameStore(s => s.deleteCharacter);
   const restoreCharacter = useGameStore(s => s.restoreCharacter);
   const removal = useDeleteUndo({ remove: deleteCharacter, restore: restoreCharacter });
+  // Taking back a request that is still waiting (a pending row has this in place of Delete)
+  const withdrawRequest = useGameStore(s => s.withdrawRequest);
+  const [withdrawingId, setWithdrawingId] = useState(null);
+  const [withdrawError, setWithdrawError] = useState('');
+  const withdraw = async (char) => {
+    if (withdrawingId) return;
+    setWithdrawingId(char.id);
+    setWithdrawError('');
+    const result = await withdrawRequest(char.id);
+    setWithdrawingId(null);
+    if (result.success) return;
+    setWithdrawError(result.status === 409
+      ? `The Lightkeeper had already answered ${char.name}'s request.`
+      : result.status === 0
+        ? `Could not reach the server, so ${char.name}'s request was not withdrawn. Check your connection and try again.`
+        : `${char.name}'s request was not withdrawn. Try again in a moment.`);
+  };
   const deleteControl = (char) => (
     <RowDelete
       name={char.name}
@@ -34,6 +51,7 @@ export const PlayerRegistryPage = ({
 
     <div className="flex-1 overflow-y-auto px-4 lg:px-7 py-4 space-y-5">
       <DeleteError text={removal.error} />
+      <DeleteError text={withdrawError} />
       <DeletedSlips deleted={removal.deleted} onUndo={removal.undo} />
       {isLoadingBook ? (
         <p className="font-serif text-xl italic text-sepia">Loading your investigators…</p>
@@ -89,7 +107,16 @@ export const PlayerRegistryPage = ({
                     >
                       {isLoadingBook ? 'Checking…' : 'Check again'}
                     </button>
-                    {deleteControl(char)}
+                    <button
+                      onClick={() => withdraw(char)}
+                      disabled={withdrawingId === char.id}
+                      aria-label={`Withdraw ${char.name}'s request`}
+                      title="Take the request back. The investigator returns to Not in a campaign."
+                      className="font-sans font-bold text-xs tracking-widest uppercase text-sepia hover:text-oxblood hover:border-oxblood/50 disabled:opacity-50 disabled:cursor-wait transition-colors shrink-0 rounded border border-sepia/40 mr-1 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px]"
+                      style={{ padding: '6px 12px' }}
+                    >
+                      {withdrawingId === char.id ? 'Withdrawing…' : 'Withdraw'}
+                    </button>
                   </div>
                 ))}
               </div>

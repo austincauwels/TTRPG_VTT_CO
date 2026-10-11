@@ -161,6 +161,11 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "pending_count": {
+            "default": 0,
+            "title": "Pending Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -3707,6 +3712,44 @@
           }
         },
         "summary": "Rejoin Campaign"
+      }
+    },
+    "/campaign/withdraw/{character_id}": {
+      "post": {
+        "description": "The owner takes back a join request that is still waiting: the investigator goes\nback to Not in a campaign. 409 once the Lightkeeper has answered (the player reads\nthe hub again). The Lightkeeper's desk drops the request as it does for a reject.",
+        "operationId": "withdraw_request_campaign_withdraw__character_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Request"
       }
     },
     "/campaign/{campaign_id}": {

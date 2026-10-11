@@ -1,4 +1,4 @@
-"""Campaign and roster routes: create, join, approve, reject, retire, delete (and undo
+"""Campaign and roster routes: create, join, approve, reject, withdraw, retire, delete (and undo
 that), rejoin, invite to rejoin, roster.
 
 Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
@@ -63,6 +63,7 @@ def _code_refused(holder, user: User) -> HTTPException:
 
 
 CAMPAIGN_RETIRED = "This campaign has been retired."
+NOT_WAITING = "This request is no longer waiting."
 
 
 def _refuse_retired(is_retired) -> None:
@@ -288,6 +289,33 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
     # on another campaign's desk must not hear it.
     for key in [campaign_key(campaign.campaign_code)] + [character_key(c.id) for c in released]:
         await manager.broadcast(key, message)
+    return {"ok": True}
+
+
+@router.post("/campaign/withdraw/{character_id}")
+async def withdraw_request(character_id: int, db: Session = Depends(get_db),
+                           user: User = Depends(get_current_user)):
+    """The owner takes back a join request that is still waiting: the investigator goes
+    back to Not in a campaign. 409 once the Lightkeeper has answered (the player reads
+    the hub again). The Lightkeeper's desk drops the request as it does for a reject."""
+    require_owner(user, character_or_404(db, character_id))
+    char = db.query(Character).filter(Character.id == character_id).populate_existing().with_for_update().first()
+    if char is None:
+        raise HTTPException(status_code=404, detail="Character not found")
+    if char.status != "pending" or char.campaign_id is None:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=NOT_WAITING)
+    camp_id = char.campaign_id
+    char.status = "unaffiliated"
+    char.campaign_id = None
+    db.commit()
+    campaign = db.query(Campaign).filter(Campaign.id == camp_id).first()
+    if campaign is not None:
+        still = db.query(Character).filter(Character.campaign_id == camp_id, Character.status == "pending").all()
+        def frame(cards):
+            return {"type": "investigator_rejected",
+                    "payload": {"character_id": character_id, "pending_investigators": cards}}
+        await _broadcast_named(db, campaign, frame([get_char_dict(c) for c in still]), frame(_named(db, still)))
     return {"ok": True}
 
 

@@ -37,6 +37,7 @@ HTTP_ROUTES = [
     (["POST"], "/campaign/approve/{character_id}", "approve_character", None, None),
     (["POST"], "/campaign/reject/{character_id}", "reject_character", None, None),
     (["POST"], "/campaign/{campaign_id}/retire", "retire_campaign", None, None),
+    (["POST"], "/campaign/withdraw/{character_id}", "withdraw_request", None, None),
     (["DELETE"], "/campaign/{campaign_id}", "delete_campaign", None, None),
     (["POST"], "/campaign/{campaign_id}/restore", "restore_campaign", None, None),
     (["POST"], "/campaign/rejoin", "rejoin_campaign", None, None),

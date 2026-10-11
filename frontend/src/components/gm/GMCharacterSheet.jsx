@@ -55,7 +55,7 @@ const SpendBack = ({ character, onGive }) => {
   );
 };
 
-export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
+export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, busy = false, error: requestError = '' }) => {
   const [fullChar, setFullChar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -238,6 +238,46 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
                 Back to roster
               </button>
             </div>
+          </div>
+        )}
+
+        {pending && (onApprove || onReject) && (
+          <div className="relative mb-5 pb-4 border-b border-ink/15 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <p className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood basis-full sm:basis-auto sm:mr-auto">
+              Join request, not yet approved
+            </p>
+            {onApprove && (
+              <button
+                onClick={() => onApprove(rosterItem.id)}
+                disabled={busy}
+                className="disabled:opacity-50 disabled:cursor-wait min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream border border-ink rounded hover:brightness-125 transition"
+              >
+                Approve
+              </button>
+            )}
+            {onReject && (
+              <ConfirmAction
+                className="contents"
+                hintClassName="basis-full"
+                onConfirm={() => onReject(rosterItem.id)}
+                disabled={busy}
+                cancelLabel="Keep request"
+                armedHint={`Press again to reject ${rosterItem.name || 'this investigator'}. They go back to the player, out of the campaign.`}
+                renderButton={(armed, props) => (
+                  <button
+                    {...props}
+                    className={`disabled:opacity-50 disabled:cursor-wait min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border rounded transition-colors ${
+                      armed ? 'bg-ink text-cream border-ink' : 'border-sepia/50 text-sepia hover:bg-sepia/10'
+                    }`}
+                  >
+                    {armed ? 'Yes, reject' : 'Reject'}
+                  </button>
+                )}
+              />
+            )}
+            {requestError && (
+              <p role="alert" className="basis-full font-serif text-base text-oxblood leading-snug">{requestError}</p>
+            )}
           </div>
         )}
 

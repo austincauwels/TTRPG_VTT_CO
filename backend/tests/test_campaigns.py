@@ -653,6 +653,37 @@ def test_a_retired_campaign_takes_no_new_members(client):
                        headers=support.as_stranger()).status_code == 403
 
 
+# --- withdraw ---------------------------------------------------------------
+
+def test_withdraw_takes_back_a_waiting_request(client):
+    camp = support.new_campaign(client)
+    mine = support.pending_member(client, camp)
+    other = support.pending_member(client, camp)
+    assert client.post(f"/campaign/withdraw/{mine['id']}", headers=support.as_stranger()).status_code == 403
+    assert client.post(f"/campaign/withdraw/{mine['id']}", headers=support.as_gm(camp)).status_code == 403
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        r = client.post(f"/campaign/withdraw/{mine['id']}", headers=support.as_owner(mine["id"]))
+        assert (r.status_code, r.json()) == (200, {"ok": True})
+        [msg] = gm.drain()
+    assert msg["type"] == "investigator_rejected" and msg["payload"]["character_id"] == mine["id"]
+    assert [c["id"] for c in msg["payload"]["pending_investigators"]] == [other["id"]]
+    row = support.fetch(Character, mine["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+    assert support.fetch(Character, other["id"]).status == "pending"
+    # nothing left to withdraw
+    r = client.post(f"/campaign/withdraw/{mine['id']}", headers=support.as_owner(mine["id"]))
+    assert (r.status_code, r.json()) == (409, {"detail": "This request is no longer waiting."})
+
+
+def test_withdraw_refuses_an_active_member(client):
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    r = client.post(f"/campaign/withdraw/{member['id']}", headers=support.as_owner(member["id"]))
+    assert r.status_code == 409
+    assert support.fetch(Character, member["id"]).status == "active"
+    assert client.post("/campaign/withdraw/987654321", headers=support.as_stranger()).status_code == 404
+
+
 # --- invite-rejoin ----------------------------------------------------------
 
 def test_invite_rejoin(client):
@@ -981,3 +1012,13 @@ def test_a_replaced_dead_investigator_keeps_a_fallen_card_for_the_lightkeeper(cl
     assert support.fetch(Character, living["id"]).status == "retired"
     roster = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
     assert [c["id"] for c in roster["fallen_investigators"]] == [old["id"]]
+
+
+def test_approve_after_a_withdraw_is_refused(client):
+    camp = support.new_campaign(client)
+    mine = support.pending_member(client, camp)
+    assert client.post(f"/campaign/withdraw/{mine['id']}", headers=support.as_owner(mine["id"])).status_code == 200
+    r = client.post(f"/campaign/approve/{mine['id']}", headers=support.as_gm(camp))
+    assert r.status_code >= 400
+    row = support.fetch(Character, mine["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
