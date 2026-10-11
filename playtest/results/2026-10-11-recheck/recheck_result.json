@@ -1,0 +1,803 @@
+[
+ {
+  "results": [
+   {
+    "key": "bugs#7 retire-hides-its-investigators",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900, player laptop 1366x768",
+    "evidence": "r8401_retire.js / r8401_retire2.js. LK pressed 'Retire campaign\u2026' then 'Yes, retire campaign' (j02). DB after: Mina Vale unaffiliated, campaign_id null, ink cleared, resources_spent_assignment 0, gear []; dead Dan Holt stays retired with the campaign. Mina's open desk got campaign_retired and went to the hub with the notice 'The Lightkeeper retired the campaign. Your investigator is free to join another.' (j03). The same player's Main Case desk in another tab stayed on DESK (j04). In the Registry Mina moved from 'In a campaign' to 'Not in a campaign \u00b7 Join a campaign' after a reload (j07), and also after a tab return or reopening the book without a reload (j10, j11). Mina then joined another campaign (pending). The ledger's Retired list showed Side Case with Restore (j08). Restore brought the campaign back and did not pull Mina back (j09). Code: campaigns.py:257-292.",
+    "problem": "",
+    "finding": ""
+   },
+   {
+    "key": "bugs#8 dead-investigator-still-acts",
+    "verdict": "partly",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844 (player), Lightkeeper 1440x900",
+    "evidence": "r8401_death.js, r8401_death2.js, r8401_deadprobe.js. After the fourth scar and 'Stay and look at the sheet': Change gear and Use are gone, the drive pips are disabled, roll rows are aria-disabled (a click sent no frame), there are no mark boxes (d16). The Circle page reads 'A dead investigator cannot spend the circle's resources.' with the three Spend buttons greyed (e01). The LK copy has no Deal a mark, only Edit (d17). A raw socket as dead Bram got 409 'Bram Okafor is dead: the sheet is a record.' for roll, spend_resource, take_mark, update_drive, update_gear, use_ability, apply_advancement, circle_relationship_propose and revive_character. Chat still works.",
+    "problem": "Two gaps remain, both reachable only by a crafted request. (1) apply_scar from the dead investigator's own socket is accepted: a fifth scar is stored and Move is lowered 1->0 on the dead record. (2) REST POST /circle/relationship/propose stores a proposal from a dead investigator. FAQ.md:141 promises both are refused. Not checked: finishing a gilded roll made in life after the death.",
+    "finding": "F002"
+   },
+   {
+    "key": "bugs#9 invite-silently-retires-living-investigator",
+    "verdict": "fixed-but-new-problem",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900, phone 390x844",
+    "evidence": "r8401_invite.js, r8401_creator.js. Inviting a player with a living, unhurt investigator: the slip reads 'Invite sent to \u2026' and 'Bram Okafor is still alive and will be retired when they rejoin.' (g03). Every desk logs 'The Lightkeeper invited Bram Okafor's player back.', and a double-click on Send invite still gives one line. The phone desk banner (g04), the hub banner (g05) and the creator's rejoin box (h01) all add 'Bram Okafor will be retired.' Save and rejoin from the creator retired Bram and logged 'Tobias Reed joined the circle, in place of Bram Okafor.' on the LK and other desks.",
+    "problem": "If the player accepts on another device, the replaced investigator's open phone desk gets no frame or log line. It keeps showing Bram's live sheet and the now-used invite banner, although Bram is retired.",
+    "finding": "F007"
+   },
+   {
+    "key": "bugs#11 lightkeeper-has-no-revive",
+    "verdict": "fixed-but-new-problem",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900 (+ player phone 390x844)",
+    "evidence": "r8401_death.js, r8401_death2.js, r8401_revive.js. The LK sheet shows Revive beside the 'Incapacitated' stamp (d01, e05). Pressing it turned the player's phone stamp from INCAPACITATED to ABLE TO ACT live, with no reload: a character_update arrived on the player's channel with incapacitated false (f02). The LK stamp also reads Able to act (f03), and every desk logged 'has been revived and is operational.' character.py:124-133 broadcasts to character_key.",
+    "problem": "A double press on Revive revives twice and logs 'has been revived and is operational.' twice on every desk: the handler does not check incapacitated first.",
+    "finding": "F003"
+   },
+   {
+    "key": "bugs#12 death-not-announced-to-table",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844, Lightkeeper 1440x900, desktop 1920x1080, tablet 820x1180, laptop 1366x768",
+    "evidence": "r8401_death.js / r8401_death2.js, reading the activity_log frames on every seat plus screenshots. On the fourth scar, all five desks got exactly one 'Bram Okafor is deceased: a fourth scar.' line, the dying player included, so it is not doubled (d11-d15, d15 shows it in Cass's laptop log). The take-back logged on every desk: 'The Lightkeeper removed a scar from Bram Okafor's record (3 of 4). Bram Okafor is alive, and incapacitated until revived.' The second death after the take-back was again logged once on every desk.",
+    "problem": "",
+    "finding": ""
+   },
+   {
+    "key": "ux#7 scar-pending-invisible-to-lightkeeper",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "Lightkeeper 1440x900, tablet 820x1180",
+    "evidence": "With a scar owed, the LK sheet stamp reads 'INCAPACITATED: SCAR OWED' (d01) and the roster card reads 'Incapacitated: scar owed \u00b7 2 scars' (d02). Once the scar is recorded the stamp drops to 'Incapacitated'. The recorded scar logs 'Bram Okafor recorded a scar (3 of 4).' on every desk, including Dev's tablet (d08). Marks dealt to someone already down log 'Bram Okafor takes another scar: a fourth Bleed mark while down.' Deal a mark stays live while a scar is owed; the fix did not ask for that to change.",
+    "problem": "",
+    "finding": ""
+   },
+   {
+    "key": "ux#14 replaced-investigator-leaves-no-record",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "Lightkeeper 1440x900, phone 390x844",
+    "evidence": "r8401_fallen.js. Bram rejoined after his death and Ada's new investigator was approved on the LK desk. The LK roster gained a '\u2020 Deceased' row with two '\u2020 FALLEN' cards, live and after a reload (i03, i04). Every desk logged 'Tobias Reed joined the circle, in place of Bram Okafor.' and 'Iris Fenn joined the circle, in place of Ada Lark.', the phone included. Circle History shows 'BRAM OKAFOR \u00b7 OCCULTIST \u00b7 FALLEN' with his answer (i06). Per decisions.md, the player Registry having no Fallen record is known and accepted.",
+    "problem": "",
+    "finding": ""
+   },
+   {
+    "key": "ux#23 second-death-no-notice",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "phone 390x844",
+    "evidence": "r8401_death2.js. After the take-back the LK invited Bram (the banner names Bram as the one to be retired), then dealt four Brain marks and Bram recorded the fourth scar. The death dialog showed again, now reading 'Your Lightkeeper has invited you back to Death Hours.', with focus on Stay (e10). After Stay, the invite banner is back (e11).",
+    "problem": "",
+    "finding": ""
+   },
+   {
+    "key": "ux#24 death-dialog-wording-and-focus",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "phone 390x844",
+    "evidence": "The dialog text with he/him pronouns: 'With a fourth scar, Bram Okafor is gone. His sheet stays on record. Your Lightkeeper will invite you back when the table is ready.' (d11). document.activeElement is 'STAY AND LOOK AT THE SHEET'. Pressing Enter closed the dialog and kept the stage on DESK.",
+    "problem": "",
+    "finding": ""
+   },
+   {
+    "key": "ux#25 scar-shift-note-doubled",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "phone 390x844, Lightkeeper 1440x900",
+    "evidence": "Bram typed 'I talk where I used to run. (-1 Focus, +1 Survey)' and chose Focus down, Survey up. The DB, the phone sheet and the LK sheet all show the note once: 'I talk where I used to run. (-1 Focus, +1 Survey)' (d07). Focus went 2->1 and Survey 2->3.",
+    "problem": "",
+    "finding": ""
+   },
+   {
+    "key": "ux#26 scar-recorded-no-confirmation",
+    "verdict": "fixed-but-new-problem",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844",
+    "evidence": "After Record scar, the phone's log ticker shows 'Bram Okafor recorded a scar (3 of 4).' (d06), and every desk logs the same line, which closes the gap the verifier named.",
+    "problem": "Commit 9738faa says the sheet scrolls to the scars list after a new scar, but it does not: scrollY stays 0 with the scars at y=2349. scarLinesRef is attached only to the Lightkeeper's edit-mode list, so scrollIntoView never runs on the player's sheet. The report said no scrolling was needed, so this is low.",
+    "finding": "F005"
+   },
+   {
+    "key": "ux#50 scar-form-header-second-scar",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "phone 390x844",
+    "evidence": "The scar form header now reads 'Bram Okafor took a fourth Body mark. The track is cleared, and a scar is owed.' (d04). The fatal form adds 'This is the fourth scar. When you record it, Bram Okafor dies. It changes no action rating.' and has no shift radios and no Decide later (d10).",
+    "problem": "",
+    "finding": ""
+   },
+   {
+    "key": "ux#53 invite-player-reads-as-onboarding",
+    "verdict": "not-fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900",
+    "evidence": "r8401_invite.js. On a brand-new campaign with no investigators, the Invite player slip still says 'The player rejoins with a new investigator, without waiting for your approval.' (g01, InvitePlayer.jsx:73). The 'No investigators yet' info says only 'Investigators appear here once you approve them.' A stranger's name gives 'No player found with that username.' (g02).",
+    "problem": "The copy is unchanged and nothing points new players to the campaign code. Neither PR touched it and decisions.md records no decision, so it is still waiting on Robert (DESIGN.md:377 pins the wording).",
+    "finding": "F006"
+   }
+  ],
+  "new_findings": [
+   "F002",
+   "F003",
+   "F004",
+   "F005",
+   "F006",
+   "F007"
+  ],
+  "notes": "Environment: backend on 8401 (uvicorn pid 931) and vite preview on 4401 (pid 939) were stopped by PID along with their wrappers, and database candela_r8401 was dropped. Scripts are /home/user/pt3/verify/r8401_*.js, screenshots are under /home/user/pt3/verify/out_8401/, and progress is in /home/user/pt3/verify/A-death-campaigns_progress.md.\n\nNew problem outside the batch keys: F004 (low ux). On a living player's Circle page, the relationship paper for a dead investigator shows only '4 SCARS', with Propose a relationship still live. The server stores that proposal (checked over WS).\n\nSide observations, not logged:\n- The retire armed hint still says 'Every investigator leaves it' without naming who goes free (the report marked naming them optional).\n- The invite slip echoes the username as typed (BRAMDK3S65), not the matched username.\n- A hub whose book is already open stays stale until the tab returns or the book is reopened, which is the documented design.\n- The death dialog shows again on every reload of a dead desk.\n- The LK's own Player Registry page shows four empty placeholder rows when she has no investigators."
+ },
+ {
+  "results": [
+   {
+    "key": "bugs#2 silent-socket-loses-mark",
+    "verdict": "partly",
+    "how_checked": "browser",
+    "device": "laptop 1366x768",
+    "evidence": "r8402_b2.js: socket silent both ways with no close, mark taken at 6 s, Undo left to run out. Variants: (a) new sockets blocked; (b) backend stopped and restarted at 45 s; (c) frame reached the server but the reply was lost. In (a) and (b) the box stays held (HEE, 'Reconnecting...' banner); after reconnect the same mark_id is sent again on the new socket: body 1 of 3, DB 1, one log line. In (c) DB is 1, not 2, so the mark is taken once. Variant (d): reload at 45 s, before the reconnect. Body 0, DB 0, no take_mark on the new socket, no log line, no message. Shots out_8402/b2_*_18s/35s/after.png",
+    "finding": "F001",
+    "problem": "A held mark is still lost without a word if the player reloads the page before the desk reconnects. heldMarks is not persisted, so the unanswered take_mark dies with the page."
+   },
+   {
+    "key": "bugs#3 patch-up-chip-never-shown",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "desktop 1920x1080",
+    "evidence": "r8402_b3.js/b3b.js: Doctor with Patch Up shows the chip 'Patch Up (this Focus roll heals an ally's Body mark)' under Focus, and roll_result.declared=['Patch Up']. After the roll there is an ally picker with Use/Skip. Failure: Brain mark and 2 Intuition, Bram body 2->1. A 6 costs 1 Intuition, body 1->0. An ally with no Body mark gets a refusal shown above the panel. The chip can be declared again on each roll. A plain Focus roll offers no Patch Up. Double-clicking Use heals once. Shots b3_after_roll_2.png, b3_used_2_crop.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "bugs#6 stale-burn-offer-after-end-assignment",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "laptop 1366x768, tablet 820x1180, desktop 1920x1080",
+    "evidence": "r8402_b6.js routes: A (laptop) last roll at the table, then End Assignment. B (tablet) Bram rolls, Ada goes to the hub and back via Case Ledger > Play, then End Assignment. C (desktop) End Assignment while Ada is in the hub. D (laptop) End Assignment, then reload. E (tablet) nobody else rolls, End Assignment while in the hub. In every route there is no Burn and reroll afterwards, a 'Roll settled' i shows, and the desk gets roll_settled on reopen. A raw burn_resistance from another socket gets 'Burn a resistance after a roll of that action.' and no reroll goes in the log. Shots b6_*_ended/back/final.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "bugs#15 roll-settling-client-server-mismatch",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "phone 390x844",
+    "evidence": "r8402_b15.js case 1: phone socket stalled, Lightkeeper makes an open roll, socket dropped. On reconnect the desk gets roll_settled: no Burn, dot gone, 'Roll settled' i. The server refuses a burn. With a Lightkeeper secret roll neither side settles: Burn is offered and accepted, which is consistent. Case 2: gilded Hide roll, Bram rolls before the keep, Ada keeps via Enter. Burn is offered and the server accepts it (rerolled, new keep choice). Bram's next roll then removes Burn. Shots b15_case1_open_panel.png, b15_case2_burned.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "bugs#16 ally-offer-cards-lost-or-stale",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "phone 390x844 (Bram, Behind Me), tablet 820x1180 (Cass, Premonitions)",
+    "evidence": "r8402_b16.js: Dev takes a Body mark and both cards show (1:55). Bram reloads at about 25 s: the card returns with 1:29 left, Intercept lands (Bram body 1, Dev 0, Nerve 4->3), and Cass's card closes. Race: Bram intercepts and Cass's card closes. Both press at once: one lands, the other gets a 'Premonitions not used ... another ally answered it first.' alert. A reload after the answer brings no card back on either desk. Shots b16_reload_bram_after_reload.png, b16_simul_cass_after.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#3 offline-roll-headed-not-thrown",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "tablet 820x1180",
+    "evidence": "r8402_u3.js: roll frame reached the server, reply dropped, reconnects failing. The bar reads 'Waiting for the table...' at 8 s and 20 s. At 33 s the heading is 'May have counted' with 'The table has not answered. The roll may have counted, so check the log before you roll again.' and the reconnect banner. Once back, the roll is in the log once. Shot u3_left_33s.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#11 keep-die-choices-unclear-final",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "desktop 1920x1080, tablet 820x1180, laptop 1366x768",
+    "evidence": "r8402_u11.js/u11b.js: under 'Keep one die' the slip lines are bordered buttons, 48px tall on desktop and laptop, 54px on tablet ('Keep the gilded 5: Mixed success' / 'Keep the 4: Mixed success'). Clicking a line keeps that die (roll_kept). A double-click sends one resolve_gilded and keeps once. Per the fix, no undo or extra sentence was added (by design). Shot u11_desk_full_choice.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#12 gilded-refund-promised-at-full-drive",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "desktop 1920x1080, tablet 820x1180, laptop 1366x768",
+    "evidence": "r8402_u11.js: at Cunning 6/6 (desktop) and 3/3 (laptop) the line reads 'Keep the gilded N: outcome' with no 'back'. The log line has no refreshed tag and DB Cunning is unchanged. At 4/6 (tablet) it reads 'Keep the gilded 2: Failure, 1 Cunning back', then '1 Cunning back' under the stamp, log '(Gilded die kept: 1 Cunning refreshed)', DB 5. Shots u11_*_choice/kept.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#15 burn-offer-closes-on-anyones-roll",
+    "verdict": "partly",
+    "how_checked": "browser",
+    "device": "laptop 1366x768 (keyboard), phone 390x844",
+    "evidence": "r8402_u15.js/u15b.js: when another player rolls, Burn goes and a 'Roll settled' i appears ('The table has moved on (another roll or the assignment's end)...'). On the phone the dice button drops 'a choice is waiting' at the same time. Keyboard: after Enter on Roll Strike, Burn and reroll is the 25th Tab stop. With focus on Burn, the next roll elsewhere closes it and document.activeElement becomes BODY. Shots u15_laptop_offer.png, u15_phone_panel_info.png",
+    "finding": "F009",
+    "problem": "Burn is still far down the tab order after a keyboard roll, and focus falls to the page when the next roll closes it. The wording and dot parts are fixed."
+   },
+   {
+    "key": "ux#20 bonus-dice-vanish-silently",
+    "verdict": "fixed-but-new-problem",
+    "how_checked": "browser",
+    "device": "desktop 1920x1080, laptop 1366x768",
+    "evidence": "r8402_u20.js/u20b.js: the burn panel's pool line now has an i: 'A reroll throws the action rating alone. Drive spent and dice an ability added are not thrown again.' The burn reroll throws 1 die. Still not done: Open Book and Interrogation chips untoggle after the roll, and the slip and log say 'Sway +2d: 3 dice' / '(3 dice: ...)' without naming the ability. New at 1366: the i slip opens over Burn and reroll (button at x1056 y474). Gliding from the i to the button lands on the slip span and no burn is sent. Shots u20_lap_interr_burn_info.png, u20b_lap_panel.png, u20_desk_openbook_after_roll.png",
+    "finding": "F010",
+    "problem": "At 1366 the new i slip covers Burn and reroll (F010). The used chips are still not named in the slip or log (F011)."
+   },
+   {
+    "key": "ux#39 sweet-talk-condition-unstated",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "desktop 1920x1080",
+    "evidence": "r8402_u39.js: the chip shows 'Sweet Talk +1d' with the gilded dot. Its aria-label and title read 'Sweet Talk (after small talk with the target: +1d, gilded)', so the condition is help on demand per Robert's rule. The Role Ability tab prints the book text. Shot u41_nlb_rows.png (Read row)",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#40 commune-use-not-tied-to-roll",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "tablet 820x1180",
+    "evidence": "r8402_u39.js: the Specialty tab button reads 'USE (TAKE A BRAIN MARK, THEN ROLL SENSE)'. After the press it says 'Took a Brain mark, then roll Sense', the log says 'Cass Wren used Commune (took a Brain mark, then roll Sense).', and Brain marks go 0->1. This is the cheaper wording fix the item allowed. Shot u40_after_use.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#41 nobody-left-behind-chip-on-every-row",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "desktop 1920x1080",
+    "evidence": "r8402_u39.js: with Nobody Left Behind and Bram incapacitated there are 9 chips, kept per row by design (the fix's option 1). Each is a short 'Nobody Left Behind +1d' whose aria-label/title is 'Nobody Left Behind (protecting or rescuing Bram Holt: +1d)'. The sheet height stays reasonable. Shot u41_nlb_rows.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#42 dice-tray-empty-after-reload",
+    "verdict": "not-fixed",
+    "how_checked": "browser",
+    "device": "laptop 1366x768",
+    "evidence": "r8402_u42.js/u42b.js: with an open (unsettled) Survey mixed success, a reload shows 'No dice thrown yet' and no Burn and reroll, and no roll frame arrives on the new socket. The log still lists the roll. A burn sent for it afterwards is accepted (roll_result, intuition_resistance_spent 0->1). The same empty tray shows after a success. Only the settled-roll case is on the accepted list, and that also shows empty. Shots u42_open_fail_before.png, u42b_after_reload.png",
+    "finding": "F012",
+    "problem": "The tray is still empty after reloading an open roll, and the desk drops Burn and reroll while the server still accepts the burn."
+   }
+  ],
+  "new_findings": [
+   "F001",
+   "F009",
+   "F010",
+   "F011",
+   "F012"
+  ],
+  "notes": "Own environment: backend 8402 (restarted once with the same SECRET_KEY for the outage test), vite preview 4402, database candela_r8402. All three are now stopped or dropped. Scripts are /home/user/pt3/verify/r8402_*.js, shots are in /home/user/pt3/verify/out_8402/, progress is in /home/user/pt3/verify/B-dice-abilities_progress.md. F011 (Open Book/Interrogation not named in slip/log) belongs to ux#20 together with F010. decisions.md says 'the tray survives a reload', but no code persists or resends lastRoll. Only a held gilded roll comes back (send_held_roll), so I treated ux#42 as not fixed for open rolls."
+ },
+ {
+  "results": [
+   {
+    "key": "bugs#1 spend-back-unguarded-past-maximum",
+    "verdict": "partly",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900 (member on phone 390x844)",
+    "evidence": "r8403_b1.js / r8403_b1c.js. The cap holds. With Refresh full, the option reads 'Refresh (full)' and is disabled. A raw gm_return_spend for a full Refresh still gives the spend back, leaves the pool at 4 of 4 and logs '...; the circle's Refresh is full, so none went back.' A synthetic zero-delay dblclick gives one spend back. Two real clicks 60, 120, 180, 250 or 400 ms apart always give two back (2 -> 0 used, two log lines). The SpendBack guard in GMCharacterSheet.jsx:24-30 only blocks a press while the count is unchanged, and the server's reply moves the count within a few ms. Screenshot: out_8403/b1_03_lk_after_human_dblclick.png",
+    "finding": "F008",
+    "problem": "A person's double-click on Give a spend back still returns two spends. The Lightkeeper has no way to take the extra spend away."
+   },
+   {
+    "key": "bugs#10 dispatch-draft-dropped-on-section-switch",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900",
+    "evidence": "r8403_b10.js / r8403_b10b.js. Both the own-words draft (location and text) and the template draft (location and atmosphere) survive Map, Notebook and Circle. They also survive opening and closing a sheet, a circle_update arriving while away, a mode toggle and a hub round trip. After a send and a switch, the letter shows the sent dispatch. A reload drops the draft, which decisions.md accepts. A dispatch from another tab replaces the draft, which is by design (SceneManager.jsx:157-163). Screenshots: b10_01_after_switches.png, b10_03_after_hub.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "bugs#18 timer-status-kept-after-reset",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900 + tablet 820x1180",
+    "evidence": "r8403_b18.js read the body > p[role=status] region on both desks. Run out ('Time's up.') then Reset: empty after 1 s and still empty after 11 s. Paused then Reset: empty. Running then Reset: empty. A restart says 'Timer started.' and 'Time's up.' again. The tablet strip shows 0:04 after the reset. Screenshots: b18_01_lk_after_reset.png, b18_02_tablet_after_reset.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#1 pass-notes-no-lightkeeper-recipient",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844, tablet 820x1180, Lightkeeper 1440x900",
+    "evidence": "r8403_u1.js / u1b.js. Ada's list on the phone: '@Circle (everyone, signed)', '@Lightkeeper only', '@Bram Holt (and the Lightkeeper)', '@Cass Wren (and the Lightkeeper)'. She does not appear in her own list, and Bram's list on the tablet leaves him out the same way. Bram -> @Lightkeeper reached only the Lightkeeper and Bram. The Lightkeeper -> @Bram reached only Bram. Ada -> @Bram reached the Lightkeeper and Bram, not Cass. A raw '@lightkeeper' (lower case) went to the Lightkeeper only. Screenshots: u1_01_phone_to_list.png, u1_02_tablet_to_list.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#16 seal-rename-approvals-not-logged",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "Lightkeeper 1440x900 + member desktop 1920x1080",
+    "evidence": "r8403_u16b/c/d.js. Each approval logs 'X was approved into the circle.', and a double-click on Approve logs one line. Reject logs 'The Lightkeeper declined Hale Corvin.'. Finalize logs 'The Lightkeeper sealed the circle: The Ember Ward Circle of the Long Night Watch, Nobody Left Behind, Candlelight.'. The Edit rename logs 'The Lightkeeper renamed the circle to The Green Lamp Society.'. All of these lines appear on the member's desk too. Screenshots: u16_04_after_reject.png, u16_06_lk_sealed.png, u16_10_fen_renamed.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#22 sheet-view-drops-tension-controls",
+    "verdict": "not-fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1366x768, 1440x900, 1920x1080",
+    "evidence": "r8403_u22.js. On the roster there are one 'Raise tension by one', one 'Lower tension by one' and one Start the timer. With a sheet open, and on Circle, Notebook and Map, all three counts are 0 at every size. Only the read-only strip '1/4 1:00 <log line>' shows. TableStrip.jsx has no controls, and OperationsPanel.jsx:275 mounts TensionSection only on the roster with no sheet open. No commit in 36f001c addresses this, although decisions.md says PR 15 did. Screenshot: u22_wide_sheet_open.png",
+    "finding": "F013",
+    "problem": "The tension and timer controls still disappear when a sheet (or Circle, Notebook or Map) is open."
+   },
+   {
+    "key": "ux#31 lk-inline-edits-no-save-cancel",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900",
+    "evidence": "r8403_u31.js. Edit circle name opens with the caret at 0 and scrollLeft 0, so the start of a long name shows, with the hint 'Enter or leaving the field saves. Esc cancels.'. Esc restores the name and logs nothing. Clicking away saves and logs the rename. The chapter house Edit has the same hint. The trauma record's scar box grows to 4 rows, and the whole 155-character scar is visible. Small gap, not logged: an empty chapter house field is shown open with no hint. Screenshots: u16_08_edit_open.png, u31_03_trauma_edit.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#32 log-lines-doubled-per-event",
+    "verdict": "partly",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900 + member phone 390x844",
+    "evidence": "r8403_u32.js. A dealt mark that lands at once is now one line, e.g. 'The Lightkeeper dealt Cass Wren a Body mark (1 of 3).'. A 4th mark gives 'dealt ... a fourth Body mark.' and 'has been incapacitated!'. An enemy mark held for an offer keeps its deal line. +1 Illumination from 5 to 6 still writes two lines, 'gains 1 Illumination (5 to 6).' then 'milestone 6 reached!' (gm.py _say_illumination is unchanged). Screenshot: u32_01_lk_after_marks.png",
+    "finding": "F014",
+    "problem": "The Illumination half is not merged: it still writes the gains line plus one line per milestone. This may be an unrecorded product choice."
+   },
+   {
+    "key": "ux#44 dispatch-log-cut-at-80",
+    "verdict": "partly",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900, phone 390x844, desktop 1920x1080",
+    "evidence": "r8403_u44.js with a 96-character location. Every desk logs '...the Unmourned, in the Newfa...'. The ellipsis is now shown, but gm.py:36 _clip cuts at character 80 even mid-word, while decisions.md says the line is not cut mid-word. Screenshots: u44_01_lk_dispatched.png, u44_05_desktop_template.png",
+    "finding": "F015",
+    "problem": "A long location is still cut mid-word ('Newfa...')."
+   },
+   {
+    "key": "ux#45 dispatch-serial-numbers-differ",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900, phone 390x844, desktop 1920x1080",
+    "evidence": "r8403_u44.js. After an own-words dispatch, the Lightkeeper's letter reads No. 6863, Ada's From the Lightkeeper card on the phone reads No. 6863 and Bram's desktop card reads No. 6863 (dispatchSerial in PrintMarks.jsx). Small gap, not logged: a template dispatch with an atmosphere but no location gives the Lightkeeper's letter a fallback number and the players' card none. Screenshots: u44_01_lk_dispatched.png, u44_02_phone_dispatch.png, u44_03_desktop_dispatch.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#54 lk-dispatch-stamp-below-fold",
+    "verdict": "not-fixed",
+    "how_checked": "browser",
+    "device": "Lightkeeper 1440x900 and 1440x761",
+    "evidence": "r8403_u44.js. At 1440x900 the Dispatch stamp sits at y=760-798 and is visible. At 1440x761 (a laptop page under the browser bars) it sits at y=757-801, below the fold. The left column scrolls inside itself (872 of 678 px) with no fade or other cue. Nothing in 36f001c changed this, and decisions.md does not list it as accepted. Screenshot: u54_lk_1440x761.png",
+    "finding": "F016",
+    "problem": "On a 1440x900 laptop the stamps are still below the fold, with no cue that the column scrolls."
+   },
+   {
+    "key": "ux#57 pass-notes-circle-vs-environment",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900",
+    "evidence": "r8403_u1.js. The Lightkeeper's list reads '@Circle (everyone, signed)', '@Name (private)' and '@Environment (unsigned narration to everyone)'. The trigger has aria-haspopup=listbox and aria-expanded true when open, and is labelled by 'To:'. The list has role=listbox, is labelled 'To:' and is wired with aria-controls, and its options have role=option. The arrow glyph is aria-hidden (TargetDropdown.jsx:82-134). Screenshot: u1_04_lk_to_list.png",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#62 signin-password-focus-style",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844",
+    "evidence": "r8403_u62.js. The focused Password and the focused Username have identical computed styles: transparent background, oxblood underline, gold outline and a 2px ink ring. Both carry the same autofill classes, which paint the parchment colour rather than white. Real browser autofill could not be simulated. Screenshot: u62_02_password_focus.png shows no white block.",
+    "finding": "",
+    "problem": ""
+   }
+  ],
+  "new_findings": [
+   "F008",
+   "F013",
+   "F014",
+   "F015",
+   "F016"
+  ],
+  "notes": "Of 13 items, 8 are fixed, 3 partly fixed and 2 not fixed. 5 findings logged; F008 is the most serious.\n\n- **Partly fixed:** bugs#1 (F008, medium), ux#32 (F014), ux#44 (F015).\n- **Not fixed:** ux#22 (F013) and ux#54 (F016).\n- **F008 (medium):** a real double-click on Give a spend back still returns two spends. The pool cap holds.\n- **F013:** decisions.md says PR 15 kept the tension and timer controls with a sheet open, but no such change is in 36f001c.\n- **F015:** decisions.md says dispatch lines are not cut mid-word, but the server's clip still cuts at character 80 ('Newfa...').\n\nSide note: a second socket from the same Lightkeeper takes over the channel ('open in another tab', last connection wins). That is by design, but raw sockets from scripts displace the browser desk.\n\nEnvironment: backend 8403 and preview 4403 were stopped by PID (the npx parent and its vite child). Database candela_r8403 was dropped.\n\nScripts are /home/user/pt3/verify/r8403_*.js, screenshots are in /home/user/pt3/verify/out_8403/, and progress is in /home/user/pt3/verify/C-lightkeeper-desk_progress.md."
+ },
+ {
+  "results": [
+   {
+    "key": "bugs#4 illumination-tally-added-twice",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper laptop 1440x900, two tabs plus a second browser context",
+    "evidence": "r8404_b4.js and r8404_b4b.js. Tab B ticked Q1 and added 3 (DB tally {answers:[t,f,f],added:3}, illumination 3). Tab A had been replaced: it showed a stale live 'ADD 2 ILLUMINATION' under the 'Use this tab' banner, and pressing it changed nothing. After Use this tab it read 'Added 3 Illumination' with no Add button. A fresh browser showed Added 3 with all three boxes disabled, and so did a reload. A raw gm_add_tally and gm_set_tally_answer were both refused with 409 'already added'. A Playwright dblclick on Add added once (2). Two LK sockets sending add at the same moment added once (2). A tick, tick and immediate Add stored [f,t,t] added 4. A late report filed after Add changes the keys line but the total stays Added 4. Shots: out_8404/b4_03_tabA_before_use.png, b4_05_fresh_device.png. Code: gm.py handle_gm_add_tally takes a row lock and refuses when added is set.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "bugs#5 end-assignment-drops-unadded-tally",
+    "verdict": "partly",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper laptop 1440x900",
+    "evidence": "r8404_b5.js: on a fresh desk where the Circle page was never opened, a single press armed the stamp and showed the bold line 'The reports' 2 Illumination is not added yet and will be lost: add it on the Circle page first.' followed by 'Press again to end it anyway... The reports are closed and cleared.' (shot b5_01_end_armed_unadded.png). After Add there is no warning. The receipt and the log say the reports are closed and cleared. r8404_b5b.js: with Dev's report filed and +2 not added, a double-click on End Assignment ended the assignment in one gesture. Reports were gone, illumination stayed 2, and the warning never appeared (b5b_01_after_dblclick.png). A click followed by 'Yes, end it' 150 ms later also ended it. useConfirmStep.press has no minimum gap between presses.",
+    "finding": "F017",
+    "problem": "A double-click on End Assignment (a habit for some users) skips the new warning, and the unadded Illumination is lost exactly as before."
+   },
+   {
+    "key": "bugs#14 spend-limit-resets-with-new-investigator",
+    "verdict": "partly",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844",
+    "evidence": "r8404_b14.js on The Death Hours with spending open. Eli spent 1 Refresh in the phone UI, then died (set in SQL). After the rejoin with Tobias (POST /campaign/rejoin, the creator's rejoin call), Tobias's phone shows 'YOUR SPENDS 1 / 2' (b14_01). His second spend took him to 2 and a third was not taken. Tobias then died, and the same player sent a join request with Uma (POST /campaign/join, the hub's Join) that the Lightkeeper approved. The log read 'Uma Pike joined the circle, in place of Tobias Reed.' Uma shows 'YOUR SPENDS 0 / 2' (b14_02) and DB spent=0. engine.approve_investigator retires the dead predecessor but copies no count; only rejoin() does.",
+    "finding": "F019",
+    "problem": "A replacement that comes in through a join request the Lightkeeper approves still starts at 0/2, so the player gets two more spends in the same break."
+   },
+   {
+    "key": "ux#6 choose-advancements-button-covers-sheet",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "phone 390x844, desktop 1920x1080",
+    "evidence": "r8404_adv.js. After Later on the phone and Escape on the desktop, the 'Advancement picks are waiting. 2 are still to choose. / CHOOSE ADVANCEMENTS (2)' strip sits in the page flow at the head of the desk, with no fixed or sticky ancestor. On the phone it scrolls away with the page (y 179 to -721) and covers no sheet control. On the desktop it lies above the sheet and the hourglass is clear. Tapping it reopens the dialog. Shots: u6_01_gus_desktop_after_later.png, u6_02_hal_phone_after_later.png, u6_04_hal_phone_reopened.png.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#9 circle-page-blind-to-status",
+    "verdict": "partly",
+    "how_checked": "browser",
+    "device": "Lightkeeper laptop 1440x900, tablet 820x1180, phone 390x844",
+    "evidence": "r8404_circ.js and r8404_dump.js. Cass was incapacitated with 2 scars and Bram dead. On the LK 1440 desk Bram has no report card, the abstract reads '0 of 3 filed', and Circle History lists 'BRAM HOLT \u00b7 JOURNALIST \u00b7 DECEASED'. On Dev's tablet, Your Circle shows Cass 'INCAPACITATED 2 SCARS' and leaves the dead Bram out (u9_02_part0/part2). Still wrong: Circle Relationships shows dead Bram as only '4 SCARS' with Propose live (already logged as F004). Cass's own 'You' card on her phone shows no status (u9_03_part2.png).",
+    "finding": "F020",
+    "problem": "The player's own Your Circle card has no Incapacitated or scars stamp. The dead investigator's relationship paper says only '4 scars' (covered by F004)."
+   },
+   {
+    "key": "ux#10 end-assignment-gear-wording",
+    "verdict": "fixed-but-new-problem",
+    "how_checked": "browser",
+    "device": "Lightkeeper 1440x900, phone 390x844, tablet 820x1180, desktop 1920x1080, laptop 1366x768",
+    "evidence": "The armed hint, receipt and log line all say 'everyone's gear is cleared, to be chosen again for the next assignment'. The Change Gear dialog says '...stays until the Lightkeeper ends the assignment, when everyone's gear is cleared, to be chosen again.' An empty gear tag has a 'Why empty' i that opens on a tap. Its slip is clipped by the gear tag at every size: the last line is cut on desktop and laptop, the right edge is cut on the phone ('The Lightkeep'), and on the tablet it is cut on the right and the foot while the button reads 'CHANGE GEAF'. Shots: u10_03_bram_phone_why_empty.png, u10_01_dev_tablet_why_empty.png, u10_04_why_{desktop,laptop,tablet}.png.",
+    "finding": "F018",
+    "problem": "The new 'Why empty' slip is cut off by the gear tag at every size, and on a tablet the empty tag also clips the Change Gear label."
+   },
+   {
+    "key": "ux#19 report-card-wording-stale",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "desktop 1920x1080, tablet 820x1180",
+    "evidence": "r8404_u10.js. After Send report at 1920 the intro reads 'Your report is filed; the boxes show the keys you ticked.' with the Report sent stamp and Amend. After End Assignment, both 1920 and tablet show 'Below, tick the keys you fulfilled.' and 'REPORTS CLOSED: THE LIGHTKEEPER OPENS THEM WHEN THIS ASSIGNMENT ENDS' over a disabled Send report. That is the wording the report proposed. Shots: u19_01_ada_filed_1920.png, u19_02_ada_after_end_1920.png, u19_03_dev_tablet_after_end.png.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#33 spending-toggle-not-logged",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "Lightkeeper laptop 1440x900 (plus tablet and phone desks)",
+    "evidence": "r8404_circ.js: pressing Allow spending, then Lock spending, logged 'The Lightkeeper opened spending: up to two each.' and 'The Lightkeeper locked spending.' on the LK desk, Dev's tablet and Cass's phone. Opening reports logs too. Shots: u33_01_lk_after_toggle.png, u9_02_part1.png.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#34 report-amend-draft-lost",
+    "verdict": "fixed-but-new-problem",
+    "how_checked": "browser",
+    "device": "laptop 1366x768",
+    "evidence": "r8404_u34.js. The draft (filed X__, then Amend and tick 2, giving XX_ in 'AMENDING YOUR REPORT') survived a real hub round trip (u34_02_hub.png) and a reload. Send amended report stored {0:true,1:true}. Cancel restored the filed card, and it stayed that way after a reload. New problem: when the Lightkeeper closes reports while an amendment is held, the card shows the unsent XX_ ticks as live boxes under 'REPORTS CLOSED...' with Cancel and a greyed Send. There is no Report sent stamp and nothing says only the first key is on file (u34_04_closed_while_amending.png).",
+    "finding": "F025",
+    "problem": "A held amendment plus Close reports leaves the card showing the unsent ticks with no stamp. Because the draft now persists, this can last the rest of the assignment."
+   },
+   {
+    "key": "ux#35 milestones-unexplained-on-touch",
+    "verdict": "partly",
+    "how_checked": "browser",
+    "device": "phone 390x844",
+    "evidence": "r8404_u35.js. A tap on the Illumination i opens 'The gold-ringed pips are milestones (3, 6 and 9); the track fills at 12. A milestone matters only to a circle with Resource Management.' A tap on the keys i says 'earns 2 Illumination, and 4 if all did'. The pip titles read 'Illumination 3, a milestone'. Shots: u35_01_phone_illum_info.png, u35_02_phone_keys_info.png. The log after 2 to 4 still reads 'The Lantern Watch milestone 3 reached!' with nothing about what it gives. _log_illumination is unchanged.",
+    "finding": "F024",
+    "problem": "The milestone log line still says nothing about what the milestone gives (related to F014)."
+   },
+   {
+    "key": "ux#37 advancement-reopen-drops-ability",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "desktop 1920x1080",
+    "evidence": "r8404_adv.js. The circle already had Resource Management and the Lightkeeper advanced it with Nobody Left Behind. After a reload, Gus's reopened dialog shows 'NEW CIRCLE ABILITY Nobody Left Behind: ...' above the four picks (u37_01_gus_reload_dialog.png).",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#38 advancement-dialog-back-leaves-desk",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "laptop 1366x768",
+    "evidence": "r8404_u38.js and r8404_u38b.js. With 'Add 1 action point' plus Strike and 'Gild' plus Read chosen, browser Back closed the dialog and kept the desk with the waiting strip. Choose advancements reopened it with both picks and their actions still chosen, and Confirm applied '+1 Strike / Read is now gilded' (DB strike 1, gilded_read true, picks 0). Back with the dialog closed goes to the hub, and Forward returns to the desk. Shots: u38_02_after_back.png, u38_05_reopened_with_details.png.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#49 insignia-name-not-printed",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "Lightkeeper laptop 1440x900, phone 390x844",
+    "evidence": "With insignia GiCompass, 'Compass' is printed under the badge on the LK charter (u52_01_lk_circle_after_open.png) and on the player's phone charter (u35_01_phone_illum_info.png), and the player's badge is role=img. With no insignia, both show a blank form rule with an sr-only 'None chosen' (u49_01_phone_no_insignia.png, u49_02_lk_no_insignia.png).",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#51 resources-note-member-count",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "Lightkeeper laptop 1440x900 (and tablet player)",
+    "evidence": "With 4 investigators, one of them dead, the LK note reads 'each refills to 4 (1 plus the circle's 3 members) when the Illumination track fills'. The dead are left out and the refill button reads 'REFILL EACH RESOURCE TO 4'. The player's note says the same (u9_02_part1.png). Earlier, with 4 living members, it read '5 (1 plus the circle's 4 members)'.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#52 report-cards-reorder",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper laptop 1440x900",
+    "evidence": "r8404_circ.js: the heap order was shuffled in SQL (select without ORDER BY gave Cass, Bram, Dev, Ada). After Open reports, with no reload, the report cards read Dev, Ada, Cass and Circle History reads Dev, Ada, Cass, Bram (Deceased). After a reload the order is the same (u52_01_lk_circle_after_open.png, r8404_dump.js). Commit 9412f74 orders the approve and rejoin broadcasts by id.",
+    "finding": "",
+    "problem": ""
+   }
+  ],
+  "new_findings": [
+   "F017",
+   "F018",
+   "F019",
+   "F020",
+   "F024",
+   "F025"
+  ],
+  "notes": "The environment was port 8404/4404 with database candela_r8404. Both servers were stopped by PID (the npx parent and its vite child) and the database was dropped. Progress is in /home/user/pt3/verify/D-circle-advancement_progress.md. Scripts are /home/user/pt3/verify/r8404_*.js (lib, h, setup, b4, b4b, b5, b5b, b14, u10, u10b, circ, dump, u34, u35, u49, adv, u38, u38b) and screenshots are under /home/user/pt3/verify/out_8404/. The most important new finding for the real playtest is F017: a double-click on End Assignment bypasses the unadded-tally warning, a medium data-loss risk. F019 is a rules gap: the join+approve replacement path does not carry the spend count."
+ },
+ {
+  "results": [
+   {
+    "key": "bugs#13",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844 (also 360 and 320 wide), tablet 820x1180, laptop 1366x768",
+    "evidence": "r8405_b13.js. Fa suggested 'The Ninth Night' on the phone, fb suggested 'the ninth night' (the two merged), and a 2-2 tie was made so it shows as leading. Its row has yours, suggested 2 times, the vote count and leading. At 390, 360 and 320 the name is 120px wide on one line, the tags wrap under it, and no tag sits past the row. Long hyphenated names wrap inside their row. At 820 and 1366 each row is one line. Shots: out_8405/b13_names_390.png, b13_names_360.png, b13_names_320.png, b13_names_820.png, b13_names_1366.png. Fix is in CircleCreationPopup.jsx at 50d3e3b (flex-wrap row, basis-28 name group).",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "bugs#17",
+    "verdict": "partly",
+    "how_checked": "browser-and-code",
+    "device": "laptop 1366x768",
+    "evidence": "r8405_b17.js. The original steps are fixed: the player sits on the hub, the Lightkeeper retires the campaign, and when the player opens the Case Ledger the investigator is already under Not in a campaign at 80ms (b17_v1_ledger_80ms.png), with the tome count updated. A socket still open from a desk carries 'The Lightkeeper retired the campaign...' and Last Played drops the campaign. Still broken: if the book is already open during the retire, the row keeps 'In a campaign' with Play, and Play opens a desk headed 'Nell Vane \u00b7 Side Case Three' whose circle card says Not in a campaign, with no word that the campaign was retired (b17_v2_book_open_after_retire.png, b17_v2_after_play.png). enterAsPlayer does not re-check the status. The closed tome keeps reading '2 in play' until the book is opened, and a hub with no socket gets no retire notice.",
+    "finding": "F026",
+    "problem": "If the Case Ledger is already open when the campaign is retired, it stays stale, and Play opens a desk for the retired campaign without saying it was retired."
+   },
+   {
+    "key": "ux#2",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "Lightkeeper laptop 1440x900, player laptop 1366x768",
+    "evidence": "r8405_join.js and r8405_join2.js. The player sent two requests through the hub join form while the Lightkeeper's desk was open. Both cards showed up live, each reading 'from pjr85it1a Sent another request too.' (j_lk_requests_live.png). Once that player had an approved investigator, a new request read 'Already has an investigator here.' Kit's desk (another player) has no username in its frames or on its page. The optional player-side warning was not built.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#13",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper laptop 1440x900",
+    "evidence": "r8405_u13.js. With 0 of 4 voted, the armed hint adds 'Nothing is chosen yet for the circle question, the insignia, the circle ability and the name, so the circle is sealed without them.' (u13_armed_novotes.png). With only a name suggested, the name drops off that list. The second press sealed 'The Lorne Lamps' with no ability, insignia or question, as the hint said, and logged 'The Lightkeeper sealed the circle: The Lorne Lamps.'",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#21",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "player laptop 1366x768, Lightkeeper 1440x900",
+    "evidence": "r8405_join2.js. The player waited on the hub with the book closed and no reload. After the Lightkeeper rejected from the request sheet, the notice 'The Lightkeeper did not take Cass Moreau into The Joining Hours. Cass Moreau can ask to join another campaign.' appeared within one poll, about 2.5s here (u21_player_notice.png). The log says 'The Lightkeeper declined Cass Moreau.' While hovered, the armed 'Yes, reject' is ink (rgb 26,19,17) and Approve stays oxblood (u21_armed_hover.png).",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#27",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844, laptop 1366x768",
+    "evidence": "r8405_u27.js. The empty answer box shows no status, before or after focus (u27_phone_empty.png). Typing shows 'Not saved yet', blur shows 'Saved', and after a reload it still reads 'Saved'. A cleared answer that has been saved shows nothing. The report left the note about the leading question to the owner as a copy decision, and it was not added.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#29",
+    "verdict": "partly",
+    "how_checked": "browser-and-code",
+    "device": "laptop 1366x768, tablet 820x1180",
+    "evidence": "r8405_u29.js and r8405_u29b.js. The candle box has pointer-events none and is aria-hidden, but looks the same as before: the PR's candle CSS was reverted in f8e6d40. The locked Last Played tome now has an aria-label and a title ('No session yet. This opens here once you have played one.'). It is role=img with tabIndex -1, so it cannot be focused. A tap on the tablet changes nothing on the page (u29_hub_tablet.png, u29_after_tablet.png), so the explanation is reachable only by mouse hover or a screen reader.",
+    "finding": "F027",
+    "problem": "On touch and keyboard the lock is still unexplained, and the candles look unchanged."
+   },
+   {
+    "key": "ux#36",
+    "verdict": "partly",
+    "how_checked": "browser",
+    "device": "laptop 1366x768, phone 390x844",
+    "evidence": "r8405_join2.js and r8405_u36.js. Withdraw works. It says 'You withdrew Mina Vale's request.', the Lightkeeper's card leaves live, a double-click is safe, and on the phone the button is 44px. A stale press after an approval says 'The Lightkeeper had already answered Otto Penn's request.' and the hub then says 'The Lightkeeper let Otto Penn into...' (u36_stale_withdraw.png). Still missing: the name on the waiting row is a plain <p> and does not open the sheet (the second half of the item). Two new problems found nearby: on a phone 'Check again' is 30px tall next to the 44px Withdraw (F022, u36_phone_registry.png), and a withdrawn request closes the Lightkeeper's open sheet of it and vanishes with no log line (F023, u36_lk_after_withdraw.png).",
+    "finding": "F021",
+    "problem": "The waiting investigator's sheet still cannot be opened from the hub."
+   },
+   {
+    "key": "ux#46",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "tablet 820x1180",
+    "evidence": "r8405_u46.js. Bram proposed Champion (question and answer). Fa's Counter opens prefilled with it. Send counter is disabled with 'This is the same as Bram Ashby's offer. Change something to counter, or Accept it.' (u46_same.png). A forced click sends nothing, and the database is unchanged. Trailing spaces still count as the same offer. Changing the type, question or answer enables the button, and putting it back disables it again. The server would still accept an identical counter; the optional 422 was not built.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#47",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "laptop 1366x768",
+    "evidence": "r8405_u47.js. From 60 characters a count reading 'n/80 characters' shows under the field, and aria-describedby is set. Typing or pasting past 80 stops at 80, and the count reads 80/80 (u47_typed.png). The API still cuts past 80 silently; the report called that path low value.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#48",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "Lightkeeper laptop 1440x900",
+    "evidence": "r8405_u48.js. Bram proposed 3 and Dev 2. Proposed reads 'Bram Ashby (3)' and 'Dev Okafor (2)', and a screen reader hears 'has proposed 3'. The waiting line gives each name its own count: 'Iris Ashe (2 relationships), Cass Moreau (2 relationships) and Dev Okafor' (u48_lk_panel.png).",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#55",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "Lightkeeper laptop 1440x900",
+    "evidence": "r8405_join2.js. View sheet on a request shows 'Join request, not yet approved' with Approve and a two-press Reject. Rejecting from the sheet closes it and leaves the next request. A double-click on Approve from the sheet approves once (one log line) and closes the sheet (u55_after_sheet_approve.png).",
+    "finding": "",
+    "problem": ""
+   }
+  ],
+  "new_findings": [
+   "F021",
+   "F022",
+   "F023",
+   "F026",
+   "F027"
+  ],
+  "notes": "I checked all 12 items in a browser on port 4405 with the API on 8405. Results: 9 fixed, 3 partly (bugs#17, ux#29, ux#36), and I logged 5 findings, all low severity: F021, F026 and F027 for what is still missing, and F022 and F023 for new problems found nearby.\n\nProgress lines are in /home/user/pt3/verify/E-formation-joining-hub_progress.md. Scripts are /home/user/pt3/verify/r8405_*.js and screenshots are in /home/user/pt3/verify/out_8405/.\n\nSide notes I did not log:\n- The REST /circle/vote route stores any value for a question vote. A crafted vote of 'x' showed on the Lightkeeper's panel as 'Question x'; this only happens through the API.\n- At 320 wide the circle-name field shrinks to about 60px, which is below the accepted phone floor.\n\nBoth servers are stopped by PID: uvicorn 15862 and the vite preview chain 15888/15900/15901. The candela_r8405 database is dropped."
+ },
+ {
+  "results": [
+   {
+    "key": "bugs#19 death-defy-focus-returns-to-page",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "laptop 1366x768 and 1440x900, keyboard only",
+    "evidence": "r8406_b19.js: Tab 31 times to 'Take Body mark 1 of 3' and press Enter. Focus goes to the 'BODY +' button (Take a Body mark), then the Death Defy card takes focus on USE. After Use, focus returns to 'BODY +' (in view, top 652, focus ring visible in out_8406/b19_laptop_use_after.png) and the next Tab reaches the take box. 'Take the mark' behaves the same. At 1440x900 on the Brain track focus returns to 'BRAIN +'. While focus is inside the card its countdown pauses (by design). Fix in e2b92f0: InvestigatorDossier.jsx:1330-1337 focuses the track's .mark-label button.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#4 log-unpinned-after-roll-slip",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "1366x768, 1366x629, 1366x700, 1920x941",
+    "evidence": "r8406_u4.js / u4b.js: for 3-4 rolls at each size, the log scroller had gap 0 and the newest line was visible at 0.3, 1.2, 2.5 and 4.5 s after each roll. The same held after another seat's roll arrived, after Burn and reroll (the log grows from 99 to 147 px) and after a reload. Screenshot out_8406/u4_1366x768_roll3.png shows the new roll line under the slip and After the roll. ActivityLog.jsx uses atFoot plus a ResizeObserver.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#5 drive-pips-still-one-way",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "player laptop 1366x768, Lightkeeper 1440x900, phone 390x844",
+    "evidence": "r8406_u5.js: at 4/4 only 'Clear one Nerve point (set to 3)' is live. A press clears one point, the empty pips refill up to the maximum, and every change is logged on both desks ('Iris Ashe set Nerve to 3 of 4.'). A double-click clears only once. With the trauma record Edit on, the Lightkeeper's pips are live; her clear reached the player as a character_update and was logged 'The Lightkeeper set Iris Ashe's Nerve to 2 of 4.' (out_8406/u5_lk_sheet_edit.png). On the phone the pips are 25x44 targets. Live only under Edit is accepted in decisions.md.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#8 phone-dialog-buttons-below-fold",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "phone 390x844 and 390x705 (hasTouch, isMobile)",
+    "evidence": "r8406_u8.js: A New Scar (4th Body mark): Decide later and Record scar are 44px, in view and hit-testable, before and after typing a long description (out_8406/u8_390x705_scar_open.png, _scar_typed.png). Circle Advancement: Confirm/Later stay pinned with two picks and their sub-pickers open, and at the scroll end (u8_adv2_scrolled.png). Later leaves a 'Choose advancements (2)' strip at the top. Formation papers have an I-VI jump list, and VI jumps correctly (u8c_formation_jump_vi.png).",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#17 gear-cap-tap-silent",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "phone 390x844 (creator and Change Gear), laptop 1366x768 (Change Gear)",
+    "evidence": "Creator step 4 on the phone (r8406_cr6.js): after 3 items the role=status line 'Three gear is the limit. Untick one to swap.' appears under the counter. A 4th tap leaves aria-pressed false, and the other items show opacity .5 (cr6_step4_fourth_tap.png). Change Gear (r8406_u17.js): the intro now says 'Choose the gear you carry...'. Capped items are aria-disabled and dimmed. The status 'All 3 gear slots are marked. Untick one to swap.' sits at the dialog top, in view on the phone (u17_phone_4th.png). After a save it reads '...until the assignment ends.' One caveat: when a lower item is tapped, the reason line has scrolled out of view, and only the dimming shows.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#18 duplicate-accessible-names",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "tablet 820x1180 (formation VI), Lightkeeper 1440x900 (Illumination)",
+    "evidence": "r8406_u18.js: Ada proposes to Ben, and Ben opens Counter. Ben's desk has the combobox 'Relationship to Ada Lorne' (his own propose form) and 'Counter relationship to Ada Lorne' / 'Your counter answer about Ada Lorne'. Neither desk has any duplicate control names. r8406_u18b.js: at Illumination 0, 5, 11 and 12 all 12 pip names are unique, and the current pip reads 'Illumination 11, current. Press to lower to 10'. Enter on it lowers to 10. The scar-form radios are not an issue, per the report's verdict.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#28 pen-font-and-portrait-hidden",
+    "verdict": "fixed-but-new-problem",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844, tablet 820x1180, desktop 1920x1080",
+    "evidence": "The Join dialog's Handwriting has an (i) InfoTerm: 'Your notebook entries are written in this pen. You can change it later in the Notebook.' The Notebook does have a Handwriting select (NotebookView.jsx:1357). Creator step 2 shows a visible photo mount and an Add portrait button (112x46). New problem: the row reads 'HANDWRITING Handwriting (i)' at every size, because the label span and the InfoTerm label are both rendered (JoinCampaignForm.jsx:60-63). On the phone the slip spans x 144-433 inside a dialog that ends at 374, so it is cut mid-word, and while pinned it covers the pen picker (pen_phone_info.png). On desktop the slip fits (pen_desktop_info.png).",
+    "finding": "F029",
+    "problem": "The duplicated 'Handwriting' label, and the help slip clipped by 59px on a phone, covering the pen picker while it is open."
+   },
+   {
+    "key": "ux#30 creator-path-arrows-below-fold-phone",
+    "verdict": "partly",
+    "how_checked": "browser",
+    "device": "phone 390x844, 390x705, 360x705, 375x667, 390x667, 375x548, 412 wide",
+    "evidence": "r8406_cr2.js / cr3.js measured the Next arrow against the footer using elementFromPoint. At 390x705 the arrows (580-624) clear the footer (628) by 4px, and at 390x844 by a wide margin. At 360x705 the 'Choose your path' heading wraps, so the arrows (616-660) and the '1 / 10' counter (628-648) sit under the footer (628), and a tap there leaves the counter at 1 / 10. The same happens at 375x667, 390x667 and 375x548 (cr3_360x705.png, cr3_390x667.png). Between 761 and 780 tall at 360 wide the arrows are also partly covered. The fix shrinks the card only at max-height 760px.",
+    "finding": "F028",
+    "problem": "The arrows and counter are still hidden under the sticky footer on a 360-wide phone and on phones shorter than about 700px of visible height."
+   },
+   {
+    "key": "ux#43 how-to-roll-slip-off-phone",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "phone 390x844, 360 and 320 wide",
+    "evidence": "r8406_u43.js: Menu > Dice and log, then tap 'How to roll'. The slip spans x 51-339 at 390, 36-324 at 360 and 20-300 at 320, and scrollWidth equals the viewport (out_8406/u43_360.png).",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#56 blank-pronouns-shown-unlisted",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844 creator, Lightkeeper 1440x900",
+    "evidence": "Built 'Nell Varga' through the real phone creator with pronouns left blank. The creator summary shows the dotted blank. The DB stores 'Unlisted' (a display-only fix, as the report allowed). The Lightkeeper's Join Requests card reads 'FACE \u00b7 JOURNALIST' with no 'Unlisted' anywhere on the page (u56_lk_requests.png). The request sheet's Pronouns field shows the print-blank with sr-only 'Not given'. grep found no other place that prints pronouns.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#58 lk-resources-editor-spacing",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "Lightkeeper 1440x900",
+    "evidence": "r8406_u58.js: the tab reads 'LIGHTKEEPER RESOURCES' with no count after content is added. The textarea is 24px type on 28px leading with 8px left padding, and the background is offset 0 16px. Typed lines in edit mode and in Preview sit one per rule (u58_edit.png, u58_preview.png).",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#59 sketch-above-entry-text",
+    "verdict": "fixed",
+    "how_checked": "browser",
+    "device": "tablet 820x1180",
+    "evidence": "r8406_nb4.js: an entry with text, a heading and a sketch drawn in the Excalidraw sheet. The DOM order is H3 title, text, H4, text, IMG sketch, Keep drawing, signature. Title top 314, sketch top 536 (nb4_entry.png). After a reload and opening it from Contents the order is the same (title 588, text 632, image 810), and Keep drawing reopens the sheet.",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#60 gild-step-hides-specialty-gild",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "phone 390x844 (also 1920x1080)",
+    "evidence": "Creator step 3 as a Journalist: Survey shows the locked gold star with a padlock (role=img, aria-label 'Survey is gilded by your specialty', title 'Gilded by your specialty'). After Gild Focus the foot line reads 'GILDED: SURVEY (YOUR SPECIALTY), FOCUS', and Advance enables (cr5_step3.png).",
+    "finding": "",
+    "problem": ""
+   },
+   {
+    "key": "ux#61 note-heading-skips-level",
+    "verdict": "fixed",
+    "how_checked": "browser-and-code",
+    "device": "tablet 820x1180",
+    "evidence": "r8406_nb4.js: selected the 'Second section' line and pressed the toolbar Heading, giving '## Second section'. After Add entry the page headings read H3 'Cellar under the chapel' then H4 'Second section'. NoteMarkdown.jsx maps h1 and h2 to h4 and h3 to h5. Found while checking: pressing Heading on an empty line selects the inserted '## ', so the first letter typed erases it (logged separately as F030).",
+    "finding": "",
+    "problem": ""
+   }
+  ],
+  "new_findings": [
+   "F028",
+   "F029",
+   "F030"
+  ],
+  "notes": "I checked all 14 items in a browser on my own stack (API 8406, site 4406, database candela_r8406), building on commit 36f001c. 11 are fixed. ux#30 is partly fixed (F028), and ux#28 is fixed but brought a new problem (F029). F030 is a new bug found in passing: the Notebook toolbar's Heading, List and Quote marks, pressed on an empty line, leave the inserted mark selected, so typing replaces it. This behaviour predates the PRs, but it defeats the toolbar heading flow. I reproduced it for Heading on laptop and tablet; List and Quote share the same prefixLines code path. Progress lines are in /home/user/pt3/verify/F-creator-phone-notebook_progress.md, scripts are /home/user/pt3/verify/r8406_*.js, and screenshots are in /home/user/pt3/verify/out_8406/. The servers are stopped by PID (backend 22771, npx 22794 and its vite child 22807), and candela_r8406 is dropped."
+ }
+]
