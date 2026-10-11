@@ -1,0 +1,31 @@
+const L = require('./c8460/lib'); const { sleep, shot, state } = L;
+const repOf = (p) => p.locator('section[aria-labelledby="circle-report-title"]');
+const read = (p) => repOf(p).evaluate((el) => ({ boxes: [...el.querySelectorAll('input[type=checkbox]')].map(i => (i.checked ? 'X' : '_') + (i.disabled ? 'd' : '')).join(' '), buttons: [...el.querySelectorAll('button')].map(b => b.textContent.trim()) }));
+(async () => {
+  L.sql(`update circles set reports_open=true where id=${state.camps.S.circleId}`);
+  const b = await L.launch();
+  const store = await L.storeFor('pa','a','S');
+  const s = await L.openSeat(b,'laptop',{store}); const p = s.page; await sleep(4000);
+  await p.getByRole('button',{name:'Circle',exact:true}).first().click(); await sleep(1000);
+  const rep = repOf(p); await rep.scrollIntoViewIfNeeded();
+  const lab = rep.locator('label').first(); const t1 = await lab.innerText();
+  await lab.click(); await rep.getByRole('button',{name:'Send report'}).click(); await sleep(1500);
+  console.log('sent', await read(p));
+  await rep.getByRole('button',{name:'Amend'}).click(); await sleep(300);
+  await rep.locator('label').first().click(); await sleep(300);
+  console.log('amending, unticked', await read(p));
+  // tab switch within desk
+  await p.getByRole('button',{name:'Investigator',exact:true}).first().click(); await sleep(800);
+  await p.getByRole('button',{name:'Circle',exact:true}).first().click(); await sleep(800);
+  console.log('after tab switch', await read(p)); await shot(p,'amend_tabswitch');
+  await rep.getByRole('button',{name:'Amend'}).click(); await sleep(300);
+  await rep.locator('label').first().click(); await sleep(300);
+  console.log('amending again', await read(p));
+  const hub = p.getByRole('button',{name:/hub/i}); console.log('hub btns', await hub.count());
+  await hub.first().click(); await sleep(2000); await shot(p,'amend_hub');
+  await p.getByRole('button',{name:/Last Played/i}).first().click(); await sleep(3500);
+  await p.getByRole('button',{name:'Circle',exact:true}).first().click(); await sleep(1000);
+  console.log('after hub', await read(p)); await shot(p,'amend_afterhub');
+  console.log('errors', s.errors.slice(0,3));
+  await b.close();
+})();

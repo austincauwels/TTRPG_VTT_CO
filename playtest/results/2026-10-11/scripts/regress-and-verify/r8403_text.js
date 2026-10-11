@@ -1,0 +1,30 @@
+const L = require('./r8403_lib');
+const { goTab, openDesk } = require('./r8403_nav');
+const { sleep, shot, state, api } = L;
+(async () => {
+  const b = await L.launch();
+  const dev = await openDesk(b, 'tablet', 'pa', 'a', 'S');
+  const p = dev.page;
+  await goTab(p, 'Notebook'); await sleep(1500);
+  await p.getByRole('button', { name: /^Contents$/ }).first().tap().catch(() => {}); await sleep(800);
+  await p.locator('input[type=text]').first().fill('Text tool test 2');
+  await p.getByRole('button', { name: /^Sketch$/i }).tap(); await sleep(3500);
+  const tb = p.getByRole('toolbar', { name: 'Drawing tools' });
+  const cv = await p.locator('canvas.interactive').first().boundingBox();
+  await tb.getByRole('button', { name: 'Text' }).tap(); await sleep(200);
+  const word = async (x, y, w) => { await p.touchscreen.tap(cv.x + x, cv.y + y); await sleep(400); await p.keyboard.type(w); await sleep(200); };
+  await word(100, 100, 'North');
+  await p.touchscreen.tap(cv.x + 400, cv.y + 300); await sleep(400); // commits
+  await word(400, 300, 'South');
+  await p.touchscreen.tap(cv.x + 600, cv.y + 450); await sleep(400);
+  await word(600, 450, 'East');
+  await p.touchscreen.tap(cv.x + 300, cv.y + 520); await sleep(400);
+  console.log('tool', await tb.locator('button[aria-pressed=true]').getAttribute('aria-label'));
+  await shot(p, 'k04_text_three');
+  await p.getByRole('button', { name: /Add to entry/i }).tap(); await sleep(1200);
+  await p.getByRole('button', { name: /^Add entry$/i }).tap(); await sleep(2500);
+  const e = (await api('GET', `/api/notebook/${state.camps.S.id}/entries?role=player&character_id=${state.chars.a.id}`, state.users.pa.token)).filter(x => x.entry_type === 'sketch').pop();
+  const sc = await api('GET', `/api/notebook/entries/${e.id}/scene`, state.users.pa.token);
+  console.log('text scene', e.title, JSON.stringify(sc.elements.filter(x => !x.isDeleted).map(x => [x.type, x.text, Math.round(x.x), Math.round(x.y)])));
+  await b.close();
+})().catch(e => { console.error(e); process.exit(1); });

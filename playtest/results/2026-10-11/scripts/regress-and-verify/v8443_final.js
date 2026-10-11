@@ -1,0 +1,16 @@
+const L = require('./v8443_lib'); const { sleep, shot } = L;
+(async () => { const b = await L.launch(); const out = {};
+  const s = await L.openSeat(b, 'wide', { store: await L.storeFor('lkf', null, 'F') }); await sleep(5000);
+  const p = s.page;
+  await shot(p, 'f01_desk');
+  out.votesBefore = L.sql(`select count(*) from circle_votes where circle_id=${L.state.camps.F.circleId}`);
+  const fin = p.getByRole('button', { name: /Finalize the circle/i }).first();
+  await fin.scrollIntoViewIfNeeded(); await fin.click(); await sleep(800);
+  await shot(p, 'f02_armed');
+  out.armed = await p.locator('main').innerText().then(t => t.split('\n').filter(l => /Press again|finalize|voted|No circle|empty/i.test(l)));
+  await p.getByRole('button', { name: /Yes, finalize the circle/i }).first().click(); await sleep(3000);
+  await shot(p, 'f03_sealed');
+  out.circleRow = L.sql(`select name, circle_ability, insignia, is_finalized from circles where id=${L.state.camps.F.circleId}`);
+  await p.getByRole('button', { name: /^Circle/i }).first().click(); await sleep(2000); await shot(p, 'f04_circle_tab');
+  out.circleTab = (await p.locator('main').innerText()).slice(0, 1500);
+  console.log(JSON.stringify(out, null, 1)); await b.close(); })();

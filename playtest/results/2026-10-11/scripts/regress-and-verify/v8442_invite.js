@@ -1,0 +1,42 @@
+const L = require('./v8442_lib');
+const { sleep, shot, state } = L;
+(async () => {
+  const browser = await L.launch();
+  const gm = await L.openSeat(browser, 'wide', { store: await L.storeFor('lk', null, 'M') });
+  const pl = await L.openSeat(browser, 'phone', { store: await L.storeFor('bram', 'bram', 'M') });
+  await sleep(5000);
+  await shot(pl.page, 'inv_00_bram_desk_before');
+  await gm.page.getByRole('button', { name: /Invite player/i }).first().click(); await sleep(600);
+  await gm.page.getByLabel("Player's username").fill(state.users.bram.username);
+  await shot(gm.page, 'inv_01_slip_typed');
+  const gmFrom = gm.frames.length;
+  await gm.page.getByRole('button', { name: /Send invite/i }).click(); await sleep(2000);
+  await shot(gm.page, 'inv_02_slip_sent');
+  const slip = await gm.page.getByText(/Invite sent to/).first().locator('xpath=..').innerText();
+  console.log('SLIP:', slip.replace(/\n/g, ' | '));
+  console.log('GM frames after invite:', L.parsed(gm, 'in', gmFrom).map((x) => x.m.type));
+  console.log('DB bram:', L.sql(`select c.name,c.status,c.is_dead from characters c where user_id=${state.users.bram.userId} order by id`), '| pending_rejoin', L.sql(`select pending_rejoin_campaign_id from users where id=${state.users.bram.userId}`));
+  await sleep(1500);
+  await shot(pl.page, 'inv_03_bram_desk_banner');
+  console.log('BRAM banner text:', (await pl.page.locator('body').innerText()).match(/Your Lightkeeper[^\n]*/g));
+  // The player accepts with a new investigator: the same call the creator's "Save and rejoin" makes (AppRouter.jsx handleRejoinWithChar)
+  const gmFrom2 = gm.frames.length;
+  const r = await L.api('POST', '/campaign/rejoin', state.users.bram.token, { character_id: state.chars.bram2.id, campaign_code: state.camps.M.code });
+  console.log('rejoin ->', r.success, r.character?.name, r.character?.status);
+  await sleep(2500);
+  console.log('GM frames after rejoin:', JSON.stringify(L.parsed(gm, 'in', gmFrom2).map((x) => x.m.type === 'activity_log' ? 'LOG:' + x.m.payload.message : x.m.type)));
+  console.log('DB bram after:', L.sql(`select c.name,c.status,c.is_dead,c.incapacitated from characters c where user_id=${state.users.bram.userId} order by id`));
+  await shot(gm.page, 'inv_04_gm_after_rejoin');
+  await shot(pl.page, 'inv_05_bram_old_desk_after');
+  const gmText = await gm.page.locator('body').innerText();
+  console.log('GM desk shows Bram Okafor?', gmText.includes('Bram Okafor'), 'Bram Second?', gmText.includes('Bram Second'));
+  const logIdx = gmText.indexOf('ACTIVITY LOG'); console.log('GM LOG:', gmText.slice(logIdx, logIdx + 400).replace(/\n/g, ' | '));
+  // bram's hub
+  const hub = await L.openSeat(browser, 'phone');
+  await L.signIn(hub.page, 'bram');
+  await hub.page.getByRole('button', { name: /Case Ledger/ }).first().click(); await sleep(1500);
+  await shot(hub.page, 'inv_06_bram_hub_registry');
+  console.log('HUB registry has Bram Okafor?', (await hub.page.locator('body').innerText()).includes('Bram Okafor'));
+  console.log('errors', gm.errors, pl.errors, hub.errors);
+  await browser.close();
+})().catch((e) => { console.error(e); process.exit(1); });

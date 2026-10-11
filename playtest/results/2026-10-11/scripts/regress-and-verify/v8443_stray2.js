@@ -1,0 +1,12 @@
+const L = require('./v8443_lib'); const { sleep, shot } = L;
+(async () => { const st = L.state; const out = {};
+  const b = await L.launch();
+  const s = await L.openSeat(b, 'tablet', { store: await L.storeFor('pg2', 'ge', 'G') }); await sleep(6000);
+  const p = s.page;
+  out.at = await p.evaluate(() => { const tab = [...document.querySelectorAll('button')].find(e => /^\s*circle\s*$/i.test(e.innerText)); const r = tab.getBoundingClientRect();
+    return [r.y + 4, r.y + r.height / 2, r.y + r.height - 4].map(y => { const t = document.elementFromPoint(r.x + r.width / 2, y); return { y, hit: (t.closest('button')?.innerText || t.tagName).slice(0, 60), inDialog: !!t.closest('[role=dialog]') }; }); });
+  const tab = out.at[2];
+  await p.touchscreen.tap(615, tab.y); await sleep(1200);
+  out.outVotes = L.framesOf(s, 'circle_creation_vote', 'out').map(x => x.m.payload);
+  await shot(p, 's04_tap_low_edge');
+  console.log(JSON.stringify(out, null, 1)); await b.close(); })();

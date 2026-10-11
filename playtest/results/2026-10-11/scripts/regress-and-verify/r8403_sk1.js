@@ -1,0 +1,20 @@
+const L = require('./r8403_lib');
+const { goTab, openDesk } = require('./r8403_nav');
+const { touchDrag } = require('./r8403_touch');
+const { sleep, shot } = L;
+(async () => {
+  const b = await L.launch();
+  const dev = await openDesk(b, 'tablet', 'pa', 'a', 'S');
+  const p = dev.page;
+  await goTab(p, 'Notebook');
+  await sleep(1200);
+  console.log('caption inputs before picture:', await p.locator('input[placeholder^="Caption"]').count());
+  await p.getByRole('button', { name: /^Sketch$/i }).tap();
+  await sleep(4000);
+  await shot(p, 's01_sheet');
+  const canvas = await p.locator('canvas.excalidraw__canvas.interactive, canvas.interactive').first().boundingBox();
+  console.log('canvas', canvas);
+  const tools = await p.getByRole('toolbar', { name: 'Drawing tools' }).locator('button').evaluateAll(a => a.map(x => x.getAttribute('aria-label') + ':' + x.getAttribute('aria-pressed')));
+  console.log(tools.join(' '));
+  await b.close();
+})().catch(e => { console.error(e); process.exit(1); });

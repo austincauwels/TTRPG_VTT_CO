@@ -1,0 +1,22 @@
+const L = require('./lib'); const { sleep, shot, state, sql } = L;
+(async () => {
+  const b = await L.launch(); const C = state.chars.cass.id;
+  sql(`update characters set nerve_current=3 where id=${C}`);
+  const cs = await L.desk(b, 'laptop', 'cass', 'cass', 'S'); const p = cs.page;
+  const lk = await L.desk(b, 'wide', 'lk', null, 'S'); const P = lk.page;
+  const lab = () => p.$$eval('button', bs => bs.filter(x => /Clear one Nerve/.test(x.getAttribute('aria-label') || '')).map(x => x.getAttribute('aria-label')));
+  console.log('player before', await lab());
+  await P.getByRole('button', { name: /Open Cass Moreau's investigator sheet/ }).first().click(); await sleep(2500);
+  await P.getByRole('button', { name: /^Edit .*trauma record/ }).first().click(); await sleep(800);
+  const mark = cs.frames.length;
+  await P.getByRole('button', { name: /^Set Nerve available to 4/ }).first().click(); await sleep(5000);
+  console.log('db', sql(`select nerve_current from characters where id=${C}`));
+  console.log('player after 5s', await lab(), 'frames to player:', L.parsed(cs, 'in', mark).map(x => x.m.type));
+  const nerveTxt = await p.evaluate(() => (document.body.innerText.match(/NERVE[^\n]*\n?[^\n]*/i) || [''])[0]);
+  console.log('player nerve text', nerveTxt);
+  await p.getByRole('button', { name: /^Clear one Nerve/ }).first().scrollIntoViewIfNeeded();
+  await shot(p, 'p17_player_after_lk_drive');
+  await p.reload(); await sleep(4500);
+  console.log('player after reload', await lab());
+  await b.close();
+})().catch((e) => { console.error(e); process.exit(1); });

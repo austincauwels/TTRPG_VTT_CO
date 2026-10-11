@@ -1,0 +1,63 @@
+const L = require('./r8403_lib');
+const { goTab, openDesk } = require('./r8403_nav');
+const { touchDrag } = require('./r8403_touch');
+const { sleep, shot, state, api } = L;
+(async () => {
+  const b = await L.launch();
+  const dev = await openDesk(b, 'tablet', 'pa', 'a', 'S');
+  const p = dev.page;
+  await goTab(p, 'Notebook'); await sleep(1500);
+  const ta = p.locator('textarea').first();
+  const linkBtn = p.getByRole('button', { name: 'Link' }).first();
+  await ta.tap();
+  await p.keyboard.type('Seen near ');
+  await linkBtn.tap(); await sleep(200);
+  const st = () => ta.evaluate(el => ({ v: el.value, s: el.selectionStart, e: el.selectionEnd, sel: el.value.slice(el.selectionStart, el.selectionEnd), focused: document.activeElement === el }));
+  console.log('after 1st Link', JSON.stringify(await st()));
+  await p.keyboard.type('the harbour office');
+  await linkBtn.tap(); await sleep(200);
+  console.log('after 2nd Link', JSON.stringify(await st()));
+  await p.keyboard.type('https://example.com/tower');
+  console.log('after address', JSON.stringify(await st()));
+  await linkBtn.tap(); await sleep(200);
+  console.log('3rd Link after the address (caret after ")")', JSON.stringify(await st()));
+  // Link twice at once with no words
+  await ta.fill(''); await ta.tap();
+  await linkBtn.tap(); await sleep(150); await linkBtn.tap(); await sleep(150);
+  console.log('Link twice, no words', JSON.stringify(await st()));
+  // A second unfinished link on a line: caret in the first, finished one
+  await ta.fill('[done](https://a.com) and [later](https://)');
+  await ta.evaluate(el => { el.focus(); el.setSelectionRange(3, 3); });
+  await linkBtn.tap(); await sleep(150);
+  console.log('caret in a finished link, later unfinished one', JSON.stringify(await st()));
+  await ta.fill('Seen near [the harbour office](https://example.com/tower).');
+  await p.getByRole('button', { name: /^Preview$/i }).first().tap(); await sleep(400);
+  await shot(p, 'k01_link_preview');
+  const href = await p.locator('.md-note a').first().getAttribute('href').catch(() => null);
+  console.log('preview href', href);
+  await p.getByRole('button', { name: /^(Write|Edit|Preview)$/i }).first().tap().catch(() => {}); await sleep(300);
+  await ta.fill('');
+  // Text tool: two words, tapping from one to the next
+  await p.locator('input[type=text]').first().fill('Text tool test');
+  await p.getByRole('button', { name: /^Sketch$/i }).tap(); await sleep(3500);
+  const tb = p.getByRole('toolbar', { name: 'Drawing tools' });
+  const cv = await p.locator('canvas.interactive').first().boundingBox();
+  await tb.getByRole('button', { name: 'Text' }).tap(); await sleep(200);
+  await p.touchscreen.tap(cv.x + 100, cv.y + 100); await sleep(400);
+  await p.keyboard.type('North'); await sleep(200);
+  await p.touchscreen.tap(cv.x + 400, cv.y + 300); await sleep(400);
+  console.log('tool after first word', await tb.locator('button[aria-pressed=true]').getAttribute('aria-label'));
+  await p.keyboard.type('South'); await sleep(200);
+  await p.touchscreen.tap(cv.x + 600, cv.y + 500); await sleep(400);
+  await shot(p, 'k02_text_tool');
+  await p.keyboard.press('Escape').catch(() => {}); await sleep(300);
+  await shot(p, 'k03_text_tool_esc');
+  const add = p.getByRole('button', { name: /Add to entry/i });
+  if (await add.isVisible()) { await add.tap(); await sleep(1200); }
+  await p.getByRole('button', { name: /^Add entry$/i }).tap(); await sleep(2500);
+  const e = (await api('GET', `/api/notebook/${state.camps.S.id}/entries?role=player&character_id=${state.chars.a.id}`, state.users.pa.token)).filter(x => x.entry_type === 'sketch').pop();
+  const sc = await api('GET', `/api/notebook/entries/${e.id}/scene`, state.users.pa.token);
+  console.log('text scene', e.title, JSON.stringify(sc.elements.filter(x => !x.isDeleted).map(x => [x.type, x.text, Math.round(x.x), Math.round(x.y)])));
+  console.log('errors', dev.errors.slice(0, 5));
+  await b.close();
+})().catch(e => { console.error(e); process.exit(1); });
