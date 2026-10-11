@@ -77,7 +77,9 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
     setFullChar(c => (c ? { ...c, [`${type}_marks`]: value } : c));
     return true;
   };
-  // A drive pip set by hand, up or down; the sheet follows at once, a refusal puts it back
+  // A drive pip set by hand, up or down. This copy shows it at once; the player's desk gets
+  // the sheet from the server (handle_update_drive), and a refusal loads this copy again
+  // (memberResync), which puts the stored value back
   const setDrive = (pool, value) => {
     setTraumaError(null);
     if (!gmSetDrive(rosterItem.id, pool, value)) {

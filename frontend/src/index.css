@@ -1150,6 +1150,20 @@
   .touch-pip::before { content: ''; position: absolute; inset: var(--hit-y, -14px) var(--hit-x, -3px); }
 }
 
+/* The drive pips are live (a refill, and the last filled one clears a point; the
+   Lightkeeper's copy in its Edit too), and a mis-tap costs a drive point and writes a log
+   line: on a touch screen, a phone's too, each pip's button is 44px tall and takes a
+   ninth of its row's width (the nine pips of DRIVE_PIP_TOTAL), from 21px to 44px, so the
+   targets never overlap. The nine stay on one line: where they do not fit beside
+   "Available" (a landscape iPad's narrow drive column), the whole row goes under it rather
+   than splitting seven and two. The square drawn inside keeps its 20px (final check of
+   playtest 2, drive-pips-still-one-way). */
+@media (pointer: coarse) {
+  .drive-row { flex-wrap: wrap; }
+  .drive-pips, .dossier-c .drive-pips { flex: 1 1 auto; gap: 0; flex-wrap: nowrap; min-width: min(100%, 189px); }
+  .drive-pip-hit { flex: 0 0 auto; width: clamp(21px, calc(100% / 9), 44px); height: 44px; }
+}
+
 /* The player desk's drawer on phones (owner's round 4 item 14, DeskDrawer.jsx): it slides
    out from the right edge over the dimmed desk and slides back in when it closes. Under
    reduced motion it is simply there, and gone. */

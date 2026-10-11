@@ -24,9 +24,10 @@ import { AccountMenu } from '../shared/AccountMenu';
 import { MourningCross } from '../shared/InkMarks';
 import { PhoneDeskNav } from './DeskDrawer';
 import { TableStrip, NewDot } from '../shared/TableStrip';
+import { retiredByRejoin, inviteWords } from '../campaignSelector/RejoinInviteBanner';
 
 export const MainDeskView = () => {
-  const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar, unseen, markSeen } = useGameStore(useShallow(s => ({
+  const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar, unseen, markSeen, characters } = useGameStore(useShallow(s => ({
     character: s.character,
     circle: s.circle,
     circleCreation: s.circleCreation,
@@ -45,6 +46,7 @@ export const MainDeskView = () => {
     reopenScar: s.reopenScar,
     unseen: s.unseen,
     markSeen: s.markSeen,
+    characters: s.characters,
   })));
   // A scar the player chose to decide later, for the investigator on this desk
   const scarWaiting = pendingScar && !showScarModal && !character?.is_dead &&
@@ -308,23 +310,25 @@ export const MainDeskView = () => {
       {showCreationPopup && <CircleCreationPopup />}
       {pendingRelationshipIntro && <RelationshipIntroPopup />}
 
-      {/* REJOIN INVITE BANNER — shown when Lightkeeper has sent an invite */}
+      {/* REJOIN INVITE BANNER: shown when the Lightkeeper has sent an invite. It names a living
+          investigator here, whom coming back retires. On a phone it hangs under the band, so
+          Menu and the dice stay in reach until it is dismissed */}
       {rejoinInvite && (!character?.is_dead || deathDismissed) && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[800] flex flex-wrap items-center gap-x-4 gap-y-2 bg-night border border-oxblood px-4 py-3 sm:px-6 sm:py-4 shadow-[0_10px_30px_rgba(0,0,0,0.8)] max-w-xl w-[calc(100%-2rem)]">
+        <div className="fixed top-4 max-md:top-[4.5rem] left-1/2 -translate-x-1/2 z-[800] flex flex-wrap items-center gap-x-4 gap-y-2 bg-night border border-oxblood px-4 py-3 sm:px-6 sm:py-4 shadow-[0_10px_30px_rgba(0,0,0,0.8)] max-w-xl w-[calc(100%-2rem)]">
           <div className="flex-1 min-w-[12rem]">
             <p className="text-parchment-deep font-serif text-base leading-snug">
-              Your Lightkeeper invites you back to <strong className="text-cream">{rejoinInvite.campaign_name}</strong> with a new investigator.
+              {inviteWords(rejoinInvite, retiredByRejoin(characters, rejoinInvite.campaign_id, character))}
             </p>
           </div>
           <button
             onClick={() => setStage('CHARACTER_CREATION')}
-            className="shrink-0 px-4 py-2 bg-oxblood hover:brightness-125 text-cream font-sans font-black uppercase tracking-widest text-xs border border-ink rounded transition"
+            className="shrink-0 px-4 py-2 [@media(pointer:coarse)]:min-h-[44px] bg-oxblood hover:brightness-125 text-cream font-sans font-black uppercase tracking-widest text-xs border border-ink rounded transition"
           >
             Create investigator
           </button>
           <button
             onClick={() => setRejoinInvite(null)}
-            className="shrink-0 min-w-[40px] min-h-[40px] text-oxblood-lit hover:text-parchment-deep font-sans text-lg leading-none transition-colors" aria-label="Dismiss invite"
+            className="shrink-0 min-w-[40px] min-h-[40px] [@media(pointer:coarse)]:min-w-[44px] [@media(pointer:coarse)]:min-h-[44px] text-oxblood-lit hover:text-parchment-deep font-sans text-lg leading-none transition-colors" aria-label="Dismiss invite"
           >✕</button>
         </div>
       )}

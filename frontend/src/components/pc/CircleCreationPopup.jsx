@@ -333,21 +333,25 @@ export const CircleCreationPopup = () => {
                         >
                           {isMineVote ? <><TickMark /> Voted</> : 'Vote'}
                         </button>
-                        <span className="font-serif text-lg text-ink flex-1 basis-28 min-w-0 [overflow-wrap:anywhere]">{name}</span>
-                        {/* The tags wrap under a long name on a phone instead of squeezing it to nothing */}
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 max-w-full">
-                          {isMySuggestion && (
-                            <span className="font-serif italic text-sm text-sepia">yours</span>
-                          )}
-                          {suggestCount > 1 && (
-                            <span className="font-serif italic text-sm text-sepia">suggested {suggestCount} times</span>
-                          )}
-                          {voteCount > 0 && (
-                            <span className="font-mono text-sm bg-sepia text-cream px-2 py-0.5 rounded-full" aria-label={`${voteCount} ${voteCount === 1 ? 'vote' : 'votes'}`}>{voteCount}</span>
-                          )}
-                          {isLeading && (
-                            <span className="font-serif italic text-sm text-sepia">leading</span>
-                          )}
+                        {/* The name and its tags are one group beside Vote: the tags wrap under a
+                            long name on a phone instead of squeezing it to nothing, and a vote
+                            count wraps with the name, never alone under the button */}
+                        <div className="flex-1 basis-28 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="font-serif text-lg text-ink min-w-0 max-w-full [overflow-wrap:anywhere]">{name}</span>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 max-w-full">
+                            {isMySuggestion && (
+                              <span className="font-serif italic text-sm text-sepia">yours</span>
+                            )}
+                            {suggestCount > 1 && (
+                              <span className="font-serif italic text-sm text-sepia">suggested {suggestCount} times</span>
+                            )}
+                            {voteCount > 0 && (
+                              <span className="font-mono text-sm bg-sepia text-cream px-2 py-0.5 rounded-full" aria-label={`${voteCount} ${voteCount === 1 ? 'vote' : 'votes'}`}>{voteCount}</span>
+                            )}
+                            {isLeading && (
+                              <span className="font-serif italic text-sm text-sepia">leading</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

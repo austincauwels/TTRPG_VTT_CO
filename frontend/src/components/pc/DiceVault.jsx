@@ -57,7 +57,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   // Another roll at the table after this desk's own was decided, or the assignment's end,
   // settles it: the server no longer takes a burn or a post-roll ability for it, so they
   // are no longer offered (store lastRollSettled)
-  const settled = !showGmControls && lastRollSettled;
+  // A dead investigator's last roll is settled too: no burn or post-roll ability (the
+  // server refuses them), though a gilded die still to be kept is kept (resolve_gilded)
+  const settled = !showGmControls && (lastRollSettled || !!character?.is_dead);
   const gildedPending = !shownTable && !!(pendingGildedChoice && lastRoll?.needs_gilded_choice);
   // After a gilded choice, the server's result for the kept die (roll_kept). The post-roll
   // prompts and the resistance offer read the roll with that result, under its own id so

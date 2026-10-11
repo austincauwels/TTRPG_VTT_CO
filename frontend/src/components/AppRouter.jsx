@@ -243,7 +243,7 @@ export const AppRouter = () => {
           <CharacterCreator
             globalPenStyle={accessSession?.pen}
             rejoinContext={rejoinCode ? { code: rejoinCode, campaignName: rejoinCampaignName,
-              retires: rejoinInvite ? retiredByRejoin(characters, rejoinInvite.campaign_id) : [] } : null}
+              retires: rejoinInvite ? retiredByRejoin(characters, rejoinInvite.campaign_id, character) : [] } : null}
             draftKey={accessSession?.userId ? `candela-creator-draft:${accessSession.userId}` : 'candela-creator-draft'}
             onSubmit={saveInvestigator}
           />

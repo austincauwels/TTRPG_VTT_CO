@@ -228,11 +228,12 @@ export const assignmentOf = (circle) => {
 // Whether this desk's own latest roll is waiting on the player: a gilded die to keep, or a
 // Burn and reroll still on offer (the dice vault's canResist, which needs the vault open).
 // The phone's dice button shows a dot for it once the roll bar has faded. A settled roll
-// (store lastRollSettled) is no longer offered (the server refuses the burn).
+// (store lastRollSettled) is no longer offered (the server refuses the burn), nor is a
+// dead investigator's, though a gilded die still to be kept is.
 export const postRollChoiceWaiting = (s) => {
   if (!s.lastRoll) return false;
   if (s.pendingGildedChoice && s.lastRoll.needs_gilded_choice) return true;
-  if (s.lastRollSettled) return false;
+  if (s.lastRollSettled || s.character?.is_dead) return false;
   const kept = s.lastRollKept && s.lastRollKept.rollId === s.lastRoll.id ? s.lastRollKept : null;
   const outcome = kept ? kept.outcome : s.lastRoll.outcome;
   if (!outcome || outcome === 'full_success' || outcome === 'critical_success') return false;
@@ -748,6 +749,10 @@ const useGameStore = create(
           if (message.type === 'character_update') {
             const incoming = message.payload;
             const prevChar = get().character;
+            // A Lightkeeper desk has no sheet of its own: a member's sheet that reaches it
+            // (member_update is how it follows them) must not become its store character,
+            // which would make that member's dice its own and write their lines here
+            if (onGmDesk(get) && incoming?.id !== prevChar?.id) return;
             // The sheet, and the held marks that were on their way and are on it now
             set(state => ({ character: incoming, ...sheetArrived(state, prevChar, incoming) }));
             // The answer to an ability used outside a roll: the server paid its cost (a
@@ -770,6 +775,11 @@ const useGameStore = create(
               if (!circle?.is_finalized && !circleCreation.isVisible) {
                 get().fetchCircleCreationState(incoming.campaign_id);
               }
+            }
+            // The fourth scar: a dead investigator answers no offer (the server refuses it),
+            // an ally's included, so the cards go
+            if (incoming?.is_dead && prevChar?.id === incoming.id && !prevChar.is_dead) {
+              set({ abilityMarkOffer: null, abilityMarkQueue: [] });
             }
             // A line when the character drops incapacitated. Incapacitated is not death
             // (rulebook p. 14). A death is logged by the server, to every desk.
@@ -863,9 +873,10 @@ const useGameStore = create(
               playDiceTumble();
               if (Array.isArray(p.roll?.dice)) set({ tableRoll: p });
               // They settle this desk's own roll once its result is known: a gilded roll
-              // whose die is still to be kept is decided later, after these dice
+              // whose die is still to be kept is decided later, after these dice. A die kept
+              // from a roll End Assignment settled does not (settles: false)
               const { lastRoll, lastRollKept } = st;
-              if (lastRoll && !(lastRoll.needs_gilded_choice && lastRollKept?.rollId !== lastRoll.id)) {
+              if (lastRoll && p.settles !== false && !(lastRoll.needs_gilded_choice && lastRollKept?.rollId !== lastRoll.id)) {
                 set({ lastRollSettled: true });
               }
             }
@@ -901,12 +912,17 @@ const useGameStore = create(
             console.warn(`Vault refused ${message.payload.action}: ${message.payload.detail}`);
             // The server's reason, such as "Not enough Nerve for that roll."
             if (message.payload.action === 'roll') failRoll(set, message.payload.detail || ROLL_REFUSED);
-            // The server keeps the dice of a roll that waits for a die to be kept, and reads
-            // the kept die from them; with no roll waiting (a server restart, a second
-            // choice) the kept die did not count, and the server's words say to roll again
+            // A drive the Lightkeeper set on her copy of a member's sheet, refused: the sheet
+            // loads again, so the value it showed at once goes back to the stored one
+            if (message.payload.action === 'update_drive' && onGmDesk(get)) {
+              set(state => ({ memberResync: state.memberResync + 1 }));
+            }
             if (message.payload.action === 'apply_advancement') {
               set({ advancementError: message.payload.detail || 'That advancement was not applied.' });
             }
+            // The server keeps the dice of a roll that waits for a die to be kept, and reads
+            // the kept die from them; with no roll waiting (a server restart, a second
+            // choice) the kept die did not count, and the server's words say to roll again
             if (message.payload.action === 'resolve_gilded') {
               set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
             }
@@ -1238,8 +1254,12 @@ const useGameStore = create(
           }
           else if (message.type === 'mark_offer_closed') {
             // The offer's mark landed because another mark came (backend marks.py
-            // mark_or_offer): its card goes, so its countdown cannot land the mark again
-            set(state => ({ ...withoutOwnOffer(state), ...offerLets(state, false, state.heldMarks?.offer?.seq) }));
+            // mark_or_offer): its card goes, so its countdown cannot land the mark again.
+            // Dropped at the death (close_offers_at_death): its marks are not taken either
+            if (message.payload?.dropped) {
+              set(state => ({ ...withoutOwnOffer(state), ...(state.heldMarks?.offer ? heldMarksAre({ ...state.heldMarks, offer: null }) : {}) }));
+            }
+            else set(state => ({ ...withoutOwnOffer(state), ...offerLets(state, false, state.heldMarks?.offer?.seq) }));
           }
           else if (message.type === 'ability_intercept_offer') {
             set(state => queueOffer(state, { ...message.payload, intercept: true, seq: ++offerSeq, received_at: Date.now() }));
@@ -2012,7 +2032,8 @@ const useGameStore = create(
       },
 
       // The Lightkeeper sets one of a member's drives from her copy of the sheet; the server
-      // (handle_update_drive) writes the table's log line and the player's sheet follows
+      // (handle_update_drive) sends the sheet to the member's own desk, her copy follows
+      // through member_update, and it writes the table's log line
       gmSetDrive: (characterId, pool, value) => {
         const { socket } = get();
         if (socket && socket.readyState === WebSocket.OPEN) {

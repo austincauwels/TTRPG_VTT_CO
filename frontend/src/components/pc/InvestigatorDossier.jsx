@@ -465,9 +465,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     isRolling: s.isRolling,
   })));
   const character = charProp || storeChar;
-  // The "Use" control for an ability with a cost outside a roll (not on a read-only sheet)
+  // The "Use" control for an ability with a cost outside a roll (not on a read-only sheet,
+  // nor on a dead investigator's, which is a record: the server refuses the use)
   const renderAbilityUse = (name) => {
-    if (readOnly) return null;
+    if (readOnly || character?.is_dead) return null;
     if (ABILITY_USES[name]) {
       const allies = livingMembers(campaignRoster?.active_investigators).filter(inv => inv.id !== character?.id);
       return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} allies={allies} character={character} />;
@@ -1017,6 +1018,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       const refill = !dead && (!readOnly || driveEdit) && i < maxDrive && i >= currentDrive;
                       const clear = !dead && (!readOnly || driveEdit) && i === currentDrive - 1;
                       const live = refill || clear;
+                      // The button is the finger's target (.drive-pip-hit in index.css: 44px
+                      // tall on a touch screen, sharing the row's width with its neighbours,
+                      // never over them); the square drawn inside keeps its size
                       return (
                       <button
                         key={i}
@@ -1025,15 +1029,17 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         aria-label={clear ? `Clear one ${cat.name} point (set to ${i})` : `Set ${cat.name} available to ${i + 1}`}
                         aria-hidden={live ? undefined : true}
                         onClick={live ? () => handleSpendDrive(cat.driveKey, clear ? i : i + 1) : undefined}
-                        className={`drive-pip w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all ${
+                        className={`drive-pip-hit group/pip flex items-center justify-center ${live ? 'cursor-pointer' : 'cursor-default'}`}
+                      >
+                        <span aria-hidden="true" className={`drive-pip block w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all ${
                           i < currentDrive
                             ? ''
                             : i < maxDrive
-                              ? 'bg-transparent border-ink/40 hover:border-oxblood/50'
+                              ? 'bg-transparent border-ink/40 group-hover/pip:border-oxblood/50'
                               : 'bg-transparent border-dotted border-ink/30 opacity-40'
-                        } ${live ? 'cursor-pointer' : 'cursor-default'}`}
-                        style={i < currentDrive ? { background: `rgb(var(--c-drive-${cat.driveKey}))`, borderColor: `rgb(var(--c-drive-${cat.driveKey}))` } : undefined}
-                      />
+                        }`}
+                          style={i < currentDrive ? { background: `rgb(var(--c-drive-${cat.driveKey}))`, borderColor: `rgb(var(--c-drive-${cat.driveKey}))` } : undefined} />
+                      </button>
                       );
                     })}
                   </div>

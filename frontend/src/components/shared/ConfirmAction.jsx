@@ -61,6 +61,15 @@ export const ConfirmAction = ({
   const hint = armed ? armedHint : idleHint;
 
   useEffect(() => { if (disabled) disarm(); }, [disabled]);
+  // The armed hint and its Cancel come into view when they arm: under a stamp at the foot of
+  // a page they ran below the screen, and the warning in them went unread (End Assignment's
+  // unadded tally at 1440x900, final check of playtest 2). Only as far as needed.
+  const hintRowRef = useRef(null);
+  useEffect(() => {
+    if (!armed) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    hintRowRef.current?.scrollIntoView?.({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+  }, [armed]);
 
   return (
     <div
@@ -80,7 +89,7 @@ export const ConfirmAction = ({
       })}
       <span role="status" className="sr-only">{armed ? armedHint : ''}</span>
       {(hint || armed) && (
-        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${hintClassName}`}>
+        <div ref={hintRowRef} className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${hintClassName}`}>
           {hint && (
             <p id={hintId} className={`font-serif italic text-base leading-snug ${armed ? colors.armed : colors.idle}`}>
               {hint}
