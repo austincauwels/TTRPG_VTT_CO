@@ -297,6 +297,7 @@ def test_a_pending_character_reaches_nothing_of_the_campaign(client):
             assert ws.sync() == [_rejected(msg_type)]
         assert gm.sync() == []
         gm.send("update_drive", character_id=waiting["id"], pool="nerve", value=2)  # the GM still may
+        # but the table is not told of a character it has not let in
         assert support.types(gm.sync()) == ["character_update", "member_update"]
         ws.drain()
         assert support.approve(client, waiting["id"]).status_code == 200

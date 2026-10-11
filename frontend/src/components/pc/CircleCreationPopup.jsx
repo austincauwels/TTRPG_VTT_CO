@@ -317,7 +317,7 @@ export const CircleCreationPopup = () => {
                     return (
                       <div
                         key={name}
-                        className={`flex items-center gap-3 p-3 border rounded-sm ${
+                        className={`flex flex-wrap items-center gap-x-3 gap-y-1 p-3 border rounded-sm ${
                           isLeading ? 'border-sepia bg-ink/5' : 'border-parchment-deep bg-cream/40'
                         }`}
                       >
@@ -333,8 +333,9 @@ export const CircleCreationPopup = () => {
                         >
                           {isMineVote ? <><TickMark /> Voted</> : 'Vote'}
                         </button>
-                        <span className="font-serif text-lg text-ink flex-1 min-w-0 [overflow-wrap:anywhere]">{name}</span>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-serif text-lg text-ink flex-1 basis-28 min-w-0 [overflow-wrap:anywhere]">{name}</span>
+                        {/* The tags wrap under a long name on a phone instead of squeezing it to nothing */}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 max-w-full">
                           {isMySuggestion && (
                             <span className="font-serif italic text-sm text-sepia">yours</span>
                           )}

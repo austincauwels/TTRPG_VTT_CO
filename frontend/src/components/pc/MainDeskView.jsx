@@ -5,7 +5,7 @@ import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ArtDecoCorner, BrassCornerFiligree } from '../shared/Decorations';
 import { InvestigatorDossier } from './InvestigatorDossier';
-import { CircleView, AdvancementModal } from './CircleView';
+import { CircleView, AdvancementModal, AdvancementWaiting } from './CircleView';
 import { NotebookView } from '../shared/NotebookView';
 import { TactileSidebar } from './TactileSidebar';
 import { DiceVault } from './DiceVault';
@@ -245,6 +245,7 @@ export const MainDeskView = () => {
 
       {/* DYNAMIC VIEW ROUTING */}
       <main className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto p-4 2xl:px-10 mt-2 xl:max-w-none 2xl:max-w-none xl:w-full xl:mx-0 xl:mt-0 xl:px-5 2xl:px-8 xl:pt-4 xl:pb-3 xl:flex-1 xl:min-h-0 xl:flex xl:flex-col">
+        <AdvancementWaiting />
         {scarWaiting && (
           <div role="status" className="mb-4 xl:mb-3 xl:shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-oxblood rounded-sm px-4 py-3 xl:py-2 shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
             <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60 flex items-center gap-2.5">

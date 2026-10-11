@@ -45,8 +45,8 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
 
-  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark, gmReturnSpend } = useGameStore(useShallow(s => ({
-    gmReturnSpend: s.gmReturnSpend, gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark })));
+  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark, gmReturnSpend, gmSetDrive } = useGameStore(useShallow(s => ({
+    gmReturnSpend: s.gmReturnSpend, gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetDrive: s.gmSetDrive, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark })));
   // Corrections on the trauma record (its Edit button, on this copy of the sheet only)
   const [traumaError, setTraumaError] = useState(null);
   const notConnected = 'Not connected to the table. Try again in a moment.';
@@ -59,6 +59,16 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
       return false;
     }
     setFullChar(c => (c ? { ...c, [`${type}_marks`]: value } : c));
+    return true;
+  };
+  // A drive pip set by hand, up or down; the sheet follows at once, a refusal puts it back
+  const setDrive = (pool, value) => {
+    setTraumaError(null);
+    if (!gmSetDrive(rosterItem.id, pool, value)) {
+      setTraumaError(notConnected);
+      return false;
+    }
+    setFullChar(c => (c ? { ...c, [`${pool}_current`]: value } : c));
     return true;
   };
   // A mark dealt in the story: the sheet follows when it lands (member_update), since the
@@ -210,7 +220,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
 
         {fullChar && !loading && (
           <>
-            <InvestigatorDossier character={sheet} readOnly traumaEdit={pending ? null : { setMarks, setScars, dealMark, error: traumaError }} />
+            <InvestigatorDossier character={sheet} readOnly traumaEdit={pending ? null : { setMarks, setScars, setDrive, dealMark, error: traumaError }} />
             {/* A request not yet approved is only read: nothing on it is the Lightkeeper's to spend or reset */}
             {pending ? null : <>
             <SpendBack character={sheet} onGive={(resource) => gmReturnSpend(rosterItem.id, resource)} />

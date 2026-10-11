@@ -440,10 +440,10 @@ const GEAR_ICONS = {
   "Occult Supplies": "GiCauldron", "Ritual Dagger": "GiKnifeThrust",
 };
 
-// traumaEdit (the Lightkeeper's copy only): { setMarks(type, value), setScars(list),
+// traumaEdit (the Lightkeeper's copy only): { setMarks(type, value), setScars(list), setDrive(pool, value),
 // dealMark(type, fromEnemy), error }.
 // It gives the trauma record an Edit button that sets the mark tracks and rewords or
-// removes scars right on the record (GMCharacterSheet.jsx).
+// removes scars right on the record, and, while it is on, makes the drive pips live (GMCharacterSheet.jsx).
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false, traumaEdit = null }) => {
   const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster } = useGameStore(useShallow(s => ({
     character: s.character,
@@ -563,9 +563,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   });
 
   const handleSpendDrive = (pool, value) => {
-    if (readOnly) return;
     const maxDrive = character[`${pool}_max`] || 1;
-    if (value >= 0 && value <= maxDrive) updateDrive(pool, value);
+    if (value < 0 || value > maxDrive) return;
+    // The Lightkeeper's copy sets it through her trauma edit; a player's own desk through the store
+    if (readOnly) { if (driveEdit) traumaEdit.setDrive(pool, value); return; }
+    updateDrive(pool, value);
   };
 
   const sendGearUpdate = () => {
@@ -612,6 +614,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The trauma record in edit mode (the Lightkeeper's copy): each change goes to the table
   // at once; Done also saves scar words changed and not yet saved
   const editing = !!traumaEdit && editingTrauma;
+  const driveEdit = editing && !!traumaEdit.setDrive;
   // whose record the Lightkeeper's edit is on, in the hint and the toggle's name
   const recordOf = character?.name ? `${character.name}'s ` : 'the ';
   // The mark waiting for its Undo fills its track, after any the table holds: a scar
@@ -1005,24 +1008,31 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2" id={`drive-avail-${cat.driveKey}`}>Available</span>
                   <div className="drive-pips flex gap-0.5 flex-wrap justify-end" role="group" aria-labelledby={`drive-avail-${cat.driveKey}`}>
                     <span className="sr-only">{cat.name}: {currentDrive} of {maxDrive} available.</span>
-                    {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
+                    {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => {
+                      // An empty pip below the maximum fills up to it; the last filled pip clears
+                      // one point, so a mistaken tap can be undone
+                      const refill = (!readOnly || driveEdit) && i < maxDrive && i >= currentDrive;
+                      const clear = (!readOnly || driveEdit) && i === currentDrive - 1;
+                      const live = refill || clear;
+                      return (
                       <button
                         key={i}
                         type="button"
-                        disabled={!(!readOnly && i < maxDrive && i >= currentDrive)}
-                        aria-label={`Set ${cat.name} available to ${i + 1}`}
-                        aria-hidden={!readOnly && i < maxDrive && i >= currentDrive ? undefined : true}
-                        onClick={!readOnly && i < maxDrive && i >= currentDrive ? () => handleSpendDrive(cat.driveKey, i + 1) : undefined}
+                        disabled={!live}
+                        aria-label={clear ? `Clear one ${cat.name} point (set to ${i})` : `Set ${cat.name} available to ${i + 1}`}
+                        aria-hidden={live ? undefined : true}
+                        onClick={live ? () => handleSpendDrive(cat.driveKey, clear ? i : i + 1) : undefined}
                         className={`drive-pip w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all ${
                           i < currentDrive
                             ? ''
                             : i < maxDrive
                               ? 'bg-transparent border-ink/40 hover:border-oxblood/50'
                               : 'bg-transparent border-dotted border-ink/30 opacity-40'
-                        } ${!readOnly && i < maxDrive && i >= currentDrive ? 'cursor-pointer' : 'cursor-default'}`}
+                        } ${live ? 'cursor-pointer' : 'cursor-default'}`}
                         style={i < currentDrive ? { background: `rgb(var(--c-drive-${cat.driveKey}))`, borderColor: `rgb(var(--c-drive-${cat.driveKey}))` } : undefined}
                       />
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
