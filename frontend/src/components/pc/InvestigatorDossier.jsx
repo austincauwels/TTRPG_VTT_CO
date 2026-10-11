@@ -1480,6 +1480,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   Add
                 </button>
               </form>
+              {/* Shown only while it matters: the reason Add is greyed, and the length near its cut */}
+              {writeInName && (pendingCount >= slots || writeIn.length >= 45) && (
+                <p role="status" className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-xs font-sans font-black text-sepia">
+                  <span>{pendingCount >= slots ? `All ${slots} gear slots are marked. Untick one to swap.` : ''}</span>
+                  {writeIn.length >= 45 && <span className="tabular-nums">{writeIn.length} / 60</span>}
+                </p>
+              )}
             </div>
 
             {character.specialty && SPECIALTY_GEAR[character.specialty] && (

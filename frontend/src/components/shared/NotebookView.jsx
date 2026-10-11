@@ -1341,8 +1341,9 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                   {/* Font picker — player only */}
                   {!isGM && (
                     <div className="flex items-center gap-2">
-                      <span className="font-sans font-bold text-sm uppercase tracking-widest text-sepia">Handwriting</span>
+                      <label htmlFor="notebook-handwriting" className="font-sans font-bold text-sm uppercase tracking-widest text-sepia">Handwriting</label>
                       <select
+                        id="notebook-handwriting"
                         value={authorFont}
                         onChange={e => updatePenFont(e.target.value)}
                         className="bg-transparent border-b border-ink/25 focus:border-ink/50 text-[18px] py-0.5 md:[@media(pointer:coarse)]:min-h-[44px] flex-1 min-w-0"
