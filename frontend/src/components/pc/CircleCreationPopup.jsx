@@ -15,6 +15,9 @@ import { livingMembers } from '../../game/roster';
 // The questions and the insignia are in game/circleFormation.js, which the Lightkeeper's
 // desk reads too.
 
+// The parts of the papers, for the jump list a phone shows above them
+const PAPER_PARTS = [['formation-part-1', 'Question'], ['formation-part-2', 'Name'], ['formation-part-3', 'House'], ['formation-part-4', 'Ability'], ['formation-part-5', 'Insignia'], ['formation-part-6', 'Relationships']];
+
 const CIRCLE_ABILITIES = [
   { key: 'Stamina Training', description: 'Your circle has three gilded dice at the beginning of every assignment that anyone may add as +1d to any roll. Once a die has been rolled, it is expended.' },
   { key: 'Nobody Left Behind', description: 'When a member of your circle drops incapacitated from taking too many marks, any roll a player makes in the scene to protect them, or get them out of danger, has +1d.' },
@@ -45,10 +48,10 @@ const TieNote = ({ votes }) => (isTied(votes)
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
-function Section({ title, children, defaultOpen = true }) {
+function Section({ title, id, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-sepia/50 rounded-sm mb-6">
+    <div id={id} className="border border-sepia/50 rounded-sm mb-6 scroll-mt-16">
       <button
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
@@ -216,8 +219,19 @@ export const CircleCreationPopup = () => {
             </h2>
           </div>
 
+          {/* A phone's papers are long: a small list jumps to a part. Desktop shows none. */}
+          <nav aria-label="Parts of the papers" className="sm:hidden sticky top-0 z-30 -mx-7 px-3 py-1 mb-4 bg-parchment border-b border-sepia/40 flex gap-1 overflow-x-auto">
+            {PAPER_PARTS.map(([id, label], i) => (
+              <button key={id} type="button"
+                onClick={() => document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })}
+                className="shrink-0 min-h-[44px] min-w-[44px] px-3 font-sans text-xs font-black uppercase tracking-wider text-sepia hover:text-ink border border-sepia/30 rounded-sm">
+                {['I', 'II', 'III', 'IV', 'V', 'VI'][i]}<span className="sr-only">. </span><span className="ml-1">{label}</span>
+              </button>
+            ))}
+          </nav>
+
           {/* ── SECTION I: Circle Question ── */}
-          <Section title="I. Circle Question">
+          <Section title="I. Circle Question" id="formation-part-1">
             <div className="space-y-3 mb-5">
               {CIRCLE_QUESTIONS.map((q) => {
                 const count = questionTally[q.key] || 0;
@@ -273,14 +287,15 @@ export const CircleCreationPopup = () => {
                 />
                 <p className="font-serif italic text-sm text-sepia mt-1 flex flex-wrap justify-between gap-x-3">
                   <span>The Lightkeeper reads every answer.</span>
-                  <span role="status">{personalAnswer === sentAnswer ? 'Saved' : 'Not saved yet'}</span>
+                  {/* No word until something has been typed or saved (playtest, personal-answer-saved-early) */}
+                  <span role="status">{personalAnswer === '' && (sentAnswer || '') === '' ? '' : personalAnswer === sentAnswer ? 'Saved' : 'Not saved yet'}</span>
                 </p>
               </div>
             )}
           </Section>
 
           {/* ── SECTION II: Name the Circle ── */}
-          <Section title="II. Name the Circle">
+          <Section title="II. Name the Circle" id="formation-part-2">
             <div className="flex gap-2 mb-5 items-center">
               <input
                 type="text"
@@ -302,6 +317,7 @@ export const CircleCreationPopup = () => {
               </button>
               <span className="font-mono tabular-nums text-sm text-sepia shrink-0" aria-label={`${mySuggestionCount} of 5 suggestions used`}>{mySuggestionCount}/5</span>
             </div>
+            {nameDraft.length >= 60 && <p className="font-mono tabular-nums text-xs text-sepia -mt-3 mb-4 text-right">{nameDraft.length}/80 characters</p>}
             {nameNote && <p role="status" className="font-serif italic text-sm text-sepia -mt-3 mb-4">{nameNote}</p>}
 
             {allSuggestedNames.length > 0 ? (
@@ -362,7 +378,7 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── SECTION III: Chapter House Location ── */}
-          <Section title="III. Chapter House Location">
+          <Section title="III. Chapter House Location" id="formation-part-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               <div className="hand-placed bg-parchment/80 border border-sepia/30 p-4 rounded-sm" style={{ '--tilt': '-0.8deg' }}>
                 <p className="font-serif text-base text-sepia leading-snug italic">
@@ -413,7 +429,7 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── SECTION IV: Circle Ability ── */}
-          <Section title="IV. Circle Ability">
+          <Section title="IV. Circle Ability" id="formation-part-4">
             <div className="space-y-3">
               {CIRCLE_ABILITIES.map((ability) => {
                 const count = abilityTally[ability.key] || 0;
@@ -451,7 +467,7 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── SECTION V: System Insignia ── */}
-          <Section title="V. Insignia">
+          <Section title="V. Insignia" id="formation-part-5">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {INSIGNIA_OPTIONS.map((ins) => {
                 const count = insigniaTally[ins.key] || 0;
@@ -483,7 +499,7 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── SECTION VI: Relationship Matrix ── */}
-          <Section title="VI. Circle Relationships">
+          <Section title="VI. Circle Relationships" id="formation-part-6">
 
             {others.length === 0 ? (
               <div className="h-24 rounded-sm border border-dashed border-sepia/40"><span className="sr-only">No one else in the circle</span></div>
