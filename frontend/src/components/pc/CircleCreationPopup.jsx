@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
 import { useDialog } from '../shared/useDialog';
+import { InfoTerm } from '../shared/ActionInfo';
 import { FormLine, SerialNo, PrinterMark, RuledBox, serialFor } from '../shared/PrintMarks';
 import { TickMark } from '../shared/InkMarks';
 import { tallyVotes, leadingVote, isTied, TIE_RULE } from '../../game/votes';
@@ -85,6 +86,8 @@ export const CircleCreationPopup = () => {
     submitCircleVote,
     updateBackstoryAnswer,
     updatePersonalAnswer,
+    confirmedPersonalAnswer,
+    connectionState,
     proposeRelationship,
     respondToRelationship,
   } = useGameStore();
@@ -113,6 +116,12 @@ export const CircleCreationPopup = () => {
   const leadingQuestion = leadingVote(questionVotes)?.value ?? null;
   const myQuestionVote = questionVotes.find(v => v.character_id === myId)?.value || null;
   const [personalAnswer, setPersonalAnswer] = useState(character?.personal_circle_answer || '');
+  // The text the desk last echoed back (or loaded with the sheet), so "Saved" never rests on
+  // the optimistic copy the store keeps nor on a send into a socket that is already dead
+  const loadedAnswer = useRef(character?.personal_circle_answer || '');
+  const sentAnswer = confirmedPersonalAnswer?.characterId === myId ? confirmedPersonalAnswer.answer : loadedAnswer.current;
+  const [houseDraft, setHouseDraft] = useState(null);   // the chapter house text while its box has focus
+  const houseAtFocus = useRef('');                      // what the box held when it got focus
 
   // ── Ability section state ──
   const abilityVotes = votes.ability || [];
@@ -159,11 +168,22 @@ export const CircleCreationPopup = () => {
   const handleAbilityVote = (key) => submitCircleVote(circleId, myId, 'ability', key);
   const handleInsigniaVote = (key) => submitCircleVote(circleId, myId, 'insignia', key);
 
-  const handleLocationBlur = (e) => updateBackstoryAnswer(circleId, 'chapter_house', e.target.value);
+  const handleLocationBlur = (e) => {
+    // Sent only when this player changed it: an untouched copy would overwrite a newer chapter house
+    if (e.target.value !== houseAtFocus.current) updateBackstoryAnswer(circleId, 'chapter_house', e.target.value);
+    setHouseDraft(null);
+  };
 
-  const handlePersonalAnswerBlur = () => {
+  const sendPersonalAnswer = () => {
+    if (connectionState !== 'open') return;
     updatePersonalAnswer(circleId, myId, personalAnswer);
   };
+  // An answer left behind by a dropped socket goes out again when the desk is back
+  const resend = useRef(sendPersonalAnswer);
+  resend.current = sendPersonalAnswer;
+  useEffect(() => {
+    if (connectionState === 'open' && personalAnswer !== sentAnswer && !document.activeElement?.matches('textarea')) resend.current();
+  }, [connectionState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dialogRef = useDialog({});
 
@@ -207,6 +227,7 @@ export const CircleCreationPopup = () => {
                   <button
                     key={q.key}
                     onClick={() => handleQuestionVote(q.key)}
+                    aria-pressed={isMine}
                     className={`w-full text-left p-4 border-2 rounded-sm transition-all ${
                       isLeading ? 'border-ink bg-ink/5'
                       : isMine ? 'border-sepia/60 bg-cream'
@@ -244,14 +265,15 @@ export const CircleCreationPopup = () => {
                 <textarea
                   value={personalAnswer}
                   onChange={e => setPersonalAnswer(e.target.value)}
-                  onBlur={handlePersonalAnswerBlur}
+                  onBlur={sendPersonalAnswer}
                   rows={4}
                   aria-label="Your personal answer"
-                  className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:border-sepia rounded-sm"
+                  className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none overflow-y-auto [field-sizing:content] max-h-[22rem] focus:border-sepia rounded-sm"
                   style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
                 />
-                <p className="font-serif italic text-sm text-sepia mt-1">
-                  The Lightkeeper reads every answer.
+                <p className="font-serif italic text-sm text-sepia mt-1 flex flex-wrap justify-between gap-x-3">
+                  <span>The Lightkeeper reads every answer.</span>
+                  <span role="status">{personalAnswer === sentAnswer ? 'Saved' : 'Not saved yet'}</span>
                 </p>
               </div>
             )}
@@ -302,6 +324,7 @@ export const CircleCreationPopup = () => {
                         <button
                           onClick={() => handleNameVote(name)}
                           aria-label={`Vote for ${name}`}
+                          aria-pressed={isMineVote}
                           className={`font-mono text-sm px-3 py-1 border rounded-full transition-colors shrink-0 ${
                             isMineVote
                               ? 'bg-ink text-cream border-ink'
@@ -349,12 +372,19 @@ export const CircleCreationPopup = () => {
             </div>
 
             <div className="mb-4">
-              <label className="font-sans font-bold text-base uppercase tracking-[0.15em] text-sepia block mb-2">
-                Your Chapter House
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 mb-2">
+                <label htmlFor="circle-chapter-house" className="font-sans font-bold text-base uppercase tracking-[0.15em] text-sepia">
+                  The Circle's Chapter House
+                </label>
+                <span className="font-sans text-sm font-bold uppercase tracking-wider text-sepia">
+                  <InfoTerm label="Shared" slipClassName="right-0 left-auto top-full mt-1 w-[min(18rem,calc(100vw-2.5rem))]" text="The whole circle shares this box. What you save here replaces what anyone else wrote." />
+                </span>
+              </div>
               <textarea
-                key={backstoryAnswers.chapter_house}
-                defaultValue={backstoryAnswers.chapter_house || ''}
+                id="circle-chapter-house"
+                value={houseDraft ?? backstoryAnswers.chapter_house ?? ''}
+                onFocus={e => { houseAtFocus.current = e.target.value; setHouseDraft(e.target.value); }}
+                onChange={e => setHouseDraft(e.target.value)}
                 onBlur={handleLocationBlur}
                 rows={3}
                 className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:border-sepia rounded-sm"
@@ -388,6 +418,7 @@ export const CircleCreationPopup = () => {
                   <button
                     key={ability.key}
                     onClick={() => handleAbilityVote(ability.key)}
+                    aria-pressed={isMine}
                     className={`w-full text-left p-4 border-2 rounded-sm transition-all ${
                       isLeading ? 'border-oxblood bg-oxblood/5'
                       : isMine ? 'border-sepia bg-cream'
@@ -425,6 +456,7 @@ export const CircleCreationPopup = () => {
                   <button
                     key={ins.key}
                     onClick={() => handleInsigniaVote(ins.key)}
+                    aria-pressed={isMine}
                     className={`flex flex-col items-center gap-2 p-4 border-2 rounded-sm transition-all ${
                       isLeading ? 'border-oxblood bg-oxblood/5'
                       : isMine ? 'border-sepia bg-cream'
@@ -475,6 +507,9 @@ export const CircleCreationPopup = () => {
             </p>
             <p className="font-serif text-4xl font-bold text-ink">{resourcePoints}</p>
             <p className="font-mono tabular-nums text-sm text-sepia mt-2">
+              Stitch {resourcePoints} · Refresh {resourcePoints} · Train {resourcePoints}
+            </p>
+            <p className="font-mono tabular-nums text-sm text-sepia">
               1 + {memberCount} investigator{memberCount !== 1 ? 's' : ''}
             </p>
           </div>

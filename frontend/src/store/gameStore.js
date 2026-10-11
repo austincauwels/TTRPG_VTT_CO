@@ -449,6 +449,7 @@ const useGameStore = create(
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
+      confirmedPersonalAnswer: null,  // { characterId, answer } as the desk last echoed it
       circleCreation: {
         isVisible: false,
         circleId: null,
@@ -956,6 +957,10 @@ const useGameStore = create(
           else if (message.type === 'personal_answer_update') {
             const { character_id, answer } = message.payload;
             set(state => ({
+              // What the desk has echoed back, as opposed to the optimistic copy on character
+              confirmedPersonalAnswer: state.character?.id === character_id
+                ? { characterId: character_id, answer }
+                : state.confirmedPersonalAnswer,
               character: state.character?.id === character_id
                 ? { ...state.character, personal_circle_answer: answer }
                 : state.character,

@@ -48,8 +48,8 @@ export const HalcyonHerald = ({ phone = false }) => (
 
       {/* 3-Column Text Layout with Expanded Content */}
       <div className="columns-3 gap-6 font-serif text-[15px] leading-[1.6] text-justify text-ink/90 z-20 h-full overflow-hidden">
-        <p className="mb-4">
-          <span className="text-5xl float-left mr-2 mt-1 leading-none font-display font-bold text-ink">C</span>itizens are strongly urged to remain indoors after nightfall following a staggering series of inexplicable vanishings in the lower wards. The constabulary maintains that there is no cause for mass hysteria. Commissioner Vane stated this morning that the disappearances are likely linked to "migratory patterns of the transient population" and strictly advised the public against spreading sensationalist rumors that might incite unrest.
+        <p className="mb-4 first-letter:text-5xl first-letter:float-left first-letter:mr-2 first-letter:mt-1 first-letter:leading-none first-letter:font-display first-letter:font-bold first-letter:text-ink">
+          Citizens are strongly urged to remain indoors after nightfall following a staggering series of inexplicable vanishings in the lower wards. The constabulary maintains that there is no cause for mass hysteria. Commissioner Vane stated this morning that the disappearances are likely linked to "migratory patterns of the transient population" and strictly advised the public against spreading sensationalist rumors that might incite unrest.
         </p>
         <p className="mb-4">
           "It took him right out of the alley," claims one docker, visibly shaken, his hands trembling as he gestured toward the dense fog blanketing the canal. "No sound, no struggle. Just swallowed by the damp. One moment he was lighting his pipe, the next, the fog just... closed over him. There was a smell, too, like ozone and wet earth."
@@ -64,7 +64,7 @@ export const HalcyonHerald = ({ phone = false }) => (
           In unrelated news, the Briarbank tram line remains closed following yesterday's "structural anomaly." Passengers are advised to seek alternative routes until further notice, as repair crews refuse to descend into the tunnels after dark, citing "unnatural vibrations" emanating from the bedrock itself.
         </p>
         <p className="mb-4">
-          The city council has scheduled a emergency hearing for Tuesday to address the plummeting morale. Attendance is mandatory for all district representatives, though several have already fled to their estates in the High Country.
+          The city council has scheduled an emergency hearing for Tuesday to address the plummeting morale. Attendance is mandatory for all district representatives, though several have already fled to their estates in the High Country.
         </p>
 
         {/* Robust Advertisement Module */}
