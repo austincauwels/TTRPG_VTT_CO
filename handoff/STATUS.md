@@ -1,14 +1,14 @@
 # Candela VTT: status and next phase
 
-Updated 10 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
+Updated 11 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
 Resume: none
 
 ## For the next chat: start here
 
-You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 11 stands, then do "Next phase". Keep the chat lean:
+You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 13 stands, then do "Next phase". Keep the chat lean:
 
-- Robert hit his **weekly usage limit** on 9 October. Before any run of more than about 6 agents, say roughly how big it is and ask, unless he has turned ultracode on for the chat. Prefer one implementer plus one reviewer over wide fan-outs.
+- Before any run of more than about 6 agents, say roughly how big it is and ask, unless he has turned ultracode on for the chat. On 11 October he said his weekly tokens are fine, and the low-items phase ran 21 agents (about 2.4 million subagent tokens).
 - **No resume Routine.** The hourly "Candela: resume an interrupted phase" Routine was deleted on 10 October: its sessions had no GitHub access, so each run only sent a notification. The `Resume:` line below is kept as a note for a person or a new chat; nothing reads it on a schedule. Push work in progress at least hourly anyway, since an interrupted container keeps nothing.
 - At the end of each phase, **rewrite this file** (keep it under about 200 lines), commit it to this branch (`playtest-harness`, folder `handoff/`) and push it. Then tell Robert it is a good point to start a new chat, give the model and effort for the next one, and **end your last message with the start prompt** from "Start prompt for the next chat" below, verbatim in a code block, so he can paste it.
 - Robert's own preferences: plain language, short answers, no em dashes; log durable decisions and facts to his Obsidian vault with the Galga `append_daily_log` tool, after reading the vault's `CLAUDE.md`, using wiki-links such as [[Austin]], [[Candela Obscura Campaign]] and [[GaterGrid Server]].
@@ -16,9 +16,9 @@ You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web
 
 ## Model and effort
 
-Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message so he can set it before starting the next chat. As your first step, check your own model (the `get_session` tool) and effort. If they differ from the recommendation below, tell him in one line and carry on.
+Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message. As your first step, check your own model (the `get_session` tool) and effort. If they differ, tell him in one line and carry on. A subagent's model and effort can be set per agent in a workflow script (`model`: sonnet, opus, haiku or fable; `effort`); the default is the chat's own. Robert asked to see the plan with models per stage before a workflow runs.
 
-**Next phase (the low items or a second playtest): Sonnet 5.5 at medium effort, ultracode off.** For a second AI playtest, see the table.
+**Next phase (a second AI playtest): Opus 5.5 at high effort, ultracode on.** Players on Sonnet 5.5 medium, the Lightkeeper seat and the triage and verification on Opus 5.5 high. Robert asked whether Fable 5.1 is worse than Opus 5.5 and nobody knows: if triage looks shaky, run one small side-by-side (the same triage batch to an Opus and a Fable agent) and compare, rather than guessing.
 
 Rules of thumb for later phases:
 
@@ -27,43 +27,24 @@ Rules of thumb for later phases:
 | Routine: small UI fixes, wording, docs, PR housekeeping, deploy help | Sonnet 5.5 | medium |
 | Races, the WebSocket protocol, rules logic, data loss, a final review before a PR | Opus 5.5 | high |
 | A stubborn bug that resisted one attempt | Opus 5.5 | xhigh (never max) |
-| Workflow agents doing mechanical sweeps (renames, copy edits, finding call sites) | Haiku 5.5 or Sonnet 5.5, passed per agent | low |
-| Workflow implementers on well-specified fixes | Sonnet 5.5, passed per agent | medium |
-| Workflow reviewers and verifiers | Opus 5.5 | high |
-| A second AI playtest: player seats / Lightkeeper / triage and verification | Sonnet 5.5 medium / Opus 5.5 high / Opus 5.5 high | as listed |
+| Workflow agents doing mechanical sweeps | Haiku 5.5 or Sonnet 5.5, per agent | low |
+| Workflow implementers on well-specified fixes | Sonnet 5.5, per agent | medium |
+| Workflow reviewers, verifiers and browser checks | Opus 5.5 | high |
 
-Leave **ultracode off** by default. The PR 11 phase ran with ultracode on at Robert's request: about 42 agents over three workflows plus a small review, roughly 8.5 million subagent tokens. That is the size of a full batch done that way.
+What worked in the low-items phase: sort first (6 read-only Sonnet agents), then one Sonnet implementer per group in its own git worktree, one Opus reviewer per group, a Sonnet repair pass, merge, the full backend suite, then ONE Opus agent driving Chromium on the real build. That last step caught a crash (an undeclared prop) that the build and every review had missed, so never skip a real-browser check. Leave ultracode off unless Robert turns it on.
 
 ## Where things stand
 
-- `main` is at **730cfda**: PR 11 and PR 12 merged on 10 October (CI green). They are live once Robert runs `bash candela/update.sh` after the merges (check the served bundle has "Key to the marks").
-- **PR 12** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/12) applies Robert's ruling on the No Instructions Rule (below) and moves the creator's key to the marks behind an "i".
-- **Robert's ruling on instructions (10 October):** help is fine when it waits to be asked for, behind a hover, focus or a tap on a printed "i" (`InfoTerm`, `ActionInfo`), or in a section given over to instructions. What he does not want is help printed on the page all the time, a subline under every item that turns the screen into a block of text. DESIGN.md says so.
-- **PR 11** fixes the playtest report's remaining medium items, 11 to 15 and 17 to 23 (16 was done in PR 10):
-  - Creator and advancement (11, 12, 13):
-    - each step opens at its top;
-    - 44px controls on a phone;
-    - one gild star for every gilded action, with a padlock on the specialty's gild and a printed key;
-    - the advancement picker has `aria-pressed` and gives reasons.
-  - Marks and abilities (14, 15, 17):
-    - a held mark stays drawn held through its Undo, an offer and its trip to the table;
-    - the Undo strip no longer claims the mark landed;
-    - a landed mark is logged with its count;
-    - offers carry `offer_id`, so stale answers are ignored;
-    - Tactician, Scout and Uncanny Eye ask their question first.
-  - Secret rolls (18): marked on the Lightkeeper's slip, with a "(Secret)" line on her own log only, including the history replay. Burns and post-roll abilities on a secret roll stay private.
-  - Formation papers and report cards (19, 23):
-    - the Lightkeeper's papers are open, with ticks per investigator;
-    - Finalize counts the waiting relationships;
-    - a turned report card reads as a list. `CircleControlModule.jsx` (dead) is removed.
-  - Back, Notebook, sketches (20, 21, 22): Back goes to the Chapter Hub, unsent notes and entries are kept per account, campaign and seat, and sketch tools stay selected.
-  - Fixes from the browser checks and reviews: offer and held-mark state is cleared on socket replacement, sign-out and desk switch; trauma record layout at 1440x900 and on phones; refusals said under the marks; and smaller items.
-- **Checked:**
-  - Backend suite: 1,831 passed, 1 skipped (Google sign-in).
-  - `vite build` passes, and CI was green on the earlier heads.
-  - Chromium on a phone, a tablet, 1366x768, 1440x900 and 1920x1080: 126 group checks passed, and the 2 that failed were fixed and rechecked.
-  - Two-lens reviews per group, three reviews of the merged diff, and a verified review of the last fix round.
-- **Not checked:** a real screen reader (NVDA or VoiceOver). Only the accessibility tree was checked.
+- `main` is at **730cfda** (PR 11 and 12 merged on 10 October). Robert deployed them on 11 October.
+- **PR 13** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/13, branch `claude/candela-vtt-dev-1p5kjh`, last commit 63d80f4) fixes the playtest report's low items. Check its CI and reviews first. Merge only when Robert says so; he then runs `bash candela/update.sh` and players reload.
+- **What PR 13 holds** (report items 24 to 67; ranks are the report's `rank`):
+  - 39 fixed: creator and formation (24, 25, 28, 30, 34, 37, 38, 56, 65, 66, 67), scene desk (27, 31, 32, 33, 41, 60, 61), circle pages (29, 42, 48, 49, 54, 58, 62, 63), rolls and sheet (26, 39, 43, 45, 46, 47, 59), Notebook and joining (40, 44, 50, 51, 52, 53).
+  - Already done before: 55, 57. Left alone on purpose: 35 (the formation papers stay a blocking dialog), 36 (Let Them In stays a notice with only Close), 64 (the hourglass stays sand only, DESIGN.md).
+  - Robert said yes to the default for every wording or product choice, for example "Atmosphere" for players, "The Circle's Chapter House", dice on other people's roll lines, "Ability uses and the hourglass are reset; marked gear is cleared", and the advance log naming what was gained.
+  - DESIGN.md now records the one exception to "no permanent help" that the circle page needed.
+- **Checked:** backend suite 1,834 passed, 1 skipped; `vite build`; five Opus group reviews (each found real problems, fixed); Chromium on a phone (390x844) and a laptop (1440x900) on the real build, no console errors. The first browser run found a crash in `ActionInfo` and two info slips running off a phone, fixed in 63d80f4 and rechecked.
+- **Not checked:** a real screen reader (NVDA or VoiceOver); phone and laptop only, not a tablet.
+- The roll log lines keep their old format with its dash, because tests pin it; the dice are added after it.
 
 ### Leftovers from PR 11 (known, accepted)
 
@@ -71,11 +52,10 @@ Leave **ultracode off** by default. The PR 11 phase ran with ultracode on at Rob
 - The creator's step 3 row overflows below about 356px wide, as it did before.
 - The Lightkeeper's copy of a sheet does not show held marks; the item 15 log line tells her instead.
 - A few rare multi-mark timings can still clear a held box one round trip early.
-- After a server restart, a stale offer card's decline still lands its mark. This is the restart rule, kept on purpose, and QUIRKS.md says so.
-- Notebook drafts stay in the browser after Sign out, under that account's key, as the creator's draft does. They are never shown to another account.
-- A sketch drawing is lost on Back after a reload (Back then loads the page again). There is no `beforeunload` prompt.
+- After a server restart, a stale offer card's decline still lands its mark (the restart rule, in QUIRKS.md).
+- Notebook drafts stay in the browser after Sign out, under that account's key. They are never shown to another account.
+- A sketch drawing is lost on Back after a reload. There is no `beforeunload` prompt.
 - After a reload on a desk and leaving by its button, Back from the hub passes one older hub entry before leaving the site.
-- The server log payloads for Death Defy and In the Trenches still contain an em dash. Tests pin them, and the desk shows them as ': '.
 
 ### Already there before PR 11 (not fixed)
 
@@ -87,8 +67,9 @@ Leave **ultracode off** by default. The PR 11 phase ran with ultracode on at Rob
 
 ## Next phase
 
-1. Confirm PR 11 and 12 are deployed (`bash candela/update.sh`, players reload).
-2. Then pick from the report's low items (24 to 67 in `playtest/results/2026-10-08/report.json`, `ux`), or run a second AI playtest against the new build (`playtest/HANDOFF.md`).
+1. Check PR 13 (CI, reviews, merged or not). If Robert has merged it, confirm he ran `bash candela/update.sh`.
+2. **Run a second AI playtest** against the new build (`playtest/HANDOFF.md`), with ultracode on and the models above. Say the size of the run first and show the plan with models per stage. Ask Robert only if the size is far above PR 11's 42 agents.
+3. Triage the new report the same way as before: sort by severity, verify each claim with an Opus agent against the code, then fix in groups (a Sonnet implementer and an Opus reviewer per group, a real-browser check at the end).
 
 ### Open questions for Robert
 
