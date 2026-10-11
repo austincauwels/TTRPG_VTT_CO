@@ -355,6 +355,8 @@ class CampaignSummaryItem(BaseModel):
     # Characters on its roster (active or pending): the ones deleting it would send back
     # to their players.
     investigator_count: int = 0
+    # Join requests waiting for the Lightkeeper (the ledger's "waiting" badge)
+    pending_count: int = 0
     class Config:
         from_attributes = True
 
@@ -390,6 +392,7 @@ class CharacterSheet(CharacterResponse):
     resources_spent_assignment: int = 0
     advancement_picks: int = 0
     advancement_taken: List[str] = []
+    scar_pending: bool = False
 
 class CharacterRosterItem(BaseModel):
     id: int
@@ -407,6 +410,18 @@ class CharacterRosterItem(BaseModel):
     pronouns: str = "Unlisted"
     catalyst: str = ""
     owner_username: str = ""
+    # How each investigator stands: who is down and the scars are for every member's circle
+    # cards; on this roster the marks, picks and owed scar are filled for the Lightkeeper
+    # alone (zero otherwise). They are not secret from members: the whole sheets
+    # (serializers.get_char_dict) in circle-creation-state, investigator_approved and
+    # character_joined_mid_campaign carry them to every member.
+    incapacitated: bool = False
+    scars_count: int = 0
+    body_marks: int = 0
+    brain_marks: int = 0
+    bleed_marks: int = 0
+    advancement_picks: int = 0
+    scar_pending: bool = False
     class Config:
         from_attributes = True
 
@@ -415,9 +430,25 @@ class CharacterRosterItem(BaseModel):
     def portrait_as_served(cls, v):
         return served_portrait(v)
 
+class FallenItem(BaseModel):
+    """A dead investigator since replaced: the Lightkeeper's Fallen card and Circle History line."""
+    id: int
+    name: str
+    role_class: str = ""
+    specialty: str = ""
+    profile_pic: Optional[str] = None
+    pen_font: str = "Caveat"
+    ink_color: str = ""
+    pronouns: str = "Unlisted"
+    personal_circle_answer: str = ""
+    scars_count: int = 0
+    is_dead: bool = True
+    status: str = "retired"
+
 class RosterResponse(BaseModel):
     pending_investigators: List[CharacterRosterItem]
     active_investigators: List[CharacterRosterItem]
+    fallen_investigators: List[FallenItem] = []
     roster_finalized: bool = False
 
 class NotebookEntryCreate(BaseModel):

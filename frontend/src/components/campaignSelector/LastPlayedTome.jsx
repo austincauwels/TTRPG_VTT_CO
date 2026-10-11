@@ -26,7 +26,8 @@ export const LastPlayedTome = ({ lastPlayedCampaign, onResume }) => {
     return (
       <Tome
         role="img"
-        aria-label="Last Played: no session yet"
+        aria-label="Last Played: no session yet. It opens here once you have played a session."
+        title="No session yet. This opens here once you have played one."
         leather="#120614"
         className={`${SIZE} rotate-[2deg] translate-y-3 lg:landscape:translate-y-2 lg:landscape:translate-x-3 cursor-not-allowed`}
         frames={<span className="tome-frame tome-frame-gilt opacity-50" data-part="frame" style={{ '--fi': '5%' }} />}

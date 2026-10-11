@@ -37,6 +37,8 @@ HTTP_ROUTES = [
     (["POST"], "/campaign/approve/{character_id}", "approve_character", None, None),
     (["POST"], "/campaign/reject/{character_id}", "reject_character", None, None),
     (["POST"], "/campaign/{campaign_id}/retire", "retire_campaign", None, None),
+    (["POST"], "/campaign/{campaign_id}/unretire", "unretire_campaign", None, None),
+    (["POST"], "/campaign/withdraw/{character_id}", "withdraw_request", None, None),
     (["DELETE"], "/campaign/{campaign_id}", "delete_campaign", None, None),
     (["POST"], "/campaign/{campaign_id}/restore", "restore_campaign", None, None),
     (["POST"], "/campaign/rejoin", "rejoin_campaign", None, None),
@@ -82,6 +84,7 @@ HTTP_ROUTES = [
     (["PUT"], "/api/notebook/entries/{entry_id}/sketch", "redraw_sketch", "NotebookEntryResponse", None),
     (["GET"], "/api/users/{user_id}/characters", "get_user_characters", "list[CharacterSummaryItem]", None),
     (["GET"], "/api/users/{user_id}/campaigns", "get_user_gm_campaigns", "list[CampaignSummaryItem]", None),
+    (["GET"], "/api/users/{user_id}/retired-campaigns", "get_user_retired_campaigns", "list[CampaignSummaryItem]", None),
 ]
 
 
@@ -219,8 +222,9 @@ WS_CASES = {
         payload=lambda c: {"ability": "Premonitions", "target_character_id": c.other_id, "mark_type": "body"},
         expect=["character_update", "activity_log"]),
     "apply_scar": dict(fields={"specialty_ability": "Hardened"},
-                       payload=lambda c: {"scar_text": "s", "skip_shifts": True}, expect=["character_update"]),
-    "revive_character": dict(payload=lambda c: {}, expect=["character_update", "activity_log"]),
+                       payload=lambda c: {"scar_text": "s", "skip_shifts": True},
+                       expect=["character_update", "member_status", "activity_log"]),
+    "revive_character": dict(payload=lambda c: {}, expect=["character_update", "activity_log", "member_status"]),
     # A burn answers a roll of that action (p. 13)
     "burn_resistance": dict(
         fields={"move": 2, "nerve_max": 3}, dice=(6, 6),
@@ -228,7 +232,7 @@ WS_CASES = {
         payload=lambda c: {"action": "move", "drive_key": "nerve"}, expect=["roll_result", "activity_log"]),
     "update_gear": dict(payload=lambda c: {"gear": ["rope"]}, expect=["character_update", "activity_log"]),
     "gm_toggle_resource_edit": dict(
-        sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update"]),
+        sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update", "activity_log"]),
     "gm_toggle_reports": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update", "activity_log"]),
     # A report needs the Lightkeeper's reports open (handlers/circle.py)

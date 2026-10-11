@@ -14,7 +14,7 @@ import { livingMembers } from '../../game/roster';
 import { useMarkUndo, MARK_NAME } from './useMarkUndo';
 import { useDialog } from '../shared/useDialog';
 import { tiltFor } from '../shared/handPlaced';
-import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks';
+import { FormLine, SerialNo, PrinterMark, BlankEntry, serialFor } from '../shared/PrintMarks';
 import { PhotoMount } from '../shared/PhotoMount';
 import { usePortraitChange } from './usePortraitChange';
 import { TickMark } from '../shared/InkMarks';
@@ -208,7 +208,7 @@ const ScarEditLine = ({ index, raw, draft, onDraft, onSave, onRemove, removeHint
       <label htmlFor={id} className="sr-only">Scar {index + 1}</label>
       <textarea
         id={id}
-        rows={2}
+        rows={Math.min(10, Math.max(2, Math.ceil(value.length / 48) + value.split('\n').length - 1))}
         maxLength={SCAR_TEXT_MAX}
         value={value}
         onChange={e => onDraft(e.target.value)}
@@ -537,6 +537,17 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // Save and "Yes, remove" go away once pressed, so keyboard focus moves on to a scar's
   // words (that line's, or the next line's after a removal), or to Done when none is left
   const scarLinesRef = useRef(null);
+  // A scar newly recorded on a player's own sheet brings the scars list into view, so the new
+  // line is seen where it was written (the log line says it too)
+  const scarsSeen = useRef(character?.scars_count || 0);
+  useEffect(() => {
+    const n = character?.scars_count || 0;
+    if (!readOnly && n > scarsSeen.current) {
+      const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      scarLinesRef.current?.scrollIntoView?.({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+    }
+    scarsSeen.current = n;
+  }, [character?.scars_count, readOnly]);
   const traumaToggleRef = useRef(null);
   const focusScarAfter = useRef(null);
   useEffect(() => {
@@ -804,7 +815,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         ) : null}
         <div className="min-w-0 sm:col-start-3 sm:row-start-1">
           <span className="block font-sans text-xs font-black uppercase tracking-normal text-sepia leading-tight">Pronouns</span>
-          <div className="text-sm font-bold italic border-b border-ink pb-1 text-ink/70 mt-1.5 truncate">{character.pronouns || 'Not given'}</div>
+          <div className="text-sm font-bold italic border-b border-ink pb-1 text-ink/70 mt-1.5 truncate">{character.pronouns && character.pronouns !== 'Unlisted' ? character.pronouns : <BlankEntry label="Not given" />}</div>
         </div>
       </div>
 
@@ -831,6 +842,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
               <SafeIcon name="GiBriefcase" size={18} /> Gear
             </h3>
+            {!readOnly && gear.length === 0 && <InfoTerm label="Why empty" ariaLabel="Why the gear is empty" text="The Lightkeeper clears everyone's gear when an assignment ends. Choose it again for the next one." slipClassName="left-0 top-full mt-1 w-[min(16rem,calc(100vw-4rem))]" className="text-xs" />}
             {!readOnly && !dead && (
               <button
                 type="button"
@@ -1342,9 +1354,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             {/* The status, rubber-stamped on the record */}
             <div className="mark-status flex flex-wrap items-center gap-2">
               <span className="sr-only">Status: </span>
-              <span className={`mark-stamp inline-block -rotate-2 border-2 rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight whitespace-nowrap ${
+              <span className={`mark-stamp inline-block -rotate-2 border-2 rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight ${
                 character?.is_dead ? 'border-ink text-ink' : character?.incapacitated ? 'border-oxblood text-oxblood' : 'border-sepia/70 text-sepia'}`}>
-                {character?.is_dead ? "Dead" : character?.incapacitated ? "Incapacitated" : "Able to act"}
+                {character?.is_dead ? "Dead" : character?.incapacitated ? (character.scar_pending ? "Incapacitated: scar owed" : "Incapacitated") : "Able to act"}
               </span>
               {character?.is_dead && !readOnly && (
                 <button
@@ -1504,7 +1516,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           <div ref={gearDialogRef} role="dialog" aria-modal="true" aria-labelledby="gear-dialog-title" className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
             style={{ background: 'rgb(var(--c-parchment))', border: '3px double rgb(var(--c-sepia)/0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
             <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-2">Change Gear</h2>
-            <p className="text-sm font-serif italic text-sepia mb-5">Mark an item when you use it. Marked gear stays until the Lightkeeper ends the assignment, when everyone's gear is cleared, to be chosen again.</p>
+            <p className="text-sm font-serif italic text-sepia mb-3">Choose the gear you carry. A chosen item is marked and stays until the Lightkeeper ends the assignment, when everyone's gear is cleared, to be chosen again.</p>
+            {/* Why the rest are greyed, at the top where a phone shows it */}
+            <p role="status" className="mb-2 text-xs font-sans font-black text-sepia">
+              {pendingCount < slots ? '' : swappable ? `All ${slots} gear slots are marked. Untick one to swap.` : `All ${slots} gear slots are marked until the assignment ends.`}
+            </p>
             {/* The sheet's blank gear line (p. 53): circle gear, or gear found on the way,
                 written in by name. Marked items stay; new ones can be taken off until saved. */}
             <div className="mb-4">
@@ -1537,11 +1553,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 </button>
               </form>
               {/* Shown only while it matters: the reason Add is greyed, and the length near its cut */}
-              {writeInName && (pendingCount >= slots || writeIn.length >= 45) && (
-                <p role="status" className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-xs font-sans font-black text-sepia">
-                  <span>{pendingCount >= slots ? (swappable ? `All ${slots} gear slots are marked. Untick one to swap.` : `All ${slots} gear slots are marked until the assignment ends.`) : ''}</span>
-                  {writeIn.length >= 45 && <span className="tabular-nums">{writeIn.length} / 60</span>}
-                </p>
+              {writeIn.length >= 45 && (
+                <p className="mt-1.5 text-right text-xs font-sans font-black text-sepia tabular-nums">{writeIn.length} / 60</p>
               )}
             </div>
 
@@ -1553,7 +1566,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     const sel = pendingGear.includes(item);
                     return (
                       <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingCount < slots && setPendingGear(g=>[...g,item])}
-                        className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
+                        aria-disabled={!sel && pendingCount >= slots && !gear.includes(item) ? true : undefined}
+                        className={`w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm ${!sel && pendingCount >= slots ? 'opacity-50' : ''}`}
                         style={{ background: sel ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.3)', border:`1px solid ${sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia)/0.22)'}` }}>
                         <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/40'}`}>{sel&&<TickMark />}</div>
                         <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />
@@ -1572,7 +1586,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   const sel = pendingGear.includes(item);
                   return (
                     <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingCount < slots && setPendingGear(g=>[...g,item])}
-                      className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
+                      aria-disabled={!sel && pendingCount >= slots && !gear.includes(item) ? true : undefined}
+                        className={`w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm ${!sel && pendingCount >= slots ? 'opacity-50' : ''}`}
                       style={{ background: sel ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.15)', border:`1px solid ${sel?'rgb(var(--c-oxblood) / 0.5)':'rgb(var(--c-sepia)/0.15)'}` }}>
                       <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/35'}`}>{sel&&<TickMark />}</div>
                       <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />

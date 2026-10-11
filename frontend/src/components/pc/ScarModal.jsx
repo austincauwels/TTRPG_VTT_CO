@@ -40,11 +40,15 @@ const ScarModal = () => {
   // scar leaves the ratings alone.
   const ability = scarModalData?.ability || null;
   const keepsByAbility = !!SCAR_ABILITIES[ability]?.keepsRatings;
-  const keep = keepsByAbility || skipShifts;
+  // The fourth scar kills (FAQ, Death): it asks for no action shift, and cannot be put off,
+  // since deferring leaves the death unrecorded. (A scar taken for an ability is not owed:
+  // it can be cancelled.)
+  const fatal = !ability && (character?.scars_count || 0) >= 3;
+  const keep = keepsByAbility || skipShifts || fatal;
 
   // Escape is "Decide later", like the button: the scar stays pending, nothing is lost.
   // A scar taken for an ability is not owed, so Escape cancels it.
-  const dialogRef = useDialog({ open: !!showScarModal, onClose: ability ? cancelAbilityScar : deferScar });
+  const dialogRef = useDialog({ open: !!showScarModal, onClose: ability ? cancelAbilityScar : fatal ? () => {} : deferScar });
 
   if (!showScarModal) return null;
 
@@ -90,7 +94,7 @@ const ScarModal = () => {
       }
     }
 
-    const shiftNote = keep ? scarShiftNote(null, null, keepsByAbility ? ability : 'Hardened') : scarShiftNote(degradeAction, advanceAction);
+    const shiftNote = keep ? scarShiftNote(null, null, keepsByAbility ? ability : fatal ? 'Fatal scar' : 'Hardened') : scarShiftNote(degradeAction, advanceAction);
     // A player who copies the format of an earlier scar types the note too: it appears once
     const typed = medicalNotes.trim().replace(/\s*\((?:-1 [^,()]+, \+1 [^()]+|[^()]+: no action shift)\)$/, '').trim();
     if (!typed) {
@@ -170,18 +174,18 @@ const ScarModal = () => {
               ? `${character?.name || 'Your investigator'} uses Not Again: an automatic full success on the action. Tell your circle how they got this scar, and why the lesson is helping them succeed here. The action ratings stay as they are.`
               : ability === 'Forbidden Ritual'
                 ? `${character?.name || 'Your investigator'} uses Forbidden Ritual and takes a Bleed scar.`
-                : `${character?.name || 'Your investigator'}'s ${markName} track is full.`}
+                : `${character?.name || 'Your investigator'} took a fourth ${markName} mark. The track is cleared, and a scar is owed.`}
           </p>
           {isFourthScar && (
             <p className="font-serif text-base font-bold text-oxblood mt-2 leading-snug">
-              This is the fourth scar. When you record it, {character?.name || 'your investigator'} dies.
+              This is the fourth scar. When you record it, {character?.name || 'your investigator'} dies. It changes no action rating.
             </p>
           )}
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="relative z-10 space-y-4">
           {/* Hardened ability: skip action shifts */}
-          {isHardened && !keepsByAbility && (
+          {isHardened && !keepsByAbility && !fatal && (
             <label className="flex items-center gap-2 cursor-pointer bg-cream border border-parchment-deep rounded px-3 py-2">
               <input
                 type="checkbox"
@@ -195,7 +199,7 @@ const ScarModal = () => {
             </label>
           )}
 
-          {!keepsByAbility && <div className={`grid grid-cols-2 gap-4 ${skipShifts ? 'opacity-40 pointer-events-none' : ''}`}>
+          {!keepsByAbility && !fatal && <div className={`grid grid-cols-2 gap-4 ${skipShifts ? 'opacity-40 pointer-events-none' : ''}`}>
             {actionColumn({
               name: 'degrade_action',
               title: 'Lower by 1',
@@ -245,13 +249,13 @@ const ScarModal = () => {
 
           {/* Held at the foot of the scrolling dialog, so both buttons stay in view on a phone */}
           <div className="flex flex-wrap items-center justify-between gap-3 sticky -bottom-5 sm:-bottom-8 z-10 -mx-5 sm:-mx-8 -mb-5 sm:-mb-8 px-5 sm:px-8 pt-3 pb-5 sm:pb-8 bg-parchment border-t border-ink/20">
-            <button
+            {fatal ? <span /> : <button
               type="button"
               onClick={ability ? cancelAbilityScar : deferScar}
               className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-bold uppercase tracking-widest text-sepia hover:text-oxblood border border-sepia/40 hover:border-oxblood/50 rounded-sm transition-colors"
             >
               {ability ? 'Cancel' : 'Decide later'}
-            </button>
+            </button>}
             <button type="submit" className="px-5 py-2.5 [@media(pointer:coarse)]:min-h-[44px] bg-ink text-cream hover:bg-oxblood font-sans font-black text-xs uppercase tracking-widest rounded-sm transition-colors shadow-md">
               Record scar
             </button>

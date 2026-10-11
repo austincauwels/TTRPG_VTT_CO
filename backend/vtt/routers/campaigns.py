@@ -1,4 +1,4 @@
-"""Campaign and roster routes: create, join, approve, reject, retire, delete (and undo
+"""Campaign and roster routes: create, join, approve, reject, withdraw, retire, unretire, delete (and undo
 that), rejoin, invite to rejoin, roster.
 
 Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
@@ -25,7 +25,7 @@ from vtt.circle_queries import fill_resources
 from vtt.config import _ALLOWED_CAMPAIGN_CODE_RE, _SAFE_FONT_NAMES
 from vtt.db import get_db, releases_locks_on_error
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
-from vtt.serializers import get_char_dict, get_circle_dict
+from vtt.serializers import awaiting_scar, fallen_card, get_char_dict, get_circle_dict
 from vtt.ws.access import CLOSE_NOT_FOUND
 from vtt.ws.manager import campaign_key, character_key, log_line, manager
 
@@ -63,6 +63,7 @@ def _code_refused(holder, user: User) -> HTTPException:
 
 
 CAMPAIGN_RETIRED = "This campaign has been retired."
+NOT_WAITING = "This request is no longer waiting."
 
 
 def _refuse_retired(is_retired) -> None:
@@ -109,6 +110,13 @@ def _named(db: Session, chars) -> list:
     to tell one player's requests apart."""
     owners = _owner_names(db, chars)
     return [{**get_char_dict(c), "owner_username": owners.get(c.user_id, "")} for c in chars]
+
+
+def _fallen_of(db: Session, campaign_id: int) -> list:
+    """The campaign's dead whose players have since been replaced, as Fallen cards."""
+    return [fallen_card(c) for c in db.query(Character).filter(
+        Character.campaign_id == campaign_id, Character.status == "retired",
+        Character.is_dead == True).order_by(Character.id)]
 
 
 async def _broadcast_named(db: Session, campaign, plain: dict, named: dict):
@@ -176,7 +184,13 @@ async def _announce_members_changed(db: Session, campaign: Campaign):
 @router.post("/campaign/approve/{character_id}")
 async def approve_character(character_id: int, db: Session = Depends(get_db),
                             user: User = Depends(get_current_user)):
-    require_gm_of_character(db, user, character_or_404(db, character_id))
+    pending = character_or_404(db, character_id)
+    require_gm_of_character(db, user, pending)
+    # the dead of this player the approval retires, for the log line
+    replaced = [n for (n,) in db.query(Character.name).filter(
+        Character.campaign_id == pending.campaign_id, Character.user_id == pending.user_id,
+        Character.id != pending.id, Character.is_dead == True,
+        Character.status == "active").order_by(Character.id)] if pending.user_id else []
     result = approve_investigator(db, character_id)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -187,16 +201,22 @@ async def approve_character(character_id: int, db: Session = Depends(get_db),
         active = db.query(Character).filter(
             Character.campaign_id == char.campaign_id,
             Character.status == "active"
-        ).all()
-        await manager.broadcast_campaign(campaign.campaign_code, char.campaign_id, {
-            "type": "investigator_approved",
-            "payload": {
+        ).order_by(Character.id).all()
+        def approved(extra):
+            return {"type": "investigator_approved", "payload": {
                 "character": get_char_dict(char),
                 "active_investigators": [get_char_dict(c) for c in active],
-                "campaign_id": char.campaign_id,
-            }
-        }, db)
+                "campaign_id": char.campaign_id, **extra}}
+        # The Lightkeeper's copy also lists the dead this one replaced, for the Fallen cards
+        await _broadcast_named(db, campaign, approved({}),
+                               approved({"fallen_investigators": _fallen_of(db, char.campaign_id)}))
         await _announce_members_changed(db, campaign)
+        # An investigator who takes a dead one's place is told to the table, as a rejoin is
+        if replaced:
+            await log_line(db, campaign.campaign_code, campaign.id,
+                           f"{char.name} joined the circle, in place of {' and '.join(replaced)}.")
+        else:
+            await log_line(db, campaign.campaign_code, char.campaign_id, f"{char.name} was approved into the circle.")
     return result
 
 @router.post("/campaign/reject/{character_id}")
@@ -206,6 +226,7 @@ async def reject_character(character_id: int, db: Session = Depends(get_db),
     # Capture campaign info before the reject clears campaign_id
     char_before = db.query(Character).filter(Character.id == character_id).first()
     camp_id_before = char_before.campaign_id if char_before else None
+    name_before = char_before.name if char_before else "an investigator"
     campaign_before = db.query(Campaign).filter(Campaign.id == camp_id_before).first() if camp_id_before else None
     camp_code_before = campaign_before.campaign_code if campaign_before else None
     pending_before = db.query(Character).filter(
@@ -230,6 +251,7 @@ async def reject_character(character_id: int, db: Session = Depends(get_db),
             "type": "investigator_rejected",
             "payload": {"character_id": character_id},
         })
+        await log_line(db, camp_code_before, camp_id_before, f"The Lightkeeper declined {name_before}.")
     return result
 
 @router.post("/campaign/{campaign_id}/retire")
@@ -267,6 +289,66 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
     # on another campaign's desk must not hear it.
     for key in [campaign_key(campaign.campaign_code)] + [character_key(c.id) for c in released]:
         await manager.broadcast(key, message)
+    return {"ok": True}
+
+
+@router.post("/campaign/{campaign_id}/unretire")
+async def unretire_campaign(campaign_id: int, db: Session = Depends(get_db),
+                            user: User = Depends(get_current_user)):
+    """Brings back a retired campaign for its GM (the ledger's Retired list, Restore): it
+    is back in the ledger and takes members again. It comes back with what the retire
+    left with it, its dead (retired, the desk's Fallen cards). Nobody is put back on its
+    roster: a living investigator the retire let go is its player's own again and may be
+    in another campaign by now, so it comes back only by a join or an invite. A campaign
+    that is not retired is answered the same way and nothing is sent (retrying is safe).
+
+    Every open socket of the GM, and of the owners of the investigators that stayed with
+    it, gets campaign_restored (no character put back), so a ledger open elsewhere reads
+    its lists again; the campaign's Activity Log gets a line."""
+    require_gm(user, campaign_or_404(db, campaign_id))
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).populate_existing() \
+        .with_for_update().first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    answer = {"ok": True, "id": campaign.id, "name": campaign.name, "campaign_code": campaign.campaign_code}
+    if not campaign.is_retired:
+        db.rollback()
+        return answer
+    campaign.is_retired = False
+    db.commit()
+    owners = {row.user_id for row in db.query(Character.user_id).filter(Character.campaign_id == campaign.id)}
+    await manager.broadcast_users(owners | {campaign.gm_user_id}, {"type": "campaign_restored", "payload": {
+        "campaign_id": campaign.id, "campaign_code": campaign.campaign_code, "campaign_name": campaign.name,
+        "restored_character_ids": []}})
+    await log_line(db, campaign.campaign_code, campaign.id,
+                   f"The Lightkeeper brought {campaign.name} back from retirement.")
+    return answer
+
+
+@router.post("/campaign/withdraw/{character_id}")
+async def withdraw_request(character_id: int, db: Session = Depends(get_db),
+                           user: User = Depends(get_current_user)):
+    """The owner takes back a join request that is still waiting: the investigator goes
+    back to Not in a campaign. 409 once the Lightkeeper has answered (the player reads
+    the hub again). The Lightkeeper's desk drops the request as it does for a reject."""
+    require_owner(user, character_or_404(db, character_id))
+    char = db.query(Character).filter(Character.id == character_id).populate_existing().with_for_update().first()
+    if char is None:
+        raise HTTPException(status_code=404, detail="Character not found")
+    if char.status != "pending" or char.campaign_id is None:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=NOT_WAITING)
+    camp_id = char.campaign_id
+    char.status = "unaffiliated"
+    char.campaign_id = None
+    db.commit()
+    campaign = db.query(Campaign).filter(Campaign.id == camp_id).first()
+    if campaign is not None:
+        still = db.query(Character).filter(Character.campaign_id == camp_id, Character.status == "pending").all()
+        def frame(cards):
+            return {"type": "investigator_rejected",
+                    "payload": {"character_id": character_id, "pending_investigators": cards}}
+        await _broadcast_named(db, campaign, frame([get_char_dict(c) for c in still]), frame(_named(db, still)))
     return {"ok": True}
 
 
@@ -414,14 +496,17 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     active = db.query(Character).filter(
         Character.campaign_id == campaign.id,
         Character.status == "active",
-    ).all()
+    ).order_by(Character.id).all()
     def approved(cards, card):
         return {"type": "investigator_approved",
                 "payload": {"character": card, "active_investigators": cards, "campaign_id": campaign.id}}
     # the Lightkeeper's cards carry the player's login name, as the roster's do
     named = _named(db, active)
-    await _broadcast_named(db, campaign, approved([get_char_dict(c) for c in active], get_char_dict(new_char)),
-                           approved(named, next(c for c in named if c["id"] == new_char.id)))
+    plain = approved([get_char_dict(c) for c in active], get_char_dict(new_char))
+    gm_copy = approved(named, next(c for c in named if c["id"] == new_char.id))
+    # The Lightkeeper's copy also lists the dead this one replaced, for the Fallen cards
+    gm_copy["payload"]["fallen_investigators"] = _fallen_of(db, campaign.id)
+    await _broadcast_named(db, campaign, plain, gm_copy)
     await manager.broadcast_campaign(campaign.campaign_code, campaign.id, {
         "type": "character_joined_mid_campaign",
         "payload": {
@@ -502,8 +587,17 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
     # the players' login names are the Lightkeeper's to read, not the members'
     owners = _owner_names(db, raw["pending_investigators"] + raw["active_investigators"]) \
         if campaign.gm_user_id == user.id else {}
+    is_lk = campaign.gm_user_id == user.id
     def to_item(c):
+        # Who is down and how many scars they carry, which the circle's cards show every
+        # member (the circle's state lists the same); the rest is the Lightkeeper's
+        stands = dict(incapacitated=bool(c.incapacitated), scars_count=c.scars_count or 0)
+        if is_lk:
+            stands.update(
+                body_marks=c.body_marks or 0, brain_marks=c.brain_marks or 0, bleed_marks=c.bleed_marks or 0,
+                advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar)
         return CharacterRosterItem(
+            **stands,
             owner_username=owners.get(c.user_id, ""),
             id=c.id,
             name=c.name,
@@ -527,5 +621,7 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
         # mistake is removed there, which lifts the death). The desk shows them apart, and
         # nothing that counts members counts them.
         "active_investigators": [to_item(c) for c in raw["active_investigators"]],
+        # The dead whose player has since been replaced: a Fallen card for the Lightkeeper only
+        "fallen_investigators": [fallen_card(c) for c in raw["fallen_investigators"]] if is_lk else [],
         "roster_finalized": bool(campaign.roster_finalized) if campaign else False,
     }

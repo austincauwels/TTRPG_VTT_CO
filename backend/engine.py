@@ -78,9 +78,12 @@ def request_join_campaign(db: Session, character_id: int, campaign_code: str, pe
 
 def approve_investigator(db: Session, character_id: int):
     """The GM 'Stamp' action. Moves character from pending to active and assigns an ink color."""
-    character = db.query(Character).filter(Character.id == character_id).first()
+    # Lock the row: a withdraw running at the same time must not leave an active character
+    # with no campaign.
+    character = db.query(Character).filter(Character.id == character_id) \
+        .populate_existing().with_for_update().first()
 
-    if character and character.status == "pending":
+    if character and character.status == "pending" and character.campaign_id is not None:
         # Retire any dead predecessor this user had in the same campaign so the old
         # character doesn't linger as "active" in the roster.
         if character.user_id and character.campaign_id:
@@ -127,9 +130,16 @@ def get_campaign_roster(db: Session, campaign_id: int):
     pending = [c for c in all_chars if c.status == "pending"]
     active  = [c for c in all_chars if c.status == "active"]
 
+    # The dead whose player's new investigator has since been approved (retired): the
+    # Lightkeeper's desk keeps a Fallen card for each
+    fallen = db.query(Character).filter(
+        Character.campaign_id == campaign_id, Character.status == "retired",
+        Character.is_dead == True).order_by(Character.id).all()
+
     return {
         "pending_investigators": pending,
-        "active_investigators": active
+        "active_investigators": active,
+        "fallen_investigators": fallen,
     }
 
 def get_notebook_entries(db: Session, campaign_id: int):

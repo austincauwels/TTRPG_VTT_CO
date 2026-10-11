@@ -38,7 +38,8 @@ def test_approve_broadcasts_to_gm_and_active_members(client):
             support.ws_connect(client, member["id"]) as mem, \
             support.ws_connect(client, ch["id"]) as newbie:
         support.approve(client, ch["id"])
-        msg, circle = gm.drain()
+        msg, circle, said = gm.drain()
+        assert said["payload"]["message"] == f"{ch['name']} was approved into the circle."
         assert msg["type"] == "investigator_approved"
         assert msg["payload"]["character"]["id"] == ch["id"]
         assert msg["payload"]["character"]["status"] == "active"
@@ -49,8 +50,24 @@ def test_approve_broadcasts_to_gm_and_active_members(client):
         assert circle["type"] == "circle_update"
         p = circle["payload"]
         assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (3, 3, 3, 3)
-        assert _types(mem) == ["investigator_approved", "circle_update"]
-        assert _types(newbie) == ["investigator_approved", "circle_update"]
+        assert _types(mem) == ["investigator_approved", "circle_update", "activity_log"]
+        assert _types(newbie) == ["investigator_approved", "circle_update", "activity_log"]
+
+
+def test_approved_frame_lists_active_investigators_in_id_order(client):
+    # Without an ORDER BY, PostgreSQL returns an updated row after the later ones
+    camp = support.new_campaign(client)
+    first = support.active_member(client, camp)
+    second = support.active_member(client, camp)
+    third = support.pending_member(client, camp)
+    support.update(Character, first["id"], pen_font="Caveat")
+    support.update(Character, second["id"], pen_font="Caveat")
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        support.approve(client, third["id"])
+        msg = gm.drain()[0]
+        assert msg["type"] == "investigator_approved"
+        ids = [c["id"] for c in msg["payload"]["active_investigators"]]
+        assert ids == sorted(ids) == [first["id"], second["id"], third["id"]]
 
 
 def test_approving_fills_the_resources_only_before_the_seal(client):
@@ -88,13 +105,14 @@ def test_reject_notifies_campaign_and_rejected_character(client):
             support.ws_connect(client, member["id"]) as mem, \
             support.ws_connect(client, ch["id"]) as rejected:
         support.reject(client, ch["id"])
-        [msg] = gm.drain()
+        msg, said = gm.drain()
+        assert said["payload"]["message"] == f"The Lightkeeper declined {ch['name']}."
         assert msg == {"type": "investigator_rejected", "payload": {
             "character_id": ch["id"],
             "pending_investigators": msg["payload"]["pending_investigators"]}}
         assert [c["id"] for c in msg["payload"]["pending_investigators"]] == [other["id"]]
         assert msg["payload"]["pending_investigators"][0]["owner_username"]
-        [seen] = mem.drain()
+        seen, _said = mem.drain()
         assert seen["type"] == "investigator_rejected"
         assert "owner_username" not in seen["payload"]["pending_investigators"][0]
         assert rejected.drain() == [{"type": "investigator_rejected", "payload": {"character_id": ch["id"]}}]
@@ -173,12 +191,12 @@ def test_finalize_roster_skips_released_pending_characters(client):
             support.ws_connect(client, member["id"]) as mem, \
             support.ws_connect(client, pending["id"]) as pend:
         client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp))
-        [msg] = gm.drain()
+        msg, _said = gm.drain()
         assert msg["type"] == "roster_finalized"
         assert set(msg["payload"]) == {"circle", "campaign_id", "rejected_character_ids"}
         assert msg["payload"]["rejected_character_ids"] == [pending["id"]]
         assert msg["payload"]["circle"]["is_finalized"] is True
-        assert _types(mem) == ["roster_finalized"]
+        assert _types(mem) == ["roster_finalized", "activity_log"]
         assert pend.drain() == []
 
 
@@ -228,3 +246,15 @@ def test_upload_is_broadcast_with_a_log_line(client):
         assert support.types(msgs) == ["notebook_entry", "activity_log"]
         assert msgs[0]["payload"]["id"] == r.json()["id"]
         assert msgs[0]["payload"]["image_data"] == r.json()["image_data"]
+
+
+def test_approving_and_declining_are_logged(client):
+    camp = support.new_campaign(client)
+    ok = support.pending_member(client, camp)
+    no = support.pending_member(client, camp)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.sync()
+        support.approve(client, ok["id"])
+        support.reject(client, no["id"])
+        lines = [m["payload"]["message"] for m in support.of_type(gm.drain(), "activity_log")]
+    assert lines == [f"{ok['name']} was approved into the circle.", f"The Lightkeeper declined {no['name']}."]

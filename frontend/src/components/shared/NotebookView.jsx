@@ -343,20 +343,20 @@ function PhotoPicture({ entry }) {
 function EntryCard({ entry, isLast, onRedraw }) {
   const eType = entry.entry_type || 'field_log';
 
-  // Sketch or photo: the picture across the page, then the title, the caption and the hand
-  // under it (owner, 2026-10-05: never shrunk off to the side)
+  // Sketch or photo: the title and caption first, so the words are not pushed below the fold,
+  // then the picture across the page (owner, 2026-10-05: never shrunk off to the side), then the hand
   if ((eType === 'sketch' || eType === 'photo') && entry.image_data) {
     return (
       <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
-        {eType === 'sketch'
-          ? <SketchPicture entry={entry} onRedraw={onRedraw} />
-          : <PhotoPicture entry={entry} />}
-        <h3 className="leading-tight mt-2 mb-1 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2rem' }}>
+        <h3 className="leading-tight mb-1 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2rem' }}>
           {entry.title}
         </h3>
         {entry.content && (
           <NoteMarkdown text={entry.content} className="text-[26px] leading-[2.8rem]" style={{ fontFamily: entry.pen_font, color: entry.ink_color }} />
         )}
+        {eType === 'sketch'
+          ? <SketchPicture entry={entry} onRedraw={onRedraw} />
+          : <PhotoPicture entry={entry} />}
         <div className="text-[18px] mt-2" style={{ fontFamily: entry.pen_font, color: entry.ink_color, opacity: 0.5 }}>
           {entry.author_name} · {formatDate(entry.created_at)}
         </div>
@@ -959,7 +959,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
             activeColor: 'rgb(var(--c-parchment))', activeText: 'rgb(var(--c-ink))', inactiveColor: 'rgb(var(--c-sepia) / 0.75)', inactiveText: 'rgb(var(--c-parchment-deep))',
           },
           ...(isGM ? [{
-            label: `Lightkeeper Resources${lkEntries.length > 0 ? ` (${lkEntries.length})` : ''}`,
+            label: 'Lightkeeper Resources',
             active: isLKView,
             onClick: () => { setShowLKResources(true); setShowEphemeral(false); },
             activeColor: 'rgb(var(--c-parchment))', activeText: 'rgb(var(--c-oxblood))', inactiveColor: 'rgb(var(--c-sepia) / 0.75)', inactiveText: 'rgb(var(--c-parchment-deep))',
@@ -1099,9 +1099,9 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
             </div>
 
             {/* Continuous note area */}
-            <div className="px-4 sm:px-8 py-4" style={LINED_PAPER}>
+            <div className="px-4 sm:px-8 py-4" style={{ ...LINED_PAPER, backgroundPosition: '0 16px' }}>
               {lkPreview ? (
-                <NoteMarkdown text={lkContent} className="text-[26px] leading-[3.5rem] font-serif text-ink py-0.5"
+                <NoteMarkdown text={lkContent} className="px-2 text-[24px] leading-[28px] font-serif text-ink"
                   style={{ minHeight: '700px' }} />
               ) : (
                 <textarea
@@ -1109,7 +1109,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                   value={lkContent}
                   onChange={e => handleLKContentChange(e.target.value)}
                   aria-label="Lightkeeper notes"
-                  className="w-full bg-transparent border-none resize-none text-[26px] leading-[3.5rem] font-serif text-ink placeholder-sepia/90"
+                  className="w-full bg-transparent border-none resize-none px-2 text-[24px] leading-[28px] font-serif text-ink placeholder-sepia/90"
                   style={{ backgroundImage: 'none', minHeight: '700px' }}
                 />
               )}

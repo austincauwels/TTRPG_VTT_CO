@@ -10,10 +10,13 @@ import { deceasedMembers, livingMembers } from '../../../game/roster';
 // hourglass's column (OperationsPanel), three where there is room for three (.desk-cards).
 // A dead investigator not yet replaced lies apart, under a Deceased rule, and is not one of
 // the circle's members; their card opens the sheet, where a fourth scar taken by mistake
-// can be removed.
+// can be removed. Once their player's new investigator is approved they lie on as a Fallen
+// card, a record only.
 export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }) => {
   const living = livingMembers(campaignRoster.active_investigators);
   const deceased = deceasedMembers(campaignRoster.active_investigators);
+  // The dead whose player has since been replaced: a record, kept under the Deceased rule
+  const fallen = Array.isArray(campaignRoster.fallen_investigators) ? campaignRoster.fallen_investigators : [];
   return (
     <div className={`desk-cards ${className}`}>
       <div className="flex items-center gap-3 mb-5 xl:sr-only">
@@ -39,7 +42,7 @@ export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }
           </AnimatePresence>
         </div>
       )}
-      {deceased.length > 0 && (
+      {(deceased.length > 0 || fallen.length > 0) && (
         <section aria-labelledby="desk-deceased" className="mt-5 xl:mt-4">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
@@ -51,6 +54,9 @@ export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }
           <div className="desk-cards-grid flex flex-wrap xl:grid xl:grid-cols-2 gap-4 xl:gap-6 2xl:gap-8 pb-2">
             {deceased.map((inv, i) => (
               <InvestigatorBusinessCard key={inv.id} inv={inv} index={i + 1} deceased onClick={() => onSelect(inv)} />
+            ))}
+            {fallen.map((inv, i) => (
+              <InvestigatorBusinessCard key={inv.id} inv={inv} index={deceased.length + i + 1} fallen />
             ))}
           </div>
         </section>

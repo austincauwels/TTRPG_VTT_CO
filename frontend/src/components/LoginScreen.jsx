@@ -23,6 +23,8 @@ const inputClass = [
   'hover:border-sepia/70 focus:border-oxblood aria-[invalid=true]:border-oxblood',
   // Browser autofill paints its own blue box; keep the paper under the ink.
   'autofill:shadow-[inset_0_0_0_1000px_rgb(var(--c-parchment))] autofill:[-webkit-text-fill-color:rgb(var(--c-ink))]',
+  // The browser's own autofill fill colour is held back (the white block on focus is not confirmed fixed).
+  'autofill:[transition:background-color_600000s_0s]',
 ].join(' ');
 const noteClass = 'font-serif text-base leading-snug text-sepia';
 const errorTextClass = 'font-serif text-base leading-snug text-oxblood';

@@ -79,15 +79,20 @@ def test_fourth_mark_incapacitates(client):
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         ws.send("take_mark", mark_type="brain")
         msgs = ws.sync()
-        assert support.types(msgs) == ["activity_log", "trigger_scar", "activity_log"]
+        assert support.types(msgs) == ["activity_log", "trigger_scar", "activity_log", "member_status"]
         assert msgs[0]["payload"]["message"] == f"{ch['name']} took a fourth Brain mark."
         assert msgs[1]["payload"]["character_id"] == ch["id"]
         assert msgs[1]["payload"]["mark_type"] == "brain"
         assert msgs[1]["payload"]["character"]["brain_marks"] == 0
         assert msgs[1]["payload"]["character"]["incapacitated"] is True
+        # The sheet says a scar is owed until it is recorded
+        assert msgs[1]["payload"]["character"]["scar_pending"] is True
         assert msgs[2]["payload"] == {"message": f"{ch['name']} has been incapacitated!",
                                       "log_type": "danger", "ink_color": engine.INK_COLORS[0]}
-        # The GM gets the sheet trigger_scar carries
+        # The players' circle cards follow who is down
+        assert msgs[3]["payload"] == {"character_id": ch["id"], "campaign_id": camp["id"], "is_dead": False,
+                                      "incapacitated": True, "scars_count": 0}
+        # The GM gets the sheet trigger_scar carries, and not member_status
         assert gm.drain() == [msgs[0], {"type": "member_update", "payload": msgs[1]["payload"]["character"]}, msgs[2]]
     row = support.fetch(Character, ch["id"])
     assert (row.brain_marks, row.incapacitated) == (0, True)
@@ -657,7 +662,7 @@ def test_intercept_can_incapacitate_interceptor(client):
         support.offer_intercept(target["id"], "bleed")
         wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="bleed")
         msgs = wg.sync()
-        assert support.types(msgs) == ["activity_log", "activity_log", "trigger_scar", "activity_log"]
+        assert support.types(msgs) == ["activity_log", "activity_log", "trigger_scar", "activity_log", "member_status"]
         assert msgs[1]["payload"]["message"] == f"{guard['name']} took a fourth Bleed mark."
         assert msgs[2]["payload"]["character_id"] == guard["id"]
     row = support.fetch(Character, guard["id"])
@@ -967,7 +972,7 @@ def test_revive_character(client):
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         ws.send("revive_character")
         msgs = ws.sync()
-        assert support.types(msgs) == ["character_update", "activity_log"]
+        assert support.types(msgs) == ["character_update", "activity_log", "member_status"]
         p = msgs[0]["payload"]
         # Fixed (RULES_CHECK 9): only incapacitated clears; the other tracks keep their marks
         assert (p["body_marks"], p["brain_marks"], p["bleed_marks"], p["incapacitated"]) == (2, 1, 3, False)
@@ -1217,9 +1222,8 @@ def test_a_mark_the_lightkeeper_deals_offers_what_a_mark_taken_offers(client):
         sent = gm.sync()
         assert "ability_mark_offer" not in support.types(sent)
         lines = [m["payload"]["message"] for m in sent if m["type"] == "activity_log"]
-        # The deal, then where it landed (playtest, self-mark-no-log)
-        assert lines == [f"The Lightkeeper dealt {edda['name']} a Bleed mark.",
-                         f"{edda['name']} took a Bleed mark (1 of 3)."]
+        # One line for the deal and where it landed (playtest, log-lines-doubled-per-event)
+        assert lines == [f"The Lightkeeper dealt {edda['name']} a Bleed mark (1 of 3)."]
         got = we.drain(0.5)
         assert support.of_type(got, "character_update")[0]["payload"]["bleed_marks"] == 1
         assert {"ability": "Let Them In", "mark_type": "bleed", "character_id": edda["id"],
@@ -1336,7 +1340,7 @@ def test_the_lightkeepers_revive_reaches_the_players_desk(client):
         gm.send("revive_character", character_id=ch["id"])
         gm.sync()
         seen = ws.drain()
-        assert support.types(seen) == ["character_update", "activity_log"]
+        assert support.types(seen) == ["character_update", "activity_log", "member_status"]
         assert seen[0]["payload"]["incapacitated"] is False
     assert support.fetch(Character, ch["id"]).incapacitated is False
 
@@ -1394,3 +1398,73 @@ def test_a_held_offer_is_dropped_at_the_death(client):
         assert "ability_mark_offer" not in support.types(ws.drain())
     row = support.fetch(Character, ch["id"])
     assert (row.body_marks, row.is_dead) == (0, True)
+
+
+def test_a_scar_owed_is_on_the_sheet_and_the_recorded_scar_is_logged(client):
+    """Playtest 3 (scar-pending-invisible-to-lightkeeper, scar-recorded-no-confirmation):
+    the Lightkeeper's sheet showed only Incapacitated while a scar was owed, and a recorded
+    scar left no line. The sheet carries scar_pending from the fourth mark until the scar
+    is written, the log says "recorded a scar (n of 4)", and the players' circle cards are
+    sent who is down and the scar count (member_status)."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, body_marks=3)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        ws.send("take_mark", mark_type="body")
+        ws.sync()
+        owed = [m for m in gm.drain() if m["type"] == "member_update"]
+        assert owed[0]["payload"]["scar_pending"] is True
+        ws.send("apply_scar", scar_text="A limp", shift_down="move", shift_up="sense")
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update", "member_status", "activity_log"]
+        assert msgs[0]["payload"]["scar_pending"] is False
+        assert msgs[1]["payload"] == {"character_id": ch["id"], "campaign_id": camp["id"], "is_dead": False,
+                                      "incapacitated": True, "scars_count": 1}
+        assert msgs[2]["payload"]["message"] == f"{ch['name']} recorded a scar (1 of 4)."
+        assert msgs[2]["payload"]["log_type"] == "field"
+
+
+def test_marks_on_an_investigator_already_down_are_logged_as_another_scar(client):
+    """Playtest 3: a fourth mark dealt to an incapacitated investigator logged "has been
+    incapacitated!" again; it is another scar owed, and the line says so."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, incapacitated=True, scars_count=1, scars_list=["a"], bleed_marks=3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="bleed")
+        said = [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"]
+    assert said[-1] == f"{ch['name']} takes another scar: a fourth Bleed mark while down."
+
+
+def test_commune_use_line_reminds_of_the_sense_roll(client):
+    """Commune takes its Brain mark when used; the Sense roll it calls for is the
+    player's next step, so the line says so (playtest, commune-use-not-tied-to-roll)."""
+    ch = support.forge(client, specialty_ability="Commune")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("use_ability", ability="Commune")
+        lines = [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"]
+        assert lines == [f"{ch['name']} used Commune (took a Brain mark, then roll Sense)."]
+    assert support.fetch(Character, ch["id"]).brain_marks == 1
+
+
+def test_a_dealt_mark_held_for_an_offer_logs_the_deal_once_and_the_landing_later(client):
+    """A mark held for the player's answer gets the deal's line now (it has not landed);
+    the landing then reads as the player's own, so no line is doubled."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, role_ability="Death Defy")
+    with support.ws_connect(client, ch["id"]) as wc, support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("take_mark", character_id=ch["id"], mark_type="body")
+        lines = [m["payload"]["message"] for m in gm.sync() if m["type"] == "activity_log"]
+        assert lines == [f"The Lightkeeper dealt {ch['name']} a Body mark."]
+        wc.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body")
+        wc.sync()
+        later = [m["payload"]["message"] for m in gm.drain(0.5) if m["type"] == "activity_log"]
+        assert later == [f"{ch['name']} passed on Death Defy and took a Body mark (1 of 3)."]
+
+
+def test_a_dealt_fourth_mark_is_one_line(client):
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, body_marks=3)
+    with support.ws_connect(client, ch["id"]), support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("take_mark", character_id=ch["id"], mark_type="body")
+        lines = [m["payload"]["message"] for m in gm.sync() if m["type"] == "activity_log"]
+        assert lines[0] == f"The Lightkeeper dealt {ch['name']} a fourth Body mark."
+        assert lines.count(lines[0]) == 1

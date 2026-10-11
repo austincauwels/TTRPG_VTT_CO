@@ -5,7 +5,7 @@ import { ConfirmAction } from './shared/ConfirmAction';
 import { radioArrows } from './shared/a11y';
 import { useDialog } from './shared/useDialog';
 import { PaperSheet } from './shared/PaperSheet';
-import { serialFor } from './shared/PrintMarks';
+import { serialFor, BlankEntry } from './shared/PrintMarks';
 import { PhotoMount } from './shared/PhotoMount';
 import { playPaperSound } from '../game/rollSounds';
 import { portraitDataUrl } from '../utils/api';
@@ -678,7 +678,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   };
 
   const gearFull = selectedGear.length >= 3;
-  const gearFullTitle = 'All 3 gear are marked. Untick one to swap.';
+  const gearFullTitle = 'Three gear is the limit. Untick one to swap.';
   const toggleGear = (item) => {
     if (selectedGear.includes(item)) setSelectedGear(selectedGear.filter(g => g !== item));
     else if (selectedGear.length < 3) setSelectedGear([...selectedGear, item]);
@@ -824,7 +824,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 items-center lg:items-start">
 
             {/* ── LEFT: stacked card deck ── */}
-            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px]">
+            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px] max-lg:[@media(max-height:760px)]:[--card-w:140px]">
 
               {/* Card stack */}
               <div onPointerDown={swipeDown} onPointerUp={swipeUp} onPointerCancel={() => { swipeStart.current = null; }}
@@ -1281,7 +1281,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           return (
                             <div key={key} className="relative flex items-center gap-2">
                               {isLockedGilded ? (
-                                <span className="shrink-0 w-5 h-5 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:pl-0.5 flex items-center" role="img" aria-label={`${label} is gilded by your specialty`}>
+                                <span className="shrink-0 w-5 h-5 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:pl-0.5 flex items-center" role="img" title="Gilded by your specialty" aria-label={`${label} is gilded by your specialty`}>
                                   <GildStar gilded fixed />
                                 </span>
                               ) : (
@@ -1398,7 +1398,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             {/* Which actions are gilded: the specialty's, and the free one once it is chosen */}
             <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-sans text-xs font-black uppercase tracking-widest text-sepia">
               <GildStar gilded />
-              <span>Gilded: {[lockedGilded, freeGilded].filter(Boolean).map(k => actionKeyLabel[k]).join(', ') || 'none'}</span>
+              <span>Gilded: {[lockedGilded, freeGilded].filter(Boolean).map(k => actionKeyLabel[k] + (k === lockedGilded ? ' (your specialty)' : '')).join(', ') || 'none'}</span>
             </p>
           </div>
         </PaperSheet>
@@ -1426,6 +1426,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 </h3>
                 <span className="text-sm font-sans font-black text-sepia">{selectedGear.length} / 3 selected</span>
               </div>
+              {gearFull && <p role="status" className="-mt-2 mb-3 text-xs font-sans font-black text-sepia">{gearFullTitle}</p>}
 
               {/* Specialty gear */}
               <div className="mb-4">
@@ -1478,7 +1479,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   { label: "Investigator", value: name },
-                  { label: "Pronouns",     value: pronouns || 'Unlisted' },
+                  { label: "Pronouns",     value: pronouns || <BlankEntry label="Not given" /> },
                   { label: "Role · Specialty", value: `${role} · ${specialty}` },
                   { label: "Gear Selected", value: selectedGear.length ? selectedGear.join(', ') : `${selectedGear.length} of 3 items` },
                   { label: "Abilities", value: [selectedRoleAbility, selectedSpecialtyAbility].filter(Boolean).join(', ') || 'None chosen' },

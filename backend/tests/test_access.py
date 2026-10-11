@@ -38,10 +38,11 @@ def _url(path):
 
 
 def test_every_route_but_the_sign_in_routes_is_protected():
-    # 41: the delete and undo routes, a drawn sketch's scene and redraw routes
+    # 44: the delete and undo routes, the withdraw route, the retired list and its restore
+    # (unretire), a drawn sketch's scene and redraw routes
     # (GET .../scene, PUT .../sketch) and the hub's sketches on one side, the account
     # page's routes on the other
-    assert len(PROTECTED) == 41
+    assert len(PROTECTED) == 44
     assert PUBLIC | ACCOUNT == {r.path for r in main.app.routes
                                 if isinstance(r, APIRoute) and r.path.startswith("/api/auth/")}
 
@@ -304,6 +305,7 @@ def test_a_pending_character_reaches_nothing_of_the_campaign(client):
         assert support.approve(client, waiting["id"]).status_code == 200
         ws.recv_type("investigator_approved")
         ws.recv_type("circle_update")  # now a member: the circle, its pool grown by one
+        ws.recv_type("activity_log")  # and the approval's line
         gm.drain()
         ws.send("chat_message", message="hello")
         assert support.types(ws.sync()) == ["activity_log"]

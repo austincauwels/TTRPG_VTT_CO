@@ -17,20 +17,38 @@ const nameFit = (name) => {
   return longest > 6 ? { fontSize: `${Math.max(14, Math.min(24, Math.floor(150 / longest)))}px` } : undefined;
 };
 
-export const InvestigatorBusinessCard = ({ inv, onClick, index = 0, deceased = false }) => {
+// The state of a living investigator at a glance, in a line or two: incapacitated (or a scar owed),
+// the marks on each track, the scars, and advancements waiting. Empty for one in good order.
+export const glanceOf = (inv) => {
+  const marks = [['Body', inv.body_marks], ['Brain', inv.brain_marks], ['Bleed', inv.bleed_marks]]
+    .filter(([, n]) => n > 0).map(([name, n]) => `${n} ${name}`);
+  const scars = inv.scars_count || 0;
+  const picks = inv.advancement_picks || 0;
+  return [
+    inv.incapacitated ? (inv.scar_pending ? 'Incapacitated: scar owed' : 'Incapacitated') : null,
+    marks.length ? `Marks: ${marks.join(', ')}` : null,
+    scars > 0 ? `${scars} ${scars === 1 ? 'scar' : 'scars'}` : null,
+    picks > 0 ? `${picks} ${picks === 1 ? 'advancement' : 'advancements'} waiting` : null,
+  ].filter(Boolean);
+};
+
+// fallen: a dead investigator since replaced. The card is a record, not a button: their
+// sheet is no longer on the roster to open.
+export const InvestigatorBusinessCard = ({ inv, onClick, index = 0, deceased = false, fallen = false }) => {
+  const Tag = fallen ? motion.div : motion.button;
+  const glance = deceased || fallen ? [] : glanceOf(inv);
   const rotation = tiltFor(inv.id ?? inv.name, { min: 0.8, max: 2, sign: index % 2 ? 1 : -1 });
   const penFont = inv.pen_font || 'Caveat';
+  deceased = deceased || fallen;
   const accentColor = deceased ? 'rgb(var(--c-ink))' : (inv.ink_color || 'rgb(var(--c-ink))');
 
   return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      aria-label={`Open ${inv.name}'s investigator sheet${deceased ? ' (deceased)' : ''}`}
-      whileHover={{ scale: 1.04, rotate: 0, zIndex: 10 }}
-      whileTap={{ scale: 0.97 }}
+    <Tag
+      {...(fallen ? { role: 'group' } : { type: 'button', onClick })}
+      aria-label={fallen ? `${inv.name}, fallen` : `Open ${inv.name}'s investigator sheet${deceased ? ' (deceased)' : ''}`}
+      {...(fallen ? {} : { whileHover: { scale: 1.04, rotate: 0, zIndex: 10 }, whileTap: { scale: 0.97 } })}
       style={{ rotate: rotation }}
-      className="relative max-w-full min-w-0 cursor-pointer text-left shadow-[4px_6px_16px_rgba(0,0,0,0.65)]"
+      className={`relative max-w-full min-w-0 ${fallen ? '' : 'cursor-pointer'} text-left shadow-[4px_6px_16px_rgba(0,0,0,0.65)]`}
     >
       <div className={`w-full rounded-sm overflow-hidden border bg-cream ${deceased ? 'border-ink/60' : 'border-ink/20'}`} style={{ minHeight: '140px' }}>
         {/* Accent stripe — player's ink color; a mourning band for the dead */}
@@ -73,14 +91,19 @@ export const InvestigatorBusinessCard = ({ inv, onClick, index = 0, deceased = f
                 </p>
               )}
             </div>
+            {glance.length > 0 && (
+              <p className={`mt-2 font-sans text-xs font-bold leading-snug ${inv.incapacitated ? 'text-oxblood' : 'text-ink/80'}`}>
+                {glance.join(' · ')}
+              </p>
+            )}
             {deceased && (
               <span aria-hidden="true" className="mt-3 -rotate-3 inline-flex items-center gap-1 border-2 border-ink rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight text-ink">
-                <MourningCross className="h-[0.95em]" /> Deceased
+                <MourningCross className="h-[0.95em]" /> {fallen ? 'Fallen' : 'Deceased'}
               </span>
             )}
           </div>
         </div>
       </div>
-    </motion.button>
+    </Tag>
   );
 };

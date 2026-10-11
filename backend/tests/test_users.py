@@ -70,7 +70,17 @@ def test_user_gm_campaigns(client):
     r = client.get(f"/api/users/{u.id}/campaigns", headers=support.as_user(u.id))
     assert r.status_code == 200
     assert r.json() == [{"id": live["id"], "name": live["name"], "campaign_code": live["campaign_code"],
-                         "investigator_count": 0}]
+                         "investigator_count": 0, "pending_count": 0}]
+
+
+def test_user_gm_campaigns_counts_the_requests_waiting(client):
+    u = support.make_user()
+    camp = support.new_campaign(client, gm_user_id=u.id)
+    support.pending_member(client, camp)
+    support.pending_member(client, camp)
+    support.active_member(client, camp)
+    [row] = client.get(f"/api/users/{u.id}/campaigns", headers=support.as_user(u.id)).json()
+    assert (row["investigator_count"], row["pending_count"]) == (3, 2)
 
 
 def test_user_gm_campaigns_of_someone_else_is_403(client):

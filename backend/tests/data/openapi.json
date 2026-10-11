@@ -161,6 +161,11 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "pending_count": {
+            "default": 0,
+            "title": "Pending Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -695,6 +700,26 @@
       },
       "CharacterRosterItem": {
         "properties": {
+          "advancement_picks": {
+            "default": 0,
+            "title": "Advancement Picks",
+            "type": "integer"
+          },
+          "bleed_marks": {
+            "default": 0,
+            "title": "Bleed Marks",
+            "type": "integer"
+          },
+          "body_marks": {
+            "default": 0,
+            "title": "Body Marks",
+            "type": "integer"
+          },
+          "brain_marks": {
+            "default": 0,
+            "title": "Brain Marks",
+            "type": "integer"
+          },
           "catalyst": {
             "default": "",
             "title": "Catalyst",
@@ -714,6 +739,11 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "incapacitated": {
+            "default": false,
+            "title": "Incapacitated",
+            "type": "boolean"
           },
           "ink_color": {
             "anyOf": [
@@ -790,6 +820,16 @@
               }
             ],
             "title": "Role Class"
+          },
+          "scar_pending": {
+            "default": false,
+            "title": "Scar Pending",
+            "type": "boolean"
+          },
+          "scars_count": {
+            "default": 0,
+            "title": "Scars Count",
+            "type": "integer"
           },
           "specialty": {
             "anyOf": [
@@ -1076,6 +1116,11 @@
             "default": "None",
             "title": "Role Ability",
             "type": "string"
+          },
+          "scar_pending": {
+            "default": false,
+            "title": "Scar Pending",
+            "type": "boolean"
           },
           "scars_count": {
             "default": 0,
@@ -1374,6 +1419,81 @@
           "token"
         ],
         "title": "EmailChangeUndo",
+        "type": "object"
+      },
+      "FallenItem": {
+        "description": "A dead investigator since replaced: the Lightkeeper's Fallen card and Circle History line.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ink_color": {
+            "default": "",
+            "title": "Ink Color",
+            "type": "string"
+          },
+          "is_dead": {
+            "default": true,
+            "title": "Is Dead",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pen_font": {
+            "default": "Caveat",
+            "title": "Pen Font",
+            "type": "string"
+          },
+          "personal_circle_answer": {
+            "default": "",
+            "title": "Personal Circle Answer",
+            "type": "string"
+          },
+          "profile_pic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Pic"
+          },
+          "pronouns": {
+            "default": "Unlisted",
+            "title": "Pronouns",
+            "type": "string"
+          },
+          "role_class": {
+            "default": "",
+            "title": "Role Class",
+            "type": "string"
+          },
+          "scars_count": {
+            "default": 0,
+            "title": "Scars Count",
+            "type": "integer"
+          },
+          "specialty": {
+            "default": "",
+            "title": "Specialty",
+            "type": "string"
+          },
+          "status": {
+            "default": "retired",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "FallenItem",
         "type": "object"
       },
       "FinalizeRosterRequest": {
@@ -1902,6 +2022,14 @@
               "$ref": "#/components/schemas/CharacterRosterItem"
             },
             "title": "Active Investigators",
+            "type": "array"
+          },
+          "fallen_investigators": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FallenItem"
+            },
+            "title": "Fallen Investigators",
             "type": "array"
           },
           "pending_investigators": {
@@ -3322,6 +3450,50 @@
         "summary": "Get User Characters"
       }
     },
+    "/api/users/{user_id}/retired-campaigns": {
+      "get": {
+        "description": "The campaigns the user ran and retired (deleted ones are left out), newest first, for\nthe ledger's Retired list, where each can be restored (POST /campaign/{id}/unretire).",
+        "operationId": "get_user_retired_campaigns_api_users__user_id__retired_campaigns_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CampaignSummaryItem"
+                  },
+                  "title": "Response Get User Retired Campaigns Api Users  User Id  Retired Campaigns Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get User Retired Campaigns"
+      }
+    },
     "/campaign/approve/{character_id}": {
       "post": {
         "operationId": "approve_character_campaign_approve__character_id__post",
@@ -3586,6 +3758,44 @@
         "summary": "Rejoin Campaign"
       }
     },
+    "/campaign/withdraw/{character_id}": {
+      "post": {
+        "description": "The owner takes back a join request that is still waiting: the investigator goes\nback to Not in a campaign. 409 once the Lightkeeper has answered (the player reads\nthe hub again). The Lightkeeper's desk drops the request as it does for a reject.",
+        "operationId": "withdraw_request_campaign_withdraw__character_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Request"
+      }
+    },
     "/campaign/{campaign_id}": {
       "delete": {
         "description": "Deletes a campaign; only its GM may. Its characters are not deleted: each one on\nits roster (active or pending) goes back to its owner as unaffiliated, and retired\nones stay with it (vtt/deletion.py). Everyone connected to it is told with\ncampaign_deleted: the GM's channel and the channel of every character it let go.\nThe GM's channel is then closed with 4404; the players' channels stay open, as\nafter a retire. A soft delete: the GM can undo it for a short while (POST\n.../restore) and an admin can restore it later (docs/refactor/DELETION.md).",
@@ -3820,6 +4030,44 @@
           }
         },
         "summary": "Get Roster"
+      }
+    },
+    "/campaign/{campaign_id}/unretire": {
+      "post": {
+        "description": "Brings back a retired campaign for its GM (the ledger's Retired list, Restore): it\nis back in the ledger and takes members again. It comes back with what the retire\nleft with it, its dead (retired, the desk's Fallen cards). Nobody is put back on its\nroster: a living investigator the retire let go is its player's own again and may be\nin another campaign by now, so it comes back only by a join or an invite. A campaign\nthat is not retired is answered the same way and nothing is sent (retrying is safe).\n\nEvery open socket of the GM, and of the owners of the investigators that stayed with\nit, gets campaign_restored (no character put back), so a ledger open elsewhere reads\nits lists again; the campaign's Activity Log gets a line.",
+        "operationId": "unretire_campaign_campaign__campaign_id__unretire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unretire Campaign"
       }
     },
     "/circle/relationship/propose": {

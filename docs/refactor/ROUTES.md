@@ -56,6 +56,8 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 | POST | /campaign/approve/{character_id} | approve_character | 489 | yes | gameStore.approveInvestigator (GM panel) | GM of the character's campaign |
 | POST | /campaign/reject/{character_id} | reject_character | 512 | yes | gameStore.rejectInvestigator (GM panel) | GM of the character's campaign |
 | POST | /campaign/{campaign_id}/retire | retire_campaign | 545 | yes | OperationsPanel.jsx | GM of that campaign |
+| POST | /campaign/{campaign_id}/unretire | unretire_campaign | - | yes | gameStore.unretireCampaign (ledger Retired list) | GM of that campaign |
+| POST | /campaign/withdraw/{character_id} | withdraw_request | - | yes | gameStore.withdrawRequest (registry) | the character's owner |
 | POST | /campaign/rejoin | rejoin_campaign | 568 | yes | AppRouter.jsx | owner of the character, if invited or their old character there died |
 | POST | /campaign/{campaign_id}/invite-rejoin | invite_rejoin | 638 | yes | gm/desk/InvitePlayer.jsx (the Lightkeeper's roster; DiceVault.jsx until 2026-10-09) | GM of that campaign |
 | GET | /campaign/{campaign_id}/roster | get_roster | 663 | no | OperationsPanel.jsx, TactileSidebar.jsx | GM or member of that campaign |
@@ -79,6 +81,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 | PUT | /api/notebook/entries/{entry_id}/sketch | redraw_sketch | vtt/routers/notebook.py, added after the baseline | yes | NotebookView.jsx (the sketch sheet) | the sketch's author only (AUTH.md) |
 | GET | /api/users/{user_id}/characters | get_user_characters | 1251 | no | gameStore.fetchUserData | the logged-in user themself |
 | GET | /api/users/{user_id}/campaigns | get_user_gm_campaigns | 1275 | no | gameStore.fetchUserData | the logged-in user themself |
+| GET | /api/users/{user_id}/retired-campaigns | get_user_retired_campaigns | - | no | gameStore.fetchUserData | the logged-in user themself |
 | WS | /ws/{game_id} | websocket_endpoint | 1456 | yes | gameStore.connect | owner of character `game_id`, or GM of campaign code `game_id` |
 
 ### Campaign router (prefix-less `APIRouter`, defined at line 439)
@@ -102,7 +105,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: path `character_id`.
 - Trusted ids: `character_id`.
 - Tables: characters (status `active`, ink_color from `INK_COLORS` by active count; dead predecessors of the same user in the campaign set to `retired`), campaigns (read).
-- Broadcast: `investigator_approved` with `{character, active_investigators, campaign_id}`.
+- Broadcast: `investigator_approved` with `{character, active_investigators, campaign_id}`; the Lightkeeper's copy also carries `fallen_investigators` (the campaign's dead and retired investigators, as `FallenItem`). Since 2026-10-11, when the approval retires a dead investigator of the same player, the table's log reads "<name> joined the circle, in place of <dead>."; an ordinary approval logs "<name> was approved into the circle."
 - Errors: 400 if not pending. If the character's campaign row is missing, `campaign.campaign_code` raises (500).
 
 **POST /campaign/reject/{character_id}** (line 512, `async def`)
@@ -119,11 +122,21 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Broadcast: `campaign_retired` `{campaign_id, campaign_code}` to the GM channel and the character channel of each living investigator it let go (dead ones stay with the campaign, and their owners are not told).
 - Response: `{"ok": true}`. 404 if the campaign is missing.
 
+**POST /campaign/{campaign_id}/unretire** (`async def`)
+- GM of the campaign only (403 for anyone else, 404 for a missing or deleted campaign). Inputs: path `campaign_id`. Tables: campaigns (is_retired false, row locked).
+- The campaign is back in the ledger and takes members again, with its dead (status `retired`, the Lightkeeper's Fallen cards). Nobody is put back on its roster: the living investigators the retire let go stay with their players (one may be in another campaign by now), so they come back by a join or an invite.
+- Broadcast: `campaign_restored` `{campaign_id, campaign_code, campaign_name, restored_character_ids: []}` to every open socket of the GM and of the owners of the characters still with it (`manager.broadcast_users`), so an open ledger reads its lists again; and an Activity Log line, "The Lightkeeper brought <name> back from retirement."
+- A campaign that is not retired gets the same answer, with nothing changed or sent (safe to repeat). Response `{ok, id, name, campaign_code}`.
+
+**POST /campaign/withdraw/{character_id}** (`async def`)
+- Owner only. A `pending` character goes to `unaffiliated` with no campaign (row locked). 409 "This request is no longer waiting." otherwise.
+- Broadcast: `investigator_rejected` `{character_id, pending_investigators}` to the campaign (named cards on the Lightkeeper's key), as a reject sends it, but not to the character's own channel (the hub has no socket).
+
 **POST /campaign/rejoin** (line 568, `async def`)
 - Inputs: JSON body `RejoinRequest {character_id, campaign_code}`.
 - Trusted ids: `character_id`, `campaign_code`.
 - Tables: campaigns (read), characters (retire the same user's other active or dead characters in the campaign; set new character campaign_id, ink_color, status `active`, circle_id to the campaign circle if one exists), users (clear pending_rejoin_campaign_id).
-- Broadcast: `investigator_approved` and `character_joined_mid_campaign`, both with the new character and active list.
+- Broadcast: `investigator_approved` and `character_joined_mid_campaign`, both with the new character and active list; the Lightkeeper's `investigator_approved` also carries `fallen_investigators`. The log line "<name> joined the circle, in place of <old>." is written.
 - Response: `{"success": true, "character": get_char_dict(...)}`.
 - Also writes an Activity Log line ("<name> joined the circle, in place of <old>."), and the new character takes the larger circle-resource spend count of the investigators it retires.
 - Notes: skips GM approval entirely and does not check that an invite exists or that a predecessor died. Imports `INK_COLORS` from engine inside the function.
@@ -140,7 +153,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: path `campaign_id`.
 - Trusted ids: `campaign_id`.
 - Tables: characters joined with circles (engine `get_campaign_roster`), campaigns.
-- Response: `{pending_investigators, active_investigators, roster_finalized}`; items are `CharacterRosterItem`; `owner_username` (the player's login name) is filled for the campaign's Lightkeeper only, and is "" for a member. Since 2026-10-08 a dead investigator not yet replaced (still `active`) is listed with `is_dead: true`, so the GM desk can open the sheet (it shows them under Deceased); the frontend counts and offers only the living (`frontend/src/game/roster.js`). It used to be left out.
+- Response: `{pending_investigators, active_investigators, fallen_investigators, roster_finalized}`; since 2026-10-11 `fallen_investigators` lists the campaign's retired dead as `FallenItem` (name, role, specialty, portrait, pen and ink, pronouns, circle answer, scars) for the Lightkeeper only (empty for a member), and every item has `incapacitated` and `scars_count` (the circle cards' standing), with `body_marks`, `brain_marks`, `bleed_marks`, `advancement_picks` and `scar_pending` filled on this route for the Lightkeeper alone (the card's state at a glance; zero for a member). This is not a secret kept from the members: the whole sheets that `GET .../circle-creation-state` and the `investigator_approved` and `character_joined_mid_campaign` frames send every member carry the same fields; items are `CharacterRosterItem`; `owner_username` (the player's login name) is filled for the campaign's Lightkeeper only, and is "" for a member. Since 2026-10-08 a dead investigator not yet replaced (still `active`) is listed with `is_dead: true`, so the GM desk can open the sheet (it shows them under Deceased); the frontend counts and offers only the living (`frontend/src/game/roster.js`). It used to be left out.
 
 **GET /campaign/{campaign_id}/circle-creation-state** (line 755, `def`)
 - Inputs: path `campaign_id`.
@@ -258,6 +271,8 @@ The next two routes were added after the baseline, with the sketch sheet, in `vt
 - Trusted ids: `user_id`. Tables: characters, campaigns. Anyone can list anyone's characters.
 - Since 2026-10-11 each item carries `is_dead` (a dead investigator keeps status `active` on its roster), so the hub's invite banner names only a living investigator as the one coming back retires.
 
+**GET /api/users/{user_id}/retired-campaigns** (`def`, `response_model=List[CampaignSummaryItem]`): the user's own retired campaigns (deleted ones left out), newest first, for the ledger's Retired list. `GET .../campaigns` items also carry `pending_count`, the join requests waiting, for the "requests waiting" badge.
+
 **GET /api/users/{user_id}/campaigns** (line 1275, `def`, `response_model=List[CampaignSummaryItem]`)
 - Trusted ids: `user_id`. Tables: campaigns (non-retired with that GM). Returns campaign codes, which are the GM WebSocket channel names.
 
@@ -323,7 +338,7 @@ Intended: a numeric channel only for the owner of that character; a code channel
 
 From the WebSocket handler: `character_update`, `circle_update`, `roll_result`, `roll_error`, `scene_transition`, `activity_log`, `ability_mark_offer`, `ability_intercept_offer`, `trigger_scar`, `assignment_report_submitted`, `circle_advanced`, `vote_update`, `backstory_update`, `personal_answer_update`, `relationship_update`, `notebook_entry`.
 
-From REST routes: `investigator_joined`, `investigator_approved`, `investigator_rejected`, `campaign_retired`, `character_joined_mid_campaign`, `gm_rejoin_invite`, `roster_finalized`, `notebook_entry`, `activity_log`.
+From REST routes: `investigator_joined`, `investigator_approved`, `investigator_rejected`, `campaign_retired`, `campaign_restored` (undo of a delete, and unretire), `character_joined_mid_campaign`, `gm_rejoin_invite`, `roster_finalized`, `notebook_entry`, `activity_log`.
 
 `character_update` payloads come from `get_char_dict` (line 1352) and `circle_update` payloads from `get_circle_dict` (line 1419). Both shapes must stay identical.
 

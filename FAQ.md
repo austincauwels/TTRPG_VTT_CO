@@ -113,7 +113,7 @@ Characters have three mark tracks: **Body**, **Brain**, and **Bleed** (0–3 eac
 
 If none of these apply (or the player declines), the mark is applied and the character sheet is updated in real time.
 
-Since 2026-10-10 every mark that lands this way, taken on the player's own sheet or dealt by the Lightkeeper, writes a line in the Activity Log on every desk with the track's count ("Dr. Imogen Thale took a Body mark (1 of 3)."), and names the offer the player let go: "passed on Death Defy and took a Bleed mark (1 of 3)." when they pressed "Take the mark", "let Death Defy run out and took a Bleed mark (1 of 3)." when its countdown ran out. A mark an ability takes as its cost (Ritual, Occult Researcher, Back Against the Wall, Bending Spoons) is named in that ability's own line instead, so it is not logged twice.
+Since 2026-10-10 every mark that lands this way, taken on the player's own sheet or dealt by the Lightkeeper, writes one line in the Activity Log on every desk with the track's count ("Dr. Imogen Thale took a Body mark (1 of 3)."; a mark the Lightkeeper dealt that lands at once reads "The Lightkeeper dealt Dr. Imogen Thale a Body mark (1 of 3)."), and names the offer the player let go: "passed on Death Defy and took a Bleed mark (1 of 3)." when they pressed "Take the mark", "let Death Defy run out and took a Bleed mark (1 of 3)." when its countdown ran out. A mark an ability takes as its cost (Ritual, Occult Researcher, Back Against the Wall, Bending Spoons) is named in that ability's own line instead, so it is not logged twice.
 
 ### What happens on the 4th mark?
 
@@ -128,7 +128,7 @@ The `trigger_scar` event opens the Scar Modal on the affected player's screen. T
 
 The server appends the scar text to `character.scars_list` (a JSON array) and increments `scars_count`. The Action Point Shift is applied to the two specified action columns.
 
-After an incapacitation, **a GM can revive the character** (`revive_character` action, the Revive button on the Lightkeeper's copy of the sheet), which clears the `incapacitated` flag so the character can act again. The track that overfilled was already cleared when the scar was taken; the other tracks keep their marks.
+While a scar is owed, the sheet carries `scar_pending` (the Lightkeeper's copy reads "Incapacitated: scar owed"), and recording it writes "<name> recorded a scar (n of 4)." to the table's log. The fourth scar asks for no action shift and cannot be put off with Decide later. After an incapacitation, **a GM can revive the character** (`revive_character` action, the Revive button on the Lightkeeper's copy of the sheet), which clears the `incapacitated` flag so the character can act again. The track that overfilled was already cleared when the scar was taken; the other tracks keep their marks.
 
 ---
 
@@ -138,7 +138,7 @@ After an incapacitation, **a GM can revive the character** (`revive_character` a
 
 Death triggers automatically when a character's `scars_count` reaches **4** during `apply_scar`. The server sets both `is_dead = true` and `incapacitated = true`.
 
-Once dead, the sheet is a record: the server refuses the dead investigator's own `roll`, `take_mark`, `update_gear`, `update_drive`, `spend_resource`, `use_ability`, advancement, relationship proposals and the rest of the sheet's actions (409, "<name> is dead: the sheet is a record."), and the Lightkeeper's Deal a mark, and the desk shows the controls off: no ability Use, no Burn and reroll or post-roll ability. A gilded roll made in life whose die is still to be kept when the fourth scar comes can still be kept (it is scored and logged, with no drive back), and a soak or Death Defy offer open at the death closes, its mark not taken. Chat, the notebook and Create a new investigator stay. The death is logged to every desk, the Lightkeeper's included ("<name> is deceased: a fourth scar."). A GM can still issue `revive_character` to clear `incapacitated` (e.g., for narrative resurrection), though `is_dead` remains `true` as a permanent record. The Lightkeeper's copy of an incapacitated investigator's sheet has a Revive button beside the status stamp. Dead characters remain in the campaign roster; they are not deleted or removed.
+Once dead, the sheet is a record: the server refuses the dead investigator's own `roll`, `take_mark`, `update_gear`, `update_drive`, `spend_resource`, `use_ability`, advancement, relationship proposals and the rest of the sheet's actions (409, "<name> is dead: the sheet is a record."), and the Lightkeeper's Deal a mark, and the desk shows the controls off: no ability Use, no Burn and reroll or post-roll ability. A gilded roll made in life whose die is still to be kept when the fourth scar comes can still be kept (it is scored and logged, with no drive back), and a soak or Death Defy offer open at the death closes, its mark not taken. Chat, the notebook and Create a new investigator stay. The death is logged to every desk, the Lightkeeper's included ("<name> is deceased: a fourth scar."). A GM can still issue `revive_character` to clear `incapacitated` (e.g., for narrative resurrection), though `is_dead` remains `true` as a permanent record. The Lightkeeper's copy of an incapacitated investigator's sheet has a Revive button beside the status stamp. Dead characters remain in the campaign roster until their player's new investigator is approved; then the dead one is retired and stays on the Lightkeeper's desk as a Fallen card (a record, which does not open) and as a line in Circle History. The Lightkeeper's roster cards show each living investigator's state at a glance: incapacitated, marks, scars and advancements waiting.
 
 ---
 
@@ -166,7 +166,7 @@ When a player submits a join request, the character appears on the GM's roster i
 
 ### Can campaigns be ended?
 
-Yes. The GM can **retire** a campaign, which sets `is_retired = true` on the Campaign record and detaches all living active/pending characters (sets their `campaign_id` to null and status to `unaffiliated`, so their players can use them in another campaign; a dead one stays `retired` with the campaign). A retirement notice is broadcast via WebSocket to any connected players, and a hub reads its lists again when the tab comes back or the Case Ledger opens. Retired campaigns are excluded from the GM's campaign list but the data is not deleted.
+Yes. The GM can **retire** a campaign, which sets `is_retired = true` on the Campaign record and detaches all living active/pending characters (sets their `campaign_id` to null and status to `unaffiliated`, so their players can use them in another campaign; a dead one stays `retired` with the campaign). A retirement notice is broadcast via WebSocket to any connected players, and a hub reads its lists again when the tab comes back or the Case Ledger opens. Retired campaigns are excluded from the GM's campaign list but the data is not deleted: they lie in the Lightkeeper Ledger's Retired list, where Restore (`POST /campaign/{id}/unretire`, the campaign's Lightkeeper only) brings one back. It comes back with its dead (still `retired` with it, the desk's Fallen cards) and takes members again, but puts no living investigator back on its roster: the ones the retire let go stay with their players, and one that has joined another campaign since stays there. The Lightkeeper's open desks read the ledger again, and the campaign's Activity Log says "The Lightkeeper brought <name> back from retirement."
 
 ---
 
@@ -194,7 +194,7 @@ Since 2026-10-10 the Lightkeeper's desk shows the formation papers as they stand
 
 ### What happens to relationships still waiting at the seal?
 
-Nothing: finalizing leaves them as they are, and the player whose turn it is can still accept or counter them on the Circle tab afterwards. The Finalize slip counts them ("2 relationships still waiting for an answer. They can still be accepted after the seal.") and reads "4 in the circle (up to 5)". Its second press also says that any join request still waiting is turned away, since finalizing releases those characters.
+Nothing: finalizing leaves them as they are, and the player whose turn it is can still accept or counter them on the Circle tab afterwards. The Finalize slip counts them ("2 relationships still waiting for an answer. They can still be accepted after the seal.") and reads "4 in the circle (up to 5)". Its second press also says that any join request still waiting is turned away, since finalizing releases those characters. It also names any part with nothing chosen (no question, insignia, ability or name voted or suggested), since the seal then leaves it empty.
 
 ---
 
@@ -239,7 +239,7 @@ Some abilities are offered to the player as a prompt *after* the roll result is 
 | **Flourish** | Any roll | Spend 2 Cunning drive |
 | **Saw This Coming** | Failure or mixed | Re-roll with 1 additional die (up to 3 uses/assignment) |
 | **Well-Read** *(auto)* | Failure using Intuition | Drive spent on the roll is automatically refunded — no prompt |
-| **Gilded auto-refresh** *(auto)* | Gilded roll, pool of 1 | Drive from the matching pool is automatically refreshed — no prompt |
+| **Gilded auto-refresh** *(auto)* | Gilded roll, pool of 1 | Drive from the matching pool is automatically refreshed, no prompt (nothing comes back, and the log says nothing, when the drive is already full) |
 
 Auto-applying effects (Well-Read, gilded refresh) are resolved server-side immediately after the roll without requiring any player input.
 
@@ -265,7 +265,7 @@ A player's To: list offers @Circle, @Lightkeeper only and the other investigator
 
 ## What the Lightkeeper's changes look like on the players' desks (since 2026-10-10)
 
-- The dispatch (with its location, "sent a dispatch: Docks."), the tension, the timer (set, start, pause, reset, clear), the reports opening and closing, a filed or amended report and the Lightkeeper's edits of Stitch, Refresh and Train each write a line in the Activity Log. A phone shows a "new" dot on the Menu and the matching drawer row until the player has opened that part.
+- The dispatch (with its location, "sent a dispatch: Docks."), the tension, the timer (set, start, pause, reset, clear), the reports opening and closing, spending opened or locked ("opened spending: up to two each."), the circle renamed, the seal (name, ability and insignia), each approval and each decline of a join request (the decline names the character, never a reason), a filed or amended report and the Lightkeeper's edits of Stitch, Refresh and Train each write a line in the Activity Log. A phone shows a "new" dot on the Menu and the matching drawer row until the player has opened that part.
 - A player spends a circle resource in two presses (the first asks). A spend is used for the whole circle; each player has two per assignment, and a replacement investigator (rejoin) keeps the count of the one it replaces. The Lightkeeper can give a member one back from the member's sheet, optionally returning the resource to the circle's pool (never past its maximum; a full resource cannot be picked), and the log says so. One press gives one back.
 - An unsent dispatch (location, text) is kept while the Lightkeeper visits Map, Notebook or Circle, until the page is reloaded; if another dispatch arrives meanwhile, the letter shows that one instead.
 - Reset empties the timer's screen-reader status, so the next start and run-out are announced again.

@@ -48,8 +48,8 @@ from sqlalchemy import or_
 
 from models import Character
 from vtt.abilities import MARK_TYPES, WARD, abilities_of, count_use, resistance_left, spend_use, uses_of
-from vtt.serializers import get_char_dict
-from vtt.ws.handlers.circle import announce_downed
+from vtt.serializers import awaiting_scar, get_char_dict
+from vtt.ws.handlers.circle import announce_downed, announce_status
 from vtt.ws.manager import character_key, manager
 
 # Abilities that can intercept marks on other players — used for efficient DB filtering
@@ -73,8 +73,8 @@ _pending_marks: dict = {}
 _BOOT = secrets.token_hex(4)
 _offer_ids = itertools.count(1)
 # Characters whose fourth mark asked for a scar not yet recorded (handle_apply_scar
-# clears it). Resuscitation reads it: a scar still waiting counts. In memory only.
-awaiting_scar: set = set()
+# clears it): vtt.serializers keeps the set, the sheet carries it as scar_pending.
+# Resuscitation reads it: a scar still waiting counts. In memory only.
 # character id -> how many Adrenaline Rush offers are open
 _pending_rush: dict = {}
 
@@ -179,12 +179,15 @@ async def _offer_rush(character, channel, m_type):
         "ability": "Adrenaline Rush", "mark_type": m_type, "character_id": character.id, "action": "drive_refresh"}})
 
 
-def _taken(character, m_type, val, passed_on=None) -> str:
+def _taken(character, m_type, val, passed_on=None, dealt=False) -> str:
     """The log's line for a mark that lands: "Iris took a Body mark (2 of 3).", or "took a
     fourth Body mark." when the track was full. passed_on says how the offer before it was
     let go ("passed on Death Defy", "let Death Defy run out", _let_go)."""
     took = f"took a fourth {m_type.capitalize()} mark" if val >= 4 \
         else f"took a {m_type.capitalize()} mark ({val} of 3)"
+    if dealt:
+        # One line for the deal and where it landed (playtest, log-lines-doubled-per-event)
+        return f"The Lightkeeper dealt {character.name} a" + took[len("took a"):] + "."
     return f"{character.name} " + (f"{passed_on} and " if passed_on else "") + took + "."
 
 
@@ -194,7 +197,8 @@ def _let_go(ability, payload) -> str:
     return f"let {ability} run out" if payload.get("timed_out") is True else f"passed on {ability}"
 
 
-async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True, announce=False, passed_on=None):
+async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True, announce=False, passed_on=None,
+                     dealt=False):
     """The mark lands on the character, whose channel is channel. Commits.
 
     announce: the log says so, with the track's count (_taken). mark_or_offer announces
@@ -206,7 +210,7 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True, ann
 
     if val >= 4 and announce:
         # Before Endurance's roll or the incapacitation, which follow from it
-        await _log(ctx, character, _taken(character, m_type, val, passed_on))
+        await _log(ctx, character, _taken(character, m_type, val, passed_on, dealt))
     if val >= 4 and "Endurance" in abilities:
         # Endurance (p. 27): roll a die per Nerve resistance point left; a 6 keeps them standing
         remaining = resistance_left(character, "nerve")
@@ -222,13 +226,17 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True, ann
             await _log(ctx, character, f"{character.name} used Endurance — rolled {endurance_roll}, no 6. Incapacitated.", "danger")
 
     if val >= 4:
+        already_down = bool(character.incapacitated)
         setattr(character, f"{m_type}_marks", 0)
         character.incapacitated = True
         db.commit()
         awaiting_scar.add(character.id)
         await manager.broadcast(channel, {"type": "trigger_scar", "payload": {
             "character_id": character.id, "mark_type": m_type, "character": get_char_dict(character)}})
-        await _log(ctx, character, f"{character.name} has been incapacitated!", "danger")
+        # Marks that land on one already down are another scar, not another fall
+        await _log(ctx, character, f"{character.name} takes another scar: a fourth {m_type.capitalize()} mark while down."
+                   if already_down else f"{character.name} has been incapacitated!", "danger")
+        await announce_status(ctx, character)
         await announce_downed(ctx)
         # The fourth mark is taken, as a scar (p. 14), so it is answered too
         await _after_mark_taken(ctx, character, channel, m_type, abilities)
@@ -238,7 +246,7 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True, ann
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     if announce:
-        await _log(ctx, character, _taken(character, m_type, val, passed_on))
+        await _log(ctx, character, _taken(character, m_type, val, passed_on, dealt))
 
     await _after_mark_taken(ctx, character, channel, m_type, abilities)
     if offer_intercepts:
@@ -416,7 +424,7 @@ async def close_offers_at_death(character):
 
 
 async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False, offer_intercepts=True,
-                        soaks=True, passed_on=None):
+                        soaks=True, passed_on=None, dealt=False):
     """take_mark's flow: a soak offer, then Death Defy for an enemy's mark, then the mark.
     A mark an open offer still holds lands first, as if that offer were declined (a new
     mark, or Behind Me taking an ally's mark, used to replace it, and it was lost).
@@ -426,8 +434,13 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
     first, the offer counts it, and one use escapes them all.
 
     Every mark that lands here is announced in the log (apply_mark); passed_on says how
-    the soak before it was let go (_let_the_mark_land)."""
+    the soak before it was let go (_let_the_mark_land). dealt: the Lightkeeper dealt it.
+    A mark that lands at once is one line naming the dealer (_taken); one held for an
+    offer gets its own "dealt" line first, since it lands later."""
     held = _pending_marks.pop(character.id, None)
+    if dealt and (held or (soaks and _soak_options(character, m_type)) or (is_from_enemy and _can_defy(character))):
+        await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark.", "danger")
+        dealt = False
     if held and held.get("stage") == "escape" and is_from_enemy:
         held["more"] = [*held.get("more", []), m_type]
         _pending_marks[character.id] = held
@@ -452,7 +465,7 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
         await _offer_defy(character, channel, _pending_marks[character.id])
         return
     _pending_marks.pop(character.id, None)
-    await apply_mark(ctx, character, m_type, channel, offer_intercepts, announce=True, passed_on=passed_on)
+    await apply_mark(ctx, character, m_type, channel, offer_intercepts, announce=True, passed_on=passed_on, dealt=dealt)
 
 
 async def handle_take_mark(ctx):
@@ -473,8 +486,7 @@ async def handle_take_mark(ctx):
                                        "Their desk is closed, so it landed without a soak or Death Defy.", "danger")
             await apply_mark(ctx, character, m_type, key, announce=True)
             return
-        await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark.", "danger")
-        await mark_or_offer(ctx, character, m_type, key,
+        await mark_or_offer(ctx, character, m_type, key, dealt=True,
                             is_from_enemy=ctx.payload.get("is_from_enemy") is not False)
         return
     if m_type:

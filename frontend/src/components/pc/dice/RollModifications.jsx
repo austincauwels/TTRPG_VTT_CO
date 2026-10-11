@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { ACTION_LABEL } from '../../../game/actions';
+import { InfoTerm } from '../../shared/ActionInfo';
 
 const DRIVES = ['nerve', 'cunning', 'intuition'];
 const promptButton = 'px-3 py-0.5 font-sans text-xs font-black uppercase border border-parchment-deep/50 text-parchment-deep hover:bg-parchment-deep/10 rounded-sm transition-all disabled:opacity-40';
@@ -76,7 +77,11 @@ export const RollModifications = ({
                   ))}
                 </span>
               </p>
-              <p className="font-serif text-sm text-parchment-deep mt-0.5">{action}: {pool}</p>
+              <p className="font-serif text-sm text-parchment-deep mt-0.5">
+                <InfoTerm label={`${action}: ${pool}`} ariaLabel={`${action}: ${pool}, what a reroll throws`}
+                  text="A reroll throws the action rating alone. Drive spent and dice an ability added are not thrown again."
+                  markClassName="text-parchment-deep group-hover/info:text-cream" />
+              </p>
             </div>
             <button
               onClick={() => burnResistance(lastRoll.action, lastRollDriveKey)}

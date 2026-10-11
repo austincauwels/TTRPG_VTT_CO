@@ -425,6 +425,8 @@ const useGameStore = create(
       character: null,
       characters: [],          // all characters belonging to the logged-in user
       gmCampaigns: [],         // campaigns the user manages as GM
+      retiredCampaigns: [],    // campaigns the user ran and retired (the ledger's Retired list)
+      withdrawnIds: [],        // join requests this player took back (the hub does not call those a decision)
       lastPlayedCampaign: null, // { type:'player'|'gm', characterId?, campaignCode, campaignName }
       circle: null,
       lastRoll: null,
@@ -453,7 +455,7 @@ const useGameStore = create(
       rollError: null,           // why the last roll (or kept die) did not go through
       dismissedPrompts: [],      // post-roll ability prompts used or skipped on the last roll (kept here, so the Notebook trip does not bring them back)
       postRollTried: null,       // the post-roll ability last sent, taken back from dismissed if the server refuses it
-      campaignRoster: { pending_investigators: [], active_investigators: [] },
+      campaignRoster: { pending_investigators: [], active_investigators: [], fallen_investigators: [] },
       // The GM desk: the latest sheet of each roster character, by id, as member_update
       // brought it (the open GMCharacterSheet follows it)
       memberSheets: {},
@@ -552,6 +554,7 @@ const useGameStore = create(
           character: null,
           characters: [],
           gmCampaigns: [],
+          retiredCampaigns: [],
           lastPlayedCampaign: null,
           circle: null,
           socket: null,
@@ -1098,6 +1101,9 @@ const useGameStore = create(
                   ...state.campaignRoster,
                   active_investigators: (active_investigators || [])
                     .map(sheet => sheetOnCard(cards.find(c => c.id === sheet.id), sheet)),
+                  // The Lightkeeper's copy also lists the dead this one replaced (Fallen cards)
+                  ...(Array.isArray(message.payload.fallen_investigators)
+                    ? { fallen_investigators: message.payload.fallen_investigators } : {}),
                 },
               };
             });
@@ -1218,7 +1224,8 @@ const useGameStore = create(
             get().fetchUserData(get().accessSession?.userId);
           }
           else if (message.type === 'campaign_restored') {
-            // The Lightkeeper undid the delete. Sent to every socket of the Lightkeeper and of
+            // The Lightkeeper undid the delete, or restored a retired campaign (which puts
+            // nobody back, so ids is empty). Sent to every socket of the Lightkeeper and of
             // the owners of the characters it put back, whatever channel it is on, so not
             // campaign-checked. The roster book is read again, so a character it shows as free
             // is back in the campaign (Join and Delete refuse it otherwise). A socket on one
@@ -1317,10 +1324,15 @@ const useGameStore = create(
             // pickers leave the dead out (livingMembers), so the card takes the flag now. The
             // server sends it to the players only: the GM desk has member_update.
             if (!isForThisCampaign(message.payload)) return;
-            const { character_id: id, is_dead: isDead } = message.payload || {};
+            const { character_id: id, is_dead: isDead, incapacitated, scars_count: scars } = message.payload || {};
             if (id == null) return;
-            // So do the formation papers, whose Circle Relationships leave the dead out
-            const flag = (list) => (Array.isArray(list) ? list.map(c => (c.id === id ? { ...c, is_dead: !!isDead } : c)) : list);
+            // So do the formation papers, whose Circle Relationships leave the dead out. The
+            // circle's cards also say who is down and how many scars they carry.
+            const flag = (list) => (Array.isArray(list) ? list.map(c => (c.id === id ? {
+              ...c, is_dead: !!isDead,
+              ...(incapacitated !== undefined ? { incapacitated: !!incapacitated } : {}),
+              ...(scars !== undefined ? { scars_count: scars } : {}),
+            } : c)) : list);
             set(state => ({
               campaignRoster: {
                 ...state.campaignRoster,
@@ -1368,12 +1380,14 @@ const useGameStore = create(
       fetchUserData: async (userId) => {
         if (!userId) return;
         try {
-          const [charsRes, campsRes] = await Promise.all([
+          const [charsRes, campsRes, retiredRes] = await Promise.all([
             apiFetch(`/api/users/${userId}/characters`),
             apiFetch(`/api/users/${userId}/campaigns`),
+            apiFetch(`/api/users/${userId}/retired-campaigns`),
           ]);
           if (charsRes.ok) set({ characters: await charsRes.json() });
           if (campsRes.ok) set({ gmCampaigns: await campsRes.json() });
+          if (retiredRes.ok) set({ retiredCampaigns: await retiredRes.json() });
           // A Last Session tome that names a campaign this user is no longer in (retired or
           // deleted while the hub had no socket) goes; the hub fills it again from what is left
           const { lastPlayedCampaign: last, characters, gmCampaigns } = get();
@@ -1779,7 +1793,7 @@ const useGameStore = create(
       // opened again after a drop)
       fetchRoster: async (campaignId, { keep = false } = {}) => {
         if (!campaignId) return;
-        if (!keep) set({ campaignRoster: { pending_investigators: [], active_investigators: [], roster_finalized: false } });
+        if (!keep) set({ campaignRoster: { pending_investigators: [], active_investigators: [], fallen_investigators: [], roster_finalized: false } });
         const sheetsAtFetch = get().memberSheets;
         try {
           const res = await apiFetch(`/campaign/${campaignId}/roster`);
@@ -1835,6 +1849,8 @@ const useGameStore = create(
               characters: state.characters.map(c =>
                 c.id === characterId ? { ...c, status: 'pending' } : c
               ),
+              // A new request: if this one ends, it is the Lightkeeper's answer again
+              withdrawnIds: state.withdrawnIds.filter(id => id !== characterId),
             }));
             // An open socket for this character still carries its old campaign.
             if (String(get().socketGameId) === String(characterId)) get().reconnect();
@@ -2242,6 +2258,25 @@ const useGameStore = create(
         return result;
       },
 
+      // Brings a retired campaign back to the ledger, with its dead. Nobody it let go is put
+      // back on its roster (they may be in another campaign by now).
+      unretireCampaign: async (campaignId) => {
+        const result = await deletionRequest(`/campaign/${campaignId}/unretire`, 'POST');
+        await get().fetchUserData(get().accessSession?.userId);
+        return result;
+      },
+
+      // The player takes back a join request that is still waiting. A 409 means the
+      // Lightkeeper answered meanwhile, so the hub reads the list again either way.
+      withdrawRequest: async (characterId) => {
+        const result = await deletionRequest(`/campaign/withdraw/${characterId}`, 'POST');
+        if (result.success) set(st => ({ withdrawnIds: [...st.withdrawnIds, characterId] }));
+        await get().fetchUserData(get().accessSession?.userId);
+        return result;
+      },
+      // The hub has said "You withdrew ..." for this one (usePendingApprovalWatch.js)
+      forgetWithdrawn: (characterId) => set(st => ({ withdrawnIds: st.withdrawnIds.filter(id => id !== characterId) })),
+
       clearRelationshipIntro: () => set({ pendingRelationshipIntro: null }),
       openRelationshipPopup: (targetInvestigator) => {
         const { circleCreation } = get();
@@ -2284,6 +2319,7 @@ const useGameStore = create(
           character: null,
           characters: [],
           gmCampaigns: [],
+          retiredCampaigns: [],
           lastPlayedCampaign: null,
           circle: null,
           rejoinInvite: null,

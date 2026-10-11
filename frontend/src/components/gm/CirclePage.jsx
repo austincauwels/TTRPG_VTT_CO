@@ -33,10 +33,11 @@ const ClearButton = ({ label, armedHint, onConfirm, className = '' }) => (
 );
 
 import { TurnOverMark } from '../shared/Decorations';
-import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
+import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankEntry, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
 import { tallyReports, tallyOf } from '../../game/illumination';
+import { reportingMembers } from '../../game/roster';
 import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
 
 // A line of the charter the Lightkeeper may change: its value with an Edit button, which
@@ -48,14 +49,17 @@ const EditableLine = ({ value, label, onSave, multiline = false, displayClassNam
   const [editing, setEditing] = useState(false);
   const fieldRef = useRef(null);
   const cancelled = useRef(false);
+  const hintId = useId();
   const open = editing || !value;
 
-  // Opened with Edit: the caret at the end of the value
+  // Opened with Edit: the caret at the start, so a long name shows its beginning
   useEffect(() => {
     const el = fieldRef.current;
     if (!editing || !el) return;
     el.focus();
-    el.setSelectionRange(el.value.length, el.value.length);
+    el.setSelectionRange(0, 0);
+    el.scrollLeft = 0;
+    el.scrollTop = 0;
   }, [editing]);
 
   const finish = (el) => {
@@ -79,10 +83,12 @@ const EditableLine = ({ value, label, onSave, multiline = false, displayClassNam
   }
   const Field = multiline ? 'textarea' : 'input';
   return (
+    <>
     <Field
       ref={fieldRef}
       {...(multiline ? { rows: 2 } : { type: 'text' })}
       aria-label={label}
+      aria-describedby={editing ? hintId : undefined}
       placeholder={label}
       defaultValue={value || ''}
       onBlur={e => finish(e.target)}
@@ -99,6 +105,8 @@ const EditableLine = ({ value, label, onSave, multiline = false, displayClassNam
       }}
       className={inputClassName}
     />
+    {editing && <p id={hintId} className="font-sans text-xs text-sepia mt-1">Enter or leaving the field saves. Esc cancels.</p>}
+    </>
   );
 };
 
@@ -284,7 +292,7 @@ export const CirclePage = () => {
   const {
     circle, circleCreation, updateCircle,
     gmToggleResourceEdit, gmToggleReports, gmAdvanceCircle, refillResources,
-    gmSetTallyAnswer, gmAddTally,
+    gmSetTallyAnswer, gmAddTally, campaignRoster,
   } = useGameStore();
 
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
@@ -299,7 +307,13 @@ export const CirclePage = () => {
   const selQ    = CIRCLE_QUESTIONS.find(q => q.key === selQKey);
 
   const investigators    = circleCreation?.activeInvestigators || [];
-  const playersWithAnswers = investigators.filter(inv => inv.personal_circle_answer);
+  // Circle History keeps the dead: the answer of one who has died is marked, and one since
+  // replaced stays as a Fallen line (the roster's fallen_investigators)
+  const fallen = campaignRoster?.fallen_investigators || [];
+  const playersWithAnswers = [
+    ...investigators.filter(inv => inv.personal_circle_answer),
+    ...fallen.filter(inv => inv.personal_circle_answer),
+  ];
   const reports          = circleCreation?.reports || {};
 
   const trackFull = illum >= TRACK_SIZE;
@@ -380,11 +394,17 @@ export const CirclePage = () => {
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
               Insignia
             </span>
-            <div role="img" aria-label={`Insignia: ${insigniaLabel(circle?.insignia || 'GiCandleLight')}`} title={insigniaLabel(circle?.insignia || 'GiCandleLight')}
+            {/* Named only once one is chosen; the stamp's candle is the blank seal until then */}
+            <div {...(circle?.insignia
+              ? { role: 'img', 'aria-label': `Insignia: ${insigniaLabel(circle.insignia)}`, title: insigniaLabel(circle.insignia) }
+              : { 'aria-hidden': true })}
               className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
               <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
               <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={30} className="text-ink/85" />
             </div>
+            {circle?.insignia
+              ? <span aria-hidden="true" className="font-serif text-xs italic text-sepia text-center">{insigniaLabel(circle.insignia)}</span>
+              : <span className="text-sepia text-xs"><BlankEntry label="None chosen" className="!w-14" /></span>}
           </div>
         </div>
 
@@ -392,7 +412,7 @@ export const CirclePage = () => {
         <div className="mt-3 pt-3 border-t border-ink/10">
           <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
-            Illumination
+            <InfoTerm label="Illumination" text="The gold-ringed pips are milestones (3, 6 and 9); the track fills at 12. A milestone matters only to a circle with Resource Management." />
             <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">
               {Math.min(illum, TRACK_SIZE)} / {TRACK_SIZE}{illum > TRACK_SIZE ? ` (+${illum - TRACK_SIZE} carried over)` : ''}
             </span>
@@ -411,7 +431,7 @@ export const CirclePage = () => {
           <div className="flex gap-1.5 flex-wrap">
             {Array.from({ length: TRACK_SIZE }).map((_, i) => {
               const filled    = i < illum;
-              const milestone = (i + 1) % 3 === 0;
+              const milestone = [3, 6, 9].includes(i + 1);
               return (
                 <div
                   key={i}
@@ -419,8 +439,8 @@ export const CirclePage = () => {
                   onKeyDown={onActivateKey(() => setIllum(filled && illum === i + 1 ? i : i + 1))}
                   tabIndex={0}
                   role="button"
-                  aria-label={`Set Illumination to ${filled && illum === i + 1 ? i : i + 1}`}
-                  title={`Illumination ${i + 1}`}
+                  aria-label={filled && illum === i + 1 ? `Illumination ${i + 1}, current. Press to lower to ${i}` : `Set Illumination to ${i + 1}`}
+                  title={milestone ? `Illumination ${i + 1}, a milestone` : `Illumination ${i + 1}`}
                   className={`touch-pip [--hit-y:-14px] [--hit-x:-4px] w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
                     filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'
                   } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}
@@ -555,7 +575,7 @@ export const CirclePage = () => {
       </CirclePaper>
 
       {/* III. Each investigator's report, a card that turns over (her original flip) */}
-      {investigators.map((inv, idx) => (
+      {reportingMembers(investigators, reports).map((inv, idx) => (
         <div key={inv.id || idx} className="hand-placed min-w-0" style={tiltStyle(`report-${inv.id ?? idx}`, { max: 1.4, sign: idx % 2 ? 1 : -1 })}>
           <ReportFlipCard
             inv={inv}
@@ -686,6 +706,9 @@ export const CirclePage = () => {
                   </span>
                   {inv.specialty && (
                     <span className="font-sans font-bold text-xs text-sepia uppercase">· {inv.specialty}</span>
+                  )}
+                  {inv.is_dead && (
+                    <span className="font-sans font-bold text-xs text-oxblood uppercase">· {inv.status === 'retired' ? 'Fallen' : 'Deceased'}</span>
                   )}
                 </div>
                 <p className="font-serif text-sm text-ink/80 leading-snug italic whitespace-pre-wrap">

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { Standing } from '../../shared/Standing';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RELATIONSHIP_DATA, RELATIONSHIP_TYPES, joinLore, splitLore } from '../../../game/relationships';
 
@@ -21,7 +22,7 @@ const quietButton = 'px-4 py-2 border border-sepia/50 text-sepia hover:text-ink 
 // Relationship type, an optional prompt question, and the answer. The chosen question is
 // kept as its index and shown above the answer box, never in it; tapping it again lets it go.
 // A new type keeps the answer, and lets the question go (each type has its own).
-const RelationshipFields = ({ idPrefix, form, onChange, person }) => {
+const RelationshipFields = ({ idPrefix, form, onChange, person, verb = 'Relationship to' }) => {
   const { relType, promptIdx, answer } = form;
   const questions = (relType && RELATIONSHIP_DATA[relType]) || null;
   const question = questions && Number.isInteger(promptIdx) ? questions[promptIdx] : null;
@@ -29,7 +30,7 @@ const RelationshipFields = ({ idPrefix, form, onChange, person }) => {
   <div className="space-y-3">
     <div>
       <label htmlFor={`${idPrefix}-type`} className={labelClass}>Relationship</label>
-      <select id={`${idPrefix}-type`} aria-label={`Relationship to ${person}`} value={relType || ''} onChange={e => onChange({ relType: e.target.value, promptIdx: null })} className={fieldClass}>
+      <select id={`${idPrefix}-type`} aria-label={`${verb} ${person}`} value={relType || ''} onChange={e => onChange({ relType: e.target.value, promptIdx: null })} className={fieldClass}>
         <option value="" aria-label="None"></option>
         {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
@@ -62,7 +63,7 @@ const RelationshipFields = ({ idPrefix, form, onChange, person }) => {
       {question && <p id={`${idPrefix}-q`} className="font-serif italic text-base text-sepia leading-snug mb-1.5">{question}</p>}
       <textarea
         id={`${idPrefix}-lore`}
-        aria-label={`Your answer about ${person}`}
+        aria-label={`${verb === 'Relationship to' ? 'Your answer about' : 'Your counter answer about'} ${person}`}
         value={answer || ''}
         onChange={e => onChange({ answer: e.target.value })}
         rows={3}
@@ -116,8 +117,12 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
   // My own proposal coming back to me means they countered it
   const countered = myTurn && rel.from_character_id === myId;
 
+  // A counter that changes nothing is no counter: Accept is the way to agree
+  const sameAsOffer = !!counter.relType && counter.relType === rel.rel_type
+    && joinLore(counter.relType, counter.promptIdx, counter.answer) === rel.lore;
+  const sameId = `${useId()}-same`;
   const sendCounter = () => {
-    if (!counter.relType) return;
+    if (!counter.relType || sameAsOffer) return;
     respond(rel.id, 'counter', counter.relType, joinLore(counter.relType, counter.promptIdx, counter.answer));
     setCounters(c => { const n = { ...c }; delete n[rel.id]; return n; });
   };
@@ -162,8 +167,9 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
                 className="overflow-hidden"
               >
                 <div className="pt-2 space-y-3 border-t border-sepia/20">
-                  <RelationshipFields idPrefix={`counter-${rel.id}`} form={counter} onChange={setCounter} person={theirName} />
-                  <button type="button" onClick={sendCounter} disabled={!counter.relType} className={primaryButton}>Send counter</button>
+                  <RelationshipFields idPrefix={`counter-${rel.id}`} form={counter} onChange={setCounter} person={theirName} verb="Counter relationship to" />
+                  <button type="button" onClick={sendCounter} disabled={!counter.relType || sameAsOffer} aria-describedby={sameAsOffer ? sameId : undefined} className={primaryButton}>Send counter</button>
+                  {sameAsOffer && <p id={sameId} className="font-serif italic text-sm text-sepia">This is the same as {theirName}'s offer. Change something to counter, or Accept it.</p>}
                 </div>
               </motion.div>
             )}
@@ -212,6 +218,7 @@ export const RelationshipNegotiation = ({
         <span aria-hidden="true" className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: inv.ink_color || 'rgb(var(--c-oxblood))' }} />
         <span className={`font-serif font-bold text-ink ${compact ? 'text-lg' : 'text-xl'}`}>{inv.name}</span>
         {subtitle && <span className="font-serif text-base text-sepia">{subtitle}</span>}
+        <Standing inv={inv} />
       </div>
 
       <div>

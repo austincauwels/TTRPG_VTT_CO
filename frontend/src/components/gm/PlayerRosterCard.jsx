@@ -27,7 +27,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy
       <div className="min-w-0">
         <p className="font-serif text-lg font-bold text-ink break-words">{data.name || 'Unknown'}</p>
         <p className="font-sans font-bold text-xs uppercase tracking-widest text-sepia break-words">
-          {[data.pronouns, data.role_class || data.role, data.specialty].filter(Boolean).join(' · ')}
+          {[data.pronouns === 'Unlisted' ? '' : data.pronouns, data.role_class || data.role, data.specialty].filter(Boolean).join(' · ')}
         </p>
         {data.owner_username && (
           <p className="font-sans text-xs text-sepia break-words">
@@ -71,7 +71,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy
                   {...props}
                   className={`disabled:opacity-50 disabled:cursor-wait min-h-[40px] md:[@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border rounded transition-colors ${
                     armed
-                      ? 'bg-ink text-cream border-ink hover:bg-oxblood'
+                      ? 'bg-ink text-cream border-ink'
                       : 'border-sepia/50 text-sepia hover:bg-sepia/10'
                   }`}
                 >

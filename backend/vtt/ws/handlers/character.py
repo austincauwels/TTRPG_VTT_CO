@@ -12,8 +12,9 @@ from vtt.config import _SAFE_FONT_NAMES
 from vtt.creation import ACTION_LABELS
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import scar_ability
-from vtt.ws.handlers.circle import announce_death, announce_downed
-from vtt.ws.handlers.marks import awaiting_scar, close_offers_at_death
+from vtt.serializers import awaiting_scar
+from vtt.ws.handlers.circle import announce_downed, announce_status
+from vtt.ws.handlers.marks import close_offers_at_death
 from vtt.ws.manager import character_key, manager
 
 
@@ -92,13 +93,14 @@ async def handle_apply_scar(ctx):
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     if character.is_dead and not was_dead:
         await close_offers_at_death(character)
-        await announce_death(ctx, character)
         # Every desk's log, the Lightkeeper's too: a card leaving Your Circle needs a reason
         await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
             "type": "activity_log",
             "payload": {"message": f"{character.name} is deceased: a fourth scar.", "log_type": "danger",
                         "ink_color": getattr(character, "ink_color", "") or ""},
         }, db)
+    # The players' circle cards follow the scar count, the fall and the death
+    await announce_status(ctx, character)
     if character.is_dead:
         await announce_downed(ctx)
     if use:
@@ -109,6 +111,13 @@ async def handle_apply_scar(ctx):
         await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
             "type": "activity_log",
             "payload": {"message": said, "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""},
+        }, db)
+    elif not character.is_dead and scar_text:
+        # An ordinary scar gets its line too (a killing one has the death line above)
+        await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
+            "type": "activity_log",
+            "payload": {"message": f"{character.name} recorded a scar ({character.scars_count} of 4).",
+                        "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""},
         }, db)
 
 
@@ -130,6 +139,7 @@ async def handle_revive_character(ctx):
             "ink_color": getattr(character, "ink_color", "") or "",
         }
     }, db)
+    await announce_status(ctx, character)
     await announce_downed(ctx)
 
 
@@ -404,6 +414,10 @@ async def handle_use_ability(ctx):
         (f" on {target.name}" if target is not character and effect != "great_ward" else "")
     taken = [f"took a {m.capitalize()} mark" for m in marks]
     detail = ", ".join(paid + taken)
+    if use.get("then"):
+        # What the ability asks of the player next (Commune: the Sense roll), so the line
+        # does not leave it to memory
+        detail += f", then {use['then']}"
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
         "message": f"{character.name} used {label}" + (f" ({detail})." if detail else "."),
         "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)

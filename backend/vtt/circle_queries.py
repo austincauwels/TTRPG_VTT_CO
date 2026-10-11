@@ -27,13 +27,15 @@ def resource_pool(circle, db: Session = None) -> int:
     """The resource points for each of Stitch, Refresh and Train: 1 plus the active
     members (rulebook p. 41; the example on p. 62 has four players with 5 in each). A
     campaign's members are counted by campaign, since they stay on the shared circle 1
-    (QUIRKS.md); circle 1 counts its own characters."""
+    (QUIRKS.md); circle 1 counts its own characters. A dead investigator not yet replaced
+    keeps status active on the roster but is no member to count."""
     if circle.campaign_id:
         db = db or object_session(circle)
         members = db.query(Character.id).filter(
-            Character.campaign_id == circle.campaign_id, Character.status == "active").count() if db else 0
+            Character.campaign_id == circle.campaign_id, Character.status == "active",
+            Character.is_dead.isnot(True)).count() if db else 0
     else:
-        members = sum(1 for c in circle.characters if c.status == "active")
+        members = sum(1 for c in circle.characters if c.status == "active" and not c.is_dead)
     return 1 + members
 
 

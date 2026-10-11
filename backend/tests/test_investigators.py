@@ -24,7 +24,7 @@ RESPONSE_KEYS = {
 SHEET_KEYS = {
     "is_dead", "campaign_id", "personal_circle_answer", "ability_uses", "train_bonus",
     "train_dice", "warded_by_id", "resources_spent_assignment", "advancement_picks",
-    "advancement_taken",
+    "advancement_taken", "scar_pending",
 }
 
 
@@ -273,6 +273,9 @@ def test_list_investigators(client):
         "ink_color": "",
         # Filled in only on the Lightkeeper's roster, to name the player of a join request
         "owner_username": "",
+        # Filled in only on the Lightkeeper's roster, for the card's state at a glance
+        "incapacitated": False, "scars_count": 0, "body_marks": 0, "brain_marks": 0,
+        "bleed_marks": 0, "advancement_picks": 0, "scar_pending": False,
     }
 
 

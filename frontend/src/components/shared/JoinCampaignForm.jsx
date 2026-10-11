@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { InfoTerm } from './ActionInfo';
 import { PEN_FONTS } from '../campaignSelector/penFonts';
 import { CAMPAIGN_CODE_PATTERN, CAMPAIGN_CODE_RULE } from '../../utils/campaignErrors';
 
@@ -56,7 +57,10 @@ export const JoinCampaignForm = ({
           penTriggerRef.current?.focus();
         }
       }}>
-        <span id={`${idPrefix}-pen-label`} className={labelClass}>Handwriting</span>
+        <div className="flex items-center gap-1">
+          <span id={`${idPrefix}-pen-label`} className={labelClass}>Handwriting</span>
+          <InfoTerm label="Handwriting" text="Your notebook entries are written in this pen. You can change it later in the Notebook." />
+        </div>
         <button
           type="button"
           ref={penTriggerRef}

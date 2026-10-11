@@ -2,12 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import useGameStore, { assignmentOf } from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { RelationshipNegotiation, useRelationshipForms } from './relationships/RelationshipNegotiation';
+import { InfoTerm } from '../shared/ActionInfo';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey } from '../shared/a11y';
 import { FormLine, SerialNo, DateStamp, PrinterMark, BlankEntry, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { refillRule } from '../../game/circleResources';
-import { CIRCLE_QUESTIONS } from '../../game/circleFormation';
+import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
+import { holdBack } from '../stageHistory';
 import { ABILITY_TEXTS } from './InvestigatorDossier';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
@@ -171,6 +173,11 @@ export function AdvancementModal() {
   const open = !!character && !character.is_dead && picksLeft > 0 && !advancementDeferred;
   const close = () => { setSubmitted(false); setSelectedPicks([]); setDetails({}); dismissCircleAdvancement(); };
   const dialogRef = useDialog({ open: open || submitted, onClose: close, view: submitted });
+  // Browser Back with picks half made closes the dialog (Later) and keeps the desk, rather
+  // than leaving for the hub (playtest, advancement-dialog-back-leaves-desk). It only puts
+  // the dialog away: the picks and their details are kept for Choose advancements.
+  const picking = open && !submitted && selectedPicks.length > 0;
+  useEffect(() => (picking ? holdBack(dismissCircleAdvancement) : undefined), [picking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const MAX_PICKS = picksLeft % 2 === 1 ? 1 : 2;
 
@@ -264,8 +271,9 @@ export function AdvancementModal() {
           The Illumination track is full: <strong>{MAX_PICKS}</strong> {MAX_PICKS === 1 ? 'advancement' : 'advancements'} for {character?.name || 'your investigator'}.
         </p>
 
-        {circleAdvancement?.circle?.circle_ability && (() => {
-          const newAbility = circleAdvancement.circle.circle_ability.split('\n').filter(Boolean).at(-1);
+        {/* After a reload only the stored circle is left, and its last ability is the new one */}
+        {(circleAdvancement?.circle?.circle_ability || circle?.circle_ability) && (() => {
+          const newAbility = (circleAdvancement?.circle?.circle_ability || circle.circle_ability).split('\n').filter(Boolean).at(-1);
           return newAbility ? (
             <div className="mb-5 p-3 bg-candle-gold/10 border border-candle-gold/40 rounded-sm">
               <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">New Circle Ability</span>
@@ -500,7 +508,6 @@ export const CircleView = () => {
   // the store, so leaving the tab or reloading keeps them (playtest: report-forgets-sent,
   // key-ticks-lost)
   const myReport = circleCreation?.reports?.[character?.id] ?? circleCreation?.reports?.[String(character?.id)] ?? null;
-  const [amending, setAmending] = useState(false);
   // Send report gives way to the stamp: focus goes to the stamp, not the page
   // (playtest, keyboard-focus-dropped)
   const stampRef = useRef(null);
@@ -508,11 +515,14 @@ export const CircleView = () => {
   const storedDraft = reportDrafts?.[character?.id];
   const draft = storedDraft && storedDraft.assignment === assignmentOf(circle) ? storedDraft : null;
   const filedResponses = myReport?.responses || {};
+  // Amending is part of the draft in the store, so a trip to the chapter hub and back
+  // keeps the half-made amendment (playtest, report-amend-draft-lost)
+  const amending = !!draft?.amending;
   const showFiled = !!myReport && !amending;
   // The keys this investigator fulfilled: { 0: bool, ... }. The circle's three questions
   // are the Lightkeeper's to answer once, on their page (playtest, report-questions-tally)
   const keyChecks = showFiled ? (filedResponses.keys_detail || {}) : (draft?.keyChecks || {});
-  const setKeyChecks = (update) => setReportDraft(character?.id, { keyChecks: update(keyChecks) });
+  const setKeyChecks = (update) => setReportDraft(character?.id, { keyChecks: update(keyChecks), amending });
 
   // Relationship drafts for the shared relationship form
   const relForms = useRelationshipForms();
@@ -606,7 +616,6 @@ export const CircleView = () => {
     };
     // The ticks stay on the form until the filed report comes back in their place
     if (submitAssignmentReport(circId, character?.id, responses, { replace: !!myReport })) {
-      setAmending(false);
       sentHere.current = true;
     }
   }
@@ -619,8 +628,7 @@ export const CircleView = () => {
 
   // Amend: the filed ticks become the draft, to change and send again in its place
   function startAmending() {
-    setReportDraft(character?.id, { keyChecks });
-    setAmending(true);
+    setReportDraft(character?.id, { keyChecks, amending: true });
   }
 
   return (
@@ -666,10 +674,15 @@ export const CircleView = () => {
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
               Insignia
             </span>
-            <div className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
+            {/* Named only once one is chosen; the stamp's candle is the blank seal until then */}
+            <div {...(circle?.insignia ? { role: 'img', 'aria-label': `Insignia: ${insigniaLabel(circle.insignia)}` } : { 'aria-hidden': true })}
+              className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
               <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
               <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={30} className="text-ink/85" />
             </div>
+            {circle?.insignia
+              ? <span aria-hidden="true" className="font-serif text-xs italic text-sepia text-center">{insigniaLabel(circle.insignia)}</span>
+              : <span className="text-sepia text-xs"><BlankEntry label="None chosen" className="!w-14" /></span>}
           </div>
         </div>
 
@@ -677,7 +690,7 @@ export const CircleView = () => {
         <div className="mt-3 pt-3 border-t border-ink/10">
           <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
-            Illumination
+            <InfoTerm label="Illumination" text="The gold-ringed pips are milestones (3, 6 and 9); the track fills at 12. A milestone matters only to a circle with Resource Management." />
             <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">{Math.min(illum, TRACK_SIZE)} / {TRACK_SIZE}{illum > TRACK_SIZE ? ` (+${illum - TRACK_SIZE} carried over)` : ''}</span>
           </h3>
           {trackFull && (
@@ -691,9 +704,9 @@ export const CircleView = () => {
           <div className="flex gap-1.5 flex-wrap" role="img" aria-label={`Illumination ${illum} of ${TRACK_SIZE}`}>
             {Array.from({ length: TRACK_SIZE }).map((_, i) => {
               const filled    = i < illum;
-              const milestone = (i + 1) % 3 === 0;
+              const milestone = [3, 6, 9].includes(i + 1);
               return (
-                <div key={i} title={`Illumination ${i + 1}`}
+                <div key={i} title={milestone ? `Illumination ${i + 1}, a milestone` : `Illumination ${i + 1}`}
                   className={`w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center shadow-inner transition-all ${
                     filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50'
                   } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}>
@@ -739,7 +752,7 @@ export const CircleView = () => {
             ))}
           </ol>
           <p className="font-serif text-xs text-sepia leading-snug mt-1.5">
-            The circle answers these together, and the Lightkeeper marks them. Below, tick the keys you fulfilled.
+            The circle answers these together, and the Lightkeeper marks them. {showFiled ? 'Your report is filed; the boxes show the keys you ticked.' : 'Below, tick the keys you fulfilled.'}
           </p>
         </div>
 
@@ -747,7 +760,7 @@ export const CircleView = () => {
         {myKeys.length > 0 && (
           <div className="border-t border-ink/10 pt-2.5 mb-3">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1.5">
-              {character?.specialty} Illumination Keys
+              <InfoTerm label={`${character?.specialty} Illumination Keys`} text="If any of the circle fulfilled a key, the circle earns 2 Illumination, and 4 if all did." />
             </span>
             <div className="space-y-1">
               {myKeys.map((k, i) => (
@@ -784,11 +797,11 @@ export const CircleView = () => {
           ) : (
             <>
               <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider">
-                {circle?.reports_open ? (myReport ? 'Amending your report' : 'Reports open') : 'Reports closed: the Lightkeeper opens them at the end of the assignment'}
+                {circle?.reports_open ? (myReport ? 'Amending your report' : 'Reports open') : 'Reports closed: the Lightkeeper opens them when this assignment ends'}
               </span>
               <span className="flex items-center gap-3">
                 {myReport && (
-                  <button type="button" onClick={() => setAmending(false)}
+                  <button type="button" onClick={() => setReportDraft(character?.id, { keyChecks: {}, amending: false })}
                     className="pen-host min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-1 font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink">
                     <span className="pen-underline">Cancel</span>
                   </button>

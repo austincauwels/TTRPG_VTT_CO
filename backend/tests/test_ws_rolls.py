@@ -583,7 +583,7 @@ def test_what_answers_a_players_secret_roll_stays_with_the_roller(client, dice):
     its dice or a line, live or in the history it is sent when it opens. The burn used to
     show its dice and log its result to the whole table, and so did Flourish."""
     camp = support.new_campaign(client)
-    ch = support.active_member(client, camp, hide=2, gilded_hide=True, cunning_max=6, cunning_current=6,
+    ch = support.active_member(client, camp, hide=2, gilded_hide=True, cunning_max=6, cunning_current=5,
                                role_ability="Flourish")
     other = support.active_member(client, camp)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm, \
@@ -1668,11 +1668,28 @@ def test_resuscitation_revives_a_scarred_ally(client, dice, face):
         wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"],
                 cost={"nerve": 2, "intuition": 1})
         msgs = wd.sync()
-        assert msgs[-1]["payload"]["message"] == f"{doc['name']} used Resuscitation {support.EM} {ally['name']} is back on their feet" \
+        assert [m for m in msgs if m["type"] == "activity_log"][-1]["payload"]["message"] == f"{doc['name']} used Resuscitation {support.EM} {ally['name']} is back on their feet" \
             + (" (2 Nerve, 1 Intuition)." if face == 5 else ".")
-        assert wa.drain()[0]["payload"]["incapacitated"] is False
+        assert [m["payload"]["incapacitated"] for m in wa.drain() if m["type"] in ("character_update", "member_status")] == [False, False]
     row = support.fetch(Character, doc["id"])
     assert (row.nerve_current, row.intuition_current) == ((0, 2) if face == 5 else (2, 3))
+
+
+def test_resuscitation_tells_the_other_players_the_ally_is_up(client, dice):
+    """Another player's roster (the circle cards) keeps the ally down until member_status says
+    otherwise, so a Resuscitation sends it."""
+    camp, doc, ally = _doctor_and_ally(client, "Resuscitation", {"incapacitated": True, "scars_count": 1})
+    third = support.active_member(client, camp)
+    dice(6)
+    with support.ws_connect(client, doc["id"]) as wd, support.ws_connect(client, third["id"]) as wt:
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        wt.drain()
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
+        wd.sync()
+        status = [m for m in wt.drain() if m["type"] == "member_status"]
+    assert [m["payload"] for m in status] == [{"character_id": ally["id"], "campaign_id": camp["id"],
+                                               "is_dead": False, "incapacitated": False, "scars_count": 1}]
 
 
 def test_resuscitation_refusals(client, dice):
@@ -1773,3 +1790,42 @@ def test_saw_this_coming_adds_an_allys_die(client, dice):
     assert support.fetch(Character, slink["id"]).ability_uses == {"Saw This Coming": 3}
     assert support.fetch(Character, roller["id"]).nerve_current == 3
 
+
+def test_a_kept_gilded_die_at_a_full_drive_logs_no_refresh(client, dice):
+    """Playtest, gilded-refund-promised-at-full-drive: with the drive already at its top
+    nothing comes back, so the line carries no refreshed tag and no sheet is sent."""
+    ch = support.forge(client, move=2, gilded_move=True, nerve_max=3, nerve_current=3)
+    dice(3, 5)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=0)
+        ws.sync()
+        ws.send("resolve_gilded", action="move", chosen_type="gilded")
+        msgs = ws.sync()
+        assert "character_update" not in support.types(msgs)
+        line = [m for m in msgs if m["type"] == "activity_log"][0]["payload"]["message"]
+        assert "refreshed" not in line
+    assert support.fetch(Character, ch["id"]).nerve_current == 3
+
+
+def test_a_burn_reroll_gilded_die_at_a_full_drive_logs_no_refresh(client, dice):
+    ch = support.forge(client, gilded_move=True, nerve_max=3, nerve_current=3)
+    dice(3, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        support.last_roll(ch["id"], "move")
+        ws.send("burn_resistance", action="move", drive_key="nerve")
+        msgs = ws.sync()
+        assert msgs[0]["payload"]["roll"]["auto_gilded_refresh"] is True
+        line = [m for m in msgs if m["type"] == "activity_log"][0]["payload"]["message"]
+        assert "refreshed" not in line
+    assert support.fetch(Character, ch["id"]).nerve_current == 3
+
+
+def test_an_automatic_gilded_refresh_at_a_full_drive_logs_nothing_extra(client, dice):
+    ch = support.forge(client, gilded_move=True, nerve_max=3, nerve_current=3)
+    dice(2, 5)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=0)
+        msgs = ws.sync()
+        assert support.types(msgs) == ["roll_result", "activity_log"]
+        assert "refreshed" not in msgs[1]["payload"]["message"]
+    assert support.fetch(Character, ch["id"]).nerve_current == 3
