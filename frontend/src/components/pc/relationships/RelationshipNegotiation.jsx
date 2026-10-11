@@ -177,7 +177,7 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
 // compact (the Circle tab's relationships paper): a smaller head, and the form to propose
 // folded behind its own button until it is wanted. A started draft stays open.
 export const RelationshipNegotiation = ({
-  inv, myId, relationships, circleId, forms, proposeRelationship, respondToRelationship, compact = false,
+  inv, myId, relationships, circleId, forms, proposeRelationship, respondToRelationship, compact = false, proposeBlocked = false,
 }) => {
   const { drafts, setDrafts } = forms;
   const draft = drafts[inv.id] || {};
@@ -219,6 +219,8 @@ export const RelationshipNegotiation = ({
         {mine && !isEditing ? (
           <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
             onEdit={startEdit} focusRequest={focusRequest} />
+        ) : proposeBlocked ? (
+          <p className="font-serif text-base text-sepia">A dead investigator proposes no relationships.</p>
         ) : !formOpen ? (
           <button type="button" aria-expanded={false} onClick={() => setDraft({ open: true })} className={quietButton}>
             Propose a relationship

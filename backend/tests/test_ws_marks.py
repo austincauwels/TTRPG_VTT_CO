@@ -964,7 +964,6 @@ def test_fourth_scar_kills(client):
 def test_revive_character(client):
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, body_marks=2, brain_marks=1, bleed_marks=3, incapacitated=True)
-    support.update(Character, ch["id"], is_dead=True)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         ws.send("revive_character")
         msgs = ws.sync()
@@ -972,7 +971,7 @@ def test_revive_character(client):
         p = msgs[0]["payload"]
         # Fixed (RULES_CHECK 9): only incapacitated clears; the other tracks keep their marks
         assert (p["body_marks"], p["brain_marks"], p["bleed_marks"], p["incapacitated"]) == (2, 1, 3, False)
-        assert p["is_dead"] is True  # untouched
+        assert p["is_dead"] is False
         assert msgs[1]["payload"] == {"message": f"{ch['name']} has been revived and is operational.",
                                       "log_type": "field", "ink_color": engine.INK_COLORS[0]}
         assert gm.drain() == [{"type": "member_update", "payload": p}, msgs[1]]
@@ -1298,3 +1297,45 @@ def test_a_held_mark_that_lands_when_another_comes_is_logged(client):
         ws.send("take_mark", mark_type="bleed", is_from_enemy=False)   # (and closes the offer)
         lines = [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"]
         assert lines == [f"{ch['name']} took a Body mark (1 of 3).", f"{ch['name']} took a Bleed mark (1 of 3)."]
+
+
+def test_a_dead_investigators_sheet_is_a_record(client):
+    """Once the fourth scar is taken the player's socket can no longer roll, take a mark,
+    change gear or a drive, or spend the circle's resources (playtest,
+    dead-investigator-still-acts); the Lightkeeper's Deal a mark is refused for them too.
+    Chat and the Lightkeeper's other corrections stand."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, is_dead=True, incapacitated=True, scars_count=4,
+                               scars_list=["a", "b", "c", "d"])
+    refusal = lambda action: {"type": "action_rejected", "payload": {
+        "action": action, "status": 409, "detail": f"{ch['name']} is dead: the sheet is a record."}}
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        for action, payload in (("roll", {"action": "move"}), ("take_mark", {"mark_type": "body"}),
+                                ("update_gear", {"gear": ["Rope"]}), ("update_drive", {"pool": "nerve", "value": 1}),
+                                ("spend_resource", {"resource_type": "refresh"}), ("use_ability", {"ability": "Hardened"}),
+                                ("revive_character", {})):
+            ws.send(action, **payload)
+            assert ws.sync() == [refusal(action)]
+        gm.send("take_mark", character_id=ch["id"], mark_type="body")
+        assert gm.sync() == [refusal("take_mark")]
+        gm.send("update_gear", character_id=ch["id"], gear=["Rope"])
+        assert support.types(gm.sync()) != ["action_rejected"]
+        ws.send("chat_message", message="Still here")
+        assert "action_rejected" not in support.types(ws.sync())
+    row = support.fetch(Character, ch["id"])
+    assert row.body_marks == 0 and row.incapacitated is True
+
+
+def test_the_lightkeepers_revive_reaches_the_players_desk(client):
+    """revive_character from the Lightkeeper's socket sent the sheet to the Lightkeeper's
+    channel only, so the player's desk kept showing Incapacitated (playtest,
+    lightkeeper-has-no-revive)."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, incapacitated=True)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("revive_character", character_id=ch["id"])
+        gm.sync()
+        seen = ws.drain()
+        assert support.types(seen) == ["character_update", "activity_log"]
+        assert seen[0]["payload"]["incapacitated"] is False
+    assert support.fetch(Character, ch["id"]).incapacitated is False

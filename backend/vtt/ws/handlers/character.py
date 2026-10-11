@@ -89,6 +89,12 @@ async def handle_apply_scar(ctx):
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     if character.is_dead and not was_dead:
         await announce_death(ctx, character)
+        # Every desk's log, the Lightkeeper's too: a card leaving Your Circle needs a reason
+        await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
+            "type": "activity_log",
+            "payload": {"message": f"{character.name} is deceased: a fourth scar.", "log_type": "danger",
+                        "ink_color": getattr(character, "ink_color", "") or ""},
+        }, db)
     if character.is_dead:
         await announce_downed(ctx)
     if use:
@@ -109,7 +115,9 @@ async def handle_revive_character(ctx):
     # which only resources, abilities or gear heal (RULES_CHECK.md item 9).
     character.incapacitated = False
     db.commit()
-    await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+    # To the character's own channel: a revive the Lightkeeper sends would otherwise reach
+    # only the Lightkeeper's desk (which follows through member_update), not the player's
+    await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
     await manager.broadcast_campaign(camp_code, camp_id, {
         "type": "activity_log",
         "payload": {

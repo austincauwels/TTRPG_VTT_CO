@@ -137,7 +137,7 @@ export function AdvancementWaiting() {
   const advancementDeferred = useGameStore(s => s.advancementDeferred);
   const resumeCircleAdvancement = useGameStore(s => s.resumeCircleAdvancement);
   const picksLeft = character?.advancement_picks || 0;
-  if (!character || picksLeft <= 0 || !advancementDeferred) return null;
+  if (!character || character.is_dead || picksLeft <= 0 || !advancementDeferred) return null;
   return (
     <div role="status" className="mb-4 xl:mb-3 xl:shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-sepia rounded-sm px-4 py-3 xl:py-2 shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
       <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60">
@@ -168,7 +168,7 @@ export function AdvancementModal() {
   // taken in this advancement, which the other pick must differ from
   const picksLeft = character?.advancement_picks || 0;
   const taken = Array.isArray(character?.advancement_taken) ? character.advancement_taken : [];
-  const open = !!character && picksLeft > 0 && !advancementDeferred;
+  const open = !!character && !character.is_dead && picksLeft > 0 && !advancementDeferred;
   const close = () => { setSubmitted(false); setSelectedPicks([]); setDetails({}); dismissCircleAdvancement(); };
   const dialogRef = useDialog({ open: open || submitted, onClose: close, view: submitted });
 
@@ -551,6 +551,7 @@ export const CircleView = () => {
   const lastSpendAt = useRef(0);
   // Why a player cannot spend now, said once above the buttons (not only in a hover title)
   const spendBlock = isGM ? null
+    : character?.is_dead ? 'A dead investigator cannot spend the circle\'s resources.'
     : !circle?.resources_editable ? 'Spending is locked until the Lightkeeper opens it.'
     : (character?.resources_spent_assignment || 0) >= 2 ? 'You have spent both of your two this assignment.'
     : null;
@@ -994,6 +995,7 @@ export const CircleView = () => {
                 circleId={circleId}
                 forms={relForms}
                 proposeRelationship={proposeRelationship}
+                proposeBlocked={!!character?.is_dead}
                 respondToRelationship={respondToRelationship}
               />
             ))}

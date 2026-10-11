@@ -9,12 +9,15 @@ because only GM screens send it. See docs/refactor/WEBSOCKET.md section 4.2 and
 docs/refactor/AUTH.md.
 """
 import json
+import re
+from collections import Counter
 
 from models import Character, Circle
 from vtt.abilities import MARK_TYPES, abilities_of
 from vtt.assignment import TALLY, answers_of, clear_paperwork, tally_of
 from vtt.auth import ROSTER_STATUSES
 from vtt.circle_queries import circle_abilities, fill_resources, resolve_circle, resource_pool
+from vtt.creation import ACTION_LABELS
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import SCAR_SLOTS
 from vtt.ws.handlers.circle import announce_death, announce_downed
@@ -116,6 +119,27 @@ def _scars_of(character) -> list:
     return list(raw) if isinstance(raw, list) else []
 
 
+_SHIFT_NOTE = re.compile(r"\(-1 ([A-Za-z]+), \+1 ([A-Za-z]+)\)\s*$")
+_BY_LABEL = {label: key for key, label in ACTION_LABELS.items()}
+
+
+def _undo_scar_shifts(character, removed) -> list:
+    """Give back the action points the removed scars moved, read from the note the scar
+    form writes at the end of the text, "(-1 Survey, +1 Focus)": the lowered action goes up
+    by 1 and the raised one down by 1, each only within 0 to 3. A scar with no such note
+    (Hardened, Not Again, a note the player wrote by hand) moved nothing that is known.
+    Returns the notes taken back."""
+    undone = []
+    for text in removed:
+        found = _SHIFT_NOTE.search(text)
+        down, up = (_BY_LABEL.get(g) for g in found.groups()) if found else (None, None)
+        if down and up and getattr(character, down) < 3 and getattr(character, up) > 0:
+            setattr(character, down, getattr(character, down) + 1)
+            setattr(character, up, getattr(character, up) - 1)
+            undone.append(found.group(0))
+    return undone
+
+
 async def _refuse_scars(ctx, detail):
     await manager.broadcast(ctx.channel, {"type": "action_rejected", "payload": {
         "action": "gm_update_scars", "status": 409, "detail": detail}})
@@ -125,8 +149,8 @@ async def handle_gm_update_scars(ctx):
     """The Lightkeeper corrects a member's scars on the trauma record: rewords one, or
     removes one taken by mistake. vtt.ws.access checked the list (at most four
     descriptions). A new scar is not added here: it comes from a full track, through the
-    scar form, which also shifts an action point (rulebook p. 14). Removing a scar does
-    not move that point back.
+    scar form, which also shifts an action point (rulebook p. 14). Removing a scar moves
+    that point back, as far as the shift note at the end of its text says.
 
     The fourth scar is fatal (p. 74), and apply_scar marks the investigator dead with it.
     A fourth scar taken by mistake was a death by mistake, so with fewer than four the
@@ -160,6 +184,12 @@ async def handle_gm_update_scars(ctx):
         await _refuse_scars(ctx, f"{character.name}'s player already has a new investigator on the roster, "
                                  "so the fourth scar and the death stand.")
         return
+    # Scars taken out, none reworded in the same save (then which is which is not known):
+    # their action shifts go back
+    gone = Counter(current) - Counter(scars)
+    undone = []
+    if gone and not Counter(scars) - Counter(current):
+        undone = _undo_scar_shifts(character, list(gone.elements()))
     character.scars_list = scars
     character.scars_count = len(scars)
     if lifts_death:
@@ -173,6 +203,8 @@ async def handle_gm_update_scars(ctx):
     said = (f"The Lightkeeper removed {'a scar' if removed == 1 else f'{removed} scars'} from {character.name}'s record"
             if removed else f"The Lightkeeper corrected {character.name}'s scars")
     said += f" ({len(scars)} of {SCAR_SLOTS})."
+    if undone:
+        said += f" {'Their shifts are' if len(undone) > 1 else 'The shift is'} undone: {', '.join(undone)}."
     if lifts_death:
         said += f" {character.name} is alive, and incapacitated until revived."
     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "activity_log", "payload": {
@@ -260,6 +292,8 @@ async def handle_gm_advance_circle(ctx):
         grant = 4 if (new_ability or "").strip() == "One Last Run" else 2
         members = db.query(Character).filter(
             Character.campaign_id == camp_id, Character.status == "active").all() if camp_id else []
+        # A dead investigator is not asked to choose: the sheet is a record
+        members = [m for m in members if not m.is_dead]
         for member in members:
             if not (member.advancement_picks or 0):
                 member.advancement_taken = []
