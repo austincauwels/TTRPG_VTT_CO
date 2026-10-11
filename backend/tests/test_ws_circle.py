@@ -591,6 +591,18 @@ def test_refill_resources_counts_the_campaigns_members(client):
         assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (5, 5, 5, 5)
 
 
+def test_refill_resources_leaves_out_the_dead(client):
+    """A dead investigator not yet replaced keeps status active on the roster, and was
+    counted as a member, so the circle refilled to one point more than it has members."""
+    camp, (alive, dead, _), cid = _campaign(client, members=3)
+    support.update(Character, dead["id"], is_dead=True)
+    support.update(Circle, cid, stitch=0, refresh=0, train=0)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("refill_resources", role="GM")
+        p = gm.sync()[0]["payload"]
+    assert (p["stitch"], p["refresh"], p["train"], p["max_capacity"]) == (3, 3, 3, 3)
+
+
 def test_meticulous_notes_add_illumination_after_an_assignment(client):
     """Rulebook p. 27: "After an assignment, increase your Illumination track 1 additional
     point because of the detailed notes your character returns with." It was only a
@@ -1526,4 +1538,5 @@ def test_spending_and_renaming_and_long_names_are_logged(client):
         lines = [m["payload"]["message"] for m in support.of_type(wm.drain(), "activity_log")]
     assert lines[:3] == ["The Lightkeeper opened spending: up to two each.", "The Lightkeeper locked spending.",
                          "The Lightkeeper renamed the circle to The Green Lamp Society."]
-    assert lines[3] == f"The Lightkeeper sent a dispatch: {place[:80].rstrip()}...."
+    # the clip's ellipsis ends the line: no full stop after it
+    assert lines[3] == f"The Lightkeeper sent a dispatch: {place[:80].rstrip()}..."

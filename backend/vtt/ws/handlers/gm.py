@@ -39,6 +39,11 @@ def _clip(text, limit: int = 80) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "..."
 
 
+def _sentence(text: str) -> str:
+    """The line with its full stop, unless it ends on a clip's ellipsis (not "....")."""
+    return text if text.endswith("...") else text + "."
+
+
 def table_before(circle) -> dict:
     """The circle's table fields as they stand, to compare with table_lines afterwards."""
     return {key: getattr(circle, key, None) for key in TABLE_FIELDS}
@@ -58,14 +63,14 @@ def table_lines(before: dict, circle) -> list:
         else:
             # The place is named, so the log still says where each dispatch sent them
             where = f": {_clip(now['location'])}" if (now["location"] or "").strip() else ""
-            lines.append(f"The Lightkeeper sent a {'new ' if had else ''}dispatch{where}.")
+            lines.append(_sentence(f"The Lightkeeper sent a {'new ' if had else ''}dispatch{where}"))
     if (now["name"] or "").strip() and (now["name"] or "").strip() != (before["name"] or "").strip():
-        lines.append(f"The Lightkeeper renamed the circle to {_clip(now['name'])}.")
+        lines.append(_sentence(f"The Lightkeeper renamed the circle to {_clip(now['name'])}"))
     old_t, new_t = before["tension_clock"] or 0, now["tension_clock"] or 0
     if isinstance(old_t, int) and isinstance(new_t, int) and old_t != new_t:
         lines.append(f"The Lightkeeper {'raised' if new_t > old_t else 'lowered'} the tension to {new_t} of 4.")
     if (now["tension_label"] or "") != (before["tension_label"] or "") and (now["tension_label"] or "").strip():
-        lines.append(f"The Lightkeeper named the tension: {_clip(now['tension_label'])}.")
+        lines.append(_sentence(f"The Lightkeeper named the tension: {_clip(now['tension_label'])}"))
     for key in RESOURCE_NAMES:
         old_v, new_v = before[key] or 0, now[key] or 0
         if isinstance(old_v, int) and isinstance(new_v, int) and old_v != new_v:
