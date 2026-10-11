@@ -1668,7 +1668,7 @@ def test_resuscitation_revives_a_scarred_ally(client, dice, face):
         wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"],
                 cost={"nerve": 2, "intuition": 1})
         msgs = wd.sync()
-        assert msgs[-1]["payload"]["message"] == f"{doc['name']} used Resuscitation {support.EM} {ally['name']} is back on their feet" \
+        assert [m for m in msgs if m["type"] == "activity_log"][-1]["payload"]["message"] == f"{doc['name']} used Resuscitation {support.EM} {ally['name']} is back on their feet" \
             + (" (2 Nerve, 1 Intuition)." if face == 5 else ".")
         assert [m["payload"]["incapacitated"] for m in wa.drain() if m["type"] in ("character_update", "member_status")] == [False, False]
     row = support.fetch(Character, doc["id"])
