@@ -34,6 +34,12 @@ Rules of thumb for later phases:
 
 What worked this phase: a regression sweep of the last report alongside the play; triage by two Opus agents; verification split into an Opus run (bugs, rules, medium) and a Sonnet run (low UX) side by side; fixes in six worktrees (`/home/user/wt/<group>`, branch `fix2-<group>`), each implemented, reviewed by Opus and repaired; then a merge, the full backend suite, and a final Opus code review plus one Opus browser check of the merged build. The final review caught a blocking bug that only the merge created (the Lightkeeper's drive edit answered on her own channel). The browser check found no crash, but never skip either step.
 
+**How playtests run from now on (Robert, 11 October).** Repeats of old problems are fine: finding them is part of what a playtest is for. So:
+- **The play stays blind.** Players get no list of past problems. Drop the line in the run's handbook (`playtest/run2/README.md`, the "This is the second playtest" bullet) that told players about the first report and asked them to log what they hit from it.
+- **The re-check is its own pass:** separate agents re-test the last report's items, alongside the play or just before it, never mixed into the players' turns. It earns its place: all three high bugs in the second report came only from the re-check (Patch Up missing, "Give a spend back" double-counting, a mark lost on a silent drop), and no blind player hit them.
+- **Each fix is retested before it ships:** the final browser check of a fix PR replays the original steps of every item the PR fixes, at the device size it was seen on, as PR 14's did.
+- No automated test suite in CI and no fix ledger for now; reconsider if the app keeps growing.
+
 ## Where things stand
 
 - `main` is at **78eec1b**: PR 13 (the first report's low items) and PR 14 (the second playtest's fixes) were both merged on 11 October. **Not deployed yet**: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload.
@@ -66,11 +72,18 @@ Retire frees living investigators (the dead stay with the campaign); the Lightke
 ## Next phase
 
 1. Both PRs are merged. Confirm Robert ran `bash candela/update.sh` for main 78eec1b.
-2. Ask Robert the open questions below (one short message, with a recommended default for each), then fix the second report's remaining **low** UX items and the ideas he picks: `playtest/results/2026-10-11/report.json` (`ux` entries with severity low, minus those PR 14 fixed, and `ideas`). Group them like this phase (implementer, Opus reviewer, repair, merge, full suite, final review, browser check).
+2. Ask Robert the four open questions below (one short message, with a recommended default for each), then fix the second report's remaining **low** UX items and the ideas he picks: `playtest/results/2026-10-11/report.json` (`ux` entries with severity low, minus those PR 14 fixed, and `ideas`). Group them like this phase (implementer, Opus reviewer, repair, merge, full suite, final review, browser check that replays every fixed item).
+
+### The next playtest: Robert plays too
+
+Robert wants to take part in the next AI playtest (said on 11 October). It comes after the low items above, unless he says otherwise. Things to settle with him when that phase starts:
+- **Where it runs.** The AI seats' private site lives in the container on 127.0.0.1, which his phone cannot reach. The likely way: he deploys the build under test to the beta site on his server (candela-beta.gatergrid.com), the seats point at it (`SITE_URL` in `playtest/lib.js`), and the playtest uses its own campaign there. Check first that the container can reach the beta site (the network page of `read_documentation` says what the environment allows).
+- **His seat.** One of the four players, or the Lightkeeper, on his own device. If it is an iPhone, that also covers the gap neither run could: Safari on a real phone.
+- **Timing.** AI turns take a few minutes each and run two at a time, so the play takes about 1.5 to 2 hours. The rounds wait for his turn: run the acts in smaller workflows, one round at a time, and tell him when it is his move.
+- **Table talk.** He cannot run `table.js`. He tells the chat what he says and does, and the organiser posts it (`node table.js say robert "..."`; add `robert` to the names in `table.js`). Remember that his chat messages are also relayed into running agents, which are told to ignore them, so post his lines between workflows.
+- His findings: he tells the chat, and the organiser logs them with `finding.js --seat robert`.
 
 ### Open questions for Robert
-
-- **Stopping repeats** (asked on 11 October, not yet answered): 25 of the first report's 111 items came back (6 fixed on one path only, 7 broken by a fix next to them, 9 half done, 3 not done; see the artifact's Repeats tab). The recommendation: start the next phase with (1) a browser check per fixed item, kept in the repo (`frontend/e2e/`, Playwright) and run in CI on every PR, seeded from the regression agents' scripts in `playtest/results/2026-10-11/scripts/` (ports and databases are per-agent; adapt them), and (2) a fix ledger in the repo listing every report key with its status and the test that pins it; then adopt (3) an "every path" check (reload, second tab, second device, reconnect, both sides, phone and laptop) before calling an item fixed, and (4) the regression sweep before each playtest and big release. Ask him first.
 
 - A replaced dead investigator: add a Fallen card to the roster and Circle History, or leave the log line? (Default: a Fallen card.)
 - An Illumination tally not yet added at End Assignment: keep the warning, or add it automatically? (Default: keep the warning.)
