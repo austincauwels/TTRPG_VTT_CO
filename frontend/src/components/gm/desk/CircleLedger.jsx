@@ -5,6 +5,7 @@ import { tiltFor } from '../../shared/handPlaced';
 import { FormLine, PrinterMark, SerialNo, serialFor, stampDate } from '../../shared/PrintMarks';
 import { InfoTerm } from '../../shared/ActionInfo';
 import { RESOURCE_HELP, refillEntry } from '../../../game/circleResources';
+import { livingMembers, reportingMembers } from '../../../game/roster';
 
 // The circle at a glance, on the GM's roster: an abstract of the charter on a ruled ledger
 // card lying under the investigators' cards. Illumination, the stores (what is left of
@@ -43,6 +44,8 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
   const abilities = (circle.circle_ability || '').split('\n').filter(Boolean);
   const investigators = circleCreation?.activeInvestigators || [];
   const reports = circleCreation?.reports || {};
+  // The dead are not counted in the reports filed (nor listed, unless they filed one)
+  const living = livingMembers(investigators);
 
   return (
     <section
@@ -126,16 +129,16 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
             <dt>Reports</dt>
             <dd>
               <span className={circle.reports_open ? 'text-seal-green font-semibold' : 'text-sepia'}>{circle.reports_open ? 'Open' : 'Closed'}</span>
-              {investigators.length > 0 && (
+              {living.length > 0 && (
                 <span className="text-sepia">
                   {' · '}
-                  {investigators.filter(inv => reports[inv.id] || reports[String(inv.id)]).length} of {investigators.length} filed
+                  {living.filter(inv => reports[inv.id] || reports[String(inv.id)]).length} of {living.length} filed
                 </span>
               )}
             </dd>
           </div>
           {/* Whose report is in: one ruled entry per investigator, in their ink */}
-          {investigators.map(inv => {
+          {reportingMembers(investigators, reports).map(inv => {
             const report = reports[inv.id] || reports[String(inv.id)];
             return (
               <div key={inv.id} className="circle-ledger-row">

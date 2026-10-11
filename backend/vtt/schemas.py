@@ -408,7 +408,8 @@ class CharacterRosterItem(BaseModel):
     pronouns: str = "Unlisted"
     catalyst: str = ""
     owner_username: str = ""
-    # The Lightkeeper's card shows how each investigator stands (zero for a player's read)
+    # How each investigator stands: who is down and the scars are for every member's circle
+    # cards; the marks, picks and owed scar are the Lightkeeper's read alone (zero otherwise)
     incapacitated: bool = False
     scars_count: int = 0
     body_marks: int = 0

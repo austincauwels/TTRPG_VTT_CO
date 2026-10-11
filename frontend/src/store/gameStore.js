@@ -453,7 +453,7 @@ const useGameStore = create(
       rollError: null,           // why the last roll (or kept die) did not go through
       dismissedPrompts: [],      // post-roll ability prompts used or skipped on the last roll (kept here, so the Notebook trip does not bring them back)
       postRollTried: null,       // the post-roll ability last sent, taken back from dismissed if the server refuses it
-      campaignRoster: { pending_investigators: [], active_investigators: [] },
+      campaignRoster: { pending_investigators: [], active_investigators: [], fallen_investigators: [] },
       // The GM desk: the latest sheet of each roster character, by id, as member_update
       // brought it (the open GMCharacterSheet follows it)
       memberSheets: {},
@@ -1098,6 +1098,9 @@ const useGameStore = create(
                   ...state.campaignRoster,
                   active_investigators: (active_investigators || [])
                     .map(sheet => sheetOnCard(cards.find(c => c.id === sheet.id), sheet)),
+                  // The Lightkeeper's copy also lists the dead this one replaced (Fallen cards)
+                  ...(Array.isArray(message.payload.fallen_investigators)
+                    ? { fallen_investigators: message.payload.fallen_investigators } : {}),
                 },
               };
             });
@@ -1317,10 +1320,15 @@ const useGameStore = create(
             // pickers leave the dead out (livingMembers), so the card takes the flag now. The
             // server sends it to the players only: the GM desk has member_update.
             if (!isForThisCampaign(message.payload)) return;
-            const { character_id: id, is_dead: isDead } = message.payload || {};
+            const { character_id: id, is_dead: isDead, incapacitated, scars_count: scars } = message.payload || {};
             if (id == null) return;
-            // So do the formation papers, whose Circle Relationships leave the dead out
-            const flag = (list) => (Array.isArray(list) ? list.map(c => (c.id === id ? { ...c, is_dead: !!isDead } : c)) : list);
+            // So do the formation papers, whose Circle Relationships leave the dead out. The
+            // circle's cards also say who is down and how many scars they carry.
+            const flag = (list) => (Array.isArray(list) ? list.map(c => (c.id === id ? {
+              ...c, is_dead: !!isDead,
+              ...(incapacitated !== undefined ? { incapacitated: !!incapacitated } : {}),
+              ...(scars !== undefined ? { scars_count: scars } : {}),
+            } : c)) : list);
             set(state => ({
               campaignRoster: {
                 ...state.campaignRoster,
@@ -1779,7 +1787,7 @@ const useGameStore = create(
       // opened again after a drop)
       fetchRoster: async (campaignId, { keep = false } = {}) => {
         if (!campaignId) return;
-        if (!keep) set({ campaignRoster: { pending_investigators: [], active_investigators: [], roster_finalized: false } });
+        if (!keep) set({ campaignRoster: { pending_investigators: [], active_investigators: [], fallen_investigators: [], roster_finalized: false } });
         const sheetsAtFetch = get().memberSheets;
         try {
           const res = await apiFetch(`/campaign/${campaignId}/roster`);

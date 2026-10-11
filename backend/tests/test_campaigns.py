@@ -795,6 +795,15 @@ def test_roster(client):
     member_view = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(active["id"])).json()
     assert all(c.pop("owner_username") for c in body["pending_investigators"] + body["active_investigators"])
     assert {c.pop("owner_username") for c in member_view["pending_investigators"] + member_view["active_investigators"]} == {""}
+    # The marks, picks and owed scar are the Lightkeeper's read alone
+    ours = ("body_marks", "brain_marks", "bleed_marks", "advancement_picks", "scar_pending")
+    assert all(not any(c[k] for k in ours) for c in member_view["active_investigators"])
+    for c in body["pending_investigators"] + body["active_investigators"]:
+        for k in ours:
+            c.pop(k)
+    for c in member_view["pending_investigators"] + member_view["active_investigators"]:
+        for k in ours:
+            c.pop(k)
     assert member_view == body
     body = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
     for outsider in (support.as_owner(pending["id"]), support.as_owner(retired["id"]), support.as_stranger()):

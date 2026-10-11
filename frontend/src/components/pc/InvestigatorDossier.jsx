@@ -1344,7 +1344,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               <span className="sr-only">Status: </span>
               <span className={`mark-stamp inline-block -rotate-2 border-2 rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight whitespace-nowrap ${
                 character?.is_dead ? 'border-ink text-ink' : character?.incapacitated ? 'border-oxblood text-oxblood' : 'border-sepia/70 text-sepia'}`}>
-                {character?.is_dead ? "Dead" : character?.incapacitated ? "Incapacitated" : "Able to act"}
+                {character?.is_dead ? "Dead" : character?.incapacitated ? (character.scar_pending ? "Incapacitated: scar to record" : "Incapacitated") : "Able to act"}
               </span>
               {character?.is_dead && !readOnly && (
                 <button

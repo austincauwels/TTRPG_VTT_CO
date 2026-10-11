@@ -5,3 +5,9 @@
 // takes the living only.
 export const livingMembers = (list) => (Array.isArray(list) ? list.filter(inv => !inv.is_dead) : []);
 export const deceasedMembers = (list) => (Array.isArray(list) ? list.filter(inv => inv.is_dead) : []);
+
+// Who has a report card on the Lightkeeper's circle papers: the living, and a dead
+// investigator only for a report they filed before they died. The count of reports filed
+// is of the living alone.
+export const reportingMembers = (list, reports) => (Array.isArray(list)
+  ? list.filter(inv => !inv.is_dead || reports?.[inv.id] || reports?.[String(inv.id)]) : []);

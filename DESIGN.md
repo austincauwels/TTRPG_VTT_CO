@@ -453,6 +453,7 @@ The paper objects carry the small print of forms that came off a press, drawn in
   | C.O. 14 | Trauma record (marks and scars) |
   | C.O. 22 | Memo (pass notes) |
 - **Running head**: the notebook's opening spread carries "Section I" and "Section II" in the top outer corner of each page over a hairline, in the form line's capitals, clear of the page heading.
+- **Business card state line**: under the role and specialty, one or two lines in small sans: Incapacitated (oxblood; "Incapacitated: scar owed" while the scar is unwritten), the marks on each track, scars, and advancements waiting. Nothing when the investigator is in good order. A dead investigator whose player has been replaced lies under the Deceased rule as a Fallen card: a record, not a button. The player's Your Circle cards and the Circle tab's relationship papers show only Incapacitated and the scar count.
 - **Serial number**: a numbering machine's red figures ("No. 89206") in the corner of the dossier, the GM's dispatch, the From the Lightkeeper card, the circle charter, business cards and each roll's result slip. `serialFor(key)` hashes a stable key, so a sheet keeps its number across reloads.
 - **Printer's mark**: a registration circle and cross beside a form line.
 - **Edge line**: small print repeated along the bottom edge of the investigator sheet and clipped by it.

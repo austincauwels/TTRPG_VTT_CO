@@ -1,3 +1,4 @@
+import { Standing } from '../../shared/Standing';
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RELATIONSHIP_DATA, RELATIONSHIP_TYPES, joinLore, splitLore } from '../../../game/relationships';
@@ -212,6 +213,7 @@ export const RelationshipNegotiation = ({
         <span aria-hidden="true" className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: inv.ink_color || 'rgb(var(--c-oxblood))' }} />
         <span className={`font-serif font-bold text-ink ${compact ? 'text-lg' : 'text-xl'}`}>{inv.name}</span>
         {subtitle && <span className="font-serif text-base text-sepia">{subtitle}</span>}
+        <Standing inv={inv} />
       </div>
 
       <div>

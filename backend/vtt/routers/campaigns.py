@@ -525,11 +525,13 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
         if campaign.gm_user_id == user.id else {}
     is_lk = campaign.gm_user_id == user.id
     def to_item(c):
-        # How each investigator stands, for the Lightkeeper's cards only
-        stands = dict(
-            incapacitated=bool(c.incapacitated), scars_count=c.scars_count or 0,
-            body_marks=c.body_marks or 0, brain_marks=c.brain_marks or 0, bleed_marks=c.bleed_marks or 0,
-            advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar) if is_lk else {}
+        # Who is down and how many scars they carry, which the circle's cards show every
+        # member (the circle's state lists the same); the rest is the Lightkeeper's
+        stands = dict(incapacitated=bool(c.incapacitated), scars_count=c.scars_count or 0)
+        if is_lk:
+            stands.update(
+                body_marks=c.body_marks or 0, brain_marks=c.brain_marks or 0, bleed_marks=c.bleed_marks or 0,
+                advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar)
         return CharacterRosterItem(
             **stands,
             owner_username=owners.get(c.user_id, ""),

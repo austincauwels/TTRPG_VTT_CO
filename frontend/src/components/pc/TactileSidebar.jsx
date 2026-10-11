@@ -1,3 +1,4 @@
+import { Standing } from '../shared/Standing';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
@@ -106,6 +107,7 @@ function RelationshipCard({ inv, myId, relationships, index }) {
                   <p className="font-sans font-bold text-sm text-sepia uppercase tracking-tighter">· {inv.specialty}</p>
                 )}
               </div>
+              <Standing inv={inv} className="mt-0.5" />
               {/* Settled: the relationship in their ink. Proposed: its name in pencil beside
                   the empty outline of the stamp it is waiting for. None: a blank rule. */}
               {settled ? (

@@ -37,6 +37,7 @@ import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankQuestionCa
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
 import { tallyReports, tallyOf } from '../../game/illumination';
+import { reportingMembers } from '../../game/roster';
 import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
 
 // A line of the charter the Lightkeeper may change: its value with an Edit button, which
@@ -284,7 +285,7 @@ export const CirclePage = () => {
   const {
     circle, circleCreation, updateCircle,
     gmToggleResourceEdit, gmToggleReports, gmAdvanceCircle, refillResources,
-    gmSetTallyAnswer, gmAddTally,
+    gmSetTallyAnswer, gmAddTally, campaignRoster,
   } = useGameStore();
 
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
@@ -299,7 +300,13 @@ export const CirclePage = () => {
   const selQ    = CIRCLE_QUESTIONS.find(q => q.key === selQKey);
 
   const investigators    = circleCreation?.activeInvestigators || [];
-  const playersWithAnswers = investigators.filter(inv => inv.personal_circle_answer);
+  // Circle History keeps the dead: the answer of one who has died is marked, and one since
+  // replaced stays as a Fallen line (the roster's fallen_investigators)
+  const fallen = campaignRoster?.fallen_investigators || [];
+  const playersWithAnswers = [
+    ...investigators.filter(inv => inv.personal_circle_answer),
+    ...fallen.filter(inv => inv.personal_circle_answer),
+  ];
   const reports          = circleCreation?.reports || {};
 
   const trackFull = illum >= TRACK_SIZE;
@@ -555,7 +562,7 @@ export const CirclePage = () => {
       </CirclePaper>
 
       {/* III. Each investigator's report, a card that turns over (her original flip) */}
-      {investigators.map((inv, idx) => (
+      {reportingMembers(investigators, reports).map((inv, idx) => (
         <div key={inv.id || idx} className="hand-placed min-w-0" style={tiltStyle(`report-${inv.id ?? idx}`, { max: 1.4, sign: idx % 2 ? 1 : -1 })}>
           <ReportFlipCard
             inv={inv}
@@ -686,6 +693,9 @@ export const CirclePage = () => {
                   </span>
                   {inv.specialty && (
                     <span className="font-sans font-bold text-xs text-sepia uppercase">· {inv.specialty}</span>
+                  )}
+                  {inv.is_dead && (
+                    <span className="font-sans font-bold text-xs text-oxblood uppercase">· {inv.status === 'retired' ? 'Fallen' : 'Deceased'}</span>
                   )}
                 </div>
                 <p className="font-serif text-sm text-ink/80 leading-snug italic whitespace-pre-wrap">
