@@ -19,7 +19,7 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
   const targetOptions = [
     { value: '@Circle', label: '@Circle (everyone)', inkColor: null },
     ...(showGmControls ? [] : [{ value: '@Lightkeeper', label: '@Lightkeeper only', inkColor: null }]),
-    ...investigators.filter(inv => showGmControls || myId == null || inv.id !== myId).map(inv => ({
+    ...investigators.filter(inv => showGmControls || ((myId == null || inv.id !== myId) && inv.name?.toLowerCase() !== 'lightkeeper')).map(inv => ({
       value: `@${inv.name}`,
       label: showGmControls ? `@${inv.name} (private)` : `@${inv.name} (and the Lightkeeper)`,
       inkColor: inv.ink_color || null,

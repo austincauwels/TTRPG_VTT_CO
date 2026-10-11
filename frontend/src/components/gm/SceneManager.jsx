@@ -138,7 +138,11 @@ const keepMode = (mode) => {
 // A refusal that comes this soon after a send answers that send
 const REFUSAL_WINDOW_MS = 5000;
 
-const keptDraft = { circleId: undefined, location: '', atmosphere: '', ownText: '' };
+// The circle's dispatch values, as the letter compares them
+const dispatchOf = (c) => ({ location: c?.location || '', atmosphere: c?.atmosphere || '', dispatch_text: c?.dispatch_text || '' });
+
+// The unsent draft, with the dispatch it was written over
+const keptDraft = { circleId: undefined, base: dispatchOf(null), location: '', atmosphere: '', ownText: '' };
 
 export const SceneManager = () => {
   const { circle, socket, accessSession, circleRefusal } = useGameStore();
@@ -147,22 +151,34 @@ export const SceneManager = () => {
   const setMode = (next) => { setModeState(next); keepMode(next); };
 
   // An unsent draft outlives the section: the letter unmounts when the desk shows Map,
-  // Notebook or Circle, so it is kept at module level for this circle
-  const kept = circle?.id != null && keptDraft.circleId === circle.id ? keptDraft : null;
-  const [location,   setLocation]   = useState(kept ? kept.location   : circle?.location   || "");
-  const [atmosphere, setAtmosphere] = useState(kept ? kept.atmosphere : circle?.atmosphere || "");
-  const [ownText,    setOwnText]    = useState(kept ? kept.ownText    : circle?.dispatch_text || "");
+  // Notebook or Circle, so it is kept at module level for this circle. It stands only
+  // while the dispatch it was written over is still the circle's; a dispatch that came
+  // meanwhile is shown, as it would be on a letter that stayed mounted.
+  const base = dispatchOf(circle);
+  const kept = circle?.id != null && keptDraft.circleId === circle.id
+    && Object.keys(base).every(k => keptDraft.base[k] === base[k]) ? keptDraft : null;
+  const [location,   setLocation]   = useState(kept ? kept.location   : base.location);
+  const [atmosphere, setAtmosphere] = useState(kept ? kept.atmosphere : base.atmosphere);
+  const [ownText,    setOwnText]    = useState(kept ? kept.ownText    : base.dispatch_text);
   useEffect(() => {
-    Object.assign(keptDraft, { circleId: circle?.id, location, atmosphere, ownText });
-  }, [circle?.id, location, atmosphere, ownText]);
+    Object.assign(keptDraft, {
+      circleId: circle?.id,
+      base: { location: circle?.location || '', atmosphere: circle?.atmosphere || '', dispatch_text: circle?.dispatch_text || '' },
+      location, atmosphere, ownText,
+    });
+  }, [circle?.id, circle?.location, circle?.atmosphere, circle?.dispatch_text, location, atmosphere, ownText]);
 
-  // Sync inputs when circle data arrives (from Zustand rehydration or WebSocket update),
-  // not on mount, where a kept draft stands
-  const mounted = useRef(false);
-  useEffect(() => { if (mounted.current) setLocation(circle?.location || ""); }, [circle?.location]);
-  useEffect(() => { if (mounted.current) setAtmosphere(circle?.atmosphere || ""); }, [circle?.atmosphere]);
-  useEffect(() => { if (mounted.current) setOwnText(circle?.dispatch_text || ""); }, [circle?.dispatch_text]);
-  useEffect(() => { mounted.current = true; }, []);
+  // Sync inputs when the circle's values change (Zustand rehydration or WebSocket
+  // update). Compared with the values last seen, not by a mount flag, so a restored
+  // draft stands on mount (and under StrictMode's second run of the effect).
+  const seen = useRef(base);
+  useEffect(() => {
+    const next = dispatchOf(circle);
+    if (next.location !== seen.current.location) setLocation(next.location);
+    if (next.atmosphere !== seen.current.atmosphere) setAtmosphere(next.atmosphere);
+    if (next.dispatch_text !== seen.current.dispatch_text) setOwnText(next.dispatch_text);
+    seen.current = next;
+  }, [circle?.location, circle?.atmosphere, circle?.dispatch_text]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The location and atmosphere grow with what is written in them
   const locationRef = useRef(null);
