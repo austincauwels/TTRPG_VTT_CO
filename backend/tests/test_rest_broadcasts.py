@@ -54,6 +54,22 @@ def test_approve_broadcasts_to_gm_and_active_members(client):
         assert _types(newbie) == ["investigator_approved", "circle_update", "activity_log"]
 
 
+def test_approved_frame_lists_active_investigators_in_id_order(client):
+    # Without an ORDER BY, PostgreSQL returns an updated row after the later ones
+    camp = support.new_campaign(client)
+    first = support.active_member(client, camp)
+    second = support.active_member(client, camp)
+    third = support.pending_member(client, camp)
+    support.update(Character, first["id"], pen_font="Caveat")
+    support.update(Character, second["id"], pen_font="Caveat")
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        support.approve(client, third["id"])
+        msg = gm.drain()[0]
+        assert msg["type"] == "investigator_approved"
+        ids = [c["id"] for c in msg["payload"]["active_investigators"]]
+        assert ids == sorted(ids) == [first["id"], second["id"], third["id"]]
+
+
 def test_approving_fills_the_resources_only_before_the_seal(client):
     """Rulebook p. 41: "At circle creation, assign a number of resource points equal to 1
     plus the number of circle members." Each approval before the seal fills each resource

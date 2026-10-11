@@ -399,6 +399,7 @@ export const CirclePage = () => {
               <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
               <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={30} className="text-ink/85" />
             </div>
+            <span aria-hidden="true" className="font-serif text-xs italic text-sepia text-center">{insigniaLabel(circle?.insignia || 'GiCandleLight')}</span>
           </div>
         </div>
 
@@ -406,7 +407,7 @@ export const CirclePage = () => {
         <div className="mt-3 pt-3 border-t border-ink/10">
           <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
-            Illumination
+            <InfoTerm label="Illumination" text="The gold-ringed pips are milestones (3, 6 and 9); the track fills at 12. A milestone matters only to a circle with Resource Management." />
             <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">
               {Math.min(illum, TRACK_SIZE)} / {TRACK_SIZE}{illum > TRACK_SIZE ? ` (+${illum - TRACK_SIZE} carried over)` : ''}
             </span>
@@ -425,7 +426,7 @@ export const CirclePage = () => {
           <div className="flex gap-1.5 flex-wrap">
             {Array.from({ length: TRACK_SIZE }).map((_, i) => {
               const filled    = i < illum;
-              const milestone = (i + 1) % 3 === 0;
+              const milestone = [3, 6, 9].includes(i + 1);
               return (
                 <div
                   key={i}
@@ -434,7 +435,7 @@ export const CirclePage = () => {
                   tabIndex={0}
                   role="button"
                   aria-label={`Set Illumination to ${filled && illum === i + 1 ? i : i + 1}`}
-                  title={`Illumination ${i + 1}`}
+                  title={milestone ? `Illumination ${i + 1}, a milestone` : `Illumination ${i + 1}`}
                   className={`touch-pip [--hit-y:-14px] [--hit-x:-4px] w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
                     filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'
                   } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}

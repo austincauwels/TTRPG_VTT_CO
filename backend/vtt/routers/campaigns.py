@@ -201,7 +201,7 @@ async def approve_character(character_id: int, db: Session = Depends(get_db),
         active = db.query(Character).filter(
             Character.campaign_id == char.campaign_id,
             Character.status == "active"
-        ).all()
+        ).order_by(Character.id).all()
         def approved(extra):
             return {"type": "investigator_approved", "payload": {
                 "character": get_char_dict(char),
@@ -463,7 +463,7 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     active = db.query(Character).filter(
         Character.campaign_id == campaign.id,
         Character.status == "active",
-    ).all()
+    ).order_by(Character.id).all()
     def approved(cards, card):
         return {"type": "investigator_approved",
                 "payload": {"character": card, "active_investigators": cards, "campaign_id": campaign.id}}

@@ -42,6 +42,15 @@ export function nameOnTheSeal(votes) {
   return suggested ? { ...suggested, voted: false } : null;
 }
 
+// The parts of the papers with nothing to seal: no question, insignia or ability voted for
+// and no name voted or suggested (finalize_roster sets each only when a winner exists)
+export const emptyParts = (votes) => [
+  ['question', 'the circle question'],
+  ['insignia', 'the insignia'],
+  ['ability', 'the circle ability'],
+].filter(([kind]) => !(votes?.[kind] || []).length).map(([, label]) => label)
+  .concat(nameOnTheSeal(votes) ? [] : ['the name']);
+
 // The relationships between these members (a member's id on both ends)
 export const relationshipsAmong = (relationships, members) => {
   const ids = new Set((members || []).map(m => m.id));

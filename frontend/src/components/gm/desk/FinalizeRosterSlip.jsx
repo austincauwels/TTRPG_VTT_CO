@@ -3,7 +3,7 @@ import { ConfirmAction } from '../../shared/ConfirmAction';
 import { WaxSeal } from '../../shared/WaxSeal';
 import { FormLine } from '../../shared/PrintMarks';
 import { livingMembers } from '../../../game/roster';
-import { relationshipsAmong, waitingRelationships } from '../../../game/circleFormation';
+import { relationshipsAmong, waitingRelationships, emptyParts, nameList } from '../../../game/circleFormation';
 
 const SLIP_PAPER = {
   clipPath: 'polygon(0% 2%, 99% 0%, 100% 98%, 1% 100%)',
@@ -27,8 +27,12 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
   const requests = (campaignRoster.pending_investigators || []).length;
   const waitingLine = waiting === 0 ? ''
     : `${waiting} relationship${waiting === 1 ? '' : 's'} still waiting for an answer. ${waiting === 1 ? 'It' : 'They'} can still be accepted after the seal.`;
+  const empty = emptyParts(circleCreation?.votes);
+  const emptyLine = empty.length === 0 ? ''
+    : `Nothing is chosen yet for ${nameList(empty)}, so the circle is sealed without ${empty.length === 1 ? 'it' : 'them'}.`;
   const armedHint = [
     `Press again to finalize with ${activeCount} investigator${activeCount === 1 ? '' : 's'}. Every player's formation papers close, and this cannot be undone.`,
+    emptyLine,
     requests === 0 ? '' : `${requests === 1 ? 'The request' : `The ${requests} requests`} still waiting to join ${requests === 1 ? 'is' : 'are'} turned away.`,
     waitingLine,
   ].filter(Boolean).join(' ');
