@@ -383,7 +383,7 @@ def test_the_ledger_counts_the_investigators_a_delete_would_return(client):
     support.update(Character, retired["id"], status="retired")  # stays with the campaign
     camps = my_campaigns(client, gm_user.id)
     assert camps[camp["id"]] == {"id": camp["id"], "name": camp["name"], "campaign_code": camp["campaign_code"],
-                                 "investigator_count": 4}
+                                 "investigator_count": 4, "pending_count": 1}
     assert camps[empty["id"]]["investigator_count"] == 0
     # the count is exactly what a delete lets go
     r = delete_campaign(client, camp["id"], support.as_user(gm_user.id))

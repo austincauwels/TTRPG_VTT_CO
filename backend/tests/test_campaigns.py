@@ -653,6 +653,69 @@ def test_a_retired_campaign_takes_no_new_members(client):
                        headers=support.as_stranger()).status_code == 403
 
 
+# --- unretire ---------------------------------------------------------------
+
+def test_unretire_brings_the_campaign_back_without_putting_anyone_back(client):
+    camp = support.new_campaign(client)
+    gm = support.as_gm(camp)
+    living = support.active_member(client, camp)
+    fallen = support.active_member(client, camp)
+    support.update(Character, fallen["id"], is_dead=True)
+    assert client.post(f"/campaign/{camp['id']}/retire", headers=gm).status_code == 200
+    for headers in (support.as_owner(living["id"]), support.as_stranger()):
+        assert client.post(f"/campaign/{camp['id']}/unretire", headers=headers).status_code == 403
+    assert support.fetch(Campaign, camp["id"]).is_retired is True
+
+    r = client.post(f"/campaign/{camp['id']}/unretire", headers=gm)
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "id": camp["id"], "name": camp["name"], "campaign_code": camp["campaign_code"]}
+    assert support.fetch(Campaign, camp["id"]).is_retired is False
+    # the retire let the living one go and it stays free; the dead one stays retired with it
+    row = support.fetch(Character, living["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+    row = support.fetch(Character, fallen["id"])
+    assert (row.status, row.campaign_id) == ("retired", camp["id"])
+    # it takes members again, and retrying is safe
+    again = support.forge(client)
+    assert support.join(client, again["id"], camp["campaign_code"]).status_code == 200
+    assert client.post(f"/campaign/{camp['id']}/unretire", headers=gm).status_code == 200
+
+
+def test_unretire_unknown_campaign(client):
+    assert client.post("/campaign/987654321/unretire", headers=support.as_stranger()).status_code == 404
+
+
+# --- withdraw ---------------------------------------------------------------
+
+def test_withdraw_takes_back_a_waiting_request(client):
+    camp = support.new_campaign(client)
+    mine = support.pending_member(client, camp)
+    other = support.pending_member(client, camp)
+    assert client.post(f"/campaign/withdraw/{mine['id']}", headers=support.as_stranger()).status_code == 403
+    assert client.post(f"/campaign/withdraw/{mine['id']}", headers=support.as_gm(camp)).status_code == 403
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        r = client.post(f"/campaign/withdraw/{mine['id']}", headers=support.as_owner(mine["id"]))
+        assert (r.status_code, r.json()) == (200, {"ok": True})
+        [msg] = gm.drain()
+    assert msg["type"] == "investigator_rejected" and msg["payload"]["character_id"] == mine["id"]
+    assert [c["id"] for c in msg["payload"]["pending_investigators"]] == [other["id"]]
+    row = support.fetch(Character, mine["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+    assert support.fetch(Character, other["id"]).status == "pending"
+    # nothing left to withdraw
+    r = client.post(f"/campaign/withdraw/{mine['id']}", headers=support.as_owner(mine["id"]))
+    assert (r.status_code, r.json()) == (409, {"detail": "This request is no longer waiting."})
+
+
+def test_withdraw_refuses_an_active_member(client):
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    r = client.post(f"/campaign/withdraw/{member['id']}", headers=support.as_owner(member["id"]))
+    assert r.status_code == 409
+    assert support.fetch(Character, member["id"]).status == "active"
+    assert client.post("/campaign/withdraw/987654321", headers=support.as_stranger()).status_code == 404
+
+
 # --- invite-rejoin ----------------------------------------------------------
 
 def test_invite_rejoin(client):

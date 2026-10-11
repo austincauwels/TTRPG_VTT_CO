@@ -355,6 +355,8 @@ class CampaignSummaryItem(BaseModel):
     # Characters on its roster (active or pending): the ones deleting it would send back
     # to their players.
     investigator_count: int = 0
+    # Join requests waiting for the Lightkeeper (the ledger's "waiting" badge)
+    pending_count: int = 0
     class Config:
         from_attributes = True
 

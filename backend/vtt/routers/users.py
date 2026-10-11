@@ -63,8 +63,26 @@ def get_user_gm_campaigns(user_id: int, db: Session = Depends(get_db), user: Use
             Character.campaign_id.in_([c.id for c in campaigns]),
             Character.status.in_(deletion.RELEASED_STATUSES),
         ).group_by(Character.campaign_id).all())
+    waiting = {}
+    if campaigns:
+        waiting = dict(db.query(Character.campaign_id, func.count(Character.id)).filter(
+            Character.campaign_id.in_([c.id for c in campaigns]),
+            Character.status == "pending",
+        ).group_by(Character.campaign_id).all())
     return [
         CampaignSummaryItem(id=c.id, name=c.name, campaign_code=c.campaign_code,
-                            investigator_count=counts.get(c.id, 0))
+                            investigator_count=counts.get(c.id, 0), pending_count=waiting.get(c.id, 0))
         for c in campaigns
     ]
+
+
+@router.get("/api/users/{user_id}/retired-campaigns", response_model=List[CampaignSummaryItem])
+def get_user_retired_campaigns(user_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The campaigns the user ran and retired (deleted ones are left out), for the ledger's
+    Retired list, where each can be restored (POST /campaign/{id}/unretire)."""
+    require_self(user, user_id)
+    campaigns = db.query(Campaign).filter(
+        Campaign.gm_user_id == user_id,
+        Campaign.is_retired == True,
+    ).order_by(Campaign.id.desc()).all()
+    return [CampaignSummaryItem(id=c.id, name=c.name, campaign_code=c.campaign_code) for c in campaigns]
