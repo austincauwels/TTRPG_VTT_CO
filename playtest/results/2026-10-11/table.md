@@ -1,0 +1,8 @@
+1. [03:20:40] **LIGHTKEEPER:** Welcome back, investigators. Join The Lantern Ward with the code lantern-ward.
+2. [03:26:51] **ADA:** Ada Quill, Halcyon Herald, pencil behind each ear. Face, journalist: I ask the questions nobody printed. Lightkeeper, I am at the door with the code lantern-ward.
+3. [03:27:34] **BRAM:** Evening all. Bram Okafor, Explorer, the big one with the canvas coat and the machete. Here for my brother. Sent my request with the code, standing by on the sofa.
+4. [03:29:00] **CASS:** Cass Moreau, Slink, detective. Trench coat, ink on my gloves, and a brother's missing case file. Rue, I have knocked with the code lantern-ward. Who is the gold ball cluster in the corner of my hub, by the way? I want to know what I am lighting.
+5. [03:31:32] **ADA:** Cass, that gold cluster is candles, seen from above: three pillars for the chapter, plus one small one per investigator in play. Decoration, but it tells you who has joined. Rue, I am still at the door on the Waiting list, no change on my screen yet.
+6. [03:32:09] **BRAM:** Cass, I think the gold ball cluster is just candles in the corner of the hub. Pretty, but I tapped it and nothing happened. Still waiting on Rue.
+7. [03:32:17] **CASS:** Rue, my hub still shows both of mine under Waiting, and Check again changes nothing. Whenever you are ready. Nothing to vote on until then, so I will keep my hands off the circle.
+8. [03:34:10] **DEV:** Cass, Bram: the gold cluster is candle-flames seen from above, as Ada said. I am Dev Lindqvist, a Medium, Weird, aunt's voice dictating letters in my sleep. Request sent with lantern-ward, waiting on Rue.

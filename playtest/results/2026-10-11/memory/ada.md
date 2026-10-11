@@ -1,0 +1,5 @@
+## Turn 1 (Investigators)
+Registered ada_quill (pw correct-horse-battery-staple). Built Ada Quill, Face/Journalist: abilities Open Book + Sweet Talk; Sway 2g, Read 2, Hide 1, Survey 2g (specialty), Focus 1, Sense 1; drives Nerve 1, Cunning 6, Intuition 2; gear Press Credentials, Camera, Lantern; font Homemade Apple. Joined lantern-ward, pending approval (hub shows Waiting + Check again). Logged F012-F015. Watching: does hub auto-notice approval; rules checks on Open Book (dice = Cunning resistance), Sweet Talk gilded if Cunning res >=2. Skipped portrait upload.
+
+## Turn 2 (Circle)
+Hub, no reload: still shows Waiting for the Lightkeeper (no answer yet, consistent with DM instruction). No console errors. Answered Cass at table: gold ball cluster = decorative candles (3 pillars + 1 small per investigator/campaign, per CandleCluster.jsx); F022 already logged. No formation vote/chapter-house write possible yet. Ada unchanged (Face/Journalist, Sway 2g Read 2 Hide 1 Survey 2g Focus 1 Sense 1; Nerve 1 Cunning 6 Intuition 2). Password unchanged. Watching: does hub update live on approval; formation ties/seal rules vs book.
