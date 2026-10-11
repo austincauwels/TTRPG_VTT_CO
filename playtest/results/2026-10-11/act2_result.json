@@ -1,0 +1,238 @@
+{
+ "r1": [
+  {
+   "summary": "Desk was current on look without reload (dispatch, tension 'The green lamps', Bram's roll in the log). I answered in character, then opened my Journalist Specialty tab and used Open Book (Sway + dice equal to Cunning resistance 2/2). With 1 Cunning drive point the pool was 2+2+1 = 5 dice, 1 gilded, as the rules say. I rolled 6g, 2, 3, 5, 1 and kept the gilded 6: Success, and Cunning refunded (6 of 6), all correct. Logged F066 (praise: Open Book pool and refund correct) and F067 (ux: keep-one-die options look like plain text, and my first click on the text did nothing). No console errors. I did not check the Circle tab, and the header still reads The Lantern Ward, which may be the campaign name. Memory file updated.",
+   "findings": [
+    "F066",
+    "F067"
+   ],
+   "blocked": "",
+   "state": "Ada: Nerve 1, Cunning 6/6, Intuition 2; Cunning resistance 2/2; no marks or scars; gear Press Credentials, Camera, Lantern. Open Book used once on Sway (Success)."
+  },
+  {
+   "summary": "Looked first: dispatch and tension lines were on my phone without a reload (the scene opening has no log line, F065). Said my ladder climb at the table and rolled Move on the phone: tapped + on Nerve (+1d), tapped Move, 3 dice with one gilded, chose the gilded 4 for a mixed success, 1 Nerve was refunded (5/5) and the log line and tray card were correct. Found the dice, action and drive unaided; the flow is good. Logged F062 (praise), F063 (the Dice button still says \"a choice is waiting\" after I chose), F064 (header shows the campaign name, not the circle's new name), F065 (no scene line in the log). No console errors. I did not look at the other players' rolls on the strip beyond the table talk.",
+   "findings": [
+    "F062",
+    "F063",
+    "F064",
+    "F065"
+   ],
+   "blocked": "",
+   "state": "Bram: Nerve 5/5, Cunning 2, Intuition 2, Nerve resistance 1 of 1 unused, no marks, no scars, gear Machete/Heavy Climbing Gear/Lantern, Behind Me and Tenacious unused. Ladder Move rolled: gilded 4, mixed success."
+  },
+  {
+   "summary": "Desk was current at start without reload (Ada's and Bram's rolls in the log; dispatch and tension present; hourglass 0 of 4). Header still says The Lantern Ward (F064 already logged). Said my action at the table, then rolled Survey (gilded, 2 dice: gilded 1, 3). A first plain click rolled (my intended double-click on Roll was a single click, as seat.js needs --dbl, so I did not truly double-click the roll button). I double-clicked the gilded keep die (needed force because it keeps animating) and kept the gilded 1: Failure, Intuition refreshed, still 3/3. One log line only. Pressed Enter twice in Pass Notes: one note, field cleared. After reload, roll and note survived in the log, drives unchanged. Logged 3 findings: tray resets to No dice thrown yet after reload, praise for single result under double-click and Enter twice, and the perpetual shimmy making keep dice hard to click for tools. No console errors. Memory updated.",
+   "findings": [
+    "F068",
+    "F069",
+    "F070"
+   ],
+   "blocked": "",
+   "state": "Cass: no marks or scars, Nerve/Cunning/Intuition 3/3 with one resistance each, Survey roll failed (gilded 1 kept). Scout unused. Hourglass 0/4."
+  },
+  {
+   "summary": "Looked first: my desk showed Ada's and Bram's rolls and the dispatch/tension live, no reload needed. Said my action at the table, used Commune (Brain mark 1/3), spent 1 Intuition and rolled Sense: dice 3 (gilded), 4, 6; kept the 6 for a Success. The gilded keep button was never \"stable\" for a touch tap and needed a forced click (F071). Then wrote a Markdown Field Note (\"Case 1: The Lamplighter's Debt\" with heading, list, bold, link) with a Preview check and attached gasworks_photo.jpg; it posted well. Logged 4 findings (F071-F074): the keep button, italic rendering as underline, Commune/Sense not linked, and praise for the notebook. Header still says \"The Lantern Ward\" (same as F064). No console errors. Memory updated.",
+   "findings": [
+    "F071",
+    "F072",
+    "F073",
+    "F074"
+   ],
+   "blocked": "",
+   "state": "Dev: Brain 1/3, no scars, Intuition 4/5, Cunning resistance 1 and Intuition resistance 1 unused, Great Wards unused. Field Note with photo posted."
+  }
+ ],
+ "dmR2": {
+  "summary": "I started with look and did not reload. The desk was current: all four round-1 rolls, Dev's Commune line, Dev's photograph line and the tray all showed. At the table I answered each roll in the story (#26-27). Cass's failure became a Bleed mark, which I dealt from her sheet. I made an open Lightkeeper roll for Marrow, the lamplighter's assistant (4, mixed), and a secret one (6,6, critical, shown only to me and kept quiet). I raised the tension to 1 of 4, sent Dev a private pass note about bed eleven in St. Brede's debtors' ward, and sent a new dispatch for the Hollin Cross gasworks. All of these logged correctly. I said Bram's agreed death out of character in one line (#29). One step could not be done: the trauma record's Edit cannot add scars. It only rewords or removes ones that already exist, and the backend refuses a longer list on purpose (I checked gm.py). So I recorded no scars. Instead I dealt Bram four Body marks with Deal a mark: three filled the track, and the fourth reset it to 0, made him incapacitated and should open the scar form on his phone. That is his first scar (0 of 4), not his fourth, so the death will take three more cycles of marks. I said so at the table (#31). With the scar pending, my desk shows only an INCAPACITATED tag, 0 marks and Scars 0/4. Nothing says a scar is owed, Deal a mark stays active, and the roster card shows no status at all. No ability offers appeared on my desk or in the WebSocket traffic, and there were no console errors. I logged F078-F082 and appended my memory entry.",
+  "findings": [
+   "F078",
+   "F079",
+   "F080",
+   "F081",
+   "F082"
+  ],
+  "blocked": "The trauma record's Edit cannot add scars (by design: backend gm_update_scars refuses a longer list, 'A new scar comes from a full mark track, through the scar form'). So the three scars could not be written on Bram's sheet. Bram's fourth Body mark gives him his first scar, not his fourth, and his death needs three more cycles of four marks, each with a scar he writes himself.",
+  "prompts": {
+   "bram": "Story: the ledger wounds you have run from bring you down at the gasworks gate. Site: answer the scar form on your phone. Write what the ledger took from you, shift one action point and submit. Then check that your sheet shows Scars 1/4 and Incapacitated.",
+   "ada": "Story: Marrow's snuffer-hook lies by the gate. Say how Ada reacts to Bram falling. Site: roll Read to make out what is engraved on the brass (Cunning drive if you want).",
+   "cass": "Story: with ink in your palm, slip through the open gate after Marrow. Say how Cass reacts to Bram going down. Site: roll Hide (Cunning) and check your sheet shows Bleed 1/3.",
+   "dev": "Story: your aunt is shouting. Hold Bram here while the ledger writes. Say how Dev reacts. Site: roll Focus (Intuition) and check your private pass note from the Lightkeeper arrived only on your desk."
+  },
+  "state": "Tension 1 of 4 (The green lamps). Timer off. Dispatch: Hollin Cross gasworks (03:53). Circle The Green Lamp Society: Illumination 0/12, Stitch/Refresh/Train 5/5, reports closed 0 of 4. Ada: no marks. Bram: incapacitated, Body reset to 0 after a fourth mark, scar form pending on his phone (scars 0/4; this will be his first scar). Cass: Bleed 1/3. Dev: Brain 1/3, Intuition 4/5. Nobody dead. The Lightkeeper's secret 6,6 is unrevealed. The Pass Notes target on my desk is still @Dev Lindqvist (private).",
+  "story_so_far": "The Green Lamp Society came to Wick Street in Hollin Cross after midnight, where the gas lamps burn green and the people under them wake owing debts. Ada got a frightened man to name Ebenezer Marrow, the lamplighter's assistant. Bram climbed to a lamp and saw a ledger page burning inside the glass. Cass found nothing, and the light inked her palm. Dev's aunt told him the lamplighter is collecting the street, and every lamp turned toward the gasworks. Marrow appeared, opened the gasworks gate and slipped inside, dropping his snuffer-hook. The ledger page turned up in Bram's pocket in his own handwriting. His old debts opened as wounds and brought him down, incapacitated, at the gate. His player has agreed this assignment ends in his death. Dev alone has heard that the ledger was once kept under a mattress at bed eleven in St. Brede's debtors' ward."
+ },
+ "r2": [
+  {
+   "summary": "Desk was current at turn start without reload (Bram's four marks, incapacitation, tension, dispatch all present); header still says Lantern Ward (known F064). Said Ada kneels by Bram then reads the snuffer-hook. Rolled Read with 1 Cunning: 3 dice (3,2,2) Failure; Cunning 6 to 5, no refund. Burned Cunning resistance (2 to 1) and rerolled with rating only: 2 dice (2,1) Failure, matching FAQ.md. No protect-Bram offer appeared on my screen. Sheet numbers (ratings, drives, resistance, pool sizes) all checked out. No console errors. Logged F083 (burn silently drops drive die, unexplained), F084 (Sweet Talk condition not shown), F085 (praise, desk current).",
+   "findings": [
+    "F083",
+    "F084",
+    "F085"
+   ],
+   "blocked": "",
+   "state": "Ada: Nerve 1/1, Cunning 5/6, Intuition 2/2, Cunning resistance 1/2, no marks, no scars. Tension 1 of 4."
+  },
+  {
+   "summary": "Looked first without reload: Bram's desk was current (incapacitated, scar form open, log lines live, Ada's roll arrived). Spoke at the table, filled the scar form (lower Control, raise Focus, wrote the text) and recorded it. The sheet now shows Scars 1/4 with the text and (-1 Control, +1 Focus), ratings changed (Control 1, Focus 2) and Status: Incapacitated with Revive still there. No console errors. Logged 4 findings (1 praise, 3 ux: scar form buttons below the fold on the phone, duplicate radio names across groups, sheet jumps mid-page with no confirmation). Told the table how it feels. The fourth-scar death was not reached this turn, since this was only the first scar. Memory file updated.",
+   "findings": [
+    "Scar praise",
+    "Scar form buttons below fold",
+    "Duplicate radio names",
+    "No confirmation/scroll after scar"
+   ],
+   "blocked": "",
+   "state": "Bram: Incapacitated, Scars 1/4, Body 0, Control 1, Focus 2, Nerve 5/5, Nerve resistance 1, no other marks, gear Machete/Climbing Gear/Lantern."
+  },
+  {
+   "summary": "Desk was current at turn start without reload (Bram's four marks and incapacitation, tension 1 of 4, gasworks dispatch, Ada's Read and burn all in my log). Said Cass's reaction at the table, then used only the keyboard: 22 Tabs reached Roll Hide, Enter rolled it. Hide rating 1 gave 1 die, a 2: Failure. Sheet shows Bleed marks 1 of 3. Cunning resistance not burned because the After-the-roll Burn and reroll panel had disappeared by the time I tabbed on, and it was not in the tab order. Logged 3 findings: Burn panel vanishing (ux medium), mark buttons being easy to hit by keyboard (ux low), keyboard play working with focus ring and labels (praise). Noted the name and pronouns fields are not in the tab order. No pass note arrived. No console errors. Did not reach the Circle or Notebook with keyboard. Memory file updated.",
+   "findings": [
+    "F090",
+    "F091",
+    "F092"
+   ],
+   "blocked": "",
+   "state": "Cass: Bleed 1/3, no Body/Brain marks, no scars, Nerve/Cunning/Intuition 3/3 with one resistance each, gear Magnifying Glass/Evidence Bags/Lantern, Scout unused. Just rolled Hide: failure (a 2); Marrow may have noticed."
+  },
+  {
+   "summary": "Desk was current at turn start without reload (Bram's four marks and incapacitation, tension, dispatch, the Lightkeeper's private note to me). I said at the table that Dev holds Bram with the spirit board, spent 1 Intuition and rolled Focus: 5, mixed success, 3 dice. I did not burn resistance. Sent a private pass note to Ada about bed eleven at St. Brede's. The To list has no Lightkeeper entry (but offers myself), so I could not answer the Lightkeeper's note (F094). My note to Ada showed in my log at once. I cannot see other desks, so \"only on my desk\" is unverified. Notebook: added a Markdown field entry \"The debts of Wick Street\". Field notes cannot be edited at all (F097), so editing the first note was impossible. Circle page matches the Lightkeeper's numbers (Illumination 0/12, resources locked at 5/5). Death display could not be checked because nobody is dead; Bram's card shows no incapacitated or scar status (F099). Logged F093 to F099; the numbering suggests others logged in between. Memory file updated. No restart was needed.",
+   "findings": [
+    "F093",
+    "F094",
+    "F095",
+    "F097",
+    "F099"
+   ],
+   "blocked": "",
+   "state": "Dev: Brain 1/3, no scars, Intuition 3/5 (spent 1 on Focus), Intuition resistance 1 and Cunning resistance 1 unused, Nerve 1/1, Cunning 3/3. Great Wards unused. Focus roll 5 mixed, pending Lightkeeper's cost."
+  }
+ ],
+ "dmR3": {
+  "summary": "At turn start my desk was current without a reload: Ada's Read and burn, Cass's Hide, Dev's Focus 5 and his private note to Ada were all in the log, and Bram's first scar was on his sheet with its text and the action shift (praise logged as F107). The death the goal assumed had not happened: Bram has only 1 of 4 scars, and the trauma record's Edit cannot add scars (F078). So the take-back test (remove the fourth scar, then put the death back) could not be done. I opened Edit and closed it with Done, changing nothing. It has no Cancel, Remove's behaviour is unclear and the scar box cuts the text short (F103). The Lightkeeper's desk also has no Revive for an incapacitated investigator, though FAQ.md says the Lightkeeper can revive (F101). To move toward the death, I dealt Bram four Bleed marks while he was still incapacitated. The log said 'has been incapacitated!' again, and the sheet still shows Scars 1/4 with nothing saying a second scar is owed (F102); his second scar form should now be open on his phone. I did not send Invite player. The invite does not check whether the player's investigator is still alive (source read, F104). Once a new investigator is on the roster, a death can no longer be lifted. So the invite has to wait until after the fourth scar and after the take-back test. I told Bram so at the table. At the table I narrated the climax, called a final roll from each living player and lowered the tension to 0 of 4 (logged). On the Circle page I opened the reports (logged) and ticked the three Illumination questions (Total +3, not yet added). The ticks are saved only in my own browser and are sent to no one (F105). The resources note's wording '(now 5)' also misleads (F106). No console errors, and no restart was needed.",
+  "findings": [
+   "F101",
+   "F102",
+   "F103",
+   "F104",
+   "F105",
+   "F106",
+   "F107"
+  ],
+  "blocked": "The death could not be tested: Bram has 1 of 4 scars, the Lightkeeper's Edit cannot add scars, and each scar needs Bram to fill a scar form on his phone, one at a time, because the desk keeps only one pending scar. So the fourth-scar removal and putting the death back are not done. Invite player was held back on purpose until after the death and the take-back test, because once a new investigator is on the roster the death cannot be lifted, and the invite does not check whether the old investigator is alive.",
+  "prompts": {
+   "ada": "Story: name Marrow's debt out loud ('one evening, owing') and tell him it is paid in print. Site: roll Sway on your sheet, then file your assignment report (reports are open) and tick your key if you fulfilled it.",
+   "bram": "Story: the ledger writes a second debt into you on the gasworks cobbles. Site: write your second scar in the scar form that should now be open on your phone (lower one action, raise another), and keep writing scars as the forms come; the fourth is the Explorer's death. Do NOT build the Professor yet: I will send an invite to bram_okafor after the fourth scar, then build your Scholar (Professor) and come back. Also file the Explorer's assignment report if the site lets you.",
+   "cass": "Story: the ledger is six feet from you in the dark: take it from under Marrow's hand. Site: roll Hide on your sheet, then file your assignment report (reports are open) and tick your key if you fulfilled it.",
+   "dev": "Story: hold the ledger's page shut while your aunt closes the book of the dead (the spirit board is cracked down the middle). Site: roll Focus on your sheet, then file your assignment report (reports are open) and tick your key if you fulfilled it."
+  },
+  "state": "Tension 0 of 4 (The green lamps), timer off. Dispatch: the Hollin Cross gasworks. Reports OPEN, 0 of 4 filed. Illumination 0/12; the three questions are ticked on my desk only (Total +3, not yet added). Stitch, Refresh and Train 5/5 each, spending locked. Bram Okafor (Muscle/Explorer): incapacitated, 1 of 4 scars (Control 1, Focus 2), marks 0/0/0 after a fourth Bleed mark at 04:00, second scar form pending on his phone; not dead. Cass: Bleed 1/3. Dev: Brain 1/3. Ada: no marks. Nobody is dead. Invite player not sent. Assignment not ended. My Pass Notes recipient is still set to @Dev Lindqvist (private).",
+  "story_so_far": "The Green Lamp Society came to Wick Street in Hollin Cross, where the gas lamps burn green and leave sleepers with debts inked on their wrists. From the man on the step of number 14, Ada got the name Ebenezer Marrow, the lamplighter's assistant. Bram found a burning ledger page inside a lamp, Cass took ink into her palm, and Dev learned that the lamps are collecting the street. Marrow fled into the gasworks. At its gate, Bram's old debts opened on him and he fell; Dev held him with the spirit board, which cracked. Inside, Marrow, forewarned, opened the still-writing ledger on the valve-housing, and a second line of debt was written into Bram. With Bram down and the danger passing, Ada, Cass and Dev each make one last roll to close the ledger: Ada names the debt aloud, Cass takes the ledger, Dev holds its page shut. The Explorer's death is coming, scar by scar."
+ },
+ "r3": [
+  {
+   "summary": "Desk was current at turn start with no reload: Bram's second incapacitation, tension 0 and the reports-open line were all in my log. I said at the table that I name Marrow's debt, \"one evening, owing\", and that it is paid in print. I used Open Book on Sway, which gave a pool of 3 dice (rating 2 plus Cunning resistance 1, one gilded). The roll was 3 gilded, 3, 5, and I kept the 5 for a Mixed success. The keep-die click only worked when forced, the same as F070. I spent no drive. On the Circle tab I ticked Gather Statements only, switched to Notebook and back (the tick survived), and sent the report. The boxes then locked and the log showed \"Ada Quill filed an assignment report.\" My sheet matches the dispatch state: no marks, no scars. Dev's Muse proposal is still waiting for my Accept or Counter. My Pass Notes recipient showed @Circle on my screen, not the @Dev the brief mentioned. I logged F108 (report flow works), F109 (no way to amend a sent report, and the intro still says to tick keys) and F110 (keep-die not stable on desktop). No console errors, and no restart was needed.",
+   "findings": [
+    "F108",
+    "F109",
+    "F110"
+   ],
+   "blocked": "",
+   "state": "Ada: Nerve 1/1, Cunning 5/6, Intuition 2/2, Cunning resistance 1/2, no marks, no scars, gear Press Credentials, Camera, Lantern. Report filed with Gather Statements ticked."
+  },
+  {
+   "summary": "Looked first without reloading: the second scar form was already open on my phone and the newest-log banner was current (Ada's report arrived live). Wrote scar 2 (-1 Strike, +1 Sense) via the form; the sheet updated at once (Scars 2/4, Incapacitated, Strike 1, Sense 1). Opened Circle, ticked Run into Danger and filed the Explorer's report: REPORT SENT stamp, Amend offered, log line live. Logged 4 findings (2 praise, 2 low ux: unchanged 'Bleed track is full' wording with 0 marks, no incapacitation status on Circle). Said progress at table. Did not build the Professor. Only scar 2 of 4 so far, so the third and fourth scar forms have not arrived yet; no invite yet. Memory updated. Radios needed role-based selection via a script (css aria-label did not match).",
+   "findings": [],
+   "blocked": "The third and fourth scar forms and the invite had not arrived yet, so the Professor build and the return to the campaign are still pending.",
+   "state": "Bram Okafor, Muscle/Explorer: incapacitated, scars 2 of 4 (Control -1/Focus +1; Strike -1/Sense +1), marks 0/0/0, Nerve 5/5, Nerve resistance 1, report filed. Waiting on the Lightkeeper for scar forms 3 and 4 and the invite."
+  },
+  {
+   "summary": "My desk was current at turn start without reloading: Ada's and Bram's filed reports, the tension drop and the opened reports were all in my log. I rolled Hide, a 3 (Failure), then burned Cunning resistance and rerolled, another Failure, so I did not get the ledger, and said so at the table. I filed my report with no keys ticked, since I earned none. Double-click plus Enter sent exactly one report and one log line, and an Amend button appeared. I opened Amend and ticked a key, then went to the chapter hub and back. The roll, log and marks were kept, but the unsent amendment draft was lost with no warning. Logged F118 to F121: praise for the single send and Amend, the lost draft, Interrogation +1d vanishing after the burn, and the header still reading The Lantern Ward. `errors` showed nothing new. The memory file is updated.",
+   "findings": [
+    "F118",
+    "F119",
+    "F120",
+    "F121"
+   ],
+   "blocked": "",
+   "state": "Cass: Bleed 1/3, no scars, Nerve/Cunning/Intuition 3/3, resistances Nerve 1/1, Cunning 0/1 (burned), Intuition 1/1, Scout unused, gear Magnifying Glass/Evidence Bags/Lantern. Report filed with no keys."
+  },
+  {
+   "summary": "Desk was current at turn start without a reload (reports opened, other players' filings and Cass's burn all in the log). I said my line at the table, spent 1 Intuition and rolled Focus: 5, mixed success on 3 dice (5,1,1). I ticked Sense Phenomena and sent my report. The boxes locked, a \"Report sent\" status and an Amend button appeared, and the log line arrived live. That means first-report item F109 is fixed (logged as praise F115). I then posted the closing field note \"Closing note: the book of the dead\" in the Notebook with Markdown and ledger_page.jpg. It posted and showed correctly (F116 praise). Italic Markdown renders as an underline in the Caveat font, which I logged as F117 (ux, low). I wrote the memory entry. No console errors, and no restart was needed.",
+   "findings": [
+    "F115",
+    "F116",
+    "F117"
+   ],
+   "blocked": "",
+   "state": "Dev: Brain 1/3, no scars, Intuition 2/5, Cunning 3/3, Nerve 1/1, Cunning and Intuition resistance 1 each unused. Report filed with Sense Phenomena ticked (Amend available). Great Wards unused."
+  }
+ ],
+ "dmW": {
+  "summary": "My desk was current at turn start without a reload: all four reports were filed and Dev's photograph line was the newest in the log. Desk item 1 could not be done. There was no join request, no new investigator and no death: Bram's Explorer is still incapacitated with 2 of 4 scars, so the roster still shows the four original investigators. I read the four report cards. Ada ticked Gather Statements, Bram Run into Danger, Dev Sense Phenomena, and Cass ticked nothing. The page totalled +5 (3 questions answered yes, plus 2 because some investigators fulfilled a key), which matches p. 55. I pressed Add 5 Illumination; the questions locked and the log line was correct. I then set the track to 12, pressed 'Track full: advance the circle', and in the Circle Advancement dialog chose Nobody Left Behind. The track reset to 0/12, resources stayed at 5/5 (1 plus 4 members), and each investigator now has 2 advancement picks. I could only see those picks with a read-only database check: nothing on my desk shows them (F129). I pressed End Assignment twice to confirm. It cleared the dispatch, the hourglass and its clock name, ability uses and the reports, and it emptied every investigator's gear list, although the warning says only 'marked gear' (F130). Drives and resistance were not refilled. I then pressed Allow spending, which writes no log line (F131). Filling the track also produced noisy separate milestone log lines and two pip buttons with the same name (F132). I narrated the ending and the bookkeeping at the table, told everyone what their screens now show, and asked Ada to confirm the tally and the two-advancements rule. Praise logged: F127 (the tally and Add) and F128 (the advance flow). No console errors and no restart. The memory file is updated.",
+  "findings": [
+   "F127",
+   "F128",
+   "F129",
+   "F130",
+   "F131",
+   "F132"
+  ],
+  "blocked": "Desk item 1 (approve Bram's new investigator, check the dead one on the roster) was not possible: Bram's Explorer has only 2 of 4 scars, so he never died, and there is no join request or new investigator. The death and invite move to the start of the Glass Orchard.",
+  "state": "Assignment one has ended. Illumination is 0/12 after +5 from the reports and a Chapter top-up to 12. The circle advanced and now has In This Together and Nobody Left Behind. Stitch, Refresh and Train are 5/5 each, and spending is OPEN (up to two spends per player). Reports are closed and reset; the dispatch and the hourglass are cleared (tension 0, no clock name, timer off). Ability uses are reset. All gear lists are empty. Drives are not refilled. Each investigator has 2 advancement picks waiting. Nobody is marked. Bram's Explorer is incapacitated with 2 of 4 scars and not dead. Cass has used her Cunning resistance; Ada has 1 of 2 Cunning resistance left. No new investigators. Pass Notes recipient is still @Dev (private).",
+  "story_so_far": "The Green Lamp Society chased the green lamps of Wick Street to the Hollin Cross gasworks. There, the lamplighter's assistant Ebenezer Marrow kept a living ledger that wrote debts into people's wrists. The ledger took Bram's Explorer down and wrote two lines of debt into him. Ada named Marrow's debt, 'one evening, owing', and paid it in print. Cass failed twice to snatch the ledger. Dev's dead aunt Marit closed the book. The lamps went out, the man on the step of number 14 was freed, and the Chapter took the ledger and Bram into its keeping. The circle advanced, gaining Nobody Left Behind. Next is a week of quiet before the Glass Orchard at Kettering Park.",
+  "prompts": {
+   "ada": "At the table, confirm or correct the bookkeeping by the rulebook: is +5 right (3 questions plus 2 because some fulfilled a key), and is it two advancements each when the circle advances? On the site: your sheet should show 2 advancement picks waiting; choose two and report them. Your gear list is now empty, so re-pick your gear. If you want your Cunning back, spend a Refresh (spending is open, up to two). Say whether your desk updated live: Illumination 5, then 12, then 0, the new ability, End Assignment.",
+   "bram": "Look without reloading: your gear should be empty and your Explorer still incapacitated with 2/4 scars. Check whether you see 2 advancements waiting and whether the site lets you pick them while incapacitated, and say what the phone shows. Do NOT build the Professor yet: the last two wounds come at the start of the Glass Orchard, and the invite follows. You may spend a Stitch or Refresh if the site offers it.",
+   "cass": "Check that your desk shows the advance, the reset reports and the empty gear without a reload. Your Cunning resistance is burned: try a Refresh (spending is open), and try your edge cases on the spend and on the advancement picks (a double-click on a pick, a third spend, Back mid-pick). Re-pick your gear.",
+   "dev": "Check that the Circle page shows Nobody Left Behind, Illumination 0/12 and 'No report yet' cards live on your tablet. Choose your 2 advancements and re-pick your gear. Spend a Refresh for your Intuition if you want it back. If you like, write a short Notebook entry closing the Lamplighter's Debt, and say whether the advance shows anywhere in the Notebook or Circle history."
+  }
+ },
+ "rW": [
+  {
+   "summary": "Desk was current at turn start without a reload: the advancement dialog was already open, and the log showed the Illumination 5 then 12, the new ability Nobody Left Behind, and End Assignment, so nothing was stale. At the table I confirmed by p. 55 that 3 questions plus 2 for some keys is +5 and that each investigator takes 2 advancements when the circle advances. The log says \"gains 7 (5 to 12)\", an extra +7 the Lightkeeper added by hand that is not a book rule (F142). On the site I tested Later (it leaves a \"Choose advancements (2)\" button), then took +1 Hide (now 2) and gilded Read. The dialog greys out the other choices at the limit, shows a summary, and writes log lines. I re-picked gear (Press Credentials, Camera, Hidden Recording Device). I spent one Refresh on the Circle page: it asks for a second press, then Cunning went 5 to 6 of 6 and resistance 1 to 2 of 2. Counts and log updated live. The Circle page shows Illumination 0/12 and both abilities. No console errors. Logged F138 to F142: two praises, two ux nits (Nobody Left Behind chip repeated on all 9 actions; \"Reports closed\" wording after End Assignment) and one rules note. I did not run start_all.sh.",
+   "findings": [
+    "F138",
+    "F139",
+    "F140",
+    "F141",
+    "F142"
+   ],
+   "blocked": "",
+   "state": "Ada Quill, Face/Journalist. Nerve 1/1, Cunning 6/6, Intuition 2/2, Cunning resistance 2/2. Sway 2g, Read 2g, Hide 2, Survey 2g, Focus 1, Sense 1. No marks, no scars. Gear: Press Credentials, Camera, Hidden Recording Device. 1 of 2 spends used. Circle ability Nobody Left Behind."
+  },
+  {
+   "summary": "Looked first without reloading: the phone was current (End Assignment log line, Illumination 0/12, Nobody Left Behind listed, spends 0/2, Stitch/Refresh/Train 5 of 5, reports reset). The Circle Advancement dialog was already open (\"2 advancements for Bram Okafor\") while Bram is incapacitated, so the site does let you pick them. I took +2 Cunning drive (Cunning 2 to 4) and +1 Sway (0 to 1); an \"Advancement Applied\" box and two log lines followed. Sheet after End Assignment: gear empty (\"No gear\"), still Incapacitated, scars 2/4, marks 0, ability uses reset, resistances Nerve 1 and Cunning 1. I did not test what Later does, since I confirmed both advancements. Spent 1 Refresh (two-tap confirm, spends 1/2, Refresh 4 of 5, log line live). The circle page shows the new ability Nobody Left Behind and the unanswered Cass and Dev relationship proposals; the Rival and Ward proposals are still waiting for me. No console errors. Logged F134 to F137: two praise, two ux (Confirm and Later are far below the fold on the phone, and gear clearing is shown only as a generic line). Did not build the Professor. Memory file updated.",
+   "findings": [
+    "F134",
+    "F135",
+    "F136",
+    "F137"
+   ],
+   "blocked": "",
+   "state": "Bram Okafor (Muscle/Explorer), Incapacitated, scars 2/4, marks 0, gear empty. Move 2g, Strike 1g, Control 1, Sway 1, Read 0, Hide 0, Survey 2, Focus 2, Sense 1. Nerve 5, Cunning 4, Intuition 2. Resistance Nerve 1, Cunning 1. Advancements taken. Spends 1/2 (Refresh used)."
+  },
+  {
+   "summary": "Desk was current at turn start without a reload: the advancement dialog, other players' Refresh and gear lines, the empty gear and the new Nobody Left Behind chips were all showing. I tested Later, which leaves a 'Choose advancements (2)' button on the sheet. Browser Back mid-pick dropped me to the chapter hub, and the dialog reopened on re-entry with the pick lost (F145). I took +2 Cunning drive and gilded Hide. Double-click on Confirm applied it once, with one log line per pick. I spent Refresh: a double-click only arms it, and a second press spends it. I spent Stitch next: a triple-click on the armed button spent once, which cleared Bleed. A third spend was refused with a clear reason (F147 praise). I re-picked gear (Magnifying Glass, Evidence Bags, Concealed Pistol): a 4th pick is silently ignored (F146), and Save gear's double-click saved once. I also looked at the circle page: Illumination 0/12, reports closed, resources 5 of 5 shared, with others' spends visible live. Bug F144: the old Hide roll's 'Burn and reroll' offer is still shown on the tray after End Assignment and a Refresh. I did not press it. Said my choices at the table and wrote my memory entry. No restart was needed.",
+   "findings": [
+    "F144",
+    "F145",
+    "F146",
+    "F147"
+   ],
+   "blocked": "",
+   "state": "Cass: no marks or scars. Nerve 3/3, Cunning 5/5 (+2 advanced), Intuition 3/3, all resistances 1/1. Hide and Control and Survey gilded. Gear: Magnifying Glass, Evidence Bags, Concealed Pistol. Scout unused. Both circle spends used (Refresh, Stitch)."
+  },
+  {
+   "summary": "Desk was current without reload: advancement dialog already open, Circle page showed Nobody Left Behind, Illumination 0/12, and the other players' advance, Refresh and Stitch lines had arrived live. I took +2 Cunning (3 to 5) and gilded Focus, and the result summary and log lines were clear. I re-picked gear (Spirit Board, Tarot Deck; my Lantern tap failed because of an ambiguous selector). I spent one Refresh with the two-tap confirm: Intuition 2 to 5, resources count 2 to 1, spends 1/2. All three earlier notebook entries were intact, and I added a closing note. Findings: F148 praise (advancement flow), F149 bug (a stale roll card with a live Burn and reroll button persists after End Assignment and Refresh), F150 ux (the advance is in neither Circle History nor the Notebook, only the Activity Log), F151 ux (the circle report card says 'Reports closed', not 'No report yet'; same as F141), F152 praise, F153 weak ux that cites a wrong screenshot. No console errors.",
+   "findings": [
+    "F148",
+    "F149",
+    "F150",
+    "F151",
+    "F152",
+    "F153"
+   ],
+   "blocked": "",
+   "state": "Dev: Weird/Medium. Nerve 1/1, Cunning 5/5, Intuition 5/5, resistances Cunning 1 and Intuition 1. Brain 1/3, no scars. Gilded: Survey, Focus, Sense. Gear: Spirit Board, Tarot Deck. Spends 1/2 (Refresh used). Great Wards and Train unused."
+  }
+ ]
+}

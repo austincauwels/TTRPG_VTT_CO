@@ -3,3 +3,18 @@ Registered ada_quill (pw correct-horse-battery-staple). Built Ada Quill, Face/Jo
 
 ## Turn 2 (Circle)
 Hub, no reload: still shows Waiting for the Lightkeeper (no answer yet, consistent with DM instruction). No console errors. Answered Cass at table: gold ball cluster = decorative candles (3 pillars + 1 small per investigator/campaign, per CandleCluster.jsx); F022 already logged. No formation vote/chapter-house write possible yet. Ada unchanged (Face/Journalist, Sway 2g Read 2 Hide 1 Survey 2g Focus 1 Sense 1; Nerve 1 Cunning 6 Intuition 2). Password unchanged. Watching: does hub update live on approval; formation ties/seal rules vs book.
+
+## Turn 3 (Circle)
+Approval arrived live on hub (no reload); logged F046. Formation: voted question 1, answered (Saved), suggested+voted "The Green Lamp Society" (tied with "The Lantern Ward Circle", tie text shown), chapter house = Empty Office + my darkroom line, voted Stamina Training and Candlelight, accepted Bram's Confidant, proposed Coworker->Cass, Confidant->Dev (waiting). Findings F046-F049. Ada unchanged. Watching: sealed name/ability/insignia match first-voted tie rule; relationships answered after seal; Open Book/Sweet Talk in play.
+
+## Turn 4 (Round 1)
+Desk was current (dispatch, tension 'The green lamps', Bram's roll). Said my action, used Open Book (+2d, Cunning res 2/2) + 1 Cunning drive on Sway: 5 dice (1 gilded) 6g,2,3,5,1; kept gilded 6 = Success, 1 Cunning refunded (6/6). State: Nerve 1, Cunning 6/6, Intuition 2, res Cunning 2/2, no marks/scars. Logged 2 findings. Watching: Sweet Talk on Read (needs small talk), Lightkeeper's reply to the name, header still says 'The Lantern Ward' not circle name (unchecked on Circle tab).
+
+## Turn 5 (Round 2)
+Desk current without reload. Said Ada kneels by Bram, then reads the snuffer-hook: Read + 1 Cunning = 3 dice 3,2,2 Failure; burned Cunning resistance, reroll 2 dice 2,1 Failure (FAQ-consistent). State: Nerve 1/1, Cunning 5/6 (1 spent, no refund on failure), Intuition 2/2, Cunning res 1/2, no marks/scars. No protect-Bram offer seen on my screen. Logged 3 findings. Watching: Lightkeeper's reply to the failed Read (hook engraving), whether Cunning/resistance refresh, any offer to protect Bram, header still says Lantern Ward (F064).
+
+## Turn 6 (Round 3)
+Desk current at turn start (all marks, tension 0, reports-open line). Said I name Marrow's debt 'one evening, owing', paid in print. Sway with Open Book (3 dice: rating 2 + Cunning res 1, 1 gilded): 3g,3,5, kept 5 = Mixed (forced click needed, F070). No drive spent. Filed report: ticked Gather Statements only; sent, boxes locked, log 'filed an assignment report'; tick survived tab switch. Logged 3 findings. State: Nerve 1/1, Cunning 5/6, Intuition 2/2, Cunning res 1/2, no marks, no scars, gear Press Credentials/Camera/Lantern. Pass Notes recipient shows @Circle on my screen. Watching: Illumination total (+3 questions +2 keys if some), Dev's Muse proposal still awaiting my Accept/Counter, spending unlock, next assignment.
+
+## Turn 7 (Wrap)
+Confirmed at table: +5 right (p. 55), two advancements each. Took advancements (dialog live, Later leaves 'Choose advancements (2)' button): +1 Hide (now 2), Read gilded. Re-picked gear: Press Credentials, Camera, Hidden Recording Device. Spent 1 Refresh (1/2 spends used): Cunning 6/6, Cunning res 2/2. State: Nerve 1/1, Cunning 6/6, Intuition 2/2, res Cunning 2/2; Sway 2g Read 2g Hide 2 Survey 2g Focus 1 Sense 1; no marks, no scars; circle ability Nobody Left Behind (chip on all 9 actions). Logged 5 findings (advance praise, refresh praise, NLB chip clutter, reports-closed wording, rules note). Watching: Glass Orchard, one spend left, Dev's Muse proposal still awaiting my Accept/Counter, header still Lantern Ward.

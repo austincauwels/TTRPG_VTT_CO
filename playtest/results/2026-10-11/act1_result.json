@@ -1,0 +1,207 @@
+{
+ "note": "Act 1 ran twice: the first run lost its Approval, Circle and Ready turns to a relayed off-table question (every seat answered it); those three phases were re-run as act1b.",
+ "act1": {
+  "code": "lantern-ward",
+  "dm1": {
+   "summary": "The gold ball at the top left is most likely the cluster of glowing gold candles in the top-left corner of the Chapter Hub. They are candles seen from above, and the site draws them in code (frontend/src/components/campaignSelector/CandleCluster.jsx). They are only decoration: you can't click them and screen readers skip them. Three large candles always burn for the chapter. One small candle lights for each investigator or campaign you run, up to six; an unlit one shows a cold pool of wax and a wisp of smoke. If you meant the Lightkeeper's desk instead, the top-left emblem there is the site's eye-in-a-shield logo, and the gold discs at the top left of the Map page are part of the Fairelands map art.\n\nPlaytest turn: I signed up as lightkeeper_rue on the fresh database and it worked first time (the first playtest got a server error there). I created The Lantern Ward with the code lantern-ward and posted the welcome line at the table. I did not start the story. I went through the whole desk: the dispatch in both modes, Invite player, a 5-second test timer, the Notebook (I wrote and autosaved my prep notes), the Map, the Circle page, Pass Notes and the help tips. Two fixes from the first playtest hold up: timer events now show in the Activity Log, and the screen-reader timer status clears with the timer.\n\nThe one real bug: an unsent dispatch, both its location and its text, is erased when I visit Circle, Notebook or Map and come back (F006, medium). Other notes:\n- The Dispatch button sits just below the bottom of the screen at 1440x900, and nothing shows that the left column scrolls (F003).\n- On a new campaign, Invite player looks like the way to bring players in, but it only brings a player back (F002).\n- The Pass Notes recipients '@Circle (everyone)' and '@Environment (shown to everyone)' are worded so they look the same (F007).\n- The notes editor double-spaces its text off the ruled lines and shows an unexplained '(1)' on its tab (F005).\n- The map has no way to pin a location (F008, idea).\n\nNo console errors. The server did not need restarting. My memory entry is in /home/user/pt2/memory/dm.md.",
+   "findings": [
+    "F001",
+    "F002",
+    "F003",
+    "F004",
+    "F005",
+    "F006",
+    "F007",
+    "F008"
+   ],
+   "blocked": "",
+   "campaign_code": "lantern-ward",
+   "character_name": "Lightkeeper Rue (no investigator)",
+   "for_players": "1. Sign up on the site with your username (password correct-horse-battery-staple, email <username>@example.test). 2. On the Chapter Hub, make your investigator and ask to join The Lantern Ward with the campaign code lantern-ward. 3. Wait for the Lightkeeper to approve your request; the circle formation papers then open on your desk.",
+   "opening": "Welcome back, investigators. Join The Lantern Ward with the code lantern-ward."
+  },
+  "players1": [
+   {
+    "summary": "Registered ada_quill (worked first time), built Ada Quill (Face, Journalist) through the reworked 4-step creator: Open Book and Sweet Talk, Sway 2 gilded, Read 2, Hide 1, Survey 2 gilded by specialty, Focus 1, Sense 1, drives Nerve 1, Cunning 6, Intuition 2, gear Press Credentials, Camera and Lantern. Joined lantern-ward with the Homemade Apple pen font. The site says \"asked to join, the hub will say when the Lightkeeper answers\", and the Case Ledger shows waiting for approval with a Check again button; I did not yet see the approval arrive, so auto-notice is untested. Introduced Ada at the table. Logged F012 to F015 (creator praise, font list clipped in the join dialog and absent from the creator, portrait is a hidden file input, wait-state wording versus the manual Check again button). I did not upload a portrait. About the user's question: on the hub the gold ball at the top left looks like the cluster of lit candles on the desk, whose flames glow gold. In the creator the gold circle with a star beside Survey is the gilded-action marker, not on the top left.",
+    "findings": [
+     "F012",
+     "F013",
+     "F014",
+     "F015"
+    ],
+    "blocked": "",
+    "character_name": "Ada Quill",
+    "role_specialty": "Face (Journalist)",
+    "joined": true
+   },
+   {
+    "summary": "Signed up as bram_okafor with the hollincross email. Built Bram Okafor, Muscle (Explorer) in the reworked creator (Tenacious, Behind Me, actions, drives, 3 gear, Kalam handwriting font; portrait skipped). Joined lantern-ward; the hub shows a status line and 'Case Ledger: 1 waiting for approval'. Auto-notice of approval is not yet tested. Said hello at the table. Logged F016 to F019: Next-card arrow below the fold on the phone (first taps did nothing), silent gear cap, praise for the creator, portrait/font idea. Answer to the user's question: the gold ball at the top left of the hub is a small cluster of brass buttons/gears decoration on the pinned papers, and in the creator the gold ball icons beside Move and Strike mark gilded actions. No site restart needed.",
+    "findings": [
+     "F016",
+     "F017",
+     "F018",
+     "F019"
+    ],
+    "blocked": "",
+    "character_name": "Bram Okafor",
+    "role_specialty": "Muscle (Explorer)",
+    "joined": true
+   },
+   {
+    "summary": "Answer to the user's question: the gold balls at the top left of the chapter hub are a cluster of lit candles (CandleCluster.jsx). They are decoration and not clickable. The golden object lower down is the padlock on the Last Played book. I signed up as cass_moreau and built Cass *Moreau* with emoji and Markdown in the name: Slink (Detective), Interrogation and Scout, gear Magnifying Glass, Evidence Bags and Lantern, Nerve, Cunning and Intuition 3 each, gilded Control and Survey. I sent the join request with lantern-ward, pen font Shadows Into Light. The hub said \"asked to join. The hub will say when the Lightkeeper answers\" and the ledger said \"1 waiting for approval\". A double-click on submit made only one request, and the fourth gear pick was silently ignored. I then built Mina Vale (Face, Magician: Flourish and Sweet Talk) and sent a second request to the same campaign. The site accepted it with no warning and the ledger showed \"2 waiting for approval\", so it says nothing about which one will be used. I did not see yet whether the hub notices approval by itself. I introduced Cass at the table, logged F020 to F022 and wrote my memory entry. The console showed no errors. The creator felt solid, but I found the join dialog's font list clipped, as F013 already says.",
+    "findings": [
+     "F020",
+     "F021",
+     "F022"
+    ],
+    "blocked": "",
+    "character_name": "Cass *Moreau* \ud83d\udd6f\ufe0f [Inspector](x)",
+    "role_specialty": "Slink (Detective)",
+    "joined": true
+   },
+   {
+    "summary": "Your question was about the gold ball on the top left. It is not a button or a menu. It is the cluster of lit candles on the desk, seen from above, and it is purely decorative. In the hub screenshot (/home/user/pt2/shots/dev/003_after.png) it shows as a few glowing gold discs in the top-left corner. The frontend code (components/campaignSelector/CandleCluster.jsx, and the .hub-candles / .candle-center styles) draws them as candles, and useCastShadows.js uses them as the light source for the shadows of every object on the hub desk. I did not tap them, so I have not confirmed whether they do anything on touch. Separately, the sign-up task is partly done. I created the account dev_lindqvist with the password correct-horse-battery-staple, and the sign-up worked first time with no error. The hub then loaded, showing the Halcyon Herald, the Case Ledger, the locked Last Played book and the New Character and New Campaign tickets. I stopped there because your question took priority. I did not build the Weird (Medium) investigator, join with lantern-ward, introduce at the table, log any findings or write my memory entry. No console errors were checked. Nothing else went wrong.",
+    "findings": [],
+    "blocked": "Not blocked. I stopped after sign-up to answer the gold-ball question. The investigator is not built and the campaign is not joined, so joined is false.",
+    "character_name": "",
+    "role_specialty": "",
+    "joined": false
+   }
+  ],
+  "dm2": {
+   "summary": "The gold ball at the top left of the Chapter Hub is a cluster of candles, drawn as if you are looking down on them from above. The code is in /home/user/sut/frontend/src/components/campaignSelector/CandleCluster.jsx. The three big candles are always lit for the chapter. One small candle lights for each active investigator you have or campaign you run, up to six in all (CampaignSelector.jsx line 100). An unlit candle shows cold wax with smoke rising off it. It is only decoration: you can't click it, and screen readers skip it. I opened the hub as the Lightkeeper and checked: I run one campaign, so four candles should be lit. Then I went back to the desk. Cass already logged that nothing on the page explains the candles (F022), so I did not log it again. You asked only this question, so I did not do the approval steps from the script: no requests were approved or rejected, circle formation was not started, and I posted nothing at the table. The desk still shows 4 pending requests (Ada, Bram, Cass's Detective, and Cass's second investigator Mina Vale, the Magician). Dev has not sent a request yet. I wrote this turn into /home/user/pt2/memory/dm.md so the approvals can be picked up next turn.",
+   "findings": [],
+   "blocked": "I did not do the approval steps on purpose. Your request this turn was only the gold-ball question, and the approvals change the game, so they are left for the next turn.",
+   "campaign_code": "lantern-ward",
+   "for_players": "Nothing new yet. The join requests are still waiting on the Lightkeeper's desk, so stay on your hub or desk. Dev: build your Medium and send a join request with the code lantern-ward.",
+   "opening": ""
+  },
+  "players2": [
+   {
+    "summary": "Answer to the user's question: the gold ball cluster at the top left of the hub is decorative candles seen from above (CandleCluster.jsx): three pillar candles that burn for the chapter, plus one smaller candle for each investigator in play or campaign run, up to six; unlit ones show a cold pool and smoke. It is hidden from assistive technology and does nothing when clicked. Cass logged this already as F022. I replied to Cass at the table. My screen without reload still shows Ada Quill under \"Waiting for the Lightkeeper to approve\" with a Check again button, so no answer has arrived yet, which matches the Lightkeeper's instruction. No console errors and no new websocket traffic. No formation vote or chapter-house writing was possible, so the ties and seal rule checks are still open. No new findings logged. Memory file updated.",
+    "findings": [],
+    "blocked": ""
+   },
+   {
+    "summary": "Answer to the user's question: the gold ball on the top left of the hub is a decorative cluster of candles (CandleCluster component). It does nothing when tapped (already logged as F022). The hub still showed \"Awaiting approval\" and \"1 waiting\", which is correct since the Lightkeeper had not answered yet, and nothing was stale. I signed out, ran Forgot your password, took the link from node mail.js, set correct-horse-battery-staple-2 and signed in. Every step worked and the console showed no errors. I logged F026 to F029: praise for the reset flow, a confusing clock time in the email subject plus no \"password changed\" email, the stark white password field, and praise for the hub's pending state. I did not do any formation steps; my join request is still pending and the site is waiting on the Lightkeeper. I posted at the table and updated memory/bram.md.",
+    "findings": [
+     "F026",
+     "F027",
+     "F028",
+     "F029"
+    ],
+    "blocked": "",
+    "character_name": "Bram Okafor",
+    "joined": false
+   },
+   {
+    "summary": "Looked at my hub without reloading: both of my join requests (Cass *Moreau* and Mina Vale) are still under Waiting. The database agrees: both characters are linked to the circle with no approval and no rejection. Clicking Check again changed nothing. The brief's premise that the Magician was rejected is therefore not true yet, so I could not check where a rejected investigator goes. I also could not try circle formation (emoji and very long name suggestion, the same name in other capitals, fast double vote), because I am not in the circle. I said so at the table and stayed on my hub. I logged F030: the empty Lightkeeper Ledger shows three blank ruled boxes with no explanation. No console errors. Memory file updated. On the user's question, the gold ball on the top left is the hub's cluster of candles, decoration only (F022). Nothing needed restarting.",
+    "findings": [
+     "F030"
+    ],
+    "blocked": "The Lightkeeper has not approved or rejected any request yet, so the rejected-Magician check and the circle formation edge cases (name suggestion, case variants, fast double vote) could not be done."
+   },
+   {
+    "summary": "The gold ball cluster on the hub's top left is a decorative candle cluster: three pillars for the chapter plus one small candle per investigator in play (per Ada's earlier answer at the table; the source has a CandleCluster component). Tapping it does nothing. At the start of this turn my screen still showed an empty hub with no investigator, and no answer from the Lightkeeper had arrived. I built Dev Lindqvist, a Weird/Medium (Commune and Great Wards, gear Spirit Board, Tarot Deck, Matches & Candles, Sense and Survey gilded). I sent the join request with lantern-ward, and the hub immediately showed \"1 waiting for approval\". The Lightkeeper has not answered yet, so relationships and the shared chapter house were not possible this turn. I logged F031 (the candle cluster is confusing; same as F022 on a tablet) and F032 (praise for the creator and the instant join status). I posted at the table and wrote my memory file. Nothing failed and I did not reload.",
+    "findings": [
+     "F031",
+     "F032"
+    ],
+    "blocked": "Relationships and chapter house writing need the Lightkeeper to accept my join request first; waiting on her."
+   }
+  ],
+  "dm3": {
+   "summary": "Answer to the user's question: the gold ball cluster at the top left of the Chapter Hub is the hub's candle cluster, drawn from above (frontend/src/components/campaignSelector/CandleCluster.jsx, rendered in CampaignSelector.jsx at line 166). It shows three pillar candles that burn for the chapter, plus one smaller candle for each investigator in play or campaign you run, up to six. Unlit candles show a cold pool, a dark wick and smoke. It is decoration only: screen readers skip it and clicking it does nothing (already logged as F022 by Cass and F031 by Dev). Your relayed request was only this question, so as in my last turn I answered it and did not do the computed Ready-phase steps. I approved no one, did not seal the circle, rename it, send the dispatch, touch the hourglass or timer, or post the opening narration. Those still need a turn that actually asks for them. I took one look at my desk (Roster open, timer cleared, no dice thrown, last log lines are the 03:22 timer events) and checked the source. I logged no findings and wrote nothing at the table. My memory entry is in /home/user/pt2/memory/dm.md. The site was reachable and nothing needed restarting.",
+   "findings": [],
+   "blocked": "I did not do the Ready-phase goal (finish formation, seal, rename, dispatch, opening narration and rolls) because your request this turn was only the question about the gold ball, and the computed task cannot add to it.",
+   "character_name": "Lightkeeper Rue",
+   "campaign_code": "lantern-ward"
+  }
+ },
+ "act1b": {
+  "dm2": {
+   "summary": "I opened every join request's sheet first. View sheet works, and Back to roster keeps my place in the pager. Then I approved Dev Lindqvist, Ada Quill, Bram Okafor and Cass Moreau (Slink, Detective). I rejected Mina Vale (Cass's Face, Magician) with the two-press Reject. After the rejection the desk shows \"No one waiting to join\", four roster cards and \"Finalize the circle 4 in the circle (up to 5)\". The Circle formation so far papers say they are open on all four desks, and every part shows 0 of 4 voted. I pressed Finalize once to read its warning, then pressed Not yet, so the circle is NOT sealed. The warning does not mention that nothing has been voted, and reading backend/vtt/routers/circles.py shows a second press would seal a circle with no name, ability or insignia. Two things a Lightkeeper needs are missing: no join request says which player sent it, so I only knew Mina Vale was Cass's from the table talk, and the approvals and the rejection left no line in the Activity Log. Two first-report items are confirmed fixed: the remaining requests keep their pronouns and catalyst after an approval (#28), and requests now have a View sheet. At the table I posted #9 (welcome, and Mina Vale turned back because each player plays one investigator) and #10 (what to fill in on the papers, and that I seal once everyone has voted). The relayed user line (\"a tack pushed into a desk is not realistic\") looked like off-table chat for the organiser, so I did not act on it. No console errors, and no restart was needed.",
+   "findings": [
+    "F033",
+    "F034",
+    "F035",
+    "F036",
+    "F037",
+    "F038",
+    "F039",
+    "F040"
+   ],
+   "blocked": "",
+   "opening": "Ada, Bram, Dev, Cass: your papers are stamped, welcome to the Lantern Ward. Cass, I have turned Mina Vale back to you: one investigator per player at my table, and tonight you are the Detective. Keep the Magician for another campaign. / Next: the circle formation papers are open on each of your desks. Vote the circle question and write your answer, suggest and vote a name, write the chapter house, vote an ability and an insignia, and propose relationships. I seal the charter once everyone has voted; nothing is chosen yet.",
+   "for_players": "1. On the chapter hub, open The Lantern Ward. Your investigator should now show as approved; if it still says Waiting, press Check again, and log it if the hub did not update by itself. Then go to your desk.\n2. Your Circle formation papers (Form C.O. 4) are open on your desk. Fill in every part:\n   I. Circle Question: press the question you want, then write Your Personal Answer for the leading question in the box under it. It saves when you click out of the box and should say Saved. The Lightkeeper reads every answer.\n   II. Name the Circle: type a name in Circle name and suggest it (up to 5 each), then press Vote for on the name you want.\n   III. Chapter House Location: pick one of the examples or write one. There is one answer for the whole circle, so agree on it at the table.\n   IV. Circle Ability: vote for one.\n   V. Insignia: vote for one.\n   VI. Circle Relationships: propose a relationship with at least one other investigator, and accept or counter the ones sent to you.\n3. Say at the table when you are done. A tie goes to the option voted for first.\n4. Do not wait for the seal to start; the papers close for everyone when the Lightkeeper finalizes.\nLeft for the Lightkeeper: watch the ticks on Circle formation so far until every part shows 4 of 4, then press Finalize the circle twice. Relationships still waiting can be answered after the seal. Then check the sealed name, ability and insignia, and rename the circle with Edit if needed.",
+   "prompts": {
+    "ada": "Vote the circle question and write your personal answer, then suggest a name for the circle.",
+    "bram": "On your phone, open the formation papers, vote a circle ability and propose a relationship with someone.",
+    "cass": "Vote the insignia and suggest a name. You play the Detective here; Mina Vale went back to your unaffiliated investigators.",
+    "dev": "Write the chapter house for the circle and propose a relationship."
+   }
+  },
+  "players2": [
+   {
+    "summary": "Without reloading, my hub showed Ada approved and the roster book listed her in The Lantern Ward, so the answer arrived live. The formation papers were already open on the desk. I voted circle question 1 and wrote my personal answer (it showed Saved). I suggested \"The Green Lamp Society\" and voted for it. It tied with \"The Lantern Ward Circle\", and the screen says a tie goes to the option voted first, which matches the FAQ. I appended a darkroom line to the shared chapter house, voted Stamina Training and Candlelight, accepted Bram's Confidant, and proposed Coworker to Cass and Confidant to Dev (both waiting). I said at the table that I was done. I logged four findings (F046 to F049): live approval, the visible tie rule, the chapter house being easy to overwrite, and raw Markdown in Cass's name with an empty box on the sidebar card. No console errors. I did not check the book's own text on ties, so the \"first voted wins\" rule is a site rule I judged from the FAQ. The site is now waiting on the Lightkeeper to seal.",
+    "findings": [
+     "F046",
+     "F047",
+     "F048",
+     "F049"
+    ],
+    "blocked": ""
+   },
+   {
+    "summary": "The hub updated live: after the Lightkeeper's answer it showed In play without a reload, and Last Played opened my desk with the formation papers already open. I filled in parts I to V and proposed two relationships: question 1 with a written answer, the name 'The Lantern Ward Circle' (suggested and voted), chapter house The Boot and Saddle, ability In This Together, and insignia Compass. I proposed Confidant to Ada and Ward to Dev; both show 'Waiting for ...'. No incoming relationship proposals have reached me yet, so I could not test accept or counter, and I did not propose to Cass. The question vote read '2 leading' after my tap, so other players' votes arrive live. I said at the table that I am done. I logged four findings (F041 to F044): live approval praise, 'Saved' showing on the empty answer box before I typed, the all-open long scroll on the phone, and the bare 'Waiting for X' status. No console errors. I have appended my memory entry. The site is now waiting on the Lightkeeper to finalize.",
+    "findings": [
+     "F041",
+     "F042",
+     "F043",
+     "F044"
+    ],
+    "blocked": ""
+   },
+   {
+    "summary": "Without reloading, my desk showed the answer live: the Roster book moved Cass to In a campaign and Mina Vale to Not in a campaign, and the formation papers were open. Mina is usable again (Join a campaign / Ask to join), but nothing tells the player she was rejected (F045). In formation I tried the edges. The personal answer, with emoji, markdown and html, saved, but it belongs to the leading question rather than my voted one (F050). An over-long emoji name was silently cut at about 80 characters (F051). Case and trailing-space duplicates were refused with a helpful message, and four rapid votes settled on one vote (F052 praise). I then voted Green Lamp Society, In This Together and Compass, kept the chapter house Ada filled, accepted Ada's Coworker, and proposed Rival to Bram and Confidant to Dev. Both are waiting. I said so at the table and wrote memory. No console errors. Two screenshot paths in F051 and F052 point at the wrong frames (I guessed numbers). My emoji name suggestion remains in the list.",
+    "findings": [
+     "F045",
+     "F050",
+     "F051",
+     "F052"
+    ],
+    "blocked": ""
+   },
+   {
+    "summary": "Approval reached my tablet live: hub showed In play with no reload, and the roster book's Play opened the desk. I filled in every part of the formation papers. Part I: a personal answer, which went from \"Not saved yet\" to \"Saved\" on blur. Part II: I suggested \"The Marginalia Circle\" and voted The Lantern Ward Circle. Part III: I appended a line to the shared chapter house and kept Ada's Empty Office text, since there is one answer for the circle. Parts IV and V: I voted In This Together and Compass. Part VI: I accepted Ada's and Cass's Confidant proposals, proposed Muse to Ada and Rival to Cass, and countered Bram's Ward. That counter was accidentally unchanged because my select and fill calls hit ambiguous duplicate controls; it was still accepted silently. A question-1 vote for me already existed before I cast any, probably from a stray tap through the opening dialog. I said at the table that I'm done and logged F053 to F057; F056 and F057 point to screenshots that were never saved (034_ctr.png), so they have no pictures. Nothing failed to load and I did not need start_all.sh. The memory entry is appended, and I'm now waiting on the Lightkeeper to seal.",
+    "findings": [
+     "F053",
+     "F054",
+     "F055",
+     "F056",
+     "F057"
+    ],
+    "blocked": ""
+   }
+  ],
+  "dm3": {
+   "summary": "At the start of the turn my desk was up to date without a reload: all four players had voted on every part of the formation papers. I sealed the circle in two presses (Finalize, then \"Yes, finalize the circle\"). It sealed as The Lantern Ward Circle, with In This Together and Compass. The names were tied 2-2, and the seal went to the name the papers showed as leading, so the first playtest's tie-break bug looks fixed (F060). The Roster shows four investigators and the circle charter: Illumination 0/12, Stitch, Refresh and Train at 5/5, spending locked, reports closed. Four relationships were still waiting for an answer; the site says they can still be accepted after the seal. On the Circle page I used Edit to rename the circle The Green Lamp Society. The field has no Save or Cancel and no hint that Enter saves, and it shows only the end of the old name (F059). The rename was broadcast to the other desks (circle_update in the WebSocket log), but neither the seal nor the rename left a line in the Activity Log (F058), so a player who was looking elsewhere is not told. I sent the first dispatch with the Template; it already addressed The Green Lamp Society. Location was Wick Street, Hollin Cross, after midnight, plus an atmosphere of green gas lamps. The dispatch was logged (F061 praise). The hourglass is at the start (0 of 4) and I named the clock \"The green lamps\" (logged). I switched the countdown timer off for the opening, and that switch writes no log line. I posted the opening narration as table messages #16 to #18, ending with one roll asked of each player. No console errors, and no restart was needed. The relayed line \"a tack pushed into a desk is not realistic\" was the organiser's conversation, so I did not act on it.",
+   "findings": [
+    "F058",
+    "F059",
+    "F060",
+    "F061"
+   ],
+   "blocked": "",
+   "circle_name": "The Green Lamp Society",
+   "for_players": "1. Check that your desk shows the circle as The Green Lamp Society and that the Wick Street dispatch has arrived. Neither the seal nor the rename shows in the Activity Log, so say at the table if anything is stale. 2. Answer any relationship proposal still waiting (it can still be accepted after the seal). 3. Say at the table how your investigator goes about the action you were asked for. 4. Roll on your sheet: Ada Sway, Bram Move, Cass Survey, Dev Sense. Spend drive points if you like.",
+   "opening": "The charter is sealed, and the Chapter has sent word: you shall be known as The Green Lamp Society. Your first dispatch is on your desks. Assignment one: The Lamplighter's Debt. / Wick Street, Hollin Cross, a quarter past midnight. The cab leaves you at the corner and does not wait. As the church clock finishes striking, the gas lamps down the street gutter, one after another, and come back green, a cold bottle-glass light that makes your hands look drowned. Every shutter is closed. The mains hiss under the cobbles. Halfway down, a ladder leans against a lamp post with nobody on it, and on the step of number 14 a man in a nightshirt sits staring at the inside of his wrist, where a name is drying in black ink. / One action each, and the roll I want. Ada: the man on the step of number 14 is frightened and not talking. Roll Sway to get him to tell you whose name that is and when he woke. Bram: the ladder. Climb it to the green lamp before it settles: roll Move. Cass: the cobbles under the lamps, chalk, wax, footprints, whatever the lamplighter left. Roll Survey. Dev: stand under the nearest lamp and let the light in. Roll Sense: what is it doing to people? Tell me how you go about it, then roll on your sheet.",
+   "prompts": {
+    "ada": "Sway (Cunning): coax the frightened man on the step of number 14 into saying whose name is inked on his wrist and when he woke",
+    "bram": "Move (Nerve): climb the unattended ladder to the green lamp before it settles",
+    "cass": "Survey (Intuition): search the cobbles under the lamps for chalk, wax or footprints the lamplighter left",
+    "dev": "Sense (Intuition): stand under the nearest green lamp and feel what the light is doing to people"
+   }
+  }
+ }
+}
