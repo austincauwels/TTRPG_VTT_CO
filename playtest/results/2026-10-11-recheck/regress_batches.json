@@ -1,0 +1,605 @@
+[
+ {
+  "name": "A-death-campaigns",
+  "count": 13,
+  "items": [
+   {
+    "list": "bugs",
+    "rank": 7,
+    "key": "retire-hides-its-investigators",
+    "severity": "medium",
+    "area": "campaign-management"
+   },
+   {
+    "list": "bugs",
+    "rank": 8,
+    "key": "dead-investigator-still-acts",
+    "severity": "medium",
+    "area": "death"
+   },
+   {
+    "list": "bugs",
+    "rank": 9,
+    "key": "invite-silently-retires-living-investigator",
+    "severity": "medium",
+    "area": "campaign-management"
+   },
+   {
+    "list": "bugs",
+    "rank": 11,
+    "key": "lightkeeper-has-no-revive",
+    "severity": "medium",
+    "area": "marks-scars"
+   },
+   {
+    "list": "bugs",
+    "rank": 12,
+    "key": "death-not-announced-to-table",
+    "severity": "medium",
+    "area": "death"
+   },
+   {
+    "list": "ux",
+    "rank": 7,
+    "key": "scar-pending-invisible-to-lightkeeper",
+    "severity": "low",
+    "area": "marks-scars"
+   },
+   {
+    "list": "ux",
+    "rank": 14,
+    "key": "replaced-investigator-leaves-no-record",
+    "severity": "low",
+    "area": "death"
+   },
+   {
+    "list": "ux",
+    "rank": 23,
+    "key": "second-death-no-notice",
+    "severity": "low",
+    "area": "death"
+   },
+   {
+    "list": "ux",
+    "rank": 24,
+    "key": "death-dialog-wording-and-focus",
+    "severity": "low",
+    "area": "death"
+   },
+   {
+    "list": "ux",
+    "rank": 25,
+    "key": "scar-shift-note-doubled",
+    "severity": "low",
+    "area": "marks-scars"
+   },
+   {
+    "list": "ux",
+    "rank": 26,
+    "key": "scar-recorded-no-confirmation",
+    "severity": "low",
+    "area": "marks-scars"
+   },
+   {
+    "list": "ux",
+    "rank": 50,
+    "key": "scar-form-header-second-scar",
+    "severity": "low",
+    "area": "marks-scars"
+   },
+   {
+    "list": "ux",
+    "rank": 53,
+    "key": "invite-player-reads-as-onboarding",
+    "severity": "low",
+    "area": "campaign-management"
+   }
+  ]
+ },
+ {
+  "name": "B-dice-abilities",
+  "count": 14,
+  "items": [
+   {
+    "list": "bugs",
+    "rank": 2,
+    "key": "silent-socket-loses-mark",
+    "severity": "high",
+    "area": "connection-sync"
+   },
+   {
+    "list": "bugs",
+    "rank": 3,
+    "key": "patch-up-chip-never-shown",
+    "severity": "high",
+    "area": "abilities"
+   },
+   {
+    "list": "bugs",
+    "rank": 6,
+    "key": "stale-burn-offer-after-end-assignment",
+    "severity": "medium",
+    "area": "dice"
+   },
+   {
+    "list": "bugs",
+    "rank": 15,
+    "key": "roll-settling-client-server-mismatch",
+    "severity": "low",
+    "area": "dice"
+   },
+   {
+    "list": "bugs",
+    "rank": 16,
+    "key": "ally-offer-cards-lost-or-stale",
+    "severity": "low",
+    "area": "abilities"
+   },
+   {
+    "list": "ux",
+    "rank": 3,
+    "key": "offline-roll-headed-not-thrown",
+    "severity": "medium",
+    "area": "connection-sync"
+   },
+   {
+    "list": "ux",
+    "rank": 11,
+    "key": "keep-die-choices-unclear-final",
+    "severity": "low",
+    "area": "dice"
+   },
+   {
+    "list": "ux",
+    "rank": 12,
+    "key": "gilded-refund-promised-at-full-drive",
+    "severity": "low",
+    "area": "dice"
+   },
+   {
+    "list": "ux",
+    "rank": 15,
+    "key": "burn-offer-closes-on-anyones-roll",
+    "severity": "low",
+    "area": "dice"
+   },
+   {
+    "list": "ux",
+    "rank": 20,
+    "key": "bonus-dice-vanish-silently",
+    "severity": "low",
+    "area": "dice"
+   },
+   {
+    "list": "ux",
+    "rank": 39,
+    "key": "sweet-talk-condition-unstated",
+    "severity": "low",
+    "area": "abilities"
+   },
+   {
+    "list": "ux",
+    "rank": 40,
+    "key": "commune-use-not-tied-to-roll",
+    "severity": "low",
+    "area": "abilities"
+   },
+   {
+    "list": "ux",
+    "rank": 41,
+    "key": "nobody-left-behind-chip-on-every-row",
+    "severity": "low",
+    "area": "abilities"
+   },
+   {
+    "list": "ux",
+    "rank": 42,
+    "key": "dice-tray-empty-after-reload",
+    "severity": "low",
+    "area": "dice"
+   }
+  ]
+ },
+ {
+  "name": "C-lightkeeper-desk",
+  "count": 13,
+  "items": [
+   {
+    "list": "bugs",
+    "rank": 1,
+    "key": "spend-back-unguarded-past-maximum",
+    "severity": "high",
+    "area": "gm-desk"
+   },
+   {
+    "list": "bugs",
+    "rank": 10,
+    "key": "dispatch-draft-dropped-on-section-switch",
+    "severity": "medium",
+    "area": "gm-desk"
+   },
+   {
+    "list": "bugs",
+    "rank": 18,
+    "key": "timer-status-kept-after-reset",
+    "severity": "low",
+    "area": "hourglass-timer"
+   },
+   {
+    "list": "ux",
+    "rank": 1,
+    "key": "pass-notes-no-lightkeeper-recipient",
+    "severity": "medium",
+    "area": "pass-notes"
+   },
+   {
+    "list": "ux",
+    "rank": 16,
+    "key": "seal-rename-approvals-not-logged",
+    "severity": "low",
+    "area": "gm-desk"
+   },
+   {
+    "list": "ux",
+    "rank": 22,
+    "key": "sheet-view-drops-tension-controls",
+    "severity": "low",
+    "area": "gm-desk"
+   },
+   {
+    "list": "ux",
+    "rank": 31,
+    "key": "lk-inline-edits-no-save-cancel",
+    "severity": "low",
+    "area": "gm-desk"
+   },
+   {
+    "list": "ux",
+    "rank": 32,
+    "key": "log-lines-doubled-per-event",
+    "severity": "low",
+    "area": "gm-desk"
+   },
+   {
+    "list": "ux",
+    "rank": 44,
+    "key": "dispatch-log-cut-at-80",
+    "severity": "low",
+    "area": "gm-desk"
+   },
+   {
+    "list": "ux",
+    "rank": 45,
+    "key": "dispatch-serial-numbers-differ",
+    "severity": "low",
+    "area": "gm-desk"
+   },
+   {
+    "list": "ux",
+    "rank": 54,
+    "key": "lk-dispatch-stamp-below-fold",
+    "severity": "low",
+    "area": "gm-desk"
+   },
+   {
+    "list": "ux",
+    "rank": 57,
+    "key": "pass-notes-circle-vs-environment",
+    "severity": "low",
+    "area": "pass-notes"
+   },
+   {
+    "list": "ux",
+    "rank": 62,
+    "key": "signin-password-focus-style",
+    "severity": "low",
+    "area": "accounts"
+   }
+  ]
+ },
+ {
+  "name": "D-circle-advancement",
+  "count": 15,
+  "items": [
+   {
+    "list": "bugs",
+    "rank": 4,
+    "key": "illumination-tally-added-twice",
+    "severity": "medium",
+    "area": "circle-page"
+   },
+   {
+    "list": "bugs",
+    "rank": 5,
+    "key": "end-assignment-drops-unadded-tally",
+    "severity": "medium",
+    "area": "advancement-wrap"
+   },
+   {
+    "list": "bugs",
+    "rank": 14,
+    "key": "spend-limit-resets-with-new-investigator",
+    "severity": "low",
+    "area": "circle-page"
+   },
+   {
+    "list": "ux",
+    "rank": 6,
+    "key": "choose-advancements-button-covers-sheet",
+    "severity": "medium",
+    "area": "advancement-wrap"
+   },
+   {
+    "list": "ux",
+    "rank": 9,
+    "key": "circle-page-blind-to-status",
+    "severity": "low",
+    "area": "circle-page"
+   },
+   {
+    "list": "ux",
+    "rank": 10,
+    "key": "end-assignment-gear-wording",
+    "severity": "low",
+    "area": "advancement-wrap"
+   },
+   {
+    "list": "ux",
+    "rank": 19,
+    "key": "report-card-wording-stale",
+    "severity": "low",
+    "area": "advancement-wrap"
+   },
+   {
+    "list": "ux",
+    "rank": 33,
+    "key": "spending-toggle-not-logged",
+    "severity": "low",
+    "area": "circle-page"
+   },
+   {
+    "list": "ux",
+    "rank": 34,
+    "key": "report-amend-draft-lost",
+    "severity": "low",
+    "area": "advancement-wrap"
+   },
+   {
+    "list": "ux",
+    "rank": 35,
+    "key": "milestones-unexplained-on-touch",
+    "severity": "low",
+    "area": "circle-page"
+   },
+   {
+    "list": "ux",
+    "rank": 37,
+    "key": "advancement-reopen-drops-ability",
+    "severity": "low",
+    "area": "advancement-wrap"
+   },
+   {
+    "list": "ux",
+    "rank": 38,
+    "key": "advancement-dialog-back-leaves-desk",
+    "severity": "low",
+    "area": "advancement-wrap"
+   },
+   {
+    "list": "ux",
+    "rank": 49,
+    "key": "insignia-name-not-printed",
+    "severity": "low",
+    "area": "circle-page"
+   },
+   {
+    "list": "ux",
+    "rank": 51,
+    "key": "resources-note-member-count",
+    "severity": "low",
+    "area": "circle-page"
+   },
+   {
+    "list": "ux",
+    "rank": 52,
+    "key": "report-cards-reorder",
+    "severity": "low",
+    "area": "circle-page"
+   }
+  ]
+ },
+ {
+  "name": "E-formation-joining-hub",
+  "count": 12,
+  "items": [
+   {
+    "list": "bugs",
+    "rank": 13,
+    "key": "leading-name-row-collapses-on-phone",
+    "severity": "medium",
+    "area": "circle-formation"
+   },
+   {
+    "list": "bugs",
+    "rank": 17,
+    "key": "hub-stale-after-campaign-retired",
+    "severity": "low",
+    "area": "hub"
+   },
+   {
+    "list": "ux",
+    "rank": 2,
+    "key": "join-requests-hide-the-player",
+    "severity": "medium",
+    "area": "joining"
+   },
+   {
+    "list": "ux",
+    "rank": 13,
+    "key": "finalize-seals-empty-circle-silently",
+    "severity": "low",
+    "area": "circle-formation"
+   },
+   {
+    "list": "ux",
+    "rank": 21,
+    "key": "reject-gives-player-no-word",
+    "severity": "low",
+    "area": "joining"
+   },
+   {
+    "list": "ux",
+    "rank": 27,
+    "key": "personal-answer-saved-early",
+    "severity": "low",
+    "area": "circle-formation"
+   },
+   {
+    "list": "ux",
+    "rank": 29,
+    "key": "hub-decor-looks-interactive",
+    "severity": "low",
+    "area": "hub"
+   },
+   {
+    "list": "ux",
+    "rank": 36,
+    "key": "pending-join-cannot-withdraw",
+    "severity": "low",
+    "area": "joining"
+   },
+   {
+    "list": "ux",
+    "rank": 46,
+    "key": "counter-equal-to-offer-accepted",
+    "severity": "low",
+    "area": "circle-formation"
+   },
+   {
+    "list": "ux",
+    "rank": 47,
+    "key": "circle-name-cut-silently",
+    "severity": "low",
+    "area": "circle-formation"
+   },
+   {
+    "list": "ux",
+    "rank": 48,
+    "key": "lk-formation-proposed-count",
+    "severity": "low",
+    "area": "circle-formation"
+   },
+   {
+    "list": "ux",
+    "rank": 55,
+    "key": "pending-request-sheet-no-decision",
+    "severity": "low",
+    "area": "joining"
+   }
+  ]
+ },
+ {
+  "name": "F-creator-phone-notebook",
+  "count": 14,
+  "items": [
+   {
+    "list": "bugs",
+    "rank": 19,
+    "key": "death-defy-focus-returns-to-page",
+    "severity": "low",
+    "area": "accessibility"
+   },
+   {
+    "list": "ux",
+    "rank": 4,
+    "key": "log-unpinned-after-roll-slip",
+    "severity": "medium",
+    "area": "player-desk"
+   },
+   {
+    "list": "ux",
+    "rank": 5,
+    "key": "drive-pips-still-one-way",
+    "severity": "medium",
+    "area": "player-desk"
+   },
+   {
+    "list": "ux",
+    "rank": 8,
+    "key": "phone-dialog-buttons-below-fold",
+    "severity": "low",
+    "area": "phone-tablet"
+   },
+   {
+    "list": "ux",
+    "rank": 17,
+    "key": "gear-cap-tap-silent",
+    "severity": "low",
+    "area": "creator"
+   },
+   {
+    "list": "ux",
+    "rank": 18,
+    "key": "duplicate-accessible-names",
+    "severity": "low",
+    "area": "accessibility"
+   },
+   {
+    "list": "ux",
+    "rank": 28,
+    "key": "pen-font-and-portrait-hidden",
+    "severity": "low",
+    "area": "creator"
+   },
+   {
+    "list": "ux",
+    "rank": 30,
+    "key": "creator-path-arrows-below-fold-phone",
+    "severity": "low",
+    "area": "creator"
+   },
+   {
+    "list": "ux",
+    "rank": 43,
+    "key": "how-to-roll-slip-off-phone",
+    "severity": "low",
+    "area": "phone-tablet"
+   },
+   {
+    "list": "ux",
+    "rank": 56,
+    "key": "blank-pronouns-shown-unlisted",
+    "severity": "low",
+    "area": "creator"
+   },
+   {
+    "list": "ux",
+    "rank": 58,
+    "key": "lk-resources-editor-spacing",
+    "severity": "low",
+    "area": "notebook"
+   },
+   {
+    "list": "ux",
+    "rank": 59,
+    "key": "sketch-above-entry-text",
+    "severity": "low",
+    "area": "notebook"
+   },
+   {
+    "list": "ux",
+    "rank": 60,
+    "key": "gild-step-hides-specialty-gild",
+    "severity": "low",
+    "area": "creator"
+   },
+   {
+    "list": "ux",
+    "rank": 61,
+    "key": "note-heading-skips-level",
+    "severity": "low",
+    "area": "accessibility"
+   }
+  ]
+ }
+]

@@ -1,0 +1,14 @@
+# A-death-campaigns recheck progress (port 8401)
+- bugs#8 dead-investigator-still-acts: partly - UI rolls/drives/marks/gear/Use/Spend off on phone, LK Deal a mark gone, server 409s roll/spend/mark/drive/gear/use/advance/propose/revive; but apply_scar (5th scar, ratings shift) and REST propose still accepted (F002)
+- bugs#12 death-not-announced-to-table: fixed - 'is deceased: a fourth scar.' on LK 1440, phone, desktop 1920, tablet 820, laptop 1366; take-back and second death also logged everywhere
+- bugs#11 lightkeeper-has-no-revive: fixed (new problem F003) - Revive on LK sheet, phone stamp turns Able to act live; double press logs twice
+- ux#7 scar-pending-invisible-to-lightkeeper: fixed - LK stamp 'Incapacitated: scar owed', roster card 'Incapacitated: scar owed · 2 scars', scar line logged on tablet, marks on a downed investigator log 'takes another scar'
+- ux#23 second-death-no-notice: fixed - second death shows dialog again (with invite line), banner returns after Stay
+- ux#24 death-dialog-wording-and-focus: fixed - 'His sheet', invite-back line, focus on Stay, Enter keeps desk
+- ux#25 scar-shift-note-doubled: fixed - typed '(-1 Focus, +1 Survey)' stored once, shown once on phone and LK
+- ux#26 scar-recorded-no-confirmation: fixed (new low F005) - 'recorded a scar (3 of 4)' in phone ticker and all logs; promised scroll to scars is dead code
+- ux#50 scar-form-header-second-scar: fixed - 'took a fourth Body mark. The track is cleared, and a scar is owed.'; fatal form has no shift columns or Decide later
+- bugs#9 invite-silently-retires-living-investigator: fixed (new low F007) - LK slip 'Bram Okafor is still alive and will be retired when they rejoin.', log 'invited Bram Okafor's player back' on all desks (one line on a double-click), phone desk + hub banners and creator rejoin box name Bram; rejoin logs 'Tobias Reed joined the circle, in place of Bram Okafor.'; other-device rejoin leaves the old desk stale
+- ux#53 invite-player-reads-as-onboarding: not-fixed (F006) - copy unchanged 'The player rejoins...' on an empty campaign; awaits owner decision
+- ux#14 replaced-investigator-leaves-no-record: fixed - Fallen cards appear live on LK 1440 for both rejoin and approve paths, survive reload; Circle History 'BRAM OKAFOR · FALLEN' with answer; 'Tobias Reed joined the circle, in place of Bram Okafor.' on LK and phone; player Registry Fallen record is known-and-accepted
+- bugs#7 retire-hides-its-investigators: fixed - after two-press retire (LK 1440) Mina is unaffiliated with spends/gear reset, her open desk (1366) goes to the hub with 'free to join another', Main Case desk stays, Registry shows 'Not in a campaign · Join a campaign' after tab return or reload, she can join another campaign, dead Dan stays retired; Retired list + Restore works and does not pull Mina back
