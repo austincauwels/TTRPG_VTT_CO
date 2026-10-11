@@ -163,6 +163,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   }, [live]);
 
   if (!rosterItem) return null;
+  const pending = rosterItem.status === 'pending';
 
   return (
     <motion.div
@@ -210,6 +211,8 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
         {fullChar && !loading && (
           <>
             <InvestigatorDossier character={sheet} readOnly traumaEdit={{ setMarks, setScars, dealMark, error: traumaError }} />
+            {/* A request not yet approved is only read: nothing on it is the Lightkeeper's to spend or reset */}
+            {pending ? null : <>
             <SpendBack character={sheet} onGive={(resource) => gmReturnSpend(rosterItem.id, resource)} />
             <ConfirmAction
               className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-3"
@@ -228,6 +231,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
                 </button>
               )}
             />
+            </>}
           </>
         )}
       </div>

@@ -7,7 +7,7 @@ import { WaxSeal } from '../shared/WaxSeal';
 // A join request on the GM's desk. Approving presses the Lightkeeper's wax seal onto the
 // request while it goes to the server; the sealed request then leaves the desk (a short
 // fade). If the server refuses, the seal lifts and the request stays.
-export const PlayerRosterCard = ({ investigator, onStamp, onReject, busy = false }) => {
+export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy = false }) => {
   const { character } = useGameStore();
   const data = investigator || character;
   const [sealing, setSealing] = useState(false);
@@ -33,7 +33,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, busy = false
           <p className="font-serif text-sm italic text-sepia break-words whitespace-pre-line leading-snug mt-0.5">"{data.catalyst}"</p>
         )}
       </div>
-      {(onStamp || onReject) && (
+      {(onStamp || onReject || onView) && (
         <div className="flex flex-wrap items-center gap-2">
           {onStamp && (
             <button
@@ -42,6 +42,14 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, busy = false
               className="disabled:opacity-50 disabled:cursor-wait min-h-[40px] md:[@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream border border-ink rounded hover:brightness-125 transition"
             >
               {sealing ? 'Approving…' : 'Approve'}
+            </button>
+          )}
+          {onView && (
+            <button
+              onClick={onView}
+              className="min-h-[40px] md:[@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border border-sepia/50 text-sepia rounded hover:bg-sepia/10 transition-colors"
+            >
+              View sheet
             </button>
           )}
           {onReject && (

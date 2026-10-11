@@ -8,6 +8,7 @@ import { playPaperSound } from '../../game/rollSounds';
 import { Hourglass } from '../shared/Hourglass';
 import { TensionTimer, formatTime, useTimeLeft } from '../shared/TensionTimer';
 import { arrivedAt } from '../../store/circleArrivals';
+import { useAutoGrow, fitHeight, GROW_STYLE } from '../shared/useAutoGrow';
 
 const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -20,7 +21,29 @@ const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reco
 // Lightkeeper's countdown is on show and partly run (running or paused), the sand shows
 // the time instead, draining with it; once it runs out or is reset or cleared, the sand
 // shows the tension again (owner, 2026-10-09).
-export const TensionClock = ({ readOnly = false }) => {
+// The clock's name as one row that grows with a long name. Enter finishes it, and a name
+// left as it was sends nothing.
+const ClockName = ({ label, onCommit }) => {
+  const ref = useRef(null);
+  useAutoGrow(ref, label);
+  return (
+    <textarea ref={ref} defaultValue={label} key={label} rows={1}
+      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!e.shiftKey) e.currentTarget.blur(); } }}
+      onInput={e => {
+        const el = e.currentTarget;
+        if (el.value.includes('\n')) el.value = el.value.replace(/\n/g, ' ');
+        fitHeight(el);
+      }}
+      onBlur={e => { if (e.target.value !== label) onCommit(e.target.value); }}
+      placeholder="Clock name"
+      aria-label="Tension clock name"
+      style={GROW_STYLE}
+      className="block resize-none overflow-hidden text-center font-sans font-bold text-xs [@media(pointer:coarse)]:text-base md:[@media(pointer:coarse)]:min-h-[44px] uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/90 focus:border-oxblood transition-colors"
+    />
+  );
+};
+
+export const TensionClock =({ readOnly = false }) => {
   const { circle, socket, accessSession, lastPlayedCampaign } = useGameStore(useShallow(s => ({
     circle: s.circle,
     socket: s.socket,
@@ -51,10 +74,11 @@ export const TensionClock = ({ readOnly = false }) => {
 
   const adjust = (inc) => {
     const newVal = Math.max(0, Math.min(4, currentVal + inc));
+    if (newVal === currentVal) return;
     sendUpdate({ tension_clock: newVal });
   };
 
-  const button = 'absolute top-1/2 -translate-y-1/2 w-10 h-10 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait';
+  const button = 'absolute top-1/2 -translate-y-1/2 w-10 h-10 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait aria-disabled:opacity-40 aria-disabled:cursor-default';
 
   return (
     <div className="flex flex-col items-center gap-3 select-none">
@@ -69,10 +93,10 @@ export const TensionClock = ({ readOnly = false }) => {
         {/* The Lightkeeper's − and + at the glass's waist, either side of it */}
         {isGM && (
           <>
-            <button onClick={() => adjust(-1)} disabled={!socketReady} aria-label="Lower tension by one"
+            <button onClick={() => adjust(-1)} disabled={!socketReady} aria-disabled={currentVal <= 0} aria-label="Lower tension by one"
               className={`${button} right-[calc(100%_-_8px)]`}
             >−</button>
-            <button onClick={() => adjust(1)} disabled={!socketReady} aria-label="Raise tension by one"
+            <button onClick={() => adjust(1)} disabled={!socketReady} aria-disabled={currentVal >= 4} aria-label="Raise tension by one"
               className={`${button} left-[calc(100%_-_8px)]`}
             >+</button>
           </>
@@ -81,12 +105,7 @@ export const TensionClock = ({ readOnly = false }) => {
 
       {/* Label — editable by GM, read-only for players */}
       {isGM ? (
-        <input type="text" defaultValue={label} key={label}
-          onBlur={e => sendUpdate({ tension_label: e.target.value })}
-          placeholder="Clock name"
-          aria-label="Tension clock name"
-          className="text-center font-sans font-bold text-xs [@media(pointer:coarse)]:text-base md:[@media(pointer:coarse)]:min-h-[44px] uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/90 focus:border-oxblood transition-colors"
-        />
+        <ClockName label={label} onCommit={value => sendUpdate({ tension_label: value })} />
       ) : (
         <div className="font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 shadow-sm min-w-[9rem] text-center">
           {label || <BlankEntry label="No clock name" />}
@@ -133,6 +152,21 @@ export const SceneManager = () => {
   useEffect(() => { setLocation(circle?.location   || ""); }, [circle?.location]);
   useEffect(() => { setAtmosphere(circle?.atmosphere || ""); }, [circle?.atmosphere]);
   useEffect(() => { setOwnText(circle?.dispatch_text || ""); }, [circle?.dispatch_text]);
+
+  // The location and atmosphere grow with what is written in them
+  const locationRef = useRef(null);
+  const atmosphereRef = useRef(null);
+  useAutoGrow(locationRef, `${mode}|${location}`);
+  useAutoGrow(atmosphereRef, `${mode}|${atmosphere}`);
+
+  // Whether what is on the letter is what the players' desks hold: the kind in use as
+  // written, the other kind empty, as a send would leave them
+  const onDesks = !!circle && (
+    (circle.location || '') === location
+    && (mode === 'own'
+      ? (circle.dispatch_text || '') === ownText.trim() && !(circle.atmosphere || '')
+      : (circle.atmosphere || '') === atmosphere && !(circle.dispatch_text || ''))
+    && !!(circle.location || circle.atmosphere || circle.dispatch_text));
 
   // A short receipt under the stamps: what went out and when, or why it did not.
   const [receipt, setReceipt] = useState(null); // { ok, text, sentAt? }
@@ -184,7 +218,7 @@ export const SceneManager = () => {
       setLocation("");
       setAtmosphere("");
       setOwnText("");
-      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. Ability uses, gear slots and the hourglass are reset.` });
+      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. Ability uses and the hourglass are reset; marked gear is cleared.` });
     } else {
       setReceipt({ ok: false, text: NOT_CONNECTED });
     }
@@ -232,12 +266,15 @@ export const SceneManager = () => {
         <div className="font-serif text-base leading-[28px] text-left text-ink">
           <div className="flex flex-wrap items-baseline gap-x-3">
             <label htmlFor="dispatch-location" className="font-sans text-xs font-black uppercase tracking-widest text-sepia">Location</label>
-            <input
+            <textarea
               id="dispatch-location"
-              type="text"
+              ref={locationRef}
+              rows={1}
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="flex-1 min-w-[8rem] bg-transparent border-b border-dashed border-sepia focus:border-oxblood px-1 text-oxblood font-bold font-serif italic"
+              onChange={(e) => setLocation(e.target.value.replace(/\n/g, ' '))}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+              style={GROW_STYLE}
+              className="flex-1 min-w-[8rem] resize-none overflow-hidden bg-transparent border-b border-dashed border-sepia focus:border-oxblood px-1 text-oxblood font-bold font-serif italic leading-[28px]"
               spellCheck="false"
             />
           </div>
@@ -280,9 +317,11 @@ export const SceneManager = () => {
         />.
         Be vigilant of strange activity. Scout Investigations report the area to be
         <textarea
+          ref={atmosphereRef}
           value={atmosphere}
           onChange={(e) => setAtmosphere(e.target.value)}
-          className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood w-full mt-2 resize-none text-oxblood font-bold font-serif italic leading-[28px] placeholder-sepia/90"
+          style={GROW_STYLE}
+          className="block bg-transparent border-b border-dashed border-sepia focus:border-oxblood w-full mt-2 resize-none overflow-hidden text-oxblood font-bold font-serif italic leading-[28px] placeholder-sepia/90"
           rows="2"
           placeholder="what the place is like"
           aria-label="Atmosphere"
@@ -300,7 +339,7 @@ export const SceneManager = () => {
           className="flex flex-col items-start gap-2 max-w-[11rem]"
           onConfirm={endAssignment}
           cancelLabel="Keep going"
-          armedHint="Press again to end it: the dispatch clears, the hourglass is turned back to the start, and every player's ability uses and gear slots reset."
+          armedHint="Press again to end it: the dispatch clears. Ability uses and the hourglass are reset; marked gear is cleared."
           hintClassName="[&>p]:text-sm"
           renderButton={(armed, props) => (
             <button
@@ -340,8 +379,11 @@ export const SceneManager = () => {
         <PrinterMark size={12} />
         <FormLine>Form C.O. 2 · Dispatch</FormLine>
       </div>
+      <p className="mt-4 font-sans text-xs font-black uppercase tracking-widest text-sepia">
+        {onDesks ? "On the players' desks" : 'Not dispatched yet'}
+      </p>
       {receipt && (
-        <p role={receipt.ok ? 'status' : 'alert'} className={`mt-4 font-serif text-base leading-snug ${receipt.ok ? 'text-seal-green' : 'text-oxblood'}`}>
+        <p role={receipt.ok ? 'status' : 'alert'} className={`mt-2 font-serif text-base leading-snug ${receipt.ok ? 'text-seal-green' : 'text-oxblood'}`}>
           {receipt.text}
         </p>
       )}

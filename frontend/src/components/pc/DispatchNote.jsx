@@ -18,7 +18,7 @@ const Label = ({ children }) => (
 
 // The Lightkeeper's dispatch on a player's desk: a library index card pinned to the desk a
 // little crooked, its bottom edge torn. It shows what was sent: the Lightkeeper's own
-// words, as written, under the location if one was given; or the template's Location and Conditions. A
+// words, as written, under the location if one was given; or the template's Location and Atmosphere. A
 // new dispatch types in while the desk is open (a long one in at most about eight
 // seconds). From xl, where the rail is one window tall and the hourglass stands at its
 // foot, the words scroll inside the card on their own ruled lines, the typing followed down
@@ -85,7 +85,7 @@ export const DispatchNote = ({ circle, className = '' }) => {
               )}
               {atmosphere && (
                 <p className="font-serif font-bold text-sm leading-tight">
-                  <Label>Conditions:</Label>{typedLine(1, atmosphere)}
+                  <Label>Atmosphere:</Label>{typedLine(1, atmosphere)}
                 </p>
               )}
               {/* The words, line breaks and all. The part not typed yet is laid out unseen,
@@ -114,7 +114,7 @@ export const DispatchNote = ({ circle, className = '' }) => {
                 {location ? typedLine(0, location) : <span className="sr-only">none</span>}
               </p>
               <p className="text-sm leading-tight">
-                <Label>Conditions:</Label>
+                <Label>Atmosphere:</Label>
                 {atmosphere ? typedLine(1, atmosphere) : <span className="sr-only">none</span>}
               </p>
             </div>
@@ -145,7 +145,7 @@ export const DispatchNote = ({ circle, className = '' }) => {
               <p className="font-serif font-black text-lg border-b border-ink/10 mb-2"><Label>Location:</Label>{location}</p>
             )}
             {atmosphere && (
-              <p className="font-serif font-bold text-base mb-2"><Label>Conditions:</Label>{atmosphere}</p>
+              <p className="font-serif font-bold text-base mb-2"><Label>Atmosphere:</Label>{atmosphere}</p>
             )}
             <p className="font-serif text-lg leading-7 whitespace-pre-wrap [overflow-wrap:anywhere]">{words}</p>
           </div>
