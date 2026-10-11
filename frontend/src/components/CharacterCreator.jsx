@@ -1535,6 +1535,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             <div className="w-full bg-night border-2 border-oxblood p-5 shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
                             <p className="text-parchment-deep font-serif text-base mb-4">
                 Your Lightkeeper invited you back to <strong className="text-cream">{rejoinContext.campaignName}</strong>. Rejoin it with this investigator?
+                {rejoinContext.retires?.length > 0 && ` ${rejoinContext.retires.join(' and ')} will be retired.`}
               </p>
               <div className="flex gap-3 flex-wrap">
                 <button

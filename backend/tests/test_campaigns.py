@@ -656,7 +656,8 @@ def test_invite_rejoin_names_the_living_investigator_and_logs(client):
                         headers=support.as_gm(camp))
         logs = [m for m in gm.drain() if m["type"] == "activity_log"]
     assert r.json() == {"ok": True, "current_investigator": old["name"]}
-    assert [m["payload"]["message"] for m in logs] == [f"The Lightkeeper invited {u.username} back."]
+    assert [m["payload"]["message"] for m in logs] == [f"The Lightkeeper invited {old['name']} back."]
+    assert u.username not in logs[0]["payload"]["message"]
 
 
 def test_rejoin_keeps_the_players_spends_and_logs_the_arrival(client):
@@ -682,6 +683,10 @@ def test_roster_names_the_player_of_each_request(client):
     body = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
     assert [(c["id"], c["owner_username"]) for c in body["pending_investigators"]] == [
         (first["id"], u.username), (second["id"], u.username)]
+    # a member of the campaign does not get the players' login names
+    member = support.active_member(client, camp)
+    seen = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(member["id"])).json()
+    assert {c["owner_username"] for c in seen["pending_investigators"] + seen["active_investigators"]} == {""}
 
 
 def test_invite_rejoin_case_variants(client):
@@ -757,7 +762,12 @@ def test_roster(client):
     body = r.json()
     # an active member sees the GM's roster; a pending character waits for approval
     # and a retired one no longer belongs
-    assert client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(active["id"])).json() == body
+    # (without the players' login names, which are the Lightkeeper's to read)
+    member_view = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(active["id"])).json()
+    assert all(c.pop("owner_username") for c in body["pending_investigators"] + body["active_investigators"])
+    assert {c.pop("owner_username") for c in member_view["pending_investigators"] + member_view["active_investigators"]} == {""}
+    assert member_view == body
+    body = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
     for outsider in (support.as_owner(pending["id"]), support.as_owner(retired["id"]), support.as_stranger()):
         assert client.get(f"/campaign/{camp['id']}/roster", headers=outsider).status_code == 403
     assert set(body) == {"pending_investigators", "active_investigators", "roster_finalized"}

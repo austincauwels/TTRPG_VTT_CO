@@ -99,7 +99,8 @@ export const InvitePlayer = ({ align = 'center', className = '' }) => {
             </button>
           </div>
           {error && <p role="alert" className="mt-2 font-serif text-sm text-oxblood">{error}</p>}
-          {sentTo && <p role="status" className="mt-2 font-serif text-sm text-seal-green">Invite sent to <span className="font-mono">{sentTo}</span>.{replacing && ` ${replacing} is still alive and is retired when they rejoin.`}</p>}
+          {sentTo && <p role="status" className="mt-2 font-serif text-sm text-seal-green">Invite sent to <span className="font-mono">{sentTo}</span>.</p>}
+          {sentTo && replacing && <p className="mt-1 font-serif text-sm text-oxblood">{replacing} is still alive and will be retired when they rejoin.</p>}
         </div>
       )}
     </div>

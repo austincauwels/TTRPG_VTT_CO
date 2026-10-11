@@ -116,7 +116,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: path `campaign_id`.
 - Trusted ids: `campaign_id`.
 - Tables: campaigns (is_retired true), characters (living active and pending set to `unaffiliated` with no campaign and no ink; dead ones set to `retired`).
-- Broadcast: `campaign_retired` `{campaign_id, campaign_code}` to the GM channel and, by `broadcast_users`, to every socket of the owners of the characters it let go.
+- Broadcast: `campaign_retired` `{campaign_id, campaign_code}` to the GM channel and the character channel of each living investigator it let go (dead ones stay with the campaign, and their owners are not told).
 - Response: `{"ok": true}`. 404 if the campaign is missing.
 
 **POST /campaign/rejoin** (line 568, `async def`)
@@ -133,14 +133,14 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: `campaign_id`.
 - Tables: campaigns (read), users (set pending_rejoin_campaign_id), characters (read the user's characters).
 - Broadcast: `gm_rejoin_invite` `{campaign_id, campaign_name, campaign_code}` to every character channel of that user.
-- Also writes an Activity Log line ("The Lightkeeper invited <name> back.").
-- Response: `{"ok": true, "current_investigator": <name of the invitee's living active investigator here, or null>}`, which the invite slip shows because accepting retires that investigator. 404 if campaign or user is missing (the 404 also confirms whether a username exists).
+- Also writes an Activity Log line ("The Lightkeeper invited <name> back.", the name being the invitee's investigator here, living or last, or "a player"; never the login name, which every member would read).
+- Response: `{"ok": true, "current_investigator": <name of the invitee's living active investigator here, or null>}`, which the invite slip shows in oxblood because accepting retires that investigator. The player is told too: the invite banner and the rejoin step of the creator name the investigators that rejoining retires. 404 if campaign or user is missing (the 404 also confirms whether a username exists).
 
 **GET /campaign/{campaign_id}/roster** (line 663, `def`, `response_model=RosterResponse`)
 - Inputs: path `campaign_id`.
 - Trusted ids: `campaign_id`.
 - Tables: characters joined with circles (engine `get_campaign_roster`), campaigns.
-- Response: `{pending_investigators, active_investigators, roster_finalized}`; items are `CharacterRosterItem`. Since 2026-10-08 a dead investigator not yet replaced (still `active`) is listed with `is_dead: true`, so the GM desk can open the sheet (it shows them under Deceased); the frontend counts and offers only the living (`frontend/src/game/roster.js`). It used to be left out.
+- Response: `{pending_investigators, active_investigators, roster_finalized}`; items are `CharacterRosterItem`; `owner_username` (the player's login name) is filled for the campaign's Lightkeeper only, and is "" for a member. Since 2026-10-08 a dead investigator not yet replaced (still `active`) is listed with `is_dead: true`, so the GM desk can open the sheet (it shows them under Deceased); the frontend counts and offers only the living (`frontend/src/game/roster.js`). It used to be left out.
 
 **GET /campaign/{campaign_id}/circle-creation-state** (line 755, `def`)
 - Inputs: path `campaign_id`.
