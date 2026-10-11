@@ -27,7 +27,7 @@ export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }
         // An empty place on the desk where the first card will lie
         <div className="flex justify-center py-3">
           <span className="flex items-center justify-center w-64 max-w-full h-[140px] px-4 rounded-sm border border-dashed border-moonlight-steel/35 -rotate-1 text-center font-serif italic text-sm text-moonlight-steel">
-            <InfoTerm label="No investigators yet" text="Investigators appear here once you approve them." />
+            <InfoTerm label="No investigators yet" slipClassName="left-1/2 -translate-x-1/2 top-full mt-1 w-[min(18rem,calc(100vw-2.5rem))]" text="Investigators appear here once you approve them." />
           </span>
         </div>
       ) : (

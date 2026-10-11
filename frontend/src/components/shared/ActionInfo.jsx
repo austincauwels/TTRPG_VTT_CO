@@ -21,7 +21,7 @@ export const ActionInfo = ({ id, label, text, open, onToggle, show = 'hidden [@m
     <button
       type="button"
       data-action-info={id}
-      aria-label={ariaLabel || `About ${label}`}
+      aria-label={`About ${label}`}
       aria-expanded={open}
       aria-controls={`${id}-slip`}
       onClick={onToggle}
@@ -163,7 +163,7 @@ export const InfoTerm = ({
     >
       <button
         type="button"
-        aria-label={`About ${label}`}
+        aria-label={ariaLabel || `About ${label}`}
         aria-describedby={slipId}
         onClick={() => {
           if (pinned) { putAway(); return; }

@@ -372,12 +372,12 @@ export const CircleCreationPopup = () => {
             </div>
 
             <div className="mb-4">
-              <div className="flex flex-wrap items-center justify-between gap-x-3 mb-2">
+              <div className="relative flex flex-wrap items-center justify-between gap-x-3 mb-2">
                 <label htmlFor="circle-chapter-house" className="font-sans font-bold text-base uppercase tracking-[0.15em] text-sepia">
                   The Circle's Chapter House
                 </label>
                 <span className="font-sans text-sm font-bold uppercase tracking-wider text-sepia">
-                  <InfoTerm label="Shared" slipClassName="right-0 left-auto top-full mt-1 w-[min(18rem,calc(100vw-2.5rem))]" text="The whole circle shares this box. What you save here replaces what anyone else wrote." />
+                  <InfoTerm label="Shared" anchored={false} slipClassName="left-0 top-full mt-1 w-[min(18rem,100%)]" text="The whole circle shares this box. What you save here replaces what anyone else wrote." />
                 </span>
               </div>
               <textarea
