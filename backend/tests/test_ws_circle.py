@@ -577,7 +577,7 @@ def test_gm_end_assignment(client):
         assert (msgs[0]["payload"]["location"], msgs[0]["payload"]["atmosphere"]) == ("", "")
         assert msgs[0]["payload"]["dispatch_text"] == ""
         assert sorted(m["payload"]["id"] for m in msgs[1:3]) == sorted([a["id"], b["id"]])
-        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses and the hourglass are reset; marked gear is cleared. The reports have been reset. {EM}",
+        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared. {EM}",
                                       "log_type": "field"}
         got = wa.drain()
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
@@ -616,6 +616,87 @@ def test_gm_end_assignment_closes_and_clears_the_reports(client):
     assert (c.reports_open, c.backstory_answers) == (False, {"chapter_house": "Mill", "assignment": 3})
     theirs = support.fetch(Circle, other_cid)
     assert (theirs.reports_open, theirs.backstory_answers) == (True, {"reports": {str(o["id"]): {}}})
+
+
+def test_the_tally_is_added_once_whichever_desk_presses(client):
+    """Fixed (playtest, illumination-tally-added-twice): the question ticks and the tally's
+    added flag lived in one browser, so a second tab or device showed a live Add N
+    Illumination and added the same reports again (0 to 2 to 5). They are kept on the
+    circle and every desk sees them; a second add is refused, and so are ticks once it
+    is added. End Assignment clears the tally with the reports."""
+    camp, (a,), cid = _campaign(client)
+    support.update(Circle, cid, illumination=1, name="The Moths")
+    with support.ws_connect(client, camp["campaign_code"]) as desk_a, support.ws_connect(client, a["id"]) as wa:
+        desk_a.send("gm_set_tally_answer", circle_id=cid, index=0, checked=True)
+        desk_a.send("gm_set_tally_answer", circle_id=cid, index=2, checked=True)
+        update = desk_a.sync()[-1]
+        assert update["payload"]["backstory_answers"]["tally"] == {"answers": [True, False, True], "added": None}
+        desk_a.send("gm_add_tally", circle_id=cid, keys=2)
+        msgs = desk_a.sync()
+        assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
+        assert msgs[0]["payload"]["illumination"] == 5
+        assert msgs[0]["payload"]["backstory_answers"]["tally"] == {"answers": [True, False, True], "added": 4}
+        assert [m["payload"]["message"] for m in msgs[1:]] == [
+            "The Moths gains 4 Illumination (1 to 5).", "The Moths milestone 3 reached!"]
+        assert support.of_type(wa.drain(), "circle_update")[-1]["payload"]["illumination"] == 5
+    # Another desk (a second tab, another device) opens on the tally as added
+    with support.ws_connect(client, camp["campaign_code"]) as desk_b:
+        seen = support.of_type(desk_b.initial, "circle_update")[-1]["payload"]
+        assert seen["backstory_answers"]["tally"] == {"answers": [True, False, True], "added": 4}
+        desk_b.drain()
+        desk_b.send("gm_add_tally", circle_id=cid, keys=2)
+        desk_b.send("gm_set_tally_answer", circle_id=cid, index=1, checked=True)
+        detail = "This assignment's 4 Illumination is already added."
+        assert desk_b.sync() == [_rejected("gm_add_tally", status=409, detail=detail),
+                                 _rejected("gm_set_tally_answer", status=409, detail=detail)]
+        desk_b.send("gm_end_assignment")
+        [update] = support.of_type(desk_b.sync(), "circle_update")
+        assert "tally" not in update["payload"]["backstory_answers"]
+    c = support.fetch(Circle, cid)
+    assert c.illumination == 5 and "tally" not in c.backstory_answers
+
+
+def test_ticks_sent_back_to_back_are_all_kept(client):
+    """Review of illumination-tally-added-twice: a tick sent the whole three answers as the
+    desk last saw them, so a second tick sent before the first came back undid it, and a
+    tick from another desk undid the first desk's. A tick now sets one question, and the
+    add counts the ticks stored on the circle, so a tick still on its way when Add is
+    pressed is in the total that is added and kept."""
+    camp, _, cid = _campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as desk_a:
+        desk_a.send("gm_set_tally_answer", circle_id=cid, index=0, checked=True)
+        desk_a.send("gm_set_tally_answer", circle_id=cid, index=2, checked=True)
+        desk_a.send("gm_set_tally_answer", circle_id=cid, index=2, checked=False)
+        desk_a.sync()
+    assert support.fetch(Circle, cid).backstory_answers["tally"] == {"answers": [True, False, False], "added": None}
+    # Another desk, which has not seen those ticks yet, ticks a third question
+    with support.ws_connect(client, camp["campaign_code"]) as desk_b:
+        desk_b.send("gm_set_tally_answer", circle_id=cid, index=1, checked=True)
+        desk_b.send("gm_set_tally_answer", circle_id=cid, index=2, checked=True)
+        desk_b.send("gm_add_tally", circle_id=cid, keys=0)
+        update = support.of_type(desk_b.sync(), "circle_update")[-1]
+        assert update["payload"]["backstory_answers"]["tally"] == {"answers": [True, True, True], "added": 3}
+    c = support.fetch(Circle, cid)
+    assert (c.illumination, c.backstory_answers["tally"]) == (3, {"answers": [True, True, True], "added": 3})
+
+
+def test_tally_messages_are_checked(client):
+    camp, (a,), cid = _campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+        for index, checked in ((3, True), (-1, True), (True, True), ("0", True), (None, True), (0, 1), (0, None)):
+            gm.send("gm_set_tally_answer", circle_id=cid, index=index, checked=checked)
+        for bad in (1, 3, 8, True, "2", None):
+            gm.send("gm_add_tally", circle_id=cid, keys=bad)
+        assert [m["payload"]["status"] for m in gm.sync()] == [422] * 13
+        # Nothing ticked and no key filed: nothing to add
+        gm.send("gm_add_tally", circle_id=cid, keys=0)
+        assert gm.sync() == [_rejected("gm_add_tally", status=409,
+                                       detail="There is nothing to add: no question is ticked and no key was filed.")]
+        wa.send("gm_set_tally_answer", circle_id=cid, index=0, checked=True)
+        wa.send("gm_add_tally", circle_id=cid, keys=4)
+        assert wa.sync() == [_rejected("gm_set_tally_answer"), _rejected("gm_add_tally")]
+    c = support.fetch(Circle, cid)
+    assert (c.illumination or 0, c.backstory_answers or {}) == (0, {})
 
 
 def test_gm_end_assignment_empties_the_tension_clock(client):
@@ -924,14 +1005,23 @@ def test_circle_backstory_update(client):
     assert support.fetch(Circle, cid).backstory_answers == {"chapter_house": "Old mill"}
 
 
-def test_circle_backstory_can_overwrite_reserved_keys(client):
-    """QUIRK: free keys can replace the reports and selected_question_key entries."""
+def test_circle_backstory_cannot_overwrite_reserved_keys(client):
+    """Fixed (review of illumination-tally-added-twice; was
+    test_circle_backstory_can_overwrite_reserved_keys): free keys replaced the reports,
+    the assignment number, the chosen question and the tally, so a member could clear the
+    tally's added flag and bring back a live Add N Illumination for reports already added.
+    Those keys are refused (403) and stay as they were."""
     camp, (a,), cid = _campaign(client)
-    support.update(Circle, cid, backstory_answers={"reports": {"1": {"q": True}}})
-    with support.ws_connect(client, a["id"]) as wa:
-        wa.send("circle_backstory_update", question_key="reports", answer="gone")
-        wa.sync()
-    assert support.fetch(Circle, cid).backstory_answers == {"reports": "gone"}
+    kept = {"reports": {"1": {"q": True}}, "assignment": 2, "selected_question_key": "q1",
+            "tally": {"answers": [True, False, False], "added": 3}}
+    support.update(Circle, cid, backstory_answers=kept)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+        for key in ("reports", "assignment", "selected_question_key", "tally"):
+            wa.send("circle_backstory_update", question_key=key, answer="")
+            gm.send("circle_backstory_update", question_key=key, answer="")
+        assert wa.sync() == [_rejected("circle_backstory_update")] * 4
+        assert gm.sync() == [_rejected("circle_backstory_update")] * 4
+    assert support.fetch(Circle, cid).backstory_answers == kept
 
 
 def test_circle_personal_answer(client):
@@ -1335,6 +1425,24 @@ def test_the_lightkeeper_gives_a_spend_back(client):
     assert [m["payload"]["status"] for m in refused] == [409]
     assert support.fetch(Character, member["id"]).resources_spent_assignment == 0
     assert support.fetch(Circle, cid).stitch == before + 1
+
+
+def test_a_spend_back_never_fills_the_pool_past_its_maximum(client):
+    """Fixed (playtest, spend-back-unguarded-past-maximum): a give-back with Refresh at 3 of
+    3 made it 4 of 3 on every desk. A full pool takes nothing back; the spend still comes
+    back and the log says why the pool did not move."""
+    camp, (member,), cid = _campaign(client)
+    support.update(Character, member["id"], resources_spent_assignment=2)
+    support.update(Circle, cid, refresh=2)  # 1 plus the one member: full
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_return_spend", character_id=member["id"], resource_type="refresh", circle_id=cid)
+        sent = gm.sync()
+        assert support.types(sent) == ["member_update", "activity_log"]
+        assert sent[-1]["payload"]["message"] == (
+            f"The Lightkeeper gave {member['name']} a spend back (1 of 2 used this assignment); "
+            "the circle's Refresh is full, so none went back.")
+    assert support.fetch(Circle, cid).refresh == 2
+    assert support.fetch(Character, member["id"]).resources_spent_assignment == 1
 
 
 def test_a_player_cannot_give_a_spend_back(client):

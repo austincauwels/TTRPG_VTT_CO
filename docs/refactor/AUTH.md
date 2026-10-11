@@ -113,6 +113,7 @@ The character a message acts on is `payload.character_id`, or the player channel
 | gm_update_circle | the GM, for the campaign's own circle (`circle_id` still defaults to 1, which belongs to no campaign, so the frontend now sends the real id) |
 | gm_timer (since 2026-10-08) | the GM, for the campaign's own circle (default: the circle loaded at connect); an unknown `action` or a `duration_ms` outside 1 second to 3 hours is 422, and start before a duration is set is 409 (from the handler) |
 | gm_toggle_resource_edit, gm_toggle_reports, gm_advance_circle, refill_resources, gm_end_assignment, update_circle | the GM, for the campaign's own circle (default: the circle loaded at connect) |
+| gm_set_tally_answer, gm_add_tally (since 2026-10-11) | the GM, for the campaign's own circle; an `index` other than 0 to 2, a `checked` that is not true or false, or `keys` other than 0, 2 or 4 is 422; the handler refuses (409) once the tally is added, and an add with nothing to add |
 | roll | the owner; on a GM channel without a character it is a Lightkeeper roll; a negative `drive_spent` is 422 (QUIRK D15); a player's roll must name one of the nine actions and may not spend more drive than it holds (422, from the handler) |
 | update_drive, take_mark, revive_character, update_gear | the owner, or the GM for a member; a `gear` list whose items are not all strings is 422; a `mark_type` other than body, brain or bleed is 422 |
 | resolve_gilded, use_post_roll_ability, update_pen_font, resolve_ability_mark, burn_resistance, apply_advancement, circle_personal_answer | the owner (apply_advancement also needs a pick waiting from the circle's advance; the handler refuses others with 409 or 422) |
@@ -120,7 +121,7 @@ The character a message acts on is `payload.character_id`, or the player channel
 | intercept_mark | the owner of the interceptor; `target_character_id` must exist (404) and be in the interceptor's campaign; an unknown `mark_type` is 422 |
 | spend_resource | the owner, an active member, on their campaign's circle |
 | submit_assignment_report, circle_creation_vote | the owner of `character_id`, an active member, on their campaign's circle; an unknown `vote_type` is 422 |
-| circle_backstory_update | an active member or the GM, on the campaign's circle |
+| circle_backstory_update | an active member or the GM, on the campaign's circle; the keys the server keeps for itself (`reports`, `assignment`, `tally`, `selected_question_key`) are 403 (since 2026-10-11) |
 | circle_relationship_propose | a player for their own `from_character_id`, to a fellow member, on their campaign's circle |
 | circle_relationship_respond | the other party: the character that did not act last (for a proposal made over REST, which records no actor, the character it was made to); never the GM |
 | chat_message | a member (an active character) or the GM; `@Environment` only from the GM. The sender name is the character's name, or "Lightkeeper" for the GM; `sender_name` is ignored |

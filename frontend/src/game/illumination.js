@@ -21,3 +21,11 @@ export const tallyReports = (investigators, reports, answers) => {
   const questions = (answers || []).filter(Boolean).length;
   return { questions, withKey, members: living.length, keys, total: questions + keys };
 };
+
+// The assignment's tally as the circle keeps it (backend vtt/assignment.py): the
+// Lightkeeper's three answers, and the Illumination added from it, null until added
+export const tallyOf = (circle) => {
+  const t = circle?.backstory_answers?.tally;
+  const answers = Array.isArray(t?.answers) && t.answers.length === 3 ? t.answers.map(a => a === true) : [false, false, false];
+  return { answers, added: Number.isInteger(t?.added) ? t.added : null };
+};

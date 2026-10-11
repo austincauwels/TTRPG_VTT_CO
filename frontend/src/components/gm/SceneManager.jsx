@@ -9,10 +9,14 @@ import { Hourglass } from '../shared/Hourglass';
 import { TensionTimer, formatTime, useTimeLeft } from '../shared/TensionTimer';
 import { arrivedAt } from '../../store/circleArrivals';
 import { useAutoGrow, fitHeight, GROW_STYLE } from '../shared/useAutoGrow';
+import { tallyReports, tallyOf } from '../../game/illumination';
 
 const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reconnects by itself; try again in a moment.';
+
+// What End Assignment clears, said by its confirm and its receipt (the log line says the same)
+const ENDS = "Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared.";
 
 // ── The tension clock: an hourglass on the desk ───────────────────────────────────
 // Starts with all the sand above and runs a quarter of it down per step, from 0 to 4
@@ -145,7 +149,7 @@ const dispatchOf = (c) => ({ location: c?.location || '', atmosphere: c?.atmosph
 const keptDraft = { circleId: undefined, base: dispatchOf(null), location: '', atmosphere: '', ownText: '' };
 
 export const SceneManager = () => {
-  const { circle, socket, accessSession, circleRefusal } = useGameStore();
+  const { circle, socket, accessSession, circleRefusal, circleCreation } = useGameStore();
 
   const [mode, setModeState] = useState(readMode);
   const setMode = (next) => { setModeState(next); keepMode(next); };
@@ -245,13 +249,28 @@ export const SceneManager = () => {
       setLocation("");
       setAtmosphere("");
       setOwnText("");
-      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. Ability uses and the hourglass are reset; marked gear is cleared.` });
+      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. ${ENDS}` });
     } else {
       setReceipt({ ok: false, text: NOT_CONNECTED });
     }
   };
 
   const circleName = circle?.name || 'the Circle';
+
+  // End Assignment clears the reports and their tally (backend vtt/assignment.py), so the
+  // confirm says so, and warns of a tally not yet added, which would be lost (playtest,
+  // end-assignment-drops-unadded-tally)
+  const tally = tallyOf(circle);
+  const unadded = tally.added == null
+    ? tallyReports(circleCreation?.activeInvestigators, circleCreation?.reports, tally.answers).total : 0;
+  const endHint = unadded > 0 ? (
+    <>
+      <strong className="block mb-1 not-italic font-bold">
+        The reports' {unadded} Illumination is not added yet and will be lost: add it on the Circle page first.
+      </strong>
+      {`Press again to end it anyway: the dispatch clears. ${ENDS}`}
+    </>
+  ) : `Press again to end it: the dispatch clears. ${ENDS}`;
 
   return (
     <div ref={letterRef} className="bg-parchment text-ink p-5 sm:p-8 xl:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
@@ -367,14 +386,14 @@ export const SceneManager = () => {
           className="flex flex-col items-start gap-2 max-w-[11rem]"
           onConfirm={endAssignment}
           cancelLabel="Keep going"
-          armedHint="Press again to end it: the dispatch clears. Ability uses and the hourglass are reset; marked gear is cleared."
+          armedHint={endHint}
           hintClassName="[&>p]:text-sm"
           renderButton={(armed, props) => (
             <button
               {...props}
               className="relative group transform rotate-2 hover:rotate-0 transition-transform active:scale-95"
             >
-              <div className={`border-[3px] rounded px-3 py-1.5 font-sans font-black uppercase tracking-widest text-xs ${
+              <div className={`border-[3px] rounded px-3 py-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center font-sans font-black uppercase tracking-widest text-xs ${
                 armed
                   ? 'border-oxblood bg-oxblood text-cream'
                   : 'border-sepia text-sepia opacity-90 group-hover:opacity-100 group-hover:bg-sepia/5'
@@ -393,7 +412,7 @@ export const SceneManager = () => {
             className="relative group transform -rotate-3 hover:rotate-0 transition-transform active:scale-95"
             aria-describedby="dispatch-effect"
           >
-            <div className="border-[3px] border-oxblood rounded px-4 py-1.5 text-oxblood font-sans font-black uppercase tracking-[0.15em] text-sm opacity-90 group-hover:opacity-100 group-hover:bg-oxblood/5">
+            <div className="border-[3px] border-oxblood rounded px-4 py-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center text-oxblood font-sans font-black uppercase tracking-[0.15em] text-sm opacity-90 group-hover:opacity-100 group-hover:bg-oxblood/5">
               Dispatch
             </div>
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-50 pointer-events-none mix-blend-overlay" />

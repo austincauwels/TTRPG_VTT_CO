@@ -1,6 +1,6 @@
 """GM messages: tension (a member's marks), a member's scars, scene, the circle toggles,
 advancing the circle, refilling resources, ending an assignment, resetting a character,
-and update_circle.
+update_circle, the assignment's Illumination tally and giving a spend back.
 
 Only the campaign's GM may send these (vtt.ws.access rejects them from anyone else,
 and ctx.is_gm comes from the login token, never from the payload's "role"). The
@@ -12,9 +12,9 @@ import json
 
 from models import Character, Circle
 from vtt.abilities import MARK_TYPES, abilities_of
-from vtt.assignment import clear_paperwork
+from vtt.assignment import TALLY, answers_of, clear_paperwork, tally_of
 from vtt.auth import ROSTER_STATUSES
-from vtt.circle_queries import circle_abilities, fill_resources, resolve_circle
+from vtt.circle_queries import circle_abilities, fill_resources, resolve_circle, resource_pool
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import SCAR_SLOTS
 from vtt.ws.handlers.circle import announce_death, announce_downed
@@ -340,7 +340,7 @@ async def handle_gm_end_assignment(ctx):
             await manager.broadcast(character_key(ch.id), {"type": "character_update", "payload": get_char_dict(ch)})
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",
-            "payload": {"message": "— Assignment ended. Ability uses and the hourglass are reset; marked gear is cleared. The reports have been reset. —", "log_type": "field"},
+            "payload": {"message": "— Assignment ended. Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared. —", "log_type": "field"},
         }, db)
         for ch in note_takers:
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
@@ -402,21 +402,89 @@ async def handle_update_circle(ctx):
         # to need the value to land on one), and one when the track fills (RULES_CHECK.md
         # items 19 and 20)
         if "illumination" in payload:
-            new_illum = getattr(target_circle, "illumination", 0) or 0
-            if isinstance(new_illum, int) and new_illum != old_illum:
-                name = target_circle.name or "The Circle"
-                change = new_illum - old_illum
-                said = (f"{name} gains {change} Illumination ({old_illum} to {new_illum})." if change > 0
-                        else f"{name} loses {-change} Illumination ({old_illum} to {new_illum}).")
-                await manager.broadcast_campaign(camp_code, camp_id, {
-                    "type": "activity_log", "payload": {"message": said, "log_type": "field"}}, db)
-            await _log_illumination(db, camp_code, camp_id, target_circle, old_illum, new_illum)
+            await _say_illumination(db, camp_code, camp_id, target_circle, old_illum)
+
+
+async def _say_illumination(db, camp_code, camp_id, circle, old_illum):
+    """The line for a change to the track, then the milestone lines (_log_illumination)."""
+    new_illum = getattr(circle, "illumination", 0) or 0
+    if isinstance(new_illum, int) and new_illum != old_illum:
+        name = circle.name or "The Circle"
+        change = new_illum - old_illum
+        said = (f"{name} gains {change} Illumination ({old_illum} to {new_illum})." if change > 0
+                else f"{name} loses {-change} Illumination ({old_illum} to {new_illum}).")
+        await manager.broadcast_campaign(camp_code, camp_id, {
+            "type": "activity_log", "payload": {"message": said, "log_type": "field"}}, db)
+    await _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum)
+
+
+async def _refuse(ctx, action, detail):
+    ctx.db.rollback()
+    await manager.broadcast(ctx.channel, {"type": "action_rejected", "payload": {
+        "action": action, "status": 409, "detail": detail}})
+
+
+async def handle_gm_set_tally_answer(ctx):
+    """The Lightkeeper ticks one of the circle's three Illumination questions (rulebook
+    p. 55). Fields `index` (0 to 2) and `checked` (vtt.ws.access checks them). One tick a
+    message, set under the row lock, so quick ticks and another desk's ticks never
+    overwrite each other; kept on the circle with the tally, so every Lightkeeper desk
+    shows the same ticks. Refused once the tally is added."""
+    db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
+    if not ctx.is_gm: return
+    target_circle = resolve_circle(db, payload.get("circle_id") or (circle.id if circle else 1), camp_id)
+    if target_circle is None:
+        return
+    db.refresh(target_circle, with_for_update=True)  # see handle_gm_advance_circle
+    answers = answers_of(target_circle)
+    tally = tally_of(answers)
+    if tally["added"] is not None:
+        await _refuse(ctx, "gm_set_tally_answer", f"This assignment's {tally['added']} Illumination is already added.")
+        return
+    ticks = list(tally["answers"])
+    ticks[payload["index"]] = payload["checked"]
+    answers[TALLY] = {**tally, "answers": ticks}
+    target_circle.backstory_answers = answers
+    db.commit()
+    await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
+
+
+async def handle_gm_add_tally(ctx):
+    """Add N Illumination: the assignment's reports go on the track once (playtest,
+    illumination-tally-added-twice). Field `keys`, what the reports' keys are worth (0, 2
+    or 4, worked out on the desk from the reports); the questions are counted from the
+    ticks stored on the circle, so the added total always matches the ticks kept with it,
+    whatever tick is still on its way. The row is locked and a tally already added is
+    refused, so a second tab or device cannot add the same reports again; End Assignment
+    clears it."""
+    db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
+    if not ctx.is_gm: return
+    target_circle = resolve_circle(db, payload.get("circle_id") or (circle.id if circle else 1), camp_id)
+    if target_circle is None:
+        return
+    db.refresh(target_circle, with_for_update=True)
+    answers = answers_of(target_circle)
+    tally = tally_of(answers)
+    if tally["added"] is not None:
+        await _refuse(ctx, "gm_add_tally", f"This assignment's {tally['added']} Illumination is already added.")
+        return
+    total = sum(tally["answers"]) + payload["keys"]
+    if total == 0:
+        await _refuse(ctx, "gm_add_tally", "There is nothing to add: no question is ticked and no key was filed.")
+        return
+    old_illum = target_circle.illumination or 0
+    target_circle.illumination = old_illum + total
+    answers[TALLY] = {**tally, "added": total}
+    target_circle.backstory_answers = answers
+    db.commit()
+    await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
+    await _say_illumination(db, camp_code, camp_id, target_circle, old_illum)
 
 
 async def handle_gm_return_spend(ctx):
     """Give a member a circle-resource spend back (playtest, lk-resource-repair). Fields:
     `character_id`, and optionally `resource_type` (stitch, refresh or train) to put that
-    resource back in the circle's pool too. It lowers the member's spends this assignment
+    resource back in the circle's pool too, while the pool is below its maximum. It lowers the member's spends this assignment
     by one (never below 0) and says so in the log. Nothing else of the member changes: a
     Stitch, Refresh or Train already used stays used."""
     db, payload, camp_code, camp_id = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id
@@ -437,12 +505,20 @@ async def handle_gm_return_spend(ctx):
     said = f"The Lightkeeper gave {target.name} a spend back ({spent - 1} of 2 used this assignment)"
     resource = payload.get("resource_type")
     circle = resolve_circle(db, payload.get("circle_id") or (ctx.circle.id if ctx.circle else 1), camp_id)
+    returned = False
     if resource in RESOURCE_NAMES and circle is not None:
         db.refresh(circle, with_for_update=True)
-        setattr(circle, resource, (getattr(circle, resource, 0) or 0) + 1)
-        said += f", and a {resource.capitalize()} to the circle"
+        # Never past the pool's maximum (playtest, spend-back-unguarded-past-maximum: Refresh
+        # 4 of 3); a full pool takes nothing back and the spend still comes back
+        have = getattr(circle, resource, 0) or 0
+        if have < resource_pool(circle, db):
+            setattr(circle, resource, have + 1)
+            returned = True
+            said += f", and a {resource.capitalize()} to the circle"
+        else:
+            said += f"; the circle's {resource.capitalize()} is full, so none went back"
     db.commit()
     await manager.broadcast(character_key(target.id), {"type": "character_update", "payload": get_char_dict(target)})
-    if resource in RESOURCE_NAMES and circle is not None:
+    if returned:
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)
     await log_line(db, camp_code, camp_id, said + ".")
