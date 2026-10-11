@@ -860,7 +860,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               </li>
             ))}
           </ul>
-          {gear.length === 0 && <span className="sr-only">No gear</span>}
+          {gear.length === 0 && <p className="font-serif italic text-sm text-sepia mt-1">No gear. The Lightkeeper clears everyone's gear when an assignment ends; choose it again for the next one.</p>}
         </div>
       </div>
 
