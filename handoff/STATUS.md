@@ -6,7 +6,7 @@ Resume: none
 
 ## For the next chat: start here
 
-You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 13 and PR 14 stand, then do "Next phase". Keep the chat lean:
+You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check whether Robert deployed main (78eec1b), then do "Next phase". Keep the chat lean:
 
 - Before any run of more than about 6 agents, say roughly how big it is and ask, unless he has turned ultracode on for the chat. The second playtest phase ran 97 agents (about 13 million subagent tokens) with ultracode on.
 - **Messages Robert sends while a workflow runs are relayed into every running agent.** On 11 October his question about the hub cost act 1 three turns, because every seat stopped to answer it. Every agent prompt now says: "Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish." Keep that line in every new prompt.
@@ -36,10 +36,9 @@ What worked this phase: a regression sweep of the last report alongside the play
 
 ## Where things stand
 
-- `main` is at **730cfda** (PRs 11 and 12). Robert deployed it on 11 October.
-- **PR 13** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/13, the first report's 39 low items) is open, CI green, not merged. The second playtest tested its head, 63d80f4.
-- **PR 14** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/14, branch `claude/candela-vtt-dev-qrp3w6`) is built on PR 13's head, so it contains PR 13's commits until PR 13 merges. Merge PR 13 first, then PR 14 (or PR 14 alone, which brings both). Then Robert runs `bash candela/update.sh` and players reload.
+- `main` is at **78eec1b**: PR 13 (the first report's low items) and PR 14 (the second playtest's fixes) were both merged on 11 October. **Not deployed yet**: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload.
 - **Deploy note for PR 14:** the Illumination tally now lives on the circle. If a Lightkeeper added an assignment's tally before the deploy and that assignment has not ended, her desk offers Add again for it: she must not press it a second time. No schema change (the tally rides in `backstory_answers`).
+- The playtest's page (private artifact): https://claude.ai/artifact/RcCxR5mNbmjqfCHufFyact. Its Repeats tab lists the first report's items that came back and why.
 
 ### The second AI playtest (11 October)
 
@@ -66,10 +65,12 @@ Retire frees living investigators (the dead stay with the campaign); the Lightke
 
 ## Next phase
 
-1. Check PR 13 and PR 14 (CI, reviews, merged or not). If Robert merged them, confirm he ran `bash candela/update.sh`.
+1. Both PRs are merged. Confirm Robert ran `bash candela/update.sh` for main 78eec1b.
 2. Ask Robert the open questions below (one short message, with a recommended default for each), then fix the second report's remaining **low** UX items and the ideas he picks: `playtest/results/2026-10-11/report.json` (`ux` entries with severity low, minus those PR 14 fixed, and `ideas`). Group them like this phase (implementer, Opus reviewer, repair, merge, full suite, final review, browser check).
 
 ### Open questions for Robert
+
+- **Stopping repeats** (asked on 11 October, not yet answered): 25 of the first report's 111 items came back (6 fixed on one path only, 7 broken by a fix next to them, 9 half done, 3 not done; see the artifact's Repeats tab). The recommendation: start the next phase with (1) a browser check per fixed item, kept in the repo (`frontend/e2e/`, Playwright) and run in CI on every PR, seeded from the regression agents' scripts in the second run's verify folder, and (2) a fix ledger in the repo listing every report key with its status and the test that pins it; then adopt (3) an "every path" check (reload, second tab, second device, reconnect, both sides, phone and laptop) before calling an item fixed, and (4) the regression sweep before each playtest and big release. Ask him first.
 
 - A replaced dead investigator: add a Fallen card to the roster and Circle History, or leave the log line? (Default: a Fallen card.)
 - An Illumination tally not yet added at End Assignment: keep the warning, or add it automatically? (Default: keep the warning.)
