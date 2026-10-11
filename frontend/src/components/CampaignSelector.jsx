@@ -137,7 +137,7 @@ export const CampaignSelector = () => {
     // folded Herald leave them (.hub-tomes in DeskStyles.jsx). While the roster book is open
     // the room under it holds still (.hub-still), so the book moves alone.
     <div className={`scene-container${showBook ? ' hub-still' : ''} h-[100dvh] lg:landscape:h-auto lg:landscape:min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night`}>
-      <RejoinInviteBanner rejoinInvite={rejoinInvite} setStage={setStage} setRejoinInvite={setRejoinInvite} />
+      <RejoinInviteBanner rejoinInvite={rejoinInvite} characters={characters} setStage={setStage} setRejoinInvite={setRejoinInvite} />
       <HubNotice notice={hubNotice} onDismiss={() => setHubNotice(null)} />
 
       <DeskStyles />

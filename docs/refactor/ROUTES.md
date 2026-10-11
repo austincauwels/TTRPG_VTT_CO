@@ -115,8 +115,8 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **POST /campaign/{campaign_id}/retire** (line 545, `async def`)
 - Inputs: path `campaign_id`.
 - Trusted ids: `campaign_id`.
-- Tables: campaigns (is_retired true), characters (active and pending set to `retired`).
-- Broadcast: `campaign_retired` `{campaign_id, campaign_code}`. Note that `broadcast_campaign` runs after the commit, so it only reaches the GM channel (characters are no longer active).
+- Tables: campaigns (is_retired true), characters (living active and pending set to `unaffiliated` with no campaign and no ink; dead ones set to `retired`).
+- Broadcast: `campaign_retired` `{campaign_id, campaign_code}` to the GM channel and the character channel of each living investigator it let go (dead ones stay with the campaign, and their owners are not told).
 - Response: `{"ok": true}`. 404 if the campaign is missing.
 
 **POST /campaign/rejoin** (line 568, `async def`)
@@ -125,6 +125,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Tables: campaigns (read), characters (retire the same user's other active or dead characters in the campaign; set new character campaign_id, ink_color, status `active`, circle_id to the campaign circle if one exists), users (clear pending_rejoin_campaign_id).
 - Broadcast: `investigator_approved` and `character_joined_mid_campaign`, both with the new character and active list.
 - Response: `{"success": true, "character": get_char_dict(...)}`.
+- Also writes an Activity Log line ("<name> joined the circle, in place of <old>."), and the new character takes the larger circle-resource spend count of the investigators it retires.
 - Notes: skips GM approval entirely and does not check that an invite exists or that a predecessor died. Imports `INK_COLORS` from engine inside the function.
 
 **POST /campaign/{campaign_id}/invite-rejoin** (line 638, `async def`)
@@ -132,13 +133,14 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: `campaign_id`.
 - Tables: campaigns (read), users (set pending_rejoin_campaign_id), characters (read the user's characters).
 - Broadcast: `gm_rejoin_invite` `{campaign_id, campaign_name, campaign_code}` to every character channel of that user.
-- Response: `{"ok": true}`. 404 if campaign or user is missing (the 404 also confirms whether a username exists).
+- Also writes an Activity Log line ("The Lightkeeper invited <name> back.", the name being the invitee's investigator here, living or last, or "a player"; never the login name, which every member would read).
+- Response: `{"ok": true, "current_investigator": <name of the invitee's living active investigator here, or null>}`, which the invite slip shows in oxblood because accepting retires that investigator. The player is told too: the invite banner and the rejoin step of the creator name the investigators that rejoining retires. 404 if campaign or user is missing (the 404 also confirms whether a username exists).
 
 **GET /campaign/{campaign_id}/roster** (line 663, `def`, `response_model=RosterResponse`)
 - Inputs: path `campaign_id`.
 - Trusted ids: `campaign_id`.
 - Tables: characters joined with circles (engine `get_campaign_roster`), campaigns.
-- Response: `{pending_investigators, active_investigators, roster_finalized}`; items are `CharacterRosterItem`. Since 2026-10-08 a dead investigator not yet replaced (still `active`) is listed with `is_dead: true`, so the GM desk can open the sheet (it shows them under Deceased); the frontend counts and offers only the living (`frontend/src/game/roster.js`). It used to be left out.
+- Response: `{pending_investigators, active_investigators, roster_finalized}`; items are `CharacterRosterItem`; `owner_username` (the player's login name) is filled for the campaign's Lightkeeper only, and is "" for a member. Since 2026-10-08 a dead investigator not yet replaced (still `active`) is listed with `is_dead: true`, so the GM desk can open the sheet (it shows them under Deceased); the frontend counts and offers only the living (`frontend/src/game/roster.js`). It used to be left out.
 
 **GET /campaign/{campaign_id}/circle-creation-state** (line 755, `def`)
 - Inputs: path `campaign_id`.

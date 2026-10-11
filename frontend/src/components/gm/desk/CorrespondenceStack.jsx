@@ -35,6 +35,9 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
                 onReject={() => handleReject(current.id)}
                 onView={onView ? () => onView(current) : undefined}
                 busy={busy}
+                samePlayer={!current.owner_username ? '' : (campaignRoster.active_investigators || [])
+                  .some(c => c.owner_username === current.owner_username && !c.is_dead) ? 'active'
+                  : pending.some(c => c.id !== current.id && c.owner_username === current.owner_username) ? 'pending' : ''}
               />
             )}
           </AnimatePresence>

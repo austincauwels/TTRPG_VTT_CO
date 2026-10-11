@@ -403,6 +403,7 @@ class CharacterRosterItem(BaseModel):
     ink_color: Optional[str] = ""
     pronouns: str = "Unlisted"
     catalyst: str = ""
+    owner_username: str = ""
     class Config:
         from_attributes = True
 

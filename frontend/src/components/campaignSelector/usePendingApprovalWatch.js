@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 // While one of the player's investigators waits for a Lightkeeper's approval, the hub asks
-// again every POLL_MS and whenever the tab comes back, and says so when the answer comes.
+// again every POLL_MS, and says so when the answer comes.
 // The hub has no socket, so it fetched the list once and kept saying "Waiting for the
 // Lightkeeper to approve" until Check again or a reload, and even then the row changed
 // without a word (playtest, pending-join-not-live).
@@ -28,11 +28,19 @@ export const usePendingApprovalWatch = ({ characters, userId, fetchUserData, set
     }
   }, [characters]);
 
+  // The hub has no socket, so a campaign retired or an investigator let go while the tab
+  // was away shows when it comes back
+  useEffect(() => {
+    if (!userId) return undefined;
+    const back = () => { if (document.visibilityState === 'visible') fetchUserData(userId); };
+    document.addEventListener('visibilitychange', back);
+    return () => document.removeEventListener('visibilitychange', back);
+  }, [userId]);
+
   useEffect(() => {
     if (!anyPending || !userId) return undefined;
     const ask = () => { if (document.visibilityState === 'visible') fetchUserData(userId); };
     const timer = setInterval(ask, POLL_MS);
-    document.addEventListener('visibilitychange', ask);
-    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', ask); };
+    return () => clearInterval(timer);
   }, [anyPending, userId]);
 };

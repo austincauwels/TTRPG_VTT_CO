@@ -1113,16 +1113,17 @@ const useGameStore = create(
             const { character: myChar, socketGameId } = get();
             const onCharacterChannel = myChar?.id != null && String(socketGameId) === String(myChar.id);
             setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
-            // The campaign leaves the Lightkeeper's ledger and Last Session tome, as the
-            // server's list of their campaigns leaves it out, so neither the tome nor the
-            // browser's Forward (stageHistory.js) opens its desk again
+            // The campaign leaves the Lightkeeper's ledger and the Last Session tome of both
+            // sides, so neither the tome nor the browser's Forward (stageHistory.js) opens
+            // its desk again. Sent to the Lightkeeper and the investigators it let go only.
             const { campaign_id: id, campaign_code: code } = message.payload;
             set(state => ({
               stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null,
-              gmCampaigns: state.gmCampaigns.filter(c => c.id !== id),
-              lastPlayedCampaign: state.lastPlayedCampaign?.type === 'gm' && state.lastPlayedCampaign.campaignCode === code
-                ? null : state.lastPlayedCampaign,
+              ...withoutCampaign(state, id, code),
+              ...(onCharacterChannel ? { hubNotice: 'The Lightkeeper retired the campaign. Your investigator is free to join another.' } : {}),
             }));
+            // the registry reads the investigators the retire let go
+            get().fetchUserData(get().accessSession?.userId);
           }
           else if (message.type === 'campaign_deleted') {
             if (!isForThisCampaign(message.payload)) return;
@@ -1288,6 +1289,13 @@ const useGameStore = create(
           ]);
           if (charsRes.ok) set({ characters: await charsRes.json() });
           if (campsRes.ok) set({ gmCampaigns: await campsRes.json() });
+          // A Last Session tome that names a campaign this user is no longer in (retired or
+          // deleted while the hub had no socket) goes; the hub fills it again from what is left
+          const { lastPlayedCampaign: last, characters, gmCampaigns } = get();
+          const gone = charsRes.ok && campsRes.ok && last && (last.type === 'player'
+            ? !characters.some(c => c.id === last.characterId && c.status === 'active')
+            : !gmCampaigns.some(c => c.campaign_code === last.campaignCode));
+          if (gone) set({ lastPlayedCampaign: null });
         } catch (err) {
           console.error('Failed to fetch user data:', err);
         }
