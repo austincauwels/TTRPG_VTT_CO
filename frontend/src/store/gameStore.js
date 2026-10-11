@@ -425,6 +425,7 @@ const useGameStore = create(
       character: null,
       characters: [],          // all characters belonging to the logged-in user
       gmCampaigns: [],         // campaigns the user manages as GM
+      retiredCampaigns: [],    // campaigns the user ran and retired (the ledger's Retired list)
       lastPlayedCampaign: null, // { type:'player'|'gm', characterId?, campaignCode, campaignName }
       circle: null,
       lastRoll: null,
@@ -552,6 +553,7 @@ const useGameStore = create(
           character: null,
           characters: [],
           gmCampaigns: [],
+          retiredCampaigns: [],
           lastPlayedCampaign: null,
           circle: null,
           socket: null,
@@ -1368,12 +1370,14 @@ const useGameStore = create(
       fetchUserData: async (userId) => {
         if (!userId) return;
         try {
-          const [charsRes, campsRes] = await Promise.all([
+          const [charsRes, campsRes, retiredRes] = await Promise.all([
             apiFetch(`/api/users/${userId}/characters`),
             apiFetch(`/api/users/${userId}/campaigns`),
+            apiFetch(`/api/users/${userId}/retired-campaigns`),
           ]);
           if (charsRes.ok) set({ characters: await charsRes.json() });
           if (campsRes.ok) set({ gmCampaigns: await campsRes.json() });
+          if (retiredRes.ok) set({ retiredCampaigns: await retiredRes.json() });
           // A Last Session tome that names a campaign this user is no longer in (retired or
           // deleted while the hub had no socket) goes; the hub fills it again from what is left
           const { lastPlayedCampaign: last, characters, gmCampaigns } = get();
@@ -2242,6 +2246,21 @@ const useGameStore = create(
         return result;
       },
 
+      // Brings a retired campaign back to the ledger. Nobody is put back on its roster.
+      unretireCampaign: async (campaignId) => {
+        const result = await deletionRequest(`/campaign/${campaignId}/unretire`, 'POST');
+        await get().fetchUserData(get().accessSession?.userId);
+        return result;
+      },
+
+      // The player takes back a join request that is still waiting. A 409 means the
+      // Lightkeeper answered meanwhile, so the hub reads the list again either way.
+      withdrawRequest: async (characterId) => {
+        const result = await deletionRequest(`/campaign/withdraw/${characterId}`, 'POST');
+        await get().fetchUserData(get().accessSession?.userId);
+        return result;
+      },
+
       clearRelationshipIntro: () => set({ pendingRelationshipIntro: null }),
       openRelationshipPopup: (targetInvestigator) => {
         const { circleCreation } = get();
@@ -2284,6 +2303,7 @@ const useGameStore = create(
           character: null,
           characters: [],
           gmCampaigns: [],
+          retiredCampaigns: [],
           lastPlayedCampaign: null,
           circle: null,
           rejoinInvite: null,

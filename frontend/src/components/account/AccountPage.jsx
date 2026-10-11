@@ -23,6 +23,9 @@ const inputClass = [
   'font-serif font-bold text-lg text-ink caret-oxblood transition-colors',
   'hover:border-sepia/70 focus:border-oxblood aria-[invalid=true]:border-oxblood',
   'autofill:shadow-[inset_0_0_0_1000px_rgb(var(--c-parchment))] autofill:[-webkit-text-fill-color:rgb(var(--c-ink))]',
+  // Focused or previewed by the browser's saved-password list, it painted a white block;
+  // the same paper stays under it, and the browser's own fill colour is held back.
+  'autofill:focus:shadow-[inset_0_0_0_1000px_rgb(var(--c-parchment))] autofill:[transition:background-color_600000s_0s]',
 ].join(' ');
 const noteClass = 'font-serif text-base leading-snug text-sepia';
 const errorTextClass = 'font-serif text-base leading-snug text-oxblood';

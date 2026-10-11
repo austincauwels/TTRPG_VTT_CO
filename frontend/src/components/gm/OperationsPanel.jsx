@@ -72,7 +72,7 @@ export const OperationsPanel = () => {
 
   // One request at a time, so a double tap cannot approve or reject twice.
   const handleStamp = async (characterId) => {
-    if (requestBusy) return;
+    if (requestBusy) return false;
     setRequestBusy(true);
     setRequestError('');
     const p = approveInvestigator(characterId, activeCampaignId);
@@ -80,10 +80,11 @@ export const OperationsPanel = () => {
     const ok = await p;
     setRequestBusy(false);
     if (ok === false) setRequestError(`The investigator was not approved. ${REQUEST_FAILED}`);
+    return ok !== false;
   };
 
   const handleReject = async (characterId) => {
-    if (requestBusy) return;
+    if (requestBusy) return false;
     setRequestBusy(true);
     setRequestError('');
     const p = rejectInvestigator(characterId, activeCampaignId);
@@ -91,6 +92,7 @@ export const OperationsPanel = () => {
     const ok = await p;
     setRequestBusy(false);
     if (ok === false) setRequestError(`The request was not rejected. ${REQUEST_FAILED}`);
+    return ok !== false;
   };
 
   const handleFinalizeRoster = async () => {
@@ -168,6 +170,10 @@ export const OperationsPanel = () => {
                   key={selectedInvestigator.id}
                   character={selectedInvestigator}
                   onClose={() => setSelectedInvestigator(null)}
+                  // a request's sheet carries the decision, and closes once it is made
+                  onApprove={async (id) => { if (await handleStamp(id)) setSelectedInvestigator(null); }}
+                  onReject={async (id) => { if (await handleReject(id)) setSelectedInvestigator(null); }}
+                  busy={requestBusy}
                 />
               </AnimatePresence>
             )}

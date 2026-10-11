@@ -166,7 +166,7 @@ When a player submits a join request, the character appears on the GM's roster i
 
 ### Can campaigns be ended?
 
-Yes. The GM can **retire** a campaign, which sets `is_retired = true` on the Campaign record and detaches all living active/pending characters (sets their `campaign_id` to null and status to `unaffiliated`, so their players can use them in another campaign; a dead one stays `retired` with the campaign). A retirement notice is broadcast via WebSocket to any connected players, and a hub reads its lists again when the tab comes back or the Case Ledger opens. Retired campaigns are excluded from the GM's campaign list but the data is not deleted.
+Yes. The GM can **retire** a campaign, which sets `is_retired = true` on the Campaign record and detaches all living active/pending characters (sets their `campaign_id` to null and status to `unaffiliated`, so their players can use them in another campaign; a dead one stays `retired` with the campaign). A retirement notice is broadcast via WebSocket to any connected players, and a hub reads its lists again when the tab comes back or the Case Ledger opens. Retired campaigns are excluded from the GM's campaign list but the data is not deleted: they lie in the Lightkeeper Ledger's Retired list, where Restore brings one back. Restoring puts nobody back on its roster (the investigators it let go stay with their players, a dead one stays retired with it) and it takes members again.
 
 ---
 

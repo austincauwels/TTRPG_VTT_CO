@@ -190,7 +190,7 @@ export const DeskStyles = () => (
        middle (.candle-center). The boxes never transition: under reduced motion every
        element gets a tiny transition (index.css), which would let the hub read the
        candles' old place back right after moving them (useCastShadows.js). */
-    .candle-box { top: 2px; left: 6px; width: var(--cw); aspect-ratio: 230 / 190; transition: none; }
+    .candle-box { top: 2px; left: 6px; width: var(--cw); aspect-ratio: 230 / 190; transition: none; pointer-events: none; cursor: default; }
     @media (min-width: 640px) { .candle-box { top: 4px; left: 14px; } }
 
     /* ── Phones and tablets: the hub is one screen tall (owner's round 3 item 28) ──

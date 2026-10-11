@@ -71,7 +71,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy
                   {...props}
                   className={`disabled:opacity-50 disabled:cursor-wait min-h-[40px] md:[@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border rounded transition-colors ${
                     armed
-                      ? 'bg-ink text-cream border-ink hover:bg-oxblood'
+                      ? 'bg-ink text-cream border-ink'
                       : 'border-sepia/50 text-sepia hover:bg-sepia/10'
                   }`}
                 >
