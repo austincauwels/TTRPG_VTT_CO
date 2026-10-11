@@ -563,7 +563,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   });
 
   const handleSpendDrive = (pool, value) => {
-    if (readOnly) return;
+    if (readOnly || dead) return;
     const maxDrive = character[`${pool}_max`] || 1;
     if (value >= 0 && value <= maxDrive) updateDrive(pool, value);
   };
@@ -612,6 +612,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The trauma record in edit mode (the Lightkeeper's copy): each change goes to the table
   // at once; Done also saves scar words changed and not yet saved
   const editing = !!traumaEdit && editingTrauma;
+  // Once dead, a player's own sheet is a record: no roll, mark, drive or gear (the server refuses them)
+  const dead = !readOnly && !!character?.is_dead;
   // whose record the Lightkeeper's edit is on, in the hint and the toggle's name
   const recordOf = character?.name ? `${character.name}'s ` : 'the ';
   // The mark waiting for its Undo fills its track, after any the table holds: a scar
@@ -824,7 +826,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
               <SafeIcon name="GiBriefcase" size={18} /> Gear
             </h3>
-            {!readOnly && (
+            {!readOnly && !dead && (
               <button
                 type="button"
                 onClick={openGearModal}
@@ -1009,17 +1011,17 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       <button
                         key={i}
                         type="button"
-                        disabled={!(!readOnly && i < maxDrive && i >= currentDrive)}
+                        disabled={!(!readOnly && !dead && i < maxDrive && i >= currentDrive)}
                         aria-label={`Set ${cat.name} available to ${i + 1}`}
-                        aria-hidden={!readOnly && i < maxDrive && i >= currentDrive ? undefined : true}
-                        onClick={!readOnly && i < maxDrive && i >= currentDrive ? () => handleSpendDrive(cat.driveKey, i + 1) : undefined}
+                        aria-hidden={!readOnly && !dead && i < maxDrive && i >= currentDrive ? undefined : true}
+                        onClick={!readOnly && !dead && i < maxDrive && i >= currentDrive ? () => handleSpendDrive(cat.driveKey, i + 1) : undefined}
                         className={`drive-pip w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all ${
                           i < currentDrive
                             ? ''
                             : i < maxDrive
                               ? 'bg-transparent border-ink/40 hover:border-oxblood/50'
                               : 'bg-transparent border-dotted border-ink/30 opacity-40'
-                        } ${!readOnly && i < maxDrive && i >= currentDrive ? 'cursor-pointer' : 'cursor-default'}`}
+                        } ${!readOnly && !dead && i < maxDrive && i >= currentDrive ? 'cursor-pointer' : 'cursor-default'}`}
                         style={i < currentDrive ? { background: `rgb(var(--c-drive-${cat.driveKey}))`, borderColor: `rgb(var(--c-drive-${cat.driveKey}))` } : undefined}
                       />
                     ))}
@@ -1101,7 +1103,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       ))}
                     </span>
                   );
-                  const rollBlocked = !!pendingGildedChoice || !!isRolling;
+                  const rollBlocked = !!pendingGildedChoice || !!isRolling || dead;
                   const infoKey = `${infoId}-${act.key}`;
 
                   return (
@@ -1241,7 +1243,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 const cell = readOnly && !editing ? 'w-7 h-9' : 'w-11 h-11 md:w-9';
                 return (
                   <div key={type} className="mark-row flex justify-between items-center gap-2">
-                    {readOnly ? (
+                    {readOnly || dead ? (
                       <span className="mark-label font-sans font-black uppercase tracking-widest text-sm text-ink">{name}</span>
                     ) : (
                       <button
@@ -1324,9 +1326,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   Create a new investigator
                 </button>
               )}
-              {character?.incapacitated && !character?.is_dead && !readOnly && (
+              {character?.incapacitated && !character?.is_dead && (!readOnly || traumaEdit?.revive) && (
                 <button
-                  onClick={reviveCharacter}
+                  onClick={readOnly ? traumaEdit.revive : reviveCharacter}
                   className="min-h-[32px] [@media(pointer:coarse)]:min-h-[40px] px-2.5 py-1 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
                 >
                   Revive
@@ -1426,12 +1428,12 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <div className="trauma-edit col-span-full flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5 mt-3 pt-2 border-t border-dotted border-ink/30">
               {editing && (
                 <p className="font-serif text-sm italic text-sepia leading-snug min-w-0 flex-1 basis-56">
-                  Editing {recordOf}trauma record. Press a box to fill its track to it, or the last filled box to clear it. Removing a scar does not move back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, use Deal a mark.
+                  Editing {recordOf}trauma record. Press a box to fill its track to it, or the last filled box to clear it. Removing a scar gives back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, use Deal a mark.
                 </p>
               )}
               {/* Deal a mark: a story consequence, which offers what a mark the player takes
                   offers (playtest, lk-mark-skips-abilities) */}
-              {!editing && traumaEdit.dealMark && (
+              {!editing && traumaEdit.dealMark && !character?.is_dead && (
                 <div role="group" aria-label="Deal a mark" className="flex flex-wrap items-center gap-x-2 gap-y-1.5 min-w-0 flex-1 basis-64">
                   <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">Deal a mark</span>
                   {['body', 'brain', 'bleed'].map(type => (

@@ -734,15 +734,13 @@ const useGameStore = create(
                 get().fetchCircleCreationState(incoming.campaign_id);
               }
             }
-            // A line when the character drops incapacitated or dies. Incapacitated is not
-            // death (rulebook p. 14): it said "is deceased" for both, and said nothing when
-            // an incapacitated investigator then died
-            const becameDead = incoming.is_dead === true && !prevChar?.is_dead;
+            // A line when the character drops incapacitated. Incapacitated is not death
+            // (rulebook p. 14). A death is logged by the server, to every desk.
             const becameDown = incoming.incapacitated === true && !prevChar?.incapacitated && !incoming.is_dead;
-            if (becameDead || becameDown) {
+            if (becameDown) {
               // At the foot of the log, with the newest lines (it went to the top, the far
               // end of the log from where a line had just landed)
-              const line = { text: becameDead ? `${incoming.name} is deceased.` : `${incoming.name} is incapacitated.`,
+              const line = { text: `${incoming.name} is incapacitated.`,
                 type: 'danger', time: clockTime(new Date()), inkColor: incoming.ink_color };
               set(state => ({ activityLog: [...state.activityLog, line].slice(-LOG_LINES) }));
             }
@@ -1488,6 +1486,14 @@ const useGameStore = create(
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'revive_character', payload: {} }));
         }
+      },
+
+      // The Lightkeeper revives a member from the trauma record
+      gmRevive: (characterId) => {
+        const { socket } = get();
+        if (socket?.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'revive_character', payload: { character_id: characterId } }));
+        return true;
       },
 
       applyScar: (payloadData) => {

@@ -446,6 +446,25 @@ def _still_in_connect_campaign(ctx):
         _forbid()
 
 
+# What a dead investigator's own socket may no longer do: the sheet is a record once the
+# fourth scar is taken (p. 74). Chat, the notebook, the pen font and a new investigator stay.
+DEAD_REFUSED = frozenset({
+    "roll", "resolve_gilded", "use_post_roll_ability", "burn_resistance", "take_mark",
+    "resolve_ability_mark", "intercept_mark", "spend_resource", "update_drive", "update_gear",
+    "apply_advancement", "use_ability", "circle_relationship_propose",
+})
+
+
+def _dead_sheet(ctx, action, character):
+    """A dead investigator rolls, takes marks, changes gear or drives and spends the
+    circle's resources no more, from their own socket; the Lightkeeper's Deal a mark is
+    refused for them too. The Lightkeeper's other corrections to the record stand."""
+    if character is None or not character.is_dead:
+        return
+    if (not ctx.is_gm and action in DEAD_REFUSED) or (ctx.is_gm and action == "take_mark"):
+        raise Rejected(409, f"{character.name} is dead: the sheet is a record.")
+
+
 def check_message(ctx, action, payload, character):
     if ctx.is_gm and campaign_facts(ctx.db, ctx.camp_id) is None:
         # The campaign was deleted while its GM's socket was open. Deleting it closes
@@ -453,6 +472,7 @@ def check_message(ctx, action, payload, character):
         _not_found("Campaign")
     if not ctx.is_gm and ctx.camp_id is not None and action in PLAYER_CAMPAIGN_BROADCASTS:
         _still_in_connect_campaign(ctx)
+    _dead_sheet(ctx, action, character)
     rule = RULES.get(action)
     if rule is not None:
         rule(ctx, payload, character)

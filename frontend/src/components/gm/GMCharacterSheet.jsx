@@ -45,8 +45,8 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
 
-  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark, gmReturnSpend } = useGameStore(useShallow(s => ({
-    gmReturnSpend: s.gmReturnSpend, gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark })));
+  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark, gmReturnSpend, gmRevive } = useGameStore(useShallow(s => ({
+    gmReturnSpend: s.gmReturnSpend, gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark, gmRevive: s.gmRevive })));
   // Corrections on the trauma record (its Edit button, on this copy of the sheet only)
   const [traumaError, setTraumaError] = useState(null);
   const notConnected = 'Not connected to the table. Try again in a moment.';
@@ -70,6 +70,11 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
       return false;
     }
     return true;
+  };
+  // An incapacitated member back on their feet; the sheet follows when it lands (member_update)
+  const revive = () => {
+    setTraumaError(null);
+    if (!gmRevive(rosterItem.id)) setTraumaError(notConnected);
   };
   // A scar reworded, or removed when it was taken by mistake. Below four scars a dead
   // investigator is alive again and incapacitated (the fourth scar is the fatal one, p. 74;
@@ -210,7 +215,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
 
         {fullChar && !loading && (
           <>
-            <InvestigatorDossier character={sheet} readOnly traumaEdit={pending ? null : { setMarks, setScars, dealMark, error: traumaError }} />
+            <InvestigatorDossier character={sheet} readOnly traumaEdit={pending ? null : { setMarks, setScars, dealMark, revive, error: traumaError }} />
             {/* A request not yet approved is only read: nothing on it is the Lightkeeper's to spend or reset */}
             {pending ? null : <>
             <SpendBack character={sheet} onGive={(resource) => gmReturnSpend(rosterItem.id, resource)} />

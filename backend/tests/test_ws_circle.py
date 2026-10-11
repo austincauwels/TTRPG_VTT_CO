@@ -180,7 +180,7 @@ def _after_member_update(msgs):
 def test_gm_update_scars_rewords_and_removes(client):
     """The Lightkeeper's trauma record edit: a scar reworded, then one removed. The
     player's sheet is told, the table's log says so, and the action point the scar
-    shifted stays where it is."""
+    shifted goes back when the scar is removed (the shift note ends its text)."""
     camp, (member,), _ = _campaign(client, scars_list=SCARS, scars_count=3, strike=0, sense=2)
     name = member["name"]
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
@@ -203,10 +203,39 @@ def test_gm_update_scars_rewords_and_removes(client):
         assert wm.drain()[0]["payload"]["scars_list"] == [stored[0], stored[2]]
         gm.send("gm_update_scars", character_id=member["id"], scars=[], previous=[stored[0], stored[2]])
         msgs = _after_member_update(gm.sync())
-        assert msgs[0]["payload"]["message"] == f"The Lightkeeper removed 2 scars from {name}'s record (0 of 4)."
+        assert msgs[0]["payload"]["message"] == (f"The Lightkeeper removed 2 scars from {name}'s record (0 of 4). "
+                                                 "Its action shift is taken back: (-1 Strike, +1 Sense).")
     row = support.fetch(Character, member["id"])
     assert (row.scars_list, row.scars_count) == ([], 0)
-    assert (row.strike, row.sense, row.is_dead) == (0, 2, False)
+    assert (row.strike, row.sense, row.is_dead) == (1, 1, False)
+
+
+def test_gm_update_scars_gives_back_only_a_known_shift(client):
+    """A shift goes back for a scar taken out with nothing reworded beside it, within 0 to
+    3; a scar with no note (Hardened, Not Again, hand-written) moves nothing."""
+    stored = ["Burn (-1 Strike, +1 Sense)", "Cut (-1 Survey, +1 Focus)", "Kept (Hardened: no action shift)"]
+    camp, (member,), _ = _campaign(client, scars_list=stored, scars_count=3, strike=0, sense=3, survey=0, read=3)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        # Reworded in the same save: which scar went is not known, so nothing moves
+        gm.send("gm_update_scars", character_id=member["id"], scars=["Burn!", stored[2]], previous=stored)
+        gm.sync()
+        row = support.fetch(Character, member["id"])
+        assert (row.strike, row.sense, row.survey, row.read) == (0, 3, 0, 3)
+        stored = ["Burn!", stored[2]]
+        gm.send("gm_update_scars", character_id=member["id"], scars=[stored[0]], previous=stored)
+        gm.sync()
+        assert support.fetch(Character, member["id"]).sense == 3
+        gm.send("gm_update_scars", character_id=member["id"], scars=[], previous=[stored[0]])
+        gm.sync()
+    row = support.fetch(Character, member["id"])
+    assert (row.strike, row.sense, row.survey, row.read) == (0, 3, 0, 3)
+    # An action already at 3 cannot go back up, so that shift stays
+    camp, (full,), _ = _campaign(client, scars_list=stored[:1], scars_count=1, strike=3, sense=1)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_update_scars", character_id=full["id"], scars=[], previous=stored[:1])
+        gm.sync()
+    assert support.fetch(Character, full["id"]).scars_list == []
+    assert (support.fetch(Character, full["id"]).strike, support.fetch(Character, full["id"]).sense) == (3, 1)
 
 
 def test_gm_update_scars_refusals(client):
@@ -328,10 +357,14 @@ def test_a_death_and_its_undo_reach_the_other_players(client):
             support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, elsewhere["id"]) as we:
         wd.send("apply_scar", scar_text="The last one", skip_shifts=True)
         seen = wd.sync()
-        assert support.types(seen) == ["character_update", "member_status"]
+        assert support.types(seen) == ["character_update", "member_status", "activity_log"]
         assert seen[0]["payload"]["is_dead"] is True and seen[1] == status(True)
-        assert wa.drain() == [status(True)]
-        assert support.types(gm.drain()) == ["member_update"]
+        # Every desk, the Lightkeeper's too, is told of the death in its log
+        said = {"type": "activity_log", "payload": {
+            "message": f"{dying['name']} is deceased: a fourth scar.", "log_type": "danger", "ink_color": seen[2]["payload"]["ink_color"]}}
+        assert seen[2] == said
+        assert wa.drain() == [status(True), said]
+        assert support.types(gm.drain()) == ["member_update", "activity_log"]
         # Rewording a dead investigator's scars changes nothing on the players' rosters
         gm.send("gm_update_scars", character_id=dying["id"], scars=SCARS + ["The last"], previous=four)
         assert support.types(gm.sync()) == ["member_update", "activity_log"]

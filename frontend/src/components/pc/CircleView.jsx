@@ -537,6 +537,7 @@ export const CircleView = () => {
   const lastSpendAt = useRef(0);
   // Why a player cannot spend now, said once above the buttons (not only in a hover title)
   const spendBlock = isGM ? null
+    : character?.is_dead ? 'A dead investigator cannot spend the circle\'s resources.'
     : !circle?.resources_editable ? 'Spending is locked until the Lightkeeper opens it.'
     : (character?.resources_spent_assignment || 0) >= 2 ? 'You have spent both of your two this assignment.'
     : null;

@@ -126,7 +126,7 @@ The `trigger_scar` event opens the Scar Modal on the affected player's screen. T
 
 The server appends the scar text to `character.scars_list` (a JSON array) and increments `scars_count`. The Action Point Shift is applied to the two specified action columns.
 
-After an incapacitation, **a GM can revive the character** (`revive_character` action), which clears the `incapacitated` flag and resets all three mark tracks to 0 so the character can act again.
+After an incapacitation, **a GM can revive the character** (`revive_character` action, the Revive button on the Lightkeeper's copy of the sheet), which clears the `incapacitated` flag and resets all three mark tracks to 0 so the character can act again.
 
 ---
 
@@ -136,7 +136,7 @@ After an incapacitation, **a GM can revive the character** (`revive_character` a
 
 Death triggers automatically when a character's `scars_count` reaches **4** during `apply_scar`. The server sets both `is_dead = true` and `incapacitated = true`.
 
-There is no mechanical enforcement beyond those flags — the frontend reflects the dead state visually. A GM can still manually issue `revive_character` to clear `incapacitated` (e.g., for narrative resurrection), though `is_dead` remains `true` as a permanent record. Dead characters remain in the campaign roster; they are not deleted or removed.
+Once dead, the sheet is a record: the server refuses the dead investigator's own `roll`, `take_mark`, `update_gear`, `update_drive`, `spend_resource`, `use_ability`, advancement, relationship proposals and the rest of the sheet's actions (409, "<name> is dead: the sheet is a record."), and the Lightkeeper's Deal a mark, and the desk shows the controls off. Chat, the notebook and Create a new investigator stay. The death is logged to every desk, the Lightkeeper's included ("<name> is deceased: a fourth scar."). A GM can still issue `revive_character` to clear `incapacitated` (e.g., for narrative resurrection), though `is_dead` remains `true` as a permanent record. The Lightkeeper's copy of an incapacitated investigator's sheet has a Revive button beside the status stamp. Dead characters remain in the campaign roster; they are not deleted or removed.
 
 ---
 

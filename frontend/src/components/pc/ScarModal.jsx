@@ -91,7 +91,9 @@ const ScarModal = () => {
     }
 
     const shiftNote = keep ? scarShiftNote(null, null, keepsByAbility ? ability : 'Hardened') : scarShiftNote(degradeAction, advanceAction);
-    const finalNotes = `${medicalNotes.trim()} ${shiftNote}`;
+    // A player who copies the format of an earlier scar types the note too: it appears once
+    const typed = medicalNotes.trim().replace(/\s*\((?:-1 [^,()]+, \+1 [^()]+|[^()]+: no action shift)\)$/, '').trim();
+    const finalNotes = `${typed || medicalNotes.trim()} ${shiftNote}`;
 
     const sent = applyScar({
       scar_text: finalNotes,
