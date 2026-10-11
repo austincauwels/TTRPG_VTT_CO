@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from engine import (
-    ALREADY_ON_A_ROSTER, INK_COLORS, create_new_campaign, request_join_campaign,
+    ALREADY_ON_A_ROSTER, INK_COLORS, by_campaign_code, create_new_campaign, request_join_campaign,
     approve_investigator, reject_investigator, get_campaign_roster,
 )
 from models import INCLUDE_DELETED, Campaign, Character, Circle, User
@@ -50,9 +50,10 @@ CODE_KEPT_FOR_RESTORE = ("A campaign you deleted still holds this code, so that 
 def _code_taken(db: Session, code: str):
     """The campaign that holds the code, as (gm_user_id, deleted_at), or None. A deleted
     campaign keeps its code (the unique index still holds it, and a restore needs it
-    back), so its code counts as taken."""
+    back), so its code counts as taken. A code that differs from a held one only in case
+    counts as taken too, so that a player is never sent to the wrong campaign."""
     return db.query(Campaign.gm_user_id, Campaign.deleted_at).execution_options(**{INCLUDE_DELETED: True}).filter(
-        Campaign.campaign_code == code).first()
+        func.lower(Campaign.campaign_code) == code.lower()).first()
 
 
 def _code_refused(holder, user: User) -> HTTPException:
@@ -100,7 +101,7 @@ async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', 
     if not _ALLOWED_CAMPAIGN_CODE_RE.match(code):
         raise HTTPException(status_code=422, detail="Invalid campaign code format")
     require_owner(user, character_or_404(db, character_id))
-    target = db.query(Campaign.is_retired).filter(Campaign.campaign_code == code).first()
+    target = by_campaign_code(db.query(Campaign.is_retired), code).first()
     if target is not None:
         _refuse_retired(target.is_retired)
     if pen_font not in _SAFE_FONT_NAMES:
@@ -288,7 +289,7 @@ def rejoin(db: Session, campaign_code: str, character_id: int, user: User):
     a rejoin that went through (its answer was lost): the same answer, nothing changes
     (changed is False). Any other character on a roster is refused as a join refuses
     it (409, engine.ALREADY_ON_A_ROSTER), after the caller's own checks."""
-    campaign = db.query(Campaign).filter(Campaign.campaign_code == campaign_code) \
+    campaign = by_campaign_code(db.query(Campaign), campaign_code) \
         .populate_existing().with_for_update(read=True).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
