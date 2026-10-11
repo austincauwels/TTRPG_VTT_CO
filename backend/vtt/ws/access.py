@@ -491,6 +491,13 @@ def _dead_sheet(ctx, action, character):
     refused for them too. The Lightkeeper's other corrections to the record stand."""
     if character is None or not character.is_dead:
         return
+    if action == "resolve_gilded" and not ctx.is_gm:
+        # A roll made in life whose die is still to be kept (the mark that followed it
+        # brought the fourth scar) is finished: the server holds its dice, and without the
+        # choice it was never scored or logged, and its Keep buttons failed on every connect
+        from vtt.ws.handlers.rolls import holds_roll
+        if holds_roll(character.id):
+            return
     if (not ctx.is_gm and action in DEAD_REFUSED) or (ctx.is_gm and action == "take_mark"):
         raise Rejected(409, f"{character.name} is dead: the sheet is a record.")
 

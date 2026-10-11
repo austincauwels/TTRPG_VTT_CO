@@ -1047,6 +1047,34 @@ def test_a_gilded_choice_held_over_end_assignment_is_settled(client, dice):
     assert support.fetch(Character, a["id"]).nerve_resistance_spent == 0
 
 
+def test_a_die_kept_from_the_assignment_before_settles_no_new_roll(client, dice):
+    """A gilded die held over End Assignment and kept in the next one was thrown to the
+    table, and its dice settled every roll made since, so another player's fresh roll lost
+    its burn to a roll that no longer counts (final check of playtest 2). Its dice_thrown
+    says settles: false, and the other roll can still be burned on."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=2, gilded_move=True, nerve_max=6)
+    b = support.active_member(client, camp, move=1, nerve_max=6)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa, \
+            support.ws_connect(client, b["id"]) as wb:
+        dice(3, 5)
+        wa.send("roll", action="move", drive_spent=0)
+        wa.sync()
+        gm.send("gm_end_assignment")
+        gm.sync()
+        dice(2)
+        wb.send("roll", action="move", drive_spent=0)
+        wb.sync()
+        wa.send("resolve_gilded", action="move", chosen_type="regular")
+        wa.sync()
+        thrown = support.of_type(wb.sync(), "dice_thrown")
+        assert thrown[0]["payload"]["settles"] is False
+        dice(4)
+        wb.send("burn_resistance", action="move")
+        assert "action_rejected" not in support.types(wb.sync())
+    assert support.fetch(Character, b["id"]).nerve_resistance_spent == 1
+
+
 def test_a_desk_that_missed_the_settling_dice_is_told_when_it_opens(client, dice):
     """Fixed (playtest 2 review, roll-settling-client-server-mismatch): a desk that was
     away while another roll settled its own still offered the burn, which the server then

@@ -39,6 +39,11 @@ _pending_gilded: dict = {}
 
 NO_CHOICE_WAITING = "No roll is waiting for a die to be kept. Roll again."
 
+
+def holds_roll(character_id) -> bool:
+    """A gilded roll of this character waits for its die to be kept."""
+    return character_id in _pending_gilded
+
 # The last roll each channel sent with a roll_id, and the roll_result that answered it:
 # {channel: {"roll_id", "payload"}}. A desk that heard nothing back (a connection that
 # stalled without closing) sends the same roll again, with the same id, once it has
@@ -128,15 +133,19 @@ def settle_rolls(campaign_id, keep=None, held=False):
                 pending["settled"] = True
 
 
-async def _dice_thrown(ctx, character, action, roll, rating, kept=None):
+async def _dice_thrown(ctx, character, action, roll, rating, kept=None, settles=True):
     """Tells the rest of the table that these dice are tumbling now (dice_thrown). They
     settle everyone else's roll, the Lightkeeper's dice too, as they settle it on the
     desks: a secret roll the table never sees does not, and a gilded roll does when its
-    die is kept (playtest 2, roll-settling-client-server-mismatch)."""
-    settle_rolls(ctx.camp_id, keep=character.id if character is not None else None)
+    die is kept (playtest 2, roll-settling-client-server-mismatch). A die kept from a roll
+    End Assignment settled does not (settles False, sent as settles: false): that roll
+    belongs to the assignment before, and took the burn off the rolls made since."""
+    if settles:
+        settle_rolls(ctx.camp_id, keep=character.id if character is not None else None)
+    extra = {} if settles else {"settles": False}
     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
         "type": "dice_thrown",
-        "payload": {
+        "payload": {**extra,
             "character_id": character.id if character is not None else None,
             "campaign_id": ctx.camp_id,
             "name": character.name if character is not None else "Lightkeeper",
@@ -555,13 +564,16 @@ async def handle_resolve_gilded(ctx):
     log_msg = f"{character.name} {verb} {r_act} — {chosen_value} · {outcome_label} {dice_text}."
 
     changed = False
-    if want_gilded:
+    # A roll made in life, kept after the death it led to: scored and logged, but the sheet
+    # is a record now, so no drive comes back and it is never burned on
+    dead = bool(character.is_dead)
+    if want_gilded and not dead:
         # the action's own drive (p. 8), whichever drive the roll spent
         act_drive = drive_for_action(r_act)
         setattr(character, f"{act_drive}_current", min(getattr(character, f"{act_drive}_max", 3), getattr(character, f"{act_drive}_current") + 1))
         changed = True
         log_msg += f" [gilded — {act_drive} Drive refreshed]"
-    if outcome_key == "failure" and r_cat == "intuition" and spent > 0 \
+    if outcome_key == "failure" and r_cat == "intuition" and spent > 0 and not dead \
             and "Well-Read" in abilities_of(character):
         character.intuition_current = min(character.intuition_max or 3, (character.intuition_current or 0) + spent)
         changed = True
@@ -569,7 +581,7 @@ async def handle_resolve_gilded(ctx):
     if changed:
         db.commit()
     # A roll held over End Assignment is settled: no burn or post-roll ability answers it
-    if pending.get("settled"):
+    if pending.get("settled") or dead:
         _settled_roll.add(character.id)
     else:
         _remember(character, r_act, r_cat, chosen_value, outcome_key, pending["secret"])
@@ -585,7 +597,8 @@ async def handle_resolve_gilded(ctx):
         # The kept die starts the dice tumbling on the roller's felt: the table sees them now
         shown = {**roll, "needs_gilded_choice": False, "result": chosen_value, "outcome": outcome_key}
         await _dice_thrown(ctx, character, r_act, shown, pending["rating"],
-                           kept={"index": index, "is_gilded": want_gilded, "value": chosen_value})
+                           kept={"index": index, "is_gilded": want_gilded, "value": chosen_value},
+                           settles=not pending.get("settled"))
     await _log_roll(ctx, character, log_msg, secret=pending["secret"])
     if changed:
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})

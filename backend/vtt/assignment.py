@@ -65,3 +65,16 @@ def clear_paperwork(circle):
     answers[ASSIGNMENT] = assignment_number(answers) + 1
     circle.backstory_answers = answers
     circle.reports_open = False
+
+
+def end_assignment_for(character):
+    """What End Assignment resets on an investigator: the ability uses, the circle spends
+    and the Train dice of the assignment, and the gear, which "Gear slots only reset once
+    an assignment is complete" (rulebook p. 52). Retiring a campaign ends its assignment
+    too, for each investigator it lets go: one who joined another campaign started there
+    with the spends and uses of the old one (final check of playtest 2)."""
+    character.ability_uses = {}
+    character.resources_spent_assignment = 0
+    character.train_bonus = False
+    character.train_dice = 0
+    character.gear = []

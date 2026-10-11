@@ -38,6 +38,7 @@ def get_user_characters(user_id: int, db: Session = Depends(get_db), user: User 
             role_ability=c.role_ability or "None",
             specialty_ability=c.specialty_ability or "None",
             status=c.status,
+            is_dead=bool(c.is_dead),
             campaign_id=c.campaign_id,
             campaign_name=camp.name if camp else None,
             campaign_code=camp.campaign_code if camp else None,

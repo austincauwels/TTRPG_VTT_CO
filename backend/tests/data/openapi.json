@@ -1203,6 +1203,11 @@
             "title": "Id",
             "type": "integer"
           },
+          "is_dead": {
+            "default": false,
+            "title": "Is Dead",
+            "type": "boolean"
+          },
           "name": {
             "title": "Name",
             "type": "string"

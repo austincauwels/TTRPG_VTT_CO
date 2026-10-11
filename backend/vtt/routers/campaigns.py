@@ -16,6 +16,7 @@ from engine import (
 )
 from models import INCLUDE_DELETED, Campaign, Character, Circle, User
 from vtt import deletion
+from vtt.assignment import end_assignment_for
 from vtt.auth import (
     campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
     require_gm_of_character, require_gm_or_member, require_owner, require_self,
@@ -253,6 +254,8 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
             c.status = "unaffiliated"
             c.campaign_id = None
             c.ink_color = ""
+            # its assignment ends with the campaign: no spends, uses or gear carried over
+            end_assignment_for(c)
             released.append(c)
     db.commit()
     message = {
@@ -471,8 +474,11 @@ async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session
     living = next((c.name for c in here if c.status == "active" and not c.is_dead), None)
     invitee.pending_rejoin_campaign_id = campaign_id
     db.commit()
-    # the investigator's name, not the player's login name, which every member would read
-    who = living or (here[0].name if here else "a player")
+    # named after the player's seat (their investigator here, living or last), not the
+    # login name, which every member would read. "invited <dead investigator> back" read as
+    # bringing the dead back, and the player comes back with a new investigator
+    seat = living or (here[0].name if here else None)
+    who = f"{seat}'s player" if seat else "a player"
     await log_line(db, campaign.campaign_code, campaign_id, f"The Lightkeeper invited {who} back.")
 
     # Attempt live delivery to any character websocket this user owns

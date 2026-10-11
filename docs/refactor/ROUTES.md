@@ -133,7 +133,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: `campaign_id`.
 - Tables: campaigns (read), users (set pending_rejoin_campaign_id), characters (read the user's characters).
 - Broadcast: `gm_rejoin_invite` `{campaign_id, campaign_name, campaign_code}` to every character channel of that user.
-- Also writes an Activity Log line ("The Lightkeeper invited <name> back.", the name being the invitee's investigator here, living or last, or "a player"; never the login name, which every member would read).
+- Also writes an Activity Log line ("The Lightkeeper invited <name>'s player back.", the name being the invitee's investigator here, living or last, or "The Lightkeeper invited a player back."; never the login name, which every member would read). Until 2026-10-11 it read "invited <name> back", which after a death named the dead investigator as if they were coming back.
 - Response: `{"ok": true, "current_investigator": <name of the invitee's living active investigator here, or null>}`, which the invite slip shows in oxblood because accepting retires that investigator. The player is told too: the invite banner and the rejoin step of the creator name the investigators that rejoining retires. 404 if campaign or user is missing (the 404 also confirms whether a username exists).
 
 **GET /campaign/{campaign_id}/roster** (line 663, `def`, `response_model=RosterResponse`)
@@ -256,6 +256,7 @@ The next two routes were added after the baseline, with the sketch sheet, in `vt
 
 **GET /api/users/{user_id}/characters** (line 1251, `def`, `response_model=List[CharacterSummaryItem]`)
 - Trusted ids: `user_id`. Tables: characters, campaigns. Anyone can list anyone's characters.
+- Since 2026-10-11 each item carries `is_dead` (a dead investigator keeps status `active` on its roster), so the hub's invite banner names only a living investigator as the one coming back retires.
 
 **GET /api/users/{user_id}/campaigns** (line 1275, `def`, `response_model=List[CampaignSummaryItem]`)
 - Trusted ids: `user_id`. Tables: campaigns (non-retired with that GM). Returns campaign codes, which are the GM WebSocket channel names.

@@ -398,6 +398,23 @@ async def send_held_mark(websocket, character):
         await websocket.send_json({"type": "ability_mark_offer", "payload": held["offer"]})
 
 
+async def close_offers_at_death(character):
+    """The fourth scar: what the investigator could still answer goes, since a dead
+    investigator's answers are refused (vtt.ws.access DEAD_REFUSED). A soak or Death Defy
+    offer that holds a mark is dropped and its mark is not taken (the sheet is a record
+    now), and the desk is told (mark_offer_closed with dropped), so its card goes and is
+    not sent again on the next connect; an Adrenaline Rush and a Non-Combatant drive
+    point waiting go too. The offer could be open then: a mark the Lightkeeper dealt while
+    the fourth scar was still to be recorded."""
+    _pending_rush.pop(character.id, None)
+    _non_combatant.pop(character.id, None)
+    held = _pending_marks.pop(character.id, None)
+    if held:
+        await manager.broadcast(character_key(character.id), {"type": "mark_offer_closed", "payload": {
+            "character_id": character.id, "ability": held.get("offer", {}).get("ability"),
+            "mark_type": held["mark_type"], "dropped": True}})
+
+
 async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False, offer_intercepts=True,
                         soaks=True, passed_on=None):
     """take_mark's flow: a soak offer, then Death Defy for an enemy's mark, then the mark.

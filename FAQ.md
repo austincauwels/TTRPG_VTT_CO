@@ -138,7 +138,7 @@ After an incapacitation, **a GM can revive the character** (`revive_character` a
 
 Death triggers automatically when a character's `scars_count` reaches **4** during `apply_scar`. The server sets both `is_dead = true` and `incapacitated = true`.
 
-Once dead, the sheet is a record: the server refuses the dead investigator's own `roll`, `take_mark`, `update_gear`, `update_drive`, `spend_resource`, `use_ability`, advancement, relationship proposals and the rest of the sheet's actions (409, "<name> is dead: the sheet is a record."), and the Lightkeeper's Deal a mark, and the desk shows the controls off. Chat, the notebook and Create a new investigator stay. The death is logged to every desk, the Lightkeeper's included ("<name> is deceased: a fourth scar."). A GM can still issue `revive_character` to clear `incapacitated` (e.g., for narrative resurrection), though `is_dead` remains `true` as a permanent record. The Lightkeeper's copy of an incapacitated investigator's sheet has a Revive button beside the status stamp. Dead characters remain in the campaign roster; they are not deleted or removed.
+Once dead, the sheet is a record: the server refuses the dead investigator's own `roll`, `take_mark`, `update_gear`, `update_drive`, `spend_resource`, `use_ability`, advancement, relationship proposals and the rest of the sheet's actions (409, "<name> is dead: the sheet is a record."), and the Lightkeeper's Deal a mark, and the desk shows the controls off: no ability Use, no Burn and reroll or post-roll ability. A gilded roll made in life whose die is still to be kept when the fourth scar comes can still be kept (it is scored and logged, with no drive back), and a soak or Death Defy offer open at the death closes, its mark not taken. Chat, the notebook and Create a new investigator stay. The death is logged to every desk, the Lightkeeper's included ("<name> is deceased: a fourth scar."). A GM can still issue `revive_character` to clear `incapacitated` (e.g., for narrative resurrection), though `is_dead` remains `true` as a permanent record. The Lightkeeper's copy of an incapacitated investigator's sheet has a Revive button beside the status stamp. Dead characters remain in the campaign roster; they are not deleted or removed.
 
 ---
 
@@ -261,7 +261,7 @@ Nothing reaches the server until it is pinned or added. Until then a private not
 
 ### Who reads a passed note?
 
-A player's To: list offers @Circle, @Lightkeeper only and the other investigators (not the sender). A private note to an investigator is shown to the Lightkeeper too, and its label says so; a note to @Lightkeeper alone reaches no other player. The name Lightkeeper is reserved at the server, so no investigator can share the recipient's name.
+A player's To: list offers @Circle, @Lightkeeper only and the other investigators (not the sender). A private note to an investigator is shown to the Lightkeeper too, and its label says so; a note to @Lightkeeper alone reaches no other player. The server reads @Lightkeeper as the Lightkeeper alone, even when an investigator is named Lightkeeper; nothing stops that name, but the To: list leaves such an investigator out, so no private note can be passed to them.
 
 ## What the Lightkeeper's changes look like on the players' desks (since 2026-10-10)
 

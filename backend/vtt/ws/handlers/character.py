@@ -13,7 +13,7 @@ from vtt.creation import ACTION_LABELS
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import scar_ability
 from vtt.ws.handlers.circle import announce_death, announce_downed
-from vtt.ws.handlers.marks import awaiting_scar
+from vtt.ws.handlers.marks import awaiting_scar, close_offers_at_death
 from vtt.ws.manager import character_key, manager
 
 
@@ -33,7 +33,10 @@ async def handle_update_drive(ctx):
         before = getattr(character, f"{pool}_current", 0) or 0
         setattr(character, f"{pool}_current", value)
         db.commit()
-        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        # To the character's own channel, as revive_character: a pip the Lightkeeper sets
+        # from her copy of the sheet must reach the player's desk too (her desk follows
+        # through member_update)
+        await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
         # A pip set by hand, up or down, tells the table (not for a character still waiting to be approved); a spend or a refill from a roll has its own line
         if value != before and character.status == "active":
             who = f"The Lightkeeper set {character.name}'s" if ctx.is_gm else f"{character.name} set"
@@ -88,6 +91,7 @@ async def handle_apply_scar(ctx):
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     if character.is_dead and not was_dead:
+        await close_offers_at_death(character)
         await announce_death(ctx, character)
         # Every desk's log, the Lightkeeper's too: a card leaving Your Circle needs a reason
         await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
@@ -166,7 +170,8 @@ async def handle_update_gear(ctx):
             return
         character.gear = new_gear
         db.commit()
-        await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+        # To the character's own channel, as update_drive: a Lightkeeper's correction reaches the player's desk
+        await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
         gear_names = ", ".join(new_gear) if new_gear else "nothing"
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",

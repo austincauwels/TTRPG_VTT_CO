@@ -14,7 +14,7 @@ from collections import Counter
 
 from models import Character, Circle
 from vtt.abilities import MARK_TYPES, abilities_of
-from vtt.assignment import TALLY, answers_of, clear_paperwork, tally_of
+from vtt.assignment import TALLY, answers_of, clear_paperwork, end_assignment_for, tally_of
 from vtt.auth import ROSTER_STATUSES
 from vtt.circle_queries import circle_abilities, fill_resources, resolve_circle, resource_pool
 from vtt.creation import ACTION_LABELS
@@ -354,11 +354,7 @@ async def handle_gm_end_assignment(ctx):
             Character.status == "active"
         ).all()
         for ch in active_chars:
-            ch.ability_uses = {}
-            ch.resources_spent_assignment = 0
-            ch.train_bonus = False
-            ch.train_dice = 0
-            ch.gear = []  # "Gear slots only reset once an assignment is complete" (p. 52)
+            end_assignment_for(ch)
         target_circle.stamina_dice_used = 0  # Stamina Training's dice come back
         # The assignment's rolls are settled: none is burned on or answered after it ends
         # (playtest 2, stale-burn-offer-after-end-assignment)

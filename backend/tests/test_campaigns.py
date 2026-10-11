@@ -377,6 +377,26 @@ def test_retire_campaign(client):
     assert support.fetch(Character, rejected["id"]).status == "unaffiliated"
 
 
+def test_retire_ends_the_assignment_of_the_investigators_it_lets_go(client):
+    """A released investigator kept the retired campaign's spends, ability uses, Train
+    dice and gear, and started another campaign with "both of your two" spent (final
+    check of playtest 2). Retiring ends their assignment as End Assignment does; a dead
+    one, which stays with the campaign as its record, keeps what it had."""
+    camp = support.new_campaign(client)
+    used = dict(resources_spent_assignment=2, ability_uses={"Tactician": 1}, train_bonus=True, train_dice=1,
+                gear=["Lantern"])
+    living = support.active_member(client, camp)
+    dead = support.active_member(client, camp)
+    support.update(Character, living["id"], **used)
+    support.update(Character, dead["id"], is_dead=True, **used)
+    assert client.post(f"/campaign/{camp['id']}/retire", headers=support.as_gm(camp)).status_code == 200
+    row = support.fetch(Character, living["id"])
+    assert (row.resources_spent_assignment, row.ability_uses, row.train_bonus, row.train_dice, row.gear) == (
+        0, {}, False, 0, [])
+    row = support.fetch(Character, dead["id"])
+    assert (row.resources_spent_assignment, row.gear) == (2, ["Lantern"])
+
+
 def test_retire_keeps_the_dead_with_the_campaign(client):
     camp = support.new_campaign(client)
     dead = support.active_member(client, camp)
@@ -647,7 +667,9 @@ def test_invite_rejoin(client):
 
 def test_invite_rejoin_names_the_living_investigator_and_logs(client):
     """Accepting retires the player's investigator, so the invite says whom, and the table
-    gets a log line."""
+    gets a log line. The line names the player's seat, "<investigator>'s player": it read
+    "invited <name> back", which after a death named the dead investigator, as if they
+    were coming back (final check of playtest 2, invite-silently-retires-living-investigator)."""
     camp = support.new_campaign(client)
     u = support.make_user()
     old = support.active_member(client, camp, user_id=u.id)
@@ -656,8 +678,15 @@ def test_invite_rejoin_names_the_living_investigator_and_logs(client):
                         headers=support.as_gm(camp))
         logs = [m for m in gm.drain() if m["type"] == "activity_log"]
     assert r.json() == {"ok": True, "current_investigator": old["name"]}
-    assert [m["payload"]["message"] for m in logs] == [f"The Lightkeeper invited {old['name']} back."]
+    assert [m["payload"]["message"] for m in logs] == [f"The Lightkeeper invited {old['name']}'s player back."]
     assert u.username not in logs[0]["payload"]["message"]
+    support.update(Character, old["id"], is_dead=True)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        r = client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": u.username},
+                        headers=support.as_gm(camp))
+        logs = [m for m in gm.drain() if m["type"] == "activity_log"]
+    assert r.json() == {"ok": True, "current_investigator": None}
+    assert [m["payload"]["message"] for m in logs] == [f"The Lightkeeper invited {old['name']}'s player back."]
 
 
 def test_rejoin_keeps_the_players_spends_and_logs_the_arrival(client):
