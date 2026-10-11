@@ -42,7 +42,7 @@ def test_gm_update_circle_on_the_shared_circle_one_is_rejected(client):
         [msg] = support.of_type(sent, "circle_update")
         # What changed at the table is said in the log, to every desk (silent-table-changes)
         assert [m["payload"]["message"] for m in support.of_type(sent, "activity_log")] == [
-            "The Lightkeeper sent a dispatch.",
+            "The Lightkeeper sent a dispatch: Docks.",
             "The Lightkeeper raised the tension to 2 of 4.",
             "The Lightkeeper named the tension: Watch.",
         ]
@@ -577,7 +577,7 @@ def test_gm_end_assignment(client):
         assert (msgs[0]["payload"]["location"], msgs[0]["payload"]["atmosphere"]) == ("", "")
         assert msgs[0]["payload"]["dispatch_text"] == ""
         assert sorted(m["payload"]["id"] for m in msgs[1:3]) == sorted([a["id"], b["id"]])
-        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses, gear slots, the hourglass and the reports have been reset. {EM}",
+        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses and the hourglass are reset; marked gear is cleared. The reports have been reset. {EM}",
                                       "log_type": "field"}
         got = wa.drain()
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
@@ -1308,7 +1308,7 @@ def test_the_lightkeeper_resource_and_report_changes_are_logged(client):
         lines = [m["payload"]["message"] for m in support.of_type(wm.drain(), "activity_log")]
     assert lines[2].startswith("The Lightkeeper set the circle's Refresh to 4 (was ")
     assert lines[:2] + lines[3:] == [
-        "The Lightkeeper sent a dispatch.",
+        "The Lightkeeper sent a dispatch: Docks.",
         "The Lightkeeper raised the tension to 3 of 4.",
         "The Lightkeeper cleared the dispatch.",
         "The Lightkeeper lowered the tension to 1 of 4.",

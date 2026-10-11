@@ -45,10 +45,10 @@ def table_lines(before: dict, circle) -> list:
         had = any((before[k] or "").strip() for k in ("location", "atmosphere", "dispatch_text"))
         if not written:
             lines.append("The Lightkeeper cleared the dispatch.")
-        elif had:
-            lines.append("The Lightkeeper sent a new dispatch.")
         else:
-            lines.append("The Lightkeeper sent a dispatch.")
+            # The place is named, so the log still says where each dispatch sent them
+            where = f": {str(now['location']).strip()[:80]}" if (now["location"] or "").strip() else ""
+            lines.append(f"The Lightkeeper sent a {'new ' if had else ''}dispatch{where}.")
     old_t, new_t = before["tension_clock"] or 0, now["tension_clock"] or 0
     if isinstance(old_t, int) and isinstance(new_t, int) and old_t != new_t:
         lines.append(f"The Lightkeeper {'raised' if new_t > old_t else 'lowered'} the tension to {new_t} of 4.")
@@ -338,7 +338,7 @@ async def handle_gm_end_assignment(ctx):
             await manager.broadcast(character_key(ch.id), {"type": "character_update", "payload": get_char_dict(ch)})
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",
-            "payload": {"message": "— Assignment ended. Ability uses, gear slots, the hourglass and the reports have been reset. —", "log_type": "field"},
+            "payload": {"message": "— Assignment ended. Ability uses and the hourglass are reset; marked gear is cleared. The reports have been reset. —", "log_type": "field"},
         }, db)
         for ch in note_takers:
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
