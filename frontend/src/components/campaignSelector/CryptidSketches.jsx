@@ -56,11 +56,11 @@ const PAPERS = {
     gilt: [0, 1], creases: [[[0, 0.28], [1, 0.33]], [[0, 0.71], [1, 0.66]]],
     stain: { yellow: 0.18, fox: 5, rim: 0.8 },
   },
-  // A hand-coloured print pinned down with a brass tack, a corner curling up
+  // A hand-coloured print lying loose, a corner curling up
   pinned: {
     src: IMG + 'cryptids/sea-monk.webp', W: 236, H: 378, seed: 71, lazy: true,
     edges: ['deckle', 'deckle', 'deckle', 'deckle'], corners: { bl: { r: 6 } },
-    curl: 'br', tack: [0.14, 0.035], stain: { yellow: 0.26, fox: 9 },
+    curl: 'br', stain: { yellow: 0.26, fox: 9 },
   },
   // A photograph of the woodcut: sepia, a white deckle-cut border, three black album
   // corners still on it (the fourth came away)
@@ -231,7 +231,6 @@ export const CryptidSketch = ({ which, drop, className = '', notebook = null }) 
           {a.light && <span className="paper-light" style={{ backgroundImage: a.light }} />}
         </span>
         {p.photoCorners && <PhotoCorners at={p.photoCorners} W={p.W} H={p.H} />}
-        {p.tack && <span className="paper-tack" style={{ left: `${p.tack[0] * 100}%`, top: `${p.tack[1] * 100}%` }} />}
       </span>
     </div>
   );

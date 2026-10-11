@@ -263,23 +263,13 @@ function lightSvg(r, o, shape) {
 ${c.post ? `<g clip-path='url(#k${k})'>${postBack(tip, corner)}</g>` : ''}
 <path d='M${pt(a)}L${pt(b)}' stroke='#fffaf0' stroke-opacity='.45' stroke-width='.8'/>`);
   });
-  // the paper puckered round a tack
-  if (o.tack) {
-    const tx = o.tack[0] * W; const ty = o.tack[1] * H;
-    const rays = [0.5, 1.7, 2.6, 3.9, 5.1].map((ang) => {
-      const l = 7 + r() * 9;
-      return `M${n1(tx + Math.cos(ang) * 4)} ${n1(ty + Math.sin(ang) * 4)}l${n1(Math.cos(ang) * l)} ${n1(Math.sin(ang) * l)}`;
-    }).join('');
-    parts.push(`<g filter='url(#c)' fill='none'><path d='${rays}' stroke='#2b1708' stroke-opacity='.3' stroke-width='1.1'/>
-<path d='${rays}' stroke='#fff8ea' stroke-opacity='.35' stroke-width='.8' transform='translate(-0.8 -0.6)'/></g>`);
-  }
   if (!parts.length) return null;
   return svg(`${head(W, H)}<defs>${defs.join('')}</defs>${parts.join('')}</svg>`);
 }
 
 // { W, H, seed, edges: [top, right, bottom, left], corners: { tl: { r | ear | torn } },
-//   holes: [[x, y, r]], stain: {...}, creases: [[[x, y], [x, y]]], curl: 'br', gilt: [side],
-//   tack: [x, y] }  ->  { mask, stain, light }
+//   holes: [[x, y, r]], stain: {...}, creases: [[[x, y], [x, y]]], curl: 'br', gilt: [side] }
+//   ->  { mask, stain, light }
 export function agedPaper(o) {
   const r = rng(o.seed);
   const shape = outline(r, o);

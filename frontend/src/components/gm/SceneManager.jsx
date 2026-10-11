@@ -138,20 +138,31 @@ const keepMode = (mode) => {
 // A refusal that comes this soon after a send answers that send
 const REFUSAL_WINDOW_MS = 5000;
 
+const keptDraft = { circleId: undefined, location: '', atmosphere: '', ownText: '' };
+
 export const SceneManager = () => {
   const { circle, socket, accessSession, circleRefusal } = useGameStore();
 
   const [mode, setModeState] = useState(readMode);
   const setMode = (next) => { setModeState(next); keepMode(next); };
 
-  const [location,   setLocation]   = useState(circle?.location   || "");
-  const [atmosphere, setAtmosphere] = useState(circle?.atmosphere || "");
-  const [ownText,    setOwnText]    = useState(circle?.dispatch_text || "");
+  // An unsent draft outlives the section: the letter unmounts when the desk shows Map,
+  // Notebook or Circle, so it is kept at module level for this circle
+  const kept = circle?.id != null && keptDraft.circleId === circle.id ? keptDraft : null;
+  const [location,   setLocation]   = useState(kept ? kept.location   : circle?.location   || "");
+  const [atmosphere, setAtmosphere] = useState(kept ? kept.atmosphere : circle?.atmosphere || "");
+  const [ownText,    setOwnText]    = useState(kept ? kept.ownText    : circle?.dispatch_text || "");
+  useEffect(() => {
+    Object.assign(keptDraft, { circleId: circle?.id, location, atmosphere, ownText });
+  }, [circle?.id, location, atmosphere, ownText]);
 
-  // Sync inputs when circle data arrives (from Zustand rehydration or WebSocket update)
-  useEffect(() => { setLocation(circle?.location   || ""); }, [circle?.location]);
-  useEffect(() => { setAtmosphere(circle?.atmosphere || ""); }, [circle?.atmosphere]);
-  useEffect(() => { setOwnText(circle?.dispatch_text || ""); }, [circle?.dispatch_text]);
+  // Sync inputs when circle data arrives (from Zustand rehydration or WebSocket update),
+  // not on mount, where a kept draft stands
+  const mounted = useRef(false);
+  useEffect(() => { if (mounted.current) setLocation(circle?.location || ""); }, [circle?.location]);
+  useEffect(() => { if (mounted.current) setAtmosphere(circle?.atmosphere || ""); }, [circle?.atmosphere]);
+  useEffect(() => { if (mounted.current) setOwnText(circle?.dispatch_text || ""); }, [circle?.dispatch_text]);
+  useEffect(() => { mounted.current = true; }, []);
 
   // The location and atmosphere grow with what is written in them
   const locationRef = useRef(null);
