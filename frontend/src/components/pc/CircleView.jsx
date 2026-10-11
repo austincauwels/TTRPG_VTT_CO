@@ -174,9 +174,10 @@ export function AdvancementModal() {
   const close = () => { setSubmitted(false); setSelectedPicks([]); setDetails({}); dismissCircleAdvancement(); };
   const dialogRef = useDialog({ open: open || submitted, onClose: close, view: submitted });
   // Browser Back with picks half made closes the dialog (Later) and keeps the desk, rather
-  // than leaving for the hub (playtest, advancement-dialog-back-leaves-desk)
+  // than leaving for the hub (playtest, advancement-dialog-back-leaves-desk). It only puts
+  // the dialog away: the picks and their details are kept for Choose advancements.
   const picking = open && !submitted && selectedPicks.length > 0;
-  useEffect(() => (picking ? holdBack(close) : undefined), [picking]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => (picking ? holdBack(dismissCircleAdvancement) : undefined), [picking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const MAX_PICKS = picksLeft % 2 === 1 ? 1 : 2;
 
@@ -673,11 +674,15 @@ export const CircleView = () => {
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
               Insignia
             </span>
-            <div role="img" aria-label={`Insignia: ${insigniaLabel(circle?.insignia || 'GiCandleLight')}`} className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
+            {/* Named only once one is chosen; the stamp's candle is the blank seal until then */}
+            <div {...(circle?.insignia ? { role: 'img', 'aria-label': `Insignia: ${insigniaLabel(circle.insignia)}` } : { 'aria-hidden': true })}
+              className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
               <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
               <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={30} className="text-ink/85" />
             </div>
-            <span aria-hidden="true" className="font-serif text-xs italic text-sepia text-center">{insigniaLabel(circle?.insignia || 'GiCandleLight')}</span>
+            {circle?.insignia
+              ? <span aria-hidden="true" className="font-serif text-xs italic text-sepia text-center">{insigniaLabel(circle.insignia)}</span>
+              : <span className="text-sepia text-xs"><BlankEntry label="None chosen" className="!w-14" /></span>}
           </div>
         </div>
 

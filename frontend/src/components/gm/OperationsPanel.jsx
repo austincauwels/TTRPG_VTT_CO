@@ -244,6 +244,25 @@ export const OperationsPanel = () => {
                 {rosterFinalized && (
                   <div className="order-5 lg:order-none xl:row-start-2 xl:col-start-1 xl:w-full xl:max-w-[40rem] flex flex-col gap-3">
                     <FinalizedSlip pressed={sealedNow} />
+                    {/* A sealed campaign still takes join requests by its code; while any
+                        wait they lie under the slip, so the ledger's count has a place to
+                        be answered. None waiting, nothing shows. */}
+                    {(campaignRoster.pending_investigators || []).length > 0 && (
+                      <div className="mt-3">
+                        <CorrespondenceStack
+                          campaignRoster={campaignRoster}
+                          pendingIndex={pendingIndex}
+                          setPendingIndex={setPendingIndex}
+                          handleStamp={handleStamp}
+                          handleReject={handleReject}
+                          onView={handleSelectInvestigator}
+                          campaignCode={activeCampaignCode}
+                          error={requestError}
+                          busy={requestBusy}
+                          invite={false}
+                        />
+                      </div>
+                    )}
                     <InvitePlayer align="start" />
                   </div>
                 )}

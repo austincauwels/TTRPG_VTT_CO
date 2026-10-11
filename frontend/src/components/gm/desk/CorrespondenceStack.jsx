@@ -5,7 +5,7 @@ import { InvitePlayer } from './InvitePlayer';
 
 // Join requests, one card at a time with a pager, and under them the quiet Invite player
 // for a player the Lightkeeper brings back (InvitePlayer.jsx).
-export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIndex, handleStamp, handleReject, onView, campaignCode, error, busy = false }) => (
+export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIndex, handleStamp, handleReject, onView, campaignCode, error, busy = false, invite = true }) => (
   <>
     <div className="flex items-center gap-3 mb-4">
       <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
@@ -64,6 +64,6 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
       );
     })()}
     {error && <p role="alert" className="font-serif text-base text-oxblood-lit text-center mt-3">{error}</p>}
-    <InvitePlayer className="mt-3" />
+    {invite && <InvitePlayer className="mt-3" />}
   </>
 );

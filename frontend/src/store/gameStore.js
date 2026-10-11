@@ -1849,6 +1849,8 @@ const useGameStore = create(
               characters: state.characters.map(c =>
                 c.id === characterId ? { ...c, status: 'pending' } : c
               ),
+              // A new request: if this one ends, it is the Lightkeeper's answer again
+              withdrawnIds: state.withdrawnIds.filter(id => id !== characterId),
             }));
             // An open socket for this character still carries its old campaign.
             if (String(get().socketGameId) === String(characterId)) get().reconnect();
@@ -2272,6 +2274,8 @@ const useGameStore = create(
         await get().fetchUserData(get().accessSession?.userId);
         return result;
       },
+      // The hub has said "You withdrew ..." for this one (usePendingApprovalWatch.js)
+      forgetWithdrawn: (characterId) => set(st => ({ withdrawnIds: st.withdrawnIds.filter(id => id !== characterId) })),
 
       clearRelationshipIntro: () => set({ pendingRelationshipIntro: null }),
       openRelationshipPopup: (targetInvestigator) => {

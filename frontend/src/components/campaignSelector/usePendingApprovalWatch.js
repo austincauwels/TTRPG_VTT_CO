@@ -22,9 +22,14 @@ export const usePendingApprovalWatch = ({ characters, userId, fetchUserData, set
       if (was?.status !== 'pending' || c.status === 'pending') continue;
       const campaign = was.campaign || 'the campaign';
       // A request the player took back is no decision of the Lightkeeper's
-      if (c.status === 'unaffiliated' && useGameStore.getState().withdrawnIds.includes(c.id)) {
-        setHubNotice(`You withdrew ${c.name}'s request.`);
-        continue;
+      const { withdrawnIds, forgetWithdrawn } = useGameStore.getState();
+      if (withdrawnIds.includes(c.id)) {
+        // shown once: a later request of this investigator's is answered by the Lightkeeper
+        forgetWithdrawn(c.id);
+        if (c.status === 'unaffiliated') {
+          setHubNotice(`You withdrew ${c.name}'s request.`);
+          continue;
+        }
       }
       if (c.status === 'active') {
         setHubNotice(`The Lightkeeper let ${c.name} into ${campaign}. Open the Case Ledger and press Play.`);
