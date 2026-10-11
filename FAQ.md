@@ -164,7 +164,7 @@ When a player submits a join request, the character appears on the GM's roster i
 
 ### Can campaigns be ended?
 
-Yes. The GM can **retire** a campaign, which sets `is_retired = true` on the Campaign record and detaches all active/pending characters (sets their `campaign_id` to null and status to `unaffiliated`). A retirement notice is broadcast via WebSocket to any connected players. Retired campaigns are excluded from the GM's campaign list but the data is not deleted.
+Yes. The GM can **retire** a campaign, which sets `is_retired = true` on the Campaign record and detaches all living active/pending characters (sets their `campaign_id` to null and status to `unaffiliated`, so their players can use them in another campaign; a dead one stays `retired` with the campaign). A retirement notice is broadcast via WebSocket to any connected players, and a hub reads its lists again when the tab comes back or the Case Ledger opens. Retired campaigns are excluded from the GM's campaign list but the data is not deleted.
 
 ---
 
@@ -260,5 +260,5 @@ Nothing reaches the server until it is pinned or added. Until then a private not
 ## What the Lightkeeper's changes look like on the players' desks (since 2026-10-10)
 
 - The dispatch (with its location, "sent a dispatch: Docks."), the tension, the timer (set, start, pause, reset, clear), the reports opening and closing, a filed or amended report and the Lightkeeper's edits of Stitch, Refresh and Train each write a line in the Activity Log. A phone shows a "new" dot on the Menu and the matching drawer row until the player has opened that part.
-- A player spends a circle resource in two presses (the first asks). A spend is used for the whole circle; each player has two per assignment. The Lightkeeper can give a member one back from the member's sheet, optionally returning the resource to the circle's pool, and the log says so.
+- A player spends a circle resource in two presses (the first asks). A spend is used for the whole circle; each player has two per assignment, and a replacement investigator (rejoin) keeps the count of the one it replaces. The Lightkeeper can give a member one back from the member's sheet, optionally returning the resource to the circle's pool, and the log says so.
 - Keeping the gilded die in a gilded roll gives one point back to the action's drive; keeping the regular die does not. The slip says what each choice does before it is made.

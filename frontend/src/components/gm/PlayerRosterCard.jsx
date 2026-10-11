@@ -7,7 +7,7 @@ import { WaxSeal } from '../shared/WaxSeal';
 // A join request on the GM's desk. Approving presses the Lightkeeper's wax seal onto the
 // request while it goes to the server; the sealed request then leaves the desk (a short
 // fade). If the server refuses, the seal lifts and the request stays.
-export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy = false }) => {
+export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy = false, samePlayer = '' }) => {
   const { character } = useGameStore();
   const data = investigator || character;
   const [sealing, setSealing] = useState(false);
@@ -29,6 +29,12 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy
         <p className="font-sans font-bold text-xs uppercase tracking-widest text-sepia break-words">
           {[data.pronouns, data.role_class || data.role, data.specialty].filter(Boolean).join(' · ')}
         </p>
+        {data.owner_username && (
+          <p className="font-sans text-xs text-sepia break-words">
+            from <span className="font-mono">{data.owner_username}</span>
+            {samePlayer && <span className="font-bold text-oxblood">{' '}{samePlayer === 'active' ? 'Already has an investigator here.' : 'Sent another request too.'}</span>}
+          </p>
+        )}
         {data.catalyst && (
           <p className="font-serif text-sm italic text-sepia break-words whitespace-pre-line leading-snug mt-0.5">"{data.catalyst}"</p>
         )}

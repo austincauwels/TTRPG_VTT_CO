@@ -18,6 +18,7 @@ export const InvitePlayer = ({ align = 'center', className = '' }) => {
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [sentTo, setSentTo] = useState('');
+  const [replacing, setReplacing] = useState('');
   const [busy, setBusy] = useState(false);
   const toggleRef = useRef(null);
   const inputRef = useRef(null);
@@ -33,6 +34,7 @@ export const InvitePlayer = ({ align = 'center', className = '' }) => {
     if (!name || !activeCampaignId) { setError("Type the player's username first."); return; }
     setError('');
     setSentTo('');
+    setReplacing('');
     setBusy(true);
     try {
       const res = await apiFetch(`/campaign/${activeCampaignId}/invite-rejoin`, {
@@ -40,7 +42,10 @@ export const InvitePlayer = ({ align = 'center', className = '' }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: name }),
       });
-      if (res.ok) { setSentTo(name); setUsername(''); }
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSentTo(name); setReplacing(data.current_investigator || ''); setUsername('');
+      }
       else { const data = await res.json().catch(() => ({})); setError(typeof data.detail === 'string' ? data.detail : 'The invite was not sent. Check the username and try again.'); }
     } catch { setError('Could not reach the server. Check your connection and try again.'); }
     setBusy(false);
@@ -72,7 +77,7 @@ export const InvitePlayer = ({ align = 'center', className = '' }) => {
               ref={inputRef}
               type="text"
               value={username}
-              onChange={e => { setUsername(e.target.value); setError(''); setSentTo(''); }}
+              onChange={e => { setUsername(e.target.value); setError(''); setSentTo(''); setReplacing(''); }}
               onKeyDown={e => {
                 if (e.key === 'Enter') handleSend();
                 if (e.key === 'Escape') { e.preventDefault(); close(); }
@@ -94,7 +99,7 @@ export const InvitePlayer = ({ align = 'center', className = '' }) => {
             </button>
           </div>
           {error && <p role="alert" className="mt-2 font-serif text-sm text-oxblood">{error}</p>}
-          {sentTo && <p role="status" className="mt-2 font-serif text-sm text-seal-green">Invite sent to <span className="font-mono">{sentTo}</span>.</p>}
+          {sentTo && <p role="status" className="mt-2 font-serif text-sm text-seal-green">Invite sent to <span className="font-mono">{sentTo}</span>.{replacing && ` ${replacing} is still alive and is retired when they rejoin.`}</p>}
         </div>
       )}
     </div>

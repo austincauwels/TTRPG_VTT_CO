@@ -1122,7 +1122,10 @@ const useGameStore = create(
               gmCampaigns: state.gmCampaigns.filter(c => c.id !== id),
               lastPlayedCampaign: state.lastPlayedCampaign?.type === 'gm' && state.lastPlayedCampaign.campaignCode === code
                 ? null : state.lastPlayedCampaign,
+              ...(onCharacterChannel ? { hubNotice: 'The Lightkeeper retired the campaign. Your investigator is free to join another.' } : {}),
             }));
+            // the registry reads the investigators the retire let go
+            get().fetchUserData(get().accessSession?.userId);
           }
           else if (message.type === 'campaign_deleted') {
             if (!isForThisCampaign(message.payload)) return;

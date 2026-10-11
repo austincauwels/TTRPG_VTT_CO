@@ -23,7 +23,7 @@ def test_join_notifies_gm_but_not_pending_player(client):
         assert msg["type"] == "investigator_joined"
         assert msg["payload"]["campaign_code"] == camp["campaign_code"]
         assert [c["id"] for c in msg["payload"]["pending_investigators"]] == [ch["id"]]
-        assert set(msg["payload"]["pending_investigators"][0]) == support.CHAR_DICT_KEYS
+        assert set(msg["payload"]["pending_investigators"][0]) == support.CHAR_DICT_KEYS | {"owner_username"}
         assert _types(mem) == ["investigator_joined"]
         assert joiner.drain() == []
 
@@ -95,16 +95,17 @@ def test_reject_notifies_campaign_and_rejected_character(client):
         assert rejected.drain() == [{"type": "investigator_rejected", "payload": {"character_id": ch["id"]}}]
 
 
-def test_retire_reaches_only_the_gm(client):
-    """QUIRK: characters are retired before the broadcast, so members never get campaign_retired."""
+def test_retire_reaches_the_gm_and_the_players(client):
+    """The GM's channel and every socket of the players it let go hear campaign_retired."""
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
     with support.ws_connect(client, camp["campaign_code"]) as gm, \
             support.ws_connect(client, member["id"]) as mem:
         client.post(f"/campaign/{camp['id']}/retire", headers=support.as_gm(camp))
-        assert gm.drain() == [{"type": "campaign_retired", "payload": {
-            "campaign_id": camp["id"], "campaign_code": camp["campaign_code"]}}]
-        assert mem.drain() == []
+        told = {"type": "campaign_retired", "payload": {
+            "campaign_id": camp["id"], "campaign_code": camp["campaign_code"]}}
+        assert gm.drain() == [told]
+        assert mem.drain() == [told]
 
 
 def test_rejoin_sends_approved_then_joined_mid_campaign(client):
@@ -117,13 +118,13 @@ def test_rejoin_sends_approved_then_joined_mid_campaign(client):
         client.post("/campaign/rejoin", json={"character_id": ch["id"], "campaign_code": camp["campaign_code"]},
                     headers=support.as_owner(ch["id"]))
         msgs = gm.drain()
-        assert support.types(msgs) == ["investigator_approved", "character_joined_mid_campaign", "circle_update"]
+        assert support.types(msgs) == ["investigator_approved", "character_joined_mid_campaign", "circle_update", "activity_log"]
         assert msgs[0]["payload"]["character"]["id"] == ch["id"]
         assert msgs[1]["payload"]["new_character"]["id"] == ch["id"]
         assert sorted(c["id"] for c in msgs[1]["payload"]["active_investigators"]) == sorted([member["id"], ch["id"]])
         assert msgs[1]["payload"]["campaign_id"] == camp["id"]
-        assert _types(mem) == ["investigator_approved", "character_joined_mid_campaign", "circle_update"]
-        assert _types(newbie) == ["investigator_approved", "character_joined_mid_campaign", "circle_update"]
+        assert _types(mem) == ["investigator_approved", "character_joined_mid_campaign", "circle_update", "activity_log"]
+        assert _types(newbie) == ["investigator_approved", "character_joined_mid_campaign", "circle_update", "activity_log"]
 
 
 def test_invite_rejoin_reaches_every_character_of_the_user(client):
@@ -142,7 +143,7 @@ def test_invite_rejoin_reaches_every_character_of_the_user(client):
         assert wa.drain() == [expected]
         assert wb.drain() == [expected]
         assert ws_other.drain() == []
-        assert gm.drain() == []
+        assert support.types(gm.drain()) == ["activity_log"]
 
 
 def test_finalize_roster_skips_released_pending_characters(client):

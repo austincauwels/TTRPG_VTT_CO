@@ -28,6 +28,15 @@ export const usePendingApprovalWatch = ({ characters, userId, fetchUserData, set
     }
   }, [characters]);
 
+  // The hub has no socket, so a campaign retired or an investigator let go while the tab
+  // was away shows when it comes back
+  useEffect(() => {
+    if (!userId) return undefined;
+    const back = () => { if (document.visibilityState === 'visible') fetchUserData(userId); };
+    document.addEventListener('visibilitychange', back);
+    return () => document.removeEventListener('visibilitychange', back);
+  }, [userId]);
+
   useEffect(() => {
     if (!anyPending || !userId) return undefined;
     const ask = () => { if (document.visibilityState === 'visible') fetchUserData(userId); };

@@ -115,8 +115,8 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **POST /campaign/{campaign_id}/retire** (line 545, `async def`)
 - Inputs: path `campaign_id`.
 - Trusted ids: `campaign_id`.
-- Tables: campaigns (is_retired true), characters (active and pending set to `retired`).
-- Broadcast: `campaign_retired` `{campaign_id, campaign_code}`. Note that `broadcast_campaign` runs after the commit, so it only reaches the GM channel (characters are no longer active).
+- Tables: campaigns (is_retired true), characters (living active and pending set to `unaffiliated` with no campaign and no ink; dead ones set to `retired`).
+- Broadcast: `campaign_retired` `{campaign_id, campaign_code}` to the GM channel and, by `broadcast_users`, to every socket of the owners of the characters it let go.
 - Response: `{"ok": true}`. 404 if the campaign is missing.
 
 **POST /campaign/rejoin** (line 568, `async def`)
@@ -125,6 +125,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Tables: campaigns (read), characters (retire the same user's other active or dead characters in the campaign; set new character campaign_id, ink_color, status `active`, circle_id to the campaign circle if one exists), users (clear pending_rejoin_campaign_id).
 - Broadcast: `investigator_approved` and `character_joined_mid_campaign`, both with the new character and active list.
 - Response: `{"success": true, "character": get_char_dict(...)}`.
+- Also writes an Activity Log line ("<name> joined the circle, in place of <old>."), and the new character takes the larger circle-resource spend count of the investigators it retires.
 - Notes: skips GM approval entirely and does not check that an invite exists or that a predecessor died. Imports `INK_COLORS` from engine inside the function.
 
 **POST /campaign/{campaign_id}/invite-rejoin** (line 638, `async def`)
@@ -132,7 +133,8 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: `campaign_id`.
 - Tables: campaigns (read), users (set pending_rejoin_campaign_id), characters (read the user's characters).
 - Broadcast: `gm_rejoin_invite` `{campaign_id, campaign_name, campaign_code}` to every character channel of that user.
-- Response: `{"ok": true}`. 404 if campaign or user is missing (the 404 also confirms whether a username exists).
+- Also writes an Activity Log line ("The Lightkeeper invited <name> back.").
+- Response: `{"ok": true, "current_investigator": <name of the invitee's living active investigator here, or null>}`, which the invite slip shows because accepting retires that investigator. 404 if campaign or user is missing (the 404 also confirms whether a username exists).
 
 **GET /campaign/{campaign_id}/roster** (line 663, `def`, `response_model=RosterResponse`)
 - Inputs: path `campaign_id`.

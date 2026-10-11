@@ -736,6 +736,11 @@
             "title": "Name",
             "type": "string"
           },
+          "owner_username": {
+            "default": "",
+            "title": "Owner Username",
+            "type": "string"
+          },
           "pen_font": {
             "anyOf": [
               {

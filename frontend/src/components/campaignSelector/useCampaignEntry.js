@@ -25,11 +25,13 @@ export const useCampaignEntry = ({
     playPaperSound();
     setShowBook(true);
     setIsClosingBook(false);
-    if (accessSession?.userId && characters.length === 0 && gmCampaigns.length === 0) {
-      setIsLoadingBook(true);
-      await fetchUserData(accessSession.userId);
-      setIsLoadingBook(false);
-    }
+    if (!accessSession?.userId) return;
+    // Opening the book reads the lists again, so a campaign retired meanwhile is gone from
+    // it; the spinner is only for a book with nothing to show yet.
+    const empty = characters.length === 0 && gmCampaigns.length === 0;
+    if (empty) setIsLoadingBook(true);
+    await fetchUserData(accessSession.userId);
+    if (empty) setIsLoadingBook(false);
   };
 
   const refreshBook = async () => {

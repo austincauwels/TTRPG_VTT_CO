@@ -211,6 +211,7 @@ def test_a_character_undo_has_a_time_limit(client):
 def test_an_undone_retired_character_keeps_its_old_campaign_tag(client):
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp)
+    support.update(Character, ch["id"], is_dead=True)  # a living one is let go by the retire
     me = support.as_owner(ch["id"])
     assert client.post(f"/campaign/{camp['id']}/retire", headers=support.as_gm(camp)).status_code == 200
     assert delete_character(client, ch["id"], me).status_code == 200
@@ -302,6 +303,7 @@ def test_deleting_a_retired_campaign_lets_nobody_go(client):
     camp = support.new_campaign(client)
     gm = support.as_gm(camp)
     ch = support.active_member(client, camp)
+    support.update(Character, ch["id"], is_dead=True)  # a living one is let go by the retire
     assert client.post(f"/campaign/{camp['id']}/retire", headers=gm).status_code == 200
     assert delete_campaign(client, camp["id"], gm).json()["released_character_ids"] == []
     row = support.fetch(Character, ch["id"])
