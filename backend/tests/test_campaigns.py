@@ -418,6 +418,139 @@ def test_retire_twice_is_ok(client):
     assert client.post(f"/campaign/{camp['id']}/retire", headers=support.as_gm(camp)).json() == {"ok": True}
 
 
+# --- unretire (the ledger's Retired list, Restore) --------------------------
+
+def _ledger(client, gm_user_id):
+    headers = support.as_user(gm_user_id)
+    running = [c["id"] for c in client.get(f"/api/users/{gm_user_id}/campaigns", headers=headers).json()]
+    retired = [c["id"] for c in client.get(f"/api/users/{gm_user_id}/retired-campaigns", headers=headers).json()]
+    return running, retired
+
+
+def test_unretire_brings_the_campaign_back_with_its_dead(client):
+    gm_user = support.make_user()
+    camp = support.new_campaign(client, gm_user_id=gm_user.id)
+    gm = support.as_user(gm_user.id)
+    living = support.active_member(client, camp)
+    dead = support.active_member(client, camp)
+    support.update(Character, dead["id"], is_dead=True)
+    assert client.post(f"/campaign/{camp['id']}/retire", headers=gm).status_code == 200
+    assert _ledger(client, gm_user.id) == ([], [camp["id"]])
+
+    # only its Lightkeeper: not a player it let go, not a dead investigator's player, not a stranger
+    for headers in (support.as_owner(living["id"]), support.as_owner(dead["id"]), support.as_stranger()):
+        r = client.post(f"/campaign/{camp['id']}/unretire", headers=headers)
+        assert r.status_code == 403
+    assert client.post(f"/campaign/{camp['id']}/unretire", json={}).status_code == 401
+    assert support.fetch(Campaign, camp["id"]).is_retired is True
+
+    r = client.post(f"/campaign/{camp['id']}/unretire", headers=gm)
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "id": camp["id"], "name": camp["name"], "campaign_code": camp["campaign_code"]}
+    assert support.fetch(Campaign, camp["id"]).is_retired is False
+    assert _ledger(client, gm_user.id) == ([camp["id"]], [])
+    # the dead come back with it, as Fallen cards on the Lightkeeper's desk
+    row = support.fetch(Character, dead["id"])
+    assert (row.status, row.campaign_id) == ("retired", camp["id"])
+    roster = client.get(f"/campaign/{camp['id']}/roster", headers=gm).json()
+    assert [c["id"] for c in roster["fallen_investigators"]] == [dead["id"]]
+    assert roster["active_investigators"] == [] and roster["pending_investigators"] == []
+    # the living one the retire let go stays its player's own
+    row = support.fetch(Character, living["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+    # it takes members again, and the player can ask to come back
+    assert support.join(client, living["id"], camp["campaign_code"]).status_code == 200
+    assert support.fetch(Character, living["id"]).status == "pending"
+    # retrying is safe and changes nothing
+    assert client.post(f"/campaign/{camp['id']}/unretire", headers=gm).status_code == 200
+    assert support.fetch(Character, living["id"]).status == "pending"
+
+
+def test_unretire_leaves_a_freed_investigator_where_it_went(client):
+    """A living investigator the retire let go may be in another campaign by the time the
+    Lightkeeper restores the old one. It stays there: restore puts nobody back."""
+    gm_user = support.make_user()
+    camp = support.new_campaign(client, gm_user_id=gm_user.id)
+    gm = support.as_user(gm_user.id)
+    moved = support.active_member(client, camp)
+    waiting = support.active_member(client, camp)
+    free = support.active_member(client, camp)
+    assert client.post(f"/campaign/{camp['id']}/retire", headers=gm).status_code == 200
+    elsewhere = support.new_campaign(client)
+    assert support.join(client, moved["id"], elsewhere["campaign_code"]).status_code == 200
+    assert support.approve(client, moved["id"]).status_code == 200
+    assert support.join(client, waiting["id"], elsewhere["campaign_code"]).status_code == 200
+    before = {c: (support.fetch(Character, c).status, support.fetch(Character, c).ink_color)
+              for c in (moved["id"], waiting["id"])}
+
+    assert client.post(f"/campaign/{camp['id']}/unretire", headers=gm).status_code == 200
+    for c, (status, ink) in before.items():
+        row = support.fetch(Character, c)
+        assert (row.status, row.campaign_id, row.ink_color) == (status, elsewhere["id"], ink)
+    row = support.fetch(Character, free["id"])
+    assert (row.status, row.campaign_id) == ("unaffiliated", None)
+    roster = client.get(f"/campaign/{camp['id']}/roster", headers=gm).json()
+    assert roster["active_investigators"] == [] and roster["pending_investigators"] == []
+
+
+def test_unretire_tells_the_lightkeepers_desks_and_logs_a_line(client):
+    gm_user = support.make_user()
+    camp = support.new_campaign(client, gm_user_id=gm_user.id)
+    other_camp = support.new_campaign(client, gm_user_id=gm_user.id)
+    gm = support.as_user(gm_user.id)
+    dead = support.active_member(client, camp)
+    support.update(Character, dead["id"], is_dead=True)
+    freed = support.active_member(client, camp)
+    assert client.post(f"/campaign/{camp['id']}/retire", headers=gm).status_code == 200
+    elsewhere = support.new_campaign(client)
+    assert support.join(client, freed["id"], elsewhere["campaign_code"]).status_code == 200
+    assert support.approve(client, freed["id"]).status_code == 200
+    support.forget_approval_lines()
+    with support.ws_connect(client, other_camp["campaign_code"]) as lk, \
+            support.ws_connect(client, freed["id"]) as f:
+        lk.sync()
+        f.sync()
+        assert client.post(f"/campaign/{camp['id']}/unretire", headers=gm).status_code == 200
+        told = {"type": "campaign_restored", "payload": {
+            "campaign_id": camp["id"], "campaign_code": camp["campaign_code"], "campaign_name": camp["name"],
+            "restored_character_ids": []}}
+        # the Lightkeeper on the desk of another of their campaigns reads the ledger again
+        assert lk.recv() == told
+        # the investigator it once let go is in another campaign and hears nothing
+        assert f.drain() == []
+        # a second restore of a campaign that is running sends nothing
+        assert client.post(f"/campaign/{camp['id']}/unretire", headers=gm).status_code == 200
+        assert lk.drain() == []
+    # the campaign's Activity Log has the line when its desk opens again
+    with support.ws_connect(client, camp["campaign_code"]) as desk:
+        entries = desk.recv_type("activity_history")["payload"]["entries"]
+    assert [e["message"] for e in entries] == [f"The Lightkeeper brought {camp['name']} back from retirement."]
+
+
+def test_unretire_unknown_campaign(client):
+    r = client.post("/campaign/987654321/unretire", headers=support.as_stranger())
+    assert (r.status_code, r.json()) == (404, {"detail": "Campaign not found"})
+
+
+def test_retired_campaigns_are_the_users_own(client):
+    u = support.make_user()
+    live = support.new_campaign(client, gm_user_id=u.id)
+    older = support.new_campaign(client, gm_user_id=u.id)
+    newer = support.new_campaign(client, gm_user_id=u.id)
+    for c in (older, newer):
+        assert client.post(f"/campaign/{c['id']}/retire", headers=support.as_user(u.id)).status_code == 200
+    theirs = support.new_campaign(client)
+    client.post(f"/campaign/{theirs['id']}/retire", headers=support.as_gm(theirs))
+    r = client.get(f"/api/users/{u.id}/retired-campaigns", headers=support.as_user(u.id))
+    assert r.status_code == 200
+    # newest first, the running one and someone else's left out
+    assert [c["id"] for c in r.json()] == [newer["id"], older["id"]]
+    assert r.json()[0] == {"id": newer["id"], "name": newer["name"], "campaign_code": newer["campaign_code"],
+                           "investigator_count": 0, "pending_count": 0}
+    assert live["id"] not in [c["id"] for c in r.json()]
+    assert client.get(f"/api/users/{u.id}/retired-campaigns", headers=support.as_stranger()).status_code == 403
+
+
 # --- rejoin -----------------------------------------------------------------
 
 def test_rejoin_with_invite(client):

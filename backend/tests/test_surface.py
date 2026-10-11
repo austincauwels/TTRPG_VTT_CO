@@ -37,6 +37,7 @@ HTTP_ROUTES = [
     (["POST"], "/campaign/approve/{character_id}", "approve_character", None, None),
     (["POST"], "/campaign/reject/{character_id}", "reject_character", None, None),
     (["POST"], "/campaign/{campaign_id}/retire", "retire_campaign", None, None),
+    (["POST"], "/campaign/{campaign_id}/unretire", "unretire_campaign", None, None),
     (["POST"], "/campaign/withdraw/{character_id}", "withdraw_request", None, None),
     (["DELETE"], "/campaign/{campaign_id}", "delete_campaign", None, None),
     (["POST"], "/campaign/{campaign_id}/restore", "restore_campaign", None, None),
@@ -83,6 +84,7 @@ HTTP_ROUTES = [
     (["PUT"], "/api/notebook/entries/{entry_id}/sketch", "redraw_sketch", "NotebookEntryResponse", None),
     (["GET"], "/api/users/{user_id}/characters", "get_user_characters", "list[CharacterSummaryItem]", None),
     (["GET"], "/api/users/{user_id}/campaigns", "get_user_gm_campaigns", "list[CampaignSummaryItem]", None),
+    (["GET"], "/api/users/{user_id}/retired-campaigns", "get_user_retired_campaigns", "list[CampaignSummaryItem]", None),
 ]
 
 

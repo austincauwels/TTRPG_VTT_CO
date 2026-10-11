@@ -33,6 +33,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /campaign/approve/{character_id} | GM of the character's campaign (a character with no campaign has no GM: 403) |
 | POST /campaign/reject/{character_id} | GM of the character's campaign |
 | POST /campaign/{campaign_id}/retire | GM of that campaign |
+| POST /campaign/{campaign_id}/unretire | GM of that campaign (a player it let go, the owner of one of its dead, or a stranger: 403) |
 | POST /campaign/withdraw/{character_id} | the character's owner |
 | DELETE /campaign/{campaign_id} | GM of that campaign; the characters on its roster go back to their owners, retired ones stay with it (DELETION.md) |
 | POST /campaign/{campaign_id}/restore | GM of that campaign, within two minutes of deleting it; anyone else, or a campaign that is not deleted, is 404 (DELETION.md) |
@@ -63,7 +64,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /api/notebook/{campaign_id}/upload | as for adding an entry. A `scene` part (a drawn sketch's drawing) only with `entry_type` sketch: 422 "Only a sketch keeps a drawing." otherwise |
 | GET /api/notebook/entries/{entry_id}/scene | the author of the sketch alone, as for PUT on an entry. This one differs from the other notebook reads: everyone in the campaign sees a sketch's picture in the entry list, but only its author reads its drawing, so the campaign's GM gets 403 for a player's drawing, as do the other members. The 403 comes before anything is said about the scene; then 404 "This sketch keeps no drawing." when it has none |
 | PUT /api/notebook/entries/{entry_id}/sketch | the author of the sketch alone, as for reading its drawing (the GM cannot redraw a player's sketch). Sketch entries only (422 "Only a sketch keeps a drawing."). A picture sent without a scene replaces the picture and drops the drawing |
-| GET /api/users/{user_id}/characters, /campaigns | only the caller's own user id |
+| GET /api/users/{user_id}/characters, /campaigns, /retired-campaigns | only the caller's own user id |
 
 Not changed: the request and response shapes (`author_name` is still sent but ignored), `author_type` on notebook entries (still client text, within the rule above), and the quirks in QUIRKS.md that are not about who may call a route.
 

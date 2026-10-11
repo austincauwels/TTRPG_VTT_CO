@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { CreateCampaignForm } from './CreateCampaignForm';
 import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
@@ -21,6 +21,24 @@ export const LightkeeperLedgerPage = ({
   closeBook, gmCampaigns, enterAsGM, isLoadingBook, showRegisterForm, setShowRegisterForm,
   userId, onCampaignCreated, hiddenOnNarrow = false,
 }) => {
+  // The Retired list: Restore brings a campaign back to the ledger with its fallen; the
+  // investigators the retire let go are not put back (they may be in another campaign)
+  const retiredCampaigns = useGameStore(s => s.retiredCampaigns) || [];
+  const unretireCampaign = useGameStore(s => s.unretireCampaign);
+  const [restoringId, setRestoringId] = useState(null);
+  const [restoreNote, setRestoreNote] = useState(null);
+  const restore = async (camp) => {
+    if (restoringId) return;
+    setRestoringId(camp.id);
+    setRestoreNote(null);
+    const result = await unretireCampaign(camp.id);
+    setRestoringId(null);
+    setRestoreNote(result.success
+      ? { ok: true, text: `${camp.name} is back in your ledger. The investigators it let go when it was retired are not put back.` }
+      : { ok: false, text: result.status === 0
+        ? `Could not reach the server, so ${camp.name} was not restored. Check your connection and try again.`
+        : `${camp.name} was not restored. Try again in a moment.` });
+  };
   const deleteCampaign = useGameStore(s => s.deleteCampaign);
   const restoreCampaign = useGameStore(s => s.restoreCampaign);
   const removal = useDeleteUndo({
@@ -80,6 +98,35 @@ export const LightkeeperLedgerPage = ({
       )}
 
       {gmCampaigns.length === 0 && !isLoadingBook && <BlankRows rows={3} label="No campaigns" />}
+
+      {restoreNote?.ok && <p role="status" className="font-serif italic text-base text-sepia">{restoreNote.text}</p>}
+      {restoreNote && !restoreNote.ok && <DeleteError text={restoreNote.text} />}
+      {retiredCampaigns.length > 0 && (
+        <div>
+          <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-sepia">Retired</p>
+          <div className="space-y-1.5">
+            {retiredCampaigns.map(camp => (
+              <div key={camp.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-3 py-2"
+                style={{ border: '1px dashed rgb(var(--c-sepia) / 0.3)', background: 'rgb(var(--c-parchment-deep) / 0.25)' }}>
+                <div className="flex-1 min-w-0 max-sm:min-w-[calc(100%-1rem)]">
+                  <p className="font-serif font-bold text-xl text-ink/80 truncate" title={camp.name}>{camp.name}</p>
+                  <p className="font-serif text-base text-sepia">
+                    Campaign code <span className="font-mono text-ink break-all">{camp.campaign_code}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => restore(camp)}
+                  disabled={restoringId === camp.id}
+                  aria-label={`Restore campaign ${camp.name}`}
+                  className="shrink-0 mr-1 min-h-[44px] px-3 font-sans font-bold text-xs tracking-widest uppercase text-sepia hover:text-oxblood hover:border-oxblood/50 disabled:opacity-50 disabled:cursor-wait transition-colors rounded border border-sepia/40"
+                >
+                  {restoringId === camp.id ? 'Restoring…' : 'Restore'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
 
     {showRegisterForm ? (

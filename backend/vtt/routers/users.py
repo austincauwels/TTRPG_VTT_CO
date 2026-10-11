@@ -1,6 +1,6 @@
 """Per-user lists for the campaign selector (GET /api/users/{user_id}/...).
 
-Both need a login token, and user_id must be the token's own user (403 otherwise).
+All three need a login token, and user_id must be the token's own user (403 otherwise).
 """
 from typing import List
 
@@ -75,3 +75,14 @@ def get_user_gm_campaigns(user_id: int, db: Session = Depends(get_db), user: Use
         for c in campaigns
     ]
 
+
+@router.get("/api/users/{user_id}/retired-campaigns", response_model=List[CampaignSummaryItem])
+def get_user_retired_campaigns(user_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The campaigns the user ran and retired (deleted ones are left out), newest first, for
+    the ledger's Retired list, where each can be restored (POST /campaign/{id}/unretire)."""
+    require_self(user, user_id)
+    campaigns = db.query(Campaign).filter(
+        Campaign.gm_user_id == user_id,
+        Campaign.is_retired == True,
+    ).order_by(Campaign.id.desc()).all()
+    return [CampaignSummaryItem(id=c.id, name=c.name, campaign_code=c.campaign_code) for c in campaigns]

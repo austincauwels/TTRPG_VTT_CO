@@ -1,4 +1,4 @@
-"""Campaign and roster routes: create, join, approve, reject, withdraw, retire, delete (and undo
+"""Campaign and roster routes: create, join, approve, reject, withdraw, retire, unretire, delete (and undo
 that), rejoin, invite to rejoin, roster.
 
 Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
@@ -290,6 +290,39 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
     for key in [campaign_key(campaign.campaign_code)] + [character_key(c.id) for c in released]:
         await manager.broadcast(key, message)
     return {"ok": True}
+
+
+@router.post("/campaign/{campaign_id}/unretire")
+async def unretire_campaign(campaign_id: int, db: Session = Depends(get_db),
+                            user: User = Depends(get_current_user)):
+    """Brings back a retired campaign for its GM (the ledger's Retired list, Restore): it
+    is back in the ledger and takes members again. It comes back with what the retire
+    left with it, its dead (retired, the desk's Fallen cards). Nobody is put back on its
+    roster: a living investigator the retire let go is its player's own again and may be
+    in another campaign by now, so it comes back only by a join or an invite. A campaign
+    that is not retired is answered the same way and nothing is sent (retrying is safe).
+
+    Every open socket of the GM, and of the owners of the investigators that stayed with
+    it, gets campaign_restored (no character put back), so a ledger open elsewhere reads
+    its lists again; the campaign's Activity Log gets a line."""
+    require_gm(user, campaign_or_404(db, campaign_id))
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).populate_existing() \
+        .with_for_update().first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    answer = {"ok": True, "id": campaign.id, "name": campaign.name, "campaign_code": campaign.campaign_code}
+    if not campaign.is_retired:
+        db.rollback()
+        return answer
+    campaign.is_retired = False
+    db.commit()
+    owners = {row.user_id for row in db.query(Character.user_id).filter(Character.campaign_id == campaign.id)}
+    await manager.broadcast_users(owners | {campaign.gm_user_id}, {"type": "campaign_restored", "payload": {
+        "campaign_id": campaign.id, "campaign_code": campaign.campaign_code, "campaign_name": campaign.name,
+        "restored_character_ids": []}})
+    await log_line(db, campaign.campaign_code, campaign.id,
+                   f"The Lightkeeper brought {campaign.name} back from retirement.")
+    return answer
 
 
 @router.post("/campaign/withdraw/{character_id}")
