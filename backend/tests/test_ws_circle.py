@@ -190,7 +190,8 @@ def test_gm_update_scars_rewords_and_removes(client):
         assert support.types(msgs) == ["activity_log"]
         assert msgs[0]["payload"]["message"] == f"The Lightkeeper corrected {name}'s scars (3 of 4)."
         seen = wm.drain()
-        assert support.types(seen) == ["character_update", "activity_log"]
+        assert support.types(seen) == ["character_update", "member_status", "activity_log"]
+        seen = [seen[0], seen[2]]
         stored = [reworded[0], "Hears the bells at night", "A limp"]  # trimmed
         assert (seen[0]["payload"]["scars_list"], seen[0]["payload"]["scars_count"]) == (stored, 3)
         # The same list again changes nothing and says nothing
@@ -350,31 +351,32 @@ def test_a_death_and_its_undo_reach_the_other_players(client):
     dying = support.active_member(client, camp, scars_list=SCARS, scars_count=3)
     ally = support.active_member(client, camp)
     elsewhere = support.active_member(client, support.new_campaign(client))
-    status = lambda is_dead: {"type": "member_status", "payload": {
-        "character_id": dying["id"], "campaign_id": camp["id"], "is_dead": is_dead}}
+    status = lambda is_dead, scars=4: {"type": "member_status", "payload": {
+        "character_id": dying["id"], "campaign_id": camp["id"], "is_dead": is_dead,
+        "incapacitated": True, "scars_count": scars}}
     four = SCARS + ["The last one"]
     with support.ws_connect(client, dying["id"]) as wd, support.ws_connect(client, ally["id"]) as wa, \
             support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, elsewhere["id"]) as we:
         wd.send("apply_scar", scar_text="The last one", skip_shifts=True)
         seen = wd.sync()
-        assert support.types(seen) == ["character_update", "member_status", "activity_log"]
-        assert seen[0]["payload"]["is_dead"] is True and seen[1] == status(True)
+        assert support.types(seen) == ["character_update", "activity_log", "member_status"]
+        assert seen[0]["payload"]["is_dead"] is True and seen[2] == status(True)
         # Every desk, the Lightkeeper's too, is told of the death in its log
         said = {"type": "activity_log", "payload": {
-            "message": f"{dying['name']} is deceased: a fourth scar.", "log_type": "danger", "ink_color": seen[2]["payload"]["ink_color"]}}
-        assert seen[2] == said
-        assert wa.drain() == [status(True), said]
+            "message": f"{dying['name']} is deceased: a fourth scar.", "log_type": "danger", "ink_color": seen[1]["payload"]["ink_color"]}}
+        assert seen[1] == said
+        assert wa.drain() == [said, status(True)]
         assert support.types(gm.drain()) == ["member_update", "activity_log"]
         # Rewording a dead investigator's scars changes nothing on the players' rosters
         gm.send("gm_update_scars", character_id=dying["id"], scars=SCARS + ["The last"], previous=four)
         assert support.types(gm.sync()) == ["member_update", "activity_log"]
-        assert support.types(wa.drain()) == ["activity_log"]
-        assert support.types(wd.drain()) == ["character_update", "activity_log"]
+        assert wa.drain()[0] == status(True)  # nothing changed in what the players' cards read
+        assert support.types(wd.drain()) == ["character_update", "member_status", "activity_log"]
         gm.send("gm_update_scars", character_id=dying["id"], scars=SCARS, previous=SCARS + ["The last"])
         assert support.types(gm.sync()) == ["member_update", "activity_log"]
         seen = wa.drain()
         assert support.types(seen) == ["member_status", "activity_log"]
-        assert seen[0] == status(False)
+        assert seen[0] == status(False, scars=3)
         assert support.types(wd.drain()) == ["character_update", "member_status", "activity_log"]
         assert we.drain() == []
     # What the players' rosters read when they load
@@ -404,7 +406,7 @@ def test_gm_update_scars_keeps_a_death_once_the_player_has_a_new_investigator(cl
         gm.recv_type("investigator_approved")
         gm.recv_type("circle_update")  # the circle's pool grew with the new member
         gm.send("gm_update_scars", character_id=dead["id"], scars=SCARS, previous=SCARS + ["The fourth"])
-        assert gm.sync() == [_rejected("gm_update_scars")]
+        assert [m for m in gm.sync() if m["type"] != "activity_log"] == [_rejected("gm_update_scars")]
     row = support.fetch(Character, dead["id"])
     assert (row.is_dead, row.scars_count, row.status) == (True, 4, "retired")
 

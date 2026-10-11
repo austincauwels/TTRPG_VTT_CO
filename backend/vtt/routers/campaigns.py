@@ -25,7 +25,7 @@ from vtt.circle_queries import fill_resources
 from vtt.config import _ALLOWED_CAMPAIGN_CODE_RE, _SAFE_FONT_NAMES
 from vtt.db import get_db, releases_locks_on_error
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
-from vtt.serializers import get_char_dict, get_circle_dict
+from vtt.serializers import awaiting_scar, fallen_card, get_char_dict, get_circle_dict
 from vtt.ws.access import CLOSE_NOT_FOUND
 from vtt.ws.manager import campaign_key, character_key, log_line, manager
 
@@ -111,6 +111,13 @@ def _named(db: Session, chars) -> list:
     return [{**get_char_dict(c), "owner_username": owners.get(c.user_id, "")} for c in chars]
 
 
+def _fallen_of(db: Session, campaign_id: int) -> list:
+    """The campaign's dead whose players have since been replaced, as Fallen cards."""
+    return [fallen_card(c) for c in db.query(Character).filter(
+        Character.campaign_id == campaign_id, Character.status == "retired",
+        Character.is_dead == True).order_by(Character.id)]
+
+
 async def _broadcast_named(db: Session, campaign, plain: dict, named: dict):
     """plain to the members' channels and named to the Lightkeeper's, so a player's login
     name goes to the Lightkeeper only."""
@@ -176,7 +183,13 @@ async def _announce_members_changed(db: Session, campaign: Campaign):
 @router.post("/campaign/approve/{character_id}")
 async def approve_character(character_id: int, db: Session = Depends(get_db),
                             user: User = Depends(get_current_user)):
-    require_gm_of_character(db, user, character_or_404(db, character_id))
+    pending = character_or_404(db, character_id)
+    require_gm_of_character(db, user, pending)
+    # the dead of this player the approval retires, for the log line
+    replaced = [n for (n,) in db.query(Character.name).filter(
+        Character.campaign_id == pending.campaign_id, Character.user_id == pending.user_id,
+        Character.id != pending.id, Character.is_dead == True,
+        Character.status == "active").order_by(Character.id)] if pending.user_id else []
     result = approve_investigator(db, character_id)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -188,15 +201,20 @@ async def approve_character(character_id: int, db: Session = Depends(get_db),
             Character.campaign_id == char.campaign_id,
             Character.status == "active"
         ).all()
-        await manager.broadcast_campaign(campaign.campaign_code, char.campaign_id, {
-            "type": "investigator_approved",
-            "payload": {
+        def approved(extra):
+            return {"type": "investigator_approved", "payload": {
                 "character": get_char_dict(char),
                 "active_investigators": [get_char_dict(c) for c in active],
-                "campaign_id": char.campaign_id,
-            }
-        }, db)
+                "campaign_id": char.campaign_id, **extra}}
+        # The Lightkeeper's copy also lists the dead this one replaced, for the Fallen cards
+        await _broadcast_named(db, campaign, approved({}),
+                               approved({"fallen_investigators": _fallen_of(db, char.campaign_id)}))
         await _announce_members_changed(db, campaign)
+        # An investigator who takes a dead one's place is told to the table, as a rejoin is;
+        # an ordinary approval writes no line (the card and the stamp say it)
+        if replaced:
+            await log_line(db, campaign.campaign_code, campaign.id,
+                           f"{char.name} joined the circle, in place of {' and '.join(replaced)}.")
     return result
 
 @router.post("/campaign/reject/{character_id}")
@@ -420,8 +438,11 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
                 "payload": {"character": card, "active_investigators": cards, "campaign_id": campaign.id}}
     # the Lightkeeper's cards carry the player's login name, as the roster's do
     named = _named(db, active)
-    await _broadcast_named(db, campaign, approved([get_char_dict(c) for c in active], get_char_dict(new_char)),
-                           approved(named, next(c for c in named if c["id"] == new_char.id)))
+    plain = approved([get_char_dict(c) for c in active], get_char_dict(new_char))
+    gm_copy = approved(named, next(c for c in named if c["id"] == new_char.id))
+    # The Lightkeeper's copy also lists the dead this one replaced, for the Fallen cards
+    gm_copy["payload"]["fallen_investigators"] = _fallen_of(db, campaign.id)
+    await _broadcast_named(db, campaign, plain, gm_copy)
     await manager.broadcast_campaign(campaign.campaign_code, campaign.id, {
         "type": "character_joined_mid_campaign",
         "payload": {
@@ -502,8 +523,15 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
     # the players' login names are the Lightkeeper's to read, not the members'
     owners = _owner_names(db, raw["pending_investigators"] + raw["active_investigators"]) \
         if campaign.gm_user_id == user.id else {}
+    is_lk = campaign.gm_user_id == user.id
     def to_item(c):
+        # How each investigator stands, for the Lightkeeper's cards only
+        stands = dict(
+            incapacitated=bool(c.incapacitated), scars_count=c.scars_count or 0,
+            body_marks=c.body_marks or 0, brain_marks=c.brain_marks or 0, bleed_marks=c.bleed_marks or 0,
+            advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar) if is_lk else {}
         return CharacterRosterItem(
+            **stands,
             owner_username=owners.get(c.user_id, ""),
             id=c.id,
             name=c.name,
@@ -527,5 +555,7 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
         # mistake is removed there, which lifts the death). The desk shows them apart, and
         # nothing that counts members counts them.
         "active_investigators": [to_item(c) for c in raw["active_investigators"]],
+        # The dead whose player has since been replaced: a Fallen card for the Lightkeeper only
+        "fallen_investigators": [fallen_card(c) for c in raw["fallen_investigators"]] if is_lk else [],
         "roster_finalized": bool(campaign.roster_finalized) if campaign else False,
     }

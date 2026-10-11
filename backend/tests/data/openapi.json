@@ -695,6 +695,26 @@
       },
       "CharacterRosterItem": {
         "properties": {
+          "advancement_picks": {
+            "default": 0,
+            "title": "Advancement Picks",
+            "type": "integer"
+          },
+          "bleed_marks": {
+            "default": 0,
+            "title": "Bleed Marks",
+            "type": "integer"
+          },
+          "body_marks": {
+            "default": 0,
+            "title": "Body Marks",
+            "type": "integer"
+          },
+          "brain_marks": {
+            "default": 0,
+            "title": "Brain Marks",
+            "type": "integer"
+          },
           "catalyst": {
             "default": "",
             "title": "Catalyst",
@@ -714,6 +734,11 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "incapacitated": {
+            "default": false,
+            "title": "Incapacitated",
+            "type": "boolean"
           },
           "ink_color": {
             "anyOf": [
@@ -790,6 +815,16 @@
               }
             ],
             "title": "Role Class"
+          },
+          "scar_pending": {
+            "default": false,
+            "title": "Scar Pending",
+            "type": "boolean"
+          },
+          "scars_count": {
+            "default": 0,
+            "title": "Scars Count",
+            "type": "integer"
           },
           "specialty": {
             "anyOf": [
@@ -1076,6 +1111,11 @@
             "default": "None",
             "title": "Role Ability",
             "type": "string"
+          },
+          "scar_pending": {
+            "default": false,
+            "title": "Scar Pending",
+            "type": "boolean"
           },
           "scars_count": {
             "default": 0,
@@ -1374,6 +1414,81 @@
           "token"
         ],
         "title": "EmailChangeUndo",
+        "type": "object"
+      },
+      "FallenItem": {
+        "description": "A dead investigator since replaced: the Lightkeeper's Fallen card and Circle History line.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ink_color": {
+            "default": "",
+            "title": "Ink Color",
+            "type": "string"
+          },
+          "is_dead": {
+            "default": true,
+            "title": "Is Dead",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pen_font": {
+            "default": "Caveat",
+            "title": "Pen Font",
+            "type": "string"
+          },
+          "personal_circle_answer": {
+            "default": "",
+            "title": "Personal Circle Answer",
+            "type": "string"
+          },
+          "profile_pic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Pic"
+          },
+          "pronouns": {
+            "default": "Unlisted",
+            "title": "Pronouns",
+            "type": "string"
+          },
+          "role_class": {
+            "default": "",
+            "title": "Role Class",
+            "type": "string"
+          },
+          "scars_count": {
+            "default": 0,
+            "title": "Scars Count",
+            "type": "integer"
+          },
+          "specialty": {
+            "default": "",
+            "title": "Specialty",
+            "type": "string"
+          },
+          "status": {
+            "default": "retired",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "FallenItem",
         "type": "object"
       },
       "FinalizeRosterRequest": {
@@ -1902,6 +2017,14 @@
               "$ref": "#/components/schemas/CharacterRosterItem"
             },
             "title": "Active Investigators",
+            "type": "array"
+          },
+          "fallen_investigators": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FallenItem"
+            },
+            "title": "Fallen Investigators",
             "type": "array"
           },
           "pending_investigators": {

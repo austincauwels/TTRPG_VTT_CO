@@ -799,7 +799,7 @@ def test_roster(client):
     body = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
     for outsider in (support.as_owner(pending["id"]), support.as_owner(retired["id"]), support.as_stranger()):
         assert client.get(f"/campaign/{camp['id']}/roster", headers=outsider).status_code == 403
-    assert set(body) == {"pending_investigators", "active_investigators", "roster_finalized"}
+    assert set(body) == {"pending_investigators", "active_investigators", "fallen_investigators", "roster_finalized"}
     assert body["roster_finalized"] is False
     assert [c["id"] for c in body["pending_investigators"]] == [pending["id"]]
     # A dead investigator stays active until replaced, and is listed with is_dead (the desk
@@ -815,6 +815,9 @@ def test_roster(client):
         "is_dead": False, "pen_font": "Caveat", "ink_color": engine.INK_COLORS[0],
         "pronouns": "she/her", "catalyst": "Lost a brother\nto the fog",
         "owner_username": support.fetch(User, support.fetch(Character, active["id"]).user_id).username,
+        # The Lightkeeper's read also tells how the investigator stands
+        "incapacitated": False, "scars_count": 0, "body_marks": 0, "brain_marks": 0,
+        "bleed_marks": 0, "advancement_picks": 0, "scar_pending": False,
     }
 
 
@@ -929,3 +932,31 @@ def test_circle_creation_state_with_content(client):
         "id": rel["id"], "from_character_id": a["id"], "to_character_id": b["id"],
         "rel_type": "Rivals", "lore": "feud", "status": "proposed", "last_actor_id": a["id"]}]
     assert body["backstory_answers"] == {"chapter_house": "Mill", "reports": {str(a["id"]): {"q0": True}}}
+
+
+def test_a_replaced_dead_investigator_keeps_a_fallen_card_for_the_lightkeeper(client):
+    """Playtest 3 (replaced-investigator-leaves-no-record): once a dead investigator was
+    replaced he vanished from every desk. The Lightkeeper's roster lists him as fallen,
+    with the answer he gave the circle; the table's log names whom the newcomer replaced;
+    a player's read lists no one fallen."""
+    camp = support.new_campaign(client)
+    u = support.make_user()
+    old = support.active_member(client, camp, user_id=u.id, personal_circle_answer="He kept the lamp lit.")
+    support.update(Character, old["id"], is_dead=True, scars_count=4)
+    new = support.pending_member(client, camp, user_id=u.id)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        assert support.approve(client, new["id"]).status_code == 200
+        frames = gm.drain()
+    approved = next(m for m in frames if m["type"] == "investigator_approved")
+    assert [c["id"] for c in approved["payload"]["fallen_investigators"]] == [old["id"]]
+    logs = [m["payload"]["message"] for m in frames if m["type"] == "activity_log"]
+    assert logs == [f"{new['name']} joined the circle, in place of {old['name']}."]
+    roster = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
+    assert [c["id"] for c in roster["active_investigators"]] == [new["id"]]
+    [card] = roster["fallen_investigators"]
+    assert (card["id"], card["name"], card["personal_circle_answer"], card["scars_count"], card["status"]) == \
+        (old["id"], old["name"], "He kept the lamp lit.", 4, "retired")
+    mine = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(new["id"])).json()
+    assert mine["fallen_investigators"] == []
+    # A living investigator who is let go is not fallen
+    assert all(c["is_dead"] for c in roster["fallen_investigators"])

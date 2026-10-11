@@ -24,7 +24,8 @@ from vtt.circle_queries import (SAW_THIS_COMING_USES, STAMINA_DICE, circle_abili
                                 train_dice_left)
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.handlers.circle import announce_downed
-from vtt.ws.handlers.marks import apply_mark, awaiting_scar
+from vtt.serializers import awaiting_scar
+from vtt.ws.handlers.marks import apply_mark
 from vtt.ws.manager import character_key, manager
 
 ACTION_KEYS = ("move", "strike", "control", "sway", "sneak", "hide", "survey", "read", "sense")

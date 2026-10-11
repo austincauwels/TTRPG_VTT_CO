@@ -127,9 +127,16 @@ def get_campaign_roster(db: Session, campaign_id: int):
     pending = [c for c in all_chars if c.status == "pending"]
     active  = [c for c in all_chars if c.status == "active"]
 
+    # The dead whose player's new investigator has since been approved (retired): the
+    # Lightkeeper's desk keeps a Fallen card for each
+    fallen = db.query(Character).filter(
+        Character.campaign_id == campaign_id, Character.status == "retired",
+        Character.is_dead == True).order_by(Character.id).all()
+
     return {
         "pending_investigators": pending,
-        "active_investigators": active
+        "active_investigators": active,
+        "fallen_investigators": fallen,
     }
 
 def get_notebook_entries(db: Session, campaign_id: int):

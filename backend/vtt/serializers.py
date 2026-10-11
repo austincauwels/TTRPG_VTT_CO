@@ -12,6 +12,10 @@ from vtt.assignment import without_reports
 from vtt.countdown import timer_fields
 from vtt.portraits import served_portrait
 
+# Characters whose fourth mark asked for a scar not yet recorded (handle_apply_scar clears
+# it). Kept here so the sheet can say a scar is owed (scar_pending). In memory only.
+awaiting_scar: set = set()
+
 
 def advancement_taken(char) -> list:
     """The advancement options the character has taken among its waiting picks (a list,
@@ -94,7 +98,21 @@ def get_char_dict(char):
         "resources_spent_assignment": getattr(char, "resources_spent_assignment", 0) or 0,
         "advancement_picks": getattr(char, "advancement_picks", 0) or 0,
         "advancement_taken": advancement_taken(char),
+        # Incapacitated by a fourth mark and the scar not yet written (the Lightkeeper reads it)
+        "scar_pending": getattr(char, "id", None) in awaiting_scar,
     }
+
+def fallen_card(char):
+    """A dead investigator since replaced, as the Lightkeeper's Fallen card and Circle History
+    line read it (vtt.schemas.FallenItem)."""
+    return {
+        "id": char.id, "name": char.name or "", "role_class": char.role or "", "specialty": char.specialty or "",
+        "profile_pic": served_portrait(char.profile_pic), "pen_font": char.pen_font or "Caveat",
+        "ink_color": char.ink_color or "", "pronouns": char.pronouns or "Unlisted",
+        "personal_circle_answer": char.personal_circle_answer or "", "scars_count": char.scars_count or 0,
+        "is_dead": True, "status": "retired",
+    }
+
 
 def get_circle_dict(circle):
     backstory = getattr(circle, "backstory_answers", None) or {}

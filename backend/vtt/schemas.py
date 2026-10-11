@@ -390,6 +390,7 @@ class CharacterSheet(CharacterResponse):
     resources_spent_assignment: int = 0
     advancement_picks: int = 0
     advancement_taken: List[str] = []
+    scar_pending: bool = False
 
 class CharacterRosterItem(BaseModel):
     id: int
@@ -407,6 +408,14 @@ class CharacterRosterItem(BaseModel):
     pronouns: str = "Unlisted"
     catalyst: str = ""
     owner_username: str = ""
+    # The Lightkeeper's card shows how each investigator stands (zero for a player's read)
+    incapacitated: bool = False
+    scars_count: int = 0
+    body_marks: int = 0
+    brain_marks: int = 0
+    bleed_marks: int = 0
+    advancement_picks: int = 0
+    scar_pending: bool = False
     class Config:
         from_attributes = True
 
@@ -415,9 +424,25 @@ class CharacterRosterItem(BaseModel):
     def portrait_as_served(cls, v):
         return served_portrait(v)
 
+class FallenItem(BaseModel):
+    """A dead investigator since replaced: the Lightkeeper's Fallen card and Circle History line."""
+    id: int
+    name: str
+    role_class: str = ""
+    specialty: str = ""
+    profile_pic: Optional[str] = None
+    pen_font: str = "Caveat"
+    ink_color: str = ""
+    pronouns: str = "Unlisted"
+    personal_circle_answer: str = ""
+    scars_count: int = 0
+    is_dead: bool = True
+    status: str = "retired"
+
 class RosterResponse(BaseModel):
     pending_investigators: List[CharacterRosterItem]
     active_investigators: List[CharacterRosterItem]
+    fallen_investigators: List[FallenItem] = []
     roster_finalized: bool = False
 
 class NotebookEntryCreate(BaseModel):
