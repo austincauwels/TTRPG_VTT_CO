@@ -224,7 +224,8 @@ WS_CASES = {
     "apply_scar": dict(fields={"specialty_ability": "Hardened"},
                        payload=lambda c: {"scar_text": "s", "skip_shifts": True},
                        expect=["character_update", "member_status", "activity_log"]),
-    "revive_character": dict(payload=lambda c: {}, expect=["character_update", "activity_log", "member_status"]),
+    "revive_character": dict(fields={"incapacitated": True}, payload=lambda c: {},
+                             expect=["character_update", "activity_log", "member_status"]),
     # A burn answers a roll of that action (p. 13)
     "burn_resistance": dict(
         fields={"move": 2, "nerve_max": 3}, dice=(6, 6),

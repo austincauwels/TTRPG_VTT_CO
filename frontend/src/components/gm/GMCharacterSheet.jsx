@@ -13,7 +13,9 @@ import { ConfirmAction } from '../shared/ConfirmAction';
 // back too (playtest, lk-resource-repair), never past its maximum: a full resource cannot be
 // picked, and the server puts none back. One press gives one back: a double-click gave two
 // (playtest, spend-back-unguarded-past-maximum), so a press waits for the member's count to
-// move, or for 3 seconds when no answer comes.
+// move, or for 3 seconds when no answer comes. The answer moves the count within a few ms,
+// so the second click of a real double-click came after it and gave a second spend back
+// (re-check of the second playtest): a press within 600 ms of the last is always ignored.
 const SpendBack = ({ character, onGive }) => {
   const used = character?.resources_spent_assignment || 0;
   const [picked, setPicked] = useState('');
@@ -25,6 +27,7 @@ const SpendBack = ({ character, onGive }) => {
   const give = () => {
     if (used <= 0) return;
     const last = sent.current;
+    if (last && Date.now() - last.at < 600) return;
     if (last && last.used === used && Date.now() - last.at < 3000) return;
     if (onGive(resource || undefined)) sent.current = { used, at: Date.now() };
   };

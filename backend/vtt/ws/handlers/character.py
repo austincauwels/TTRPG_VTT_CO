@@ -126,6 +126,10 @@ async def handle_revive_character(ctx):
     # Back on their feet once the circle gets them somewhere safe (rulebook p. 14). The
     # overfilled track was cleared when the scar was taken; the others keep their marks,
     # which only resources, abilities or gear heal (RULES_CHECK.md item 9).
+    # Someone already on their feet is left alone: a double press on the Lightkeeper's
+    # Revive logged the revive twice on every desk (re-check of the second playtest).
+    if not character.incapacitated:
+        return
     character.incapacitated = False
     db.commit()
     # To the character's own channel: a revive the Lightkeeper sends would otherwise reach

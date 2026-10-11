@@ -982,6 +982,21 @@ def test_revive_character(client):
         assert gm.drain() == [{"type": "member_update", "payload": p}, msgs[1]]
 
 
+
+def test_a_second_revive_does_nothing(client):
+    """A double press on the Lightkeeper's Revive revived twice and logged
+    "has been revived" twice on every desk (re-check of playtest 2): a revive for someone
+    already able to act sends nothing."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, incapacitated=True)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("revive_character", character_id=ch["id"])
+        gm.send("revive_character", character_id=ch["id"])
+        lines = [m for m in gm.sync() if m["type"] == "activity_log"]
+        assert [m["payload"]["message"] for m in lines] == [f"{ch['name']} has been revived and is operational."]
+        assert support.types(ws.drain()) == ["character_update", "activity_log", "member_status"]
+    assert support.fetch(Character, ch["id"]).incapacitated is False
+
 # --- the three soak maps: take_mark, resolve_ability_mark, intercept_mark ------
 
 @pytest.mark.parametrize("ability,fields,spent_field", [
