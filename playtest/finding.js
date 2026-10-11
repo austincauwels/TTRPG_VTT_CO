@@ -33,6 +33,18 @@ if (!SEVS.includes(f.sev)) bad.push(`--sev (${SEVS.join('|')})`);
 if (!f.title) bad.push('--title');
 if (bad.length) { console.error(`missing or bad: ${bad.join(', ')}`); process.exit(1); }
 for (const s of f.shots) if (!fs.existsSync(path.resolve(__dirname, s)) && !fs.existsSync(s)) console.error(`warning: no such screenshot ${s}`);
-const id = `F${String(all().length + 1).padStart(3, '0')}`;
-fs.appendFileSync(FILE, JSON.stringify({ id, t: new Date().toISOString(), ...f }) + '\n');
+// Several seats log at once: number and append under a lock so no two findings share an ID
+const LOCK = FILE + '.lock';
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+for (let i = 0; ; i++) {
+  try { fs.mkdirSync(LOCK); break; } catch (e) {
+    if (i > 200) { try { fs.rmdirSync(LOCK); } catch { /* stale */ } }
+    sleep(25);
+  }
+}
+let id;
+try {
+  id = `F${String(all().length + 1).padStart(3, '0')}`;
+  fs.appendFileSync(FILE, JSON.stringify({ id, t: new Date().toISOString(), ...f }) + '\n');
+} finally { fs.rmdirSync(LOCK); }
 console.log(`logged ${id}`);
