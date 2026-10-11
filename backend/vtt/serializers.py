@@ -98,7 +98,9 @@ def get_char_dict(char):
         "resources_spent_assignment": getattr(char, "resources_spent_assignment", 0) or 0,
         "advancement_picks": getattr(char, "advancement_picks", 0) or 0,
         "advancement_taken": advancement_taken(char),
-        # Incapacitated by a fourth mark and the scar not yet written (the Lightkeeper reads it)
+        # Incapacitated by a fourth mark and the scar not yet written (the Lightkeeper's desk
+        # reads it; like the rest of this sheet it also reaches the members wherever the whole
+        # sheet is sent: circle-creation-state, investigator_approved, character_joined_mid_campaign)
         "scar_pending": getattr(char, "id", None) in awaiting_scar,
     }
 

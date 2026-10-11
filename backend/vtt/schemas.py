@@ -411,7 +411,10 @@ class CharacterRosterItem(BaseModel):
     catalyst: str = ""
     owner_username: str = ""
     # How each investigator stands: who is down and the scars are for every member's circle
-    # cards; the marks, picks and owed scar are the Lightkeeper's read alone (zero otherwise)
+    # cards; on this roster the marks, picks and owed scar are filled for the Lightkeeper
+    # alone (zero otherwise). They are not secret from members: the whole sheets
+    # (serializers.get_char_dict) in circle-creation-state, investigator_approved and
+    # character_joined_mid_campaign carry them to every member.
     incapacitated: bool = False
     scars_count: int = 0
     body_marks: int = 0
