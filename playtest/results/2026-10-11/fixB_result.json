@@ -1,0 +1,573 @@
+[
+ {
+  "group": "campaigns",
+  "impl": {
+   "done": [
+    {
+     "item": "invite-silently-retires-living-investigator",
+     "what": "backend/vtt/routers/campaigns.py invite_rejoin: writes the log line 'The Lightkeeper invited <name> back.' and returns current_investigator (the invitee's living active investigator there). InvitePlayer.jsx appends '<name> is still alive and is retired when they rejoin.' to the sent line. DESIGN.md and ROUTES.md updated.",
+     "checked": "test_invite_rejoin_names_the_living_investigator_and_logs, updated test_invite_rejoin and the rest-broadcast invite test; Chromium 1440x900 screenshot showed the warning and the log line."
+    },
+    {
+     "item": "spend-limit-resets-with-new-investigator",
+     "what": "rejoin() in campaigns.py: the new character takes the largest resources_spent_assignment among the still-active investigators it retires (retired earlier ones are ignored, since their count is from an old break). FAQ.md and ROUTES.md updated.",
+     "checked": "test_rejoin_keeps_the_players_spends_and_logs_the_arrival passes."
+    },
+    {
+     "item": "replaced-investigator-leaves-no-record",
+     "what": "Only the checkable half: rejoin_campaign now writes '<new> joined the circle, in place of <old>.' to the Activity Log (replaced names read before the retire). No Fallen card or memorial.",
+     "checked": "test_rejoin_keeps_the_players_spends_and_logs_the_arrival; test_rest_broadcasts rejoin tests flipped to expect activity_log."
+    },
+    {
+     "item": "retire-hides-its-investigators",
+     "what": "retire_campaign: living active or pending characters become unaffiliated with campaign_id None and no ink (as delete does); dead ones stay retired with the campaign. Pinned tests in test_campaigns, test_deletion and test_portraits flipped or given a dead character. FAQ.md already described this; QUIRKS, ROUTES and WEBSOCKET updated.",
+     "checked": "test_retire_keeps_the_dead_with_the_campaign plus the flipped tests pass."
+    },
+    {
+     "item": "hub-stale-after-campaign-retired",
+     "what": "Server: campaign_retired is sent to the GM channel and, via broadcast_users, to every socket of the owners of released characters (D3 fixed). Frontend: the player-side handler in gameStore.js sets a hub notice and refetches the user's lists; the roster book re-reads lists every time it opens (useCampaignEntry.js); the hub refetches when the tab becomes visible (usePendingApprovalWatch.js).",
+     "checked": "test_retire_reaches_the_gm_and_the_players (flipped QUIRK test); frontend build. The hub-with-no-socket refresh was not driven in a browser."
+    },
+    {
+     "item": "join-requests-hide-the-player",
+     "what": "CharacterRosterItem gains owner_username (filled in get_roster); the investigator_joined payload's pending cards carry it too. PlayerRosterCard shows 'from <username>'; CorrespondenceStack flags 'Already has an investigator here.' (a living active investigator of that player) or 'Sent another request too.' (another pending request). tests/data/openapi.json regenerated. DESIGN.md updated.",
+     "checked": "test_roster_names_the_player_of_each_request, updated test_roster and the join broadcast test, test_surface openapi snapshot; Chromium 1440x900 screenshot of Join Requests with two requests from one player."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Fallen card / memorial for replaced investigators (part of replaced-investigator-leaves-no-record)",
+     "why": "The verifier called it a product decision, and roster.js documents that the dead lie apart only until replaced. Only the join log line was done. The Registry and Circle History still omit the replaced investigator."
+    },
+    {
+     "item": "Refusing an invite or a second join request server-side",
+     "why": "Product decision per the verifiers. The Lightkeeper is warned instead, in the invite slip and on the request card."
+    },
+    {
+     "item": "Retired-campaigns list for the Lightkeeper and a warning on the player-side join/rejoin creator",
+     "why": "FAQ says retired campaigns are hidden by design. Player-side wording was not required to fix the cluster."
+    }
+   ],
+   "choices": [
+    "Retire releases only living characters; dead ones stay 'retired' with the campaign, matching delete (which leaves retired ones with their campaign).",
+    "The retire message goes to the GM channel plus broadcast_users(owners), not to each character key, to avoid double delivery.",
+    "Invite response gains current_investigator (name or null) rather than refusing the invite while the investigator lives.",
+    "Invite log wording: 'The Lightkeeper invited <username> back.' Rejoin log wording: '<name> joined the circle, in place of <old names>.'",
+    "Slip warning wording: '<name> is still alive and is retired when they rejoin.'",
+    "Join request flags: 'Already has an investigator here.' when the player has a living active investigator on the roster, else 'Sent another request too.' when another pending request is from the same player; shown inline in oxblood next to 'from <username>', not as permanent help text.",
+    "owner_username is sent to everyone who gets the roster or investigator_joined frames (the GM and active members), not only the GM.",
+    "Spend carry-over uses the maximum count among the still-active investigators retired in the rejoin.",
+    "Hub refresh is by refetch on book open and tab visibility rather than a hub socket; the player's retire notice reads 'The Lightkeeper retired the campaign. Your investigator is free to join another.'",
+    "The View sheet itself was not given the player name; the card above carries it."
+   ],
+   "commits": [
+    "1b320a9 Campaigns: retire releases investigators, join requests name the player"
+   ],
+   "tests": "Ran against a throwaway database, which I dropped afterwards. All passed: test_campaigns (62), test_portraits (78), test_deletion, test_rest_broadcasts, test_surface, test_access, test_auth, test_users, test_ws_connect, test_ws_gm_view, test_ws_circle and test_ws_character. A combined run of the last eleven files plus test_deletion and test_rest_broadcasts gave 841 passed and 1 failed (test_portraits, since fixed and re-run green). test_account also passed; test_00_startup's fresh-sequence test failed only because my database was not fresh, and it is unrelated to this change. Frontend builds with vite. Chromium at 1440x900 rendered the Lightkeeper desk with the join-request flag and the invite slip warning, and showed no page errors."
+  },
+  "rev": {
+   "summary": "I found one blocking issue in fix2-campaigns (1b320a9) and several should-fix gaps; most of the fixes work. Backend tests pass: test_campaigns, test_rest_broadcasts, test_deletion, test_portraits and test_surface (246 passed), plus test_account, test_auth, test_users, test_ws_circle, test_access and test_ws_gm_view (709 passed). The frontend builds and the commit has no em dashes. I checked in Chromium at 1440x900, 1366x768 and 390x844. The join-request card shows \"from <username>\" with the oxblood flags. The invite slip names the living investigator, and the Activity Log gets the invite line. After a retire, the released investigator shows under Not in a campaign once the Case Ledger opens, and the desk of the released investigator goes to the hub with a notice.\n\nBlocking: campaign_retired is now sent with broadcast_users to every socket of the owners. A player playing campaign A, who entered through the Last Played tome, is thrown off that desk to the hub with a wrong notice when campaign B, where they also have an investigator, is retired. The campaign check lets it through because the auto-filled lastPlayedCampaign has no campaignId. I reproduced this; screenshot: /tmp/claude-0/rev8512/shots/13_other_campaign_desk_after_retire.png.\n\nShould fix:\n- owner_username is missing from the investigator_rejected and rejoin frames, so on a second Lightkeeper tab the labels and flags vanish (screenshot: /tmp/claude-0/rev8512/shots/02_after_reject_elsewhere.png).\n- A player's Last Played tome still names the retired campaign and opens the desk under it.\n- The owner of a dead investigator is told it is \"free to join another\".\n- Usernames, which are login names, now go to every member.\n- WEBSOCKET.md is not updated for the new activity_log sources or the new payload field.\n- The player is still not warned that rejoining retires their living investigator.\n\nAll temporary servers were stopped and both databases dropped. Nothing in the worktree was changed.",
+   "issues": [
+    {
+     "level": "blocking",
+     "where": "backend/vtt/routers/campaigns.py:258",
+     "problem": "campaign_retired is sent with manager.broadcast_users(owners), which reaches every socket of those users on any channel. The player handler (frontend/src/store/gameStore.js:1108) relies on isForThisCampaign, which returns true when activeCampaignId() is null. That is the case after the hub's auto Last Played (useAutoLastPlayed sets no campaignId) and after a reload of that state. Reproduced on 8512: a player with Alma in 'Kept Case' (entered via the Last Played tome) and Bea in 'Doomed Case'. Retiring Doomed Case threw them off Alma's desk to the hub with 'The Lightkeeper retired the campaign. Your investigator is free to join another.' (shots/13_other_campaign_desk_after_retire.png). A GM desk the player runs elsewhere and sockets on other characters are exposed to the same path.",
+     "fix": "Send campaign_retired only to the channels concerned: the GM key, plus character_key(c.id) for each character the retire touched. The 'released' list is already built and unused; add the dead ones too if their owners should hear it. A message reaching both a character key and broadcast_users is not needed. Alternatively, put the character ids in the payload and have the handler act only when socketGameId is one of them. Add a test: a socket of the same user on a character in another campaign gets nothing."
+    },
+    {
+     "level": "should",
+     "where": "backend/vtt/routers/campaigns.py:213",
+     "problem": "owner_username is only in GET roster and investigator_joined. investigator_rejected's pending_investigators (get_char_dict) and the rejoin's investigator_approved/character_joined_mid_campaign cards lack it, and the store replaces the lists with them. On a second Lightkeeper tab or phone that did not do the reject itself, the remaining requests lose 'from <username>' and the flags until a reload (verified: shots/02_after_reject_elsewhere.png shows Wren Hale's card without 'from ... Already has an investigator here.' after Dev was rejected elsewhere). A player who rejoined is also missed by the 'Already has an investigator here.' check on that tab.",
+     "fix": "Add owner_username (via _owner_names) to the pending list in reject_campaign's investigator_rejected payload, and to the new character's card in the rejoin frames. Or have the store keep owner_username from the existing card when it merges, as sheetOnCard does for approve. Extend test_reject_notifies_campaign_and_rejected_character to assert it."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/store/gameStore.js:1123",
+     "problem": "The player-side campaign_retired handler clears lastPlayedCampaign only for type 'gm'. A hub that never got the message (no socket) also keeps it after fetchUserData. After a retire the hub's Last Played tome still reads the retired campaign ('Retired Case'), and pressing it opens the released investigator's desk headed 'Mina Vale \u00b7 Retired Case' while it says 'Not in a campaign' (shots/12_hub_lastplayed_click.png). This is part of hub-stale-after-campaign-retired: a stale entry with a play button.",
+     "fix": "Use withoutCampaign(state, id, code) in the campaign_retired handler, as campaign_deleted does. On the hub, after fetchUserData, drop a player lastPlayedCampaign whose character is no longer active (useAutoLastPlayed can then pick a fresh one)."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/store/gameStore.js:1125",
+     "problem": "owners includes the owners of dead investigators, which stay 'retired' with the campaign (campaigns.py:252 uses active_chars, not released). Their desk gets 'The Lightkeeper retired the campaign. Your investigator is free to join another.', which is false for a dead investigator; verified on a dead investigator's phone desk (shots/10_dead_owner_after_retire.png). ROUTES.md and WEBSOCKET.md also say the message goes to the owners of the characters it 'let go', which the code does not match.",
+     "fix": "Either send only to released characters, or word the notice by the character's state (for example 'The Lightkeeper retired the campaign.' when the investigator was dead). Make the docs match."
+    },
+    {
+     "level": "should",
+     "where": "backend/vtt/routers/campaigns.py:177",
+     "problem": "owner_username, which is the login name (auth logs in by username, and register was hardened against username enumeration), is now sent to every member through GET roster (require_gm_or_member) and the investigator_joined broadcast. The invite log line 'The Lightkeeper invited <username> back.' also shows a username to every player. Only the Lightkeeper needs the name to tell requests apart.",
+     "fix": "Fill owner_username in get_roster only when the caller is the campaign's GM, and send the investigator_joined variant with usernames only to the GM key (members can keep the plain one). Consider naming the player's former investigator in the invite log line instead of the username."
+    },
+    {
+     "level": "should",
+     "where": "docs/refactor/WEBSOCKET.md:251",
+     "problem": "The activity_log row still lists its REST sources as 'many handlers; REST notebook POST'. REST rejoin and invite-rejoin now send it too. The investigator_joined row and ROUTES.md:97 do not mention the new owner_username field in pending_investigators. The repo rule says WEBSOCKET.md lists every message.",
+     "fix": "Add 'REST rejoin, REST invite-rejoin' to the activity_log sources. Note owner_username on investigator_joined's pending cards (and on the roster in ROUTES.md for GET roster)."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/gm/desk/InvitePlayer.jsx:102",
+     "problem": "Only the Lightkeeper is warned. The player who accepts the invite (desk banner and CharacterCreator's 'Rejoin it with this investigator?') is still not told that their living investigator will be retired, which is the harm the verifier described (a living investigator retired silently). The implementer skipped this as not required.",
+     "fix": "Add one line to the rejoin step in CharacterCreator and to the invite banner when the player's current character in that campaign is alive, for example '<name> will be retired.' Or record it as a known gap in the PR."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/desk/InvitePlayer.jsx:102",
+     "problem": "The warning is appended to the seal-green success line, so it reads as part of the success, not as a warning. The wording 'is still alive and is retired when they rejoin' is awkward.",
+     "fix": "Put it on its own line in oxblood: '<name> is still alive and will be retired when they rejoin.'"
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/routers/campaigns.py:239",
+     "problem": "'released' is collected and never used, and the comment says the message goes to the released characters' owners.",
+     "fix": "Use it for the recipients (see the blocking item) or remove it."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/routers/campaigns.py:364",
+     "problem": "The carry-over takes max() with new_char's own resources_spent_assignment. An unaffiliated character released by a retire or delete, or one that used Volunteer Duty elsewhere, brings a count from another campaign into the new one. This was already the case for joins.",
+     "fix": "Optionally reset the count when a character is released, or take only spent_before here."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/campaignSelector/usePendingApprovalWatch.js:24",
+     "problem": "A pending request released by a retire becomes unaffiliated, so the hub says 'The Lightkeeper did not take X into <campaign>', as if it had been rejected. While a request is pending, the new visibilitychange listener also duplicates the pending watch's own, so each return to the tab fetches the lists twice.",
+     "fix": "Reword it when the campaign was retired, if that can be told apart. Let the pending watch skip its own visibility listener now that one always runs."
+    }
+   ],
+   "items_ok": [
+    "spend-limit-resets-with-new-investigator: rejoin() carries the largest count from the still-active investigators it retires, which covers both the invite and the death paths. The test passes, and FAQ.md and ROUTES.md are updated.",
+    "retire-hides-its-investigators: living active and pending characters become unaffiliated with no campaign and no ink, as delete does, and dead ones stay retired. The pinned tests were flipped, not deleted, and QUIRKS/D3 is updated. Checked in the browser: Mina appears under Not in a campaign with Join a campaign."
+   ],
+   "items_incomplete": [
+    "hub-stale-after-campaign-retired: the Case Ledger now re-reads the lists when it opens and when the tab becomes visible again. But the player's Last Played tome still names the retired campaign and opens the desk under it. The new broadcast_users delivery also throws players off desks in other campaigns (blocking).",
+    "join-requests-hide-the-player: the label and flags work on the acting tab (seen at 1440x900). On a second tab they disappear after a reject or rejoin, because those frames carry no owner_username. The username also goes to every member, not only the Lightkeeper.",
+    "invite-silently-retires-living-investigator: the Lightkeeper's slip warns (in success green) and the log line is written. Nothing warns the player who accepts. The log line shows a username to every player.",
+    "replaced-investigator-leaves-no-record: only the join log line '<new> joined the circle, in place of <old>.' was done, and it is tested. The Fallen card or memorial in the roster, Circle History and Registry was skipped as a product decision, so the dead investigator's record is still on no screen. WEBSOCKET.md does not list REST rejoin as an activity_log source.",
+    "retire-hides-its-investigators (related): campaign_retired now also reaches the owners of dead investigators, telling them their investigator 'is free to join another'."
+   ]
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "blocking: campaign_retired threw players off desks of other campaigns",
+     "what": "campaigns.py retire_campaign sends only to the GM key and character_key of each released living investigator (broadcast_users removed, dead owners not told). The handler in gameStore.js now uses withoutCampaign.",
+     "checked": "test_retire_reaches_the_gm_and_the_players extended (socket on another campaign's investigator and a dead one's get nothing); Chromium: a player on Alma's desk via Last Played stayed on it when another campaign was retired."
+    },
+    {
+     "item": "owner_username missing from investigator_rejected and rejoin frames; usernames sent to every member",
+     "what": "campaigns.py: _named and _broadcast_named helpers. The Lightkeeper's copy of investigator_joined, investigator_rejected and a rejoin's investigator_approved carries owner_username, the members' copy does not. get_roster fills it for the campaign's GM only.",
+     "checked": "test_rest_broadcasts join, reject and rejoin tests and test_campaigns test_roster assert both sides; 757 backend tests passed."
+    },
+    {
+     "item": "invite log line showed a login name to every player",
+     "what": "invite_rejoin logs 'The Lightkeeper invited <investigator name> back.' (living one, else the last one here, else 'a player').",
+     "checked": "test_invite_rejoin_names_the_living_investigator_and_logs asserts the login name is absent; Chromium log line read 'invited Alma Reed back'."
+    },
+    {
+     "item": "Last Played tome kept the retired campaign",
+     "what": "gameStore.js: retire handler uses withoutCampaign (also clears a player's last played); fetchUserData drops a lastPlayedCampaign whose character is no longer active or whose GM campaign is gone.",
+     "checked": "frontend build; not driven in a browser for the hub with no socket."
+    },
+    {
+     "item": "dead investigator's owner told 'free to join another'",
+     "what": "Dead investigators' owners no longer get the message at all. WEBSOCKET.md, ROUTES.md and QUIRKS.md reworded to match the code.",
+     "checked": "test_retire_reaches_the_gm_and_the_players (dead one's socket gets nothing)."
+    },
+    {
+     "item": "WEBSOCKET.md and ROUTES.md not updated",
+     "what": "activity_log sources now include REST rejoin and invite-rejoin; owner_username noted on investigator_joined, investigator_rejected, investigator_approved and GET roster; invite-rejoin log wording and retire recipients updated; DESIGN.md updated.",
+     "checked": "read against the code."
+    },
+    {
+     "item": "player not warned that rejoining retires their living investigator",
+     "what": "RejoinInviteBanner (exports retiredByRejoin) adds '<name> will be retired.'; AppRouter passes retires to CharacterCreator's rejoin step, which says the same. The player's characters list gives the names.",
+     "checked": "Chromium 1440x900 screenshot of the hub banner: 'Alma Reed will be retired.' The creator's rejoin step was not opened in the browser."
+    },
+    {
+     "item": "nit: invite warning in success green with awkward wording",
+     "what": "InvitePlayer.jsx: own oxblood line '<name> is still alive and will be retired when they rejoin.'",
+     "checked": "Chromium screenshot of the slip."
+    },
+    {
+     "item": "nit: unused 'released' list",
+     "what": "Now used for the retire recipients.",
+     "checked": "tests above."
+    },
+    {
+     "item": "nit: hub fetched the lists twice on tab return while a request waits",
+     "what": "usePendingApprovalWatch.js: the pending watch keeps only its interval; the always-on visibility listener does the refetch.",
+     "checked": "frontend build."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Fallen card or memorial for replaced investigators (reviewer: replaced-investigator-leaves-no-record incomplete)",
+     "why": "Still a product decision per the verifier; roster.js documents that the dead lie apart only until replaced. The log line '<new> joined the circle, in place of <old>.' is the record, and WEBSOCKET.md now lists REST rejoin as an activity_log source."
+    },
+    {
+     "item": "nit: carry-over takes max with new_char's own resources_spent_assignment",
+     "why": "Already the case for joins; the reviewer marked it optional, and resetting counts on release would change delete and retire behaviour beyond this group."
+    },
+    {
+     "item": "nit: hub says 'did not take X into <campaign>' for a pending request released by a retire",
+     "why": "The hub's character list has no retired flag, so the two cases cannot be told apart without a new field in the users API and its OpenAPI snapshot."
+    },
+    {
+     "item": "is_dead in the user's characters list for the rejoin warning",
+     "why": "Adding it changes the OpenAPI snapshot. The warning names the player's active investigators in that campaign, which rejoining retires dead or alive, so 'will be retired' holds either way."
+    }
+   ],
+   "choices": [
+    "campaign_retired goes to the GM key plus character_key of each living released investigator only; the owners of dead investigators are not told.",
+    "Player login names (owner_username) go to the Lightkeeper's channel only: the roster fills them only for the campaign's GM, and the join, reject and rejoin frames have a named copy for the GM key and a plain copy for members (broadcast_campaign with the GM key excluded).",
+    "The rejoin's GM copy of investigator_approved names every active card, and the new character's card too, so the 'Already has an investigator here.' flag works on a second Lightkeeper tab.",
+    "Invite log line: 'The Lightkeeper invited <investigator name> back.' using the living investigator, else the latest active or retired one in that campaign, else 'a player'.",
+    "Invite slip warning: separate oxblood line '<name> is still alive and will be retired when they rejoin.'",
+    "Player-side warning wording: '<name> will be retired.' (names joined with ' and ') on the hub invite banner and the creator's rejoin step; the names come from the player's characters list in the store, with no new server field.",
+    "The retire message handler on the player side now uses withoutCampaign, as delete does, so the Last Played tome and ledger lose the campaign.",
+    "fetchUserData clears a lastPlayedCampaign whose player character is no longer active or whose GM campaign is gone, so the hub's auto Last Played can pick a fresh one.",
+    "The banner text was allowed to wrap (truncate class removed) so the added sentence is not cut off."
+   ],
+   "commits": [
+    "ff5ebaa Campaigns: retire reaches only its own investigators, usernames stay with the Lightkeeper"
+   ],
+   "tests": "On a throwaway database, dropped afterwards: test_campaigns, test_rest_broadcasts, test_deletion, test_surface, test_portraits, test_ws_circle, test_access, test_ws_gm_view and test_ws_character, 757 passed. test_account, test_auth and test_users were not re-run; they passed on the earlier commit and this change does not touch their code. Frontend builds with vite. Chromium at 1440x900 (servers on 8522 and 4522, stopped by PID, database dropped): the hub invite banner, the Lightkeeper's invite slip and log line, and a desk on another campaign staying put when a campaign is retired. Not driven in a browser: the hub with no socket dropping a stale Last Played, the creator's rejoin sentence, a second Lightkeeper tab."
+  }
+ },
+ {
+  "group": "desk",
+  "impl": {
+   "done": [
+    {
+     "item": "dispatch-draft-dropped-on-section-switch",
+     "what": "SceneManager.jsx: module-level kept draft per circle id seeds location/atmosphere/ownText on remount; circle sync effects skip mount",
+     "checked": "vite build only; no browser check"
+    },
+    {
+     "item": "pass-notes-no-lightkeeper-recipient",
+     "what": "PassNotes.jsx: '@Lightkeeper only' option, sender excluded, private labels '(and the Lightkeeper)' for players; chat.py reserves @Lightkeeper; new test in test_ws_chat_notebook.py; DESIGN.md, FAQ.md, WEBSOCKET.md updated",
+     "checked": "test_ws_chat_notebook.py 18 passed; vite build"
+    },
+    {
+     "item": "timer-status-kept-after-reset",
+     "what": "TimerBell.jsx: clearing effect also empties the status when the timer is stopped at its full duration",
+     "checked": "vite build only"
+    },
+    {
+     "item": "hub-tack",
+     "what": "Removed tack from CryptidSketches.jsx 'pinned' paper, .paper-tack in DeskStyles.jsx, the pucker code in paperArt.js; DESIGN.md line 418 updated",
+     "checked": "vite build; grep shows no remaining tack uses"
+    }
+   ],
+   "skipped": [
+    {
+     "item": "ActivityLog tagging of private lines",
+     "why": "Verifier called it optional polish"
+    },
+    {
+     "item": "Browser check in Chromium",
+     "why": "Not done; build passes and changes are small, but screens were not opened"
+    }
+   ],
+   "choices": [
+    "Dispatch draft kept at module level (survives section switch, lost on reload), not localStorage",
+    "A dispatch arriving with changed circle values still overwrites the draft, as before",
+    "Lightkeeper's own To: list keeps '(private)' labels and still lists all investigators",
+    "Reset detected as not running and remaining >= duration",
+    "DESIGN.md tack line now says the print lies loose and notes the tack was removed 2026-10-11",
+    "Added FAQ paragraph before the 'What the Lightkeeper's changes' section"
+   ],
+   "commits": [
+    "e091c0f Desk fixes: keep dispatch draft, Lightkeeper pass-notes recipient, timer status on reset, drop hub tack"
+   ],
+   "tests": "backend/tests/test_ws_chat_notebook.py: 18 passed (including the new reserved @Lightkeeper test). Frontend vite build passes."
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "blocking",
+     "where": "frontend/src/components/gm/SceneManager.jsx:151-165",
+     "problem": "The module-level keptDraft is restored on every remount, even when it is not a draft at all but simply the dispatch that was on the desks. The circle sync effects now skip mount, so a dispatch or End Assignment that arrives while the letter is unmounted (Map, Notebook or Circle open) is never shown on the letter. I reproduced it in Chromium (1440x900, API 8515). Tab A dispatches 'The old mill' and opens Map. A second tab of the same Lightkeeper dispatches 'The docks', then closes. Tab A presses 'Use this tab' and goes back to Roster. The letter still reads 'The old mill' / 'Meet at dusk.' and says 'NOT DISPATCHED YET', while the circle and the players' desks hold 'The docks' (out_8515/e2_tabA_roster.png in my scratch run). Before this change the letter showed 'The docks'. One press of Dispatch now silently puts the old dispatch back over the new one on every player's desk. This is also inconsistent with a mounted letter, where an arriving dispatch overwrites the draft. Same on a phone or a second device.",
+     "fix": "Keep the circle values the draft was based on next to it, e.g. keptDraft = { circleId, base: {location, atmosphere, dispatch_text}, location, atmosphere, ownText }. On mount, use the kept draft only when the circle's current location, atmosphere and dispatch_text still equal kept.base; otherwise seed from the circle, as a mounted letter would. A simpler alternative: keep the draft only while it differs from the circle values, and clear keptDraft when a dispatch arrives with values different from the base."
+    },
+    {
+     "level": "should",
+     "where": "FAQ.md:260",
+     "problem": "The new paragraph sits under '### How does the notebook work?', but it covers three things that are not the notebook: the Pass Notes recipients, the dispatch draft and the timer's screen-reader status. Nobody looking up pass notes, the dispatch or the timer would find them there.",
+     "fix": "Put the Pass Notes rule in a chat or pass-notes place of its own (e.g. a short '### Who reads a passed note?' or a bullet in the Lightkeeper/desks section). Move the dispatch-draft and timer lines into '## What the Lightkeeper's changes look like on the players' desks', or into the dispatch and timer bullets there."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/gm/SceneManager.jsx:160-165",
+     "problem": "The 'skip on mount' guard is a ref set in a mount effect. Under React.StrictMode (on in src/main.jsx) development builds run effects twice. On the second run mounted.current is already true, so the three sync effects overwrite the restored draft with the circle values on every remount. Under `npm run dev` the fix therefore looks broken, and the next developer could easily 'fix' it the wrong way. Production builds are not affected.",
+     "fix": "Decide on mount by comparing values rather than by a mount flag: track the previous circle values in a ref initialised to the current ones, and sync only when circle.location, atmosphere or dispatch_text actually differs from that ref. Doing this together with the blocking fix's base comparison makes it StrictMode-safe."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/dice/PassNotes.jsx:20-24",
+     "problem": "A character named 'Lightkeeper' (the server now reserves the name) appears in other players' lists as '@Lightkeeper (and the Lightkeeper)' with the value '@Lightkeeper'. That duplicates the '@Lightkeeper only' option's value, so TargetDropdown gets a duplicate React key and both options send to the Lightkeeper alone.",
+     "fix": "Filter out investigators whose name is 'lightkeeper' (case-insensitive) from the player's private options, or refuse the name at character creation."
+    },
+    {
+     "level": "nit",
+     "where": "DESIGN.md:418",
+     "problem": "'the brass tack it once had went on 2026-10-11' reads oddly ('went' for 'was removed') and puts change history into a description of the current look.",
+     "fix": "Say e.g. 'a hand-coloured print lying loose (the sea monk; a corner curls; no tack, owner 2026-10-11: a tack pushed into a desk is not realistic)'."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/SceneManager.jsx:141",
+     "problem": "The dispatch draft is lost on reload, but notebook drafts survive a reload (DESIGN.md 'Unsent writing'). The triage only asked for the draft to survive a section switch, which now works, but the desk stays inconsistent about unsent text, and DESIGN.md does not describe the dispatch draft rule at all (only FAQ does).",
+     "fix": "Optional: keep it in localStorage under candela-dispatch-draft:<userId>:<campaignId> like the notebook drafts. At minimum, add one line to DESIGN.md's dispatch letter description."
+    }
+   ],
+   "items_ok": [
+    "pass-notes-no-lightkeeper-recipient: checked in Chromium. On Bram's phone (390) the To: list is '@Circle (everyone)', '@Lightkeeper only', '@Iris Vane (and the Lightkeeper)', with no self entry and all rows at least 44px. Iris's tablet list matches. The Lightkeeper's list is unchanged with '(private)'. A note to '@Lightkeeper only' reached the Lightkeeper and the sender only; Iris received nothing. chat.py reserves @Lightkeeper and the new test covers it. WEBSOCKET.md, DESIGN.md and FAQ.md are updated. test_ws_chat_notebook.py + test_surface.py: 68 passed. The ActivityLog private tag was skipped as optional, as the verifier allowed.",
+    "timer-status-kept-after-reset: checked in Chromium on the Lightkeeper's desk (1440) and Iris's tablet. Set 0:04 leaves the status empty, Start says 'Timer started.', the run-out says 'Time's up.', and Reset empties it on both desks. After Pause and Reset it is empty on both, and Start then Time's up are heard again. Matches countdown.apply_action reset (stopped at the duration).",
+    "hub-tack: the tack prop, its render, the .paper-tack CSS and the pucker in paperArt.js are all removed. Nothing else used them, and the light layer is drawn last, so no other paper's seeded art changes. At 1920x1080 the sea monk lies loose with no tack or pucker (no .paper-tack in the DOM). DESIGN.md line 418 is updated (wording nit above).",
+    "Frontend vite build passes; backend tests for chat and surface pass; no em dashes added; commit trailers are correct."
+   ],
+   "items_incomplete": [
+    "dispatch-draft-dropped-on-section-switch: a draft now survives Map, Notebook and Circle and back (verified in Chromium). But the restore is unconditional, so a dispatch or End Assignment from another tab or device while the letter is unmounted is hidden behind the stale letter, which reads 'Not dispatched yet' and invites a resend of the old dispatch (blocking above). It also does not hold under StrictMode in dev."
+   ],
+   "summary": "Three of the four items are correct and I confirmed them in Chromium: the Pass Notes recipients (phone, tablet and the Lightkeeper's desk, plus routing), the timer status after Reset (both desks), and the hub tack removal. The dispatch draft fix works for a plain section switch but brings a regression. The module-level draft is restored on remount even when it was just the last sent dispatch, and the mount-skipping sync effects ignore changes that arrived meanwhile. I reproduced it with a second tab: after another tab dispatched 'The docks', the first tab's letter showed the old 'The old mill' and 'NOT DISPATCHED YET', one press away from overwriting the players' dispatch. That should be fixed before merge by restoring the draft only when the circle values it was based on are unchanged. The FAQ paragraph is also misplaced under the notebook heading. Backend: test_ws_chat_notebook.py and test_surface.py, 68 passed on a throwaway database (dropped). Frontend build passes. Servers on 8515/4515 were stopped by PID and fix_desk_8515 was dropped. Nothing in the worktree was edited."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "Blocking: stale draft restored over a newer dispatch (SceneManager)",
+     "what": "frontend/src/components/gm/SceneManager.jsx: keptDraft now stores the circle values it was written over (base); restored on remount only if they still match, else seeded from the circle. Sync effects replaced by one effect comparing against a ref of the last seen circle values (no mount flag, so StrictMode-safe).",
+     "checked": "vite build; Chromium 1440x900: draft survives Map and back; a dispatch 'The docks' sent from a second connection while the letter was unmounted shows on the letter after Use this tab (screenshot viewed)"
+    },
+    {
+     "item": "Should: FAQ paragraph misplaced under notebook",
+     "what": "FAQ.md: Pass Notes rule moved to its own '### Who reads a passed note?'; dispatch-draft and timer-status lines moved into the Lightkeeper's-changes-on-desks bullets",
+     "checked": "read the result"
+    },
+    {
+     "item": "Nit: duplicate '@Lightkeeper' option for a character named Lightkeeper",
+     "what": "PassNotes.jsx filters investigators named 'lightkeeper' (case-insensitive) from a player's list",
+     "checked": "vite build"
+    },
+    {
+     "item": "Nit: DESIGN.md tack wording",
+     "what": "DESIGN.md hub print line now says 'no tack, owner 2026-10-11: a tack pushed into a desk is not realistic'",
+     "checked": "read"
+    },
+    {
+     "item": "Nit: DESIGN.md lacked the dispatch draft rule",
+     "what": "Added 'The unsent dispatch' bullet after 'Unsent writing' in DESIGN.md",
+     "checked": "read"
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Keep the dispatch draft in localStorage across reload",
+     "why": "Reviewer marked it optional; the triage only asked for survival across a section switch. The reload limit is now documented in DESIGN.md and FAQ.md."
+    },
+    {
+     "item": "Re-check of pass-notes, timer and tack screens in Chromium",
+     "why": "Reviewer verified them in Chromium and this round changed only a one-line name filter there; build and the chat tests cover it."
+    }
+   ],
+   "choices": [
+    "Draft restored only while the circle's location, atmosphere and dispatch_text equal the kept base; otherwise the circle seeds the letter, as a mounted letter would",
+    "Draft stays module-level (lost on reload), documented in DESIGN.md and FAQ.md",
+    "Players' lists drop any investigator named Lightkeeper rather than refusing the name at creation (server already reserves it)",
+    "FAQ: new '### Who reads a passed note?' section; dispatch and timer lines became bullets under the Lightkeeper's changes section"
+   ],
+   "commits": [
+    "4f4aa85 Desk fixes: restore the dispatch draft only over an unchanged dispatch (on fix2-desk, after e091c0f)"
+   ],
+   "tests": "\"backend/tests/test_ws_chat_notebook.py: 18 passed on a throwaway database (dropped). Frontend vite build passes. Chromium check on 8525/4525 (servers stopped by PID, fix_desk_8525 dropped).\""
+  }
+ },
+ {
+  "group": "player",
+  "impl": {
+   "done": [
+    {
+     "item": "drive-pips-still-one-way",
+     "what": "InvestigatorDossier.jsx: the last filled pip is now a live button that clears one point (label 'Clear one X point'). backend handle_update_drive writes an activity_log line 'NAME set Nerve to 2 of 3.' (log_type field) when the value changes. Tests updated/added in test_ws_character.py, test_access.py, test_ws_gm_view.py, test_surface.py; WEBSOCKET.md updated.",
+     "checked": "Backend tests of the four files pass; Chromium 1366x768: clear then refill saved (3->2->3) and two log lines appeared."
+    },
+    {
+     "item": "log-unpinned-after-roll-slip",
+     "what": "ActivityLog.jsx: tracks whether the reader is at the foot (scroll handler) and re-pins to the foot in the ResizeObserver when the log shrinks, as well as when it reappears.",
+     "checked": "Vite build passes. Not exercised with a real roll plus slip in the browser; only the log rendering was seen."
+    },
+    {
+     "item": "choose-advancements-button-covers-sheet",
+     "what": "CircleView.jsx: the fixed floating button is replaced by an in-flow AdvancementWaiting strip ('Advancement picks are waiting. N are still to choose.' with the Choose advancements (N) button), rendered at the head of the desk in MainDeskView.jsx beside the scar strip.",
+     "checked": "Chromium 390x705: Later shows the strip, tapping it reopens the dialog, no page errors."
+    },
+    {
+     "item": "leading-name-row-collapses-on-phone",
+     "what": "CircleCreationPopup.jsx: the name row is flex-wrap, the name span has basis-40, the tags wrap in their own flex-wrap container instead of shrink-0.",
+     "checked": "Chromium formation table at 390 and 360 with a merged 2-vote leading name: name on one line, tags wrap under it, nothing clipped (screenshot viewed for 390)."
+    },
+    {
+     "item": "phone-dialog-buttons-below-fold",
+     "what": "CircleView.jsx AdvancementModal and ScarModal.jsx: the action row is sticky at the foot of the scrolling dialog with the dialog's own background and a top rule.",
+     "checked": "Chromium 390x705: Confirm Advancement (2/2) and Later stay visible with both sub-pickers open (screenshot viewed). The scar dialog uses the same pattern but was not opened in the browser."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "drive-pips-still-one-way (Lightkeeper sets a drive from her copy of the sheet)",
+     "why": "The GM sheet is the readOnly dossier with its own trauma-edit plumbing; adding drive editing there is a larger product change. The server already accepts update_drive from her, so only the sheet UI is missing."
+    },
+    {
+     "item": "phone-dialog-buttons-below-fold (formation papers jump list or collapse)",
+     "why": "The verifier called it a separate product decision and low priority. The papers staying a blocking dialog is accepted."
+    }
+   ],
+   "choices": [
+    "Drive log wording: '<name> set Nerve to 2 of 3.' (log_type field, character ink), written only when the value changes, for a player or the Lightkeeper's update_drive.",
+    "Clearing a pip steps down one point only (the last filled pip), not any filled pip.",
+    "The advancement way back is a strip at the top of the desk, styled like the scar-waiting strip with a candle-gold border, not a Menu entry.",
+    "Sticky footers use negative margins to sit flush with the dialog padding. No 'what Later does' text was added, per the no permanent help text rule.",
+    "Log counts as at the foot when within 24px of the end.",
+    "No new doc text in FAQ.md or DESIGN.md: they did not describe the changed behaviour. Only WEBSOCKET.md changed."
+   ],
+   "commits": [
+    "f5e8fcd Fix player desk items from the second playtest"
+   ],
+   "tests": "\"Ran test_ws_character.py, test_access.py, test_ws_gm_view.py and test_surface.py on a throwaway database: all pass after updating the pinned update_drive expectations and adding test_update_drive_writes_a_log_line_only_when_the_value_changes. Vite build passes. Servers stopped by PID and databases dropped.\""
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "blocking",
+     "where": "frontend/src/components/pc/dice/ActivityLog.jsx:107",
+     "problem": "The log pins to its foot only when logEntries.length changes. The store keeps 50 lines (gameStore.js:178, LOG_LINES = 50), and a reload is sent up to 100 lines of history (manager.py:55), so any session past 50 lines has a fixed length and new lines stop pinning. The new atFoot/ResizeObserver code only helps when the box changes size. Checked in Chromium at 1366x768 with 60 lines seeded: four of Iris's rolls arrived on Bram's desk and the gap to the end grew 24, 48, 72, 96 px, with the newest roll out of view (screenshot cap_iris.png). Bram's own second roll, with the slip already up, was also left 24 px short and hidden. This is the item's symptom ('the roll just made is hidden below the box') on a path every real session reaches.",
+     "fix": "Re-run the pin on the newest entry as well as the count, e.g. key the effect on logEntries[logEntries.length - 1] (or on logEntries itself) and scroll when atFoot.current is true. Or watch the content with a MutationObserver/ResizeObserver on the list. Then recheck at the 50-line cap with another seat's rolls and with your own rolls while the slip is up."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/pc/CircleView.jsx:463",
+     "problem": "The sticky footer does not stick at the dialog's bottom edge. Chromium insets the sticky area by the scroller's padding, so with bottom-0 the footer stops 20px (sm: 32px) above the inner bottom edge, and the pick cards scroll by, visibly and tappably, in the band under Confirm and Later. Measured at 390x705 with two picks ticked: inner bottom 668, footer bottom 648, and elementFromPoint 5px above the edge hits a pick label (screenshot a10_peek.png shows 'Gild an additional action' under the buttons). Only the fully scrolled end looks flush, which is what the implementer's screenshot showed. ScarModal.jsx:241 has the same 20px band (inner 685, footer 665).",
+     "fix": "Give both footers a bottom offset equal to the negative padding (-bottom-5 sm:-bottom-8 with the existing -mb), or use the verifier's structure: panel flex flex-col with max-h, content in a min-h-0 flex-1 overflow-y-auto body, footer shrink-0 outside the scroller."
+    },
+    {
+     "level": "should",
+     "where": "backend/vtt/ws/handlers/character.py:37",
+     "problem": "When the Lightkeeper sends update_drive for a member (the server allows it, and the implementer's choices say the line covers her case), the line still reads '<member> set Nerve to 2 of 3.', so the player is named as the one who did it. Other handlers say 'The Lightkeeper dealt X a mark' when ctx.is_gm (marks.py:375), and the first report asked for 'The Lightkeeper set Latch's Nerve to 2 of 4'. It also writes a campaign-wide line naming a character that is still pending approval (the case in test_access.py:299).",
+     "fix": "When ctx.is_gm, log f\"The Lightkeeper set {character.name}'s {Pool} to {value} of {maximum}.\". Add a test for the Lightkeeper's wording next to test_gm_may_set_a_members_drive_but_not_an_outsiders, and consider skipping the line for a character that is not yet approved."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/gm/GMCharacterSheet.jsx:213",
+     "problem": "The item is only partly fixed. The triage's expected result and the first report both say the Lightkeeper can set a drive from her copy of the sheet. The implementer skipped this, so her copy still has 0 live pips. The server already accepts update_drive from her, and traumaEdit already carries setMarks and setScars for exactly this kind of correction.",
+     "fix": "Add traumaEdit.setDrive(pool, value), sending update_drive with character_id, and make the dossier's pips live (refill and clear the last pip) when editing is on in the Lightkeeper's trauma edit. If this is deliberately deferred, record it as a known gap rather than calling the item fixed."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/pc/CircleView.jsx:142",
+     "problem": "The new waiting strip has a border-2 border-candle-gold. DESIGN.md (Candle Gold) says gold 'is not used for headings, labels or borders that are not gilded or selected'. This strip is neither.",
+     "fix": "Use a border the palette allows for a notice, e.g. border-sepia or border-ink, matching the scar strip's pattern (that one uses oxblood)."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/CircleCreationPopup.jsx:336",
+     "problem": "basis-40 (160px) plus the Vote button no longer fits on a 390 phone, so every row, even a short name like 'The Harrow Watch', now puts Vote on its own line above the name. At 360 a lone count chip also wraps onto a third line by itself. Nothing is clipped and the leading row reads well (checked at 390, 360 and 320), but every row is now two or three lines tall in papers that are already a long scroll on a phone.",
+     "fix": "Use a smaller basis (e.g. basis-24 or basis-28), or keep Vote and the name in one nowrap group and let only the tags wrap."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/InvestigatorDossier.jsx:1011",
+     "problem": "The new clear pip sits 2px from the refill pip and both are 20x20 on a phone (measured x 170 and 192). A finger that misses the refill now clears a point instead. It can be undone and the pip size is not new, but DESIGN.md asks for 44px touch targets.",
+     "fix": "Give the live pips a 44px hit area on touch screens without changing their drawn size, the way .touch-pip does for the Illumination dots."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/CircleView.jsx:172",
+     "problem": "After Later or Escape, focus falls to the page body (measured: activeElement BODY), so keyboard and screen-reader users have to find the new strip. The regress agent noted this too.",
+     "fix": "After dismissing, focus the strip's 'Choose advancements (N)' button, or let useDialog return focus there."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/ScarModal.jsx:242",
+     "problem": "In the action row this change touched, Decide later is 40px tall and Record scar 36px, both under the 44px touch rule. This was already so before the change.",
+     "fix": "Add [@media(pointer:coarse)]:min-h-[44px] to both buttons while the row is being edited."
+    }
+   ],
+   "items_ok": [
+    "choose-advancements-button-covers-sheet: the fixed z-400 button is gone. In Chromium the in-flow strip shows after Later and after Escape at 390x705, 1366x768 and 1920x1080, scrolls away with the page, and tapping it reopens the dialog. After a reload the dialog opens again and the strip is hidden. No page errors. One caveat: its gold border breaks a DESIGN.md color rule (listed as an issue).",
+    "leading-name-row-collapses-on-phone: with a merged 2-vote leading name on Bram's desk, the name reads on one line at 390, 360 and 320, the tags (yours, suggested 2 times, 2, leading) wrap inside the row, and nothing runs past the row's right edge. At 1366 the row is still one line. Layout nit listed."
+   ],
+   "items_incomplete": [
+    "log-unpinned-after-roll-slip: the shrink case is fixed below 50 lines (own rolls at 1366x768: gap 0 every time). Once the log holds its 50-line cap, new lines no longer pin, because the pin is keyed on logEntries.length. Other players' rolls drift out of view, and your own roll can be left 24px short (blocking issue).",
+    "drive-pips-still-one-way: the player side works in Chromium. Clearing the last pip goes 2->1, a double click stops at 0 with no duplicate line, refill 0->3 and keyboard Enter both work, the values survive a reload, and the line appears on Bram's, Iris's and the Lightkeeper's logs. Still missing: the Lightkeeper's copy has no drive editing (skipped, but part of the expected result), and a drive the Lightkeeper sets is logged under the player's name.",
+    "phone-dialog-buttons-below-fold: at 390x705, Confirm and Later, and Decide later and Record scar, stay in view and tappable with the sub-pickers open or text typed. But the sticky footer stops 20px above the dialog's bottom edge, so content scrolls by under the buttons. The formation papers' jump list was skipped as agreed."
+   ],
+   "summary": "I reviewed fix2-player (f5e8fcd against 63d80f4) and made no edits. Backend tests pass: test_ws_character, test_access, test_ws_gm_view and test_surface (491), plus test_ws_connect and test_ws_rolls (232), which also send update_drive and which the implementer had not run, all on throwaway databases that I dropped afterwards. The Vite build passes. No em dashes, and the commit trailer is correct.\n\nIn Chromium (API on 8516, preview on 4516, my own database) I checked the five screens:\n- **Drive pips:** they now clear and log. The player path works on laptop and phone, and the line reaches every desk.\n- **Advancement way back:** the strip replaces the floating button and works on phone, laptop and 1920.\n- **Leading name row:** it no longer collapses at 390, 360 or 320.\n- **Phone dialogs:** the buttons in both dialogs stay in view on a phone.\n\nProblems found:\n- **Blocking:** the Activity Log still loses its newest line once the store's 50-line cap is reached, because the pin is keyed on the entry count. I reproduced it with 60 lines: other players' rolls drifted 24 to 96px out of view, and an own roll was hidden by 24px.\n- **Should:**\n  - Both sticky footers stop 20px above the dialog's bottom edge, and content scrolls by under the buttons.\n  - A drive the Lightkeeper sets is logged under the player's name.\n  - The Lightkeeper's copy of the sheet still cannot set a drive. This was skipped, but it is in the item's expected result.\n  - The new strip's gold border breaks the DESIGN.md Candle Gold rule.\n- **Nits:** name rows now put Vote on its own line on phones; the drive pips and the scar dialog's buttons are under the 44px touch size; focus is left on the page body after Later.\n\nAll servers were stopped by PID, the databases dropped, and the worktree is clean. My scripts and screenshots are in /tmp/claude-0/-home-user-TTRPG-VTT-CO/29eccd1d-b7aa-5d30-ac75-eae521bfb965/scratchpad/rv (shots/cap_iris.png, a10_peek.png, s04_peek.png, n_390.png, a07_desktop_strip.png)."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "log-unpinned-after-roll-slip (blocking: pin lost at the 50-line cap)",
+     "what": "ActivityLog.jsx: the pin effect is keyed on the newest entry as well as the count, so new lines keep pinning once the store holds its 50-line cap.",
+     "checked": "Chromium 1366x768 with a 60-line log: Bram's desk, five of Iris's rolls arrived, gap to the end 0 and last line visible every time, 50 lines held."
+    },
+    {
+     "item": "phone-dialog-buttons-below-fold (sticky footer 20px short)",
+     "what": "CircleView.jsx AdvancementModal and ScarModal.jsx: footers get -bottom-5 sm:-bottom-8 matching the negative padding, so they stick at the dialog's real bottom edge. Scar dialog buttons also get a 44px minimum on touch screens (nit).",
+     "checked": "Chromium 390x705: advancement dialog with two picks, footer bottom equals inner bottom (668) at scroll 0, 100 and end, and a probe 5px above the edge hits the footer; scar dialog footer bottom 685 equals inner bottom 685, buttons 44px high and hit-testable."
+    },
+    {
+     "item": "drive-pips-still-one-way (Lightkeeper logged under the player's name)",
+     "what": "handle_update_drive: when ctx.is_gm the line reads 'The Lightkeeper set <name>'s Nerve to 2 of 3.'; no line for a character whose status is not active. Test added next to the drive tests, test_access.py pinned expectation flipped for the pending character, WEBSOCKET.md updated.",
+     "checked": "Backend tests (492 pass); Chromium Lightkeeper cleared a pip and the log showed her wording."
+    },
+    {
+     "item": "drive-pips-still-one-way (Lightkeeper's copy cannot set a drive)",
+     "what": "gameStore.js gmSetDrive (update_drive with character_id); GMCharacterSheet.jsx setDrive added to traumaEdit and updates the local sheet; InvestigatorDossier.jsx makes drive pips live (refill and clear the last) on the read-only dossier while trauma edit is on.",
+     "checked": "Chromium 1366x768: Edit on Iris's copy, Clear one point took Nerve 3 to 2 in the database, the pip dropped, the log line appeared, no page errors."
+    },
+    {
+     "item": "choose-advancements-button-covers-sheet (gold border breaks DESIGN.md)",
+     "what": "CircleView.jsx AdvancementWaiting: border-candle-gold becomes border-sepia.",
+     "checked": "Vite build; class change only, strip not re-screenshotted."
+    },
+    {
+     "item": "leading-name-row-collapses-on-phone (nit, basis-40 pushes Vote onto its own line)",
+     "what": "CircleCreationPopup.jsx: name basis-40 becomes basis-28.",
+     "checked": "Vite build only; not re-opened in the formation papers."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Nit: 44px hit area for the live drive pips",
+     "why": "The touch-pip hit-area class only applies from 768px up, and on a phone the pips sit 2px apart, so an enlarged hit area would overlap its neighbours. A proper fix needs a layout change to the pip row, which is not cheap."
+    },
+    {
+     "item": "Nit: focus after Later or Escape falls to the page body",
+     "why": "Returning focus to the strip's button needs a ref or id shared between AdvancementModal and AdvancementWaiting and a change to useDialog's return target. Not a cheap, plainly right change."
+    },
+    {
+     "item": "drive-pips-still-one-way, Lightkeeper's copy: pips live only in trauma edit mode",
+     "why": "Not a dispute. This is a choice: it reuses the sheet's existing Edit toggle rather than making her read-only copy always editable."
+    },
+    {
+     "item": "phone-dialog-buttons-below-fold: formation papers jump list or collapse",
+     "why": "Still a separate product decision, as agreed in the first round."
+    }
+   ],
+   "choices": [
+    "Log pin keyed on the newest entry object plus the count, so a reader scrolled up is still taken to the foot by a new line, as before.",
+    "Lightkeeper drive line: 'The Lightkeeper set <name>'s Nerve to 2 of 3.' No line for a character that is not active (pending approval).",
+    "The Lightkeeper's drive pips go live only while the dossier's trauma Edit toggle is on; setDrive updates the local sheet at once like setMarks.",
+    "Waiting strip border is sepia, not oxblood, so it differs from the scar strip but stays inside the palette rules.",
+    "Sticky footers use -bottom-5 sm:-bottom-8, the existing negative padding, rather than restructuring the dialog into a flex column.",
+    "Name rows in the formation papers use basis-28 so Vote and a short name fit one line on a 390px phone.",
+    "No new text in FAQ.md or DESIGN.md; only WEBSOCKET.md changed."
+   ],
+   "commits": [
+    "e8a4549 Fix the review findings on the player desk items"
+   ],
+   "tests": "Ran test_ws_character.py, test_access.py, test_ws_gm_view.py and test_surface.py on a throwaway database: 492 passed (one new test, test_a_drive_the_lightkeeper_sets_is_logged_in_her_name, and the pending-character expectation in test_access.py changed). Vite build passes. Servers stopped by PID and the databases dropped."
+  }
+ }
+]

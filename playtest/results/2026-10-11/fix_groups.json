@@ -1,0 +1,65 @@
+{
+ "death": {
+  "model": "sonnet",
+  "items": [
+   "dead-investigator-still-acts",
+   "death-not-announced-to-table",
+   "second-death-no-notice",
+   "death-dialog-wording-and-focus",
+   "lightkeeper-has-no-revive",
+   "scar-shift-note-doubled",
+   "F165: removing a scar with the trauma record Edit leaves that scar's action shift on the sheet (cluster lk-edit-cannot-write-scar, finding F165); undo the shift when the scar is removed"
+  ]
+ },
+ "campaigns": {
+  "model": "sonnet",
+  "items": [
+   "invite-silently-retires-living-investigator",
+   "spend-limit-resets-with-new-investigator",
+   "replaced-investigator-leaves-no-record",
+   "retire-hides-its-investigators",
+   "hub-stale-after-campaign-retired",
+   "join-requests-hide-the-player"
+  ]
+ },
+ "circle": {
+  "model": "opus",
+  "items": [
+   "illumination-tally-added-twice",
+   "end-assignment-drops-unadded-tally",
+   "spend-back-unguarded-past-maximum",
+   "end-assignment-gear-wording"
+  ]
+ },
+ "rolls": {
+  "model": "opus",
+  "items": [
+   "patch-up-chip-never-shown",
+   "silent-socket-loses-mark",
+   "offline-roll-headed-not-thrown",
+   "stale-burn-offer-after-end-assignment",
+   "roll-settling-client-server-mismatch",
+   "ally-offer-cards-lost-or-stale",
+   "death-defy-focus-returns-to-page"
+  ]
+ },
+ "desk": {
+  "model": "sonnet",
+  "items": [
+   "dispatch-draft-dropped-on-section-switch",
+   "pass-notes-no-lightkeeper-recipient",
+   "timer-status-kept-after-reset",
+   "hub-tack: Robert decided on 11 October that the brass tack on the chapter hub goes, because a tack pushed into a desk is not realistic. Remove the tack from the \"pinned\" paper in frontend/src/components/campaignSelector/CryptidSketches.jsx (the paper then lies loose like the others; drop its tack-only pucker if any) and the .paper-tack styles in DeskStyles.jsx if nothing else uses them, and update the line in DESIGN.md (about line 418) that describes \"a hand-coloured print pinned down with a brass tack\""
+  ]
+ },
+ "player": {
+  "model": "sonnet",
+  "items": [
+   "drive-pips-still-one-way",
+   "log-unpinned-after-roll-slip",
+   "choose-advancements-button-covers-sheet",
+   "leading-name-row-collapses-on-phone",
+   "phone-dialog-buttons-below-fold"
+  ]
+ }
+}

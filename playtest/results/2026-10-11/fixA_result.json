@@ -1,0 +1,512 @@
+[
+ {
+  "group": "circle",
+  "impl": {
+   "done": [
+    {
+     "item": "illumination-tally-added-twice",
+     "what": "The question ticks and the added total now live on the circle as backstory_answers.tally, and the server's paperwork code clears it at End Assignment. Two new GM-only WebSocket messages: gm_set_tally_answers takes exactly three booleans and is refused with 409 once the tally is added; gm_add_tally takes total, a whole number from 1 to 7, locks the circle row, refuses a second add with 409, adds to the illumination and logs the same gain and milestone lines as update_circle (now shared in _say_illumination). CirclePage reads the tally from the circle through a new tallyOf in game/illumination.js. illumTallies and setIllumTally are removed from the store and from what it saves. Files: backend/vtt/assignment.py, backend/vtt/ws/access.py, backend/vtt/ws/handlers/__init__.py, backend/vtt/ws/handlers/gm.py, frontend/src/store/gameStore.js, frontend/src/components/gm/CirclePage.jsx, frontend/src/game/illumination.js, docs/refactor/WEBSOCKET.md, FAQ.md, docs/refactor/QUIRKS.md, backend/tests/test_surface.py, backend/tests/test_ws_circle.py.",
+     "checked": "New tests test_the_tally_is_added_once_whichever_desk_presses and test_tally_messages_are_checked, plus surface pins for the two messages. In Chromium at 1440x900, Lightkeeper desk A ticked one question and pressed Add (illumination 0 to 3). A fresh desk B then showed the tick, 'Added 3 Illumination', no live Add button and the boxes disabled; the database held tally {answers:[true,false,false], added:3}."
+    },
+    {
+     "item": "end-assignment-drops-unadded-tally",
+     "what": "SceneManager.jsx works out the tally that has not been added from the circle's tally and circleCreation's reports. When there is one, the armed hint starts with: \"The reports' N Illumination is not added yet and will be lost: add it on the Circle page first. Press again to end it anyway: ...\". The hint and the receipt now always say \"The reports are closed and cleared.\" The server log line says the same.",
+     "checked": "In Chromium at 1440x900 (c01_end_armed_unadded.png), with one filed key not added, the warning shows first in the hint and the stamp column renders. With the tally added, the warning is gone and the receipt reads the new wording. The end-assignment log line test was updated."
+    },
+    {
+     "item": "spend-back-unguarded-past-maximum",
+     "what": "Server: handle_gm_return_spend now adds the resource only while the pool is below resource_pool, which is 1 plus the active members. When the pool is full the spend still comes back and the log line ends \"; the circle's Refresh is full, so none went back.\" Frontend (GMCharacterSheet.jsx SpendBack): a full resource shows as 'Refresh (full)' and cannot be picked. A ref guard drops a second press until the member's count changes, or for 3 seconds if no answer comes. Docs: WEBSOCKET.md, FAQ.md, QUIRKS.md.",
+     "checked": "New test test_a_spend_back_never_fills_the_pool_past_its_maximum. The existing give-back tests still pass. In Chromium at 1440x900 the options read 'Refresh (full)' and 'Train (full)', both disabled. A double-click on Give a spend back with Stitch sent one gm_return_spend: spends went 2 to 1 and Stitch 1 to 2."
+    },
+    {
+     "item": "end-assignment-gear-wording",
+     "what": "The End Assignment confirm, the receipt (one ENDS constant in SceneManager.jsx) and the server log line now read \"everyone's gear is cleared, to be chosen again for the next assignment\" instead of \"marked gear is cleared\". The Change Gear dialog in InvestigatorDossier.jsx now adds \", when everyone's gear is cleared, to be chosen again.\" WEBSOCKET.md was updated.",
+     "checked": "test_gm_end_assignment updated and passing. The receipt and log line were seen in Chromium at 1440x900."
+    }
+   ],
+   "skipped": [],
+   "choices": [
+    "The client sends the tally total and the server does not recompute it from the reports. The Lightkeeper can already set illumination to any value, so this grants nothing new. The server lock and the added flag are what stop a double add. Recomputing on the server (the verifier's suggestion) would need a server-side port of tallyReports.",
+    "The tally goes in backstory_answers, which get_circle_dict already sends to every desk, players included. Players' screens do not render it, and the ticks and the added total reveal nothing private.",
+    "Ticking a question sends no log line: a line per tick would clutter the log.",
+    "An unadded tally is still dropped at End Assignment, now with a warning that comes first in the confirm. Carrying it over or adding it automatically was left as a product decision.",
+    "A give-back to a full pool returns the spend but not the resource, and the log says why. It is not refused, because gm_return_spend refusals only reach the console on the desk.",
+    "The double-press guard waits for the member's count to change, with a 3-second fallback. The player's spend uses a fixed 500 ms window instead.",
+    "Gear wording: \"everyone's gear is cleared, to be chosen again for the next assignment\". No permanent help line was added to the player's sheet, because DESIGN.md does not allow permanent help text.",
+    "The End Assignment log line keeps the em dashes that already framed it: they are the log's framing convention (support.EM) and were not added by this change.",
+    "The new handlers also check ctx.is_gm, as the other GM handlers do, even though access.py already rejects players."
+   ],
+   "commits": [
+    "da3e439 Keep the Illumination tally on the circle; cap and guard a spend given back"
+   ],
+   "tests": "backend/tests/test_ws_circle.py, backend/tests/test_surface.py and backend/tests/test_ws_character.py: 182 passed, run against a throwaway database that was dropped afterwards. The frontend builds with npx vite build (output removed). The browser check scripts are in /tmp/claude-0/-home-user-TTRPG-VTT-CO/29eccd1d-b7aa-5d30-ac75-eae521bfb965/scratchpad/bc (c_check.js, c_end.js, screenshots in out_8503); they ran at 1440x900 against API 8503 and preview 4503. Both servers were stopped by PID and the fix_circle_8503 database was dropped."
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "should",
+     "where": "frontend/src/components/gm/CirclePage.jsx:501",
+     "problem": "gm_set_tally_answers sends the whole three-tick array, worked out from the last circle_update, and the server stores it as sent (gm.py handle_gm_set_tally_answers). The checkbox only changes when the echo arrives, so a tick sent before the previous echo overwrites it. I checked this in Chromium against API 8513. Two ticks in quick succession sent [true,false,false] and then [false,true,false], and the DB kept only [false,true,false]. Two desks ticking different boxes overwrite each other in the same way. A tick followed by Add before the echo stored answers [true,true,false] with added 3, and the page then showed 'TOTAL +4' next to 'Added 3 Illumination' (r2_A_added.png). On a phone or slow link the round trip is long enough for this to happen in normal play.",
+     "fix": "Send one tick at a time, {index, checked}, and have the server set that index under the row lock it already takes. Have gm_add_tally carry the answers the total was worked out from and store them with added, so the stored ticks always match the added total. Another option is for the server to count the stored yes answers and take only the keys part from the client. Add a test that sends two ticks back to back."
+    },
+    {
+     "level": "should",
+     "where": "backend/vtt/ws/access.py:229",
+     "problem": "The fix relies on backstory_answers.tally.added to refuse a second add, but any active member can overwrite that key. circle_backstory_update accepts any question_key and writes existing_answers[q_key] = answer (handlers/circle.py:160-175, no lock, no key allowlist). I checked it: a player socket sent {question_key:'tally', answer:''}, the DB tally became \"\", and a fresh Lightkeeper desk showed a live 'ADD 2 ILLUMINATION' again, so the same reports could be added twice. The same message can also wipe 'reports' or reset 'assignment' (that part was already there before this branch).",
+     "fix": "In _circle_backstory_update, refuse question_key values that are not circle-creation answers, at least REPORTS, ASSIGNMENT and TALLY from vtt/assignment.py, with a 403 or 422. Add a test that a member cannot overwrite the tally or the reports this way."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/SceneManager.jsx:245",
+     "problem": "The unadded-tally warning is the opening clause of one long italic sentence in the 11rem stamp column. At 390px it runs to about 14 lines, and at 1440x900 it pushes 'Keep going' to the bottom edge of the screen. It reads the same as the routine text after it, so a Lightkeeper who skims can miss it.",
+     "fix": "Put the warning in its own short line or paragraph above the routine text and give it some emphasis (for example not italic, or bold oxblood). Keep the rest of the text as it is."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/store/gameStore.js:2148",
+     "problem": "Data migration: a Lightkeeper who added a tally before this deploy, in an assignment that has not ended, now has no server-side tally. That desk ignores its old illumTallies entry and shows a live Add N Illumination for reports already added.",
+     "fix": "Mention it in the release notes (end the current assignment, or do not press Add again). Or, for one release, show 'Added N' when the persisted legacy illumTallies entry matches the current circle and assignment."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/GMCharacterSheet.jsx:35",
+     "problem": "If the picked resource fills up (another give-back, or a pool edit), the select keeps value 'refresh' on a disabled '(full)' option. The next press then returns only the spend, and nothing on screen says the pick no longer applies.",
+     "fix": "Reset resource to '' when the selected key becomes full, or show 'Nothing' as the effective value."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/SceneManager.jsx:364",
+     "problem": "Was already there before this branch: on a 390px touch screen the armed 'Yes, end it' stamp is 34px tall, below the 44px touch-target rule. 'Keep going' is 44px.",
+     "fix": "Add [@media(pointer:coarse)]:min-h-[44px] to the stamp's inner box. This can be left for later, since it is outside this change."
+    }
+   ],
+   "items_ok": [
+    "illumination-tally-added-twice: the root cause is fixed. The ticks and the added total are on the circle, gm_add_tally locks the row and refuses a second add with 409, and End Assignment clears the tally. Checked in Chromium on the reported paths: a second tab in the same browser after 'Use this tab' showed 'Added 3 Illumination' with no live button, fresh desks open on the added state, and illumTallies is gone from the store and persist. The two 'should' issues still apply: lost ticks from stale arrays, and a member can reset the tally through circle_backstory_update.",
+    "end-assignment-drops-unadded-tally: with a key filed and not added, the armed hint at 1440x900 and 390px starts with 'The reports' 2 Illumination is not added yet and will be lost: add it on the Circle page first. Press again to end it anyway: ...'. With the tally added the warning is gone. The receipt and the log line say 'The reports are closed and cleared.' Carrying the tally over is left as a product decision, as the verifier allowed.",
+    "spend-back-unguarded-past-maximum: the server caps at resource_pool, which is the same function behind max_capacity, under the existing circle row lock, and logs \"; the circle's Refresh is full, so none went back.\" Checked in Chromium: with Refresh 4 of 4 the options read 'Refresh (full)' (disabled) and Train 3 of 4 stays pickable. A double-click with Stitch sent one gm_return_spend (Iris 2 to 1, Stitch 1 to 2). A press on another member's sheet right after still went through. The new test passes and the existing give-back tests still pass.",
+    "end-assignment-gear-wording: the confirm, the receipt (ENDS constant), the server log line, test_gm_end_assignment, the Change Gear dialog and WEBSOCKET.md all say everyone's gear is cleared, to be chosen again. No permanent help text was added, which follows DESIGN.md."
+   ],
+   "items_incomplete": [],
+   "summary": "The branch is one commit, da3e439. It fixes the root cause of all four items and comes with docs (WEBSOCKET.md, FAQ.md, QUIRKS.md), surface pins for both new messages and new tests. No em dashes were added; the only one is the log's existing EM framing.\n\nI ran tests/test_ws_circle.py, test_surface.py and test_ws_character.py against a throwaway database: 182 passed. The frontend builds with vite.\n\nBrowser check in Chromium against API 8513 and preview 4513:\n- **Tally:** a second tab after 'Use this tab' and fresh desks show 'Added N Illumination' with no live button.\n- **End Assignment:** the confirm warns about an unadded tally at both 1440 and 390 widths.\n- **Spend back:** a full Refresh is disabled in the pick list, and a double-click on Give a spend back sends one message.\n\nThere are two 'should' gaps in the tally fix, both reproduced in the browser:\n1. **Stale tick arrays.** The desk sends all three ticks worked out from the last update. Two quick ticks lose one, and a tick followed straight away by Add stored 'added 3' while the page showed 'Total +4'.\n2. **Unguarded key.** circle_backstory_update lets any member overwrite backstory_answers.tally, which brings back a live Add button and so the double add.\n\nThe rest are nits: how prominent the warning is, a migration note for tallies added before the deploy, the spend-back pick list keeping a full resource selected, and the 34px 'Yes, end it' stamp on phones, which was already there before this branch.\n\nMy servers were stopped by PID, the databases fix_circle_8513 and rev_circle_t were dropped, /tmp/build_circle was removed, and the worktree is unchanged. My check scripts and screenshots are in /tmp/claude-0/-home-user-TTRPG-VTT-CO/29eccd1d-b7aa-5d30-ac75-eae521bfb965/scratchpad/rev (r2.js to r5.js, out_8513/)."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "review should: stale tick arrays overwrite each other (CirclePage.jsx:501, gm.py)",
+     "what": "gm_set_tally_answers became gm_set_tally_answer {circle_id, index 0-2, checked bool}. The server sets that one index under the existing row lock, so ticks are merged rather than replaced. gm_add_tally now takes keys (0, 2 or 4) instead of total. The server adds the yes ticks it holds plus keys and stores that as added, so the stored ticks always match the added total. An add with nothing to add (0) is refused with 409. Files: backend/vtt/ws/access.py, backend/vtt/ws/handlers/gm.py, backend/vtt/ws/handlers/__init__.py, frontend/src/store/gameStore.js (gmSetTallyAnswer, gmAddTally(circleId, keys)), frontend/src/components/gm/CirclePage.jsx, docs/refactor/WEBSOCKET.md, docs/refactor/AUTH.md, docs/refactor/QUIRKS.md, backend/tests/test_surface.py, backend/tests/test_ws_circle.py.",
+     "checked": "New test test_ticks_sent_back_to_back_are_all_kept (it would fail with the old array messages). test_the_tally_is_added_once_whichever_desk_presses and test_tally_messages_are_checked were reworked for the new fields and 422/409 cases. Checked in Chromium at 1440x900 with the reviewer's r2 script against API 8523: two quick ticks were both stored ([true,true,false]). A tick followed at once by Add stored answers [true,true,true] with added 5, and the page showed 'TOTAL +5' and 'Added 5 Illumination', so they agree."
+    },
+    {
+     "item": "review should: circle_backstory_update can overwrite backstory_answers.tally (access.py:229)",
+     "what": "_circle_backstory_update now refuses, with 403, the question_key values reports, assignment, tally and selected_question_key (RESERVED_ANSWERS, using the constants from vtt/assignment.py), for players and the GM alike. The pinned QUIRK test test_circle_backstory_can_overwrite_reserved_keys was flipped to test_circle_backstory_cannot_overwrite_reserved_keys, not deleted. The QUIRKS.md line, the WEBSOCKET.md section and the AUTH.md rule table were updated.",
+     "checked": "The flipped test passes: all four keys from a player socket and from a GM socket get action_rejected 403, and the stored JSON is unchanged. In Chromium, a player socket sent {question_key:'tally', answer:''}. The DB tally stayed {answers:[true,true,true], added:5}, and a fresh Lightkeeper desk showed 'Added 5 Illumination' with no live Add button."
+    },
+    {
+     "item": "nit: unadded-tally warning not prominent (SceneManager.jsx:245)",
+     "what": "The warning is now its own bold, non-italic block line ('The reports' N Illumination is not added yet and will be lost: add it on the Circle page first.'), placed above the italic routine text, which is unchanged.",
+     "checked": "Screenshots r4_wide_end_armed.png and r4_phone_end_armed.png (1440x900 and 390x844) show the warning as a separate bold oxblood line."
+    },
+    {
+     "item": "nit: full resource stays selected in the give-back pick list (GMCharacterSheet.jsx:35)",
+     "what": "The selected value is derived: if the picked resource has filled up since it was picked, the select shows 'Nothing' and the press sends no resource. Also corrected a stale comment that said the server refuses a full resource (it puts none back).",
+     "checked": "In Chromium: picked Refresh at 3 of 4, then filled it through the page's own socket. The option became 'Refresh (full)' and disabled, the select value went to '', and Give a spend back sent no resource_type."
+    },
+    {
+     "item": "nit: 'Yes, end it' stamp 34px on touch (SceneManager.jsx:364)",
+     "what": "On pointer:coarse, the End Assignment stamp gets min-h-[44px] with flex centring. The Dispatch stamp next to it was 38px and gets the same.",
+     "checked": "At 390px touch emulation, 'Yes, end it' measures 44px tall (bounding box), and so does 'Keep going'. Desktop layout is unchanged in the 1440 screenshot."
+    },
+    {
+     "item": "nit: migration of tallies added before the deploy (gameStore.js:2148)",
+     "what": "Took the release-note option. The commit body and the QUIRKS.md entry say that a tally added before this change lived only in that browser, so a desk shows a live Add for it until End Assignment, and it must not be pressed again. No legacy illumTallies shim was added.",
+     "checked": "Documentation only."
+    }
+   ],
+   "skipped": [],
+   "choices": [
+    "Of the reviewer's two options for the add, I took the one where the server counts the stored yes ticks and the client sends only the keys' worth (0, 2 or 4). The other option (the client sends the answers with the add) would drop a tick still in flight. With this one, a tick sent just before Add is counted, so the result can be one more than the button label showed. The page then shows the matching 'Total +N' and 'Added N'.",
+    "Renamed the message to gm_set_tally_answer (singular), since it now sets one tick. It was never merged, so the old name gm_set_tally_answers was dropped instead of being kept alongside.",
+    "An add whose total is 0 is refused with 409 'There is nothing to add: no question is ticked and no key was filed.' The desk already disables the button in that case.",
+    "The keys' worth still comes from the client (worked out from the reports on the desk). It is only checked to be 0, 2 or 4, as in the previous decision not to port tallyReports to the server.",
+    "Reserved keys get 403 (_forbid) rather than 422, and selected_question_key is reserved too. Its old quirk test already listed it, and only the roster finalize writes it. Non-string question_keys are not checked here.",
+    "A tick does not change the checkbox on the desk before the server confirms it. With one tick per message, two quick clicks on the same box can at worst leave it ticked; no tick is lost.",
+    "Also sized the Dispatch stamp to 44px on touch screens, since it sits next to End Assignment and had the same shortfall (38px).",
+    "The pre-deploy tally migration is handled with an upgrade note in the commit and QUIRKS.md, not a temporary frontend shim.",
+    "AUTH.md gets a row for the two tally messages and the reserved-key rule for circle_backstory_update."
+   ],
+   "commits": [
+    "0e10a12 Tick the tally one question at a time; keep the circle's own keys"
+   ],
+   "tests": "Ran backend/tests/test_ws_circle.py, test_surface.py, test_ws_character.py, test_json_strings.py, test_access.py and test_circle_rest.py against the throwaway database fix2_circle_t: 601 passed, and the database was dropped. The frontend builds with npx vite build --outDir /tmp/build_circle (removed afterwards). Browser checks ran in Chromium against API 8523 and preview 4523, database fix_circle_8523. The scripts and screenshots are in /tmp/claude-0/-home-user-TTRPG-VTT-CO/29eccd1d-b7aa-5d30-ac75-eae521bfb965/scratchpad/fix2: r2.js covers tick races and the reserved key, r4.js the End Assignment warning at wide and phone sizes, r6.js the filled pick; screenshots are in out_8523, and I looked at each one. Both servers were stopped by PID (8284, 8287) and fix_circle_8523 was dropped. The worktree is clean on fix2-circle."
+  }
+ },
+ {
+  "group": "rolls",
+  "impl": {
+   "done": [
+    {
+     "item": "patch-up-chip-never-shown",
+     "what": "frontend/src/game/rollMods.js: the Patch Up entry is marked `declares: true`, and getAvailableRollMods keeps a chip that has it. Before, it dropped any chip that adds no dice, gild, drive, cost or first point, and Patch Up is one of those.",
+     "checked": "Chromium at desktop 1920: the Patch Up chip shows under Focus. Picking it sends ability_mods ['Patch Up'] with the roll, and After the roll offers Patch Up with an ally picker. Existing Patch Up server tests pass."
+    },
+    {
+     "item": "silent-socket-loses-mark",
+     "what": "gameStore.js: takeMark now sends a mark_id. forgetUnanswered keeps marks taken on the sheet while the same desk reconnects by itself, and the new socket sends them again with the same id (resendMarks). backend marks.py: handle_take_mark keeps the last 16 mark ids per character in memory; a repeated id is not taken again, and the sender gets its sheet back instead. Test: test_a_mark_sent_again_with_its_id_is_taken_once. Docs: WEBSOCKET.md (take_mark, heartbeat, ability_mark_offer row) and QUIRKS.md.",
+     "checked": "New pytest passes. Chromium at laptop 1366, with the socket silent both ways and reconnects refused for 45 s: the box stays held, the take_mark goes out again on the socket that finally opens with the same mark_id, and the sheet and database end at Body 1 of 3."
+    },
+    {
+     "item": "offline-roll-headed-not-thrown",
+     "what": "gameStore.js now exports ROLL_LOST. RollResultBar.jsx heads that error 'May have counted'; every other failed roll is still headed 'Not thrown'.",
+     "checked": "Chromium at tablet 820: after a roll into a silent socket, at 33 s the bar reads 'May have counted' above the line 'The roll may have counted'."
+    },
+    {
+     "item": "stale-burn-offer-after-end-assignment",
+     "what": "Server: a new helper, settle_rolls in rolls.py, is called from handle_gm_end_assignment. Client: a new store field, lastRollSettled, kept over a reconnect. A different desk, a new roll or sign-out resets it. It is set when another player's dice land after this desk's roll was decided, when the assignment number changes, and when a burn is refused with 409. DiceVault and postRollChoiceWaiting read it instead of !!tableRoll. Test: test_end_assignment_settles_the_last_rolls. Docs: WEBSOCKET.md (gm_end_assignment, burn_resistance), FAQ.md and QUIRKS.md.",
+     "checked": "Pytest passes. Chromium at tablet 820: a roll settled by another player's roll stays without Burn after Back to the hub and re-entry from the Case Ledger. At desktop 1920: Burn and reroll goes when the Lightkeeper ends the assignment."
+    },
+    {
+     "item": "roll-settling-client-server-mismatch",
+     "what": "rolls.py: other players' rolls are now settled in _dice_thrown, the point where the table sees the dice. It used to happen in _hold_or_throw, and only for a player's roll. So now: the Lightkeeper's open roll settles; a secret roll does not; a gilded roll settles the others when its die is kept, not when it is rolled. On the client, another player's dice settle this desk's roll only once its result is known, and the phone dot stays while a Keep choice waits. Tests: test_the_lightkeepers_open_roll_settles_the_members_rolls, test_a_gilded_roll_settles_the_table_when_its_die_is_kept.",
+     "checked": "All of test_ws_rolls passes (159). Chromium at phone 390: the dot stays while the Keep choice waits during Imogen's roll. After the keep, Burn and reroll is offered and the server takes the burn. Before this fix the desk hid the burn while the server still accepted it."
+    },
+    {
+     "item": "ally-offer-cards-lost-or-stale",
+     "what": "marks.py, three parts. (1) send_open_intercepts, called on connect from endpoint.py, sends a desk the ally offers still open, with the time left. (2) _close_intercepts sends intercept_offer_closed {character_id, mark_type} to the other allies once a mark's last open offer is taken. (3) A Premonitions answer to a mark another ally already took is refused with NO_MARK_TO_ANSWER. Client: a socket that opens drops the ally offers it holds (the server sends the open ones again), handles intercept_offer_closed, and AbilityMarkOffer shows a refused answer in the card's place (store interceptRefused) with a Close button. Tests: test_an_allys_desk_that_opens_gets_an_open_offer_again, test_an_answered_mark_closes_the_other_allies_offers. Docs: WEBSOCKET.md (connect, intercept_mark, table rows), FAQ.md and QUIRKS.md.",
+     "checked": "All of test_ws_marks passes (89). Chromium: Jonah's Behind Me card is back after a reload at phone 390 with 1:50 left, and his intercept works. Edda's Premonitions card at tablet 820 closes as soon as he answers. A late Premonitions answer injected from her socket shows the 'Not used' note, and I looked at the screenshot."
+    },
+    {
+     "item": "death-defy-focus-returns-to-page",
+     "what": "InvestigatorDossier.jsx: pressing a mark box (which then becomes a held box that is not a button) moves focus to that track's 'BODY +' label. The Death Defy card then records that label as where focus was, and gives focus back to it.",
+     "checked": "Chromium at laptop 1366, keyboard only: focus is on 'Take a Body mark' during the Undo, while the card shows, and after both Use and Take the mark. The screenshot shows the focus ring on BODY +."
+    }
+   ],
+   "skipped": [],
+   "choices": [
+    "Patch Up: added a `declares` flag to the roll-mod table instead of special-casing the ability's name. The chip shows only its name, with no +d, gild or drive mark.",
+    "The unanswered-roll heading reads 'May have counted', one of the item's own suggestions. The line under it is unchanged.",
+    "Lost marks are now sent again rather than reported as not taken, since the item preferred a resend and the existing roll_id pattern fits. The server remembers mark ids in memory only (last 16 per character), like roll_id: after a server restart a resent mark is taken again. Marks are let go, as before, when the desk closes on purpose, another tab takes it, or a different desk opens.",
+    "A secret roll no longer settles the others' rolls on the server, because no desk sees it and client and server should agree. This changes earlier server behaviour, which settled on any roll.",
+    "At End Assignment the old roll stays on the felt but is settled: no Burn or post-roll prompt. It is not cleared. A gilded choice still waiting is left alone.",
+    "A refused burn (409) settles the roll on the desk, so the Burn offer goes after the refusal. In the case where the desk missed the Lightkeeper's dice during a drop, the offer is shown until the first tap, which is refused with a reason.",
+    "Reload offers: every open ally offer is sent again on connect, including one the ally dismissed with Not now. A reconnecting desk drops its ally cards and gets them back from the server, with the server's time left.",
+    "New server-to-client message intercept_offer_closed instead of reusing mark_offer_closed, whose meaning is the desk's own held mark. Only WEBSOCKET.md lists server-to-client messages, so test_surface.py needed no change.",
+    "A refused ally answer appears in the offer card's own place as a small dark card: heading '<Ability> not used' (or 'Not used'), the server's reason, and a Close button that is 44px on touch. It does not take focus. role=alert announces it, and the next offer replaces it.",
+    "The Premonitions refusal for a mark another ally already took now reads 'No ally's mark is waiting for that, or another ally answered it first.' 'There is no such mark to soak.' is kept for an open offer whose mark is gone for another reason (its existing test still passes).",
+    "One commit instead of several, because gameStore.js holds changes for every item and the commit has to build on its own."
+   ],
+   "commits": [
+    "e2b92f0 Rolls and marks: Patch Up chip, settled rolls, resent marks, ally offers (branch fix2-rolls in /home/user/wt/rolls)"
+   ],
+   "tests": "[\"backend/tests/test_ws_rolls.py: 159 passed. backend/tests/test_ws_marks.py: 89 passed. test_surface.py plus test_ws_character, test_ws_circle, test_ws_chat_notebook, test_ws_gm_view and test_ws_timer: 241 passed; test_ws_connect.py, run without -p no:logging: 76 passed. New tests: three in test_ws_rolls.py (settling) and three in test_ws_marks.py (mark id, reopened ally offers, closed ally offers); no pinned QUIRKS test needed flipping. Frontend: `npx vite build --outDir /tmp/build_rolls` passes. Browser checks in Chromium on port 8504/4504: scripts in /tmp/claude-0/-home-user-TTRPG-VTT-CO/29eccd1d-b7aa-5d30-ac75-eae521bfb965/scratchpad/rolls_bc/*.js, screenshots in its out_rolls/, and I looked at every screenshot. Servers stopped by PID and databases fix_rolls_t and fix_rolls_8504 dropped.\"]"
+  },
+  "rev": {
+   "summary": "Review of fix2-rolls (e2b92f0, against 63d80f4). Nothing blocks the merge. Every item's root cause is fixed on the main paths.\n\nChecks run:\n- Backend tests on a throwaway database:\n  - test_ws_rolls, test_ws_marks, test_surface and test_ws_connect: 374 passed.\n  - test_ws_character, test_ws_circle and test_ws_gm_view: 134 passed.\n- Frontend: `vite build` passes.\n- Chromium on 8514/4514, using copies of the implementer's scripts. I looked at each screenshot.\n  - Patch Up: the chip shows under Focus at 1920. The roll sends ability_mods ['Patch Up'], and After the roll offers Patch Up with an ally picker.\n  - Ally offers: Jonah's Behind Me card comes back after a reload at phone 390 (1:50 left) and his intercept works. Edda's Premonitions card at tablet 820 closes when he answers. The refused note renders in the card's place with a Close button.\n  - Death Defy focus, keyboard only at 1366: focus is on 'Take a Body mark' during the Undo and after the card closes.\n  - Stale burn: no Burn after a trip to the hub and back, and none after End Assignment.\n- No em dashes were added. The commit ends with the two required lines.\n- My servers are stopped by PID and both of my databases are dropped. Nothing in the worktree was edited.\n\nGaps found:\n- One edge case is still open and I confirmed it with a socket script: a gilded die kept after End Assignment can still be burned on.\n- After a drop, the desk can still offer a burn that the server will refuse. The refusal text then misleads the player.\n- A few small doc and wording points.",
+   "issues": [
+    {
+     "level": "should",
+     "where": "backend/vtt/ws/handlers/gm.py:331",
+     "problem": "End Assignment does not settle a gilded choice that is still waiting. settle_rolls clears only _last_roll. When the die is kept later, resolve_gilded calls _remember, which makes the roll burnable again. I confirmed this against the server on 8514: roll Move with a gilded choice, the Lightkeeper ends the assignment, keep the regular die, then burn_resistance. The server answers with roll_result and logs the burn, so a roll from the old assignment is rerolled after it ended. The desk usually hides the burn: circle_update sets lastRollSettled to !!lastRoll, and roll_kept never clears it. But a desk that reloads or reconnects during the choice gets the held roll again from send_held_roll. The roll_result handler then sets lastRollSettled back to false, so after the keep the desk offers Burn and reroll and the server accepts it. This is the stale-burn-offer-after-end-assignment case on the gilded path, and the client and server disagree again.",
+     "fix": "Have End Assignment mark the campaign's _pending_gilded entries as settled, for example a 'settled': True flag that settle_rolls sets. resolve_gilded then still scores the kept die but does not call _remember for a settled entry (or removes it from _last_roll straight after). Add a test: a gilded roll held across gm_end_assignment, then resolve_gilded, then burn_resistance gets 409. For the reload path, send_held_roll could carry a settled flag so the desk keeps lastRollSettled. Add a line to FAQ.md and WEBSOCKET.md."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/store/gameStore.js:972",
+     "problem": "Regress case 1 for roll-settling-client-server-mismatch was a phone whose socket dropped during the Lightkeeper's open roll and then reconnected. After this fix the server refuses the burn. But the desk cannot know its roll was settled, because it missed the dice_thrown. It keeps offering Burn and reroll until the first tap. The tap gets 409 'Burn a resistance after a roll of that action.' The player did roll that action, so the reason reads as wrong. The item expected client and server to agree. Here they still disagree until the player taps and gets a confusing refusal (the implementer lists this as a known choice).",
+     "fix": "Either tell the desk on connect whether its last roll is still open, or reword the refusal for this case. For the first: add a field next to send_held_roll, or a small message such as roll_settled when _last_roll has no entry for the character but the desk might hold a roll. Then set lastRollSettled from it, document it in WEBSOCKET.md and test_surface if it is a new type. For the second: in handle_burn_resistance, give a settled roll its own reason, such as 'The table has moved past that roll: it can no longer be burned on.'"
+    },
+    {
+     "level": "nit",
+     "where": "FAQ.md:76",
+     "problem": "Two sentences in the new paragraph are ambiguous: 'A gilded roll of yours whose die you keep after someone else's roll can still be burned on. The desk then stops offering the burn.' 'Then' can be read as the desk dropping the burn for that same gilded roll, which contradicts the first sentence.",
+     "fix": "Say when the desk stops offering it, for example: '...can still be burned on, until the next roll at the table or End Assignment.' Or drop the second sentence."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/InvestigatorDossier.jsx:1301",
+     "problem": "After Enter on 'Take Body mark N of 3', focus goes to the 'BODY +' label, and that label is itself a button that takes a mark. A second Enter, or a held key that auto-repeats, takes a second mark straight away. Before, focus fell to the page and a repeat did nothing. The Undo still covers it, so this is minor.",
+     "fix": "Optional: ignore a label press that comes within a short time of the box press. Or accept it, since Undo covers it."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/handlers/marks.py:113",
+     "problem": "_interceptable and _intercept_for entries whose window expired without an answer are never removed. Only _take_intercept removes entries. send_open_intercepts walks the whole of _intercept_for on every connect, so both dicts grow for the life of the process. Each entry is small.",
+     "fix": "In send_open_intercepts, or in open_intercept, remove the keys whose _open_times list is empty."
+    },
+    {
+     "level": "nit",
+     "where": "docs/refactor/WEBSOCKET.md:238",
+     "problem": "The text says 'All 26 types the server emits'. The table now lists 33, including the new intercept_offer_closed. The count was already out of date before this branch.",
+     "fix": "Update the count to match the table."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/store/gameStore.js:683",
+     "problem": "Every socket open drops the desk's ally cards, and the server sends again every open offer. That includes one the ally dismissed with Not now. On a phone that reconnects often, a dismissed Behind Me or Premonitions card keeps coming back, and it takes focus each time. This is a stated design choice.",
+     "fix": "Optional: keep a per-desk set of dismissed (character_id, mark_type) pairs, and skip resent offers that match them within the window."
+    }
+   ],
+   "items_ok": [
+    "patch-up-chip-never-shown: the `declares` flag keeps the chip. In Chromium at 1920 the chip shows under Focus, the roll sends ability_mods ['Patch Up'], and After the roll offers Patch Up with an ally picker.",
+    "silent-socket-loses-mark: marks taken on the sheet now carry a mark_id. They are kept while the same desk reconnects by itself, sent again in onopen, and the server takes each id once. sheetArrived and offerHolds clear the held box whether or not the server already had the mark. 4xxx close codes and a deliberate close still let the mark go. The test passes.",
+    "offline-roll-headed-not-thrown: only ROLL_LOST (a sent roll with no answer) is headed 'May have counted'. Rolls that were never sent keep 'Not thrown'.",
+    "roll-settling-client-server-mismatch: settling now happens in _dice_thrown, so the Lightkeeper's open roll settles the others, a secret roll does not, and a gilded roll settles them when its die is kept. The client settles on the same dice_thrown with the same gilded exception, and the phone dot stays while a Keep choice waits. Both tests pass. The only gap is the drop case raised under issues.",
+    "ally-offer-cards-lost-or-stale: send_open_intercepts sends open offers again on connect with the time left. intercept_offer_closed closes the other allies' cards. A late answer gets NO_MARK_TO_ANSWER and the desk shows it in the card's place (role=alert, Close is 44px on touch). Checked in Chromium at phone and tablet sizes, and the tests pass.",
+    "death-defy-focus-returns-to-page: focus goes to the track's BODY + label and comes back there after the Death Defy card's Take the mark (checked in Chromium at 1366, keyboard only)."
+   ],
+   "items_incomplete": [
+    "stale-burn-offer-after-end-assignment: fixed for a settled roll, and for End Assignment while a roll is on the felt, on both the server and the desk. Not fixed for a gilded choice that is still waiting at End Assignment: its kept die can still be burned on the server, and after a reload the desk offers that burn. I confirmed this over the socket."
+   ]
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "stale-burn-offer-after-end-assignment (incomplete: gilded choice still waiting at End Assignment; reviewer issue gm.py:331)",
+     "what": "backend/vtt/ws/handlers/rolls.py: settle_rolls takes held=True, which End Assignment now passes (gm.py), and it marks the campaign's _pending_gilded entries settled. _pending_gilded entries now carry campaign_id. resolve_gilded still keeps and scores the die but does not call _remember for a settled entry. send_held_roll and _answer_again put settled: true on the held roll_result. On the client, the roll_result handler in gameStore.js sets lastRollSettled from payload.settled, so a desk reloaded during the choice offers no burn. New test: test_a_gilded_choice_held_over_end_assignment_is_settled. Docs: WEBSOCKET.md (connect, gm_end_assignment, roll_result row), FAQ.md, QUIRKS.md.",
+     "checked": "The new test fails before the fix and passes after it. Chromium at phone 390: Jonah got a gilded choice and the Lightkeeper ended the assignment over the socket. After a reload, the held roll_result came back with settled: true and both Keep buttons. Keeping the regular 5 (Mixed success) showed no Burn and reroll and no phone dot. A burn injected afterwards got 409 and nerve_resistance_spent stayed at 0. I looked at both screenshots."
+    },
+    {
+     "item": "roll-settling-client-server-mismatch: a desk that missed the settling dice during a drop still offered the burn (reviewer issue gameStore.js:972)",
+     "what": "rolls.py: a new in-memory set, _settled_roll. settle_rolls adds to it, and the character's next roll (_hold_or_throw, _remember) clears it. On connect, send_held_roll sends the new roll_settled {character_id} when the character is in that set and no gilded roll is held. A roll sent again with its roll_id after it was settled is answered with settled: true. gameStore.js handles roll_settled: when the desk shows a roll for that character, it sets lastRollSettled. New test: test_a_desk_that_missed_the_settling_dice_is_told_when_it_opens. Docs: WEBSOCKET.md (connect step 7, burn_resistance, a new roll_settled row in the server-to-client table).",
+     "checked": "The new test fails before the fix and passes after it. Chromium at phone 390: Jonah's Strike came out Mixed and Burn and reroll showed. I dropped his socket and refused reconnects. The Lightkeeper rolled openly over a Node socket, and the stale Burn was still shown. When reconnects were allowed, the new socket got roll_settled and Burn and reroll went without a tap. I looked at both screenshots."
+    },
+    {
+     "item": "nit: FAQ.md:76 ambiguous sentence",
+     "what": "FAQ.md: the gilded roll can be burned on 'until the next roll at the table or End Assignment'. Two sentences were added: a gilded roll still waiting at End Assignment is scored but cannot be burned on, and a desk that reconnects is told its roll was settled.",
+     "checked": "Read over."
+    },
+    {
+     "item": "nit: InvestigatorDossier.jsx:1301 held Enter takes a second mark through the BODY + label",
+     "what": "The track-name button's onKeyDown now cancels a repeated Enter (e.repeat), so a held key takes one mark. A deliberate second Enter still takes a second mark, which is what that button is for.",
+     "checked": "Chromium at laptop 1366, keyboard only: holding Enter on 'Take Body mark 1 of 3' dispatched 4 repeat keydowns. Focus moved to 'Take a Body mark' and the track showed one held box. A separate Enter then took the second mark. I looked at the screenshot (focus ring on BODY +)."
+    },
+    {
+     "item": "nit: marks.py:113 expired intercept entries never removed",
+     "what": "send_open_intercepts now pops the _interceptable and _intercept_for keys whose window has run out, as it walks them on each connect.",
+     "checked": "test_ws_marks passes (part of the 510)."
+    },
+    {
+     "item": "nit: WEBSOCKET.md:238 type count",
+     "what": "Now reads 'The 34 types in this table have a handler in gameStore.js': the 33 rows plus the new roll_settled.",
+     "checked": "Counted the table rows with awk."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Rewording the 409 burn refusal for a settled roll (the reviewer's alternative fix for gameStore.js:972)",
+     "why": "I fixed the cause instead: the desk is told on connect (roll_settled), so it no longer offers a burn the server will refuse. A new refusal text would have changed six existing test assertions, and it would also apply to 'no roll at all', where 'the table has moved past that roll' reads wrong."
+    },
+    {
+     "item": "nit: gameStore.js:683 dismissed ally offers come back on each reconnect",
+     "why": "Optional, and a stated design choice of the first pass. A per-desk dismissed set would add new state and new expiry rules, so it is not a cheap or plainly right change."
+    }
+   ],
+   "choices": [
+    "A new server-to-client message roll_settled {character_id}, sent on connect only when the character's last roll was settled by the table and no gilded roll is held. It is not sent on every connect, so desks with nothing to settle (and the existing connect-sequence tests) see no extra frame.",
+    "_settled_roll lives in memory only, like _last_roll: after a server restart no roll_settled is sent, and a burn is refused with the existing reason.",
+    "A gilded die kept after End Assignment is still scored, logged and shown to the table (dice_thrown). Only the burn and post-roll abilities are closed. The kept roll is added to _settled_roll so a later reconnect is told.",
+    "The settled flag rides on roll_result (the held roll on connect, and an answer-again) rather than a separate message, because the desk rebuilds its roll from that frame.",
+    "Held-Enter guard: only repeated Enter keydowns on the track-name button are cancelled; a fresh Enter still takes a mark. A timing window was not used.",
+    "The WEBSOCKET.md count sentence was reworded to 'The 34 types in this table', since the table does not list every emitted type (dice_thrown and action_rejected are described elsewhere)."
+   ],
+   "commits": [
+    "d0568ed Rolls: settle a gilded choice at End Assignment, tell a returning desk its roll settled (branch fix2-rolls in /home/user/wt/rolls)"
+   ],
+   "tests": "backend/tests: test_ws_rolls.py, test_ws_marks.py, test_surface.py, test_ws_connect.py, test_ws_gm_view.py, test_ws_circle.py and test_ws_character.py: 510 passed, on the throwaway database fix_rolls_t2 (now dropped). Two new tests in test_ws_rolls.py fail on the old server code and pass with the fix: test_a_gilded_choice_held_over_end_assignment_is_settled and test_a_desk_that_missed_the_settling_dice_is_told_when_it_opens. Frontend: npx vite build --outDir /tmp/build_rolls passes. Chromium on 8524/4524 with database fix_rolls_8524: g1_gild_end.js (phone 390), g2_drop.js (phone 390) and g3_repeat.js (laptop 1366) are in /tmp/claude-0/-home-user-TTRPG-VTT-CO/29eccd1d-b7aa-5d30-ac75-eae521bfb965/scratchpad/rolls_fix3/, with screenshots in its out_rolls/. I looked at every screenshot. Servers stopped by PID and fix_rolls_8524 dropped."
+  }
+ },
+ {
+  "group": "death",
+  "impl": {
+   "done": [
+    {
+     "item": "1 dead-investigator-still-acts",
+     "what": "backend/vtt/ws/access.py: DEAD_REFUSED plus _dead_sheet in check_message refuse a dead investigator's own roll, resolve_gilded, use_post_roll_ability, burn_resistance, take_mark, resolve_ability_mark, intercept_mark, spend_resource, update_drive, update_gear, apply_advancement, use_ability and circle_relationship_propose with 409 '<name> is dead: the sheet is a record.', and the Lightkeeper's take_mark (Deal a mark) on a dead member. Frontend: InvestigatorDossier locks Roll rows, drive pips, mark-take buttons and Change gear when dead; CircleView disables the Spend buttons with a reason; GMCharacterSheet/Dossier hides Deal a mark for a dead member. FAQ.md and WEBSOCKET.md updated.",
+     "checked": "new test test_a_dead_investigators_sheet_is_a_record in test_ws_marks.py; Chromium 390x844: all 9 roll rows aria-disabled, Change gear gone on the dead sheet"
+    },
+    {
+     "item": "2 death-not-announced-to-table",
+     "what": "character.py handle_apply_scar broadcasts a danger activity_log '<name> is deceased: a fourth scar.' to the whole campaign (Lightkeeper included) on a new death; gameStore.js drops the player's own local 'is deceased.' line so it is not doubled (the incapacitated line stays). The take-back line already existed and now follows a logged death.",
+     "checked": "test_a_death_and_its_undo_reach_the_other_players updated to pin the log line on the player, ally and Lightkeeper desks; Chromium showed one 'deceased' line on the dying phone"
+    },
+    {
+     "item": "3 second-death-no-notice",
+     "what": "MainDeskView.jsx: deathDismissed resets when is_dead goes false (a take-back), so a second death shows the dialog again; the invite banner now also shows once the death dialog is dismissed.",
+     "checked": "Chromium 390x844: kill, dismiss, Lightkeeper take-back, revive, fourth scar again showed the death dialog a second time; vite build"
+    },
+    {
+     "item": "4 death-dialog-wording-and-focus",
+     "what": "MainDeskView.jsx: 'His/Her/Their sheet stays on record' from the sheet's pronouns; when no invite exists the dialog says 'Your Lightkeeper will invite you back when the table is ready.'; 'Stay and look at the sheet' has autoFocus so one Enter does not start a new investigator.",
+     "checked": "Chromium 390x844 screenshot and document.activeElement: he/him read 'His sheet', focus on 'Stay and look at the sheet'"
+    },
+    {
+     "item": "5 lightkeeper-has-no-revive",
+     "what": "gameStore.js gmRevive(characterId) sends revive_character with character_id; GMCharacterSheet passes traumaEdit.revive; the Dossier shows Revive beside the status stamp for an incapacitated, not dead member on the Lightkeeper's copy. Backend: handle_revive_character now sends character_update to character_key(character.id), so the player's desk updates when the Lightkeeper revives (it only reached the Lightkeeper before). FAQ.md and WEBSOCKET.md updated (the 'not for a dead character' claim in the table did not match the code and FAQ, so it was removed).",
+     "checked": "new test test_the_lightkeepers_revive_reaches_the_players_desk; existing test_revive_character passes; vite build. The Lightkeeper's Revive button itself was not opened in a browser."
+    },
+    {
+     "item": "6 scar-shift-note-doubled",
+     "what": "ScarModal.jsx handleSubmit strips a trailing typed '(-1 X, +1 Y)' or '(...: no action shift)' from the description before appending the real note, so it appears once.",
+     "checked": "vite build; code path only, not clicked through in Chromium (the browser run applied scars over the socket)"
+    },
+    {
+     "item": "7 F165 removing a scar leaves its action shift",
+     "what": "backend/vtt/ws/handlers/gm.py: gm_update_scars now gives back the action point of each removed scar, read from the '(-1 Survey, +1 Focus)' note at the end of its text (lowered action +1 and raised action -1, only within 0 to 3), when nothing is reworded in the same save; the log line adds 'Its action shift is taken back: (...)'. Edit help text in InvestigatorDossier and WEBSOCKET.md updated.",
+     "checked": "flipped the pinned 'stays where it is' assertion in test_gm_update_scars_rewords_and_removes; new test_gm_update_scars_gives_back_only_a_known_shift (reword+remove moves nothing, no-note scars move nothing, an action at 3 stays); Chromium take-back logged the shift undone"
+    }
+   ],
+   "skipped": [],
+   "choices": [
+    "Death log line wording: '<name> is deceased: a fourth scar.' (type danger, the dying investigator's ink), matching the 'is deceased' wording the dying desk already used.",
+    "The dead refusal applies to the dead investigator's own socket only; the Lightkeeper's other corrections (gear, drive, scars, marks set via the trauma record, revive) still work on a dead member, except Deal a mark, which is refused. Chat, notebook, pen font and Create a new investigator stay open.",
+    "Add portrait stays live on a dead sheet (not a game action); relationship proposals are refused by the server but the frontend form was not changed.",
+    "Pronoun mapping: pronouns starting with 'he' give His, 'she' give Her, anything else (including blank or they/them) gives Their.",
+    "The dead-state death dialog always shows a line: the invite line if one exists, else 'Your Lightkeeper will invite you back when the table is ready.'",
+    "Focus in the death dialog goes to 'Stay and look at the sheet' (autoFocus) rather than reordering the buttons.",
+    "Scar shift undo reads the shift from the note text (no stored shift column, no schema change); skipped when any scar is reworded in the same save, when the note is absent (Hardened, Not Again, hand-written), or when the 0 to 3 limit would be broken; only the new-format note is parsed, not the pre-2026-10-04 '[SCAR SHIFT: ...]' form.",
+    "Revive stays allowed on a dead character (FAQ says the Lightkeeper may do so for narrative resurrection); the Revive button only shows for incapacitated, not dead, members.",
+    "The player's revive button on their own sheet is unchanged.",
+    "The scar form strips only a trailing duplicate note and always appends the real chosen note."
+   ],
+   "commits": [
+    "4a5d41d Death: a dead sheet is a record, announced to the table; Lightkeeper revive; scar shift undo"
+   ],
+   "tests": "Ran on throwaway DB fix_death_t (dropped): tests/test_ws_circle.py, test_ws_marks.py, test_access.py, test_surface.py, test_ws_character.py: 641 passed before adding the two new marks tests; the new tests in test_ws_marks.py (dead sheet record, Lightkeeper revive reaching the player) then passed on their own (2 passed), and the new/flipped test_ws_circle tests were in the 641. The scar-shift tests (test_gm_update_scars_gives_back_only_a_known_shift and the flipped rewords_and_removes test) were part of that run. The final test_ws_marks run after the last addition was only the two new tests, not the whole file again. Frontend: vite build ok to /tmp/build_death. Chromium 390x844 against ports 8501/4501: death dialog, wording, focus, one log line, dead sheet locked, take-back, second death dialog. Servers stopped by PID and databases dropped."
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "blocking",
+     "where": "frontend/src/components/pc/InvestigatorDossier.jsx:1264",
+     "problem": "Item 1 is only half done in the frontend. The fix turns the Body/Brain/Bleed label buttons into plain text on a dead sheet, but the next empty box in each track is still a live 'Take Body mark 1 of 3' button, because isNext = !readOnly && i === next does not check dead. I checked this in Chromium at 390x844 after a real fourth scar: 3 box buttons were still present. Tapping one held a Body mark with 'UNDO 5S' (out/b05_dead_cell_tap.png), then sent take_mark. The server refused it with 409 and the held mark disappeared without any message, because the store only console.warns on a take_mark refusal (out/b06_dead_cell_after.png). The report says the mark-take buttons are locked when dead, which is not the case.",
+     "fix": "Change it to const isNext = !readOnly && !dead && i === next;. Each box then renders as a plain span on a dead sheet, like the label does."
+    },
+    {
+     "level": "should",
+     "where": "backend/vtt/ws/handlers/gm.py:294",
+     "problem": "A dead member still gets circle advancement picks: gm_advance_circle grants them to every status 'active' member, and dead investigators stay active. Now that apply_advancement is in DEAD_REFUSED, every pick is refused. I reproduced this in a backend probe (advancement_picks 2, apply_advancement gets 409 'is dead: the sheet is a record.') and in Chromium. The dead player's desk opens the Circle Advancement dialog with 'Confirm advancement (0/2)', and a 'Choose advancements (2)' button stays on the desk for good (out/c02_after_advance.png, c03_spend_reason.png). Before this branch the dialog at least worked; now it is a dialog that can never succeed and never goes away.",
+     "fix": "Skip dead members when granting picks in handle_gm_advance_circle (e.g. `if member.is_dead: continue`, or filter Character.is_dead.isnot(True) as marks.py does). Also guard CircleView's `open` (CircleView.jsx:149) and the 'Choose advancements' button with !character?.is_dead, so picks already granted do not nag. Add a test."
+    },
+    {
+     "level": "should",
+     "where": "backend/vtt/ws/access.py:451",
+     "problem": "The dead investigator's own socket can still send revive_character. I probed this: it clears incapacitated on a dead character and logs 'X has been revived and is operational.' to every desk. The player's Revive button is hidden when dead, but the server enforcement this item asks for ('the server refuses them') leaves this sheet action open. The implementer's reason for allowing revive on a dead character (narrative resurrection) only applies to the Lightkeeper.",
+     "fix": "Add 'revive_character' to DEAD_REFUSED. That check only applies to the player's socket, so the Lightkeeper's revive stays allowed. Extend test_a_dead_investigators_sheet_is_a_record with it."
+    },
+    {
+     "level": "should",
+     "where": "FAQ.md:129",
+     "problem": "The branch edited this line to mention the new Revive button but kept 'and resets all three mark tracks to 0'. The code does not do that: handle_revive_character keeps the marks (RULES_CHECK item 9), and the WEBSOCKET.md section updated in this same branch now says 'the mark tracks keep their marks'. FAQ.md is supposed to describe the rules as implemented, so the two docs now contradict each other on the line just touched.",
+     "fix": "Reword the line: the revive clears the incapacitated flag only, the overfilled track was already cleared when the scar was taken, and the other tracks keep their marks."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/pc/CircleView.jsx:983",
+     "problem": "On a dead player's Circle page, 'Propose a relationship' is still offered for every ally. The server now refuses circle_relationship_propose with 409, but the store has no action_rejected branch for it, so the proposal fails without any message. The implementer listed this as a choice, but it leaves a control on the dead sheet that does nothing.",
+     "fix": "Hide or disable the propose controls when character.is_dead, as was done for the Spend buttons (one reason line), or show the server's refusal detail."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/handlers/gm.py:206",
+     "problem": "The log line 'Its action shift is taken back: (-1 Survey, +1 Move).' quotes the original note, so it can read as if Survey just went down. 'Its' is also singular when two scars are removed (the test pins 'removed 2 scars ... Its action shift is taken back').",
+     "fix": "Say what moved, e.g. 'Survey goes back up 1 and Move down 1.', or 'The shift (-1 Survey, +1 Move) is undone.', and use the plural when more than one shift is undone."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/ScarModal.jsx:96",
+     "problem": "If the description is nothing but a typed note, e.g. '(-1 Move, +1 Sway)', the stripped text is empty and `typed || medicalNotes.trim()` falls back to the original, so the note is still doubled.",
+     "fix": "Refuse a description that is only a note ('Describe the scar before you record it.'), or check `typed` instead of medicalNotes for the empty-description error."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/InvestigatorDossier.jsx:1329",
+     "problem": "The Lightkeeper's new Revive button reuses the player's sizing: min-h 32px, or 40px on a coarse pointer (measured 74x32 at 1440x900). DESIGN.md asks for 44px touch targets, so a Lightkeeper on a tablet gets 40px. A double press also sends two revives and puts two 'has been revived' lines in the log, since the handler does not check incapacitated first.",
+     "fix": "Use [@media(pointer:coarse)]:min-h-[44px]. Optionally make handle_revive_character a no-op, or a 409, when the character is not incapacitated."
+    },
+    {
+     "level": "nit",
+     "where": "backend/tests/test_ws_marks.py:1232",
+     "problem": "The docstring of test_a_dead_investigators_sheet_is_a_record says chat stands, but the test never sends a chat_message or add_notebook_entry. It also only checks that the GM's update_gear was not refused, not that it applied.",
+     "fix": "Add a chat_message from the dead socket and assert it is broadcast, and assert the gear row changed after the Lightkeeper's update_gear."
+    }
+   ],
+   "items_ok": [
+    "2 death-not-announced-to-table: the server sends a danger activity_log 'Bram Okafor is deceased: a fourth scar.' to the whole campaign. In Chromium it showed on the Lightkeeper (1440), Ada (1920) and the dying phone, once on the phone. It is remembered in the activity history, so it survives a reload. The test was flipped to cover player, ally and Lightkeeper.",
+    "3 second-death-no-notice: deathDismissed resets when is_dead goes false. In Chromium: kill, Stay, Lightkeeper take-back, Lightkeeper Revive, four Body marks, fourth scar again, and the death dialog showed a second time.",
+    "4 death-dialog-wording-and-focus: Chromium 390x844 with he/him read 'His sheet stays on record.', showed 'Your Lightkeeper will invite you back when the table is ready.', and document.activeElement was 'Stay and look at the sheet'. useDialog leaves an autoFocus that is already inside the dialog alone.",
+    "5 lightkeeper-has-no-revive: the Revive button shows beside INCAPACITATED on the Lightkeeper's copy (out/b08_lk_revive.png). Pressing it updated the DB and turned both the player's stamp and the Lightkeeper's stamp to 'Able to act'. The character_update now goes to character_key, so the player's desk follows. Test added.",
+    "6 scar-shift-note-doubled: in Chromium, a description ending '(-1 Survey, +1 Move)' was stored once, 'The last one (-1 Survey, +1 Move)'. Only the edge case of a note-only description remains (nit).",
+    "7 F165 scar shift undo: removing the fourth scar in Chromium restored survey 1 to 2 and move 2 to 1, lifted the death and logged the take-back. The backend and frontend label maps agree (sneak=Read, read=Focus). Remove from the trauma record always sends a single removal with the rest unchanged, so the reworded-in-the-same-save skip does not hit the UI path. The pinned test was flipped, not deleted.",
+    "Backend: test_ws_marks, test_ws_circle, test_access, test_surface and test_ws_character pass (643). test_ws_connect, test_campaigns, test_investigators, test_ws_rolls and test_ws_gm_view pass (350). vite build is OK. There are no new em dashes in the diff or the commit message, and the commit trailer is correct."
+   ],
+   "items_incomplete": [
+    "1 dead-investigator-still-acts: the server side is sound, apart from revive_character from the dead player's own socket (should). The frontend still offers a live mark box on each track: tapping it holds a mark with Undo, then the mark is refused without a message (blocking). Two side effects of refusing apply_advancement and relationship proposals were not handled: a dead member still gets advancement picks and is shown a dialog that cannot succeed (should), and relationship proposals fail with no message (should)."
+   ],
+   "summary": "The branch fixes most of what it set out to. Death logging, the second death dialog, the dialog wording and focus, the Lightkeeper's Revive (including the channel fix), the de-duplicated scar note and the scar shift undo all work end to end. I checked each of them in Chromium (phone 390x844 player, 1440 Lightkeeper, 1920 ally) and with the backend tests (993 passed across the group's files and their neighbours); the frontend build passes. One blocking gap: a dead player's sheet still has a live mark box on each track. Tapping it holds a mark with an Undo timer, then the server refuses it and the mark disappears without a message. The fix is to add !dead to isNext at InvestigatorDossier.jsx:1264. There are also should-level gaps. Refusing apply_advancement to the dead means a dead member who is still given advancement picks gets a Circle Advancement dialog that can never succeed and never goes away; gm_advance_circle should skip dead members. The dead player's own socket can still send revive_character. FAQ.md:129 was edited but still says revive resets all marks, which the code does not do. Relationship proposals on a dead sheet fail with no message. Servers were stopped by PID and both databases (rev_death_t, fix_death_8511) dropped. Screenshots are in /tmp/claude-0/-home-user-TTRPG-VTT-CO/29eccd1d-b7aa-5d30-ac75-eae521bfb965/scratchpad/br/out/."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "1 blocking: live next mark box on a dead sheet",
+     "what": "InvestigatorDossier.jsx: isNext = !readOnly && !dead && i === next",
+     "checked": "Chromium 390x844 on a dead sheet: 0 'Take ... mark' buttons"
+    },
+    {
+     "item": "1 should: dead member still given advancement picks",
+     "what": "gm.py handle_gm_advance_circle skips dead members; CircleView.jsx no longer opens the advancement dialog or shows 'Choose advancements' for a dead character",
+     "checked": "new test test_gm_advance_circle_gives_a_dead_member_no_picks; Chromium: no dialog or button with 2 picks on a dead sheet"
+    },
+    {
+     "item": "1 should: dead socket can send revive_character",
+     "what": "access.py: revive_character added to DEAD_REFUSED; test_a_dead_investigators_sheet_is_a_record extended with revive and a chat message that still goes through, and checks the character stays incapacitated; test_revive_character now uses a living character; WEBSOCKET.md updated",
+     "checked": "pytest"
+    },
+    {
+     "item": "1 should: relationship proposals on a dead sheet fail silently",
+     "what": "RelationshipNegotiation.jsx proposeBlocked prop, CircleView passes it for a dead character; shows 'A dead investigator proposes no relationships.'",
+     "checked": "Chromium screenshot of Circle tab on dead sheet, vite build"
+    },
+    {
+     "item": "FAQ.md revive line contradicted code",
+     "what": "FAQ.md now says revive clears only incapacitated, other tracks keep marks",
+     "checked": "read against handler"
+    },
+    {
+     "item": "nit: shift log wording",
+     "what": "gm.py log line now 'The shift is undone: (...)' or 'Their shifts are undone: (...)'; test and WEBSOCKET.md updated",
+     "checked": "test_ws_circle passes"
+    },
+    {
+     "item": "nit: note-only scar description",
+     "what": "ScarModal.jsx refuses a description that is only a typed shift note",
+     "checked": "vite build only, not clicked"
+    },
+    {
+     "item": "nit: Lightkeeper Revive touch target",
+     "what": "InvestigatorDossier.jsx Revive button min-h 44px on coarse pointer",
+     "checked": "vite build"
+    }
+   ],
+   "skipped": [
+    {
+     "item": "nit: double-press revive sends two revives (make handler a no-op when not incapacitated)",
+     "why": "Optional per the review; changes handler behaviour pinned by other tests and not plainly needed."
+    },
+    {
+     "item": "nit: assert gear row changed after the Lightkeeper's update_gear",
+     "why": "Kept to the not-refused assertion; the chat and revive assertions were added."
+    }
+   ],
+   "choices": [
+    "Dead member gets no advancement picks at all (skipped server side) and the desk also hides the dialog and button for a dead character, so picks already stored do not nag.",
+    "Relationship proposal on a dead sheet shows the line 'A dead investigator proposes no relationships.' in place of the Propose button; responses to proposals are untouched.",
+    "Log line wording: 'The shift is undone: (-1 Strike, +1 Sense).' for one, 'Their shifts are undone: ...' for several.",
+    "Note-only scar description gets the existing 'Describe the scar before you record it.' error.",
+    "revive_character refused for a dead investigator's own socket only; the Lightkeeper's revive still works."
+   ],
+   "commits": [
+    "d3c1e22 Death: close the dead sheet's gaps found in review"
+   ],
+   "tests": "\"On throwaway DB fix_death_t2 (dropped): tests/test_ws_circle.py, test_ws_marks.py, test_access.py, test_surface.py, test_ws_character.py gave 643 passed and 1 failed (test_revive_character, which pinned a dead player's own revive; I changed it to a living character). Re-ran test_ws_marks -k 'revive or dead': 3 passed. The new advancement test was in the 643. vite build ok. Chromium 390x844 against ports 8521/4521: dead sheet had no mark box buttons, no advancement dialog or button, and the Circle page showed the relationship note. Servers stopped by PID and the 8521 database dropped.\""
+  }
+ }
+]
