@@ -47,7 +47,7 @@ const Tie = ({ votes, nameOf }) => {
 
 // A tick by each investigator who has done their part, an open ring by each who has not.
 // The marks and the caption are drawn; screen readers hear each name with its word.
-const Marks = ({ caption, members, done, doneWord, notWord }) => (
+const Marks = ({ caption, members, done, doneWord, notWord, countOf }) => (
   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pt-0.5">
     <span aria-hidden="true" className="font-sans font-bold text-xs uppercase tracking-widest text-sepia">{caption}</span>
     <ul className="flex flex-wrap gap-x-3 gap-y-1">
@@ -59,7 +59,8 @@ const Marks = ({ caption, members, done, doneWord, notWord }) => (
               ? <TickMark className="text-seal-green" />
               : <span aria-hidden="true" className="inline-block self-center w-[0.7em] h-[0.7em] rounded-full border border-dotted border-sepia" />}
             <span className="[overflow-wrap:anywhere]">{inv.name}</span>
-            <span className="sr-only">{did ? `, ${doneWord}` : `, ${notWord}`}</span>
+            {did && countOf && <span aria-hidden="true" className="text-sepia">({countOf(inv)})</span>}
+            <span className="sr-only">{did ? `, ${doneWord}${countOf ? ` ${countOf(inv)}` : ''}` : `, ${notWord}`}</span>
           </li>
         );
       })}
@@ -95,7 +96,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
 
   const rels = relationshipsAmong(circleCreation.relationships, members);
   const waiting = waitingRelationships(rels);
-  const proposers = new Set(rels.map(r => r.from_character_id));
+  const proposedBy = (inv) => rels.filter(r => r.from_character_id === inv.id).length;
   // Who has a relationship to answer, and how many, in the members' order. The count keeps
   // to one line (a no-break space): a phone broke it as "(2" and "relationships)".
   const answering = members
@@ -237,7 +238,7 @@ export const CircleFormationStatus = ({ showCircleStatus, setShowCircleStatus, c
                   : waiting.length === 0
                     ? <Lead><span className="text-seal-green font-semibold">All confirmed</span></Lead>
                     : <Lead>Waiting for an answer from {nameList(answering)}</Lead>}
-                {n > 1 && <Marks caption="Proposed" members={members} done={inv => proposers.has(inv.id)} doneWord="has proposed one" notWord="none proposed yet" />}
+                {n > 1 && <Marks caption="Proposed" members={members} done={inv => proposedBy(inv) > 0} countOf={proposedBy} doneWord="has proposed" notWord="none proposed yet" />}
               </Part>
             </div>
           </motion.div>
