@@ -62,7 +62,7 @@ const RelationshipFields = ({ idPrefix, form, onChange, person, verb = 'Relation
       {question && <p id={`${idPrefix}-q`} className="font-serif italic text-base text-sepia leading-snug mb-1.5">{question}</p>}
       <textarea
         id={`${idPrefix}-lore`}
-        aria-label={`Your answer about ${person}`}
+        aria-label={`${verb === 'Relationship to' ? 'Your answer about' : 'Your counter answer about'} ${person}`}
         value={answer || ''}
         onChange={e => onChange({ answer: e.target.value })}
         rows={3}

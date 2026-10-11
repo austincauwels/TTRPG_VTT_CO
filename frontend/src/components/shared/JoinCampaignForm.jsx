@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { InfoTerm } from './ActionInfo';
 import { PEN_FONTS } from '../campaignSelector/penFonts';
 import { CAMPAIGN_CODE_PATTERN, CAMPAIGN_CODE_RULE } from '../../utils/campaignErrors';
 
@@ -56,15 +57,16 @@ export const JoinCampaignForm = ({
           penTriggerRef.current?.focus();
         }
       }}>
-        <span id={`${idPrefix}-pen-label`} className={labelClass}>Handwriting</span>
-        <p id={`${idPrefix}-pen-note`} className="font-serif italic text-sm text-sepia mb-1">Your notebook entries are written in this pen. You can change it later in the Notebook.</p>
+        <div className="flex items-center gap-1">
+          <span id={`${idPrefix}-pen-label`} className={labelClass}>Handwriting</span>
+          <InfoTerm label="Handwriting" text="Your notebook entries are written in this pen. You can change it later in the Notebook." />
+        </div>
         <button
           type="button"
           ref={penTriggerRef}
           onClick={() => setPenListOpen(v => !v)}
           aria-expanded={penListOpen}
           aria-labelledby={`${idPrefix}-pen-label`}
-          aria-describedby={`${idPrefix}-pen-note`}
           className={`${fieldClass} flex items-center justify-between hover:bg-cream transition-colors`}
         >
           <span className="text-xl text-ink" style={{ fontFamily: currentPen }}>{currentPen}</span>

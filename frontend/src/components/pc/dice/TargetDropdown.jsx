@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 export function TargetDropdown({ value, onChange, options, darkMode = false, labelledBy }) {
   const [open, setOpen] = useState(false);
   const buttonId = useId();
+  const listId = `${buttonId}-list`;
   const [menuStyle, setMenuStyle] = useState({});
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
@@ -50,6 +51,27 @@ export function TargetDropdown({ value, onChange, options, darkMode = false, lab
     };
   }, [open, updateMenuPosition]);
 
+  // On open, focus goes to the selected option; the arrows move between options
+  useEffect(() => {
+    if (!open) return;
+    const opts = menuRef.current?.querySelectorAll('[role="option"]');
+    const idx = Math.max(0, options.findIndex(o => o.value === value));
+    opts?.[idx]?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const closeToTrigger = () => { setOpen(false); triggerRef.current?.querySelector('button')?.focus(); };
+  const onMenuKey = (e) => {
+    const opts = Array.from(menuRef.current?.querySelectorAll('[role="option"]') || []);
+    const i = opts.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); opts[Math.min(opts.length - 1, i + 1)]?.focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); opts[Math.max(0, i - 1)]?.focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); opts[0]?.focus(); }
+    else if (e.key === 'End') { e.preventDefault(); opts[opts.length - 1]?.focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeToTrigger(); }
+    else if (e.key === 'Tab') { setOpen(false); triggerRef.current?.querySelector('button')?.focus(); }
+  };
+
   // min-w-0: the field shrinks with its pad, so a long name never pushes the page wider
   // than the screen (at 1024 wide that 2px overflow aborted WebKit, iPad pass 2026-10-05)
   return (
@@ -59,6 +81,11 @@ export function TargetDropdown({ value, onChange, options, darkMode = false, lab
         onClick={() => setOpen(o => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setOpen(true); }
+          else if (e.key === 'Escape' && open) { e.preventDefault(); e.stopPropagation(); setOpen(false); }
+        }}
         id={buttonId}
         aria-labelledby={labelledBy ? `${labelledBy} ${buttonId}` : undefined}
         className="w-full flex items-center gap-2 bg-transparent px-0 py-0.5 [@media(pointer:coarse)]:min-h-[44px] text-left transition-colors border-b border-sepia/40 hover:border-sepia"
@@ -77,6 +104,8 @@ export function TargetDropdown({ value, onChange, options, darkMode = false, lab
       {open && createPortal(
         <div
           ref={menuRef}
+          id={listId}
+          onKeyDown={onMenuKey}
           role="listbox"
           aria-labelledby={labelledBy}
           style={{ ...menuStyle, background: 'rgb(var(--c-parchment))' }}
@@ -88,7 +117,8 @@ export function TargetDropdown({ value, onChange, options, darkMode = false, lab
               type="button"
               role="option"
               aria-selected={opt.value === value}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
+              tabIndex={-1}
+              onClick={() => { onChange(opt.value); closeToTrigger(); }}
               className={`w-full flex items-center gap-2 px-2.5 py-1.5 [@media(pointer:coarse)]:min-h-[44px] transition-colors ${
                 opt.value === value
                   ? 'bg-parchment-deep/70'

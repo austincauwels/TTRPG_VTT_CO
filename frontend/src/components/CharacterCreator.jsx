@@ -5,7 +5,7 @@ import { ConfirmAction } from './shared/ConfirmAction';
 import { radioArrows } from './shared/a11y';
 import { useDialog } from './shared/useDialog';
 import { PaperSheet } from './shared/PaperSheet';
-import { serialFor } from './shared/PrintMarks';
+import { serialFor, BlankEntry } from './shared/PrintMarks';
 import { PhotoMount } from './shared/PhotoMount';
 import { playPaperSound } from '../game/rollSounds';
 import { portraitDataUrl } from '../utils/api';
@@ -824,7 +824,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 items-center lg:items-start">
 
             {/* ── LEFT: stacked card deck ── */}
-            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px] [@media(max-height:760px)]:[--card-w:140px]">
+            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px] max-lg:[@media(max-height:760px)]:[--card-w:140px]">
 
               {/* Card stack */}
               <div onPointerDown={swipeDown} onPointerUp={swipeUp} onPointerCancel={() => { swipeStart.current = null; }}
@@ -1398,7 +1398,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             {/* Which actions are gilded: the specialty's, and the free one once it is chosen */}
             <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-sans text-xs font-black uppercase tracking-widest text-sepia">
               <GildStar gilded />
-              <span>Gilded: {[lockedGilded, freeGilded].filter(Boolean).map(k => actionKeyLabel[k]).join(', ') || 'none'}{lockedGilded && ` (${actionKeyLabel[lockedGilded]} is your specialty's)`}</span>
+              <span>Gilded: {[lockedGilded, freeGilded].filter(Boolean).map(k => actionKeyLabel[k] + (k === lockedGilded ? ' (your specialty)' : '')).join(', ') || 'none'}</span>
             </p>
           </div>
         </PaperSheet>
@@ -1478,7 +1478,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   { label: "Investigator", value: name },
-                  { label: "Pronouns",     value: pronouns || 'Unlisted' },
+                  { label: "Pronouns",     value: pronouns || <BlankEntry label="Not given" /> },
                   { label: "Role · Specialty", value: `${role} · ${specialty}` },
                   { label: "Gear Selected", value: selectedGear.length ? selectedGear.join(', ') : `${selectedGear.length} of 3 items` },
                   { label: "Abilities", value: [selectedRoleAbility, selectedSpecialtyAbility].filter(Boolean).join(', ') || 'None chosen' },
