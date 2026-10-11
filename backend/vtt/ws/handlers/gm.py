@@ -424,11 +424,12 @@ async def _refuse(ctx, action, detail):
         "action": action, "status": 409, "detail": detail}})
 
 
-async def handle_gm_set_tally_answers(ctx):
-    """The Lightkeeper ticks the circle's three Illumination questions (rulebook p. 55).
-    Field `answers`, three booleans (vtt.ws.access checks them). Kept on the circle with
-    the tally, so every Lightkeeper desk shows the same ticks; refused once the tally is
-    added."""
+async def handle_gm_set_tally_answer(ctx):
+    """The Lightkeeper ticks one of the circle's three Illumination questions (rulebook
+    p. 55). Fields `index` (0 to 2) and `checked` (vtt.ws.access checks them). One tick a
+    message, set under the row lock, so quick ticks and another desk's ticks never
+    overwrite each other; kept on the circle with the tally, so every Lightkeeper desk
+    shows the same ticks. Refused once the tally is added."""
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
     if not ctx.is_gm: return
     target_circle = resolve_circle(db, payload.get("circle_id") or (circle.id if circle else 1), camp_id)
@@ -438,9 +439,11 @@ async def handle_gm_set_tally_answers(ctx):
     answers = answers_of(target_circle)
     tally = tally_of(answers)
     if tally["added"] is not None:
-        await _refuse(ctx, "gm_set_tally_answers", f"This assignment's {tally['added']} Illumination is already added.")
+        await _refuse(ctx, "gm_set_tally_answer", f"This assignment's {tally['added']} Illumination is already added.")
         return
-    answers[TALLY] = {**tally, "answers": list(payload["answers"])}
+    ticks = list(tally["answers"])
+    ticks[payload["index"]] = payload["checked"]
+    answers[TALLY] = {**tally, "answers": ticks}
     target_circle.backstory_answers = answers
     db.commit()
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
@@ -448,9 +451,12 @@ async def handle_gm_set_tally_answers(ctx):
 
 async def handle_gm_add_tally(ctx):
     """Add N Illumination: the assignment's reports go on the track once (playtest,
-    illumination-tally-added-twice). Field `total`, the tally the desk shows (1 to 7). The
-    row is locked and a tally already added is refused, so a second tab or device cannot
-    add the same reports again; End Assignment clears it."""
+    illumination-tally-added-twice). Field `keys`, what the reports' keys are worth (0, 2
+    or 4, worked out on the desk from the reports); the questions are counted from the
+    ticks stored on the circle, so the added total always matches the ticks kept with it,
+    whatever tick is still on its way. The row is locked and a tally already added is
+    refused, so a second tab or device cannot add the same reports again; End Assignment
+    clears it."""
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
     if not ctx.is_gm: return
     target_circle = resolve_circle(db, payload.get("circle_id") or (circle.id if circle else 1), camp_id)
@@ -462,9 +468,13 @@ async def handle_gm_add_tally(ctx):
     if tally["added"] is not None:
         await _refuse(ctx, "gm_add_tally", f"This assignment's {tally['added']} Illumination is already added.")
         return
+    total = sum(tally["answers"]) + payload["keys"]
+    if total == 0:
+        await _refuse(ctx, "gm_add_tally", "There is nothing to add: no question is ticked and no key was filed.")
+        return
     old_illum = target_circle.illumination or 0
-    target_circle.illumination = old_illum + payload["total"]
-    answers[TALLY] = {**tally, "added": payload["total"]}
+    target_circle.illumination = old_illum + total
+    answers[TALLY] = {**tally, "added": total}
     target_circle.backstory_answers = answers
     db.commit()
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)

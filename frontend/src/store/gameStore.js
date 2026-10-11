@@ -1605,17 +1605,19 @@ const useGameStore = create(
       // vtt/assignment.py), so every Lightkeeper desk sees the tally added once; they lived
       // in this browser, and a second tab added the same reports again (playtest,
       // illumination-tally-added-twice)
-      gmSetTallyAnswers: (circleId, answers) => {
+      // One question's tick at a time, so a tick sent before the last one came back keeps it
+      gmSetTallyAnswer: (circleId, index, checked) => {
         const { socket } = get();
         if (socket?.readyState !== WebSocket.OPEN) return false;
-        socket.send(JSON.stringify({ type: 'gm_set_tally_answers', payload: { circle_id: circleId, answers } }));
+        socket.send(JSON.stringify({ type: 'gm_set_tally_answer', payload: { circle_id: circleId, index, checked } }));
         return true;
       },
 
-      gmAddTally: (circleId, total) => {
+      // The reports' keys; the server counts the ticks it holds and adds the tally once
+      gmAddTally: (circleId, keys) => {
         const { socket } = get();
         if (socket?.readyState !== WebSocket.OPEN) return false;
-        socket.send(JSON.stringify({ type: 'gm_add_tally', payload: { circle_id: circleId, total } }));
+        socket.send(JSON.stringify({ type: 'gm_add_tally', payload: { circle_id: circleId, keys } }));
         return true;
       },
 

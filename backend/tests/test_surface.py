@@ -151,7 +151,7 @@ WS_MESSAGE_TYPES = [
     "apply_advancement", "update_circle", "circle_creation_vote",
     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
     "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
-    "gm_update_scars", "gm_return_spend", "gm_set_tally_answers", "gm_add_tally",
+    "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally",
 ]
 
 
@@ -295,11 +295,11 @@ WS_CASES = {
         payload=lambda c: {"role": "GM", "character_id": c.char_id},
         expect=["member_update", "activity_log"]),
     # The Lightkeeper ticks the circle's questions, then adds the tally once
-    "gm_set_tally_answers": dict(
-        sender="gm", payload=lambda c: {"circle_id": c.circle_id, "answers": [True, False, False]},
+    "gm_set_tally_answer": dict(
+        sender="gm", payload=lambda c: {"circle_id": c.circle_id, "index": 0, "checked": True},
         expect=["circle_update"]),
     "gm_add_tally": dict(
-        sender="gm", payload=lambda c: {"circle_id": c.circle_id, "total": 1},
+        sender="gm", payload=lambda c: {"circle_id": c.circle_id, "keys": 2},
         expect=["circle_update", "activity_log"]),
 }
 
@@ -374,7 +374,7 @@ def test_ws_access_table():
     and GM-target type is a real message type."""
     from vtt.ws import access
     gm_rules = (access._gm_only, access._gm_circle, access._gm_update_circle, access._gm_update_scars,
-                access._gm_set_tally_answers, access._gm_add_tally)
+                access._gm_set_tally_answer, access._gm_add_tally)
     assert access.GM_ONLY == {t for t, rule in access.RULES.items() if rule in gm_rules}
     assert set(access.RULES) <= set(WS_MESSAGE_TYPES)
     assert access.GM_MAY_TARGET <= set(WS_MESSAGE_TYPES)
@@ -382,7 +382,7 @@ def test_ws_access_table():
         "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
         "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
         "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
-        "gm_set_tally_answers", "gm_add_tally",
+        "gm_set_tally_answer", "gm_add_tally",
     }
 
 

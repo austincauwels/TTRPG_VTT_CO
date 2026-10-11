@@ -236,9 +236,14 @@ export const SceneManager = () => {
   const tally = tallyOf(circle);
   const unadded = tally.added == null
     ? tallyReports(circleCreation?.activeInvestigators, circleCreation?.reports, tally.answers).total : 0;
-  const endHint = (unadded > 0
-    ? `The reports' ${unadded} Illumination is not added yet and will be lost: add it on the Circle page first. Press again to end it anyway: `
-    : 'Press again to end it: ') + `the dispatch clears. ${ENDS}`;
+  const endHint = unadded > 0 ? (
+    <>
+      <strong className="block mb-1 not-italic font-bold">
+        The reports' {unadded} Illumination is not added yet and will be lost: add it on the Circle page first.
+      </strong>
+      {`Press again to end it anyway: the dispatch clears. ${ENDS}`}
+    </>
+  ) : `Press again to end it: the dispatch clears. ${ENDS}`;
 
   return (
     <div ref={letterRef} className="bg-parchment text-ink p-5 sm:p-8 xl:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
@@ -361,7 +366,7 @@ export const SceneManager = () => {
               {...props}
               className="relative group transform rotate-2 hover:rotate-0 transition-transform active:scale-95"
             >
-              <div className={`border-[3px] rounded px-3 py-1.5 font-sans font-black uppercase tracking-widest text-xs ${
+              <div className={`border-[3px] rounded px-3 py-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center font-sans font-black uppercase tracking-widest text-xs ${
                 armed
                   ? 'border-oxblood bg-oxblood text-cream'
                   : 'border-sepia text-sepia opacity-90 group-hover:opacity-100 group-hover:bg-sepia/5'
@@ -380,7 +385,7 @@ export const SceneManager = () => {
             className="relative group transform -rotate-3 hover:rotate-0 transition-transform active:scale-95"
             aria-describedby="dispatch-effect"
           >
-            <div className="border-[3px] border-oxblood rounded px-4 py-1.5 text-oxblood font-sans font-black uppercase tracking-[0.15em] text-sm opacity-90 group-hover:opacity-100 group-hover:bg-oxblood/5">
+            <div className="border-[3px] border-oxblood rounded px-4 py-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center text-oxblood font-sans font-black uppercase tracking-[0.15em] text-sm opacity-90 group-hover:opacity-100 group-hover:bg-oxblood/5">
               Dispatch
             </div>
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-50 pointer-events-none mix-blend-overlay" />
