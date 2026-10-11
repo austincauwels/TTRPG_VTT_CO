@@ -1246,6 +1246,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     ) : (
                       <button
                         onClick={() => holdMark(type)}
+                        // A held Enter that took a mark by its box (focus comes here) takes
+                        // no second one as the key repeats
+                        onKeyDown={(e) => { if (e.repeat && e.key === 'Enter') e.preventDefault(); }}
                         aria-label={trackFull
                           ? `Take a ${name} mark. The track is full, so this mark brings a scar.`
                           : `Take a ${name} mark`}

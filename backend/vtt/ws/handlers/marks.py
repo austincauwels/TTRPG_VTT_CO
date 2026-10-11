@@ -324,9 +324,15 @@ async def send_open_intercepts(websocket, character):
         return
     now = time.monotonic()
     for (target_id, m_type), about in list(_intercept_for.items()):
+        open_ones = _open_times(target_id, m_type)
+        if not open_ones:
+            # its window ran out unanswered: forgotten here, or the two would only grow
+            _interceptable.pop((target_id, m_type), None)
+            _intercept_for.pop((target_id, m_type), None)
+            continue
         if target_id == character.id or about["campaign_id"] != character.campaign_id:
             continue
-        for t in _open_times(target_id, m_type):
+        for t in open_ones:
             left = int(INTERCEPT_WINDOW - (now - t))
             if left < 1:
                 continue

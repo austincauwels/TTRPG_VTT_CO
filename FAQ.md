@@ -73,7 +73,7 @@ Each drive pool has a **resistance track** equal to `drive_max ÷ 3` (e.g., a Dr
 
 Burning resistance: spends 1 pip and rerolls using **only the action rating** (no drive added). Some abilities scale on how many resistance pips remain unspent (e.g., Open Book adds those pips as bonus dice on Sway).
 
-A burn answers your own last roll, until the table moves past it: another roll at the table whose dice everyone sees (the Lightkeeper's open roll too, and a gilded roll once its die is kept), or End Assignment. A secret roll does not. A gilded roll of yours whose die you keep after someone else's roll can still be burned on. The desk then stops offering the burn.
+A burn answers your own last roll, until the table moves past it: another roll at the table whose dice everyone sees (the Lightkeeper's open roll too, and a gilded roll once its die is kept), or End Assignment. A secret roll does not. A gilded roll of yours whose die you keep after someone else's roll can still be burned on, until the next roll at the table or End Assignment. A gilded roll whose die is still to be kept when the Lightkeeper ends the assignment is scored when you keep it, but cannot be burned on. A desk that was away while your roll was settled is told so when it reconnects, and offers no burn for it.
 
 ### Can the GM roll dice?
 

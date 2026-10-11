@@ -1022,6 +1022,55 @@ def test_end_assignment_settles_the_last_rolls(client, dice):
     assert support.fetch(Character, a["id"]).nerve_resistance_spent == 0
 
 
+def test_a_gilded_choice_held_over_end_assignment_is_settled(client, dice):
+    """Fixed (playtest 2 review, stale-burn-offer-after-end-assignment): a gilded roll
+    whose die was still to be kept at End Assignment became burnable again when the die
+    was kept, and a desk that reopened during the choice offered that burn. The die is
+    still kept and scored; the roll comes back marked settled, and its burn is refused."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=2, gilded_move=True, nerve_max=6)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        with support.ws_connect(client, a["id"]) as wa:
+            dice(3, 5)
+            wa.send("roll", action="move", drive_spent=0)
+            assert wa.sync()[0]["payload"]["roll"]["needs_gilded_choice"] is True
+            gm.send("gm_end_assignment")
+            gm.sync()
+        with support.ws_connect(client, a["id"]) as wa:
+            held = support.of_type(wa.sync(), "roll_result")
+            assert held[0]["payload"]["settled"] is True
+            wa.send("resolve_gilded", action="move", chosen_type="regular")
+            assert support.of_type(wa.sync(), "roll_kept")[0]["payload"]["outcome"] == "mixed_success"
+            wa.send("burn_resistance", action="move")
+            assert wa.sync() == [{"type": "action_rejected", "payload": {
+                "action": "burn_resistance", "status": 409, "detail": "Burn a resistance after a roll of that action."}}]
+    assert support.fetch(Character, a["id"]).nerve_resistance_spent == 0
+
+
+def test_a_desk_that_missed_the_settling_dice_is_told_when_it_opens(client, dice):
+    """Fixed (playtest 2 review, roll-settling-client-server-mismatch): a desk that was
+    away while another roll settled its own still offered the burn, which the server then
+    refused. It gets roll_settled as it opens; once the character rolls again it does not."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=1, nerve_max=6)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        with support.ws_connect(client, a["id"]) as wa:
+            dice(2)
+            wa.send("roll", action="move", drive_spent=0)
+            wa.sync()
+        dice(4)
+        gm.send("roll", action="Lightkeeper", drive_spent=1)
+        gm.sync()
+        with support.ws_connect(client, a["id"]) as wa:
+            assert support.of_type(wa.sync(), "roll_settled") == [
+                {"type": "roll_settled", "payload": {"character_id": a["id"]}}]
+            dice(2)
+            wa.send("roll", action="move", drive_spent=0)
+            wa.sync()
+        with support.ws_connect(client, a["id"]) as wa:
+            assert support.of_type(wa.sync(), "roll_settled") == []
+
+
 def test_a_burn_answers_only_the_newest_roll(client, dice):
     """A roll waiting for its gilded die to be kept replaces the last one: a burn for an
     older roll's action is refused and the waiting choice is kept (it used to reroll the

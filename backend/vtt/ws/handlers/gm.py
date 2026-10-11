@@ -328,7 +328,7 @@ async def handle_gm_end_assignment(ctx):
         target_circle.stamina_dice_used = 0  # Stamina Training's dice come back
         # The assignment's rolls are settled: none is burned on or answered after it ends
         # (playtest 2, stale-burn-offer-after-end-assignment)
-        settle_rolls(camp_id)
+        settle_rolls(camp_id, held=True)
         # The reports close, and this assignment's reports, tally and spends go
         # (vtt/assignment.py): they stayed open and filed into the next assignment
         clear_paperwork(target_circle)

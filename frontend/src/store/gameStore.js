@@ -826,7 +826,9 @@ const useGameStore = create(
             set({
               lastRoll: roll,
               lastRollKept: null,
-              lastRollSettled: false,
+              // A roll the table has moved past while this desk was away (the server says
+              // so): its die can be kept, but it offers no burn
+              lastRollSettled: message.payload.settled === true,
               dismissedPrompts: [],
               postRollTried: null,
               tableRoll: null, // this desk's own roll is the newest on its felt
@@ -873,6 +875,12 @@ const useGameStore = create(
                 set({ lastRollSettled: true });
               }
             }
+          }
+          else if (message.type === 'roll_settled') {
+            // As the socket opens: this investigator's last roll was settled by dice this
+            // desk missed (it was away), so the roll it still shows offers no burn
+            const { lastRoll, character } = get();
+            if (lastRoll && message.payload?.character_id === character?.id) set({ lastRollSettled: true });
           }
           else if (message.type === 'roll_error') {
             failRoll(set, ROLL_FAILED);
