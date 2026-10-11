@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RELATIONSHIP_DATA, RELATIONSHIP_TYPES, joinLore, splitLore } from '../../../game/relationships';
 
@@ -119,6 +119,7 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
   // A counter that changes nothing is no counter: Accept is the way to agree
   const sameAsOffer = !!counter.relType && counter.relType === rel.rel_type
     && joinLore(counter.relType, counter.promptIdx, counter.answer) === rel.lore;
+  const sameId = `${useId()}-same`;
   const sendCounter = () => {
     if (!counter.relType || sameAsOffer) return;
     respond(rel.id, 'counter', counter.relType, joinLore(counter.relType, counter.promptIdx, counter.answer));
@@ -166,8 +167,8 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
               >
                 <div className="pt-2 space-y-3 border-t border-sepia/20">
                   <RelationshipFields idPrefix={`counter-${rel.id}`} form={counter} onChange={setCounter} person={theirName} />
-                  <button type="button" onClick={sendCounter} disabled={!counter.relType || sameAsOffer} className={primaryButton}>Send counter</button>
-                  {sameAsOffer && <p className="font-serif italic text-sm text-sepia">This is the same as {theirName}'s offer. Change something to counter, or Accept it.</p>}
+                  <button type="button" onClick={sendCounter} disabled={!counter.relType || sameAsOffer} aria-describedby={sameAsOffer ? sameId : undefined} className={primaryButton}>Send counter</button>
+                  {sameAsOffer && <p id={sameId} className="font-serif italic text-sm text-sepia">This is the same as {theirName}'s offer. Change something to counter, or Accept it.</p>}
                 </div>
               </motion.div>
             )}

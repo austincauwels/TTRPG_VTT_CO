@@ -20,8 +20,8 @@ const earnsBackAtMilestones = (abilities) =>
 // the sum after it, with the member count named apart from the result ("now 5" read as five
 // members; playtest, 2026-10-09).
 export const refillRule = (maxCap, abilities) => (earnsBackAtMilestones(abilities)
-  ? `Each player may spend up to two between assignments. Spent resources come back only on the Illumination track: Resource Management earns back one Stitch, Refresh or Train, the circle's choice, at each milestone (3, 6 and 9), and each refills to ${maxCap} (1 plus the circle's ${maxCap - 1} members) when the track fills.`
-  : `Each player may spend up to two between assignments. Spent resources do not come back after an assignment: each refills to ${maxCap} (1 plus the circle's ${maxCap - 1} members) when the Illumination track fills.`);
+  ? `Each player may spend up to two between assignments. Spent resources come back only on the Illumination track: Resource Management earns back one Stitch, Refresh or Train, the circle's choice, at each milestone (3, 6 and 9), and each refills to ${maxCap} (1 plus the circle's ${maxCap - 1} member${maxCap - 1 === 1 ? '' : 's'}) when the track fills.`
+  : `Each player may spend up to two between assignments. Spent resources do not come back after an assignment: each refills to ${maxCap} (1 plus the circle's ${maxCap - 1} member${maxCap - 1 === 1 ? '' : 's'}) when the Illumination track fills.`);
 
 // The same, as the charter card's ledger entry, which shows each maximum already
 export const refillEntry = (maxCap, abilities) => (earnsBackAtMilestones(abilities)

@@ -225,7 +225,7 @@ export const CircleCreationPopup = () => {
               <button key={id} type="button"
                 onClick={() => document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })}
                 className="shrink-0 min-h-[44px] min-w-[44px] px-3 font-sans text-xs font-black uppercase tracking-wider text-sepia hover:text-ink border border-sepia/30 rounded-sm">
-                {['I', 'II', 'III', 'IV', 'V', 'VI'][i]}<span className="sr-only">. </span><span className="ml-1">{label}</span>
+                {['I', 'II', 'III', 'IV', 'V', 'VI'][i]}<span className="sr-only">. {label}</span>
               </button>
             ))}
           </nav>
@@ -305,6 +305,7 @@ export const CircleCreationPopup = () => {
                 onKeyDown={e => e.key === 'Enter' && handleNameSuggest()}
                 placeholder="Circle name"
                 aria-label="Circle name to suggest"
+                aria-describedby={nameDraft.length >= 60 ? 'circle-name-count' : undefined}
                 disabled={mySuggestionCount >= 5}
                 className="flex-1 min-w-0 border border-sepia/40 bg-cream/70 px-4 py-2.5 font-serif text-lg text-ink focus:border-sepia rounded-sm disabled:opacity-40"
               />
@@ -317,7 +318,7 @@ export const CircleCreationPopup = () => {
               </button>
               <span className="font-mono tabular-nums text-sm text-sepia shrink-0" aria-label={`${mySuggestionCount} of 5 suggestions used`}>{mySuggestionCount}/5</span>
             </div>
-            {nameDraft.length >= 60 && <p className="font-mono tabular-nums text-xs text-sepia -mt-3 mb-4 text-right">{nameDraft.length}/80 characters</p>}
+            {nameDraft.length >= 60 && <p id="circle-name-count" className="font-mono tabular-nums text-xs text-sepia -mt-3 mb-4 text-right">{nameDraft.length}/80 characters</p>}
             {nameNote && <p role="status" className="font-serif italic text-sm text-sepia -mt-3 mb-4">{nameNote}</p>}
 
             {allSuggestedNames.length > 0 ? (

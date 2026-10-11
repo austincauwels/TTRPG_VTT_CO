@@ -831,6 +831,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
               <SafeIcon name="GiBriefcase" size={18} /> Gear
             </h3>
+            {!readOnly && gear.length === 0 && <InfoTerm label="Why empty" ariaLabel="Why the gear is empty" text="The Lightkeeper clears everyone's gear when an assignment ends. Choose it again for the next one." slipClassName="left-0 top-full mt-1 w-[min(16rem,calc(100vw-4rem))]" className="text-xs" />}
             {!readOnly && !dead && (
               <button
                 type="button"
@@ -860,7 +861,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               </li>
             ))}
           </ul>
-          {gear.length === 0 && <p className="font-serif italic text-sm text-sepia mt-1">No gear. The Lightkeeper clears everyone's gear when an assignment ends; choose it again for the next one.</p>}
+          {gear.length === 0 && <span className="sr-only">No gear</span>}
         </div>
       </div>
 
