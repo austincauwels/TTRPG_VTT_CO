@@ -1,0 +1,3 @@
+## Turn: Death (2026-10-11)
+Drove dm + bram after the 04:15:29-59 restart (both desks reconnected and were current, F162). Two 4-Body-mark cycles + Bram's scar forms 3 and 4 -> Bram (Explorer) dead 04:19, 4/4 scars. Findings F156 (death line only on the dead player's desk), F157 (dead sheet can roll/spend/take marks; server has no is_dead check; test roll ~04:21), F158 praise, F159 circle page shows no death, F160 dialog pronoun/default focus, F161 killing scar still asks shift/Decide later, F162 praise reconnect.
+Watching: take-back (Edit remove 4th scar lifts death, gm.py lifts_death) before invite; invite banner on bram; second investigator issue F104; whether Lock spending or anything stops dead spends.

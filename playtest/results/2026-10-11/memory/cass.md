@@ -33,3 +33,17 @@
 ## Turn 7 (Wrap)
 - Screen was current at start without reload (advancement dialog, others' Refresh/gear lines, Nobody Left Behind chips). Later keeps a 'Choose advancements (2)' button; browser Back goes to hub and dialog reopens later (F145). Took +2 Cunning drive (now 5/5) and gilded Hide; one log line each despite double-click Confirm. Spent Refresh (double-click only armed) and Stitch (triple-click spent once): 2/2, Train blocked with reason (F147). Bleed 0, resistances all 1/1. Gear re-picked: Magnifying Glass, Evidence Bags, Concealed Pistol (4th pick silently ignored, F146). Stale Burn and reroll panel for old Hide roll still shows (F144). Scout unused. No marks/scars.
 - Watch: Glass Orchard start, Bram's invite/Professor, Illumination reset to 0, Train/Refresh pool refills only on next fill, Mina Vale second campaign.
+
+## Turn 8 (Orchard)
+- Desk was current after the 04:15 restart, no banner, nothing lost (F179). Your Circle lacks Bram (as F176). Hub: Mina asked to join side-case with '  Side-Case ' (accepted, Waiting, F181). Rolled Survey for the Glass Orchard: 1 Failure (kept plain 1; forced click needed on keep die, F-new).
+- State: no marks/scars, drives Nerve 3/3 Cunning 5/5 Intuition 3/3, resistances 1/1 each, Scout unused, gear Magnifying Glass/Evidence Bags/Concealed Pistol. Mina Vale pending in Side Case.
+- Watch: Rue approving Mina; hub live update; Burn and reroll for Survey; two campaigns' sheets switching.
+
+## Turn 9 (Climax)
+- Screen was current at start without reload (Tobias's Survey, Ada's Sway and reports, tension 2/4). Welcome-Tobias dialog was open: both of us proposed Rival; I accepted his, but my own proposal still says Waiting (F211). Rolled Hide (1 gilded die): 4 Mixed, auto-kept; Burn and reroll panel offered, not used (Cunning resistance 1/1). Filed report with NO key (Reveal a Clue / Probe a Witness / Track a Target not earned); asked Rue the cost of the mixed.
+- Side Case: Mina's formation papers are on her desk but the modal has no Close/Esc and covers the hub button, even after reload; only browser Back leaves (F215 + follow-up). Back in Lantern Ward, log intact (my Hide and report lines present); ended on the hub, Last Played = The Lantern Ward.
+- State: no marks/scars, Nerve 3/3, Cunning 5/5, Intuition 3/3, resistances 1/1 each, Scout unused, gear Magnifying Glass/Evidence Bags/Concealed Pistol. Rival with Tobias confirmed.
+- Watch: Rue's consequence for the mixed Hide, Illumination added, End Assignment; Mina's formation (try votes as Mina next time, via hub, and leave with Back).
+
+## Turn 10 (Close)
+- Hub was stale after Side Case retired (Mina still listed, '2 in play') until reload; after reload Registry shows only Cass, Mina gone (not 'free'). Logged exit-note findings (2 bugs/ux, 2 ideas, 2 praise). Said goodbye at table. Bleed 1/3, drives Nerve 3/3 Cunning 5/5 Intuition 3/3. Session over.

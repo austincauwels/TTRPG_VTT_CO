@@ -18,3 +18,12 @@ Desk current at turn start (all marks, tension 0, reports-open line). Said I nam
 
 ## Turn 7 (Wrap)
 Confirmed at table: +5 right (p. 55), two advancements each. Took advancements (dialog live, Later leaves 'Choose advancements (2)' button): +1 Hide (now 2), Read gilded. Re-picked gear: Press Credentials, Camera, Hidden Recording Device. Spent 1 Refresh (1/2 spends used): Cunning 6/6, Cunning res 2/2. State: Nerve 1/1, Cunning 6/6, Intuition 2/2, res Cunning 2/2; Sway 2g Read 2g Hide 2 Survey 2g Focus 1 Sense 1; no marks, no scars; circle ability Nobody Left Behind (chip on all 9 actions). Logged 5 findings (advance praise, refresh praise, NLB chip clutter, reports-closed wording, rules note). Watching: Glass Orchard, one spend left, Dev's Muse proposal still awaiting my Accept/Counter, header still Lantern Ward.
+
+## Turn 8 (Orchard)
+Desk current after the 04:15 restart without reload (F162-like, logged). Said small talk w/ keyholder, rolled Read + Sweet Talk (3 dice, 2 gilded): 6g,6g,4; kept gilded 6 = Critical (forced click needed; '1 Cunning back' at 6/6 still, F143). Bram's card vanished from my Your Circle panel, no log line since 04:24 (logged). State: Nerve 1/1, Cunning 6/6, Intuition 2/2, res Cunning 2/2; Sway 2g Read 2g Hide 2 Survey 2g Focus 1 Sense 1; no marks/scars; gear Press Credentials/Camera/Hidden Recording Device. Watching: Lightkeeper's answer on the ledger faces, Open Book still unused here, Bram's Professor joining, header still Lantern Ward.
+
+## Turn 9 (Climax)
+Desk current without reload; welcome dialog for Tobias was open, proposed Mentor (waiting for him). Said speech to Abel; Sway + Open Book (4 dice: 2+Cunning res 2, 1 gilded): 6g,5,3,2, kept gilded 6 = Success (forced click, F177/F182 again). Filed report: Hunt Down a Lead only; form started empty (praise). Logged F203-F206. State: Nerve 1/1, Cunning 6/6, Intuition 2/2, res Cunning 2/2, spends 1/2 used; Sway 2g Read 2g Hide 2 Survey 2g Focus 1 Sense 1; no marks/scars; gear Press Credentials/Camera/Hidden Recording Device. Watching: Illumination added after reports, End Assignment, one spend left, Dev's Muse proposal still unanswered, Tobias's reply to Mentor, hub 'Last Played' pointing at Side Case.
+
+## Turn 10 (Close)
+Campaign over. Checked Illumination 5/12 (3 questions + 2 keys, p. 55 OK) and my sheet after End Assignment (no gear, Cunning 6/6, res 2/2, spends 0/2). Logged 5 exit findings, said goodbye at the table. Nothing further to do; Dev's Muse proposal still unanswered.

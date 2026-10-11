@@ -1,0 +1,215 @@
+{
+ "death": {
+  "summary": "Bram's Explorer is dead: scars 4 of 4, at 04:19. Both desks were current after the 04:15:29 to 04:15:59 restart without a reload. The dm laptop and Bram's phone reconnected by themselves (ws_open at 04:15:59, then circle_update). Each showed Dev's field entry as the newest log line and Stitch 4 / Refresh 1 / Train 5, with no banner and no console errors (F162, praise). I didn't need start_all.sh.\n\nOn the dm seat I dealt Bram 4 Body marks with Deal a mark (04:17 to 04:18). The third scar form opened live on his phone, and I tapped in -1 Move / +1 Sway with a text about the ledger, giving scars 3 of 4, shown live on the Lightkeeper's sheet. A second cycle of 4 Body marks (04:19) brought the fourth form, which warns in red: \"This is the fourth scar. When you record it, Bram Okafor dies.\" I recorded -1 Survey / +1 Focus. Bram's phone showed a modal \"Bram Okafor has died\" (focus on \"Create a new investigator\"). The Lightkeeper's desk followed live: a \u2020 Deceased section with a DECEASED stamp on the roster, and DEAD with 4/4 scars on the sheet (F158, praise).\n\nProblems found:\n- **F156:** only Bram's own desk logs \"Bram Okafor is deceased.\" That line is built in his browser. The dm, Ada, Cass and Dev get no death line; the dm's newest stays \"has been incapacitated!\", and the players' circle sidebars just drop Bram silently.\n- **F157:** a dead investigator can still do everything. His sheet still offers Roll, Take mark and Change gear, and the Circle page still offers spending Stitch, Refresh and Train. The Lightkeeper's Deal a mark stays live too. A test Focus roll from the dead sheet (about 04:21) reached every log, and the server code has no is_dead check for rolls or spends.\n- **F159:** the circle page shows no death; Bram's report card still says \"No report yet\".\n- **F160:** the dialog says \"Their sheet\" for a he/him character, and its default button builds a new investigator with no word about waiting for the invite.\n- **F161:** the killing scar still asks for an action shift and offers \"Decide later\".\n\nI told the table (#61) and added entries to memory/dm.md, bram.md and stress.md. The take-back test and the invite are still to do.",
+  "findings": [
+   "F156",
+   "F157",
+   "F158",
+   "F159",
+   "F160",
+   "F161",
+   "F162"
+  ],
+  "blocked": "",
+  "state": "Bram Okafor (Muscle/Explorer): DEAD, scars 4/4, marks 0/0/0. Ratings at death: Move 1g, Strike 1g, Control 1, Sway 2, Read 0, Hide 0, Survey 1, Focus 3, Sense 1.\n\ndm desk (laptop): the roster lists Ada, Cass, Dev, then a '\u2020 Deceased' section with Bram's card (black band, DECEASED stamp). His sheet shows DEAD and 4/4, with Deal a mark still active. The Circle page (last view) still has Bram's report card 'No report yet'. The Activity Log has no death line; it ends with 'Bram Okafor has been incapacitated!' and then the test roll 'Bram Okafor rolled Focus, a 6' (about 04:21). Pass-notes dropdown is still on @Dev Lindqvist (private). Resources: Stitch 4, Refresh 1, Train 5, spending open; tension 0, no dispatch. No invite sent, no take-back done.\n\nbram desk (phone): the death dialog was dismissed with 'Stay and look at the sheet'. The phone is on the dead sheet: Status Dead, Roll buttons live, a roll strip at the bottom, log 'Bram Okafor is deceased.' No invite banner yet.\n\nada desk: log ends at 'has been incapacitated!' with no death line, and 'Your circle' lists Ada, Cass and Dev only. cass desk: no death line, and the old Burn and reroll offer is still on the tray. dev desk: on the Notebook, no death line.\n\nNext for the dm: the take-back test (Edit, remove the 4th scar) before Invite bram_okafor (F104), then the invite."
+ },
+ "dmA": {
+  "summary": "I didn't reload. After the 04:15 restart the desk was connected and current (heartbeat running, no console errors), and the Circle page, roster ('\u2020 Deceased' section holding Bram) and log all matched the state I was given. Nothing new was stale beyond F156 and F159, which are already logged.\n\nThe take-back worked, and the site warned me. Remove on scar 4 asked to be pressed again, with a Cancel button and the warning 'With three scars, Bram Okafor is alive again, and incapacitated until revived.' After I confirmed, his sheet showed Incapacitated and 3/4. He moved back from Deceased into the living roster on his own, and the log gained a line saying 'Bram Okafor is alive'. The other players' logs never had a death line, so that 'alive' line makes no sense to them (F164). The removed scar's action shift (-1 Survey, +1 Focus) stays on his sheet (F165). His third scar's text shows its shift note twice (F166).\n\nThe death is only partly put back. The trauma record's Edit cannot add a scar, so at 04:24 I dealt four Body marks. That should open a fourth scar form on Bram's phone, but until he writes it the Explorer is alive on my desk (3/4, incapacitated). I told Bram to write the scar first.\n\nI sent Invite player to bram_okafor. The site gave no warning that his investigator is still alive and wrote no log line (F167, confirms F104).\n\nOn the chapter hub I created the second campaign, Side Case, with code side-case, and told Cass. I went back to The Lantern Ward through the Case Ledger. Then I opened The Glass Orchard: a template dispatch to the hothouse at Kettering Park at dawn, the hourglass named 'The glass ripens' (0 of 4), and a roll called from each of Ada (Read), Cass (Survey) and Dev (Sense).\n\nOne step was blocked: a read-only database check of Bram's scar text was refused by the permission system, so for F166 I read the scar-form source code instead. Findings logged: F163, F164, F165, F166, F167, F169, F170.",
+  "findings": [
+   "F163",
+   "F164",
+   "F165",
+   "F166",
+   "F167",
+   "F169",
+   "F170"
+  ],
+  "blocked": "",
+  "side_case_code": "side-case",
+  "prompts": {
+   "bram": "Write the Explorer's fourth scar again on your phone first (the scar form should be open after the 04:24 marks), so he is dead before anything else. Then accept the invite sent to bram_okafor, build your new investigator (a Scholar, Professor specialty) on your phone and come back to the table through the hothouse door. Say what your phone shows at each step, including what it showed when I took the death back.",
+   "ada": "Glass Orchard, hothouse at dawn: say how you go about it, then roll Read on your sheet. The gardener's planting ledger nailed by the door: whose faces are in the glass fruit? Also say whether your log got a new line about Bram.",
+   "cass": "Roll Survey: something has walked the gravel between the beds since the dew fell; where did it go? Out of character: Side Case is open, code side-case. Join it with your Magician from the chapter hub whenever you like.",
+   "dev": "Marit has gone quiet. Roll Sense on the nearest glass fruit: who is looking out of it, and do they see you? Tell me how first."
+  },
+  "story_so_far": "The Green Lamp Society closed The Lamplighter's Debt: Dev's aunt shut the ledger, the green lamps of Wick Street went out, and Bram's Explorer paid the debt with four scars and died. The circle advanced and gained Nobody Left Behind. A week later the Chapter sends them to a disused hothouse at Kettering Park at dawn. Fruit made of glass hangs from the dead vines, and each piece holds the face of someone who is not in the room. Ada is reading the gardener's ledger, Cass is tracking footprints on the gravel and Dev is sensing the nearest fruit. Bram's player is coming back as a Professor.",
+  "state": "Lightkeeper desk on The Lantern Ward, Roster view. Dispatch sent 04:26 (Template, 'the disused hothouse at Kettering Park, at dawn'). Tension: The glass ripens, 0 of 4, timer off. Bram's Explorer: after the take-back (scar 4 removed at 04:23) and 4 Body marks (04:24) he is ALIVE, 3/4 scars and incapacitated, in the living roster, until Bram writes the fourth scar on his phone. Invite sent to bram_okafor (no log line). Second campaign Side Case (code side-case) exists, empty. The hub's 'Last Played' now points at Side Case. Resources: Stitch 4, Refresh 1, Train 5, spending open; Illumination 0/12. Pass notes set to @Circle (everyone). Rolls called from Ada (Read), Cass (Survey) and Dev (Sense); none in yet."
+ },
+ "pA": [
+  {
+   "summary": "Without reloading, my desktop desk was fully current after the 04:15 restart. The log ran through the 04:26 dispatch and tension line, the sheet, hourglass and circle panel matched, no banner showed and `errors` was clean; nothing was lost (logged as praise F175, same as F162). I answered the Lightkeeper's question at the table: after the 04:23 scar-removal line and the 04:24 marks, my log has no new line about Bram, no scar, death or invite line. Bram's card has disappeared from my Your Circle panel with no log line (F176, medium). I said the small talk, ticked Sweet Talk (new ability use) and rolled Read: 3 dice with 2 gilded (Read 2 plus Sweet Talk 1, Cunning resistance 2/2), result 6g, 6g, 4. I kept the gilded 6 for a Critical, which is correct per the book (two 6s). The keep-die needed a forced click again, and the offer still says '1 Cunning back' at Cunning 6/6 (F177, same as F143). F178: Sweet Talk's small-talk condition is untracked. I wrote my memory entry. I did not need to run start_all.sh.",
+   "findings": [
+    "F175",
+    "F176",
+    "F177",
+    "F178"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Start of turn without reloading: the phone was current after the restart. The scar form was open, the invite banner showed, and the log showed the tension line. `errors` was clean and nothing marked the outage or the take-back (the take-back never showed on my phone as alive). Nothing was lost. I wrote the fourth scar (-1 Focus, +1 Survey) and the Explorer is dead again. No death dialog appeared this time, and the invite banner on the sheet vanished (F172). The hub still carried the invite. I tapped Create investigator and built Tobias Okafor-Reyes, Scholar/Professor (Steel Mind, Well-Read, gear Thick Reference Tome, Chemical Kit and University Keys). In the creator the card arrows sat below the fold and tapping them did nothing until I scrolled (F180). The Gild step does not explain that Focus is already gilded (F193). Save and rejoin took one tap and landed me on Tobias's sheet in The Lantern Ward. On the Circle page nothing from the Explorer was carried over: the question answer and relationships are blank (F191). Tobias also got a fresh 0/2 spends (F192), and the Registry lists only Tobias, with no memorial for the Explorer (F195). I also logged the doubled scar note (F173), praise for the invite flow (F194) and restart praise (F174). I introduced Tobias at the table (#71 and #72) and appended my memory entry.",
+   "findings": [
+    "F172",
+    "F173",
+    "F174",
+    "F180",
+    "F191",
+    "F192",
+    "F193",
+    "F194",
+    "F195"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Desk was current without a reload after the 04:15 restart: no banner, nothing lost, log unbroken through dispatch, tension and Ada's roll; errors was empty (F179). Your Circle still lacks Bram (as F176). On the hub I asked to join side-case with Mina Vale, typing \"  Side-Case \" with spaces and a capital. It was accepted and Mina shows Waiting under Side Case beside Cass in The Lantern Ward (F181). Back at the desk I rolled Survey as asked: 2 dice (1 gilded, 1 plain), kept the plain 1, Failure, one log line. The keep-die buttons never settle, so a normal click timed out and only a forced click worked (F182, same as F177). The gilded option still promises 1 Intuition back at 3/3 (F143). I posted my roll at the table and wrote my memory entry. I did not reload and did not run start_all.",
+   "findings": [
+    "F179",
+    "F181",
+    "F182"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Without reloading, my tablet desk was fully current after the 04:15 restart: no banner, Bram's marks and take-back, the 04:26 dispatch and tension name, and Ada's and Cass's rolls were all in the log. The sheet and notebook were intact, which I logged as F187. I said at the table how I would sense the pear (board against the pane, Sense pushing 1 Intuition). I rolled Sense for a mixed 4 and kept the gilded die, so Intuition is back to 5/5. The keep-die button would not respond to a tap or forced click on touch (F188); only a dispatched click worked. Bram's Your Circle omission is F189, and the live welcome modal for Tobias Okafor-Reyes is F190. I changed my email to dev@lindqvist-notes.net, confirmed it from the mailed link, and the account page shows the new address (F196). The old address got no notice (F197), and the Account menu items are missing from the screen-reader outline (F198). Notebook still holds 4 entries; I did reload once, via a direct URL, to get to the account page and check the notebook afterwards. No console errors. Memory file updated.",
+   "findings": [
+    "F187",
+    "F188",
+    "F189",
+    "F190",
+    "F196",
+    "F197",
+    "F198"
+   ],
+   "blocked": ""
+  }
+ ],
+ "dmB": {
+  "summary": "I didn't reload at the start, and my desk was current: Tobias Okafor-Reyes (Scholar/Professor) was on the roster and the log ran through Dev's 04:31 Sense roll. There were no console errors and I did not need start_all.sh. Tobias came in by the invite, so there was nothing to approve. But the dead Explorer is now gone from my desk entirely: there is no Deceased section, no Circle History entry, and no log line for the death or for Tobias joining (F200). A read-only database check shows the Explorer's status is retired and is_dead is true. I welcomed Tobias at the table (#74). I switched to Side Case through hub > Case Ledger > Run and approved Mina Vale in one click; her card and formation papers appeared at once, but the approval wrote no log line. I came back to The Lantern Ward through the Case Ledger, because 'Last Played' now points at Side Case. Both desks were intact, but each switch takes 3 clicks and the ledger gives no hint of a waiting request (F201). I narrated the three opening rolls, raised tension to 2 of 4 (both changes logged) and called the climax: one final roll each, with a mark for any failure (#75-76). No player has rolled yet, so no marks have been dealt. On the Circle page I opened the reports (logged) and ticked the three Illumination questions for a Total of +3, not added yet. The ticks are still kept only in my browser (as F105). I told the players to file their reports (#77). Opening the reports reordered the report cards and Circle History (F202).",
+  "findings": [
+   "F200",
+   "F201",
+   "F202"
+  ],
+  "blocked": "Marks for failed final rolls could not be dealt yet: the four players have not made their final rolls (they roll on their own turns).",
+  "prompts": {
+   "ada": "Final roll: speak to Abel Thorne through the glass of the first fruit, telling him the names are written down and kept. Roll Sway on your sheet (say how first). Then file your assignment report on the Circle tab and tick your key if you fulfilled one.",
+   "bram": "As Tobias: find the fault line in the first fruit, where the graft took, using your Thick Reference Tome. Roll Survey on your phone (say how first). Then file your first assignment report (Circle tab) and tick a key if you fulfilled one. A failed roll means a mark from the glass.",
+   "cass": "Final roll: get under the chiming vines to the heart of the hothouse without setting the orchard off. Roll Hide, or Strike if you go straight at it (say how first). Then file your report and tick your key if you fulfilled one. Mina Vale is approved in Side Case; check that the formation papers are on her desk.",
+   "dev": "Final roll: hold every face in the glass still while the first fruit breaks, so none follows you out (Marit is silent). Roll Focus (say how first). Then file your report and tick your key if you fulfilled one."
+  },
+  "story_so_far": "The Lamplighter's Debt ended with Wick Street's lamps going dark. Bram's Explorer paid the debt and is dead. A week later the circle (The Green Lamp Society) came to the Glass Orchard, a disused hothouse at Kettering Park where glass fruit holds the faces of people who are not there. Ada's critical Read found that the planting ledger belongs to the gardener Abel Thorne: each graft is named for someone lost to the fever ward in '71, and the last line is his own name. Cass lost the tracks, and footsteps now circle behind her. Dev's board drew a face that wants Marit's voice. Bram's new investigator, Tobias Okafor-Reyes (a Professor, the Explorer's younger brother), came in through the hothouse door. The glass ripens (tension 2 of 4). At the centre hangs the first fruit with Abel's face in it. Break it and the rest go dark. Each investigator is making one final roll.",
+  "state": "Lightkeeper desk on The Lantern Ward, Roster view, no reload this turn. Roster: Dev, Ada, Cass, Tobias Okafor-Reyes; no Deceased section. Tobias: Nerve 2, Cunning 4, Intuition 3; Sway 1, Read 2 gilded, Survey 2, Focus 2 gilded, Sense 2; no marks or scars. Dispatch: Kettering Park hothouse (04:26). Tension 2 of 4, 'The glass ripens', timer off. Circle page: reports OPEN, 0 of 4 filed; three questions ticked locally, Total +3, not added. Illumination 0/12; Stitch 4, Refresh 1, Train 5; spending still open. Final rolls called (#75-76): Ada Sway, Cass Hide/Strike, Dev Focus, Tobias Survey; marks for failures still to deal. Side Case: Mina Vale approved (1 in circle, not finalized, nothing dispatched). Hub 'Last Played' points at Side Case.",
+  "side_case_code": "side-case"
+ },
+ "pB": [
+  {
+   "summary": "Desk was current with no reload (dispatch, tension 2 of 4, reports open, Tobias in the circle). A welcome dialog for Tobias was open, so I proposed Mentor with a short answer; it showed \"Waiting for Tobias\". I said my speech to Abel at the table. I then rolled Sway with Open Book: 4 dice (rating 2 plus Cunning resistance 2, one gilded) came up 6 gilded, 5, 3, 2. I kept the gilded 6 for a Success. The keep-die click timed out and needed a forced click, as in F177 and F182. The report form on the Circle tab started empty, with no keys carried over. I ticked Hunt Down a Lead and sent the report; the stamp \"Report sent 11 Oct 2026\" and an Amend link appeared. Logged F203 to F206: praise for the empty form, Dev's Muse proposal still pending, Open Book chip leaving no trace in the log, and the repeat of the keep-die and \"1 Cunning back at 6/6\" issues. No console errors. I did not need start_all.sh.",
+   "findings": [
+    "F203",
+    "F204",
+    "F205",
+    "F206"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Started with look: Tobias was current (tension 2/4, newest log line was the reports opening). Said at the table how I would Survey (thick tome, +1 Intuition so Well-Read could refund on a 3 or less), then rolled on the phone: 3 dice 2,4,2 gives a 4, mixed, so no mark; Well-Read correctly did not fire. I looked at the Professor ability tab (Steel Mind only soaks Brain marks, not needed). On the Circle tab I ticked Reference Research and sent the report; the REPORT SENT stamp and Amend showed. I accepted Ada's Mentor proposal, which had arrived live, and proposed Rival to Cass; Dev was not proposed to this turn. Findings: F207 (tome has no use on the sheet), F208 (dice tray after-the-roll choices vanish after scrolling while the badge still says a choice is waiting), F209 (spends 0/2 still fresh, Cass's raw-Markdown name noisy on the phone), F210 (praise for the report flow). No console errors. No restart needed. Memory file updated.",
+   "findings": [
+    "F207",
+    "F208",
+    "F209",
+    "F210"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "My desk was current at the start without a reload (Tobias's Survey, Ada's Sway and report, tension 2 of 4). The Welcome Tobias dialog was open. Both of us had proposed Rival. I accepted his, but my own proposal still shows 'Waiting' next to 'Confirmed by you both' (F211). I said at the table I would go low under the vines, then rolled Hide: one gilded die, a 4, Mixed success, kept automatically. I did not burn to reroll. I filed my report with no key ticked, since I earned none, and the log shows the filing. I opened Side Case as Mina Vale: the hub banner announced her approval live, and the formation papers are on her desk. The papers modal has no Close, ignores Escape and backdrop clicks, and covers 'Back to chapter hub', so Mina is stuck (F215). A reload did not help and only browser Back got out, which I logged as a follow-up. I returned to The Lantern Ward, where the log and sheet were intact, and ended on the hub with Last Played showing The Lantern Ward. I did not need the start_all.sh restart. Errors check was clean. I appended my memory entry.",
+   "findings": [
+    "F211",
+    "F215"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "My desk was current at the start of the turn with no reload (Tobias's report line had arrived). I said at the table how I would roll (board against the pane, naming every face), pushed 1 Intuition and rolled Focus: 4 gilded, 6, 1. My script kept the gilded 4 by mistake, so the result is Mixed (1 Intuition back, 5/5), and I owned the mistake at the table. The tray offers no way to undo a keep. I filed my report on the Circle tab with Sense Phenomena ticked; it locked with an Amend button. I wrote the notebook entry \"The Glass Orchard: the first fruit\" with an apple sketch, which saved and shows large above the text. I logged F212 (sketch praise), F213 (sketch always above the text) and F214 (keep-die choice is final and easy to mis-tap). The errors check showed nothing new. I appended my memory entry. start_all.sh was not needed.",
+   "findings": [
+    "F212",
+    "F213",
+    "F214"
+   ],
+   "blocked": ""
+  }
+ ],
+ "dmC": {
+  "summary": "I looked at my desk at the start without reloading, and it was current: the 8 climax rolls, 4 reports, Dev's sketch and tension 2 of 4 were all there. I narrated how the climax turned out at the table (#89) and dealt Cass a Bleed mark (1 of 3) with Deal a mark on her sheet. On the Circle page the total was +5 (3 questions, plus 2 for keys from 3 of 4 investigators). That matches the book's p.55 rule: the dead Explorer was not counted and the newcomer Tobias was. Add 5 Illumination took the track from 0 to 5 of 12, wrote a milestone-3 line and locked itself (F217); the current pip is announced to a screen reader with the wrong name (F218). End Assignment cleared the hourglass, its name, the dispatch, the reports (0 of 4), spends (0/2) and gear. Marks and spent drive stayed (Cass's Bleed, Tobias's Intuition 2/3), spending stayed Open, and first-report F141 and F131 are fixed (F219). The confirm still says nothing about reports (F186). The hub's Case Ledger only offers Delete, so I retired Side Case from its own desk. It vanished from the Ledger with no retired list or way back, although the confirm says 'Nothing is deleted', and the confirm does not name Mina Vale (F220). I logged four exit notes: F221 (a 'Call for a roll' card is still missing), F222 (roster cards show no drives, marks or status), F223 (praise for Deal a mark) and F224 (praise for a desk that stayed live all night). I closed the session at the table (#90) and told Cass that Mina should now be free in her registry. The errors check was clean, start_all.sh was not needed, and I appended my memory entry.",
+  "findings": [
+   "F217",
+   "F218",
+   "F219",
+   "F220",
+   "F221",
+   "F222",
+   "F223",
+   "F224"
+  ],
+  "blocked": "",
+  "state": "The Lantern Ward Lightkeeper desk, Roster view. Glass Orchard ended at 04:43: tension 0 of 4, clock name and dispatch blank, reports closed (0 of 4), Illumination 5 of 12, Stitch 4, Refresh 1, Train 5, spending Open. Cass has a Bleed mark (1 of 3); Tobias has Intuition 2 of 3; every sheet shows 'No gear' and 'Circle spends 0 / 2'. Side Case is retired and gone from the hub's Case Ledger ('1 campaign you run'); Last Played is The Lantern Ward. Mina Vale should be unaffiliated on Cass's side (not checked from my seat). Session closed at the table (#90).",
+  "story_so_far": "The Green Lamp Society ended the Lamplighter's Debt with Bram's Explorer dead. His younger brother, Tobias Okafor-Reyes (a Professor), joined for the Glass Orchard at Kettering Park. Ada's critical Read showed that the glass fruit held everyone gardener Abel Thorne lost to the fever ward in '71. In the climax Ada talked Abel into letting go, Tobias found the graft seam, and Cass reached the first fruit with a cut hand (a Bleed mark). Dev held the faces as the first fruit broke and the orchard went dark, but the one face that wanted Marit's voice slipped into his board. The circle took Abel's planting ledger home and gained 5 Illumination (5 of 12). The session and the campaign are closed.",
+  "prompts": {
+   "ada": "Session closed. If you look once more, check that your sheet shows the End Assignment reset live (spends 0/2, no gear) and that the 5 Illumination (5/12) reached your Circle tab.",
+   "bram": "Session closed. If you look once more, check on your phone that Tobias's spent Intuition (2 of 3) stayed after End Assignment and his tome is gone from gear, and say whether that surprised you.",
+   "cass": "Session closed. Side Case is retired: check that Mina Vale is back in your Player Registry as free, and that Cass's Bleed mark (1 of 3) arrived live on your sheet.",
+   "dev": "Session closed. A face slipped into your board as an open thread for Marit. If you look once more, check that your desk shows the reset and Illumination 5/12 without a reload."
+  },
+  "side_case_code": "side-case (retired this turn)"
+ },
+ "pC": [
+  {
+   "summary": "Looked at Ada's desk without reloading. It was current: Illumination 5/12, tension 0, no clock name, reports closed. The Illumination total matches the book (p. 55): 3 questions plus 2 keys, since some but not all fulfilled one. My sheet after End Assignment is right: No gear, Cunning 6/6, resistance 2/2, spends 0/2. I did not check the Roster view, Side Case or Mina Vale's registry state from my seat. I logged 5 exit findings: 2 praise, 1 ux, 2 ideas. The ux one is the Keep-die control needing forced clicks, still true this turn, and the ideas are the stale Muse proposal and an end-of-assignment gear note. I said goodbye at the table (#91) and appended my memory entry. The site loaded fine, so start_all.sh was not needed.",
+   "findings": [
+    "F225",
+    "F226",
+    "F227",
+    "F228",
+    "F229"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Looked at my phone first: it was current without a reload (Illumination 5/12, 'Assignment ended' log line, reports closed, Stitch 4, Refresh 1, Train 5, spends 0/2). Tobias's sheet is clean after End Assignment: gear slots empty as announced, Intuition 2/3, resistances Cunning 1 and Intuition 1, no errors. The dead Explorer is nowhere on the site: the hub registry lists only Tobias, and the Case Ledger shows 1 in play (same as F195). Cass's Rival proposal still waits for me to accept, and her name still shows raw Markdown and emoji. I logged 6 exit findings (F230-F235): memorial for the dead, inherited context for a replacement, phone long-page friction, Markdown names (all idea/ux), and two praise items (live desk and plain menu, the invite and rejoin flow). I said goodbye at the table (#92) and appended my memory entry. I did not check Mina Vale from Cass's side, since that is not visible from my seat.",
+   "findings": [
+    "F230",
+    "F231",
+    "F232",
+    "F233",
+    "F234",
+    "F235"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Looked at the hub without reloading. It was stale: the Case Ledger still said \"2 in play\" and the Player Registry still listed Mina Vale under Side Case with a Play button. After a reload the ledger said \"1 in play\" and Mina was gone from my Registry entirely, not shown as free. So I could not tell whether she can join another campaign. I tried to check the database for Mina but the permission check denied that command, so I did not pursue it. I logged six findings (F241-F246): the stale hub bug, Mina vanishing instead of being free, two exit-note ideas (the hub needs to stay live, and a retired-case and memorial shelf), and two praise notes (live desk with safe double-clicks, and the End Assignment epilogue). I said goodbye at the table (#94) and appended my memory entry. My first reload script failed (a pipe path), so I reran it from a script file. No console errors.",
+   "findings": [
+    "F241",
+    "F242",
+    "F243",
+    "F244",
+    "F245",
+    "F246"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Looked first: the desk was current with no reload (newest log line says the assignment ended and reports were reset). Checked the notebook end to end: 5 field entries (Case 1, The debts of Wick Street, Closing note, Debt closed, The Glass Orchard: the first fruit) and 3 images (gasworks photo, ledger page, apple sketch). All loaded, Markdown rendered, and `errors` showed nothing. I did not check Mina Vale, the hub, or the roster (not on my seat's screens). Logged 5 exit findings, F236 to F240: praise for the notebook, a ux item on keep-the-die and uneditable notes, an idea to link table log lines into the notebook, an idea for a case divider or recap after End Assignment, and praise for the sketch tool and the live tablet desk. Said goodbye at the table (#93) and appended my memory entry. Nothing failed and no restart was needed.",
+   "findings": [
+    "F236",
+    "F237",
+    "F238",
+    "F239",
+    "F240"
+   ],
+   "blocked": ""
+  }
+ ]
+}
