@@ -8,6 +8,7 @@ import { FormLine, SerialNo, DateStamp, PrinterMark, BlankEntry, BlankQuestionCa
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { refillRule } from '../../game/circleResources';
 import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
+import { holdBack } from '../stageHistory';
 import { ABILITY_TEXTS } from './InvestigatorDossier';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
@@ -171,6 +172,10 @@ export function AdvancementModal() {
   const open = !!character && !character.is_dead && picksLeft > 0 && !advancementDeferred;
   const close = () => { setSubmitted(false); setSelectedPicks([]); setDetails({}); dismissCircleAdvancement(); };
   const dialogRef = useDialog({ open: open || submitted, onClose: close, view: submitted });
+  // Browser Back with picks half made closes the dialog (Later) and keeps the desk, rather
+  // than leaving for the hub (playtest, advancement-dialog-back-leaves-desk)
+  const picking = open && !submitted && selectedPicks.length > 0;
+  useEffect(() => (picking ? holdBack(close) : undefined), [picking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const MAX_PICKS = picksLeft % 2 === 1 ? 1 : 2;
 
@@ -264,8 +269,9 @@ export function AdvancementModal() {
           The Illumination track is full: <strong>{MAX_PICKS}</strong> {MAX_PICKS === 1 ? 'advancement' : 'advancements'} for {character?.name || 'your investigator'}.
         </p>
 
-        {circleAdvancement?.circle?.circle_ability && (() => {
-          const newAbility = circleAdvancement.circle.circle_ability.split('\n').filter(Boolean).at(-1);
+        {/* After a reload only the stored circle is left, and its last ability is the new one */}
+        {(circleAdvancement?.circle?.circle_ability || circle?.circle_ability) && (() => {
+          const newAbility = (circleAdvancement?.circle?.circle_ability || circle.circle_ability).split('\n').filter(Boolean).at(-1);
           return newAbility ? (
             <div className="mb-5 p-3 bg-candle-gold/10 border border-candle-gold/40 rounded-sm">
               <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">New Circle Ability</span>
