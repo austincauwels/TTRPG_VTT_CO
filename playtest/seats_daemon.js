@@ -5,11 +5,11 @@
 // failed requests, HTTP 4xx/5xx answers, and every WebSocket frame (type and a short body).
 const path = require('path');
 const fs = require('fs');
-const { playwright, chromiumPath, SITE } = require('./lib');
+const { playwright, chromiumPath, SITE, httpCredentials, seatsFile } = require('./lib');
 const { chromium, devices } = playwright();
 
 const PT = __dirname;
-const SEATS = JSON.parse(fs.readFileSync(path.join(PT, 'seats.json'), 'utf8'));
+const SEATS = JSON.parse(fs.readFileSync(seatsFile(), 'utf8'));
 const EXE = chromiumPath();
 
 const logTo = (seat) => {
@@ -60,6 +60,7 @@ const watchPage = (seat, page, log) => {
       executablePath: EXE,
       headless: true,
       ...base,
+      ...(httpCredentials() ? { httpCredentials: httpCredentials() } : {}),
       viewport: cfg.viewport,
       ...(cfg.touch ? { hasTouch: true, isMobile: !!cfg.mobile } : {}),
       args: [`--remote-debugging-port=${cfg.cdp}`, '--autoplay-policy=no-user-gesture-required'],

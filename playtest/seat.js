@@ -5,11 +5,11 @@
 // and exits 1. The browser is never closed by this script.
 const path = require('path');
 const fs = require('fs');
-const { playwright, chromiumPath, SITE } = require('./lib');
+const { playwright, chromiumPath, SITE, httpCredentials, seatsFile } = require('./lib');
 const { chromium } = playwright();
 
 const PT = __dirname;
-const SEATS = JSON.parse(fs.readFileSync(path.join(PT, 'seats.json'), 'utf8'));
+const SEATS = JSON.parse(fs.readFileSync(seatsFile(), 'utf8'));
 const HELP = `Commands:
   look [label]               screenshot of the screen (prints its path: Read it) and an outline of what is on it
   full [label]               full-page screenshot

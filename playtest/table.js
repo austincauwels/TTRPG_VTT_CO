@@ -9,7 +9,7 @@ const FILE = path.join(__dirname, 'table.jsonl');
 const MD = path.join(__dirname, 'table.md');
 const [cmd, ...rest] = process.argv.slice(2);
 const lines = () => (fs.existsSync(FILE) ? fs.readFileSync(FILE, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
-const NAMES = { dm: 'LIGHTKEEPER', ada: 'ADA', bram: 'BRAM', cass: 'CASS', dev: 'DEV', director: 'DIRECTOR', stress: 'TEST ENGINEER' };
+const NAMES = { dm: 'LIGHTKEEPER', ada: 'ADA', bram: 'BRAM', cass: 'CASS', dev: 'DEV', robert: 'ROBERT', director: 'DIRECTOR', stress: 'TEST ENGINEER' };
 if (cmd === 'say') {
   const [seat, ...words] = rest;
   if (!NAMES[seat] || !words.length) { console.error('usage: say <seat> <text>'); process.exit(1); }

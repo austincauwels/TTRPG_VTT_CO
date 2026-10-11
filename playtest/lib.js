@@ -2,6 +2,9 @@
 //   PLAYWRIGHT_MODULE  path to a playwright package (default: ./node_modules/playwright, after npm install)
 //   CHROMIUM_PATH      the browser (default: the newest /opt/pw-browsers/chromium-*/chrome-linux/chrome)
 //   SITE_URL           the copy of the site under test (default http://127.0.0.1:4300)
+//   CANDELA_BETA_USER, CANDELA_BETA_PASS
+//                      the beta site's password (HTTP basic auth), when SITE_URL is the beta
+//   SEATS_FILE         which seats to open (default seats.json beside this file)
 const fs = require('fs');
 const path = require('path');
 
@@ -22,4 +25,11 @@ const chromiumPath = () => {
 
 const SITE = (process.env.SITE_URL || 'http://127.0.0.1:4300').replace(/\/$/, '');
 
-module.exports = { playwright, chromiumPath, SITE };
+// Basic auth for the beta site, sent only to the site's own origin (never to fonts or other hosts)
+const httpCredentials = () => (process.env.CANDELA_BETA_USER && process.env.CANDELA_BETA_PASS
+  ? { username: process.env.CANDELA_BETA_USER, password: process.env.CANDELA_BETA_PASS, origin: new URL(SITE).origin, send: 'always' }
+  : undefined);
+
+const seatsFile = () => path.resolve(__dirname, process.env.SEATS_FILE || 'seats.json');
+
+module.exports = { playwright, chromiumPath, SITE, httpCredentials, seatsFile };
