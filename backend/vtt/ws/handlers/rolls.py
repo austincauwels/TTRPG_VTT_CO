@@ -100,8 +100,21 @@ def _rating(character, action):
     return getattr(character, action, None)
 
 
+def settle_rolls(campaign_id, keep=None):
+    """The table has moved past its members' last rolls: a burn or a post-roll ability
+    can no longer turn one back. keep is the roller whose own roll stays open."""
+    if campaign_id is None:
+        return
+    for other_id in [k for k, v in _last_roll.items() if v.get("campaign_id") == campaign_id and k != keep]:
+        _last_roll.pop(other_id, None)
+
+
 async def _dice_thrown(ctx, character, action, roll, rating, kept=None):
-    """Tells the rest of the table that these dice are tumbling now (dice_thrown)."""
+    """Tells the rest of the table that these dice are tumbling now (dice_thrown). They
+    settle everyone else's roll, the Lightkeeper's dice too, as they settle it on the
+    desks: a secret roll the table never sees does not, and a gilded roll does when its
+    die is kept (playtest 2, roll-settling-client-server-mismatch)."""
+    settle_rolls(ctx.camp_id, keep=character.id if character is not None else None)
     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
         "type": "dice_thrown",
         "payload": {
@@ -155,12 +168,8 @@ def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0, roll_i
         # roll once its result is known (_remember), never an older one while a die
         # waits to be kept
         _last_roll.pop(character.id, None)
-        # and the next roll at the table settles everyone else's: a burn or a post-roll
-        # ability cannot turn back a result the table has moved past
-        if character.campaign_id is not None:
-            for other_id in [k for k, v in _last_roll.items()
-                             if v.get("campaign_id") == character.campaign_id and k != character.id]:
-                _last_roll.pop(other_id, None)
+        # (the next roll at the table settles everyone else's when its dice are thrown:
+        # _dice_thrown)
         if roll.get("needs_gilded_choice"):
             _pending_gilded[character.id] = {
                 "action": action, "roll": dict(roll), "rating": _rating(character, action),

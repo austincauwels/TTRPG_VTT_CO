@@ -4,6 +4,7 @@ import { useDialog } from '../../shared/useDialog';
 import { CrossMark } from '../../shared/InkMarks';
 import { OUTCOME, keepChoices, outcomeForKept, rollPoolText } from '../../../game/outcomes';
 import { DieFace, DIE_BODY } from './Die';
+import { ROLL_LOST } from '../../../store/gameStore';
 
 // The same dice as the tray, small: her ivory and gold bodies, standard pips
 const MiniDie = ({ die, counts, dim, onClick, label }) => {
@@ -111,10 +112,12 @@ export const RollResultBar = ({
   const outcomeKey = lastRoll?.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll?.dice) : null);
   const outcome = !isRolling && !gildedPending ? OUTCOME[outcomeKey] : null;
   // A roll that did not reach the table: the bar says so in short with the reason under
-  // it (the tray's slip carries the alert for screen readers)
+  // it (the tray's slip carries the alert for screen readers). One that left the desk and
+  // was never answered is not called not thrown: it may have counted (playtest 2,
+  // offline-roll-headed-not-thrown)
   const failed = !isRolling && !!rollError && !lastRoll;
   const status = isRolling ? (rollWaiting ? 'Waiting for the table…' : 'Rolling…')
-    : failed ? 'Not thrown'
+    : failed ? (rollError === ROLL_LOST ? 'May have counted' : 'Not thrown')
     : gildedPending ? 'Keep one die'
     : (outcome?.word || '');
 

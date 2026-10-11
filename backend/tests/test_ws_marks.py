@@ -32,6 +32,28 @@ def test_take_mark_plain(client):
     assert support.fetch(Character, ch["id"]).body_marks == 2
 
 
+def test_a_mark_sent_again_with_its_id_is_taken_once(client):
+    """Fixed (playtest 2, silent-socket-loses-mark): a desk whose socket went silent let
+    the mark it had sent go, and it was lost. The desk sends it again on its next socket
+    with the same mark_id; the server takes a mark once, and answers a repeat with the
+    sheet. An id that is not short text is no id."""
+    ch = support.forge(client)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", mark_id="m-1")
+        assert ws.sync()[0]["payload"]["body_marks"] == 1
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", mark_id="m-1")
+        msgs = [m for m in ws.sync() if m["type"] != "activity_history"]
+        assert support.types(msgs) == ["character_update"]
+        assert msgs[0]["payload"]["body_marks"] == 1
+        ws.send("take_mark", mark_type="body", mark_id="m-2")
+        assert ws.sync()[0]["payload"]["body_marks"] == 2
+        ws.send("take_mark", mark_type="brain", mark_id=["m-2"])
+        ws.send("take_mark", mark_type="brain", mark_id=["m-2"])
+        assert [m["payload"]["brain_marks"] for m in ws.sync() if m["type"] == "character_update"] == [1, 2]
+    assert support.fetch(Character, ch["id"]).body_marks == 2
+
+
 def test_take_mark_without_type_is_ignored(client):
     ch = support.forge(client)
     with support.ws_connect(client, ch["id"]) as ws:
@@ -718,6 +740,55 @@ def test_one_mark_is_answered_by_one_ally(client):
         assert wg.sync() == refused
     assert support.fetch(Character, target["id"]).body_marks == 1
     assert support.fetch(Character, guard["id"]).nerve_current == 2
+
+
+def test_an_answered_mark_closes_the_other_allies_offers(client):
+    """Fixed (playtest 2, ally-offer-cards-lost-or-stale): once one ally answered a mark,
+    the other allies' cards for it stayed up for the rest of the window, and their answer
+    was refused as "There is no such mark to soak." They are told the mark is answered
+    now (intercept_offer_closed), and a late answer is refused for that reason."""
+    camp = support.new_campaign(client)
+    target = support.active_member(client, camp)
+    seer = support.active_member(client, camp, intuition_max=6, specialty_ability="Premonitions")
+    guard = support.active_member(client, camp, nerve_current=2, role_ability="Behind Me")
+    with support.ws_connect(client, target["id"]) as wt, support.ws_connect(client, seer["id"]) as wsr, \
+            support.ws_connect(client, guard["id"]) as wg:
+        wt.send("take_mark", mark_type="body")
+        wt.sync()
+        wsr.drain()
+        wg.drain()
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
+        wg.sync()
+        assert [m for m in wsr.drain() if m["type"] == "intercept_offer_closed"] == [
+            {"type": "intercept_offer_closed", "payload": {"character_id": target["id"], "mark_type": "body"}}]
+        wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
+        assert wsr.sync() == [{"type": "action_rejected", "payload": {
+            "action": "intercept_mark", "status": 409, "detail": marks.NO_MARK_TO_ANSWER}}]
+    assert support.fetch(Character, seer["id"]).intuition_resistance_spent == 0
+
+
+def test_an_allys_desk_that_opens_gets_an_open_offer_again(client):
+    """Fixed (playtest 2, ally-offer-cards-lost-or-stale): a reload lost an ally's Behind
+    Me card while the server still took the answer. A desk that opens while the mark can
+    be answered gets the offer again with the seconds left; once it is answered, not."""
+    camp = support.new_campaign(client)
+    target = support.active_member(client, camp)
+    guard = support.active_member(client, camp, nerve_current=2, role_ability="Behind Me")
+    with support.ws_connect(client, target["id"]) as wt:
+        wt.send("take_mark", mark_type="body")
+        wt.sync()
+        with support.ws_connect(client, guard["id"]) as wg:
+            msgs = wg.sync()
+            assert support.types(msgs) == ["ability_intercept_offer", "activity_history"]
+            offer = msgs[0]["payload"]
+            assert offer == {"ability": "Behind Me", "mark_type": "body", "character_id": target["id"],
+                             "character_name": target["name"], "action": "intercept", "expires_in": ANY}
+            assert 110 <= offer["expires_in"] <= 120
+            wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
+            wg.sync()
+        with support.ws_connect(client, guard["id"]) as wg:
+            assert "ability_intercept_offer" not in support.types(wg.sync())
+    assert support.fetch(Character, guard["id"]).body_marks == 1
 
 
 def test_behind_me_lands_the_guards_own_held_mark_first(client):

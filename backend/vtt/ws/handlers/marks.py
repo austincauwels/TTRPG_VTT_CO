@@ -31,7 +31,9 @@ from before a restart is still told apart, and lands the mark it names.
 A mark that sends the allies Behind Me and Premonitions offers opens one answer
 (_interceptable, for INTERCEPT_WINDOW seconds): the first ally to answer takes it, and
 later answers, or answers with no mark waiting, are refused, so one mark is never
-removed twice.
+removed twice. Once it is taken the other allies are told (intercept_offer_closed), so
+their cards go, and an ally's desk that opens while one is open gets its offer again
+with the time left (send_open_intercepts).
 
 A mark that lands through mark_or_offer (one taken on the sheet, dealt by the
 Lightkeeper, or taken for an ally with Behind Me) writes a line in the Activity Log with
@@ -80,30 +82,60 @@ NO_RUSH_WAITING = "No Adrenaline Rush is waiting to be used."
 
 # (target character id, mark type) -> when each offered mark was offered (monotonic)
 _interceptable: dict = {}
+# (target character id, mark type) -> {"campaign_id", "character_name"} of the offered mark
+_intercept_for: dict = {}
 INTERCEPT_WINDOW = 120  # seconds an ally may still answer an offered mark
 # ally id -> deadlines of the Non-Combatant drive points they were offered, one per mark
 _non_combatant: dict = {}
 NO_MARK_TO_ANSWER = "No ally's mark is waiting for that, or another ally answered it first."
+# character id -> the ids of the last marks the player's desk sent (take_mark's mark_id).
+# A desk whose socket went silent sends an unanswered mark again on its next socket, with
+# the same id; one already taken is not taken twice (playtest 2, silent-socket-loses-mark:
+# it was dropped, and lost). In memory only: after a restart a resent mark is taken.
+_taken_marks: dict = {}
+MARK_ID_MAX = 64
+MARK_IDS_KEPT = 16
 
 
-def open_intercept(target_id, m_type):
+def _taken_before(character_id, mark_id) -> bool:
+    """Whether this mark was taken already; a new one is remembered. An id that is not
+    short text is no id."""
+    if not (isinstance(mark_id, str) and 0 < len(mark_id) <= MARK_ID_MAX):
+        return False
+    seen = _taken_marks.setdefault(character_id, [])
+    if mark_id in seen:
+        return True
+    seen.append(mark_id)
+    del seen[:-MARK_IDS_KEPT]
+    return False
+
+
+def open_intercept(target_id, m_type, campaign_id=None, name=None):
     """A mark on target_id was offered to the allies: one of them may answer it."""
     _interceptable.setdefault((target_id, m_type), []).append(time.monotonic())
+    if campaign_id is not None:
+        _intercept_for[(target_id, m_type)] = {"campaign_id": campaign_id, "character_name": name}
+
+
+def _open_times(target_id, m_type):
+    now = time.monotonic()
+    return [t for t in _interceptable.get((target_id, m_type), []) if now - t < INTERCEPT_WINDOW]
 
 
 def _take_intercept(target_id, m_type) -> bool:
     """Uses up the oldest answerable offer of this mark, if one is still open."""
     key = (target_id, m_type)
-    now = time.monotonic()
-    open_ones = [t for t in _interceptable.get(key, []) if now - t < INTERCEPT_WINDOW]
+    open_ones = _open_times(target_id, m_type)
     if not open_ones:
         _interceptable.pop(key, None)
+        _intercept_for.pop(key, None)
         return False
     open_ones.pop(0)
     if open_ones:
         _interceptable[key] = open_ones
     else:
         _interceptable.pop(key, None)
+        _intercept_for.pop(key, None)
     return True
 
 
@@ -246,11 +278,9 @@ async def _offer_non_combatant(ctx, doctor, m_type):
             "character_name": doctor.name, "action": "drive_refresh", "expires_in": INTERCEPT_WINDOW}})
 
 
-async def _offer_intercepts(ctx, character, m_type):
-    """Behind Me and Premonitions offers to the character's fellow members. Each says how
-    long it stays open (expires_in, seconds), so the ally's card lasts as long as the
-    server takes an answer: it vanished after 20 seconds (playtest, ability-offers-expire)."""
-    candidates = ctx.db.query(Character).filter(
+def _intercept_allies(ctx, character):
+    """The character's fellow members who have Behind Me or Premonitions."""
+    return ctx.db.query(Character).filter(
         Character.campaign_id == ctx.camp_id,
         Character.status == "active",
         Character.is_dead.isnot(True),
@@ -258,18 +288,62 @@ async def _offer_intercepts(ctx, character, m_type):
         or_(*[Character.role_ability.contains(a) for a in INTERCEPT_ABILITIES],
             *[Character.specialty_ability.contains(a) for a in INTERCEPT_ABILITIES]),
     ).all() if ctx.camp_id else []
+
+
+def _intercept_offers(ally, target_id, target_name, m_type, expires_in):
+    """The ability_intercept_offer payloads the ally can answer a mark on target_id with."""
+    abilities = abilities_of(ally)
+    offers = []
+    if "Behind Me" in abilities and (ally.nerve_current or 0) >= 1:
+        offers.append({"ability": "Behind Me", "mark_type": m_type, "character_id": target_id,
+                       "character_name": target_name, "action": "intercept", "expires_in": expires_in})
+    if "Premonitions" in abilities and resistance_left(ally, "intuition") > 0:
+        offers.append({"ability": "Premonitions", "mark_type": m_type, "character_id": target_id,
+                       "character_name": target_name, "action": "soak", "expires_in": expires_in})
+    return offers
+
+
+async def _offer_intercepts(ctx, character, m_type):
+    """Behind Me and Premonitions offers to the character's fellow members. Each says how
+    long it stays open (expires_in, seconds), so the ally's card lasts as long as the
+    server takes an answer: it vanished after 20 seconds (playtest, ability-offers-expire)."""
+    candidates = _intercept_allies(ctx, character)
     if candidates:
-        open_intercept(character.id, m_type)
+        open_intercept(character.id, m_type, ctx.camp_id, character.name)
     for other in candidates:
-        other_abilities = abilities_of(other)
-        if "Behind Me" in other_abilities and (other.nerve_current or 0) >= 1:
-            await manager.broadcast(character_key(other.id), {"type": "ability_intercept_offer", "payload": {
-                "ability": "Behind Me", "mark_type": m_type, "character_id": character.id,
-                "character_name": character.name, "action": "intercept", "expires_in": INTERCEPT_WINDOW}})
-        if "Premonitions" in other_abilities and resistance_left(other, "intuition") > 0:
-            await manager.broadcast(character_key(other.id), {"type": "ability_intercept_offer", "payload": {
-                "ability": "Premonitions", "mark_type": m_type, "character_id": character.id,
-                "character_name": character.name, "action": "soak", "expires_in": INTERCEPT_WINDOW}})
+        for offer in _intercept_offers(other, character.id, character.name, m_type, INTERCEPT_WINDOW):
+            await manager.broadcast(character_key(other.id), {"type": "ability_intercept_offer", "payload": offer})
+
+
+async def send_open_intercepts(websocket, character):
+    """A desk that opens while a fellow member's mark can still be answered (a reload, a
+    phone that dropped the tab) gets the offer again, with the seconds left. It was sent
+    once, live, so a reload lost it while the server still took the answer (playtest 2,
+    ally-offer-cards-lost-or-stale)."""
+    if character.status != "active" or character.is_dead or character.campaign_id is None:
+        return
+    now = time.monotonic()
+    for (target_id, m_type), about in list(_intercept_for.items()):
+        if target_id == character.id or about["campaign_id"] != character.campaign_id:
+            continue
+        for t in _open_times(target_id, m_type):
+            left = int(INTERCEPT_WINDOW - (now - t))
+            if left < 1:
+                continue
+            for offer in _intercept_offers(character, target_id, about["character_name"], m_type, left):
+                await websocket.send_json({"type": "ability_intercept_offer", "payload": offer})
+
+
+async def _close_intercepts(ctx, answered_by, target, m_type):
+    """The mark an ally answered: once none of that kind is left open, the other allies'
+    cards for it go (intercept_offer_closed). They stayed up for the rest of the window,
+    and an answer from one was refused (playtest 2, ally-offer-cards-lost-or-stale)."""
+    if _open_times(target.id, m_type):
+        return
+    for other in _intercept_allies(ctx, target):
+        if other.id != answered_by.id:
+            await manager.broadcast(character_key(other.id), {"type": "intercept_offer_closed", "payload": {
+                "character_id": target.id, "mark_type": m_type}})
 
 
 async def _land(ctx, character, held, channel, passed_on=None):
@@ -381,6 +455,10 @@ async def handle_take_mark(ctx):
                             is_from_enemy=ctx.payload.get("is_from_enemy") is not False)
         return
     if m_type:
+        if _taken_before(ctx.character.id, ctx.payload.get("mark_id")):
+            # Sent again after a silent socket: the sheet as it is, which has it
+            await manager.broadcast(ctx.channel, {"type": "character_update", "payload": get_char_dict(ctx.character)})
+            return
         # A mark an open offer still holds lands first (mark_or_offer). Whether an enemy dealt the mark is the table's call, and the desk does not ask,
         # so Death Defy is offered unless the payload says the mark is not from an enemy
         # (is_from_enemy false). The offer asks the player (RULES_CHECK.md item 24).
@@ -524,6 +602,7 @@ async def handle_intercept_mark(ctx):
         if target_char:
             await manager.broadcast(character_key(target_id), {"type": "character_update", "payload": get_char_dict(target_char)})
         await _log(ctx, character, f"{character.name} used Behind Me to intercept a mark for {target_char.name if target_char else 'an ally'}!")
+        await _close_intercepts(ctx, character, target_char, m_type)
 
         # The interceptor takes the mark as they would any other: their own soaks first
         await mark_or_offer(ctx, character, m_type, channel, offer_intercepts=False)
@@ -535,7 +614,9 @@ async def handle_intercept_mark(ctx):
             return
         target_char = db.query(Character).filter(Character.id == target_id).first()
         if target_char is None or (getattr(target_char, f"{m_type}_marks", 0) or 0) < 1:
-            await _refuse(ctx, "intercept_mark", 409, "There is no such mark to soak.")
+            # Another ally may have taken it: that is what the refusal says then
+            await _refuse(ctx, "intercept_mark", 409, "There is no such mark to soak."
+                          if target_char is not None and _open_times(target_id, m_type) else NO_MARK_TO_ANSWER)
             return
         if not _take_intercept(target_id, m_type):
             await _refuse(ctx, "intercept_mark", 409, NO_MARK_TO_ANSWER)
@@ -546,3 +627,4 @@ async def handle_intercept_mark(ctx):
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await manager.broadcast(character_key(target_char.id), {"type": "character_update", "payload": get_char_dict(target_char)})
         await _log(ctx, character, f"{character.name} used Premonitions — soaked the mark!")
+        await _close_intercepts(ctx, character, target_char, m_type)
