@@ -116,8 +116,11 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
   // My own proposal coming back to me means they countered it
   const countered = myTurn && rel.from_character_id === myId;
 
+  // A counter that changes nothing is no counter: Accept is the way to agree
+  const sameAsOffer = !!counter.relType && counter.relType === rel.rel_type
+    && joinLore(counter.relType, counter.promptIdx, counter.answer) === rel.lore;
   const sendCounter = () => {
-    if (!counter.relType) return;
+    if (!counter.relType || sameAsOffer) return;
     respond(rel.id, 'counter', counter.relType, joinLore(counter.relType, counter.promptIdx, counter.answer));
     setCounters(c => { const n = { ...c }; delete n[rel.id]; return n; });
   };
@@ -163,7 +166,8 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
               >
                 <div className="pt-2 space-y-3 border-t border-sepia/20">
                   <RelationshipFields idPrefix={`counter-${rel.id}`} form={counter} onChange={setCounter} person={theirName} />
-                  <button type="button" onClick={sendCounter} disabled={!counter.relType} className={primaryButton}>Send counter</button>
+                  <button type="button" onClick={sendCounter} disabled={!counter.relType || sameAsOffer} className={primaryButton}>Send counter</button>
+                  {sameAsOffer && <p className="font-serif italic text-sm text-sepia">This is the same as {theirName}'s offer. Change something to counter, or Accept it.</p>}
                 </div>
               </motion.div>
             )}
