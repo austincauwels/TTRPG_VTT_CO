@@ -1,0 +1,484 @@
+{
+ "verdicts": [
+  {
+   "key": "creator-path-arrows-below-fold-phone",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Fresh site, phone 390x844 with touch: step 1 first view shows the Journalist card, the Previous/Next arrows (y 658-702, above the sticky footer at y 767) and a '1 / 10' counter, so the claim is not true at 844. At 390x705 the arrows (658-702) sit under the footer (top 628), so they are hidden on a short phone. Swipe works (CharacterCreator.jsx:651). The earlier 'taps did nothing' was the harness tapping through the footer.",
+   "root_cause": "frontend/src/components/CharacterCreator.jsx:~860-900: the arrows row is placed under the tall card, and the fixed footer (bottom-0 z-40, 77px) covers it when the viewport is under about 740px high.",
+   "fix": "Shrink the card on short viewports (max-height in dvh), or put the arrows and counter above the card or beside it; no hint text needed because the counter is already there.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "markdown-in-names-shown-raw",
+   "verdict": "by-design",
+   "severity": "low",
+   "evidence": "Names are rendered as React text, so asterisks and brackets show exactly as typed (seen in shots/bram/172_close1.png and shots/ada/030_rel2.png). Nothing breaks. The wrapped heading is just the uppercase style applied to a long typed name. The 'empty dashed box beside Coworker' in the sidebar card is the dashed outline of a stamp not yet pressed (the relationship is waiting for the other player), shown on any pending relationship. It is not specific to Markdown names, and DESIGN describes that dashed stamp outline.",
+   "root_cause": "No bug. Plain-text rendering is the safe behaviour. The dashed slot comes from the unpressed-stamp outline (index.css ~766, PrintMarks.jsx ~129).",
+   "fix": "None needed. Optionally strip leading and trailing Markdown characters at entry, which is a product decision.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "gear-cap-tap-silent",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Source plus the regress seat's phone screenshot (verify/out_8406/j02_phone_dialog_open.png). In Change Gear with 3 of 3 chosen, the unticked items keep full style and a live border. The 'N / M selected' line is below the dialog fold on a phone. The intro says 'Mark an item when you use it', which is wrong for choosing gear. In the creator, items beyond the cap are dimmed (opacity-50) with a hover-only title, so touch gets only the 3 / 3 counter.",
+   "root_cause": "frontend/src/components/pc/InvestigatorDossier.jsx ~1520-1545: onClick is `sel ? remove : pendingCount < slots && add`, a silent no-op, and the buttons get no dimmed style or aria-disabled when full. The write-in row already has a visible status line (~1500), but the item buttons do not. CharacterCreator.jsx:680-686 and 1435/1457: the reason is only a title attribute.",
+   "fix": "Compute `full = pendingCount >= slots`. Give unticked items opacity-50 and aria-disabled, and show the existing 'All N gear slots are marked. Untick one to swap.' text as a visible role=status line near the top of the list, outside the fold, or when a capped item is tapped. In the creator, show a short line beside the '3 / 3 selected' counter when full. Reword the dialog intro to 'Choose the gear you carry...'.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "blank-pronouns-shown-unlisted",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Source: forgePayload.js:13 sends 'Unlisted' for blank pronouns. The backend's default is also 'Unlisted' (schemas.py:284 and 404, models.py:204, serializers.py:75, campaigns.py:457), and test_investigators.py:62 pins it. PlayerRosterCard.jsx:30 filters only falsy values, so the stored word is shown as 'UNLISTED \u00b7 FACE \u00b7 MAGICIAN', and the dossier (InvestigatorDossier.jsx:800) shows it as the pronoun. The creator's own summary (CharacterCreator.jsx:1481) also prints 'Unlisted'. The word is a deliberate placeholder, so this is low and cosmetic.",
+   "root_cause": "frontend/src/game/forgePayload.js:13 plus the backend defaults above store a placeholder word as data.",
+   "fix": "Smallest change is in the display: treat 'Unlisted' or blank as no pronouns in PlayerRosterCard.jsx:30 and InvestigatorDossier.jsx:800 (show a muted dash or hide it). Existing rows keep working and the pinned backend tests stay unchanged. Alternatively send '' from forgePayload and change the defaults and tests, which is a bigger change.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "pen-font-and-portrait-hidden",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Portrait claim not reproduced. On phone creator step 2 (verify/out_8455/d_s2.png) there is a visible framed photo mount that takes a tap and a bordered 'ADD PORTRAIT' button (a label for the sr-only input, CharacterCreator.jsx:1084-1110), and 'Change portrait' and 'Remove' appear once one is set. Handwriting: it is chosen in the Join form (JoinCampaignForm.jsx), not in the creator. That form shows a 'Handwriting' label, a trigger that renders in the current pen, and a sample line in that pen, but no sentence says it is the notebook handwriting. The list is a max-h-52 scrolling list (by design, so the 'cut off' fonts scroll). The Notebook also has a Handwriting control later (NotebookView.jsx:1357), so the pen can be changed afterwards.",
+   "root_cause": "frontend/src/components/shared/JoinCampaignForm.jsx:59-85: the only context is a code comment, with no visible explanatory text. The portrait is a false alarm.",
+   "fix": "Add one muted line under the Handwriting label: 'Your notebook entries are written in this pen. You can change it later in the Notebook.' Nothing to do for the portrait.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "gild-step-hides-specialty-gild",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Phone creator step 3 for Professor (verify/out_8455/d_s3.png): Focus is not omitted. It shows a filled gold gild star with a lock in place of the Gild button, with aria-label '<label> is gilded by your specialty', and the footer reads 'GILDED: FOCUS'. The 'Free gild' item stays open and 'Gild One More Action - Choose one' heads the section. So it is not a silent omission. The only gap is that no visible sentence says the star is locked because of the specialty.",
+   "root_cause": "frontend/src/components/CharacterCreator.jsx:1283-1286: the locked star carries only an aria-label and no visible or title text.",
+   "fix": "Add a title on the locked star, and optionally a muted '(your specialty)' next to the 'Gilded: Focus' footer line at ~1401.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "reject-gives-player-no-word",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Source: the investigator_rejected handler (gameStore.js:1029-1050) only sets status 'unaffiliated' and campaign_id null. It sets no hubNotice, though the hub has a HubNotice slot (CampaignSelector.jsx:141). The backend sends only {character_id} to the player (campaigns.py:210-214), with no reason field. The button-style claim is mostly a harness artifact. The armed 'Yes, reject' uses bg-ink (PlayerRosterCard.jsx:~66), but the screenshot shows it hovered, and hover:bg-oxblood makes it look like Approve. It is not oxblood at rest. The two-press confirm and wording are fine.",
+   "root_cause": "frontend/src/store/gameStore.js:1029-1050 (no player-facing notice). The look-alike is hover:bg-oxblood on the armed reject button, PlayerRosterCard.jsx:~66.",
+   "fix": "In the handler, when isMyCharacter, also set `hubNotice: `${character.name}'s request to join was turned back.`` (the name is already in state). Drop hover:bg-oxblood from the armed state. A reason field is optional and a product decision.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "pending-request-sheet-no-decision",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Source plus the shot shots/dm/031_ada_sheet.png. The pending branch of GMCharacterSheet.jsx renders only '\u2190 Back to roster' and a read-only dossier. It computes `pending` (line 166) and uses it to hide the trauma edit and the reset controls (~207-215), but there is no Approve or Reject and no 'pending request' label.",
+   "root_cause": "frontend/src/components/gm/GMCharacterSheet.jsx:166-215: no pending banner or actions. The handlers live in OperationsPanel.jsx (handleStamp and handleReject, passed to CorrespondenceStack).",
+   "fix": "When `pending`, render a slim banner above the sheet reading 'Join request, not yet approved', with Approve and Reject (reusing the same ConfirmAction pattern), wired from OperationsPanel at ~167 by passing onStamp and onReject props, and close the sheet afterwards.",
+   "effort": "M",
+   "refute": null
+  },
+  {
+   "key": "empty-ledger-blank-boxes",
+   "verdict": "by-design",
+   "severity": "low",
+   "evidence": "Signed in as a player who leads no campaign (1366x768) and opened the Case Ledger. The Lightkeeper Ledger page shows three blank ruled rows, with 'No campaigns' only in an sr-only span (shot out_8456/l1.png). DESIGN.md (the No Instructions Rule, line ~270) lists 'an empty register page has blank rows (BlankRows)'. The Case Ledger entry (~369) says 'An empty ledger shows blank ruled lines'.",
+   "root_cause": "frontend/src/components/campaignSelector/LightkeeperLedgerPage.jsx:77 renders <BlankRows rows={3} label='No campaigns'/> (shared/PrintMarks.jsx:117), as DESIGN.md specifies.",
+   "fix": "None. It is documented intent. If the owner wants a visible hint, that is a DESIGN.md decision, since the rule forbids explanatory sentences.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "papers-block-return-to-hub",
+   "verdict": "by-design",
+   "severity": "low",
+   "evidence": "Built a player (pa) with sealed campaigns plus a newly approved investigator in an unsealed one. Opened that desk on a 1366x768 laptop. Escape left the dialog open. A backdrop click did nothing. elementFromPoint at the 'Back to chapter hub' button returned the fixed inset-0 bg-black/80 z-[9000] overlay. Browser Back returned to the hub. All of that matches the report. It is the accepted 'formation papers stay a blocking dialog' behaviour. The only new angle is a player with two campaigns, and the browser Back button still leaves.",
+   "root_cause": "frontend/src/components/pc/CircleCreationPopup.jsx:~192 (fixed inset-0 z-[9000] aria-modal dialog, no close). Mounted by MainDeskView.jsx:302 while the circle is not sealed.",
+   "fix": "None, known and accepted. If the owner reopens it, the smallest change is to leave the hub button above the overlay (z-index) or add a 'Later' close that does not mark the papers done.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "counter-equal-to-offer-accepted",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Formation table, 1920x1080. Iris (fi) opened Counter on Bram's 'Stranger / We met on the night train.' proposal and changed nothing. 'Send counter' was enabled. The send went through. The DB row stayed Stranger with the same lore, and last_actor_id flipped to Iris. Iris then sees 'Waiting for Bram' on the same offer. The UI opens Counter pre-filled from the proposal, so an untouched send is easy to do. The harmless Accept button is next to it.",
+   "root_cause": "frontend/src/components/pc/relationships/RelationshipNegotiation.jsx:119-123 (sendCounter) and :166 (the button is disabled only when !counter.relType). The server accepts any counter (routers/circles.py respond; the WS handler is the same).",
+   "fix": "Disable 'Send counter' while counter.relType === rel.rel_type and joinLore(counter.relType, counter.promptIdx, counter.answer) === rel.lore. Optionally refuse an identical counter server-side (422).",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "personal-answer-saved-early",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Phone 390x844, formation papers I. After voting for a question, the 'Your Personal Answer' box appears empty with a green 'Saved' beside it (shot out_8456/p2.png). Typing 'abc' changed it to 'Not saved yet'. On blur it went back to 'Saved'. So the early 'Saved' on an empty box is real and not phone-only: both the typed and the echoed text are '' and compare equal. The tablet 'Not saved yet' note is the state after typing. The second half is also true: the box always quotes the leading question, not the question the player voted for, and nothing says so. That follows the rules (the circle answers one question), and there is no explanatory line, which fits the No Instructions Rule.",
+   "root_cause": "CircleCreationPopup.jsx:276: <span role='status'>{personalAnswer === sentAnswer ? 'Saved' : 'Not saved yet'}</span> shows 'Saved' even when both are empty. The quoted question is CircleCreationPopup.jsx:~262, from leadingQuestion.",
+   "fix": "Render the status only when personalAnswer !== '' || sentAnswer !== '' (so 'Saved' appears after the first save or after a clear). Leave the leading-question note to the owner. It is a copy decision against DESIGN.md.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "chapter-house-box-overwrites",
+   "verdict": "by-design",
+   "severity": "low",
+   "evidence": "1920-wide desk, part III. Typed 'Our cellar under the bakery.' in the box. On blur it was saved and sent. Clicking the 'The Rust Warren' example then replaced the whole box with the example text, with no confirmation. That is reproduced. But the box already carries a 'Shared' info term reading 'The whole circle shares this box. What you save here replaces what anyone else wrote.' The examples are starting texts. FAQ.md line 191 says the server keeps the answer but not who wrote it. The box is one shared free-text answer before the seal, and the Lightkeeper's desk shows it as written.",
+   "root_cause": "CircleCreationPopup.jsx:400 (the example onClick calls updateBackstoryAnswer with the example text, replacing the value). handleLocationBlur at :171-174 sends the draft only if it changed.",
+   "fix": "None needed. If the owner wants it, make an example click fill the box only when it is empty, or append to it. An author would need a new column and a change to the FAQ.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "circle-name-cut-silently",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "In the browser (phone, 390), the 'Circle name to suggest' input stops at 80 characters whether typed or filled: typing 100 X gives length 80, fill with 100 Y gives 80. So a person cannot send a long name from the UI. The silent cut is real only on the API: POST /circle/vote name_suggest with a 103-char value stored the first 80 characters ('...Importance to the Chapt'). The page has no counter or limit hint either way. The harness probably reached the 80 through the API or through fill. Real players meet only the silent stop at 80.",
+   "root_cause": "frontend CircleCreationPopup.jsx:289 maxLength={80}, with no counter. backend vtt/circle_queries.py:105-117 (NAME_MAX = 80, canonical_name_suggestion cuts without saying).",
+   "fix": "Optionally show a '12/80' counter beside the input, as the 'n/5' one already does, or have the API return 422 above 80. Low value.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "circle-page-blind-to-status",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Sealed table. Bram set incapacitated with 2 scars, Iris dead with 4 scars. Lightkeeper's Circle page (1440x900, out_8456/g1.png): the dead Iris keeps a report card ('No report yet') and nothing shows any status on the Circle page. The Lightkeeper desk's ledger reads '0 of 2 filed', counting the dead investigator. Only the Roster shows Deceased. Player desk Circle tab (pl1.png): Bram's card in 'Your Circle' shows only role and specialty, with no incapacitated or scar mark. The sidebar already hides the dead via livingMembers, and the illumination tally also excludes the dead (game/illumination.js:18), so the dead card and the count are an inconsistency. The living investigators' status is simply never drawn.",
+   "root_cause": "gm/CirclePage.jsx:301 (investigators = all active, including dead) and :558-565 (a ReportFlipCard for every one). gm/desk/CircleLedger.jsx:44,132 counts '{filed} of {investigators.length}' over all of them. pc/TactileSidebar.jsx:~230 RelationshipCard and pc/CircleView.jsx draw no incapacitated/scars/status.",
+   "fix": "Take livingMembers(...) for the report cards and the 'N of M filed' count (CirclePage.jsx:301/558, CircleLedger.jsx:44), optionally listing the dead under a 'Deceased' rule. Add a small 'Incapacitated' or scar-count stamp to the investigator cards from the data the roster already carries (is_dead, incapacitated, scars_count). The status stamp is a product decision.",
+   "effort": "M",
+   "refute": null
+  },
+  {
+   "key": "spending-toggle-not-logged",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Over a Lightkeeper WebSocket I sent gm_toggle_resource_edit twice. Each time the only frame was a circle_update (resources_editable true, then false) and no activity_log frame. The sibling gm_toggle_reports in the same session produced 'The Lightkeeper opened the assignment reports.' The Lightkeeper desk's activity log in the browser showed only the reports line. Players do see 'Spending locked' on the Circle tab. FAQ.md line 262 lists the table changes that write a log line, and spending is not among them.",
+   "root_cause": "backend/vtt/ws/handlers/gm.py:214-224 (handle_gm_toggle_resource_edit has no log_line). handle_gm_toggle_reports at :231-235 does call log_line.",
+   "fix": "After the commit and broadcast in handle_gm_toggle_resource_edit add: await log_line(db, camp_code, camp_id, 'The Lightkeeper opened spending: up to two each.' if target_circle.resources_editable else 'The Lightkeeper locked spending.'). Add a FAQ line and a test.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "resources-note-member-count",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Opened the playtest screenshot shots/dm/150... and 060_edit.png: Circle Resources note reads 'each refills to 1 plus the circle's members (now 5) when the Illumination track fills' with four members; the button beside it says 'Refill each resource to 5'. Text is a template in source with maxCap interpolated, so it is deterministic. '(now 5)' sits right after 'members' and reads as the member count. Wording only; no wrong number.",
+   "root_cause": "frontend/src/game/circleResources.js:23-24 (refillRule): '...refills to 1 plus the circle's members (now ${maxCap}) when the track fills'. maxCap = circle.max_capacity = 1 + members. The comment at lines 20-22 shows an earlier fix put the rule first and the number after, which created this ambiguity.",
+   "fix": "Reword both strings in refillRule to name the member count and the result separately, e.g. `each refills to ${maxCap} (1 plus the circle's ${maxCap-1} members) when the Illumination track fills`. Same file, two template strings. Check the existing test that pins the wording (grep refillRule in tests) and update it.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "report-cards-reorder",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Source plus DB reproduction. Several broadcasts that carry active_investigators build the list with no ORDER BY (backend/vtt/routers/campaigns.py approve_character ~166-169 and rejoin ~368-371), while the circle-creation-state fetch (circles.py:44-48) and get_campaign_roster (engine.py:125) order by id. The desk replaces activeInvestigators from whichever arrives last (gameStore.js investigator_approved ~1010-1018 and character_joined_mid_campaign ~1190-1195), so the card and history order can flip between a heap-order list and an id-order list with no reload. In the playtest DB Dev is id 5, yet cards read Dev, Ada(1), Cass(3), Tobias(6) then Ada, Cass, Dev, Tobias, which is a non-id order followed by id order. On my fresh DB the same query with enable_indexscan/bitmapscan off returned 6 7 8 5 10 4 for ids 4..10 after two row updates, while the ordered fetch gives 4 5 6 7 8 10; with the default plan (index scan on status) the order happened to stay id order, so it depends on the planner and row churn. Opening reports itself does not send a roster, so the trigger in the playtest was a refetch landing after an earlier unordered broadcast.",
+   "root_cause": "backend/vtt/routers/campaigns.py:166-169 (approve_character) and :368-371 (rejoin broadcast): db.query(Character).filter(campaign_id, status=='active').all() with no order_by; compare circles.py:44-48 which has .order_by(Character.id).",
+   "fix": "Add .order_by(Character.id) to those two queries (and any other query that builds active_investigators for a broadcast). Optionally have gameStore sort activeInvestigators by id when it stores them.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "pass-notes-circle-vs-environment",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Opened the LK Pass Notes picker at 1440x900 on my fresh table and read the DOM. Options '@Circle (everyone)' and '@Environment (shown to everyone)' both say everyone. The toggle button has no aria-haspopup, aria-expanded or accessible name beyond its text; its text flips from the down to the up triangle ('@Circle (everyone)\u25b2'). The options render through createPortal into document.body as position:fixed divs with no role and no listbox/menu semantics, so they sit outside the Pass Notes region and the 'To:' span is not associated with the control. The label wording and the a11y gaps are real; the recipient-missing issue is the other cluster.",
+   "root_cause": "frontend/src/components/pc/dice/PassNotes.jsx:17,23 (labels) and frontend/src/components/pc/dice/TargetDropdown.jsx:55-98 (button lacks aria-haspopup/aria-expanded/aria-labelledby; menu is a bare div portal with plain buttons, no role=listbox/option, no aria-selected).",
+   "fix": "Relabel the Environment option to say what differs, e.g. '@Environment (unsigned narration to everyone)' (and keep @Circle as 'your circle, signed'). In TargetDropdown: give the trigger aria-haspopup='listbox', aria-expanded={open}, aria-labelledby tied to the 'To:' span id; give the portal div role='listbox' and each option role='option' aria-selected; keep the arrow glyph aria-hidden so the name does not change.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "seal-rename-approvals-not-logged",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Over WebSockets on a fresh table (4 approved, not sealed): the Lightkeeper socket and a player socket were open while I approved one player, rejected another, POSTed /campaign/finalize-roster and sent update_circle with a new name. Frames seen: investigator_joined, investigator_approved, circle_update, investigator_rejected, roster_finalized, then circle_update for the rename. No activity_log frame in any of them, on either socket. FAQ.md ~line 262 lists the logged Lightkeeper changes (dispatch, tension, timer, reports, resources) and does not include these, so it is a gap, not a regression; the desks do still update in place.",
+   "root_cause": "backend/vtt/routers/circles.py:262-290 (finalize_roster broadcasts roster_finalized only), backend/vtt/routers/campaigns.py:155-178 and 181+ (approve/reject broadcast only), backend/vtt/ws/handlers/gm.py:37-61 table_lines()/TABLE_FIELDS has no 'name' so handle_update_circle (gm.py ~ 'def handle_update_circle') logs nothing for a rename.",
+   "fix": "Use log_line (vtt/ws/manager.py) to write: on finalize 'The Lightkeeper sealed the circle: <name>, <ability>.'; on approve '<char> was approved into the circle.' / reject 'The Lightkeeper declined <char>.' (name only, not the reason); in table_lines add 'name' to TABLE_FIELDS and a line 'The Lightkeeper renamed the circle to X.'. Update FAQ.md logged-events list and add tests. Product call: whether a reject should be told to the whole table.",
+   "effort": "M",
+   "refute": null
+  },
+  {
+   "key": "log-lines-doubled-per-event",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Reproduced over WebSockets on a sealed table: three Lightkeeper take_mark (body) deals to a player with In the Trenches produced: 'The Lightkeeper dealt Bram Holt a Body mark.' x2, then 'Bram Holt took a Body mark (1 of 3).', 'dealt' again, 'took ... (2 of 3).' So each deal writes a 'dealt' line at once and a 'took' line when the mark lands, which with a soak or Death Defy offer can be after the player answers (the player got 3 offers). update_circle illumination 5 to 12 wrote four lines: 'gains 7 Illumination (5 to 12)', 'milestone 6 reached!', 'milestone 9 reached!', 'track is full'. Each line is distinct and both-line marks are deliberate (the dealt line is the Lightkeeper's act; the took line is the outcome after an offer), but when no offer intervenes they read as duplicates and the volume is real. Not a wrong behaviour.",
+   "root_cause": "backend/vtt/ws/handlers/marks.py:375/379 (handle_take_mark logs 'dealt' before mark_or_offer, then _taken() at marks.py:151-156 logs on landing); backend/vtt/ws/handlers/gm.py:64-81 (_log_illumination one line per milestone plus the full line) and gm.py ~ handle_update_circle writes the 'gains' line first.",
+   "fix": "Product decision. Smallest: keep the 'dealt' line only when the mark is held for an offer (and for the closed-desk path); when it lands at once, let _taken name the dealer ('The Lightkeeper dealt Bram a Body mark (1 of 3).'). For Illumination, fold milestones and fullness into the gains line, e.g. 'gains 7 Illumination (5 to 12): milestones 6 and 9; the track is full.' Keep per-milestone Resource Management lines.",
+   "effort": "M",
+   "refute": null
+  },
+  {
+   "key": "lk-inline-edits-no-save-cancel",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Source plus screenshots 060_edit.png and 087_edit_open.png. Circle name / chapter house use EditableLine: Enter or blur saves, Escape cancels, empty is never saved (documented in its comment), but the open field shows no buttons or hint, and the effect at lines 55-59 puts the caret at the end, which scrolls a long name to its tail ('ERN WARD CIRCLE'), as the screenshot shows. Trauma record: the finding is partly wrong. ScarEditLine shows a Save button as soon as the text changes, Remove arms into 'Yes, remove' with a hint, and Done also saves unsaved scar edits (InvestigatorDossier.jsx ~613); the scar textarea is rows={2}, resize-y, so a long scar shows cut off (screenshot shows 2 lines). So: no hint/buttons on circle name and chapter house is real; scar box height is real; 'Remove is final at once' is not.",
+   "root_cause": "frontend/src/components/gm/CirclePage.jsx:47-110 (EditableLine: no visible Save/Cancel or hint; setSelectionRange to end at :57); frontend/src/components/pc/InvestigatorDossier.jsx:211 (textarea rows={2}).",
+   "fix": "In EditableLine, show a small hint under the open field ('Enter saves, Esc cancels') or Save/Cancel buttons (buttons must not steal blur: use onMouseDown preventDefault), and place the caret at 0 (scrollLeft=0) instead of the end. In ScarEditLine use an auto-growing textarea (rows from text length, or field-sizing: content) up to the 600-char limit.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "lk-dispatch-stamp-below-fold",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Loaded the Lightkeeper desk at a true 1440x900 viewport: Dispatch stamp y=769-813, fully visible (screenshot out_8457/lk_desk.png), and DESIGN.md says the desks fit at 1440x900. The playtest screenshots are 1440x761 (the harness page was 761px tall, as the finding says), at which size the stamp is off screen: at 1440x761 the left column is scrollHeight 845 vs clientHeight 678, overflow-y auto, so the stamps are reachable by scrolling it. It uses the custom-scrollbar class (index.css:146-160), so a real browser shows a thumb; headless hides it (harness quirk). No fade or other cue. So a 1440x900 screen with browser chrome (about 760-800px of page) will hide the stamps with only a scrollbar as cue.",
+   "root_cause": "frontend/src/components/gm/OperationsPanel.jsx:145 (left column xl:overflow-y-auto, dispatch letter with its stamps at the column's foot, 845px tall content); no scroll cue.",
+   "fix": "Optional: make the stamp row position:sticky; bottom:0 inside the left column (or shrink the letter's textarea min-height at xl so the stamps fit about 760px). A fade at the foot is the cheaper cue. Product decision; low value.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "keep-die-button-never-stable",
+   "verdict": "by-design",
+   "severity": "low",
+   "evidence": "Source check: candidate dice carry animate-liftShimmy (DiceTray.jsx:178), a 1.5s infinite translateY of -5 to -8px with a few degrees of rotation (index.css:186-195); it is the 'this die waits for you' cue, and the die is keyboard-operable (Enter, per the brief) and honours prefers-reduced-motion (index.css ~1190 caps animation). Playwright's actionability check fails on any moving element, which is the known harness quirk ('the gilded keep die wobbles, so automation needs force or Enter'); a real pointer or finger lands on an 8px bounce. No human-facing failure shown; all 9 member findings are the same automation timeout. Not run in the browser again since the brief lists it as a known quirk and the code path is plain.",
+   "root_cause": "frontend/src/components/pc/dice/DiceTray.jsx:178 and frontend/src/index.css:186-195 (infinite animation on the clickable element).",
+   "fix": "None needed. If one wants a steadier target, animate an inner wrapper or a ring/halo pulse instead of the die's own transform, or make the shimmy a few cycles then stop. Not recommended without a design reason.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "gilded-refund-promised-at-full-drive",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Fresh table, Ada (Face, Intuition 6 of 6, gilded Survey, 1920x1080). Rolled Survey, 2 dice 1 gilded. Slip read 'Keep one die / Keep the gilded 3: Failure, 1 Intuition back / Keep the 5: Mixed success'. Pressed Enter on the gilded die: slip said '1 Intuition back', log said 'rolled Survey, a 3: Failure (...kept the gilded 3). (Gilded die kept: 1 Intuition refreshed)', and the drive stayed 6|6 in the DB and the sheet ('Intuition: 6 of 6 available'). The cap is correct (min(max,current+1)); only the words are wrong. FAQ.md line 264 promises the slip 'says what each choice does', so a promise of a refund that cannot happen is wrong.",
+   "root_cause": "frontend/src/game/outcomes.js:100 (keepChoices always adds ', 1 <Drive> back' for the gilded die; it never sees the drive's level). Log text: backend/vtt/ws/handlers/rolls.py:468, :530 and :751 append '[gilded \u2014 X Drive refreshed]' whenever the refresh rule fires, without checking that the value rose; outcomes.js:83 only rewords it.",
+   "fix": "Server: in the three places, read the drive before the min(...) and add the '[gilded \u2014 ... refreshed]' tag only when the value increased (else nothing, or '(drive already full)'). Client: pass the character to keepChoices (DiceTray slip, RollResultBar, DiceVault) and drop ', 1 X back' when character[drive+'_current'] >= character[drive+'_max']; the post-keep line under the stamp (DiceTray.jsx:~90) follows because it strips the label. Update the tests that pin the text.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "burn-offer-closes-on-anyones-roll",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Desktop: Ada rolled Sense until a failure; 'After the roll / Burn and reroll' and the dice-button dot ('Dice and log, a choice is waiting') showed. Bea's roll arrived over her own socket: Burn panel and dot both vanished with no note anywhere (screenshot out_8458/c_wide_2.png). Phone 390x844: same, offer and dot go together (dot stays correctly after the roll bar fades while a burn is on offer, and after a gilded keep that ends in failure). So closing silently is confirmed but is by design (burn-offer-stale fix), and the dot agrees with the panel in the ordinary case. Real mismatch found: when the other player's roll is a gilded choice held by the server (or secret), the server drops Ada's offer (_last_roll) but sends no dice_thrown, so Ada's desk keeps the Burn button and the dot; pressing Burn is refused with the bare line 'Burn a resistance after a roll of that action.' (out_8458/d_wide_2.png). Keyboard: after Enter on the Sense row, Tab goes to the trauma record's 'Take a Body mark', not Burn (the vault follows the sheet in the DOM), so the tab-order claim holds.",
+   "root_cause": "backend/vtt/ws/handlers/rolls.py:157-163 (_hold_or_throw pops the other characters' _last_roll for every roll, including a held gilded or secret one) versus the client's only settle signal, dice_thrown (store/gameStore.js:813-826 sets tableRoll; DiceVault.jsx:62 settled; gameStore.js:206 postRollChoiceWaiting reads tableRoll). Held and secret rolls send no dice_thrown. Nothing says why the offer closed (RollModifications.jsx just stops rendering).",
+   "fix": "Smallest: have the server tell the campaign's other desks when it settles their roll (a 'roll_settled' frame sent from _hold_or_throw for each popped id) and have the store set the same tableRoll-style settled flag; and make a settled roll leave a short sepia line or an InfoTerm in the tray ('The next roll closed the burn'), as an 'i' to respect DESIGN.md's No Instructions Rule. Optionally render the vault's After-the-roll panel earlier in the tab order or move focus to Burn after a failure. Product decision for the note's wording.",
+   "effort": "M",
+   "refute": null
+  },
+  {
+   "key": "bonus-dice-vanish-silently",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Ada, Open Book chip pressed (aria-pressed true), rolled Sway: chip unticked (aria-pressed false), slip 'Sway +2d: 3 dice, highest counts', log 'Ada Face rolled Sway, a 6: Success (3 dice: 6, 2, 3).' with no mention of Open Book. The slip does show '+2d', so dice are not wholly silent. The Burn panel prints '<Action>: <rating> dice' (e.g. 'Sense: 1 die', 'Focus: 2 dice') but nothing says drive and ability dice are not rethrown. Behaviour matches FAQ.md line 74 (burn rerolls the action rating only; abilities that scale on resistance change afterwards). I did not see a burn with a spent drive point in the browser, only the code path.",
+   "root_cause": "InvestigatorDossier.jsx:1085-1095 clears activeMods after each roll (setActiveMods(p => ({...p,[act.key]: []}))); RollModifications.jsx:~60-66 prints pool = action rating only with no reason; the log line is built server-side without ability names (rolls.py ~452, 745-762).",
+   "fix": "Wording only. Put the reason behind a small InfoTerm 'i' beside the Burn panel's pool line ('A reroll throws the action rating alone'), and add the used chips' names to the slip/log line ('Sway +2d (Open Book): 3 dice'), the server already has the applied ability list (applied[] in rolls.py ~293). Respect DESIGN.md's No Instructions Rule: no always-printed sentence.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "keep-die-choices-unclear-final",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Desktop 1920: the slip shows a dashed 'Keep one die' tag and two plain lines ('Keep the gilded 3: Failure, 1 Intuition back' / 'Keep the 5: Mixed success'), but the controls are the two dice themselves (role=button, data-keep-die, ring and shimmy) and the lines are inert spans. Other roll rows go to 40% opacity with aria-disabled; no sentence says why (the tag is the only hint, and DESIGN.md's No Instructions Rule allows that). The two labels are not both 'Keep the X': the gilded one always says 'gilded', so that part of the claim is not reproduced; /home/user/pt2/shots/dev/116_t11.png shows the choice made by a mis-tap on a tablet (gilded 4 kept over a 6), which the server treats as final by design (the held roll resolves once; no undo in FAQ). Phone has real buttons (MiniDie in RollResultBar). Ada's 'clicking the text did nothing' is true: the text is not a control.",
+   "root_cause": "frontend/src/components/pc/dice/DiceTray.jsx:54-66 (the slip's choice lines are plain <span>s) and :190-203 (only the dice carry the click/Enter handler); desk rows dim at InvestigatorDossier.jsx:1120-1126 with no reason.",
+   "fix": "Optional small fix: make each line in the slip a button calling onDieClick for its idx (pass keepChoices' idx and the handler into ResultSlip), so the words and the die do the same thing. Do not add an undo or an explanatory sentence (final choice and the No Instructions Rule are by design).",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "dice-tray-empty-after-reload",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Ada rolled Survey and kept the gilded die; activity log showed 'Ada Face rolled Survey, a 3: Failure (2 dice: 3 gilded, 5; kept the gilded 3)'. After page.reload() the felt read 'No dice thrown yet' while the same log line was still listed (out_8458/b3_reload.png). The post-roll Burn offer is also gone after reload (server _last_roll is still there but the client lastRoll is null).",
+   "root_cause": "The felt reads the store's lastRoll (DiceVault.jsx:24-51), which starts null (store/gameStore.js:401) and is not persisted or rebuilt from the server; only a held gilded roll is re-sent on connect (FAQ line 18, QUIRKS gilded-reload-free-reroll). DiceTray.jsx:213-217 then prints 'No dice thrown yet'. DESIGN.md 466-467 only says a different desk opened in the same tab starts empty and the felt is empty until the first roll; it does not say a reload empties it.",
+   "fix": "Product call. Cheapest honest fix: nothing to change but accept it as known (the tray shows only live rolls); or rebuild lastRoll on connect from the server (send the last resolved roll's dice with activity_history or in the connect payload). Parsing the log line is not advisable.",
+   "effort": "M",
+   "refute": null
+  },
+  {
+   "key": "sweet-talk-condition-unstated",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Face/Journalist sheet: the chip beside Read reads 'Sweet Talk +1d' with a gilded dot; its aria-label/title 'Sweet Talk (+1d, gilded)' has no condition (out_8458/a1.png). Other conditional chips carry theirs in the title (Narrow Escape 'escaping a trap or ambush', Leverage 'using what you learned', Press Conference 'at the assembly you called'). But the Role Ability tab, open by default, prints the full book text of Sweet Talk, including the small-talk condition, right above the actions. The site cannot check the condition.",
+   "root_cause": "frontend/src/game/rollMods.js:27 (chipLabel for Sweet Talk lacks the condition), rendered as title/aria-label at InvestigatorDossier.jsx:1181-1183.",
+   "fix": "Change the label to `Sweet Talk (after small talk with the target: +1d${gilded ? ', gilded' : ''})`, matching the other chips; the visible chip stays unchanged. If the server also echoes the label anywhere, keep in sync (no change needed in backend/vtt/ws/handlers/rolls.py).",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "commune-use-not-tied-to-roll",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Medium sheet (Cyd, 820x1180): pressed 'Use (take a Brain mark)' on Commune; log 'Cyd Medium used Commune (took a Brain mark).', the confirmation line said 'Took a Brain mark', no Sense prompt, no chip on the Sense row (mod-chip list empty). The card's own text says 'make a Sense roll', so the instruction is on the sheet, but nothing ties the roll to the use. Same shape as other use-then-roll abilities; Mind Over Matter and Patch Up are already chips on the roll.",
+   "root_cause": "frontend/src/game/abilityUses.js:33 ('Commune': cost 'take a Brain mark') and backend/vtt/ability_uses.py:56 ('Commune': mark brain, 'then a Sense roll'); the confirmation at InvestigatorDossier.jsx:56-58 only says 'Took a Brain mark'.",
+   "fix": "Smallest: add a 'Commune' entry to ABILITY_ROLL_MODS (rollMods.js, actions ['sense'], costBrainMark: true, like Mind Over Matter at rollMods.js:~58) so the Brain mark is taken with the Sense roll and logged with it, and drop it from ABILITY_USES; needs the server's roll path (rolls.py mods) to accept it. Cheaper alternative: have the confirmation read 'Took a Brain mark; roll Sense' for Commune.",
+   "effort": "M",
+   "refute": null
+  },
+  {
+   "key": "nobody-left-behind-chip-on-every-row",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Circle with Nobody Left Behind and Bea incapacitated; Ada's 1920x1080 sheet shows nine identical chips 'Nobody Left Behind (protecting or rescuing Bea Det: +1d)', one under each action (out_8458/i_0.png); the sheet grew but still fit the 1080 window with no page scroll. Each chip is the per-roll toggle for its own row (mods are chosen per action, like Stamina Training and Saw This Coming, which repeat the same way). The book gives +1d on any roll to protect or rescue, so it genuinely applies to every action; the site cannot narrow it. Screen readers hear nine buttons with the same label, one per row, each in its own row's group.",
+   "root_cause": "frontend/src/game/rollMods.js:112-120 pushes the mod with no action filter; InvestigatorDossier.jsx:1061 calls getAvailableRollMods for every row.",
+   "fix": "Optional: keep it per-row but shorten it to the usual 'Nobody Left Behind +1d' chip with the full label only in title, or build a single sheet-level toggle that applies to the next roll (new state alongside activeMods). Since the rule really is 'any roll', a per-row chip is by design; a single toggle is a larger UI change and a product decision.",
+   "effort": "M",
+   "refute": null
+  },
+  {
+   "key": "scar-shift-note-doubled",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Fresh table, Bram on a 390x844 phone. Took a Body mark at 3/3, opened the scar form, picked Lower Move and Raise Sway, typed 'I talk where I used to run. (-1 Move, +1 Sway)' and pressed Record scar. The Scars list and the DB scars_list both read '... (-1 Move, +1 Sway) (-1 Move, +1 Sway)'. Screenshot out_8459/s1_after.png.",
+   "root_cause": "frontend/src/components/pc/ScarModal.jsx:93-94. finalNotes = `${medicalNotes.trim()} ${shiftNote}` appends the note without checking whether the player already typed it. The server (backend/vtt/ws/handlers/character.py handle_apply_scar) stores the text as sent.",
+   "fix": "In ScarModal handleSubmit, strip a trailing copy of the note from the typed text before appending, e.g. medicalNotes.trim().replace(/\\s*\\((?:-1 [^,)]+, \\+1 [^)]+|[A-Za-z ]+: no action shift)\\)\\s*$/, ''). Alternatively add a line under the textarea saying the shift note is added for you.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "scar-form-header-second-scar",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "The header 'Bram Holt's Body track is full.' reproduces with marks reading 0 of 3 (EEE) on the sheet behind it. It is the same for the FIRST scar, not only the second: the server clears the track when it triggers the scar (marks.py apply_mark sets the marks to 0 before trigger_scar). So the second-scar premise is wrong. The wording is still odd next to an empty track. Shot out_8459/s1_form.png.",
+   "root_cause": "frontend/src/components/pc/ScarModal.jsx:167 builds the header as `${name}'s ${markName} track is full.` for every ordinary scar. backend/vtt/ws/handlers/marks.py (the val >= 4 branch) resets the track to 0 on the same message.",
+   "fix": "Reword to explain the cleared track, e.g. '<name> took a fourth <Body> mark: the track is cleared and a scar is owed.' It is one string and needs no logic. A separate second-scar header is not needed.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "scar-recorded-no-confirmation",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "On the phone, after Record scar the page stayed where the player already was. In my run that was the trauma record, with the new scar in view, the Incapacitated stamp and Revive (out_8459/s1_after.png). The code has no scroll call on record, so the view never moves by itself. The original shot is the same: the player was already in the Actions area. The real gap is that no Activity Log line is written for an ordinary scar. The log strip still read 'Bram Holt has been incapacitated!'. Only Not Again and Forbidden Ritual scars write a line.",
+   "root_cause": "backend/vtt/ws/handlers/character.py handle_apply_scar (about lines 47-90) writes a log line only when `use` (Not Again or Forbidden Ritual) is set, so an ordinary scar has none. The frontend ScarModal sends and closes with no scroll or toast.",
+   "fix": "Add a log line in handle_apply_scar for every scar, such as '<name> took a scar (N of 4).', alongside the existing ability lines. No scrolling change is needed. It needs a small product call on whether to log scars.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "second-death-no-notice",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Phone. 3 scars and Body at 3/3, recorded the fourth scar: the death dialog showed. I pressed 'Stay and look at the sheet'. The Lightkeeper's gm_update_scars removed the fourth scar (is_dead=f) and the invite-rejoin API sent an invite; the banner 'Your Lightkeeper invites you back' showed. I revived, took the Body mark again and recorded the fourth scar again. No death dialog showed (death-title not visible), the invite banner count went to 0 (it is hidden while is_dead), and the sheet showed DEAD with 'Create a new investigator' and only the log line 'Bram Holt is deceased.' (out_8459/d3.png). It needs the first dialog to have been dismissed; if left open it comes back on its own.",
+   "root_cause": "frontend/src/components/pc/MainDeskView.jsx:53-55. deathDismissed is reset only in `useEffect(() => setDeathDismissed(false), [character?.id])`. A take-back keeps the same id, so deathDismissed stays true and the dialog at line 327 never reopens. The banner at line 306 needs !character?.is_dead, so the invite disappears with nothing to replace it.",
+   "fix": "Reset the flag when the death is lifted: useEffect(() => { if (!character?.is_dead) setDeathDismissed(false); }, [character?.id, character?.is_dead]). Optionally show the invite line on the sheet's dead status as well.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "replaced-investigator-leaves-no-record",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Killed Bram, forged Tobias Reed, and called /campaign/rejoin as his player. DB: Bram became status retired with is_dead=t, Tobias active. The Lightkeeper desk at 1440x900 (out_8459/lk_roster.png) shows Iris and Tobias only, with no Fallen card. No activity_log frame for Tobias's arrival reached a Lightkeeper socket that was open; only investigator_approved and character_joined_mid_campaign came. No join line exists on any join or approve path: routers/campaigns.py never calls log_line. So the missing line is not specific to a replacement. I did not re-shoot the Registry or Circle History; the retire path accounts for both.",
+   "root_cause": "backend/vtt/routers/campaigns.py:328-335 sets old active or dead characters to status 'retired' on rejoin. frontend/src/game/roster.js plus ActiveCircleMembers.jsx show the dead apart only while they are still active. rejoin_campaign (about line 372) broadcasts but writes no log line.",
+   "fix": "The log line is the small fix: in rejoin_campaign and the GM approve path, call log_line(db, code, id, f'{new_char.name} joined the circle.'), and name the replaced investigator in the rejoin line. A Fallen card or memorial in the roster, History and Registry needs a product decision (the roster.js comment says the dead are meant to lie apart only until replaced).",
+   "effort": "M",
+   "refute": null
+  },
+  {
+   "key": "death-dialog-wording-and-focus",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "The phone death dialog with Bram set to he/him reads 'With a fourth scar, Bram Holt is gone. Their sheet stays on record.' Focus after opening is the 'Create a new investigator' button (document.activeElement text). With no invite sent there is no line about waiting for the Lightkeeper. Screenshot out_8459/d1.png.",
+   "root_cause": "frontend/src/components/pc/MainDeskView.jsx:335 hard-codes 'Their'. The invite line at 337-341 is shown only if rejoinInvite exists. The dialog's first focusable, the Create button at 345-350, takes focus from useDialog (useDialog.js focuses the first focusable).",
+   "fix": "Map character.pronouns ('he/him' gives His, 'she/her' gives Her, anything else gives Their). Add a line 'Your Lightkeeper will invite you back when the table is ready.' when no invite exists. Give the 'Stay and look at the sheet' button initial focus (autoFocus or reorder), so one Enter does not start a new investigator. Whether to reorder is a minor product call.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "report-card-wording-stale",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Tablet 820, Iris. Reports closed: card reads 'REPORTS CLOSED: THE LIGHTKEEPER OPENS THEM AT THE END OF THE ASSIGNMENT'. After the Lightkeeper opened reports, I ticked a key and sent the report: the stamp and an Amend button showed, but the intro still reads 'Below, tick the keys you fulfilled.' over locked boxes (confirmed). After End Assignment the card goes back to the Reports closed line with SEND REPORT. That line is accurate for the new assignment (assignment.py clear_paperwork closes reports and clears the filed ones), only ambiguous. Ada's missing Amend is explained by reports closed (Amend shows only while reports_open), so not a bug.",
+   "root_cause": "frontend/src/components/pc/CircleView.jsx:727 is static text with no showFiled branch. Line 772 gives the closed line the same wording whether reports have not opened yet or the assignment has just ended.",
+   "fix": "Make line 727 depend on showFiled ('Your report is filed; the boxes show what you ticked.'). Change the closed line at 772 to 'Reports closed: the Lightkeeper opens them when this assignment ends.' (or say 'next assignment' when the report count is 0 after an end).",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "advancement-dialog-back-leaves-desk",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Set advancement_picks=2 for Iris, opened the desk at 1366x768; the Circle Advancement dialog showed. I ticked a pick and called page.goBack(): the page returned to the chapter hub (.hub-tomes present), as the finding says. It is the app's general Back behaviour for every dialog, not specific to this one. Only the sketch sheet holds Back (stageHistory.holdBack). The pick is a single click or two and the dialog reopens on re-entry.",
+   "root_cause": "frontend/src/components/stageHistory.js:150 holdBack is used only in SketchPad.jsx:151. AdvancementModal in frontend/src/components/pc/CircleView.jsx:133 keeps selectedPicks in local state and registers nothing with it. The dialog has no history entry of its own.",
+   "fix": "Optional: in AdvancementModal, `useEffect(() => (selectedPicks.length && open ? holdBack(close) : undefined), [selectedPicks.length, open])` so Back closes the dialog and keeps the desk. This is a product call, since it differs from every other dialog.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "report-amend-draft-lost",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Fresh table, laptop 1366: sent a report, pressed Amend, unticked a box (boxes '_ _ _', buttons Cancel / Send amended report), switched to the Investigator tab and back to Circle: card is back to locked 'Report sent' with the filed tick (Xd _d _d), the amend draft gone. Same after a chapter-hub round trip (screenshot out_8460/amend_afterhub.png). Broader than reported: a plain tab switch also loses it, with no warning. Filed report itself intact.",
+   "root_cause": "frontend/src/components/pc/CircleView.jsx:489 `const [amending, setAmending] = useState(false)` is component-local, so it resets to false on remount; showFiled (line ~500) = !!myReport && !amending then shows the filed ticks. startAmending (606-609) re-seeds the store draft from the filed keys, so pressing Amend again also overwrites the half-made draft.",
+   "fix": "Keep the flag with the draft in the store: startAmending sets setReportDraft(id,{keyChecks, amending:true}); derive amending from draft?.amending (draft is already keyed to the assignment) instead of useState; Cancel/Send clear it (setReportDraft(id,{keyChecks:{}, amending:false}) or drop the draft); gameStore.js:1090-1100 already clears drafts on the filed report coming back. No product decision needed.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "invite-player-reads-as-onboarding",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Source and DESIGN.md read. The button's placement under Join Requests, its label and its one-line slip are pinned in DESIGN.md (owner quote 2026-10-09, 'once in a blue moon'). The campaign code is already printed in the Lightkeeper desk header (GMDeskHeader.jsx:43,63). The backend invite-rejoin (vtt/routers/campaigns.py:412, tests test_campaigns.py:681-690) accepts any registered username, not only past players, so the claim that it 'only brings a player back' is not exact; only an unknown username gets 'No player found'. What is true: the slip's word 'rejoins' reads oddly on a campaign nobody has joined yet.",
+   "root_cause": "frontend/src/components/gm/desk/InvitePlayer.jsx:68 slip copy 'The player rejoins with a new investigator, without waiting for your approval.'",
+   "fix": "Optional copy tweak only: 'The player joins with a new investigator, without waiting for your approval.' Placement and label stay per DESIGN.md. Needs owner OK since DESIGN.md pins the wording; otherwise treat as by-design.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "desk-header-shows-campaign-not-circle",
+   "verdict": "by-design",
+   "severity": "low",
+   "evidence": "MainDeskView.jsx:105,189-191 deliberately prints lastPlayedCampaign.campaignName under the investigator's name; the circle's own name sits on the Circle tab charter (seen in screenshot out_8460/amend_afterhub.png: header 'The Sealed Hours', charter 'THE LANTERN WATCH'). Campaign and circle are two different names in the data model (FAQ: circle name is voted; campaign name is the Lightkeeper's). Not stale, just unlabelled.",
+   "root_cause": "frontend/src/components/pc/MainDeskView.jsx:189-191 (campaign name, no label)",
+   "fix": "No fix needed. If the owner wants it clearer, a product decision: show the circle name there or add a sr-only 'Campaign' prefix.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "field-note-italic-as-underline",
+   "verdict": "by-design",
+   "severity": "low",
+   "evidence": "index.css:511-513 `.md-note em {font-style:italic; text-decoration: underline ...}` with a comment that the pen fonts have no italic face so emphasis is also underlined and links get a dotted underline to stay distinct. This is the deliberate fix of the first report's italic-invisible-cursive (regress verdict fixed-but-new-problem). DESIGN.md:481 says italic is the pen's and links keep the writer's ink, underlined (DESIGN.md says solid link underline, CSS draws dotted: small drift). Trade-off, not a defect; the underline is 1px solid vs a dotted link.",
+   "root_cause": "frontend/src/index.css:513",
+   "fix": "No fix required. If the owner dislikes the link look-alike: drop the underline and use a slightly heavier/tinted ink for em, or keep the underline and make it wavy/dashed-distinct from links. Product decision.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "lk-resources-editor-spacing",
+   "verdict": "confirmed",
+   "severity": "low",
+   "evidence": "Fresh table, Lightkeeper 1440x900, Notebook > Lightkeeper Resources, typed 3 lines (out_8460/res_typed.png): textarea line-height 56px (3.5rem) on a 28px ruling, so each line takes two rules (it does land on every second rule, same 3.5rem as the field-entry editor). Textarea computed padding-left 0px: its own gold focus ring hugs the first letters (the outer wrapper has 32px, so the text is not at the box's edge, only at the ring). Tab label reads 'LIGHTKEEPER RESOURCES (1)' after the first save; it is the count of lightkeeper-type notebook entries, which is always 1 (one lk_main note), so it carries no information.",
+   "root_cause": "frontend/src/components/shared/NotebookView.jsx:1112 (textarea, no padding, leading-[3.5rem]) and :1104 (preview); label count at :962 `Lightkeeper Resources${lkEntries.length > 0 ? ` (${lkEntries.length})` : ''}`.",
+   "fix": "Drop the count from the tab label at line 962; add px-2 to the textarea (1112) and the NoteMarkdown preview (1104); the 56px leading can stay if the owner likes the spaced look, or use leading-[28px] to match the rule.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "duplicate-accessible-names",
+   "verdict": "partly",
+   "severity": "low",
+   "evidence": "Illumination pips confirmed in source: CirclePage.jsx:422 names a filled current pip 'Set Illumination to {i}' (the step back), so at 5 pips 4 and 5 are both 'Set Illumination to 4', and the pips are role=button divs with no current/pressed state. '+1 Illumination' staying enabled past 12 is intended (comment at CirclePage ~436, rulebook p. 55 leftover Illumination). Relationship comboboxes confirmed in browser (formation table, tablet, as a player with a received proposal): after pressing Counter, two selects named 'Relationship to Bram Ashby' and two textareas 'Your answer about Bram Ashby' (the open propose form plus the counter form). Scar form radios not a real problem: each radio sits in a fieldset with a sr-only legend (Lower / Raise, ScarModal.jsx:108-109), so a screen reader hears the group; the same 'Control rated 2' name in two labelled groups is normal.",
+   "root_cause": "frontend/src/components/gm/CirclePage.jsx:422 (pip name and no state); frontend/src/components/pc/relationships/RelationshipNegotiation.jsx:32 and :65 (aria-label built from person only, used by both propose-form at :228 and counter-form at :165).",
+   "fix": "CirclePage.jsx:422: add aria-pressed={filled} / aria-current on the pip at illum, or name it `Illumination ${i+1}, current. Press to lower to ${i}`. RelationshipFields: add a `verb` prop ('Counter relationship to', 'Relationship to') used in both aria-labels, passing it from the counter call at :165. Leave ScarModal alone.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "self-mark-buttons-in-tab-order",
+   "verdict": "by-design",
+   "severity": "low",
+   "evidence": "InvestigatorDossier.jsx:1246-1255 and 1293-1301: each track has a label button and a next-box button, both calling holdMark, so six tab stops (confirmed in source). But a self-taken mark is not applied at once: it is held five seconds with an Undo strip (DESIGN.md:362; first report's Undo window, still in force), drawn half inked. Intended pattern, so one Enter is not a silent permanent mark. The only real nit is the redundant second tab stop per track.",
+   "root_cause": "frontend/src/components/pc/InvestigatorDossier.jsx:1246-1301 (label button + next-box button both in tab order)",
+   "fix": "No fix needed. Optional: tabIndex={-1} on the next-box button (line ~1295) so each track has one tab stop; keep the Undo window.",
+   "effort": "S",
+   "refute": null
+  },
+  {
+   "key": "account-menu-hidden-from-sr",
+   "verdict": "not-reproduced",
+   "severity": "low",
+   "evidence": "Opened Account on the player desk at tablet 820 and read the accessibility tree (Playwright ariaSnapshot): `button \"Account\" [expanded]` then `dialog \"Account\": link \"Account\", button \"Sign out\"`. The items are announced inside a labelled dialog; the earlier 'outline' only showed the trigger because the card is portaled to document.body as a sibling. AccountMenu.jsx:8-10,140-148,202 is a deliberate member's card (aria-haspopup=\"dialog\", role=dialog aria-label=Account), not a role=menu. The 'Account' link in the card is the page link.",
+   "root_cause": "frontend/src/components/shared/AccountMenu.jsx:140-148 (portaled dialog, by design); no defect found.",
+   "fix": "None. Optional: aria-modal or a visible title is unnecessary; if a menu pattern is wanted that is a product decision.",
+   "effort": "S",
+   "refute": null
+  }
+ ]
+}

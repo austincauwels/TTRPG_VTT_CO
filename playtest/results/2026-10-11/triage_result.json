@@ -1,0 +1,3066 @@
+{
+ "a": {
+  "clusters": [
+   {
+    "key": "dispatch-draft-dropped-on-section-switch",
+    "title": "An unsent dispatch draft (location and text) is wiped when the Lightkeeper visits Map, Notebook or Circle and comes back to Roster.",
+    "kind": "bug",
+    "severity": "medium",
+    "area": "gm-desk",
+    "members": [
+     "F006"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Lightkeeper laptop 1440x900: type a Location and dispatch text, do not press Dispatch, switch to Map/Notebook/Circle and back to Roster; Location and 'Your dispatch' are empty (0 / 2000), no warning. Seen twice. SceneManager.jsx:147-149 keeps location/atmosphere/ownText in component state seeded from the last sent dispatch, so the unmounted section drops the draft; the Own words/Template toggle is remembered, the draft is not.",
+    "expected": "The draft survives a section switch, as the Resources notes do (autosave), or the desk warns before discarding it.",
+    "actual": "Draft silently emptied on return to Roster.",
+    "steps": "1. Lightkeeper desk, Roster section. 2. Type a Location and dispatch text; do not press Dispatch. 3. Click Map (or Notebook, Circle). 4. Click Roster.",
+    "first_report": "dispatch-record-lost",
+    "notes": "The first report's dispatch-record-lost already said 'an unsent draft is also dropped silently'; the regress seat confirms the draft part is unchanged.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/024_draft_lost.png",
+     "shots/dm/008_ownwords.png"
+    ]
+   },
+   {
+    "key": "leading-name-row-collapses-on-phone",
+    "title": "On a phone the leading suggested circle name collapses to one letter per line and its 'leading' tag is cut off.",
+    "kind": "bug",
+    "severity": "medium",
+    "area": "circle-formation",
+    "members": [
+     "F009"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Formation papers, II. Name the Circle, phone 390x844 (and worse at 360): a name carrying several tags (yours, suggested 2 times, count, leading) gets a 0 px-wide span; 'The Ninth Night' draws one letter per line (364 px tall) and the tags run 53 px past the row ('leading' reads 'lea'), 101 px at 360. The long-name fix (min-w-0 + overflow-wrap:anywhere on the span, tags shrink-0 in one row, CircleCreationPopup.jsx:336-350) caused it. 820 and 1366 are fine.",
+    "expected": "Name on one or two lines; tags wrap inside the row.",
+    "actual": "Name one letter per line; tags overflow and are clipped.",
+    "steps": "1. Formation, four players. 2. Phone 390x844 suggests 'The Ninth Night', another player suggests 'the ninth night' (merge). 3. 2-2 tie so it shows leading. 4. Look at its row on the phone.",
+    "first_report": "long-name-overflow",
+    "notes": "A problem brought by the long-name-overflow fix; regress reproduced it in the browser.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8402/namerow_fb_phone.png"
+    ]
+   },
+   {
+    "key": "illumination-tally-added-twice",
+    "title": "The assignment's Illumination tally can be added twice from a second tab or another device, because its 'added' state and question ticks live only in one browser's localStorage.",
+    "kind": "bug",
+    "severity": "high",
+    "area": "circle-page",
+    "members": [
+     "F010",
+     "F105"
+    ],
+    "seats": [
+     "regress",
+     "dm"
+    ],
+    "summary": "Lightkeeper 1440x900: after 'Add N Illumination' in tab B, tab A (after 'Use this tab') still shows a live 'ADD N ILLUMINATION' and adds again: illumination 0 -> 2 -> 5, log 'gains 3 Illumination (2 to 5)' plus 'milestone 3 reached!'. A fresh browser after the Add also shows a live button. The dm seat saw the question ticks send no WebSocket message (illumTallies persisted in gameStore.js ~1608/2144), so other devices never see them. The circle can advance early, the harm the first report described.",
+    "expected": "Once an assignment's tally is added, every Lightkeeper desk shows 'Added N Illumination'; the ticks and the added flag are stored on the circle.",
+    "actual": "Added flag and ticks are per-browser; the tally can be added again.",
+    "steps": "1. Open reports, one player files a report with a key. 2. Lightkeeper opens Circle page in tab A, then tab B. 3. In B tick a question and press Add N Illumination. 4. Back in A press 'Use this tab', press Add again. 5. Or open the desk in a fresh browser after the Add.",
+    "first_report": "report-questions-tally",
+    "notes": "Fix that brought a new problem (regress verdict fixed-but-new-problem). Wrong Illumination number and early advancement, so high.",
+    "reproduce": true,
+    "shots": [
+     "verify/out_8401/c04_lk_tab1_add_again.png",
+     "verify/out_8401/d01_lk_fresh_device_after_add.png",
+     "verify/out_8401/c02_lk_tab2_added.png"
+    ]
+   },
+   {
+    "key": "creator-path-arrows-below-fold-phone",
+    "title": "On a phone the creator's path card arrows sit below the fold, under the sticky bottom bar, and nothing says there are ten paths or that the card can be swiped.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "creator",
+    "members": [
+     "F016",
+     "F180"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390x844 and 390x705, step 1 Choose Path: the first view shows only the Journalist card and a disabled 'Select this path'; the Previous/Next arrows are under the tall card, covered by the sticky footer. Nine 'Next card' taps left it on 1/10; after scrolling about 450 px the arrows worked. Seen at character creation and again when building the replacement investigator.",
+    "expected": "Arrows visible on first view (or beside the card), or a hint such as '1 of 10, swipe'.",
+    "actual": "Arrows off screen under the footer; no hint of the other nine paths.",
+    "steps": "1. Phone 390x844, New investigator. 2. Without scrolling look for a way to the next path. 3. Scroll down and use Next card.",
+    "first_report": "",
+    "notes": "Harness artifact in the 'taps did nothing' part: seat.js --tap sends a raw CDP touch at the element's centre after scrollIntoViewIfNeeded with no check that it is covered, so the taps landed on the sticky footer. A horizontal swipe on the card does turn it (CharacterCreator.jsx:651), and the stacked card edges hint at more cards, so this is a discoverability nit. Related to the first report's path-cards-tablet-navigation (fixed for the tablet).",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/005_cc1.png",
+     "shots/bram/117_creator.png"
+    ]
+   },
+   {
+    "key": "pass-notes-no-lightkeeper-recipient",
+    "title": "Pass Notes still offers the sender as a recipient, has no Lightkeeper-only choice, and never says the Lightkeeper reads private notes, so a player cannot reply privately to the Lightkeeper.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "pass-notes",
+    "members": [
+     "F023",
+     "F093"
+    ],
+    "seats": [
+     "regress",
+     "dev"
+    ],
+    "summary": "Phone 390x844 (Bram) and tablet 820x1180 (Dev): the To: list is '@Circle (everyone)' plus '@Name (private)' for every member including the sender himself; no '@Lightkeeper' entry, so Dev could not answer a private note from the Lightkeeper. Nothing says the Lightkeeper also sees private notes, and ActivityLog.jsx tags nothing as private. PassNotes.jsx targetOptions is unchanged since the first report.",
+    "expected": "Sender left out, an '@Lightkeeper only' choice, private options labelled '(and the Lightkeeper)', private lines tagged on the receiving desk.",
+    "actual": "Unchanged from the first playtest.",
+    "steps": "1. Player desk, Menu > Pass notes (or the tablet's Pass Notes). 2. Open the To: picker.",
+    "first_report": "pass-notes-recipients",
+    "notes": "Regress verdict not-fixed.",
+    "reproduce": true,
+    "shots": [
+     "verify/out_8401/g06_bram_passnotes_to.png",
+     "shots/dev/059_pn2.png"
+    ]
+   },
+   {
+    "key": "milestones-unexplained-on-touch",
+    "title": "Illumination milestones are still explained by nothing a touch screen can reach, and the milestone log line says nothing of what it gives.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-page",
+    "members": [
+     "F025"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Phone 390x844, Circle tab: gold-ringed pips 3, 6, 9, 12 have only a hover title 'Illumination 3' (not even 'milestone'); the player's report form now has an intro line but does not say what a key is worth; the log reads 'The Ninth Night milestone 3 reached!' with nothing about what it gives. Report part improved, milestone part unchanged.",
+    "expected": "A caption under the pips, the key's worth on the player's form, a milestone log line saying whether anything is owed.",
+    "actual": "Hover-only titles; bare milestone line.",
+    "steps": "1. Phone, Circle tab, Illumination at 5. 2. Look at the gold-ringed pips. 3. Read the report form. 4. Lightkeeper adds Illumination past 3, read the log.",
+    "first_report": "report-and-terms-unexplained",
+    "notes": "Regress verdict partly fixed; reproduced in the browser.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8401/g07_bram_charter_phone.png",
+     "verify/out_8401/a03_bram_report_card.png"
+    ]
+   },
+   {
+    "key": "join-requests-hide-the-player",
+    "title": "Join requests never name the player who sent them, so two requests from one player look like two players, and the player gets no warning either.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "joining",
+    "members": [
+     "F034",
+     "F020"
+    ],
+    "seats": [
+     "dm",
+     "cass"
+    ],
+    "summary": "Lightkeeper 1440x900: the Join Requests card and its View sheet show investigator name, pronouns, role, specialty and catalyst but no account; Cass's two requests (Cass Moreau and Mina Vale) read as two players, so the 'one investigator per player' call relied on table talk (CorrespondenceStack.jsx / PlayerRosterCard.jsx render no username). On the player side (laptop 1366x768) both requests sit 'Waiting for the Lightkeeper' with no warning.",
+    "expected": "Each request names the player (e.g. 'from cass_moreau') and flags a second request from the same player.",
+    "actual": "No player name anywhere on the request or sheet.",
+    "steps": "1. One player sends two join requests to the same campaign. 2. Lightkeeper pages through Join Requests and opens each sheet.",
+    "first_report": "",
+    "notes": "",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/036_req3.png",
+     "shots/dm/047_reject1.png"
+    ]
+   },
+   {
+    "key": "finalize-seals-empty-circle-silently",
+    "title": "Finalize the circle arms with no votes cast and does not warn that the seal will leave the circle with no name, ability or insignia.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "circle-formation",
+    "members": [
+     "F038"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Lightkeeper 1440x900, four approved, '0 of 4 voted' on every part: one press arms Finalize with only 'Press again to finalize with 4 investigators... cannot be undone.' backend/vtt/routers/circles.py finalize_roster sets name, ability and insignia only when a vote winner exists (confirmed in source), so a second press seals an empty circle.",
+    "expected": "The armed hint lists what is still empty ('No circle ability, insignia or name chosen yet; 0 of 4 have voted'), or Finalize waits for a vote on each part.",
+    "actual": "Generic hint; empty seal possible.",
+    "steps": "1. Approve four investigators. 2. Before anyone votes, press Finalize the circle once and read the hint.",
+    "first_report": "",
+    "notes": "The armed hint already warns about pending relationships (lk-formation-status-thin fix), so the pattern exists; the empty-parts case is not covered. Tester pressed Not yet, so the empty seal itself was not observed.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/052_finalize_armed.png"
+    ]
+   },
+   {
+    "key": "stray-question-vote-through-papers",
+    "title": "A circle-question vote was recorded on the tablet that the player says they never cast.",
+    "kind": "bug",
+    "severity": "low",
+    "area": "circle-formation",
+    "members": [
+     "F054"
+    ],
+    "seats": [
+     "dev"
+    ],
+    "summary": "Tablet 820x1180: on opening the desk with the formation papers up, Dev tapped the Circle tab; question I then showed 'your vote'. dev.events.jsonl shows circle_creation_vote question q1 sent at 03:42:47, six seconds after ws_open and before any other vote.",
+    "expected": "No vote until the player chooses.",
+    "actual": "A q1 vote appeared after a tap meant for the Circle tab.",
+    "steps": "1. Approved player presses Play; formation papers open over the desk. 2. Tap where the Circle tab is. 3. Look at question I.",
+    "first_report": "",
+    "notes": "Very likely a harness artifact: seat.js --tap dispatches a raw CDP touch at the target's coordinates with no check that something covers it, so a tap aimed at the Circle tab under the papers' overlay landed on the Q1 vote button inside the dialog. A real finger would not aim at a dimmed tab under a dialog. Worth one check that a tap on the overlay cannot vote.",
+    "reproduce": true,
+    "shots": [
+     "shots/dev/033_circ2.png"
+    ]
+   },
+   {
+    "key": "seal-rename-approvals-not-logged",
+    "title": "Sealing the circle, renaming it, and approving or rejecting join requests write no Activity Log line.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "gm-desk",
+    "members": [
+     "F058",
+     "F035"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Lightkeeper 1440x900: after Finalize and after editing the circle name to 'The Green Lamp Society', the newest log line stays '[03:22] The Lightkeeper cleared the timer.'; four approvals and a rejection also leave no line. roster_finalized and circle_update reach the desks, so names update in place, but a player looking elsewhere is not told.",
+    "expected": "Log lines for the seal (name, ability, insignia), the rename and each approval/rejection.",
+    "actual": "No lines.",
+    "steps": "1. Approve four players, finalize the circle. 2. Edit the circle name. 3. Read the Activity Log on every desk.",
+    "first_report": "",
+    "notes": "The FAQ's logged-events list (about line 262) does not include these, so it is a gap rather than a regression.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/058_sealed2.png",
+     "shots/dm/061_renamed.png"
+    ]
+   },
+   {
+    "key": "keep-die-button-never-stable",
+    "title": "The gilded keep-one-die choice keeps wobbling, so automated clicks and taps time out and needed force.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "dice",
+    "members": [
+     "F071",
+     "F182",
+     "F188",
+     "F226",
+     "F237",
+     "F070",
+     "F110",
+     "F177",
+     "F206"
+    ],
+    "seats": [
+     "dev",
+     "cass",
+     "ada"
+    ],
+    "summary": "Desktop 1920x1080 (Ada, about seven rolls), laptop 1366x768 (Cass) and tablet 820x1180 (Dev): Playwright reports 'element is not stable' on the keep-die choice and times out; a forced click (or, once on the tablet, a dispatched click) kept the die. The candidate dice run animate-liftShimmy (1.5 s, infinite; DiceTray.jsx:178, index.css:186-195). Ada and Dev named it the thing that got in their way most.",
+    "expected": "A still, unambiguous target for the most important choice of a gilded roll.",
+    "actual": "The target moves continuously; automation needs force.",
+    "steps": "1. Roll a gilded action. 2. Click or tap a keep-die choice without force.",
+    "first_report": "",
+    "notes": "Known harness quirk ('the gilded keep die wobbles, so automation needs force or Enter'). prefers-reduced-motion is honoured (index.css:1190 caps every animation to one 0.01 ms iteration), and a real pointer can hit an 8 px wobble, so the human impact is small. Dev's wrong keep (F214) came from seat.js substring matching ('Keep the 4' vs 'Keep the gilded 4'). F177/F206 also report the full-drive refund wording, clustered separately.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/105_roll.png",
+     "shots/dev/048_keep.png",
+     "shots/ada/084_t10.png"
+    ]
+   },
+   {
+    "key": "gilded-refund-promised-at-full-drive",
+    "title": "The gilded keep choice promises '1 <drive> back' and the log says '1 refreshed' when the drive is already full and nothing comes back.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "dice",
+    "members": [
+     "F143",
+     "F177",
+     "F206"
+    ],
+    "seats": [
+     "regress",
+     "ada"
+    ],
+    "summary": "Desktop 1920x1080 and the regress tablet: with Intuition 5 of 5 (or Cunning 6 of 6), the slip reads 'Keep the gilded 2: Failure, 1 Intuition back' and after keeping the log says 'Gilded die kept: 1 Intuition refreshed' while the drive stays at its maximum. Cass (1366x768) saw the same promise at 3/3.",
+    "expected": "The promise and the log say nothing comes back when the drive is full (or 'drive already full').",
+    "actual": "Promise and log claim a refresh that does not happen.",
+    "steps": "1. Drive at its maximum. 2. Roll a gilded action. 3. Read the keep choices; keep the gilded die; read the log and drive.",
+    "first_report": "gilded-choice-unexplained",
+    "notes": "A wording problem the gilded-choice-unexplained fix brought; the cap itself is correct.",
+    "reproduce": true,
+    "shots": [
+     "shots/ada/084_t10.png"
+    ]
+   },
+   {
+    "key": "spend-back-unguarded-past-maximum",
+    "title": "Give a spend back has no double-press guard and no cap, so a double-click returns two spends and a resource can go past its maximum (Refresh 4 of 3).",
+    "kind": "bug",
+    "severity": "high",
+    "area": "gm-desk",
+    "members": [
+     "F075"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Lightkeeper 1440x900, a member's sheet: a double-click on Give a spend back with 'Put back in the pool: Refresh' sends two gm_return_spend; the member goes from 2 to 0 used and Refresh 1 to 3 though only one Refresh was spent, with two log lines. With Refresh at 3 of 3 one press makes it 4 of 3 on every desk. gm.py handle_gm_return_spend adds 1 with no cap (confirmed in source) and the button has no busy guard.",
+    "expected": "One give-back per double-click, as the player's spend already guards; the pool never exceeds its maximum.",
+    "actual": "Double give-back; pool above maximum.",
+    "steps": "1. Spending open; a member spends 1 Refresh and 1 Stitch. 2. Lightkeeper opens the sheet, picks Refresh, double-clicks Give a spend back. 3. Separately with Refresh 3 of 3, give one back with Refresh.",
+    "first_report": "lk-resource-repair",
+    "notes": "Fix that brought a new problem; wrong numbers on every desk. Regress reproduced it in the browser.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8404/B12_lk_spendback.png"
+    ]
+   },
+   {
+    "key": "timer-status-kept-after-reset",
+    "title": "Reset leaves 'Time's up.' or 'Timer paused.' in the timer's screen-reader status while the ticket shows the full time again.",
+    "kind": "bug",
+    "severity": "low",
+    "area": "hourglass-timer",
+    "members": [
+     "F076"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Lightkeeper 1440x900 and player tablet 820x1180: after the timer runs out (or is paused) and the Lightkeeper presses Reset, the role=status region still reads 'Time's up.' (or 'Timer paused.') 10 s later while the ticket reads 0:04. Clear and switching off now empty it; Reset does not, because the clearing effect runs only when timer_visible is off or the duration is 0.",
+    "expected": "Status empties (or says the timer was reset) on Reset.",
+    "actual": "Old status stays.",
+    "steps": "1. Show the timer, set 0:04, start. 2. Let it run out. 3. Reset. 4. Read the status on both desks.",
+    "first_report": "timer-status-stale",
+    "notes": "Regress verdict partly fixed.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8404/T01_lk_after_reset.png"
+    ]
+   },
+   {
+    "key": "pending-join-cannot-withdraw",
+    "title": "A pending join request still cannot be withdrawn, and the waiting investigator's sheet cannot be opened from the hub.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "joining",
+    "members": [
+     "F077"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Hub at 1366x768 and phone: the Player Registry's waiting row offers only Check again and an aria-disabled Delete; the name is a plain truncated <p>. No withdraw route in backend/vtt/routers/campaigns.py. The live part is fixed: approval and decline notices arrived within about 11 s.",
+    "expected": "A Withdraw on the waiting row that returns the investigator to Not in a campaign, and the name opens the sheet.",
+    "actual": "No way to take a request back.",
+    "steps": "1. Save and ask to join with a code. 2. Open the Case Ledger. 3. Look for Withdraw or a sheet link on the waiting row.",
+    "first_report": "pending-join-not-live",
+    "notes": "Regress verdict partly fixed.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8403/j03_registry_pending.png"
+    ]
+   },
+   {
+    "key": "lk-edit-cannot-write-scar",
+    "title": "The Lightkeeper's trauma Edit cannot add a scar, so a story-given scar needs a full four-mark cycle, and removing a killing scar leaves its action shift behind.",
+    "kind": "idea",
+    "severity": "low",
+    "area": "marks-scars",
+    "members": [
+     "F078",
+     "F165"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Lightkeeper 1440x900: Edit on the trauma record shows the mark boxes and 'No scars.' with no add control; the backend refuses a longer list on purpose (gm_update_scars). The death took four full scar cycles. After the take-back, the removed scar's shift (Survey 0, Focus 3) stays, and re-applying the death needs a new scar form with another shift.",
+    "expected": "A way to write a scar the story hands out, or a clear in-edit line that scars only come from a full track.",
+    "actual": "Only reword or remove.",
+    "steps": "1. Open a member's sheet with 0 scars. 2. Press Edit on the trauma record.",
+    "first_report": "lk-scar-route-hidden",
+    "notes": "Known and accepted: the Lightkeeper's Edit cannot add scars by design (run notes). Not a bug.",
+    "reproduce": false,
+    "shots": [
+     "shots/dm/079_bram_edit.png"
+    ]
+   },
+   {
+    "key": "scar-pending-invisible-to-lightkeeper",
+    "title": "While a player's scar form is open the Lightkeeper's desk shows only 'Incapacitated' with 0 marks, keeps Deal a mark live, and a second incapacitation is logged again with no word of the scar owed.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "marks-scars",
+    "members": [
+     "F079",
+     "F102",
+     "F095"
+    ],
+    "seats": [
+     "dm",
+     "dev"
+    ],
+    "summary": "Lightkeeper 1440x900: after a fourth Body mark the sheet reads Body/Brain/Bleed 0 of 3, INCAPACITATED, Scars 0 / 4; nothing says a scar is waiting, and Deal a mark stays active. The roster polaroid shows no status. Dealing four Bleed marks to an already incapacitated investigator logs 'has been incapacitated!' again with Scars still 1/4. The recorded scar itself writes no log line (Dev, tablet).",
+    "expected": "'Scar pending: Bram is writing it' on the sheet and roster card, the fourth mark shown until the scar is written, a log line for a recorded scar, and a note when marks land on an incapacitated investigator.",
+    "actual": "No pending state anywhere; repeated 'incapacitated' lines.",
+    "steps": "1. Open a member's sheet. 2. Deal Body four times. 3. Look at the sheet and roster card. 4. After the scar, deal four more marks and read the log.",
+    "first_report": "",
+    "notes": "",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/081_bram4.png",
+     "shots/dm/082_roster_incap.png",
+     "shots/dm/091_deal_bleed_4.png"
+    ]
+   },
+   {
+    "key": "sheet-view-drops-tension-controls",
+    "title": "With an investigator's sheet open, the Lightkeeper has no tension or timer controls: the strip shows '1 / 4' but no + or -.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "gm-desk",
+    "members": [
+     "F080"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Lightkeeper 1440x900: the sheet replaces the middle column; the hourglass is not on the page. The new top-left strip shows tension and the newest log line but no controls, so dealing a consequence and raising tension means Back to roster, raise, reopen the sheet.",
+    "expected": "Hourglass reachable, or + / - on the strip, while a sheet is open.",
+    "actual": "Controls only on the roster view.",
+    "steps": "1. Open a member's sheet from the roster. 2. Deal a mark. 3. Try to raise tension.",
+    "first_report": "section-hides-table-column",
+    "notes": "The strip from the fix works (F107 praises it); the regress seat noted the missing controls as already logged here.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/070_cass_bleed.png",
+     "shots/dm/075_tension.png"
+    ]
+   },
+   {
+    "key": "burn-offer-closes-on-anyones-roll",
+    "title": "The 'Burn and reroll' offer disappears without a word as soon as anyone else at the table rolls, and the dice button's 'choice waiting' dot does not match it.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "dice",
+    "members": [
+     "F090",
+     "F208",
+     "F063"
+    ],
+    "seats": [
+     "cass",
+     "bram"
+    ],
+    "summary": "Laptop 1366x768 keyboard only (Cass): after a failed Hide the After the roll panel was gone by the next look and Burn was not next in tab order. Phone 390x844 (Bram): the After the roll choices vanished while 'Dice and log, a choice is waiting' stayed, and earlier the dot stayed after the gilded choice was made. cass.events.jsonl: Cass rolled at 03:56:52.4 and Dev rolled at 03:56:57.1, which settles her roll.",
+    "expected": "A short note that the next roll at the table closed the burn, a dot that matches what is offered, and Burn reachable next in the tab order after a roll.",
+    "actual": "Offer vanishes silently; dot and offer disagree.",
+    "steps": "1. Roll a failure. 2. Let another player roll within a few seconds. 3. Look for Burn and reroll and the dice button's dot.",
+    "first_report": "burn-offer-stale",
+    "notes": "Closing the offer is by design: the burn-offer-stale fix makes the next roll at the table settle everyone's roll. Only the silent disappearance and the mismatched dot are at issue. In a live five-seat table the window is a few seconds.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/058_hide_result.png"
+    ]
+   },
+   {
+    "key": "lightkeeper-has-no-revive",
+    "title": "The Lightkeeper's copy of an incapacitated investigator's sheet has no Revive; only the player's own sheet does.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "marks-scars",
+    "members": [
+     "F101"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Lightkeeper 1440x900: the trauma record shows INCAPACITATED, Deal a mark and Edit, no Revive. Only InvestigatorDossier.jsx (the player's sheet) sends revive_character (gameStore.js:1489), so the Lightkeeper must ask the player to press it, though FAQ.md line 139 says 'A GM can still manually issue revive_character'.",
+    "expected": "A Revive beside the INCAPACITATED tag on the Lightkeeper's sheet.",
+    "actual": "No Revive on the Lightkeeper's desk.",
+    "steps": "1. Deal a member a fourth mark. 2. Player records the scar. 3. On the Lightkeeper's desk open the sheet.",
+    "first_report": "",
+    "notes": "The FAQ promises it; the handler exists but no GM control sends it.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/086_scars_area.png"
+    ]
+   },
+   {
+    "key": "invite-silently-retires-living-investigator",
+    "title": "Invite player does not check the player's current investigator: accepting it retires a living investigator without warning, and the invite writes no log line.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "campaign-management",
+    "members": [
+     "F104",
+     "F167"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Lightkeeper 1440x900: Invite player sent to bram_okafor while his Explorer was alive (3 of 4 scars, incapacitated) shows only 'Invite sent to bram_okafor.'; no warning, no log line. invite_rejoin only sets pending_rejoin_campaign_id.",
+    "expected": "The slip names the player's current investigator and warns or refuses while that one is alive; the table gets a log line.",
+    "actual": "No check, no warning, no log.",
+    "steps": "1. A member's investigator is alive. 2. Roster > Invite player, type the username, Send invite.",
+    "first_report": "",
+    "notes": "The testers' fear of 'two investigators' is contradicted by the code: rejoin (campaigns.py about lines 324-334) retires every other active or dead character of that user in the campaign. The real harm is that a living investigator is retired silently when the player builds a new one. In the run Bram died again before rejoining.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/138_invited.png",
+     "shots/dm/092_invite_open.png"
+    ]
+   },
+   {
+    "key": "roll-settling-client-server-mismatch",
+    "title": "The client and the server disagree on when a roll is settled: the Lightkeeper's roll does not settle a player's burn on the server, and a gilded die kept after another roll loses its Burn offer while the server still takes the burn.",
+    "kind": "bug",
+    "severity": "low",
+    "area": "dice",
+    "members": [
+     "F122",
+     "F123"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Phone 390x844: (1) after a reconnect that follows the Lightkeeper's open roll, the desk still offers Burn and the server accepts it, logged after her roll; _hold_or_throw settles others only 'if character is not None', so a Lightkeeper roll never does. (2) A gilded roll whose die is kept after another player's roll: the dot goes as soon as the other dice arrive, no After the roll box after the keep, yet the server accepts burn_resistance. DiceVault's settled test checks only that some tableRoll exists.",
+    "expected": "The Lightkeeper's roll settles player rolls on the server; a roll is settled only by a roll after it was decided; client and server agree.",
+    "actual": "Stale burn accepted in one case, burn hidden but accepted in the other.",
+    "steps": "See the regress evidence: case 1 drops a phone's socket during the Lightkeeper's open roll; case 2 has another player roll while a gilded keep waits.",
+    "first_report": "burn-offer-stale",
+    "notes": "Fix brought these narrow timing cases; regress reproduced both in the browser.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8405/e05_after_reconnect_offer.png",
+     "verify/out_8405/f02_after_other_roll.png",
+     "verify/out_8405/f03_after_keep_sheet.png"
+    ]
+   },
+   {
+    "key": "ally-offer-cards-lost-or-stale",
+    "title": "Ally ability offers are lost on a reload though the server still takes them, and a second ally's card stays up for a mark already taken, then fails silently.",
+    "kind": "bug",
+    "severity": "low",
+    "area": "abilities",
+    "members": [
+     "F125",
+     "F126"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Phone 390x844: a Behind Me offer vanishes on reload while the server accepts the intercept for the rest of its 2 minutes (only own-mark offers are resent on connect). Tablet 820x1180: after one ally intercepts, another ally's Premonitions card keeps counting for nearly two minutes; its Intercept gets 'There is no such mark to soak.' and the card just closes.",
+    "expected": "Ally offers come back after a reload with the time left; once one ally answers, the others' cards close or say so; a refusal says why.",
+    "actual": "Lost offer on reload; stale card and silent refusal.",
+    "steps": "1. Two allies with mark-answering abilities. 2. A member takes a Body mark. 3. Reload one ally's page; or let one ally intercept and tap the other's card.",
+    "first_report": "ability-offers-expire",
+    "notes": "Regress verdict partly fixed; the longer window made the stale card more visible.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8405/g07_jonah_after_reload.png",
+     "verify/out_8405/g08_edda_after_tap.png"
+    ]
+   },
+   {
+    "key": "death-defy-focus-returns-to-page",
+    "title": "Keyboard: after Death Defy's Use or Take the mark, focus drops to the top of the page.",
+    "kind": "bug",
+    "severity": "low",
+    "area": "accessibility",
+    "members": [
+     "F133"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Laptop 1366x768 keyboard only: Enter on 'Take Body mark 1 of 3' removes that button, so focus is on BODY during the Undo; the Death Defy card takes focus as it opens, but on close it restores focus to BODY, so after Use or Take the mark the user is at the top of the page.",
+    "expected": "Focus returns to the marks where the player was.",
+    "actual": "Focus on the page body.",
+    "steps": "1. Keyboard only, Death Defy unused. 2. Tab to Take Body mark, Enter. 3. On the Death Defy card press Use. 4. Read document.activeElement.",
+    "first_report": "ability-offers-expire",
+    "notes": "Regress listed it under ability-offers-expire (the focus part of that fix).",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8405/h06_after_Use.png"
+    ]
+   },
+   {
+    "key": "lk-roster-state-at-a-glance",
+    "title": "Idea: roster cards should show each investigator's state at a glance (drives, marks, scars, status, report, advancements waiting).",
+    "kind": "idea",
+    "severity": "medium",
+    "area": "gm-desk",
+    "members": [
+     "F222",
+     "F129"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Lightkeeper 1440x900: roster cards show only name, role, specialty and number; checking state takes opening each sheet (log and tray hidden meanwhile). After Advance the circle, the Lightkeeper cannot see that each investigator has two advancement picks waiting (DB advancement_picks = 2) or who has chosen, and no log line mentions the picks or the resource refill.",
+    "expected": "A one-line state per card: drives, marks, scars n/4, status, report filed, picks waiting.",
+    "actual": "Name, role, specialty only.",
+    "steps": "1. Lightkeeper roster after a few rounds or after Advance the circle. 2. Try to see a member's state without opening the sheet.",
+    "first_report": "lk-circle-overview",
+    "notes": "Still the first report's lk-circle-overview idea.",
+    "reproduce": false,
+    "shots": [
+     "shots/dm/182_back_lw.png",
+     "shots/dm/109_ada_sheet.png"
+    ]
+   },
+   {
+    "key": "end-assignment-drops-unadded-tally",
+    "title": "End Assignment silently discards filed reports whose Illumination was never added, and its confirm says nothing about reports.",
+    "kind": "bug",
+    "severity": "medium",
+    "area": "advancement-wrap",
+    "members": [
+     "F186",
+     "F130"
+    ],
+    "seats": [
+     "regress",
+     "dm"
+    ],
+    "summary": "Lightkeeper 1440x900: with 'Add 2 Illumination' waiting on the Circle page, End Assignment's armed hint and receipt read 'the dispatch clears. Ability uses and the hourglass are reset; marked gear is cleared.' After it the reports are gone ('Closed, 0 of 3 filed', DB reports {}), Illumination stays 0 of 12, the +2 can no longer be added. Only the later log line says 'The reports have been reset.'",
+    "expected": "The confirm says reports close and are cleared, and warns when filed reports have not been added (or the tally carries over).",
+    "actual": "Unadded Illumination lost without warning.",
+    "steps": "1. Open reports; two players file keys. 2. Do not press Add N Illumination. 3. End Assignment, read the hint, confirm. 4. Back to the Circle page.",
+    "first_report": "end-assignment-reports-open",
+    "notes": "The reset itself is the fix working; the silent loss came with it. The Lightkeeper can still set the track by hand if she notices.",
+    "reproduce": true,
+    "shots": [
+     "verify/out_8407/d04_lk_card_turned.png",
+     "shots/dm/110_endarm.png"
+    ]
+   },
+   {
+    "key": "end-assignment-gear-wording",
+    "title": "End Assignment says 'marked gear is cleared' but every investigator's whole gear list empties, and the desks give no reason.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "advancement-wrap",
+    "members": [
+     "F130",
+     "F136",
+     "F153",
+     "F228"
+    ],
+    "seats": [
+     "dm",
+     "bram",
+     "dev",
+     "ada"
+    ],
+    "summary": "Lightkeeper 1440x900: hint and log say 'marked gear is cleared'; all four gear lists became [] (DB). Phone (Bram) and desktop (Ada): the sheet just says 'No gear' with no note why. Tablet (Dev): the Change Gear dialog says 'Marked gear stays until the Lightkeeper ends the assignment'.",
+    "expected": "'Everyone's gear is cleared: choose new gear for the next assignment', or a line on the sheet saying gear slots are empty again.",
+    "actual": "Players find their kit gone.",
+    "steps": "1. Members carry gear. 2. End Assignment. 3. Open the sheets.",
+    "first_report": "end-assignment-gear-wording",
+    "notes": "Conflicting reports: the regress seat judged the wording fine because the app calls a chosen slot 'marked', and F219, F225, F234 and F246 praise the clear-out as by the book (p. 52). Only the wording is at issue.",
+    "reproduce": false,
+    "shots": [
+     "shots/dm/110_endarm.png",
+     "shots/dm/111_ended.png"
+    ]
+   },
+   {
+    "key": "stale-burn-offer-after-end-assignment",
+    "title": "An old roll's Burn and reroll offer comes back after End Assignment and a Refresh, hours after the roll.",
+    "kind": "bug",
+    "severity": "medium",
+    "area": "dice",
+    "members": [
+     "F144",
+     "F149"
+    ],
+    "seats": [
+     "cass",
+     "dev"
+    ],
+    "summary": "Laptop 1366x768 (Cass) and tablet 820x1180 (Dev): after End Assignment, advancements and a Refresh, the tray shows the first assignment's roll (Hide FAILURE; Focus +1d 3 dice) with 'After the roll' and a live Burn and reroll button, the resistance being full again.",
+    "expected": "Stale roll cleared, or no burn offered once the table has moved on and the assignment has ended.",
+    "actual": "Live Burn button beside an assignment-old result.",
+    "steps": "1. Roll a non-success in assignment 1, let others roll. 2. Lightkeeper ends the assignment. 3. Spend Refresh. 4. Look at the roll card.",
+    "first_report": "burn-offer-stale",
+    "notes": "Not pressed, so the server answer is unknown; later rolls by others should have cleared _last_roll (rolls.py _hold_or_throw). Likely client cause: DiceVault's settled = !!tableRoll, and tableRoll is reset to null on reconnect/reset (gameStore.js about line 600) while lastRoll is kept. Seen at 04:14, before the 04:15 restart.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/095_gear4.png",
+     "shots/dev/090_t6m.png"
+    ]
+   },
+   {
+    "key": "circle-advance-not-in-history",
+    "title": "Idea: the circle's advance and each member's picks should appear in Circle History or the Notebook, not only in the Activity Log.",
+    "kind": "idea",
+    "severity": "low",
+    "area": "advancement-wrap",
+    "members": [
+     "F150",
+     "F239"
+    ],
+    "seats": [
+     "dev"
+    ],
+    "summary": "Tablet 820x1180: after advancing, Circle History holds only the founding question and answer, the Notebook nothing; only the Activity Log says 'has advanced: gained +2 Cunning drive'. Dev also asked for a 'what changed' recap and a case boundary in the notebook.",
+    "expected": "A story-facing record: 'Circle advanced: Nobody Left Behind', what each took.",
+    "actual": "Log lines only.",
+    "steps": "1. Advance the circle, take advancements. 2. Open Circle History and the Notebook.",
+    "first_report": "",
+    "notes": "",
+    "reproduce": false,
+    "shots": [
+     "shots/dev/088_t6k.png"
+    ]
+   },
+   {
+    "key": "silent-socket-loses-mark",
+    "title": "A mark taken while the network is silently down is still lost with no word: the held box empties when the heartbeat replaces the socket.",
+    "kind": "bug",
+    "severity": "high",
+    "area": "connection-sync",
+    "members": [
+     "F154"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Laptop 1366x768: with the socket silent both ways (no FIN/RST) and reconnects failing for 45 s, Take a Body mark at 6 s; the box is drawn held (pink) until 30 s, then the heartbeat shows 'The connection to the table dropped. Reconnecting\u2026' (an improvement) but the held box silently empties. After the network returns: sheet 0 of 3, DB body_marks 0, nothing says the mark was lost. gameStore.js forgetUnanswered (about line 158) drops the unanswered mark and nothing resends it.",
+    "expected": "The mark is resent on the new socket, or the desk says plainly it was not taken.",
+    "actual": "Mark lost silently.",
+    "steps": "1. Player desk. 2. Make the socket silent without a close for 45 s. 3. At 6 s Take a Body mark, let Undo run out. 4. Restore the network; check the sheet and DB.",
+    "first_report": "offline-not-shown",
+    "notes": "Regress verdict partly fixed: the banner works; the lost mark (the reason the item was a bug) is unchanged. Rare network condition but silent data loss.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8406/c01_silent_18s.png"
+    ]
+   },
+   {
+    "key": "drive-pips-still-one-way",
+    "title": "A filled drive pip still cannot be cleared, a refill writes no log line, and the Lightkeeper's copy shows drives read-only.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "player-desk",
+    "members": [
+     "F155"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Laptop 1366x768: filled pips are disabled, aria-hidden buttons (InvestigatorDossier.jsx:1007-1024), so a mistaken tap cannot be undone; a refill to 3 of 3 saves but neither log gets a line (handle_update_drive logs nothing). Lightkeeper 1440x900: all drive rows have 0 enabled pips; only 'Reset drive and ability uses'.",
+    "expected": "The last filled pip clears one point, a refill is logged, the Lightkeeper can set a drive (the server already accepts update_drive from her).",
+    "actual": "Unchanged since the first report.",
+    "steps": "1. Nerve 2 of 3, click the second filled pip. 2. Click the empty third pip. 3. Read both logs. 4. Lightkeeper opens the same sheet.",
+    "first_report": "drive-pips-one-way",
+    "notes": "Regress verdict not-fixed.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8406/g01_pips_before_refill.png"
+    ]
+   },
+   {
+    "key": "death-not-announced-to-table",
+    "title": "A death is announced only on the dead player's own desk: the Lightkeeper and other players get no line, and later the take-back 'is alive' line describes a death they never saw.",
+    "kind": "bug",
+    "severity": "medium",
+    "area": "death",
+    "members": [
+     "F156",
+     "F164",
+     "F176",
+     "F189"
+    ],
+    "seats": [
+     "stress",
+     "dm",
+     "ada",
+     "dev"
+    ],
+    "summary": "Bram (phone 390x844) records his fourth scar: only his phone logs 'Bram Okafor is deceased.' (made in the browser from his own character_update). The Lightkeeper (1440x900) keeps 'has been incapacitated!' as the newest line; Ada (1920x1080), Cass and Dev (820x1180) get no line, and their Your Circle panel just drops Bram (member_status). After the Lightkeeper's take-back the shared log says 'Bram Okafor is alive, and incapacitated until revived.' with no prior death. After the second death Ada's and Dev's panels again lost Bram with no line. Source: handle_apply_scar broadcasts character_update to the owner and member_status to players (excluding the GM), no activity_log.",
+    "expected": "Every desk logs the death ('Bram Okafor has died') and the take-back, so the table knows why a card disappeared.",
+    "actual": "Death logged on the dying player's desk only.",
+    "steps": "1. An investigator with 3 scars, incapacitated. 2. Lightkeeper deals four Body marks; player records the fourth scar. 3. Read the log on every desk. 4. Lightkeeper removes the fourth scar; read again.",
+    "first_report": "",
+    "notes": "F176/F189 were logged while Bram was dead the second time (about 04:27-04:28), so dropping him from Your Circle is correct; the missing log line is the defect. Unrelated DB oddity seen by the dm seat: the four original investigators carry circle_id 1 ('The Order of Light', no campaign) rather than circle 2.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/106_death_bram.png",
+     "shots/dm/123_death_dm_sheet.png",
+     "shots/ada/066_death_ada.png"
+    ]
+   },
+   {
+    "key": "dead-investigator-still-acts",
+    "title": "A dead investigator can still roll, take marks, change gear and spend the circle's Stitch, Refresh or Train.",
+    "kind": "bug",
+    "severity": "high",
+    "area": "death",
+    "members": [
+     "F157"
+    ],
+    "seats": [
+     "stress"
+    ],
+    "summary": "Phone 390x844, after 'Stay and look at the sheet': all nine Roll buttons, drive +/-, Take Body/Brain/Bleed mark, Change gear and Add portrait stay live; a Focus roll went through and every desk logged 'Bram Okafor rolled Focus, a 6: Critical success'. The Circle page still offers Spend 1 Stitch/Refresh/Train and relationship proposals, so a dead man could take the circle's last Refresh. The Lightkeeper's sheet (Status: Dead, 4/4) still offers Deal a mark. handle_roll and handle_spend_resource have no is_dead check (confirmed in source).",
+    "expected": "Once dead the sheet is a record: no rolls, marks, gear, drive changes, spends or proposals, and the server refuses them.",
+    "actual": "Everything stays live; the roll was logged to the table.",
+    "steps": "1. Record a fourth scar. 2. Tap 'Stay and look at the sheet'. 3. Tap a Roll button. 4. Menu > Circle, look at resource spends.",
+    "first_report": "",
+    "notes": "FAQ.md line 139 says there is no server enforcement beyond the flags and that 'the frontend reflects the dead state visually', so the server side is documented; the live controls and the circle spends contradict the intent and let the rules be broken.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/109_bram_dead_roll.png",
+     "shots/bram/108_bram_dead_sheet.png",
+     "shots/dm/127_dm_dead_roll.png"
+    ]
+   },
+   {
+    "key": "second-death-no-notice",
+    "title": "A second death (after a take-back) shows no death dialog, and the Lightkeeper's invite banner disappears the moment the scar is recorded.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "death",
+    "members": [
+     "F172"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390x844: after the take-back and four more Body marks, recording the fourth scar again quietly turns the sheet to Status Dead with a 'Create a new investigator' button; no dialog, and the 'Your Lightkeeper invites you back' banner that sat under the form is gone. Only the log line 'Bram Okafor is deceased.'",
+    "expected": "The same death notice as the first time, and the invite still visible or pointed to.",
+    "actual": "Silent change; invite banner gone.",
+    "steps": "1. Kill an investigator, take the death back (remove the fourth scar). 2. Send an invite. 3. Deal four marks; record the fourth scar again.",
+    "first_report": "",
+    "notes": "Rare path (death, take-back, death). The invite itself still worked: Bram rejoined as Tobias.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/112_dead.png",
+     "shots/bram/113_dead2.png"
+    ]
+   },
+   {
+    "key": "papers-block-return-to-hub",
+    "title": "In a second campaign the Circle Formation Papers cover 'Back to chapter hub', ignore Escape and the backdrop, and survive a reload, so only browser Back leaves.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-formation",
+    "members": [
+     "F215",
+     "F216",
+     "F243"
+    ],
+    "seats": [
+     "cass"
+    ],
+    "summary": "Laptop 1366x768: Mina, newly approved in Side Case, presses Play; the papers open with no Close; Escape and backdrop clicks do nothing and elementFromPoint at the hub button is the bg-black/80 overlay. A reload reopens them; browser Back returns to the hub (and Last Played flips to Side Case). Cass named it the one place she was stuck.",
+    "expected": "A Close or Later, or at least a usable hub button, so a player can go back to another campaign.",
+    "actual": "Desk locked until the seal; only browser Back exits.",
+    "steps": "1. A player approved into a second campaign before its seal. 2. Open its desk. 3. Try Escape, the backdrop and Back to chapter hub.",
+    "first_report": "papers-lock-desk",
+    "notes": "Known and accepted: the formation papers stay a blocking dialog (papers-lock-desk was left alone). The new angle is only that a player with two campaigns cannot reach the hub in-page; browser Back works.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/122_w2.png",
+     "shots/cass/124_rl.png"
+    ]
+   },
+   {
+    "key": "hub-stale-after-campaign-retired",
+    "title": "The hub does not update when a campaign is retired: it still lists the investigator in it with a Play button and '2 in play' until a reload.",
+    "kind": "bug",
+    "severity": "medium",
+    "area": "hub",
+    "members": [
+     "F241",
+     "F243"
+    ],
+    "seats": [
+     "cass"
+    ],
+    "summary": "Laptop 1366x768, sitting on the hub while the Lightkeeper retires Side Case: the Case Ledger still shows Mina Vale under 'In a campaign: Side Case' with Play, and 'Case Ledger: 2 in play'; after a reload it says '1 in play' and Mina is gone. retire_campaign broadcasts campaign_retired only to the campaign's channels.",
+    "expected": "The hub updates live, as it now does for approvals and rejections.",
+    "actual": "Stale until reload.",
+    "steps": "1. Player sits on the hub with an investigator in campaign B. 2. Lightkeeper retires B. 3. Without reloading open the Case Ledger.",
+    "first_report": "",
+    "notes": "Same hub-liveness family the dm seat noted in F201.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/131_close2.png",
+     "shots/cass/133_close4.png"
+    ]
+   },
+   {
+    "key": "retire-hides-its-investigators",
+    "title": "Retiring a campaign makes its investigators vanish from their players' Registry, though the confirm says 'Nothing is deleted', and the campaign leaves no trace.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "campaign-management",
+    "members": [
+     "F242",
+     "F220",
+     "F244"
+    ],
+    "seats": [
+     "cass",
+     "dm"
+    ],
+    "summary": "Laptop 1366x768 (Cass): after Side Case is retired, Mina Vale is not listed as free; the Registry shows only Cass, so Mina cannot join another campaign. Lightkeeper 1440x900: two presses and Side Case is gone from the Ledger with no retired list or way back, though the confirm reads 'Every investigator leaves it and no one can join. Nothing is deleted.' and does not name Mina. retire_campaign (campaigns.py:216-229) sets every active and pending character to status 'retired'; DB shows Mina Vale status retired.",
+    "expected": "Members return unaffiliated (as delete_campaign does) or show in a retired list; a retired-campaigns list on the hub.",
+    "actual": "Investigators and campaign disappear from every screen.",
+    "steps": "1. Player has an investigator in campaign B. 2. Lightkeeper retires B. 3. Reload the hub, open the Case Ledger and Registry.",
+    "first_report": "",
+    "notes": "Delete releases roster characters to their owners; retire does not, which is the surprising half.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/133_close4.png"
+    ]
+   },
+   {
+    "key": "log-unpinned-after-roll-slip",
+    "title": "After a roll the Activity Log is no longer pinned to its foot: the roll just made is hidden below the box and an older line shows instead.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "player-desk",
+    "members": [
+     "F199"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Player desk 1366x768: after a non-full-success roll the slip and After the roll panel shrink the log, which pinned to the bottom before shrinking and is not pinned again; scroller 285 px above its end, showing the previous roll while the slip reads the new result. Also 45 px short at 1366x629 (new line half cut), 116 px at 1366x700, 90 px at 1920x941. The 9rem floor works.",
+    "expected": "The newest line stays in view after the log shrinks.",
+    "actual": "New roll's line out of sight.",
+    "steps": "1. Player desk at 1366x768 with a few log lines. 2. Roll a non-full success. 3. Read the log without touching it.",
+    "first_report": "log-squeezed-by-slip",
+    "notes": "Regress verdict partly fixed; reproduced three times.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8406/h_log_768_dice_scrolled.png"
+    ]
+   },
+   {
+    "key": "replaced-investigator-leaves-no-record",
+    "title": "Once a dead investigator is replaced he vanishes from every screen (Lightkeeper roster, Circle History, player Registry), and the newcomer's arrival writes no log line.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "death",
+    "members": [
+     "F200",
+     "F230",
+     "F195"
+    ],
+    "seats": [
+     "dm",
+     "bram"
+    ],
+    "summary": "Lightkeeper 1440x900: after Tobias joins, the roster shows four living cards and no Deceased section; Circle History lists only Dev, Ada and Cass (the Explorer's answer gone); no line for Tobias joining. Phone 390x844: the Registry lists only Tobias; the Explorer, his scars and answers are reachable nowhere. DB: the Explorer is status retired, is_dead true.",
+    "expected": "A Fallen card or memorial line keeping the dead investigator's record, and a join log line.",
+    "actual": "No trace; no log line.",
+    "steps": "1. An investigator dies. 2. The player builds a new one and rejoins. 3. Look at the Lightkeeper roster, Circle History, the Registry and the log.",
+    "first_report": "",
+    "notes": "By design in ActiveCircleMembers.jsx (the dead lie apart only until replaced); the missing join line is the checkable part.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/149_start.png",
+     "shots/dm/150_circle_page.png",
+     "shots/bram/177_hub.png"
+    ]
+   },
+   {
+    "key": "newcomer-starts-with-blank-circle",
+    "title": "Idea: a replacement investigator should be told what the circle already holds: the old answers, relationships and what is waiting.",
+    "kind": "idea",
+    "severity": "low",
+    "area": "circle-page",
+    "members": [
+     "F191",
+     "F231"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390x844: as Tobias, Circle History shows his row with an empty answer and all relationships read 'Propose a relationship' with no hint of the Explorer's Confidant/Ward or where his answer went; nothing says which resources are shared or what is closed.",
+    "expected": "A short welcome: answers so far, old relationships, a list of things waiting.",
+    "actual": "Blank circle view.",
+    "steps": "1. Rejoin with a new investigator after a death. 2. Open Circle.",
+    "first_report": "",
+    "notes": "The other players did get a live welcome dialog for Tobias (F190).",
+    "reproduce": false,
+    "shots": [
+     "shots/bram/153_h2.png",
+     "shots/bram/172_close1.png"
+    ]
+   },
+   {
+    "key": "spend-limit-resets-with-new-investigator",
+    "title": "A player's two circle-resource spends per assignment reset when they rejoin with a new investigator, so dying can give a player three or four spends.",
+    "kind": "rules",
+    "severity": "medium",
+    "area": "circle-page",
+    "members": [
+     "F192",
+     "F209"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390x844: the Explorer spent 1 Refresh after End Assignment (1/2); the new investigator Tobias shows 'Your spends 0 / 2' with Stitch 4, Refresh 1, Train 5 in the pool. The count lives on the character (resources_spent_assignment, circle.py handle_spend_resource), while FAQ.md line 263 says 'each player has two per assignment'.",
+    "expected": "The per-player limit follows the player (Bram 1/2 used).",
+    "actual": "Fresh 0/2 for the new investigator.",
+    "steps": "1. Spending open; a player spends 1. 2. That investigator dies; the player rejoins with a new one. 3. Open Circle.",
+    "first_report": "",
+    "notes": "Needs a death mid-break, so uncommon, but it bends the per-player rule.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/150_circ.png"
+    ]
+   },
+   {
+    "key": "mutual-rival-proposal-duplicated",
+    "title": "When two players propose the same relationship at once, accepting one leaves the other pending beside 'Confirmed by you both'.",
+    "kind": "bug",
+    "severity": "low",
+    "area": "circle-page",
+    "members": [
+     "F211"
+    ],
+    "seats": [
+     "cass"
+    ],
+    "summary": "Laptop 1366x768: in the Welcome Tobias dialog Cass proposes Rival while Tobias had proposed Rival; after accepting his, two cards remain: hers 'Waiting for Tobias Okafor-Reyes' with Edit, his 'Confirmed by you both'. Same in the dialog.",
+    "expected": "One confirmed Rival; the crossing proposal dropped.",
+    "actual": "Duplicate pending card.",
+    "steps": "1. Player A and B both propose the same relationship to each other. 2. A accepts B's. 3. Look at A's cards.",
+    "first_report": "",
+    "notes": "",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/116_c2.png"
+    ]
+   },
+   {
+    "key": "lk-call-for-roll-still-missing",
+    "title": "Idea: the Lightkeeper still wants a 'Call for a roll' card that ties a called roll's result and cost back to her desk.",
+    "kind": "idea",
+    "severity": "medium",
+    "area": "gm-desk",
+    "members": [
+     "F221"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Lightkeeper 1440x900, climax: four rolls called in table talk, results read off the log, consequences applied via Roster > card > Deal a mark > Back (four clicks each); three of four players ended with 'what does it cost?'.",
+    "expected": "Pick investigator(s), action, stakes; the call lands on their sheet; the result returns to the card with 'Apply 1 Bleed'.",
+    "actual": "All table talk.",
+    "steps": "1. Call several rolls in one beat. 2. Match results and apply costs.",
+    "first_report": "lk-call-for-roll",
+    "notes": "Still the first report's idea.",
+    "reproduce": false,
+    "shots": [
+     "shots/dm/162_start11.png",
+     "shots/dm/164_cass_bleed.png"
+    ]
+   },
+   {
+    "key": "field-notes-not-editable",
+    "title": "Idea: let authors edit their posted field notes (and link log lines into them).",
+    "kind": "idea",
+    "severity": "medium",
+    "area": "notebook",
+    "members": [
+     "F097",
+     "F237",
+     "F238"
+    ],
+    "seats": [
+     "dev"
+    ],
+    "summary": "Tablet 820x1180: a posted entry has only Delete; fixing a typo means delete and re-post, losing date and position (NotebookView.jsx has no edit). Dev named it one of two things that got in the way most, and also asked to pin a log line or roll into an entry, reorder entries, and give sketches real alt text (the alt is just the entry title).",
+    "expected": "Edit own entries; quote log lines; meaningful sketch alt text.",
+    "actual": "Delete and re-post only.",
+    "steps": "1. Post an entry. 2. Look for Edit on its page and in the contents.",
+    "first_report": "field-entry-not-editable",
+    "notes": "Still the first report's idea.",
+    "reproduce": false,
+    "shots": [
+     "shots/dev/061_toc.png",
+     "shots/dev/124_close1.png"
+    ]
+   },
+   {
+    "key": "manual-illumination-edit-unmarked",
+    "title": "A Lightkeeper's manual Illumination change is logged like an earned gain ('gains 7 (5 to 12)'), with no sign it was an override.",
+    "kind": "rules",
+    "severity": "low",
+    "area": "circle-page",
+    "members": [
+     "F142"
+    ],
+    "seats": [
+     "ada"
+    ],
+    "summary": "Desktop 1920x1080: the tally's +5 matched p. 55; the Lightkeeper then set the track to 12 by hand and every desk logged 'gains 7 (5 to 12)' like any gain, followed by milestone lines, so a player checking the book sees an unexplained +7.",
+    "expected": "Manual edits logged as 'The Lightkeeper set Illumination to 12'.",
+    "actual": "Logged as an ordinary gain.",
+    "steps": "1. Add the tally. 2. Lightkeeper clicks a higher Illumination pip. 3. Read the log.",
+    "first_report": "",
+    "notes": "The site allowing the edit is fine; only the log wording is at issue. Ada confirmed the rest of the bookkeeping is correct.",
+    "reproduce": true,
+    "shots": [
+     "shots/ada/055_t7d.png"
+    ]
+   },
+   {
+    "key": "patch-up-chip-never-shown",
+    "title": "Patch Up cannot be used at all: the Focus-roll chip the fix moved it to never renders, and the server refuses it undeclared.",
+    "kind": "bug",
+    "severity": "high",
+    "area": "abilities",
+    "members": [
+     "F100"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Desktop 1920x1080, a Doctor with Patch Up and an ally with a Body mark: no Patch Up chip under Focus (document.querySelectorAll('.mod-chip') empty), the Specialty tab has only text, After the roll offers only Burn and reroll, and use_post_roll_ability gets 'Patch Up is chosen before the roll: pick it on your Focus roll, then roll.' frontend/src/game/rollMods.js:86 drops any mod with extraDice 0 and no gild, substitute, brain mark or first point, and the Patch Up entry (rollMods.js:60, extraDice 0, extraGild false) is one, so it never becomes a chip (confirmed in source).",
+    "expected": "A Patch Up chip on Focus rolls; choosing it and rolling heals an ally's Body mark.",
+    "actual": "No way to declare or use Patch Up.",
+    "steps": "1. Doctor with Patch Up, an ally with a Body mark. 2. Look under Focus for a Patch Up chip. 3. Roll Focus; read After the roll.",
+    "first_report": "patch-up-free-rider",
+    "notes": "The fix (aec0d2b) brought this; a whole specialty ability is dead, so high. Regress reproduced it in the browser.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8405/b01_spec_tab.png",
+     "verify/out_8405/a02_focus_rolled.png"
+    ]
+   }
+  ],
+  "covered": [
+   "F006",
+   "F009",
+   "F010",
+   "F105",
+   "F016",
+   "F180",
+   "F023",
+   "F093",
+   "F025",
+   "F034",
+   "F020",
+   "F038",
+   "F054",
+   "F058",
+   "F035",
+   "F071",
+   "F182",
+   "F188",
+   "F226",
+   "F237",
+   "F070",
+   "F110",
+   "F177",
+   "F206",
+   "F143",
+   "F075",
+   "F076",
+   "F077",
+   "F078",
+   "F165",
+   "F079",
+   "F102",
+   "F095",
+   "F080",
+   "F090",
+   "F208",
+   "F063",
+   "F101",
+   "F104",
+   "F167",
+   "F122",
+   "F123",
+   "F125",
+   "F126",
+   "F133",
+   "F222",
+   "F129",
+   "F186",
+   "F130",
+   "F136",
+   "F153",
+   "F228",
+   "F144",
+   "F149",
+   "F150",
+   "F239",
+   "F154",
+   "F155",
+   "F156",
+   "F164",
+   "F176",
+   "F189",
+   "F157",
+   "F172",
+   "F215",
+   "F216",
+   "F243",
+   "F241",
+   "F242",
+   "F220",
+   "F244",
+   "F199",
+   "F200",
+   "F230",
+   "F195",
+   "F191",
+   "F231",
+   "F192",
+   "F209",
+   "F211",
+   "F221",
+   "F097",
+   "F238",
+   "F142",
+   "F100"
+  ],
+  "praise": []
+ },
+ "b": {
+  "clusters": [
+   {
+    "key": "phone-dialog-buttons-below-fold",
+    "title": "On a phone the long dialogs and pages hide their main buttons below the fold with no hint to scroll.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "phone-tablet",
+    "members": [
+     "F087",
+     "F135",
+     "F043",
+     "F232"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390x844 (visible 390x705): the A New Scar dialog cuts off Decide later and Record scar at the bottom edge once text is typed; the Circle Advancement dialog puts Confirm Advancement (n/2) and Later far below the fold and the first view hides the four choices' sub-pickers, and says nothing of what Later does; the Circle Formation Papers are one very long scroll with all six parts open, no jump list, no collapse and no tick on finished parts. Bram's exit note names this as what got in the way most: the Circle tab is one long page (resources, history, relationships), Menu is the only way between pages, and Send report and Propose a relationship took a lot of scrolling. A sticky footer for dialog actions would fix the two dialogs. Not seen on tablet or desktop.",
+    "expected": "A dialog's primary buttons stay visible (sticky footer) or the dialog shows that it scrolls; long pages offer a way to jump to their parts.",
+    "actual": "Primary buttons sit below the fold inside the dialog with no scroll cue; the player has to know to scroll inside the dialog.",
+    "steps": "Phone 390x844: take a fourth mark so the scar form opens, type a description, look for Record scar. After End Assignment with a full track, open the Circle Advancement dialog and look for Confirm. Open the formation papers and scroll.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/072_pick.png",
+     "shots/bram/087_t7b.png",
+     "shots/bram/060_end.png"
+    ],
+    "notes": "The creator's path arrows below the fold (F016, F180) are the other triager's creator-path-arrows-below-fold-phone; the change-gear '3 / 3 selected' line below the fold is in gear-cap-tap-silent. The papers staying a blocking dialog is accepted.",
+    "first_report": ""
+   },
+   {
+    "key": "choose-advancements-button-covers-sheet",
+    "title": "The floating 'Choose advancements (N)' button covers sheet controls on a phone and the hourglass strip on a desktop for as long as picks wait.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "advancement-wrap",
+    "members": [
+     "F185"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "After Later or Escape on the Circle Advancement dialog, a fixed 241x44 px button sits 96 px above the bottom of the screen (z-index 400). On a phone 390x844 the Stamina Training and Cool Under Pressure chips under Read and Sense scroll beneath it and cannot be tapped there; on a desktop 1920x1080 it sits over the strip under the hourglass. It stays until both picks are made, which can be a whole session. The way back itself works (tap reopens, reload or hub round trip reopens).",
+    "expected": "A way back to the picks that does not sit over the sheet's own controls (header, Menu, or a cleared spot).",
+    "actual": "Fixed button overlays whatever scrolls beneath it.",
+    "steps": "Fill the Illumination track, advance the circle, End Assignment; on the player's desk press Later; scroll the sheet on a phone and look under the button.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8407/c04_bram_scroll_900.png"
+    ],
+    "notes": "Regress seat reproduced it in a browser (elementFromPoint under the button hits the button, not the chips). Continues first report advancement-later-no-way-back (verdict fixed-but-new-problem).",
+    "first_report": "advancement-later-no-way-back"
+   },
+   {
+    "key": "offline-roll-headed-not-thrown",
+    "title": "When the table never answers a roll that did leave, the roll bar still heads it 'Not thrown' above 'The roll may have counted'.",
+    "kind": "ux",
+    "severity": "medium",
+    "area": "connection-sync",
+    "members": [
+     "F124"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Tablet 820x1180: with the network stalled after a roll left the desk, at 33 s the roll bar shows in large type 'Not thrown' and under it 'The table has not answered. The roll may have counted, so check the log before you roll again.' When the network came back the roll had counted. A player who reads only the heading and rolls again rolls twice. RollResultBar.jsx heads any rollError with no lastRoll as 'Not thrown'.",
+    "expected": "A roll that left the desk is never called not thrown; the heading says 'No answer yet' or 'May have counted'.",
+    "actual": "Heading 'Not thrown' contradicts the line under it.",
+    "steps": "Roll, then cut the network before the server's answer arrives and wait about 30 s; read the roll bar; restore the network and read the log.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8406/a06_case3_gave_up.png"
+    ],
+    "notes": "Regress seat reproduced in a browser. Continues first report offline-roll-double (fixed-but-new-problem).",
+    "first_report": "offline-roll-double"
+   },
+   {
+    "key": "markdown-in-names-shown-raw",
+    "title": "Investigator names typed with Markdown or emoji show raw asterisks and link brackets everywhere, and wrap into a wall of capitals on a phone.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "creator",
+    "members": [
+     "F021",
+     "F049",
+     "F233"
+    ],
+    "seats": [
+     "cass",
+     "ada",
+     "bram"
+    ],
+    "summary": "Cass's test name 'Cass *Moreau* [Inspector](x)' with an emoji was accepted and is shown literally in the creator dossier, the hub roster, the formation papers' relationship cards and the sidebar (desktop 1920, laptop 1366); on a phone 390 it repeats in every relationship heading in capitals over three lines. The sidebar card also shows an empty dashed box beside 'Coworker'. No overflow and no crash; the name is just noisy.",
+    "expected": "Names are plain text: either strip Markdown at entry or render it consistently; no empty placeholder box beside the relationship label.",
+    "actual": "Raw Markdown characters everywhere; empty dashed slot beside the relationship label.",
+    "steps": "Create an investigator named 'Cass *Moreau* [Inspector](x)' with an emoji, join, then view the hub, formation papers VI and the sidebar on desktop and phone.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/021_join.png",
+     "shots/ada/030_rel2.png",
+     "shots/bram/172_close1.png"
+    ],
+    "notes": "F021 also notes the creator's 4th gear pick is silently ignored (see gear-cap-tap-silent) and that double-click on join sends one request (praise).",
+    "first_report": ""
+   },
+   {
+    "key": "gear-cap-tap-silent",
+    "title": "At the gear limit a tap on another item does nothing and says nothing, on a phone in the creator and in play in Change Gear.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "creator",
+    "members": [
+     "F017",
+     "F146",
+     "F171",
+     "F021"
+    ],
+    "seats": [
+     "bram",
+     "cass",
+     "regress"
+    ],
+    "summary": "Creator step 4 on a phone 390x844: tapping a fourth gear item is silent; only the 3 / 3 counter hints (the creator's dimmed items carry a hover title, which never reaches touch). In play, Change Gear (laptop 1366, phone 390x844): with all slots chosen the unticked items keep full opacity and a live border, a tap leaves them unticked (aria-pressed false) and no text appears; the '3 / 3 selected' line is below the dialog's fold on a phone (y 833 of 844). The dialog's intro also talks about marking gear ('Mark an item when you use it...') on an empty list where the player is choosing gear.",
+    "expected": "Items beyond the limit look disabled and a short visible reason says three is the limit; the intro talks about choosing gear.",
+    "actual": "Silent no-op; items look live.",
+    "steps": "Phone: creator step 4, pick three gear items, tap a fourth. In play: open Change Gear, choose three, tap a fourth.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/037_join.png",
+     "shots/cass/095_gear4.png",
+     "verify/out_8406/j02_phone_dialog_open.png"
+    ],
+    "notes": "F171 is a regress-seat browser reproduction (continues first report gear-limits-silent, verdict partly); the write-in reason, the 60-char counter and the creator's dimmed items with title were confirmed working.",
+    "first_report": "gear-limits-silent"
+   },
+   {
+    "key": "field-note-italic-as-underline",
+    "title": "*Italic* in a field note is drawn as an underline in the handwriting font, so it reads like a link or a correction.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "notebook",
+    "members": [
+     "F072",
+     "F117"
+    ],
+    "seats": [
+     "dev"
+    ],
+    "summary": "Tablet 820x1180, Notebook > Field Notes, Caveat handwriting: *text* renders underlined, not slanted, in both the preview and the saved entry. Seen in two separate entries.",
+    "expected": "Emphasis that reads as italic (slant, or a distinct emphasis style that is not an underline).",
+    "actual": "Underlined words.",
+    "steps": "Notebook > Log a Field Entry, type '*word*' in a handwriting pen font, preview and post.",
+    "reproduce": true,
+    "shots": [
+     "shots/dev/053_added.png",
+     "shots/dev/077_r3j.png"
+    ],
+    "notes": "The first report's italic-invisible-cursive was fixed by drawing emphasis as an underline (regress verdict fixed-but-new-problem with no finding); players read the underline as a link.",
+    "first_report": "italic-invisible-cursive"
+   },
+   {
+    "key": "note-heading-skips-level",
+    "title": "A '## ' heading from the Notebook toolbar renders as h5 straight under the entry's h3 title, skipping h4.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "accessibility",
+    "members": [
+     "F183"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Tablet 820x1180, Notebook > Field Notes: headings on the page read H3 'Cellar under the chapel' then H5 'Second section'. The toolbar writes '## ' and NoteMarkdown.jsx maps h1->h4, h2->h5, so the toolbar's heading always skips h4. DESIGN.md says entry headings start from h4. Unchanged since the first report.",
+    "expected": "Entry headings start one level under the h3 title.",
+    "actual": "h2 maps to h5.",
+    "steps": "Log a field entry using the toolbar's heading button; inspect heading levels.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8407/h02_entry_typed.png"
+    ],
+    "notes": "Regress seat reproduced in a browser; first report entry-heading-levels, verdict not-fixed.",
+    "first_report": "entry-heading-levels"
+   },
+   {
+    "key": "scar-shift-note-doubled",
+    "title": "A scar's action-shift note is shown twice when the player also typed it in the description.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "marks-scars",
+    "members": [
+     "F166",
+     "F173"
+    ],
+    "seats": [
+     "dm",
+     "bram"
+    ],
+    "summary": "Scars 3 and 4 on Bram's sheet read '... I talk where I used to run. (-1 Move, +1 Sway) (-1 Move, +1 Sway)' and '(-1 Focus, +1 Survey) (-1 Focus, +1 Survey)', on the Lightkeeper's laptop 1440x900 and the player's phone 390. ScarModal.jsx appends scarShiftNote to the description with no check. Players copy the format they see on earlier scars, so this will recur.",
+    "expected": "The note appears once (strip a typed duplicate, or warn).",
+    "actual": "Duplicated note on every desk.",
+    "steps": "In the scar form, type a description ending with '(-1 Move, +1 Sway)' and choose Lower Move / Raise Sway; record and read the Scars list.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/133_removed4.png",
+     "shots/bram/114_bottom.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "circle-page-blind-to-status",
+    "title": "The Circle page and the 'Your Circle' sidebar show nothing of an investigator being incapacitated, scarred or dead; the dead keep a report card and count in 'Reports 0 of 4'.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-page",
+    "members": [
+     "F099",
+     "F114",
+     "F159"
+    ],
+    "seats": [
+     "dev",
+     "bram",
+     "stress"
+    ],
+    "summary": "Tablet 820x1180: Bram's card on the Circle tab and sidebar shows only role, specialty and relationship while he is incapacitated with scars. Phone: an incapacitated, dead-bound investigator ticks report keys with no status shown. Lightkeeper laptop 1440x900 after the death: the dead Explorer keeps an assignment-report card ('No report yet'), the 'Reports 0 of 4' count includes him, and Circle History lists him unmarked; only the Roster says Deceased.",
+    "expected": "Circle cards show status (incapacitated, scars, deceased); a dead investigator's report card is removed or marked and not counted.",
+    "actual": "No status anywhere on the Circle page; dead investigator counted in the reports tally.",
+    "steps": "Incapacitate an investigator and give him scars, view the Circle tab on another player's desk; then kill him with a fourth scar and view the Lightkeeper's Circle page report cards and count.",
+    "reproduce": true,
+    "shots": [
+     "shots/dev/056_focus.png",
+     "shots/dm/126_death_circle_reports.png",
+     "shots/bram/085_report.png"
+    ],
+    "notes": "The Illumination total itself excluded the dead correctly (F217 praise). Related but separate: the other triager's lk-roster-state-at-a-glance (roster cards) and replaced-investigator-leaves-no-record.",
+    "first_report": ""
+   },
+   {
+    "key": "report-card-wording-stale",
+    "title": "The report card's wording does not follow its state: 'tick the keys you fulfilled' after filing, and 'Reports closed: the Lightkeeper opens them at the end of the assignment' right after End Assignment.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "advancement-wrap",
+    "members": [
+     "F109",
+     "F141",
+     "F151"
+    ],
+    "seats": [
+     "ada",
+     "dev"
+    ],
+    "summary": "Desktop 1920 and tablet 820: right after End Assignment the player's Circle tab reads 'Reports closed: the Lightkeeper opens them at the end of the assignment', which reads as if the assignment has not ended. After a report is sent the intro still says 'Below, tick the keys you fulfilled' over locked boxes (static text in CircleView.jsx). Ada also saw no Amend once; three other seats saw Amend in the same build, and the code shows Amend only while reports are open, so her case was probably reports closing at the time.",
+    "expected": "Wording that fits the state: after End Assignment, say the new assignment's reports open when it ends; after filing, say the report is filed.",
+    "actual": "Stale or ambiguous wording.",
+    "steps": "Send a report and read the intro line; End Assignment and read the player's report card.",
+    "reproduce": true,
+    "shots": [
+     "shots/ada/065_t7m.png",
+     "shots/dev/089_t6l.png",
+     "shots/ada/049_sent.png"
+    ],
+    "notes": "F109's 'no way to amend' part is contradicted by F113, F115, F118, F203, F210 (Amend present); Amend is hidden when reports are closed. First report had report-closed-looks-live.",
+    "first_report": "report-closed-looks-live"
+   },
+   {
+    "key": "duplicate-accessible-names",
+    "title": "Screen readers meet duplicate control names: scar-form radios, relationship comboboxes and the Illumination pips repeat the same label.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "accessibility",
+    "members": [
+     "F056",
+     "F088",
+     "F218",
+     "F132"
+    ],
+    "seats": [
+     "dev",
+     "bram",
+     "dm"
+    ],
+    "summary": "Scar form (phone): 'Control rated 2' appears in both the Lower and Raise radio groups. Formation papers VI (tablet): propose, theirs and counter forms per investigator all expose 'Relationship to X' comboboxes. Illumination track (laptop 1440x900): the pip at the current value is named for the step back ('Set Illumination to 4' at 5, 'Set Illumination to 11' at 11), so two pips share a name and no pip says current; '+1 Illumination' stays enabled at 12/12.",
+    "expected": "Group-specific names ('Lower Control', 'Counter relationship to X'); pips as a radio group or with a current state.",
+    "actual": "Identical names; automation needed --nth.",
+    "steps": "Inspect the accessibility tree of the scar form, formation papers VI and the Lightkeeper's Illumination pips.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/071_form2.png",
+     "shots/dev/034_ctr.png",
+     "shots/dm/169_illum_added.png"
+    ],
+    "notes": "Same family as first report sr-identical-control-names and resource-track-dotted-squares.",
+    "first_report": "sr-identical-control-names"
+   },
+   {
+    "key": "log-lines-doubled-per-event",
+    "title": "Single events write several Activity Log lines: each dealt mark writes two, and filling the track writes one line per milestone passed.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "gm-desk",
+    "members": [
+     "F081",
+     "F132"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900 and every desk: 'The Lightkeeper dealt X a Body mark.' then 'X took a Body mark (1 of 3).' per mark, so four marks plus incapacitation made nine lines in seconds and pushed everything out of the small log panel. Adding 7 Illumination wrote four lines in one second (gains 7, milestone 6 reached!, milestone 9 reached!, track is full).",
+    "expected": "One line per event, e.g. 'The Lightkeeper dealt Bram a Body mark (1 of 3).' and 'gains 7 Illumination (5 to 12): milestones 6 and 9; track full'.",
+    "actual": "Two to four lines per event.",
+    "steps": "Deal four Body marks from the Lightkeeper's copy of a sheet; add 7 Illumination at 5.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/081_bram4.png",
+     "shots/dm/101_fill12.png"
+    ],
+    "notes": "F223 praises the same Deal a mark row as 'keep exactly as is'; only the log shape is in question.",
+    "first_report": ""
+   },
+   {
+    "key": "lk-inline-edits-no-save-cancel",
+    "title": "The Lightkeeper's inline Edits (circle name, chapter house, trauma record) have no Save or Cancel and do not say when a change is saved.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "gm-desk",
+    "members": [
+     "F059",
+     "F103"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900. Circle charter Edit circle name: a narrow box shows only the end of the name (\"'ERN WARD CIRCLE\"), no buttons, no hint that Enter saves; unclear whether clicking away saves; the chapter house Edit is the same. Trauma record Edit: only Done, unclear whether Remove is final at once, and the scar box is a two-line textarea that cuts the scar mid-sentence.",
+    "expected": "Save and Cancel (or an 'Enter to save, Esc to cancel' hint), the field showing the start of the text, a scar box tall enough for the scar.",
+    "actual": "No buttons; guessing needed.",
+    "steps": "Circle > charter > Edit circle name; investigator sheet > trauma record Edit with a long scar.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/060_edit.png",
+     "shots/dm/087_edit_open.png"
+    ],
+    "notes": "Remove does arm into 'Yes, remove' + Cancel with a clear warning (F163 praise), which answers part of F103. Related to first report trauma-edit-whose.",
+    "first_report": ""
+   },
+   {
+    "key": "reject-gives-player-no-word",
+    "title": "A rejected join request reaches the player with no word, and the Lightkeeper's 'Yes, reject' looks just like Approve and carries no reason.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "joining",
+    "members": [
+     "F045",
+     "F037"
+    ],
+    "seats": [
+     "cass",
+     "dm"
+    ],
+    "summary": "Laptop 1366: Mina Vale moved live to 'Not in a campaign' on the hub (good) but nothing says the request was turned back; Cass learned it from table talk. Lightkeeper laptop 1440x900: after the first Reject press, Approve and 'Yes, reject' are both filled oxblood side by side; Keep request is on its own row; no reason can be sent. The two-press confirm and its wording are good.",
+    "expected": "The player sees that the request was declined (optionally with a short reason); the destructive confirm looks different from Approve.",
+    "actual": "Silent return; identical button styles.",
+    "steps": "Player sends a join request; Lightkeeper presses Reject then Yes, reject; watch the player's hub.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/034_t3_mina.png",
+     "shots/dm/047_reject1.png"
+    ],
+    "notes": "The missing log line for rejections is the other triager's seal-rename-approvals-not-logged.",
+    "first_report": ""
+   },
+   {
+    "key": "bonus-dice-vanish-silently",
+    "title": "Bonus dice and ability chips vanish after a roll or a burn with no word: the spent drive die, Interrogation's +1d and Open Book.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "dice",
+    "members": [
+     "F083",
+     "F120",
+     "F205"
+    ],
+    "seats": [
+     "ada",
+     "cass"
+    ],
+    "summary": "Desktop 1920 and laptop 1366. Burn and reroll rerolls only the action rating; the spent Cunning die is lost and the panel says only 'Read: 2 dice' (rules-correct per FAQ, never explained). Cass's Interrogation +1d chip disappeared from the outline after Burn and reroll with no explanation. Open Book's chip silently untoggles after Sway and the log ('Sway +2d: 4 dice') never says Open Book applied; Open Book dice also vanish if Cunning resistance is burned first. All pool maths matched the book.",
+    "expected": "Before the burn, say the reroll uses only the action rating; chips say when they were used or why they went.",
+    "actual": "Dice and chips disappear without a line.",
+    "steps": "Spend a drive point and use a chip on a roll, then Burn and reroll; read the panel, the chips and the log.",
+    "reproduce": true,
+    "shots": [
+     "shots/ada/041_r2roll.png",
+     "shots/cass/064_rep.png",
+     "shots/ada/078_t7.png"
+    ],
+    "notes": "Behaviour matches FAQ.md; this is about explaining it.",
+    "first_report": ""
+   },
+   {
+    "key": "sweet-talk-condition-unstated",
+    "title": "Sweet Talk is a free +1d chip on any Read; nothing states its small-talk condition.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "abilities",
+    "members": [
+     "F084",
+     "F178"
+    ],
+    "seats": [
+     "ada"
+    ],
+    "summary": "Desktop 1920: the 'Sweet Talk +1d' chip beside Read gives a gilded die to any Read; the book requires small talk with the person who is the target (Ada's target was a ledger). The site cannot check this, but the chip gives no reminder of the condition.",
+    "expected": "A short reminder of the book's condition on the chip.",
+    "actual": "Chip says only 'Sweet Talk +1d'.",
+    "steps": "Open a Face/Journalist sheet with Sweet Talk; look at the chip beside Read.",
+    "reproduce": true,
+    "shots": [
+     "shots/ada/040_r2start.png",
+     "shots/ada/068_chip.png"
+    ],
+    "notes": "Table-honesty item; the site cannot verify the condition.",
+    "first_report": ""
+   },
+   {
+    "key": "commune-use-not-tied-to-roll",
+    "title": "Commune's Use only takes the Brain mark; the Sense roll it calls for is a separate step with no prompt.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "abilities",
+    "members": [
+     "F074"
+    ],
+    "seats": [
+     "dev"
+    ],
+    "summary": "Tablet 820x1180: the log says 'used Commune (took a Brain mark)'; the player has to remember to roll Sense, and the roll's log line does not mention Commune.",
+    "expected": "A prompt or pre-selected Sense roll after Use, tied in the log.",
+    "actual": "Two unrelated steps.",
+    "steps": "Medium sheet: press Use on Commune, then look for a Sense prompt.",
+    "reproduce": true,
+    "shots": [
+     "shots/dev/048_keep.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "nobody-left-behind-chip-on-every-row",
+    "title": "The Nobody Left Behind chip is repeated under all nine actions while an ally is incapacitated.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "abilities",
+    "members": [
+     "F140"
+    ],
+    "seats": [
+     "ada"
+    ],
+    "summary": "Desktop 1920: a 'Nobody Left Behind +1d' button under every action row; a screen reader hears nine identical buttons and the sheet grows much taller.",
+    "expected": "One place to apply it, or the chip only where it applies.",
+    "actual": "Nine identical chips.",
+    "steps": "Advance the circle to gain Nobody Left Behind, incapacitate one investigator, open another's sheet.",
+    "reproduce": true,
+    "shots": [
+     "shots/ada/053_t7b.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "keep-die-choices-unclear-final",
+    "title": "The gilded keep-one-die choices look like plain text lines, two can read 'Keep the X', and a mis-tap is final with no undo.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "dice",
+    "members": [
+     "F067",
+     "F214"
+    ],
+    "seats": [
+     "ada",
+     "dev"
+    ],
+    "summary": "Desktop 1920: the options render as two quiet lines under a small 'KEEP ONE DIE' tag with no obvious button look; other rolls are disabled until chosen with no message saying so. Tablet 820: both choices worded 'Keep the X', and a wrong match kept the 4 over a 6 with no way to change it.",
+    "expected": "Obvious buttons that show which die is best, and a message that a choice is pending.",
+    "actual": "Quiet text-like controls; final choice.",
+    "steps": "Roll with a gilded die so the keep-one-die choice appears; inspect its look and press the lower die.",
+    "reproduce": true,
+    "shots": [
+     "shots/ada/037_t10.png",
+     "shots/dev/116_t11.png"
+    ],
+    "notes": "Ada's 'clicking the text did nothing' is likely the wobble in the other triager's keep-die-button-never-stable cluster (a harness quirk too).",
+    "first_report": "gilded-choice-unexplained"
+   },
+   {
+    "key": "dice-tray-empty-after-reload",
+    "title": "After a reload the dice tray says 'No dice thrown yet' although the player's roll is in the log.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "dice",
+    "members": [
+     "F068"
+    ],
+    "seats": [
+     "cass"
+    ],
+    "summary": "Laptop 1366: after a reload the tray reset to 'No dice thrown yet' while the log still lists 'Cass rolled Survey, a 1: Failure'.",
+    "expected": "The tray shows the last roll, or tray and log agree.",
+    "actual": "Empty tray after reload.",
+    "steps": "Roll, reload the desk, open the dice tray.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/053_t4_enter.png",
+     "shots/cass/055_t4_reload.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "how-to-roll-slip-off-phone",
+    "title": "The empty tray's 'How to roll' slip runs off the right edge of a phone.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "phone-tablet",
+    "members": [
+     "F096"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Phone 390x844, Menu > Dice and log, the i beside 'No dice thrown yet': the slip spans x 117 to 406 (16 px cut) and at 360 wide 102 to 391 (31 px, words reach the edge). The page does not scroll sideways, so the cut part cannot be reached.",
+    "expected": "The slip lies wholly on screen.",
+    "actual": "Right border and shadow cut off.",
+    "steps": "Phone 390: Menu > Dice and log with no roll, tap the i.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8404/I01_phone_tray_info.png"
+    ],
+    "notes": "Regress seat reproduced; first report desk-empty-states-blank (fixed-but-new-problem).",
+    "first_report": "desk-empty-states-blank"
+   },
+   {
+    "key": "dispatch-log-cut-at-80",
+    "title": "The dispatch log line cuts a long location (and tension name) at 80 characters with no ellipsis, so it reads as a wrong place name.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "gm-desk",
+    "members": [
+     "F098"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Every desk (laptop 1440x900, phone 390, tablet 820): 'sent a dispatch: The flooded crypt beneath the Church of Saint Aldric the Unmourned, Newfaire Old.' for 'Newfaire Old Quarter', ended with a full stop as if complete. Backend gm.py table_lines does location.strip()[:80]; the tension name line has the same cut.",
+    "expected": "The whole location, or a visible ellipsis.",
+    "actual": "Silent cut mid-name.",
+    "steps": "Dispatch with a location over 80 characters; read the log.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8404/A02_lk_dispatched.png"
+    ],
+    "notes": "Regress seat reproduced; first report dispatch-record-lost (fixed-but-new-problem).",
+    "first_report": "dispatch-record-lost"
+   },
+   {
+    "key": "dispatch-serial-numbers-differ",
+    "title": "The Lightkeeper's dispatch and the players' dispatch card carry different serial numbers for the same dispatch.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "gm-desk",
+    "members": [
+     "F168"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Lightkeeper 1440x900 reads No. 7842; every player's card (phone 390x844, desktop 1920) reads No. 9468. SceneManager.jsx hashes 'dispatch-<circle id>', DispatchNote.jsx hashes location|atmosphere. The 'Atmosphere' label half of the item is fixed.",
+    "expected": "The same number on both.",
+    "actual": "Different numbers.",
+    "steps": "Send a dispatch; compare the number on the Lightkeeper's form and a player's card.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8406/h_lk_log_after_roll.png"
+    ],
+    "notes": "Regress seat reproduced; first report dispatch-letter-mismatch (partly).",
+    "first_report": "dispatch-letter-mismatch"
+   },
+   {
+    "key": "advancement-reopen-drops-ability",
+    "title": "After a reload the player's Circle Advancement dialog no longer names the circle's new ability.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "advancement-wrap",
+    "members": [
+     "F184"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Desktop 1920x1080: the reopened dialog has only 'The Illumination track is full: 2 advancements for ...' and the four picks; the New Circle Ability box is gone. It is fed only by the live circle_advanced message. The other parts of the first report item are fixed.",
+    "expected": "The reopened dialog still names the ability gained.",
+    "actual": "Box missing after reload.",
+    "steps": "Advance the circle, reload a player's desk before picking, read the dialog.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8407/a06_dev_picks_ready.png"
+    ],
+    "notes": "Regress seat reproduced; first report advancement-dialogs-explain (partly).",
+    "first_report": "advancement-dialogs-explain"
+   },
+   {
+    "key": "advancement-dialog-back-leaves-desk",
+    "title": "Browser Back on the Circle Advancement dialog leaves the desk for the hub and loses the half-made pick.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "advancement-wrap",
+    "members": [
+     "F145"
+    ],
+    "seats": [
+     "cass"
+    ],
+    "summary": "Laptop 1366: Back drops to the chapter hub; on re-entry the dialog reappears with nothing ticked. Later itself works (leaves 'Choose advancements (2)'); double-click on Confirm applied once.",
+    "expected": "Back closes the dialog or keeps the pick.",
+    "actual": "Back leaves the desk; pick lost.",
+    "steps": "Open the advancement dialog, tick one pick, press browser Back.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/082_afterback.png",
+     "shots/cass/078_later.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "report-amend-draft-lost",
+    "title": "A half-made report amendment is lost on going to the chapter hub and back, with no warning.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "advancement-wrap",
+    "members": [
+     "F119"
+    ],
+    "seats": [
+     "cass"
+    ],
+    "summary": "Laptop 1366: after Amend and a changed tick, a hub round trip returns the card to locked 'Report sent' with the tick gone; the filed report itself is safe.",
+    "expected": "Draft ticks kept, or a warning.",
+    "actual": "Draft lost silently.",
+    "steps": "Send a report, press Amend, change a tick, go to the hub and back.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/073_hub.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "relationship-proposals-linger",
+    "title": "Pending relationship proposals never nag or expire, and 'Waiting for X' gives no hint of what happens next.",
+    "kind": "idea",
+    "severity": "low",
+    "area": "circle-formation",
+    "members": [
+     "F204",
+     "F227",
+     "F044"
+    ],
+    "seats": [
+     "ada",
+     "bram"
+    ],
+    "summary": "Desktop 1920: Dev's Muse proposal sat 'Response needed' on Ada's Circle tab from the first assignment through nine turns; 'RESPONSE NEEDED' is the only nudge and the Investigator tab's 'Circle (new)' does not say why. Phone: a sent proposal shows only 'Waiting for Ada Quill' and Edit, with no word that Ada is notified.",
+    "expected": "A badge on the Circle tab or a reminder at End Assignment; a line saying the other player has been asked.",
+    "actual": "Proposal waits silently.",
+    "steps": "",
+    "reproduce": false,
+    "shots": [
+     "shots/ada/083_t12.png",
+     "shots/ada/084_t10.png",
+     "shots/bram/060_end.png"
+    ],
+    "notes": "Ada left the proposal on purpose to test.",
+    "first_report": ""
+   },
+   {
+    "key": "counter-equal-to-offer-accepted",
+    "title": "A relationship counter identical to the offer is accepted and shown as a new 'Waiting for' the same thing.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-formation",
+    "members": [
+     "F055"
+    ],
+    "seats": [
+     "dev"
+    ],
+    "summary": "Tablet 820: Counter with nothing changed went through; the row stays Ward, the last actor flips, and the proposer sees a counter identical to his offer.",
+    "expected": "A warning that the counter equals the offer, or the button disabled.",
+    "actual": "Unchanged counter accepted.",
+    "steps": "Receive a relationship proposal, open Counter, change nothing, send.",
+    "reproduce": true,
+    "shots": [
+     "shots/dev/035_done.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "personal-answer-saved-early",
+    "title": "The personal answer box shows 'Saved' before anything is typed, and it answers the leading question rather than the one the player voted for without saying so.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-formation",
+    "members": [
+     "F042",
+     "F050"
+    ],
+    "seats": [
+     "bram",
+     "cass"
+    ],
+    "summary": "Phone 390: a green Saved appeared at once on the empty box and only changed after tapping away. Laptop 1366: the box quotes the leading question while the player's own vote is another question; nothing says the answer follows the lead or what happens if the lead flips.",
+    "expected": "No status until something is saved; a line 'You answer the leading question; it may change if votes change.'",
+    "actual": "Saved on an empty box; silent link to the leading question.",
+    "steps": "Open formation papers I on a phone and look at the empty answer box; vote for a non-leading question and read the box's quoted question.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/054_q1.png",
+     "shots/cass/040_t3_q3.png"
+    ],
+    "notes": "Conflicting: F057 (tablet) saw 'Not saved yet' then 'Saved' on blur; the early Saved may be phone-only or timing.",
+    "first_report": ""
+   },
+   {
+    "key": "chapter-house-box-overwrites",
+    "title": "The shared chapter house box shows no author and an example click replaces the whole text, wiping someone else's lines.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-formation",
+    "members": [
+     "F048"
+    ],
+    "seats": [
+     "ada"
+    ],
+    "summary": "Desktop 1920, formation papers III: one textbox shared by all four with only a 'Shared' tag; clicking an example replaces everything with no warning.",
+    "expected": "A warning before replace, or a note of who last wrote.",
+    "actual": "Silent replace.",
+    "steps": "Type in the chapter house box, then click an example.",
+    "reproduce": true,
+    "shots": [
+     "shots/ada/030_rel2.png"
+    ],
+    "notes": "The FAQ says the server keeps no author.",
+    "first_report": ""
+   },
+   {
+    "key": "circle-name-cut-silently",
+    "title": "A long circle name suggestion is silently cut to about 80 characters with no counter or message.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-formation",
+    "members": [
+     "F051"
+    ],
+    "seats": [
+     "cass"
+    ],
+    "summary": "Laptop 1366, formation papers II: accepted and stored cut mid-phrase ('...Matters of Grave'); emoji kept, script tag harmless.",
+    "expected": "A counter or max-length hint, or a message that it was shortened.",
+    "actual": "Silent cut.",
+    "steps": "Suggest a circle name over 80 characters.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/043_t3_name.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "lk-formation-proposed-count",
+    "title": "The Lightkeeper's formation status says 'has proposed one' for a player who proposed three.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-formation",
+    "members": [
+     "F011"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Laptop 1440x900, Circle formation so far VI: 'PROPOSED: Bram Ashby, has proposed one ... Dev Okafor, has proposed one' although Bram proposed three and Dev two; the tick means 'at least one'. The waiting line's '(2 relationships)' can read as shared by two names.",
+    "expected": "'proposed 3 of 3' or a true count.",
+    "actual": "Always 'one'.",
+    "steps": "Have one player propose three relationships; read the Lightkeeper's formation status.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8402/lk_formation_panel.png"
+    ],
+    "notes": "Regress seat reproduced; the first report item lk-formation-status-thin itself was judged fixed.",
+    "first_report": "lk-formation-status-thin"
+   },
+   {
+    "key": "insignia-name-not-printed",
+    "title": "The charter's insignia has a screen-reader name but its name ('Compass') is printed nowhere, and the player's charter badge has no name at all.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-page",
+    "members": [
+     "F024"
+    ],
+    "seats": [
+     "regress"
+    ],
+    "summary": "Lightkeeper charter: role=img 'Insignia: Compass' and a hover title, but no visible caption, and hover never reaches touch. Player's charter (phone 390): a bare icon with no role, name or title.",
+    "expected": "A visible caption under the badge.",
+    "actual": "No caption; player badge unnamed.",
+    "steps": "Seal a circle with an insignia; view both charters.",
+    "reproduce": false,
+    "shots": [
+     "verify/out_8401/g04_lk_charter.png",
+     "verify/out_8401/g07_bram_charter_phone.png"
+    ],
+    "notes": "Regress seat reproduced; first report insignia-no-caption (partly).",
+    "first_report": "insignia-no-caption"
+   },
+   {
+    "key": "desk-header-shows-campaign-not-circle",
+    "title": "The player's desk header keeps showing the campaign name after the circle is renamed; the circle's name is not on the main desk.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "player-desk",
+    "members": [
+     "F064",
+     "F121"
+    ],
+    "seats": [
+     "bram",
+     "cass"
+    ],
+    "summary": "Phone 390 and laptop 1366: the subtitle under the investigator's name reads 'The Lantern Ward' after the circle was renamed The Green Lamp Society; players read it as stale.",
+    "expected": "The circle's name shown, or a label saying which name it is.",
+    "actual": "Campaign name only, unlabelled.",
+    "steps": "Rename the sealed circle; look at the player's desk header.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/061_t4_start.png",
+     "shots/cass/060_r3.png"
+    ],
+    "notes": "Probably by design (the campaign name), but unlabelled.",
+    "first_report": ""
+   },
+   {
+    "key": "death-dialog-wording-and-focus",
+    "title": "The death dialog says 'Their sheet' for a he/him investigator and focuses 'Create a new investigator' without saying to wait for the Lightkeeper's invite.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "death",
+    "members": [
+     "F160"
+    ],
+    "seats": [
+     "stress"
+    ],
+    "summary": "Phone 390: 'Their sheet stays on record.' and focus lands on 'Create a new investigator', one Enter from building a character before any invite (the invite line shows only if one was already sent).",
+    "expected": "The sheet's pronouns; a line that the Lightkeeper will invite the player back.",
+    "actual": "Generic pronoun; risky default focus.",
+    "steps": "Kill an investigator with a fourth scar; read the dialog and note focus.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/106_death_bram.png"
+    ],
+    "notes": "Ties to the other triager's invite-silently-retires-living-investigator.",
+    "first_report": ""
+   },
+   {
+    "key": "killing-scar-asks-for-shift",
+    "title": "Idea: the killing (fourth) scar should skip the action shift and not offer 'Decide later'.",
+    "kind": "idea",
+    "severity": "low",
+    "area": "death",
+    "members": [
+     "F161"
+    ],
+    "seats": [
+     "stress"
+    ],
+    "summary": "Phone 390: the fourth scar's form still requires Lower by 1 / Raise by 1 (applied to a dead sheet) and offers Decide later, which leaves the death unrecorded.",
+    "expected": "Pickers skipped for the scar that kills; Decide later removed or says it postpones the death.",
+    "actual": "Shift required on a dead sheet.",
+    "steps": "",
+    "reproduce": false,
+    "shots": [
+     "shots/bram/105_scar4_filled.png"
+    ],
+    "notes": "Related: lk-edit-cannot-write-scar (removing the killing scar leaves its shift).",
+    "first_report": ""
+   },
+   {
+    "key": "scar-form-header-second-scar",
+    "title": "The scar form for a second scar repeats 'Bleed track is full' while the marks read 0/0/0.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "marks-scars",
+    "members": [
+     "F112"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390: the second scar form opens with the same line as the first, 'Bram Okafor's Bleed track is full.', while his marks show 0/0/0 after clearing, which confuses the player.",
+    "expected": "Wording that explains why another scar is owed.",
+    "actual": "Same header as the first scar.",
+    "steps": "Fill a mark track twice; read the second scar form's header with marks cleared.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/077_r3start.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "scar-recorded-no-confirmation",
+    "title": "After recording a scar the phone sheet lands mid-page with no line saying the scar was recorded.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "marks-scars",
+    "members": [
+     "F089"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390: after Record scar the sheet scrolls to the Actions area; the player had to scroll to find the new scar; status still just Incapacitated with Revive.",
+    "expected": "A confirmation or log line, and the view at the scar.",
+    "actual": "No confirmation; view elsewhere.",
+    "steps": "Record a scar on a phone and note where the view lands.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/073_after.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "self-mark-buttons-in-tab-order",
+    "title": "Keyboard: the Take a Body/Brain/Bleed mark buttons sit in the tab order one Enter from a self-inflicted mark.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "accessibility",
+    "members": [
+     "F091"
+    ],
+    "seats": [
+     "cass"
+    ],
+    "summary": "Laptop 1366: six mark buttons in a row (doubled per track, label and pip) in the path to the log; one Enter adds a mark with no confirm.",
+    "expected": "Self-inflicted marks are deliberate (confirm, or out of the main tab path).",
+    "actual": "One Enter away.",
+    "steps": "Tab through the player desk from the actions to the log.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/058_hide_result.png"
+    ],
+    "notes": "The mark Undo window from the first report still applies.",
+    "first_report": ""
+   },
+   {
+    "key": "spending-toggle-not-logged",
+    "title": "Allow spending / Lock spending writes no Activity Log line, so players are not told they can spend.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-page",
+    "members": [
+     "F131"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900: opening spending is silent; players learn only by looking at the Circle page or being told. End Assignment leaves the spending state as it was (F219 later saw it left open).",
+    "expected": "A log line 'The Lightkeeper opened spending: up to two each'.",
+    "actual": "No line.",
+    "steps": "Lightkeeper: Circle > Circle Resources > Allow spending; read the log on a player's desk.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/113_spending_open.png"
+    ],
+    "notes": "Same family as the other triager's seal-rename-approvals-not-logged; first report silent-table-changes.",
+    "first_report": "silent-table-changes"
+   },
+   {
+    "key": "resources-note-member-count",
+    "title": "The Circle Resources note '1 plus the circle's members (now 5)' reads as five members when there are four.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-page",
+    "members": [
+     "F106"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900, Circle > Circle Resources: 'each refills to 1 plus the circle's members (now 5)'.",
+    "expected": "'each refills to 5 (1 plus the circle's 4 members)'.",
+    "actual": "Ambiguous '(now 5)'.",
+    "steps": "Read the Circle Resources note with four members.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/096_illum_ticked.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "report-cards-reorder",
+    "title": "Report cards and Circle History change order on the Lightkeeper's Circle page when reports are opened.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "circle-page",
+    "members": [
+     "F202"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900: cards went from Dev first to Ada, Cass, Dev, Tobias, and Circle History started with Ada instead of Dev, with no reload; the Roster kept Dev, Ada, Cass, Tobias.",
+    "expected": "Cards keep their places.",
+    "actual": "Order shifts.",
+    "steps": "Open reports on the Lightkeeper's Circle page and compare card order before and after.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/150_circle_page.png",
+     "shots/dm/160_reports.png"
+    ],
+    "notes": "F202 also repeats F105 (question ticks local only), which is the other triager's illumination-tally-added-twice.",
+    "first_report": ""
+   },
+   {
+    "key": "invite-player-reads-as-onboarding",
+    "title": "'Invite player' on a brand-new campaign reads like the way to bring players in, but only brings a player back; nothing says to share the campaign code.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "campaign-management",
+    "members": [
+     "F002"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900, Roster under Join Requests: the dialog says 'The player rejoins with a new investigator, without waiting for your approval' when nobody has joined; a stranger's name gets a clear 'No player found' alert.",
+    "expected": "Label it 'Invite a player back' or hide it until someone has played; point new players to the campaign code.",
+    "actual": "Misleading placement and label.",
+    "steps": "Create a campaign; look at the Roster.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/012_invite.png",
+     "shots/dm/013_invite_none.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "lk-dispatch-stamp-below-fold",
+    "title": "At 1440x900 the Dispatch and End Assignment stamps sit just below the fold with no cue that the left column scrolls.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "gm-desk",
+    "members": [
+     "F003"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900 (page 1440x761): the Dispatch stamp is at y=769; the left column scrolls on its own (first report's inner-scroll fix works) but shows no scrollbar or fade.",
+    "expected": "Stamp visible or a scroll cue.",
+    "actual": "Hidden send button.",
+    "steps": "Open the Lightkeeper desk at 1440x900; look for Dispatch.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/008_ownwords.png",
+     "shots/dm/011_wheel_left.png"
+    ],
+    "notes": "Headless Chromium hides scrollbars (harness quirk); a real browser may show one.",
+    "first_report": ""
+   },
+   {
+    "key": "pending-request-sheet-no-decision",
+    "title": "A pending request's sheet has no Approve or Reject and does not say it is a request.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "joining",
+    "members": [
+     "F040"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900: View sheet from a join request shows only '\u2190 Back to roster'.",
+    "expected": "Approve and Reject on the sheet view, or a 'Pending request' banner with them.",
+    "actual": "Back only.",
+    "steps": "Lightkeeper: Join Requests > View sheet.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/031_ada_sheet.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "blank-pronouns-shown-unlisted",
+    "title": "Blank pronouns are saved and shown as the word 'Unlisted'.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "creator",
+    "members": [
+     "F036"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Join Requests card reads 'UNLISTED \u00b7 FACE \u00b7 MAGICIAN' and the sheet 'Pronouns Unlisted'; forgePayload.js stores pronouns || 'Unlisted'.",
+    "expected": "No pronouns line, or a muted dash.",
+    "actual": "'Unlisted' shown as if it were the pronoun.",
+    "steps": "Create an investigator with blank pronouns and join.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/047_reject1.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "pen-font-and-portrait-hidden",
+    "title": "Handwriting is picked only in the Join dialog with no word of what it changes, and the Portrait control is a hidden file input.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "creator",
+    "members": [
+     "F013",
+     "F014",
+     "F019"
+    ],
+    "seats": [
+     "ada",
+     "bram"
+    ],
+    "summary": "Desktop 1920 and phone 390: the pen font list (20 fonts) appears only in the Join dialog, clipped inside it (5th to 7th fonts cut off), with no hint what handwriting changes. Creator step 2's Portrait is an sr-only file input; a tap gave no visible response in Bram's accessibility look.",
+    "expected": "Pen font chosen with the dossier, explained, full list visible; a visible Portrait control.",
+    "actual": "Hidden and unexplained.",
+    "steps": "Creator step 2 (Portrait); Join a Campaign dialog (Handwriting dropdown).",
+    "reproduce": true,
+    "shots": [
+     "shots/ada/013_font.png",
+     "shots/ada/005_cc2.png",
+     "shots/bram/030_port.png"
+    ],
+    "notes": "F014's automation complaint is partly the harness's name matching. First report pen-picked-at-join-only.",
+    "first_report": "pen-picked-at-join-only"
+   },
+   {
+    "key": "hub-decor-looks-interactive",
+    "title": "The hub's gold candle cluster looks clickable and the Last Played lock is unexplained; players asked the table what they are.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "hub",
+    "members": [
+     "F022",
+     "F031"
+    ],
+    "seats": [
+     "cass",
+     "dev"
+    ],
+    "summary": "Laptop 1366 and tablet 820: the gold orbs (lit candles) do nothing on click or tap and are absent from the accessibility tree; the Last Played padlock's only label is 'no session yet'. Two players asked about them.",
+    "expected": "Decoration that reads as decoration, or a label.",
+    "actual": "Looks interactive; no explanation.",
+    "steps": "Open the hub; tap the candle cluster.",
+    "reproduce": false,
+    "shots": [
+     "shots/cass/003_hub.png",
+     "shots/dev/004_d1.png"
+    ],
+    "notes": "Taste.",
+    "first_report": ""
+   },
+   {
+    "key": "empty-ledger-blank-boxes",
+    "title": "The Lightkeeper Ledger with no campaigns shows three empty ruled boxes and no hint.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "hub",
+    "members": [
+     "F030"
+    ],
+    "seats": [
+     "cass"
+    ],
+    "summary": "Laptop 1366, hub Roster book: three blank ruled boxes beside screen-reader text 'No campaigns'.",
+    "expected": "Nothing, or 'You lead no campaigns yet'.",
+    "actual": "Empty placeholders that look like entries.",
+    "steps": "Open the hub as a player who leads no campaigns.",
+    "reproduce": true,
+    "shots": [
+     "shots/cass/030_t2_start.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "account-security-emails",
+    "title": "No notice mail after a password or email change, and the reset email subject carries a confusing clock time.",
+    "kind": "idea",
+    "severity": "low",
+    "area": "accounts",
+    "members": [
+     "F027",
+     "F197"
+    ],
+    "seats": [
+     "bram",
+     "dev"
+    ],
+    "summary": "Reset email subject 'Set a new Candela Obscura password (8:31 PM)' while the header time is 03:31Z; no 'your password was changed' mail afterwards (phone). An email change sends nothing to the old address (tablet).",
+    "expected": "Plain subject; notice mails to the account (and old address) after a change.",
+    "actual": "No notices.",
+    "steps": "",
+    "reproduce": false,
+    "shots": [
+     "shots/bram/047_t2_sent.png",
+     "shots/dev/110_done.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "signin-password-focus-style",
+    "title": "The focused Password field on the sign-in card is a stark white block.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "accounts",
+    "members": [
+     "F028"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390: focused Password field is a bright white box with a gold border, unlike the username line.",
+    "expected": "Field styled like the username line.",
+    "actual": "Stark white block.",
+    "steps": "Sign in on a phone; focus the password field.",
+    "reproduce": false,
+    "shots": [
+     "shots/bram/050_t2_done.png"
+    ],
+    "notes": "Taste.",
+    "first_report": ""
+   },
+   {
+    "key": "account-menu-hidden-from-sr",
+    "title": "The Account menu's items are missing from the screen-reader outline; 'Account' is a link inside a dialog.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "accessibility",
+    "members": [
+     "F198"
+    ],
+    "seats": [
+     "dev"
+    ],
+    "summary": "Tablet 820: outline shows only 'Account [expanded]'; the item is a link inside role=dialog.",
+    "expected": "A menu announced with its items.",
+    "actual": "Items not announced.",
+    "steps": "Open the header Account dropdown; inspect the accessibility tree.",
+    "reproduce": true,
+    "shots": [
+     "shots/dev/102_acct2.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "pass-notes-circle-vs-environment",
+    "title": "Pass Notes: '@Circle (everyone)' and '@Environment (shown to everyone)' read as the same thing, and the picker's options sit outside the region for a screen reader.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "pass-notes",
+    "members": [
+     "F007"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900: both say everyone; only the source shows Environment posts unsigned capitals narration. The options appear as two loose buttons after the page's last status; the toggle's name changes '\u25bc' to '\u25b2'.",
+    "expected": "Labels that say what differs; options announced as the 'To:' control's list.",
+    "actual": "Indistinct labels; loose buttons.",
+    "steps": "Open the Pass Notes 'To:' picker as Lightkeeper.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/023_passnotes.png"
+    ],
+    "notes": "Recipient problems are the other triager's pass-notes-no-lightkeeper-recipient.",
+    "first_report": ""
+   },
+   {
+    "key": "lk-resources-editor-spacing",
+    "title": "The Lightkeeper Resources editor double-spaces text off the ruled lines, touches the left edge, and its tab shows an unexplained '(1)'.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "notebook",
+    "members": [
+     "F005"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900: 56 px per line on 28 px ruling, no left padding; tab reads 'LIGHTKEEPER RESOURCES (1)'. Autosave works well.",
+    "expected": "One line per rule, inner margin, a meaningful tab label.",
+    "actual": "Misaligned text; mystery count.",
+    "steps": "Notebook > Lightkeeper Resources; type several lines.",
+    "reproduce": true,
+    "shots": [
+     "shots/dm/019_resources.png",
+     "shots/dm/020_resources_typed.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "sketch-above-entry-text",
+    "title": "A field note's sketch always sits above the entry title and text, pushing them below the fold.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "notebook",
+    "members": [
+     "F213"
+    ],
+    "seats": [
+     "dev"
+    ],
+    "summary": "Tablet 820x1180: the sketch fills the top of the entry page, so 'sketch below' in the note reads wrong.",
+    "expected": "Sketch after the text, or a placement choice.",
+    "actual": "Sketch always first.",
+    "steps": "Add a sketch to a field entry; open the entry.",
+    "reproduce": false,
+    "shots": [
+     "shots/dev/123_t18.png"
+    ],
+    "notes": "Taste.",
+    "first_report": ""
+   },
+   {
+    "key": "gild-step-hides-specialty-gild",
+    "title": "The creator's Gild step never says an action is already gilded by the specialty; it just omits it.",
+    "kind": "ux",
+    "severity": "low",
+    "area": "creator",
+    "members": [
+     "F193"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390, creator step 3: Focus has no Gild button and is left out; Advance stays disabled until another action is gilded; only a small 'Gilded: Focus' line explains. Save and rejoin itself worked in one tap.",
+    "expected": "Say that Focus is already gilded by the specialty.",
+    "actual": "Silent omission.",
+    "steps": "Create a Scholar (Professor) on a phone; reach step 3.",
+    "reproduce": true,
+    "shots": [
+     "shots/bram/146_r5.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "opening-scene-not-logged",
+    "title": "Idea: the Activity Log has no line for the opening scene, only the dispatch and tension.",
+    "kind": "idea",
+    "severity": "low",
+    "area": "gm-desk",
+    "members": [
+     "F065"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390: Dice and log shows two lines (dispatch, tension name); the scene's opening lives only in table talk.",
+    "expected": "A way to note the scene opening in the log.",
+    "actual": "None.",
+    "steps": "",
+    "reproduce": false,
+    "shots": [
+     "shots/bram/062_t4_dice.png"
+    ],
+    "notes": "Environment notes through Pass Notes can serve this.",
+    "first_report": ""
+   },
+   {
+    "key": "gear-has-no-effect-on-rolls",
+    "title": "Idea: gear such as the Thick Reference Tome cannot be applied to a roll; it is only a list of names.",
+    "kind": "idea",
+    "severity": "low",
+    "area": "dice",
+    "members": [
+     "F207"
+    ],
+    "seats": [
+     "bram"
+    ],
+    "summary": "Phone 390: the Lightkeeper said the Tome helps the Survey, but nothing on the sheet applies it; the player narrated it and trusted the Lightkeeper.",
+    "expected": "A hint or toggle that a relevant gear item adds a die or note.",
+    "actual": "Gear is inert.",
+    "steps": "",
+    "reproduce": false,
+    "shots": [
+     "shots/bram/156_t9_sheet.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   },
+   {
+    "key": "lk-campaign-switcher",
+    "title": "Idea: a campaign switcher on the Lightkeeper's desk, and a 'waiting' badge on the ledger for a campaign with join requests.",
+    "kind": "idea",
+    "severity": "low",
+    "area": "campaign-management",
+    "members": [
+     "F201"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900: each switch between two running campaigns is 3 clicks through the hub; ledger rows show only name and code, nothing of a pending request. Both desks came back intact and current.",
+    "expected": "Switcher in the desk header; '1 waiting' badge.",
+    "actual": "Hub round trip; no badge.",
+    "steps": "",
+    "reproduce": false,
+    "shots": [
+     "shots/dm/152_ledger.png",
+     "shots/dm/157_back_lw3.png"
+    ],
+    "notes": "F201's 'approval wrote no line' is the other triager's seal-rename-approvals-not-logged.",
+    "first_report": ""
+   },
+   {
+    "key": "map-cannot-be-marked",
+    "title": "Idea: let the Lightkeeper pin or label places on the Map, or upload a scene map.",
+    "kind": "idea",
+    "severity": "low",
+    "area": "other",
+    "members": [
+     "F008"
+    ],
+    "seats": [
+     "dm"
+    ],
+    "summary": "Laptop 1440x900: the Map is one fixed rulebook picture of the Fairelands with Open full size and good alt text; the campaign's borough and the dispatch location are not on it.",
+    "expected": "Pins or labels players see, or an uploaded map.",
+    "actual": "Static image.",
+    "steps": "",
+    "reproduce": false,
+    "shots": [
+     "shots/dm/021_map.png"
+    ],
+    "notes": "",
+    "first_report": ""
+   }
+  ],
+  "praise": [
+   {
+    "title": "The desk stays live without reloads",
+    "members": [
+     "F041",
+     "F046",
+     "F053",
+     "F085",
+     "F094",
+     "F107",
+     "F111",
+     "F134",
+     "F138",
+     "F148",
+     "F190",
+     "F210",
+     "F224",
+     "F229",
+     "F234",
+     "F240",
+     "F245"
+    ],
+    "summary": "On every device (phone 390, tablet 820, laptops, desktop 1920) approvals, marks, scars, dispatches, notes, reports, advancement dialogs and a newcomer's welcome dialog arrived live; players and the Lightkeeper never reloaded all night. Named as 'keep exactly as is' by four seats. F190 notes the welcome dialog grabbed the screen mid-action and swallowed a tap."
+   },
+   {
+    "title": "The server restart was invisible to the table",
+    "members": [
+     "F162",
+     "F174",
+     "F175",
+     "F179",
+     "F187",
+     "F224"
+    ],
+    "summary": "Across the 04:15:29 to 04:15:59 restart every desk (laptop, phone, tablet, desktop) reconnected by itself, with no leftover banner, nothing lost, and later events arriving live."
+   },
+   {
+    "title": "Sign-up and account flows work end to end",
+    "members": [
+     "F001",
+     "F026",
+     "F196"
+    ],
+    "summary": "Fresh-database sign-up works first time (confirms the first report's 500-on-first-account fix); forgot-password works on a phone with the username prefilled; email change runs form to confirm page cleanly."
+   },
+   {
+    "title": "The reworked creator is clear on every screen",
+    "members": [
+     "F012",
+     "F018",
+     "F032"
+    ],
+    "summary": "Four locked steps, live counters, limits announced to screen readers, clear presets and join status at once; good on desktop, phone and tablet."
+   },
+   {
+    "title": "Join requests and the Lightkeeper's formation view",
+    "members": [
+     "F029",
+     "F033",
+     "F039",
+     "F181"
+    ],
+    "summary": "View sheet before approving and requests keeping pronouns and catalyst after an approval (confirms first report #28 / join-requests-lose-details and the sheet-preview fix); Circle formation so far shows who has voted or answered (confirms lk-formation-status-thin); the hub shows Awaiting approval; a second campaign's code with stray spaces is accepted."
+   },
+   {
+    "title": "Formation papers handle ties and edge cases",
+    "members": [
+     "F047",
+     "F052",
+     "F057",
+     "F060",
+     "F061"
+    ],
+    "summary": "Ties are stated on screen with leading and your-vote markers; case and spacing duplicate names are refused with a pointer (confirms name-case-duplicates); seal kept the leading name in a 2-2 tie (confirms vote-tie-leading); counter form offers the relationship's questions; the dispatch template picks up the renamed circle."
+   },
+   {
+    "title": "Dispatch, timer and secret roll behave and log as a Lightkeeper expects",
+    "members": [
+     "F004",
+     "F061",
+     "F082",
+     "F170"
+    ],
+    "summary": "Timer events reach the log and the screen-reader status clears with the timer (confirms first report #7 and #42); dispatches, locations and tension names each get a log line; secret rolls and private notes stay private."
+   },
+   {
+    "title": "Rolls and pools are right and clear",
+    "members": [
+     "F062",
+     "F066",
+     "F092"
+    ],
+    "summary": "Phone roll flow with drive spend and gilded refund is clear; Open Book pools match the FAQ; keyboard-only play works with a visible focus ring and announced results."
+   },
+   {
+    "title": "Double presses do exactly one thing",
+    "members": [
+     "F069",
+     "F118",
+     "F147",
+     "F245",
+     "F052"
+    ],
+    "summary": "Double-click and Enter-twice on keep-die, Pass Notes, Send report, votes and circle resource spends each did one thing (confirms first report report-forgets-sent and resource-double-click-double-spend fixes)."
+   },
+   {
+    "title": "Scars, death and its take-back are handled with care",
+    "members": [
+     "F086",
+     "F111",
+     "F158",
+     "F163",
+     "F223"
+    ],
+    "summary": "Scar forms work on a phone and update the sheet at once; the fourth scar warns, shows a clear death dialog and a live Deceased section; removing the killing scar is warned and logged; the Lightkeeper's one-click Deal a mark is a keeper."
+   },
+   {
+    "title": "Assignment reports and the Illumination tally match the book",
+    "members": [
+     "F108",
+     "F113",
+     "F115",
+     "F118",
+     "F127",
+     "F203",
+     "F210",
+     "F217",
+     "F225"
+    ],
+    "summary": "Send locks the boxes with a REPORT SENT stamp and Amend (confirms report-forgets-sent); the next assignment's form starts empty; the tally follows p. 55, counts the newcomer and not the dead, and adds once (confirms report-questions-tally)."
+   },
+   {
+    "title": "Advancement and End Assignment wrap up cleanly",
+    "members": [
+     "F128",
+     "F134",
+     "F138",
+     "F148",
+     "F219",
+     "F246"
+    ],
+    "summary": "Track full offers a clear advancement dialog that arrives live on every device, Later leaves a way back, picks grey out at the limit; End Assignment says what stays and resets spends, reports closed 0 of 4 (confirms end-assignment-reports-open)."
+   },
+   {
+    "title": "Circle resource spends are safe and live",
+    "members": [
+     "F137",
+     "F139",
+     "F147",
+     "F152"
+    ],
+    "summary": "Two-tap confirm, counts and drives update live, a third spend is refused with a reason."
+   },
+   {
+    "title": "The Notebook feels like a real field journal",
+    "members": [
+     "F073",
+     "F116",
+     "F212",
+     "F236",
+     "F240"
+    ],
+    "summary": "Markdown preview, photographs and the sketch tool work first try on a tablet and kept all five entries through a restart, a death and two assignment closes."
+   },
+   {
+    "title": "Invite and Save and rejoin turn a death into a new start",
+    "members": [
+     "F190",
+     "F194",
+     "F235"
+    ],
+    "summary": "The invite banner follows the player into the creator, Save and rejoin is one tap, and the table gets a welcome dialog with the relationship form."
+   },
+   {
+    "title": "A second campaign is easy to start and leaves the first intact",
+    "members": [
+     "F169",
+     "F181"
+    ],
+    "summary": "One small form; the Case Ledger lists both; returning to the first desk finds it current."
+   }
+  ],
+  "covered": [
+   "F001",
+   "F002",
+   "F003",
+   "F004",
+   "F005",
+   "F007",
+   "F008",
+   "F011",
+   "F012",
+   "F013",
+   "F014",
+   "F015",
+   "F017",
+   "F018",
+   "F019",
+   "F021",
+   "F022",
+   "F024",
+   "F026",
+   "F027",
+   "F028",
+   "F029",
+   "F030",
+   "F031",
+   "F032",
+   "F033",
+   "F036",
+   "F037",
+   "F039",
+   "F040",
+   "F041",
+   "F042",
+   "F043",
+   "F044",
+   "F045",
+   "F046",
+   "F047",
+   "F048",
+   "F049",
+   "F050",
+   "F051",
+   "F052",
+   "F053",
+   "F055",
+   "F056",
+   "F057",
+   "F059",
+   "F060",
+   "F061",
+   "F062",
+   "F064",
+   "F065",
+   "F066",
+   "F067",
+   "F068",
+   "F069",
+   "F072",
+   "F073",
+   "F074",
+   "F081",
+   "F082",
+   "F083",
+   "F084",
+   "F085",
+   "F086",
+   "F087",
+   "F088",
+   "F089",
+   "F091",
+   "F092",
+   "F094",
+   "F096",
+   "F098",
+   "F099",
+   "F103",
+   "F106",
+   "F107",
+   "F108",
+   "F109",
+   "F111",
+   "F112",
+   "F113",
+   "F114",
+   "F115",
+   "F116",
+   "F117",
+   "F118",
+   "F119",
+   "F120",
+   "F121",
+   "F124",
+   "F127",
+   "F128",
+   "F131",
+   "F132",
+   "F134",
+   "F135",
+   "F137",
+   "F138",
+   "F139",
+   "F140",
+   "F141",
+   "F145",
+   "F146",
+   "F147",
+   "F148",
+   "F151",
+   "F152",
+   "F158",
+   "F159",
+   "F160",
+   "F161",
+   "F162",
+   "F163",
+   "F166",
+   "F168",
+   "F169",
+   "F170",
+   "F171",
+   "F173",
+   "F174",
+   "F175",
+   "F178",
+   "F179",
+   "F181",
+   "F183",
+   "F184",
+   "F185",
+   "F187",
+   "F190",
+   "F193",
+   "F194",
+   "F196",
+   "F197",
+   "F198",
+   "F201",
+   "F202",
+   "F203",
+   "F204",
+   "F205",
+   "F207",
+   "F210",
+   "F212",
+   "F213",
+   "F214",
+   "F217",
+   "F218",
+   "F219",
+   "F223",
+   "F224",
+   "F225",
+   "F227",
+   "F229",
+   "F232",
+   "F233",
+   "F234",
+   "F235",
+   "F236",
+   "F240",
+   "F245",
+   "F246"
+  ]
+ },
+ "uncovered": []
+}
