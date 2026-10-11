@@ -27,7 +27,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy
       <div className="min-w-0">
         <p className="font-serif text-lg font-bold text-ink break-words">{data.name || 'Unknown'}</p>
         <p className="font-sans font-bold text-xs uppercase tracking-widest text-sepia break-words">
-          {[data.pronouns, data.role_class || data.role, data.specialty].filter(Boolean).join(' · ')}
+          {[data.pronouns === 'Unlisted' ? '' : data.pronouns, data.role_class || data.role, data.specialty].filter(Boolean).join(' · ')}
         </p>
         {data.owner_username && (
           <p className="font-sans text-xs text-sepia break-words">

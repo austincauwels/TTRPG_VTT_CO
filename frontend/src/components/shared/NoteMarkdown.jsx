@@ -45,13 +45,14 @@ const TaskBox = ({ checked }) => (
   </span>
 );
 
-// A note's headings sit under the entry's own title (an h3), so they start at h4
+// A note's headings sit under the entry's own title (an h3), so they start at h4. The toolbar
+// writes "## ", so h1 and h2 both take h4 (sized apart) and no level is skipped.
 const BLOCK_COMPONENTS = {
   a: Link,
   img: ({ alt }) => (alt ? <span className="md-img-alt">{alt}</span> : null),
   h1: withoutId('h4', 'md-h1'),
-  h2: withoutId('h5', 'md-h2'),
-  h3: withoutId('h6', 'md-h3'),
+  h2: withoutId('h4', 'md-h2'),
+  h3: withoutId('h5', 'md-h3'),
   h4: withoutId('h6', 'md-h3'),
   h5: withoutId('h6', 'md-h3'),
   h6: withoutId('h6', 'md-h3'),

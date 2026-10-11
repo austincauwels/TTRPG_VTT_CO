@@ -17,14 +17,14 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
   // when it is for the Lightkeeper alone; the sender is not offered to themselves
   const myId = useGameStore(s => s.character?.id);
   const targetOptions = [
-    { value: '@Circle', label: '@Circle (everyone)', inkColor: null },
+    { value: '@Circle', label: '@Circle (everyone, signed)', inkColor: null },
     ...(showGmControls ? [] : [{ value: '@Lightkeeper', label: '@Lightkeeper only', inkColor: null }]),
     ...investigators.filter(inv => showGmControls || ((myId == null || inv.id !== myId) && inv.name?.toLowerCase() !== 'lightkeeper')).map(inv => ({
       value: `@${inv.name}`,
       label: showGmControls ? `@${inv.name} (private)` : `@${inv.name} (and the Lightkeeper)`,
       inkColor: inv.ink_color || null,
     })),
-    ...(showGmControls ? [{ value: '@Environment', label: '@Environment (shown to everyone)', inkColor: 'rgb(var(--c-oxblood))' }] : []),
+    ...(showGmControls ? [{ value: '@Environment', label: '@Environment (unsigned narration to everyone)', inkColor: 'rgb(var(--c-oxblood))' }] : []),
   ];
 
   const [sendError, setSendError] = useState('');
@@ -76,12 +76,13 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
 
       {/* To: row */}
       <div className="flex items-center gap-2 px-3 pt-3 pb-1 pl-[44px]">
-        <span className="font-sans text-sm font-black uppercase tracking-widest text-sepia shrink-0">To:</span>
+        <span id="pass-notes-to-label" className="font-sans text-sm font-black uppercase tracking-widest text-sepia shrink-0">To:</span>
         <TargetDropdown
           value={chatTarget}
           onChange={setChatTarget}
           options={targetOptions}
           darkMode={showGmControls}
+          labelledBy="pass-notes-to-label"
         />
       </div>
 
