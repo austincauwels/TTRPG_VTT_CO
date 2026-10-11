@@ -133,7 +133,19 @@ async def _log_roll(ctx, character, message, secret=False, log_type="roll"):
         await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "activity_log", "payload": payload}, ctx.db)
 
 
-def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0, roll_id=None):
+def _dice_text(roll, kept=None):
+    """The dice of a roll for its log line, since a tray shows only its owner's own rolls:
+    "(3 dice: 4, 3 gilded, 1)". No dice rolls two and takes the lower; kept is the die a
+    gilded choice kept, which the line says."""
+    dice = roll.get("dice") or []
+    shown = ", ".join(f"{d['value']} gilded" if d.get("is_gilded") else str(d["value"]) for d in dice)
+    if roll.get("type") == "zero":
+        return f"(no dice, the lower of {shown})"
+    word = "die" if len(dice) == 1 else "dice"
+    return f"({len(dice)} {word}: {shown}{'' if kept is None else f'; kept the {kept}'})"
+
+
+def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0, roll_id=None, burned=None):
     """For a roll that has just landed on the roller's felt: True when its dice tumble
     now and the table is told; False for a secret roll, which is never shown, and for
     a gilded choice, whose dice are held until a die is kept (secret or not)."""
@@ -153,7 +165,7 @@ def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0, roll_i
             _pending_gilded[character.id] = {
                 "action": action, "roll": dict(roll), "rating": _rating(character, action),
                 "cat": cat or drive_for_action(action), "spent": spent, "secret": bool(is_secret),
-                "roll_id": roll_id,
+                "roll_id": roll_id, "burned": burned,
             }
             return False
     return not is_secret
@@ -439,9 +451,9 @@ async def handle_roll(ctx):
             outcome_label = OUTCOME_LABELS.get(outcome_key, outcome_key)
             # GM rolls omit the internal action name from the log label
             if character:
-                log_msg = f"{char_name} rolled {act} — {result_val} · {outcome_label}."
+                log_msg = f"{char_name} rolled {act} — {result_val} · {outcome_label} {_dice_text(res)}."
             else:
-                log_msg = f"Lightkeeper rolled — {result_val} · {outcome_label}."
+                log_msg = f"Lightkeeper rolled — {result_val} · {outcome_label} {_dice_text(res)}."
 
             # The gilded refresh and Well-Read follow the dice, so they apply to a secret
             # roll too (RULES_CHECK.md item 6); only its log line stays with the roller
@@ -503,7 +515,11 @@ async def handle_resolve_gilded(ctx):
     r_cat, spent = pending["cat"], pending["spent"]
     outcome_key = calculate_outcome(chosen_value, dice)
     outcome_label = OUTCOME_LABELS.get(outcome_key, outcome_key)
-    log_msg = f"{character.name} rolled {r_act} — {chosen_value} · {outcome_label}."
+    dice_text = _dice_text(roll, kept=f"gilded {chosen_value}" if want_gilded else chosen_value)
+    # A burn's reroll that waited for this choice is logged as the burn it was
+    # (handle_burn_resistance), with the drive whose resistance went
+    verb = f"burned {pending['burned'].capitalize()} resistance on" if pending.get("burned") else "rolled"
+    log_msg = f"{character.name} {verb} {r_act} — {chosen_value} · {outcome_label} {dice_text}."
 
     changed = False
     if want_gilded:
@@ -737,12 +753,12 @@ async def handle_burn_resistance(ctx):
         "type": "roll_result",
         "payload": {"character_id": target_char_id, "action": act, "roll": result, "character": get_char_dict(character)}
     })
-    if _hold_or_throw(character, act, result, secret, drive_key):
+    if _hold_or_throw(character, act, result, secret, drive_key, burned=drive_key):
         await _dice_thrown(ctx, character, act, result, _rating(character, act))
-    if result.get("needs_gilded_choice"):
-        # The result is the die the player keeps; resolve_gilded logs it
-        log_msg = f"{character.name} burned resistance on {act}."
-    else:
-        log_msg = f"{character.name} burned resistance on {act} — {result['result']} · {outcome_label}.{refreshed}"
+    # One line for every burn, the drive named. A reroll that needs a gilded choice logs
+    # nothing yet: resolve_gilded writes the line, with the die kept
+    if not result.get("needs_gilded_choice"):
+        log_msg = (f"{character.name} burned {drive_key.capitalize()} resistance on {act} "
+                   f"— {result['result']} · {outcome_label} {_dice_text(result)}.{refreshed}")
         _remember(character, act, drive_key, result["result"], result["outcome"], secret)
-    await _log_roll(ctx, character, log_msg, secret=secret)
+        await _log_roll(ctx, character, log_msg, secret=secret)

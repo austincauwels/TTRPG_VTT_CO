@@ -7,7 +7,7 @@ import { CrossMark } from '../shared/InkMarks';
 import { tiltFor } from '../shared/handPlaced';
 import { DieFace, DIE_BODY } from './dice/Die';
 import { agedPaper } from '../campaignSelector/paperArt';
-import useGameStore from '../../store/gameStore';
+import useGameStore, { postRollChoiceWaiting } from '../../store/gameStore';
 import { NewDot } from '../shared/TableStrip';
 
 // The player desk below md (owner's round 4 item 14): the member ID strip is a slim band
@@ -102,6 +102,8 @@ export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
   // Parts with a change from the Lightkeeper the player has not looked at (a "new" dot)
   const unseen = useGameStore((s) => s.unseen);
   const anyNew = ['dispatch', 'watch', 'circle'].some((k) => unseen[k]);
+  // A Burn and reroll or a gilded die waits on the player after the roll bar has faded
+  const choiceWaiting = useGameStore(postRollChoiceWaiting);
 
   const close = useCallback(() => setPhase(reducedMotion() ? 'closed' : 'closing'), []);
   useEffect(() => {
@@ -146,13 +148,14 @@ export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
         type="button"
         onClick={() => onChoose(onDice ? 'back' : 'dice')}
         aria-pressed={onDice}
-        aria-label="Dice and log"
-        className={`w-11 h-11 inline-flex items-center justify-center rounded border transition-colors ${
+        aria-label={choiceWaiting && !onDice ? 'Dice and log, a choice is waiting' : 'Dice and log'}
+        className={`relative w-11 h-11 inline-flex items-center justify-center rounded border transition-colors ${
           onDice ? 'bg-ink border-ink' : 'bg-transparent border-ink/25 [@media(hover:hover)]:hover:bg-black/5'}`}
       >
         <span aria-hidden="true" className={`w-7 h-7 p-px rounded ${DIE_BODY.regular} shadow-[1px_2px_3px_rgba(0,0,0,0.35)] -rotate-6`}>
           <DieFace value={5} />
         </span>
+        {choiceWaiting && !onDice && <span aria-hidden="true" data-new-dot="" className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-oxblood border border-cream/70 shadow-sm" />}
       </button>
       <button
         type="button"

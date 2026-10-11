@@ -146,3 +146,22 @@ export function getAvailableRollMods(character, action, circle = null) {
   }
   return mods;
 }
+
+// The pool a roll will have with the abilities picked, for the roll button before the
+// roll (playtest, ability-toggle-no-preview). It mirrors the dice and gilding the server
+// plans (_plan_roll in backend/vtt/ws/handlers/rolls.py): the rating, the drive spent (the
+// first point worth two with Lie Detector, Misdirection or Better Part of Valor), the
+// dice the picked abilities add, capped at six, and the gilded dice (the action's own and
+// one for each ability that gilds). Only the abilities that change dice or gilding are
+// counted, so it returns null when none picked does, and the button stays as it was.
+export function previewPool({ rating, gilded, spend, mods, selectedKeys }) {
+  const picked = (mods || []).filter(m => selectedKeys.includes(m.key));
+  if (!picked.some(m => m.extraDice > 0 || m.shows?.gild || ABILITY_ROLL_MODS[m.key]?.firstPoint)) return null;
+  const firstBonus = spend > 0 ? picked.filter(m => ABILITY_ROLL_MODS[m.key]?.firstPoint).length : 0;
+  const dice = Math.min(6, (rating || 0) + (spend || 0) + firstBonus + picked.reduce((n, m) => n + (m.extraDice || 0), 0));
+  const gilds = Math.min(dice, (gilded ? 1 : 0) + picked.filter(m => m.shows?.gild).length);
+  return {
+    dice, gilds,
+    names: picked.filter(m => m.extraDice > 0 || m.shows?.gild || ABILITY_ROLL_MODS[m.key]?.firstPoint).map(m => m.name || m.key),
+  };
+}
