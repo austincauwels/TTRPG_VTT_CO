@@ -100,9 +100,13 @@ const LEDGER_ROWS = {
 // same warm paper on the GM desk; `gm` stays in the signature for its caller.
 export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
   const logContainerRef = useRef(null);
+  // Whether the reader is at the foot; a log that shrinks (the result slip and the After the
+  // roll panel open above it) then stays there, so the roll just made is the line in view
+  const atFoot = useRef(true);
 
   useEffect(() => {
     if (logContainerRef.current) {
+      atFoot.current = true;
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
   }, [logEntries.length]);
@@ -115,7 +119,7 @@ export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
     let shown = node.clientHeight > 0;
     const ro = new ResizeObserver(() => {
       const now = node.clientHeight > 0;
-      if (now && !shown) node.scrollTop = node.scrollHeight;
+      if (now && (!shown || atFoot.current)) node.scrollTop = node.scrollHeight;
       shown = now;
     });
     ro.observe(node);
@@ -139,6 +143,7 @@ export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
     </div>
     <div
       ref={logContainerRef}
+      onScroll={(e) => { const n = e.currentTarget; atFoot.current = n.scrollHeight - n.scrollTop - n.clientHeight < 24; }}
       className="h-[240px] 2xl:h-[320px] xl:h-auto 2xl:h-auto xl:flex-1 xl:min-h-[6rem] overflow-y-auto flex flex-col gap-3 [&>*]:shrink-0 text-base font-serif leading-normal px-3 py-2 custom-scrollbar"
       style={{
         boxShadow:

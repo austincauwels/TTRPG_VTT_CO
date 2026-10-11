@@ -237,7 +237,8 @@ const ScarModal = () => {
             </p>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          {/* Held at the foot of the scrolling dialog, so both buttons stay in view on a phone */}
+          <div className="flex flex-wrap items-center justify-between gap-3 sticky bottom-0 z-10 -mx-5 sm:-mx-8 -mb-5 sm:-mb-8 px-5 sm:px-8 pt-3 pb-5 sm:pb-8 bg-parchment border-t border-ink/20">
             <button
               type="button"
               onClick={ability ? cancelAbilityScar : deferScar}

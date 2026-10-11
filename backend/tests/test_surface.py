@@ -192,7 +192,7 @@ WS_CASES = {
         sender="gm", payload=lambda c: {"role": "GM", "scene_name": "s"},
         expect=["scene_transition"]),
     "roll": dict(payload=lambda c: {}, expect=["roll_error"]),
-    "update_drive": dict(payload=lambda c: {"pool": "nerve", "value": 1}, expect=["character_update"]),
+    "update_drive": dict(fields={"nerve_max": 3, "nerve_current": 3}, payload=lambda c: {"pool": "nerve", "value": 1}, expect=["character_update", "activity_log"]),
     # A choice needs a gilded roll waiting for it (handlers/rolls.py _pending_gilded)
     "resolve_gilded": dict(
         fields={"move": 2, "gilded_move": True}, dice=(3, 5),

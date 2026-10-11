@@ -1005,24 +1005,31 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2" id={`drive-avail-${cat.driveKey}`}>Available</span>
                   <div className="drive-pips flex gap-0.5 flex-wrap justify-end" role="group" aria-labelledby={`drive-avail-${cat.driveKey}`}>
                     <span className="sr-only">{cat.name}: {currentDrive} of {maxDrive} available.</span>
-                    {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
+                    {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => {
+                      // An empty pip below the maximum fills up to it; the last filled pip clears
+                      // one point, so a mistaken tap can be undone
+                      const refill = !readOnly && i < maxDrive && i >= currentDrive;
+                      const clear = !readOnly && i === currentDrive - 1;
+                      const live = refill || clear;
+                      return (
                       <button
                         key={i}
                         type="button"
-                        disabled={!(!readOnly && i < maxDrive && i >= currentDrive)}
-                        aria-label={`Set ${cat.name} available to ${i + 1}`}
-                        aria-hidden={!readOnly && i < maxDrive && i >= currentDrive ? undefined : true}
-                        onClick={!readOnly && i < maxDrive && i >= currentDrive ? () => handleSpendDrive(cat.driveKey, i + 1) : undefined}
+                        disabled={!live}
+                        aria-label={clear ? `Clear one ${cat.name} point (set to ${i})` : `Set ${cat.name} available to ${i + 1}`}
+                        aria-hidden={live ? undefined : true}
+                        onClick={live ? () => handleSpendDrive(cat.driveKey, clear ? i : i + 1) : undefined}
                         className={`drive-pip w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all ${
                           i < currentDrive
                             ? ''
                             : i < maxDrive
                               ? 'bg-transparent border-ink/40 hover:border-oxblood/50'
                               : 'bg-transparent border-dotted border-ink/30 opacity-40'
-                        } ${!readOnly && i < maxDrive && i >= currentDrive ? 'cursor-pointer' : 'cursor-default'}`}
+                        } ${live ? 'cursor-pointer' : 'cursor-default'}`}
                         style={i < currentDrive ? { background: `rgb(var(--c-drive-${cat.driveKey}))`, borderColor: `rgb(var(--c-drive-${cat.driveKey}))` } : undefined}
                       />
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 

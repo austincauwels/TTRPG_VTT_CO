@@ -21,14 +21,14 @@ def test_a_drive_spent_or_recovered_reaches_the_gm_and_no_other_player(client):
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
         wa.send("update_drive", pool="nerve", value=1)
-        [own] = wa.sync()
+        own = wa.sync()[0]
         # The GM gets the sheet the player's own desk got
-        assert gm.drain() == [{"type": "member_update", "payload": own["payload"]}]
+        assert [m for m in gm.drain() if m["type"] != "activity_log"] == [{"type": "member_update", "payload": own["payload"]}]
         assert set(own["payload"]) == support.CHAR_DICT_KEYS
         wa.send("update_drive", pool="nerve", value=3)
         wa.sync()
         assert [(s["id"], s["nerve_current"]) for s in _sheets(gm.drain())] == [(a["id"], 3)]
-        assert wb.drain() == []
+        assert [m for m in wb.drain() if m["type"] != "activity_log"] == []
 
 
 def test_a_roll_and_a_resistance_burned_or_refreshed_reach_the_gm(client, dice):
