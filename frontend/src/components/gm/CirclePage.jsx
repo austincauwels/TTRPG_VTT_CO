@@ -474,7 +474,7 @@ export const CirclePage = () => {
                 onChange={e => e.target.value && updateCircle({ circle_id: circId, circle_ability: e.target.value })}
                 className="w-full bg-cream border border-dashed border-sepia/50 text-ink font-serif text-base px-2 py-1.5 focus:border-oxblood"
               >
-                <option value="">Choose a circle ability...</option>
+                <option value="">Choose a circle ability…</option>
                 {Object.keys(CIRCLE_ABILITY_DESCRIPTIONS).map(a => (
                   <option key={a}>{a}</option>
                 ))}

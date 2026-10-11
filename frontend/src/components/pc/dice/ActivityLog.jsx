@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { rulebookLogText } from '../../../game/outcomes';
 import { FormLine, PrinterMark } from '../../shared/PrintMarks';
+import { InfoTerm } from '../../shared/ActionInfo';
 import { InlineMarkdown } from '../../shared/NoteMarkdown';
 
 // ── Fallback styles when no ink_color is present (cream-paper log) ───────────
@@ -147,7 +148,7 @@ export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
       }}
     >
       {logEntries.length === 0 && (
-        <p className="font-serif italic text-sm text-sepia">Rolls, passed notes and table events will appear here</p>
+        <InfoTerm label="Nothing logged yet" text="Rolls, passed notes and table events appear here." className="font-serif italic text-sm text-sepia" />
       )}
       {logEntries.map((entry, i) => <LogEntry key={i} entry={entry} />)}
       <div aria-hidden="true" className="!shrink !grow basis-0 min-h-0 -mx-1 pointer-events-none" style={LEDGER_ROWS} />

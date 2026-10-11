@@ -212,7 +212,7 @@ export const DiceTray = forwardRef(({
       ) : (
         // The player's tray keeps how to roll behind an "i"; the Lightkeeper's just says it is empty
         rollHint ? (
-          <InfoTerm label="No dice thrown yet" text="To roll, tap an action on your sheet." className="font-serif italic text-candle-gold text-lg" />
+          <InfoTerm label="No dice thrown yet" text="To roll, tap an action on your sheet." ariaLabel="How to roll" markClassName="text-candle-gold group-hover/info:text-cream" className="font-serif italic text-candle-gold text-lg" />
         ) : (
           <span className="font-serif italic text-candle-gold/80 text-lg">No dice thrown yet</span>
         )
