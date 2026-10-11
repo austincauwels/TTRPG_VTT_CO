@@ -86,6 +86,7 @@ export const CircleCreationPopup = () => {
     submitCircleVote,
     updateBackstoryAnswer,
     updatePersonalAnswer,
+    confirmedPersonalAnswer,
     connectionState,
     proposeRelationship,
     respondToRelationship,
@@ -115,10 +116,12 @@ export const CircleCreationPopup = () => {
   const leadingQuestion = leadingVote(questionVotes)?.value ?? null;
   const myQuestionVote = questionVotes.find(v => v.character_id === myId)?.value || null;
   const [personalAnswer, setPersonalAnswer] = useState(character?.personal_circle_answer || '');
-  // The last text actually handed to the open socket (or loaded from the desk), so "Saved"
-  // never rests on the optimistic copy the store keeps
-  const [sentAnswer, setSentAnswer] = useState(character?.personal_circle_answer || '');
+  // The text the desk last echoed back (or loaded with the sheet), so "Saved" never rests on
+  // the optimistic copy the store keeps nor on a send into a socket that is already dead
+  const loadedAnswer = useRef(character?.personal_circle_answer || '');
+  const sentAnswer = confirmedPersonalAnswer?.characterId === myId ? confirmedPersonalAnswer.answer : loadedAnswer.current;
   const [houseDraft, setHouseDraft] = useState(null);   // the chapter house text while its box has focus
+  const houseAtFocus = useRef('');                      // what the box held when it got focus
 
   // ── Ability section state ──
   const abilityVotes = votes.ability || [];
@@ -166,14 +169,14 @@ export const CircleCreationPopup = () => {
   const handleInsigniaVote = (key) => submitCircleVote(circleId, myId, 'insignia', key);
 
   const handleLocationBlur = (e) => {
-    updateBackstoryAnswer(circleId, 'chapter_house', e.target.value);
+    // Sent only when this player changed it: an untouched copy would overwrite a newer chapter house
+    if (e.target.value !== houseAtFocus.current) updateBackstoryAnswer(circleId, 'chapter_house', e.target.value);
     setHouseDraft(null);
   };
 
   const sendPersonalAnswer = () => {
     if (connectionState !== 'open') return;
     updatePersonalAnswer(circleId, myId, personalAnswer);
-    setSentAnswer(personalAnswer);
   };
   // An answer left behind by a dropped socket goes out again when the desk is back
   const resend = useRef(sendPersonalAnswer);
@@ -374,13 +377,13 @@ export const CircleCreationPopup = () => {
                   The Circle's Chapter House
                 </label>
                 <span className="font-sans text-sm font-bold uppercase tracking-wider text-sepia">
-                  <InfoTerm label="Shared" text="The whole circle shares this box. What you save here replaces what anyone else wrote." />
+                  <InfoTerm label="Shared" slipClassName="right-0 left-auto top-full mt-1 w-[min(18rem,calc(100vw-2.5rem))]" text="The whole circle shares this box. What you save here replaces what anyone else wrote." />
                 </span>
               </div>
               <textarea
                 id="circle-chapter-house"
                 value={houseDraft ?? backstoryAnswers.chapter_house ?? ''}
-                onFocus={e => setHouseDraft(e.target.value)}
+                onFocus={e => { houseAtFocus.current = e.target.value; setHouseDraft(e.target.value); }}
                 onChange={e => setHouseDraft(e.target.value)}
                 onBlur={handleLocationBlur}
                 rows={3}

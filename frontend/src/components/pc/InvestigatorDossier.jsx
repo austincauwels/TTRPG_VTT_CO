@@ -692,6 +692,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   const pendingCount = countedGear(pendingGear).length;
   // Gear written in by name in this dialog and not saved yet: it can still be taken off
   const pendingWritten = pendingGear.filter(item => !listedGear.includes(item) && !gear.includes(item));
+  const swappable = countedGear(pendingGear.filter(item => !gear.includes(item))).length > 0;
   const writeInName = writeIn.trim();
   const canWriteIn = writeInName && pendingCount < slots && !pendingGear.includes(writeInName)
     && !writeInName.startsWith(GEAR_RULES.oneStepAhead);
@@ -1483,7 +1484,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               {/* Shown only while it matters: the reason Add is greyed, and the length near its cut */}
               {writeInName && (pendingCount >= slots || writeIn.length >= 45) && (
                 <p role="status" className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-xs font-sans font-black text-sepia">
-                  <span>{pendingCount >= slots ? `All ${slots} gear slots are marked. Untick one to swap.` : ''}</span>
+                  <span>{pendingCount >= slots ? (swappable ? `All ${slots} gear slots are marked. Untick one to swap.` : `All ${slots} gear slots are marked until the assignment ends.`) : ''}</span>
                   {writeIn.length >= 45 && <span className="tabular-nums">{writeIn.length} / 60</span>}
                 </p>
               )}
