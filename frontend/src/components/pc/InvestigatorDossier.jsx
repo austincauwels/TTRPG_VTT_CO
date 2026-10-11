@@ -1506,12 +1506,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-2">Change Gear</h2>
             <p className="text-sm font-serif italic text-sepia mb-3">Choose the gear you carry. A chosen item is marked and stays until the Lightkeeper ends the assignment, when everyone's gear is cleared, to be chosen again.</p>
             {/* Why the rest are greyed, at the top where a phone shows it */}
-            {pendingCount >= slots && (
-              <p role="status" className="mb-4 text-xs font-sans font-black text-sepia">
-                {swappable ? `All ${slots} gear slots are marked. Untick one to swap.` : `All ${slots} gear slots are marked until the assignment ends.`}
-              </p>
-            )}
-            {pendingCount < slots && <div className="mb-2" />}
+            <p role="status" className="mb-2 text-xs font-sans font-black text-sepia">
+              {pendingCount < slots ? '' : swappable ? `All ${slots} gear slots are marked. Untick one to swap.` : `All ${slots} gear slots are marked until the assignment ends.`}
+            </p>
             {/* The sheet's blank gear line (p. 53): circle gear, or gear found on the way,
                 written in by name. Marked items stay; new ones can be taken off until saved. */}
             <div className="mb-4">

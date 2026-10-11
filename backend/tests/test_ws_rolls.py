@@ -1774,7 +1774,6 @@ def test_saw_this_coming_adds_an_allys_die(client, dice):
     assert support.fetch(Character, roller["id"]).nerve_current == 3
 
 
-
 def test_a_kept_gilded_die_at_a_full_drive_logs_no_refresh(client, dice):
     """Playtest, gilded-refund-promised-at-full-drive: with the drive already at its top
     nothing comes back, so the line carries no refreshed tag and no sheet is sent."""
@@ -1784,7 +1783,22 @@ def test_a_kept_gilded_die_at_a_full_drive_logs_no_refresh(client, dice):
         ws.send("roll", action="move", drive_spent=0)
         ws.sync()
         ws.send("resolve_gilded", action="move", chosen_type="gilded")
-        line = [m for m in ws.sync() if m["type"] == "activity_log"][0]["payload"]["message"]
+        msgs = ws.sync()
+        assert "character_update" not in support.types(msgs)
+        line = [m for m in msgs if m["type"] == "activity_log"][0]["payload"]["message"]
+        assert "refreshed" not in line
+    assert support.fetch(Character, ch["id"]).nerve_current == 3
+
+
+def test_a_burn_reroll_gilded_die_at_a_full_drive_logs_no_refresh(client, dice):
+    ch = support.forge(client, gilded_move=True, nerve_max=3, nerve_current=3)
+    dice(3, 3)
+    with support.ws_connect(client, ch["id"]) as ws:
+        support.last_roll(ch["id"], "move")
+        ws.send("burn_resistance", action="move", drive_key="nerve")
+        msgs = ws.sync()
+        assert msgs[0]["payload"]["roll"]["auto_gilded_refresh"] is True
+        line = [m for m in msgs if m["type"] == "activity_log"][0]["payload"]["message"]
         assert "refreshed" not in line
     assert support.fetch(Character, ch["id"]).nerve_current == 3
 

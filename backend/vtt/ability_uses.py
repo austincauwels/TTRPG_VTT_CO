@@ -24,6 +24,7 @@ Each entry may have:
   gives the ally the player picks a fourth gear slot, and Blood of the Covenant refreshes
   drive points, split as the player chooses, equal to the current Intuition resistance.
   Great Wards moves the Weird's ward to the person chosen (characters.warded_by_id).
+- then: the player's next step, added to the log line (Commune: roll Sense).
 """
 
 ABILITY_USES = {

@@ -78,7 +78,7 @@ export const RollModifications = ({
                 </span>
               </p>
               <p className="font-serif text-sm text-parchment-deep mt-0.5">
-                <InfoTerm label={`${action}: ${pool}`} ariaLabel="What a reroll throws"
+                <InfoTerm label={`${action}: ${pool}`} ariaLabel={`${action}: ${pool}, what a reroll throws`}
                   text="A reroll throws the action rating alone. Drive spent and dice an ability added are not thrown again."
                   markClassName="text-parchment-deep group-hover/info:text-cream" />
               </p>

@@ -678,7 +678,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   };
 
   const gearFull = selectedGear.length >= 3;
-  const gearFullTitle = 'All 3 gear are marked. Untick one to swap.';
+  const gearFullTitle = 'Three gear is the limit. Untick one to swap.';
   const toggleGear = (item) => {
     if (selectedGear.includes(item)) setSelectedGear(selectedGear.filter(g => g !== item));
     else if (selectedGear.length < 3) setSelectedGear([...selectedGear, item]);
