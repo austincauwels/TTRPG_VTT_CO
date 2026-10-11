@@ -385,6 +385,7 @@ export const CirclePage = () => {
               <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
               <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={30} className="text-ink/85" />
             </div>
+            <span className="font-serif text-xs italic text-sepia text-center">{insigniaLabel(circle?.insignia || 'GiCandleLight')}</span>
           </div>
         </div>
 
@@ -420,7 +421,7 @@ export const CirclePage = () => {
                   tabIndex={0}
                   role="button"
                   aria-label={`Set Illumination to ${filled && illum === i + 1 ? i : i + 1}`}
-                  title={`Illumination ${i + 1}`}
+                  title={milestone ? `Illumination ${i + 1}, a milestone` : `Illumination ${i + 1}`}
                   className={`touch-pip [--hit-y:-14px] [--hit-x:-4px] w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
                     filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'
                   } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}
@@ -443,6 +444,9 @@ export const CirclePage = () => {
               −1
             </button>
           </div>
+          <p className="font-serif text-xs text-sepia leading-snug mt-2">
+            The gold-ringed pips are milestones (3, 6 and 9); the track fills at 12. A milestone matters only to a circle with Resource Management.
+          </p>
         </div>
 
         {/* Active Circle Ability */}
