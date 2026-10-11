@@ -23,7 +23,7 @@ from models import Character, Circle
 from vtt.circle_queries import (SAW_THIS_COMING_USES, STAMINA_DICE, circle_abilities, downed_members, take_train_die,
                                 train_dice_left)
 from vtt.serializers import get_char_dict, get_circle_dict
-from vtt.ws.handlers.circle import announce_downed
+from vtt.ws.handlers.circle import announce_downed, announce_status
 from vtt.serializers import awaiting_scar
 from vtt.ws.handlers.marks import apply_mark
 from vtt.ws.manager import character_key, manager
@@ -759,6 +759,7 @@ async def handle_use_post_roll_ability(ctx):
         await manager.broadcast(character_key(ally.id), {"type": "character_update", "payload": get_char_dict(ally)})
         paid = ", ".join(f"{v} {d.capitalize()}" for d, v in cost.items() if v)
         await log(f"{character.name} used Resuscitation — {ally.name} is back on their feet" + (f" ({paid})." if paid else "."))
+        await announce_status(ctx, ally)
         await announce_downed(ctx)
 
 

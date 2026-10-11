@@ -128,7 +128,7 @@ The `trigger_scar` event opens the Scar Modal on the affected player's screen. T
 
 The server appends the scar text to `character.scars_list` (a JSON array) and increments `scars_count`. The Action Point Shift is applied to the two specified action columns.
 
-While a scar is owed, the sheet carries `scar_pending` (the Lightkeeper's copy reads "Incapacitated: scar to record"), and recording it writes "<name> recorded a scar (n of 4)." to the table's log. The fourth scar asks for no action shift and cannot be put off with Decide later. After an incapacitation, **a GM can revive the character** (`revive_character` action, the Revive button on the Lightkeeper's copy of the sheet), which clears the `incapacitated` flag so the character can act again. The track that overfilled was already cleared when the scar was taken; the other tracks keep their marks.
+While a scar is owed, the sheet carries `scar_pending` (the Lightkeeper's copy reads "Incapacitated: scar owed"), and recording it writes "<name> recorded a scar (n of 4)." to the table's log. The fourth scar asks for no action shift and cannot be put off with Decide later. After an incapacitation, **a GM can revive the character** (`revive_character` action, the Revive button on the Lightkeeper's copy of the sheet), which clears the `incapacitated` flag so the character can act again. The track that overfilled was already cleared when the scar was taken; the other tracks keep their marks.
 
 ---
 

@@ -953,19 +953,31 @@ def test_a_replaced_dead_investigator_keeps_a_fallen_card_for_the_lightkeeper(cl
     old = support.active_member(client, camp, user_id=u.id, personal_circle_answer="He kept the lamp lit.")
     support.update(Character, old["id"], is_dead=True, scars_count=4)
     new = support.pending_member(client, camp, user_id=u.id)
-    with support.ws_connect(client, camp["campaign_code"]) as gm:
+    watcher = support.active_member(client, camp)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, watcher["id"]) as member:
         assert support.approve(client, new["id"]).status_code == 200
         frames = gm.drain()
+        member_frames = member.drain()
     approved = next(m for m in frames if m["type"] == "investigator_approved")
     assert [c["id"] for c in approved["payload"]["fallen_investigators"]] == [old["id"]]
+    # only the Lightkeeper's copy lists the fallen
+    [plain] = [m for m in member_frames if m["type"] == "investigator_approved"]
+    assert "fallen_investigators" not in plain["payload"]
     logs = [m["payload"]["message"] for m in frames if m["type"] == "activity_log"]
     assert logs == [f"{new['name']} joined the circle, in place of {old['name']}."]
     roster = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
-    assert [c["id"] for c in roster["active_investigators"]] == [new["id"]]
+    assert [c["id"] for c in roster["active_investigators"]] == [new["id"], watcher["id"]]
     [card] = roster["fallen_investigators"]
     assert (card["id"], card["name"], card["personal_circle_answer"], card["scars_count"], card["status"]) == \
         (old["id"], old["name"], "He kept the lamp lit.", 4, "retired")
     mine = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(new["id"])).json()
     assert mine["fallen_investigators"] == []
-    # A living investigator who is let go is not fallen
-    assert all(c["is_dead"] for c in roster["fallen_investigators"])
+    # A living investigator who is let go (a rejoin over a living one) is not fallen
+    v = support.make_user(pending_rejoin_campaign_id=camp["id"])
+    living = support.active_member(client, camp, user_id=v.id)
+    heir = support.forge(client, user_id=v.id)
+    assert client.post("/campaign/rejoin", json={"character_id": heir["id"], "campaign_code": camp["campaign_code"]},
+                       headers=support.as_user(v.id)).status_code == 200
+    assert support.fetch(Character, living["id"]).status == "retired"
+    roster = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
+    assert [c["id"] for c in roster["fallen_investigators"]] == [old["id"]]

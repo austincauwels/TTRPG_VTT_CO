@@ -28,7 +28,7 @@ export const glanceOf = (inv) => {
     inv.incapacitated ? (inv.scar_pending ? 'Incapacitated: scar owed' : 'Incapacitated') : null,
     marks.length ? `Marks: ${marks.join(', ')}` : null,
     scars > 0 ? `${scars} ${scars === 1 ? 'scar' : 'scars'}` : null,
-    picks > 0 ? `${picks} ${picks === 1 ? 'pick' : 'picks'} waiting` : null,
+    picks > 0 ? `${picks} ${picks === 1 ? 'advancement' : 'advancements'} waiting` : null,
   ].filter(Boolean);
 };
 
@@ -46,8 +46,7 @@ export const InvestigatorBusinessCard = ({ inv, onClick, index = 0, deceased = f
     <Tag
       {...(fallen ? { role: 'group' } : { type: 'button', onClick })}
       aria-label={fallen ? `${inv.name}, fallen` : `Open ${inv.name}'s investigator sheet${deceased ? ' (deceased)' : ''}`}
-      whileHover={{ scale: 1.04, rotate: 0, zIndex: 10 }}
-      whileTap={{ scale: 0.97 }}
+      {...(fallen ? {} : { whileHover: { scale: 1.04, rotate: 0, zIndex: 10 }, whileTap: { scale: 0.97 } })}
       style={{ rotate: rotation }}
       className={`relative max-w-full min-w-0 ${fallen ? '' : 'cursor-pointer'} text-left shadow-[4px_6px_16px_rgba(0,0,0,0.65)]`}
     >

@@ -1670,9 +1670,26 @@ def test_resuscitation_revives_a_scarred_ally(client, dice, face):
         msgs = wd.sync()
         assert msgs[-1]["payload"]["message"] == f"{doc['name']} used Resuscitation {support.EM} {ally['name']} is back on their feet" \
             + (" (2 Nerve, 1 Intuition)." if face == 5 else ".")
-        assert wa.drain()[0]["payload"]["incapacitated"] is False
+        assert [m["payload"]["incapacitated"] for m in wa.drain() if m["type"] in ("character_update", "member_status")] == [False, False]
     row = support.fetch(Character, doc["id"])
     assert (row.nerve_current, row.intuition_current) == ((0, 2) if face == 5 else (2, 3))
+
+
+def test_resuscitation_tells_the_other_players_the_ally_is_up(client, dice):
+    """Another player's roster (the circle cards) keeps the ally down until member_status says
+    otherwise, so a Resuscitation sends it."""
+    camp, doc, ally = _doctor_and_ally(client, "Resuscitation", {"incapacitated": True, "scars_count": 1})
+    third = support.active_member(client, camp)
+    dice(6)
+    with support.ws_connect(client, doc["id"]) as wd, support.ws_connect(client, third["id"]) as wt:
+        wd.send("roll", action="read", drive_spent=0)
+        wd.sync()
+        wt.drain()
+        wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
+        wd.sync()
+        status = [m for m in wt.drain() if m["type"] == "member_status"]
+    assert [m["payload"] for m in status] == [{"character_id": ally["id"], "campaign_id": camp["id"],
+                                               "is_dead": False, "incapacitated": False, "scars_count": 1}]
 
 
 def test_resuscitation_refusals(client, dice):

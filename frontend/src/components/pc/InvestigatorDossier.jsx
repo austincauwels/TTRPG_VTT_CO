@@ -537,6 +537,17 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // Save and "Yes, remove" go away once pressed, so keyboard focus moves on to a scar's
   // words (that line's, or the next line's after a removal), or to Done when none is left
   const scarLinesRef = useRef(null);
+  // A scar newly recorded on a player's own sheet brings the scars list into view, so the new
+  // line is seen where it was written (the log line says it too)
+  const scarsSeen = useRef(character?.scars_count || 0);
+  useEffect(() => {
+    const n = character?.scars_count || 0;
+    if (!readOnly && n > scarsSeen.current) {
+      const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      scarLinesRef.current?.scrollIntoView?.({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+    }
+    scarsSeen.current = n;
+  }, [character?.scars_count, readOnly]);
   const traumaToggleRef = useRef(null);
   const focusScarAfter = useRef(null);
   useEffect(() => {
@@ -1342,9 +1353,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             {/* The status, rubber-stamped on the record */}
             <div className="mark-status flex flex-wrap items-center gap-2">
               <span className="sr-only">Status: </span>
-              <span className={`mark-stamp inline-block -rotate-2 border-2 rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight whitespace-nowrap ${
+              <span className={`mark-stamp inline-block -rotate-2 border-2 rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight ${
                 character?.is_dead ? 'border-ink text-ink' : character?.incapacitated ? 'border-oxblood text-oxblood' : 'border-sepia/70 text-sepia'}`}>
-                {character?.is_dead ? "Dead" : character?.incapacitated ? (character.scar_pending ? "Incapacitated: scar to record" : "Incapacitated") : "Able to act"}
+                {character?.is_dead ? "Dead" : character?.incapacitated ? (character.scar_pending ? "Incapacitated: scar owed" : "Incapacitated") : "Able to act"}
               </span>
               {character?.is_dead && !readOnly && (
                 <button
