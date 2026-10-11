@@ -257,8 +257,14 @@ Entries are soft-deleted (`is_deleted = true`) rather than removed from the data
 
 Nothing reaches the server until it is pinned or added. Until then a private note and a field entry's title and text are kept in the browser's `localStorage` under the account, the campaign and the seat (`candela-notebook-draft:<user id>:<campaign id>:<character id, or lightkeeper>`), so leaving the notebook or reloading keeps them, and pinning or adding clears them, even when the notebook was left before the server answered. They stay after Sign out, as the creator's draft does: the app never shows them to another account, but anyone who can read that browser's storage can. Where the browser refuses storage (a private window, a full or blocked store), the writing is kept in the open page instead: leaving the notebook keeps it, a reload does not. A picture staged for an entry waits in the open page only (DESIGN.md, Notes in Markdown).
 
+### Who reads a passed note?
+
+A player's To: list offers @Circle, @Lightkeeper only and the other investigators (not the sender). A private note to an investigator is shown to the Lightkeeper too, and its label says so; a note to @Lightkeeper alone reaches no other player. The name Lightkeeper is reserved at the server, so no investigator can share the recipient's name.
+
 ## What the Lightkeeper's changes look like on the players' desks (since 2026-10-10)
 
 - The dispatch (with its location, "sent a dispatch: Docks."), the tension, the timer (set, start, pause, reset, clear), the reports opening and closing, a filed or amended report and the Lightkeeper's edits of Stitch, Refresh and Train each write a line in the Activity Log. A phone shows a "new" dot on the Menu and the matching drawer row until the player has opened that part.
 - A player spends a circle resource in two presses (the first asks). A spend is used for the whole circle; each player has two per assignment, and a replacement investigator (rejoin) keeps the count of the one it replaces. The Lightkeeper can give a member one back from the member's sheet, optionally returning the resource to the circle's pool, and the log says so.
+- An unsent dispatch (location, text) is kept while the Lightkeeper visits Map, Notebook or Circle, until the page is reloaded; if another dispatch arrives meanwhile, the letter shows that one instead.
+- Reset empties the timer's screen-reader status, so the next start and run-out are announced again.
 - Keeping the gilded die in a gilded roll gives one point back to the action's drive; keeping the regular die does not. The slip says what each choice does before it is made.

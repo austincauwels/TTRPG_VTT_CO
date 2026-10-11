@@ -100,7 +100,7 @@ Frontend callers of `connect`: `CampaignSelector.enterAsPlayer` and `handleLastP
 | `circle_personal_answer` | 2343 | `updatePersonalAnswer` | `character_id` present | Owner of `character_id` |
 | `circle_relationship_propose` | 2359 | `proposeRelationship` | ids and type present | Owner of `from_character_id`, both in the same circle |
 | `circle_relationship_respond` | 2390 | `respondToRelationship` | ids present | Owner of the other party (the character that did not act last) |
-| `chat_message` | 2416 | `sendChat` | non-empty text | Any member of the campaign; `@Environment` GM only; sender name derived by the server |
+| `chat_message` | 2416 | `sendChat` | non-empty text | Any member of the campaign; `@Environment` GM only; `@Lightkeeper` reaches the sender and the Lightkeeper alone; sender name derived by the server |
 | `add_notebook_entry` | 2472 | none (UI uses REST) | `campaign_id` present | Member of that campaign; GM for `gm_only` and Lightkeeper entries (or remove) |
 
 "Character resolved" means the `character` lookup found a row. On a player socket that is always true. On a GM socket it is only true when the payload carries a `character_id`.
@@ -223,7 +223,7 @@ Nothing checks that an offer was made, that the target took a mark, or that the 
 
 ### 4.7 Chat and notebook
 
-**`chat_message`** (2416). Fields: `sender_name`, `message`, `target` (`@Circle` by default, `@Environment`, or `@<character name>`). The campaign is re-resolved from the character or the code.
+**`chat_message`** (2416). Fields: `sender_name`, `message`, `target` (`@Circle` by default, `@Environment`, or `@<character name>`, or `@Lightkeeper`, which only the sender and the Lightkeeper receive and no character of that name does). The campaign is re-resolved from the character or the code.
 
 - `@Environment`: the text upper-cased, `activity_log` with log_type `environment` to the campaign. Any socket can send it; the UI only offers it on GM controls.
 - `@Circle`: `"<sender_name>: <text>"`, `activity_log` with log_type `chat` and the sender's ink color, to the campaign.

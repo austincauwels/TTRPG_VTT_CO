@@ -59,12 +59,16 @@ async def handle_chat_message(ctx):
             "payload": {"message": log_msg, "log_type": "chat", "target": target, "ink_color": sender_ink},
         }
         player_name = target.lstrip("@")
-        target_char = db.query(Character).filter(
-            Character.name.ilike(player_name),
-            Character.campaign_id == chat_campaign_id,
-        ).first() if chat_campaign_id else db.query(Character).filter(
-            Character.name.ilike(player_name)
-        ).first()
+        # "@Lightkeeper" is the Lightkeeper alone, never a character of that name
+        if player_name.lower() == GM_SENDER_NAME.lower():
+            target_char = None
+        else:
+            target_char = db.query(Character).filter(
+                Character.name.ilike(player_name),
+                Character.campaign_id == chat_campaign_id,
+            ).first() if chat_campaign_id else db.query(Character).filter(
+                Character.name.ilike(player_name)
+            ).first()
         notify_ids = {channel}
         if chat_campaign_code is not None:
             notify_ids.add(campaign_key(chat_campaign_code))

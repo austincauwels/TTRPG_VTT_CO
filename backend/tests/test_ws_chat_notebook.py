@@ -88,6 +88,21 @@ def test_whisper_to_unknown_name(client):
         assert wb.drain() == []
 
 
+def test_note_to_the_lightkeeper_alone_skips_a_character_of_that_name(client):
+    """"@Lightkeeper" is reserved: only the sender and the GM get it, even if a
+    character is named Lightkeeper."""
+    camp, (a, b) = _campaign_with(client, f"Ada {support.uid()}", "Lightkeeper")
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
+        wa.send("chat_message", message="only you", target="@Lightkeeper")
+        expected = {"type": "activity_log", "payload": {
+            "message": f"{a['name']} {ARROW} @Lightkeeper: only you", "log_type": "chat",
+            "target": "@Lightkeeper", "ink_color": engine.INK_COLORS[0]}}
+        assert wa.sync() == [expected]
+        assert gm.drain() == [expected]
+        assert wb.drain() == []
+
+
 def test_whisper_without_campaign_is_rejected(client):
     """Before tokens a socket with no campaign matched the target name with ILIKE
     across all characters, so a whisper could reach a member of any campaign. Chat
