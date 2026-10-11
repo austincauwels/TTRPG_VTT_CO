@@ -358,3 +358,19 @@ def test_finalize_keeps_an_existing_chapter_house(client):
     body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp)).json()
     assert body["chapter_house_location"] == "Tower"
     assert body["backstory_answers"] == {"chapter_house": "Mill"}
+
+
+def test_sealing_the_circle_is_logged(client):
+    """The seal writes an Activity Log line with the name, ability and insignia (playtest,
+    seal-rename-approvals-not-logged)."""
+    camp, (a,), cid = _setup(client, members=1)
+    _vote(client, cid, a["id"], "name_vote", "The Moths")
+    _vote(client, cid, a["id"], "ability", "Hunters")
+    _vote(client, cid, a["id"], "insignia", "GiCandleLight")
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.sync()
+        r = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid},
+                        headers=support.as_gm(camp))
+        assert r.status_code == 200
+        lines = [m["payload"]["message"] for m in support.of_type(gm.drain(), "activity_log")]
+    assert lines == ["The Lightkeeper sealed the circle: The Moths, Hunters, Candlelight."]

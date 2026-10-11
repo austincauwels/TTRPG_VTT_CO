@@ -488,7 +488,7 @@ def test_spend_sees_the_gm_opening_spending(client):
     with support.ws_connect(client, member["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("gm_toggle_resource_edit", role="GM")
         assert gm.sync()[0]["payload"]["resources_editable"] is True
-        assert support.types(ws.drain()) == ["circle_update"]
+        assert support.types(ws.drain()) == ["circle_update", "activity_log"]
         ws.send("spend_resource", resource_type="stitch")
         assert support.types(ws.sync()) == ["character_update", "circle_update", "activity_log"]
 

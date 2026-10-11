@@ -229,7 +229,7 @@ WS_CASES = {
         payload=lambda c: {"action": "move", "drive_key": "nerve"}, expect=["roll_result", "activity_log"]),
     "update_gear": dict(payload=lambda c: {"gear": ["rope"]}, expect=["character_update", "activity_log"]),
     "gm_toggle_resource_edit": dict(
-        sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update"]),
+        sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update", "activity_log"]),
     "gm_toggle_reports": dict(
         sender="gm", payload=lambda c: {"role": "GM", "circle_id": c.circle_id}, expect=["circle_update", "activity_log"]),
     # A report needs the Lightkeeper's reports open (handlers/circle.py)

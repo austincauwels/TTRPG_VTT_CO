@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ConfirmAction } from '../shared/ConfirmAction';
-import { FormLine, SerialNo, PrinterMark, BlankEntry, serialFor } from '../shared/PrintMarks';
+import { FormLine, SerialNo, PrinterMark, BlankEntry, serialFor, dispatchSerial } from '../shared/PrintMarks';
 import { playPaperSound } from '../../game/rollSounds';
 import { Hourglass } from '../shared/Hourglass';
 import { TensionTimer, formatTime, useTimeLeft } from '../shared/TensionTimer';
@@ -290,7 +290,7 @@ export const SceneManager = () => {
 
       {/* Letterhead */}
       <div className="border-b-2 border-double border-sepia pb-4 mb-6 xl:pb-3 xl:mb-4 text-center relative">
-        <SerialNo value={serialFor(`dispatch-${circle?.id ?? ''}`, 4)} className="absolute top-0 right-0" />
+        <SerialNo value={(dispatchSerial(circle) ?? serialFor(`dispatch-${circle?.id ?? ''}`, 4))} className="absolute top-0 right-0" />
         <SafeIcon name="GiEyeShield" size={32} className="mx-auto mb-2 text-sepia" />
         <h2 className="font-display uppercase tracking-[0.08em] text-xl leading-tight">Candela Obscura</h2>
         <p className="font-serif italic text-base text-sepia leading-snug">Office of the Lightkeeper: Priority Dispatch</p>

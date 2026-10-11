@@ -959,7 +959,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
             activeColor: 'rgb(var(--c-parchment))', activeText: 'rgb(var(--c-ink))', inactiveColor: 'rgb(var(--c-sepia) / 0.75)', inactiveText: 'rgb(var(--c-parchment-deep))',
           },
           ...(isGM ? [{
-            label: `Lightkeeper Resources${lkEntries.length > 0 ? ` (${lkEntries.length})` : ''}`,
+            label: 'Lightkeeper Resources',
             active: isLKView,
             onClick: () => { setShowLKResources(true); setShowEphemeral(false); },
             activeColor: 'rgb(var(--c-parchment))', activeText: 'rgb(var(--c-oxblood))', inactiveColor: 'rgb(var(--c-sepia) / 0.75)', inactiveText: 'rgb(var(--c-parchment-deep))',
@@ -1099,9 +1099,9 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
             </div>
 
             {/* Continuous note area */}
-            <div className="px-4 sm:px-8 py-4" style={LINED_PAPER}>
+            <div className="px-4 sm:px-8 py-4" style={{ ...LINED_PAPER, backgroundPosition: '0 16px' }}>
               {lkPreview ? (
-                <NoteMarkdown text={lkContent} className="text-[26px] leading-[3.5rem] font-serif text-ink py-0.5"
+                <NoteMarkdown text={lkContent} className="px-2 text-[24px] leading-[28px] font-serif text-ink"
                   style={{ minHeight: '700px' }} />
               ) : (
                 <textarea
@@ -1109,7 +1109,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                   value={lkContent}
                   onChange={e => handleLKContentChange(e.target.value)}
                   aria-label="Lightkeeper notes"
-                  className="w-full bg-transparent border-none resize-none text-[26px] leading-[3.5rem] font-serif text-ink placeholder-sepia/90"
+                  className="w-full bg-transparent border-none resize-none px-2 text-[24px] leading-[28px] font-serif text-ink placeholder-sepia/90"
                   style={{ backgroundImage: 'none', minHeight: '700px' }}
                 />
               )}

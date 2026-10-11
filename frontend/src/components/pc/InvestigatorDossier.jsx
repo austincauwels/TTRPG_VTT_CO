@@ -208,7 +208,7 @@ const ScarEditLine = ({ index, raw, draft, onDraft, onSave, onRemove, removeHint
       <label htmlFor={id} className="sr-only">Scar {index + 1}</label>
       <textarea
         id={id}
-        rows={2}
+        rows={Math.min(10, Math.max(2, Math.ceil(value.length / 48) + value.split('\n').length - 1))}
         maxLength={SCAR_TEXT_MAX}
         value={value}
         onChange={e => onDraft(e.target.value)}

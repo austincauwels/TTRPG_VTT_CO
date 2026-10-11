@@ -405,6 +405,7 @@ def test_gm_update_scars_keeps_a_death_once_the_player_has_a_new_investigator(cl
         assert support.approve(client, successor["id"]).status_code == 200
         gm.recv_type("investigator_approved")
         gm.recv_type("circle_update")  # the circle's pool grew with the new member
+        gm.recv_type("activity_log")  # and the approval is logged
         gm.send("gm_update_scars", character_id=dead["id"], scars=SCARS, previous=SCARS + ["The fourth"])
         assert [m for m in gm.sync() if m["type"] != "activity_log"] == [_rejected("gm_update_scars")]
     row = support.fetch(Character, dead["id"])
@@ -438,7 +439,7 @@ def test_gm_toggles(client):
         # payload.role is ignored now: these two toggle as well
         gm.send("gm_toggle_reports")
         gm.send("gm_toggle_resource_edit", role="player")
-        assert support.types(gm.sync()) == ["circle_update", "activity_log", "circle_update"]
+        assert support.types(gm.sync()) == ["circle_update", "activity_log", "circle_update", "activity_log"]
         assert support.types(support.of_type(wm.drain(), "circle_update")) == ["circle_update"] * 5
     c = support.fetch(Circle, cid)
     assert (c.resources_editable, c.reports_open) == (True, False)
@@ -1168,13 +1169,12 @@ def test_a_relationship_waiting_at_the_seal_can_still_be_answered(client):
     with support.ws_connect(client, b["id"]) as wb, support.ws_connect(client, c["id"]) as wc, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
         wb.send("circle_relationship_respond", relationship_id=to_b, action="accept")
-        [msg] = wb.sync()
-        assert msg["type"] == "relationship_update"
+        [msg] = support.of_type(wb.sync(), "relationship_update")
         assert support.of_type(gm.drain(), "relationship_update") == [msg]
-        assert wc.drain() == [msg]
+        assert support.of_type(wc.drain(), "relationship_update") == [msg]
         wc.send("circle_relationship_respond", relationship_id=to_c, action="counter",
                 counter_type="Family", counter_lore="cousins")
-        [msg] = wc.sync()
+        [msg] = support.of_type(wc.sync(), "relationship_update")
         assert support.of_type(gm.drain(), "relationship_update") == [msg]
     accepted, countered = support.fetch(Relationship, to_b), support.fetch(Relationship, to_c)
     assert (accepted.status, accepted.last_actor_id) == ("accepted", b["id"])
@@ -1509,3 +1509,21 @@ def test_a_lightkeeper_cannot_give_a_spend_back_on_another_campaigns_circle(clie
         assert [m["type"] for m in gm.sync()] == ["action_rejected"]
     assert support.fetch(Circle, other_cid).stitch == before
     assert support.fetch(Character, member["id"]).resources_spent_assignment == 1
+
+
+def test_spending_and_renaming_and_long_names_are_logged(client):
+    """Allow spending / Lock spending, a rename, and a long place all leave a line
+    (playtest: spending-toggle-not-logged, seal-rename-approvals-not-logged,
+    dispatch-log-cut-at-80)."""
+    camp, (member,), cid = _campaign(client)
+    place = "The flooded crypt beneath the Church of Saint Aldric the Unmourned, Newfaire Old Quarter"
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("gm_toggle_resource_edit", circle_id=cid)
+        gm.send("gm_toggle_resource_edit", circle_id=cid)
+        gm.send("update_circle", circle_id=cid, name="The Green Lamp Society")
+        gm.send("update_circle", circle_id=cid, location=place)
+        gm.sync()
+        lines = [m["payload"]["message"] for m in support.of_type(wm.drain(), "activity_log")]
+    assert lines[:3] == ["The Lightkeeper opened spending: up to two each.", "The Lightkeeper locked spending.",
+                         "The Lightkeeper renamed the circle to The Green Lamp Society."]
+    assert lines[3] == f"The Lightkeeper sent a dispatch: {place[:80].rstrip()}...."
