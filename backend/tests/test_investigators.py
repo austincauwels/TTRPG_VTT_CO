@@ -271,6 +271,8 @@ def test_list_investigators(client):
         "is_dead": False,
         "pen_font": "Caveat",
         "ink_color": "",
+        # Filled in only on the Lightkeeper's roster, to name the player of a join request
+        "owner_username": "",
     }
 
 
