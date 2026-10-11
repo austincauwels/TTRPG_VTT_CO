@@ -255,7 +255,7 @@ const ROLE_ICONS = {
   'Weird': 'GiCrystalBall',
 };
 
-const ABILITY_TEXTS = {
+export const ABILITY_TEXTS = {
   // ── FACE (role) ────────────────────────────────────────────────────────────
   "I Know a Guy": "Once per assignment, ask the Lightkeeper who you know nearby that could help you. The Lightkeeper will tell you who they are, and explain why this NPC might have insight into the investigation.",
   "Sweet Talk": "You know how to work the room. After you make small talk with someone, you may add +1d on any Read rolls you make in which they are the target. If your current Cunning resistance is 2 or higher, that die is gilded.",

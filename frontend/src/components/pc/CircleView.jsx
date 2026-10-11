@@ -8,6 +8,7 @@ import { FormLine, SerialNo, DateStamp, PrinterMark, BlankEntry, BlankQuestionCa
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { refillRule } from '../../game/circleResources';
 import { CIRCLE_QUESTIONS } from '../../game/circleFormation';
+import { ABILITY_TEXTS } from './InvestigatorDossier';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -138,6 +139,8 @@ export function AdvancementModal() {
   // details keyed by pick id: action key, drive key, or ability text
   const [details, setDetails]               = useState({});
   const [submitted, setSubmitted]           = useState(false);
+  // What the confirmed picks were, for the slip that follows
+  const [applied, setApplied]               = useState([]);
   // The picks the Lightkeeper's circle advance gave this investigator and not chosen yet
   // (two per advancement, kept on the character until chosen), and the options already
   // taken in this advancement, which the other pick must differ from
@@ -174,11 +177,24 @@ export function AdvancementModal() {
     return true;
   }
 
+  const appliedLine = (id) => {
+    const detail = details[id] || '';
+    const actionLabel = ALL_ACTIONS.find(a => a.key === detail)?.label || detail;
+    if (id === 'add_action') return `+1 ${actionLabel}`;
+    if (id === 'gild_action') return `${actionLabel} is now gilded`;
+    if (id === 'new_ability') return `New ability: ${detail}`;
+    const drives = detail.split(',').filter(Boolean);
+    if (drives.length === 1) return `+2 ${drives[0]} drive`;
+    return `+1 ${drives[0]} and +1 ${drives[1]} drive`;
+  };
+
   function handleConfirm() {
     if (!isReady()) return;
+    const lines = selectedPicks.map(appliedLine);
     for (const id of selectedPicks) {
       if (!applyAdvancement(id, details[id] || '')) return;
     }
+    setApplied(lines);
     setSubmitted(true);
   }
 
@@ -205,7 +221,11 @@ export function AdvancementModal() {
           <h2 id="advancement-done-title" className="text-xl font-serif font-black text-oxblood mb-4">
             {advancementError ? 'Advancement not applied' : 'Advancement Applied'}
           </h2>
-          {advancementError && <p role="alert" className="font-serif text-base text-ink mb-4">{advancementError}</p>}
+          {advancementError ? <p role="alert" className="font-serif text-base text-ink mb-4">{advancementError}</p> : (
+            <ul className="mb-4 list-disc pl-5 font-serif text-base text-ink">
+              {applied.map(line => <li key={line}>{line}</li>)}
+            </ul>
+          )}
           {/* With picks still waiting (a second advance, or One Last Run's four), the next
               set opens; closing used to hide them until the page was reloaded */}
           <button
@@ -409,6 +429,9 @@ export function AdvancementModal() {
                             ];
                           })()}
                         </select>
+                      )}
+                      {ABILITY_TEXTS[details[id]] && (
+                        <p className="font-serif text-sm text-ink/90 leading-snug mt-1.5">{ABILITY_TEXTS[details[id]]}</p>
                       )}
                       {outside.length > 0 && (
                         <p className="font-serif text-sm text-sepia italic mt-1">
@@ -746,7 +769,7 @@ export const CircleView = () => {
           ) : (
             <>
               <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider">
-                {circle?.reports_open ? (myReport ? 'Amending your report' : 'Reports open') : 'Reports closed'}
+                {circle?.reports_open ? (myReport ? 'Amending your report' : 'Reports open') : 'Reports closed: the Lightkeeper opens them at the end of the assignment'}
               </span>
               <span className="flex items-center gap-3">
                 {myReport && (
@@ -761,7 +784,7 @@ export const CircleView = () => {
                   className={`px-4 py-2 [@media(pointer:coarse)]:min-h-[44px] font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-all ${
                     circle?.reports_open && !reportSending
                       ? 'bg-ink text-cream border-ink hover:bg-oxblood hover:border-oxblood'
-                      : 'bg-transparent text-sepia border-ink/20 cursor-not-allowed'
+                      : 'bg-transparent text-sepia/60 border-transparent opacity-60 cursor-not-allowed'
                   }`}
                 >
                   {reportSending ? 'Sending…' : myReport ? 'Send amended report' : 'Send report'}
@@ -935,7 +958,7 @@ export const CircleView = () => {
 
       {/* V. Circle Relationships */}
       {investigators.filter(i => i.id !== myId).length > 0 && (
-        <CirclePaper kind="plain" tilt={-0.5} aria-labelledby="circle-relationships-title">
+        <CirclePaper kind="plain" tilt={-0.5} data-circle-paper="relationships" aria-labelledby="circle-relationships-title">
           <h3 id="circle-relationships-title" className="font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-3 flex flex-wrap items-center gap-1.5">
             <SafeIcon name="GiHeartInside" size={14} className="text-oxblood" />
             Circle Relationships

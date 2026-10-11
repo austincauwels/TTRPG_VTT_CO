@@ -146,7 +146,9 @@ export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
           'inset -8px 0 16px -12px rgb(var(--c-sepia) / 0.35)',
       }}
     >
-      {/* An empty log is just the blank ruled sheet */}
+      {logEntries.length === 0 && (
+        <p className="font-serif italic text-sm text-sepia">Rolls, passed notes and table events will appear here</p>
+      )}
       {logEntries.map((entry, i) => <LogEntry key={i} entry={entry} />)}
       <div aria-hidden="true" className="!shrink !grow basis-0 min-h-0 -mx-1 pointer-events-none" style={LEDGER_ROWS} />
     </div>

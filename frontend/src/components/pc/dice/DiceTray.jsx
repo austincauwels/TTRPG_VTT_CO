@@ -5,6 +5,7 @@ import { onActivateKey } from '../../shared/a11y';
 import { tiltFor } from '../../shared/handPlaced';
 import { SerialNo, serialFor } from '../../shared/PrintMarks';
 import { DieFace, DIE_BODY } from './Die';
+import { InfoTerm } from '../../shared/ActionInfo';
 
 // Each outcome is a stamp on the result slip: its word, plus its own ink. Critical success
 // is the one gold stamp (gold fill, ink letters), since gold text cannot be read on paper.
@@ -148,7 +149,7 @@ const FocusFollowsRoll = ({ gildedPending }) => {
 
 export const DiceTray = forwardRef(({
   lastRoll, isRolling, gildedPending, dieSkews, getIsCandidate, onDieClick,
-  rollerName, rollerInk, keptDie, rating = null, rollWaiting = false, rollError = null,
+  rollerName, rollerInk, keptDie, rating = null, rollWaiting = false, rollError = null, rollHint = false,
 }, ref) => (
   <div ref={ref} className="xl:shrink-0">
   <FocusFollowsRoll gildedPending={!!gildedPending} />
@@ -209,7 +210,12 @@ export const DiceTray = forwardRef(({
           </div>
         </div>
       ) : (
-        <span className="sr-only">No dice thrown yet</span>
+        // The player's tray keeps how to roll behind an "i"; the Lightkeeper's just says it is empty
+        rollHint ? (
+          <InfoTerm label="No dice thrown yet" text="To roll, tap an action on your sheet." className="font-serif italic text-candle-gold text-lg" />
+        ) : (
+          <span className="font-serif italic text-candle-gold/80 text-lg">No dice thrown yet</span>
+        )
       )}
     </div>
   </div>

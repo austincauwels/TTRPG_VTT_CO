@@ -509,7 +509,7 @@ def test_gm_advance_circle(client):
         gm.send("gm_advance_circle", role="GM", circle_ability="Seekers")
         msgs = gm.sync()
         assert support.types(msgs) == ["member_update", "activity_log", "circle_advanced"]
-        assert msgs[1]["payload"] == {"message": "The Moths has advanced!", "log_type": "field"}
+        assert msgs[1]["payload"] == {"message": "The Moths has advanced and gained Seekers!", "log_type": "field"}
         assert msgs[2]["payload"]["campaign_id"] == camp["id"]
         assert msgs[2]["payload"]["circle"]["circle_ability"] == "Hunters\nSeekers"
         assert msgs[2]["payload"]["circle"]["illumination"] == 2
@@ -558,7 +558,7 @@ def test_meticulous_notes_add_illumination_after_an_assignment(client):
         assert msgs[0]["payload"]["illumination"] == 3
         lines = [m["payload"]["message"] for m in msgs if m["type"] == "activity_log"]
         assert lines[1:] == [f"Meticulous Notes: {a['name']}'s detailed notes add 1 Illumination.",
-                             "The Moths milestone reached!"]
+                             "The Moths milestone 3 reached!"]
     assert support.fetch(Circle, cid).illumination == 3
 
 
@@ -696,7 +696,7 @@ def test_update_circle_milestone_log(client):
         assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
         # Every change says so (playtest, report-questions-tally: a plain +1 left no line)
         assert msgs[1]["payload"] == {"message": "The Moths gains 1 Illumination (2 to 3).", "log_type": "field"}
-        assert msgs[2]["payload"] == {"message": "The Moths milestone reached!", "log_type": "field"}
+        assert msgs[2]["payload"] == {"message": "The Moths milestone 3 reached!", "log_type": "field"}
         gm.send("update_circle", role="GM", illumination=4)
         gm.send("update_circle", role="GM", illumination=3)  # going down: no milestone
         assert [m["payload"]["message"] for m in gm.sync() if m["type"] == "activity_log"] == [
@@ -708,7 +708,7 @@ def test_update_circle_milestone_log(client):
         msgs = gm.sync()
         assert [m["payload"]["message"] for m in msgs[1:]] == [
             "The Moths gains 9 Illumination (3 to 12).",
-            "The Moths milestone reached!", "The Moths milestone reached!",
+            "The Moths milestone 6 reached!", "The Moths milestone 9 reached!",
             "The Moths's Illumination track is full: the circle can advance."]
 
 
@@ -720,8 +720,8 @@ def test_resource_management_reminds_at_each_milestone(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("update_circle", illumination=7)
         lines = [m["payload"]["message"] for m in gm.sync()[2:]]
-        assert lines == ["The Moths milestone reached!", "Resource Management: The Moths gains one resource of its choice.",
-                         "The Moths milestone reached!", "Resource Management: The Moths gains one resource of its choice."]
+        assert lines == ["The Moths milestone 3 reached!", "Resource Management: The Moths gains one resource of its choice.",
+                         "The Moths milestone 6 reached!", "Resource Management: The Moths gains one resource of its choice."]
 
 
 def test_advancing_the_circle_replenishes_its_resources(client):
@@ -1137,7 +1137,7 @@ def test_gm_advance_circle_first_ability_and_unnamed_circle(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("gm_advance_circle", role="GM", circle_ability="Seekers")
         msgs = gm.sync()
-        assert msgs[0]["payload"] == {"message": "The Circle has advanced!", "log_type": "field"}
+        assert msgs[0]["payload"] == {"message": "The Circle has advanced and gained Seekers!", "log_type": "field"}
         assert msgs[1]["payload"]["circle"]["circle_ability"] == "Seekers"
         assert msgs[1]["payload"]["circle"]["illumination"] == 0
     assert support.fetch(Circle, cid).circle_ability == "Seekers"
@@ -1151,7 +1151,7 @@ def test_milestone_log_for_unnamed_circle(client):
         msgs = gm.sync()
         assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
         assert msgs[1]["payload"] == {"message": "The Circle gains 1 Illumination (5 to 6).", "log_type": "field"}
-        assert msgs[2]["payload"] == {"message": "The Circle milestone reached!", "log_type": "field"}
+        assert msgs[2]["payload"] == {"message": "The Circle milestone 6 reached!", "log_type": "field"}
 
 
 def test_update_circle_player_claiming_gm_is_rejected(client):

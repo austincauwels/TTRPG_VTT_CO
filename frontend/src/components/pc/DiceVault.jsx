@@ -176,6 +176,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
           rollerInk={rollerInk}
           keptDie={keptDie}
           rating={rollRating}
+          rollHint={!showGmControls}
         />
       </div>
 
@@ -218,6 +219,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
             rollerInk={rollerInk}
             keptDie={keptDie}
             rating={rollRating}
+            rollHint
           />
           {showRollModifications && rollModifications}
         </RollResultBar>
