@@ -197,6 +197,7 @@ async def approve_character(character_id: int, db: Session = Depends(get_db),
             }
         }, db)
         await _announce_members_changed(db, campaign)
+        await log_line(db, campaign.campaign_code, char.campaign_id, f"{char.name} was approved into the circle.")
     return result
 
 @router.post("/campaign/reject/{character_id}")
@@ -206,6 +207,7 @@ async def reject_character(character_id: int, db: Session = Depends(get_db),
     # Capture campaign info before the reject clears campaign_id
     char_before = db.query(Character).filter(Character.id == character_id).first()
     camp_id_before = char_before.campaign_id if char_before else None
+    name_before = char_before.name if char_before else "an investigator"
     campaign_before = db.query(Campaign).filter(Campaign.id == camp_id_before).first() if camp_id_before else None
     camp_code_before = campaign_before.campaign_code if campaign_before else None
     pending_before = db.query(Character).filter(
@@ -230,6 +232,7 @@ async def reject_character(character_id: int, db: Session = Depends(get_db),
             "type": "investigator_rejected",
             "payload": {"character_id": character_id},
         })
+        await log_line(db, camp_code_before, camp_id_before, f"The Lightkeeper declined {name_before}.")
     return result
 
 @router.post("/campaign/{campaign_id}/retire")

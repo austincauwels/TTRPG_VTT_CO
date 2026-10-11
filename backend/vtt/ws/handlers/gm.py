@@ -29,8 +29,14 @@ MILESTONES = (3, 6, 9)  # its milestones, printed on the circle sheet
 
 
 RESOURCE_NAMES = ("stitch", "refresh", "train")
-TABLE_FIELDS = ("stitch", "refresh", "train", "location", "atmosphere", "dispatch_text",
+TABLE_FIELDS = ("name", "stitch", "refresh", "train", "location", "atmosphere", "dispatch_text",
                 "tension_clock", "tension_label")
+
+
+def _clip(text, limit: int = 80) -> str:
+    """A long name cut for one log line, with an ellipsis so the cut does not read as the whole."""
+    text = str(text).strip()
+    return text if len(text) <= limit else text[:limit].rstrip() + "..."
 
 
 def table_before(circle) -> dict:
@@ -51,13 +57,15 @@ def table_lines(before: dict, circle) -> list:
             lines.append("The Lightkeeper cleared the dispatch.")
         else:
             # The place is named, so the log still says where each dispatch sent them
-            where = f": {str(now['location']).strip()[:80]}" if (now["location"] or "").strip() else ""
+            where = f": {_clip(now['location'])}" if (now["location"] or "").strip() else ""
             lines.append(f"The Lightkeeper sent a {'new ' if had else ''}dispatch{where}.")
+    if (now["name"] or "").strip() and (now["name"] or "") != (before["name"] or ""):
+        lines.append(f"The Lightkeeper renamed the circle to {str(now['name']).strip()}.")
     old_t, new_t = before["tension_clock"] or 0, now["tension_clock"] or 0
     if isinstance(old_t, int) and isinstance(new_t, int) and old_t != new_t:
         lines.append(f"The Lightkeeper {'raised' if new_t > old_t else 'lowered'} the tension to {new_t} of 4.")
     if (now["tension_label"] or "") != (before["tension_label"] or "") and (now["tension_label"] or "").strip():
-        lines.append(f"The Lightkeeper named the tension: {str(now['tension_label']).strip()[:80]}.")
+        lines.append(f"The Lightkeeper named the tension: {_clip(now['tension_label'])}.")
     for key in RESOURCE_NAMES:
         old_v, new_v = before[key] or 0, now[key] or 0
         if isinstance(old_v, int) and isinstance(new_v, int) and old_v != new_v:
@@ -253,6 +261,8 @@ async def handle_gm_toggle_resource_edit(ctx):
         target_circle.resources_editable = not bool(getattr(target_circle, "resources_editable", False))
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
+        await log_line(db, camp_code, camp_id, "The Lightkeeper opened spending: up to two each."
+                       if target_circle.resources_editable else "The Lightkeeper locked spending.")
 
 
 async def handle_gm_toggle_reports(ctx):

@@ -1217,9 +1217,8 @@ def test_a_mark_the_lightkeeper_deals_offers_what_a_mark_taken_offers(client):
         sent = gm.sync()
         assert "ability_mark_offer" not in support.types(sent)
         lines = [m["payload"]["message"] for m in sent if m["type"] == "activity_log"]
-        # The deal, then where it landed (playtest, self-mark-no-log)
-        assert lines == [f"The Lightkeeper dealt {edda['name']} a Bleed mark.",
-                         f"{edda['name']} took a Bleed mark (1 of 3)."]
+        # One line for the deal and where it landed (playtest, log-lines-doubled-per-event)
+        assert lines == [f"The Lightkeeper dealt {edda['name']} a Bleed mark (1 of 3)."]
         got = we.drain(0.5)
         assert support.of_type(got, "character_update")[0]["payload"]["bleed_marks"] == 1
         assert {"ability": "Let Them In", "mark_type": "bleed", "character_id": edda["id"],
@@ -1394,3 +1393,28 @@ def test_a_held_offer_is_dropped_at_the_death(client):
         assert "ability_mark_offer" not in support.types(ws.drain())
     row = support.fetch(Character, ch["id"])
     assert (row.body_marks, row.is_dead) == (0, True)
+
+
+def test_a_dealt_mark_held_for_an_offer_logs_the_deal_once_and_the_landing_later(client):
+    """A mark held for the player's answer gets the deal's line now (it has not landed);
+    the landing then reads as the player's own, so no line is doubled."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, role_ability="Death Defy")
+    with support.ws_connect(client, ch["id"]) as wc, support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("take_mark", character_id=ch["id"], mark_type="body")
+        lines = [m["payload"]["message"] for m in gm.sync() if m["type"] == "activity_log"]
+        assert lines == [f"The Lightkeeper dealt {ch['name']} a Body mark."]
+        wc.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body")
+        wc.sync()
+        later = [m["payload"]["message"] for m in gm.drain(0.5) if m["type"] == "activity_log"]
+        assert later == [f"{ch['name']} passed on Death Defy and took a Body mark (1 of 3)."]
+
+
+def test_a_dealt_fourth_mark_is_one_line(client):
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, body_marks=3)
+    with support.ws_connect(client, ch["id"]), support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("take_mark", character_id=ch["id"], mark_type="body")
+        lines = [m["payload"]["message"] for m in gm.sync() if m["type"] == "activity_log"]
+        assert lines[0] == f"The Lightkeeper dealt {ch['name']} a fourth Body mark."
+        assert lines.count(lines[0]) == 1

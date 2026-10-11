@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTypedText } from '../shared/useTypedText';
 import { useDialog } from '../shared/useDialog';
-import { SerialNo, serialFor } from '../shared/PrintMarks';
+import { SerialNo, dispatchSerial } from '../shared/PrintMarks';
 import { PushPin } from '../shared/Decorations';
 import { CrossMark } from '../shared/InkMarks';
 
@@ -33,7 +33,7 @@ export const DispatchNote = ({ circle, className = '' }) => {
   const typed = useTypedText(lines, { cps: Math.max(42, total / 8) });
   // The line being typed carries the carriage mark
   const typingLine = typed.typing ? lines.findIndex((l, i) => typed.parts[i].length < l.length) : -1;
-  const serial = own ? serialFor(`${location}|${words}`, 4) : location ? serialFor(`${location}|${atmosphere}`, 4) : null;
+  const serial = dispatchSerial(circle);
 
   // From xl the words lie in a box of their own: whether they run past it, and the
   // typing kept in view as it goes down the lines

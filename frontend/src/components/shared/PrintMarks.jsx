@@ -18,6 +18,15 @@ export const serialFor = (key, digits = 5) => {
   return String((h >>> 0) % 10 ** digits).padStart(digits, '0');
 };
 
+// The number on a dispatch, from what was sent, so the Lightkeeper's letter and every
+// player's card carry the same one (null when nothing was sent).
+export const dispatchSerial = (circle) => {
+  const location = circle?.location || '';
+  const words = circle?.dispatch_text || '';
+  if (words) return serialFor(`${location}|${words}`, 4);
+  return location ? serialFor(`${location}|${circle?.atmosphere || ''}`, 4) : null;
+};
+
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 // A date the way a rubber date stamp prints it: "4 OCT 2026". Empty for a bad date.

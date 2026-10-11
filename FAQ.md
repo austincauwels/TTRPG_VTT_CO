@@ -113,7 +113,7 @@ Characters have three mark tracks: **Body**, **Brain**, and **Bleed** (0–3 eac
 
 If none of these apply (or the player declines), the mark is applied and the character sheet is updated in real time.
 
-Since 2026-10-10 every mark that lands this way, taken on the player's own sheet or dealt by the Lightkeeper, writes a line in the Activity Log on every desk with the track's count ("Dr. Imogen Thale took a Body mark (1 of 3)."), and names the offer the player let go: "passed on Death Defy and took a Bleed mark (1 of 3)." when they pressed "Take the mark", "let Death Defy run out and took a Bleed mark (1 of 3)." when its countdown ran out. A mark an ability takes as its cost (Ritual, Occult Researcher, Back Against the Wall, Bending Spoons) is named in that ability's own line instead, so it is not logged twice.
+Since 2026-10-10 every mark that lands this way, taken on the player's own sheet or dealt by the Lightkeeper, writes one line in the Activity Log on every desk with the track's count ("Dr. Imogen Thale took a Body mark (1 of 3)."; a mark the Lightkeeper dealt that lands at once reads "The Lightkeeper dealt Dr. Imogen Thale a Body mark (1 of 3)."), and names the offer the player let go: "passed on Death Defy and took a Bleed mark (1 of 3)." when they pressed "Take the mark", "let Death Defy run out and took a Bleed mark (1 of 3)." when its countdown ran out. A mark an ability takes as its cost (Ritual, Occult Researcher, Back Against the Wall, Bending Spoons) is named in that ability's own line instead, so it is not logged twice.
 
 ### What happens on the 4th mark?
 
@@ -265,7 +265,7 @@ A player's To: list offers @Circle, @Lightkeeper only and the other investigator
 
 ## What the Lightkeeper's changes look like on the players' desks (since 2026-10-10)
 
-- The dispatch (with its location, "sent a dispatch: Docks."), the tension, the timer (set, start, pause, reset, clear), the reports opening and closing, a filed or amended report and the Lightkeeper's edits of Stitch, Refresh and Train each write a line in the Activity Log. A phone shows a "new" dot on the Menu and the matching drawer row until the player has opened that part.
+- The dispatch (with its location, "sent a dispatch: Docks."), the tension, the timer (set, start, pause, reset, clear), the reports opening and closing, spending opened or locked ("opened spending: up to two each."), the circle renamed, the seal (name, ability and insignia), each approval and each decline of a join request (the decline names the character, never a reason), a filed or amended report and the Lightkeeper's edits of Stitch, Refresh and Train each write a line in the Activity Log. A phone shows a "new" dot on the Menu and the matching drawer row until the player has opened that part.
 - A player spends a circle resource in two presses (the first asks). A spend is used for the whole circle; each player has two per assignment, and a replacement investigator (rejoin) keeps the count of the one it replaces. The Lightkeeper can give a member one back from the member's sheet, optionally returning the resource to the circle's pool (never past its maximum; a full resource cannot be picked), and the log says so. One press gives one back.
 - An unsent dispatch (location, text) is kept while the Lightkeeper visits Map, Notebook or Circle, until the page is reloaded; if another dispatch arrives meanwhile, the letter shows that one instead.
 - Reset empties the timer's screen-reader status, so the next start and run-out are announced again.

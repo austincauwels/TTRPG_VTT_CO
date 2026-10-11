@@ -50,12 +50,14 @@ const EditableLine = ({ value, label, onSave, multiline = false, displayClassNam
   const cancelled = useRef(false);
   const open = editing || !value;
 
-  // Opened with Edit: the caret at the end of the value
+  // Opened with Edit: the caret at the start, so a long name shows its beginning
   useEffect(() => {
     const el = fieldRef.current;
     if (!editing || !el) return;
     el.focus();
-    el.setSelectionRange(el.value.length, el.value.length);
+    el.setSelectionRange(0, 0);
+    el.scrollLeft = 0;
+    el.scrollTop = 0;
   }, [editing]);
 
   const finish = (el) => {
@@ -79,6 +81,7 @@ const EditableLine = ({ value, label, onSave, multiline = false, displayClassNam
   }
   const Field = multiline ? 'textarea' : 'input';
   return (
+    <>
     <Field
       ref={fieldRef}
       {...(multiline ? { rows: 2 } : { type: 'text' })}
@@ -99,6 +102,8 @@ const EditableLine = ({ value, label, onSave, multiline = false, displayClassNam
       }}
       className={inputClassName}
     />
+    {editing && <p className="font-sans text-xs text-sepia mt-1">Enter or leaving the field saves. Esc cancels.</p>}
+    </>
   );
 };
 

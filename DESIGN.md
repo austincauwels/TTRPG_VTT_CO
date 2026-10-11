@@ -542,3 +542,5 @@ The two round 3 files are free to use or the owner's own (his decision, 2026-10-
 - **Don't** let the desk wood go bright or show its grain in hard stripes; it lies in shadow and warms only near the candles (Material literals).
 - **Don't** let a note run HTML, follow a javascript: or data: link, or load a picture; a note is ink on paper (Notes in Markdown).
 - **Don't** show any of Excalidraw's own interface or colours on the sketch sheet, or load it with the desk; it is the sheet's canvas, fetched when a sheet opens (Sketch sheet).
+
+- **Lightkeeper desk fixes** (playtest 3, `lkdesk`): the charter's Edit fields (circle name, chapter house) open with the caret at the start so a long name shows its beginning, and print "Enter or leaving the field saves. Esc cancels." under the field while it is open (shown only then). A scar's edit box grows with its text. The Lightkeeper's dispatch letter and the players' card share one serial number (`dispatchSerial`, from the location and words sent). The Lightkeeper Resources page is ruled one line per rule with an inner margin, and its tab carries no count.

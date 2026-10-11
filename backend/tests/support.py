@@ -309,7 +309,21 @@ def active_member(client, campaign, user_id=None, **fields):
     ch = pending_member(client, campaign, user_id=user_id, **fields)
     r = approve(client, ch["id"])
     assert r.status_code == 200, r.text
+    forget_approval_lines()
     return ch
+
+
+def forget_approval_lines():
+    """The approval's Activity Log line is setup noise for a test that only wants a member:
+    it would arrive as an activity_history on the next socket. test_rest_broadcasts and
+    the log tests use approve() directly to see it."""
+    from vtt.ws.manager import manager
+    for key, kept in list(manager._history.items()):
+        left = [item for item in kept if "was approved into the circle." not in item[1]["message"]]
+        kept.clear()
+        kept.extend(left)
+        if not kept:
+            manager._history.pop(key, None)
 
 
 @contextlib.contextmanager
