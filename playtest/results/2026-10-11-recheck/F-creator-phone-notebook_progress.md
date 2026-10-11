@@ -1,0 +1,2 @@
+bugs#19 death-defy-focus-returns-to-page | fixed | Keyboard at 1366x768 and 1440x900 (Body, Brain; Use, Take the mark): focus returns to the track's 'BODY +' button, in view with a ring; next Tab is the take box
+ux#4 log-unpinned-after-roll-slip | fixed | 1366x768/629/700 and 1920x941: gap 0 and newest line visible at 0.3-4.5s after each roll, after another seat's roll, after Burn and reroll, after reload
