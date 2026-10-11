@@ -53,7 +53,7 @@ ABILITY_USES = {
                             "options": {"": None, "still image": "bleed"}},
     # A mark taken as the cost
     "Occult Researcher":   {"mark": "brain"},           # p. 27: clear it if there is no detail
-    "Commune":             {"mark": "brain"},           # p. 32: then a Sense roll
+    "Commune":             {"mark": "brain", "then": "roll Sense"},  # p. 32: the line reminds of the roll
     "Ghostblade":          {"mark": "body"},            # p. 32
     "Ritual":              {"mark": "bleed", "target": True,  # p. 27: "on yourself or an ally"
                             "options": {"Circle of Protection": "ward", "Reinvigorate": "reinvigorate",

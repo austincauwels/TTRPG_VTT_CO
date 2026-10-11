@@ -1426,6 +1426,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 </h3>
                 <span className="text-sm font-sans font-black text-sepia">{selectedGear.length} / 3 selected</span>
               </div>
+              {gearFull && <p role="status" className="-mt-2 mb-3 text-xs font-sans font-black text-sepia">{gearFullTitle}</p>}
 
               {/* Specialty gear */}
               <div className="mb-4">

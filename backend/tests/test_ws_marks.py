@@ -1394,3 +1394,14 @@ def test_a_held_offer_is_dropped_at_the_death(client):
         assert "ability_mark_offer" not in support.types(ws.drain())
     row = support.fetch(Character, ch["id"])
     assert (row.body_marks, row.is_dead) == (0, True)
+
+
+def test_commune_use_line_reminds_of_the_sense_roll(client):
+    """Commune takes its Brain mark when used; the Sense roll it calls for is the
+    player's next step, so the line says so (playtest, commune-use-not-tied-to-roll)."""
+    ch = support.forge(client, specialty_ability="Commune")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("use_ability", ability="Commune")
+        lines = [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"]
+        assert lines == [f"{ch['name']} used Commune (took a Brain mark, then roll Sense)."]
+    assert support.fetch(Character, ch["id"]).brain_marks == 1

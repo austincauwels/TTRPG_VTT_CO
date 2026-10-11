@@ -30,7 +30,7 @@ export const ABILITY_USES = {
   'Mind Palace':         { cost: 'burn 1 Intuition resistance' },
   'Last Moments':        { cost: 'burn 1 Intuition resistance', options: { '': 'Hear, smell and feel', 'still image': 'Also see a still image (take a Bleed mark)' } },
   'Occult Researcher':   { cost: 'take a Brain mark' },
-  'Commune':             { cost: 'take a Brain mark' },
+  'Commune':             { cost: 'take a Brain mark, then roll Sense' },
   'Ghostblade':          { cost: 'take a Body mark' },
   'Ritual':              { cost: 'take a Bleed mark', target: true, options: { 'Circle of Protection': 'Circle of Protection', 'Reinvigorate': 'Reinvigorate (refresh 1 resistance)', 'Remote Viewing': 'Remote Viewing' } },
   'I Know a Guy':        { cost: 'once per assignment' },

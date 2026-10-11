@@ -47,7 +47,7 @@ const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia
 // move it.
 export const RollResultBar = ({
   rollerName, rollerInk, lastRoll, isRolling, gildedPending, keptDie,
-  getIsCandidate, onDieClick, trayInView, children, rating = null,
+  getIsCandidate, onDieClick, trayInView, children, rating = null, character = null,
   rollWaiting = false, rollError = null, hasChoices = false,
 }) => {
   const [open, setOpen] = useState(false);
@@ -169,7 +169,7 @@ export const RollResultBar = ({
             {gildedPending ? (
               <div className="flex items-center gap-2 shrink-0">
                 {dice.map((die, idx) => getIsCandidate(die, idx)
-                  ? <MiniDie key={idx} die={die} onClick={() => onDieClick(die, idx)} label={keepChoices(lastRoll).find((c) => c.idx === idx)?.label} />
+                  ? <MiniDie key={idx} die={die} onClick={() => onDieClick(die, idx)} label={keepChoices(lastRoll, character).find((c) => c.idx === idx)?.label} />
                   : null)}
               </div>
             ) : (

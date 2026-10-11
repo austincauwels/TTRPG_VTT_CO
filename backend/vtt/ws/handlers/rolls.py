@@ -111,6 +111,17 @@ async def _refuse(ctx, action, status, detail):
         "action": action, "status": status, "detail": detail}})
 
 
+def _refresh_drive(character, drive) -> bool:
+    """Give one point back to a drive for a kept gilded die; False (nothing changes) when
+    the drive is already full, so the log never says a point came back that did not."""
+    now = getattr(character, f"{drive}_current", 0) or 0
+    top = getattr(character, f"{drive}_max", 3) or 0
+    if now >= top:
+        return False
+    setattr(character, f"{drive}_current", now + 1)
+    return True
+
+
 def _rating(character, action):
     if character is None or action not in ACTION_KEYS:
         return None
@@ -505,9 +516,9 @@ async def handle_roll(ctx):
             # even when the roll spent another drive (Cool Under Pressure, Street Smarts)
             act_drive = drive_for_action(act)
             if res.get("auto_gilded_refresh") and character and act_drive:
-                setattr(character, f"{act_drive}_current", min(getattr(character, f"{act_drive}_max", 3), getattr(character, f"{act_drive}_current") + 1))
-                post_roll_dirty = True
-                log_msg += f" [gilded — {act_drive} Drive refreshed]"
+                if _refresh_drive(character, act_drive):
+                    post_roll_dirty = True
+                    log_msg += f" [gilded — {act_drive} Drive refreshed]"
 
             # Well-Read auto-refund: if failure and Intuition was spent, earn it back
             if character and outcome_key == "failure" and cat == "intuition" and spent > 0 \
@@ -570,9 +581,9 @@ async def handle_resolve_gilded(ctx):
     if want_gilded and not dead:
         # the action's own drive (p. 8), whichever drive the roll spent
         act_drive = drive_for_action(r_act)
-        setattr(character, f"{act_drive}_current", min(getattr(character, f"{act_drive}_max", 3), getattr(character, f"{act_drive}_current") + 1))
-        changed = True
-        log_msg += f" [gilded — {act_drive} Drive refreshed]"
+        if _refresh_drive(character, act_drive):
+            changed = True
+            log_msg += f" [gilded — {act_drive} Drive refreshed]"
     if outcome_key == "failure" and r_cat == "intuition" and spent > 0 and not dead \
             and "Well-Read" in abilities_of(character):
         character.intuition_current = min(character.intuition_max or 3, (character.intuition_current or 0) + spent)
@@ -795,10 +806,9 @@ async def handle_burn_resistance(ctx):
     # rating whose gilded die is the lower one, or a pool that is all gilded
     refreshed = ""
     if result.get("auto_gilded_refresh"):
-        setattr(character, f"{drive_key}_current",
-                min(getattr(character, f"{drive_key}_max", 3) or 0, (getattr(character, f"{drive_key}_current", 0) or 0) + 1))
+        if _refresh_drive(character, drive_key):
+            refreshed = f" [gilded — {drive_key} Drive refreshed]"
         db.commit()
-        refreshed = f" [gilded — {drive_key} Drive refreshed]"
     await manager.broadcast(channel, {
         "type": "roll_result",
         "payload": {"character_id": target_char_id, "action": act, "roll": result, "character": get_char_dict(character)}

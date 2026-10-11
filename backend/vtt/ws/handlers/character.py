@@ -404,6 +404,10 @@ async def handle_use_ability(ctx):
         (f" on {target.name}" if target is not character and effect != "great_ward" else "")
     taken = [f"took a {m.capitalize()} mark" for m in marks]
     detail = ", ".join(paid + taken)
+    if use.get("then"):
+        # What the ability asks of the player next (Commune: the Sense roll), so the line
+        # does not leave it to memory
+        detail += f", then {use['then']}"
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
         "message": f"{character.name} used {label}" + (f" ({detail})." if detail else "."),
         "log_type": "field", "ink_color": getattr(character, "ink_color", "") or ""}}, db)
