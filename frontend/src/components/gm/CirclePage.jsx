@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { useFlatTurn } from '../shared/useFlatTurn';
-import useGameStore, { assignmentOf } from '../../store/gameStore';
+import useGameStore from '../../store/gameStore';
 import { InfoTerm } from '../shared/ActionInfo';
 import { SafeIcon } from '../shared/SafeIcon';
 import { tiltStyle } from '../shared/handPlaced';
@@ -36,7 +36,7 @@ import { TurnOverMark } from '../shared/Decorations';
 import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
-import { tallyReports } from '../../game/illumination';
+import { tallyReports, tallyOf } from '../../game/illumination';
 import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
 
 // A line of the charter the Lightkeeper may change: its value with an Edit button, which
@@ -284,7 +284,7 @@ export const CirclePage = () => {
   const {
     circle, circleCreation, updateCircle,
     gmToggleResourceEdit, gmToggleReports, gmAdvanceCircle, refillResources,
-    illumTallies, setIllumTally,
+    gmSetTallyAnswers, gmAddTally,
   } = useGameStore();
 
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
@@ -305,15 +305,14 @@ export const CirclePage = () => {
   const trackFull = illum >= TRACK_SIZE;
 
   // The report's worth: the circle's questions, answered here once, and the keys the
-  // investigators' reports filed (game/illumination.js)
-  const savedTally = illumTallies?.[circId];
-  const thisTally = savedTally && savedTally.assignment === assignmentOf(circle) ? savedTally : null;
-  const answers = thisTally?.answers || [false, false, false];
+  // investigators' reports filed (game/illumination.js). The ticks and the added total are
+  // the circle's, so every desk shows them; the server adds the tally once
+  const thisTally = tallyOf(circle);
+  const answers = thisTally.answers;
   const tally = tallyReports(investigators, reports, answers);
   const addTally = () => {
-    if (tally.total <= 0 || thisTally?.added != null) return;
-    // Recorded as added only once it went to the table (not while the desk reconnects)
-    if (setIllum(illum + tally.total)) setIllumTally(circId, { answers, added: tally.total });
+    if (tally.total <= 0 || thisTally.added != null) return;
+    gmAddTally(circId, tally.total);
   };
 
   function setIllum(n) {
@@ -498,8 +497,8 @@ export const CirclePage = () => {
             <div className="space-y-1">
               {ILLUM_QUESTIONS.map((q, i) => (
                 <label key={i} className="flex items-start gap-2.5 cursor-pointer border-b border-ink/10 pb-1.5 last:border-0 [@media(pointer:coarse)]:min-h-[44px]">
-                  <input type="checkbox" checked={!!answers[i]} disabled={thisTally?.added != null}
-                    onChange={() => setIllumTally(circId, { answers: answers.map((a, j) => (j === i ? !a : a)) })}
+                  <input type="checkbox" checked={!!answers[i]} disabled={thisTally.added != null}
+                    onChange={() => gmSetTallyAnswers(circId, answers.map((a, j) => (j === i ? !a : a)))}
                     className="mt-0.5 w-4 h-4 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 accent-oxblood shrink-0" />
                   <span className="font-serif text-sm text-ink/80 leading-snug italic">"{q}"</span>
                 </label>
@@ -525,7 +524,7 @@ export const CirclePage = () => {
               </p>
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                 <span className="font-sans font-black text-xs uppercase tracking-widest text-ink">Total +{tally.total}</span>
-                {thisTally?.added != null ? (
+                {thisTally.added != null ? (
                   <span role="status" className="font-serif italic text-sm text-seal-green">Added {thisTally.added} Illumination</span>
                 ) : (
                   <button type="button" onClick={addTally} disabled={tally.total <= 0}

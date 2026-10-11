@@ -457,10 +457,6 @@ const useGameStore = create(
       // reloads (playtest, key-ticks-lost); whether a report is on its way; why the server
       // refused the last one
       reportDrafts: {},
-      // The Lightkeeper's answers to the circle's three Illumination questions, by circle id,
-      // for the assignment they belong to, and how much Illumination they were added as
-      // ({ assignment, answers: [bool, bool, bool], added: number | null })
-      illumTallies: {},
       reportSending: false,
       reportError: null,
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
@@ -1604,13 +1600,24 @@ const useGameStore = create(
         return false;
       },
 
-      // The report form's ticks before sending, for this assignment
-      setIllumTally: (circleId, patch) => set(state => {
-        const assignment = assignmentOf(state.circle);
-        const prev = state.illumTallies[circleId];
-        const current = prev && prev.assignment === assignment ? prev : { assignment, answers: [false, false, false], added: null };
-        return { illumTallies: { ...state.illumTallies, [circleId]: { ...current, ...patch, assignment } } };
-      }),
+      // The Lightkeeper's ticks on the circle's three Illumination questions, and Add N
+      // Illumination. Both are kept on the circle (backstory_answers.tally, backend
+      // vtt/assignment.py), so every Lightkeeper desk sees the tally added once; they lived
+      // in this browser, and a second tab added the same reports again (playtest,
+      // illumination-tally-added-twice)
+      gmSetTallyAnswers: (circleId, answers) => {
+        const { socket } = get();
+        if (socket?.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'gm_set_tally_answers', payload: { circle_id: circleId, answers } }));
+        return true;
+      },
+
+      gmAddTally: (circleId, total) => {
+        const { socket } = get();
+        if (socket?.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'gm_add_tally', payload: { circle_id: circleId, total } }));
+        return true;
+      },
 
       setReportDraft: (characterId, draft) => set(state => ({
         reportDrafts: { ...state.reportDrafts, [characterId]: { ...draft, assignment: assignmentOf(state.circle) } },
@@ -2141,7 +2148,6 @@ const useGameStore = create(
         rejoinInvite: state.rejoinInvite,
         pendingScar: state.pendingScar,
         reportDrafts: state.reportDrafts,
-        illumTallies: state.illumTallies,
       }),
 
       // A session saved before login tokens existed has no token, and the server

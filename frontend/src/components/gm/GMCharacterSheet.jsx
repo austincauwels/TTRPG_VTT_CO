@@ -10,10 +10,21 @@ import { ConfirmAction } from '../shared/ConfirmAction';
 
 // How many of the member's two circle-resource spends this assignment are used, with a way
 // to give one back (a ruling at the table, said in the log). The pool can get the resource
-// back too (playtest, lk-resource-repair).
+// back too (playtest, lk-resource-repair), never past its maximum: a full resource cannot be
+// picked, and the server refuses it too. One press gives one back: a double-click gave two
+// (playtest, spend-back-unguarded-past-maximum), so a press waits for the member's count to
+// move, or for 3 seconds when no answer comes.
 const SpendBack = ({ character, onGive }) => {
   const used = character?.resources_spent_assignment || 0;
   const [resource, setResource] = useState('');
+  const circle = useGameStore(s => s.circle);
+  const sent = useRef(null);
+  const give = () => {
+    if (used <= 0) return;
+    const last = sent.current;
+    if (last && last.used === used && Date.now() - last.at < 3000) return;
+    if (onGive(resource || undefined)) sent.current = { used, at: Date.now() };
+  };
   return (
     <div className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-x-4 gap-y-2">
       <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
@@ -24,13 +35,15 @@ const SpendBack = ({ character, onGive }) => {
         <select value={resource} onChange={(e) => setResource(e.target.value)}
           className="min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] bg-cream border border-ink/30 rounded-sm px-1.5 font-sans text-sm">
           <option value="">Nothing</option>
-          <option value="stitch">Stitch</option>
-          <option value="refresh">Refresh</option>
-          <option value="train">Train</option>
+          {['stitch', 'refresh', 'train'].map(key => {
+            const full = (circle?.[key] || 0) >= (circle?.max_capacity || 1);
+            const name = key[0].toUpperCase() + key.slice(1);
+            return <option key={key} value={key} disabled={full}>{full ? `${name} (full)` : name}</option>;
+          })}
         </select>
       </label>
       <button type="button" aria-disabled={used <= 0}
-        onClick={() => { if (used > 0) onGive(resource || undefined); }}
+        onClick={give}
         className={`font-sans text-xs font-black uppercase tracking-widest px-4 py-2 min-h-[40px] border rounded transition ${
           used > 0 ? 'text-oxblood border-oxblood/50 hover:bg-oxblood/10' : 'text-sepia/60 border-ink/20 cursor-not-allowed'}`}>
         Give a spend back

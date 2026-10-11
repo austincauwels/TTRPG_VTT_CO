@@ -80,6 +80,7 @@ GM_ONLY = frozenset({
     "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
     "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
     "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
+    "gm_set_tally_answers", "gm_add_tally",
 })
 
 # A GM socket may aim these at a character of its campaign with payload.character_id.
@@ -167,6 +168,24 @@ def _gm_update_circle(ctx, payload, character):
         text = payload["dispatch_text"]
         if not isinstance(text, str) or len(text) > DISPATCH_TEXT_MAX:
             _invalid(DISPATCH_TOO_LONG)
+
+
+# The assignment's tally (rulebook p. 55): three questions worth 1 each, and the keys 4 at most
+TALLY_MAX = 7
+
+
+def _gm_set_tally_answers(ctx, payload, character):
+    _gm_circle(ctx, payload, character)
+    answers = payload.get("answers")
+    if not (isinstance(answers, list) and len(answers) == 3 and all(type(a) is bool for a in answers)):
+        _invalid("The answers are three yes or no ticks.")
+
+
+def _gm_add_tally(ctx, payload, character):
+    _gm_circle(ctx, payload, character)
+    total = payload.get("total")
+    if type(total) is not int or not 1 <= total <= TALLY_MAX:
+        _invalid(f"The tally is a whole number from 1 to {TALLY_MAX}.")
 
 
 def _intercept_mark(ctx, payload, character):
@@ -405,6 +424,8 @@ RULES = {
     "gm_end_assignment": _gm_circle,
     "gm_reset_character": _gm_only,
     "gm_return_spend": _gm_circle,
+    "gm_set_tally_answers": _gm_set_tally_answers,
+    "gm_add_tally": _gm_add_tally,
     "update_circle": _gm_circle,
     "gm_update_scars": _gm_update_scars,
     "intercept_mark": _intercept_mark,
