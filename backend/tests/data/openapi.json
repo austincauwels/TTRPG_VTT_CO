@@ -1202,6 +1202,17 @@
             "title": "Name",
             "type": "string"
           },
+          "pen_font": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pen Font"
+          },
           "role_ability": {
             "default": "None",
             "title": "Role Ability",
