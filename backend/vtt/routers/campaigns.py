@@ -187,7 +187,7 @@ async def approve_character(character_id: int, db: Session = Depends(get_db),
         active = db.query(Character).filter(
             Character.campaign_id == char.campaign_id,
             Character.status == "active"
-        ).all()
+        ).order_by(Character.id).all()
         await manager.broadcast_campaign(campaign.campaign_code, char.campaign_id, {
             "type": "investigator_approved",
             "payload": {
@@ -414,7 +414,7 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     active = db.query(Character).filter(
         Character.campaign_id == campaign.id,
         Character.status == "active",
-    ).all()
+    ).order_by(Character.id).all()
     def approved(cards, card):
         return {"type": "investigator_approved",
                 "payload": {"character": card, "active_investigators": cards, "campaign_id": campaign.id}}
