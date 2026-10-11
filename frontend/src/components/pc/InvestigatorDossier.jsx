@@ -1060,9 +1060,34 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   const availMods = !readOnly ? getAvailableRollMods(character, act.key, circle) : [];
                   const selectedMods = activeMods[act.key] || [];
                   // What the picked abilities make of the pool, said before the roll
-                  const preview = previewPool({ rating: actionValue, gilded: isGilded, spend: shownSpend, mods: availMods, selectedKeys: selectedMods });
+                  // The drive the roll spends and how much, as the roll will send it: the same
+                  // for the click and for the preview, so the button states the pool it rolls
+                  const rollSpend = () => {
+                    // Street Smarts lets a Survey roll spend any drive: the one the
+                    // player put a spend on (the server spends what the roll names)
+                    let spendKey = cat.driveKey;
+                    let extra = {};
+                    if (act.key === 'survey' && selectedMods.includes('Street Smarts')) {
+                      const chosen = ['intuition', 'nerve', 'cunning'].find(d => (preSpend[d] || 0) > 0);
+                      if (chosen) { spendKey = chosen; extra = { drive: chosen }; }
+                    }
+                    // Cool Under Pressure and Practiced Patter spend another drive: the
+                    // server takes the spend from it, so the spend is read from its stepper
+                    const substitute = availMods.find(m => selectedMods.includes(m.key) && m.driveSubstitute && m.driveSubstitute !== 'any');
+                    if (substitute) spendKey = substitute.driveSubstitute;
+                    let spend = preSpend[spendKey] || 0;
+                    // Sharpshooter costs 1 Nerve on top of what is spent on the roll
+                    if (selectedMods.includes('Sharpshooter') && spendKey === 'nerve') {
+                      spend = Math.min(spend, Math.max(0, (character.nerve_current || 0) - 1));
+                    }
+                    return { spendKey, spend, extra };
+                  };
+                  const pickedSpend = rollSpend();
+                  const preview = previewPool({ rating: actionValue, gilded: isGilded, spend: pickedSpend.spend, drive: pickedSpend.spendKey, mods: availMods, selectedKeys: selectedMods });
                   const previewText = preview
-                    ? `${preview.dice} ${preview.dice === 1 ? 'die' : 'dice'}${preview.gilds > 0 ? `, ${preview.gilds >= preview.dice ? 'all' : preview.gilds} gilded` : ''}`
+                    ? (preview.zero
+                      ? `no dice, 2 rolled, lowest counts${preview.gilds > 0 ? `, ${preview.gilds >= 2 ? 'both' : preview.gilds} gilded` : ''}`
+                      : `${preview.dice} ${preview.dice === 1 ? 'die' : 'dice'}${preview.gilds > 0 ? `, ${preview.gilds >= preview.dice ? 'all' : preview.gilds} gilded` : ''}`)
                     : '';
 
                   const ratingPips = (
@@ -1100,23 +1125,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                           data-roll-row=""
                           onClick={() => {
                             if (rollBlocked) return;
-                            // Street Smarts lets a Survey roll spend any drive: the one the
-                            // player put a spend on (the server spends what the roll names)
-                            let spendKey = cat.driveKey;
-                            let extra = {};
-                            if (act.key === 'survey' && selectedMods.includes('Street Smarts')) {
-                              const chosen = ['intuition', 'nerve', 'cunning'].find(d => (preSpend[d] || 0) > 0);
-                              if (chosen) { spendKey = chosen; extra = { drive: chosen }; }
-                            }
-                            // Cool Under Pressure and Practiced Patter spend another drive: the
-                            // server takes the spend from it, so the spend is read from its stepper
-                            const substitute = availMods.find(m => selectedMods.includes(m.key) && m.driveSubstitute && m.driveSubstitute !== 'any');
-                            if (substitute) spendKey = substitute.driveSubstitute;
-                            let spend = preSpend[spendKey] || 0;
-                            // Sharpshooter costs 1 Nerve on top of what is spent on the roll
-                            if (selectedMods.includes('Sharpshooter') && spendKey === 'nerve') {
-                              spend = Math.min(spend, Math.max(0, (character.nerve_current || 0) - 1));
-                            }
+                            const { spendKey, spend, extra: spendExtra } = rollSpend();
+                            let extra = spendExtra;
                             // Saw This Coming names the ally who adds the die
                             const helper = availMods.find(m => m.helper && selectedMods.includes(m.key));
                             if (helper) extra = { ...extra, saw_this_coming_from: helper.helper };
@@ -1143,7 +1153,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             )}
                             {preview && (
                               <span aria-hidden="true" className="font-mono tabular-nums text-xs text-sepia font-bold normal-case tracking-normal whitespace-nowrap">
-                                {preview.dice}d{preview.gilds > 0 ? `, ${preview.gilds >= preview.dice ? 'all' : preview.gilds} gilded` : ''}
+                                {preview.zero ? '0d, lowest of 2' : `${preview.dice}d`}{preview.gilds > 0 ? `, ${preview.gilds >= (preview.zero ? 2 : preview.dice) ? 'all' : preview.gilds} gilded` : ''}
                               </span>
                             )}
                           </span>
