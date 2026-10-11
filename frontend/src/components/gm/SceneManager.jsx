@@ -304,17 +304,18 @@ export const SceneManager = () => {
       /* The template: typed body with two blanks */
       <div className="font-serif text-base leading-[28px] text-left text-ink">
         To the investigators of {circleName}: proceed with haste to
-        <input
-          type="text"
+        <textarea
+          ref={locationRef}
+          rows={1}
           value={location}
-          onChange={(e) => setLocation(e.target.value)}
+          onChange={(e) => setLocation(e.target.value.replace(/\n/g, ' '))}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
           aria-label="Location"
-          size={Math.max(8, (location || '').length + 2)}
-          style={{ fieldSizing: 'content', minWidth: '6rem' }}
-          className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood px-2 mx-2 text-oxblood font-bold font-serif italic text-center w-full sm:w-auto max-w-[calc(100%-1rem)] placeholder-sepia/90"
+          style={GROW_STYLE}
+          className="block bg-transparent border-b border-dashed border-sepia focus:border-oxblood w-full mt-1 resize-none overflow-hidden px-1 text-oxblood font-bold font-serif italic leading-[28px] placeholder-sepia/90"
           placeholder="location"
           spellCheck="false"
-        />.
+        />
         Be vigilant of strange activity. Scout Investigations report the area to be
         <textarea
           ref={atmosphereRef}

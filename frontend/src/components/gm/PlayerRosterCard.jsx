@@ -47,7 +47,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy
           {onView && (
             <button
               onClick={onView}
-              className="min-h-[40px] md:[@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border border-sepia/50 text-sepia rounded hover:bg-sepia/10 transition-colors"
+              className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border border-sepia/50 text-sepia rounded hover:bg-sepia/10 transition-colors"
             >
               View sheet
             </button>

@@ -210,7 +210,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose }) => {
 
         {fullChar && !loading && (
           <>
-            <InvestigatorDossier character={sheet} readOnly traumaEdit={{ setMarks, setScars, dealMark, error: traumaError }} />
+            <InvestigatorDossier character={sheet} readOnly traumaEdit={pending ? null : { setMarks, setScars, dealMark, error: traumaError }} />
             {/* A request not yet approved is only read: nothing on it is the Lightkeeper's to spend or reset */}
             {pending ? null : <>
             <SpendBack character={sheet} onGive={(resource) => gmReturnSpend(rosterItem.id, resource)} />
