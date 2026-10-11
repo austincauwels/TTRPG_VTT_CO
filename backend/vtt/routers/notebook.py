@@ -141,6 +141,16 @@ def fetch_notebook_entries(campaign_id: int, role: str = "player", character_id:
             visible.append(e)
     return visible
 
+def _entry_log_line(author_name: str, entry: NotebookEntry) -> str:
+    """The activity line for a new entry: what kind it is, and a field entry's title."""
+    if entry.entry_type == "sketch":
+        return f"{author_name} added a sketch"
+    if entry.entry_type == "photo":
+        return f"{author_name} added a photograph"
+    title = (entry.title or "").strip()
+    return f"{author_name} added a field entry: {title}" if title else f"{author_name} added a field entry"
+
+
 async def _announce_entry(db: Session, campaign_id: int, entry: NotebookEntry, log_message=None, ink_color=""):
     """Tells every desk of the campaign about an entry (notebook_entry), and logs a line when
     log_message is given. A desk that holds the entry already takes the new copy."""
@@ -201,7 +211,7 @@ async def add_notebook_entry(campaign_id: int, entry_data: NotebookEntryCreate, 
     )
     # Don't broadcast ephemeral or gm_only entries to activity log
     if entry_data.visibility == 'all':
-        await _announce_entry(db, campaign_id, entry, f"{author_name} has archived a journal entry.", ink_color)
+        await _announce_entry(db, campaign_id, entry, _entry_log_line(author_name, entry), ink_color)
     return entry
 
 @router.put("/api/notebook/entries/{entry_id}", response_model=NotebookEntryResponse)
@@ -272,7 +282,7 @@ async def upload_notebook_image(
         image_data   = image_data,
         sketch_scene = sketch_scene,
     )
-    await _announce_entry(db, campaign_id, entry, f"{author_name} has archived a journal entry.", ink_color)
+    await _announce_entry(db, campaign_id, entry, _entry_log_line(author_name, entry), ink_color)
     return {
         "id": entry.id,
         "page_number": entry.page_number,

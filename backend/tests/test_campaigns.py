@@ -27,6 +27,20 @@ def test_create_campaign(client):
     assert support.fetch(Campaign, body["id"]).campaign_code == code
 
 
+def test_codes_match_without_regard_to_case(client):
+    camp = support.new_campaign(client, code=f"drowned-{support.uid()}")
+    code = camp["campaign_code"]
+    # A code that differs only in case is refused on create, as a taken one is.
+    r = client.post("/campaign/create", params={"name": "x", "code": code.upper()},
+                    headers=support.as_user(support.make_user().id))
+    assert r.status_code == 409
+    # A join in other capitals finds the campaign.
+    ch = support.forge(client)
+    r = support.join(client, ch["id"], code.upper())
+    assert r.status_code == 200, r.text
+    assert support.fetch(Character, ch["id"]).campaign_id == camp["id"]
+
+
 def test_create_campaign_gm_comes_from_the_token(client):
     """A user_id equal to the caller is accepted and ignored; any other is 403."""
     u = support.make_user()
@@ -318,9 +332,18 @@ def test_reject(client):
     assert body["character"]["id"] == ch["id"]
     assert body["character"]["status"] == "unaffiliated"
     assert body["character"]["campaign_id"] is None
-    assert body["character"]["pen_font"] is None
+    # The pen the player picked stays with the character, so asking again keeps it.
+    assert body["character"]["pen_font"] == "Caveat"
     row = support.fetch(Character, ch["id"])
-    assert (row.status, row.campaign_id, row.pen_font) == ("unaffiliated", None, None)
+    assert (row.status, row.campaign_id, row.pen_font) == ("unaffiliated", None, "Caveat")
+
+
+def test_reject_keeps_the_pen(client):
+    camp = support.new_campaign(client)
+    ch = support.forge(client)
+    assert support.join(client, ch["id"], camp["campaign_code"], pen_font="Homemade Apple").status_code == 200
+    assert support.reject(client, ch["id"]).status_code == 200
+    assert support.fetch(Character, ch["id"]).pen_font == "Homemade Apple"
 
 
 def test_reject_not_pending(client):

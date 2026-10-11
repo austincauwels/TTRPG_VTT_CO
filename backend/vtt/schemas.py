@@ -341,6 +341,7 @@ class CharacterSummaryItem(BaseModel):
     campaign_id: Optional[int] = None
     campaign_name: Optional[str] = None
     campaign_code: Optional[str] = None
+    pen_font: Optional[str] = None
     class Config:
         from_attributes = True
 

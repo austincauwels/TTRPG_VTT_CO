@@ -118,10 +118,10 @@ export const CampaignSelector = () => {
     const form = joinForms[charId] || {};
     if (!form.code?.trim()) return;
     setJoinForms(f => ({ ...f, [charId]: { ...f[charId], loading: true, error: '' } }));
-    const result = await joinCampaign(charId, form.code.trim(), form.pen || 'Caveat');
+    const result = await joinCampaign(charId, form.code.trim(), form.pen || characters.find(c => c.id === charId)?.pen_font || 'Caveat');
     if (result.success) {
       await fetchUserData(accessSession?.userId);
-      setJoinForms(f => ({ ...f, [charId]: { expanded: false, code: '', pen: 'Caveat', loading: false, error: '' } }));
+      setJoinForms(f => ({ ...f, [charId]: { expanded: false, code: '', loading: false, error: '' } }));
     } else {
       const error = campaignErrorText(result.detail, 'Could not send the request to join. Try again in a moment.');
       setJoinForms(f => ({ ...f, [charId]: { ...f[charId], loading: false, error } }));

@@ -41,6 +41,7 @@ def get_user_characters(user_id: int, db: Session = Depends(get_db), user: User 
             campaign_id=c.campaign_id,
             campaign_name=camp.name if camp else None,
             campaign_code=camp.campaign_code if camp else None,
+            pen_font=c.pen_font,
         ))
     return result
 

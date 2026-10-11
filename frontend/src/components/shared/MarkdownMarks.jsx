@@ -62,6 +62,16 @@ function link(el) {
     const urlAt = s + words.length + 3;
     replaceRange(el, s, e, text, urlAt, urlAt + 'https://'.length);
   } else {
+    // The caret in a link still waiting for its address: take it to the address
+    // (a soft keyboard has no arrows) rather than start a second link inside it.
+    const lineStart = value.lastIndexOf('\n', s - 1) + 1;
+    const open = value.lastIndexOf('[', s - 1);
+    const mid = value.indexOf('](https://)', open);
+    if (open >= lineStart && mid >= s && !value.slice(open, s).includes(']') && !value.slice(s, mid).includes('\n')) {
+      el.focus();
+      el.setSelectionRange(mid + 2, mid + 2 + 'https://'.length);
+      return;
+    }
     replaceRange(el, s, e, '[](https://)', s + 1, s + 1);
   }
 }

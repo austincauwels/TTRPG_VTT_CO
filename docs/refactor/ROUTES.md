@@ -108,7 +108,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **POST /campaign/reject/{character_id}** (line 512, `async def`)
 - Inputs: path `character_id`.
 - Trusted ids: `character_id`.
-- Tables: characters (status `unaffiliated`, campaign_id NULL, pen_font NULL), campaigns (read).
+- Tables: characters (status `unaffiliated`, campaign_id NULL; pen_font is kept), campaigns (read).
 - Broadcast: `investigator_rejected` `{character_id, pending_investigators}` to the campaign, then `{character_id}` to channel `str(character_id)`.
 - Errors: 400 if not pending.
 
@@ -220,7 +220,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: JSON `NotebookEntryCreate {title, content, author_name, author_type, character_id, entry_type, visibility, image_data}`.
 - Trusted ids: `campaign_id`, `character_id`; also trusts `author_name`, `author_type`, `visibility`.
 - Tables: characters (read pen_font, ink_color), notebook_entries (insert, page = max + 1), campaigns (read).
-- Broadcast when `visibility == "all"`: `notebook_entry` with the entry, then `activity_log` "X has archived a journal entry.".
+- Broadcast when `visibility == "all"`: `notebook_entry` with the entry, then `activity_log` "X added a field entry: <title>" (or "X added a sketch" or "X added a photograph").
 
 **PUT /api/notebook/entries/{entry_id}** (line 1169, `def`)
 - Inputs: JSON `NotebookEntryUpdate {title?, content?}`.
