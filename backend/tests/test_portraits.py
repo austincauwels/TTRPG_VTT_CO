@@ -78,6 +78,7 @@ def test_the_owner_may_change_a_retired_or_unaffiliated_character(client):
     assert put(client, loose["id"], picture()).status_code == 200
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp)
+    support.update(Character, ch["id"], is_dead=True)  # a living one is let go, not retired
     client.post(f"/campaign/{camp['id']}/retire", headers=support.as_gm(camp))
     assert support.fetch(Character, ch["id"]).status == "retired"
     assert put(client, ch["id"], picture()).status_code == 200
@@ -99,6 +100,7 @@ def test_the_gm_may_not_change_a_retired_character(client):
     """A retired character stays tagged with its old campaign; that GM no longer runs it."""
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp)
+    support.update(Character, ch["id"], is_dead=True)
     gm_headers = support.as_gm(camp)
     client.post(f"/campaign/{camp['id']}/retire", headers=gm_headers)
     r = put(client, ch["id"], picture(), headers=gm_headers)

@@ -8,10 +8,15 @@ import { playPaperSound } from '../../game/rollSounds';
 import { Hourglass } from '../shared/Hourglass';
 import { TensionTimer, formatTime, useTimeLeft } from '../shared/TensionTimer';
 import { arrivedAt } from '../../store/circleArrivals';
+import { useAutoGrow, fitHeight, GROW_STYLE } from '../shared/useAutoGrow';
+import { tallyReports, tallyOf } from '../../game/illumination';
 
 const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reconnects by itself; try again in a moment.';
+
+// What End Assignment clears, said by its confirm and its receipt (the log line says the same)
+const ENDS = "Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared.";
 
 // ── The tension clock: an hourglass on the desk ───────────────────────────────────
 // Starts with all the sand above and runs a quarter of it down per step, from 0 to 4
@@ -20,7 +25,29 @@ const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reco
 // Lightkeeper's countdown is on show and partly run (running or paused), the sand shows
 // the time instead, draining with it; once it runs out or is reset or cleared, the sand
 // shows the tension again (owner, 2026-10-09).
-export const TensionClock = ({ readOnly = false }) => {
+// The clock's name as one row that grows with a long name. Enter finishes it, and a name
+// left as it was sends nothing.
+const ClockName = ({ label, onCommit }) => {
+  const ref = useRef(null);
+  useAutoGrow(ref, label);
+  return (
+    <textarea ref={ref} defaultValue={label} key={label} rows={1}
+      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!e.shiftKey) e.currentTarget.blur(); } }}
+      onInput={e => {
+        const el = e.currentTarget;
+        if (el.value.includes('\n')) el.value = el.value.replace(/\n/g, ' ');
+        fitHeight(el);
+      }}
+      onBlur={e => { if (e.target.value !== label) onCommit(e.target.value); }}
+      placeholder="Clock name"
+      aria-label="Tension clock name"
+      style={GROW_STYLE}
+      className="block resize-none overflow-hidden text-center font-sans font-bold text-xs [@media(pointer:coarse)]:text-base md:[@media(pointer:coarse)]:min-h-[44px] uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/90 focus:border-oxblood transition-colors"
+    />
+  );
+};
+
+export const TensionClock =({ readOnly = false }) => {
   const { circle, socket, accessSession, lastPlayedCampaign } = useGameStore(useShallow(s => ({
     circle: s.circle,
     socket: s.socket,
@@ -51,10 +78,11 @@ export const TensionClock = ({ readOnly = false }) => {
 
   const adjust = (inc) => {
     const newVal = Math.max(0, Math.min(4, currentVal + inc));
+    if (newVal === currentVal) return;
     sendUpdate({ tension_clock: newVal });
   };
 
-  const button = 'absolute top-1/2 -translate-y-1/2 w-10 h-10 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait';
+  const button = 'absolute top-1/2 -translate-y-1/2 w-10 h-10 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 rounded-full bg-gm-slate border border-moonlight-steel text-cream font-black text-lg hover:bg-moonlight-steel hover:text-gm-night transition-colors shadow-lg active:scale-95 flex items-center justify-center disabled:opacity-40 disabled:cursor-wait aria-disabled:opacity-40 aria-disabled:cursor-default';
 
   return (
     <div className="flex flex-col items-center gap-3 select-none">
@@ -69,10 +97,10 @@ export const TensionClock = ({ readOnly = false }) => {
         {/* The Lightkeeper's − and + at the glass's waist, either side of it */}
         {isGM && (
           <>
-            <button onClick={() => adjust(-1)} disabled={!socketReady} aria-label="Lower tension by one"
+            <button onClick={() => adjust(-1)} disabled={!socketReady} aria-disabled={currentVal <= 0} aria-label="Lower tension by one"
               className={`${button} right-[calc(100%_-_8px)]`}
             >−</button>
-            <button onClick={() => adjust(1)} disabled={!socketReady} aria-label="Raise tension by one"
+            <button onClick={() => adjust(1)} disabled={!socketReady} aria-disabled={currentVal >= 4} aria-label="Raise tension by one"
               className={`${button} left-[calc(100%_-_8px)]`}
             >+</button>
           </>
@@ -81,12 +109,7 @@ export const TensionClock = ({ readOnly = false }) => {
 
       {/* Label — editable by GM, read-only for players */}
       {isGM ? (
-        <input type="text" defaultValue={label} key={label}
-          onBlur={e => sendUpdate({ tension_label: e.target.value })}
-          placeholder="Clock name"
-          aria-label="Tension clock name"
-          className="text-center font-sans font-bold text-xs [@media(pointer:coarse)]:text-base md:[@media(pointer:coarse)]:min-h-[44px] uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 w-60 max-w-full shadow-sm placeholder-sepia/90 focus:border-oxblood transition-colors"
-        />
+        <ClockName label={label} onCommit={value => sendUpdate({ tension_label: value })} />
       ) : (
         <div className="font-sans font-bold text-xs uppercase tracking-widest text-ink bg-parchment border border-sepia/30 px-2 py-1 shadow-sm min-w-[9rem] text-center">
           {label || <BlankEntry label="No clock name" />}
@@ -119,20 +142,62 @@ const keepMode = (mode) => {
 // A refusal that comes this soon after a send answers that send
 const REFUSAL_WINDOW_MS = 5000;
 
+// The circle's dispatch values, as the letter compares them
+const dispatchOf = (c) => ({ location: c?.location || '', atmosphere: c?.atmosphere || '', dispatch_text: c?.dispatch_text || '' });
+
+// The unsent draft, with the dispatch it was written over
+const keptDraft = { circleId: undefined, base: dispatchOf(null), location: '', atmosphere: '', ownText: '' };
+
 export const SceneManager = () => {
-  const { circle, socket, accessSession, circleRefusal } = useGameStore();
+  const { circle, socket, accessSession, circleRefusal, circleCreation } = useGameStore();
 
   const [mode, setModeState] = useState(readMode);
   const setMode = (next) => { setModeState(next); keepMode(next); };
 
-  const [location,   setLocation]   = useState(circle?.location   || "");
-  const [atmosphere, setAtmosphere] = useState(circle?.atmosphere || "");
-  const [ownText,    setOwnText]    = useState(circle?.dispatch_text || "");
+  // An unsent draft outlives the section: the letter unmounts when the desk shows Map,
+  // Notebook or Circle, so it is kept at module level for this circle. It stands only
+  // while the dispatch it was written over is still the circle's; a dispatch that came
+  // meanwhile is shown, as it would be on a letter that stayed mounted.
+  const base = dispatchOf(circle);
+  const kept = circle?.id != null && keptDraft.circleId === circle.id
+    && Object.keys(base).every(k => keptDraft.base[k] === base[k]) ? keptDraft : null;
+  const [location,   setLocation]   = useState(kept ? kept.location   : base.location);
+  const [atmosphere, setAtmosphere] = useState(kept ? kept.atmosphere : base.atmosphere);
+  const [ownText,    setOwnText]    = useState(kept ? kept.ownText    : base.dispatch_text);
+  useEffect(() => {
+    Object.assign(keptDraft, {
+      circleId: circle?.id,
+      base: { location: circle?.location || '', atmosphere: circle?.atmosphere || '', dispatch_text: circle?.dispatch_text || '' },
+      location, atmosphere, ownText,
+    });
+  }, [circle?.id, circle?.location, circle?.atmosphere, circle?.dispatch_text, location, atmosphere, ownText]);
 
-  // Sync inputs when circle data arrives (from Zustand rehydration or WebSocket update)
-  useEffect(() => { setLocation(circle?.location   || ""); }, [circle?.location]);
-  useEffect(() => { setAtmosphere(circle?.atmosphere || ""); }, [circle?.atmosphere]);
-  useEffect(() => { setOwnText(circle?.dispatch_text || ""); }, [circle?.dispatch_text]);
+  // Sync inputs when the circle's values change (Zustand rehydration or WebSocket
+  // update). Compared with the values last seen, not by a mount flag, so a restored
+  // draft stands on mount (and under StrictMode's second run of the effect).
+  const seen = useRef(base);
+  useEffect(() => {
+    const next = dispatchOf(circle);
+    if (next.location !== seen.current.location) setLocation(next.location);
+    if (next.atmosphere !== seen.current.atmosphere) setAtmosphere(next.atmosphere);
+    if (next.dispatch_text !== seen.current.dispatch_text) setOwnText(next.dispatch_text);
+    seen.current = next;
+  }, [circle?.location, circle?.atmosphere, circle?.dispatch_text]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The location and atmosphere grow with what is written in them
+  const locationRef = useRef(null);
+  const atmosphereRef = useRef(null);
+  useAutoGrow(locationRef, `${mode}|${location}`);
+  useAutoGrow(atmosphereRef, `${mode}|${atmosphere}`);
+
+  // Whether what is on the letter is what the players' desks hold: the kind in use as
+  // written, the other kind empty, as a send would leave them
+  const onDesks = !!circle && (
+    (circle.location || '') === location
+    && (mode === 'own'
+      ? (circle.dispatch_text || '') === ownText.trim() && !(circle.atmosphere || '')
+      : (circle.atmosphere || '') === atmosphere && !(circle.dispatch_text || ''))
+    && !!(circle.location || circle.atmosphere || circle.dispatch_text));
 
   // A short receipt under the stamps: what went out and when, or why it did not.
   const [receipt, setReceipt] = useState(null); // { ok, text, sentAt? }
@@ -184,13 +249,28 @@ export const SceneManager = () => {
       setLocation("");
       setAtmosphere("");
       setOwnText("");
-      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. Ability uses, gear slots and the hourglass are reset.` });
+      setReceipt({ ok: true, text: `Assignment ended at ${clockTime()}. ${ENDS}` });
     } else {
       setReceipt({ ok: false, text: NOT_CONNECTED });
     }
   };
 
   const circleName = circle?.name || 'the Circle';
+
+  // End Assignment clears the reports and their tally (backend vtt/assignment.py), so the
+  // confirm says so, and warns of a tally not yet added, which would be lost (playtest,
+  // end-assignment-drops-unadded-tally)
+  const tally = tallyOf(circle);
+  const unadded = tally.added == null
+    ? tallyReports(circleCreation?.activeInvestigators, circleCreation?.reports, tally.answers).total : 0;
+  const endHint = unadded > 0 ? (
+    <>
+      <strong className="block mb-1 not-italic font-bold">
+        The reports' {unadded} Illumination is not added yet and will be lost: add it on the Circle page first.
+      </strong>
+      {`Press again to end it anyway: the dispatch clears. ${ENDS}`}
+    </>
+  ) : `Press again to end it: the dispatch clears. ${ENDS}`;
 
   return (
     <div ref={letterRef} className="bg-parchment text-ink p-5 sm:p-8 xl:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
@@ -232,12 +312,15 @@ export const SceneManager = () => {
         <div className="font-serif text-base leading-[28px] text-left text-ink">
           <div className="flex flex-wrap items-baseline gap-x-3">
             <label htmlFor="dispatch-location" className="font-sans text-xs font-black uppercase tracking-widest text-sepia">Location</label>
-            <input
+            <textarea
               id="dispatch-location"
-              type="text"
+              ref={locationRef}
+              rows={1}
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="flex-1 min-w-[8rem] bg-transparent border-b border-dashed border-sepia focus:border-oxblood px-1 text-oxblood font-bold font-serif italic"
+              onChange={(e) => setLocation(e.target.value.replace(/\n/g, ' '))}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+              style={GROW_STYLE}
+              className="flex-1 min-w-[8rem] resize-none overflow-hidden bg-transparent border-b border-dashed border-sepia focus:border-oxblood px-1 text-oxblood font-bold font-serif italic leading-[28px]"
               spellCheck="false"
             />
           </div>
@@ -267,22 +350,25 @@ export const SceneManager = () => {
       /* The template: typed body with two blanks */
       <div className="font-serif text-base leading-[28px] text-left text-ink">
         To the investigators of {circleName}: proceed with haste to
-        <input
-          type="text"
+        <textarea
+          ref={locationRef}
+          rows={1}
           value={location}
-          onChange={(e) => setLocation(e.target.value)}
+          onChange={(e) => setLocation(e.target.value.replace(/\n/g, ' '))}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
           aria-label="Location"
-          size={Math.max(8, (location || '').length + 2)}
-          style={{ fieldSizing: 'content', minWidth: '6rem' }}
-          className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood px-2 mx-2 text-oxblood font-bold font-serif italic text-center w-full sm:w-auto max-w-[calc(100%-1rem)] placeholder-sepia/90"
+          style={GROW_STYLE}
+          className="block bg-transparent border-b border-dashed border-sepia focus:border-oxblood w-full mt-1 resize-none overflow-hidden px-1 text-oxblood font-bold font-serif italic leading-[28px] placeholder-sepia/90"
           placeholder="location"
           spellCheck="false"
-        />.
+        />
         Be vigilant of strange activity. Scout Investigations report the area to be
         <textarea
+          ref={atmosphereRef}
           value={atmosphere}
           onChange={(e) => setAtmosphere(e.target.value)}
-          className="bg-transparent border-b border-dashed border-sepia focus:border-oxblood w-full mt-2 resize-none text-oxblood font-bold font-serif italic leading-[28px] placeholder-sepia/90"
+          style={GROW_STYLE}
+          className="block bg-transparent border-b border-dashed border-sepia focus:border-oxblood w-full mt-2 resize-none overflow-hidden text-oxblood font-bold font-serif italic leading-[28px] placeholder-sepia/90"
           rows="2"
           placeholder="what the place is like"
           aria-label="Atmosphere"
@@ -300,14 +386,14 @@ export const SceneManager = () => {
           className="flex flex-col items-start gap-2 max-w-[11rem]"
           onConfirm={endAssignment}
           cancelLabel="Keep going"
-          armedHint="Press again to end it: the dispatch clears, the hourglass is turned back to the start, and every player's ability uses and gear slots reset."
+          armedHint={endHint}
           hintClassName="[&>p]:text-sm"
           renderButton={(armed, props) => (
             <button
               {...props}
               className="relative group transform rotate-2 hover:rotate-0 transition-transform active:scale-95"
             >
-              <div className={`border-[3px] rounded px-3 py-1.5 font-sans font-black uppercase tracking-widest text-xs ${
+              <div className={`border-[3px] rounded px-3 py-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center font-sans font-black uppercase tracking-widest text-xs ${
                 armed
                   ? 'border-oxblood bg-oxblood text-cream'
                   : 'border-sepia text-sepia opacity-90 group-hover:opacity-100 group-hover:bg-sepia/5'
@@ -326,7 +412,7 @@ export const SceneManager = () => {
             className="relative group transform -rotate-3 hover:rotate-0 transition-transform active:scale-95"
             aria-describedby="dispatch-effect"
           >
-            <div className="border-[3px] border-oxblood rounded px-4 py-1.5 text-oxblood font-sans font-black uppercase tracking-[0.15em] text-sm opacity-90 group-hover:opacity-100 group-hover:bg-oxblood/5">
+            <div className="border-[3px] border-oxblood rounded px-4 py-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center text-oxblood font-sans font-black uppercase tracking-[0.15em] text-sm opacity-90 group-hover:opacity-100 group-hover:bg-oxblood/5">
               Dispatch
             </div>
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-50 pointer-events-none mix-blend-overlay" />
@@ -340,8 +426,11 @@ export const SceneManager = () => {
         <PrinterMark size={12} />
         <FormLine>Form C.O. 2 · Dispatch</FormLine>
       </div>
+      <p className="mt-4 font-sans text-xs font-black uppercase tracking-widest text-sepia">
+        {onDesks ? "On the players' desks" : 'Not dispatched yet'}
+      </p>
       {receipt && (
-        <p role={receipt.ok ? 'status' : 'alert'} className={`mt-4 font-serif text-base leading-snug ${receipt.ok ? 'text-seal-green' : 'text-oxblood'}`}>
+        <p role={receipt.ok ? 'status' : 'alert'} className={`mt-2 font-serif text-base leading-snug ${receipt.ok ? 'text-seal-green' : 'text-oxblood'}`}>
           {receipt.text}
         </p>
       )}

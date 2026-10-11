@@ -1,6 +1,7 @@
 import React from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { InvestigatorBusinessCard } from './InvestigatorBusinessCard';
+import { InfoTerm } from '../../shared/ActionInfo';
 import { MourningCross } from '../../shared/InkMarks';
 import { deceasedMembers, livingMembers } from '../../../game/roster';
 
@@ -25,8 +26,8 @@ export const ActiveCircleMembers = ({ campaignRoster, onSelect, className = '' }
       {living.length === 0 ? (
         // An empty place on the desk where the first card will lie
         <div className="flex justify-center py-3">
-          <span className="block w-64 max-w-full h-[140px] rounded-sm border border-dashed border-moonlight-steel/35 -rotate-1">
-            <span className="sr-only">No investigators in play</span>
+          <span className="flex items-center justify-center w-64 max-w-full h-[140px] px-4 rounded-sm border border-dashed border-moonlight-steel/35 -rotate-1 text-center font-serif italic text-sm text-moonlight-steel">
+            <InfoTerm label="No investigators yet" slipClassName="left-1/2 -translate-x-1/2 top-full mt-1 w-[min(18rem,calc(100vw-2.5rem))]" text="Investigators appear here once you approve them." />
           </span>
         </div>
       ) : (

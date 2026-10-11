@@ -11,11 +11,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from engine import (
-    ALREADY_ON_A_ROSTER, INK_COLORS, create_new_campaign, request_join_campaign,
+    ALREADY_ON_A_ROSTER, INK_COLORS, by_campaign_code, create_new_campaign, request_join_campaign,
     approve_investigator, reject_investigator, get_campaign_roster,
 )
 from models import INCLUDE_DELETED, Campaign, Character, Circle, User
 from vtt import deletion
+from vtt.assignment import end_assignment_for
 from vtt.auth import (
     campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
     require_gm_of_character, require_gm_or_member, require_owner, require_self,
@@ -26,7 +27,7 @@ from vtt.db import get_db, releases_locks_on_error
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import CLOSE_NOT_FOUND
-from vtt.ws.manager import campaign_key, character_key, manager
+from vtt.ws.manager import campaign_key, character_key, log_line, manager
 
 router = APIRouter()
 
@@ -50,9 +51,10 @@ CODE_KEPT_FOR_RESTORE = ("A campaign you deleted still holds this code, so that 
 def _code_taken(db: Session, code: str):
     """The campaign that holds the code, as (gm_user_id, deleted_at), or None. A deleted
     campaign keeps its code (the unique index still holds it, and a restore needs it
-    back), so its code counts as taken."""
+    back), so its code counts as taken. A code that differs from a held one only in case
+    counts as taken too, so that a player is never sent to the wrong campaign."""
     return db.query(Campaign.gm_user_id, Campaign.deleted_at).execution_options(**{INCLUDE_DELETED: True}).filter(
-        Campaign.campaign_code == code).first()
+        func.lower(Campaign.campaign_code) == code.lower()).first()
 
 
 def _code_refused(holder, user: User) -> HTTPException:
@@ -94,13 +96,36 @@ def create_campaign(name: str, code: str, user_id: Optional[int] = None, db: Ses
             raise _code_refused(holder, user)
         raise
 
+def _owner_names(db: Session, chars) -> dict:
+    """{user id: username} of the players who own these characters."""
+    ids = {c.user_id for c in chars if c.user_id is not None}
+    if not ids:
+        return {}
+    return {u.id: u.username for u in db.query(User.id, User.username).filter(User.id.in_(ids))}
+
+
+def _named(db: Session, chars) -> list:
+    """Character cards with the login name of each owner: what only the Lightkeeper sees,
+    to tell one player's requests apart."""
+    owners = _owner_names(db, chars)
+    return [{**get_char_dict(c), "owner_username": owners.get(c.user_id, "")} for c in chars]
+
+
+async def _broadcast_named(db: Session, campaign, plain: dict, named: dict):
+    """plain to the members' channels and named to the Lightkeeper's, so a player's login
+    name goes to the Lightkeeper only."""
+    gm_key = campaign_key(campaign.campaign_code)
+    await manager.broadcast_campaign(campaign.campaign_code, campaign.id, plain, db, exclude=gm_key)
+    await manager.broadcast(gm_key, named, campaign.id)
+
+
 @router.post("/campaign/join")
 async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', db: Session = Depends(get_db),
                         user: User = Depends(get_current_user)):
     if not _ALLOWED_CAMPAIGN_CODE_RE.match(code):
         raise HTTPException(status_code=422, detail="Invalid campaign code format")
     require_owner(user, character_or_404(db, character_id))
-    target = db.query(Campaign.is_retired).filter(Campaign.campaign_code == code).first()
+    target = by_campaign_code(db.query(Campaign.is_retired), code).first()
     if target is not None:
         _refuse_retired(target.is_retired)
     if pen_font not in _SAFE_FONT_NAMES:
@@ -120,18 +145,15 @@ async def join_campaign(character_id: int, code: str, pen_font: str = 'Caveat', 
             Character.status == "pending"
         ).all()
         camp_code = campaign.campaign_code if campaign else code
-        camp_id = campaign.id if campaign else None
-        payload = {
-            "type": "investigator_joined",
-            "payload": {
-                "campaign_code": camp_code,
-                "pending_investigators": [get_char_dict(c) for c in pending],
-            }
-        }
-        if camp_id:
-            await manager.broadcast_campaign(camp_code, camp_id, payload, db)
+        def frame(cards):
+            return {"type": "investigator_joined",
+                    "payload": {"campaign_code": camp_code, "pending_investigators": cards}}
+        if campaign:
+            # whose each request is, so the Lightkeeper sees two from one player
+            await _broadcast_named(db, campaign, frame([get_char_dict(c) for c in pending]),
+                                   frame(_named(db, pending)))
         else:
-            await manager.broadcast(campaign_key(code), payload)
+            await manager.broadcast(campaign_key(code), frame([get_char_dict(c) for c in pending]))
     return result
 
 async def _announce_members_changed(db: Session, campaign: Campaign):
@@ -198,13 +220,11 @@ async def reject_character(character_id: int, db: Session = Depends(get_db),
 
     char_after = result.get("character")
     if camp_code_before and camp_id_before:
-        await manager.broadcast_campaign(camp_code_before, camp_id_before, {
-            "type": "investigator_rejected",
-            "payload": {
-                "character_id": character_id,
-                "pending_investigators": [get_char_dict(c) for c in pending_before],
-            },
-        }, db)
+        def frame(cards):
+            return {"type": "investigator_rejected",
+                    "payload": {"character_id": character_id, "pending_investigators": cards}}
+        await _broadcast_named(db, campaign_before, frame([get_char_dict(c) for c in pending_before]),
+                               frame(_named(db, pending_before)))
         # Also notify the rejected character directly if they're connected
         await manager.broadcast(character_key(character_id), {
             "type": "investigator_rejected",
@@ -224,13 +244,29 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
         Character.campaign_id == campaign_id,
         Character.status.in_(["active", "pending"]),
     ).all()
+    # A living investigator goes back to their player, free for another campaign, as a
+    # delete lets them go; a dead one stays with the campaign, retired.
+    released = []
     for c in active_chars:
-        c.status = "retired"
+        if c.is_dead:
+            c.status = "retired"
+        else:
+            c.status = "unaffiliated"
+            c.campaign_id = None
+            c.ink_color = ""
+            # its assignment ends with the campaign: no spends, uses or gear carried over
+            end_assignment_for(c)
+            released.append(c)
     db.commit()
-    await manager.broadcast_campaign(campaign.campaign_code, campaign_id, {
+    message = {
         "type": "campaign_retired",
         "payload": {"campaign_id": campaign_id, "campaign_code": campaign.campaign_code},
-    }, db)
+    }
+    # the Lightkeeper's channel and the channel of each investigator let go; a dead one's
+    # owner is not told, as it stays with the campaign. Not every socket of the owner: one
+    # on another campaign's desk must not hear it.
+    for key in [campaign_key(campaign.campaign_code)] + [character_key(c.id) for c in released]:
+        await manager.broadcast(key, message)
     return {"ok": True}
 
 
@@ -288,7 +324,7 @@ def rejoin(db: Session, campaign_code: str, character_id: int, user: User):
     a rejoin that went through (its answer was lost): the same answer, nothing changes
     (changed is False). Any other character on a roster is refused as a join refuses
     it (409, engine.ALREADY_ON_A_ROSTER), after the caller's own checks."""
-    campaign = db.query(Campaign).filter(Campaign.campaign_code == campaign_code) \
+    campaign = by_campaign_code(db.query(Campaign), campaign_code) \
         .populate_existing().with_for_update(read=True).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -329,8 +365,14 @@ def rejoin(db: Session, campaign_code: str, character_id: int, user: User):
         Character.id != new_char.id,
         or_(Character.status == "active", Character.is_dead == True),
     ).all()
+    spent_before = [c.resources_spent_assignment or 0 for c in old_chars if c.status == "active"]
     for c in old_chars:
         c.status = "retired"
+    # The two spends a player has between assignments follow the player, not the
+    # investigator, so a replacement does not start with a fresh two. Only a predecessor
+    # still active counts: End Assignment resets those, and a retired one holds a count
+    # from an earlier break.
+    new_char.resources_spent_assignment = max([new_char.resources_spent_assignment or 0] + spent_before)
 
     # Assign ink color and activate the new character
     active_count = db.query(Character).filter(
@@ -360,6 +402,11 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     # The owner check comes before any lock, as for a join, so nobody can make the
     # server lock someone else's character.
     require_owner(user, character_or_404(db, body.character_id))
+    # who they replace, for the log line: their other investigators now on this roster
+    there = by_campaign_code(db.query(Campaign.id), body.campaign_code).scalar_subquery()
+    replaced = [n for (n,) in db.query(Character.name).filter(
+        Character.campaign_id == there, Character.user_id == user.id,
+        Character.id != body.character_id, Character.status == "active").order_by(Character.id)]
     campaign, new_char, changed = rejoin(db, body.campaign_code, body.character_id, user)
     if not changed:
         return {"success": True, "character": get_char_dict(new_char)}
@@ -368,14 +415,13 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
         Character.campaign_id == campaign.id,
         Character.status == "active",
     ).all()
-    await manager.broadcast_campaign(campaign.campaign_code, campaign.id, {
-        "type": "investigator_approved",
-        "payload": {
-            "character": get_char_dict(new_char),
-            "active_investigators": [get_char_dict(c) for c in active],
-            "campaign_id": campaign.id,
-        },
-    }, db)
+    def approved(cards, card):
+        return {"type": "investigator_approved",
+                "payload": {"character": card, "active_investigators": cards, "campaign_id": campaign.id}}
+    # the Lightkeeper's cards carry the player's login name, as the roster's do
+    named = _named(db, active)
+    await _broadcast_named(db, campaign, approved([get_char_dict(c) for c in active], get_char_dict(new_char)),
+                           approved(named, next(c for c in named if c["id"] == new_char.id)))
     await manager.broadcast_campaign(campaign.campaign_code, campaign.id, {
         "type": "character_joined_mid_campaign",
         "payload": {
@@ -385,6 +431,8 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
         },
     }, db)
     await _announce_members_changed(db, campaign)
+    await log_line(db, campaign.campaign_code, campaign.id, f"{new_char.name} joined the circle"
+                   + (f", in place of {' and '.join(replaced)}." if replaced else "."))
     return {"success": True, "character": get_char_dict(new_char)}
 
 
@@ -418,8 +466,20 @@ async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session
     _refuse_retired(campaign.is_retired)
     invitee = _invitee(db, body.username)
 
+    # Accepting the invite retires the player's other investigators here (rejoin), so the
+    # Lightkeeper is told whom it would retire.
+    here = db.query(Character.name, Character.status, Character.is_dead).filter(
+        Character.campaign_id == campaign_id, Character.user_id == invitee.id,
+        Character.status.in_(["active", "retired"])).order_by(Character.id.desc()).all()
+    living = next((c.name for c in here if c.status == "active" and not c.is_dead), None)
     invitee.pending_rejoin_campaign_id = campaign_id
     db.commit()
+    # named after the player's seat (their investigator here, living or last), not the
+    # login name, which every member would read. "invited <dead investigator> back" read as
+    # bringing the dead back, and the player comes back with a new investigator
+    seat = living or (here[0].name if here else None)
+    who = f"{seat}'s player" if seat else "a player"
+    await log_line(db, campaign.campaign_code, campaign_id, f"The Lightkeeper invited {who} back.")
 
     # Attempt live delivery to any character websocket this user owns
     chars = db.query(Character).filter(Character.user_id == invitee.id).all()
@@ -432,15 +492,19 @@ async def invite_rejoin(campaign_id: int, body: InviteRejoinRequest, db: Session
                 "campaign_code": campaign.campaign_code,
             },
         })
-    return {"ok": True}
+    return {"ok": True, "current_investigator": living}
 
 @router.get("/campaign/{campaign_id}/roster", response_model=RosterResponse)
 def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     require_gm_or_member(db, user, campaign_or_404(db, campaign_id))
     raw = get_campaign_roster(db, campaign_id)
     campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    # the players' login names are the Lightkeeper's to read, not the members'
+    owners = _owner_names(db, raw["pending_investigators"] + raw["active_investigators"]) \
+        if campaign.gm_user_id == user.id else {}
     def to_item(c):
         return CharacterRosterItem(
+            owner_username=owners.get(c.user_id, ""),
             id=c.id,
             name=c.name,
             role_class=getattr(c, "role", "") or "",

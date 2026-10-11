@@ -21,7 +21,7 @@ const quietButton = 'px-4 py-2 border border-sepia/50 text-sepia hover:text-ink 
 // Relationship type, an optional prompt question, and the answer. The chosen question is
 // kept as its index and shown above the answer box, never in it; tapping it again lets it go.
 // A new type keeps the answer, and lets the question go (each type has its own).
-const RelationshipFields = ({ idPrefix, form, onChange }) => {
+const RelationshipFields = ({ idPrefix, form, onChange, person }) => {
   const { relType, promptIdx, answer } = form;
   const questions = (relType && RELATIONSHIP_DATA[relType]) || null;
   const question = questions && Number.isInteger(promptIdx) ? questions[promptIdx] : null;
@@ -29,7 +29,7 @@ const RelationshipFields = ({ idPrefix, form, onChange }) => {
   <div className="space-y-3">
     <div>
       <label htmlFor={`${idPrefix}-type`} className={labelClass}>Relationship</label>
-      <select id={`${idPrefix}-type`} value={relType || ''} onChange={e => onChange({ relType: e.target.value, promptIdx: null })} className={fieldClass}>
+      <select id={`${idPrefix}-type`} aria-label={`Relationship to ${person}`} value={relType || ''} onChange={e => onChange({ relType: e.target.value, promptIdx: null })} className={fieldClass}>
         <option value="" aria-label="None"></option>
         {RELATIONSHIP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
@@ -62,6 +62,7 @@ const RelationshipFields = ({ idPrefix, form, onChange }) => {
       {question && <p id={`${idPrefix}-q`} className="font-serif italic text-base text-sepia leading-snug mb-1.5">{question}</p>}
       <textarea
         id={`${idPrefix}-lore`}
+        aria-label={`Your answer about ${person}`}
         value={answer || ''}
         onChange={e => onChange({ answer: e.target.value })}
         rows={3}
@@ -145,10 +146,10 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
             {countered ? `${theirName} suggested this change.` : `${theirName} proposed this.`}
           </p>
           <div className="flex gap-2 flex-wrap">
-            <button type="button" onClick={() => respond(rel.id, 'accept')} className={primaryButton}>Accept</button>
+            <button type="button" onClick={() => respond(rel.id, 'accept')} aria-label={`Accept ${theirName}'s ${rel.rel_type}`} className={primaryButton}>Accept</button>
             {/* Counter starts from what was proposed, so a small change is a small edit */}
             <button type="button" onClick={() => setCounter(counter.open ? { open: false } : { ...(counter.relType ? {} : formFrom(rel)), open: true })}
-              aria-expanded={!!counter.open} className={quietButton}>
+              aria-expanded={!!counter.open} aria-label={`${counter.open ? 'Cancel counter to' : 'Counter'} ${theirName}'s ${rel.rel_type}`} className={quietButton}>
               {counter.open ? 'Cancel counter' : 'Counter'}
             </button>
           </div>
@@ -161,7 +162,7 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
                 className="overflow-hidden"
               >
                 <div className="pt-2 space-y-3 border-t border-sepia/20">
-                  <RelationshipFields idPrefix={`counter-${rel.id}`} form={counter} onChange={setCounter} />
+                  <RelationshipFields idPrefix={`counter-${rel.id}`} form={counter} onChange={setCounter} person={theirName} />
                   <button type="button" onClick={sendCounter} disabled={!counter.relType} className={primaryButton}>Send counter</button>
                 </div>
               </motion.div>
@@ -176,7 +177,7 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
 // compact (the Circle tab's relationships paper): a smaller head, and the form to propose
 // folded behind its own button until it is wanted. A started draft stays open.
 export const RelationshipNegotiation = ({
-  inv, myId, relationships, circleId, forms, proposeRelationship, respondToRelationship, compact = false,
+  inv, myId, relationships, circleId, forms, proposeRelationship, respondToRelationship, compact = false, proposeBlocked = false,
 }) => {
   const { drafts, setDrafts } = forms;
   const draft = drafts[inv.id] || {};
@@ -218,13 +219,15 @@ export const RelationshipNegotiation = ({
         {mine && !isEditing ? (
           <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
             onEdit={startEdit} focusRequest={focusRequest} />
+        ) : proposeBlocked ? (
+          <p className="font-serif text-base text-sepia">A dead investigator proposes no relationships.</p>
         ) : !formOpen ? (
           <button type="button" aria-expanded={false} onClick={() => setDraft({ open: true })} className={quietButton}>
             Propose a relationship
           </button>
         ) : (
           <div className="space-y-3">
-            <RelationshipFields idPrefix={`propose-${inv.id}`} form={draft} onChange={setDraft} />
+            <RelationshipFields idPrefix={`propose-${inv.id}`} form={draft} onChange={setDraft} person={inv.name} />
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <button type="button" onClick={propose} disabled={!draft.relType} className={primaryButton}>
                 {isEditing ? 'Send the change' : `Propose to ${inv.name}`}

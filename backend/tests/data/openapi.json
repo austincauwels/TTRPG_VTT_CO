@@ -736,6 +736,11 @@
             "title": "Name",
             "type": "string"
           },
+          "owner_username": {
+            "default": "",
+            "title": "Owner Username",
+            "type": "string"
+          },
           "pen_font": {
             "anyOf": [
               {
@@ -1198,9 +1203,25 @@
             "title": "Id",
             "type": "integer"
           },
+          "is_dead": {
+            "default": false,
+            "title": "Is Dead",
+            "type": "boolean"
+          },
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "pen_font": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pen Font"
           },
           "role_ability": {
             "default": "None",

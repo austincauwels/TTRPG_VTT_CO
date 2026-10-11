@@ -196,6 +196,7 @@ export const OperationsPanel = () => {
                       setPendingIndex={setPendingIndex}
                       handleStamp={handleStamp}
                       handleReject={handleReject}
+                      onView={handleSelectInvestigator}
                       campaignCode={activeCampaignCode}
                       error={requestError}
                       busy={requestBusy}

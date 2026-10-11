@@ -3,19 +3,25 @@ import useGameStore from '../../../store/gameStore';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { TargetDropdown } from './TargetDropdown';
 import { FormLine } from '../../shared/PrintMarks';
+import { useAutoGrow, GROW_STYLE } from '../../shared/useAutoGrow';
 
 export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat, className = '' }) => {
   const [chatTarget, setChatTarget] = useState('@Circle');
   const [chatMessage, setChatMessage] = useState('');
   const chatInputRef = useRef(null);
+  useAutoGrow(chatInputRef, chatMessage);
 
   // Use explicitly passed playerList (for GM) if non-empty, else fall back to circleCreation investigators (for PC)
   const investigators = (playerList && playerList.length > 0) ? playerList : (circleCreation?.activeInvestigators || []);
+  // A player's private note is read by the Lightkeeper too, and goes to no one else
+  // when it is for the Lightkeeper alone; the sender is not offered to themselves
+  const myId = useGameStore(s => s.character?.id);
   const targetOptions = [
     { value: '@Circle', label: '@Circle (everyone)', inkColor: null },
-    ...investigators.map(inv => ({
+    ...(showGmControls ? [] : [{ value: '@Lightkeeper', label: '@Lightkeeper only', inkColor: null }]),
+    ...investigators.filter(inv => showGmControls || ((myId == null || inv.id !== myId) && inv.name?.toLowerCase() !== 'lightkeeper')).map(inv => ({
       value: `@${inv.name}`,
-      label: `@${inv.name} (private)`,
+      label: showGmControls ? `@${inv.name} (private)` : `@${inv.name} (and the Lightkeeper)`,
       inkColor: inv.ink_color || null,
     })),
     ...(showGmControls ? [{ value: '@Environment', label: '@Environment (shown to everyone)', inkColor: 'rgb(var(--c-oxblood))' }] : []),
@@ -81,15 +87,16 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
 
       {/* Message row */}
       <div className="flex items-end gap-2 px-3 pt-1 pb-3 pl-[44px]">
-        <input
+        <textarea
           ref={chatInputRef}
-          type="text"
+          rows={1}
           value={chatMessage}
-          onChange={e => setChatMessage(e.target.value)}
+          onChange={e => setChatMessage(e.target.value.replace(/\n/g, ' '))}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
           placeholder="Message"
           aria-label="Message"
-          className="flex-1 min-w-0 bg-transparent border-b border-sepia/40 focus:border-oxblood text-base font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 [@media(pointer:coarse)]:min-h-[44px] transition-colors"
+          style={GROW_STYLE}
+          className="flex-1 min-w-0 resize-none overflow-hidden bg-transparent border-b border-sepia/40 focus:border-oxblood text-base font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 [@media(pointer:coarse)]:min-h-[44px] transition-colors"
         />
         <button
           onClick={handleSendChat}

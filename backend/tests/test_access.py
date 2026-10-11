@@ -297,8 +297,10 @@ def test_a_pending_character_reaches_nothing_of_the_campaign(client):
             assert ws.sync() == [_rejected(msg_type)]
         assert gm.sync() == []
         gm.send("update_drive", character_id=waiting["id"], pool="nerve", value=2)  # the GM still may
-        assert support.types(gm.sync()) == ["character_update", "member_update"]
-        ws.drain()
+        # but the table is not told of a character it has not let in. The sheet goes to the
+        # character's own desk, and the GM's desk follows through member_update
+        assert support.types(gm.sync()) == ["member_update"]
+        assert support.types(ws.sync()) == ["character_update"]
         assert support.approve(client, waiting["id"]).status_code == 200
         ws.recv_type("investigator_approved")
         ws.recv_type("circle_update")  # now a member: the circle, its pool grown by one

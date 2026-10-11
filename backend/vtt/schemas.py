@@ -338,9 +338,13 @@ class CharacterSummaryItem(BaseModel):
     role_ability: str = "None"
     specialty_ability: str = "None"
     status: str
+    # A dead investigator keeps status active on the roster: the hub's invite banner names
+    # only a living one as retired by coming back
+    is_dead: bool = False
     campaign_id: Optional[int] = None
     campaign_name: Optional[str] = None
     campaign_code: Optional[str] = None
+    pen_font: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -402,6 +406,7 @@ class CharacterRosterItem(BaseModel):
     ink_color: Optional[str] = ""
     pronouns: str = "Unlisted"
     catalyst: str = ""
+    owner_username: str = ""
     class Config:
         from_attributes = True
 

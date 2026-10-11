@@ -73,9 +73,11 @@ Each drive pool has a **resistance track** equal to `drive_max ÷ 3` (e.g., a Dr
 
 Burning resistance: spends 1 pip and rerolls using **only the action rating** (no drive added). Some abilities scale on how many resistance pips remain unspent (e.g., Open Book adds those pips as bonus dice on Sway).
 
+A burn answers your own last roll, until the table moves past it: another roll at the table whose dice everyone sees (the Lightkeeper's open roll too, and a gilded roll once its die is kept), or End Assignment. A secret roll does not. A gilded roll of yours whose die you keep after someone else's roll can still be burned on, until the next roll at the table or End Assignment. A gilded roll whose die is still to be kept when the Lightkeeper ends the assignment is scored when you keep it, but cannot be burned on. A desk that was away while your roll was settled is told so when it reconnects, and offers no burn for it.
+
 ### Can the GM roll dice?
 
-Yes. When a GM client sends a `roll` message, no character is attached. Drive spent is interpreted directly as the pool size. GM rolls can be marked **secret**, in which case the result and its log line go to the Lightkeeper's own desk only, never to the players. Her result slip reads "Secret: only you saw this" and her own log keeps the line, "(Secret) Lightkeeper rolled a 4: Mixed success.", so the result is still on her desk after a player's roll takes the felt (since 2026-10-10; before that a secret roll wrote no line at all). The line goes to her channel alone and is kept only in her channel's history: no player's desk gets it, live, on a reload or on a first visit. It plays no result sound.
+Yes. When a GM client sends a `roll` message, no character is attached. Drive spent is interpreted directly as the pool size. GM rolls can be marked **secret**, in which case the result and its log line go to the Lightkeeper's own desk only, never to the players. Her result slip reads "Secret: only you saw this" and her own log keeps the line, "(Secret) Lightkeeper rolled a 4: Mixed success (2 dice: 1, 4)." (every roll line names its dice, since a tray shows only its owner's rolls), so the result is still on her desk after a player's roll takes the felt (since 2026-10-10; before that a secret roll wrote no line at all). The line goes to her channel alone and is kept only in her channel's history: no player's desk gets it, live, on a reload or on a first visit. It plays no result sound.
 
 ---
 
@@ -107,7 +109,7 @@ Characters have three mark tracks: **Body**, **Brain**, and **Bleed** (0–3 eac
 
 1. **Soak offers (self):** Compartmentalization (Brain, costs Nerve resistance), Steel Mind (Brain, costs Intuition resistance), In the Trenches (Body, costs Cunning resistance). If an offer is available, a popup is sent to the player first; the mark is only applied if they decline.
 2. **Death Defy:** If the mark comes from an enemy (`is_from_enemy: true`) and the character has this ability with a use remaining, they can escape the mark entirely (1 use/assignment).
-3. **Cross-player intercepts:** If any *other* active character in the campaign has "Behind Me" (costs 1 Nerve current) or "Premonitions" (costs 1 Intuition resistance pip), they receive an intercept offer on their screen simultaneously.
+3. **Cross-player intercepts:** If any *other* active character in the campaign has "Behind Me" (costs 1 Nerve current) or "Premonitions" (costs 1 Intuition resistance pip), they receive an intercept offer on their screen simultaneously. The first ally to answer takes the mark, and the other allies' offers for it close. An offer stays open for two minutes and comes back, with the time left, if the ally's page reloads in that time.
 
 If none of these apply (or the player declines), the mark is applied and the character sheet is updated in real time.
 
@@ -126,7 +128,7 @@ The `trigger_scar` event opens the Scar Modal on the affected player's screen. T
 
 The server appends the scar text to `character.scars_list` (a JSON array) and increments `scars_count`. The Action Point Shift is applied to the two specified action columns.
 
-After an incapacitation, **a GM can revive the character** (`revive_character` action), which clears the `incapacitated` flag and resets all three mark tracks to 0 so the character can act again.
+After an incapacitation, **a GM can revive the character** (`revive_character` action, the Revive button on the Lightkeeper's copy of the sheet), which clears the `incapacitated` flag so the character can act again. The track that overfilled was already cleared when the scar was taken; the other tracks keep their marks.
 
 ---
 
@@ -136,7 +138,7 @@ After an incapacitation, **a GM can revive the character** (`revive_character` a
 
 Death triggers automatically when a character's `scars_count` reaches **4** during `apply_scar`. The server sets both `is_dead = true` and `incapacitated = true`.
 
-There is no mechanical enforcement beyond those flags — the frontend reflects the dead state visually. A GM can still manually issue `revive_character` to clear `incapacitated` (e.g., for narrative resurrection), though `is_dead` remains `true` as a permanent record. Dead characters remain in the campaign roster; they are not deleted or removed.
+Once dead, the sheet is a record: the server refuses the dead investigator's own `roll`, `take_mark`, `update_gear`, `update_drive`, `spend_resource`, `use_ability`, advancement, relationship proposals and the rest of the sheet's actions (409, "<name> is dead: the sheet is a record."), and the Lightkeeper's Deal a mark, and the desk shows the controls off: no ability Use, no Burn and reroll or post-roll ability. A gilded roll made in life whose die is still to be kept when the fourth scar comes can still be kept (it is scored and logged, with no drive back), and a soak or Death Defy offer open at the death closes, its mark not taken. Chat, the notebook and Create a new investigator stay. The death is logged to every desk, the Lightkeeper's included ("<name> is deceased: a fourth scar."). A GM can still issue `revive_character` to clear `incapacitated` (e.g., for narrative resurrection), though `is_dead` remains `true` as a permanent record. The Lightkeeper's copy of an incapacitated investigator's sheet has a Revive button beside the status stamp. Dead characters remain in the campaign roster; they are not deleted or removed.
 
 ---
 
@@ -164,7 +166,7 @@ When a player submits a join request, the character appears on the GM's roster i
 
 ### Can campaigns be ended?
 
-Yes. The GM can **retire** a campaign, which sets `is_retired = true` on the Campaign record and detaches all active/pending characters (sets their `campaign_id` to null and status to `unaffiliated`). A retirement notice is broadcast via WebSocket to any connected players. Retired campaigns are excluded from the GM's campaign list but the data is not deleted.
+Yes. The GM can **retire** a campaign, which sets `is_retired = true` on the Campaign record and detaches all living active/pending characters (sets their `campaign_id` to null and status to `unaffiliated`, so their players can use them in another campaign; a dead one stays `retired` with the campaign). A retirement notice is broadcast via WebSocket to any connected players, and a hub reads its lists again when the tab comes back or the Case Ledger opens. Retired campaigns are excluded from the GM's campaign list but the data is not deleted.
 
 ---
 
@@ -221,7 +223,7 @@ The illumination track is a 0–12 numeric value on the Circle. Players can incr
 
 ### What is an assignment's report worth?
 
-By the book (p. 55): 1 Illumination for each of the circle's three Illumination questions answered yes, then for the Illumination Keys 2 if some of the investigators fulfilled one and 4 if every one of them did (nothing if none did). Since 2026-10-10 the Lightkeeper ticks the three questions once, for the circle, on their Circle page, and the players' reports carry only their keys. Under the report cards the page totals it (a living investigator with no report filed counts as no key) and adds it with one press, "Add N Illumination", once per assignment. Every change to the track is logged, such as "The Ninth Night gains 2 Illumination (3 to 5)." Before, each player's report carried the three questions too, so one yes could come in four times, nothing totalled the reports, and the playtest's circle counted keys at 1 each and advanced about 5 Illumination early.
+By the book (p. 55): 1 Illumination for each of the circle's three Illumination questions answered yes, then for the Illumination Keys 2 if some of the investigators fulfilled one and 4 if every one of them did (nothing if none did). Since 2026-10-10 the Lightkeeper ticks the three questions once, for the circle, on their Circle page, and the players' reports carry only their keys. Under the report cards the page totals it (a living investigator with no report filed counts as no key) and adds it with one press, "Add N Illumination", once per assignment. The ticks and the added total are kept on the circle, so every Lightkeeper desk (another tab, another device) shows them and "Added N Illumination" once it is pressed; the server refuses a second add. End Assignment clears the reports and the tally, and its confirm warns when the reports' Illumination is not added yet, since it would be lost. Every change to the track is logged, such as "The Ninth Night gains 2 Illumination (3 to 5)." Before, each player's report carried the three questions too, so one yes could come in four times, nothing totalled the reports, and the playtest's circle counted keys at 1 each and advanced about 5 Illumination early.
 
 ---
 
@@ -257,8 +259,14 @@ Entries are soft-deleted (`is_deleted = true`) rather than removed from the data
 
 Nothing reaches the server until it is pinned or added. Until then a private note and a field entry's title and text are kept in the browser's `localStorage` under the account, the campaign and the seat (`candela-notebook-draft:<user id>:<campaign id>:<character id, or lightkeeper>`), so leaving the notebook or reloading keeps them, and pinning or adding clears them, even when the notebook was left before the server answered. They stay after Sign out, as the creator's draft does: the app never shows them to another account, but anyone who can read that browser's storage can. Where the browser refuses storage (a private window, a full or blocked store), the writing is kept in the open page instead: leaving the notebook keeps it, a reload does not. A picture staged for an entry waits in the open page only (DESIGN.md, Notes in Markdown).
 
+### Who reads a passed note?
+
+A player's To: list offers @Circle, @Lightkeeper only and the other investigators (not the sender). A private note to an investigator is shown to the Lightkeeper too, and its label says so; a note to @Lightkeeper alone reaches no other player. The server reads @Lightkeeper as the Lightkeeper alone, even when an investigator is named Lightkeeper; nothing stops that name, but the To: list leaves such an investigator out, so no private note can be passed to them.
+
 ## What the Lightkeeper's changes look like on the players' desks (since 2026-10-10)
 
-- The dispatch, the tension, the timer (set, start, pause, reset, clear), the reports opening and closing, a filed or amended report and the Lightkeeper's edits of Stitch, Refresh and Train each write a line in the Activity Log. A phone shows a "new" dot on the Menu and the matching drawer row until the player has opened that part.
-- A player spends a circle resource in two presses (the first asks). A spend is used for the whole circle; each player has two per assignment. The Lightkeeper can give a member one back from the member's sheet, optionally returning the resource to the circle's pool, and the log says so.
+- The dispatch (with its location, "sent a dispatch: Docks."), the tension, the timer (set, start, pause, reset, clear), the reports opening and closing, a filed or amended report and the Lightkeeper's edits of Stitch, Refresh and Train each write a line in the Activity Log. A phone shows a "new" dot on the Menu and the matching drawer row until the player has opened that part.
+- A player spends a circle resource in two presses (the first asks). A spend is used for the whole circle; each player has two per assignment, and a replacement investigator (rejoin) keeps the count of the one it replaces. The Lightkeeper can give a member one back from the member's sheet, optionally returning the resource to the circle's pool (never past its maximum; a full resource cannot be picked), and the log says so. One press gives one back.
+- An unsent dispatch (location, text) is kept while the Lightkeeper visits Map, Notebook or Circle, until the page is reloaded; if another dispatch arrives meanwhile, the letter shows that one instead.
+- Reset empties the timer's screen-reader status, so the next start and run-out are announced again.
 - Keeping the gilded die in a gilded roll gives one point back to the action's drive; keeping the regular die does not. The slip says what each choice does before it is made.

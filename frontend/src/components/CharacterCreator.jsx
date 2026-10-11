@@ -648,6 +648,18 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
     }, 300);
   };
 
+  // A horizontal swipe on the card stack turns the card; vertical drags stay with the page scroll
+  const swipeStart = useRef(null);
+  const swipeDown = (e) => { swipeStart.current = { x: e.clientX, y: e.clientY }; };
+  const swipeUp = (e) => {
+    const from = swipeStart.current;
+    swipeStart.current = null;
+    if (!from) return;
+    const dx = e.clientX - from.x;
+    const dy = e.clientY - from.y;
+    if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5) flip(dx < 0 ? 'forward' : 'backward');
+  };
+
   const chooseSpecialty = () => {
     if (!selectedRoleAbility || !selectedSpecialtyAbility) return;
     const card = allCards[currentIndex];
@@ -665,6 +677,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
     openStep(2);
   };
 
+  const gearFull = selectedGear.length >= 3;
+  const gearFullTitle = 'All 3 gear are marked. Untick one to swap.';
   const toggleGear = (item) => {
     if (selectedGear.includes(item)) setSelectedGear(selectedGear.filter(g => g !== item));
     else if (selectedGear.length < 3) setSelectedGear([...selectedGear, item]);
@@ -813,7 +827,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px]">
 
               {/* Card stack */}
-              <div style={{ position: 'relative', width: 'calc(var(--card-w) + 30px)', height: `calc(${CARD_SIZE.height} + 25px)` }}>
+              <div onPointerDown={swipeDown} onPointerUp={swipeUp} onPointerCancel={() => { swipeStart.current = null; }}
+                style={{ position: 'relative', width: 'calc(var(--card-w) + 30px)', height: `calc(${CARD_SIZE.height} + 25px)`, touchAction: 'pan-y' }}>
 
                 {/* Depth shadow cards beneath */}
                 {[4, 3, 2, 1].map(n => (
@@ -1211,7 +1226,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             <div>
               <div className="flex items-center justify-between gap-3 mb-2">
                 <h3 className="text-lg font-serif font-bold text-oxblood">
-                  B. Distribute 3 Free Action Points (max 2 per action)
+                  B. Distribute 3 Free Action Points (no action above 2 at creation)
                 </h3>
                 <span className={`shrink-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest ${freePtsUsed===3?'text-seal-green':'text-sepia'}`}>
                   {freePtsUsed}/3 placed
@@ -1285,7 +1300,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                                     {ACTION_FLAVOR[key]}
                                   </span>
                                 </span>
-                                <div className="order-3 flex gap-1 flex-1 max-sm:[@media(pointer:coarse)]:flex-none" role="img" aria-label={`${label}: ${total} of 3${locked ? `, ${locked} from your specialty` : ''}`}>
+                                <div className="order-3 flex gap-1 flex-1 max-sm:[@media(pointer:coarse)]:flex-none" role="img" aria-label={`${label}: ${total} of 3, no more than 2 at creation${locked ? `, ${locked} from your specialty` : ''}`}>
                                   {[1,2,3].map(n => (
                                     <div key={n} className={n <= total ? 'action-pip filled' : 'action-pip'}
                                       style={n <= locked ? SPECIALTY_PIP : undefined} />
@@ -1299,6 +1314,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                                   className="w-7 h-7 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                                   style={{ color:'rgb(var(--c-oxblood))', borderColor:'rgb(var(--c-oxblood) / 0.31)' }}>−</button>
                                 <button type="button" onClick={() => adjustFreePoints(key,1)} disabled={total>=2||freePtsUsed>=3} aria-label={`Put a free point on ${label}`}
+                                  title={total>=2 ? `${label} cannot go above 2 at creation` : freePtsUsed>=3 ? 'All 3 free points are placed' : undefined}
                                   className="w-7 h-7 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                                   style={{ color:'rgb(var(--c-oxblood))', borderColor:'rgb(var(--c-oxblood) / 0.31)' }}>+</button>
                               </div>
@@ -1316,7 +1332,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             <div className="rounded-sm p-4" style={{ background:'rgb(var(--c-parchment-deep)/0.15)', border:'1px solid rgb(var(--c-sepia)/0.18)' }}>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h3 className="text-lg font-serif font-bold text-oxblood">
-                  C. Distribute 6 Drive Points
+                  C. Distribute 6 Drive Points (no drive above 6 at creation)
                 </h3>
                 <span className={`shrink-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest ${drivesPtsUsed===6?'text-seal-green':'text-sepia'}`}>
                   {drivesPtsUsed}/6 placed
@@ -1337,7 +1353,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                       <span className="text-sm font-black uppercase tracking-wider" style={{ color }}>{label}</span>
                       <span className="text-base font-serif italic text-center leading-snug" style={{ color }}>{DRIVE_FLAVOR[key]}</span>
                       <span className="text-xl font-black" style={{ color }}>{total}</span>
-                      <div className="flex gap-1" role="img" aria-label={`${label}: ${total} drive points, ${startVal} from your specialty`}>
+                      <div className="flex gap-1" role="img" aria-label={`${label}: ${total} drive points of ${DRIVE_START_MAX} at most, ${startVal} from your specialty`}>
                         {Array.from({length:DRIVE_START_MAX}).map((_,i) => (
                           <div key={i} className="w-2.5 h-2.5 rounded-sm border transition-all"
                             style={{
@@ -1355,6 +1371,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           style={{ color, borderColor:`${color}50` }}>−</button>
                         <span className="text-sm font-sans font-black w-8 [@media(pointer:coarse)]:w-6 text-center" style={{ color }}>+{addVal}</span>
                         <button type="button" onClick={() => adjustDrive(key,1)} disabled={drivesPtsUsed>=6 || total>=DRIVE_START_MAX} aria-label={`Put a point on ${label}`}
+                          title={total>=DRIVE_START_MAX ? `${label} cannot go above ${DRIVE_START_MAX} at creation` : drivesPtsUsed>=6 ? 'All 6 drive points are placed' : undefined}
                           className="w-7 h-7 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 flex items-center justify-center font-black text-base rounded hover:opacity-80 disabled:opacity-20 border"
                           style={{ color, borderColor:`${color}50` }}>+</button>
                       </div>
@@ -1412,11 +1429,12 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
 
               {/* Specialty gear */}
               <div className="mb-4">
-                <p className="text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-2">{specialty} gear</p>
+                <p className="text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-2">{specialty} signature gear</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {ROLES[role]?.specialties[specialty]?.gear.map(item => (
                     <button type="button" key={item} onClick={() => toggleGear(item)} aria-pressed={selectedGear.includes(item)}
-                      className={`w-full text-left flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? 'shadow-sm' : 'hover:bg-parchment-deep/40'}`}
+                      title={gearFull && !selectedGear.includes(item) ? gearFullTitle : undefined}
+                      className={`w-full text-left flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${gearFull && !selectedGear.includes(item) ? 'opacity-50' : ''} ${selectedGear.includes(item) ? 'shadow-sm' : 'hover:bg-parchment-deep/40'}`}
                       style={{
                         background: selectedGear.includes(item) ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.2)',
                         border: `1px solid ${selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia)/0.22)'}`,
@@ -1426,7 +1444,6 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                       </div>
                       <SafeIcon name={GEAR_ICONS[item]} size={18} style={{ color: selectedGear.includes(item) ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-sepia))', opacity: selectedGear.includes(item) ? 1 : 0.55, flexShrink: 0 }} />
                       <span className={`text-base font-serif ${selectedGear.includes(item) ? 'font-bold text-ink' : 'text-ink/80'}`}>{item}</span>
-                      <span className="ml-auto text-xs font-sans font-black uppercase text-oxblood/80 shrink-0">[Sig]</span>
                     </button>
                   ))}
                 </div>
@@ -1438,7 +1455,8 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {STANDARD_GEAR.map(item => (
                     <button type="button" key={item} onClick={() => toggleGear(item)} aria-pressed={selectedGear.includes(item)}
-                      className={`w-full text-left flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${selectedGear.includes(item) ? '' : 'hover:bg-parchment-deep/30'}`}
+                      title={gearFull && !selectedGear.includes(item) ? gearFullTitle : undefined}
+                      className={`w-full text-left flex items-center gap-3 p-3 rounded-sm cursor-pointer transition-all select-none ${gearFull && !selectedGear.includes(item) ? 'opacity-50' : ''} ${selectedGear.includes(item) ? '' : 'hover:bg-parchment-deep/30'}`}
                       style={{
                         background: selectedGear.includes(item) ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.1)',
                         border: `1px solid ${selectedGear.includes(item) ? 'rgb(var(--c-oxblood) / 0.5)' : 'rgb(var(--c-sepia)/0.15)'}`,
@@ -1462,13 +1480,27 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                   { label: "Investigator", value: name },
                   { label: "Pronouns",     value: pronouns || 'Unlisted' },
                   { label: "Role · Specialty", value: `${role} · ${specialty}` },
-                  { label: "Gear Selected", value: `${selectedGear.length} of 3 items` },
+                  { label: "Gear Selected", value: selectedGear.length ? selectedGear.join(', ') : `${selectedGear.length} of 3 items` },
+                  { label: "Abilities", value: [selectedRoleAbility, selectedSpecialtyAbility].filter(Boolean).join(', ') || 'None chosen' },
+                  { label: "Actions", value: ACTION_DRIVES.flatMap(di => di.actions).map(({ key, label }) => {
+                      const gild = key === lockedGilded || key === freeGilded ? ' (gilded)' : '';
+                      return getActionTotal(key) || gild ? `${label} ${getActionTotal(key)}${gild}` : null;
+                    }).filter(Boolean).join(', ') },
+                  { label: "Drives", value: `Nerve ${getDriveValue('nerve')}, Cunning ${getDriveValue('cunning')}, Intuition ${getDriveValue('intuition')}` },
+                  { label: "Style", value: style || 'Unlisted' },
+                  { label: "Question", value: question || 'Unlisted' },
                 ].map(({ label, value }) => (
                   <div key={label} className="p-3 rounded-sm" style={{ background: 'rgb(var(--c-parchment-deep)/0.28)', border: '1px solid rgb(var(--c-sepia)/0.15)' }}>
                     <span className="block text-xs sm:text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-0.5">{label}</span>
-                    <span className="text-lg font-bold text-ink block break-words sm:truncate">{value}</span>
+                    <span className="text-lg font-bold text-ink block break-words">{value}</span>
                   </div>
                 ))}
+                {profilePic && (
+                  <div className="p-3 rounded-sm" style={{ background: 'rgb(var(--c-parchment-deep)/0.28)', border: '1px solid rgb(var(--c-sepia)/0.15)' }}>
+                    <span className="block text-xs sm:text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-0.5">Portrait</span>
+                    <img src={profilePic} alt={`Portrait of ${name || 'your investigator'}`} className="w-16 h-16 object-cover rounded-sm border border-sepia/30" />
+                  </div>
+                )}
               </div>
               <div className="p-4 rounded-sm" style={{ background: 'rgb(var(--c-parchment-deep)/0.18)', border: '1px dashed rgb(var(--c-sepia)/0.22)' }}>
                 <span className="block text-xs sm:text-sm font-sans font-black uppercase tracking-[0.12em] text-oxblood mb-1">Catalyst</span>
@@ -1503,6 +1535,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             <div className="w-full bg-night border-2 border-oxblood p-5 shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
                             <p className="text-parchment-deep font-serif text-base mb-4">
                 Your Lightkeeper invited you back to <strong className="text-cream">{rejoinContext.campaignName}</strong>. Rejoin it with this investigator?
+                {rejoinContext.retires?.length > 0 && ` ${rejoinContext.retires.join(' and ')} will be retired.`}
               </p>
               <div className="flex gap-3 flex-wrap">
                 <button

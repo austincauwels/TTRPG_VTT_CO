@@ -8,7 +8,7 @@ import { SheetDivider } from '../shared/Decorations';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ScarIcon } from '../shared/ScarIcon';
 import { getAvailableRollMods } from './DiceVault';
-import { resistRemaining } from '../../game/rollMods';
+import { resistRemaining, previewPool } from '../../game/rollMods';
 import { ACTION_LABEL, SCAR_TEXT_MAX, scarDisplayText } from '../../game/actions';
 import { livingMembers } from '../../game/roster';
 import { useMarkUndo, MARK_NAME } from './useMarkUndo';
@@ -18,7 +18,7 @@ import { FormLine, SerialNo, PrinterMark, serialFor } from '../shared/PrintMarks
 import { PhotoMount } from '../shared/PhotoMount';
 import { usePortraitChange } from './usePortraitChange';
 import { TickMark } from '../shared/InkMarks';
-import { ActionInfo, useActionInfo } from '../shared/ActionInfo';
+import { ActionInfo, InfoTerm, useActionInfo } from '../shared/ActionInfo';
 import { ConfirmAction } from '../shared/ConfirmAction';
 
 // A die face (three pips). The whole action row is the roll; this die only shows on hover
@@ -255,7 +255,7 @@ const ROLE_ICONS = {
   'Weird': 'GiCrystalBall',
 };
 
-const ABILITY_TEXTS = {
+export const ABILITY_TEXTS = {
   // ── FACE (role) ────────────────────────────────────────────────────────────
   "I Know a Guy": "Once per assignment, ask the Lightkeeper who you know nearby that could help you. The Lightkeeper will tell you who they are, and explain why this NPC might have insight into the investigation.",
   "Sweet Talk": "You know how to work the room. After you make small talk with someone, you may add +1d on any Read rolls you make in which they are the target. If your current Cunning resistance is 2 or higher, that die is gilded.",
@@ -440,10 +440,10 @@ const GEAR_ICONS = {
   "Occult Supplies": "GiCauldron", "Ritual Dagger": "GiKnifeThrust",
 };
 
-// traumaEdit (the Lightkeeper's copy only): { setMarks(type, value), setScars(list),
+// traumaEdit (the Lightkeeper's copy only): { setMarks(type, value), setScars(list), setDrive(pool, value),
 // dealMark(type, fromEnemy), error }.
 // It gives the trauma record an Edit button that sets the mark tracks and rewords or
-// removes scars right on the record (GMCharacterSheet.jsx).
+// removes scars right on the record, and, while it is on, makes the drive pips live (GMCharacterSheet.jsx).
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false, traumaEdit = null }) => {
   const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster } = useGameStore(useShallow(s => ({
     character: s.character,
@@ -465,9 +465,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     isRolling: s.isRolling,
   })));
   const character = charProp || storeChar;
-  // The "Use" control for an ability with a cost outside a roll (not on a read-only sheet)
+  // The "Use" control for an ability with a cost outside a roll (not on a read-only sheet,
+  // nor on a dead investigator's, which is a record: the server refuses the use)
   const renderAbilityUse = (name) => {
-    if (readOnly) return null;
+    if (readOnly || character?.is_dead) return null;
     if (ABILITY_USES[name]) {
       const allies = livingMembers(campaignRoster?.active_investigators).filter(inv => inv.id !== character?.id);
       return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} allies={allies} character={character} />;
@@ -563,9 +564,12 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   });
 
   const handleSpendDrive = (pool, value) => {
-    if (readOnly) return;
+    if (dead) return;
     const maxDrive = character[`${pool}_max`] || 1;
-    if (value >= 0 && value <= maxDrive) updateDrive(pool, value);
+    if (value < 0 || value > maxDrive) return;
+    // The Lightkeeper's copy sets it through her trauma edit; a player's own desk through the store
+    if (readOnly) { if (driveEdit) traumaEdit.setDrive(pool, value); return; }
+    updateDrive(pool, value);
   };
 
   const sendGearUpdate = () => {
@@ -612,6 +616,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The trauma record in edit mode (the Lightkeeper's copy): each change goes to the table
   // at once; Done also saves scar words changed and not yet saved
   const editing = !!traumaEdit && editingTrauma;
+  const driveEdit = editing && !!traumaEdit.setDrive;
+  // Once dead, a player's own sheet is a record: no roll, mark, drive or gear (the server refuses them)
+  const dead = !readOnly && !!character?.is_dead;
+  // whose record the Lightkeeper's edit is on, in the hint and the toggle's name
+  const recordOf = character?.name ? `${character.name}'s ` : 'the ';
   // The mark waiting for its Undo fills its track, after any the table holds: a scar
   const undoFillsTrack = !!heldMark && (character[`${heldMark.type}_marks`] || 0) + tableHolds(heldMark.type) >= 3;
   // Deal a mark (the Lightkeeper's copy): whether an enemy dealt it, and the last one sent
@@ -692,6 +701,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   const pendingCount = countedGear(pendingGear).length;
   // Gear written in by name in this dialog and not saved yet: it can still be taken off
   const pendingWritten = pendingGear.filter(item => !listedGear.includes(item) && !gear.includes(item));
+  const swappable = countedGear(pendingGear.filter(item => !gear.includes(item))).length > 0;
   const writeInName = writeIn.trim();
   const canWriteIn = writeInName && pendingCount < slots && !pendingGear.includes(writeInName)
     && !writeInName.startsWith(GEAR_RULES.oneStepAhead);
@@ -773,7 +783,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       <div data-desk="identity" className="dossier-ident grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-x-6 sm:gap-y-2 pb-2">
         <div className="sm:col-span-2 min-w-0">
           <span className="block font-sans text-xs font-black uppercase tracking-normal text-sepia leading-tight">Investigator</span>
-          <div className="text-xl font-serif font-black border-b border-ink pb-0.5 text-ink uppercase mt-1 truncate">{character.name}</div>
+          <div className="text-xl font-serif font-black border-b border-ink pb-0.5 text-ink uppercase mt-1 break-words leading-tight">{character.name}</div>
         </div>
         {/* Role class + specialty badges */}
         {(displayRole || displaySpecialty) ? (
@@ -821,7 +831,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
               <SafeIcon name="GiBriefcase" size={18} /> Gear
             </h3>
-            {!readOnly && (
+            {!readOnly && !dead && (
               <button
                 type="button"
                 onClick={openGearModal}
@@ -1002,24 +1012,36 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2" id={`drive-avail-${cat.driveKey}`}>Available</span>
                   <div className="drive-pips flex gap-0.5 flex-wrap justify-end" role="group" aria-labelledby={`drive-avail-${cat.driveKey}`}>
                     <span className="sr-only">{cat.name}: {currentDrive} of {maxDrive} available.</span>
-                    {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => (
+                    {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => {
+                      // An empty pip below the maximum fills up to it; the last filled pip clears
+                      // one point, so a mistaken tap can be undone
+                      const refill = !dead && (!readOnly || driveEdit) && i < maxDrive && i >= currentDrive;
+                      const clear = !dead && (!readOnly || driveEdit) && i === currentDrive - 1;
+                      const live = refill || clear;
+                      // The button is the finger's target (.drive-pip-hit in index.css: 44px
+                      // tall on a touch screen, sharing the row's width with its neighbours,
+                      // never over them); the square drawn inside keeps its size
+                      return (
                       <button
                         key={i}
                         type="button"
-                        disabled={!(!readOnly && i < maxDrive && i >= currentDrive)}
-                        aria-label={`Set ${cat.name} available to ${i + 1}`}
-                        aria-hidden={!readOnly && i < maxDrive && i >= currentDrive ? undefined : true}
-                        onClick={!readOnly && i < maxDrive && i >= currentDrive ? () => handleSpendDrive(cat.driveKey, i + 1) : undefined}
-                        className={`drive-pip w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all ${
+                        disabled={!live}
+                        aria-label={clear ? `Clear one ${cat.name} point (set to ${i})` : `Set ${cat.name} available to ${i + 1}`}
+                        aria-hidden={live ? undefined : true}
+                        onClick={live ? () => handleSpendDrive(cat.driveKey, clear ? i : i + 1) : undefined}
+                        className={`drive-pip-hit group/pip flex items-center justify-center ${live ? 'cursor-pointer' : 'cursor-default'}`}
+                      >
+                        <span aria-hidden="true" className={`drive-pip block w-3.5 h-3.5 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 rounded-sm border transition-all ${
                           i < currentDrive
                             ? ''
                             : i < maxDrive
-                              ? 'bg-transparent border-ink/40 hover:border-oxblood/50'
+                              ? 'bg-transparent border-ink/40 group-hover/pip:border-oxblood/50'
                               : 'bg-transparent border-dotted border-ink/30 opacity-40'
-                        } ${!readOnly && i < maxDrive && i >= currentDrive ? 'cursor-pointer' : 'cursor-default'}`}
-                        style={i < currentDrive ? { background: `rgb(var(--c-drive-${cat.driveKey}))`, borderColor: `rgb(var(--c-drive-${cat.driveKey}))` } : undefined}
-                      />
-                    ))}
+                        }`}
+                          style={i < currentDrive ? { background: `rgb(var(--c-drive-${cat.driveKey}))`, borderColor: `rgb(var(--c-drive-${cat.driveKey}))` } : undefined} />
+                      </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1057,6 +1079,36 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
                   const availMods = !readOnly ? getAvailableRollMods(character, act.key, circle) : [];
                   const selectedMods = activeMods[act.key] || [];
+                  // What the picked abilities make of the pool, said before the roll
+                  // The drive the roll spends and how much, as the roll will send it: the same
+                  // for the click and for the preview, so the button states the pool it rolls
+                  const rollSpend = () => {
+                    // Street Smarts lets a Survey roll spend any drive: the one the
+                    // player put a spend on (the server spends what the roll names)
+                    let spendKey = cat.driveKey;
+                    let extra = {};
+                    if (act.key === 'survey' && selectedMods.includes('Street Smarts')) {
+                      const chosen = ['intuition', 'nerve', 'cunning'].find(d => (preSpend[d] || 0) > 0);
+                      if (chosen) { spendKey = chosen; extra = { drive: chosen }; }
+                    }
+                    // Cool Under Pressure and Practiced Patter spend another drive: the
+                    // server takes the spend from it, so the spend is read from its stepper
+                    const substitute = availMods.find(m => selectedMods.includes(m.key) && m.driveSubstitute && m.driveSubstitute !== 'any');
+                    if (substitute) spendKey = substitute.driveSubstitute;
+                    let spend = preSpend[spendKey] || 0;
+                    // Sharpshooter costs 1 Nerve on top of what is spent on the roll
+                    if (selectedMods.includes('Sharpshooter') && spendKey === 'nerve') {
+                      spend = Math.min(spend, Math.max(0, (character.nerve_current || 0) - 1));
+                    }
+                    return { spendKey, spend, extra };
+                  };
+                  const pickedSpend = rollSpend();
+                  const preview = previewPool({ rating: actionValue, gilded: isGilded, spend: pickedSpend.spend, drive: pickedSpend.spendKey, mods: availMods, selectedKeys: selectedMods });
+                  const previewText = preview
+                    ? (preview.zero
+                      ? `no dice, 2 rolled, lowest counts${preview.gilds > 0 ? `, ${preview.gilds >= 2 ? 'both' : preview.gilds} gilded` : ''}`
+                      : `${preview.dice} ${preview.dice === 1 ? 'die' : 'dice'}${preview.gilds > 0 ? `, ${preview.gilds >= preview.dice ? 'all' : preview.gilds} gilded` : ''}`)
+                    : '';
 
                   const ratingPips = (
                     <span className="flex gap-1 shrink-0" role="img" aria-label={`${act.label} rating: ${actionValue} of 3`}>
@@ -1068,7 +1120,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       ))}
                     </span>
                   );
-                  const rollBlocked = !!pendingGildedChoice || !!isRolling;
+                  const rollBlocked = !!pendingGildedChoice || !!isRolling || dead;
                   const infoKey = `${infoId}-${act.key}`;
 
                   return (
@@ -1093,23 +1145,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                           data-roll-row=""
                           onClick={() => {
                             if (rollBlocked) return;
-                            // Street Smarts lets a Survey roll spend any drive: the one the
-                            // player put a spend on (the server spends what the roll names)
-                            let spendKey = cat.driveKey;
-                            let extra = {};
-                            if (act.key === 'survey' && selectedMods.includes('Street Smarts')) {
-                              const chosen = ['intuition', 'nerve', 'cunning'].find(d => (preSpend[d] || 0) > 0);
-                              if (chosen) { spendKey = chosen; extra = { drive: chosen }; }
-                            }
-                            // Cool Under Pressure and Practiced Patter spend another drive: the
-                            // server takes the spend from it, so the spend is read from its stepper
-                            const substitute = availMods.find(m => selectedMods.includes(m.key) && m.driveSubstitute && m.driveSubstitute !== 'any');
-                            if (substitute) spendKey = substitute.driveSubstitute;
-                            let spend = preSpend[spendKey] || 0;
-                            // Sharpshooter costs 1 Nerve on top of what is spent on the roll
-                            if (selectedMods.includes('Sharpshooter') && spendKey === 'nerve') {
-                              spend = Math.min(spend, Math.max(0, (character.nerve_current || 0) - 1));
-                            }
+                            const { spendKey, spend, extra: spendExtra } = rollSpend();
+                            let extra = spendExtra;
                             // Saw This Coming names the ally who adds the die
                             const helper = availMods.find(m => m.helper && selectedMods.includes(m.key));
                             if (helper) extra = { ...extra, saw_this_coming_from: helper.helper };
@@ -1125,7 +1162,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                               : 'border-ink/25 bg-cream shadow-[0_1px_0_rgb(var(--c-ink)/0.18),1px_2px_4px_rgb(var(--c-ink)/0.08)] [@media(hover:hover)]:hover:-translate-y-px [@media(hover:hover)]:hover:border-oxblood/60 [@media(hover:hover)]:hover:text-oxblood [@media(hover:hover)]:hover:shadow-[0_1px_0_rgb(var(--c-ink)/0.2),2px_5px_9px_rgb(var(--c-ink)/0.16)] active:translate-y-px active:shadow-none active:bg-oxblood/[0.05]'
                           }`}
                           style={{ touchAction: 'manipulation' }}
-                          aria-label={`Roll ${act.label}${isGilded ? ', gilded' : ''}, rating ${actionValue}${shownSpend > 0 ? `, plus ${shownSpend} from ${cat.name}${shownSpend < preSpend[cat.driveKey] ? ' (Rule of Six)' : ''}` : ''}`}
+                          aria-label={`Roll ${act.label}${isGilded ? ', gilded' : ''}, rating ${actionValue}${shownSpend > 0 ? `, plus ${shownSpend} from ${cat.name}${shownSpend < preSpend[cat.driveKey] ? ' (Rule of Six)' : ''}` : ''}${preview ? `. With ${preview.names.join(' and ')}: ${previewText}` : ''}`}
                         >
                           <span className="flex-1 min-w-0 font-sans text-sm font-bold uppercase tracking-tight flex items-center gap-1.5">
                             {isGilded && <span aria-hidden="true" className="w-2 h-2 shrink-0 bg-candle-gold border border-sepia rounded-full" />}
@@ -1133,6 +1170,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             {shownSpend > 0 && (
                               <span className="font-mono tabular-nums text-xs text-oxblood font-black"
                                 title={shownSpend < preSpend[cat.driveKey] ? 'Rule of Six: no more than six dice' : undefined}>+{shownSpend}d{shownSpend < preSpend[cat.driveKey] ? ' (max)' : ''}</span>
+                            )}
+                            {preview && (
+                              <span aria-hidden="true" className="font-mono tabular-nums text-xs text-sepia font-bold normal-case tracking-normal whitespace-nowrap">
+                                {preview.zero ? '0d, lowest of 2' : `${preview.dice}d`}{preview.gilds > 0 ? `, ${preview.gilds >= (preview.zero ? 2 : preview.dice) ? 'all' : preview.gilds} gilded` : ''}
+                              </span>
                             )}
                           </span>
                           {!rollBlocked && <DieGlyph className="action-die shrink-0 text-oxblood" />}
@@ -1218,11 +1260,14 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 const cell = readOnly && !editing ? 'w-7 h-9' : 'w-11 h-11 md:w-9';
                 return (
                   <div key={type} className="mark-row flex justify-between items-center gap-2">
-                    {readOnly ? (
+                    {readOnly || dead ? (
                       <span className="mark-label font-sans font-black uppercase tracking-widest text-sm text-ink">{name}</span>
                     ) : (
                       <button
                         onClick={() => holdMark(type)}
+                        // A held Enter that took a mark by its box (focus comes here) takes
+                        // no second one as the key repeats
+                        onKeyDown={(e) => { if (e.repeat && e.key === 'Enter') e.preventDefault(); }}
                         aria-label={trackFull
                           ? `Take a ${name} mark. The track is full, so this mark brings a scar.`
                           : `Take a ${name} mark`}
@@ -1236,7 +1281,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       {[0, 1, 2].map((i) => {
                         const filled = i < marked;
                         const isHeld = !filled && i < next;
-                        const isNext = !readOnly && i === next;
+                        const isNext = !readOnly && !dead && i === next;
                         // A filled mark is inked by hand, so each box sits a little askew
                         const box = (
                           <span
@@ -1260,7 +1305,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                               key={i}
                               type="button"
                               onClick={() => traumaEdit.setMarks(type, to)}
-                              aria-label={`Set ${name} marks to ${to}`}
+                              aria-label={i + 1 === marked ? `Clear ${name} mark ${i + 1}` : `Set ${name} marks to ${to}`}
                               className={`mark-cell group/box ${cell} flex items-center justify-center rounded-sm`}
                             >
                               {box}
@@ -1270,7 +1315,15 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         return isNext ? (
                           <button
                             key={i}
-                            onClick={() => holdMark(type)}
+                            onClick={(e) => {
+                              // The box is drawn held now, which is no button: focus goes to
+                              // the track's name, so it is not dropped to the page, and an offer
+                              // that opens for the mark gives it back there (playtest 2,
+                              // death-defy-focus-returns-to-page)
+                              const label = e.currentTarget.closest('.mark-row')?.querySelector('.mark-label');
+                              holdMark(type);
+                              label?.focus({ preventScroll: true });
+                            }}
                             aria-label={`Take ${name} mark ${i + 1} of 3`}
                             className={`mark-cell group/box ${cell} flex items-center justify-center rounded-sm`}
                           >
@@ -1301,10 +1354,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   Create a new investigator
                 </button>
               )}
-              {character?.incapacitated && !character?.is_dead && !readOnly && (
+              {character?.incapacitated && !character?.is_dead && (!readOnly || traumaEdit?.revive) && (
                 <button
-                  onClick={reviveCharacter}
-                  className="min-h-[32px] [@media(pointer:coarse)]:min-h-[40px] px-2.5 py-1 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
+                  onClick={readOnly ? traumaEdit.revive : reviveCharacter}
+                  className="min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-2.5 py-1 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
                 >
                   Revive
                 </button>
@@ -1352,7 +1405,10 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           {/* The scars, written on the record's ruled lines */}
           <div data-desk="scars" className="trauma-scars">
             <h3 className="trauma-head scars-head font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
-              <ScarIcon size={20} className="text-ink shrink-0" /> Scars
+              <ScarIcon size={20} className="text-ink shrink-0" />
+              {editing
+                ? <InfoTerm label="Scars" text="A new scar comes when a full track takes another mark: fill the track to 3 and have the player take the next mark on their sheet." />
+                : ' Scars'}
             </h3>
             {editing ? (
               <div ref={scarLinesRef} className="scars-lines min-w-0">
@@ -1400,12 +1456,12 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <div className="trauma-edit col-span-full flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5 mt-3 pt-2 border-t border-dotted border-ink/30">
               {editing && (
                 <p className="font-serif text-sm italic text-sepia leading-snug min-w-0 flex-1 basis-56">
-                  Press a box to fill its track to it, or the last filled box to clear it. Removing a scar does not move back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, use Deal a mark.
+                  Editing {recordOf}trauma record. Press a box to fill its track to it, or the last filled box to clear it. Removing a scar gives back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, use Deal a mark.
                 </p>
               )}
               {/* Deal a mark: a story consequence, which offers what a mark the player takes
                   offers (playtest, lk-mark-skips-abilities) */}
-              {!editing && traumaEdit.dealMark && (
+              {!editing && traumaEdit.dealMark && !character?.is_dead && (
                 <div role="group" aria-label="Deal a mark" className="flex flex-wrap items-center gap-x-2 gap-y-1.5 min-w-0 flex-1 basis-64">
                   <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">Deal a mark</span>
                   {['body', 'brain', 'bleed'].map(type => (
@@ -1426,7 +1482,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 ref={traumaToggleRef}
                 type="button"
                 onClick={toggleTraumaEdit}
-                aria-label={editing ? 'Done editing the trauma record' : 'Edit trauma record'}
+                aria-label={editing ? `Done editing ${recordOf}trauma record` : `Edit ${recordOf}trauma record`}
                 className={`shrink-0 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest border rounded-sm transition-colors ${
                   editing ? 'bg-ink text-cream border-ink hover:brightness-125' : 'border-ink/60 text-ink hover:bg-ink hover:text-cream'}`}
               >
@@ -1448,7 +1504,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           <div ref={gearDialogRef} role="dialog" aria-modal="true" aria-labelledby="gear-dialog-title" className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
             style={{ background: 'rgb(var(--c-parchment))', border: '3px double rgb(var(--c-sepia)/0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
             <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-2">Change Gear</h2>
-            <p className="text-sm font-serif italic text-sepia mb-5">Mark an item when you use it. Marked gear stays until the Lightkeeper ends the assignment.</p>
+            <p className="text-sm font-serif italic text-sepia mb-5">Mark an item when you use it. Marked gear stays until the Lightkeeper ends the assignment, when everyone's gear is cleared, to be chosen again.</p>
             {/* The sheet's blank gear line (p. 53): circle gear, or gear found on the way,
                 written in by name. Marked items stay; new ones can be taken off until saved. */}
             <div className="mb-4">
@@ -1480,6 +1536,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   Add
                 </button>
               </form>
+              {/* Shown only while it matters: the reason Add is greyed, and the length near its cut */}
+              {writeInName && (pendingCount >= slots || writeIn.length >= 45) && (
+                <p role="status" className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-xs font-sans font-black text-sepia">
+                  <span>{pendingCount >= slots ? (swappable ? `All ${slots} gear slots are marked. Untick one to swap.` : `All ${slots} gear slots are marked until the assignment ends.`) : ''}</span>
+                  {writeIn.length >= 45 && <span className="tabular-nums">{writeIn.length} / 60</span>}
+                </p>
+              )}
             </div>
 
             {character.specialty && SPECIALTY_GEAR[character.specialty] && (

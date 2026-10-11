@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { rulebookLogText } from '../../../game/outcomes';
 import { FormLine, PrinterMark } from '../../shared/PrintMarks';
+import { InfoTerm } from '../../shared/ActionInfo';
 import { InlineMarkdown } from '../../shared/NoteMarkdown';
 
 // ── Fallback styles when no ink_color is present (cream-paper log) ───────────
@@ -99,12 +100,18 @@ const LEDGER_ROWS = {
 // same warm paper on the GM desk; `gm` stays in the signature for its caller.
 export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
   const logContainerRef = useRef(null);
+  // Whether the reader is at the foot; a log that shrinks (the result slip and the After the
+  // roll panel open above it) then stays there, so the roll just made is the line in view
+  const atFoot = useRef(true);
 
   useEffect(() => {
     if (logContainerRef.current) {
+      atFoot.current = true;
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
-  }, [logEntries.length]);
+  // Keyed on the newest line, not the count: the store keeps 50 lines, so past that the count stays
+  // fixed while lines keep coming
+  }, [logEntries.length, logEntries[logEntries.length - 1]]);
   // A log put away (a phone's other parts of the desk show one at a time) cannot scroll, so
   // lines that came meanwhile were below the fold when it showed again, at its oldest line:
   // shown again, it goes to the newest
@@ -114,7 +121,7 @@ export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
     let shown = node.clientHeight > 0;
     const ro = new ResizeObserver(() => {
       const now = node.clientHeight > 0;
-      if (now && !shown) node.scrollTop = node.scrollHeight;
+      if (now && (!shown || atFoot.current)) node.scrollTop = node.scrollHeight;
       shown = now;
     });
     ro.observe(node);
@@ -138,6 +145,7 @@ export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
     </div>
     <div
       ref={logContainerRef}
+      onScroll={(e) => { const n = e.currentTarget; atFoot.current = n.scrollHeight - n.scrollTop - n.clientHeight < 24; }}
       className="h-[240px] 2xl:h-[320px] xl:h-auto 2xl:h-auto xl:flex-1 xl:min-h-[6rem] overflow-y-auto flex flex-col gap-3 [&>*]:shrink-0 text-base font-serif leading-normal px-3 py-2 custom-scrollbar"
       style={{
         boxShadow:
@@ -146,7 +154,9 @@ export const ActivityLog = ({ logEntries, gm = false, className = '' }) => {
           'inset -8px 0 16px -12px rgb(var(--c-sepia) / 0.35)',
       }}
     >
-      {/* An empty log is just the blank ruled sheet */}
+      {logEntries.length === 0 && (
+        <InfoTerm label="Nothing logged yet" text="Rolls, passed notes and table events appear here." className="font-serif italic text-sm text-sepia" />
+      )}
       {logEntries.map((entry, i) => <LogEntry key={i} entry={entry} />)}
       <div aria-hidden="true" className="!shrink !grow basis-0 min-h-0 -mx-1 pointer-events-none" style={LEDGER_ROWS} />
     </div>

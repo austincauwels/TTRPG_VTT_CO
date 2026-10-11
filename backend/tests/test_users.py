@@ -1,5 +1,6 @@
 """/api/users/{user_id}/characters and /api/users/{user_id}/campaigns."""
 import support
+from models import Character
 
 
 def test_user_characters(client):
@@ -13,13 +14,33 @@ def test_user_characters(client):
     assert set(rows) == {free["id"], member["id"]}
     assert rows[free["id"]] == {
         "id": free["id"], "name": free["name"], "role_ability": "Flourish",
-        "specialty_ability": "None", "status": "unaffiliated",
+        "specialty_ability": "None", "status": "unaffiliated", "is_dead": False,
         "campaign_id": None, "campaign_name": None, "campaign_code": None,
+        "pen_font": "Caveat",
     }
     assert rows[member["id"]]["status"] == "active"
     assert rows[member["id"]]["campaign_id"] == camp["id"]
     assert rows[member["id"]]["campaign_name"] == camp["name"]
     assert rows[member["id"]]["campaign_code"] == camp["campaign_code"]
+
+
+def test_user_characters_say_which_are_dead(client):
+    """A dead investigator keeps status active on its roster: the hub's invite banner
+    names only a living one as retired by coming back (final check of playtest 2)."""
+    u = support.make_user()
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, user_id=u.id)
+    support.update(Character, ch["id"], is_dead=True)
+    row, = client.get(f"/api/users/{u.id}/characters", headers=support.as_user(u.id)).json()
+    assert (row["status"], row["is_dead"]) == ("active", True)
+
+
+def test_user_characters_carry_the_kept_pen_font(client):
+    u = support.make_user()
+    ch = support.forge(client, user_id=u.id)
+    support.update(Character, ch["id"], pen_font="Kalam")
+    r = client.get(f"/api/users/{u.id}/characters", headers=support.as_user(u.id))
+    assert r.json()[0]["pen_font"] == "Kalam"
 
 
 def test_user_characters_empty_and_unknown(client):

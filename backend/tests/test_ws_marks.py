@@ -32,6 +32,28 @@ def test_take_mark_plain(client):
     assert support.fetch(Character, ch["id"]).body_marks == 2
 
 
+def test_a_mark_sent_again_with_its_id_is_taken_once(client):
+    """Fixed (playtest 2, silent-socket-loses-mark): a desk whose socket went silent let
+    the mark it had sent go, and it was lost. The desk sends it again on its next socket
+    with the same mark_id; the server takes a mark once, and answers a repeat with the
+    sheet. An id that is not short text is no id."""
+    ch = support.forge(client)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", mark_id="m-1")
+        assert ws.sync()[0]["payload"]["body_marks"] == 1
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", mark_id="m-1")
+        msgs = [m for m in ws.sync() if m["type"] != "activity_history"]
+        assert support.types(msgs) == ["character_update"]
+        assert msgs[0]["payload"]["body_marks"] == 1
+        ws.send("take_mark", mark_type="body", mark_id="m-2")
+        assert ws.sync()[0]["payload"]["body_marks"] == 2
+        ws.send("take_mark", mark_type="brain", mark_id=["m-2"])
+        ws.send("take_mark", mark_type="brain", mark_id=["m-2"])
+        assert [m["payload"]["brain_marks"] for m in ws.sync() if m["type"] == "character_update"] == [1, 2]
+    assert support.fetch(Character, ch["id"]).body_marks == 2
+
+
 def test_take_mark_without_type_is_ignored(client):
     ch = support.forge(client)
     with support.ws_connect(client, ch["id"]) as ws:
@@ -720,6 +742,55 @@ def test_one_mark_is_answered_by_one_ally(client):
     assert support.fetch(Character, guard["id"]).nerve_current == 2
 
 
+def test_an_answered_mark_closes_the_other_allies_offers(client):
+    """Fixed (playtest 2, ally-offer-cards-lost-or-stale): once one ally answered a mark,
+    the other allies' cards for it stayed up for the rest of the window, and their answer
+    was refused as "There is no such mark to soak." They are told the mark is answered
+    now (intercept_offer_closed), and a late answer is refused for that reason."""
+    camp = support.new_campaign(client)
+    target = support.active_member(client, camp)
+    seer = support.active_member(client, camp, intuition_max=6, specialty_ability="Premonitions")
+    guard = support.active_member(client, camp, nerve_current=2, role_ability="Behind Me")
+    with support.ws_connect(client, target["id"]) as wt, support.ws_connect(client, seer["id"]) as wsr, \
+            support.ws_connect(client, guard["id"]) as wg:
+        wt.send("take_mark", mark_type="body")
+        wt.sync()
+        wsr.drain()
+        wg.drain()
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
+        wg.sync()
+        assert [m for m in wsr.drain() if m["type"] == "intercept_offer_closed"] == [
+            {"type": "intercept_offer_closed", "payload": {"character_id": target["id"], "mark_type": "body"}}]
+        wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
+        assert wsr.sync() == [{"type": "action_rejected", "payload": {
+            "action": "intercept_mark", "status": 409, "detail": marks.NO_MARK_TO_ANSWER}}]
+    assert support.fetch(Character, seer["id"]).intuition_resistance_spent == 0
+
+
+def test_an_allys_desk_that_opens_gets_an_open_offer_again(client):
+    """Fixed (playtest 2, ally-offer-cards-lost-or-stale): a reload lost an ally's Behind
+    Me card while the server still took the answer. A desk that opens while the mark can
+    be answered gets the offer again with the seconds left; once it is answered, not."""
+    camp = support.new_campaign(client)
+    target = support.active_member(client, camp)
+    guard = support.active_member(client, camp, nerve_current=2, role_ability="Behind Me")
+    with support.ws_connect(client, target["id"]) as wt:
+        wt.send("take_mark", mark_type="body")
+        wt.sync()
+        with support.ws_connect(client, guard["id"]) as wg:
+            msgs = wg.sync()
+            assert support.types(msgs) == ["ability_intercept_offer", "activity_history"]
+            offer = msgs[0]["payload"]
+            assert offer == {"ability": "Behind Me", "mark_type": "body", "character_id": target["id"],
+                             "character_name": target["name"], "action": "intercept", "expires_in": ANY}
+            assert 110 <= offer["expires_in"] <= 120
+            wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="body")
+            wg.sync()
+        with support.ws_connect(client, guard["id"]) as wg:
+            assert "ability_intercept_offer" not in support.types(wg.sync())
+    assert support.fetch(Character, guard["id"]).body_marks == 1
+
+
 def test_behind_me_lands_the_guards_own_held_mark_first(client):
     """Fixed: with their own soak offer open (the mark held), a guard who used Behind Me
     had the held mark replaced by the intercepted one, and lost. It lands first now."""
@@ -893,7 +964,6 @@ def test_fourth_scar_kills(client):
 def test_revive_character(client):
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, body_marks=2, brain_marks=1, bleed_marks=3, incapacitated=True)
-    support.update(Character, ch["id"], is_dead=True)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         ws.send("revive_character")
         msgs = ws.sync()
@@ -901,7 +971,7 @@ def test_revive_character(client):
         p = msgs[0]["payload"]
         # Fixed (RULES_CHECK 9): only incapacitated clears; the other tracks keep their marks
         assert (p["body_marks"], p["brain_marks"], p["bleed_marks"], p["incapacitated"]) == (2, 1, 3, False)
-        assert p["is_dead"] is True  # untouched
+        assert p["is_dead"] is False
         assert msgs[1]["payload"] == {"message": f"{ch['name']} has been revived and is operational.",
                                       "log_type": "field", "ink_color": engine.INK_COLORS[0]}
         assert gm.drain() == [{"type": "member_update", "payload": p}, msgs[1]]
@@ -1227,3 +1297,100 @@ def test_a_held_mark_that_lands_when_another_comes_is_logged(client):
         ws.send("take_mark", mark_type="bleed", is_from_enemy=False)   # (and closes the offer)
         lines = [m["payload"]["message"] for m in ws.sync() if m["type"] == "activity_log"]
         assert lines == [f"{ch['name']} took a Body mark (1 of 3).", f"{ch['name']} took a Bleed mark (1 of 3)."]
+
+
+def test_a_dead_investigators_sheet_is_a_record(client):
+    """Once the fourth scar is taken the player's socket can no longer roll, take a mark,
+    change gear or a drive, or spend the circle's resources (playtest,
+    dead-investigator-still-acts); the Lightkeeper's Deal a mark is refused for them too.
+    Chat and the Lightkeeper's other corrections stand."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, is_dead=True, incapacitated=True, scars_count=4,
+                               scars_list=["a", "b", "c", "d"])
+    refusal = lambda action: {"type": "action_rejected", "payload": {
+        "action": action, "status": 409, "detail": f"{ch['name']} is dead: the sheet is a record."}}
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        for action, payload in (("roll", {"action": "move"}), ("take_mark", {"mark_type": "body"}),
+                                ("update_gear", {"gear": ["Rope"]}), ("update_drive", {"pool": "nerve", "value": 1}),
+                                ("spend_resource", {"resource_type": "refresh"}), ("use_ability", {"ability": "Hardened"}),
+                                ("revive_character", {})):
+            ws.send(action, **payload)
+            assert ws.sync() == [refusal(action)]
+        gm.send("take_mark", character_id=ch["id"], mark_type="body")
+        assert gm.sync() == [refusal("take_mark")]
+        gm.send("update_gear", character_id=ch["id"], gear=["Rope"])
+        assert support.types(gm.sync()) != ["action_rejected"]
+        ws.send("chat_message", message="Still here")
+        assert "action_rejected" not in support.types(ws.sync())
+    row = support.fetch(Character, ch["id"])
+    assert row.body_marks == 0 and row.incapacitated is True
+
+
+def test_the_lightkeepers_revive_reaches_the_players_desk(client):
+    """revive_character from the Lightkeeper's socket sent the sheet to the Lightkeeper's
+    channel only, so the player's desk kept showing Incapacitated (playtest,
+    lightkeeper-has-no-revive)."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, incapacitated=True)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("revive_character", character_id=ch["id"])
+        gm.sync()
+        seen = ws.drain()
+        assert support.types(seen) == ["character_update", "activity_log"]
+        assert seen[0]["payload"]["incapacitated"] is False
+    assert support.fetch(Character, ch["id"]).incapacitated is False
+
+
+def test_a_gilded_roll_made_in_life_is_finished_after_the_death_it_led_to(client, dice):
+    """A gilded roll waits for its die, a mark follows it and the fourth scar is recorded:
+    the die could never be kept, since resolve_gilded was refused for the dead (409), and
+    the desk got its Keep buttons again on every connect (final check of playtest 2,
+    dead-investigator-still-acts). The server holds that roll, so its choice goes
+    through: scored and logged, with no drive back on a sheet that is a record now, and
+    the roll is not burned on."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=2, gilded_move=True, nerve_max=3, nerve_current=2,
+                               scars_count=3, scars_list=["a", "b", "c"])
+    dice(3, 5)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="move", drive_spent=0)
+        assert support.types(ws.sync()) == ["roll_result"]
+        ws.send("apply_scar", scar_text="d", skip_shifts=True)
+        assert ws.sync()[0]["payload"]["is_dead"] is True
+        ws.send("resolve_gilded", action="move", chosen_type="gilded", chosen_value=3)
+        kept, line = ws.sync()
+        assert (kept["type"], kept["payload"]["value"], kept["payload"]["outcome"]) == ("roll_kept", 3, "failure")
+        assert line["type"] == "activity_log"
+        assert line["payload"]["message"].endswith("(2 dice: 3 gilded, 5; kept the gilded 3).")
+        # Once kept, the roll is gone, and the dead sheet's other actions are still refused
+        for action, payload in (("resolve_gilded", {"action": "move", "chosen_type": "gilded"}),
+                                ("burn_resistance", {"drive": "nerve"})):
+            ws.send(action, **payload)
+            assert ws.sync() == [{"type": "action_rejected", "payload": {
+                "action": action, "status": 409, "detail": f"{ch['name']} is dead: the sheet is a record."}}]
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert "roll_result" not in support.types(ws.drain())
+    assert support.fetch(Character, ch["id"]).nerve_current == 2
+
+
+def test_a_held_offer_is_dropped_at_the_death(client):
+    """A soak offer holds a mark the Lightkeeper dealt while the fourth scar was still to
+    be recorded; the scar kills. Its answer would be refused for the dead, and the offer
+    came back on every connect: it is dropped, its mark is not taken, and the desk is told
+    (mark_offer_closed with dropped)."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, cunning_max=3, specialty_ability="In the Trenches",
+                               scars_count=3, scars_list=["a", "b", "c"])
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("take_mark", character_id=ch["id"], mark_type="body", is_from_enemy=False)
+        gm.sync()
+        assert support.types(ws.drain()) == ["activity_log", "ability_mark_offer"]
+        ws.send("apply_scar", scar_text="d", skip_shifts=True)
+        seen = ws.sync()
+        assert seen[0]["payload"]["is_dead"] is True
+        closed = [m["payload"] for m in seen if m["type"] == "mark_offer_closed"]
+        assert closed == [{"character_id": ch["id"], "ability": "In the Trenches", "mark_type": "body", "dropped": True}]
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert "ability_mark_offer" not in support.types(ws.drain())
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.is_dead) == (0, True)

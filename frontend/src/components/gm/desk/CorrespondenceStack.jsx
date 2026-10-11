@@ -5,7 +5,7 @@ import { InvitePlayer } from './InvitePlayer';
 
 // Join requests, one card at a time with a pager, and under them the quiet Invite player
 // for a player the Lightkeeper brings back (InvitePlayer.jsx).
-export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIndex, handleStamp, handleReject, campaignCode, error, busy = false }) => (
+export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIndex, handleStamp, handleReject, onView, campaignCode, error, busy = false }) => (
   <>
     <div className="flex items-center gap-3 mb-4">
       <div className="h-[1px] flex-1 bg-moonlight-steel/25" />
@@ -33,7 +33,11 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
                 investigator={current}
                 onStamp={() => handleStamp(current.id)}
                 onReject={() => handleReject(current.id)}
+                onView={onView ? () => onView(current) : undefined}
                 busy={busy}
+                samePlayer={!current.owner_username ? '' : (campaignRoster.active_investigators || [])
+                  .some(c => c.owner_username === current.owner_username && !c.is_dead) ? 'active'
+                  : pending.some(c => c.id !== current.id && c.owner_username === current.owner_username) ? 'pending' : ''}
               />
             )}
           </AnimatePresence>

@@ -508,7 +508,9 @@
 .md-note .md-h3 { font-size: 1.08em; }
 .md-note > :is(.md-h1, .md-h2, .md-h3) + * { margin-top: 0.15em; }
 .md-note strong { font-weight: 700; }
-.md-note em { font-style: italic; }
+/* The pen fonts have no italic face, so emphasis is also underlined; links get a dotted
+   underline to stay distinct from it. */
+.md-note em { font-style: italic; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
 .md-note del { text-decoration-line: line-through; text-decoration-thickness: 0.07em; }
 .md-note ul { list-style: disc outside; padding-left: 1.05em; }
 .md-note ol { list-style: decimal outside; padding-left: 1.35em; }
@@ -575,6 +577,7 @@
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
 }
+.md-note .md-link { text-decoration-style: dotted; }
 .md-note .md-link:hover,
 .md-inline .md-link:hover { text-decoration-thickness: 2px; }
 .md-note .md-img-alt { font-style: italic; opacity: 0.8; }
@@ -1034,6 +1037,16 @@
 }
 @container circlepapers (min-width: 62rem) {
   .circle-papers-flow { column-count: 3; column-gap: 1.5rem; }
+  /* With the relationships paper on the desk (the player's tab) the papers are a grid, the
+     relationships pinned to the third column, so the last Accept shortens that paper
+     without the others reflowing from under the mouse. */
+  .circle-papers-flow:has(> [data-circle-paper='relationships']) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+  .circle-papers-flow > [data-circle-paper='relationships'] { grid-column: 3; grid-row: 1 / span 4; }
 }
 .circle-paper { box-shadow: 2px 6px 14px rgb(0 0 0 / 0.38), inset 0 0 28px rgb(var(--c-sepia) / 0.06); }
 /* The charter: a certificate with a printed double frame inside its edge */
@@ -1135,6 +1148,20 @@
 @media (min-width: 768px) and (pointer: coarse) {
   .touch-pip { position: relative; }
   .touch-pip::before { content: ''; position: absolute; inset: var(--hit-y, -14px) var(--hit-x, -3px); }
+}
+
+/* The drive pips are live (a refill, and the last filled one clears a point; the
+   Lightkeeper's copy in its Edit too), and a mis-tap costs a drive point and writes a log
+   line: on a touch screen, a phone's too, each pip's button is 44px tall and takes a
+   ninth of its row's width (the nine pips of DRIVE_PIP_TOTAL), from 21px to 44px, so the
+   targets never overlap. The nine stay on one line: where they do not fit beside
+   "Available" (a landscape iPad's narrow drive column), the whole row goes under it rather
+   than splitting seven and two. The square drawn inside keeps its 20px (final check of
+   playtest 2, drive-pips-still-one-way). */
+@media (pointer: coarse) {
+  .drive-row { flex-wrap: wrap; }
+  .drive-pips, .dossier-c .drive-pips { flex: 1 1 auto; gap: 0; flex-wrap: nowrap; min-width: min(100%, 189px); }
+  .drive-pip-hit { flex: 0 0 auto; width: clamp(21px, calc(100% / 9), 44px); height: 44px; }
 }
 
 /* The player desk's drawer on phones (owner's round 4 item 14, DeskDrawer.jsx): it slides

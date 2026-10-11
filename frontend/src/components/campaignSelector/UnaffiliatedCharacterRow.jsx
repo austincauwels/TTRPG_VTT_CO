@@ -27,7 +27,7 @@ export const UnaffiliatedCharacterRow = ({ char, form, setJoinForms, handleJoinF
             idPrefix={`join-${char.id}`}
             code={form.code}
             onCodeChange={v => setField('code', v)}
-            pen={form.pen}
+            pen={form.pen || char.pen_font}
             onPenChange={v => setField('pen', v)}
             error={form.error}
             busy={!!form.loading}

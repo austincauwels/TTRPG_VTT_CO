@@ -49,4 +49,7 @@ HANDLERS = {
     "gm_update_scars":             (gm.handle_gm_update_scars, True),
     # The Lightkeeper gives a member a circle-resource spend back
     "gm_return_spend":             (gm.handle_gm_return_spend, False),
+    # The Lightkeeper's ticks on the circle's questions, and Add N Illumination, once
+    "gm_set_tally_answer":         (gm.handle_gm_set_tally_answer, False),
+    "gm_add_tally":                (gm.handle_gm_add_tally, False),
 }

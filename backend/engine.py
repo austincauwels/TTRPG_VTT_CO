@@ -30,6 +30,14 @@ ALREADY_ON_A_ROSTER = {
 }
 
 
+def by_campaign_code(query, code: str):
+    """Narrows a Campaign query to the code, ignoring case, with an exact match first
+    (codes that differ only by case may still exist from before create refused them,
+    and each must keep resolving by its own spelling)."""
+    return query.filter(func.lower(Campaign.campaign_code) == code.lower()) \
+        .order_by((Campaign.campaign_code == code).desc())
+
+
 @releases_locks_on_error
 def request_join_campaign(db: Session, character_id: int, campaign_code: str, pen_font: str = 'Caveat'):
     """Binds a character to a campaign, saves their pen font, and sets status to pending.
@@ -41,7 +49,7 @@ def request_join_campaign(db: Session, character_id: int, campaign_code: str, pe
     delete of either, or a restore that puts the character back on a roster, waits for
     the join or the join for it (vtt/deletion.py). Every way out that does not commit
     rolls back, an exception included, which lets go of the locks at once."""
-    campaign = db.query(Campaign).filter(Campaign.campaign_code == campaign_code) \
+    campaign = by_campaign_code(db.query(Campaign), campaign_code) \
         .populate_existing().with_for_update(read=True).first()
     if not campaign:
         db.rollback()
@@ -104,7 +112,6 @@ def reject_investigator(db: Session, character_id: int):
     if character and character.status == "pending":
         character.status = "unaffiliated"
         character.campaign_id = None
-        character.pen_font = None
         db.commit()
         db.refresh(character)
         return {"success": True, "character": character}

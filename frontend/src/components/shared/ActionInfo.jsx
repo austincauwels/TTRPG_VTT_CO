@@ -83,6 +83,8 @@ export const useActionInfo = () => {
 // hitClassName: how the button takes a finger (44px tall on a touch screen by default; a
 // ruled row that must keep its pitch passes touch-pip, which reaches past the button to
 // fill the row instead).
+// ariaLabel: the button's name when "About <label>" would misdescribe the slip.
+// markClassName: the colour of the "i" (and its hover colour) where the paper is dark.
 // wide: the term spans its row, so a slip can be placed against the row's right edge.
 // anchored: the slip is placed against the term; a caller that places it against a larger
 // box of its own (the term's whole entry) passes false and makes that box relative.
@@ -96,7 +98,7 @@ const showOnly = (putAway) => {
 const LEAVE_MS = 300;
 
 export const InfoTerm = ({
-  label, text, className = '', wide = false, anchored = true,
+  label, text, className = '', wide = false, anchored = true, ariaLabel, markClassName = 'text-sepia group-hover/info:text-oxblood',
   slipClassName = 'left-0 top-full mt-1 w-[min(18rem,calc(100vw-2.5rem))]',
   hitClassName = '[@media(pointer:coarse)]:min-h-[44px]',
 }) => {
@@ -161,7 +163,7 @@ export const InfoTerm = ({
     >
       <button
         type="button"
-        aria-label={`About ${label}`}
+        aria-label={ariaLabel || `About ${label}`}
         aria-describedby={slipId}
         onClick={() => {
           if (pinned) { putAway(); return; }
@@ -185,7 +187,7 @@ export const InfoTerm = ({
         style={{ touchAction: 'manipulation' }}
       >
         {label}
-        <span className={`shrink-0 transition-colors ${pinned ? 'text-oxblood' : 'text-sepia group-hover/info:text-oxblood'}`}>
+        <span className={`shrink-0 transition-colors ${pinned ? 'text-oxblood' : markClassName}`}>
           <InfoMark size={15} />
         </span>
       </button>
@@ -197,7 +199,7 @@ export const InfoTerm = ({
         onPointerEnter={onEnterSlip}
         onPointerLeave={onLeave}
         onMouseDown={(e) => e.preventDefault()}
-        className={`action-info-slip info-term-slip absolute z-30 px-3 py-2 rounded-[1px] font-serif font-normal normal-case tracking-normal text-base leading-snug text-ink text-left ${slipClassName}`}
+        className={`action-info-slip info-term-slip absolute z-30 px-3 py-2 rounded-[1px] whitespace-normal font-serif font-normal normal-case tracking-normal text-base leading-snug text-ink text-left ${slipClassName}`}
       >
         <span className="font-bold uppercase">{label}:</span> {text}
       </span>

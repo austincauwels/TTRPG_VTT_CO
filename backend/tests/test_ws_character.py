@@ -32,8 +32,29 @@ def test_update_drive_sets_value_and_tells_the_sender_and_the_gm(client):
         assert msg["payload"]["id"] == a["id"]
         assert msg["payload"]["nerve_current"] == 1
         wa.sync()
-        assert wb.drain() == [] and gm.drain() == [{"type": "member_update", "payload": msg["payload"]}]
+        assert [m["type"] for m in wb.drain()] == ["activity_log"]
+        assert [m["type"] for m in gm.drain()] == ["member_update", "activity_log"]
     assert support.fetch(Character, a["id"]).nerve_current == 1
+
+
+def test_update_drive_writes_a_log_line_only_when_the_value_changes(client):
+    """drive-pips-still-one-way: a refill or a cleared pip is logged; a same-value set is not."""
+    camp, a, b = _member_pair(client, nerve_max=3, nerve_current=2)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+        wa.send("update_drive", pool="nerve", value=3)
+        logs = [m for m in wa.sync() if m["type"] == "activity_log"]
+        assert [m["payload"]["message"] for m in logs] == [f"{a['name']} set Nerve to 3 of 3."]
+        wa.send("update_drive", pool="nerve", value=3)
+        assert [m for m in wa.sync() if m["type"] == "activity_log"] == []
+        gm.drain()
+
+
+def test_a_drive_the_lightkeeper_sets_is_logged_in_her_name(client):
+    camp, a, b = _member_pair(client, nerve_max=3, nerve_current=3)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_drive", character_id=a["id"], pool="nerve", value=1)
+        logs = [m for m in gm.sync() if m["type"] == "activity_log"]
+        assert [m["payload"]["message"] for m in logs] == [f"The Lightkeeper set {a['name']}'s Nerve to 1 of 3."]
 
 
 DRIVE_REFUSED = {"type": "action_rejected", "payload": {
@@ -86,23 +107,27 @@ def test_payload_character_id_of_someone_else_is_rejected(client):
                 "action": "update_drive", "status": 403, "detail": "Not allowed."}}]
         assert wv.drain() == []
         wa.send("update_drive", pool="nerve", value=0, character_id=a["id"])  # its own id is fine
-        assert support.types(wa.sync()) == ["character_update"]
+        assert support.types(wa.sync()) == ["character_update", "activity_log"]
     assert support.fetch(Character, victim["id"]).nerve_current == 1
     assert support.fetch(Character, b["id"]).nerve_current == 1
 
 
 def test_gm_may_set_a_members_drive_but_not_an_outsiders(client):
     """update_drive is "owner (GM optional)": a GM socket may name a member of its
-    campaign; the character_update goes to the GM's own channel, as it always has, and
-    the member_update that every change to a member sends the GM follows it."""
+    campaign. The character_update goes to the member's own channel, so the player's
+    desk follows (it used to go to the GM's channel, and the player's sheet kept the old
+    value); the GM's desk follows through member_update."""
     camp, a, b = _member_pair(client, nerve_current=2)
     outsider = support.active_member(client, support.new_campaign(client), nerve_current=2)
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
         gm.send("update_drive", pool="nerve", value=1, character_id=a["id"])
-        msg, live = gm.sync()
+        live, line = gm.sync()
+        assert (live["type"], live["payload"]["id"], live["payload"]["nerve_current"]) == ("member_update", a["id"], 1)
+        assert line["type"] == "activity_log"
+        msg, mine = wa.sync()
         assert (msg["type"], msg["payload"]["id"], msg["payload"]["nerve_current"]) == ("character_update", a["id"], 1)
-        assert live == {"type": "member_update", "payload": msg["payload"]}
-        assert wa.drain() == []
+        assert msg["payload"] == live["payload"]
+        assert mine["type"] == "activity_log"
         gm.send("update_drive", pool="nerve", value=0, character_id=outsider["id"])
         assert support.types(gm.sync()) == ["action_rejected"]
     assert support.fetch(Character, outsider["id"]).nerve_current == 2
@@ -118,7 +143,7 @@ def test_gm_may_not_target_a_retired_character_of_its_campaign(client):
             gm.send(msg_type, character_id=a["id"], pool="nerve", value=0, mark_type="body", gear=["x"])
             assert support.types(gm.sync()) == ["action_rejected"], msg_type
         gm.send("update_drive", pool="nerve", value=1, character_id=b["id"])
-        assert support.types(gm.sync()) == ["character_update", "member_update"]
+        assert support.types(gm.sync()) == ["member_update"]   # the sheet itself goes to b's channel
     row = support.fetch(Character, a["id"])
     assert (row.nerve_current, row.body_marks, row.gear) == (2, 0, [])
 
@@ -167,12 +192,15 @@ def test_update_gear_unaffiliated_logs_to_own_channel(client):
 
 def test_the_gm_may_correct_marked_gear(client):
     """A player may not unmark gear during an assignment (rulebook p. 52); the
-    Lightkeeper may correct the list."""
+    Lightkeeper may correct the list, and the player's desk gets the corrected sheet
+    (it used to go to the Lightkeeper's channel alone)."""
     camp, a, b = _member_pair(client)
     support.update(Character, a["id"], gear=["Lantern", "Camera"])
-    with support.ws_connect(client, camp["campaign_code"]) as gm:
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
         gm.send("update_gear", character_id=a["id"], gear=["Camera"])
-        assert gm.sync()[-1]["type"] == "activity_log"
+        assert support.types(gm.sync()) == ["member_update", "activity_log"]
+        msg, line = wa.sync()
+        assert (msg["type"], msg["payload"]["gear"], line["type"]) == ("character_update", ["Camera"], "activity_log")
     assert support.fetch(Character, a["id"]).gear == ["Camera"]
 
 

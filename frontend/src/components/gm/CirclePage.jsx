@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { useFlatTurn } from '../shared/useFlatTurn';
-import useGameStore, { assignmentOf } from '../../store/gameStore';
+import useGameStore from '../../store/gameStore';
+import { InfoTerm } from '../shared/ActionInfo';
 import { SafeIcon } from '../shared/SafeIcon';
 import { tiltStyle } from '../shared/handPlaced';
 import { ConfirmAction } from '../shared/ConfirmAction';
@@ -35,8 +36,8 @@ import { TurnOverMark } from '../shared/Decorations';
 import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
-import { tallyReports } from '../../game/illumination';
-import { CIRCLE_QUESTIONS } from '../../game/circleFormation';
+import { tallyReports, tallyOf } from '../../game/illumination';
+import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
 
 // A line of the charter the Lightkeeper may change: its value with an Edit button, which
 // turns it into a field holding the value. Enter or leaving the field saves, Escape puts
@@ -283,7 +284,7 @@ export const CirclePage = () => {
   const {
     circle, circleCreation, updateCircle,
     gmToggleResourceEdit, gmToggleReports, gmAdvanceCircle, refillResources,
-    illumTallies, setIllumTally,
+    gmSetTallyAnswer, gmAddTally,
   } = useGameStore();
 
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
@@ -304,15 +305,15 @@ export const CirclePage = () => {
   const trackFull = illum >= TRACK_SIZE;
 
   // The report's worth: the circle's questions, answered here once, and the keys the
-  // investigators' reports filed (game/illumination.js)
-  const savedTally = illumTallies?.[circId];
-  const thisTally = savedTally && savedTally.assignment === assignmentOf(circle) ? savedTally : null;
-  const answers = thisTally?.answers || [false, false, false];
+  // investigators' reports filed (game/illumination.js). The ticks and the added total are
+  // the circle's, so every desk shows them; the server adds the tally once, counting the
+  // ticks it holds and the keys sent from here
+  const thisTally = tallyOf(circle);
+  const answers = thisTally.answers;
   const tally = tallyReports(investigators, reports, answers);
   const addTally = () => {
-    if (tally.total <= 0 || thisTally?.added != null) return;
-    // Recorded as added only once it went to the table (not while the desk reconnects)
-    if (setIllum(illum + tally.total)) setIllumTally(circId, { answers, added: tally.total });
+    if (tally.total <= 0 || thisTally.added != null) return;
+    gmAddTally(circId, tally.keys);
   };
 
   function setIllum(n) {
@@ -379,7 +380,8 @@ export const CirclePage = () => {
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
               Insignia
             </span>
-            <div className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
+            <div role="img" aria-label={`Insignia: ${insigniaLabel(circle?.insignia || 'GiCandleLight')}`} title={insigniaLabel(circle?.insignia || 'GiCandleLight')}
+              className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
               <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
               <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={30} className="text-ink/85" />
             </div>
@@ -472,7 +474,7 @@ export const CirclePage = () => {
                 onChange={e => e.target.value && updateCircle({ circle_id: circId, circle_ability: e.target.value })}
                 className="w-full bg-cream border border-dashed border-sepia/50 text-ink font-serif text-base px-2 py-1.5 focus:border-oxblood"
               >
-                <option value="" aria-label="None"></option>
+                <option value="">Choose a circle ability…</option>
                 {Object.keys(CIRCLE_ABILITY_DESCRIPTIONS).map(a => (
                   <option key={a}>{a}</option>
                 ))}
@@ -482,6 +484,9 @@ export const CirclePage = () => {
         </div>
       </CirclePaper>
 
+      {/* II and III lie together in one group, so a column break never falls between the
+          questions paper (with Open reports) and the reports it governs */}
+      <div className="flex flex-col gap-[1.125rem] min-w-0">
       {/* II. The assignment report form: its questions, and reports open or closed */}
       <CirclePaper kind="ruled" tilt={0.5} tape aria-label="Illumination questions">
             <h3 className="font-sans text-sm font-black uppercase tracking-widest text-oxblood flex items-center gap-1.5 border-b border-ink/10 pb-1">
@@ -493,8 +498,8 @@ export const CirclePage = () => {
             <div className="space-y-1">
               {ILLUM_QUESTIONS.map((q, i) => (
                 <label key={i} className="flex items-start gap-2.5 cursor-pointer border-b border-ink/10 pb-1.5 last:border-0 [@media(pointer:coarse)]:min-h-[44px]">
-                  <input type="checkbox" checked={!!answers[i]} disabled={thisTally?.added != null}
-                    onChange={() => setIllumTally(circId, { answers: answers.map((a, j) => (j === i ? !a : a)) })}
+                  <input type="checkbox" checked={!!answers[i]} disabled={thisTally.added != null}
+                    onChange={(e) => gmSetTallyAnswer(circId, i, e.target.checked)}
                     className="mt-0.5 w-4 h-4 [@media(pointer:coarse)]:w-5 [@media(pointer:coarse)]:h-5 accent-oxblood shrink-0" />
                   <span className="font-serif text-sm text-ink/80 leading-snug italic">"{q}"</span>
                 </label>
@@ -520,7 +525,7 @@ export const CirclePage = () => {
               </p>
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                 <span className="font-sans font-black text-xs uppercase tracking-widest text-ink">Total +{tally.total}</span>
-                {thisTally?.added != null ? (
+                {thisTally.added != null ? (
                   <span role="status" className="font-serif italic text-sm text-seal-green">Added {thisTally.added} Illumination</span>
                 ) : (
                   <button type="button" onClick={addTally} disabled={tally.total <= 0}
@@ -558,6 +563,7 @@ export const CirclePage = () => {
           />
         </div>
       ))}
+      </div>
 
       {/* IV. The stores' ledger card: the circle's resources */}
       <CirclePaper kind="manila" tilt={-0.6} aria-label="Circle resources">
@@ -600,8 +606,10 @@ export const CirclePage = () => {
                               role: 'button',
                               tabIndex: 0,
                               onKeyDown: onActivateKey(() => setResource(key, i + 1 === avail ? i : i + 1)),
-                              'aria-label': `${label}: set available to ${i + 1 === avail ? i : i + 1}`,
-                            } : { 'aria-hidden': true })}
+                              'aria-label': i + 1 === avail
+                                ? `${label}: take one back (set available to ${i})`
+                                : `${label}: set available to ${i + 1}`,
+                            } : { 'aria-hidden': true, title: 'Beyond current maximum' })}
                             onClick={withinMax ? () => setResource(key, i + 1 === avail ? i : i + 1) : undefined}
                             className={`${withinMax ? 'touch-pip [--hit-y:-16px] [--hit-x:-2px] ' : ''}w-3.5 h-3.5 rounded-sm border transition-all ${
                               filled
@@ -706,7 +714,12 @@ export const CirclePage = () => {
             onClick={e => e.stopPropagation()}
           >
             <div className="p-5 sm:p-8">
-              <h2 id="gm-advance-title" className="text-2xl font-serif font-black text-ink mb-6">Circle Advancement</h2>
+              <h2 id="gm-advance-title" className="text-2xl font-serif font-black text-ink mb-2">Circle Advancement</h2>
+              <div className="mb-5 font-sans text-xs font-black uppercase tracking-widest text-sepia">
+                <InfoTerm label="What advancing does"
+                  text="The Illumination track resets (anything over 12 carries over) and the circle's resources refill. Each investigator then chooses two advancements, or four when the new ability is One Last Run."
+                  slipClassName="left-0 top-full mt-1 w-[min(20rem,calc(100vw-4rem))]" />
+              </div>
 
               <div className="space-y-2 mb-6">
                 {Object.keys(CIRCLE_ABILITY_DESCRIPTIONS).filter(a => {

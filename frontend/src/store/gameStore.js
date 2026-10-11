@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiFetch, configureApiAuth, WS_CLOSE_UNAUTHENTICATED } from '../utils/api';
 import { playRollSound, playDiceTumble, playTensionTick } from '../game/rollSounds';
+import { driveKeyFor } from '../game/actions';
 
 // Reconnecting after a dropped connection. The server closes an older socket on the same
 // channel with 1001 when a newer one opens (another tab or device), so 1001 never
@@ -49,7 +50,8 @@ const ROLL_REPLY_MS = 6000;
 const ROLL_QUEUE_MS = 10000;
 const ROLL_WAIT_MS = 30000;
 const ROLL_NOT_SENT = 'Not connected to the table, so no dice were thrown. Roll again once the desk is back.';
-const ROLL_LOST = 'The table has not answered. The roll may have counted, so check the log before you roll again.';
+// The roll bar heads this one "May have counted", not "Not thrown": the roll left the desk
+export const ROLL_LOST = 'The table has not answered. The roll may have counted, so check the log before you roll again.';
 const ROLL_DROPPED = 'The connection dropped before the dice came back. Roll again once the desk is back.';
 const ROLL_FAILED = 'The table could not make that roll. Roll again.';
 const ROLL_REFUSED = 'The table refused that roll.';
@@ -97,6 +99,16 @@ const nextOffer = (state) => ({ abilityMarkOffer: state.abilityMarkQueue[0] || n
 const withoutOwnOffer = (state) => {
   const queue = state.abilityMarkQueue.filter(o => !holdsOwnMark(o));
   return holdsOwnMark(state.abilityMarkOffer)
+    ? { abilityMarkOffer: queue[0] || null, abilityMarkQueue: queue.slice(1) }
+    : { abilityMarkQueue: queue };
+};
+// The allies' offers (Behind Me, Premonitions) that match go, shown or waiting: those for
+// one mark another ally has answered (intercept_offer_closed), or all of them when a
+// socket opens, since the server then sends again those still open, with the time left
+const withoutIntercepts = (state, matches = () => true) => {
+  const gone = (o) => !!o?.intercept && matches(o);
+  const queue = state.abilityMarkQueue.filter(o => !gone(o));
+  return gone(state.abilityMarkOffer)
     ? { abilityMarkOffer: queue[0] || null, abilityMarkQueue: queue.slice(1) }
     : { abilityMarkQueue: queue };
 };
@@ -155,19 +167,35 @@ const scarArrived = (state, characterId, type) => {
 const USE_ANSWER_MS = 10000;
 
 // A socket's unanswered requests go with it, however it goes (dropped, replaced by the
-// heartbeat or the browser going offline, closed on purpose). A mark sent on it is on
-// the next socket's first sheet if the server had it, and the server sends again an
-// offer that still holds one; a mark it never had would stay drawn held, and the next
-// sheet would be read as an ability use's payment.
-const forgetUnanswered = (set, get) => {
+// heartbeat or the browser going offline, closed on purpose); a mark the server never had
+// would stay drawn held, and the next sheet would be read as an ability use's payment.
+// When the same desk reconnects (keepMarks), a mark taken on the sheet stays on its way:
+// the next socket sends it again with its mark_id (resendMarks), and the server takes it
+// unless it already had it, which the next socket's first sheet then shows. It used to be
+// let go, and a mark sent into a silent socket was lost without a word (playtest 2,
+// silent-socket-loses-mark). An answer to an offer is not sent again: the server sends
+// again an offer that still holds its mark.
+const forgetUnanswered = (set, get, keepMarks = false) => {
   if (get().abilityUseSent) set({ abilityUseSent: null });
-  if (get().heldMarks?.landing.length) set(state => heldMarksAre({ ...state.heldMarks, landing: [] }));
+  const keep = (m) => keepMarks && !m.answer && !!m.markId;
+  if (get().heldMarks?.landing.some(m => !keep(m))) {
+    set(state => heldMarksAre({ ...state.heldMarks, landing: state.heldMarks.landing.filter(keep) }));
+  }
+};
+const resendMarks = (get, socket) => {
+  const held = get().heldMarks;
+  if (!held || held.characterId !== get().character?.id) return;
+  held.landing.filter(m => m.markId).forEach((m) => {
+    try {
+      socket.send(JSON.stringify({ type: 'take_mark', payload: { mark_type: m.type, mark_id: m.markId } }));
+    } catch { /* this socket closed too: the next one sends it */ }
+  });
 };
 // What one desk's mark offers and ability uses leave in the store: another desk in the
 // tab, or whoever signs in next, starts without them (the server sends again any offer
 // still holding a mark when its desk opens)
 const NO_OFFERS = {
-  abilityMarkOffer: null, abilityMarkQueue: [], heldMarks: null, abilityMarkRefused: null,
+  abilityMarkOffer: null, abilityMarkQueue: [], heldMarks: null, abilityMarkRefused: null, interceptRefused: null,
   abilityUseSent: null, abilityUsed: null, abilityUseError: null,
 };
 
@@ -195,6 +223,24 @@ const logLine = (payload) => {
 export const assignmentOf = (circle) => {
   const n = circle?.backstory_answers?.assignment;
   return Number.isInteger(n) && n > 0 ? n : 1;
+};
+
+// Whether this desk's own latest roll is waiting on the player: a gilded die to keep, or a
+// Burn and reroll still on offer (the dice vault's canResist, which needs the vault open).
+// The phone's dice button shows a dot for it once the roll bar has faded. A settled roll
+// (store lastRollSettled) is no longer offered (the server refuses the burn), nor is a
+// dead investigator's, though a gilded die still to be kept is.
+export const postRollChoiceWaiting = (s) => {
+  if (!s.lastRoll) return false;
+  if (s.pendingGildedChoice && s.lastRoll.needs_gilded_choice) return true;
+  if (s.lastRollSettled || s.character?.is_dead) return false;
+  const kept = s.lastRollKept && s.lastRollKept.rollId === s.lastRoll.id ? s.lastRollKept : null;
+  const outcome = kept ? kept.outcome : s.lastRoll.outcome;
+  if (!outcome || outcome === 'full_success' || outcome === 'critical_success') return false;
+  const drive = s.lastRoll.action ? driveKeyFor(s.lastRoll.action) : null;
+  if (!drive || !s.character) return false;
+  const max = Math.floor((s.character[`${drive}_max`] || 1) / 3);
+  return max > (s.character[`${drive}_resistance_spent`] || 0);
 };
 
 // A report the table has not answered within this long is not sent, as far as the form knows
@@ -385,6 +431,13 @@ const useGameStore = create(
       // The server's result for the die kept in this desk's last gilded choice (roll_kept):
       // { rollId, index, is_gilded, value, outcome, seq }
       lastRollKept: null,
+      // Whether lastRoll is settled: someone else's dice landed at the table after its
+      // result was known (a gilded roll's once its die is kept), the assignment ended, or
+      // the server refused a burn for it. The server then takes no burn or post-roll
+      // ability for it, so none is offered. It is kept over a reconnect, as lastRoll is
+      // (it was read from tableRoll, which a reconnect clears; playtest 2,
+      // stale-burn-offer-after-end-assignment, roll-settling-client-server-mismatch).
+      lastRollSettled: false,
       // The latest roll by someone else at the table, as its dice started tumbling there
       // (the server's dice_thrown); the GM's tray shows it. { roll, kept, name, ink_color,
       // action, rating, character_id }
@@ -428,6 +481,8 @@ const useGameStore = create(
       heldMarks: null,
       abilityUseError: null,     // why the server refused an ability used outside a roll
       abilityMarkRefused: null,  // why the server refused an answer to a mark offer (its mark then landed)
+      interceptSent: null,       // the ability of this desk's last answer to an ally's mark
+      interceptRefused: null,    // { ability, detail }: why the server refused this desk's answer to an ally's mark
       abilityUseSent: null,      // { ability, at }: the use_ability that waits for the server's answer
       abilityUsed: null,         // { ability, at }: the last use the server paid for, which its button says
       circleAdvancement: null,   // { circle } — set when GM advances; triggers player modal
@@ -440,15 +495,12 @@ const useGameStore = create(
       // reloads (playtest, key-ticks-lost); whether a report is on its way; why the server
       // refused the last one
       reportDrafts: {},
-      // The Lightkeeper's answers to the circle's three Illumination questions, by circle id,
-      // for the assignment they belong to, and how much Illumination they were added as
-      // ({ assignment, answers: [bool, bool, bool], added: number | null })
-      illumTallies: {},
       reportSending: false,
       reportError: null,
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
+      confirmedPersonalAnswer: null,  // { characterId, answer } as the desk last echoed it
       circleCreation: {
         isVisible: false,
         circleId: null,
@@ -480,6 +532,7 @@ const useGameStore = create(
           ...NO_OFFERS,
           lastRoll: null,
           lastRollKept: null,
+          lastRollSettled: false,
           tableRoll: null,
           pendingGildedChoice: null,
           dismissedPrompts: [],
@@ -564,7 +617,7 @@ const useGameStore = create(
           previous.onerror = null;
           try { previous.close(1000); } catch { /* already closed */ }
           // Its onclose does not run, so what it waited for goes here
-          forgetUnanswered(set, get);
+          forgetUnanswered(set, get, keepLog);
         }
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
@@ -587,7 +640,7 @@ const useGameStore = create(
         // the hub), and a held gilded roll comes back from the server.
         if (rollDesk !== null && String(rollDesk) !== String(gameId)) {
           answeredRollId = null;
-          set({ ...NO_OFFERS, lastRoll: null, lastRollKept: null, pendingGildedChoice: null, dismissedPrompts: [], postRollTried: null });
+          set({ ...NO_OFFERS, lastRoll: null, lastRollKept: null, lastRollSettled: false, pendingGildedChoice: null, dismissedPrompts: [], postRollTried: null });
         }
         rollDesk = gameId;
         const apiBase = import.meta.env.VITE_API_URL || '';
@@ -624,6 +677,8 @@ const useGameStore = create(
             }
           }, HEARTBEAT_TICK_MS);
           if (queuedRoll) sendRoll(set, get, queuedRoll);
+          resendMarks(get, socket);
+          set(state => withoutIntercepts(state));
           // The GM desk opened again (a drop, a laptop waking, "Use this tab"): the members'
           // changes made while it was down never came, so what it shows loads again. So do
           // the formation papers and the reports: the votes, answers and relationships that
@@ -648,11 +703,12 @@ const useGameStore = create(
           stopHeartbeat();
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
           if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
-          // An ability use or marks on their way with no answer yet
-          forgetUnanswered(set, get);
           // A roll waiting to be sent, or sent with no answer, waits on only while the desk
           // reconnects by itself; the sent one goes again with its roll_id
           const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
+          // An ability use or marks on their way with no answer yet (the marks go again
+          // on the next socket while the desk reconnects by itself)
+          forgetUnanswered(set, get, !closesForGood);
           if (closesForGood && (queuedRoll || sentRollUnanswered(get))) {
             failRoll(set, sentRoll ? ROLL_LOST : event.code === WS_CLOSE_REPLACED ? ROLL_REPLACED : ROLL_NOT_SENT);
           }
@@ -693,6 +749,10 @@ const useGameStore = create(
           if (message.type === 'character_update') {
             const incoming = message.payload;
             const prevChar = get().character;
+            // A Lightkeeper desk has no sheet of its own: a member's sheet that reaches it
+            // (member_update is how it follows them) must not become its store character,
+            // which would make that member's dice its own and write their lines here
+            if (onGmDesk(get) && incoming?.id !== prevChar?.id) return;
             // The sheet, and the held marks that were on their way and are on it now
             set(state => ({ character: incoming, ...sheetArrived(state, prevChar, incoming) }));
             // The answer to an ability used outside a roll: the server paid its cost (a
@@ -716,15 +776,18 @@ const useGameStore = create(
                 get().fetchCircleCreationState(incoming.campaign_id);
               }
             }
-            // A line when the character drops incapacitated or dies. Incapacitated is not
-            // death (rulebook p. 14): it said "is deceased" for both, and said nothing when
-            // an incapacitated investigator then died
-            const becameDead = incoming.is_dead === true && !prevChar?.is_dead;
+            // The fourth scar: a dead investigator answers no offer (the server refuses it),
+            // an ally's included, so the cards go
+            if (incoming?.is_dead && prevChar?.id === incoming.id && !prevChar.is_dead) {
+              set({ abilityMarkOffer: null, abilityMarkQueue: [] });
+            }
+            // A line when the character drops incapacitated. Incapacitated is not death
+            // (rulebook p. 14). A death is logged by the server, to every desk.
             const becameDown = incoming.incapacitated === true && !prevChar?.incapacitated && !incoming.is_dead;
-            if (becameDead || becameDown) {
+            if (becameDown) {
               // At the foot of the log, with the newest lines (it went to the top, the far
               // end of the log from where a line had just landed)
-              const line = { text: becameDead ? `${incoming.name} is deceased.` : `${incoming.name} is incapacitated.`,
+              const line = { text: `${incoming.name} is incapacitated.`,
                 type: 'danger', time: clockTime(new Date()), inkColor: incoming.ink_color };
               set(state => ({ activityLog: [...state.activityLog, line].slice(-LOG_LINES) }));
             }
@@ -737,8 +800,10 @@ const useGameStore = create(
             // End Assignment moves the circle to its next assignment: the reports this desk
             // holds belonged to the one that ended (the server cleared them)
             const prev = get().circle;
+            // and so did the chance to burn on its last roll (the server settles it)
             if (prev && next && prev.id === next.id && assignmentOf(prev) !== assignmentOf(next)) {
-              set(state => ({ circleCreation: { ...state.circleCreation, reports: {} }, reportError: null }));
+              set(state => ({ circleCreation: { ...state.circleCreation, reports: {} }, reportError: null,
+                lastRollSettled: !!state.lastRoll }));
             }
             set({ circle: next });
             if (!onGmDesk(get)) {
@@ -765,6 +830,9 @@ const useGameStore = create(
             set({
               lastRoll: roll,
               lastRollKept: null,
+              // A roll the table has moved past while this desk was away (the server says
+              // so): its die can be kept, but it offers no burn
+              lastRollSettled: message.payload.settled === true,
               dismissedPrompts: [],
               postRollTried: null,
               tableRoll: null, // this desk's own roll is the newest on its felt
@@ -804,7 +872,20 @@ const useGameStore = create(
             if (!own) {
               playDiceTumble();
               if (Array.isArray(p.roll?.dice)) set({ tableRoll: p });
+              // They settle this desk's own roll once its result is known: a gilded roll
+              // whose die is still to be kept is decided later, after these dice. A die kept
+              // from a roll End Assignment settled does not (settles: false)
+              const { lastRoll, lastRollKept } = st;
+              if (lastRoll && p.settles !== false && !(lastRoll.needs_gilded_choice && lastRollKept?.rollId !== lastRoll.id)) {
+                set({ lastRollSettled: true });
+              }
             }
+          }
+          else if (message.type === 'roll_settled') {
+            // As the socket opens: this investigator's last roll was settled by dice this
+            // desk missed (it was away), so the roll it still shows offers no burn
+            const { lastRoll, character } = get();
+            if (lastRoll && message.payload?.character_id === character?.id) set({ lastRollSettled: true });
           }
           else if (message.type === 'roll_error') {
             failRoll(set, ROLL_FAILED);
@@ -831,12 +912,17 @@ const useGameStore = create(
             console.warn(`Vault refused ${message.payload.action}: ${message.payload.detail}`);
             // The server's reason, such as "Not enough Nerve for that roll."
             if (message.payload.action === 'roll') failRoll(set, message.payload.detail || ROLL_REFUSED);
-            // The server keeps the dice of a roll that waits for a die to be kept, and reads
-            // the kept die from them; with no roll waiting (a server restart, a second
-            // choice) the kept die did not count, and the server's words say to roll again
+            // A drive the Lightkeeper set on her copy of a member's sheet, refused: the sheet
+            // loads again, so the value it showed at once goes back to the stored one
+            if (message.payload.action === 'update_drive' && onGmDesk(get)) {
+              set(state => ({ memberResync: state.memberResync + 1 }));
+            }
             if (message.payload.action === 'apply_advancement') {
               set({ advancementError: message.payload.detail || 'That advancement was not applied.' });
             }
+            // The server keeps the dice of a roll that waits for a die to be kept, and reads
+            // the kept die from them; with no roll waiting (a server restart, a second
+            // choice) the kept die did not count, and the server's words say to roll again
             if (message.payload.action === 'resolve_gilded') {
               set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
             }
@@ -847,6 +933,11 @@ const useGameStore = create(
             if (message.payload.action === 'resolve_ability_mark' && markAnswerOut) {
               markAnswerOut = false;
               set({ abilityMarkRefused: message.payload.detail || 'That answer was not taken.' });
+            }
+            // An answer to an ally's mark refused (another ally took it first): its card has
+            // gone, so the card's place says why
+            if (message.payload.action === 'intercept_mark') {
+              set({ interceptRefused: { ability: get().interceptSent, detail: message.payload.detail || 'That answer was not taken.' } });
             }
             if (message.payload.action === 'use_ability') {
               set({ abilityUseError: message.payload.detail || 'That ability was not used.', abilityUseSent: null, abilityUsed: null });
@@ -895,6 +986,9 @@ const useGameStore = create(
                 rollError: message.payload.detail || ROLL_REFUSED,
                 dismissedPrompts: tried ? state.dismissedPrompts.filter(k => k !== tried) : state.dismissedPrompts,
                 postRollTried: null,
+                // No roll of that action to burn on: the offer goes
+                lastRollSettled: state.lastRollSettled
+                  || (message.payload.action === 'burn_resistance' && message.payload.status === 409),
               }));
             }
           }
@@ -956,6 +1050,10 @@ const useGameStore = create(
           else if (message.type === 'personal_answer_update') {
             const { character_id, answer } = message.payload;
             set(state => ({
+              // What the desk has echoed back, as opposed to the optimistic copy on character
+              confirmedPersonalAnswer: state.character?.id === character_id
+                ? { characterId: character_id, answer }
+                : state.confirmedPersonalAnswer,
               character: state.character?.id === character_id
                 ? { ...state.character, personal_circle_answer: answer }
                 : state.character,
@@ -1091,16 +1189,17 @@ const useGameStore = create(
             const { character: myChar, socketGameId } = get();
             const onCharacterChannel = myChar?.id != null && String(socketGameId) === String(myChar.id);
             setTimeout(() => (onCharacterChannel ? get().reconnect() : get().disconnect()), 0);
-            // The campaign leaves the Lightkeeper's ledger and Last Session tome, as the
-            // server's list of their campaigns leaves it out, so neither the tome nor the
-            // browser's Forward (stageHistory.js) opens its desk again
+            // The campaign leaves the Lightkeeper's ledger and the Last Session tome of both
+            // sides, so neither the tome nor the browser's Forward (stageHistory.js) opens
+            // its desk again. Sent to the Lightkeeper and the investigators it let go only.
             const { campaign_id: id, campaign_code: code } = message.payload;
             set(state => ({
               stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null,
-              gmCampaigns: state.gmCampaigns.filter(c => c.id !== id),
-              lastPlayedCampaign: state.lastPlayedCampaign?.type === 'gm' && state.lastPlayedCampaign.campaignCode === code
-                ? null : state.lastPlayedCampaign,
+              ...withoutCampaign(state, id, code),
+              ...(onCharacterChannel ? { hubNotice: 'The Lightkeeper retired the campaign. Your investigator is free to join another.' } : {}),
             }));
+            // the registry reads the investigators the retire let go
+            get().fetchUserData(get().accessSession?.userId);
           }
           else if (message.type === 'campaign_deleted') {
             if (!isForThisCampaign(message.payload)) return;
@@ -1155,11 +1254,20 @@ const useGameStore = create(
           }
           else if (message.type === 'mark_offer_closed') {
             // The offer's mark landed because another mark came (backend marks.py
-            // mark_or_offer): its card goes, so its countdown cannot land the mark again
-            set(state => ({ ...withoutOwnOffer(state), ...offerLets(state, false, state.heldMarks?.offer?.seq) }));
+            // mark_or_offer): its card goes, so its countdown cannot land the mark again.
+            // Dropped at the death (close_offers_at_death): its marks are not taken either
+            if (message.payload?.dropped) {
+              set(state => ({ ...withoutOwnOffer(state), ...(state.heldMarks?.offer ? heldMarksAre({ ...state.heldMarks, offer: null }) : {}) }));
+            }
+            else set(state => ({ ...withoutOwnOffer(state), ...offerLets(state, false, state.heldMarks?.offer?.seq) }));
           }
           else if (message.type === 'ability_intercept_offer') {
             set(state => queueOffer(state, { ...message.payload, intercept: true, seq: ++offerSeq, received_at: Date.now() }));
+          }
+          else if (message.type === 'intercept_offer_closed') {
+            // Another ally answered that mark: this desk's card for it goes
+            const p = message.payload || {};
+            set(state => withoutIntercepts(state, o => o.character_id === p.character_id && o.mark_type === p.mark_type));
           }
           else if (message.type === 'gm_rejoin_invite') {
             set({ rejoinInvite: message.payload });
@@ -1266,6 +1374,13 @@ const useGameStore = create(
           ]);
           if (charsRes.ok) set({ characters: await charsRes.json() });
           if (campsRes.ok) set({ gmCampaigns: await campsRes.json() });
+          // A Last Session tome that names a campaign this user is no longer in (retired or
+          // deleted while the hub had no socket) goes; the hub fills it again from what is left
+          const { lastPlayedCampaign: last, characters, gmCampaigns } = get();
+          const gone = charsRes.ok && campsRes.ok && last && (last.type === 'player'
+            ? !characters.some(c => c.id === last.characterId && c.status === 'active')
+            : !gmCampaigns.some(c => c.campaign_code === last.campaignCode));
+          if (gone) set({ lastPlayedCampaign: null });
         } catch (err) {
           console.error('Failed to fetch user data:', err);
         }
@@ -1297,7 +1412,7 @@ const useGameStore = create(
           payload: { ...extra, action: actionName, drive_spent: driveSpent, is_secret: isSecret, ability_mods: abilityMods,
             roll_id: newRollId() }
         };
-        set({ lastRoll: null, lastRollKept: null, isRolling: true, rollWaiting: false, rollError: null, dismissedPrompts: [], postRollTried: null });
+        set({ lastRoll: null, lastRollKept: null, lastRollSettled: false, isRolling: true, rollWaiting: false, rollError: null, dismissedPrompts: [], postRollTried: null });
         if (socket && socket.readyState === WebSocket.OPEN) {
           sendRoll(set, get, frame);
           return;
@@ -1392,7 +1507,7 @@ const useGameStore = create(
 
       interceptMark: (ability, targetCharacterId, markType) => {
         const { socket } = get();
-        set(nextOffer);
+        set(state => ({ ...nextOffer(state), interceptSent: ability, interceptRefused: null }));
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'intercept_mark', payload: { ability, target_character_id: targetCharacterId, mark_type: markType } }));
         }
@@ -1444,17 +1559,19 @@ const useGameStore = create(
       // Resolves to whether the mark went out, so the sheet can say when it did not. A mark
       // that went out is on its way: its box stays held until the table answers. undoId: the
       // sheet's hold it comes from (useMarkUndo), so the sheet does not count it twice.
+      // Its mark_id goes with it, so the same mark sent again on a new socket is not taken twice.
       takeMark: (markType, undoId) => {
         const { socket } = get();
         if (socket && socket.readyState === WebSocket.OPEN) {
+          const markId = newRollId();
           socket.send(JSON.stringify({
             type: 'take_mark',
-            payload: { mark_type: markType }
+            payload: { mark_type: markType, mark_id: markId }
           }));
           set((state) => {
             const characterId = state.character?.id;
             const held = state.heldMarks?.characterId === characterId ? state.heldMarks : { characterId, offer: null, landing: [] };
-            return { heldMarks: { ...held, landing: [...held.landing, { type: markType, answer: false, undoId }] } };
+            return { heldMarks: { ...held, landing: [...held.landing, { type: markType, answer: false, undoId, markId }] } };
           });
           return true;
         }
@@ -1466,6 +1583,14 @@ const useGameStore = create(
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'revive_character', payload: {} }));
         }
+      },
+
+      // The Lightkeeper revives a member from the trauma record
+      gmRevive: (characterId) => {
+        const { socket } = get();
+        if (socket?.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'revive_character', payload: { character_id: characterId } }));
+        return true;
       },
 
       applyScar: (payloadData) => {
@@ -1582,13 +1707,26 @@ const useGameStore = create(
         return false;
       },
 
-      // The report form's ticks before sending, for this assignment
-      setIllumTally: (circleId, patch) => set(state => {
-        const assignment = assignmentOf(state.circle);
-        const prev = state.illumTallies[circleId];
-        const current = prev && prev.assignment === assignment ? prev : { assignment, answers: [false, false, false], added: null };
-        return { illumTallies: { ...state.illumTallies, [circleId]: { ...current, ...patch, assignment } } };
-      }),
+      // The Lightkeeper's ticks on the circle's three Illumination questions, and Add N
+      // Illumination. Both are kept on the circle (backstory_answers.tally, backend
+      // vtt/assignment.py), so every Lightkeeper desk sees the tally added once; they lived
+      // in this browser, and a second tab added the same reports again (playtest,
+      // illumination-tally-added-twice)
+      // One question's tick at a time, so a tick sent before the last one came back keeps it
+      gmSetTallyAnswer: (circleId, index, checked) => {
+        const { socket } = get();
+        if (socket?.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'gm_set_tally_answer', payload: { circle_id: circleId, index, checked } }));
+        return true;
+      },
+
+      // The reports' keys; the server counts the ticks it holds and adds the tally once
+      gmAddTally: (circleId, keys) => {
+        const { socket } = get();
+        if (socket?.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'gm_add_tally', payload: { circle_id: circleId, keys } }));
+        return true;
+      },
 
       setReportDraft: (characterId, draft) => set(state => ({
         reportDrafts: { ...state.reportDrafts, [characterId]: { ...draft, assignment: assignmentOf(state.circle) } },
@@ -1893,6 +2031,18 @@ const useGameStore = create(
         return false;
       },
 
+      // The Lightkeeper sets one of a member's drives from her copy of the sheet; the server
+      // (handle_update_drive) sends the sheet to the member's own desk, her copy follows
+      // through member_update, and it writes the table's log line
+      gmSetDrive: (characterId, pool, value) => {
+        const { socket } = get();
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'update_drive', payload: { character_id: characterId, pool, value } }));
+          return true;
+        }
+        return false;
+      },
+
       // The Lightkeeper deals a member a mark: it goes the way a mark the player takes does,
       // so soaks, Death Defy, the allies' offers and Let Them In come up on the player's desk
       // (the server, handle_take_mark). fromEnemy: Death Defy is offered for it.
@@ -2119,7 +2269,6 @@ const useGameStore = create(
         rejoinInvite: state.rejoinInvite,
         pendingScar: state.pendingScar,
         reportDrafts: state.reportDrafts,
-        illumTallies: state.illumTallies,
       }),
 
       // A session saved before login tokens existed has no token, and the server

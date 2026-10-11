@@ -909,14 +909,6 @@ export const DeskStyles = () => (
       content: ''; position: absolute; left: var(--curl-l); top: var(--curl-t); width: 36%; height: 34%;
       background: radial-gradient(closest-side, rgb(0 0 0 / 0.5), rgb(0 0 0 / 0));
     }
-    /* A brass tack, lit on the side toward the candles, its shadow thrown away from them */
-    .paper-tack {
-      position: absolute; width: max(9px, 7.5%); aspect-ratio: 1; translate: -50% -50%;
-      border-radius: 50%;
-      background: radial-gradient(circle at calc(50% - var(--sx, 2px) * 0.8) calc(50% - var(--sy, 3px) * 0.8),
-        #fff4c8 0, #e9c870 16%, #b98d38 42%, #7a5620 74%, #4d3613 100%);
-      box-shadow: 0 0 0 0.5px rgba(36,22,6,0.8), calc(var(--sx, 2px) * 0.45) calc(var(--sy, 3px) * 0.45) 2px rgba(0,0,0,0.65);
-    }
     /* The photograph: sepia, faded and silvered toward its edges */
     .paper-photo-img { filter: sepia(0.72) saturate(0.85) contrast(1.06) brightness(0.96); }
     /* A sketch from the user's notebook: drawn on white, so its white becomes the sheet

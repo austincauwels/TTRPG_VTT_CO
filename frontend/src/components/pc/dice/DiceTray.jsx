@@ -5,6 +5,7 @@ import { onActivateKey } from '../../shared/a11y';
 import { tiltFor } from '../../shared/handPlaced';
 import { SerialNo, serialFor } from '../../shared/PrintMarks';
 import { DieFace, DIE_BODY } from './Die';
+import { InfoTerm } from '../../shared/ActionInfo';
 
 // Each outcome is a stamp on the result slip: its word, plus its own ink. Critical success
 // is the one gold stamp (gold fill, ink letters), since gold text cannot be read on paper.
@@ -40,7 +41,7 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
     <div role="status" data-result-slip="" tabIndex={-1} className="hand-placed relative -mt-1 mx-2 bg-parchment text-ink px-4 pt-2.5 pb-3 shadow-[2px_6px_12px_rgba(0,0,0,0.6)] border border-sepia/30 rounded-sm"
       style={{ '--tilt': `${tiltFor(`slip-${key}`, { min: 0.4, max: 1 })}deg` }}>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="font-serif font-bold text-lg leading-snug truncate" style={{ color: rollerInk || 'rgb(var(--c-ink))' }}>{rollerName}</span>
+        <span title={rollerName} className="font-serif font-bold text-lg leading-snug line-clamp-2 break-words min-w-0" style={{ color: rollerInk || 'rgb(var(--c-ink))' }}>{rollerName}</span>
         <SerialNo value={serialFor(key)} className="shrink-0" />
       </div>
       {lastRoll.is_secret && (
@@ -148,7 +149,7 @@ const FocusFollowsRoll = ({ gildedPending }) => {
 
 export const DiceTray = forwardRef(({
   lastRoll, isRolling, gildedPending, dieSkews, getIsCandidate, onDieClick,
-  rollerName, rollerInk, keptDie, rating = null, rollWaiting = false, rollError = null,
+  rollerName, rollerInk, keptDie, rating = null, rollWaiting = false, rollError = null, rollHint = false,
 }, ref) => (
   <div ref={ref} className="xl:shrink-0">
   <FocusFollowsRoll gildedPending={!!gildedPending} />
@@ -209,7 +210,12 @@ export const DiceTray = forwardRef(({
           </div>
         </div>
       ) : (
-        <span className="sr-only">No dice thrown yet</span>
+        // The player's tray keeps how to roll behind an "i"; the Lightkeeper's just says it is empty
+        rollHint ? (
+          <InfoTerm label="No dice thrown yet" text="To roll, tap an action on your sheet." ariaLabel="How to roll" markClassName="text-candle-gold group-hover/info:text-cream" className="font-serif italic text-candle-gold text-lg" />
+        ) : (
+          <span className="font-serif italic text-candle-gold/80 text-lg">No dice thrown yet</span>
+        )
       )}
     </div>
   </div>

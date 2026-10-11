@@ -8,6 +8,7 @@ import { FormLine, SerialNo, DateStamp, PrinterMark, BlankEntry, BlankQuestionCa
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { refillRule } from '../../game/circleResources';
 import { CIRCLE_QUESTIONS } from '../../game/circleFormation';
+import { ABILITY_TEXTS } from './InvestigatorDossier';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
 
@@ -129,6 +130,28 @@ function getAvailableAbilities(character, circle) {
   return all.filter(a => !owned.has(a.name));
 }
 
+// Picks put off with Later stay one press away: a strip at the head of the desk, in the page
+// where it scrolls away, not floating over the sheet's own controls (playtest 2)
+export function AdvancementWaiting() {
+  const character = useGameStore(s => s.character);
+  const advancementDeferred = useGameStore(s => s.advancementDeferred);
+  const resumeCircleAdvancement = useGameStore(s => s.resumeCircleAdvancement);
+  const picksLeft = character?.advancement_picks || 0;
+  if (!character || character.is_dead || picksLeft <= 0 || !advancementDeferred) return null;
+  return (
+    <div role="status" className="mb-4 xl:mb-3 xl:shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-sepia rounded-sm px-4 py-3 xl:py-2 shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
+      <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60">
+        <strong className="font-bold">Advancement picks are waiting.</strong>{' '}
+        {picksLeft === 1 ? 'One is' : `${picksLeft} are`} still to choose.
+      </p>
+      <button type="button" onClick={resumeCircleAdvancement}
+        className="shrink-0 min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream border border-candle-gold/70 hover:bg-oxblood rounded-sm">
+        Choose advancements ({picksLeft})
+      </button>
+    </div>
+  );
+}
+
 export function AdvancementModal() {
   const { character, circle, circleAdvancement, applyAdvancement, dismissCircleAdvancement, resumeCircleAdvancement, advancementDeferred, advancementError } = useGameStore();
   // "Later" lasts until the next visit to the desk (this mounts with it)
@@ -138,12 +161,14 @@ export function AdvancementModal() {
   // details keyed by pick id: action key, drive key, or ability text
   const [details, setDetails]               = useState({});
   const [submitted, setSubmitted]           = useState(false);
+  // What the confirmed picks were, for the slip that follows
+  const [applied, setApplied]               = useState([]);
   // The picks the Lightkeeper's circle advance gave this investigator and not chosen yet
   // (two per advancement, kept on the character until chosen), and the options already
   // taken in this advancement, which the other pick must differ from
   const picksLeft = character?.advancement_picks || 0;
   const taken = Array.isArray(character?.advancement_taken) ? character.advancement_taken : [];
-  const open = !!character && picksLeft > 0 && !advancementDeferred;
+  const open = !!character && !character.is_dead && picksLeft > 0 && !advancementDeferred;
   const close = () => { setSubmitted(false); setSelectedPicks([]); setDetails({}); dismissCircleAdvancement(); };
   const dialogRef = useDialog({ open: open || submitted, onClose: close, view: submitted });
 
@@ -174,26 +199,30 @@ export function AdvancementModal() {
     return true;
   }
 
+  const appliedLine = (id) => {
+    const detail = details[id] || '';
+    const actionLabel = ALL_ACTIONS.find(a => a.key === detail)?.label || detail;
+    if (id === 'add_action') return `+1 ${actionLabel}`;
+    if (id === 'gild_action') return `${actionLabel} is now gilded`;
+    if (id === 'new_ability') return `New ability: ${detail}`;
+    const drives = detail.split(',').filter(Boolean);
+    if (drives.length === 1) return `+2 ${drives[0]} drive`;
+    return `+1 ${drives[0]} and +1 ${drives[1]} drive`;
+  };
+
   function handleConfirm() {
     if (!isReady()) return;
+    const lines = selectedPicks.map(appliedLine);
     for (const id of selectedPicks) {
       if (!applyAdvancement(id, details[id] || '')) return;
     }
+    setApplied(lines);
     setSubmitted(true);
   }
 
   // Modal only renders inside MainDeskView (player context). Its "applied" slip shows
   // until it is closed, even once the server has used up the picks (that used to hide it).
   if (!character || (!open && !submitted)) {
-    // Picks put off with Later stay one press away
-    if (character && picksLeft > 0 && advancementDeferred) {
-      return (
-        <button type="button" onClick={resumeCircleAdvancement}
-          className="fixed bottom-24 left-3 sm:bottom-4 sm:left-4 z-[400] min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream border border-candle-gold/70 hover:bg-oxblood rounded-sm shadow-lg">
-          Choose advancements ({picksLeft})
-        </button>
-      );
-    }
     return null;
   }
 
@@ -205,7 +234,11 @@ export function AdvancementModal() {
           <h2 id="advancement-done-title" className="text-xl font-serif font-black text-oxblood mb-4">
             {advancementError ? 'Advancement not applied' : 'Advancement Applied'}
           </h2>
-          {advancementError && <p role="alert" className="font-serif text-base text-ink mb-4">{advancementError}</p>}
+          {advancementError ? <p role="alert" className="font-serif text-base text-ink mb-4">{advancementError}</p> : (
+            <ul className="mb-4 list-disc pl-5 font-serif text-base text-ink">
+              {applied.map(line => <li key={line}>{line}</li>)}
+            </ul>
+          )}
           {/* With picks still waiting (a second advance, or One Last Run's four), the next
               set opens; closing used to hide them until the page was reloaded */}
           <button
@@ -410,6 +443,9 @@ export function AdvancementModal() {
                           })()}
                         </select>
                       )}
+                      {ABILITY_TEXTS[details[id]] && (
+                        <p className="font-serif text-sm text-ink/90 leading-snug mt-1.5">{ABILITY_TEXTS[details[id]]}</p>
+                      )}
                       {outside.length > 0 && (
                         <p className="font-serif text-sm text-sepia italic mt-1">
                           Interdisciplinary: once a campaign, one new ability may come from another role or specialty.
@@ -423,7 +459,8 @@ export function AdvancementModal() {
           })}
         </div>
 
-        <div className="flex gap-3">
+        {/* Held at the foot of the scrolling dialog, so Confirm and Later stay in view on a phone */}
+        <div className="flex gap-3 sticky -bottom-5 sm:-bottom-8 -mx-5 sm:-mx-8 -mb-5 sm:-mb-8 px-5 sm:px-8 pt-3 pb-5 sm:pb-8 bg-cream border-t border-ink/15">
           <button
             onClick={handleConfirm}
             disabled={!isReady()}
@@ -514,6 +551,7 @@ export const CircleView = () => {
   const lastSpendAt = useRef(0);
   // Why a player cannot spend now, said once above the buttons (not only in a hover title)
   const spendBlock = isGM ? null
+    : character?.is_dead ? 'A dead investigator cannot spend the circle\'s resources.'
     : !circle?.resources_editable ? 'Spending is locked until the Lightkeeper opens it.'
     : (character?.resources_spent_assignment || 0) >= 2 ? 'You have spent both of your two this assignment.'
     : null;
@@ -746,7 +784,7 @@ export const CircleView = () => {
           ) : (
             <>
               <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider">
-                {circle?.reports_open ? (myReport ? 'Amending your report' : 'Reports open') : 'Reports closed'}
+                {circle?.reports_open ? (myReport ? 'Amending your report' : 'Reports open') : 'Reports closed: the Lightkeeper opens them at the end of the assignment'}
               </span>
               <span className="flex items-center gap-3">
                 {myReport && (
@@ -761,7 +799,7 @@ export const CircleView = () => {
                   className={`px-4 py-2 [@media(pointer:coarse)]:min-h-[44px] font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-all ${
                     circle?.reports_open && !reportSending
                       ? 'bg-ink text-cream border-ink hover:bg-oxblood hover:border-oxblood'
-                      : 'bg-transparent text-sepia border-ink/20 cursor-not-allowed'
+                      : 'bg-transparent text-sepia/60 border-transparent opacity-60 cursor-not-allowed'
                   }`}
                 >
                   {reportSending ? 'Sending…' : myReport ? 'Send amended report' : 'Send report'}
@@ -935,7 +973,7 @@ export const CircleView = () => {
 
       {/* V. Circle Relationships */}
       {investigators.filter(i => i.id !== myId).length > 0 && (
-        <CirclePaper kind="plain" tilt={-0.5} aria-labelledby="circle-relationships-title">
+        <CirclePaper kind="plain" tilt={-0.5} data-circle-paper="relationships" aria-labelledby="circle-relationships-title">
           <h3 id="circle-relationships-title" className="font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-3 flex flex-wrap items-center gap-1.5">
             <SafeIcon name="GiHeartInside" size={14} className="text-oxblood" />
             Circle Relationships
@@ -957,6 +995,7 @@ export const CircleView = () => {
                 circleId={circleId}
                 forms={relForms}
                 proposeRelationship={proposeRelationship}
+                proposeBlocked={!!character?.is_dead}
                 respondToRelationship={respondToRelationship}
               />
             ))}

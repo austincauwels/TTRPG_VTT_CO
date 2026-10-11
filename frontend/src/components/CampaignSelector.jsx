@@ -118,10 +118,10 @@ export const CampaignSelector = () => {
     const form = joinForms[charId] || {};
     if (!form.code?.trim()) return;
     setJoinForms(f => ({ ...f, [charId]: { ...f[charId], loading: true, error: '' } }));
-    const result = await joinCampaign(charId, form.code.trim(), form.pen || 'Caveat');
+    const result = await joinCampaign(charId, form.code.trim(), form.pen || characters.find(c => c.id === charId)?.pen_font || 'Caveat');
     if (result.success) {
       await fetchUserData(accessSession?.userId);
-      setJoinForms(f => ({ ...f, [charId]: { expanded: false, code: '', pen: 'Caveat', loading: false, error: '' } }));
+      setJoinForms(f => ({ ...f, [charId]: { expanded: false, code: '', loading: false, error: '' } }));
     } else {
       const error = campaignErrorText(result.detail, 'Could not send the request to join. Try again in a moment.');
       setJoinForms(f => ({ ...f, [charId]: { ...f[charId], loading: false, error } }));
@@ -137,7 +137,7 @@ export const CampaignSelector = () => {
     // folded Herald leave them (.hub-tomes in DeskStyles.jsx). While the roster book is open
     // the room under it holds still (.hub-still), so the book moves alone.
     <div className={`scene-container${showBook ? ' hub-still' : ''} h-[100dvh] lg:landscape:h-auto lg:landscape:min-h-screen w-full relative overflow-hidden select-none flex flex-col font-serif bg-night`}>
-      <RejoinInviteBanner rejoinInvite={rejoinInvite} setStage={setStage} setRejoinInvite={setRejoinInvite} />
+      <RejoinInviteBanner rejoinInvite={rejoinInvite} characters={characters} setStage={setStage} setRejoinInvite={setRejoinInvite} />
       <HubNotice notice={hubNotice} onDismiss={() => setHubNotice(null)} />
 
       <DeskStyles />

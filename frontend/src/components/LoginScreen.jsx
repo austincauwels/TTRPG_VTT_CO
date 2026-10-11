@@ -462,6 +462,7 @@ const LoginScreen = ({ resetToken = null, onLeaveReset }) => {
   const [imgError, setImgError] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
   const mapSrc = (!imgError && officialMap) || backupMap;
+  const mapShown = Boolean(mapSrc) && !mapFailed;
   const showingOfficialMap = Boolean(officialMap) && mapSrc === officialMap && !mapFailed;
 
   const setAccessSession = useGameStore((s) => s.setAccessSession);
@@ -587,7 +588,7 @@ const LoginScreen = ({ resetToken = null, onLeaveReset }) => {
   return (
     <div className="relative min-h-screen w-full flex flex-col overflow-x-clip bg-night">
       {/* The Fairelands map, fixed behind the slip, with the public map as its fallback */}
-      {mapSrc && !mapFailed && (
+      {mapShown && (
         <img
           src={mapSrc}
           alt=""
@@ -603,7 +604,7 @@ const LoginScreen = ({ resetToken = null, onLeaveReset }) => {
       />
 
       {/* On a wide screen the slip lies right of Newfaire, so the city and the Glass Sea stay in view. */}
-      <main className="relative flex-1 flex items-center justify-center lg:justify-end px-4 py-10 sm:py-14 lg:pr-[8vw]">
+      <main className={`relative flex-1 flex items-center justify-center px-4 py-10 sm:py-14 ${mapShown ? 'lg:justify-end lg:pr-[8vw]' : ''}`}>
         <div className="relative w-full max-w-md lg:max-w-[30rem] animate-fadeIn">
           {/* Laid on the map by hand: a little crooked, taped down at the two top corners. */}
           <div className={`relative ${SLIP_TILT}`}>

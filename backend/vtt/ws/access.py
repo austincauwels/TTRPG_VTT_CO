@@ -12,6 +12,7 @@ from engine import ALL_ACTIONS
 from models import Campaign, Character, Circle, Relationship
 from vtt.abilities import MARK_TYPES, abilities_of, uses_of
 from vtt.ability_uses import SCAR_ABILITIES
+from vtt.assignment import ASSIGNMENT, REPORTS, TALLY
 from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, ROSTER_STATUSES, campaign_facts, character_facts
 from vtt.circle_queries import VOTE_TYPES
 
@@ -80,6 +81,7 @@ GM_ONLY = frozenset({
     "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
     "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
     "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
+    "gm_set_tally_answer", "gm_add_tally",
 })
 
 # A GM socket may aim these at a character of its campaign with payload.character_id.
@@ -169,6 +171,24 @@ def _gm_update_circle(ctx, payload, character):
             _invalid(DISPATCH_TOO_LONG)
 
 
+# The assignment's tally (rulebook p. 55): three questions worth 1 each, and the keys 2
+# when some of the investigators fulfilled one, 4 when every one of them did
+TALLY_KEYS = (0, 2, 4)
+
+
+def _gm_set_tally_answer(ctx, payload, character):
+    _gm_circle(ctx, payload, character)
+    index = payload.get("index")
+    if type(index) is not int or not 0 <= index <= 2 or type(payload.get("checked")) is not bool:
+        _invalid("A tick is a question's index (0 to 2) and checked, yes or no.")
+
+
+def _gm_add_tally(ctx, payload, character):
+    _gm_circle(ctx, payload, character)
+    if type(payload.get("keys")) is not int or payload["keys"] not in TALLY_KEYS:
+        _invalid("The keys are worth 0, 2 or 4.")
+
+
 def _intercept_mark(ctx, payload, character):
     m_type = payload.get("mark_type")
     if m_type and m_type not in MARK_TYPES:
@@ -207,9 +227,17 @@ def _circle_creation_vote(ctx, payload, character):
         _invalid("Unknown vote type.")
 
 
+# The circle's paperwork and the question the vote chose share backstory_answers with the
+# members' answers; only their own messages write them (the tally's added flag is what
+# stops a second add)
+RESERVED_ANSWERS = frozenset({REPORTS, ASSIGNMENT, TALLY, "selected_question_key"})
+
+
 def _circle_backstory_update(ctx, payload, character):
     if not payload.get("question_key"):
         return  # the handler ignores the message
+    if isinstance(payload["question_key"], str) and payload["question_key"] in RESERVED_ANSWERS:
+        _forbid()
     _circle_of(ctx, _default_circle(ctx, payload), _sender_campaign(ctx))
 
 
@@ -405,6 +433,8 @@ RULES = {
     "gm_end_assignment": _gm_circle,
     "gm_reset_character": _gm_only,
     "gm_return_spend": _gm_circle,
+    "gm_set_tally_answer": _gm_set_tally_answer,
+    "gm_add_tally": _gm_add_tally,
     "update_circle": _gm_circle,
     "gm_update_scars": _gm_update_scars,
     "intercept_mark": _intercept_mark,
@@ -446,6 +476,32 @@ def _still_in_connect_campaign(ctx):
         _forbid()
 
 
+# What a dead investigator's own socket may no longer do: the sheet is a record once the
+# fourth scar is taken (p. 74). Chat, the notebook, the pen font and a new investigator stay.
+DEAD_REFUSED = frozenset({
+    "roll", "resolve_gilded", "use_post_roll_ability", "burn_resistance", "take_mark",
+    "resolve_ability_mark", "intercept_mark", "spend_resource", "update_drive", "update_gear",
+    "apply_advancement", "use_ability", "circle_relationship_propose", "revive_character",
+})
+
+
+def _dead_sheet(ctx, action, character):
+    """A dead investigator rolls, takes marks, changes gear or drives and spends the
+    circle's resources no more, from their own socket; the Lightkeeper's Deal a mark is
+    refused for them too. The Lightkeeper's other corrections to the record stand."""
+    if character is None or not character.is_dead:
+        return
+    if action == "resolve_gilded" and not ctx.is_gm:
+        # A roll made in life whose die is still to be kept (the mark that followed it
+        # brought the fourth scar) is finished: the server holds its dice, and without the
+        # choice it was never scored or logged, and its Keep buttons failed on every connect
+        from vtt.ws.handlers.rolls import holds_roll
+        if holds_roll(character.id):
+            return
+    if (not ctx.is_gm and action in DEAD_REFUSED) or (ctx.is_gm and action == "take_mark"):
+        raise Rejected(409, f"{character.name} is dead: the sheet is a record.")
+
+
 def check_message(ctx, action, payload, character):
     if ctx.is_gm and campaign_facts(ctx.db, ctx.camp_id) is None:
         # The campaign was deleted while its GM's socket was open. Deleting it closes
@@ -453,6 +509,7 @@ def check_message(ctx, action, payload, character):
         _not_found("Campaign")
     if not ctx.is_gm and ctx.camp_id is not None and action in PLAYER_CAMPAIGN_BROADCASTS:
         _still_in_connect_campaign(ctx)
+    _dead_sheet(ctx, action, character)
     rule = RULES.get(action)
     if rule is not None:
         rule(ctx, payload, character)

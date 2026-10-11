@@ -12,6 +12,7 @@ import { ConfirmEmailPage } from './account/ConfirmEmailPage';
 import { UndoEmailChangePage } from './account/UndoEmailChangePage';
 import { accountPageOpen, emailTokenFromAddress, undoTokenFromAddress, watchAddress } from './account/accountAddress';
 import { settleArrival, useStageHistory } from './stageHistory';
+import { retiredByRejoin } from './campaignSelector/RejoinInviteBanner';
 
 // The screens behind the sign-in slip load when first shown (shared/lazyScreen.js); App
 // wraps the router in a Suspense that keeps the night stage up meanwhile.
@@ -241,7 +242,8 @@ export const AppRouter = () => {
 
           <CharacterCreator
             globalPenStyle={accessSession?.pen}
-            rejoinContext={rejoinCode ? { code: rejoinCode, campaignName: rejoinCampaignName } : null}
+            rejoinContext={rejoinCode ? { code: rejoinCode, campaignName: rejoinCampaignName,
+              retires: rejoinInvite ? retiredByRejoin(characters, rejoinInvite.campaign_id, character) : [] } : null}
             draftKey={accessSession?.userId ? `candela-creator-draft:${accessSession.userId}` : 'candela-creator-draft'}
             onSubmit={saveInvestigator}
           />

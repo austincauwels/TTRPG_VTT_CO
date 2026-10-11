@@ -151,7 +151,7 @@ WS_MESSAGE_TYPES = [
     "apply_advancement", "update_circle", "circle_creation_vote",
     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
     "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
-    "gm_update_scars", "gm_return_spend",
+    "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally",
 ]
 
 
@@ -192,7 +192,7 @@ WS_CASES = {
         sender="gm", payload=lambda c: {"role": "GM", "scene_name": "s"},
         expect=["scene_transition"]),
     "roll": dict(payload=lambda c: {}, expect=["roll_error"]),
-    "update_drive": dict(payload=lambda c: {"pool": "nerve", "value": 1}, expect=["character_update"]),
+    "update_drive": dict(fields={"nerve_max": 3, "nerve_current": 3}, payload=lambda c: {"pool": "nerve", "value": 1}, expect=["character_update", "activity_log"]),
     # A choice needs a gilded roll waiting for it (handlers/rolls.py _pending_gilded)
     "resolve_gilded": dict(
         fields={"move": 2, "gilded_move": True}, dice=(3, 5),
@@ -294,11 +294,18 @@ WS_CASES = {
         before_connect=lambda client, c: support.update(Character, c.char_id, resources_spent_assignment=1),
         payload=lambda c: {"role": "GM", "character_id": c.char_id},
         expect=["member_update", "activity_log"]),
+    # The Lightkeeper ticks the circle's questions, then adds the tally once
+    "gm_set_tally_answer": dict(
+        sender="gm", payload=lambda c: {"circle_id": c.circle_id, "index": 0, "checked": True},
+        expect=["circle_update"]),
+    "gm_add_tally": dict(
+        sender="gm", payload=lambda c: {"circle_id": c.circle_id, "keys": 2},
+        expect=["circle_update", "activity_log"]),
 }
 
 
 def test_ws_cases_cover_every_message_type():
-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 36
+    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 38
     assert list(WS_CASES) == WS_MESSAGE_TYPES
 
 
@@ -366,7 +373,8 @@ def test_ws_access_table():
     """The GM-only types are exactly the ones whose rule is a GM rule, and every rule
     and GM-target type is a real message type."""
     from vtt.ws import access
-    gm_rules = (access._gm_only, access._gm_circle, access._gm_update_circle, access._gm_update_scars)
+    gm_rules = (access._gm_only, access._gm_circle, access._gm_update_circle, access._gm_update_scars,
+                access._gm_set_tally_answer, access._gm_add_tally)
     assert access.GM_ONLY == {t for t, rule in access.RULES.items() if rule in gm_rules}
     assert set(access.RULES) <= set(WS_MESSAGE_TYPES)
     assert access.GM_MAY_TARGET <= set(WS_MESSAGE_TYPES)
@@ -374,6 +382,7 @@ def test_ws_access_table():
         "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
         "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
         "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
+        "gm_set_tally_answer", "gm_add_tally",
     }
 
 

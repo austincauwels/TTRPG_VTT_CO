@@ -42,7 +42,7 @@ def test_gm_update_circle_on_the_shared_circle_one_is_rejected(client):
         [msg] = support.of_type(sent, "circle_update")
         # What changed at the table is said in the log, to every desk (silent-table-changes)
         assert [m["payload"]["message"] for m in support.of_type(sent, "activity_log")] == [
-            "The Lightkeeper sent a dispatch.",
+            "The Lightkeeper sent a dispatch: Docks.",
             "The Lightkeeper raised the tension to 2 of 4.",
             "The Lightkeeper named the tension: Watch.",
         ]
@@ -180,7 +180,7 @@ def _after_member_update(msgs):
 def test_gm_update_scars_rewords_and_removes(client):
     """The Lightkeeper's trauma record edit: a scar reworded, then one removed. The
     player's sheet is told, the table's log says so, and the action point the scar
-    shifted stays where it is."""
+    shifted goes back when the scar is removed (the shift note ends its text)."""
     camp, (member,), _ = _campaign(client, scars_list=SCARS, scars_count=3, strike=0, sense=2)
     name = member["name"]
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
@@ -203,10 +203,39 @@ def test_gm_update_scars_rewords_and_removes(client):
         assert wm.drain()[0]["payload"]["scars_list"] == [stored[0], stored[2]]
         gm.send("gm_update_scars", character_id=member["id"], scars=[], previous=[stored[0], stored[2]])
         msgs = _after_member_update(gm.sync())
-        assert msgs[0]["payload"]["message"] == f"The Lightkeeper removed 2 scars from {name}'s record (0 of 4)."
+        assert msgs[0]["payload"]["message"] == (f"The Lightkeeper removed 2 scars from {name}'s record (0 of 4). "
+                                                 "The shift is undone: (-1 Strike, +1 Sense).")
     row = support.fetch(Character, member["id"])
     assert (row.scars_list, row.scars_count) == ([], 0)
-    assert (row.strike, row.sense, row.is_dead) == (0, 2, False)
+    assert (row.strike, row.sense, row.is_dead) == (1, 1, False)
+
+
+def test_gm_update_scars_gives_back_only_a_known_shift(client):
+    """A shift goes back for a scar taken out with nothing reworded beside it, within 0 to
+    3; a scar with no note (Hardened, Not Again, hand-written) moves nothing."""
+    stored = ["Burn (-1 Strike, +1 Sense)", "Cut (-1 Survey, +1 Focus)", "Kept (Hardened: no action shift)"]
+    camp, (member,), _ = _campaign(client, scars_list=stored, scars_count=3, strike=0, sense=3, survey=0, read=3)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        # Reworded in the same save: which scar went is not known, so nothing moves
+        gm.send("gm_update_scars", character_id=member["id"], scars=["Burn!", stored[2]], previous=stored)
+        gm.sync()
+        row = support.fetch(Character, member["id"])
+        assert (row.strike, row.sense, row.survey, row.read) == (0, 3, 0, 3)
+        stored = ["Burn!", stored[2]]
+        gm.send("gm_update_scars", character_id=member["id"], scars=[stored[0]], previous=stored)
+        gm.sync()
+        assert support.fetch(Character, member["id"]).sense == 3
+        gm.send("gm_update_scars", character_id=member["id"], scars=[], previous=[stored[0]])
+        gm.sync()
+    row = support.fetch(Character, member["id"])
+    assert (row.strike, row.sense, row.survey, row.read) == (0, 3, 0, 3)
+    # An action already at 3 cannot go back up, so that shift stays
+    camp, (full,), _ = _campaign(client, scars_list=stored[:1], scars_count=1, strike=3, sense=1)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_update_scars", character_id=full["id"], scars=[], previous=stored[:1])
+        gm.sync()
+    assert support.fetch(Character, full["id"]).scars_list == []
+    assert (support.fetch(Character, full["id"]).strike, support.fetch(Character, full["id"]).sense) == (3, 1)
 
 
 def test_gm_update_scars_refusals(client):
@@ -328,10 +357,14 @@ def test_a_death_and_its_undo_reach_the_other_players(client):
             support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, elsewhere["id"]) as we:
         wd.send("apply_scar", scar_text="The last one", skip_shifts=True)
         seen = wd.sync()
-        assert support.types(seen) == ["character_update", "member_status"]
+        assert support.types(seen) == ["character_update", "member_status", "activity_log"]
         assert seen[0]["payload"]["is_dead"] is True and seen[1] == status(True)
-        assert wa.drain() == [status(True)]
-        assert support.types(gm.drain()) == ["member_update"]
+        # Every desk, the Lightkeeper's too, is told of the death in its log
+        said = {"type": "activity_log", "payload": {
+            "message": f"{dying['name']} is deceased: a fourth scar.", "log_type": "danger", "ink_color": seen[2]["payload"]["ink_color"]}}
+        assert seen[2] == said
+        assert wa.drain() == [status(True), said]
+        assert support.types(gm.drain()) == ["member_update", "activity_log"]
         # Rewording a dead investigator's scars changes nothing on the players' rosters
         gm.send("gm_update_scars", character_id=dying["id"], scars=SCARS + ["The last"], previous=four)
         assert support.types(gm.sync()) == ["member_update", "activity_log"]
@@ -509,7 +542,7 @@ def test_gm_advance_circle(client):
         gm.send("gm_advance_circle", role="GM", circle_ability="Seekers")
         msgs = gm.sync()
         assert support.types(msgs) == ["member_update", "activity_log", "circle_advanced"]
-        assert msgs[1]["payload"] == {"message": "The Moths has advanced!", "log_type": "field"}
+        assert msgs[1]["payload"] == {"message": "The Moths has advanced and gained Seekers!", "log_type": "field"}
         assert msgs[2]["payload"]["campaign_id"] == camp["id"]
         assert msgs[2]["payload"]["circle"]["circle_ability"] == "Hunters\nSeekers"
         assert msgs[2]["payload"]["circle"]["illumination"] == 2
@@ -522,6 +555,16 @@ def test_gm_advance_circle(client):
         msgs = gm.sync()
         assert msgs[2]["payload"]["circle"]["illumination"] == 0
     assert support.fetch(Character, member["id"]).advancement_picks == 4
+
+
+def test_gm_advance_circle_gives_a_dead_member_no_picks(client):
+    """A dead investigator may not apply an advancement, so is given none (playtest,
+    dead-investigator-still-acts)."""
+    camp, (member,), cid = _campaign(client, scars_list=SCARS + ["d"], scars_count=4, is_dead=True)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_advance_circle", role="GM")
+        gm.sync()
+    assert (support.fetch(Character, member["id"]).advancement_picks or 0) == 0
 
 
 def test_refill_resources_counts_the_campaigns_members(client):
@@ -558,7 +601,7 @@ def test_meticulous_notes_add_illumination_after_an_assignment(client):
         assert msgs[0]["payload"]["illumination"] == 3
         lines = [m["payload"]["message"] for m in msgs if m["type"] == "activity_log"]
         assert lines[1:] == [f"Meticulous Notes: {a['name']}'s detailed notes add 1 Illumination.",
-                             "The Moths milestone reached!"]
+                             "The Moths milestone 3 reached!"]
     assert support.fetch(Circle, cid).illumination == 3
 
 
@@ -577,7 +620,7 @@ def test_gm_end_assignment(client):
         assert (msgs[0]["payload"]["location"], msgs[0]["payload"]["atmosphere"]) == ("", "")
         assert msgs[0]["payload"]["dispatch_text"] == ""
         assert sorted(m["payload"]["id"] for m in msgs[1:3]) == sorted([a["id"], b["id"]])
-        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses, gear slots, the hourglass and the reports have been reset. {EM}",
+        assert msgs[3]["payload"] == {"message": f"{EM} Assignment ended. Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared. {EM}",
                                       "log_type": "field"}
         got = wa.drain()
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
@@ -616,6 +659,87 @@ def test_gm_end_assignment_closes_and_clears_the_reports(client):
     assert (c.reports_open, c.backstory_answers) == (False, {"chapter_house": "Mill", "assignment": 3})
     theirs = support.fetch(Circle, other_cid)
     assert (theirs.reports_open, theirs.backstory_answers) == (True, {"reports": {str(o["id"]): {}}})
+
+
+def test_the_tally_is_added_once_whichever_desk_presses(client):
+    """Fixed (playtest, illumination-tally-added-twice): the question ticks and the tally's
+    added flag lived in one browser, so a second tab or device showed a live Add N
+    Illumination and added the same reports again (0 to 2 to 5). They are kept on the
+    circle and every desk sees them; a second add is refused, and so are ticks once it
+    is added. End Assignment clears the tally with the reports."""
+    camp, (a,), cid = _campaign(client)
+    support.update(Circle, cid, illumination=1, name="The Moths")
+    with support.ws_connect(client, camp["campaign_code"]) as desk_a, support.ws_connect(client, a["id"]) as wa:
+        desk_a.send("gm_set_tally_answer", circle_id=cid, index=0, checked=True)
+        desk_a.send("gm_set_tally_answer", circle_id=cid, index=2, checked=True)
+        update = desk_a.sync()[-1]
+        assert update["payload"]["backstory_answers"]["tally"] == {"answers": [True, False, True], "added": None}
+        desk_a.send("gm_add_tally", circle_id=cid, keys=2)
+        msgs = desk_a.sync()
+        assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
+        assert msgs[0]["payload"]["illumination"] == 5
+        assert msgs[0]["payload"]["backstory_answers"]["tally"] == {"answers": [True, False, True], "added": 4}
+        assert [m["payload"]["message"] for m in msgs[1:]] == [
+            "The Moths gains 4 Illumination (1 to 5).", "The Moths milestone 3 reached!"]
+        assert support.of_type(wa.drain(), "circle_update")[-1]["payload"]["illumination"] == 5
+    # Another desk (a second tab, another device) opens on the tally as added
+    with support.ws_connect(client, camp["campaign_code"]) as desk_b:
+        seen = support.of_type(desk_b.initial, "circle_update")[-1]["payload"]
+        assert seen["backstory_answers"]["tally"] == {"answers": [True, False, True], "added": 4}
+        desk_b.drain()
+        desk_b.send("gm_add_tally", circle_id=cid, keys=2)
+        desk_b.send("gm_set_tally_answer", circle_id=cid, index=1, checked=True)
+        detail = "This assignment's 4 Illumination is already added."
+        assert desk_b.sync() == [_rejected("gm_add_tally", status=409, detail=detail),
+                                 _rejected("gm_set_tally_answer", status=409, detail=detail)]
+        desk_b.send("gm_end_assignment")
+        [update] = support.of_type(desk_b.sync(), "circle_update")
+        assert "tally" not in update["payload"]["backstory_answers"]
+    c = support.fetch(Circle, cid)
+    assert c.illumination == 5 and "tally" not in c.backstory_answers
+
+
+def test_ticks_sent_back_to_back_are_all_kept(client):
+    """Review of illumination-tally-added-twice: a tick sent the whole three answers as the
+    desk last saw them, so a second tick sent before the first came back undid it, and a
+    tick from another desk undid the first desk's. A tick now sets one question, and the
+    add counts the ticks stored on the circle, so a tick still on its way when Add is
+    pressed is in the total that is added and kept."""
+    camp, _, cid = _campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as desk_a:
+        desk_a.send("gm_set_tally_answer", circle_id=cid, index=0, checked=True)
+        desk_a.send("gm_set_tally_answer", circle_id=cid, index=2, checked=True)
+        desk_a.send("gm_set_tally_answer", circle_id=cid, index=2, checked=False)
+        desk_a.sync()
+    assert support.fetch(Circle, cid).backstory_answers["tally"] == {"answers": [True, False, False], "added": None}
+    # Another desk, which has not seen those ticks yet, ticks a third question
+    with support.ws_connect(client, camp["campaign_code"]) as desk_b:
+        desk_b.send("gm_set_tally_answer", circle_id=cid, index=1, checked=True)
+        desk_b.send("gm_set_tally_answer", circle_id=cid, index=2, checked=True)
+        desk_b.send("gm_add_tally", circle_id=cid, keys=0)
+        update = support.of_type(desk_b.sync(), "circle_update")[-1]
+        assert update["payload"]["backstory_answers"]["tally"] == {"answers": [True, True, True], "added": 3}
+    c = support.fetch(Circle, cid)
+    assert (c.illumination, c.backstory_answers["tally"]) == (3, {"answers": [True, True, True], "added": 3})
+
+
+def test_tally_messages_are_checked(client):
+    camp, (a,), cid = _campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+        for index, checked in ((3, True), (-1, True), (True, True), ("0", True), (None, True), (0, 1), (0, None)):
+            gm.send("gm_set_tally_answer", circle_id=cid, index=index, checked=checked)
+        for bad in (1, 3, 8, True, "2", None):
+            gm.send("gm_add_tally", circle_id=cid, keys=bad)
+        assert [m["payload"]["status"] for m in gm.sync()] == [422] * 13
+        # Nothing ticked and no key filed: nothing to add
+        gm.send("gm_add_tally", circle_id=cid, keys=0)
+        assert gm.sync() == [_rejected("gm_add_tally", status=409,
+                                       detail="There is nothing to add: no question is ticked and no key was filed.")]
+        wa.send("gm_set_tally_answer", circle_id=cid, index=0, checked=True)
+        wa.send("gm_add_tally", circle_id=cid, keys=4)
+        assert wa.sync() == [_rejected("gm_set_tally_answer"), _rejected("gm_add_tally")]
+    c = support.fetch(Circle, cid)
+    assert (c.illumination or 0, c.backstory_answers or {}) == (0, {})
 
 
 def test_gm_end_assignment_empties_the_tension_clock(client):
@@ -696,7 +820,7 @@ def test_update_circle_milestone_log(client):
         assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
         # Every change says so (playtest, report-questions-tally: a plain +1 left no line)
         assert msgs[1]["payload"] == {"message": "The Moths gains 1 Illumination (2 to 3).", "log_type": "field"}
-        assert msgs[2]["payload"] == {"message": "The Moths milestone reached!", "log_type": "field"}
+        assert msgs[2]["payload"] == {"message": "The Moths milestone 3 reached!", "log_type": "field"}
         gm.send("update_circle", role="GM", illumination=4)
         gm.send("update_circle", role="GM", illumination=3)  # going down: no milestone
         assert [m["payload"]["message"] for m in gm.sync() if m["type"] == "activity_log"] == [
@@ -708,7 +832,7 @@ def test_update_circle_milestone_log(client):
         msgs = gm.sync()
         assert [m["payload"]["message"] for m in msgs[1:]] == [
             "The Moths gains 9 Illumination (3 to 12).",
-            "The Moths milestone reached!", "The Moths milestone reached!",
+            "The Moths milestone 6 reached!", "The Moths milestone 9 reached!",
             "The Moths's Illumination track is full: the circle can advance."]
 
 
@@ -720,8 +844,8 @@ def test_resource_management_reminds_at_each_milestone(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("update_circle", illumination=7)
         lines = [m["payload"]["message"] for m in gm.sync()[2:]]
-        assert lines == ["The Moths milestone reached!", "Resource Management: The Moths gains one resource of its choice.",
-                         "The Moths milestone reached!", "Resource Management: The Moths gains one resource of its choice."]
+        assert lines == ["The Moths milestone 3 reached!", "Resource Management: The Moths gains one resource of its choice.",
+                         "The Moths milestone 6 reached!", "Resource Management: The Moths gains one resource of its choice."]
 
 
 def test_advancing_the_circle_replenishes_its_resources(client):
@@ -924,14 +1048,23 @@ def test_circle_backstory_update(client):
     assert support.fetch(Circle, cid).backstory_answers == {"chapter_house": "Old mill"}
 
 
-def test_circle_backstory_can_overwrite_reserved_keys(client):
-    """QUIRK: free keys can replace the reports and selected_question_key entries."""
+def test_circle_backstory_cannot_overwrite_reserved_keys(client):
+    """Fixed (review of illumination-tally-added-twice; was
+    test_circle_backstory_can_overwrite_reserved_keys): free keys replaced the reports,
+    the assignment number, the chosen question and the tally, so a member could clear the
+    tally's added flag and bring back a live Add N Illumination for reports already added.
+    Those keys are refused (403) and stay as they were."""
     camp, (a,), cid = _campaign(client)
-    support.update(Circle, cid, backstory_answers={"reports": {"1": {"q": True}}})
-    with support.ws_connect(client, a["id"]) as wa:
-        wa.send("circle_backstory_update", question_key="reports", answer="gone")
-        wa.sync()
-    assert support.fetch(Circle, cid).backstory_answers == {"reports": "gone"}
+    kept = {"reports": {"1": {"q": True}}, "assignment": 2, "selected_question_key": "q1",
+            "tally": {"answers": [True, False, False], "added": 3}}
+    support.update(Circle, cid, backstory_answers=kept)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+        for key in ("reports", "assignment", "selected_question_key", "tally"):
+            wa.send("circle_backstory_update", question_key=key, answer="")
+            gm.send("circle_backstory_update", question_key=key, answer="")
+        assert wa.sync() == [_rejected("circle_backstory_update")] * 4
+        assert gm.sync() == [_rejected("circle_backstory_update")] * 4
+    assert support.fetch(Circle, cid).backstory_answers == kept
 
 
 def test_circle_personal_answer(client):
@@ -1137,7 +1270,7 @@ def test_gm_advance_circle_first_ability_and_unnamed_circle(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("gm_advance_circle", role="GM", circle_ability="Seekers")
         msgs = gm.sync()
-        assert msgs[0]["payload"] == {"message": "The Circle has advanced!", "log_type": "field"}
+        assert msgs[0]["payload"] == {"message": "The Circle has advanced and gained Seekers!", "log_type": "field"}
         assert msgs[1]["payload"]["circle"]["circle_ability"] == "Seekers"
         assert msgs[1]["payload"]["circle"]["illumination"] == 0
     assert support.fetch(Circle, cid).circle_ability == "Seekers"
@@ -1151,7 +1284,7 @@ def test_milestone_log_for_unnamed_circle(client):
         msgs = gm.sync()
         assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
         assert msgs[1]["payload"] == {"message": "The Circle gains 1 Illumination (5 to 6).", "log_type": "field"}
-        assert msgs[2]["payload"] == {"message": "The Circle milestone reached!", "log_type": "field"}
+        assert msgs[2]["payload"] == {"message": "The Circle milestone 6 reached!", "log_type": "field"}
 
 
 def test_update_circle_player_claiming_gm_is_rejected(client):
@@ -1308,7 +1441,7 @@ def test_the_lightkeeper_resource_and_report_changes_are_logged(client):
         lines = [m["payload"]["message"] for m in support.of_type(wm.drain(), "activity_log")]
     assert lines[2].startswith("The Lightkeeper set the circle's Refresh to 4 (was ")
     assert lines[:2] + lines[3:] == [
-        "The Lightkeeper sent a dispatch.",
+        "The Lightkeeper sent a dispatch: Docks.",
         "The Lightkeeper raised the tension to 3 of 4.",
         "The Lightkeeper cleared the dispatch.",
         "The Lightkeeper lowered the tension to 1 of 4.",
@@ -1335,6 +1468,24 @@ def test_the_lightkeeper_gives_a_spend_back(client):
     assert [m["payload"]["status"] for m in refused] == [409]
     assert support.fetch(Character, member["id"]).resources_spent_assignment == 0
     assert support.fetch(Circle, cid).stitch == before + 1
+
+
+def test_a_spend_back_never_fills_the_pool_past_its_maximum(client):
+    """Fixed (playtest, spend-back-unguarded-past-maximum): a give-back with Refresh at 3 of
+    3 made it 4 of 3 on every desk. A full pool takes nothing back; the spend still comes
+    back and the log says why the pool did not move."""
+    camp, (member,), cid = _campaign(client)
+    support.update(Character, member["id"], resources_spent_assignment=2)
+    support.update(Circle, cid, refresh=2)  # 1 plus the one member: full
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_return_spend", character_id=member["id"], resource_type="refresh", circle_id=cid)
+        sent = gm.sync()
+        assert support.types(sent) == ["member_update", "activity_log"]
+        assert sent[-1]["payload"]["message"] == (
+            f"The Lightkeeper gave {member['name']} a spend back (1 of 2 used this assignment); "
+            "the circle's Refresh is full, so none went back.")
+    assert support.fetch(Circle, cid).refresh == 2
+    assert support.fetch(Character, member["id"]).resources_spent_assignment == 1
 
 
 def test_a_player_cannot_give_a_spend_back(client):

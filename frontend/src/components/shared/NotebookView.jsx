@@ -41,9 +41,12 @@ const LINED_PAPER = {
   backgroundAttachment: 'local',
 };
 
-// The contents' lines: each entry is one line of this height, with this gap
-const TOC_ROW = 40;
+// The contents' lines: each entry is one line of this height, with this gap. Below sm a
+// title may take two lines, and the count of lines that fit allows for that.
+const TOC_ROW = 44;
+const TOC_ROW_NARROW = 66;
 const TOC_GAP = 6;
+const NARROW_TOC = '(max-width: 639px)';
 
 function formatDate(isoStr) {
   if (!isoStr) return '';
@@ -223,7 +226,8 @@ function useLinesThatFit() {
     if (observer.current) { observer.current.disconnect(); observer.current = null; }
     if (!node) return;
     const measure = () => {
-      const fits = Math.floor((node.clientHeight + TOC_GAP) / (TOC_ROW + TOC_GAP));
+      const narrow = typeof window.matchMedia === 'function' && window.matchMedia(NARROW_TOC).matches;
+      const fits = Math.floor((node.clientHeight + TOC_GAP) / ((narrow ? TOC_ROW_NARROW : TOC_ROW) + TOC_GAP));
       setCount(Math.max(3, fits));
     };
     measure();
@@ -343,7 +347,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
   // under it (owner, 2026-10-05: never shrunk off to the side)
   if ((eType === 'sketch' || eType === 'photo') && entry.image_data) {
     return (
-      <div className={`break-words ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
+      <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
         {eType === 'sketch'
           ? <SketchPicture entry={entry} onRedraw={onRedraw} />
           : <PhotoPicture entry={entry} />}
@@ -363,7 +367,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
   // Lightkeeper: letterhead style
   if (eType === 'lightkeeper') {
     return (
-      <div className={`break-words ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
+      <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
         <div className="border-b-2 border-ink/70 pb-2 mb-3 flex flex-wrap gap-2 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full border-2 border-ink/70 flex items-center justify-center text-lg font-serif font-black">✦</div>
@@ -382,7 +386,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
 
   // Standard field_log
   return (
-    <div className={`break-words ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
+    <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
       <h3 className="leading-tight mb-0.5 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2.3rem' }}>
         {entry.title}
       </h3>
@@ -690,6 +694,15 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
       const entries = useGameStore.getState().notebookEntries.filter(isFieldEntry);
       const at = entries.findIndex(e => e.id === result.entry.id);
       setCurrentSpread(Math.floor((at === -1 ? entries.length : at) / perSpread) + 1);
+      // The window keeps its offset when the book turns, so the new entry may lie screens
+      // down: bring it into view once the page has drawn it, and move focus to it.
+      const id = result.entry.id;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const card = [...document.querySelectorAll(`[data-entry-id="${id}"]`)].find(n => n.offsetParent !== null);
+        if (!card) return;
+        card.scrollIntoView({ block: 'center', behavior: 'auto' });
+        card.focus({ preventScroll: true });
+      }));
     } else if (!result.tooLarge) {
       setSubmitError('The entry was not saved. Check your connection and try again; your text is still here.');
     }
@@ -1177,11 +1190,11 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                       <li key={entry.id} className="group shrink-0 w-full flex flex-wrap items-center gap-x-1" style={{ minHeight: TOC_ROW }}>
                         <button onClick={() => setCurrentSpread(entrySpread(entry))}
                           className="flex-1 min-w-0 flex items-center gap-2 px-2 text-left rounded-sm hover:bg-ink/[0.04] transition-colors"
-                          style={{ height: TOC_ROW }}
+                          style={{ minHeight: TOC_ROW }}
                         >
                           {entry.entry_type === 'sketch' && <PencilIcon size={16} className="text-sepia shrink-0" />}
                           {entry.entry_type === 'photo' && <CameraIcon size={16} className="text-sepia shrink-0" />}
-                          <span className="min-w-0 truncate text-[20px] sm:text-[22px] leading-normal"
+                          <span className="min-w-0 line-clamp-2 sm:line-clamp-1 break-words text-[20px] sm:text-[22px] leading-normal"
                             style={{ fontFamily: entry.pen_font, color: entry.ink_color }}>
                             {entry.title}
                           </span>
@@ -1341,8 +1354,9 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                   {/* Font picker — player only */}
                   {!isGM && (
                     <div className="flex items-center gap-2">
-                      <span className="font-sans font-bold text-sm uppercase tracking-widest text-sepia">Handwriting</span>
+                      <label htmlFor="notebook-handwriting" className="font-sans font-bold text-sm uppercase tracking-widest text-sepia">Handwriting</label>
                       <select
+                        id="notebook-handwriting"
                         value={authorFont}
                         onChange={e => updatePenFont(e.target.value)}
                         className="bg-transparent border-b border-ink/25 focus:border-ink/50 text-[18px] py-0.5 md:[@media(pointer:coarse)]:min-h-[44px] flex-1 min-w-0"

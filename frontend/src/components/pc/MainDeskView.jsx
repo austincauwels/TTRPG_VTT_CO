@@ -5,7 +5,7 @@ import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ArtDecoCorner, BrassCornerFiligree } from '../shared/Decorations';
 import { InvestigatorDossier } from './InvestigatorDossier';
-import { CircleView, AdvancementModal } from './CircleView';
+import { CircleView, AdvancementModal, AdvancementWaiting } from './CircleView';
 import { NotebookView } from '../shared/NotebookView';
 import { TactileSidebar } from './TactileSidebar';
 import { DiceVault } from './DiceVault';
@@ -24,9 +24,10 @@ import { AccountMenu } from '../shared/AccountMenu';
 import { MourningCross } from '../shared/InkMarks';
 import { PhoneDeskNav } from './DeskDrawer';
 import { TableStrip, NewDot } from '../shared/TableStrip';
+import { retiredByRejoin, inviteWords } from '../campaignSelector/RejoinInviteBanner';
 
 export const MainDeskView = () => {
-  const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar, unseen, markSeen } = useGameStore(useShallow(s => ({
+  const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar, unseen, markSeen, characters } = useGameStore(useShallow(s => ({
     character: s.character,
     circle: s.circle,
     circleCreation: s.circleCreation,
@@ -45,14 +46,20 @@ export const MainDeskView = () => {
     reopenScar: s.reopenScar,
     unseen: s.unseen,
     markSeen: s.markSeen,
+    characters: s.characters,
   })));
   // A scar the player chose to decide later, for the investigator on this desk
   const scarWaiting = pendingScar && !showScarModal && !character?.is_dead &&
     (pendingScar.characterId == null || pendingScar.characterId === character?.id);
 
   const [deathDismissed, setDeathDismissed] = useState(false);
+  // "His sheet", "Her sheet", else "Their sheet", by the pronouns on the sheet
+  const sheetOf = /^he\b/i.test(character?.pronouns || '') ? 'His' : /^she\b/i.test(character?.pronouns || '') ? 'Her' : 'Their';
 
+  // Reset for another investigator, and when a death is taken back, so a second death
+  // shows the dialog again
   useEffect(() => { setDeathDismissed(false); }, [character?.id]);
+  useEffect(() => { if (!character?.is_dead) setDeathDismissed(false); }, [character?.is_dead]);
 
   useEffect(() => {
     if (character?.id && !socket) {
@@ -245,6 +252,7 @@ export const MainDeskView = () => {
 
       {/* DYNAMIC VIEW ROUTING */}
       <main className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto p-4 2xl:px-10 mt-2 xl:max-w-none 2xl:max-w-none xl:w-full xl:mx-0 xl:mt-0 xl:px-5 2xl:px-8 xl:pt-4 xl:pb-3 xl:flex-1 xl:min-h-0 xl:flex xl:flex-col">
+        <AdvancementWaiting />
         {scarWaiting && (
           <div role="status" className="mb-4 xl:mb-3 xl:shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-parchment text-ink border-2 border-oxblood rounded-sm px-4 py-3 xl:py-2 shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
             <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60 flex items-center gap-2.5">
@@ -302,23 +310,25 @@ export const MainDeskView = () => {
       {showCreationPopup && <CircleCreationPopup />}
       {pendingRelationshipIntro && <RelationshipIntroPopup />}
 
-      {/* REJOIN INVITE BANNER — shown when Lightkeeper has sent an invite */}
-      {rejoinInvite && !character?.is_dead && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[800] flex flex-wrap items-center gap-x-4 gap-y-2 bg-night border border-oxblood px-4 py-3 sm:px-6 sm:py-4 shadow-[0_10px_30px_rgba(0,0,0,0.8)] max-w-xl w-[calc(100%-2rem)]">
+      {/* REJOIN INVITE BANNER: shown when the Lightkeeper has sent an invite. It names a living
+          investigator here, whom coming back retires. On a phone it hangs under the band, so
+          Menu and the dice stay in reach until it is dismissed */}
+      {rejoinInvite && (!character?.is_dead || deathDismissed) && (
+        <div className="fixed top-4 max-md:top-[4.5rem] left-1/2 -translate-x-1/2 z-[800] flex flex-wrap items-center gap-x-4 gap-y-2 bg-night border border-oxblood px-4 py-3 sm:px-6 sm:py-4 shadow-[0_10px_30px_rgba(0,0,0,0.8)] max-w-xl w-[calc(100%-2rem)]">
           <div className="flex-1 min-w-[12rem]">
             <p className="text-parchment-deep font-serif text-base leading-snug">
-              Your Lightkeeper invites you back to <strong className="text-cream">{rejoinInvite.campaign_name}</strong> with a new investigator.
+              {inviteWords(rejoinInvite, retiredByRejoin(characters, rejoinInvite.campaign_id, character))}
             </p>
           </div>
           <button
             onClick={() => setStage('CHARACTER_CREATION')}
-            className="shrink-0 px-4 py-2 bg-oxblood hover:brightness-125 text-cream font-sans font-black uppercase tracking-widest text-xs border border-ink rounded transition"
+            className="shrink-0 px-4 py-2 [@media(pointer:coarse)]:min-h-[44px] bg-oxblood hover:brightness-125 text-cream font-sans font-black uppercase tracking-widest text-xs border border-ink rounded transition"
           >
             Create investigator
           </button>
           <button
             onClick={() => setRejoinInvite(null)}
-            className="shrink-0 min-w-[40px] min-h-[40px] text-oxblood-lit hover:text-parchment-deep font-sans text-lg leading-none transition-colors" aria-label="Dismiss invite"
+            className="shrink-0 min-w-[40px] min-h-[40px] [@media(pointer:coarse)]:min-w-[44px] [@media(pointer:coarse)]:min-h-[44px] text-oxblood-lit hover:text-parchment-deep font-sans text-lg leading-none transition-colors" aria-label="Dismiss invite"
           >✕</button>
         </div>
       )}
@@ -332,13 +342,13 @@ export const MainDeskView = () => {
               {character?.name || 'Your investigator'} has died
             </h2>
             <p className="text-parchment-deep font-serif text-base leading-relaxed mb-8">
-              With a fourth scar, {character?.name || 'your investigator'} is gone. Their sheet stays on record.
+              With a fourth scar, {character?.name || 'your investigator'} is gone. {sheetOf} sheet stays on record.
             </p>
-            {rejoinInvite && (
-              <p className="text-oxblood-lit font-serif italic text-base mb-5">
-                Your Lightkeeper has invited you back to {rejoinInvite.campaign_name}.
-              </p>
-            )}
+            <p className="text-oxblood-lit font-serif italic text-base mb-5">
+              {rejoinInvite
+                ? `Your Lightkeeper has invited you back to ${rejoinInvite.campaign_name}.`
+                : 'Your Lightkeeper will invite you back when the table is ready.'}
+            </p>
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => setStage('CHARACTER_CREATION')}
@@ -346,7 +356,10 @@ export const MainDeskView = () => {
               >
                 Create a new investigator
               </button>
+              {/* Focus starts here: one Enter must not begin a new investigator before the
+                  Lightkeeper has invited the player back */}
               <button
+                autoFocus
                 onClick={() => setDeathDismissed(true)}
                 className="w-full py-2.5 px-6 bg-transparent hover:bg-ink text-oxblood-lit font-sans font-bold uppercase tracking-widest text-xs transition-colors border border-oxblood-lit/40 rounded"
               >

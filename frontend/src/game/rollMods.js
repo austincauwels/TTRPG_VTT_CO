@@ -23,12 +23,14 @@ export const MAX_ABILITY_USES = {
 // extraGild: whether to gild an extra die
 // driveSubstitute: alternate drive category string, or 'any'
 // autoApply: shown as locked chip, always active when conditions met
+// declares: a chip that changes nothing in the pool but names what the roll is for
 export const ABILITY_ROLL_MODS = {
   "Sweet Talk":          { actions: ['sneak'],                   extraDice: () => 1, extraGild: false, gildIfCunningResist2: true, chipLabel: (ch) => `Sweet Talk (+1d${resistRemaining(ch,'cunning') >= 2 ? ', gilded' : ''})` },
   "Open Book":           { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Open Book (+${resistRemaining(ch,'cunning')}d)` },
-  // The first drive point spent counts twice: no die until drive is spent (firstPoint)
-  "Lie Detector":        { actions: ['sneak'],                   extraDice: () => 0, firstPoint: true, extraGild: true,  chipLabel: () => 'Lie Detector (gild a die; the first Cunning spent is worth +2d)' },
-  "Misdirection":        { actions: ['hide'],                    extraDice: () => 0, firstPoint: true, extraGild: false, chipLabel: () => 'Misdirection (the first Cunning spent is worth +2d)' },
+  // The first drive point spent counts twice: no die until drive is spent (firstPoint names the
+  // drive, as first_point does on the server)
+  "Lie Detector":        { actions: ['sneak'],                   extraDice: () => 0, firstPoint: 'cunning', extraGild: true,  chipLabel: () => 'Lie Detector (gild a die; the first Cunning spent is worth +2d)' },
+  "Misdirection":        { actions: ['hide'],                    extraDice: () => 0, firstPoint: 'cunning', extraGild: false, chipLabel: () => 'Misdirection (the first Cunning spent is worth +2d)' },
   // Leverage (p. 31): a Sway roll using what a successful Read revealed
   "Leverage":            { actions: ['sway'],                    extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Leverage (using what you learned: +${resistRemaining(ch,'cunning')}d)` },
   // Narrow Escape (p. 29): escaping a trap or ambush
@@ -39,7 +41,7 @@ export const ABILITY_ROLL_MODS = {
   "Interrogation":       { actions: ['sneak'],                   extraDice: (ch) => resistRemaining(ch,'cunning'), extraGild: false, chipLabel: (ch) => `Interrogation (+${resistRemaining(ch,'cunning')}d)` },
   "Inspection":          { actions: ['survey'],                  extraDice: () => 0, extraGild: true,  chipLabel: () => 'Inspection (gild extra die)' },
   "Basic Training":      { actions: ['survey'],                  extraDice: (ch) => resistRemaining(ch,'nerve'),   extraGild: false, chipLabel: (ch) => `Basic Training (+${resistRemaining(ch,'nerve')}d)` },
-  "Better Part of Valor":{ actions: ['control','move'],          extraDice: () => 0, firstPoint: true, extraGild: true,  chipLabel: () => 'Better Part of Valor (gild a die; the first Nerve spent is worth +2d)' },
+  "Better Part of Valor":{ actions: ['control','move'],          extraDice: () => 0, firstPoint: 'nerve', extraGild: true,  chipLabel: () => 'Better Part of Valor (gild a die; the first Nerve spent is worth +2d)' },
   // In danger is the player's call, so it is a chip like the others, shown with a Bleed mark
   "Tenacious":           { actions: ['move','strike','control'], extraDice: () => 0, extraGild: true,  condition: (ch) => (ch.bleed_marks || 0) >= 1, chipLabel: () => 'Tenacious (in danger with a Bleed mark: gild a die)' },
   "Extend Your Senses":  { actions: ['sense'],                   extraDice: (ch) => resistRemaining(ch,'intuition'), extraGild: false, chipLabel: (ch) => `Extend Your Senses (+${resistRemaining(ch,'intuition')}d)` },
@@ -49,14 +51,15 @@ export const ABILITY_ROLL_MODS = {
   "Street Smarts":       { actions: ['survey'],                  extraDice: () => 0, extraGild: false, driveSubstitute: 'any', chipLabel: () => 'Street Smarts (any drive)' },
   // Mind Over Matter (p. 29): roll this action in place of the one you were told to use
   "Mind Over Matter":    { actions: ['any'],                     extraDice: () => 0, extraGild: false, costBrainMark: true, chipLabel: () => 'Mind Over Matter (this action in place of the one asked for: take a Brain mark)' },
-  "Back Against the Wall":{ actions: ['any'],                    extraDice: () => 0, extraGild: false, costBrainMark: true, chipLabel: () => 'Back Against the Wall (take a Brain mark: each Nerve spent is worth +2d)' },
+  "Back Against the Wall":{ actions: ['any'],                    extraDice: () => 0, extraGild: false, costBrainMark: true, nerveDoubles: true, chipLabel: () => 'Back Against the Wall (take a Brain mark: each Nerve spent is worth +2d)' },
   // Shooting is a Control roll in the rulebook (p. 50)
   "Sharpshooter":        { actions: ['strike','control'],        extraDice: () => 2, extraGild: false, costDrive: 'nerve', condition: (ch) => (ch.nerve_current || 0) > 0, chipLabel: (ch) => `Sharpshooter (spend 1 Nerve for +2d, ${ch.nerve_current ?? '?'} left)` },
   "Dissection":          { actions: ['read'],                    extraDice: () => 0, extraGild: true,  chipLabel: () => 'Dissection (gild extra die)' },
   // Patch Up (p. 30): "make a Focus roll to heal 1 Body mark on an ally": the roll is the
   // heal, so it is chosen here, before the roll, and the ally after it (it was offered
-  // after any Focus roll; playtest, patch-up-free-rider)
-  "Patch Up":            { actions: ['read'],                    extraDice: () => 0, extraGild: false, chipLabel: () => "Patch Up (this Focus roll heals an ally's Body mark)" },
+  // after any Focus roll; playtest, patch-up-free-rider). It adds nothing to the dice, so
+  // declares keeps its chip (playtest 2, patch-up-chip-never-shown)
+  "Patch Up":            { actions: ['read'],                    extraDice: () => 0, extraGild: false, declares: true, chipLabel: () => "Patch Up (this Focus roll heals an ally's Body mark)" },
   "Born in the Shadows": { actions: ['hide'],                    extraDice: () => 0, extraGild: true,  chipLabel: () => 'Born in the Shadows (gild extra die)' },
 };
 
@@ -82,7 +85,7 @@ export function getAvailableRollMods(character, action, circle = null) {
     const maxUses = MAX_ABILITY_USES[abilityName];
     if (maxUses && (uses[abilityName] || 0) >= maxUses) return;
     const extra = typeof def.extraDice === 'function' ? def.extraDice(character) : def.extraDice;
-    if (!def.autoApply && extra === 0 && !def.extraGild && !def.driveSubstitute && !def.costBrainMark && !def.firstPoint) return;
+    if (!def.autoApply && extra === 0 && !def.extraGild && !def.driveSubstitute && !def.costBrainMark && !def.firstPoint && !def.declares) return;
     mods.push({
       key: abilityName,
       label: def.chipLabel(character),
@@ -145,4 +148,27 @@ export function getAvailableRollMods(character, action, circle = null) {
     });
   }
   return mods;
+}
+
+// The pool a roll will have with the abilities picked, for the roll button before the
+// roll (playtest, ability-toggle-no-preview). It mirrors the dice and gilding the server
+// plans (_plan_roll in backend/vtt/ws/handlers/rolls.py): the rating, the drive spent
+// (drive is the one the roll names; the first point is worth two with Lie Detector,
+// Misdirection or Better Part of Valor only when it is their drive, and each Nerve is worth
+// two with Back Against the Wall), the dice the picked abilities add, capped at six, and the
+// gilded dice (the action's own and one for each ability that gilds). With no dice the roll
+// takes the lower of two, so it says so (zero). Only the abilities that change dice or
+// gilding are counted, so it returns null when none picked does, and the button stays as it was.
+export function previewPool({ rating, gilded, spend, drive, mods, selectedKeys }) {
+  const picked = (mods || []).filter(m => selectedKeys.includes(m.key));
+  const doubles = spend > 0 && drive === 'nerve' && picked.some(m => ABILITY_ROLL_MODS[m.key]?.nerveDoubles);
+  const changes = m => m.extraDice > 0 || m.shows?.gild || ABILITY_ROLL_MODS[m.key]?.firstPoint;
+  if (!picked.some(changes) && !doubles) return null;
+  const firstBonus = spend > 0 ? picked.filter(m => ABILITY_ROLL_MODS[m.key]?.firstPoint === drive).length : 0;
+  const dice = Math.min(6, (rating || 0) + (spend || 0) * (doubles ? 2 : 1) + firstBonus + picked.reduce((n, m) => n + (m.extraDice || 0), 0));
+  const gildCount = (gilded ? 1 : 0) + picked.filter(m => m.shows?.gild).length;
+  return {
+    dice, zero: dice === 0, gilds: Math.min(dice === 0 ? 2 : dice, gildCount),
+    names: picked.filter(m => changes(m) || (doubles && ABILITY_ROLL_MODS[m.key]?.nerveDoubles)).map(m => m.name || m.key),
+  };
 }

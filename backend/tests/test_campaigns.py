@@ -27,6 +27,20 @@ def test_create_campaign(client):
     assert support.fetch(Campaign, body["id"]).campaign_code == code
 
 
+def test_codes_match_without_regard_to_case(client):
+    camp = support.new_campaign(client, code=f"drowned-{support.uid()}")
+    code = camp["campaign_code"]
+    # A code that differs only in case is refused on create, as a taken one is.
+    r = client.post("/campaign/create", params={"name": "x", "code": code.upper()},
+                    headers=support.as_user(support.make_user().id))
+    assert r.status_code == 409
+    # A join in other capitals finds the campaign.
+    ch = support.forge(client)
+    r = support.join(client, ch["id"], code.upper())
+    assert r.status_code == 200, r.text
+    assert support.fetch(Character, ch["id"]).campaign_id == camp["id"]
+
+
 def test_create_campaign_gm_comes_from_the_token(client):
     """A user_id equal to the caller is accepted and ignored; any other is 403."""
     u = support.make_user()
@@ -318,9 +332,18 @@ def test_reject(client):
     assert body["character"]["id"] == ch["id"]
     assert body["character"]["status"] == "unaffiliated"
     assert body["character"]["campaign_id"] is None
-    assert body["character"]["pen_font"] is None
+    # The pen the player picked stays with the character, so asking again keeps it.
+    assert body["character"]["pen_font"] == "Caveat"
     row = support.fetch(Character, ch["id"])
-    assert (row.status, row.campaign_id, row.pen_font) == ("unaffiliated", None, None)
+    assert (row.status, row.campaign_id, row.pen_font) == ("unaffiliated", None, "Caveat")
+
+
+def test_reject_keeps_the_pen(client):
+    camp = support.new_campaign(client)
+    ch = support.forge(client)
+    assert support.join(client, ch["id"], camp["campaign_code"], pen_font="Homemade Apple").status_code == 200
+    assert support.reject(client, ch["id"]).status_code == 200
+    assert support.fetch(Character, ch["id"]).pen_font == "Homemade Apple"
 
 
 def test_reject_not_pending(client):
@@ -347,11 +370,40 @@ def test_retire_campaign(client):
     assert r.status_code == 200
     assert r.json() == {"ok": True}
     assert support.fetch(Campaign, camp["id"]).is_retired is True
-    assert support.fetch(Character, active["id"]).status == "retired"
-    assert support.fetch(Character, pending["id"]).status == "retired"
+    # living investigators go back to their players, free for another campaign
+    for living in (active, pending):
+        row = support.fetch(Character, living["id"])
+        assert (row.status, row.campaign_id) == ("unaffiliated", None)
     assert support.fetch(Character, rejected["id"]).status == "unaffiliated"
-    # retiring keeps campaign_id on the characters
-    assert support.fetch(Character, active["id"]).campaign_id == camp["id"]
+
+
+def test_retire_ends_the_assignment_of_the_investigators_it_lets_go(client):
+    """A released investigator kept the retired campaign's spends, ability uses, Train
+    dice and gear, and started another campaign with "both of your two" spent (final
+    check of playtest 2). Retiring ends their assignment as End Assignment does; a dead
+    one, which stays with the campaign as its record, keeps what it had."""
+    camp = support.new_campaign(client)
+    used = dict(resources_spent_assignment=2, ability_uses={"Tactician": 1}, train_bonus=True, train_dice=1,
+                gear=["Lantern"])
+    living = support.active_member(client, camp)
+    dead = support.active_member(client, camp)
+    support.update(Character, living["id"], **used)
+    support.update(Character, dead["id"], is_dead=True, **used)
+    assert client.post(f"/campaign/{camp['id']}/retire", headers=support.as_gm(camp)).status_code == 200
+    row = support.fetch(Character, living["id"])
+    assert (row.resources_spent_assignment, row.ability_uses, row.train_bonus, row.train_dice, row.gear) == (
+        0, {}, False, 0, [])
+    row = support.fetch(Character, dead["id"])
+    assert (row.resources_spent_assignment, row.gear) == (2, ["Lantern"])
+
+
+def test_retire_keeps_the_dead_with_the_campaign(client):
+    camp = support.new_campaign(client)
+    dead = support.active_member(client, camp)
+    support.update(Character, dead["id"], is_dead=True)
+    assert client.post(f"/campaign/{camp['id']}/retire", headers=support.as_gm(camp)).status_code == 200
+    row = support.fetch(Character, dead["id"])
+    assert (row.status, row.campaign_id) == ("retired", camp["id"])
 
 
 def test_retire_unknown_campaign(client):
@@ -560,7 +612,8 @@ def test_a_rejoin_retried_after_it_went_through_answers_the_same(client):
         again = client.post("/campaign/rejoin", json=body, headers=support.as_user(u.id))
         assert again.status_code == 200, again.text
         assert again.json() == first.json()
-        assert gm.drain() == []
+        # only the history of the first rejoin's log line, replayed on connecting
+        assert support.types(gm.drain()) == ["activity_history"]
     assert client.post("/campaign/rejoin", json=body, headers=support.as_stranger()).status_code == 403
     row = support.fetch(Character, ch["id"])
     assert (row.status, row.campaign_id, row.ink_color) == ("active", camp["id"], first.json()["character"]["ink_color"])
@@ -608,8 +661,61 @@ def test_invite_rejoin(client):
     r = client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": f"  {u.username.upper()} "},
                     headers=support.as_gm(camp))
     assert r.status_code == 200
-    assert r.json() == {"ok": True}
+    assert r.json() == {"ok": True, "current_investigator": None}
     assert support.fetch(User, u.id).pending_rejoin_campaign_id == camp["id"]
+
+
+def test_invite_rejoin_names_the_living_investigator_and_logs(client):
+    """Accepting retires the player's investigator, so the invite says whom, and the table
+    gets a log line. The line names the player's seat, "<investigator>'s player": it read
+    "invited <name> back", which after a death named the dead investigator, as if they
+    were coming back (final check of playtest 2, invite-silently-retires-living-investigator)."""
+    camp = support.new_campaign(client)
+    u = support.make_user()
+    old = support.active_member(client, camp, user_id=u.id)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        r = client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": u.username},
+                        headers=support.as_gm(camp))
+        logs = [m for m in gm.drain() if m["type"] == "activity_log"]
+    assert r.json() == {"ok": True, "current_investigator": old["name"]}
+    assert [m["payload"]["message"] for m in logs] == [f"The Lightkeeper invited {old['name']}'s player back."]
+    assert u.username not in logs[0]["payload"]["message"]
+    support.update(Character, old["id"], is_dead=True)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        r = client.post(f"/campaign/{camp['id']}/invite-rejoin", json={"username": u.username},
+                        headers=support.as_gm(camp))
+        logs = [m for m in gm.drain() if m["type"] == "activity_log"]
+    assert r.json() == {"ok": True, "current_investigator": None}
+    assert [m["payload"]["message"] for m in logs] == [f"The Lightkeeper invited {old['name']}'s player back."]
+
+
+def test_rejoin_keeps_the_players_spends_and_logs_the_arrival(client):
+    camp = support.new_campaign(client)
+    u = support.make_user()
+    old = support.active_member(client, camp, user_id=u.id)
+    support.update(Character, old["id"], is_dead=True, resources_spent_assignment=1)
+    new = support.forge(client, user_id=u.id)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        r = client.post("/campaign/rejoin", json={"character_id": new["id"], "campaign_code": camp["campaign_code"]},
+                        headers=support.as_user(u.id))
+        logs = [m["payload"]["message"] for m in gm.drain() if m["type"] == "activity_log"]
+    assert r.status_code == 200
+    assert support.fetch(Character, new["id"]).resources_spent_assignment == 1
+    assert logs == [f"{new['name']} joined the circle, in place of {old['name']}."]
+
+
+def test_roster_names_the_player_of_each_request(client):
+    camp = support.new_campaign(client)
+    u = support.make_user()
+    first = support.pending_member(client, camp, user_id=u.id)
+    second = support.pending_member(client, camp, user_id=u.id)
+    body = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
+    assert [(c["id"], c["owner_username"]) for c in body["pending_investigators"]] == [
+        (first["id"], u.username), (second["id"], u.username)]
+    # a member of the campaign does not get the players' login names
+    member = support.active_member(client, camp)
+    seen = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(member["id"])).json()
+    assert {c["owner_username"] for c in seen["pending_investigators"] + seen["active_investigators"]} == {""}
 
 
 def test_invite_rejoin_case_variants(client):
@@ -685,7 +791,12 @@ def test_roster(client):
     body = r.json()
     # an active member sees the GM's roster; a pending character waits for approval
     # and a retired one no longer belongs
-    assert client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(active["id"])).json() == body
+    # (without the players' login names, which are the Lightkeeper's to read)
+    member_view = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(active["id"])).json()
+    assert all(c.pop("owner_username") for c in body["pending_investigators"] + body["active_investigators"])
+    assert {c.pop("owner_username") for c in member_view["pending_investigators"] + member_view["active_investigators"]} == {""}
+    assert member_view == body
+    body = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
     for outsider in (support.as_owner(pending["id"]), support.as_owner(retired["id"]), support.as_stranger()):
         assert client.get(f"/campaign/{camp['id']}/roster", headers=outsider).status_code == 403
     assert set(body) == {"pending_investigators", "active_investigators", "roster_finalized"}
@@ -703,6 +814,7 @@ def test_roster(client):
         "profile_pic": None, "circle_name": "The Order of Light", "status": "active",
         "is_dead": False, "pen_font": "Caveat", "ink_color": engine.INK_COLORS[0],
         "pronouns": "she/her", "catalyst": "Lost a brother\nto the fog",
+        "owner_username": support.fetch(User, support.fetch(Character, active["id"]).user_id).username,
     }
 
 

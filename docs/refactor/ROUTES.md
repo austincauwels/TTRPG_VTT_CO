@@ -108,15 +108,15 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **POST /campaign/reject/{character_id}** (line 512, `async def`)
 - Inputs: path `character_id`.
 - Trusted ids: `character_id`.
-- Tables: characters (status `unaffiliated`, campaign_id NULL, pen_font NULL), campaigns (read).
+- Tables: characters (status `unaffiliated`, campaign_id NULL; pen_font is kept), campaigns (read).
 - Broadcast: `investigator_rejected` `{character_id, pending_investigators}` to the campaign, then `{character_id}` to channel `str(character_id)`.
 - Errors: 400 if not pending.
 
 **POST /campaign/{campaign_id}/retire** (line 545, `async def`)
 - Inputs: path `campaign_id`.
 - Trusted ids: `campaign_id`.
-- Tables: campaigns (is_retired true), characters (active and pending set to `retired`).
-- Broadcast: `campaign_retired` `{campaign_id, campaign_code}`. Note that `broadcast_campaign` runs after the commit, so it only reaches the GM channel (characters are no longer active).
+- Tables: campaigns (is_retired true), characters (living active and pending set to `unaffiliated` with no campaign and no ink; dead ones set to `retired`).
+- Broadcast: `campaign_retired` `{campaign_id, campaign_code}` to the GM channel and the character channel of each living investigator it let go (dead ones stay with the campaign, and their owners are not told).
 - Response: `{"ok": true}`. 404 if the campaign is missing.
 
 **POST /campaign/rejoin** (line 568, `async def`)
@@ -125,6 +125,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Tables: campaigns (read), characters (retire the same user's other active or dead characters in the campaign; set new character campaign_id, ink_color, status `active`, circle_id to the campaign circle if one exists), users (clear pending_rejoin_campaign_id).
 - Broadcast: `investigator_approved` and `character_joined_mid_campaign`, both with the new character and active list.
 - Response: `{"success": true, "character": get_char_dict(...)}`.
+- Also writes an Activity Log line ("<name> joined the circle, in place of <old>."), and the new character takes the larger circle-resource spend count of the investigators it retires.
 - Notes: skips GM approval entirely and does not check that an invite exists or that a predecessor died. Imports `INK_COLORS` from engine inside the function.
 
 **POST /campaign/{campaign_id}/invite-rejoin** (line 638, `async def`)
@@ -132,13 +133,14 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: `campaign_id`.
 - Tables: campaigns (read), users (set pending_rejoin_campaign_id), characters (read the user's characters).
 - Broadcast: `gm_rejoin_invite` `{campaign_id, campaign_name, campaign_code}` to every character channel of that user.
-- Response: `{"ok": true}`. 404 if campaign or user is missing (the 404 also confirms whether a username exists).
+- Also writes an Activity Log line ("The Lightkeeper invited <name>'s player back.", the name being the invitee's investigator here, living or last, or "The Lightkeeper invited a player back."; never the login name, which every member would read). Until 2026-10-11 it read "invited <name> back", which after a death named the dead investigator as if they were coming back.
+- Response: `{"ok": true, "current_investigator": <name of the invitee's living active investigator here, or null>}`, which the invite slip shows in oxblood because accepting retires that investigator. The player is told too: the invite banner and the rejoin step of the creator name the investigators that rejoining retires. 404 if campaign or user is missing (the 404 also confirms whether a username exists).
 
 **GET /campaign/{campaign_id}/roster** (line 663, `def`, `response_model=RosterResponse`)
 - Inputs: path `campaign_id`.
 - Trusted ids: `campaign_id`.
 - Tables: characters joined with circles (engine `get_campaign_roster`), campaigns.
-- Response: `{pending_investigators, active_investigators, roster_finalized}`; items are `CharacterRosterItem`. Since 2026-10-08 a dead investigator not yet replaced (still `active`) is listed with `is_dead: true`, so the GM desk can open the sheet (it shows them under Deceased); the frontend counts and offers only the living (`frontend/src/game/roster.js`). It used to be left out.
+- Response: `{pending_investigators, active_investigators, roster_finalized}`; items are `CharacterRosterItem`; `owner_username` (the player's login name) is filled for the campaign's Lightkeeper only, and is "" for a member. Since 2026-10-08 a dead investigator not yet replaced (still `active`) is listed with `is_dead: true`, so the GM desk can open the sheet (it shows them under Deceased); the frontend counts and offers only the living (`frontend/src/game/roster.js`). It used to be left out.
 
 **GET /campaign/{campaign_id}/circle-creation-state** (line 755, `def`)
 - Inputs: path `campaign_id`.
@@ -220,7 +222,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: JSON `NotebookEntryCreate {title, content, author_name, author_type, character_id, entry_type, visibility, image_data}`.
 - Trusted ids: `campaign_id`, `character_id`; also trusts `author_name`, `author_type`, `visibility`.
 - Tables: characters (read pen_font, ink_color), notebook_entries (insert, page = max + 1), campaigns (read).
-- Broadcast when `visibility == "all"`: `notebook_entry` with the entry, then `activity_log` "X has archived a journal entry.".
+- Broadcast when `visibility == "all"`: `notebook_entry` with the entry, then `activity_log` "X added a field entry: <title>" (or "X added a sketch" or "X added a photograph").
 
 **PUT /api/notebook/entries/{entry_id}** (line 1169, `def`)
 - Inputs: JSON `NotebookEntryUpdate {title?, content?}`.
@@ -254,6 +256,7 @@ The next two routes were added after the baseline, with the sketch sheet, in `vt
 
 **GET /api/users/{user_id}/characters** (line 1251, `def`, `response_model=List[CharacterSummaryItem]`)
 - Trusted ids: `user_id`. Tables: characters, campaigns. Anyone can list anyone's characters.
+- Since 2026-10-11 each item carries `is_dead` (a dead investigator keeps status `active` on its roster), so the hub's invite banner names only a living investigator as the one coming back retires.
 
 **GET /api/users/{user_id}/campaigns** (line 1275, `def`, `response_model=List[CampaignSummaryItem]`)
 - Trusted ids: `user_id`. Tables: campaigns (non-retired with that GM). Returns campaign codes, which are the GM WebSocket channel names.
