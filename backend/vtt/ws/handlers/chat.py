@@ -101,7 +101,9 @@ async def handle_add_notebook_entry(ctx):
             title        = payload.get("title", ""),
             content      = payload.get("content", ""),
             author_name  = author_name,
-            author_type  = payload.get("author_type", "player"),
+            # The Lightkeeper's entry is hers whatever the payload says, so the startup
+            # re-sign (author_type gm, no character) finds it too (fix round 4 review)
+            author_type  = "gm" if ctx.is_gm else payload.get("author_type", "player"),
             pen_font     = pen_font,
             ink_color    = ink_color,
             character_id = author_char_id,

@@ -221,7 +221,9 @@ def test_ws_add_notebook_entry_private_goes_to_sender_only(client):
 
 def test_ws_gm_notebook_entry_is_signed_the_lightkeeper(client):
     """Before tokens the payload's author_name, pen_font and ink_color were stored as
-    sent. A GM entry now carries 'The Lightkeeper' (never the login name, #54) and the GM's default pen and ink."""
+    sent. A GM entry now carries 'The Lightkeeper' (never the login name, #54) and the GM's default pen and ink.
+    It is stored as the Lightkeeper's (author_type gm) when the payload leaves author_type out,
+    as the startup re-sign of her old entries expects (fix round 4 review)."""
     camp, (a,) = _campaign_with(client, f"Ada {support.uid()}")
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
         gm.send("add_notebook_entry", campaign_id=camp["id"], title="Note", author_name=a["name"],
@@ -229,6 +231,7 @@ def test_ws_gm_notebook_entry_is_signed_the_lightkeeper(client):
         [entry, log] = gm.sync()
         username = support.fetch(User, support.gm_id(camp)).username
         assert (entry["payload"]["author_name"], entry["payload"]["character_id"]) == ("The Lightkeeper", None)
+        assert entry["payload"]["author_type"] == "gm"
         assert (entry["payload"]["pen_font"], entry["payload"]["ink_color"]) == ("Caveat", "#1a1a1a")
         assert log["payload"] == {"message": 'The Lightkeeper logged an entry: "Note"'}
         assert username not in str(entry) + str(log)

@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 
 import support
+from vtt.ws import access
 from models import Character, Circle, CircleVote, Relationship
 
 EM = support.EM
@@ -526,6 +527,25 @@ def test_a_report_carries_a_short_line_that_an_amendment_can_change(client):
         [msg] = support.of_type(wa.sync(), "assignment_report_submitted")
         assert "note" not in msg["payload"]
     assert _undated(support.fetch(Circle, cid).backstory_answers) == {"reports": {str(a["id"]): _report(a, keys)}}
+
+
+def test_a_report_sent_as_its_author_is_released_is_not_kept(client, monkeypatch):
+    """Fixed (fix round 4 review): a report that passed the access check while a release
+    committed was stored for an investigator no longer in the circle. Under the circle's
+    lock the handler reads the member again and refuses."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Circle, cid, reports_open=True)
+    passed = access.RULES["submit_assignment_report"]
+
+    def then_released(ctx, payload, character):
+        passed(ctx, payload, character)
+        support.update(Character, a["id"], status="unaffiliated", campaign_id=None)
+    monkeypatch.setitem(access.RULES, "submit_assignment_report", then_released)
+    with support.ws_connect(client, a["id"]) as wa:
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"keys_detail": {"0": True}})
+        assert wa.sync() == [_rejected("submit_assignment_report", status=409,
+                                       detail="This investigator is not a member of the campaign.")]
+    assert support.fetch(Circle, cid).backstory_answers in (None, {})
 
 
 def test_reports_reach_only_the_lightkeeper_and_their_authors(client):

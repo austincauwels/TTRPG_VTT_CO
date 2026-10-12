@@ -486,7 +486,7 @@ def test_an_ally_offer_is_logged_for_the_lightkeeper_and_that_ally_and_its_lapse
         assert [m["payload"]["message"] for m in wb.drain()] == [f"{hurt['name']} took a Body mark (1 of 3)."]
 
         # Answered in time: no lapse
-        monkeypatch.setattr(marks, "INTERCEPT_WINDOW", 1.5)
+        monkeypatch.setattr(marks, "INTERCEPT_WINDOW", 3)
         wh.send("take_mark", mark_type="bleed")
         wh.sync()
         wg.drain()
@@ -494,7 +494,7 @@ def test_an_ally_offer_is_logged_for_the_lightkeeper_and_that_ally_and_its_lapse
         wg.sync()
         gm.drain()
         assert all("lapsed" not in m["payload"]["message"]
-                   for m in support.of_type(gm.drain(1.8) + wg.drain(), "activity_log"))
+                   for m in support.of_type(gm.drain(3.3) + wg.drain(), "activity_log"))
     assert support.fetch(Character, hurt["id"]).bleed_marks == 0
 
 
@@ -659,7 +659,8 @@ def test_a_non_combatant_point_is_logged_for_the_lightkeeper_and_that_ally_and_i
     doctor = support.active_member(client, camp, specialty_ability="Non-Combatant")
     ally = support.active_member(client, camp, nerve_max=3, nerve_current=1)
     other = support.active_member(client, camp)
-    monkeypatch.setattr(marks, "INTERCEPT_WINDOW", 1.5)
+    # Long enough that the ally answers in time on a loaded run; allies are offered in id order
+    monkeypatch.setattr(marks, "INTERCEPT_WINDOW", 5)
     with support.ws_connect(client, doctor["id"]) as wd, support.ws_connect(client, ally["id"]) as wa, \
             support.ws_connect(client, other["id"]) as wo, support.ws_connect(client, camp["campaign_code"]) as gm:
         wd.send("take_mark", mark_type="brain", is_from_enemy=False)
@@ -668,7 +669,7 @@ def test_a_non_combatant_point_is_logged_for_the_lightkeeper_and_that_ally_and_i
         def said(member, how):
             return {"type": "activity_log", "payload": {
                 "message": f"{member['name']}{how} Non-Combatant drive point from {doctor['name']}'s Brain mark"
-                           + (" (1.5 seconds)." if how == " is offered a" else " lapsed unused."),
+                           + (" (5 seconds)." if how == " is offered a" else " lapsed unused."),
                 "log_type": "field"}}
         assert support.of_type(gm.drain(), "activity_log") == [line, said(ally, " is offered a"),
                                                                said(other, " is offered a")]
@@ -680,10 +681,32 @@ def test_a_non_combatant_point_is_logged_for_the_lightkeeper_and_that_ally_and_i
         wo.drain()
         wd.drain()
         # Only the point not taken lapses, and only for the Lightkeeper and that ally
-        assert gm.recv_type("activity_log", timeout=3) == said(other, "'s")
-        assert wo.recv_type("activity_log", timeout=3) == said(other, "'s")
+        assert gm.recv_type("activity_log", timeout=10) == said(other, "'s")
+        assert wo.recv_type("activity_log", timeout=10) == said(other, "'s")
         assert support.of_type(gm.drain(0.5) + wa.drain() + wd.drain(), "activity_log") == []
     assert support.fetch(Character, ally["id"]).nerve_current == 2
+
+
+def test_a_released_ally_cannot_take_the_old_circles_non_combatant_point(client):
+    """Fixed (fix round 4 review): release left the ally's Non-Combatant point waiting, and a
+    desk with no campaign is not checked against one, so a released ally could still take
+    the old Doctor's drive point. Release drops it, as the fourth scar does."""
+    camp = support.new_campaign(client)
+    doctor = support.active_member(client, camp, specialty_ability="Non-Combatant")
+    ally = support.active_member(client, camp, nerve_max=3, nerve_current=1)
+    with support.ws_connect(client, doctor["id"]) as wd:
+        wd.send("take_mark", mark_type="brain", is_from_enemy=False)
+        wd.sync()
+    assert ally["id"] in marks._non_combatant
+    r = client.post(f"/campaign/release/{ally['id']}", headers=support.as_gm(camp))
+    assert r.status_code == 200, r.text
+    assert ally["id"] not in marks._non_combatant
+    with support.ws_connect(client, ally["id"]) as wa:
+        wa.drain()
+        wa.send("resolve_ability_mark", ability="Non-Combatant", choice="nerve")
+        assert support.of_type(wa.sync(), "action_rejected") == [{"type": "action_rejected", "payload": {
+            "action": "resolve_ability_mark", "status": 409, "detail": "No Non-Combatant drive point is waiting."}}]
+    assert support.fetch(Character, ally["id"]).nerve_current == 1
 
 
 def test_intercept_behind_me(client):

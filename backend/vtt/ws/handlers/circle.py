@@ -46,8 +46,15 @@ async def handle_submit_assignment_report(ctx):
             if str(char_id) in reports and payload.get("replace") is not True:
                 await refuse(ctx, "submit_assignment_report", 409, "Your report is already filed.")
                 return
-            reporter = db.query(Character).filter(Character.id == char_id).first()
-            reporter_name = reporter.name if reporter else "Unknown"
+            # Read again under the circle's lock: a release (POST /campaign/release) that
+            # committed after the access check dropped this member's report, and must not
+            # get one back (fix round 4 review)
+            reporter = db.query(Character).filter(Character.id == char_id).populate_existing().first()
+            if reporter is None or reporter.status != "active" \
+                    or reporter.campaign_id != target_circle.campaign_id:
+                await refuse(ctx, "submit_assignment_report", 409, "This investigator is not a member of the campaign.")
+                return
+            reporter_name = reporter.name
             amended = str(char_id) in reports
             # The shape of the frame below, which the GM's report card reads after a
             # reload too, with when it was filed for its date stamp

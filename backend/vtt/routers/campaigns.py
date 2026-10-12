@@ -27,6 +27,7 @@ from vtt.db import get_db, releases_locks_on_error
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
 from vtt.serializers import awaiting_scar, fallen_card, get_char_dict, get_circle_dict
 from vtt.ws.access import CLOSE_NOT_FOUND
+from vtt.ws.handlers.marks import forget_points
 from vtt.ws.manager import campaign_key, character_key, log_line, manager
 
 router = APIRouter()
@@ -365,7 +366,8 @@ async def release_member(character_id: int, db: Session = Depends(get_db),
     kept, so the log, the notebook and the Circle History still read. Their circle votes,
     their relationships (agreed or proposed, either end) and their report for the current
     assignment go. Before the seal the resources are filled to the new pool, as an approval
-    fills them; after it each is lowered to the new pool, never raised. 409 for a character
+    fills them; after it each is lowered to the new pool, never raised. A Non-Combatant
+    drive point their old circle's Doctor offered them goes too. 409 for a character
     that is not a living active member (a dead one stays with the campaign)."""
     facts = character_or_404(db, character_id)
     require_owner_or_gm(db, user, facts)
@@ -393,6 +395,7 @@ async def release_member(character_id: int, db: Session = Depends(get_db),
         if circle.is_finalized:
             lower_resources_to_pool(circle, db)
     db.commit()
+    forget_points(char.id)
 
     active = db.query(Character).filter(
         Character.campaign_id == campaign.id, Character.status == "active").order_by(Character.id).all()

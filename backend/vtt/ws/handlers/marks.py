@@ -294,7 +294,7 @@ async def _offer_non_combatant(ctx, doctor, m_type):
         return
     allies = ctx.db.query(Character).filter(
         Character.campaign_id == ctx.camp_id, Character.status == "active", Character.id != doctor.id,
-        Character.is_dead.isnot(True)).all()
+        Character.is_dead.isnot(True)).order_by(Character.id).all()
     now = time.monotonic()
     window = INTERCEPT_WINDOW
     point = f"Non-Combatant drive point from {doctor.name}'s {m_type.capitalize()} mark"
@@ -311,6 +311,13 @@ async def _offer_non_combatant(ctx, doctor, m_type):
                [(ally.id, f"{ally.name}'s {point} lapsed unused.")])
 
 
+def forget_points(character_id):
+    """A released or departed member: the Non-Combatant drive points their old circle's
+    Doctor offered them go (a desk with no campaign is not checked against one), and so
+    do their lapse lines (_point_waiting)."""
+    _non_combatant.pop(character_id, None)
+
+
 def _point_waiting(ally_id, deadline) -> bool:
     """Whether the ally's Non-Combatant drive point with this deadline was never taken."""
     return deadline in _non_combatant.get(ally_id, [])
@@ -325,7 +332,7 @@ def _intercept_allies(ctx, character):
         Character.id != character.id,
         or_(*[Character.role_ability.contains(a) for a in INTERCEPT_ABILITIES],
             *[Character.specialty_ability.contains(a) for a in INTERCEPT_ABILITIES]),
-    ).all() if ctx.camp_id else []
+    ).order_by(Character.id).all() if ctx.camp_id else []
 
 
 def _intercept_offers(ally, target_id, target_name, m_type, expires_in):
