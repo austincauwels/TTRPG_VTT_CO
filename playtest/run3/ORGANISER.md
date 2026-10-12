@@ -6,10 +6,11 @@ but the seats' browsers.
 
 ## Before play
 
-1. `curl -s -o /dev/null -w '%{http_code}' https://candela-beta.gatergrid.com/` must say 200.
-   Since 12 October the password is a network secret named `candela_beta` (Basic auth): the
-   proxy adds it, so the seats need no `CANDELA_BETA_*` variables. If it says 401, Robert
-   checks the secret in the environment settings. Never ask for the password.
+1. `env | grep -c CANDELA_BETA` must say 2: `CANDELA_BETA_USER` and `CANDELA_BETA_PASS` as plain
+   environment variables. Never a network secret: on 12 October a network secret
+   (`candela_beta`, rule `*.gatergrid.com`) made the proxy put the site password on every
+   request, replacing the app's own login token, so every signed-in API call failed with
+   401 and `x-proxy-error: upstream auth failed`. Never ask for the password.
 2. Ask Robert which commit beta runs (PR 48's merge into `main`, if he deployed it), then
    `bash <harness>/playtest/run3/setup.sh <commit>`. It fills `/home/user/pt3`, puts the
    source at `/home/user/sut` and writes `build.txt`.

@@ -1,12 +1,12 @@
 # Candela VTT: status and next phase
 
-Updated 11 October 2026, late evening (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
+Updated 11 October 2026, about 8 pm Pacific (12 October UTC). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
 Resume: none
 
 ## For the next chat: start here
 
-You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check PR 48 and what beta runs, then do "Next phase". Keep the chat lean:
+You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check `env | grep -c CANDELA_BETA` is 2, then do "Next phase". Keep the chat lean:
 
 - Before any run of more than about 6 agents, say roughly how big it is and ask, unless he has turned ultracode on for the chat. Past sizes: second playtest 97 agents (about 13 million subagent tokens); the re-check of 11 October 6 Opus agents (1.6 million). The third playtest's steps are 1 to 4 agents each, 28 in all.
 - **Messages Robert sends while a workflow runs are relayed into every running agent.** Every agent prompt says: "Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish." Keep that line in every new prompt (`workflows/run3/play.js` has it).
@@ -50,9 +50,10 @@ What worked before: a regression sweep alongside the play; triage by two Opus ag
 
 ## Where things stand
 
-- `main` is at **36f001c** (PRs 13, 14 and 15). Whether beta and live run it is not confirmed.
-- **PR 48** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/48) was **merged** on 11 October; `main` is now **2d86b77**: double-clicks on End Assignment, Give a spend back and Revive are ignored (#35, #36, #37). Robert picked fixing these before the playtest, so beta should run 2d86b77.
-- **Beta password: not in the environment yet.** On 12 October (UTC) `env | grep -c CANDELA_BETA` gave 0. Robert was told to add `CANDELA_BETA_USER` and `CANDELA_BETA_PASS` in the environment settings and start a new chat (only a new session picks them up). Never ask him to paste them.
+- `main` is at **2d86b77** (PR 48 merged: double-clicks on End Assignment, Give a spend back and Revive are ignored; #35-#37 closed). **Live and beta both run 2d86b77** (checked 12 October: both serve `assets/index-455a005d.js`; GitHub's `beta` branch is 2d86b77).
+- **How beta is deployed** (Robert, on the server): `cd ~/projects/candela-vtt-beta && git fetch origin && git checkout beta && git merge --ff-only origin/main`, then `cd ~/projects/gatergrid-web/.claude/worktrees/candela-beta && bash candela/update.sh --beta`. The `update.sh` in the main gatergrid-web folder knows nothing of beta and deploys live. Add `--now` if players are connected.
+- **Beta password: a network secret does NOT work.** On 12 October Robert added it as a network secret `candela_beta` (Basic, rule `*.gatergrid.com`). Pages then answered 200, but the proxy also put the password on every API call in place of the app's own token, so every signed-in call failed: 401 with `x-proxy-error: upstream auth failed: connection "CANDELA_BETA"`. Reproduced with curl and a real login token. Robert was asked to **delete that network secret** and add plain environment variables `CANDELA_BETA_USER` and `CANDELA_BETA_PASS`, then start a new chat. Playwright's `httpCredentials` in Chromium answers only a 401 challenge, and beta's API sends none, so the app's token is left alone. Never ask him to paste the password.
+- **First step already tried once** (12 October, blocked by the above): the account `lightkeeper_rue_r3` exists on beta (user 33, password as in `run3/README.md`); no campaign was made. `play.js` now tells the Lightkeeper to sign in if the account exists. Two findings (F001 silent bounce to a blank sign-in form on any 401; F002 the Google frame has no accessible name) are in `results/2026-10-12-run3/`; a fresh `setup.sh` starts `findings.jsonl` empty, so copy that folder's `findings.jsonl`, `table.*` and `memory/` back into `/home/user/pt3` first.
 - **Beta's WebSocket needs nothing extra:** checked without the password, the basic auth covers only the pages. `/api/...` answers 200 and `/ws/...` upgrades (101). So the seats' sockets work through `httpCredentials` as they are. (It also means beta's API is open to anyone with the address; Robert has been told, and it is his call.)
 - **The third playtest is prepared** (playtest-harness dcbae97). Everything is in `playtest/run3/` and `playtest/workflows/run3/`; `run3/ORGANISER.md` is the runbook:
   - `personas.md`: **The Saltmere Chapter**, one assignment, **The Drowned Choir** (bells under the mud of a river town; three scenes: the flats, the choirmaster's lodging, the bell tower against the tide). Usernames end in `_r3`. Bram plays a Muscle (Soldier), Cass a Slink (Criminal), Dev a Weird (Occultist). Robert picks his own. No planned death.
