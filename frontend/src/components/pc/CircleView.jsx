@@ -803,8 +803,17 @@ export const CircleView = () => {
             <textarea
               id="circle-report-note"
               value={noteText}
-              onChange={e => setNote(e.target.value.replace(/\n/g, ' '))}
-              onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+              onChange={e => setNote(e.target.value.replace(/[\r\n]+/g, ' '))}
+              onKeyDown={e => {
+                // One line: Enter puts a space between the words instead of a line break
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                const el = e.currentTarget;
+                const before = el.value.slice(0, el.selectionStart);
+                if (!before || /\s$/.test(before) || el.value.length >= REPORT_NOTE_MAX) return;
+                el.setRangeText(' ', el.selectionStart, el.selectionEnd, 'end');
+                setNote(el.value);
+              }}
               maxLength={REPORT_NOTE_MAX}
               rows={2}
               aria-describedby="circle-report-note-count"

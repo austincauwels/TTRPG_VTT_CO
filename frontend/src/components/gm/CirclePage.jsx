@@ -36,7 +36,7 @@ import { TurnOverMark } from '../shared/Decorations';
 import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankEntry, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
-import { tallyReports, tallyOf, unfiledNames, notFiledLine } from '../../game/illumination';
+import { tallyReports, tallyOf, unfiledNames, notFiledLine, reportsDue } from '../../game/illumination';
 import { reportingMembers } from '../../game/roster';
 import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
 
@@ -334,9 +334,9 @@ export const CirclePage = () => {
   const thisTally = tallyOf(circle);
   const answers = thisTally.answers;
   const tally = tallyReports(investigators, reports, answers);
-  // Who has not filed, named over Add Illumination, which does not wait for them (decision
-  // 5, playtest 3, missing-report-silent)
-  const notFiled = notFiledLine(unfiledNames(investigators, reports));
+  // Who has not filed, named over Add Illumination once reports are due, which does not
+  // wait for them (decision 5, playtest 3, missing-report-silent)
+  const notFiled = reportsDue(circle, reports) ? notFiledLine(unfiledNames(investigators, reports)) : '';
   const addTally = () => {
     if (tally.total <= 0 || thisTally.added != null) return;
     gmAddTally(circId, tally.keys);

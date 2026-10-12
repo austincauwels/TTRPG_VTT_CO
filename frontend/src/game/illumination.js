@@ -38,3 +38,7 @@ export const unfiledNames = (investigators, reports) => (investigators || [])
   .map(inv => inv.name);
 
 export const notFiledLine = (names) => (names.length ? `Not filed: ${names.join(', ')}.` : '');
+
+// Reports are due once the Lightkeeper has opened them or one has been filed; before that
+// no one is named, so the names do not stand as a warning all assignment
+export const reportsDue = (circle, reports) => !!circle?.reports_open || Object.values(reports || {}).some(Boolean);
