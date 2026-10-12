@@ -238,7 +238,7 @@ Some abilities are offered to the player as a prompt *after* the roll result is 
 | **Bending Spoons** | Any roll | Spend 1 Bleed mark to upgrade result one tier (failure→mixed, mixed→full) |
 | **Flourish** | Any roll | Spend 2 Cunning drive |
 | **Saw This Coming** | Failure or mixed | Re-roll with 1 additional die (up to 3 uses/assignment) |
-| **Well-Read** *(auto)* | Failure using Intuition | Drive spent on the roll is automatically refunded — no prompt |
+| **Well-Read** *(auto)* | Failure using Intuition | Drive spent on the roll is automatically refunded — no prompt (never past the maximum: when a kept gilded die has already given a point back, the log names only what Well-Read gave, and nothing when the drive was full) |
 | **Gilded auto-refresh** *(auto)* | Gilded roll, pool of 1 | Drive from the matching pool is automatically refreshed, no prompt (nothing comes back, and the log says nothing, when the drive is already full) |
 
 Auto-applying effects (Well-Read, gilded refresh) are resolved server-side immediately after the roll without requiring any player input.
