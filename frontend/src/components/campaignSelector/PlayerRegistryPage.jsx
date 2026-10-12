@@ -118,7 +118,7 @@ export const PlayerRegistryPage = ({
                     <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-focus-visible:opacity-100 transition-opacity">Play →</span>
                   </button>
                   {deleteControl(char)}
-                  {leaveControl(char)}
+                  {!char.is_dead && leaveControl(char)}
                   </div>
                 ))}
               </div>

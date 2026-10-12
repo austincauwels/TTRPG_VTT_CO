@@ -5,8 +5,13 @@ import { ConfirmAction } from '../shared/ConfirmAction';
 // A player may take their investigator out of its campaign at any time (decision 1 of fix
 // round 4, playtest ghost-member-no-release), from the foot of the sheet on their desk or
 // from the hub's registry row. Two presses; the armed line says what goes with them.
-export const leaveHint = (name, campaignName) =>
-  `Press again to leave ${campaignName || 'the campaign'}. ${name} comes back to you, free to join another campaign. Their circle votes, relationships and this assignment's report there are dropped.`;
+// sealed is the circle's is_finalized where it is known (the desk); the hub has no circle,
+// so its line says what happens if the circle is sealed.
+export const leaveHint = (name, campaignName, sealed) => {
+  const dropped = `Press again to leave ${campaignName || 'the campaign'}. ${name} comes back to you, free to join another campaign. Their circle votes, relationships and this assignment's report there are dropped`;
+  if (sealed === undefined) return `${dropped}. If the circle is sealed, its Stitch, Refresh and Train also come down to the smaller maximum, with nothing refunded.`;
+  return sealed ? `${dropped}, and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.` : `${dropped}.`;
+};
 
 // What a leave that did not go through says
 export const leaveError = (result, name) => (result?.status === 0
@@ -19,6 +24,7 @@ export const leaveError = (result, name) => (result?.status === 0
 // the hub, which says so (the store's releaseMember and investigator_released).
 export const LeaveCampaign = ({ character, campaignName }) => {
   const releaseMember = useGameStore(s => s.releaseMember);
+  const sealed = useGameStore(s => !!s.circle?.is_finalized);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   if (!character?.id || character.status !== 'active' || character.is_dead) return null;
@@ -39,7 +45,7 @@ export const LeaveCampaign = ({ character, campaignName }) => {
         onConfirm={leave}
         disabled={busy}
         cancelLabel="Stay"
-        armedHint={leaveHint(name, campaignName)}
+        armedHint={leaveHint(name, campaignName, sealed)}
         renderButton={(armed, props) => (
           <button
             {...props}

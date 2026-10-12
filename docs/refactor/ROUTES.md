@@ -58,6 +58,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 | POST | /campaign/{campaign_id}/retire | retire_campaign | 545 | yes | OperationsPanel.jsx | GM of that campaign |
 | POST | /campaign/{campaign_id}/unretire | unretire_campaign | - | yes | gameStore.unretireCampaign (ledger Retired list) | GM of that campaign |
 | POST | /campaign/withdraw/{character_id} | withdraw_request | - | yes | gameStore.withdrawRequest (registry) | the character's owner |
+| POST | /campaign/release/{character_id} | release_member | - | yes | gameStore.releaseMember (GMCharacterSheet via OperationsPanel, LeaveCampaign, registry) | the character's owner, or the GM of its campaign |
 | POST | /campaign/rejoin | rejoin_campaign | 568 | yes | AppRouter.jsx | owner of the character, if invited or their old character there died |
 | POST | /campaign/{campaign_id}/invite-rejoin | invite_rejoin | 638 | yes | gm/desk/InvitePlayer.jsx (the Lightkeeper's roster; DiceVault.jsx until 2026-10-09) | GM of that campaign |
 | GET | /campaign/{campaign_id}/roster | get_roster | 663 | no | OperationsPanel.jsx, TactileSidebar.jsx | GM or member of that campaign |

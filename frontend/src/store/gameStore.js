@@ -2344,15 +2344,24 @@ const useGameStore = create(
       // socket, and takes a desk whose socket missed the frame back to the hub.
       releaseMember: async (characterId) => {
         const result = await deletionRequest(`/campaign/release/${characterId}`, 'POST');
-        if (!result.success) return result;
+        if (!result.success) {
+          // Refused (a 409 means it was released elsewhere): the hub, which has no socket,
+          // reads the registry again so the row moves with the message
+          if (result.status) await get().fetchUserData(get().accessSession?.userId);
+          return result;
+        }
         const ch = result.character || {};
         const ownDesk = get().stage === 'DESK' && get().character?.id === characterId;
+        // The campaign's name, read before the investigator is freed (the frame may come later)
+        const last = get().lastPlayedCampaign;
+        const wasIn = (last?.type === 'player' && last.characterId === characterId ? last.campaignName : null)
+          || get().characters.find(c => c.id === characterId)?.campaign_name || null;
         if (ownDesk && String(get().socketGameId) === String(characterId)) setTimeout(() => get().reconnect(), 0);
         set(state => ({
           ...freedInvestigator(state, characterId),
           ...(ownDesk && state.character?.id === characterId
             ? { stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null,
-                hubNotice: releasedWords('player', ch.name || state.character.name, null) }
+                hubNotice: releasedWords('player', ch.name || state.character.name, wasIn) }
             : {}),
         }));
         if (get().accessSession?.userId != null && get().stage === 'HOME') get().fetchUserData(get().accessSession.userId);

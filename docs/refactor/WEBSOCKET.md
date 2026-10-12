@@ -242,7 +242,7 @@ There is no length limit. The sender name is whatever the client sends; the UI u
 
 ## 5. Outgoing messages
 
-The 34 types in this table have a handler in `gameStore.js`, and the store handles no type the server never emits.
+The 35 types in this table have a handler in `gameStore.js`, and the store handles no type the server never emits.
 
 | Type | Emitted by | Recipients | Frontend effect |
 |---|---|---|---|
