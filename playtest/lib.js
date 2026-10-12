@@ -23,7 +23,9 @@ const chromiumPath = () => {
   return undefined; // Playwright's own download
 };
 
-const SITE = (process.env.SITE_URL || 'http://127.0.0.1:4300').replace(/\/$/, '');
+// A run folder can name its site in site.txt, so agents' shells need no SITE_URL
+const siteFile = path.join(__dirname, 'site.txt');
+const SITE = (process.env.SITE_URL || (fs.existsSync(siteFile) && fs.readFileSync(siteFile, 'utf8').trim()) || 'http://127.0.0.1:4300').replace(/\/$/, '');
 
 // Basic auth for the beta site, sent only to the site's own origin (never to fonts or other hosts)
 const httpCredentials = () => (process.env.CANDELA_BETA_USER && process.env.CANDELA_BETA_PASS

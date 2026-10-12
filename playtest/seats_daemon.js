@@ -68,9 +68,15 @@ const watchPage = (seat, page, log) => {
     context.on('page', (p) => { log('tab_opened', { url: p.url() }); watchPage(seat, p, log); });
     const page = context.pages()[0] || await context.newPage();
     watchPage(seat, page, log);
-    await page.goto(cfg.url || `${SITE}/`, { waitUntil: 'domcontentloaded' });
-    log('seat_ready', { viewport: cfg.viewport, cdp: cfg.cdp });
-    console.log(`${seat} ready on CDP ${cfg.cdp}`);
+    // A site that is down or refuses the password must not take the other seats down with it
+    try {
+      await page.goto(cfg.url || `${SITE}/`, { waitUntil: 'domcontentloaded' });
+      log('seat_ready', { viewport: cfg.viewport, cdp: cfg.cdp });
+      console.log(`${seat} ready on CDP ${cfg.cdp}`);
+    } catch (e) {
+      log('seat_goto_failed', { error: short(String(e && e.message || e), 300) });
+      console.log(`${seat} open on CDP ${cfg.cdp}, but the site did not load: ${String(e && e.message || e).split('\n')[0]}`);
+    }
   }
   console.log('all seats ready');
   // Stay up until killed
