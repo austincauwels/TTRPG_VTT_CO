@@ -61,7 +61,7 @@ const SpendBack = ({ character, onGive }) => {
 // Takes the member off the roster, at any time (decision 1 of fix round 4, playtest
 // ghost-member-no-release): two presses, the armed line saying what goes with them. A
 // refusal says why under it; the sheet closes once the release goes through.
-const ReleaseMember = ({ name, onRelease }) => {
+const ReleaseMember = ({ name, trainDice, onRelease }) => {
   const sealed = useGameStore(s => !!s.circle?.is_finalized);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -88,7 +88,8 @@ const ReleaseMember = ({ name, onRelease }) => {
         disabled={busy}
         cancelLabel="Keep in the circle"
         armedHint={`Press again to release ${name}. They go back to the player, out of the campaign. Their circle votes, relationships and this assignment's report are dropped${
-          sealed ? ', and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' : '.'}`}
+          sealed ? ', and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' : '.'}${
+          trainDice > 0 ? ' Any Train die they hold is lost.' : ''}`}
         renderButton={(armed, props) => (
           <button
             {...props}
@@ -356,7 +357,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
             />
             {/* A dead investigator stays with the campaign; the living may be released */}
             {onRelease && !sheet.is_dead && (
-              <ReleaseMember name={fullChar.name || 'this investigator'} onRelease={() => onRelease(rosterItem.id)} />
+              <ReleaseMember name={fullChar.name || 'this investigator'} trainDice={fullChar.train_bonus ? (fullChar.train_dice || 1) : 0} onRelease={() => onRelease(rosterItem.id)} />
             )}
             </>}
           </>

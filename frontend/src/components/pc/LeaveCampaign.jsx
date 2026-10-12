@@ -6,11 +6,14 @@ import { ConfirmAction } from '../shared/ConfirmAction';
 // round 4, playtest ghost-member-no-release), from the foot of the sheet on their desk or
 // from the hub's registry row. Two presses; the armed line says what goes with them.
 // sealed is the circle's is_finalized where it is known (the desk); the hub has no circle,
-// so its line says what happens if the circle is sealed.
-export const leaveHint = (name, campaignName, sealed) => {
+// so its line says what happens if the circle is sealed. trainDice is how many Train dice
+// the investigator holds where it is known (the desk); they go, as at Retire, so the hub,
+// which does not know, says so in any case.
+export const trainLost = (trainDice) => (trainDice === undefined || trainDice > 0 ? ' Any Train die they hold is lost.' : '');
+export const leaveHint = (name, campaignName, sealed, trainDice) => {
   const dropped = `Press again to leave ${campaignName || 'the campaign'}. ${name} comes back to you, free to join another campaign. Their circle votes, relationships and this assignment's report there are dropped`;
-  if (sealed === undefined) return `${dropped}. If the circle is sealed, its Stitch, Refresh and Train also come down to the smaller maximum, with nothing refunded.`;
-  return sealed ? `${dropped}, and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.` : `${dropped}.`;
+  if (sealed === undefined) return `${dropped}. If the circle is sealed, its Stitch, Refresh and Train also come down to the smaller maximum, with nothing refunded.${trainLost(trainDice)}`;
+  return `${sealed ? `${dropped}, and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.` : `${dropped}.`}${trainLost(trainDice)}`;
 };
 
 // What a leave that did not go through says
@@ -45,7 +48,7 @@ export const LeaveCampaign = ({ character, campaignName }) => {
         onConfirm={leave}
         disabled={busy}
         cancelLabel="Stay"
-        armedHint={leaveHint(name, campaignName, sealed)}
+        armedHint={leaveHint(name, campaignName, sealed, character.train_bonus ? (character.train_dice || 1) : 0)}
         renderButton={(armed, props) => (
           <button
             {...props}
