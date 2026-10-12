@@ -506,7 +506,7 @@ def test_change_the_username(client):
 
 
 def test_the_new_name_is_shown_where_the_name_appears(client):
-    """The GM's notebook entries are signed with the username as it is when written."""
+    """The GM's notebook entries are signed The Lightkeeper whatever her username (#54)."""
     u = player()
     camp = support.new_campaign(client, gm_user_id=u.id)
     name = f"Keeper {support.uid()}"
@@ -514,7 +514,8 @@ def test_the_new_name_is_shown_where_the_name_appears(client):
     r = client.post(f"/api/notebook/{camp['id']}/entries", headers=signed_in(u), json={
         "title": "T", "content": "C", "author_name": "ignored", "author_type": "gm"})
     assert r.status_code == 201, r.text
-    assert r.json()["author_name"] == name
+    assert r.json()["author_name"] == "The Lightkeeper"
+    assert name not in r.text
     body = support.login(client, name, support.PASSWORD).json()
     assert (body["role"], body["name"]) == ("GM", name)
 

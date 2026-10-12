@@ -1,6 +1,7 @@
 """Chat and the WebSocket notebook entry."""
 from engine import create_notebook_entry
-from models import Campaign, Character, User
+from models import Campaign, Character
+from vtt.config import GM_AUTHOR
 from vtt.ws.manager import campaign_key, character_key, manager
 
 # The name chat shows for the GM; the frontend used the same name when the client
@@ -85,10 +86,10 @@ async def handle_add_notebook_entry(ctx):
         e_type  = payload.get("entry_type", "field_log")
         e_vis   = payload.get("visibility", "all")
         # The author is who the socket belongs to, as for REST entries: the player's
-        # character (its name, pen and ink), or the GM under their username.
+        # character (its name, pen and ink), or the GM as The Lightkeeper.
         # payload author_name, pen_font, ink_color and character_id are ignored.
         if ctx.is_gm:
-            author_name = db.query(User.username).filter(User.id == ctx.user_id).scalar() or "Unknown"
+            author_name = GM_AUTHOR
             pen_font, ink_color, author_char_id = "Caveat", "#1a1a1a", None
         else:
             me = db.query(Character).filter(Character.id == ctx.own_char_id).first()
