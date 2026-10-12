@@ -5,6 +5,7 @@ import { RelationshipNegotiation, useRelationshipForms } from './relationships/R
 import { InfoTerm } from '../shared/ActionInfo';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey } from '../shared/a11y';
+import { useAutoGrow, GROW_STYLE } from '../shared/useAutoGrow';
 import { FormLine, SerialNo, DateStamp, PrinterMark, BlankEntry, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { refillRule } from '../../game/circleResources';
@@ -527,6 +528,10 @@ export const CircleView = () => {
   // The report's optional line on what happened, kept in the draft with the ticks (playtest
   // 3, report-text-line)
   const noteText = showFiled ? (myReport?.note || '') : (draft?.note || '');
+  // The line's box grows with it, so a long line is read whole before Send (it scrolled
+  // inside two rows on a phone)
+  const noteRef = useRef(null);
+  useAutoGrow(noteRef, `${showFiled}|${noteText}`);
   const setKeyChecks = (update) => setReportDraft(character?.id, { keyChecks: update(keyChecks), note: noteText, amending });
   const setNote = (note) => setReportDraft(character?.id, { keyChecks, note, amending });
 
@@ -820,6 +825,7 @@ export const CircleView = () => {
             </label>
             <textarea
               id="circle-report-note"
+              ref={noteRef}
               value={noteText}
               onChange={e => setNote(e.target.value.replace(/[\r\n]+/g, ' '))}
               onKeyDown={e => {
@@ -834,8 +840,9 @@ export const CircleView = () => {
               }}
               maxLength={REPORT_NOTE_MAX}
               rows={2}
+              style={GROW_STYLE}
               aria-describedby="circle-report-note-count"
-              className="block w-full resize-none bg-transparent border border-dashed border-sepia/50 focus:border-oxblood px-2 py-1 font-serif text-base leading-snug text-ink"
+              className="block w-full min-h-[3.5rem] resize-none bg-transparent border border-dashed border-sepia/50 focus:border-oxblood px-2 py-1 font-serif text-base leading-snug text-ink"
             />
             <p id="circle-report-note-count" className={`mt-0.5 text-right font-mono text-xs tabular-nums ${noteText.length >= REPORT_NOTE_MAX ? 'text-oxblood' : 'text-sepia'}`}>
               {noteText.length} / {REPORT_NOTE_MAX}<span className="sr-only"> characters</span>
