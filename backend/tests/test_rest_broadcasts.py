@@ -3,6 +3,8 @@
 broadcast_campaign(code, id) sends to the campaign code channel (the GM) and to
 every character in the campaign whose status is active at the time of the call.
 """
+import pytest
+
 import support
 from models import Character, Circle
 
@@ -116,6 +118,40 @@ def test_reject_notifies_campaign_and_rejected_character(client):
         assert seen["type"] == "investigator_rejected"
         assert "owner_username" not in seen["payload"]["pending_investigators"][0]
         assert rejected.drain() == [{"type": "investigator_rejected", "payload": {"character_id": ch["id"]}}]
+
+
+@pytest.mark.parametrize("by", ["lightkeeper", "player"])
+def test_release_tells_every_desk(client, by):
+    """A member released by the Lightkeeper, or who left: the campaign hears
+    investigator_released with the members left, the votes and the relationships (the
+    Lightkeeper's cards carry the login names), then the circle with its smaller maximum
+    and the log line; the investigator's own desk hears that it is free."""
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    ch = support.active_member(client, camp)
+    headers = support.as_gm(camp) if by == "lightkeeper" else support.as_owner(ch["id"])
+    with support.ws_connect(client, camp["campaign_code"]) as gm, \
+            support.ws_connect(client, member["id"]) as mem, \
+            support.ws_connect(client, ch["id"]) as gone:
+        assert client.post(f"/campaign/release/{ch['id']}", headers=headers).status_code == 200
+        msg, circle, said = gm.drain()
+        assert msg["type"] == "investigator_released"
+        p = msg["payload"]
+        assert (p["character_id"], p["character_name"], p["campaign_id"], p["campaign_code"], p["by"]) == (
+            ch["id"], ch["name"], camp["id"], camp["campaign_code"], by)
+        assert [c["id"] for c in p["active_investigators"]] == [member["id"]]
+        assert p["active_investigators"][0]["owner_username"]
+        assert set(p["votes"]) == {"name_suggest", "name_vote", "ability", "question", "insignia"}
+        assert p["relationships"] == []
+        assert circle["type"] == "circle_update" and circle["payload"]["max_capacity"] == 2
+        assert said["payload"]["message"] == (f"The Lightkeeper released {ch['name']} from the circle."
+                                              if by == "lightkeeper" else f"{ch['name']} left the circle.")
+        seen = mem.drain()
+        assert support.types(seen) == ["investigator_released", "circle_update", "activity_log"]
+        assert "owner_username" not in seen[0]["payload"]["active_investigators"][0]
+        assert gone.drain() == [{"type": "investigator_released", "payload": {
+            "character_id": ch["id"], "character_name": ch["name"], "campaign_id": camp["id"],
+            "campaign_code": camp["campaign_code"], "campaign_name": camp["name"], "by": by}}]
 
 
 def test_retire_reaches_the_gm_and_the_players(client):
