@@ -15,3 +15,8 @@ Watching: next LK prompt, tension rising, my scar chance.
 Desk was current (rolls, new dispatch, tension all live, no reload). No pass note for me. Keyboard only: spent 1 Nerve (Tab+Space), rolled Control via Enter: 2 dice (2,6) = Success; cabinet opens. Nerve now 2/3. Findings F073-F074 range (praise keyboard roll, ux tab count).
 State: no marks/scars, Nerve 2/3 Cunning4 Intuition2, resistance Nerve1 Cunning1 Intuition none, gear lockpicks/blade/lantern, Scout unused.
 Watching: what is in the cabinet, Nerve refresh, my scar chance.
+
+## Turn 5 (Round 3)
+Desk current without reload (dispatch, tension 2/4, timer, Stitch lines, rolls). Spent 1 Nerve, Move +1d: 2 dice (4,5) = Mixed success; kept resistance unburned. Went to hub and Last Played mid-scene: tray, log, Nerve all kept (praise logged). Said at table: key turns, door open, water at knee. No scar came.
+State: no marks/scars, Nerve 1/3, Cunning 4/4, Intuition 2/2, resistance Nerve1 Cunning1 Intuition none, gear lockpicks/blade/lantern, Scout unused. Circle spending open (up to two), unused.
+Watching: any mark from LK for the mixed result, scar flow, Pontius still listed in my circle.

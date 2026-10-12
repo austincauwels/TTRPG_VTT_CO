@@ -19,3 +19,8 @@
 - State: Nerve 1/1, Cunning 4/4, Intuition 4/4, resistances Cunning 1, Intuition 1 unused, 1 Brain mark (1 of 3), no scars. Gear tome, chemical kit, lantern.
 - Pass note read: voice a half-beat behind sang my name, the one only my mother used. I narrated the lower hand as the next verse, the same voice.
 - Watching: LK reaction to the crit, Behind Me offer from Bram on my Brain mark, Pontius still on roster, Illumination, Stitch unlock.
+
+## Turn 5 (Round 3)
+- Desk current at start without reload (dispatch, timer, tension 2, Bram's Stitch live). Read LK map in Notebook (hard to find: F-logged ux, clipped single page). Stitched Brain mark (needs timely second press), then Survey +1 Intuition: 3 dice 4,5,6 = Success. Said it at table (#53, #54ish). Logged 4 findings (notebook map clipped, stitch confirm lapse, praise, tab flip).
+- State: Nerve 1/1, Cunning 4/4, Intuition 3/4, resistances Cunning 1, Intuition 1 unused, no marks (Brain stitched), no scars. Own spends 1/2 (Stitch). Circle Stitch 3 of 6 shown.
+- Watching: LK result, Pontius still on roster, timer ~27 min, Illumination 0/12, Well-Read/LfMM only on <=3.

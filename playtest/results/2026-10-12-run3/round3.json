@@ -1,0 +1,66 @@
+{
+ "players": [
+  {
+   "summary": "Desk was current at the start without a reload: dispatch, timer, tension 2, and Bram's Stitch (resource 5 to 4) all showed. I opened the Lightkeeper's map in Notebook. It is hard to find: all entries sit on one clipped \"Page 1 of 1\", and the Contents links do not move to the map. In character I Stitched my Brain mark; the circle button needed a second press about 700 ms later and within about 2 s, since an immediate click was ignored. That cleared Brain 1 to 0 and Stitch went to 3, with a log line. Then I rolled Survey with one Intuition spent: 3 dice (4, 5, 6), a 6, Success. Intuition is now 3/4, which is right, and no Well-Read or Learn from My Mistakes triggered. I said it at the table (#53, #55): hold the firm line to the bell rope, then the old ridges, away from the slipway hum. Logged F092 to F095: notebook map clipped (ux, medium), Stitch confirm lapse (ux, low), a praise entry for the current desk and correct math, and the ability tab flipping from Specialty to Role after leaving and returning (ux, low). Memory file updated. Nothing failed; seat.js worked and no console errors appeared.",
+   "findings": [
+    "F092",
+    "F093",
+    "F094",
+    "F095"
+   ],
+   "blocked": "",
+   "character_name": "Ada Quill",
+   "state": "Ada Quill, Scholar/Professor: Nerve 1/1, Cunning 4/4, Intuition 3/4, Cunning resistance 1 and Intuition resistance 1 unused, Brain mark Stitched to 0, no scars. Own circle spends 1 of 2 (Stitch); circle Stitch shows 3 of 6. Gear: tome, chemical kit, lantern."
+  },
+  {
+   "summary": "Desk was current without reload (timer, tension 2 of 4, dispatch, sketch, LK lines). I said my action at the table. Stitched my Bleed mark from the Circle page (needs a second 'Press again' tap; Stitch now 4 of 6, my spends 1/2). I also accepted the three pending relationship proposals, which I had missed. I spent 1 Nerve and rolled Move: 3 dice (gilded 3, 4, 5), kept the 5 for a mixed success. The first keep tap failed again with 'element is not stable'; the duplicate same-named button worked after waiting 5 seconds. Narrated the haul-up at the table. No errors in the console. Logged F088-F091 (Stitch praise, keep-die tap failure still unfixed, no Stitch hint on the Investigator page, live desk praise). Behind Me was not needed and no offer appeared. Memory updated.",
+   "findings": [
+    "F088",
+    "F089",
+    "F090",
+    "F091"
+   ],
+   "blocked": "",
+   "character_name": "Bram Okafor",
+   "state": "Nerve 3/5, Cunning 1/1, Intuition 2/3 (resistance burned), Nerve resistance 1; no marks or scars; gear Heavy Firearm, Tactical Armor, Lantern; Behind Me unused; 1 circle spend left."
+  },
+  {
+   "summary": "Looked first without reloading: my desk was current (Scene 3 dispatch, tension 2 of 4, timer ticking, Stitch lines, Ada and Bram rolls). Said at the table what Cass does, spent 1 Nerve and rolled Move: 2 dice (4, 5), Mixed success, resistance not burned (Burn and reroll would reroll only the rating die, which matches the FAQ). I narrated the mixed result myself (key found on the fourth try, door open, water at the knee). Mid-scene I went to the chapter hub and back with Last Played: the tray (4, 5 Mixed, Burn panel), the log and Nerve 1 of 3 were all still there, and the hub opened straight to the desk. Errors check was clean. No scar came, so no scar flow. Logged F096 (praise) and F097 (the Nerve stepper reads +0d after a roll that spent a point). The seat daemon was reachable, so I did not run start_all. Memory file updated.",
+   "findings": [
+    "F096",
+    "F097"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Desk was current without reload at turn start (Ada's and Bram's Stitch, their rolls, Cass's roll, tension 2, timer). I said at the table that I sing my grandmother's verse back minus the last line. On the site I spent 2 Cunning and rolled Sway, a 6 on 3 dice (1,1,6): Success. Cunning went 3 to 1. I then spent 1 Refresh on the circle page. The first attempt failed because the 'Press again' confirm had lapsed in about 3 seconds. Two taps back to back worked. After the Refresh, Cunning was 3/3, Intuition 6/6 and resistances were full. Nerve still reads 0 of 1. Spends are 1 of 2, and circle Refresh is 4 of 6. No console errors. Memory file updated. The seats daemon was reachable throughout.",
+   "findings": [
+    "F098",
+    "F099",
+    "F100",
+    "F101"
+   ],
+   "blocked": "",
+   "character_name": "Dev Lindqvist",
+   "state": "Nerve 0/1, Cunning 3/3, Intuition 6/6, resistances Cunning 1 and Intuition 2 (full), no marks, no scars, able to act, Ritual unused, gear Arcane Texts, Ritual Dagger and Lantern; circle spends 1 of 2 used."
+  }
+ ],
+ "dm": {
+  "summary": "I started with 'look' and did not reload. The desk was current: both Stitches, all four Round 3 rolls (Bram Move 5, Ada Survey 6, Cass Move 5, Dev Sway 6), Dev's Refresh, tension 2 and the timer at 25:27 were all there. The two mixed results cost marks. From the sheets I dealt Cass a Body mark and Bram a Body mark. Both landed at once with log lines, and the roster cards show 'Marks: 1 Body'. A scar was not possible: nobody was close to a full track, and Cass had no marks before this. At the table (#60-66) I answered each action and ended the assignment the way the dice fell. The choir is freed, not silenced: Dev rings the last change on Maren's handbell instead of singing it. The three fishermen are found alive on the bell-frame, and the tower sinks into the tide. Then I paused the timer, lowered tension from 2 to 0 and cleared the timer. On the Circle page I opened the reports and ticked all three Illumination questions; the tally shows +3, keys +0. In #67-68 I told the players to file their reports. I have not pressed Add Illumination yet; I am waiting for the reports. There were no console errors, and the seat daemon was reachable the whole time. I logged F102 (praise: closing the scene is quick, with clear log lines). F103: while the timer runs, the hourglass shows the timer, so tension 2 and 0 look the same. F104: Pontius still has a report card, so the +4 'all keys' bonus can never be reached. F105: ticking the questions writes no log line.",
+  "findings": [
+   "F102",
+   "F103",
+   "F104",
+   "F105"
+  ],
+  "blocked": "",
+  "prompts": {
+   "ada": "The assignment is over: you read the final row off Dev's copy and your ridges brought everyone home. Please file your assignment report on the Circle page now (tick your Professor key if you fulfilled it, add a line on what happened), then say at the table that it is in. Check the tally and Illumination against p. 55.",
+   "bram": "The assignment is over: you hauled everyone through and took the cut rope's weight; your Body mark stands, with one circle spend left if you want to Stitch it. Please file your assignment report on the Circle page now (tick your Soldier key if you fulfilled it, add a line), then say at the table that it is in.",
+   "cass": "The assignment is over: your green iron key opened the tower and the rope-locks; your Body mark stands (Stitch possible, 0 of 2 spends used). Please file your assignment report on the Circle page now (tick your Criminal key if you fulfilled it, add a line), then say at the table that it is in. Try your edge cases on the report form.",
+   "dev": "The assignment is over: you rang the last change on Maren's handbell and freed the choir, and the finished change book goes to the Chapter. Please file your assignment report on the Circle page now (tick your Occultist key if you fulfilled it, add a line), then say at the table that it is in; a closing notebook entry is welcome."
+  },
+  "story_so_far": "The Lantern Wall came to Saltmere's flats, where bells ring under the mud. In the dead choirmaster Abel's lodging they found the drowned choir writing through his hand, signed Maren (Dev's grandmother), and a change book one row short, waiting for a ringer. When the tide turned they raced out to a black bell tower that had risen from the silt. Bram led and hauled Cass up, Ada read the safe ridges, Cass's green iron key opened the door, and Dev held the choir with his grandmother's verse, minus its last line. Bram and Cass each took a Body mark from the water. Inside, the missing handbell hung from the cut seventh rope, and the three lost fishermen lay asleep on the bell-frame. Dev rang the last change on the handbell instead of singing it. The choir landed on its last line and stopped for good, and the tower sank. The circle brought the fishermen, the finished change book and the handbell home.",
+  "state": "Tension 0 of 4, timer cleared (paused at 24:35, then cleared; the switch is still on). Reports are open, with 0 of 5 filed; Pontius has a card but nobody plays him. All three Illumination questions are ticked (+3, keys +0). Add Illumination is not pressed yet, and Illumination is 0/12. Spending is still open; Stitch 3, Refresh 4, Train 5 (max 6). Marks: Cass Body 1 and Bram Body 1; Ada and Dev have none. No scars, nobody incapacitated. Scene: the assignment is resolved and End Assignment has not been pressed. Next turn: add the Illumination once the reports are in, then End Assignment."
+ }
+}

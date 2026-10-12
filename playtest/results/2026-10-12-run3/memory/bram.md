@@ -13,3 +13,7 @@ Watching: LK consequence of the mixed success, hourglass, pending relationships,
 Desk current without reload (dispatch, Ada's marks, hourglass, Ada's later Read roll appeared live). Said I watch window; spent 1 Intuition, Survey 3 dice: 4 mixed. Burned Intuition resistance, rerolled 2 dice: 5 mixed (kept same outcome). No Behind Me offer was on my desk. Findings: badge, burn praise, Behind Me idea.
 State: Nerve 4/5, Cunning 1/1, Intuition 2 of 3 (1 spent) and Intuition resistance 0 of 1 (burned); Nerve resistance 1; no marks/scars; gear Heavy Firearm, Tactical Armor, Lantern; Behind Me unused.
 Watching: LK consequence of Survey, Behind Me offers, resource spending.
+## Turn 5 (Round 3)
+Desk current without reload. Stitched Bleed mark (2-press confirm, Circle page; Stitch 4 of 6, my spends 1/2). Accepted Cass/Dev/Ada relationship proposals (all confirmed). Spent 1 Nerve, Move 3 dice: gilded 3, 4, 5; kept 5 = mixed (first keep tap failed, nth 1 worked after wait). Said at table. Findings F088-F091.
+State: Nerve 3 of 5 (spent 1; no refund as I kept the 5), Cunning 1/1, Intuition 2/3 (resistance burned); Nerve resistance 1; no marks, no scars; gear Heavy Firearm, Tactical Armor, Lantern; Behind Me unused; 1 circle spend left.
+Watching: LK consequence, timer (~27 min at roll), Behind Me offers, endgame/report.
