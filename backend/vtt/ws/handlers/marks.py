@@ -33,13 +33,18 @@ A mark that sends the allies Behind Me and Premonitions offers opens one answer
 later answers, or answers with no mark waiting, are refused, so one mark is never
 removed twice. Once it is taken the other allies are told (intercept_offer_closed), so
 their cards go, and an ally's desk that opens while one is open gets its offer again
-with the time left (send_open_intercepts).
+with the time left (send_open_intercepts). The Activity Log of the Lightkeeper and of each
+ally offered says who was offered what, and, when the window ran out with no answer, that
+the offer lapsed (_watch_lapse); no other desk gets these lines (Robert's decision 6,
+playtest 3, behind-me-offer-unseen: the offer opened and lapsed unseen). The watch is in
+memory like the offer, so after a restart no lapse is logged.
 
 A mark that lands through mark_or_offer (one taken on the sheet, dealt by the
 Lightkeeper, or taken for an ally with Behind Me) writes a line in the Activity Log with
 the track's count, and names the offer the player passed on. A mark taken as an
 ability's cost does not: the use's own line names it (playtest, self-mark-no-log).
 """
+import asyncio
 import itertools
 import secrets
 import time
@@ -50,7 +55,7 @@ from models import Character
 from vtt.abilities import MARK_TYPES, WARD, abilities_of, count_use, resistance_left, spend_use, uses_of
 from vtt.serializers import awaiting_scar, get_char_dict
 from vtt.ws.handlers.circle import announce_downed, announce_status
-from vtt.ws.manager import character_key, manager
+from vtt.ws.manager import campaign_key, character_key, manager
 
 # Abilities that can intercept marks on other players — used for efficient DB filtering
 INTERCEPT_ABILITIES = {"Behind Me", "Premonitions"}
@@ -85,6 +90,11 @@ _interceptable: dict = {}
 # (target character id, mark type) -> {"campaign_id", "character_name"} of the offered mark
 _intercept_for: dict = {}
 INTERCEPT_WINDOW = 120  # seconds an ally may still answer an offered mark
+# (target character id, mark type, when offered) of each offered mark whose lapse is still
+# watched for; an answer takes it out (_take_intercept), so the watch logs nothing
+_watched: set = set()
+# The running watches, kept so they are not collected before they wake
+_watches: set = set()
 # ally id -> deadlines of the Non-Combatant drive points they were offered, one per mark
 _non_combatant: dict = {}
 NO_MARK_TO_ANSWER = "No ally's mark is waiting for that, or another ally answered it first."
@@ -111,10 +121,13 @@ def _taken_before(character_id, mark_id) -> bool:
 
 
 def open_intercept(target_id, m_type, campaign_id=None, name=None):
-    """A mark on target_id was offered to the allies: one of them may answer it."""
-    _interceptable.setdefault((target_id, m_type), []).append(time.monotonic())
+    """A mark on target_id was offered to the allies: one of them may answer it. Returns
+    when it was offered."""
+    offered_at = time.monotonic()
+    _interceptable.setdefault((target_id, m_type), []).append(offered_at)
     if campaign_id is not None:
         _intercept_for[(target_id, m_type)] = {"campaign_id": campaign_id, "character_name": name}
+    return offered_at
 
 
 def _open_times(target_id, m_type):
@@ -130,7 +143,7 @@ def _take_intercept(target_id, m_type) -> bool:
         _interceptable.pop(key, None)
         _intercept_for.pop(key, None)
         return False
-    open_ones.pop(0)
+    _watched.discard((target_id, m_type, open_ones.pop(0)))
     if open_ones:
         _interceptable[key] = open_ones
     else:
@@ -314,13 +327,60 @@ def _intercept_offers(ally, target_id, target_name, m_type, expires_in):
 async def _offer_intercepts(ctx, character, m_type):
     """Behind Me and Premonitions offers to the character's fellow members. Each says how
     long it stays open (expires_in, seconds), so the ally's card lasts as long as the
-    server takes an answer: it vanished after 20 seconds (playtest, ability-offers-expire)."""
+    server takes an answer: it vanished after 20 seconds (playtest, ability-offers-expire).
+    The Lightkeeper's log and each offered ally's say who was offered, and a watch says when
+    the offer lapsed unanswered (see the module's docstring)."""
     candidates = _intercept_allies(ctx, character)
-    if candidates:
-        open_intercept(character.id, m_type, ctx.camp_id, character.name)
+    if not candidates:
+        return
+    offered_at = open_intercept(character.id, m_type, ctx.camp_id, character.name)
+    window = INTERCEPT_WINDOW
+    offered = []
     for other in candidates:
-        for offer in _intercept_offers(other, character.id, character.name, m_type, INTERCEPT_WINDOW):
+        offers = _intercept_offers(other, character.id, character.name, m_type, window)
+        for offer in offers:
             await manager.broadcast(character_key(other.id), {"type": "ability_intercept_offer", "payload": offer})
+        if offers:
+            offered.append((other.id, other.name, " or ".join(offer["ability"] for offer in offers)))
+    mark = f"{character.name}'s {m_type.capitalize()} mark"
+    for ally_id, ally_name, abilities in offered:
+        await _tell_offered(ctx.camp_code, ctx.camp_id, ally_id,
+                            f"{ally_name} is offered {abilities} for {mark} ({_window_words(window)}).")
+    if offered:
+        _watched.add((character.id, m_type, offered_at))
+        watch = asyncio.create_task(_watch_lapse(ctx.camp_code, ctx.camp_id, (character.id, m_type, offered_at),
+                                                 mark, offered, window))
+        _watches.add(watch)
+        watch.add_done_callback(_watches.discard)
+
+
+def _window_words(seconds) -> str:
+    """How long an offer stays open, in the log's words: "2 minutes"."""
+    if seconds >= 60 and seconds % 60 == 0:
+        minutes = int(seconds // 60)
+        return f"{minutes} minute{'s' if minutes != 1 else ''}"
+    return f"{seconds:g} seconds"
+
+
+async def _tell_offered(camp_code, camp_id, ally_id, message):
+    """A line in the Activity Log of the Lightkeeper and of the ally the offer is about, and
+    no one else's. It needs no database, so a watch can send it after the message's session
+    has closed."""
+    line = {"type": "activity_log", "payload": {"message": message, "log_type": "field"}}
+    await manager.broadcast(campaign_key(camp_code), line, camp_id)
+    await manager.broadcast(character_key(ally_id), line, camp_id)
+
+
+async def _watch_lapse(camp_code, camp_id, watched, mark, offered, window):
+    """Once the offer's window has run out: if no ally answered it, each ally offered and
+    the Lightkeeper are told it lapsed."""
+    await asyncio.sleep(window)
+    if watched not in _watched:
+        return
+    _watched.discard(watched)
+    for ally_id, ally_name, abilities in offered:
+        await _tell_offered(camp_code, camp_id, ally_id,
+                            f"{ally_name}'s {abilities} offer for {mark} lapsed unanswered.")
 
 
 async def send_open_intercepts(websocket, character):

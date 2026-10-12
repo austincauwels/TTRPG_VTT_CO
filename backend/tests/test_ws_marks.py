@@ -431,13 +431,71 @@ def test_intercept_offers_go_to_eligible_campaign_members(client):
             support.ws_connect(client, outsider["id"]) as wo:
         wh.send("take_mark", mark_type="body")
         line = wh.sync()[1]   # the hurt's mark, in every member's log
+        # and, in each offered ally's own log, the offer (test_an_ally_offer_is_logged_...)
         assert wg.drain() == [line, {"type": "ability_intercept_offer", "payload": {
             "ability": "Behind Me", "mark_type": "body", "character_id": hurt["id"],
-            "character_name": hurt["name"], "action": "intercept", "expires_in": 120}}]
+            "character_name": hurt["name"], "action": "intercept", "expires_in": 120}}, _offered(guard, "Behind Me", hurt)]
         assert wsr.drain() == [line, {"type": "ability_intercept_offer", "payload": {
             "ability": "Premonitions", "mark_type": "body", "character_id": hurt["id"],
-            "character_name": hurt["name"], "action": "soak", "expires_in": 120}}]
+            "character_name": hurt["name"], "action": "soak", "expires_in": 120}}, _offered(seer, "Premonitions", hurt)]
         assert wt.drain() == [line] and wo.drain() == []
+
+
+def _offered(ally, abilities, target, mark="Body"):
+    """The line the Lightkeeper's log and the ally's own get when a mark is offered to them."""
+    return {"type": "activity_log", "payload": {
+        "message": f"{ally['name']} is offered {abilities} for {target['name']}'s {mark} mark (2 minutes).",
+        "log_type": "field"}}
+
+
+def test_an_ally_offer_is_logged_for_the_lightkeeper_and_that_ally_and_its_lapse_too(client, monkeypatch):
+    """Robert's decision 6 (playtest 3, behind-me-offer-unseen): an ally's Behind Me offer
+    opened and lapsed unseen; the Lightkeeper was not told who was offered, and the ally's
+    desk kept no trace. The two-minute window stays. The Activity Log of the Lightkeeper
+    and of each ally offered says who was offered what, and when the window runs out with
+    no answer, that it lapsed. The target and the other members get neither line, and an
+    answered offer logs no lapse."""
+    camp = support.new_campaign(client)
+    hurt = support.active_member(client, camp)
+    guard = support.active_member(client, camp, nerve_current=1, role_ability="Behind Me",
+                                  intuition_max=3, specialty_ability="Premonitions")
+    bystander = support.active_member(client, camp)
+    with support.ws_connect(client, hurt["id"]) as wh, support.ws_connect(client, guard["id"]) as wg, \
+            support.ws_connect(client, bystander["id"]) as wb, support.ws_connect(client, camp["campaign_code"]) as gm:
+        wh.send("take_mark", mark_type="brain")
+        line = wh.sync()[1]
+        offered = _offered(guard, "Behind Me or Premonitions", hurt, "Brain")
+        assert support.of_type(gm.drain(), "activity_log") == [line, offered]
+        assert support.of_type(wg.drain(), "activity_log") == [line, offered]
+        assert wb.drain() == [line]
+
+        monkeypatch.setattr(marks, "INTERCEPT_WINDOW", 0.3)
+        wh.send("take_mark", mark_type="body")
+        wh.sync()
+        offered = {"type": "activity_log", "payload": {
+            "message": f"{guard['name']} is offered Behind Me or Premonitions for {hurt['name']}'s Body mark (0.3 seconds).",
+            "log_type": "field"}}
+        assert support.of_type(gm.drain(), "activity_log")[1:] == [offered]
+        assert support.of_type(wg.drain(), "activity_log")[1:] == [offered]
+        lapsed = {"type": "activity_log", "payload": {
+            "message": f"{guard['name']}'s Behind Me or Premonitions offer for {hurt['name']}'s Body mark lapsed unanswered.",
+            "log_type": "field"}}
+        assert gm.recv_type("activity_log", timeout=3) == lapsed
+        assert wg.recv_type("activity_log", timeout=3) == lapsed
+        assert wh.drain(0.3) == []
+        assert [m["payload"]["message"] for m in wb.drain()] == [f"{hurt['name']} took a Body mark (1 of 3)."]
+
+        # Answered in time: no lapse
+        monkeypatch.setattr(marks, "INTERCEPT_WINDOW", 1.5)
+        wh.send("take_mark", mark_type="bleed")
+        wh.sync()
+        wg.drain()
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=hurt["id"], mark_type="bleed")
+        wg.sync()
+        gm.drain()
+        assert all("lapsed" not in m["payload"]["message"]
+                   for m in support.of_type(gm.drain(1.8) + wg.drain(), "activity_log"))
+    assert support.fetch(Character, hurt["id"]).bleed_marks == 0
 
 
 def test_resolve_adrenaline_rush_once_per_offer(client):
@@ -736,8 +794,8 @@ def test_one_mark_is_answered_by_one_ally(client):
         assert wsr.sync() == refused
         wt.send("take_mark", mark_type="body")
         wt.sync()
-        assert support.types(wsr.drain()) == ["activity_log", "ability_intercept_offer"]
-        assert support.types(wg.drain()) == ["activity_log", "ability_intercept_offer"]
+        assert support.types(wsr.drain()) == ["activity_log", "ability_intercept_offer", "activity_log"]
+        assert support.types(wg.drain()) == ["activity_log", "ability_intercept_offer", "activity_log"]
         wsr.send("intercept_mark", ability="Premonitions", target_character_id=target["id"], mark_type="body")
         assert support.types(wsr.sync()) == ["character_update", "activity_log"]
         wg.drain()  # the seer's log line
@@ -1237,8 +1295,10 @@ def test_a_mark_the_lightkeeper_deals_offers_what_a_mark_taken_offers(client):
         sent = gm.sync()
         assert "ability_mark_offer" not in support.types(sent)
         lines = [m["payload"]["message"] for m in sent if m["type"] == "activity_log"]
-        # One line for the deal and where it landed (playtest, log-lines-doubled-per-event)
-        assert lines == [f"The Lightkeeper dealt {edda['name']} a Bleed mark (1 of 3)."]
+        # One line for the deal and where it landed (playtest, log-lines-doubled-per-event),
+        # then who was offered an answer to it (playtest 3, behind-me-offer-unseen)
+        assert lines == [f"The Lightkeeper dealt {edda['name']} a Bleed mark (1 of 3).",
+                         f"{jonah['name']} is offered Behind Me for {edda['name']}'s Bleed mark (2 minutes)."]
         got = we.drain(0.5)
         assert support.of_type(got, "character_update")[0]["payload"]["bleed_marks"] == 1
         assert {"ability": "Let Them In", "mark_type": "bleed", "character_id": edda["id"],
