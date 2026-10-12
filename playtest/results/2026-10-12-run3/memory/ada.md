@@ -24,3 +24,22 @@
 - Desk current at start without reload (dispatch, timer, tension 2, Bram's Stitch live). Read LK map in Notebook (hard to find: F-logged ux, clipped single page). Stitched Brain mark (needs timely second press), then Survey +1 Intuition: 3 dice 4,5,6 = Success. Said it at table (#53, #54ish). Logged 4 findings (notebook map clipped, stitch confirm lapse, praise, tab flip).
 - State: Nerve 1/1, Cunning 4/4, Intuition 3/4, resistances Cunning 1, Intuition 1 unused, no marks (Brain stitched), no scars. Own spends 1/2 (Stitch). Circle Stitch 3 of 6 shown.
 - Watching: LK result, Pontius still on roster, timer ~27 min, Illumination 0/12, Well-Read/LfMM only on <=3.
+
+## Turn 6 (Wrap)
+- Desk current at start (reports opened line in log, Circle badge new). Filed report: ticked Reference Research + Make a Plan (not Mentor an Ally), Report sent stamp shown. Said it at table. Illumination still 0/12 (LK adds later); key help text matches p.55 (2 if some, 4 if all). Logged 4 findings (info slip blocks checkbox clicks, no text line, praise, Pontius still listed).
+- State: Nerve 1/1, Cunning 4/4, Intuition 3/4, resistances Cunning 1, Intuition 1 unused, no marks/scars, own spends 1/2. Gear tome, chemical kit, lantern.
+- Watching: LK tally and Add Illumination (expect 3 questions + 2 keys = 5, not 7, since Pontius has no report and others' keys unknown); log line for it.
+
+## Turn 7 (After)
+- Desk current (5/12, log, dispatch blank, gear empty with tooltip, report ticks cleared). Checked 5/12 and keys rule: matches p.55 as FAQ cites it (3 yes + 2 for some keys). Drives are not refilled by End Assignment; I spent a Refresh (Intuition 3->4, 1 of 2 spends). No advancement offered at 5/12 (so Later untested). Notebook: 4 entries, LK shown by login name. Logged 3 findings.
+- State: Nerve 1/1, Cunning 4/4, Intuition 4/4, resistances Cunning 1, Intuition 1, no marks/scars, gear empty (to choose), spends 1/2, ability uses reset.
+
+## Exit notes (Ada, desktop 1920x1080, mouse, rules lawyer)
+Worked best:
+1. Live desk: rolls, spends, dispatch, circle counts all arrived without any reload.
+2. Rules text on screen (key help text, tooltips like Why empty) let me check numbers against p.55 quickly.
+3. Accessibility outline with named buttons/ratings (pool, resistance, available counts) made number-checking easy.
+Got in the way:
+1. Two-press confirms lapse in ~3 s (Stitch, Refresh); scripted clicks needed.
+2. Open key info slip covers first checkboxes in reports; no text line on the report.
+3. Silence on rules the book decides (drives between assignments, Pontius's empty seat, 'milestone 3', no advancement preview) forced me to read FAQ/source.

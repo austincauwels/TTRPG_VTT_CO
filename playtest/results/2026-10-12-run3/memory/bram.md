@@ -17,3 +17,13 @@ Watching: LK consequence of Survey, Behind Me offers, resource spending.
 Desk current without reload. Stitched Bleed mark (2-press confirm, Circle page; Stitch 4 of 6, my spends 1/2). Accepted Cass/Dev/Ada relationship proposals (all confirmed). Spent 1 Nerve, Move 3 dice: gilded 3, 4, 5; kept 5 = mixed (first keep tap failed, nth 1 worked after wait). Said at table. Findings F088-F091.
 State: Nerve 3 of 5 (spent 1; no refund as I kept the 5), Cunning 1/1, Intuition 2/3 (resistance burned); Nerve resistance 1; no marks, no scars; gear Heavy Firearm, Tactical Armor, Lantern; Behind Me unused; 1 circle spend left.
 Watching: LK consequence, timer (~27 min at roll), Behind Me offers, endgame/report.
+## Turn 6 (Wrap)
+Desk current without reload. Filed assignment report on Circle page: ticked Protect Someone, sent (REPORT SENT stamp; Amend available). No free-text line field exists (logged). Said at table. Did not Stitch.
+State: Body mark 1 of 3 (from LK), Bleed stitched earlier; Nerve 3/5 Cunning 1 Intuition 2/3; gear Heavy Firearm, Tactical Armor, Lantern; Behind Me unused; 1 circle spend left (Stitch 3 of 6 in pool).
+Watching: LK adding Illumination, whether it appears live on my desk, advancement.
+## Turn 7 (After)
+Desk was current without reload after End Assignment (5/12, blank dispatch, reports closed). Stitched (Body mark cleared) and Refreshed (Nerve 5/5, Intuition resistance back); spends 2/2, buttons disabled with a plain note. Said so at table. No advancement offered (5/12), so dialog/Later untested. Looked at Circle page and Notebook (4 field entries). Findings: praise sheet reset, confirm lapse on phone, notebook author chip login name, advancement hint idea.
+State: no marks, no scars; Nerve 5/5, Cunning 1/1, Intuition 3/3; resistances Nerve 1, Intuition 1; gear empty (to choose next time); Behind Me unused; circle spends used 2 of 2.
+## EXIT NOTES (persona: new-to-tabletop Bram, phone 390x844, touch)
+Worked best: 1) Big tick boxes and the REPORT SENT stamp; 2) live updates, never needed a reload; 3) clear spend text ("both used", disabled buttons) and drive counters with plain labels.
+Got in the way: 1) The 'Press again' confirm lapsing before I could tap on a phone; 2) first keep-die taps on the dice tray timing out; 3) no text line on the report, and the menu overlay/long Circle page needing much scrolling, with ambiguous 'Investigator' text targets when the menu is open.

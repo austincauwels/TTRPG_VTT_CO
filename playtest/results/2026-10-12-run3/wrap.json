@@ -1,0 +1,60 @@
+{
+ "players": [
+  {
+   "summary": "Desk was current at the start: the log showed \"opened the assignment reports\" and the tower dispatch, with no reload. I opened the Circle page and read the key help text, which matches p. 55: if any of the circle fulfilled a key the circle earns 2 Illumination, and 4 if all did. On top of that the circle earns 1 per yes-answered question, which the Lightkeeper ticks. I ticked Reference Research and Make a Plan and left Mentor an Ally empty, then pressed Send report. The page shows a \"Report sent 12 Oct 2026\" stamp with Amend, and the boxes lock. I said at the table that the report is in (#70). Illumination still reads 0/12, so I could not check the final tally; the Lightkeeper adds it later. Pontius has no report, so the \"all fulfilled\" 4 cannot be reached (F104 already logged). Mouse clicks on the key checkboxes failed until I used the keyboard. The open info slip sat over them and intercepted clicks. Logged F109 to F112 (F109 slip blocks checkbox clicks, F110 no line-on-what-happened field, F111 praise for report filing, F112 Pontius still shown). Memory file updated.",
+   "findings": [
+    "F109",
+    "F110",
+    "F111",
+    "F112"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Desk was current without reload (LK's reports-open line and all rolls/marks present). Opened Menu then Circle on the phone, found the report card, ticked Protect Someone (Soldier key) and tapped Send report. It locked the boxes and showed a green REPORT SENT stamp with Amend, a screen-reader status, and a log line. There is no text field for \"a line\", so I could not add one (logged; source confirms). Said at the table that the report is in. Did not Stitch my Body mark. Illumination still 0/12 and LK question ticks are not visible to players (already F105). No console errors. Memory file updated.",
+   "findings": [
+    "F106",
+    "F107",
+    "F108"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Started with look: the desk was current without reload (Circle tab showed \"(new)\", reports open, Stitch 3 of 6). On the Circle page I ticked Do Something Illegal and pressed Send report. The card showed the REPORT SENT stamp, disabled boxes and an Amend button. I pressed Enter twice afterwards and nothing changed. I then pressed Amend, ticked and unticked Make a Deal, and double-clicked \"Send amended report\". One report was kept, with only Do Something Illegal, and `errors` showed nothing new. There is still no field for a line of text (the same gap as F106/F110). Illumination still reads 0/12 although the Lightkeeper ticked the three questions; the Lightkeeper said she would add it after the reports. I logged F113 (praise, report edge cases hold) and F114 (ux, no line field and the Illumination 0/12 note) and said at the table that my report is in. My memory file is updated. I did not reload and did not need start_all.sh.",
+   "findings": [
+    "F113",
+    "F114"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Desk was current at start (all LK closing lines, other reports and the log were live without reload). On the Circle page I ticked Consult Arcane Texts and Act Bizarre (not Collect Oddities) and sent the report: it showed the 'Report sent' status, a log line and an Amend button. Posted a notebook field entry 'Closing note: the last change' (heading, bold, list, quote). Said at the table that my report is in. Logged F115 (praise: report filing) and F116 (ux: no text-line field, same as F106). Appended to memory/dev.md. Nothing failed; no console errors. Seen but not re-logged: Pontius still on my Circle page with a Propose button (already F112).",
+   "findings": [
+    "F115",
+    "F116"
+   ],
+   "blocked": ""
+  }
+ ],
+ "dm": {
+  "summary": "At the start of the turn my desk was current without a reload. All four report cards showed 'Report filed', and Dev's notebook closing note was the newest log line. I flipped every card and read it. Cass ticked Do Something Illegal; Bram ticked Protect Someone; Dev ticked Consult Arcane Texts and Act Bizarre; Ada ticked Reference Research and Make a Plan. The Illumination card read: questions +3, 'Keys: some investigators (4 of 5) +2', Total +5. That matches FAQ.md and p. 55. I pressed 'Add 5 Illumination' once. The track went from 0 to 5/12 and the button became an 'Added 5 Illumination' status. The question ticks locked. The log showed 'The Lantern Wall gains 5 Illumination (0 to 5).', then 'The Lantern Wall milestone 3 reached!', even though milestones do nothing for our circle (its ability is Nobody Left Behind). The track did not fill, so there was no advance. The site says nothing about Pontius's missing fifth report: no warning at Add, and none in the End Assignment confirm. The only clue is '4 of 5' in the tally. His card shows an empty dashed box, because 'No report yet' is screen-reader-only text. End Assignment took two presses and worked. It cleared the dispatch, the clock name, the hourglass, the reports, the tally and the ticks, plus gear, spends (now 0/2) and ability uses. Illumination stayed at 5/12 and resources stayed at 3/4/5 of 6. Drives were not refilled, and the Timer switch was left on. I told the table what changed and what they can spend between assignments. No console errors, no reload, and I did not need start_all.sh.",
+  "findings": [
+   "F117",
+   "F118",
+   "F119",
+   "F120",
+   "F121",
+   "F122"
+  ],
+  "blocked": "",
+  "state": "Assignment 'The Drowned Choir' ended at 04:27. Illumination 5/12 (added once, logged), no advance. Reports are closed and cleared, the dispatch is blank, the hourglass is at 0 with no clock name, and the Timer switch is still on at 0:00. Spending is OPEN for between-assignment spends, up to two each. Circle resources: Stitch 3, Refresh 4, Train 5 (of 6; the max counts Pontius). Marks: Bram Body 1, Cass Body 1; nobody has a scar. Drives: Ada N1 C4 I3/4; Bram N3/5 C1 I2/3; Cass N1/3 C4 I2/2; Dev N0 C3 I6/6. Every player's gear is empty, spends are 0/2 and ability uses are reset. Pontius Aganus is still on the roster and the Circle page.",
+  "story_so_far": "The Lantern Wall went to Saltmere, where drowned bells rang under the mud. Bram and Ada read the flats and found the bell rope. In the choirmaster's lodging, Ada saw that the dead were writing the hymn sheet through Abel, Cass opened the cabinet and took the tower keys, and Dev found the change book that was one row short. As the tide turned they raced to the bell tower. Dev held the choir's attention by singing his grandmother's verse back at it, then rang the last change on Maren's handbell. That freed the choir, and the circle carried out the three missing fishermen alive. The book and the bell went to the Chapter. The reports are in, the circle gained 5 Illumination, and the assignment is closed.",
+  "for_players": "1. Without reloading, check that your Circle page shows Illumination 5/12, reports closed, and log lines for the gain and for 'Assignment ended'. 2. Check your sheet: gear empty, ability uses reset, 'Circle spends this assignment 0 / 2', drives unchanged. 3. If you want, spend up to two from the circle's kit on the Circle page (Stitch clears your marks, Refresh restores your drives and resistance, Train banks a die for the next assignment). 4. Say at the table what you spent, or that you are done.",
+  "prompts": {
+   "ada": "Check that 5/12 and the 'some, not all' keys rule match p. 55, and whether the book refills drives between assignments (the site does not). Spend if you want; you have no marks.",
+   "bram": "Your Body mark stands and you have Nerve 3 of 5: tap Stitch and/or Refresh on the Circle page (up to two), then say so at the table.",
+   "cass": "Your Body mark stands and you have Nerve 1 of 3: Stitch and/or Refresh if you want. Try double-tapping a spend and the 0/2 counter after End Assignment.",
+   "dev": "You have Nerve 0: Refresh or Train if you want. Note the end of the assignment in the notebook and check that your Circle page shows 5/12 and reports closed."
+  }
+ }
+}

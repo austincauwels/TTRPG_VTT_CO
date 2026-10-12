@@ -1,0 +1,50 @@
+{
+ "players": [
+  {
+   "summary": "Desk was current without reload (5/12, blank dispatch, gear cleared with a Why empty tooltip, report ticks cleared, other players' Stitch/Refresh counts live). Checked 5/12 and the some/all keys rule against p.55 as the FAQ cites it (1 per yes question, 2 for some keys, 4 for all): correct, 3+2=5; Pontius's missing report is why it was some (F104). I cannot confirm from the book text here whether drives refill between assignments; the site does not refill them (my Intuition stayed 3/4) and says nothing about it. I spent a Refresh (two presses, the confirm lapsed once, as in F093) and Intuition went 3 to 4/4 with spends 1/2. No advancement dialog was offered at 5/12 (correct), so Later could not be tested. Notebook shows 4 entries and the Lightkeeper by login name. No console errors. Logged F127-F129. Exit notes appended to memory/ada.md.",
+   "findings": [
+    "F127",
+    "F128",
+    "F129"
+   ],
+   "blocked": "",
+   "character_name": "Ada Quill",
+   "state": "Nerve 1/1, Cunning 4/4, Intuition 4/4, resistances Cunning 1 and Intuition 1 full, no marks, no scars, gear empty (choose next assignment), circle spends 1 of 2, ability uses reset."
+  },
+  {
+   "summary": "My desk was current without a reload after End Assignment: Illumination 5/12, dispatch blank, reports closed. I spent Stitch (Body mark cleared) and Refresh (Nerve 5/5, Intuition resistance back to 1 of 1), which used both my spends (2/2). I told the table. The first Stitch attempt failed because the Press again confirm lapsed before my second tap; it worked when I tapped twice in a row. My sheet matches what the Lightkeeper said: no marks, drives full, gear empty with a 'Why empty' note, and Behind Me unused. No advancement was offered at 5/12, so I could not test the advancement dialog or what Later does. I looked at the Circle page and the Notebook (4 field entries). I appended my turn entry and exit notes to /home/user/pt3/memory/bram.md. seat.js reached my browser, so no restart was needed.",
+   "findings": [
+    "F123",
+    "F124",
+    "F125",
+    "F126"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Looked first without reloading: the Circle page and sheet matched what the LK said (Illumination 5/12, spends 0/2, Stitch/Refresh/Train counts, no dispatch or hourglass). After End Assignment the sheet showed Body 1/3 and Nerve 1/3 still, gear empty. I double-clicked Spend 1 Stitch: it only arms. Double-clicking the armed button spent exactly one (Stitch 2 to 1, spends 1/2) and cleared my Body mark. Refresh the same way took Nerve to 3/3 and spends to 2/2, which greyed all three spends with 'You have spent both of your two'. A confirm click about 300ms after arming was silently dropped (F134). I also accepted Dev's Rival with a double-click and got one acceptance. No advancement dialog was offered at 5/12, so I could not test the dialog or Later (F137). The roll tray still shows the old Move roll after End Assignment (F135). The notebook contents and entry page clip at 1366x768 (F136, same as F092). I read Dev's closing note. I logged F133 to F138, said my spends at the table, and wrote my memory entry and exit notes. No console errors and no restart needed.",
+   "findings": [
+    "F133",
+    "F134",
+    "F135",
+    "F136",
+    "F137",
+    "F138"
+   ],
+   "blocked": "",
+   "character_name": "Cass Moreau",
+   "state": "No marks or scars. Nerve 3/3, Cunning 4/4, Intuition 2/2. Resistance Nerve 1, Cunning 1, Intuition none. Gear empty, to be chosen next assignment. Scout unused. Circle spends 2/2 (Stitch and Refresh used)."
+  },
+  {
+   "summary": "Opened with look and the desk was current without reloading: it showed Bram's and Ada's Stitch and Refresh spends in the log, and the Circle page showed 5/12, reports closed, and Send report disabled. Sheet after End Assignment: gear empty with a clear Why-empty tooltip, Ritual available again, drives Nerve 0/1, Cunning 3/3, Intuition 6/6 and resistances as the tide left them, no marks or scars, Pontius still listed. I spent Train: spends 1/2, circle Train 5 to 4, log line live. No advancement dialog appeared at 5/12, so I could not check what Later does. The notebook already holds my closing note, which records the end of the assignment and the report. Logged F130 (Train wording differs between card, log and roll buttons), F131 (praise, after-state matches the Lightkeeper), F132 (no record of filed keys on the Circle page, plus advancement untestable at 5/12). The errors command was clean. I appended my memory entry and exit notes (three that worked, three that got in the way) to memory/dev.md.",
+   "findings": [
+    "F130",
+    "F131",
+    "F132"
+   ],
+   "blocked": "",
+   "state": "Dev Lindqvist: Nerve 0/1, Cunning 3/3, Intuition 6/6, resistances Cunning 1 and Intuition 2, no marks or scars, no gear (cleared), Ritual unused, 1 Train die banked, spends 1/2.",
+   "character_name": "Dev Lindqvist"
+  }
+ ]
+}

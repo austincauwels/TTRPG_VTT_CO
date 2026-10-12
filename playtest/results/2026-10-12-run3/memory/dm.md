@@ -79,3 +79,15 @@
 - Sheets now: Ada N1 C4 I3/4, no marks. Bram N3/5 (res1) C1 I2/3 (Int res 0), Body 1, spends 1/2. Cass N1/3 (res1) C4/4 I2/2, Body 1, spends 0/2. Dev C3/3 I6/6 res full (Refreshed), N 0, spends 1/2. Resources Stitch 3, Refresh 4, Train 5 (max 6).
 - Findings: F102 praise (closing a scene quick), F103 (hourglass with timer on hides tension), F104 (Pontius blocks +4 keys), F105 (question ticks not logged).
 - Next: check reports arrive live on the cards and the keys line updates; press Add N Illumination once (expect 3 + 2 = 5 if some keys; check log line 'The Lantern Wall gains N Illumination'); check milestone 3 behaviour (gold milestones 3/6/9); Lock spending?; then End Assignment (two presses; its confirm should warn if Illumination not added). Watch whether players see the questions' ticks (they get no log line).
+
+## Turn 9 (Wrap) - Illumination added, assignment ended
+- Desk live at start (no reload): all four reports 'Report filed', Dev's notebook closing note as newest log line. No console errors all turn; seat reachable (no start_all).
+- Read all report cards: Cass Do Something Illegal; Bram Protect Someone; Dev Consult Arcane Texts + Act Bizarre; Ada Reference Research + Make a Plan. Pontius: 'No report yet' (sr-only; visually an empty dashed box).
+- Tally: questions +3, 'Keys: some investigators (4 of 5) +2', Total +5 = correct by FAQ/p. 55. Pressed Add 5 Illumination (04:26): 0 -> 5/12, 'Added 5 Illumination', question ticks disabled, log 'The Lantern Wall gains 5 Illumination (0 to 5).' + 'milestone 3 reached!' (meaningless: our ability is Nobody Left Behind). No advance (track not full).
+- Missing Pontius report: no warning at Add or End; only '4 of 5' in the tally (F118, with F104).
+- End Assignment (04:27, two presses): confirm had no Illumination warning (already added). Cleared dispatch, clock name, tension, reports+tally+ticks, gear, spends (0/2), ability uses. Illumination kept 5/12. Resources unchanged Stitch 3, Refresh 4, Train 5 of 6 (refill only when track fills). Drives NOT refilled (Bram Nerve 3/5). Timer switch still on at 0:00 (F122). Spending still OPEN (between-assignment spends, up to two each).
+- Did not press 'Reset drive and ability uses' on any sheet (F121: no rule for it).
+- Table #73-75: told players 5/12, milestone line means nothing, assignment ended, what their sheets show, spends between assignments (Stitch for Bram/Cass Body marks, Refresh for drives, Train banks a die).
+- Sheets now: Ada N1 C4 I3/4 no marks. Bram N3/5 C1 I2/3, Body 1, spends 0/2. Cass N1/3 C4 I2/2, Body 1, spends 0/2. Dev N0 C3 I6/6, spends 0/2. Gear empty for all. Illumination 5/12.
+- Findings this turn: F117 praise (tally+Add), F118 ux (missing fifth report silent), F119 ux (milestone line), F120 praise (End Assignment), F121 ux (drives / Reset button unclear between assignments), F122 ux (timer switch stays on).
+- Watch next: players' between-assignment spends land live on the Circle page (counts 3/4/5 drop, log lines); whether spends 0/2 allows two more after spending 1 during the assignment; Lock spending when done; Pontius still on roster (remove? F030/F044).
