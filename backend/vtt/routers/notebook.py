@@ -26,6 +26,7 @@ from vtt.auth import (
     MEMBER_STATUSES, campaign_facts, campaign_or_404, character_facts, character_or_404, forbidden,
     get_current_user, is_gm, require_gm_or_member, require_owner,
 )
+from vtt.config import GM_AUTHOR
 from vtt.db import get_db
 from vtt.schemas import NotebookEntryCreate, NotebookEntryResponse, NotebookEntryUpdate
 from vtt.sketch_scenes import read_png, read_scene
@@ -52,7 +53,7 @@ def _require_writer(db: Session, user: User, campaign_id: int, character_id, gm_
 
     A player writes as one of their own characters, which must be an active member
     of this campaign; character_id is required. The GM may write
-    without a character, under their username (what the frontend already sent)."""
+    without a character, as The Lightkeeper, never by login name."""
     campaign = campaign_or_404(db, campaign_id)
     require_gm_or_member(db, user, campaign)
     gm = is_gm(user.id, campaign)
@@ -68,7 +69,7 @@ def _require_writer(db: Session, user: User, campaign_id: int, character_id, gm_
     if gm_entry and not gm:
         raise forbidden()
     if character is None:
-        return user.username, 'Caveat', '#1a1a1a'
+        return GM_AUTHOR, 'Caveat', '#1a1a1a'
     return character.name, character.pen_font or 'Caveat', character.ink_color or '#8b1a1a'
 
 

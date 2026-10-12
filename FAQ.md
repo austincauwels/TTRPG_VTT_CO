@@ -249,7 +249,7 @@ Auto-applying effects (Well-Read, gilded refresh) are resolved server-side immed
 
 ### How does the notebook work?
 
-Each campaign has a shared field notebook. Entries are paginated and ordered by `page_number` (assigned sequentially on creation). Players and the GM can each add entries with their own pen font and ink color.
+Each campaign has a shared field notebook. Entries are paginated and ordered by `page_number` (assigned sequentially on creation). Players and the GM can each add entries with their own pen font and ink color. The Lightkeeper's entries are signed "The Lightkeeper" for everyone (byline, author filter, log lines); players never see her login name.
 
 Entry types: `field_log`, `ephemeral`, `lightkeeper`, `sketch`, `photo`.
 

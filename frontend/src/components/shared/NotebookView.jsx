@@ -228,7 +228,7 @@ function useLinesThatFit() {
     const measure = () => {
       const narrow = typeof window.matchMedia === 'function' && window.matchMedia(NARROW_TOC).matches;
       const fits = Math.floor((node.clientHeight + TOC_GAP) / ((narrow ? TOC_ROW_NARROW : TOC_ROW) + TOC_GAP));
-      setCount(Math.max(3, fits));
+      setCount(Math.max(1, fits));
     };
     measure();
     if (typeof ResizeObserver !== 'undefined') {
@@ -624,7 +624,17 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
 
   const authorFont  = isGM ? GM_PEN_FONT  : (character?.pen_font  || GM_PEN_FONT);
   const authorColor = isGM ? GM_INK_COLOR : (character?.ink_color || 'rgb(var(--c-oxblood))');
-  const authorName  = isGM ? (accessSession?.name || 'Lightkeeper') : (character?.name || 'Unknown');
+  const authorName  = isGM ? ('The Lightkeeper') : (character?.name || 'Unknown');
+
+  // Bring an entry's card into view once its page has drawn it, and move focus to it
+  const showEntry = (id, block = 'start') => {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const card = [...document.querySelectorAll(`[data-entry-id="${id}"]`)].find(n => n.offsetParent !== null);
+      if (!card) return;
+      card.scrollIntoView({ block, behavior: 'auto' });
+      card.focus({ preventScroll: true });
+    }));
+  };
 
   const handleSubmitEntry = () => {
     if (isSubmitting) return;
@@ -696,13 +706,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
       setCurrentSpread(Math.floor((at === -1 ? entries.length : at) / perSpread) + 1);
       // The window keeps its offset when the book turns, so the new entry may lie screens
       // down: bring it into view once the page has drawn it, and move focus to it.
-      const id = result.entry.id;
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const card = [...document.querySelectorAll(`[data-entry-id="${id}"]`)].find(n => n.offsetParent !== null);
-        if (!card) return;
-        card.scrollIntoView({ block: 'center', behavior: 'auto' });
-        card.focus({ preventScroll: true });
-      }));
+      showEntry(result.entry.id, 'center');
     } else if (!result.tooLarge) {
       setSubmitError('The entry was not saved. Check your connection and try again; your text is still here.');
     }
@@ -1188,7 +1192,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                       : entry.author_name === authorName;
                     return (
                       <li key={entry.id} className="group shrink-0 w-full flex flex-wrap items-center gap-x-1" style={{ minHeight: TOC_ROW }}>
-                        <button onClick={() => setCurrentSpread(entrySpread(entry))}
+                        <button onClick={() => { setCurrentSpread(entrySpread(entry)); showEntry(entry.id); }}
                           className="flex-1 min-w-0 flex items-center gap-2 px-2 text-left rounded-sm hover:bg-ink/[0.04] transition-colors"
                           style={{ minHeight: TOC_ROW }}
                         >

@@ -523,3 +523,22 @@ def test_ws_connect_recreates_missing_circle_one(client, monkeypatch):
             assert (p["id"], p["name"], p["stitch"]) == (1, "The Order of Light", 1)
         with Session() as s:
             assert s.get(Circle, 1).name == "The Order of Light"
+
+
+def test_init_db_signs_old_lightkeeper_entries_the_lightkeeper(client):
+    """Entries the Lightkeeper wrote before #54 carry her login name; startup re-signs them.
+    A player's entry is left alone."""
+    from models import NotebookEntry
+    from vtt.db import SessionLocal
+    camp = support.new_campaign(client)
+    with SessionLocal() as s:
+        gm_row = NotebookEntry(campaign_id=camp["id"], title="old", content="", author_name="old_login",
+                               author_type="gm", entry_type="lightkeeper", visibility="gm_only", page_number=1, created_at="2026-10-12")
+        pl_row = NotebookEntry(campaign_id=camp["id"], title="mine", content="", author_name="Ada Quill",
+                               author_type="player", entry_type="field_log", visibility="all", page_number=2, created_at="2026-10-12")
+        s.add_all([gm_row, pl_row])
+        s.commit()
+        ids = (gm_row.id, pl_row.id)
+    main.init_db()
+    assert support.fetch(NotebookEntry, ids[0]).author_name == "The Lightkeeper"
+    assert support.fetch(NotebookEntry, ids[1]).author_name == "Ada Quill"

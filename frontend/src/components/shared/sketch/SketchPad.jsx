@@ -178,8 +178,21 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
       }
       if (!appState.activeTool.locked) api.setActiveTool({ type: now, locked: true });
     }
+    // After Escape ends a label it stays selected, and the next Text click would reopen it
+    // and overwrite it: let go of it, as picking the Text button does
+    if (now === 'text' && !appState.editingTextElement && Object.values(appState.selectedElementIds || {}).some(Boolean)) {
+      api.updateScene({ appState: { selectedElementIds: {} } });
+    }
     if (anyPopupOpen(appState)) api.updateScene({ appState: CLOSED_POPUPS });
   }, [api, initialElements]);
+
+  // With the Text tool, a click while a label is open only closes it in Excalidraw: close it
+  // first, so that same click starts the next label
+  const finishLabel = (e) => {
+    if (lastTool.current !== 'text') return;
+    const editor = wrapRef.current?.querySelector('textarea.excalidraw-wysiwyg');
+    if (editor && e.target !== editor) editor.blur();
+  };
 
   const pickTool = (type) => {
     lastTool.current = type;
@@ -331,7 +344,8 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
       </div>
 
       {/* The paper: Excalidraw's canvas is clear, so the sheet's own paper shows through */}
-      <div ref={wrapRef} className="sketch-canvas relative flex-1 min-h-0" onDragOverCapture={refuseFiles} onDropCapture={refuseFiles}>
+      <div ref={wrapRef} className="sketch-canvas relative flex-1 min-h-0" onDragOverCapture={refuseFiles} onDropCapture={refuseFiles}
+        onPointerDownCapture={finishLabel}>
         <div className="absolute inset-0">
           <Excalidraw
             excalidrawAPI={setApi}

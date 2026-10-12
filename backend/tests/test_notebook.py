@@ -31,7 +31,9 @@ def _add(client, campaign_id, headers=None, **fields):
 
 
 def _gm_name(campaign):
-    return support.fetch(User, support.gm_id(campaign)).username
+    """The Lightkeeper signs as that, never her login name (playtest 3, #54)"""
+    assert support.fetch(User, support.gm_id(campaign)).username != "The Lightkeeper"
+    return "The Lightkeeper"
 
 
 def _post(client, campaign_id, headers, **fields):
@@ -91,7 +93,7 @@ def test_add_entry_writes_only_as_the_caller(client):
     The character must be the caller's own and a member of the campaign, a player
     must name one, and Lightkeeper entries (author_type gm, entry_type lightkeeper,
     visibility gm_only) are for the GM. The author name is set by the server: the
-    character's name, or the GM's username (what the frontend sent). author_type is
+    character's name, or 'The Lightkeeper' for the GM (never the login name). author_type is
     still client text within those rules."""
     camp = support.new_campaign(client)
     member = support.active_member(client, camp)
