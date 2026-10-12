@@ -138,10 +138,11 @@ The code uses different names for two actions. The code's `sneak` is the ruleboo
 
 ### 17. Train is spent automatically on the next roll
 
-- App: spending Train sets `train_bonus`, and the very next roll of that character (any roll, secret or not) gets +1d. `gm_end_assignment` clears an unused bonus.
+- App: spending Train sets `train_bonus`, and the very next roll of that character (any roll, secret or not) gets +1d. `gm_end_assignment` clears an unused bonus (no longer, since 2026-10-12: see the last line of this item).
 - Rulebook (p. 41): Train is "a d6 that may be used on any roll in the next assignment."
 - Suggested fix: let the player choose the roll (a flag on the roll message), and keep the bonus until it is used in the next assignment.
 - Done (2026-10-06): Train is a chip the player picks on a roll ("Train" in ability_mods, or use_train); it adds a die once and is otherwise kept until the Lightkeeper ends the assignment. Since 2026-10-07 each Train spent is its own die (characters.train_dice), so a player who spends Train twice has two.
+- Changed (2026-10-12, fix round 4, decision 2): a bought Train die is kept until a roll uses it; `gm_end_assignment` no longer clears `train_bonus` or `train_dice`, so a Train bought while the assignment was open is not lost. Only the spend count starts again. Retiring a campaign still drops the Train dice of each investigator it lets go.
 
 ### 18. Refresh also resets ability uses
 

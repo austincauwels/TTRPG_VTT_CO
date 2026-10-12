@@ -590,9 +590,9 @@ export const CircleView = () => {
   // resource-spend-no-guard). The question stays until the player presses elsewhere, presses
   // Escape or moves focus away, like every other confirm (ConfirmAction.jsx): it lapsed after
   // four seconds, and every player lost spends to it (playtest 3, spend-confirm-lapses-fast).
-  // A press elsewhere is read on its click, not as the pointer goes down: the question's line
-  // under the button goes when it disarms, and the buttons below would move up under the
-  // finger before its click landed. A press on another resource asks about that one.
+  // A press elsewhere is read on its click, not as the pointer goes down, and the question's
+  // line under each button keeps its space, so nothing moves under the finger as it arms or
+  // disarms. A press on another resource asks about that one.
   const SPEND_ASK = 'Press again to spend it. It is spent for the whole circle.';
   const [confirmKey, setConfirmKey] = useState(null);
   useEffect(() => {
@@ -950,8 +950,11 @@ export const CircleView = () => {
                       : confirmKey === key ? `Press again: spend 1 ${label}` : `Spend 1 ${label}`}
                   </button>
                 )}
-                {!isGM && confirmKey === key && (
-                  <p className="mt-1 font-serif text-sm italic leading-snug text-sepia">{SPEND_ASK}</p>
+                {/* Its line is always there while spending is open, and only shown while
+                    asking: arming one resource and then another moved the second button up
+                    under the finger, and its second press landed on the line below it */}
+                {!isGM && !spendBlock && (
+                  <p aria-hidden="true" className={`mt-1 font-serif text-sm italic leading-snug text-sepia ${confirmKey === key ? '' : 'invisible'}`}>{SPEND_ASK}</p>
                 )}
               </div>
             );
