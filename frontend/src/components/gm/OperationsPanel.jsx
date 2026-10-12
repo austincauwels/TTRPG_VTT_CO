@@ -37,7 +37,7 @@ export const OperationsPanel = () => {
   const [finalizeError, setFinalizeError] = useState('');
   // The circle was finalized at this desk just now: its seal is pressed in on the sealed slip
   const [sealedNow, setSealedNow] = useState(false);
-  const { logout, setStage, accessSession, lastPlayedCampaign, campaignRoster, fetchRoster, approveInvestigator, rejectInvestigator, connect, socket,
+  const { logout, setStage, accessSession, lastPlayedCampaign, campaignRoster, fetchRoster, approveInvestigator, rejectInvestigator, releaseMember, connect, socket,
           activityLog, circle, circleCreation, finalizeRoster, fetchCircleCreationState } = useGameStore();
 
   const rosterFinalized = campaignRoster?.roster_finalized === true;
@@ -74,6 +74,23 @@ export const OperationsPanel = () => {
     const waiting = campaignRoster.pending_investigators || [];
     if (!waiting.some(p => p.id === selectedInvestigator.id)) setSelectedInvestigator(null);
   }, [campaignRoster.pending_investigators]);
+
+  // A member released at another desk, or whose player left, has no sheet here to show
+  useEffect(() => {
+    if (selectedInvestigator?.status !== 'active') return;
+    const members = campaignRoster.active_investigators || [];
+    if (!members.some(m => m.id === selectedInvestigator.id)) setSelectedInvestigator(null);
+  }, [campaignRoster.active_investigators]);
+
+  // Releasing a member closes their sheet; the desks follow investigator_released
+  const handleRelease = async (characterId) => {
+    const result = await releaseMember(characterId);
+    if (result.success) {
+      setSelectedInvestigator(null);
+      fetchRoster(activeCampaignId);
+    }
+    return result;
+  };
 
   // The store actions resolve to false when the server refused or could not be reached
   const REQUEST_FAILED = 'That did not go through. Check your connection, then try again.';
@@ -181,6 +198,7 @@ export const OperationsPanel = () => {
                   // a request's sheet carries the decision, and closes once it is made
                   onApprove={async (id) => { if (await handleStamp(id)) setSelectedInvestigator(null); }}
                   onReject={async (id) => { if (await handleReject(id)) setSelectedInvestigator(null); }}
+                  onRelease={handleRelease}
                   busy={requestBusy}
                   error={requestError}
                 />
