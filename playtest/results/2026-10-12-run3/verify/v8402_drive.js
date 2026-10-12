@@ -1,0 +1,36 @@
+const L = require('./v8402_lib');
+(async () => {
+  const { state, sql } = L;
+  sql(`update circles set resources_editable=true, refresh=3 where id=${state.camps.S.circleId}`);
+  const browser = await L.launch();
+  const seat = await L.openSeat(browser, 'tablet', { store: await L.storeFor('pb', 'b', 'S') });
+  const { page } = seat;
+  await L.sleep(5000);
+  const sr = async () => page.evaluate(() => [...document.querySelectorAll('.sr-only')].map((e) => e.textContent).filter((t) => /^(Nerve|Cunning|Intuition):/.test(t)));
+  console.log('SR before', await sr());
+  const pip = page.getByRole('button', { name: 'Set Nerve available to 1' });
+  console.log('pip count', await pip.count());
+  const n0 = seat.frames.length;
+  await pip.tap();
+  await L.sleep(1500);
+  console.log('sent', L.parsed(seat, 'out', n0).map((x) => JSON.stringify(x.m)));
+  console.log('recv', L.parsed(seat, 'in', n0).map((x) => JSON.stringify(x.m).slice(0, 200)));
+  const nerve = page.locator('.drive-row').first();
+  await nerve.scrollIntoViewIfNeeded();
+  await L.shot(page, 'drive_01_after_tap', { clip: await page.locator('.drive-row').first().locator('xpath=../..').boundingBox() });
+  // Refresh: spend over a second socket as the same player
+  sql(`update characters set cunning_current=1, intuition_current=2 where id=${state.chars.b.id}`);
+  const ws = await L.wsOpen(state.chars.b.id, state.users.pb.token);
+  await L.sleep(800);
+  const n1 = seat.frames.length;
+  ws.send('spend_resource', { resource_type: 'refresh' });
+  await L.sleep(2000);
+  console.log('ws frames', ws.frames.map((m) => JSON.stringify(m).slice(0, 160)));
+  console.log('page recv', L.parsed(seat, 'in', n1).map((x) => x.m.type + ' ' + (x.m.payload?.message || '') + ' nerve ' + x.m.payload?.nerve_current + '/' + x.m.payload?.nerve_max));
+  ws.close();
+  console.log('SR after refresh', await sr());
+  console.log('DB', sql(`select nerve_current,nerve_max,cunning_current,intuition_current from characters where id=${state.chars.b.id}`));
+  await page.locator('.drive-row').first().scrollIntoViewIfNeeded();
+  await L.shot(page, 'drive_02_after_refresh', { clip: await page.locator('.drive-row').first().locator('xpath=../../..').boundingBox() });
+  await browser.close();
+})().catch((e) => { console.error(e); process.exit(1); });
