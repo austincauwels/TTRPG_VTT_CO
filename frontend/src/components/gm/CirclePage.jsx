@@ -36,7 +36,7 @@ import { TurnOverMark } from '../shared/Decorations';
 import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankEntry, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
-import { tallyReports, tallyOf } from '../../game/illumination';
+import { tallyReports, tallyOf, unfiledNames, notFiledLine } from '../../game/illumination';
 import { reportingMembers } from '../../game/roster';
 import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
 
@@ -334,6 +334,9 @@ export const CirclePage = () => {
   const thisTally = tallyOf(circle);
   const answers = thisTally.answers;
   const tally = tallyReports(investigators, reports, answers);
+  // Who has not filed, named over Add Illumination, which does not wait for them (decision
+  // 5, playtest 3, missing-report-silent)
+  const notFiled = notFiledLine(unfiledNames(investigators, reports));
   const addTally = () => {
     if (tally.total <= 0 || thisTally.added != null) return;
     gmAddTally(circId, tally.keys);
@@ -552,6 +555,9 @@ export const CirclePage = () => {
               <p className="font-serif italic text-xs text-sepia leading-snug">
                 Keys are worth 2 when some of you fulfilled one, 4 when all of you did (p. 55). A report not filed counts as no key.
               </p>
+              {thisTally.added == null && notFiled && (
+                <p className="font-serif text-sm text-oxblood leading-snug">{notFiled}</p>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                 <span className="font-sans font-black text-xs uppercase tracking-widest text-ink">Total +{tally.total}</span>
                 {thisTally.added != null ? (
