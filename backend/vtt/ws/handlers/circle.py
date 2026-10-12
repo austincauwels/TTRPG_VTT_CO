@@ -23,7 +23,9 @@ async def handle_submit_assignment_report(ctx):
     (rulebook p. 54). One each, while the Lightkeeper has reports open; another replaces
     it only when it says so (replace: true, the form's Amend), so a stray Send no longer
     wipes a filed report (playtest, 2026-10-09). It goes to the Lightkeeper and back to
-    its author, never to the other players (vtt/assignment.py)."""
+    its author, never to the other players (vtt/assignment.py). It may carry a short line
+    on what happened (note, checked in vtt/ws/access.py), kept only when it says something;
+    an amended report without one has none (playtest 3, report-text-line)."""
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     char_id = payload.get("character_id")
@@ -51,6 +53,9 @@ async def handle_submit_assignment_report(ctx):
             # reload too, with when it was filed for its date stamp
             report = {"character_name": reporter_name, "responses": responses,
                       "submitted_at": datetime.now(timezone.utc).isoformat()}
+            note = (payload.get("note") or "").strip()
+            if note:
+                report["note"] = note
             reports[str(char_id)] = report
             existing[REPORTS] = reports
             target_circle.backstory_answers = existing

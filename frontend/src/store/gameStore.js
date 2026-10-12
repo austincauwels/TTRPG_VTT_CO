@@ -1230,7 +1230,7 @@ const useGameStore = create(
           else if (message.type === 'assignment_report_submitted') {
             // A report filed: the Lightkeeper's desk and its author's get it. The author's
             // form shows what was filed, and its draft goes.
-            const { character_id, character_name, responses, submitted_at } = message.payload;
+            const { character_id, character_name, responses, submitted_at, note } = message.payload;
             const own = character_id === get().character?.id;
             set(state => {
               const drafts = { ...state.reportDrafts };
@@ -1240,7 +1240,7 @@ const useGameStore = create(
                   ...state.circleCreation,
                   reports: {
                     ...(state.circleCreation.reports || {}),
-                    [character_id]: { character_name, responses, submitted_at },
+                    [character_id]: { character_name, responses, submitted_at, ...(note ? { note } : {}) },
                   },
                 },
                 ...(own ? { reportDrafts: drafts, reportSending: false, reportError: null } : {}),
@@ -1767,14 +1767,15 @@ const useGameStore = create(
       },
 
       // replace: an amended report, which takes the place of the one filed (the server
-      // refuses a second report without it)
-      submitAssignmentReport: (circleId, characterId, responses, { replace = false } = {}) => {
+      // refuses a second report without it). note: the report's optional line on what
+      // happened (playtest 3, report-text-line)
+      submitAssignmentReport: (circleId, characterId, responses, { replace = false, note = '' } = {}) => {
         const { socket, reportSending } = get();
         if (reportSending) return false;
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'submit_assignment_report',
-            payload: { circle_id: circleId, character_id: characterId, responses, ...(replace ? { replace: true } : {}) },
+            payload: { circle_id: circleId, character_id: characterId, responses, ...(note.trim() ? { note } : {}), ...(replace ? { replace: true } : {}) },
           }));
           set({ reportSending: true, reportError: null });
           // An answer that never comes (a dead socket) does not lock the form

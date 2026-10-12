@@ -29,3 +29,16 @@ export const tallyOf = (circle) => {
   const answers = Array.isArray(t?.answers) && t.answers.length === 3 ? t.answers.map(a => a === true) : [false, false, false];
   return { answers, added: Number.isInteger(t?.added) ? t.added : null };
 };
+
+// The living investigators with no report filed, by name: Add Illumination and End
+// Assignment say "Not filed: Ada Quill." in their confirm step, and neither waits for them
+// (Robert's decision 5, playtest 3, missing-report-silent)
+export const unfiledNames = (investigators, reports) => (investigators || [])
+  .filter(inv => !inv.is_dead && !(reports?.[inv.id] ?? reports?.[String(inv.id)]))
+  .map(inv => inv.name);
+
+export const notFiledLine = (names) => (names.length ? `Not filed: ${names.join(', ')}.` : '');
+
+// Reports are due once the Lightkeeper has opened them or one has been filed; before that
+// no one is named, so the names do not stand as a warning all assignment
+export const reportsDue = (circle, reports) => !!circle?.reports_open || Object.values(reports || {}).some(Boolean);
