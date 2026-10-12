@@ -1,0 +1,23 @@
+{
+ "dm": {
+  "summary": "At the start of the turn my desk was up to date without a reload. The formation panel showed every player's votes, the four answers, Dev's chapter house and 6 of 12 relationships confirmed, with Pontius listed as 'not voted yet'. Finalize the circle took two presses. On the first press the slip said 'finalize with 5 investigators', which counts Pontius. It also said that pending relationships can still be accepted after the seal, so relationships are not needed to seal. I sealed at 03:59: The Lantern Wall, Nobody Left Behind, Candlelight. The dispatch template, the roster charter and the Activity Log all picked up the new name at once (F046 praise). Sealing keeps Pontius in the count: Stitch, Refresh and Train each show 6 of 6 and 'refill to 6 (1 plus 5 members)', and reports read 0 of 5 with a card for him (F044). I lowered each resource to 5 by hand to match the 1+4 rule, but the maximum and future refills stay at 6. Once the circle is sealed I cannot see the relationships anywhere on my desk (F047, confirmed in the source), and the formation panel's waiting line was ambiguous (F045). I sent the Template dispatch (the tidal flats of Saltmere at dusk on the lowest tide, bells under the mud). I named the tension clock 'The bells beneath the mud' and left it at 0 of 4. The timer stays off and is saved for scene 3, the tide race. I posted the opening narration (#22-24) and asked each player for one roll. There were no console errors.",
+  "findings": [
+   "F044",
+   "F045",
+   "F046",
+   "F047"
+  ],
+  "blocked": "",
+  "campaign_code": "saltmere-r3",
+  "opening": "The tide has gone out further than any of the fishermen's wives can remember. The flats run grey and shining to the edge of the light, scored with gull tracks and the ribs of a drowned punt. Three lines of bootprints lead out from the slipway, deep and steady, and each one simply stops, mid-stride, as if the mud closed over a man and smoothed itself. Two hundred yards out a bell rope stands straight up out of the silt, stiff as a mast, frayed at the top. And as the last of the sun goes, the bells start: low, slow, under your feet, eighty years under the mud. A mudlark girl picking cockles at the edge of the flats has stopped working. She is humming. So, you notice, is the back of your own throat. (Then: first actions, one each, on your desk's dice tray: Bram Move, Ada Focus, Cass Sway on Nell, Dev Sense. Spend drive if you like; tell me what you are doing as you roll.)",
+  "prompts": {
+   "ada": "Kneel at the end of the nearest line of prints and study the last print and the bell rope beyond it for anything a textbook would recognise: roll Focus (Intuition; Focus 2, gilded).",
+   "bram": "Lead the way out across the mud toward the bell rope, testing the footing before the others step: roll Move (Nerve; Move 2, gilded).",
+   "cass": "Get Nell, the mudlark girl who watched a fisherman walk out, talking before the hymn takes her: roll Sway (Cunning; Sway 2, gilded).",
+   "dev": "Close your eyes and listen to the bells and the humming beneath them: what is it, and where is it strongest? Roll Sense (Intuition; Sense 2)."
+  },
+  "for_players": "1. The circle is sealed: papers are closed and the circle is The Lantern Wall. Check that your desk shows this without a reload. 2. The dispatch to the Saltmere flats is on your desk; read it. 3. On your dice tray, pick the action named for you (Bram Move, Ada Focus, Cass Sway, Dev Sense), spend drive if you want, and roll. 4. Say at the table what your investigator does. Pending relationship proposals can still be accepted after the seal.",
+  "state": "Circle sealed at 03:59 as The Lantern Wall (Nobody Left Behind, Candlelight; chapter house in the loft above the chandler's on Wick Lane). Pontius is still on the roster. Resources are set by hand to 5 of 6 each (maximum 6). Illumination 0/12, reports closed 0 of 5, spending locked. Dispatch sent (Template, Saltmere flats at dusk). Hourglass at tension 0 of 4, named 'The bells beneath the mud'. Timer off. No marks or scars on anyone. 6 relationship proposals still pending. No dice thrown yet.",
+  "story_so_far": "Five chairs were filled, but Pontius was called away and Ada Quill took his place. The four investigators completed the formation papers and the Lightkeeper sealed them as The Lantern Wall, with a chapter house in a loft above the chandler's on Wick Lane. Their first dispatch sends them to Saltmere's tidal flats at dusk on the lowest tide. Three fishermen's bootprints end mid-stride in the mud, a bell rope stands out of the silt, and the bells of the sunken chapel have begun to ring. A mudlark girl, Nell, has started humming the hymn, and so have the investigators."
+ }
+}

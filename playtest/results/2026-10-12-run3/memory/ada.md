@@ -8,3 +8,8 @@
 - Hub updated live to "In a campaign - Play" after approval but papers did not open until I clicked it (F032). Papers: question 2 (secret goal) voted + personal answer Saved; suggested "The Citation Society", voted Lantern Wall; ability Nobody Left Behind; insignia Candlelight; proposed Coworker->Cass, Ward->Bram, Confidant->Dev (waiting); accepted Bram's Mentor. Pontius left alone. Chapter house is Dev's job. Said papers done (#19). Logged F032, F036 (starting resources 1+5 counts Pontius), plus sidebar 'Coworker' pending-label ux.
 - State: Nerve 1, Cunning 4, Intuition 4, resistances none used, no marks/scars. Gear tome, chemical kit, lantern.
 - Watching: Cass's proposal to me (accept), Dev's chapter house, seal, dispatch, then first rolls (Well-Read, Learn from My Mistakes).
+
+## Turn 3 (Round 1)
+- Desk was current at start (seal, dispatch, resources 5/6, hourglass 0/4 all shown without reload). Said my action at table (#25). Spent 1 Intuition, rolled Focus +1d: 3 dice (gilded 2, 3, 3), kept gilded 2 = Failure; gilded refresh + Well-Read both fired, Intuition back to 4/4. Logged F051-F054 (Learn from My Mistakes offered with all drives full, double refund capped, duplicate keep buttons, praise). Accepted Cass's Rival and Dev's Muse (all relationships confirmed except my Ward to Bram, waiting). Logged Pontius propose button and praise.
+- State: Nerve 1/1, Cunning 4/4, Intuition 4/4, resistances Cunning 1, Intuition 1 unused, no marks/scars. Learn from My Mistakes offer still open (USE/SKIP) - not used. Gear tome, chemical kit, lantern.
+- Watching: LK response to my failed Focus (marks?), whether the LfMM offer persists, Burn and reroll cost, Illumination, sidebar still shows my own relationship labels.

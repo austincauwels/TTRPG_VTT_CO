@@ -1,0 +1,71 @@
+{
+ "players": [
+  {
+   "summary": "Desk was current at start without reloading (seal, dispatch, resources 5/6, hourglass all shown). Said my action at the table, spent 1 Intuition and rolled Focus (gilded, 3 dice: gilded 2, 3, 3). Pool size and the gilded choice matched the rulebook; I kept the gilded 2 for a Failure. The gilded refresh and Well-Read both fired, so Intuition went back to 4/4, and the second refund was lost at the cap without explanation. Learn from My Mistakes was still offered (USE/SKIP) with every drive full, and I left it unused. I accepted Cass's Rival and Dev's Muse on the Circle page, and the 'Response needed' heading cleared at once. Only my Ward to Bram is still waiting. Logged F051 to F056. Pontius still has a live Propose button on my Circle page. The keep-die buttons appear twice in the outline, and the animated one failed a click as not stable. No console errors. Memory file updated.",
+   "findings": [
+    "F051",
+    "F052",
+    "F053",
+    "F054",
+    "F055",
+    "F056"
+   ],
+   "blocked": "",
+   "state": "Ada: Nerve 1/1, Cunning 4/4, Intuition 4/4; resistances Cunning 1 and Intuition 1 unused; no marks or scars; gear Thick Reference Tome, Chemical Kit, Lantern. Rolled Focus: Failure (gilded 2 kept). Learn from My Mistakes offer still open and unused."
+  },
+  {
+   "summary": "Looked first: my phone desk was fully current without a reload (dispatch, seal, Lantern Wall circle page with insignia and ability, resources 5 of 6 locked, Illumination 0/12, log with seal and dispatch and Ada's Focus roll). Said at the table that Bram wades out testing the mud with his rifle butt. Spent 1 Nerve (+1d), tapped Move (gilded, rating 2): 3 dice, gilded 2, 3, 4; kept the 4 for a mixed success, posted to the log live. Problems: the Keep buttons in the dice tray timed out twice on tap ('element not stable', the card keeps animating) and only a forced click worked; they are also announced twice to a screen reader. The 'a choice is waiting' badge lingered after I had kept my die. Nerve stepper resets to +0d with no sign of the spend except the pips. I did not check the Pontius relationship proposals or the From the Lightkeeper page, so I did not see any pending proposals to answer. Memory file updated.",
+   "findings": [
+    "F048",
+    "F049",
+    "F050",
+    "F055",
+    "F056"
+   ],
+   "blocked": "",
+   "character_name": "Bram Okafor",
+   "state": "Nerve 4 of 5, Cunning 1, Intuition 3, Nerve resistance 1 of 1 unused, no marks or scars, gear Heavy Firearm/Tactical Armor/Lantern, Behind Me unused. Rolled Move: mixed success."
+  },
+  {
+   "summary": "Looked first without reloading: my desk already showed the seal, Lantern Wall, Stitch/Refresh/Train 5, tension name, dispatch note, relationship cards, and Ada's and Bram's rolls; Dev's roll and photo showed later. Papers had closed. Spent 1 Cunning and double-clicked Roll Sway: one roll only (3 dice, gilded 4, 4, 3). Reloaded mid-choice: the pending Keep choice survived. Then pressed Enter twice on a focused keep die: kept once, Mixed success 4, Cunning refunded to 4/4. Reloaded at once: log and Cunning survived, but the dice tray said No dice thrown yet. No console errors. No relationship proposals were pending for me. Said at the table what Cass did and what Nell revealed. Logged F059 to F062. No reset needed.",
+   "findings": [
+    "F059",
+    "F060",
+    "F061",
+    "F062"
+   ],
+   "blocked": "",
+   "character_name": "Cass Moreau",
+   "state": "Cass Moreau, Slink/Criminal: no marks, no scars; Nerve 3/3, Cunning 4/4, Intuition 2/2; resistance Nerve 1, Cunning 1, Intuition none; gear Advanced Lockpicks, Concealed Blade, Lantern; Scout unused."
+  },
+  {
+   "summary": "Looked first without reloading: desk showed the seal, dispatch, hourglass and other rolls live (Ada, Bram, Cass rolls appeared on their own). Said my action at the table, spent 2 Intuition and rolled Sense (4 dice: 6,5,4,3), a full success; Intuition went 6 to 4, correct. Narrated the result (humming strongest under the slipway, grandmother's tune a verse early). Started the notebook with a Markdown field entry (heading, list, bold, italic, quote) plus mudflats_photo.jpg with caption; it posted and rendered well. Circle page showed Waiting for Cass and Bram on my proposals, none pending for me. No console errors. Logged 3 findings (notebook praise, Preview label ux, desk-current praise). Did not use Ritual (no marks to treat). Nothing broke; machine did not need restart.",
+   "findings": [
+    "F059",
+    "F060",
+    "F061"
+   ],
+   "blocked": "",
+   "character_name": "Dev Lindqvist",
+   "state": "Nerve 0, Cunning 3/3, Intuition 4/6, resistance Cunning 1, Intuition 2, no marks, no scars, Ritual unused, gear Arcane Texts/Ritual Dagger/Lantern"
+  }
+ ],
+ "dm": {
+  "summary": "I started with 'look' and did not reload. My desk was current: all four players' rolls (Ada's Focus 2, a failure; Bram's Move 4; Dev's Sense 6; Cass's Sway 4) were in the tray and the Activity Log, along with Dev's photograph line, the seal, The Lantern Wall and the 03:59 dispatch. The circle shows as finalized and no relationship proposals are waiting for me.\n\nI dealt Ada a Brain mark (From an enemy) from her sheet. It landed at once: the log says 'dealt Ada Quill a Brain mark (1 of 3)' and her roster card now shows 'Marks: 1 Brain'. Bram has Behind Me, so his desk may have offered to take the mark for about two minutes. Nothing on my side shows that offer, so I logged it as F069.\n\nI raised tension to 1 of 4. The open roll on 3 dice came up 2 (Failure), so the mud failed to take Nell. The secret roll on 2 dice came up 6 (Success): the choir below now knows the circle is listening. I sent Ada a private pass note about a voice in the bells that sang the name only her mother used. Then I updated and re-sent the Template dispatch (04:06) to the choirmaster's lodging, one floor below the circle's own loft above the chandler's on Wick Lane.\n\nAt the table (#32-37) I answered each roll in the story, set scene 2 and asked each player for one roll. Afterwards I set the pass note recipient back to @Circle and unticked Secret.\n\nThere were no console errors. I logged four findings:\n- F066: the hourglass has no visible number, tension 0 and 1 look almost the same, and sand already falls at 0.\n- F067: praise for how fast and clear the Lightkeeper's bookkeeping is.\n- F068: the pass note recipient stays on the last private choice after Send.\n- F069: the Lightkeeper is not told when an ally is offered Behind Me.\n\nSmall nit, not logged: a screen reader hears 'Secret : only you saw this', with a stray space before the colon. I updated my memory file.",
+  "findings": [
+   "F066",
+   "F067",
+   "F068",
+   "F069"
+  ],
+  "blocked": "",
+  "prompts": {
+   "ada": "Scene 2: study the hymn sheet 'For the Low Water' where the handwriting changes halfway down, and work out what the lower hand is really writing. Roll Read (Cunning; Read 2, gilded) on your desk's dice tray and say what you do at the table. Also read your private pass note.",
+   "bram": "Scene 2: stand at the window of Mr Abel's lodging and watch both the lane and the room; something keeps moving at the edge of your eye. Roll Survey (Intuition; Survey 2) and say what you do. If your desk offers Behind Me for someone's mark, the choice is yours.",
+   "cass": "Scene 2: pick the salt-crusted lock of the tall music cabinet without snapping a pick. Roll Control (Nerve; Control 1) and say what you do; spend Nerve if you like.",
+   "dev": "Scene 2: make sense of the choirmaster's daybook on the desk, written in old notation and older symbols. Roll Focus (Intuition; Focus 1, gilded) and say what you do; your grandmother's next verse may be in it."
+  },
+  "story_so_far": "The Lantern Wall went out to Saltmere's flats at dusk on the lowest tide. Bram found a firm line out to the warm bell rope and pulled up a scrap of choir-white surplice. Ada found that the last bootprint points back toward the shore; the bells got into her head (a Brain mark), and she alone heard a voice sing the name only her mother used. Cass got the mudlark girl Nell talking. When the mud heaved under Nell, the circle pulled her free, and she pointed them to the dead choirmaster Mr Abel's rooms on Wick Lane, humming since Tuesday. Dev heard that the choir sings under the whole shore, strongest beneath the slipway, and that the verse his grandmother hummed is the one the choir has not reached yet; the rope jerked a foot into the mud, and tension rose to 1 of 4. Scene 2 has begun: Mr Abel's lodging, one floor beneath the circle's own loft above the chandler's. In it are a hymn sheet whose handwriting changes halfway down, a salt-crusted locked music cabinet, a daybook in old notation, and humming that the harmonium in the loft above answers.",
+  "state": "Scene 2 (the choirmaster's lodging). Tension 1 of 4, clock 'The bells beneath the mud'; timer off. The new dispatch went out at 04:06 (Template, the lodging). Ada has 1 Brain mark (1 of 3), no scars; Bram, Cass and Dev have no marks or scars. No one is incapacitated. Resources are Stitch/Refresh/Train 5 each of max 6, spending locked. Illumination 0 of 12; reports closed, 0 of 5. Pontius is still on the roster. One open roll (2, Failure) and one secret roll (6, Success) are in the log; one private pass note went to Ada. Bram may have had a Behind Me offer for Ada's mark open on his desk. The dice tray is set to 2 dice with Secret off; pass notes are set to @Circle."
+ }
+}
