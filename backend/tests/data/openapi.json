@@ -3758,6 +3758,44 @@
         "summary": "Rejoin Campaign"
       }
     },
+    "/campaign/release/{character_id}": {
+      "post": {
+        "description": "Takes an approved, living investigator off the roster, at any time: the Lightkeeper\nreleases them, or their player leaves (playtest, ghost-member-no-release: nothing could,\nand a player who left stayed a counted member). The investigator goes back to its\nplayer as a retire lets it go (unaffiliated, no ink, its assignment ended); the row is\nkept, so the log, the notebook and the Circle History still read. Their circle votes,\ntheir relationships (agreed or proposed, either end) and their report for the current\nassignment go. Before the seal the resources are filled to the new pool, as an approval\nfills them; after it each is lowered to the new pool, never raised. 409 for a character\nthat is not a living active member (a dead one stays with the campaign).",
+        "operationId": "release_member_campaign_release__character_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Member"
+      }
+    },
     "/campaign/withdraw/{character_id}": {
       "post": {
         "description": "The owner takes back a join request that is still waiting: the investigator goes\nback to Not in a campaign. 409 once the Lightkeeper has answered (the player reads\nthe hub again). The Lightkeeper's desk drops the request as it does for a reject.",

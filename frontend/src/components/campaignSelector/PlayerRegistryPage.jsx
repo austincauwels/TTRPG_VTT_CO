@@ -4,6 +4,8 @@ import { UnaffiliatedCharacterRow } from './UnaffiliatedCharacterRow';
 import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
 import { useDeleteUndo } from './useDeleteUndo';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
+import { ConfirmAction } from '../shared/ConfirmAction';
+import { leaveError, leaveHint } from '../pc/LeaveCampaign';
 
 // Why a character on a roster has no Delete (read out with its unpressable control)
 const NOT_DELETABLE = { active: 'In a campaign' };
@@ -32,6 +34,43 @@ export const PlayerRegistryPage = ({
         ? `Could not reach the server, so ${char.name}'s request was not withdrawn. Check your connection and try again.`
         : `${char.name}'s request was not withdrawn. Try again in a moment.`);
   };
+  // Leaving the campaign (an approved investigator's row): the investigator comes back to
+  // Not in a campaign, and the hub says so
+  const releaseMember = useGameStore(s => s.releaseMember);
+  const setHubNotice = useGameStore(s => s.setHubNotice);
+  const [leavingId, setLeavingId] = useState(null);
+  const [leaveFailed, setLeaveFailed] = useState('');
+  const leave = async (char) => {
+    if (leavingId) return;
+    setLeavingId(char.id);
+    setLeaveFailed('');
+    const result = await releaseMember(char.id);
+    setLeavingId(null);
+    if (result.success) setHubNotice(`${char.name} left ${char.campaign_name || 'the campaign'} and is free to join another campaign.`);
+    else setLeaveFailed(leaveError(result, char.name));
+  };
+  const leaveControl = (char) => (
+    <ConfirmAction
+      className="contents"
+      hintClassName="basis-full px-3 pb-2"
+      cancelSize="min-h-[44px]"
+      cancelLabel="Stay"
+      disabled={leavingId === char.id}
+      onConfirm={() => leave(char)}
+      armedHint={leaveHint(char.name, char.campaign_name)}
+      renderButton={(armed, props) => (
+        <button
+          {...props}
+          aria-label={armed ? `Yes, ${char.name} leaves ${char.campaign_name || 'the campaign'}` : `${char.name} leaves ${char.campaign_name || 'the campaign'}`}
+          className={`shrink-0 self-center mr-1 max-sm:mb-1 min-h-[44px] min-w-[44px] px-2.5 font-sans text-xs font-bold uppercase tracking-wider rounded-sm transition-colors disabled:opacity-60 disabled:cursor-wait ${armed
+            ? 'bg-ink text-cream'
+            : 'text-sepia hover:text-ink hover:bg-sepia/10'}`}
+        >
+          {leavingId === char.id ? 'Leaving…' : armed ? 'Yes, leave' : 'Leave'}
+        </button>
+      )}
+    />
+  );
   const deleteControl = (char) => (
     <RowDelete
       name={char.name}
@@ -52,6 +91,7 @@ export const PlayerRegistryPage = ({
     <div className="flex-1 overflow-y-auto px-4 lg:px-7 py-4 space-y-5">
       <DeleteError text={removal.error} />
       <DeleteError text={withdrawError} />
+      <DeleteError text={leaveFailed} />
       <DeletedSlips deleted={removal.deleted} onUndo={removal.undo} />
       {isLoadingBook ? (
         <p className="font-serif text-xl italic text-sepia">Loading your investigators…</p>
@@ -78,6 +118,7 @@ export const PlayerRegistryPage = ({
                     <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-focus-visible:opacity-100 transition-opacity">Play →</span>
                   </button>
                   {deleteControl(char)}
+                  {!char.is_dead && leaveControl(char)}
                   </div>
                 ))}
               </div>

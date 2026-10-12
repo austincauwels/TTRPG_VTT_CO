@@ -1,5 +1,5 @@
-"""Campaign and roster routes: create, join, approve, reject, withdraw, retire, unretire, delete (and undo
-that), rejoin, invite to rejoin, roster.
+"""Campaign and roster routes: create, join, approve, reject, withdraw, release (or leave), retire,
+unretire, delete (and undo that), rejoin, invite to rejoin, roster.
 
 Every route needs a login token. Who may call what is in docs/refactor/AUTH.md.
 """
@@ -14,14 +14,14 @@ from engine import (
     ALREADY_ON_A_ROSTER, INK_COLORS, by_campaign_code, create_new_campaign, request_join_campaign,
     approve_investigator, reject_investigator, get_campaign_roster,
 )
-from models import INCLUDE_DELETED, Campaign, Character, Circle, User
+from models import INCLUDE_DELETED, Campaign, Character, Circle, CircleVote, Relationship, User
 from vtt import deletion
-from vtt.assignment import end_assignment_for
+from vtt.assignment import drop_report, end_assignment_for
 from vtt.auth import (
     campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
-    require_gm_of_character, require_gm_or_member, require_owner, require_self,
+    require_gm_of_character, require_gm_or_member, require_owner, require_owner_or_gm, require_self,
 )
-from vtt.circle_queries import fill_resources
+from vtt.circle_queries import fill_resources, lower_resources_to_pool, relationships_list, votes_dict
 from vtt.config import _ALLOWED_CAMPAIGN_CODE_RE, _SAFE_FONT_NAMES
 from vtt.db import get_db, releases_locks_on_error
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
@@ -350,6 +350,67 @@ async def withdraw_request(character_id: int, db: Session = Depends(get_db),
                     "payload": {"character_id": character_id, "pending_investigators": cards}}
         await _broadcast_named(db, campaign, frame([get_char_dict(c) for c in still]), frame(_named(db, still)))
     return {"ok": True}
+
+
+NOT_A_MEMBER = "This investigator is not a member of the campaign."
+
+
+@router.post("/campaign/release/{character_id}")
+async def release_member(character_id: int, db: Session = Depends(get_db),
+                         user: User = Depends(get_current_user)):
+    """Takes an approved, living investigator off the roster, at any time: the Lightkeeper
+    releases them, or their player leaves (playtest, ghost-member-no-release: nothing could,
+    and a player who left stayed a counted member). The investigator goes back to its
+    player as a retire lets it go (unaffiliated, no ink, its assignment ended); the row is
+    kept, so the log, the notebook and the Circle History still read. Their circle votes,
+    their relationships (agreed or proposed, either end) and their report for the current
+    assignment go. Before the seal the resources are filled to the new pool, as an approval
+    fills them; after it each is lowered to the new pool, never raised. 409 for a character
+    that is not a living active member (a dead one stays with the campaign)."""
+    facts = character_or_404(db, character_id)
+    require_owner_or_gm(db, user, facts)
+    by_player = facts.user_id == user.id
+    char = db.query(Character).filter(Character.id == character_id).populate_existing().with_for_update().first()
+    if char is None or char.status != "active" or char.campaign_id is None or char.is_dead:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=NOT_A_MEMBER)
+    campaign = db.query(Campaign).filter(Campaign.id == char.campaign_id).first()
+    circle = db.query(Circle).filter(Circle.campaign_id == char.campaign_id) \
+        .populate_existing().with_for_update().first()
+    char.status = "unaffiliated"
+    char.campaign_id = None
+    char.ink_color = ""
+    end_assignment_for(char)
+    if circle is not None:
+        db.query(CircleVote).filter(CircleVote.circle_id == circle.id, CircleVote.character_id == char.id) \
+            .delete(synchronize_session=False)
+        db.query(Relationship).filter(Relationship.circle_id == circle.id, or_(
+            Relationship.from_character_id == char.id, Relationship.to_character_id == char.id)) \
+            .delete(synchronize_session=False)
+        drop_report(circle, char.id)
+        db.flush()
+        if circle.is_finalized:
+            lower_resources_to_pool(circle, db)
+    db.commit()
+
+    active = db.query(Character).filter(
+        Character.campaign_id == campaign.id, Character.status == "active").order_by(Character.id).all()
+    who = "player" if by_player else "lightkeeper"
+    def released(cards):
+        return {"type": "investigator_released", "payload": {
+            "character_id": char.id, "character_name": char.name, "campaign_id": campaign.id,
+            "campaign_code": campaign.campaign_code, "by": who, "active_investigators": cards,
+            "votes": votes_dict(db, circle.id) if circle else None,
+            "relationships": relationships_list(db, circle.id) if circle else None}}
+    await _broadcast_named(db, campaign, released([get_char_dict(c) for c in active]), released(_named(db, active)))
+    # The investigator's own desk, which no longer counts as the campaign's
+    await manager.broadcast(character_key(char.id), {"type": "investigator_released", "payload": {
+        "character_id": char.id, "character_name": char.name, "campaign_id": campaign.id,
+        "campaign_code": campaign.campaign_code, "campaign_name": campaign.name, "by": who}})
+    await _announce_members_changed(db, campaign)
+    await log_line(db, campaign.campaign_code, campaign.id,
+                   f"{char.name} left the circle." if by_player else f"The Lightkeeper released {char.name} from the circle.")
+    return {"ok": True, "character": get_char_dict(char)}
 
 
 @router.delete("/campaign/{campaign_id}")

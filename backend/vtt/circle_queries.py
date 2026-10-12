@@ -84,6 +84,16 @@ def fill_resources(circle, db: Session = None):
         setattr(circle, key, points)
 
 
+def lower_resources_to_pool(circle, db: Session = None):
+    """Lowers each of Stitch, Refresh and Train that is above 1 plus the active members
+    to it, after a member leaves a sealed circle. Nothing goes up and nothing is
+    refunded."""
+    points = resource_pool(circle, db)
+    for key in RESOURCES:
+        if (getattr(circle, key, 0) or 0) > points:
+            setattr(circle, key, points)
+
+
 def circle_abilities(circle) -> list:
     """The circle's abilities (circle_ability holds one per line, newest last)."""
     raw = getattr(circle, "circle_ability", None) or ""

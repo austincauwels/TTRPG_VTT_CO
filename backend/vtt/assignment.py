@@ -67,6 +67,18 @@ def clear_paperwork(circle):
     circle.reports_open = False
 
 
+def drop_report(circle, character_id) -> bool:
+    """Takes a member's report for the current assignment off the circle, when they leave
+    it. True when there was one."""
+    answers = answers_of(circle)
+    reports = reports_of(answers)
+    if reports.pop(str(character_id), None) is None:
+        return False
+    answers[REPORTS] = reports
+    circle.backstory_answers = answers
+    return True
+
+
 def end_assignment_for(character):
     """What End Assignment resets on an investigator: the ability uses, the circle spends
     and the Train dice of the assignment, and the gear, which "Gear slots only reset once

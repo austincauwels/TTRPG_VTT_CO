@@ -5,6 +5,7 @@ import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ArtDecoCorner, BrassCornerFiligree } from '../shared/Decorations';
 import { InvestigatorDossier } from './InvestigatorDossier';
+import { LeaveCampaign } from './LeaveCampaign';
 import { CircleView, AdvancementModal, AdvancementWaiting } from './CircleView';
 import { NotebookView } from '../shared/NotebookView';
 import { TactileSidebar } from './TactileSidebar';
@@ -292,7 +293,7 @@ export const MainDeskView = () => {
                 <div aria-hidden="true" className={`hidden ${circleOnDesk ? '' : 'xl:block'} absolute left-8 right-8 bottom-6 h-px bg-ink/15 pointer-events-none`} />
                 <div data-desk="sheet" className={`relative px-4 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-8 xl:overflow-y-auto custom-scrollbar ${
                   circleOnDesk ? 'xl:h-full xl:px-2 xl:pt-1.5 xl:pb-1' : 'xl:px-6 xl:pt-4 xl:pb-2 xl:h-[calc(100%-1.75rem)]'}`}>
-                  {activeTab === 'character' && <InvestigatorDossier />}
+                  {activeTab === 'character' && <><InvestigatorDossier /><LeaveCampaign character={character} campaignName={campaignName} /></>}
                   {activeTab === 'circle' && <CircleView />}
                 </div>
               </div>

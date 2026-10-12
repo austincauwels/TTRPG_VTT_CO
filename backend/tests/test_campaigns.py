@@ -5,7 +5,7 @@ import pytest
 import engine
 import main
 import support
-from models import Campaign, Character, Circle, CircleVote, User
+from models import Campaign, Character, Circle, CircleVote, Relationship, User
 
 
 # --- create -----------------------------------------------------------------
@@ -815,6 +815,93 @@ def test_withdraw_refuses_an_active_member(client):
     assert r.status_code == 409
     assert support.fetch(Character, member["id"]).status == "active"
     assert client.post("/campaign/withdraw/987654321", headers=support.as_stranger()).status_code == 404
+
+
+# --- release (the Lightkeeper releases a member, or the player leaves) --------
+
+def _table_with_a_ghost(client, sealed):
+    """A campaign with members a, b and ghost, each with a vote, the ghost in an agreed and
+    a proposed relationship, a and the ghost with a report filed, and Stitch 4 of 4, Refresh 2
+    and Train 4. Sealed: the circle is finalized."""
+    camp = support.new_campaign(client)
+    a, b, ghost = (support.active_member(client, camp) for _ in range(3))
+    cid = client.get(f"/campaign/{camp['id']}/circle-creation-state", headers=support.as_gm(camp)).json()["circle_id"]
+    with main.SessionLocal() as s:
+        for who in (a, b, ghost):
+            s.add(CircleVote(circle_id=cid, character_id=who["id"], vote_type="ability", value="Stamina Training"))
+        s.add(Relationship(circle_id=cid, from_character_id=a["id"], to_character_id=ghost["id"],
+                           rel_type="rival", status="accepted"))
+        s.add(Relationship(circle_id=cid, from_character_id=ghost["id"], to_character_id=b["id"],
+                           rel_type="friend", status="proposed"))
+        s.add(Relationship(circle_id=cid, from_character_id=a["id"], to_character_id=b["id"],
+                           rel_type="family", status="accepted"))
+        s.commit()
+    report = {"character_name": "x", "responses": {"keys_fulfilled": "some"}, "submitted_at": "2026-10-12T00:00:00+00:00"}
+    support.update(Circle, cid, is_finalized=sealed, stitch=4, refresh=2, train=4, backstory_answers={
+        "reports": {str(a["id"]): report, str(ghost["id"]): report}, "assignment": 1})
+    support.update(Character, ghost["id"], resources_spent_assignment=1, train_dice=1, train_bonus=True)
+    return camp, cid, a, b, ghost
+
+
+def test_release_after_the_seal_drops_the_member_from_everything_the_circle_counts(client):
+    """Decision 1 of fix round 4 (playtest, ghost-member-no-release): the votes, the
+    relationships at both ends and the report go, and each resource is lowered to the new
+    maximum (1 plus the members), never raised. The investigator is kept, free."""
+    camp, cid, a, b, ghost = _table_with_a_ghost(client, sealed=True)
+    r = client.post(f"/campaign/release/{ghost['id']}", headers=support.as_gm(camp))
+    assert r.status_code == 200, r.text
+    assert r.json()["character"]["status"] == "unaffiliated"
+    row = support.fetch(Character, ghost["id"])
+    assert (row.status, row.campaign_id, row.ink_color) == ("unaffiliated", None, "")
+    assert (row.resources_spent_assignment, row.train_dice, row.train_bonus) == (0, 0, False)
+    assert {v.character_id for v in support.fetch_all(CircleVote, circle_id=cid)} == {a["id"], b["id"]}
+    rels = support.fetch_all(Relationship, circle_id=cid)
+    assert [(x.from_character_id, x.to_character_id) for x in rels] == [(a["id"], b["id"])]
+    circle = support.fetch(Circle, cid)
+    assert list(circle.backstory_answers["reports"]) == [str(a["id"])]
+    assert circle.backstory_answers["assignment"] == 1
+    assert (circle.stitch, circle.refresh, circle.train) == (3, 2, 3)
+    roster = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
+    assert [c["id"] for c in roster["active_investigators"]] == [a["id"], b["id"]]
+    # free to join again by the normal join flow
+    assert support.join(client, ghost["id"], camp["campaign_code"]).status_code == 200
+    assert support.fetch(Character, ghost["id"]).status == "pending"
+
+
+def test_a_player_leaves_before_the_seal(client):
+    """The owner may leave too. Before the seal the resources are filled to the new pool,
+    as an approval fills them."""
+    camp, cid, a, b, ghost = _table_with_a_ghost(client, sealed=False)
+    assert support.fetch(Circle, cid).stitch == 4
+    r = client.post(f"/campaign/release/{ghost['id']}", headers=support.as_owner(ghost["id"]))
+    assert r.status_code == 200, r.text
+    circle = support.fetch(Circle, cid)
+    assert (circle.stitch, circle.refresh, circle.train) == (3, 3, 3)
+    assert {v.character_id for v in support.fetch_all(CircleVote, circle_id=cid)} == {a["id"], b["id"]}
+    assert support.fetch(Character, ghost["id"]).status == "unaffiliated"
+
+
+def test_release_refusals(client):
+    camp = support.new_campaign(client)
+    member = support.active_member(client, camp)
+    other = support.active_member(client, camp)
+    waiting = support.pending_member(client, camp)
+    dead = support.active_member(client, camp)
+    support.update(Character, dead["id"], is_dead=True)
+    url = f"/campaign/release/{member['id']}"
+    assert client.post(url, headers=support.as_stranger()).status_code == 403
+    assert client.post(url, headers=support.as_owner(other["id"])).status_code == 403  # another member
+    assert client.post("/campaign/release/987654321", headers=support.as_gm(camp)).status_code == 404
+    not_member = (409, {"detail": "This investigator is not a member of the campaign."})
+    for ch in (waiting, dead):  # a request is rejected or withdrawn; the dead stay with the campaign
+        r = client.post(f"/campaign/release/{ch['id']}", headers=support.as_gm(camp))
+        assert (r.status_code, r.json()) == not_member
+    assert support.fetch(Character, dead["id"]).campaign_id == camp["id"]
+    assert client.post(url, headers=support.as_gm(camp)).status_code == 200
+    # once released the Lightkeeper has no say, and there is nothing to leave
+    assert client.post(url, headers=support.as_gm(camp)).status_code == 403
+    r = client.post(url, headers=support.as_owner(member["id"]))
+    assert (r.status_code, r.json()) == not_member
 
 
 # --- invite-rejoin ----------------------------------------------------------
