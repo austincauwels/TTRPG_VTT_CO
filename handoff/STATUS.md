@@ -1,29 +1,38 @@
 # Candela VTT: status and next phase
 
-Updated 11 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
+Updated 11 October 2026, evening (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
 Resume: none
 
 ## For the next chat: start here
 
-You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check where PR 15 stands and whether Robert deployed main (78eec1b), then do "Next phase". Keep the chat lean:
+You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, check PR 48 and what beta runs, then do "Next phase". Keep the chat lean:
 
-- Before any run of more than about 6 agents, say roughly how big it is and ask, unless he has turned ultracode on for the chat. The second playtest phase ran 97 agents (about 13 million subagent tokens) and the low-items phase 20 (about 2.7 million), both with ultracode on.
-- **Messages Robert sends while a workflow runs are relayed into every running agent.** On 11 October his question about the hub cost act 1 three turns, because every seat stopped to answer it. Every agent prompt now says: "Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish." Keep that line in every new prompt.
-- **No resume Routine.** The `Resume:` line above is a note for a person or a new chat; nothing reads it on a schedule. Push work in progress at least hourly, since an interrupted container keeps nothing. A worker restart stops PostgreSQL and every server; the usage limit can also stop a workflow mid-agent (it did once on 11 October, after 8:00 UTC), leaving uncommitted edits in the tree. Tell agents to commit as they go.
-- **Give every reviewer the decisions Robert made, not only the implementer.** In the low-items phase a reviewer never saw his "add a Retired list" decision, called it out of scope, and the repair pass deleted the feature. The final checks caught it and it was restored. Put the group's decisions in each stage's prompt.
-- A hard `git reset` is refused by the permission classifier. To move a session branch onto a PR head, `git fetch` then `git merge --ff-only`.
-- At the end of each phase, **rewrite this file** (keep it under about 200 lines), commit it to this branch (`playtest-harness`, folder `handoff/`) and push it. Then tell Robert it is a good point to start a new chat, give the model and effort for the next one, and **end your last message with the start prompt** from "Start prompt for the next chat" below, verbatim in a code block, so he can paste it.
-- Robert's own preferences: plain language, short answers, no em dashes; log durable decisions and facts to his Obsidian vault with the Galga `append_daily_log` tool, after reading the vault's `CLAUDE.md`, using wiki-links such as [[Austin]], [[Candela Obscura Campaign]] and [[GaterGrid Server]].
-- The session may start in another repo (SNAP). This repo is not in its list by name: attach it with `add_repo` (owner `austincauwels`, repo `TTRPG_VTT_CO`, access `push`) and clone it to `/home/user/ttrpg_vtt_co`.
+- Before any run of more than about 6 agents, say roughly how big it is and ask, unless he has turned ultracode on for the chat. Past sizes: second playtest 97 agents (about 13 million subagent tokens); the re-check of 11 October 6 Opus agents (1.6 million).
+- **Messages Robert sends while a workflow runs are relayed into every running agent.** Every agent prompt says: "Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish." Keep that line in every new prompt.
+- **Pass a workflow's `args` as real JSON, never a placeholder.** On 11 October a placeholder string made the re-check fail at once (no agents ran, but it cost a turn).
+- **No resume Routine.** The `Resume:` line is a note for a person or a new chat. Push work in progress at least hourly; an interrupted container keeps nothing. A worker restart stops PostgreSQL and every server; the usage limit can stop a workflow mid-agent. Tell agents to commit as they go. A background loop for syncing stops at 2 hours (`b4q8wd9ph` did).
+- **Give every reviewer the decisions Robert made, not only the implementer** (a reviewer once deleted a feature he had asked for). `playtest/results/2026-10-11-recheck/decisions.md` is a good shape for that.
+- **Check a PR's description against its code.** The re-check found three changes PR 15 described that are not in the build (tension controls with a sheet open, dispatch lines cut at a word, the tray after a reload). A final review should confirm each claimed item exists.
+- A hard `git reset` is refused by the permission classifier. To move a branch onto a PR head, `git fetch` then `git merge --ff-only`.
+- At the end of each phase, **rewrite this file** (under about 200 lines), commit it to `playtest-harness` (folder `handoff/`) and push. Then tell Robert it is a good point to start a new chat, give the model and effort for the next one, and **end your last message with the start prompt** below, verbatim in a code block.
+- Robert's preferences: plain language, short answers, no em dashes; log durable decisions and facts to his Obsidian vault with the Galga `append_daily_log` tool, after reading the vault's `CLAUDE.md`, with wiki-links such as [[Candela VTT]] (note created 11 October), [[Austin]], [[Candela Obscura Campaign]] and [[GaterGrid Server]]. Link only notes that exist.
+- If the repo is not in the session, attach it with `add_repo` (owner `austincauwels`, repo `TTRPG_VTT_CO`, access `push`).
+
+## GitHub issues (decided 11 October)
+
+Open problems now live in GitHub issues; this file only points at them.
+- Labels: `bug`, `ux`, `enhancement` (ideas), `known` (accepted for now). #16 "Behaviour kept on purpose (not bugs)" lists Robert's design decisions: read it before calling something a bug.
+- File an issue for each confirmed bug and medium UX item not fixed in the same phase; low UX items go in one checklist issue per round (like #45). Raw playtest findings stay on this branch.
+- A fix PR closes its issues with "Fixes #n" lines; tick checklist lines by hand. Austin rarely reads issues, so notifications are fine.
+- Robert comments on issues himself. **Read new comments on open issues at the start of each phase.** On 11 October he wrote: #29 a newcomer gets a short welcome pop-up with the circle's key facts before play; #33 map pins closed (not important) in favour of #34 custom maps the Lightkeeper draws live with the existing sketch tools, light enough to improvise; #31 an end-of-assignment "interview" reviewing goals and relationship statuses with a chance to propose a new relationship.
+- Open now: bugs #17-#22, #38-#44; UX #23-#26, #45-#47; ideas #27-#32, #34. #35-#37 close when PR 48 merges.
 
 ## Model and effort
 
-Robert sets the model and effort when he opens the chat, so this section says what to set for the **next** phase. When you rewrite this file, update it, and repeat the recommendation in your last message. As your first step, check your own model (the `get_session` tool) and effort. If they differ, tell him in one line and carry on. A subagent's model and effort can be set per agent in a workflow script (`model`: sonnet, opus, haiku or fable; `effort`); the default is the chat's own. Robert asked to see the plan with models per stage before a workflow runs.
+Robert sets the model and effort when he opens the chat. As your first step, check yours with `get_session`; if they differ, say so in one line and carry on. A workflow agent's model and effort can be set per agent (`model`: sonnet, opus, haiku or fable; `effort`). Robert asked to see the plan with models per stage before a workflow runs.
 
-**Next phase (deploy check, then the playtest Robert plays in): Opus 5.5 at high effort for the chat.** The playtest needs judgement (running the organiser, triage, relaying his moves). If the phase is only fixes, Sonnet 5.5 at medium is enough: it ran the low-items phase as coordinator, including 11 hand-resolved merge conflicts. Fable 5.1 has still not been tried side by side.
-
-Rules of thumb for later phases:
+**Next phase (the playtest Robert plays in): Opus 5.5 at high effort for the chat.** It needs judgement: running the organiser, relaying Robert's moves, triage. Fable 5.1 has still not been tried side by side.
 
 | Work | Model | Effort |
 |---|---|---|
@@ -32,64 +41,28 @@ Rules of thumb for later phases:
 | A stubborn bug that resisted one attempt | Opus 5.5 | xhigh (never max) |
 | Workflow agents doing mechanical sweeps, low UX verification | Sonnet 5.5 | medium or low |
 | Workflow implementers on well-specified fixes | Sonnet 5.5 (Opus 5.5 high for protocol or data) | medium |
-| Workflow reviewers, verifiers and browser checks | Opus 5.5 | high |
+| Workflow players in a playtest | Sonnet 5.5 | medium |
+| Lightkeeper seat, triage, reviewers, verifiers and browser checks | Opus 5.5 | high |
 
-What worked in the second playtest phase: a regression sweep of the last report alongside the play; triage by two Opus agents; verification split into an Opus run (bugs, rules, medium) and a Sonnet run (low UX) side by side; fixes in six worktrees (`/home/user/wt/<group>`, branch `fix2-<group>`), each implemented, reviewed by Opus and repaired; then a merge, the full backend suite, and a final Opus code review plus one Opus browser check of the merged build. The final review caught a blocking bug that only the merge created (the Lightkeeper's drive edit answered on her own channel). The browser check found no crash, but never skip either step.
+What worked before (second playtest and the low-items phase): a regression sweep alongside the play; triage by two Opus agents; verification split into Opus (bugs, rules, medium) and Sonnet (low UX); fixes in six worktrees (`/home/user/wt/<group>`), each implemented, reviewed by Opus and repaired; then a merge, the full suite, a final Opus review and an Opus browser check. Merging six groups conflicts mostly in DESIGN.md, WEBSOCKET.md and `routers/campaigns.py`: keep both sides of doc rows.
 
-**The low-items phase** used the same shape: six groups (`fix3-<group>` in `/home/user/wt/<group>`), implementer Sonnet 5.5 medium, reviewer Opus 5.5 high, repair Sonnet 5.5 medium, then a merge in the main tree, the full suite, a final Opus review and an Opus browser check side by side, one Opus agent for their findings, and a short browser recheck of what it changed. The final checks found a deleted feature, a sealed campaign whose join requests could not be answered, and 9 small defects. Merging six groups conflicts mostly in DESIGN.md, WEBSOCKET.md and `routers/campaigns.py`: keep both sides of doc rows.
-
-**How playtests run from now on (Robert, 11 October).** Repeats of old problems are fine: finding them is part of what a playtest is for. So:
-- **The play stays blind.** Players get no list of past problems. Drop the line in the run's handbook (`playtest/run2/README.md`, the "This is the second playtest" bullet) that told players about the first report and asked them to log what they hit from it.
-- **The re-check is its own pass:** separate agents re-test the last report's items, alongside the play or just before it, never mixed into the players' turns. It earns its place: all three high bugs in the second report came only from the re-check (Patch Up missing, "Give a spend back" double-counting, a mark lost on a silent drop), and no blind player hit them.
-- **Each fix is retested before it ships:** the final browser check of a fix PR replays the original steps of every item the PR fixes, at the device size it was seen on, as PR 14's did.
-- No automated test suite in CI and no fix ledger for now; reconsider if the app keeps growing.
+**How playtests run (Robert, 11 October).** Repeats of old problems are fine to find. The play stays blind (players get no list of past problems; the run3 handbook already drops that bullet). The re-check of the last report is its own pass by separate agents. Each fix is retested before it ships: a fix PR's browser check replays the original steps of every item it fixes, at the original size, with the unfixed build as a control (PR 48 did this). No automated test suite in CI and no fix ledger beyond issues.
 
 ## Where things stand
 
-- `main` is at **78eec1b**: PR 13 (the first report's low items) and PR 14 (the second playtest's fixes) were both merged on 11 October. **Not deployed yet** when this was written: Robert runs `cd ~/projects/gatergrid-web && bash candela/update.sh`, then players reload.
-- **PR 15** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/15, branch `claude/candela-vtt-dev-01xz3n`, the second report's low items and picked ideas) is open on top of `main`; CI was running when this was written. Not merged: Robert says when. Backend suite 1,914 passed, 1 skipped.
-- **Deploy notes:** no schema change. PR 14: the Illumination tally now lives on the circle; if a Lightkeeper added an assignment's tally before that deploy and the assignment has not ended, her desk offers Add again: she must not press it a second time. PR 15 adds three routes: `POST /campaign/withdraw/{id}`, `POST /campaign/{id}/unretire`, `GET /api/users/{id}/retired-campaigns` (44 protected routes).
-- The playtest's page (private artifact): https://claude.ai/artifact/RcCxR5mNbmjqfCHufFyact. Its Repeats tab lists the first report's items that came back and why.
+- `main` is at **36f001c** (PRs 13, 14 and 15 merged on 11 October). Robert was deploying it to the beta site when this was written; whether live has it too is not confirmed.
+- **PR 48** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/48, branch `claude/modest-bohr-5zvnv6`, commit b1e8a51) is open: double-clicks on End Assignment, Give a spend back and Revive are ignored (#35, #36, #37). Backend 1,915 passed, 1 skipped; Chromium replay of all three with a control on 36f001c. Not merged: Robert says when. No schema change. Robert picked fixing these before the playtest, so beta should run PR 48's merge.
+- **The re-check (11 October)** of the second report's 81 items on 36f001c, 6 Opus agents: 56 fixed, 14 partly, 7 fixed with a new problem, 4 not fixed; 30 findings (2 medium, both double-clicks, fixed in PR 48). Results on this branch in `playtest/results/2026-10-11-recheck/` (`recheck.md` first). Everything still open is in the issues above.
+- The second playtest's report: `playtest/results/2026-10-11/report.md`; its page (private artifact): https://claude.ai/artifact/RcCxR5mNbmjqfCHufFyact.
 
-### The second AI playtest (11 October)
+## Next phase: the playtest Robert plays in
 
-- Results on this branch: `playtest/results/2026-10-11/` (`report.md` first). The run's handbook, personas and launch scripts are in `playtest/run2/`, its workflow scripts in `playtest/workflows/run2/`.
-- A Lightkeeper and four players (laptop, desktop, phone, laptop, tablet) played The Lantern Ward on PR 13's head: sign-up, a rejected join request, a password reset (outgoing mail caught by `run2/serve_api.py`, read with `mail.js`), formation, two assignments, a death by a fourth scar and its take-back, a new investigator invited back, a server restart mid-campaign, a second campaign retired. 246 findings, 106 clusters.
-- **Regression sweep of the first report's 111 items:** 83 fixed, 12 fixed with a new problem, 10 partly, 3 not fixed, 3 left alone on purpose.
-- **Report:** 19 bugs (3 high, 10 medium, 6 low), 62 UX items, 13 ideas, 16 things to keep. The restart was handled cleanly: every desk came back by itself.
-- **PR 14 fixes 33 items:** all 19 bugs, the medium UX items and a few low ones that shared code (death and scars, campaign management, the Illumination tally and spends, rolls and connection, the Lightkeeper's desk, the player's desk on a phone), plus the hub's brass tack, removed at Robert's request ("a tack pushed into a desk is not realistic").
-- **Checked:** backend suite 1,866 passed, 1 skipped; `vite build`; six group reviews and repairs; a final Opus review of the merged diff; Chromium on phone (390x844, 390x705), tablet, laptops and desktop for every item, with no console errors.
-- **Not checked:** a real screen reader; iPhone Safari; a real session with the group.
-
-### Choices made (Robert took the defaults both times; PR 14 and PR 15 list them)
-
-PR 15: a replaced dead investigator gets a Fallen card on the roster and in Circle History; an unadded tally keeps its warning; the ledger has a Retired list with Restore (it brings back the campaign and its dead only: the server keeps no record of who a retire freed, and they may have joined elsewhere, so freed living investigators return by a join or an invite); the formation papers get a jump list on a phone. PR 14:
-
-Retire frees living investigators (the dead stay with the campaign); the Lightkeeper alone sees players' usernames on join requests; Invite player and the player's invite banner name the investigator a rejoin retires; a replacement investigator keeps its predecessor's spend count; Pass Notes gains "@Lightkeeper only" and drops the sender; a dead sheet is a record (the server refuses its rolls, marks, spends and abilities), the death is logged on every desk, and the Lightkeeper has Revive for the incapacitated; removing a scar with Edit undoes its action shift; End Assignment warns about a tally not yet added and says every gear list is cleared; a give-back never fills a pool past its maximum; a mark lost in a silent socket is sent again; a secret roll no longer settles the others.
-
-### Known and accepted (not fixed)
-
-- The Lightkeeper's trauma Edit cannot add a scar (on purpose), so a story-given scar takes four marks and the player's scar form.
-- An unadded tally is still dropped at End Assignment (now with a warning).
-- A newcomer is not told what the circle already holds (needs a product decision); the player Registry has no Fallen record (the Lightkeeper's roster and Circle History do).
-- A dead investigator's player gets a 403 in the console opening a retired campaign's desk; Approve, View sheet and Reject on a request card are 40px tall on a phone; the creator's path arrows are just below the fold at 1366x768; the dice tray is empty after a reload that follows a settled roll.
-- Ideas not built: a Lightkeeper "Call for a roll" card, gear that changes rolls, editable field notes, relationship proposals that nag or expire, account security emails, map pins.
-- Plus the older list: the formation papers stay a blocking dialog; Let Them In stays a notice; the hourglass stays sand only; no gold pip on an action rated 0; the creator's step 3 row overflows below 356px; the Lightkeeper's copy does not show held marks; after a restart a stale offer card's decline still lands its mark; Notebook drafts stay after Sign out; a sketch is lost on Back after a reload; after Flourish the slip shows the old outcome; some notebook phone controls are under 44px; the sheet's ability tab resets on a tab switch; activity history and held offers live in server memory.
-
-## Next phase
-
-1. Check PR 15 (CI, reviews, merged or not). If Robert merged it, confirm he ran `bash candela/update.sh` for the new `main`.
-2. The low items are done, so the next phase is **the playtest Robert plays in** (below), on the deployed build. Before building it, give Robert the setup questions in one short message, each with a recommended default. Recommendation: deploy PR 15's merge to the beta site, seat him as a player on his phone (covers iPhone Safari), run the acts one round at a time.
-3. If he would rather keep building first: the biggest skipped ideas are the Lightkeeper's "Call for a roll" card and gear that affects rolls. Each is a feature: plan it first (Opus 5.5 high, a short design note in `docs/`).
-
-### The next playtest: Robert plays too
-
-Robert wants to take part in the next AI playtest (said on 11 October). It comes after the low items above, unless he says otherwise. Things to settle with him when that phase starts:
-- **Where it runs.** The AI seats' private site lives in the container on 127.0.0.1, which his phone cannot reach. The likely way: he deploys the build under test to the beta site on his server (candela-beta.gatergrid.com), the seats point at it (`SITE_URL` in `playtest/lib.js`), and the playtest uses its own campaign there. Check first that the container can reach the beta site (the network page of `read_documentation` says what the environment allows).
-- **His seat (decided 11 October): a player, on his desktop.** He takes the desktop player's place (Ada's in the past runs), and the AI keeps the Lightkeeper and the phone, laptop and tablet players. Ask him which role he wants to play and which browser he uses, and leave his investigator's creation to him.
-- **Timing.** AI turns take a few minutes each and run two at a time, so the play takes about 1.5 to 2 hours. The rounds wait for his turn: run the acts in smaller workflows, one round at a time, and tell him when it is his move.
-- **Table talk.** He cannot run `table.js`. He tells the chat what he says and does, and the organiser posts it (`node table.js say robert "..."`; add `robert` to the names in `table.js`). Remember that his chat messages are also relayed into running agents, which are told to ignore them, so post his lines between workflows.
-- His findings: he tells the chat, and the organiser logs them with `finding.js --seat robert`.
+1. Check PR 48 (CI, reviews, merged or not) and new issue comments. If merged, ask Robert whether beta and live run the new `main`. The play runs on the build beta serves; note its commit in the run's handbook.
+2. **Settled with Robert (11 October, he took the defaults):** it runs on **https://candela-beta.gatergrid.com** with its own database; Robert plays **the desktop player seat** (Ada's place in past runs) on his own desktop; the AI keeps the Lightkeeper (dm), the phone (bram), the laptop (cass) and the tablet (dev); **one fresh campaign with one assignment**, about 1.5 to 2 hours; **one round per workflow**, telling Robert when it is his move; **no password-reset scene** (no mail is read on beta). Ask only which browser he uses and leave his investigator's creation to him.
+3. **Beta password.** The site is behind HTTP basic auth (realm "GaterGrid beta"). Robert was to add `CANDELA_BETA_USER` and `CANDELA_BETA_PASS` as environment variables; never ask him to paste them. Check they exist (`env | grep -c CANDELA_BETA`); if not, point him at the environment settings and stop. `playtest/lib.js` sends them only to the site's origin (`httpCredentials` with `origin` and `send: 'always'`). **Test first that a seat's WebSocket connects through the auth** (sign in, open a desk, `seat.js <seat> ws`): untested so far. If the socket is refused, Chromium may need the header on the upgrade; try `extraHTTPHeaders` scoped by a route on the site's origin.
+4. **Harness for beta (pushed on this branch, 2f3176f):** `SITE_URL=https://candela-beta.gatergrid.com SEATS_FILE=run3/seats.json`; `run3/seats.json` has dm, bram, cass, dev; `run3/README.md` is the handbook (blind, beta, Robert's seat, no mail, no database); `table.js` knows `robert`. Still to do: `run3/personas.md` (a new campaign and assignment; usernames unique on beta, for example a `_r3` suffix; four AI personas plus a line about Robert), a run folder `/home/user/pt3` with `npm install` (Playwright 1.56.1) and the upload pictures (the second run's `assets/` were not committed: make or find two JPEGs), and act workflows adapted from `playtest/workflows/run2/` to one round each.
+5. **Robert at the table.** He cannot run `table.js`. He tells the chat what he says and does; post it with `node table.js say robert "..."` between workflows (his chat messages are relayed into running agents, which ignore them). Log his findings with `finding.js --seat robert`. Start with a quick check that he can sign in on beta and see the hub.
+6. After the play: triage and a report as in run 2, file issues per the rules above, then propose the fix round.
 
 ## Start prompt for the next chat
 
@@ -112,6 +85,7 @@ Ground rules:
 - Log durable decisions to my Obsidian vault with the Galga append_daily_log tool, after reading the vault's CLAUDE.md.
 - At the end of the phase, rewrite handoff/STATUS.md (under about 200 lines) and push it to playtest-harness. Then tell me the model and effort to use for the next chat, and that it's a good point to start fresh.
 ```
+
 
 ## How the browser checks are done
 
