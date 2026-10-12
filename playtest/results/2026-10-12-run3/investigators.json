@@ -1,0 +1,44 @@
+{
+ "players": [
+  {
+   "summary": "Signed up as bram_okafor_r3 on the phone seat and built Bram Okafor, Muscle (Soldier), in the four-step creator. I used a portrait upload (set through the hidden file input, since tapping Add portrait opened no chooser here), the Kalam handwriting font, Tactician and Behind Me, and three gear items. I joined saltmere-r3 and the hub showed the waiting toast, 'Case Ledger: 1 waiting for approval', and the Roster book with Check again and Withdraw. After about 3 minutes with no reload it still said Waiting. The Lightkeeper had not approved yet, so I could not test whether the hub notices approval by itself. I said hello at the table. No console errors. Logged F013 to F017: a doubled Handwriting label, carousel navigation, praise for the creator, the fourth-gear tap feedback, and the static waiting screen.",
+   "findings": [
+    "F013",
+    "F014",
+    "F015",
+    "F016",
+    "F017"
+   ],
+   "blocked": "",
+   "character_name": "Bram Okafor",
+   "state": "Muscle/Soldier. Nerve 5, Cunning 1, Intuition 3. Move 2g, Strike 2g, Control 2, Hide 1, Survey 2. Tactician, Behind Me. Gear Heavy Firearm, Tactical Armor, Lantern. No marks or scars. Join request pending approval."
+  },
+  {
+   "summary": "Signed up as cass_moreau_r3 (double-clicked Create account, one account made, landed on hub). Built Cass Moreau, Slink/Criminal in the creator: Sticky Fingers and Scout, actions and drives distributed, gilded Sway, three gear (Lockpicks, Concealed Blade, Lantern), uploaded a portrait via script, handwriting Rock Salt picked in the join dialog. Markdown, emoji and HTML text stayed literal in fields. Joined saltmere-r3 (double-click submit fine). Hub showed a toast, Case Ledger 'waiting for approval' and a roster book entry. Over about 2 minutes of waiting the Lightkeeper had not approved yet, so auto-notice of approval was NOT tested. Introduced Cass at the table. Logged F008 (sign-in below fold, ux low), F009 and F010 (praise). Seat tool could not click the sr-only portrait input directly (tool limit, not logged). Rapid Next-card clicks in the path carousel seemed to lag or skip, not confirmed.",
+   "findings": [
+    "F008",
+    "F009",
+    "F010"
+   ],
+   "blocked": "",
+   "character_name": "Cass Moreau",
+   "state": "Slink Criminal, Nerve 3 Cunning 4 Intuition 2, no marks or scars, gear Lockpicks/Concealed Blade/Lantern, awaiting Lightkeeper approval in saltmere-r3"
+  },
+  {
+   "summary": "Signed up as dev_lindqvist_r3 through the form. Built Dev Lindqvist, a Weird (Occultist), in the creator: abilities Speak Their Language and Ritual, actions and drives distributed (Intuition 6, Cunning 3), gear Arcane Texts, Ritual Dagger and Lantern, and a portrait from assets uploaded through the hidden file input. The Add portrait button opened no file chooser under Playwright click, possibly a tool limitation. Joined with saltmere-r3 and chose the Shadows Into Light handwriting. The hub toast says \"Dev Lindqvist asked to join. The hub will say when the Lightkeeper answers\", and the Case Ledger label reads Awaiting approval / 1 waiting for approval. After about two minutes no approval had arrived, so I could not yet test whether the hub notices approval by itself. I introduced Dev at the table. I logged three findings: F018 (handwriting dropdown clipped in the join dialog), F019 (join toast wording, same as F011) and F020 (praise for the creator). The errors check showed no console problems. No daemon restart was needed.",
+   "findings": [
+    "F018",
+    "F019",
+    "F020"
+   ],
+   "blocked": "",
+   "character_name": "Dev Lindqvist",
+   "state": "Dev Lindqvist, Weird (Occultist), join request pending approval. Drives: Nerve 0, Cunning 3, Intuition 6. No marks or scars. Gear: Arcane Texts, Ritual Dagger, Lantern. Abilities: Speak Their Language, Ritual (uses unspent)."
+  }
+ ],
+ "investigators": {
+  "bram": "Bram Okafor",
+  "cass": "Cass Moreau",
+  "dev": "Dev Lindqvist"
+ }
+}

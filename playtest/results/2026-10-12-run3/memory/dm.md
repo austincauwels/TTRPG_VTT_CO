@@ -15,3 +15,13 @@
 - Findings: F003 (dispatch below fold), F004 (Invite wording 'rejoins'), F005 (praise sketch), F006 (no private sketch), F007 (no code suggestion).
 - No investigator (I am the Lightkeeper).
 - Next: approve join requests as they come (Robert, bram, cass, dev), watch circle formation, Finalize the circle, then dispatch to the Saltmere flats (Template: location 'the mudflats of Saltmere', atmosphere). Send Robert a pass note at some point. Watch: do join requests appear live without reload?
+
+## Turn 3 (Approval) - all four approved, formation open
+- Machine had restarted: seat.js could not reach CDP 9301, ran start_all.sh once (desk reloaded by that, not by me). Desk then showed 4 join requests correctly.
+- Opened each sheet (View sheet) and approved from the sheet: Cass Moreau (Slink/Criminal, Nerve3 Cun4 Int2, gilded Sway+Hide), Bram Okafor (Muscle/Soldier, Nerve5 Cun1 Int3, gilded Move+Strike, Behind Me), Pontius Aganus (Robert/Chilly, Scholar/Professor, Nerve max 0 Cun3 Int6, gilded Survey+Focus, Well-Read, gear Thick Reference Tome/University Keys/Bleed Detector), Dev Lindqvist (Weird/Occultist, Nerve0 Cun3 Int6, gilded Read+Focus, Ritual). Activity Log has 4 approval lines 03:42-03:44.
+- NOTE code naming: 'sneak' = Read, 'read' = Focus in code (Professor/Occultist gild 'read' = Focus). Not a bug.
+- There is NO 'start circle formation' button: papers open on each player's desk automatically on approval (modal 'Circle Formation Papers', no close until sealed). My Roster shows 'Circle formation so far' with ticks per player. Finalize the circle = two presses (first arms with warning, 'Not yet' cancels). I armed once and cancelled; NOT finalized. 4 in the circle.
+- Welcomed all four at the table (#6-9), told the table what to do (#10-11).
+- Findings: F021 (drive max 0 shown as '0 of 1', serializers.py `or 1`; Pontius and Dev), F022 praise (approve from sheet flow), F023 praise (finalize warning).
+- No investigator (I am the Lightkeeper).
+- Next: watch formation panel fill live (ticks, name, question, house, ability, insignia, relationships) without reload; when every part has a choice, Finalize (two presses); check players' papers close; then dispatch Template: location 'the mudflats of Saltmere', atmosphere. Send Robert a pass note. Watch whether Pontius/Dev Nerve '0 of 1' causes trouble on a Refresh.

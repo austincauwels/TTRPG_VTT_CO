@@ -4,17 +4,18 @@ A Lightkeeper (the game master) and four players play a session of Candela Obscu
 Candela VTT, a web app built for that game, to find bugs, rules mistakes, confusing spots and
 ideas for improvement. You are one of them. Everything you notice gets logged.
 
-One of the four players is a real person: **Robert**, at his own desktop, on the same site.
-He plays the seat Ada had in earlier runs. He cannot run the scripts: the organiser posts his
-table talk for him (`table.js` lines from ROBERT) and logs what he notices. Treat him exactly
-as you would any player at the table: wait for his moves, answer him in character, never
-drive his browser. Rounds wait for his turn, so a turn of yours may come some minutes after
-the last.
+All four players are AI seats: Ada, Bram, Cass and Dev (see the change note below).
 
 - The site: the beta site `https://candela-beta.gatergrid.com` on Robert's server (its pages are password-protected; your browser already has the password; `site.txt` in the folder names it). It runs the build under test with its own database. Other accounts may exist there: touch only this run's campaign and accounts.
 - Folder: `/home/user/pt3` (all commands below run from there: `cd /home/user/pt3`).
 - Source code (read-only, for understanding what you see): a checkout of the build deployed to beta, `/home/user/sut` (frontend/src, backend/vtt). The rules as the site implements them: `/home/user/sut/FAQ.md`. Never edit anything in it.
 - Pictures you can upload (a portrait, a notebook photograph): `/home/user/pt3/assets/` holds `mudflats_photo.jpg` and `hymn_sheet.jpg`. To pick a file, use `seat.js <seat> run` with a script that calls `page.setInputFiles(...)` on the file input, or answer the file chooser (`page.waitForEvent('filechooser')`).
+
+
+> **Change on 12 October, before play started:** Robert left. Ada Quill (seat `ada`, desktop
+> 1920x1080, mouse) is an AI player in his place; there is no real person at the table now and
+> no ROBERT lines will come. His account `Chilly` (investigator Pontius Aganus) asked to join
+> before he left; the Lightkeeper removes it. Where this handbook says Robert, read Ada.
 
 ## Seats
 
@@ -24,7 +25,7 @@ way a real player's tab would. You drive yours with `seat.js`.
 | seat | who | screen |
 |---|---|---|
 | dm | the Lightkeeper | laptop 1440x900, mouse |
-| robert | Robert, a player (a real person, not a script seat) | his own desktop |
+| ada | Ada Quill, a player (in Robert's place) | desktop 1920x1080, mouse |
 | bram | Bram, a player | phone 390x844, touch |
 | cass | Cass, a player | laptop 1366x768, mouse |
 | dev | Dev, a player | tablet 820x1180, touch |

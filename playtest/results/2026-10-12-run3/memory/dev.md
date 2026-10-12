@@ -1,0 +1,3 @@
+## Turn 1
+Signed up dev_lindqvist_r3, built Dev Lindqvist (they/them), Weird/Occultist. Abilities: Speak Their Language, Ritual. Actions: Control1 Sway1 Read2(gilded) Survey2 Focus1(gilded) Sense2. Drives Nerve0 Cunning3 Intuition6. Gear: Arcane Texts, Ritual Dagger, Lantern. Portrait mudflats_photo (set via hidden file input; Add portrait button gave no filechooser under Playwright click). Handwriting Shadows Into Light. Catalyst: grandmother's hymn. Joined saltmere-r3; pending approval (hub shows Case Ledger 1 waiting; not yet approved after ~2 min). Said intro at table. Findings F018-F020.
+Watching: does hub update by itself on approval; sheet/notebook, pen font on sheet. Note: seat.js run scripts: use click not tap.
