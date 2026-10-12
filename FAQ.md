@@ -198,7 +198,7 @@ Since 2026-10-10 the Lightkeeper's desk shows the formation papers as they stand
 
 ### What happens to relationships still waiting at the seal?
 
-Nothing: finalizing leaves them as they are, and the player whose turn it is can still accept or counter them on the Circle tab afterwards. The Finalize slip counts them ("2 relationships still waiting for an answer. They can still be accepted after the seal.") and reads "4 in the circle (up to 5)". Its second press also says that any join request still waiting is turned away, since finalizing releases those characters. It also names any part with nothing chosen (no question, insignia, ability or name voted or suggested), since the seal then leaves it empty.
+Nothing: finalizing leaves them as they are, and the player whose turn it is can still accept or counter them on the Circle tab afterwards. The Lightkeeper sees them too, read only, on the Circle page's Circle Relationships paper (who to whom, the type and lore, agreed or "waiting for <name>"). The Finalize slip counts them ("2 relationships still waiting for an answer. They can still be accepted after the seal.") and reads "4 in the circle (up to 5)". Its second press also says that any join request still waiting is turned away, since finalizing releases those characters. It also names any part with nothing chosen (no question, insignia, ability or name voted or suggested), since the seal then leaves it empty.
 
 ---
 
