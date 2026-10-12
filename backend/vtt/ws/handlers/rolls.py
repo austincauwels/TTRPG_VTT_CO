@@ -123,6 +123,17 @@ def _refresh_drive(character, drive) -> bool:
     return True
 
 
+def _refund_intuition(character, spent) -> int:
+    """Well-Read: give back the Intuition a failed roll spent, never past the maximum; the
+    points that came back, so the log names only those (playtest 3: after a gilded refresh
+    filled the drive it said a point came back that the cap swallowed)."""
+    now = character.intuition_current or 0
+    top = getattr(character, "intuition_max", 3) or 0
+    back = max(0, min(top, now + spent) - now)
+    character.intuition_current = now + back
+    return back
+
+
 def _rating(character, action):
     if character is None or action not in ACTION_KEYS:
         return None
@@ -524,9 +535,10 @@ async def handle_roll(ctx):
             # Well-Read auto-refund: if failure and Intuition was spent, earn it back
             if character and outcome_key == "failure" and cat == "intuition" and spent > 0 \
                     and "Well-Read" in abilities_of(character):
-                setattr(character, "intuition_current", min(getattr(character, "intuition_max", 3), getattr(character, "intuition_current") + spent))
-                post_roll_dirty = True
-                log_msg += f" [Well-Read — {spent} Intuition refunded]"
+                back = _refund_intuition(character, spent)
+                if back:
+                    post_roll_dirty = True
+                    log_msg += f" [Well-Read — {back} Intuition refunded]"
 
             if post_roll_dirty:
                 db.commit()
@@ -587,9 +599,10 @@ async def handle_resolve_gilded(ctx):
             log_msg += f" [gilded — {act_drive} Drive refreshed]"
     if outcome_key == "failure" and r_cat == "intuition" and spent > 0 and not dead \
             and "Well-Read" in abilities_of(character):
-        character.intuition_current = min(character.intuition_max or 3, (character.intuition_current or 0) + spent)
-        changed = True
-        log_msg += f" [Well-Read — {spent} Intuition refunded]"
+        back = _refund_intuition(character, spent)
+        if back:
+            changed = True
+            log_msg += f" [Well-Read — {back} Intuition refunded]"
     if changed:
         db.commit()
     # A roll held over End Assignment is settled: no burn or post-roll ability answers it

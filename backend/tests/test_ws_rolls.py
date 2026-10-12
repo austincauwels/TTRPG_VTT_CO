@@ -439,6 +439,42 @@ def test_well_read_refunds_on_a_kept_die_of_three_or_less(client, dice):
         assert msgs[2]["payload"]["intuition_current"] == 4
 
 
+@pytest.mark.parametrize("spent, back", [(1, 0), (2, 1)])
+def test_well_read_logs_only_what_the_cap_lets_back(client, dice, spent, back):
+    """Fixed (playtest 3, wellread-refund-logged-when-capped): with full Intuition, a kept
+    gilded die gave a point back first, and the log still said Well-Read refunded all that
+    the roll spent, though the cap let less (or nothing) back. It names only what came
+    back, and says nothing when nothing did, as the gilded refresh does."""
+    ch = support.forge(client, read=1, gilded_read=True, specialty_ability="Well-Read",
+                       intuition_max=4, intuition_current=4)
+    dice(*[3, 2, 1][:1 + spent])
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="read", drive_spent=spent)
+        ws.sync()
+        ws.send("resolve_gilded", action="read", chosen_type="gilded")
+        msgs = ws.sync()
+        line = msgs[1]["payload"]["message"]
+        assert line.endswith("[gilded " + EM + " intuition Drive refreshed]" + (
+            f" [Well-Read {EM} {back} Intuition refunded]" if back else ""))
+        assert msgs[2]["payload"]["intuition_current"] == 4 - spent + 1 + back
+    assert support.fetch(Character, ch["id"]).intuition_current == 4 - spent + 1 + back
+
+
+def test_well_read_says_nothing_when_an_all_gilded_roll_filled_the_drive(client, dice):
+    """The same on a roll with no choice: an all-gilded pool refreshes the drive at once, so
+    Well-Read has nothing left to give back and the line does not claim it."""
+    ch = support.forge(client, read=0, gilded_read=True, specialty_ability="Well-Read",
+                       intuition_max=3, intuition_current=3)
+    dice(2)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="read", drive_spent=1)
+        msgs = ws.sync()
+        assert support.types(msgs) == ["roll_result", "character_update", "activity_log"]
+        assert msgs[1]["payload"]["intuition_current"] == 3
+        assert msgs[2]["payload"]["message"].endswith(f"[gilded {EM} intuition Drive refreshed]")
+    assert support.fetch(Character, ch["id"]).intuition_current == 3
+
+
 def test_single_gilded_die_refreshes_drive(client, dice):
     ch = support.forge(client, move=1, gilded_move=True, nerve_max=3, nerve_current=1)
     dice(4)

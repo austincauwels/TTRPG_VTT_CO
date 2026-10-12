@@ -81,12 +81,20 @@ def drop_report(circle, character_id) -> bool:
 
 def end_assignment_for(character):
     """What End Assignment resets on an investigator: the ability uses, the circle spends
-    and the Train dice of the assignment, and the gear, which "Gear slots only reset once
-    an assignment is complete" (rulebook p. 52). Retiring a campaign ends its assignment
-    too, for each investigator it lets go: one who joined another campaign started there
-    with the spends and uses of the old one (final check of playtest 2)."""
+    of the assignment, and the gear, which "Gear slots only reset once an assignment is
+    complete" (rulebook p. 52). A bought Train die is kept until a roll uses it (fix round
+    4, decision 2): End Assignment wiped one bought while the assignment was open. Retiring
+    a campaign ends its assignment too, for each investigator it lets go, and drops the
+    Train dice as well (release_from_campaign)."""
     character.ability_uses = {}
     character.resources_spent_assignment = 0
+    character.gear = []
+
+
+def release_from_campaign(character):
+    """A living investigator a retired campaign lets go, or one released from a roster or
+    leaving it: its assignment ends, and the Train dice bought from the old circle go with
+    it, so nothing of the old campaign is carried into another (final check of playtest 2)."""
+    end_assignment_for(character)
     character.train_bonus = False
     character.train_dice = 0
-    character.gear = []

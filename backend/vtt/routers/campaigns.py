@@ -16,7 +16,7 @@ from engine import (
 )
 from models import INCLUDE_DELETED, Campaign, Character, Circle, CircleVote, Relationship, User
 from vtt import deletion
-from vtt.assignment import drop_report, end_assignment_for
+from vtt.assignment import drop_report, release_from_campaign
 from vtt.auth import (
     campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
     require_gm_of_character, require_gm_or_member, require_owner, require_owner_or_gm, require_self,
@@ -276,8 +276,8 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
             c.status = "unaffiliated"
             c.campaign_id = None
             c.ink_color = ""
-            # its assignment ends with the campaign: no spends, uses or gear carried over
-            end_assignment_for(c)
+            # its assignment ends with the campaign: no spends, uses, gear or Train dice carried over
+            release_from_campaign(c)
             released.append(c)
     db.commit()
     message = {
@@ -380,7 +380,8 @@ async def release_member(character_id: int, db: Session = Depends(get_db),
     char.status = "unaffiliated"
     char.campaign_id = None
     char.ink_color = ""
-    end_assignment_for(char)
+    # as at Retire: no spends, uses, gear or Train dice carried into another campaign
+    release_from_campaign(char)
     if circle is not None:
         db.query(CircleVote).filter(CircleVote.circle_id == circle.id, CircleVote.character_id == char.id) \
             .delete(synchronize_session=False)

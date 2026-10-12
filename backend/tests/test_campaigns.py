@@ -380,7 +380,8 @@ def test_retire_campaign(client):
 def test_retire_ends_the_assignment_of_the_investigators_it_lets_go(client):
     """A released investigator kept the retired campaign's spends, ability uses, Train
     dice and gear, and started another campaign with "both of your two" spent (final
-    check of playtest 2). Retiring ends their assignment as End Assignment does; a dead
+    check of playtest 2). Retiring ends their assignment as End Assignment does and drops
+    the Train dice too, which End Assignment now keeps (fix round 4, decision 2); a dead
     one, which stays with the campaign as its record, keeps what it had."""
     camp = support.new_campaign(client)
     used = dict(resources_spent_assignment=2, ability_uses={"Tactician": 1}, train_bonus=True, train_dice=1,
