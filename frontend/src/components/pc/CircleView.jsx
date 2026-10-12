@@ -590,17 +590,21 @@ export const CircleView = () => {
   // resource-spend-no-guard). The question stays until the player presses elsewhere, presses
   // Escape or moves focus away, like every other confirm (ConfirmAction.jsx): it lapsed after
   // four seconds, and every player lost spends to it (playtest 3, spend-confirm-lapses-fast).
+  // A press elsewhere is read on its click, not as the pointer goes down: the question's line
+  // under the button goes when it disarms, and the buttons below would move up under the
+  // finger before its click landed. A press on another resource asks about that one.
+  const SPEND_ASK = 'Press again to spend it. It is spent for the whole circle.';
   const [confirmKey, setConfirmKey] = useState(null);
   useEffect(() => {
     if (!confirmKey) return undefined;
-    const onPointerDown = (e) => {
+    const onClick = (e) => {
       if (e.target.closest?.('[data-spend-key]')?.dataset.spendKey !== confirmKey) setConfirmKey(null);
     };
     const onKeyDown = (e) => { if (e.key === 'Escape') { e.preventDefault(); setConfirmKey(null); } };
-    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('click', onClick, true);
     document.addEventListener('keydown', onKeyDown, true);
     return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('click', onClick, true);
       document.removeEventListener('keydown', onKeyDown, true);
     };
   }, [confirmKey]);
@@ -862,11 +866,14 @@ export const CircleView = () => {
           </span>
         </div>
 
-        {!isGM && (spendBlock || confirmKey) && (
+        {!isGM && spendBlock && (
           <p id="resource-reason" className="mb-2 font-serif text-sm italic leading-snug text-sepia">
-            {spendBlock || 'Press again to spend it. It is spent for the whole circle.'}
+            {spendBlock}
           </p>
         )}
+        {/* The question is said under the button it asks about (above them all, it pushed
+            the buttons down as it came, so a double-click's second press missed) */}
+        {!isGM && <span role="status" className="sr-only">{confirmKey ? SPEND_ASK : ''}</span>}
         <div className="divide-y divide-dashed divide-sepia/35">
           {RESOURCES.map(({ label, key, desc }) => {
             const avail = circle?.[key] ?? maxCap;
@@ -931,7 +938,7 @@ export const CircleView = () => {
                     type="button"
                     data-spend-key={key}
                     onClick={() => { if (!cannot) pressSpend(key); }}
-                    onBlur={(e) => { if (confirmKey === key && e.relatedTarget && e.relatedTarget !== e.currentTarget) setConfirmKey(null); }}
+                    onBlur={(e) => { if (confirmKey === key && e.relatedTarget && !e.relatedTarget.dataset?.spendKey) setConfirmKey(null); }}
                     aria-disabled={cannot}
                     aria-describedby={spendBlock ? 'resource-reason' : undefined}
                     className={`mt-2 w-full min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-colors ${
@@ -942,6 +949,9 @@ export const CircleView = () => {
                     {avail <= 0 && !spendBlock ? `No ${label} left`
                       : confirmKey === key ? `Press again: spend 1 ${label}` : `Spend 1 ${label}`}
                   </button>
+                )}
+                {!isGM && confirmKey === key && (
+                  <p className="mt-1 font-serif text-sm italic leading-snug text-sepia">{SPEND_ASK}</p>
                 )}
               </div>
             );
