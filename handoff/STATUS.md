@@ -1,6 +1,6 @@
 # Candela VTT: status and next phase
 
-Updated 11 October 2026, about 10 pm Pacific (12 October UTC). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
+Updated 12 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
 Resume: none
 
@@ -8,10 +8,10 @@ Resume: none
 
 You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web app for the tabletop RPG Candela Obscura. Austin wrote it and runs the game; Robert (the user) runs the server and deploys. Read this file, then do "Next phase". Keep the chat lean:
 
-- Before any run of more than about 6 agents, say roughly how big it is and ask, unless he has turned ultracode on for the chat. Past sizes: second playtest 97 agents (about 13 million subagent tokens); third playtest about 45 agents in all (about 5.5 million: play 26, triage 2, verify 7, report 1, issue filing 1).
+- Before any run of more than about 6 agents, say roughly how big it is and ask, unless he has turned ultracode on for the chat. Past sizes: second playtest 97 agents (about 13 million subagent tokens); third playtest about 45 agents in all (about 5.5 million); fourth fix round 19 agents (about 3.5 million: 5 groups of implement, review, repair = 14, then a final review, 3 browser checks and a repair). **This container has 4 CPUs, so a workflow runs only 2 agents at once**: the fix round took about 1.5 hours, the final check about 1 hour.
 - **Messages Robert sends while a workflow runs are relayed into every running agent.** Every agent prompt says: "Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish." Keep that line in every new prompt.
 - **Pass a workflow's `args` as real JSON, never a placeholder.** A Workflow `scriptPath` must be inside the working directory: copy scripts from the harness into `/home/user/TTRPG_VTT_CO/.pt3/` (git-excluded) first.
-- **No resume Routine.** Push work in progress at least hourly; an interrupted container keeps nothing. A worker restart stops PostgreSQL, every server and the seats' browsers (it happened once on 12 October; `start_all.sh` brought the seats back). Tell agents to commit as they go.
+- **No resume Routine.** A `send_later` check-in is fine as a safety net. Push work in progress at least hourly; an interrupted container keeps nothing. A worker restart stops PostgreSQL, every server and the seats' browsers (it happened once on 12 October; `start_all.sh` brought the seats back). Tell agents to commit as they go.
 - **Give every reviewer the decisions Robert made, not only the implementer** (a reviewer once deleted a feature he had asked for). `playtest/results/2026-10-11-recheck/decisions.md` is a good shape for that.
 - **Check a PR's description against its code.** A final review should confirm each claimed item exists.
 - **`playtest-harness` has its own history, unrelated to `main`.** Work on it in a worktree (`git worktree add /home/user/harness playtest-harness`) and push it directly; the session's assigned branch is for app code. A hard `git reset` is refused; to move a branch, `git fetch` then `git merge --ff-only`.
@@ -26,13 +26,13 @@ Open problems live in GitHub issues; this file only points at them.
 - File an issue for each confirmed bug and medium UX item not fixed in the same phase; low UX items go in one checklist issue per round (#45, #60). Raw playtest findings stay on this branch.
 - A fix PR closes its issues with "Fixes #n" lines; tick checklist lines by hand. Austin rarely reads issues, so notifications are fine.
 - Robert comments on issues himself. **Read new comments on open issues at the start of each phase.** Earlier ones: #29 a newcomer welcome pop-up; #33 closed for #34 custom maps drawn live with the sketch tools; #31 an end-of-assignment "interview" on goals and relationships.
-- Open now: bugs #17-#22, #38-#44, **#49-#55**; UX #23-#26, #45-#47, **#56, #57, #60**; ideas #27-#32, #34, **#58, #59**. New ones are from the third playtest.
+- Open now: bugs #17-#22, #38-#44; UX #23-#26, #45-#47, #60; ideas #27-#32, #34. **PR 61 closes #49-#59 when merged** and ticks three #60 lines (spend confirm, join notice, key info slip); tick those by hand after the merge.
 
 ## Model and effort
 
 Robert sets the model and effort when he opens the chat. As your first step, check yours with `get_session`; if they differ, say so in one line and carry on. A workflow agent's model and effort can be set per agent (`model`: sonnet, opus, haiku or fable; `effort`). Robert asked to see the plan with models per stage before a workflow runs.
 
-**Next phase (decisions, then the fix round): Opus 5.5 at high effort for the chat.** The fixes touch the roster, circle resources and the WebSocket protocol.
+**Next phase (PR 61 follow-through, then Robert's pick): Opus 5.5 at high effort for the chat.** If he picks the fourth playtest, the Lightkeeper seat and triage need Opus; if he picks the older-bug round, it touches rolls and the protocol.
 
 | Work | Model | Effort |
 |---|---|---|
@@ -50,24 +50,24 @@ What worked before for a fix round (run 2): fixes in worktrees (`/home/user/wt/<
 
 ## Where things stand
 
-- `main` is at **2d86b77** (PR 48). **Live and beta both run 2d86b77.** No app code changed in the third playtest phase, so no PR was opened for it.
-- **The third playtest is done** (12 October UTC, on beta). Robert built Pontius Aganus (account `Chilly`), was approved, then left before play; he asked for an AI player in his place. Ada Quill (Scholar, Professor, desktop seat `ada`) took the seat. The site cannot remove an approved investigator, so Pontius stayed a ghost member all session. Four AI players and an AI Lightkeeper then played **The Drowned Choir** end to end: formation, three scenes, reports, Illumination 0 to 5 of 12, End Assignment, spends between assignments. Not reached: scars, death, the timer running out, advancement.
-- **Results** in `playtest/results/2026-10-12-run3/`: `report.md` first (also `report.json`), `findings.jsonl` (138), `triage_result.json` (53 clusters, 9 praise themes), `verify_result.json` (12 verified on local copies at 2d86b77: 9 confirmed, 2 partly, 1 by design), `verify/` scripts and screenshots, `table.md`, `memory/`. The report was not published as a page; offer it if Robert wants one to share with Austin.
-- **Issues filed from it:** #49 ghost member (no release), #50 a Train die bought mid-assignment is wiped at End Assignment and the spend wording disagrees, #51 a 0-maximum drive shows "0 of 1", #52 sketch Text labels get lost, #53 notebook Contents does not reach its entry, #54 players see the Lightkeeper's login name, #55 a Well-Read refund logged when capped, #56 the Lightkeeper loses sight of relationships after the seal, #57 a refused session drops to a blank sign-in, #58 report has no text line (idea), #59 Behind Me offers lapse unseen (idea), #60 the low UX checklist (including Robert's join-notice wording finding).
-- **The harness for run 3** is in `playtest/run3/` and `playtest/workflows/run3/` (`play.js` now has four AI players and a `replace` step; `triage3.js`, `verify3.js`, `report3.js`; `issues.md` is the open-issues list the triagers used). Method notes for next time are at the end of the report: settle the human seat before approvals, test time windows with a timed script, keep screenshot numbers running across turns, seed a circle near 12 Illumination to reach advancement.
+- `main` is at **2d86b77** (PR 48). **Live and beta both run 2d86b77.**
+- **PR 61** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/61, branch `claude/fervent-wozniak-rlk7su`, head 7b498b3 at opening) is the fourth fix round: every confirmed third-playtest item plus Robert's six decisions. Opened 12 October, not merged. Full backend suite 1938 passed, 1 skipped. Robert merges; then he deploys beta (and live when he chooses).
+  - Deploy note for Robert: at startup the server re-signs the Lightkeeper's older notebook entries as "The Lightkeeper" (#54), a one-time change to stored data.
+- **Decisions of 12 October** (all recommendations taken) are in `playtest/results/2026-10-12-fix4/decisions.md` and logged in the vault: release or leave at any time, by the Lightkeeper or the player, dropping votes, relationships and the current report and lowering resource maximums with no refund; spending whenever the Lightkeeper opens it, a Train die kept until used; the spend confirm stays armed; an optional 280-character report line; a non-blocking "Not filed:" line at Add Illumination and End Assignment; ally offers keep 2 minutes and are logged (offered and lapsed).
+- **Fix round 4 record** in `playtest/results/2026-10-12-fix4/`: `decisions.md`, `fix_groups_result.json` (per group: implementer, review, repair), `final_check_result.json` (final review, three browser checks against the 2d86b77 control, repair), `pr_body.md`. Workflows in `playtest/workflows/run4/` (`fix-groups.js`, `final-check.js`).
+- **Left open on purpose** (reasons in `final_check_result.json`): the Well-Read log keeps its em dash (`outcomes.js` parses it); no Release button on the roster card (the card opens the sheet, which has it); a spend count resets when a player leaves and rejoins (would need a decision); the keys info slip has no flip when near the top; at 1920x1080 the Circle Resources card no longer fits above the fold; the session-ended note is lost on a reload. Candidates for #60.
+- **Third playtest** results stay in `playtest/results/2026-10-12-run3/` (report, findings, triage, verify). Its method notes for next time are at the end of the report.
 - **Beta password:** plain environment variables `CANDELA_BETA_USER` and `CANDELA_BETA_PASS` work (Playwright `httpCredentials`). Never a network secret: it replaced the app's token on every API call. Beta's `/api` and `/ws` answer without the password (Robert knows; his call).
 - **How beta is deployed** (Robert, on the server): `cd ~/projects/candela-vtt-beta && git fetch origin && git checkout beta && git merge --ff-only origin/main`, then `cd ~/projects/gatergrid-web/.claude/worktrees/candela-beta && bash candela/update.sh --beta`. Add `--now` if players are connected.
 
-## Next phase: Robert's decisions, then the fix round
+## Next phase: PR 61, then Robert's pick
 
-1. Read new comments on open issues (especially #49-#60). Check `main` has not moved.
-2. **Ask Robert the product decisions** (from the report's "Decisions for Robert"), each with a recommendation, and wait for his answers. Put them in a `decisions.md` for the implementers and reviewers:
-   - Who may take an approved investigator off a roster (the Lightkeeper, the player leaving, or both; before the first session only or any time), and after the seal: drop their votes, relationships and report and recompute Stitch, Refresh and Train at once? (#49)
-   - When circle resources may be spent (between assignments only, or whenever the Lightkeeper opens spending), and does a bought Train die last until used? (#50)
-   - Keep the spend "Press again" 4-second lapse (DESIGN.md), or stay armed until a press elsewhere like other confirms? (#60)
-   - A text line on the assignment report? (#58) A warning at Add Illumination and End Assignment when a report is missing (FAQ.md says none today)?
-   - Behind Me offers: stay open until the ally answers, or keep 2 minutes and tell the Lightkeeper who was offered? (#59)
-3. **Then the fix round:** the no-decision fixes (#51, #52, #53, #54, #55, #56, #57, and the verified #60 lines: join notice wording, key info slip) plus whatever the decisions settle. Each verifier's root cause and fix is in `verify_result.json` by cluster key; the issue bodies carry them too. Group by area, one worktree per group, implement, Opus review with `decisions.md`, repair, merge, full suite, final Opus review, Opus browser check replaying each item's original steps against 2d86b77 as the control. Say the size first. Open one PR into `main` with "Fixes #n" lines.
+1. Check PR 61: CI, reviews, merged or not. Fix red CI or review comments on its branch (the session may assign a new branch; if 61 is still open, push fixes to `claude/fervent-wozniak-rlk7su` only if the session allows, else ask). Read new comments on open issues. If 61 is merged, tick the three #60 lines it fixed and check #49-#59 closed.
+2. **Ask Robert which comes next**, with a recommendation (mine: the fourth playtest, once 61 is on beta):
+   - **Fourth playtest on beta** (after he deploys 61): first a separate re-check pass replaying every item of 61 on beta, then blind play. Use the run 3 method notes: settle the human seat before approvals, seed a circle near 12 Illumination to reach advancement, a timed script for the 2-minute offer window and the timer running out, and aim at scars and death, which no playtest has reached. Harness: `playtest/run3/` and `playtest/workflows/run3/` (copy to `/home/user/pt4`-style folder; `play.js` has four AI players and a `replace` step). Size: about 45 agents.
+   - **Older-bug round**: bugs #17-#22 and #38-#44 and the medium UX #23-#26, #46, #47, same shape as fix round 4 (groups, review, repair, final review, browser check against the current `main`). Read each issue first; some may be stale. Size: about 20 agents.
+3. Say the size and the plan with models per stage before running it.
+
 
 ## Start prompt for the next chat
 
@@ -97,6 +97,7 @@ No frontend test runner exists, so changes are checked in Chromium with Playwrig
 - A backend on its own port and database; `vite preview` of a build with a copy of `frontend/vite.config.js` whose proxy targets point at that port (git-excluded, `frontend/.vite.preview.<port>.config.mjs`).
 - A table built through the API (register, `/campaign/create`, forge, join, approve, then `circle-creation-state`), sealed in SQL (`circles.is_finalized`, `campaigns.roster_finalized`, `reports_open`). `X-Forwarded-For` with a fresh address per request avoids the sign-up limit.
 - A desk opened by writing the store's `candela-vtt-storage` in an init script guarded by sessionStorage. `playtest/checks/` and `playtest/results/2026-10-12-run3/verify/` show how (the run 3 verifier scripts build tables with a ghost member, drives at 0, notebooks and reports).
+- How fix round 4 was set up (repeat it): a work folder `/home/user/pt4` with `npm install` of `playtest/package.json` (Playwright), copies of the playtest's results and verify scripts (paths changed from `pt3` to `pt4`), `decisions.md` and `start_all.sh` (restarts PostgreSQL; in `results/2026-10-12-fix4/`). One worktree per group at the base commit (`/home/user/wt/<group>`, branch `fix4-<group>`), `frontend/node_modules` linked, a preview config per port (`sed` of 8000 to the port); a detached worktree `/home/user/wt/control` at the old build for the control. Each agent has its own ports and databases.
 - A stall made with `page.routeWebSocket`. A gilded die waiting for its choice wobbles: press Enter on it.
 
 ## How to work in this repo

@@ -1,0 +1,701 @@
+[
+ {
+  "group": "roster",
+  "impl": {
+   "done": [
+    {
+     "item": "#49 ghost-member-no-release (backend)",
+     "what": "New POST /campaign/release/{character_id} in backend/vtt/routers/campaigns.py (release_member). It can be called by the Lightkeeper of the character's campaign or by the character's owner, at any time. A living active member becomes unaffiliated: no campaign, ink cleared, end_assignment_for run. The row is kept. On the campaign's circle it deletes the member's circle_votes and every relationship with the member at either end (agreed or proposed), and drops the member's report for the current assignment (new drop_report in backend/vtt/assignment.py). After the seal each of Stitch, Refresh and Train above 1 + members is lowered to it, with no refunds and nothing raised (new lower_resources_to_pool in backend/vtt/circle_queries.py). Before the seal, _announce_members_changed fills the resources to the new pool, as an approval already does. It broadcasts the new investigator_released frame to the campaign (the Lightkeeper's copy carries owner_username) and a short copy to the released character's own channel, then circle_update, then the log line 'The Lightkeeper released <name> from the circle.' or '<name> left the circle.' A pending, dead or already-free character gets 409 'This investigator is not a member of the campaign.'; anyone else gets 403.",
+     "checked": "New tests in backend/tests/test_campaigns.py: test_release_after_the_seal_drops_the_member_from_everything_the_circle_counts, test_a_player_leaves_before_the_seal and test_release_refusals. New test in backend/tests/test_rest_broadcasts.py: test_release_tells_every_desk, run once as the Lightkeeper and once as the player. The route is pinned in test_surface.py, test_00_startup.py, test_access.py (44 to 45 routes) and tests/data/openapi.json. All of these pass."
+    },
+    {
+     "item": "#49 ghost-member-no-release (frontend)",
+     "what": "The Lightkeeper's sheet (frontend/src/components/gm/GMCharacterSheet.jsx, new ReleaseMember) has a two-press 'Release from the circle' for living members. It is wired in OperationsPanel.jsx, which also closes the sheet when the member leaves from elsewhere. New frontend/src/components/pc/LeaveCampaign.jsx puts 'Leave the campaign' under the player's Investigator sheet on the desk (MainDeskView.jsx). The hub's registry row of an investigator in a campaign has 'Leave' (PlayerRegistryPage.jsx). Store (frontend/src/store/gameStore.js): new releaseMember action and investigator_released handler. On the released investigator's own desk it goes to the hub with a notice, frees the investigator in the registry, clears it as Last Played and reconnects the socket. Every other desk swaps in the new member lists, votes and relationships and drops that member's report, so 'N of M filed' and the key tally use the new membership.",
+     "checked": "vite build passes. In Chromium against my own backend (8501) and preview (4501), with a table built by copies of the v8401 setup scripts: at 1440x900 the Lightkeeper released ghost member Pontius from a sealed circle. Cards went from 5 to 4, Stitch and Train from 6 to 5, Refresh stayed at 4, the circle file read '4 of 4 filed', the tally read 'every investigator (4 of 4)', and votes, relationships and his report were gone in SQL. Ada's phone desk got the frame and the log line. The player then left from the phone desk (390x844): the hub showed the notice and the Lightkeeper's desk went from 5 cards to 4 live with the log line. The player also left from the hub at 1920x1080 and at 390x844. I looked at every screenshot. No page errors."
+    },
+    {
+     "item": "#49 docs",
+     "what": "FAQ.md has a new question on leaving or being released. DESIGN.md has a new 'Releasing a member' section and an updated Player Registry bullet. docs/refactor/WEBSOCKET.md and FRONTEND.md list investigator_released. docs/refactor/ROUTES.md and AUTH.md describe the route and who may call it.",
+     "checked": "Read against the code and the browser run. No em dashes or model names in any added line."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Release button on the roster card itself",
+     "why": "Decision 1 says the Lightkeeper releases 'from that member's roster card or sheet'. The roster card (InvestigatorBusinessCard) is one whole button that opens the sheet, so a nested control would mean rebuilding the card. The sheet that card opens has the Release, which meets the decision."
+    }
+   ],
+   "choices": [
+    "One route serves both callers: POST /campaign/release/{character_id}. If the caller owns the character it counts as leaving (by: 'player'); otherwise it counts as a Lightkeeper release (by: 'lightkeeper').",
+    "A dead investigator cannot be released (409), because the earlier decision keeps the dead with the campaign. A pending one is refused too, because Reject and Withdraw already cover requests.",
+    "Before the seal a release fills the resources to the new 1 + members, as approvals already do. Only after the seal are they lowered without refund, as the decision says.",
+    "Log lines: 'The Lightkeeper released <name> from the circle.' and '<name> left the circle.' No reason is shown.",
+    "Lightkeeper's sheet: button 'Release from the circle', then 'Yes, release', cancel 'Keep in the circle'. Armed line: 'Press again to release <name>. They go back to the player, out of the campaign. Their circle votes, relationships and this assignment's report are dropped' plus, on a sealed circle, ', and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' It is ink, not oxblood, like Reject.",
+    "Player's desk: 'Leave the campaign', then 'Yes, leave', cancel 'Stay'. It sits under the Investigator tab's sheet so it is reachable at every size. Hub row: 'Leave', placed after the disabled Delete so the armed line wraps cleanly. Shared armed line: 'Press again to leave <campaign>. <name> comes back to you, free to join another campaign. Their circle votes, relationships and this assignment's report there are dropped.'",
+    "Hub notices: '<name> left <campaign> and is free to join another campaign.' and 'The Lightkeeper released <name> from <campaign>. <name> is free to join another campaign.'",
+    "investigator_released carries the full votes and relationships, so other desks replace them in one frame instead of getting several vote_update and relationship_update frames.",
+    "The released character keeps its circle_id, as Retire does. The Great Wards check already ignores a warder who is no longer an active member."
+   ],
+   "protocol": [
+    "New REST route POST /campaign/release/{character_id}. Callers: the owner or the GM of the character's campaign. Response {ok: true, character}. 409 'This investigator is not a member of the campaign.', 403 for anyone else, 404 for an unknown id.",
+    "New server-to-client WebSocket message investigator_released. The campaign copy is {character_id, character_name, campaign_id, campaign_code, by: 'lightkeeper'|'player', active_investigators, votes, relationships}, with owner_username on the GM key's cards only. The released character's own key gets {character_id, character_name, campaign_id, campaign_code, campaign_name, by}. circle_update and activity_log follow on the campaign.",
+    "No database columns changed."
+   ],
+   "commits": [
+    "dea549c Add POST /campaign/release/{id}: the Lightkeeper releases a member, or the player leaves",
+    "a8b13d0 Release a member from the Lightkeeper's sheet; leave a campaign from the desk or the hub",
+    "fd6fabb Document releasing a member and leaving a campaign"
+   ],
+   "tests": "[\"I ran backend/tests/test_campaigns.py, test_rest_broadcasts.py, test_surface.py, test_access.py, test_circle_rest.py and test_ws_circle.py together on a throwaway database: 690 passed.\", \"In that same run two test_00_startup.py tests failed (test_fresh_postgres_sequences_follow_the_seeded_ids failed, test_init_db_upgrades_a_database_from_the_last_release_without_errors errored), because that file has to run first on a fresh database. Run alone on a fresh database, test_00_startup.py passed in full (34 tests, plus the upgrade test in a separate run).\", \"I did not run the whole suite, as instructed. vite build passes.\"]"
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "should",
+     "where": "frontend/src/components/pc/LeaveCampaign.jsx:8",
+     "problem": "The player's two-press Leave (on the desk and in the hub) has a shorter armed line than the Lightkeeper's Release. It never says that on a sealed circle the whole circle's Stitch, Refresh and Train come down to the smaller maximum with nothing refunded. Decision 1 says both confirms 'say what will happen', and the a8b13d0 commit message claims every armed line mentions the resources. Seen in Chromium: Bram's phone desk on the sealed circle showed only 'Press again to leave The Ghost Hours. Bram Holt comes back to you... Their circle votes, relationships and this assignment's report there are dropped.' Stitch then went 5 to 4 with no warning.",
+     "fix": "Give leaveHint a sealed flag and add the same clause ReleaseMember uses (', and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.'). The desk can read it from useGameStore(s => s.circle?.is_finalized). The hub has no circle, so word the clause conditionally there ('if the circle is sealed, ...'), or pass the flag if the registry rows carry it."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/campaignSelector/PlayerRegistryPage.jsx:121",
+     "problem": "The hub's 'In a campaign' list includes dead investigators (they stay status active), and leaveControl draws 'Leave' on every row without checking is_dead. The server refuses a dead one with 409, and the hub then says something false. Reproduced at 390x844: on Dev Okafor's (dead) row, Leave then 'Yes, leave' showed 'Dev Okafor is no longer in the campaign.' while the row still reads In a campaign. The desk's LeaveCampaign and the Lightkeeper's sheet both hide the control for the dead; the hub does not.",
+     "fix": "Draw the control only for the living: {!char.is_dead && leaveControl(char)}. This matches LeaveCampaign's own guard and the FAQ line 'A dead investigator cannot be released'."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/store/gameStore.js:2347",
+     "problem": "releaseMember returns at once on failure and never reads the registry again. The hub has no socket, so if the Lightkeeper releases the investigator while the player's Case Ledger is open, pressing Leave gets 409. The hub then says 'Pontius Aganus is no longer in the campaign.', but the row stays under In a campaign with Leave still pressable until something else refetches. Reproduced at 1440x900 (release over the API, then Leave in the open hub). withdrawRequest, next to it, always calls fetchUserData for this reason.",
+     "fix": "On a failure with a server status (at least a 409), call get().fetchUserData(get().accessSession?.userId) before returning, as withdrawRequest does. The row then moves to Not in a campaign next to the message."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/store/gameStore.js:2355",
+     "problem": "Leaving from your own desk: if the HTTP answer arrives before the investigator_released frame, the store sets the hub notice to releasedWords('player', name, null), which reads '<name> left the campaign and is free...'. The later frame then takes the other-desk branch, because character is already null, so the campaign name never shows. The run above happened to get the frame first ('left The Ghost Hours').",
+     "fix": "Pass the campaign name you already have (get().lastPlayedCampaign?.campaignName, or the character's campaign_name) before freedInvestigator clears it."
+    },
+    {
+     "level": "nit",
+     "where": "docs/refactor/WEBSOCKET.md:245",
+     "problem": "The outgoing-messages table now has 35 rows with investigator_released, but the sentence above it still says 'The 34 types in this table'.",
+     "fix": "Change it to 35."
+    },
+    {
+     "level": "nit",
+     "where": "docs/refactor/ROUTES.md:60",
+     "problem": "The new route has a detailed section (line 135) but no row in the REST summary table. Withdraw, unretire and every other route have one.",
+     "fix": "Add '| POST | /campaign/release/{character_id} | release_member | - | yes | gameStore.releaseMember (GMCharacterSheet via OperationsPanel, LeaveCampaign, registry) | the character's owner, or the GM of its campaign |'."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/routers/campaigns.py:373",
+     "problem": "A release that lands at the same moment as the seal can leave the old pool. finalize_roster takes no lock on the circle and counts members for fill_resources from its own snapshot, so if both commit together the circle can seal at 1 + old members, and the release's _announce_members_changed then sees is_finalized and does not lower it. approve has the same exposure today, and it is very unlikely at a real table.",
+     "fix": "Optional: lock the circle row in finalize_roster (with_for_update) before counting, so it waits for a release in flight. Or leave it and note it as known."
+    }
+   ],
+   "items_ok": [
+    "Backend POST /campaign/release/{character_id} is in the diff as described. Owner or GM of the campaign may call it, 403 for anyone else, 404 for an unknown id, 409 for pending, dead or free. It locks the character and circle rows. The character becomes unaffiliated with no campaign and no ink, end_assignment_for runs, and the row is kept. The member's circle_votes, relationships at both ends (accepted and proposed) and current-assignment report (drop_report) are deleted. After the seal lower_resources_to_pool lowers to 1 + members and never raises. Before the seal resources fill as an approval does, which is outside the decision's after-seal clause and consistent with the seal's own fill.",
+    "investigator_released goes to the campaign: the GM key's copy has owner_username, members get the plain copy, and the released investigator gets nothing on that path. A short copy goes to the character's own key, then circle_update, then the log line 'The Lightkeeper released X from the circle.' or 'X left the circle.' The frame is documented in WEBSOCKET.md, FRONTEND.md and ROUTES.md. The route is pinned in test_surface.py HTTP_ROUTES, test_00_startup.py, test_access.py (45) and tests/data/openapi.json. test_surface's WS list covers inbound messages only, so a server-to-client frame needs no entry there.",
+    "WS access re-checks membership on every message (_sender_campaign), so a released investigator's old socket cannot spend, vote, report or propose on the old circle.",
+    "My run of test_00_startup, test_campaigns, test_rest_broadcasts, test_surface, test_access, test_circle_rest and test_ws_circle on a fresh database: 692 passed. test_account, test_password_reset and test_deletion: 334 passed. vite build passes.",
+    "Chromium, Lightkeeper release at 1440x900 on a sealed circle with a v8401-style ghost (votes, an accepted and a proposed relationship, a filed report, Refresh spent to 4). The armed line was correct. Stitch and Train went 6 to 5, Refresh stayed 4, '4 of 4 filed', tally 'some investigators (3 of 4)' (Dev filed no key), the ghost's votes, relationships and report were gone in SQL, and the character was unaffiliated. Ada's laptop desk got the frame, dropped Pontius from Your Circle and showed the log line. The ghost's phone desk went to the hub with 'The Lightkeeper released Pontius Aganus from The Ghost Hours...' and its socket reopened on the character channel. Reloads were clean and there were no page errors.",
+    "Chromium, player leaves from the phone desk (390x844). Leave and Stay are 44px. The desk went to the hub with 'Bram Holt left The Ghost Hours...'. The Lightkeeper's open sheet of Bram closed live and the GM and Ada desks showed 'Bram Holt left the circle.'. Resources went to 4/4/4.",
+    "Chromium, player leaves from the hub at 1920x1080 while the same investigator's desk was open in a second (phone) tab. Both tabs showed the notice, the desk tab went to the hub, the Lightkeeper's desk updated live, and resources went to 2/2/2 (one living member, one dead).",
+    "The character is kept (freed, not deleted) and can rejoin by the normal join flow (backend test). Log lines show no reason. No em dashes or model names in added lines or commit messages, and the commit trailers are correct. FAQ.md has the new question and DESIGN.md has the 'Releasing a member' section and the registry bullet."
+   ],
+   "items_incomplete": [
+    "No Release on the roster card itself (skipped). Decision 1 says 'from that member's roster card or sheet', and the sheet that the card opens has it, so I do not count this against the decision. If Robert meant both, it is still missing.",
+    "The player's confirm does not say what happens to the circle's resources after the seal (should, above). Decision 1 requires 'say what will happen'."
+   ],
+   "summary": "The branch builds decision 1. One route, POST /campaign/release/{id}, serves the Lightkeeper's release (from the member's sheet) and the player's leave (from the desk and the hub), each behind the two-press confirm. After the seal it drops the votes, the relationships at both ends and the current report, lowers Stitch, Refresh and Train to 1 + members without refunds, keeps the character, tells every desk live and logs who left. Backend tests pass (692 plus 334 nearby) and vite builds. I replayed the ghost-member steps in Chromium at 1440, 1366, 1920 and 390 wide: Lightkeeper release, leaving from the desk, leaving from the hub with a second tab open, and reloads. Counts, tally, resources and SQL all matched the decision, with no page errors. Nothing is blocking. Three should-fix issues: (1) the player's Leave armed line leaves out that the circle's resources come down after the seal, though the decision asks every confirm to say what will happen; (2) the hub shows Leave on a dead investigator's row, and pressing it says the false 'X is no longer in the campaign.'; (3) a failed Leave in the hub does not read the registry again, so a row released elsewhere stays under In a campaign with that message. Four nits: a stale '34 types' count in WEBSOCKET.md, a missing ROUTES.md summary row, a notice that can lose the campaign name in a race, and a release-versus-seal race."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "should: the player's Leave armed line leaves out what happens to the resources after the seal",
+     "what": "frontend/src/components/pc/LeaveCampaign.jsx: leaveHint(name, campaignName, sealed). If sealed is true it adds ', and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' (the same clause ReleaseMember uses). The desk's LeaveCampaign reads useGameStore(s => !!s.circle?.is_finalized). The hub calls leaveHint without the flag because it has no circle, so its line ends 'If the circle is sealed, its Stitch, Refresh and Train also come down to the smaller maximum, with nothing refunded.' The DESIGN.md registry bullet now describes this.",
+     "checked": "Chromium on a sealed table. Bram's phone desk (390x844) showed the full clause. After he left, resources went 6 to 4 in SQL and the Lightkeeper's desk logged 'Bram Holt left the circle.' live. The hub's conditional line showed at 1440x900 and 390x844 and wrapped cleanly. I looked at every screenshot."
+    },
+    {
+     "item": "should: the hub shows Leave on a dead investigator's row",
+     "what": "frontend/src/components/campaignSelector/PlayerRegistryPage.jsx: the row now renders {!char.is_dead && leaveControl(char)}, the same guard LeaveCampaign uses. The registry schema already carries is_dead.",
+     "checked": "Chromium at 1440x900 and 390x844. Dead Dev Okafor's row under In a campaign has only Play and the unpressable Delete, with no Leave."
+    },
+    {
+     "item": "should: a failed Leave in the hub does not read the registry again",
+     "what": "frontend/src/store/gameStore.js releaseMember: when the server refuses with a status (any non-zero, so 409 included), it now awaits fetchUserData(accessSession.userId) before returning, as withdrawRequest does.",
+     "checked": "Chromium at 1440x900 and 390x844. I armed Leave in the open hub, released the investigator over the API as the Lightkeeper, then pressed Yes, leave. The hub said 'Pontius Aganus is no longer in the campaign.' and the row moved to Not in a campaign, with Join a campaign and no Leave. The only console error was the expected 409."
+    },
+    {
+     "item": "nit: a leave from the desk can lose the campaign name if the HTTP answer arrives first",
+     "what": "gameStore.js releaseMember reads the campaign name (from lastPlayedCampaign, or else the registry row's campaign_name) before freedInvestigator clears it, and passes it to releasedWords.",
+     "checked": "Chromium at 1366x768. My copy of the verify lib drops the investigator_released frame on the way to the page, so the HTTP answer had to do the work. The hub notice still read 'Pontius Aganus left The Ghost Hours and is free to join another campaign.'"
+    },
+    {
+     "item": "nit: WEBSOCKET.md still says 34 types",
+     "what": "docs/refactor/WEBSOCKET.md now says 'The 35 types in this table'. I counted 35 rows.",
+     "checked": "Counted the table rows."
+    },
+    {
+     "item": "nit: ROUTES.md summary table has no row for the new route",
+     "what": "docs/refactor/ROUTES.md: added the reviewer's row for POST /campaign/release/{character_id} after withdraw.",
+     "checked": "Read in place."
+    },
+    {
+     "item": "nit: a release at the same moment as the seal can leave the old pool",
+     "what": "backend/vtt/routers/circles.py finalize_roster now reads the circle with populate_existing().with_for_update(). A release in flight then commits first and the seal counts the members left, or the release waits and lowers after the seal. Lock order is safe: release locks the active character and then the circle, finalize locks the circle and then touches only pending characters, and approve commits before its circle write.",
+     "checked": "On a fresh database, test_00_startup, test_campaigns, test_rest_broadcasts, test_surface, test_access, test_circle_rest and test_ws_circle: 692 passed. test_00_startup, test_deletion and test_json_strings: 95 passed. In the browser setup I sealed through the finalize-roster API and it filled 6/6/6 as expected."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Release button on the roster card itself (the reviewer's incomplete item)",
+     "why": "Decision 1 says the Lightkeeper releases a member 'from that member's roster card or sheet'. That is an either/or, and the reviewer did not count this against the decision. The roster card (InvestigatorBusinessCard) is one whole button that opens the sheet, and that sheet already has the two-press Release. A control nested inside the card would mean rebuilding the card's button, and the decision does not ask for it. If Robert wants Release on both, it is a follow-up."
+    }
+   ],
+   "choices": [
+    "Hub armed line, which cannot see the circle: '... Their circle votes, relationships and this assignment's report there are dropped. If the circle is sealed, its Stitch, Refresh and Train also come down to the smaller maximum, with nothing refunded.' I did not add an is_finalized field to the registry rows, so the API shape and openapi.json stay unchanged.",
+    "The desk's armed line uses the Lightkeeper's wording exactly on a sealed circle. Before the seal it stops after 'are dropped.'",
+    "releaseMember reads the registry again after any refusal that has a server status. A network failure (status 0) does not refetch.",
+    "Resources after Bram left went to 4/4/4, not 5, because the existing resource_pool counts only living members (Dev was dead). The reviewer saw the same thing earlier, and I left it as it is."
+   ],
+   "protocol": [
+    "No new or changed WebSocket messages, API routes or DB columns. finalize_roster now takes a row lock on the circle; its request and response are unchanged."
+   ],
+   "commits": [
+    "db2f87a Lock the circle while sealing, so a release in flight lands first",
+    "ccd4338 Leave: say what happens to the resources, no Leave for the dead, reread on refusal"
+   ],
+   "tests": "On fresh throwaway databases: backend/tests/test_00_startup.py, test_campaigns.py, test_rest_broadcasts.py, test_surface.py, test_access.py, test_circle_rest.py and test_ws_circle.py: 692 passed. test_00_startup.py, test_deletion.py and test_json_strings.py: 95 passed. vite build passes (to /tmp/build_roster_8521). Chromium checks against my own backend (8521) and preview (4521) used copies of the v8401 scripts in /tmp/roster_8521 (r1_desk_leave.js, r2_hub.js run as wide and phone, r3_race.js), with screenshots in /tmp/roster_8521/out_8521. Every check passed and I looked at every screenshot. Servers are stopped and the databases are dropped. I did not run the whole suite, as instructed."
+  }
+ },
+ {
+  "group": "circle",
+  "impl": {
+   "done": [
+    {
+     "item": "#50 circle-spend-timing-wording",
+     "what": "End Assignment no longer clears a bought Train die. backend/vtt/assignment.py: end_assignment_for drops the train_bonus/train_dice lines; the new release_from_campaign(character) is used by retire in backend/vtt/routers/campaigns.py, so a retired campaign still drops the Train dice of each investigator it lets go. The spend count still resets at End Assignment. All places now use one wording, \"kept until a roll uses it\": the log line in backend/vtt/ws/handlers/circle.py, the Train card in frontend/src/components/pc/CircleView.jsx, RESOURCE_HELP and refillRule in frontend/src/game/circleResources.js (\"up to two each assignment, whenever the Lightkeeper opens spending; the count starts again when the assignment ends\"), the roll chip in frontend/src/game/rollMods.js, and the sheet's Train badge in InvestigatorDossier.jsx, which also shows on the Lightkeeper's sheet. The Lightkeeper's 'Circle spends this assignment n / 2' label in GMCharacterSheet.jsx already matches this wording, so it was left alone. Docs: FAQ.md, QUIRKS.md (new fix-round-4 section, and the retire line 184 changed), WEBSOCKET.md (gm_end_assignment, spend_resource), ROUTES.md. Tests: test_ws_circle.test_gm_end_assignment flipped (Train dice survive), the log line updated in test_ws_character.test_spend_refresh_and_train, docstring of the retire test updated (it still checks they are dropped).",
+     "checked": "test_ws_circle, test_ws_character, test_campaigns: 209 passed. Browser (v8404_train replay): tablet 820x1180 and Lightkeeper at 1440x900; a Train bought mid-assignment survives End Assignment (train_dice 1, then 2 after a later spend, spend count 0 then 1); the card, log, chip, Circle page and the Lightkeeper's sheet all read the same; screenshots looked at."
+    },
+    {
+     "item": "#55 wellread-refund-logged-when-capped",
+     "what": "backend/vtt/ws/handlers/rolls.py: new _refund_intuition(character, spent) returns the points that actually came back (capped at the maximum). Both paths (resolve_gilded and the roll with no choice) log '[Well-Read ... n Intuition refunded]' with that n, and only when n > 0, as the gilded refresh already does. The desk's '(Well-Read: n Intuition back)' is built from the log line, so it follows. FAQ.md Well-Read row and QUIRKS.md updated.",
+     "checked": "New tests test_well_read_logs_only_what_the_cap_lets_back[1-0 and 2-1] and test_well_read_says_nothing_when_an_all_gilded_roll_filled_the_drive fail on the old code and pass; test_ws_rolls 169 passed. Browser at 1920x1080 (v8402_wr replay): kept gilded 2 on a Focus roll with Intuition 4/4; the log reads only '(Gilded die kept: 1 Intuition refreshed)', Intuition ends 4/4."
+    },
+    {
+     "item": "#51 drive-max-zero-shows-one",
+     "what": "backend/vtt/serializers.py sends nerve_max, cunning_max and intuition_max with `or 0` instead of `or 1`. InvestigatorDossier.jsx reads the maximum with `?? 0` (handleSpendDrive and the drive row), and a drive whose maximum is 0 prints 'none' with no pips and no button, like the Resistance row, with screen-reader text 'Nerve: none'. gameStore.js resistance max uses `?? 0`. QUIRKS.md entry added.",
+     "checked": "New test_investigators.test_a_drive_maximum_of_0_is_sent_as_0 (player GET, Lightkeeper GET of a pending applicant, socket) fails on the old code and passes. test_investigators, test_ws_character, test_ws_gm_view, test_ws_rolls, test_ws_marks, test_ws_circle, test_access and test_ws_connect all pass. Browser: tablet 820x1180 Occultist with Nerve 0/0 shows 'none', no Set Nerve button, still 'none' after a Refresh; desktop 1920x1080 Professor the same; the Lightkeeper's view of the pending Pontius at 1440x900 shows 'none'. Screenshots looked at."
+    },
+    {
+     "item": "#60 spend-confirm-lapses-fast",
+     "what": "In frontend/src/components/pc/CircleView.jsx, the 4-second timeout is gone. The confirm stays armed until a click outside that resource's button (capture-phase click listener), Escape, focus moving to a non-spend element, or spending becoming locked or the resource running out. The PR 48 guards (500 ms double-click ignore, SPEND_GAP_MS) are kept. The browser check found that the 'Press again to spend it' line above the buttons pushed them down, so a double-click's second press, or a press on another resource, missed. That line now sits under the armed button, with a status region for screen readers. DESIGN.md circle resources rule updated; FAQ.md spend paragraph updated.",
+     "checked": "vite build. Chromium phone 390x844 and tablet 820x1180: a double-click arms without spending; still armed after 5 more seconds; a press elsewhere disarms; Escape disarms; Refresh then Stitch arms Stitch; a second deliberate press spends exactly one (DB spent 1); a touch-tap run on the phone the same; no page errors. Screenshots looked at."
+    }
+   ],
+   "skipped": [],
+   "choices": [
+    "Retire still drops Train dice (new release_from_campaign) while End Assignment keeps them. The decision speaks only of End Assignment, and the earlier retire fix (QUIRKS line 184) asked that nothing of the old campaign follow a released investigator.",
+    "Single Train wording: 'kept until a roll uses it' (card: 'Take a d6 to add to any roll you choose, kept until a roll uses it.'; log: 'a Train d6 for a roll of their choice, kept until a roll uses it.'; chip: 'Train (+1d on this roll; 1 Train die, kept until a roll uses it)' / 'n Train dice, each kept until a roll uses it'; badge: 'Train: +1d, kept until a roll uses it').",
+    "Spend-limit wording on the Circle page: 'Each player may spend up to two each assignment, whenever the Lightkeeper opens spending; the count starts again when the assignment ends.' This matches the existing 'Circle spends this assignment n / 2' on the Lightkeeper's sheet, which was left unchanged.",
+    "Well-Read with nothing to give back logs nothing (no 'drive was full' note), as FAQ already says of the gilded refresh. A partial cap logs the real amount.",
+    "Well-Read refund uses the same fallback as _refresh_drive (getattr default 3, then `or 0`) instead of `or 3`, in line with item 51 treating a 0 maximum as real.",
+    "A 0-maximum drive shows the word 'none' in place of the nine pips, like the Resistance row. The DiceVault and rollMods `|| 1` resistance fallbacks were left as they are (harmless, floor(1/3) is 0, not named in the item).",
+    "Spend confirm disarms on a click elsewhere rather than on pointer-down (ConfirmAction uses pointer-down), and the armed hint moved under its button. Both were needed so the layout shift does not make the second press miss.",
+    "The '[Well-Read \u2014 n ...]' and '[gilded \u2014 ...]' log formats keep their existing em dash, because frontend/src/game/outcomes.js matches it with a regex. Only the FAQ row's em dash was removed."
+   ],
+   "protocol": [
+    "activity_log for spend_resource train: message text now ends 'a Train d6 for a roll of their choice, kept until a roll uses it.' (was '... this assignment.')",
+    "gm_end_assignment: no longer resets train_bonus or train_dice (character_update / member_update carry them unchanged); resources_spent_assignment still goes to 0",
+    "Retire (/campaign/{id}/retire): still resets train_bonus/train_dice on released investigators (unchanged behaviour, now via release_from_campaign)",
+    "roll and resolve_gilded activity_log: the '[Well-Read \u2014 n Intuition refunded]' suffix now carries the points actually refunded and is omitted when none came back",
+    "get_char_dict (character_update, member_update, GET /api/investigators/{id}): nerve_max, cunning_max, intuition_max send 0 when stored 0 (was 1); no schema or openapi shape change",
+    "No new WebSocket messages, routes or DB columns"
+   ],
+   "commits": [
+    "3629764 Keep a bought Train die until a roll uses it",
+    "35b53e6 Keep the circle spend confirm armed until the player presses elsewhere",
+    "87ce120 Log only the Intuition Well-Read actually gave back",
+    "c096afa Send and show a drive maximum of 0 as 0",
+    "4ad595a Say the spend question under its button, and disarm on a click elsewhere",
+    "8a92987 Drop an em dash from the Well-Read FAQ row"
+   ],
+   "tests": "Each run used its own throwaway database. Results: backend/tests/test_ws_circle.py, test_ws_character.py and test_campaigns.py, 209 passed. test_ws_rolls.py, 169 passed. test_investigators.py, test_ws_character.py and test_ws_gm_view.py, 119 passed. test_ws_rolls.py, test_ws_marks.py, test_ws_circle.py, test_access.py and test_ws_connect.py, 826 passed. The new Well-Read and drive-max tests were also run against the old code, and they fail there as expected. The full suite was not run (left to the organiser). The frontend vite build succeeds. The browser checks used Playwright scripts in /tmp/circle_8601 against ports 8601 and 4601. Afterwards the servers were stopped by PID and the databases fix_circle_8601 and circle_t1 were dropped. One note on commit 35b53e6: its message describes the browser check before it was run. That check found the layout-shift miss, which commit 4ad595a fixes and describes."
+  },
+  "rev": {
+   "summary": "Note on the request: you asked how the workflow is going. This run is the review of the circle group's fix branch (fix4-circle, worktree /home/user/wt/circle). Bottom line: all four items are in the diff and match decisions 2 and 3. Nothing Robert decided earlier was removed, and nothing blocks the merge. There are two things a reviewer would ask for: one remaining way for the spend confirm to miss its second press, and two docs that still describe the old Train behaviour.\n\nWhat I ran and checked:\n- Backend tests on my own throwaway database: test_ws_circle, test_ws_character, test_campaigns, test_ws_rolls, test_investigators, test_ws_gm_view, test_surface and test_ws_marks, 590 passed.\n- The frontend vite build succeeds.\n- I replayed each item in Chromium against my own servers on ports 8611 and 4611, and looked at every screenshot:\n  - Train (v8404_train): a Train bought mid-assignment survives End Assignment (train_dice 1, spends 0), and a later spend makes it 2. The card, the log line, the roll chip, the Circle page rule and the Lightkeeper's sheet badge (\"TRAIN: 2 DICE, EACH KEPT UNTIL A ROLL USES IT\") all say the same thing.\n  - Drive maximum 0 (v8402_drive): Nerve 0/0 shows \"none\" with no pip and no set button on the tablet and phone, and on the Lightkeeper's copy of the sheet at 1440x900. The + on the drive stepper is disabled.\n  - Well-Read (v8402_wr): kept gilded 3 with Intuition 4/4. The log now reads only \"(Gilded die kept: 1 Intuition refreshed)\", and Intuition ends 4/4 in the database.\n  - Spend confirm on phone 390x844 and tablet 820x1180: still armed after 6 seconds. Tab to another spend button keeps it armed; Enter on that button arms that one; Escape disarms. No page errors.\n\nAgainst the decisions:\n- Decision 2: End Assignment keeps the Train dice and still resets the spend count.\n- Retire still drops the Train dice, through the new release_from_campaign. That respects the earlier rule that a released investigator carries nothing from the old campaign, and its test still checks it.\n- Decision 3: the 4-second lapse is gone and the PR 48 guards (500 ms and SPEND_GAP_MS) are kept. DESIGN.md is updated.\n- The pinned test test_gm_end_assignment was flipped, not deleted.\n- No em dashes were added, except the existing '[Well-Read \u2014 n ...]' log format, which outcomes.js reads with a regex.\n- No model names in files or commits, every commit ends with the two required lines, and nothing new is needed in test_surface.py or openapi.json.\n\nCleanup: both servers stopped by PID, and the databases fix_circle_8611 and rv_circle_t1 dropped. My scripts and screenshots are in /tmp/circle_8611 (out/ for the shots).",
+   "issues": [
+    {
+     "level": "should",
+     "where": "frontend/src/components/pc/CircleView.jsx:953",
+     "problem": "The \"Press again\" line still moves the buttons when the player switches from one armed resource to another. If Stitch is armed and the player taps Refresh, Stitch's line goes away and Refresh's appears under it, so the Refresh button jumps up by one line (23 px on a 46 px button). The second tap on the same spot then lands on the new line below the button. That counts as a press elsewhere, so the confirm disarms and nothing is spent. Reproduced on phone 390x844: Refresh moved from y 532 to 509; a second tap at 80% of the button's original height left the spend count at 0 and Refresh at 3. A tap at the centre still spent, so this is about half the button. It is the same kind of miss that commit 4ad595a fixed for a single resource.",
+     "fix": "Keep the line's space reserved so arming or disarming never moves anything. For example, give every resource a line under its button with a fixed min-height that is only filled when that resource is armed (visibility, not mounting). Or place the line absolutely inside a reserved gap. Then replay: arm Stitch, tap Refresh, tap the same spot near the bottom edge of Refresh, and the second tap must spend one."
+    },
+    {
+     "level": "should",
+     "where": "docs/refactor/RULES_CHECK.md:141",
+     "problem": "Item 17 still says gm_end_assignment clears an unused Train bonus (line 141) and that a Train die is \"kept until the Lightkeeper ends the assignment\" (line 144). After this change neither is true, and it contradicts FAQ.md, QUIRKS.md and WEBSOCKET.md, which the branch updated.",
+     "fix": "Add a dated line in the same style as the rest of the item: since 2026-10-12 (fix round 4, decision 2), a bought Train die is kept until a roll uses it and End Assignment no longer clears it; retiring a campaign still drops it."
+    },
+    {
+     "level": "nit",
+     "where": "docs/refactor/WEBSOCKET.md:129",
+     "problem": "The first sentence of the gm_end_assignment entry still says it resets train_bonus (and the 2026-10-07 note says it sets train_dice to 0). The new 2026-10-12 note undoes both, but only further down, after both claims.",
+     "fix": "Remove train_bonus from the first sentence, or mark it as replaced by the 2026-10-12 note, so a reader skimming the entry does not take the old behaviour as current."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/assignment.py:82",
+     "problem": "Merge note for the organiser: decision 1 (#49, another group) releases a member \"like a retired campaign frees living investigators\". If that group's release calls end_assignment_for, then after this branch the released investigator keeps the old circle's Train dice, because only release_from_campaign drops them now.",
+     "fix": "When merging with the #49 group, make sure its release path calls release_from_campaign rather than end_assignment_for, or decide on purpose that Train dice follow a released member."
+    }
+   ],
+   "items_ok": [
+    "#50 circle-spend-timing-wording: end_assignment_for no longer clears train_bonus or train_dice, and the spend count still resets. Retire drops them through release_from_campaign, which keeps the earlier retire decision. The wording 'kept until a roll uses it' appears on the Train card, in RESOURCE_HELP, in the log line, on the roll chip and on the sheet badge (the Lightkeeper's sheet too). The Circle page rule reads 'up to two each assignment, whenever the Lightkeeper opens spending; the count starts again when the assignment ends', which matches 'Circle spends this assignment n / 2'. FAQ, QUIRKS, WEBSOCKET and ROUTES are updated. test_gm_end_assignment is flipped, not deleted. Confirmed in Chromium on the tablet and the Lightkeeper's desk at 1440x900.",
+    "#55 wellread-refund-logged-when-capped: _refund_intuition returns the points that actually came back, and both the resolve_gilded path and the roll with no choice log only n > 0. The desk's '(Well-Read: n Intuition back)' follows from the log line. The new tests cover a partial cap, a full cap and the all-gilded roll. Browser replay: the log no longer claims the swallowed point, and Intuition ends 4/4.",
+    "#51 drive-max-zero-shows-one: serializers.py sends a 0 maximum as 0 for all three drives; InvestigatorDossier.jsx and gameStore.js use ?? 0. A 0-maximum drive reads 'none' with no pips and no set button (screen readers hear 'Nerve: none'). outcomes.js now also treats a 0/0 drive as full, so the gilded slip no longer promises a point back. The serializer test covers the player GET, the Lightkeeper's GET of an applicant and the socket. Checked on the tablet, the phone and the Lightkeeper's desk.",
+    "#60 spend-confirm-lapses-fast: the 4-second timeout is gone. The confirm disarms on a click elsewhere, Escape, focus moving to a non-spend element, spending being locked or the resource running out. The 500 ms double-click ignore and SPEND_GAP_MS are kept. There is a status region for screen readers. DESIGN.md and FAQ.md are updated. In Chromium it stays armed after 6 seconds, Escape disarms, and Tab then Enter arms the other resource.",
+    "Backend tests: 590 passed (test_ws_circle, test_ws_character, test_campaigns, test_ws_rolls, test_investigators, test_ws_gm_view, test_surface, test_ws_marks). The frontend vite build succeeds.",
+    "No new WebSocket messages, routes or columns, so test_surface.py, test_00_startup.py and openapi.json need nothing. No em dashes added apart from the existing log format that outcomes.js reads with a regex. Commit trailers are correct."
+   ],
+   "items_incomplete": [
+    "#60: the hint-under-the-button change still moves the layout when the player switches between resources, so the second press can miss on the lower half of the button (see the first issue). Robert's decision needs the confirm to survive a deliberate second press, and this case does not yet."
+   ]
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "Review should: #60 the 'Press again' line moved the buttons when switching from one armed resource to another, so a second tap near the bottom of the button missed",
+     "what": "frontend/src/components/pc/CircleView.jsx: the hint line under each resource button is now always rendered while spending is open (players only, not when spending is locked) and is only made visible on the armed one (Tailwind 'invisible', aria-hidden; screen readers still hear SPEND_ASK through the existing sr-only status region). Arming or disarming no longer changes the layout. The comment above the confirm logic is updated. DESIGN.md circle resources rule says the line keeps its space.",
+     "checked": "vite build. Chromium, reviewer's replay (r_spend2) on phone 390x844 and tablet 820x1180: arm Stitch, wait 6 s (still armed), tap Refresh at 80% of its height, Refresh stays at y 532 (phone) / 703 (tablet) instead of jumping 23 px, a second tap on the same spot spends one (DB spend count 0 to 1, Refresh 3 to 2). Tablet keyboard: Tab keeps Stitch armed, Enter arms Refresh, Escape disarms. Extra replay: a double-click on Train arms without spending and Train does not move; a click elsewhere disarms; two deliberate presses spend one (Train 3 to 2). With spending locked the reserved gaps are gone. No page errors. All screenshots looked at."
+    },
+    {
+     "item": "Review should: RULES_CHECK.md item 17 still said End Assignment clears an unused Train die",
+     "what": "docs/refactor/RULES_CHECK.md: added a dated line (2026-10-12, fix round 4, decision 2): a bought Train die is kept until a roll uses it, gm_end_assignment no longer clears train_bonus or train_dice, only the spend count starts again, retiring a campaign still drops it. The 'App:' line now notes the old clearing no longer applies.",
+     "checked": "Read back; no em dashes added."
+    },
+    {
+     "item": "Review nit: WEBSOCKET.md gm_end_assignment first sentence still listed train_bonus as reset",
+     "what": "docs/refactor/WEBSOCKET.md: the first sentence now says it resets ability_uses and resources_spent_assignment, and that it also reset train_bonus (and from 2026-10-07 train_dice) until 2026-10-12, pointing to the note below.",
+     "checked": "Read back."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Review nit: backend/vtt/assignment.py merge note about decision 1 (#49) release path",
+     "why": "Nothing to change on this branch: the #49 release code lives in another group's branch. The docstrings of end_assignment_for and release_from_campaign already say that only release_from_campaign drops Train dice. The organiser should make sure the #49 release path calls release_from_campaign, not end_assignment_for, when merging."
+    }
+   ],
+   "choices": [
+    "The hint line's space is kept only while spending is open (no spendBlock): when spending is locked no hint can appear, so the card does not carry three empty gaps; locking comes from the server, not from a press, so no layout shift happens under a finger.",
+    "Reserved with visibility (rendered but invisible) instead of a fixed min-height, so the reserved height always matches the text even where it wraps at narrow widths.",
+    "The visible hint is aria-hidden because the always-present sr-only status region already announces it; this avoids it being read twice."
+   ],
+   "protocol": [
+    "None: no WebSocket messages, routes or DB columns changed in this round"
+   ],
+   "commits": [
+    "e57822c Keep the spend question's line in place so switching resources moves nothing"
+   ],
+   "tests": "backend/tests/test_ws_circle.py on a throwaway database (circle_t21, dropped after): 79 passed. No backend code changed in this round (docs and one frontend file only). Frontend vite build to /tmp/build_circle_8621 succeeds. Browser checks used Playwright scripts in /tmp/circle_8621 (r_spend2.js, r_spend3.js, screenshots in /tmp/circle_8621/out) against ports 8621 and 4621; servers stopped by PID (including the vite child) and database fix_circle_8621 dropped."
+  }
+ },
+ {
+  "group": "reports",
+  "impl": {
+   "done": [
+    {
+     "item": "#60 info-slip-covers-keys",
+     "what": "frontend/src/components/pc/CircleView.jsx: the keys heading's InfoTerm now gets slipClassName 'left-0 bottom-full mb-1 w-[min(18rem,calc(100vw-2.5rem))]', so the slip opens above the heading, over the intro text, and no longer covers the checkboxes.",
+     "checked": "vite build. Replayed v8404_keys.js in Chromium on 8701/4701 at 1920x1080 and 390x844. With the slip pinned or shown on hover, elementFromPoint finds a checkbox at every box, not the slip. A mouse click and a phone tap both tick the first box. Screenshots keys_01 to keys_06 checked."
+    },
+    {
+     "item": "#58 report-text-line (decision 4)",
+     "what": "backend/vtt/ws/access.py: new rule _submit_assignment_report with REPORT_NOTE_MAX = 280. It refuses with 422 a note that is longer once trimmed, or that is not text, and nothing is saved. backend/vtt/ws/handlers/circle.py: a trimmed, non-empty note is stored with the keys in backstory_answers.reports[id].note and sent in assignment_report_submitted. An empty note is left out, so an amended report without a line has none. frontend/src/store/gameStore.js: submitAssignmentReport takes {note} and the reducer keeps it. frontend/src/components/pc/CircleView.jsx: under the keys, 'What happened (a line, optional)', a textarea with a 280 counter, kept in the report draft with the ticks; Enter does not break the line; a filed report reads it back. frontend/src/components/gm/CirclePage.jsx: the report card's back prints the line under the keys. Docs updated: WEBSOCKET.md, FAQ.md (new Q 'What goes on an assignment report?'), DESIGN.md (Assignment report), and the assignment.py docstring. New test test_a_report_carries_a_short_line_that_an_amendment_can_change in backend/tests/test_ws_circle.py.",
+     "checked": "pytest test_ws_circle.py passes. Chromium on 8701/4701: Iris filed with a line at 1920x1080 and the stored JSON has the note. maxLength stops at 280. The Lightkeeper at 1440x900 sees the line on the card back. Bram filed with a line on a 390x844 phone. Iris used Amend to change the line and the card shows the new text. Screenshots r01 to r08 checked; no page errors."
+    },
+    {
+     "item": "missing-report-silent (decision 5)",
+     "what": "frontend/src/game/illumination.js: new unfiledNames (living investigators with no report) and notFiledLine helpers. frontend/src/components/gm/SceneManager.jsx: End Assignment's existing confirm text now includes 'Not filed: Bram Holt.' (alongside the unadded-tally warning when that applies). frontend/src/components/gm/CirclePage.jsx: the tally prints 'Not filed: ...' in oxblood over the Add N Illumination button until the tally is added. Neither one blocks. FAQ.md is updated.",
+     "checked": "vite build. Chromium at 1440x900 with Bram unfiled: the tally shows 'Not filed: Bram Holt.' and the End Assignment armed hint includes it. After Bram filed on the phone, neither shows it. Screenshots r02 and r04 checked."
+    },
+    {
+     "item": "#59 behind-me-offer-unseen (decision 6)",
+     "what": "backend/vtt/ws/handlers/marks.py: the 2-minute window stays. _offer_intercepts sends 'Bram Holt is offered Behind Me for Iris Vane's Brain mark (2 minutes).' as an activity_log line to the GM key and that ally's key only, and the lines go into those channels' history. An ally with both abilities reads 'Behind Me or Premonitions'. An in-memory watch (_watch_lapse, an asyncio task kept in _watches) wakes when the window ends. If no ally answered (an answer removes the offer from _watched in _take_intercept), it sends '<ally>'s Behind Me offer for <target>'s Brain mark lapsed unanswered.' to the same two keys. open_intercept now returns the offer time. FAQ.md and WEBSOCKET.md are updated, as is the module docstring. New test test_an_ally_offer_is_logged_for_the_lightkeeper_and_that_ally_and_its_lapse_too; three marks tests updated for the extra line.",
+     "checked": "pytest test_ws_marks.py passes (100). Chromium on 8701/4701, real 120 s window: the Lightkeeper at 1440x900 used Deal a mark (brain) on Iris. The offered line reached the Lightkeeper's log and Bram's phone log but not Iris's. After 124 s the lapse line reached both logs, and both lines are still there after Bram's phone reloads. Screenshots o01 to o05 checked; no page errors."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Schema column via add_columns, and startup test changes, for the report line",
+     "why": "Reports are already stored as JSON in circles.backstory_answers.reports (vtt/assignment.py), so the line sits in the report object next to the keys. A separate column would split one report across two places, and nothing new is needed in init_db or test_00_startup.py (which passes unchanged on a fresh database)."
+    },
+    {
+     "item": "test_surface.py changes",
+     "why": "No new WebSocket message type was added. submit_assignment_report gains an optional field and the offer and lapse lines are ordinary activity_log frames, so the surface lists already cover them. test_surface.py was run and passes."
+    },
+    {
+     "item": "openapi.json",
+     "why": "No REST shape changed."
+    }
+   ],
+   "choices": [
+    "Report line field label: 'What happened (a line, optional)'. The Lightkeeper's card heads it 'What happened' and prints it in quotes.",
+    "Report line wire field is a top-level `note` on submit_assignment_report and in assignment_report_submitted, not inside `responses`. It is stored only when non-empty, so earlier reports and their exact-shape tests are unchanged.",
+    "A note over 280 characters (after trimming) is refused with 422 \"A report's line is text of up to 280 characters.\" rather than cut silently. The textarea's maxLength means the desk never sends one.",
+    "The 280 counter is always shown under the field ('n / 280'), like the dispatch letter's, since DESIGN.md says a limit shows as a counter.",
+    "Newlines are turned into spaces and Enter does nothing, because it is one line.",
+    "Add Illumination has no confirm press in this build (one press, no dialog). Rather than add a press, which the decision's 'does not block' argues against, 'Not filed: ...' is printed in oxblood just above the Add button until the tally is added. End Assignment carries the same line in its existing confirm.",
+    "The not-filed list counts living investigators only, matching the tally's rule. End Assignment names unfiled members even when reports were never opened that assignment.",
+    "Offer log wording: '<Ally> is offered <Ability> for <Target>'s <Track> mark (2 minutes).' and '<Ally>'s <Ability> offer for <Target>'s <Track> mark lapsed unanswered.' There is one line per offered ally, sent to the GM key and that ally's key only, with log_type field.",
+    "The lapse watch is in memory like the offer itself, so a server restart logs no lapse. This is noted in FAQ/WEBSOCKET/module docs.",
+    "The Lightkeeper's Deal a mark status line ('The player's desk offers any ability that answers it.') was left as is, since the decision puts the who-was-offered information in the Activity Log."
+   ],
+   "protocol": [
+    "submit_assignment_report: new optional field `note` (string, at most 280 characters once trimmed; a longer one or a non-string gets action_rejected 422 \"A report's line is text of up to 280 characters.\" and nothing is saved). Stored as backstory_answers.reports[id].note when non-empty (JSON, no DB column).",
+    "assignment_report_submitted: payload carries `note` when the report has one.",
+    "activity_log (existing type): new lines '<Ally> is offered <Ability> for <Target>'s <Track> mark (2 minutes).' and, when the window runs out unanswered, '<Ally>'s <Ability> offer for <Target>'s <Track> mark lapsed unanswered.', sent only to the campaign GM key and the offered ally's character key (and kept in those channels' history)."
+   ],
+   "commits": [
+    "17c7a67 Open the report's keys info slip above its heading",
+    "ebce60c Let an assignment report carry a short line on what happened",
+    "42814b3 Name who has not filed a report at Add Illumination and End Assignment",
+    "2c05373 Log who was offered an ally answer to a mark, and when it lapses"
+   ],
+   "tests": "The backend tests ran on throwaway databases on 5433, now dropped. test_ws_marks.py passed (100); in that run the only failures were the three tests updated for the extra line. A second run of test_surface.py, test_ws_character.py, test_ws_connect.py, test_ws_gm_view.py, test_ws_circle.py, test_json_strings.py and test_ws_rolls.py passed all 488 tests, one new. test_00_startup.py was also in that run, and its one failure, test_fresh_postgres_sequences_follow_the_seeded_ids, comes from reusing a database that was no longer fresh. On a fresh database test_00_startup.py passed all 35. The frontend builds with vite (output in /tmp, since removed). Browser checks in Chromium used my servers on 8701/4701, stopped by PID afterwards, with scripts in /tmp/reports_8701 (keys.js, reports.js, offer.js) and screenshots in /tmp/reports_8701/out, all looked at."
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "should",
+     "where": "backend/vtt/ws/handlers/marks.py:283",
+     "problem": "Decision 6 covers \"Behind Me and other ally offers\". Only the intercept offers (Behind Me and Premonitions, _offer_intercepts) get the offered and lapsed lines. The Non-Combatant drive point offer goes to every active member with the same INTERCEPT_WINDOW (2-minute) window, but _offer_non_combatant logs nothing: the Lightkeeper is not told who was offered, and nothing is logged when the offer lapses. That offer can open and lapse unseen in exactly the way the playtest described.",
+     "fix": "Use the same pattern in _offer_non_combatant. Call _tell_offered for each ally (\"<Ally> is offered a Non-Combatant drive point from <Doctor>'s <Track> mark (2 minutes).\") and start a lapse watch that checks whether that deadline is still in _non_combatant[ally.id] when the window ends. Otherwise, get Robert to confirm that \"other ally offers\" means only Premonitions, and say so in FAQ.md."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/gm/CirclePage.jsx:558",
+     "problem": "The oxblood line 'Not filed: ...' depends only on thisTally.added == null, not on reports being open. From the start of every assignment, before the Lightkeeper has opened reports, the Circle page shows 'Not filed: Iris Vane, Bram Holt.' in warning colour. I saw this on my run before any report existed. It reads as an error when no report is due yet, and stays on screen the whole assignment. Decision 5 asks for the names at the confirm step, not for a standing warning.",
+     "fix": "Show the line only while circle.reports_open is true (or once at least one report is filed). Keep it in End Assignment's confirm, where it belongs. Update the FAQ.md sentence to match ('over the Add N Illumination button while reports are open')."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/SceneManager.jsx:267",
+     "problem": "End Assignment's confirm names every living investigator as 'Not filed' even when reports were never opened that assignment. The implementer chose this on purpose, but it is noise at a table that skips reports.",
+     "fix": "Optionally name unfiled members only when reports were opened this assignment (reports_open, or any report or tally tick on the circle)."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/handlers/marks.py:382",
+     "problem": "An ally who presses 'Not now' on the Behind Me card only dismisses it on their own desk; the server is not told. Two minutes later, both the Lightkeeper's log and the ally's log say the offer 'lapsed unanswered', although the ally turned it down. I confirmed this in Chromium: Bram pressed Not now at 3.7 s, and the lapse line still reached both logs at 120 s.",
+     "fix": "Either accept this, since it is accurate from the server's side, or have Not now on an intercept offer tell the server so the lapse line can read '<Ally> let the Behind Me offer ... go.' A small wording tweak would also do."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/handlers/marks.py:336",
+     "problem": "_take_intercept removes the oldest open time for a mark. open_intercept still records a time when candidates exist but no offer is sent (for example, a Behind Me ally at Nerve 0), and that time has no watch. If that ally later gets an offer for a second mark of the same type within the window and answers it, the unwatched older time is removed instead. The watched one then logs a false 'lapsed unanswered'. This is rare, and it comes from older code, but the new log makes it visible.",
+     "fix": "Call open_intercept only when at least one offer was actually sent (move it below the offers loop, guarded by `if offered`)."
+    },
+    {
+     "level": "nit",
+     "where": "docs/refactor/WEBSOCKET.md:259",
+     "problem": "The activity_log row in the recipients table lists the special routings (whispers, secret rolls). The new routing is not listed: offered and lapsed lines go only to the GM key and the offered ally's key. It is documented only in take_mark step 5.",
+     "fix": "Add 'an ally offer's offered and lapsed lines (since 2026-10-12), to the GM key and that ally's key only' to the recipients column."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/CircleView.jsx:806",
+     "problem": "Enter is prevented with no replacement, so in my Chromium run typing 'We burned the ledger.' then Enter then 'Then ran.' stored 'We burned the ledger.Then ran.'. A pasted \\r\\n also leaves the \\r, because only \\n is replaced.",
+     "fix": "Insert a space on Enter (or ignore it), and replace /[\\r\\n]+/g with ' ' in onChange."
+    }
+   ],
+   "items_ok": [
+    "#60 info-slip-covers-keys: the slipClassName at CircleView.jsx:772 opens the slip above the heading. I replayed v8404_keys.js on 8711/4711. At 1920x1080, with the slip pinned or shown on hover, elementFromPoint finds a checkbox at every box and the label text, never the slip, and a mouse click ticks the first box. On a 390x844 phone, a tap ticks the first box. In the screenshots the slip covers only the intro paragraph and part of question 3.",
+    "#58 report-text-line (decision 4): note is checked in access.py (422 over 280 trimmed characters or not text, nothing saved), stored with the keys in backstory_answers.reports[id].note, and sent only to the GM key and the author. An amendment replaces it, and an emptied line removes it. Checked in Chromium: maxLength caps a 300-character fill at 280 and the counter reads 280 / 280. The draft survives a reload. The stored JSON has the note. The Lightkeeper's card back shows 'What happened' with the line. Bram filed a line on a 390x844 phone and it reads back. Amend preloads the line. A second Lightkeeper tab shows the amended line, and an emptied amendment removes it live. The circle-creation-state route passes the note through. Skipping a DB column is fine: decisions.md does not ask for one, and reports already live in the JSON.",
+    "missing-report-silent (decision 5): unfiledNames and notFiledLine count only living investigators, the same rule as the tally. In Chromium at 1440x900, the tally showed 'Not filed: Iris Vane, Bram Holt.', then 'Not filed: Bram Holt.' live after Iris filed, then nothing after Bram filed on the phone. The End Assignment armed hint includes 'Not filed: Bram Holt.' and drops it once everyone has filed. It never blocks. The unadded-tally warning, an earlier decision, is kept. FAQ.md is updated.",
+    "#59 behind-me-offer-unseen (decision 6): the 2-minute window is unchanged. In Chromium, with the real 120 s window, 'Bram Holt is offered Behind Me for Iris Vane's Brain mark (2 minutes).' reached the Lightkeeper's log and Bram's phone, not the target's. 'Bram Holt's Behind Me offer for Iris Vane's Brain mark lapsed unanswered.' reached both at 120 s. Both lines come back in activity_history after Bram's phone reloads. An answered offer logs no lapse (backend test). FAQ.md, WEBSOCKET.md and the module docstring are updated.",
+    "Backend tests run on a throwaway DB: test_00_startup, test_surface, test_ws_circle, test_ws_marks, test_ws_connect, test_ws_gm_view, 350 passed. vite build succeeds. No em dashes in added lines or commit messages. Commit trailers are correct. No model name appears in any file or commit. No QUIRKS.md entry pins this behaviour. No new message type, so test_surface.py and openapi.json are rightly untouched. Servers were stopped by PID and the DBs dropped."
+   ],
+   "items_incomplete": [
+    "Decision 6 is only partly covered if 'other ally offers' includes the Non-Combatant drive point offer, which goes to every active member with the same 2-minute window. It is not logged at all (marks.py:283-299). Behind Me and Premonitions are fully covered."
+   ],
+   "summary": "I found nothing blocking. All four items exist in the diff and work as claimed. I replayed each one in Chromium on 8711/4711: the keys slip on desktop and phone, filing and amending a report line on the desktop, the phone and a second Lightkeeper tab, 'Not filed' on the tally and in End Assignment's confirm, and a real 120 s Behind Me offer and lapse in the Lightkeeper's log and the ally's phone log, still there after a reload. Six backend test files passed (350 tests) and the vite build is clean. There are two 'should' items. First, decision 6 says 'Behind Me and other ally offers', but the Non-Combatant drive point offer, which also goes to allies for 2 minutes, logs nothing, so either log it too or get Robert to confirm the scope. Second, the oxblood 'Not filed: ...' line on the Circle page shows from the start of every assignment, even before reports are open; show it only while reports are open. The nits are small: a lapse is logged as 'unanswered' after the ally pressed Not now, a rare false lapse from an older bookkeeping quirk, the activity_log recipients row in WEBSOCKET.md, and Enter or a pasted line break running words together in the report line."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "Review 'should' and incomplete item: the Non-Combatant drive point offer was not logged (decision 6, 'other ally offers')",
+     "what": "backend/vtt/ws/handlers/marks.py: _offer_non_combatant now sends each offered ally and the GM key '<Ally> is offered a Non-Combatant drive point from <Doctor>'s <Track> mark (2 minutes).' and starts a lapse watch per ally. The watch checks whether that deadline is still in _non_combatant[ally.id] (_point_waiting); if so, it sends '<Ally>'s Non-Combatant drive point from <Doctor>'s <Track> mark lapsed unused.' to the same two keys. The lapse watch is now one helper shared by both offer kinds (_watch / _watch_lapse, which take an unused() check). Module docstring, FAQ.md and WEBSOCKET.md updated. New test test_a_non_combatant_point_is_logged_for_the_lightkeeper_and_that_ally_and_its_lapse_too in backend/tests/test_ws_marks.py.",
+     "checked": "pytest test_ws_marks.py: 101 passed. Chromium on 8721/4721 with the real 120 s window: the Lightkeeper dealt Iris (Non-Combatant) a Brain mark. The Lightkeeper and Bram (phone, Behind Me) both got the Non-Combatant and the Behind Me offered lines; Iris got neither. At 124 s both lapse lines reached both. After Bram's phone reloaded, and on a fresh Lightkeeper desk, the lines came back from history. Screenshots o12, o16 and o17 checked; no page errors."
+    },
+    {
+     "item": "Review 'should': the 'Not filed' line showed from the start of every assignment (CirclePage.jsx:558)",
+     "what": "frontend/src/game/illumination.js: new reportsDue(circle, reports), true while reports are open or once any report is filed. frontend/src/components/gm/CirclePage.jsx shows the oxblood line only when reports are due. frontend/src/components/gm/SceneManager.jsx does the same in End Assignment's confirm, which also covers the reviewer's End Assignment nit. FAQ.md sentence updated.",
+     "checked": "vite build. Chromium, Lightkeeper at 1440x900: with reports closed and nothing filed, neither the tally nor the End Assignment confirm names anyone. After pressing Open reports, both read 'Not filed: Iris Vane, Bram Holt.'. After Iris filed it read 'Not filed: Bram Holt.', and that stayed after Close reports. Screenshots d01 to d04 and d06 checked."
+    },
+    {
+     "item": "Nit: the lapse said 'unanswered' even after the ally pressed Not now",
+     "what": "The lapse lines now read '... lapsed unused.' Not now only closes the card on the ally's own desk, so the server cannot tell a declined offer from one nobody saw, and 'unused' is true either way. Test, FAQ.md, WEBSOCKET.md and docstrings updated.",
+     "checked": "test_ws_marks.py, and the Chromium run above"
+    },
+    {
+     "item": "Nit: an open time with no watch could cause a false lapse",
+     "what": "_offer_intercepts first works out who gets which offers, returns if nobody does, then calls open_intercept and sends the offers. So every open time has its watch, and the time is recorded before any offer can be answered.",
+     "checked": "test_ws_marks.py (101 passed)"
+    },
+    {
+     "item": "Nit: WEBSOCKET.md activity_log recipients row",
+     "what": "docs/refactor/WEBSOCKET.md: the recipients column now lists the offered and lapsed lines of an ally offer (Behind Me, Premonitions, Non-Combatant drive point; since 2026-10-12), sent to the GM key and that ally's key only.",
+     "checked": "read over"
+    },
+    {
+     "item": "Nit: Enter or a pasted line break ran words together in the report line",
+     "what": "frontend/src/components/pc/CircleView.jsx: Enter now inserts a space at the caret with setRangeText, unless the caret is at the start, a space is already there, or the line is at 280. onChange replaces /[\\r\\n]+/g with a space.",
+     "checked": "Chromium at 1920x1080: typing 'We burned the ledger.', Enter, 'Then ran.' gives 'We burned the ledger. Then ran.'. A second Enter adds nothing. An Enter mid-text keeps the caret in place. Inserted 'First line.\\r\\nSecond line.' was stored as 'First line. Second line.'. Screenshot d05 checked."
+    }
+   ],
+   "skipped": [],
+   "choices": [
+    "Non-Combatant wording: '<Ally> is offered a Non-Combatant drive point from <Doctor>'s <Track> mark (2 minutes).' and '<Ally>'s Non-Combatant drive point from <Doctor>'s <Track> mark lapsed unused.' There is one line per ally, sent to the GM key and that ally's key, the same routing as Behind Me.",
+    "The Non-Combatant point gets one lapse watch per ally, because each ally's point is taken separately.",
+    "'lapsed unused' replaces 'lapsed unanswered' for every ally offer. It still says the offer lapsed, as decision 6 asks, and it is accurate when the ally pressed Not now, which the server never hears about.",
+    "Reports count as due while reports_open is true or once any report is filed, so closing reports after some have come in still names who is missing. The same rule applies to the tally line and to End Assignment's confirm.",
+    "An Enter at the start of the line, after a space, or at the 280 limit does nothing."
+   ],
+   "protocol": [
+    "activity_log (existing type): new lines for Non-Combatant's drive point, '<Ally> is offered a Non-Combatant drive point from <Doctor>'s <Track> mark (2 minutes).' and, if the point was not taken in the window, '<Ally>'s Non-Combatant drive point from <Doctor>'s <Track> mark lapsed unused.' Sent to the campaign GM key and that ally's character key only, and kept in those channels' history.",
+    "activity_log: the intercept lapse line now ends 'lapsed unused.' instead of 'lapsed unanswered.'",
+    "The intercept answer window opens only when at least one ally is actually sent an offer. Before, it also opened when an ally had the ability but no offer could be sent (for example Behind Me at Nerve 0)."
+   ],
+   "commits": [
+    "e9cbec6 Log Non-Combatant's drive point offers and their lapse too",
+    "f9de3dd Name who has not filed only once reports are due; Enter in the line is a space"
+   ],
+   "tests": "On the throwaway database fix_reports_t1 (since dropped): test_ws_marks.py 101 passed, including one new test. test_surface.py, test_ws_circle.py, test_ws_connect.py, test_ws_gm_view.py, test_ws_rolls.py and test_ws_character.py: 438 passed. The one error was caplog being missing under -p no:logging; that test then passed without the flag. test_access.py and test_json_strings.py, with that connect test, 419 passed. test_00_startup.py was not re-run because there is no schema change. vite build succeeded (output in /tmp/build_reports_8721, since removed). Browser checks in Chromium used servers on 8721/4721 with database fix_reports_8721. Scripts are in /tmp/reports_8721 (due.js, due2.js, offer2.js, lklog.js) and screenshots in /tmp/reports_8721/out (d01 to d06, o11 to o17). I looked at all the relevant ones. o14 caught the chapter hub because a stray click hit Back to Chapter Hub, so lklog.js re-checked the Lightkeeper's log on a fresh desk (o17). Servers were stopped by PID and the database dropped."
+  }
+ },
+ {
+  "group": "notebook",
+  "impl": {
+   "done": [
+    {
+     "item": "#52 sketch-text-tool-drops",
+     "what": "SketchPad.jsx: capture-phase pointerdown on the canvas wrapper blurs the open label (Text tool only) so the same click starts the next one; onChange clears a left-over selection when the Text tool is active and no label is being edited, so a click after Escape starts a new label.",
+     "checked": "Chromium 1440x900 on the Lightkeeper desk: 5 labels with one click each, and again with Escape after each label: all 5 labels kept, none overwritten, Text stays pressed. Build passes."
+    },
+    {
+     "item": "#53 notebook-pages-clip (both halves reproduced)",
+     "what": "NotebookView.jsx: contents page now holds Math.max(1, fits) lines (no hidden inner scroll; arrows page through the rest); new showEntry(id, block) helper (the old post-submit scroll/focus block, reused by handleSubmitEntry with 'center') is called from each Contents line with 'start'.",
+     "checked": "Chromium 1366x629 as Dev: contents shows 1 line, 'page 1/4' with the next arrow; clicking a line opens its spread with the entry title at the top of the page (screenshots viewed)."
+    },
+    {
+     "item": "#54 lk-username-shown-to-players",
+     "what": "Server signs GM entries 'The Lightkeeper' (new vtt/config.py GM_AUTHOR) in routers/notebook.py _require_writer and ws/handlers/chat.py; this feeds stored author_name, byline, author filter, notebook_entry payloads, hub sketches and the log lines. db.py init_db re-signs old GM rows (author_type gm, no character) at startup. NotebookView.jsx authorName for the GM is 'The Lightkeeper'. Tests: test_notebook.py (_gm_name), test_ws_chat_notebook.py (also asserts the username is absent from the entry and log frames), new test in test_00_startup.py for the re-signing. Docs: QUIRKS.md, FAQ.md, DESIGN.md.",
+     "checked": "pytest on test_notebook, test_ws_chat_notebook, test_00_startup, test_surface passed (102 passed on a fresh DB for the first three; 153 passed for all four earlier). Browser: Lightkeeper's strip, byline and the player's author filter chips read 'The Lightkeeper'; the player's page text has no login name."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Rewriting old activity-log lines that already contain the Lightkeeper's login name",
+     "why": "Log messages are stored text on existing databases; only new lines and notebook rows are fixed. Not asked for and larger than the item."
+    }
+   ],
+   "choices": [
+    "Lightkeeper wording is 'The Lightkeeper' (matches the other log lines); no separate chosen display name exists in the code, so none is used",
+    "Contents lines scroll their entry card to the top of its page ('start'); the post-submit scroll keeps 'center'",
+    "Each contents page holds as few as one line when only one fits, rather than three",
+    "Old Lightkeeper rows are fixed by a startup UPDATE in init_db, not at read time",
+    "DESIGN.md gets one sentence each for the contents click, the text tool clicks and the Lightkeeper signature; FAQ.md one sentence on the signature; QUIRKS.md line on author fields updated"
+   ],
+   "protocol": [
+    "No new WebSocket messages, routes or columns. notebook_entry, add_notebook_entry replies and REST notebook entry responses now carry author_name 'The Lightkeeper' for GM entries; the log line reads 'The Lightkeeper added a ...' / 'logged an entry'. init_db runs a data UPDATE on notebook_entries (no schema change)."
+   ],
+   "commits": [
+    "ae61260 Notebook: text tool commits per click, contents lines show their entry, Lightkeeper signs as The Lightkeeper"
+   ],
+   "tests": "backend tests test_notebook.py, test_ws_chat_notebook.py, test_00_startup.py (102 passed on a fresh database), plus test_surface.py (153 passed across the four files in an earlier run; one sequence test failed only because the database was reused, passes fresh). Frontend vite build passes. Chromium checks done on ports 8801/4801; servers stopped and databases dropped."
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "blocking",
+     "where": "backend/tests/test_account.py:508-517",
+     "problem": "A pinned test the branch did not flip now fails. test_the_new_name_is_shown_where_the_name_appears expects a GM notebook entry to carry the GM's new username, but it now gets 'The Lightkeeper' (AssertionError: 'The Lightkeeper' == 'Keeper 392f8428'). The implementer ran only test_notebook, test_ws_chat_notebook, test_00_startup and test_surface. I ran test_account, test_rest_broadcasts, test_access and test_deletion (they also post notebook entries): 1 failed, 643 passed. The organiser's full run after the merge will be red.",
+     "fix": "Flip the test, don't delete it. A GM entry posted after a username change is signed 'The Lightkeeper' and the new name does not appear in the response (keep the login assertions on role and name). Rewrite the docstring to match, e.g. 'The GM's notebook entries are signed The Lightkeeper whatever her username (#54)'."
+    },
+    {
+     "level": "blocking",
+     "where": "frontend/src/components/shared/NotebookView.jsx:630-637 (showEntry, block 'start')",
+     "problem": "#53 on a phone (below lg the page scrolls the window): a Contents line scrolls the entry card to window y=0, under the desk's sticky header (seal, name, Menu and the log strip, about 89 CSS px). Replayed as Ada at 390x844 by tapping 'Extra note 3': the title's top was at 0, elementFromPoint there hit the header's span, and the first title the reader sees is 'Extra note 4' (screenshot ph_click_Extranote3.png). The line seems to open the wrong entry. Desks at 1366x629, 1440x900 and 1920x1080 are fine.",
+     "fix": "Give the entry cards (the three data-entry-id wrappers in EntryCard) a scroll-margin-top for the sticky header below lg, e.g. 'scroll-mt-28 lg:scroll-mt-0', or make showEntry subtract the header height when the window is the scroller. Re-check on a 390 phone that the chosen entry's title sits just under the header."
+    },
+    {
+     "level": "should",
+     "where": "docs/refactor/AUTH.md:62 and :130",
+     "problem": "AUTH.md still says the server sets author_name to 'the GM's username' for REST entries and for the WebSocket add_notebook_entry. That no longer holds.",
+     "fix": "Change both rows to 'The Lightkeeper' for the GM, never her login name (#54)."
+    },
+    {
+     "level": "should",
+     "where": "DESIGN.md:505",
+     "problem": "The new sentence \"The Lightkeeper's notebook entries, byline, author filter and log lines read 'The Lightkeeper' to everyone, never her login name\" sits inside the Sketch sheet's 'sheet's marks' bullet, between the text tool sentence and 'Select is the one that moves...'. It describes neither the sheet nor its tools, it splits the tool description, and nobody looking up the login-name rule will find it there.",
+     "fix": "Move it to the notebook's field-entry/byline paragraph (around DESIGN.md:502, 'Field entries ...') or next to the login-name rule at DESIGN.md:377 ('only the Lightkeeper gets the login names'). Leave the sketch bullet with just the text tool sentence."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/handlers/chat.py:3",
+     "problem": "User is no longer used in chat.py now that the username query is gone.",
+     "fix": "Drop User from the models import."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/db.py:457-459; frontend/src/components/shared/NotebookView.jsx:627",
+     "problem": "'The Lightkeeper' is spelled out in the init_db SQL and again in the frontend instead of coming from GM_AUTHOR, and the frontend line keeps redundant parentheses: isGM ? ('The Lightkeeper') : ...",
+     "fix": "Build the UPDATE from GM_AUTHOR as a bound parameter (or an f-string from the constant) and drop the parentheses. Optionally add a short comment in NotebookView saying it must match vtt/config.py GM_AUTHOR."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/routers/notebook.py:_require_writer / character naming",
+     "problem": "A player can still name a character 'The Lightkeeper'. Their entries would then share the Lightkeeper's byline and author-filter chip (authorMap is keyed by author_name). Before this branch they would have needed her exact username.",
+     "fix": "Optional, outside this item: refuse or rename the reserved name at forge time, or key the author filter on author_type plus name. Worth a follow-up issue rather than widening this group."
+    }
+   ],
+   "items_ok": [
+    "#52 sketch-text-tool-drops: the diff has both changes the verifier proposed (SketchPad.jsx: capture-phase pointerdown blurs the open label when the Text tool is in hand; onChange drops a leftover selection while Text is active and no label is being edited). Replayed in Chromium 1440x900 on the Lightkeeper desk. Flow A (click, type, Enter, one click per label): all 3 labels kept. Flow C (Escape after each label, then one click): all 3 labels kept, none overwritten. Text stays pressed throughout. On a 390x844 phone with touch taps: 3 labels tapped one after another plus 2 with Escape, all 5 kept. A Text click on an existing label still opens it for editing. Undo needs the same number of presses as the base build (I built 2d86b77 and compared side by side), and redo restores labels. No page errors.",
+    "#53 notebook-pages-clip (both halves): the contents page now holds Math.max(1, fits) lines. At 1366x629 as Dev the list shows 1 line with no hidden overflow (clientHeight == scrollHeight == 60), 'page 1 of 11', and the arrows page through all 11 titles. At 1920x1080, 1440x900 (Lightkeeper) and 390x844 every line on each contents page lies inside the list, and paging reaches every entry. Contents lines on desks turn to the right spread, scroll the card into its page scroller and focus it (1366x629: card top equals scroller top). The post-submit scroll keeps 'center' through the shared showEntry helper. The phone placement problem is reported separately.",
+    "#54 lk-username-shown-to-players: server-side fix in _require_writer (REST entries and uploads) and in the WebSocket add_notebook_entry handler. The log lines follow, and init_db re-signs old GM rows (author_type gm, no character); a startup test covers it. Checked live: DB rows read 'The Lightkeeper'; the Lightkeeper's strip reads 'The Lightkeeper added a sketch' and her byline 'The Lightkeeper \u00b7 Oct 12, 2026'. On player desks (Ada 1440x900, Dev on a phone) the author chips read ['All','The Lightkeeper','Ada Quill','Dev Lindqvist']. The page text, every REST response and every WebSocket frame were scanned for her login name: none found. The player hub and Case Ledger REST responses were scanned the same way: none. The GET entries REST payload and hub-sketches author_name read 'The Lightkeeper'. The roster's owner_username stays Lightkeeper-only, as decided.",
+    "Matches decisions.md 'Earlier decisions that still hold': the Lightkeeper alone sees usernames, only on join requests; nothing the decisions ask for was removed or weakened. 'Lightkeeper' wording on screen; no new touch targets.",
+    "The implementer's skipped item (rewriting old activity-log lines) is moot: activity log history lives only in memory (vtt/ws/manager.py) and a server restart empties it, so a deploy clears old lines with her login name. The implementer's reason ('stored text on existing databases') is inaccurate, but no action is needed.",
+    "No new WebSocket messages, routes, columns or API shapes, so WEBSOCKET.md, test_surface.py and openapi.json need no change. QUIRKS.md author-fields entry updated, and the pinned tests in test_notebook/test_ws_chat_notebook were flipped, not deleted. FAQ.md updated. No em dashes added; no model name in files. The commit trailer is exactly the two required lines.",
+    "Tests I ran on throwaway DBs: test_00_startup, test_notebook, test_ws_chat_notebook and test_surface: 154 passed. Frontend vite build passes. Servers stopped by PID, databases dropped, worktree left clean."
+   ],
+   "items_incomplete": [
+    "#54: a pinned test in backend/tests/test_account.py (test_the_new_name_is_shown_where_the_name_appears) still expects the GM's username on her notebook entries and now fails. It must be flipped before merge. Docs in docs/refactor/AUTH.md also still describe the old username signature.",
+    "#53: on a phone the Contents line scrolls the chosen entry's title under the sticky desk header, so the first title in view is the next entry's. The desks work."
+   ],
+   "summary": "Not ready to merge: 2 blocking issues, 2 should, 3 nits. All three items are implemented as the verifier proposed and I confirmed each in Chromium. #52: the Text tool keeps every label, with or without Escape, on desk and phone, and undo needs the same presses as the base build. #53: the contents page never hides a line, the arrows page through all entries, and on desks a line scrolls its entry card to the top of its page. #54: the Lightkeeper's login name is gone from player screens, REST responses and WebSocket frames, and old rows are re-signed at startup. Blocking 1: a pinned test in backend/tests/test_account.py (test_the_new_name_is_shown_where_the_name_appears) was not flipped and now fails (1 failed, 643 passed across test_account, test_rest_broadcasts, test_access and test_deletion), so the full suite will be red after the merge. Blocking 2: on a 390 phone, a Contents line scrolls the entry under the sticky desk header, so the chosen entry's title is hidden and the next entry's title is the first one in view; a scroll-margin-top below lg fixes it. Should: docs/refactor/AUTH.md:62 and :130 still say the GM's username, and the new DESIGN.md sentence about the signature sits inside the sketch tools bullet. Nits: an unused User import in chat.py, the 'The Lightkeeper' text repeated instead of using GM_AUTHOR, and a player can still name a character 'The Lightkeeper'. The group's own test files pass (154) and the frontend builds."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "Blocking: test_account pinned test",
+     "what": "backend/tests/test_account.py: test_the_new_name_is_shown_where_the_name_appears flipped. A GM entry after a username change is signed 'The Lightkeeper', the new name is absent from the response, and the login assertions on role and name are kept. Docstring rewritten.",
+     "checked": "pytest test_account with test_00_startup, test_notebook and test_ws_chat_notebook: 285 passed on a fresh DB"
+    },
+    {
+     "item": "Blocking: phone Contents line hidden under sticky header",
+     "what": "NotebookView.jsx: the three data-entry-id entry cards got 'scroll-mt-28 lg:scroll-mt-0'.",
+     "checked": "Chromium 390x844 as Ada: tapping 'Extra note 2' in Contents puts that entry's title just below the sticky header (screenshot viewed). Vite build passes. Desks are unchanged because the margin is 0 from lg."
+    },
+    {
+     "item": "Should: AUTH.md",
+     "what": "docs/refactor/AUTH.md rows for POST entries and add_notebook_entry now say The Lightkeeper for the GM, never her login name.",
+     "checked": "read back"
+    },
+    {
+     "item": "Should: DESIGN.md placement",
+     "what": "Moved the signature sentence out of the Sketch sheet bullet to the end of the notebook's Field entries paragraph; the sketch bullet keeps only the text tool sentence.",
+     "checked": "read back"
+    },
+    {
+     "item": "Nits",
+     "what": "chat.py drops the unused User import. The init_db re-sign UPDATE is built from config.GM_AUTHOR. NotebookView drops the redundant parentheses and notes that the name matches vtt/config.py GM_AUTHOR.",
+     "checked": "tests and build pass"
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Nit: a player can name a character 'The Lightkeeper'",
+     "why": "The reviewer called it out of scope and a follow-up. It would need a forge-time rule or a change to how the author filter is keyed, which is wider than this group."
+    }
+   ],
+   "choices": [
+    "Phone fix is a scroll margin on the entry cards (scroll-mt-28 below lg) rather than a header-height calculation in showEntry",
+    "The frontend 'The Lightkeeper' string is kept, with a comment pointing to GM_AUTHOR, because the frontend cannot import the backend constant",
+    "The DESIGN.md sentence went to the Field entries paragraph, not the login-name rule at line 377, because it describes how entries are signed"
+   ],
+   "protocol": [
+    "No change to WebSocket messages, routes, columns or API shapes in this commit."
+   ],
+   "commits": [
+    "d858dc6 Notebook review fixes: flip account test, phone scroll margin, docs"
+   ],
+   "tests": "\"Ran backend/tests/test_00_startup.py, test_notebook.py, test_ws_chat_notebook.py and test_account.py on a throwaway DB: 285 passed. Frontend vite build passes. Chromium 390x844 as Ada: the Contents line opens the right entry with its title under the header. The Lightkeeper's login name does not appear in the player's page text. Servers stopped by PID and databases dropped. test_rest_broadcasts, test_access and test_deletion were not re-run; the reviewer's run of them had only the account failure.\""
+  }
+ },
+ {
+  "group": "session",
+  "impl": {
+   "done": [
+    {
+     "item": "#56 lk-no-relationships-after-seal",
+     "what": "CirclePage.jsx: read-only 'Circle Relationships' CirclePaper for the Lightkeeper (from circleCreation.relationships, filtered with relationshipsAmong; each line 'A to B: type', lore, 'Agreed' or 'waiting for <answerer>'). FAQ.md and DESIGN.md note it.",
+     "checked": "vite build; Chromium 1440x900 with the v8404_rel replay: after the seal the paper shows all 4 relationships (1 agreed, 3 waiting) with lore; screenshot viewed."
+    },
+    {
+     "item": "#57 silent-logout-on-401",
+     "what": "gameStore.js: sessionEnded flag (not persisted) and endSession() action (no-op without a session, so parallel 401s end it once), used by the api 401 hook and the 4401 socket close; cleared in setAccessSession on sign-in. LoginScreen.jsx: role=status line 'Your session ended; please sign in again.' on the sign-in slip. AUTH.md updated.",
+     "checked": "vite build; Chromium replay of v8405_logout: both the 401 case (ledger press after password change elsewhere) and the 4401 case show the line on the sign-in slip; screenshot viewed."
+    },
+    {
+     "item": "#60 join-notice-third-person",
+     "what": "AppRouter.jsx: notice now 'You asked to join <campaign> with <name>. The hub will say when the Lightkeeper answers.' with campaign from the store character's campaign_name (fallback 'the campaign').",
+     "checked": "vite build; Chromium replay of v8405_join: notice reads 'You asked to join The Saltmere Chapter with Pontius Aganus. ...'."
+    }
+   ],
+   "skipped": [],
+   "choices": [
+    "Relationships shown on the Circle page only, not duplicated on each member's sheet (the item said and/or).",
+    "Relationship lines read 'Bram Ashby to Iris Ashe: Stranger' with a green 'Agreed' tag or italic 'waiting for <name>'; the paper hides when there are none.",
+    "Session-ended wording is the item's exact text 'Your session ended; please sign in again.' shown in oxblood bold, not the verifier's longer suggestion; it is hidden on the Create account slip and after a password reset stamp.",
+    "Last username is not prefilled on the sign-in slip.",
+    "Join notice falls back to 'the campaign' if the campaign name is not in the store.",
+    "Deliberate logouts (Sign out, reset done, undo email) do not show the session-ended line."
+   ],
+   "protocol": [],
+   "commits": [
+    "ec9d0aa Lightkeeper sees relationships, session-ended notice, first-person join notice"
+   ],
+   "tests": "No backend tests run: all three changes are frontend-only with no server, schema, WebSocket or API change. Frontend built with vite build and each item replayed in Chromium at 1440x900 against a local backend (port 8901); servers stopped and database fix_session_8901 dropped."
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "nit",
+     "where": "frontend/src/components/LoginScreen.jsx:638",
+     "problem": "The role=status note is mounted already holding its text, together with a freshly mounted LoginScreen. Many screen readers do not announce a live region that arrives with its content, and focus is left on the body after the desk unmounts, so a screen-reader user may still get a silent sign-in slip. The afterReset stamp uses the same pattern, but that path moves focus to a field.",
+     "fix": "When sessionEnded is true on mount, focus the slip heading (headingRef). Or keep the status element mounted and empty, then fill it, so the note is announced."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/store/gameStore.js:421",
+     "problem": "sessionEnded is not persisted, so a reload after the refusal shows the plain slip with no reason. The verifier asked for exactly this, and the item is met until the user reloads. Checked in Chromium: the note is gone after a reload. A persisted token that has already ended still shows the note on load, which I also checked.",
+     "fix": "Optional: keep the flag in sessionStorage, or leave it as is. It is a product choice."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/CirclePage.jsx:737",
+     "problem": "The Lightkeeper's new paper says 'Agreed'. The player's paper says 'Confirmed by you both' and the Lightkeeper's formation papers say 'n of m confirmed' and 'All confirmed', so the same state has two words.",
+     "fix": "Optionally say 'Confirmed' to match. The item's own wording ('agreed or pending') also allows 'Agreed'."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/utils/api.js:24",
+     "problem": "This predates the branch, and the branch makes it visible. A 401 from a request sent with an older token still ends whatever session is current, because apiFetch does not check that the token it sent is still the current one. If such a request lands after a fresh sign-in, the new session is ended and the slip now says 'Your session ended'. The window is very small, since the stale requests come back within milliseconds.",
+     "fix": "Optional: pass the sent token to onUnauthorized, and have endSession act only when it equals accessSession.token."
+    }
+   ],
+   "items_ok": [
+    "#56 lk-no-relationships-after-seal: a read-only Circle Relationships paper on the Lightkeeper's Circle page, built from circleCreation.relationships with relationshipsAmong and answererOf. I replayed v8404_rel on port 8911. After the seal it lists all 4 relationships (1 agreed, 3 waiting) with lore. An accept and a counter sent over real player sockets update it live through relationship_update: the counter shows the new type and lore and 'waiting for Bram Ashby'. It stays correct after a reload (the GM desk refetches circle-creation-state). It reads correctly on a phone (390, no sideways scroll) and a tablet (820). It has no controls, so the 44px rule does not apply. FAQ.md and DESIGN.md were updated. Choosing the Circle page only is within the item's 'and/or'.",
+    "#57 silent-logout-on-401: endSession() (no-op without a session) replaces logout() in the api 401 hook and in the 4401 socket close. sessionEnded is cleared in setAccessSession, so password, Google and register sign-ins all clear it. I replayed v8405_logout: the 401 case (Case Ledger pressed twice, parallel 401s) and the 4401 case on the player desk both show 'Your session ended; please sign in again.' once on the sign-in slip. My own checks: the Lightkeeper desk 4401 shows the note. A second tab in the same browser shows it on its next call. It is hidden on Create account and comes back on the sign-in slip, also after the Forgot password slip. A deliberate Sign out shows no note. A persisted ended token shows it on load. A wrong-password error shows beside it, and a correct sign-in reaches the hub. It reads correctly at phone width. Deliberate logouts are untouched, and resetDone is covered by !afterReset. AUTH.md was updated. The wording is the item's exact text.",
+    "#60 join-notice-third-person: AppRouter.jsx:191-192 now reads 'You asked to join <campaign> with <name>. The hub will say when the Lightkeeper answers.', with campaign_name from the store character (the field the backend actually sends; the verifier's '.campaign' does not exist) and 'the campaign' as the fallback. I replayed v8405_join at 1440x900 and on a phone: the notice reads 'You asked to join The Saltmere Chapter with Pontius Aganus. ...'.",
+    "Every claim in the implementer's report is in commit ec9d0aa. There are no em dashes in the added lines or the commit message, no model name in any file, and the commit message ends with the two required lines. No backend, WebSocket or schema change, so WEBSOCKET.md, test_surface.py and openapi.json need nothing. No QUIRKS pin is affected. Nothing goes against decisions.md, and nothing Robert asked for was removed.",
+    "vite build passes. Backend sanity run: tests/test_auth.py and tests/test_00_startup.py, 99 passed, on a throwaway database that I then dropped. Servers stopped by PID, database fix_session_8911 dropped, worktree clean."
+   ],
+   "items_incomplete": [],
+   "summary": "fix4-session (ec9d0aa) does all three items correctly and goes against nothing in decisions.md. I found nothing blocking and nothing at 'should' level, only four optional nits. I replayed each item in Chromium on my own ports, beyond the verifiers' paths. #56: the Lightkeeper's Circle page shows every relationship, agreed and waiting, with lore, and it updates live, survives a reload and reads correctly on phone and tablet. #57: a 401 or a 4401, on the player desk, the Lightkeeper desk or a second tab, lands on the sign-in slip with 'Your session ended; please sign in again.'; parallel 401s end the session once, and deliberate sign-outs show no note. #60: the hub notice now reads 'You asked to join The Saltmere Chapter with Pontius Aganus. The hub will say when the Lightkeeper answers.' The nits: the note may not be announced by a screen reader because it mounts with its text and focus is not moved, the note does not survive a reload, the paper says 'Agreed' where other screens say 'Confirmed', and a stale 401 arriving after a fresh sign-in can end the new session (predates the branch)."
+  },
+  "repair": null
+ }
+]

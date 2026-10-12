@@ -1,0 +1,541 @@
+{
+ "checks": [
+  {
+   "summary": "Final Opus review of the merged diff 2d86b77..HEAD on claude/fervent-wozniak-rlk7su. I did a code review and ran targeted backend tests. I did no browser control/HEAD replay, so the \"control\" fields say n/a.\n\nVerdict: nothing blocking. All 15 items are in the merged code, and every claim in /home/user/pt4/fix_groups_result.json that I checked exists. Robert's six decisions are built in full and none of the earlier decisions was undone.\n\nSeams between the groups:\n- The release route calls release_from_campaign, so a release or leave drops Train dice as a retire does. End Assignment keeps them through end_assignment_for, and gm.py:371 is the only caller of end_assignment_for.\n- drop_report removes the report together with its new note.\n- The not-filed line, the key tally, the \"N of M\" count and the Lightkeeper's Circle Relationships paper all read circleCreation.activeInvestigators, reports and relationships. The investigator_released handler replaces all of these, and votes_dict always sends every vote type, so the votes merge replaces them correctly.\n- finalize_roster now locks the circle. The lock order is the same as gm_return_spend (character, then circle), so there is no deadlock.\n- #54 only re-signs rows with author_type gm and no character, so a released member's entries keep that member's name.\n- Probe: when the target of a Behind Me offer leaves mid-offer, the ally's answer is refused (403, no mark moved) and the lapse line is logged.\n- Probe: a released ally whose socket reconnects without a campaign can still take the old Doctor's Non-Combatant drive point (nerve went from 1 to 2). This is a nit.\n\nProtocol and pins:\n- investigator_released is documented in WEBSOCKET.md (35 types), FRONTEND.md and ROUTES.md.\n- The route is pinned in test_surface.py, test_00_startup.py, test_access.py (45 routes) and openapi.json.\n- submit_assignment_report gains an optional note field (422 when it is too long or not text). The offer and lapse lines are plain activity_log frames.\n- The QUIRKS-pinned tests were flipped, not deleted (test_gm_end_assignment, the notebook/account author tests, test_spend_refresh_and_train), and every test name QUIRKS cites exists.\n\nEm dashes and model names: the only em dashes in added lines are the two kept '[Well-Read \u2014 n Intuition refunded]' log strings (nit). No model name appears in any file. The only one is in the required commit trailers.\n\nTests: on my own database (final_review_t1, dropped afterwards) I ran test_00_startup, campaigns, rest_broadcasts, ws_circle, ws_marks, account, notebook, ws_chat_notebook, investigators, surface, access and ws_rolls.\n- First run: 1240 passed, 2 failed. One failure is test_cors_allows_configured_origin_only, because CORS_ORIGINS is not set outside the harness. The other is the new test_a_non_combatant_point_is_logged_... test, which is flaky.\n- Second run: 1200 passed. The 6 errors were only caplog, which I had turned off with -p no:logging.\n- test_ws_marks.py alone passed twice (101 each).\n- In a smaller run, a pre-existing drain-timing assertion in test_ws_circle.py:484 also flaked once.\n- vite build of HEAD succeeds; output went to the scratchpad, and the working tree is clean.\n\nIssues: two should-fix (the Train/release wording in the docs and confirms, and the flaky new timing tests) and five nits.",
+   "items": [
+    {
+     "item": "#49 release a member / leave a campaign (decision 1)",
+     "control": "n/a (code review and tests only)",
+     "fixed": "POST /campaign/release/{id} (campaigns.py:356). The owner or the campaign's Lightkeeper may call it; it is refused with 409 for pending, dead or free investigators. It locks the character and then the circle, frees the character as Retire does (release_from_campaign) and keeps the row. It deletes the votes and the relationships at both ends, then drops the report (drop_report). After the seal lower_resources_to_pool lowers each pool and never raises one; before the seal _announce_members_changed fills them. It broadcasts investigator_released (named copy to the Lightkeeper, plain copy to the members, short copy to the investigator's own key), then circle_update, then a log line with no reason. Frontend: a two-press Release on the Lightkeeper's sheet (GMCharacterSheet ReleaseMember), Leave on the desk (LeaveCampaign) and on the hub's registry row with no Leave for the dead, armed lines that say what happens, and a store handler on every desk. There is no Release on the roster card itself; the card opens the sheet, and the decision says 'card or sheet'. Tests pass.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#50 Train die kept until used, spend wording (decision 2)",
+     "control": "n/a",
+     "fixed": "end_assignment_for no longer clears train_bonus/train_dice, and the spend count still resets. Retire and release drop the dice through release_from_campaign. 'kept until a roll uses it' appears on the card, in the log line, on the roll chip, in RESOURCE_HELP, on the sheet badge (the Lightkeeper's sheet too) and on the Circle page rule ('up to two each assignment, whenever the Lightkeeper opens spending'), and in FAQ, QUIRKS, WEBSOCKET, ROUTES and RULES_CHECK. test_gm_end_assignment was flipped. FAQ.md:277 still says only retiring drops the dice (see issues).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#51 drive maximum 0",
+     "control": "n/a",
+     "fixed": "serializers.py sends `or 0` for all three maximums. InvestigatorDossier uses `?? 0` and shows 'none' with no pips for a 0 maximum; gameStore postRollChoiceWaiting uses `?? 0`. test_a_drive_maximum_of_0_is_sent_as_0 passes.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#55 Well-Read refund log when capped",
+     "control": "n/a",
+     "fixed": "_refund_intuition (rolls.py:126) returns the points that actually came back, and both paths log only n > 0. The tests pass. The log format keeps its em dash because outcomes.js parses it (nit).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#60 spend 'Press again' stays armed (decision 3)",
+     "control": "n/a",
+     "fixed": "CircleView: the 4 s timeout is gone. The confirm disarms on a click elsewhere (capture phase), Escape, blur to a non-spend element, spending locked or the resource empty. The 500 ms double-click guard and SPEND_GAP_MS are kept. Each button's hint line keeps its space (invisible) so nothing moves. DESIGN.md and FAQ.md are updated.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#58 report text line (decision 4)",
+     "control": "n/a",
+     "fixed": "access.py _submit_assignment_report gives 422 for more than 280 trimmed characters or non-text, and saves nothing. circle.py stores a trimmed non-empty note in reports[id].note and sends it in the frame. An amend replaces the line, and an empty one removes it. The CircleView field has a counter and Enter inserts a space. The Lightkeeper's ReportFlipCard prints the line. The new test passes.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "Missing-report warning at Add Illumination and End Assignment (decision 5)",
+     "control": "n/a",
+     "fixed": "illumination.js has unfiledNames, notFiledLine and reportsDue. End Assignment's existing confirm names 'Not filed: ...' once reports are due. Add Illumination has no confirm step in this build, so the line is printed over the Add button until the tally is added. Neither blocks. The FAQ was updated, replacing its old 'no warning' wording.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#59 ally offer logged and lapse logged (decision 6)",
+     "control": "n/a",
+     "fixed": "marks.py: the 2-minute window is kept. Behind Me and Premonitions (_offer_intercepts) and the Non-Combatant drive point (_offer_non_combatant) each log '<ally> is offered ... (2 minutes).' to the Lightkeeper's key and that ally's key only. An in-memory _watch_lapse logs '... lapsed unused.' when nobody answered, and an answer removes the watch. The tests pass, but the Non-Combatant test is flaky (see issues).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#60 key info slip covers the keys",
+     "control": "n/a",
+     "fixed": "CircleView.jsx: the keys InfoTerm opens above the heading (slipClassName 'left-0 bottom-full mb-1 ...').",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#52 sketch Text tool",
+     "control": "n/a",
+     "fixed": "SketchPad.jsx: onPointerDownCapture finishLabel blurs the open label when the Text tool is in hand, and onChange clears a leftover selection after Escape. Both changes the verifier proposed are present.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#53 notebook Contents",
+     "control": "n/a",
+     "fixed": "NotebookView: the contents page holds Math.max(1, fits) lines. A contents line calls showEntry(id, 'start'). Entry cards have scroll-mt-28 lg:scroll-mt-0 so a phone's sticky header does not hide the entry. The post-submit scroll uses showEntry(\u2026, 'center').",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#54 Lightkeeper's login name hidden from players",
+     "control": "n/a",
+     "fixed": "GM_AUTHOR 'The Lightkeeper' is used in notebook.py _require_writer and in chat.py's WS entry. init_db re-signs old GM rows (startup test). The frontend authorName is 'The Lightkeeper'. test_account, test_notebook and test_ws_chat_notebook were flipped, and AUTH, QUIRKS, FAQ and DESIGN are updated. A player can still name a character 'The Lightkeeper' (follow-up, skipped by the group).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#56 Lightkeeper sees relationships after the seal",
+     "control": "n/a",
+     "fixed": "CirclePage.jsx has a read-only Circle Relationships paper built from circleCreation.relationships with relationshipsAmong, marked 'Agreed' or 'waiting for <name>'. investigator_released replaces the relationships, so a released member's relationships leave the paper live.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#57 session-ended notice on a refused session",
+     "control": "n/a",
+     "fixed": "gameStore endSession (a no-op without a session) is used by the api 401 hook and the 4401 close. sessionEnded is cleared on sign-in. LoginScreen shows role=status 'Your session ended; please sign in again.' AUTH.md is updated.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#60 first-person join notice",
+     "control": "n/a",
+     "fixed": "AppRouter.jsx: 'You asked to join <campaign_name> with <name>. The hub will say when the Lightkeeper answers.', falling back to 'the campaign'.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "Group report claims exist in merged code",
+     "control": "n/a",
+     "fixed": "I checked every done and repair claim in fix_groups_result.json for the roster, circle, reports, notebook and session groups against the merged diff. Examples: the finalize_roster circle lock, the hub refetch on refusal, no Leave for the dead, the conditional hub clause, the reserved spend hint line, the RULES_CHECK line, Non-Combatant logging, 'lapsed unused', reportsDue gating, Enter as a space, the flipped account test, the phone scroll margin, the AUTH and DESIGN moves, GM_AUTHOR in init_db, and the User import dropped from chat.py. All are present. Skips that were stated openly (Release on the roster card, the reserved character name) are as described.",
+     "verdict": "fixed"
+    }
+   ],
+   "issues": [
+    {
+     "level": "should",
+     "item": "#50 x #49 seam: Train dice and the rest of the reset on release are not described",
+     "where": "FAQ.md:277; FAQ.md:169; frontend/src/components/pc/LeaveCampaign.jsx:10; frontend/src/components/gm/GMCharacterSheet.jsx (ReleaseMember armedHint)",
+     "problem": "release_member runs release_from_campaign (campaigns.py:384). That drops the investigator's bought Train dice and clears its gear, ability uses and spend count. FAQ.md:277 still says only 'retiring the campaign does, for each investigator it lets go'. The FAQ release answer (line 169) and both armed lines list votes, relationships, report and pool, but never say the player loses any Train die they hold. Decision 1 asks both confirms to 'say what will happen', and decision 2 asks for one consistent description of when a Train die goes.",
+     "fix": "FAQ.md:277: '(retiring the campaign, or releasing or leaving, does)'. FAQ.md:169: add 'its assignment ends as at Retire: spends, ability uses, gear and any Train dice it held are cleared'. Optionally add ', and any Train die they hold is lost' to leaveHint and the ReleaseMember armed line when character.train_bonus is set. Add the same note to the QUIRKS.md retire line."
+    },
+    {
+     "level": "should",
+     "item": "#59 new timing tests are order and timing dependent",
+     "where": "backend/tests/test_ws_marks.py:653; backend/vtt/ws/handlers/marks.py:295 and :321",
+     "problem": "test_a_non_combatant_point_is_logged_for_the_lightkeeper_and_that_ally_and_its_lapse_too failed once in my 1242-test targeted run. It passed in four other runs: alone, twice in test_ws_marks.py on its own, and in the 1200-test rerun. It asserts the exact order of the two 'is offered' lines, but _offer_non_combatant's allies query (and _intercept_allies) has no ORDER BY, so Postgres heap order decides. It also relies on a 1.5 s window, which a loaded run can overrun before the ally answers. The organiser's full suite can go red at random.",
+     "fix": "Add .order_by(Character.id) to the allies queries in _offer_non_combatant and _intercept_allies (this also gives stable log order at the table). In the test, raise the window (for example to 5 s with a recv_type timeout to match) or compare the offered lines without regard to order."
+    },
+    {
+     "level": "nit",
+     "item": "Em dash in added lines",
+     "where": "backend/vtt/ws/handlers/rolls.py:541 and :605",
+     "problem": "Both rewritten Well-Read lines add an em dash ('[Well-Read \u2014 {back} Intuition refunded]'). The rule is no em dashes anywhere. The group kept it because frontend/src/game/outcomes.js matches that format with a regex.",
+     "fix": "Accept it as an existing machine-read token, or change the format and the outcomes.js regex together in a later round (and the '[gilded \u2014 ...]' and 'used Train \u2014 ...' strings with it)."
+    },
+    {
+     "level": "nit",
+     "item": "#49 x #59: a released ally keeps the old campaign's Non-Combatant point",
+     "where": "backend/vtt/routers/campaigns.py:384 (release_member); backend/vtt/ws/handlers/marks.py:620",
+     "problem": "In my probe the Doctor took a mark, the Lightkeeper released the ally, and the ally's desk reconnected with no campaign. resolve_ability_mark Non-Combatant then still raised that ally's Nerve 1 to 2. The access check skips sockets without a campaign, and release does not clear _non_combatant[char.id] as close_offers_at_death does.",
+     "fix": "In release_member, after the commit, pop marks._non_combatant (and _pending_rush) for the released character, as close_offers_at_death does. Or refuse the Non-Combatant answer from a character that is not an active member of a campaign."
+    },
+    {
+     "level": "nit",
+     "item": "#49 spend count reset on leave and rejoin",
+     "where": "backend/vtt/assignment.py:91 (via release_from_campaign); backend/vtt/routers/campaigns.py:512-519",
+     "problem": "Release zeroes resources_spent_assignment. A player who has spent both spends can leave and come back in the same assignment, with the same or a new investigator. If the Lightkeeper approves, they have two fresh spends, because only an active predecessor's count is carried. Earlier decision: spends follow the player, and a replacement keeps its predecessor's count.",
+     "fix": "Robert's call. Either accept it, since the Lightkeeper's approval gates it, or keep the count on release (reset it only at End Assignment) and say so in FAQ."
+    },
+    {
+     "level": "nit",
+     "item": "#49 x #58: report submitted at the moment of a release",
+     "where": "backend/vtt/ws/handlers/circle.py:49",
+     "problem": "The access check passes, the release commits (drop_report finds nothing), and then submit_assignment_report takes the circle lock and stores a report for an investigator who is no longer a member. It does not check membership again under the lock. The window is very narrow, and the desks' tally ignores non-members, but the row stays in backstory_answers until End Assignment.",
+     "fix": "Under the lock, refuse with 403/409 when reporter.status != 'active' or reporter.campaign_id != camp_id."
+    },
+    {
+     "level": "nit",
+     "item": "Spend crossing a release (pre-existing)",
+     "where": "backend/vtt/ws/handlers/circle.py:79-101",
+     "problem": "spend_resource takes no lock on the circle. A spend that read Train 6 before a release lowered it to 5 writes 5, so one spend is lost against the new maximum. This existed before the branch (spend against spend); the release makes one more writer.",
+     "fix": "Optional: db.refresh(circle, with_for_update=True) before reading cur_val, as the tally and spend-back handlers do."
+    }
+   ]
+  },
+  {
+   "summary": "All five items are fixed on HEAD (f31e7c8), checked in Chromium against the 2d86b77 control at the device sizes the report used. Servers and databases were my own; they are stopped by PID and dropped. Scripts are in /tmp/bc_roster_circle and screenshots in /tmp/bc_roster_circle/shots, named head_* and ctl_*.\n\n#49 (ghost member): on the control there is no release control anywhere and POST /campaign/release returns 404. With the ghost unfiled, the tally reads 'some investigators (4 of 5) +2' and Stitch, Refresh and Train are 6/6/6 after the seal. On HEAD, after the seal:\n- The Lightkeeper's 'Release from the circle' (two presses, still armed after 5 s, armed line says what is dropped and clamped) took the resources 6/6/6 to 5/5/5. His votes and both his relationships (agreed and pending) went, and the tally became 'every investigator (4 of 4) +4'.\n- The log on every desk says 'The Lightkeeper released Pontius Aganus from the circle.' Ada's tablet updated live. The released player's phone desk went to the hub with a notice.\n- Dev left from his desk (laptop 1366x768): 4/4/4 and 3 of 3. Cass left from the hub registry on a phone: 3/3/3 and 2 of 2. Each wrote '<name> left the circle.' and every desk updated live. Reloads keep all of it, and the released investigator can ask to join again.\n- Before the seal: the voter count went '0 of 5' to '0 of 4' live on the desks. A Lightkeeper sheet left open closes when that player leaves elsewhere. Strangers get 403, and the seal then counts only the members left.\n\n#50 (Train): on the control a die bought mid-assignment is wiped by End Assignment, and the wording disagrees. On HEAD it survives End (train_dice 1, then 2 after a second purchase) while the spend count resets. A roll with the Train chip uses one die each (2, 1, 0) and adds the die. The card, log, roll chip and Lightkeeper's sheet all say 'kept until a roll uses it', and the Circle page says 'two each assignment, whenever the Lightkeeper opens spending'.\n\n#51 (Nerve 0): the control shows 'Nerve: 0 of 1', an empty pip, and a 'Set Nerve available to 1' button the server refuses with 422. HEAD shows 'none', with no pip and no button, on the tablet, the 1920 desktop, the phone and the Lightkeeper's sheet. After Refresh it still reads 'none'.\n\n#55 (Well-Read at a full drive): the control logs a Well-Read refund the cap swallowed. HEAD logs only the gilded refresh, and still logs Well-Read when a point really comes back. Intuition ends at 4 of 4 on both.\n\n#60 (spend 'Press again'): on all four devices the control lapses after 4 s and the late press only re-arms, so nothing is spent. On HEAD the confirm stays armed past 5 s and the late press spends. It also disarms on a press elsewhere and on Escape, pressing another resource arms that one, and a double-click arms without spending.\n\nNo console errors on any seat. No blocking problems. Two nits.",
+   "items": [
+    {
+     "item": "#49 Lightkeeper releases a ghost member after the seal; a player leaves from the desk and from the hub (counts, resources, log lines, every desk live)",
+     "control": "Lightkeeper 1440x900: Pontius's sheet has no release-like control. POST /campaign/release returns 404. After the seal Stitch/Refresh/Train are 6/6/6 with 'refills to 6 (1 plus the circle's 5 members)'. With 4 of 5 filed the tally reads 'Keys: some investigators (4 of 5) +2, TOTAL +2'. Votes and both relationships touching Pontius stay.",
+     "fixed": "Lightkeeper 1440x900, after the seal:\n- The sheet ends with 'Release from the circle'. The first press arms it; it is still armed after 5 s. The armed line says votes, relationships and the report are dropped and Stitch/Refresh/Train come down with nothing refunded.\n- 'Yes, release' closes the sheet and drops the card. DB: 5/5/5, Pontius unaffiliated, his vote gone, both relationships gone (agreed 5>1 and pending 2>5).\n- Charter abstract: '5 max 5', 'Open, 4 of 4 filed'. Tally: 'every investigator (4 of 4) +4, TOTAL +4'.\n- The log on every desk: 'The Lightkeeper released Pontius Aganus from the circle.'\n- Ada's tablet updated live: 5 of 5, 'refills to 5 (1 plus the circle's 4 members)', and Pontius gone from her relationships and Your Circle.\n- Pontius's phone desk went to the hub with 'The Lightkeeper released Pontius Aganus from The Ghost Hours. Pontius Aganus is free to join another campaign.'\n\nOther paths:\n- Dev left from the foot of his sheet on the desk (laptop 1366x768; two presses, Stay to cancel). He landed on the hub with a notice, and the circle went to 4/4/4, 3 of 3, '+4'. The log 'Dev Okafor left the circle.' showed live on the Lightkeeper and Ada desks.\n- Cass left from the hub registry on a phone after signing in. The armed line hedges 'If the circle is sealed'. After 'Yes, leave' the row moved to Not in a campaign with a notice. 3/3/3, 2 of 2, and the log line went live.\n- Reloading the Lightkeeper and Ada desks keeps it all. Pontius can request to join again (pending).\n- Before the seal (separate campaign): 'finalize with' list and '0 of 5 voted' became 4 names and '0 of 4 voted' live on the Lightkeeper desk. The armed line leaves out the clamp clause.\n- A Lightkeeper sheet left open closes when that player leaves elsewhere. A release by a stranger or of a non-member is 403. The seal afterwards gave 4/4/4 for 3 members.\n- No page errors.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_roster_circle/shots/ctl_g49_01before_tally.png",
+      "/tmp/bc_roster_circle/shots/ctl_g49_02_lk_sheet.png",
+      "/tmp/bc_roster_circle/shots/head_g49_01before_tally.png",
+      "/tmp/bc_roster_circle/shots/head_g49_03_lk_release_armed.png",
+      "/tmp/bc_roster_circle/shots/head_g49_04_lk_after_release.png",
+      "/tmp/bc_roster_circle/shots/head_g49_07after_release_tally.png",
+      "/tmp/bc_roster_circle/shots/head_g49_05_p1_circle_after_release.png",
+      "/tmp/bc_roster_circle/shots/head_g49_06_gh_phone_after_release.png",
+      "/tmp/bc_roster_circle/shots/head_g49_08_dev_leave_armed.png",
+      "/tmp/bc_roster_circle/shots/head_g49_09_dev_after_leave.png",
+      "/tmp/bc_roster_circle/shots/head_g49_13_cass_hub_armed.png",
+      "/tmp/bc_roster_circle/shots/head_g49_14_cass_hub_after.png",
+      "/tmp/bc_roster_circle/shots/head_g49_16_lk_reload.png",
+      "/tmp/bc_roster_circle/shots/head_g49pre_02_armed.png",
+      "/tmp/bc_roster_circle/shots/head_g49pre_03_lk_after.png",
+      "/tmp/bc_roster_circle/shots/head_g49pre_04_lk_after_bram.png"
+     ]
+    },
+    {
+     "item": "#50 Train die bought mid-assignment survives End Assignment; wording agrees",
+     "control": "Spend Train with spending open mid-assignment: train_dice 1. After End Assignment: train_dice 0, train_bonus false, and the circle point is not returned. The wording disagrees: the card says 'in the next assignment', the log and roll chip say 'this assignment', the Circle page says 'two between assignments', and the Lightkeeper sheet says 'Train: +1d on a roll you pick'.",
+     "fixed": "Same steps: train_dice 1 survives End Assignment and the spend count resets to 0. A spend after End gives train_dice 2.\n\nWording (tablet 820x1180 and Lightkeeper 1440x900):\n- Card: 'Take a d6 to add to any roll you choose, kept until a roll uses it.'\n- Log: 'a Train d6 for a roll of their choice, kept until a roll uses it.'\n- Roll chip: 'Train (+1d on this roll; 2 Train dice, each kept until a roll uses it)'.\n- Circle page: 'up to two each assignment, whenever the Lightkeeper opens spending; the count starts again when the assignment ends'.\n- Lightkeeper sheet: 'TRAIN: 2 DICE, EACH KEPT UNTIL A ROLL USES IT' and 'CIRCLE SPENDS THIS ASSIGNMENT 1 / 2'.\n- Lightkeeper Circle page help says the same. FAQ.md:277 and QUIRKS.md:184/190 agree.\n\nNeighbouring path: rolling Survey with the Train chip on the tablet sends ability_mods ['Train'], throws 3 dice at rating 2, and takes train_dice 2, 1, 0.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_roster_circle/shots/ctl_train_02_tablet_circle.png",
+      "/tmp/bc_roster_circle/shots/ctl_train_03_lk_sheet.png",
+      "/tmp/bc_roster_circle/shots/head_train_02_tablet_circle.png",
+      "/tmp/bc_roster_circle/shots/head_train_03_lk_sheet.png",
+      "/tmp/bc_roster_circle/shots/head_train_11_chip.png",
+      "/tmp/bc_roster_circle/shots/head_train_12_after_roll.png"
+     ]
+    },
+    {
+     "item": "#51 Nerve 0 Professor/Occultist",
+     "control": "The API sends nerve_max 1. On the Occultist's tablet desk: one empty pip, screen reader 'Nerve: 0 of 1 available.', and a live 'Set Nerve available to 1' pip; tapping it gets action_rejected 422 'A drive is a whole number from 0 to its maximum.' After a Refresh it still reads 0 of 1. The Lightkeeper sheet (1440x900), the 1920 desktop and the phone show the same '0 of 1'.",
+     "fixed": "The API sends nerve_max 0. The Occultist's tablet, the Professor's 1920x1080 desk, the Professor's phone and the Lightkeeper's sheet all show Available 'none' with no pips and no 'Set Nerve' button; the screen reader hears 'Nerve: none'. Refresh is logged and Nerve stays 'none'. Cunning and Intuition are unchanged.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_roster_circle/shots/ctl_drive_02_after_refresh.png",
+      "/tmp/bc_roster_circle/shots/head_drive_02_after_refresh.png",
+      "/tmp/bc_roster_circle/shots/ctl_drive_04_lk_sheet.png",
+      "/tmp/bc_roster_circle/shots/head_drive_04_lk_sheet.png",
+      "/tmp/bc_roster_circle/shots/head_drive_06_player_phone.png",
+      "/tmp/bc_roster_circle/shots/head_drive_06_player_wide.png"
+     ]
+    },
+    {
+     "item": "#55 Well-Read refund at a full drive",
+     "control": "Professor at 1920x1080, Intuition 4/4, spends 1 Intuition on a gilded Focus, then keeps the gilded 1 (Failure). Log: '(Gilded die kept: 1 Intuition refreshed) (Well-Read: 1 Intuition back)'. Intuition ends at 4/4, so the Well-Read refund is claimed although the cap swallowed it.",
+     "fixed": "Same roll, keeping the gilded 2 (Failure). The log reads only '(Gilded die kept: 1 Intuition refreshed)' and Intuition ends at 4/4. Neighbouring path: a failure kept on a regular die (gilded 5, kept the 3) still logs '(Well-Read: 1 Intuition back)'.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_roster_circle/shots/ctl_wr_02_after.png",
+      "/tmp/bc_roster_circle/shots/head_wr_02_after.png"
+     ]
+    },
+    {
+     "item": "#60 spend Press again (stays armed past 4 seconds, disarms on a press elsewhere, double-click guard)",
+     "control": "Tested on the 1920x1080 desktop, tablet 820x1180, phone 390x844 and laptop 1366x768. After 5 s the label falls back to 'Spend 1 Stitch'; the late press only re-arms and nothing is spent. A press elsewhere leaves it armed, and arming Refresh then pressing Train leaves neither armed.",
+     "fixed": "On all four devices:\n- 'Press again: spend 1 Stitch' is still armed after 5 s, and the late press sends spend_resource stitch.\n- A press on blank page area disarms Refresh with nothing spent.\n- Refresh armed, then a press on Train: Train asks and Refresh disarms, nothing spent. Escape disarms.\n- A double-click or double tap on an unarmed button only arms it.\n- A press 6 s after arming spends. The counter reads 2 / 2.\n- Scrolling the page at 1920 does not disarm.\n- The 'Press again to spend it' line shows under the armed button only, with its space kept. DESIGN.md:417 is updated.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_roster_circle/shots/ctl_spend_phone_2_after5s.png",
+      "/tmp/bc_roster_circle/shots/head_spend_phone_2_after5s.png",
+      "/tmp/bc_roster_circle/shots/ctl_spend_wide1920_3_switch.png",
+      "/tmp/bc_roster_circle/shots/head_spend_wide1920_3_switch.png",
+      "/tmp/bc_roster_circle/shots/head_spend_laptop_3_switch.png",
+      "/tmp/bc_roster_circle/shots/head_spend_tablet_4_dbl.png",
+      "/tmp/bc_roster_circle/shots/head_spend_1920_scrolled.png"
+     ]
+    }
+   ],
+   "issues": [
+    {
+     "level": "nit",
+     "item": "#60",
+     "where": "player Circle page at 1920x1080 (frontend/src/components/pc/CircleView.jsx, report note field and reserved spend lines)",
+     "problem": "On the control, the whole Circle Resources card fits on a 1920x1080 desk. On HEAD the new 'What happened' field pushes the card down, and the reserved 'Press again' lines make it taller. With Train armed, its question line and the spending rule fall below the fold. The page scrolls and the confirm stays armed, so nothing is lost; it is only less visible.",
+     "fix": "Optional: let the report paper and Circle Resources sit side by side or shrink the report field at xl, so the armed Train line stays in view at 1920x1080."
+    },
+    {
+     "level": "nit",
+     "item": "#51",
+     "where": "InvestigatorDossier.jsx drive row (player desk at 1920x1080 and Lightkeeper sheet)",
+     "problem": "A 0-maximum drive's 'none' text is shorter than a row of pips, so the Nerve column is shorter than Cunning and Intuition. Its action rows (Move, Strike, Control) then sit higher than the Sway and Survey rows beside them.",
+     "fix": "Give the drive row a minimum height equal to the pip row so the three columns stay level."
+    }
+   ]
+  },
+  {
+   "summary": "I replayed all four items in Chromium, first on the 2d86b77 control (8022/4022) and then on HEAD (8021/4021), each with its own fresh database. The tables were built with copies of the verifier scripts in /tmp/bc_reports/, and screenshots are in /tmp/bc_reports/shots/{ctl,head}/. All four items show the problem on the control and are fixed on HEAD.\n\n- #58: the report line works on a phone, through a reload and an amend, and the Lightkeeper reads it on the card.\n- Decision 5: the Lightkeeper is named who has not filed, over Add Illumination and in the End Assignment confirm, without blocking either.\n- #59: I ran real 2-minute lapses with no shortened wait. The offered and lapsed lines reached only the Lightkeeper and the ally.\n- #60: the key info slip no longer covers the key boxes at 1920x1080 or on the 390x844 phone.\n\nNeighbouring paths I also checked: the line stops at 280 characters in the box and the server refuses anything longer. The line never reaches another player's channel, and hostile text is shown safely. The Not filed line updates live when a report is filed and when a member is released. Nobody is named before reports are due. An answered offer logs no lapse. A Not now offer logs \"lapsed unused\", as documented.\n\nNo blocking issues on HEAD and no page errors. Two nits:\n1. The key info slip now opens upward with no flip, so it hides under the sticky header or goes off screen when the heading sits at the top of the view.\n2. The report line's fixed two-row box does not grow, so a long line scrolls inside it on a phone.\n\nAll four servers were stopped by PID (the started wrappers and their children) and both databases dropped. Nothing in the repo was edited.",
+   "items": [
+    {
+     "item": "#58 optional report line (about 280 chars, amend changes it, Lightkeeper reads it on the report card)",
+     "control": "Phone 390x844 (Ada Lark): the report form has only the three key checkboxes and Send report, with no field for a line (r58_01_phone_form.png). A 400-character note sent over the socket was silently ignored. The Lightkeeper's flipped cards show only the keys (r58_11/12/13).",
+     "fixed": "The phone form has 'WHAT HAPPENED (a line, optional)' with a 0 / 280 counter. Enter puts in a space instead of a line break. Typing 300 more characters stops at 280/280 with the counter in oxblood. Send gives a REPORT SENT stamp, and the line reads back in quotes. It survives a reload. Amend pre-fills it, a new line replaces it, and the database matches. Bram's open channel got no report frame (the line stays between the author and the Lightkeeper). A 281- or 400-character note over the socket gets action_rejected 422 \"A report's line is text of up to 280 characters.\" and nothing is saved. At 1440x900 the Lightkeeper's flipped card shows 'WHAT HAPPENED' with the amended line, and it survives a reload. Bram's line containing <b>, & and an emoji shows as plain text. Cass's report without a line shows no section. No page errors.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_reports/shots/ctl/r58_01_phone_form.png",
+      "/tmp/bc_reports/shots/ctl/r58_11_lk_card_ada.png",
+      "/tmp/bc_reports/shots/head/r58_01_phone_over_limit.png",
+      "/tmp/bc_reports/shots/head/r58_02_phone_line.png",
+      "/tmp/bc_reports/shots/head/r58_03_phone_filed.png",
+      "/tmp/bc_reports/shots/head/r58_04_phone_reload.png",
+      "/tmp/bc_reports/shots/head/r58_05_phone_amending.png",
+      "/tmp/bc_reports/shots/head/r58_06_phone_amended.png",
+      "/tmp/bc_reports/shots/head/r58_11_lk_card_ada.png",
+      "/tmp/bc_reports/shots/head/r58_12_lk_card_bram.png",
+      "/tmp/bc_reports/shots/head/r58_13_lk_card_cass.png",
+      "/tmp/bc_reports/shots/head/r58_18_lk_card_ada_reload.png"
+     ]
+    },
+    {
+     "item": "Decision 5: missing-report warning at Add Illumination and End Assignment (names who has not filed, non-blocking)",
+     "control": "The table had five members, three of whom filed. The tally at 1440x900 says only 'some investigators (3 of 5)' and names nobody. End Assignment's confirm before Add warns only about the unadded 2 Illumination; after Add it is the plain clear text. Add adds with one press and no dialog (r58_10, r58_15, r58_17).",
+     "fixed": "The tally shows 'Not filed: Dev Okafor, Pontius Aganus.' over 'Add 2 Illumination', and Add still adds with one press. Because Add has no confirm step, the line sits next to the button, as FAQ.md:230 now documents. After Add the line goes and 'Added 2 Illumination' shows. End Assignment's confirm names them before Add (under the unadded warning) and after Add (followed by 'Press again to end it'). Neither blocks. The list updates live: after Dev files it reads 'Not filed: Pontius Aganus.', and after Pontius is released (POST /campaign/release) the line is gone. On a tablet desk whose reports were never opened, End Assignment names nobody.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_reports/shots/ctl/r58_10_lk_tally.png",
+      "/tmp/bc_reports/shots/ctl/r58_15_end_armed_before_add.png",
+      "/tmp/bc_reports/shots/ctl/r58_17_end_armed_after_add.png",
+      "/tmp/bc_reports/shots/head/r58_10_lk_tally.png",
+      "/tmp/bc_reports/shots/head/r58_15_end_armed_before_add.png",
+      "/tmp/bc_reports/shots/head/r58_16_lk_tally_added.png",
+      "/tmp/bc_reports/shots/head/r58_17_end_armed_after_add.png",
+      "/tmp/bc_reports/shots/head/r58_20_end_start.png",
+      "/tmp/bc_reports/shots/head/r58_21_end_after_dev.png",
+      "/tmp/bc_reports/shots/head/r58_22_end_after_release.png",
+      "/tmp/bc_reports/shots/head/d5_tablet_end_reports_closed.png"
+     ]
+    },
+    {
+     "item": "#59 Behind Me offer logged to the Lightkeeper and the ally; lapse logged after 2 minutes",
+     "control": "Setup: Lightkeeper at 1440x900, Bram Holt (set to Muscle with Behind Me) on a phone at 390x844, Iris Vane on a desktop at 1920x1080. The Lightkeeper's own desk socket dealt Iris a Brain mark. Bram got the Behind Me card, but no desk logged who was offered. After a real wait of more than 2 minutes, no desk logged a lapse. The Lightkeeper's log has only 'The Lightkeeper dealt Iris Vane a Brain mark' (b59_05). In round 2 Bram intercepted a Brain offer and let a Body offer go with Not now; again nothing about offers or lapses was logged.",
+     "fixed": "Round 1: the Lightkeeper's and Bram's logs both get 'Bram Holt is offered Behind Me for Iris Vane's Brain mark (2 minutes).' Iris's log does not. After Bram reloads his desk in the window, the line is in his history and the card comes back with the time left. After a real 2-minute wait, the Lightkeeper and Bram get 'Bram Holt's Behind Me offer for Iris Vane's Brain mark lapsed unused.' Iris does not. The lines stay in the Lightkeeper's log after a reload. Round 2: the offer Bram intercepted logged no lapse. The Body offer he let go with Not now logged 'lapsed unused' after 2 minutes, matching the FAQ wording ('unused', not 'unanswered'). The sheets ended correct (Bram 1 Brain, Nerve 2; Iris 1 Body). The duplicate lines in the head round-1 shots come from a first run I stopped part-way, whose real offer also lapsed. They are not a duplicate broadcast.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_reports/shots/ctl/b59_02_bram_offered.png",
+      "/tmp/bc_reports/shots/ctl/b59_05_lk_lapsed.png",
+      "/tmp/bc_reports/shots/head/b59_01_lk_offered.png",
+      "/tmp/bc_reports/shots/head/b59_02_bram_offered.png",
+      "/tmp/bc_reports/shots/head/b59_03_iris_offered.png",
+      "/tmp/bc_reports/shots/head/b59_04_bram_reloaded.png",
+      "/tmp/bc_reports/shots/head/b59_05_lk_lapsed.png",
+      "/tmp/bc_reports/shots/head/b59_06_bram_lapsed.png",
+      "/tmp/bc_reports/shots/head/b59_07_iris_lapsed.png",
+      "/tmp/bc_reports/shots/head/b59_08_lk_reloaded.png",
+      "/tmp/bc_reports/shots/head/b59_10_bram_two_offers.png",
+      "/tmp/bc_reports/shots/head/b59_12_bram_after_notnow.png",
+      "/tmp/bc_reports/shots/head/b59_13_lk_round2.png",
+      "/tmp/bc_reports/shots/head/b59_14_bram_log.png"
+     ]
+    },
+    {
+     "item": "#60 key info slip no longer covers the keys (v8404_keys.js)",
+     "control": "Desktop 1920x1080: pinning the 'i' puts the slip at y331-416, over all three key boxes (at y342, 366 and 390). elementFromPoint at each box and label hits the slip. Two real clicks on the first box neither tick it nor close the slip. Hovering down onto the box keeps the slip open over it. Phone 390x844: the tap pins the slip over the first two boxes, and a tap on box 1 lands on the slip.",
+     "fixed": "Desktop 1920x1080: the slip opens above the heading (y223-308) over the intro text and question 3, and no box is under it. A click on the first box ticks it and the pinned slip goes away. Hovering down onto the box and clicking ticks it. Phone 390x844: the slip sits above the heading (y601-686), and a tap on box 1 ticks it and closes the slip. Edge case: when the heading is scrolled to the top of the view, the upward slip lies under the sticky header at 1366x768 and off screen at 820x1180 (see the issues).",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_reports/shots/ctl/keys_01_pinned.png",
+      "/tmp/bc_reports/shots/ctl/keys_05_phone_pinned.png",
+      "/tmp/bc_reports/shots/ctl/keys_06_phone_after_tap.png",
+      "/tmp/bc_reports/shots/head/keys_01_pinned.png",
+      "/tmp/bc_reports/shots/head/keys_02_after_click.png",
+      "/tmp/bc_reports/shots/head/keys_03_hover_moved.png",
+      "/tmp/bc_reports/shots/head/keys_04_hover_clicked.png",
+      "/tmp/bc_reports/shots/head/keys_05_phone_pinned.png",
+      "/tmp/bc_reports/shots/head/keys_06_phone_after_tap.png",
+      "/tmp/bc_reports/shots/head/keys_edge_laptop_top.png",
+      "/tmp/bc_reports/shots/head/keys_edge_tablet_top.png"
+     ]
+    }
+   ],
+   "issues": [
+    {
+     "level": "nit",
+     "item": "#60 key info slip",
+     "where": "frontend/src/components/pc/CircleView.jsx:790 (slipClassName bottom-full); screens 1366x768 and 820x1180",
+     "problem": "The slip now always opens above the heading, and InfoTerm does not flip it when there is no room. With 'Criminal Illumination Keys' scrolled to the top of the view, the slip lies under the sticky member-ID header at 1366x768: elementFromPoint at its top hits the header and the text is hidden (keys_edge_laptop_top.png). At 820x1180 it opens at y -87, entirely off screen (keys_edge_tablet_top.png). The help still opens, but it cannot be read until the player scrolls up a little.",
+     "fix": "Keep the slip off the key list, but flip it under the heading (beside the list, or over the 'What happened' box) when there is no room above, or scroll the term into view with some margin when the slip opens. A small placement check in InfoTerm, or a right-side placement for this caller on wide screens."
+    },
+    {
+     "level": "nit",
+     "item": "#58 report line",
+     "where": "frontend/src/components/pc/CircleView.jsx:~822 (textarea rows={2}, resize-none); phone 390x844",
+     "problem": "The 'What happened' box is a fixed two rows and does not grow. On a phone a longer line (about 105+ characters, up to 280, which is about 7 lines) scrolls inside the box, and the top line is clipped mid-glyph (r58_02_phone_line.png, r58_01_phone_over_limit.png), so the player cannot see the whole line while writing or reviewing it before Send. The filed read-back and the Lightkeeper's card show it in full.",
+     "fix": "Use the app's existing useAutoGrow / fitHeight helper (already used by SceneManager's dispatch box) on this textarea so it grows to its content, keeping two rows as the minimum."
+    }
+   ]
+  },
+  {
+   "summary": "All six items replayed in Chromium on control 2d86b77 (API 8032, site 4032) and HEAD f31e7c8 (API 8031, site 4031, build /tmp/build_main4). Each server had its own fresh database, and tables were built over the API with the verifiers' setups. Control reproduced every problem. HEAD fixes #52, #54, #56, #57 and #60 at the original device sizes and the neighbouring ones I tried. #53 is only partly fixed. On desktop and laptop every Contents line now brings its entry into view and focuses it. A 1366x629 window pages one line at a time and every line can be reached. On a 390x844 phone, though, the first entry on a spread is scrolled under the sticky desk header, so its title is hidden. Control left that title visible. I count this as a blocking regression. Other checks: Escape on a label, editing an existing label with the Text tool, the pen after labels, and saving to an entry all work. The startup step re-signs a username-signed Lightkeeper row as 'The Lightkeeper', and a socket-path Lightkeeper entry is also signed 'The Lightkeeper'. On HEAD no WS frame or HTTP body seen by a player carries the login name. The relationships paper updates live on accept and counter (the counter flips 'waiting for' to the proposer) and keeps them after a reload. The session-ended notice shows on the hub (401) and on the Lightkeeper's and a player's desk (4401), clears on a good sign-in, and also works on a phone. The join notice is in the first person on 1920, tablet and phone. No page errors in any run. Servers stopped by PID (5315, 5318, 5344, 5352 and their wrapper shells). Databases bc_notebook_session_head and bc_notebook_session_ctl dropped. Scripts and screenshots are in /tmp/bc_notebook_session (shots/ctl_* and shots/head_*). Nothing in the repo was edited.",
+   "items": [
+    {
+     "item": "#52 sketch Text tool: one click per label, Escape does not overwrite",
+     "control": "1440x900 Lightkeeper, Text tool, one click between labels: only labels 1 and 3 opened. Typing 'the eel weir' and 'TIDE at nine' with no label open switched the tool to Box and then Eraser. Saved scene: ['Wick Lane / loft','bell rope']. Escape flow: each next click reopened the previous label and typing replaced it. Saved scene: ['TIDE at nine'] only. Phone 390x844 (tap): 3 of 5 labels.",
+     "fixed": "1440x900: 5 of 5 labels opened on one click each and the tool stayed Text. The Escape flow kept all 5 labels, a fresh editor each time. Clicking on an existing label with the Text tool opened it for editing ('slipway (choir loudest) EDITED' saved). The pen still draws afterwards. Phone tap: 5 of 5. Saved scenes held every label. No page errors.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_notebook_session/shots/ctl_sk_one_wide_labels.png",
+      "/tmp/bc_notebook_session/shots/ctl_sk_esc_wide_labels.png",
+      "/tmp/bc_notebook_session/shots/head_sk_one_wide_labels.png",
+      "/tmp/bc_notebook_session/shots/head_sk_esc_wide_labels.png",
+      "/tmp/bc_notebook_session/shots/head_sk_edit_wide_saved.png",
+      "/tmp/bc_notebook_session/shots/head_sk_one_phone_labels.png",
+      "/tmp/bc_notebook_session/shots/ctl_sk_one_phone_labels.png"
+     ]
+    },
+    {
+     "item": "#53 notebook Contents brings the entry into view (desktop and phone), and contents pages show every line",
+     "control": "1920x1080: clicking 'Closing note' or 'The choirmaster's daybook' opened the right spread but left the page at the top. The titles were at y=1041 and y=2193, below the page's 976px edge. 1366x629: 'Contents, page 1 of 3' showed 1 of 3 lines and hid the rest in a 60px inner scroll. Phone: no scroll at all, so later entries were thousands of px down.",
+     "fixed": "1920x1080, 1366x768, 1366x629 and tablet 820x1180: every clicked entry's title is in view inside its page, and the card is focused. 1366x629 now reads 'page 1 of 9' with one line a page, and all 9 lines are reachable with the arrows. Phone 390x844: second and third entries on a spread land at y=112, below the 89px sticky header. The FIRST entry on a spread (e.g. the bell tower sketch) lands at y=0, with its title hidden under the sticky header. The same happens with scroll-margin-top 112px on the card. Control showed that title at y=253.",
+     "verdict": "partly",
+     "shots": [
+      "/tmp/bc_notebook_session/shots/ctl_nb_desk1920_after_choirmaster.png",
+      "/tmp/bc_notebook_session/shots/head_nb_desk1920_after_choirmaster.png",
+      "/tmp/bc_notebook_session/shots/head_nb_laptop_after_Closing_note.png",
+      "/tmp/bc_notebook_session/shots/head_nb_short_contents.png",
+      "/tmp/bc_notebook_session/shots/ctl_nb_phone_after_bell_tower.png",
+      "/tmp/bc_notebook_session/shots/head_nb_phone_after_bell_tower.png",
+      "/tmp/bc_notebook_session/shots/head_nb_phone_after_Closing_note.png",
+      "/tmp/bc_notebook_session/shots/head_nb_tablet_after_bell_tower.png"
+     ]
+    },
+    {
+     "item": "#54 players never see the Lightkeeper's login name",
+     "control": "On every player device (1920, 1366x768, 1366x629, phone, tablet): the log read 'lightkeeper_lkezu0 added a sketch', the Filter by Author chips read 'lightkeeper_lkezu0', and so did the bylines. The activity_history frame and GET /api/notebook/1/entries carried it. A WS add_notebook_entry from the Lightkeeper broadcast author_name and the log line 'lightkeeper_lkezu0 logged an entry'. REST stored the username.",
+     "fixed": "Log lines, chips and bylines read 'The Lightkeeper' on all five player devices. No WS frame and no API/campaign HTTP body seen by a player contained the login name. REST and WS both store and broadcast 'The Lightkeeper'. I inserted a pre-fix row (author_type gm, author_name the login) and ran init_db against the HEAD database: the row was re-signed 'The Lightkeeper'. The Lightkeeper's own desk also shows 'The Lightkeeper'.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_notebook_session/shots/ctl_nb_phone_after_bell_tower.png",
+      "/tmp/bc_notebook_session/shots/head_nb_short_contents.png",
+      "/tmp/bc_notebook_session/shots/head_nb_phone_after_bell_tower.png",
+      "/tmp/bc_notebook_session/shots/ctl_sk_esc_wide_labels.png",
+      "/tmp/bc_notebook_session/shots/head_sk_edit_wide_saved.png"
+     ]
+    },
+    {
+     "item": "#56 the Lightkeeper sees relationships after the seal",
+     "control": "Formation campaign: 4 proposals, 1 accepted, then sealed over the real finalize route. The Lightkeeper's desk, Iris's sheet and the Circle page had no relationship text. The papers were Charter, Illumination questions, Resources and History only. The player's Circle tab still listed them.",
+     "fixed": "The Lightkeeper's Circle page has a 'Circle Relationships' paper: 'Bram Ashby to Iris Ashe: Stranger AGREED', the others 'waiting for <name>', with their lore. It is readable on 1440x900 and phone 390x844. It updates live over the socket: an accept turns AGREED, and a counter changes the type and lore and flips to 'waiting for Bram Ashby'. It survives a reload. No errors.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_notebook_session/shots/ctl_rel56_04_circle.png",
+      "/tmp/bc_notebook_session/shots/head_rel56_wide_live.png",
+      "/tmp/bc_notebook_session/shots/head_rel56_phone_paper.png"
+     ]
+    },
+    {
+     "item": "#57 refused session shows a notice on sign-in",
+     "control": "Password changed on another device. Hub plus Case Ledger (3 401s) dropped to an empty sign-in slip with no message. Same on a desk with WS close 4401: player 1440x900, the Lightkeeper's desk 1440x900, and player phone 390x844.",
+     "fixed": "In all three cases the slip shows role=status 'Your session ended; please sign in again.' Hub (401), player desk (4401), the Lightkeeper's desk (4401) and phone. A wrong password then shows the usual error. A good sign-in clears the notice and lands on the hub. The notice does not survive a reload (sessionEnded is not persisted) and the username is not filled in. See nits.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_notebook_session/shots/ctl_s57_wide_ended.png",
+      "/tmp/bc_notebook_session/shots/head_s57_wide_ended.png",
+      "/tmp/bc_notebook_session/shots/head_s57_phone_ended.png",
+      "/tmp/bc_notebook_session/shots/head_v8405_a2_after_ledger.png",
+      "/tmp/bc_notebook_session/shots/head_v8405_b2_after_4401.png"
+     ]
+    },
+    {
+     "item": "#60 first-person join notice",
+     "control": "After Save and join a campaign > Ask to join: 'Pontius Aganus asked to join. The hub will say when the Lightkeeper answers.' Seen on 1920x1080, tablet and phone.",
+     "fixed": "'You asked to join The Saltmere Chapter with Pontius Aganus. The hub will say when the Lightkeeper answers.' Seen on 1920x1080, tablet and phone. The Case Ledger shows Awaiting approval. No errors.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_notebook_session/shots/ctl_v8405_j3_hub_desk1920.png",
+      "/tmp/bc_notebook_session/shots/head_v8405_j3_hub_desk1920.png",
+      "/tmp/bc_notebook_session/shots/head_v8405_j3_hub_phone.png",
+      "/tmp/bc_notebook_session/shots/head_v8405_j3_hub_tablet.png"
+     ]
+    }
+   ],
+   "issues": [
+    {
+     "level": "blocking",
+     "item": "#53",
+     "where": "frontend/src/components/shared/NotebookView.jsx showEntry (about line 630) with EntryCard scroll-mt-28; phone 390x844",
+     "problem": "On a phone, a Contents line for the first entry on a spread scrolls the window so the card sits at y=0. Its title (0 to 80px) is under the 89px sticky desk header and log strip, and the page label and Contents ribbon scroll away. Seen with the bell tower sketch, entry 7, the first card of spread 2. The second and third cards land correctly at y=112. The card is the first child of the page's own overflow-y-auto div, which is a scroll container even on phone. Chrome clips the 112px scroll-margin rect to that container, so the window aligns the card's own top to 0. Control left this title visible at y=253, so the fix made the phone case worse for a third of the lines. Tablet 820 also lands at 0 but has no sticky header there.",
+     "fix": "Below lg, scroll the window explicitly instead of relying on scroll-margin. For example: const y = card.getBoundingClientRect().top + window.scrollY - (sticky header height + 16); window.scrollTo({ top: y }). Alternatively make the page's inner div overflow-y-auto only at lg (lg:overflow-y-auto), so the window is the only scroller on phone. Check the first entry of a spread on 390x844 again."
+    },
+    {
+     "level": "nit",
+     "item": "#54",
+     "where": "backend/vtt/ws/handlers/chat.py handle_add_notebook_entry (author_type = payload.get('author_type', 'player')); backend/vtt/db.py init_db re-sign",
+     "problem": "A Lightkeeper entry sent over the socket without author_type is stored as author_type 'player' with character_id NULL. The startup re-sign matches only author_type = 'gm', so any old row written that way would keep the login name. The shipped frontend uses REST with author_type 'gm', so I found no such rows. The new socket rows already read 'The Lightkeeper'.",
+     "fix": "Store author_type 'gm' when ctx.is_gm in the WS handler, and/or widen the migration to character_id IS NULL rows."
+    },
+    {
+     "level": "nit",
+     "item": "#57",
+     "where": "frontend/src/store/gameStore.js partialize; LoginScreen.jsx",
+     "problem": "sessionEnded is not persisted, so a reload or a closed tab after the refusal shows a plain slip again. The username field is also empty, which the report mentioned ('no username filled in'), though its suggestion only asked for the status line.",
+     "fix": "Optional: keep sessionEnded and the last username in sessionStorage for the slip, and prefill #username after a refused session."
+    }
+   ]
+  }
+ ],
+ "repair": {
+  "fixed": [
+   {
+    "issue": "#53 (blocking): on a 390x844 phone, a Contents line for the first entry on a spread put the card at y=0, so its title was hidden under the sticky desk header",
+    "what": "frontend/src/components/shared/NotebookView.jsx: the two Field Notes page bodies now scroll on their own only at lg (overflow-y-auto became lg:overflow-y-auto). Below lg the page already grew to fit its entries, so the window is now the only scroller and scroll-mt-28 works on the first card too. Commit bbf76a2.",
+    "checked": "Chromium, using the checker's phone53.js against API 8041 / site 4041 (build /tmp/build_main4) with 9 entries over 2 spreads. Phone 390x844: every Contents line lands its card at y=112, below the 89px header. That includes the first card on spread 1 and on spread 2 (idx 0), and the title is visible in the screenshot. Tablet 820x1180 lands at 112 to 247. Laptop 1366x768 and 1440x900 are unchanged: each card is in view inside its page."
+   },
+   {
+    "issue": "#50 x #49 (should): the docs and the release/leave confirms did not say that a release or leave drops Train dice and the rest of the assignment",
+    "what": "FAQ.md Train line now says '(retiring the campaign does, ..., and so does a release or a leave)'. The FAQ release answer gains 'Its assignment ends as at Retire: its spend count, ability uses, gear and any Train dice it held are cleared.' The QUIRKS.md retire line notes that a release or leave lets an investigator go the same way. The confirms: LeaveCampaign leaveHint takes trainDice and adds 'Any Train die they hold is lost.' On the desk this shows only when the investigator holds a die; on the hub, which cannot know, it always shows. The armed line on the Lightkeeper's ReleaseMember shows it when the member holds a die. Commit 07f7633.",
+    "checked": "Chromium. Ada holds 2 Train dice. Her phone desk Leave armed line and the Lightkeeper's 1440x900 Release line both end with 'Any Train die they hold is lost.' Dev holds no die, so his Release line leaves it out. On the phone hub registry row, Dev's line includes it (unknown there). No page errors."
+   },
+   {
+    "issue": "#59 (should): the new timing tests depended on order and timing (the allies queries had no ORDER BY, and the windows were 1.5 s)",
+    "what": "backend/vtt/ws/handlers/marks.py: _offer_non_combatant and _intercept_allies use .order_by(Character.id). backend/tests/test_ws_marks.py: the Non-Combatant log test uses a 5 s window with a 10 s recv_type timeout. The answered-in-time Behind Me case uses a 3 s window with drain(3.3). Commit a09b8ec.",
+    "checked": "test_ws_marks.py passed 3 runs in a row (102 each), plus once in the full suite."
+   },
+   {
+    "issue": "Nit #49 x #59: a released ally whose desk has no campaign could still take the old Doctor's Non-Combatant drive point",
+    "what": "marks.forget_points(character_id) pops _non_combatant. release_member calls it after the commit, which also suppresses that point's lapse line. The docstring and ROUTES.md are updated. New test test_a_released_ally_cannot_take_the_old_circles_non_combatant_point. I left _pending_rush alone: that is the ally's own Adrenaline Rush from their own mark, which they keep.",
+    "checked": "The new test fails on the previous code and passes now."
+   },
+   {
+    "issue": "Nit #49 x #58: a report sent at the moment of a release was stored for a non-member",
+    "what": "backend/vtt/ws/handlers/circle.py: under the circle lock the author is re-read (populate_existing). If they are no longer an active member of the circle's campaign, the report is refused with 409 'This investigator is not a member of the campaign.' and nothing is saved. WEBSOCKET.md is updated. New test test_a_report_sent_as_its_author_is_released_is_not_kept: it wraps the access rule so the release lands between the check and the handler.",
+    "checked": "The new test fails on the previous code and passes now."
+   },
+   {
+    "issue": "Nit #54: a Lightkeeper notebook entry sent over the socket without author_type was stored as 'player', so the startup re-sign would miss it",
+    "what": "chat.py handle_add_notebook_entry stores author_type 'gm' for a GM socket. The test_ws_gm_notebook_entry_is_signed_the_lightkeeper test was extended (not flipped) to assert author_type gm. WEBSOCKET.md is updated. I did not widen the migration, because orphaned player rows with no character could then be re-signed as the Lightkeeper.",
+    "checked": "test_ws_chat_notebook passes."
+   },
+   {
+    "issue": "Nit #58: on a phone the report line's fixed two-row box scrolled inside itself",
+    "what": "CircleView.jsx: the textarea uses the existing useAutoGrow and GROW_STYLE helpers, with a min-h of 3.5rem so it keeps two rows when empty. Commit 74f69a6.",
+    "checked": "Chromium phone 390x844: empty is 54px. A 197-character line grows the box to 118px with scrollHeight equal to clientHeight, and the whole line shows in the screenshot. A short line shrinks back to 54px."
+   },
+   {
+    "issue": "Nit #51: a 0-maximum drive's 'none' row was shorter than a pip row, so its action rows sat higher",
+    "what": "index.css: inside the existing pointer:coarse block, .drive-pips gets min-height 44px and align-items center, the same height as the pip buttons. Commit 74f69a6.",
+    "checked": "Chromium: on a tablet 820x1180 before the fix, Move was at 995 while Sway and Survey were at 1023. After it, all three are at 1023, and the screenshot shows 'none' sitting level. 1920x1080 is unchanged (all at 617), and the phone is fine."
+   }
+  ],
+  "skipped": [
+   {
+    "issue": "Nit: em dash in the Well-Read log strings (rolls.py:541, :605)",
+    "why": "frontend/src/game/outcomes.js parses this as a machine-read token with a regex, alongside the '[gilded \u2014 ...]' and 'used Train \u2014 ...' strings. Changing it means changing the format and the parser together in a later round, as the reviewer suggested. None of my added lines contain an em dash."
+   },
+   {
+    "issue": "Nit #49: the spend count resets when a player leaves and rejoins",
+    "why": "The reviewer marked this as Robert's call. Decision 1 says a release ends the assignment as Retire does, and the earlier decision ties carrying the count to a replacement (rejoin) only. Changing it would need a new product decision."
+   },
+   {
+    "issue": "Nit: a spend that crosses a release can lose one point (pre-existing)",
+    "why": "This existed before the branch and the fix was optional. A plain db.refresh(circle, with_for_update=True) in spend_resource would hold the circle and then update the character row, the reverse of release's character-then-circle order, so it risks a deadlock. A correct fix also locks the character first, which reaches beyond a minimal nit."
+   },
+   {
+    "issue": "Nit #60: the key info slip opens upward with no flip, so it can sit under the sticky header or off screen when the heading is at the top of the view",
+    "why": "Fixing it needs new placement logic in the shared InfoTerm (or a measured flip for this one caller). That is not a cheap, plainly right change. The help still opens and can be read after a small scroll."
+   },
+   {
+    "issue": "Nit #60: at 1920x1080 the Circle Resources card no longer fits above the fold",
+    "why": "This needs a layout change (side by side at xl). That is optional, and nothing is lost: the confirm stays armed while the page scrolls."
+   },
+   {
+    "issue": "Nit #57: sessionEnded is not persisted and the username is not prefilled",
+    "why": "The reviewer marked it optional. The report's suggestion asked only for the status line, which is fixed. Persisting session state across a reload is a separate behaviour choice."
+   }
+  ],
+  "commits": [
+   "a09b8ec Close release seams and steady the ally offer tests",
+   "07f7633 Say that a release or leave drops Train dice",
+   "bbf76a2 Keep the first entry of a spread clear of the phone header",
+   "74f69a6 Grow the report line box and level a drive of none",
+   "7b498b3 Document the release seams and refresh the API snapshot"
+  ],
+  "tests": "I ran the full backend suite once on a throwaway database (repair_t2) after all the code changes: 1937 passed, 1 skipped, 1 failed. The failure was test_surface.test_openapi_document_is_unchanged, because the release route's docstring changed. I regenerated tests/data/openapi.json (only that description differs), and test_surface.py then passed (52). Before that, a targeted run of test_ws_marks, test_ws_circle, test_ws_chat_notebook, test_campaigns and test_rest_broadcasts passed (291). test_ws_marks.py passed 3 runs in a row (102 each). Both new tests (released ally Non-Combatant, report during release) fail on the old code and pass now. The frontend was rebuilt to /tmp/build_main4 (vite build OK). The browser re-checks ran in Chromium against the backend on 8041 and the site on 4041 (frontend/.vite.preview.8041.config.mjs), using copies of the checkers' scripts in the scratchpad. The servers were stopped by PID (14204, 14206, 14218, 14219) and the databases repair_t1, repair_t2 and repair_bc were dropped. The working tree is clean, and nothing was pushed."
+ }
+}
