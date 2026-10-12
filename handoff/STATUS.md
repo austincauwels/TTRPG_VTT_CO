@@ -26,7 +26,7 @@ Open problems live in GitHub issues; this file only points at them.
 - File an issue for each confirmed bug and medium UX item not fixed in the same phase; low UX items go in one checklist issue per round (like #45). Raw playtest findings stay on this branch.
 - A fix PR closes its issues with "Fixes #n" lines; tick checklist lines by hand. Austin rarely reads issues, so notifications are fine.
 - Robert comments on issues himself. **Read new comments on open issues at the start of each phase.** On 11 October he wrote: #29 a newcomer gets a short welcome pop-up with the circle's key facts before play; #33 map pins closed in favour of #34 custom maps drawn live with the existing sketch tools, light enough to improvise; #31 an end-of-assignment "interview" reviewing goals and relationships with a chance to propose a new one. No newer comments as of this update.
-- Open now: bugs #17-#22, #38-#44; UX #23-#26, #45-#47; ideas #27-#32, #34. #35-#37 close when PR 48 merges.
+- Open now: bugs #17-#22, #38-#44; UX #23-#26, #45-#47; ideas #27-#32, #34. #35-#37 were closed by PR 48.
 
 ## Model and effort
 
@@ -51,7 +51,7 @@ What worked before: a regression sweep alongside the play; triage by two Opus ag
 ## Where things stand
 
 - `main` is at **36f001c** (PRs 13, 14 and 15). Whether beta and live run it is not confirmed.
-- **PR 48** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/48, branch `claude/modest-bohr-5zvnv6`, b1e8a51) is open, CI green on both runs, no reviews, mergeable: double-clicks on End Assignment, Give a spend back and Revive are ignored (#35, #36, #37). Robert picked fixing these before the playtest, so beta should run PR 48's merge. Merge only when he says.
+- **PR 48** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/48) was **merged** on 11 October; `main` is now **2d86b77**: double-clicks on End Assignment, Give a spend back and Revive are ignored (#35, #36, #37). Robert picked fixing these before the playtest, so beta should run 2d86b77.
 - **Beta password: not in the environment yet.** On 12 October (UTC) `env | grep -c CANDELA_BETA` gave 0. Robert was told to add `CANDELA_BETA_USER` and `CANDELA_BETA_PASS` in the environment settings and start a new chat (only a new session picks them up). Never ask him to paste them.
 - **Beta's WebSocket needs nothing extra:** checked without the password, the basic auth covers only the pages. `/api/...` answers 200 and `/ws/...` upgrades (101). So the seats' sockets work through `httpCredentials` as they are. (It also means beta's API is open to anyone with the address; Robert has been told, and it is his call.)
 - **The third playtest is prepared** (playtest-harness dcbae97). Everything is in `playtest/run3/` and `playtest/workflows/run3/`; `run3/ORGANISER.md` is the runbook:
