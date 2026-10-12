@@ -16,7 +16,7 @@ from engine import (
 )
 from models import INCLUDE_DELETED, Campaign, Character, Circle, User
 from vtt import deletion
-from vtt.assignment import end_assignment_for
+from vtt.assignment import release_from_campaign
 from vtt.auth import (
     campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
     require_gm_of_character, require_gm_or_member, require_owner, require_self,
@@ -276,8 +276,8 @@ async def retire_campaign(campaign_id: int, db: Session = Depends(get_db),
             c.status = "unaffiliated"
             c.campaign_id = None
             c.ink_color = ""
-            # its assignment ends with the campaign: no spends, uses or gear carried over
-            end_assignment_for(c)
+            # its assignment ends with the campaign: no spends, uses, gear or Train dice carried over
+            release_from_campaign(c)
             released.append(c)
     db.commit()
     message = {

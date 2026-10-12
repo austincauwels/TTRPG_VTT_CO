@@ -89,7 +89,8 @@ async def handle_spend_resource(ctx):
         character.cunning_resistance_spent   = 0
         character.intuition_resistance_spent = 0
     elif resource_type == "train":
-        # Each Train is a die for a roll in the next assignment (p. 41): two spends, two dice
+        # Each Train is a die for a roll the player picks (p. 41), kept until a roll uses
+        # it, End Assignment or not: two spends, two dice
         take_train_die(character, 1)
 
     setattr(circle, resource_type, cur_val - 1)
@@ -99,7 +100,7 @@ async def handle_spend_resource(ctx):
     _RESOURCE_MSG = {
         "stitch":  "all marks cleared.",
         "refresh": "drives & resistances restored.",
-        "train":   "a Train d6 for a roll of their choice this assignment.",
+        "train":   "a Train d6 for a roll of their choice, kept until a roll uses it.",
     }
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)

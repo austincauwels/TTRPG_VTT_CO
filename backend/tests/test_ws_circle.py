@@ -621,10 +621,14 @@ def test_meticulous_notes_add_illumination_after_an_assignment(client):
 
 
 def test_gm_end_assignment(client):
+    """Fixed (playtest 3, circle-spend-timing-wording; decision 2 of fix round 4): End
+    Assignment also cleared the Train dice, so a die bought while the assignment was open
+    was lost unused. A bought Train die is kept until a roll uses it; the spend count still
+    starts again."""
     camp, (a, b), cid = _campaign(client, members=2)
     for ch in (a, b):
         support.update(Character, ch["id"], ability_uses={"Steel Mind": 1}, resources_spent_assignment=2,
-                       train_bonus=True, gear=["Lantern"])
+                       train_bonus=True, train_dice=2, gear=["Lantern"])
     outsider = support.forge(client)
     support.update(Character, outsider["id"], resources_spent_assignment=2)
     support.update(Circle, cid, location="Docks", atmosphere="Fog", dispatch_text="Bring lamps.")
@@ -641,9 +645,10 @@ def test_gm_end_assignment(client):
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
         assert got[1]["payload"]["ability_uses"] == {}
         assert got[1]["payload"]["resources_spent_assignment"] == 0
-        assert got[1]["payload"]["train_bonus"] is False
+        assert (got[1]["payload"]["train_bonus"], got[1]["payload"]["train_dice"]) == (True, 2)
         assert got[1]["payload"]["gear"] == []  # gear slots reset with the assignment (p. 52)
-    assert support.fetch(Character, b["id"]).resources_spent_assignment == 0
+    row = support.fetch(Character, b["id"])
+    assert (row.resources_spent_assignment, row.train_bonus, row.train_dice) == (0, True, 2)
     assert support.fetch(Character, outsider["id"]).resources_spent_assignment == 2
     assert support.fetch(Circle, cid).dispatch_text == ""
 

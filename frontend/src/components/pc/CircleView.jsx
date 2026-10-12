@@ -49,7 +49,7 @@ const RESOURCE_MAX_SQUARES = 9;
 const RESOURCES = [
   { label: 'Stitch',  key: 'stitch',  desc: 'Clear all marks (Body, Brain, Bleed) for yourself.' },
   { label: 'Refresh', key: 'refresh', desc: 'Restore all your drives and resistances.' },  // p. 41: not ability uses
-  { label: 'Train',   key: 'train',   desc: 'Take a d6 to use on any roll you choose in the next assignment.' },  // p. 41
+  { label: 'Train',   key: 'train',   desc: 'Take a d6 to add to any roll you choose, kept until a roll uses it.' },  // p. 41
 ];
 
 const ILLUM_QUESTIONS = [

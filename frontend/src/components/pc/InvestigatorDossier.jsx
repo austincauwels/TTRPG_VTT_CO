@@ -969,7 +969,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         {character?.train_bonus && (
           <span className="flex items-center gap-1.5 px-2.5 py-1 bg-candle-gold/15 border border-candle-gold/50 text-ink font-sans font-bold text-xs uppercase tracking-widest rounded-sm">
             <SafeIcon name="GiDiceSixFacesSix" size={11} />
-            {(character.train_dice || 1) > 1 ? `Train: ${character.train_dice} dice, +1d on each roll you pick` : 'Train: +1d on a roll you pick'}
+            {(character.train_dice || 1) > 1 ? `Train: ${character.train_dice} dice, +1d on each roll you pick, each kept until a roll uses it` : 'Train: +1d on a roll you pick, kept until a roll uses it'}
           </span>
         )}
       </div>
