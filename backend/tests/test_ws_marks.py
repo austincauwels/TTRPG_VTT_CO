@@ -453,7 +453,7 @@ def test_an_ally_offer_is_logged_for_the_lightkeeper_and_that_ally_and_its_lapse
     opened and lapsed unseen; the Lightkeeper was not told who was offered, and the ally's
     desk kept no trace. The two-minute window stays. The Activity Log of the Lightkeeper
     and of each ally offered says who was offered what, and when the window runs out with
-    no answer, that it lapsed. The target and the other members get neither line, and an
+    the offer not used, that it lapsed. The target and the other members get neither line, and an
     answered offer logs no lapse."""
     camp = support.new_campaign(client)
     hurt = support.active_member(client, camp)
@@ -478,7 +478,7 @@ def test_an_ally_offer_is_logged_for_the_lightkeeper_and_that_ally_and_its_lapse
         assert support.of_type(gm.drain(), "activity_log")[1:] == [offered]
         assert support.of_type(wg.drain(), "activity_log")[1:] == [offered]
         lapsed = {"type": "activity_log", "payload": {
-            "message": f"{guard['name']}'s Behind Me or Premonitions offer for {hurt['name']}'s Body mark lapsed unanswered.",
+            "message": f"{guard['name']}'s Behind Me or Premonitions offer for {hurt['name']}'s Body mark lapsed unused.",
             "log_type": "field"}}
         assert gm.recv_type("activity_log", timeout=3) == lapsed
         assert wg.recv_type("activity_log", timeout=3) == lapsed
@@ -647,6 +647,42 @@ def test_non_combatant_lets_each_ally_recover_a_drive_point(client):
         wd.send("take_mark", mark_type="body", is_from_enemy=False)
         wd.sync()
         assert any(m["type"] == "ability_mark_offer" for m in wa.drain(0.5))
+    assert support.fetch(Character, ally["id"]).nerve_current == 2
+
+
+def test_a_non_combatant_point_is_logged_for_the_lightkeeper_and_that_ally_and_its_lapse_too(client, monkeypatch):
+    """Robert's decision 6 covers "other ally offers" too: Non-Combatant's drive point goes
+    to every ally for the same two minutes, and opened and lapsed unseen. The Lightkeeper's
+    log and each ally's say who was offered it, and that it lapsed if it was not taken; the
+    Doctor's log gets neither line, and a point taken logs no lapse."""
+    camp = support.new_campaign(client)
+    doctor = support.active_member(client, camp, specialty_ability="Non-Combatant")
+    ally = support.active_member(client, camp, nerve_max=3, nerve_current=1)
+    other = support.active_member(client, camp)
+    monkeypatch.setattr(marks, "INTERCEPT_WINDOW", 1.5)
+    with support.ws_connect(client, doctor["id"]) as wd, support.ws_connect(client, ally["id"]) as wa, \
+            support.ws_connect(client, other["id"]) as wo, support.ws_connect(client, camp["campaign_code"]) as gm:
+        wd.send("take_mark", mark_type="brain", is_from_enemy=False)
+        line = wd.sync()[1]
+
+        def said(member, how):
+            return {"type": "activity_log", "payload": {
+                "message": f"{member['name']}{how} Non-Combatant drive point from {doctor['name']}'s Brain mark"
+                           + (" (1.5 seconds)." if how == " is offered a" else " lapsed unused."),
+                "log_type": "field"}}
+        assert support.of_type(gm.drain(), "activity_log") == [line, said(ally, " is offered a"),
+                                                               said(other, " is offered a")]
+        assert support.of_type(wa.drain(), "activity_log") == [line, said(ally, " is offered a")]
+        assert support.of_type(wo.drain(), "activity_log") == [line, said(other, " is offered a")]
+        wa.send("resolve_ability_mark", ability="Non-Combatant", choice="nerve")
+        assert wa.sync()[1]["payload"]["message"] == f"{ally['name']} recovered 1 Nerve (Non-Combatant)."
+        gm.drain()
+        wo.drain()
+        wd.drain()
+        # Only the point not taken lapses, and only for the Lightkeeper and that ally
+        assert gm.recv_type("activity_log", timeout=3) == said(other, "'s")
+        assert wo.recv_type("activity_log", timeout=3) == said(other, "'s")
+        assert support.of_type(gm.drain(0.5) + wa.drain() + wd.drain(), "activity_log") == []
     assert support.fetch(Character, ally["id"]).nerve_current == 2
 
 
