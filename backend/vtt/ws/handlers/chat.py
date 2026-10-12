@@ -1,6 +1,6 @@
 """Chat and the WebSocket notebook entry."""
 from engine import create_notebook_entry
-from models import Campaign, Character, User
+from models import Campaign, Character
 from vtt.config import GM_AUTHOR
 from vtt.ws.manager import campaign_key, character_key, manager
 

@@ -347,7 +347,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
   // then the picture across the page (owner, 2026-10-05: never shrunk off to the side), then the hand
   if ((eType === 'sketch' || eType === 'photo') && entry.image_data) {
     return (
-      <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
+      <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none scroll-mt-28 lg:scroll-mt-0 ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
         <h3 className="leading-tight mb-1 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2rem' }}>
           {entry.title}
         </h3>
@@ -367,7 +367,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
   // Lightkeeper: letterhead style
   if (eType === 'lightkeeper') {
     return (
-      <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
+      <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none scroll-mt-28 lg:scroll-mt-0 ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
         <div className="border-b-2 border-ink/70 pb-2 mb-3 flex flex-wrap gap-2 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full border-2 border-ink/70 flex items-center justify-center text-lg font-serif font-black">✦</div>
@@ -386,7 +386,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
 
   // Standard field_log
   return (
-    <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
+    <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none scroll-mt-28 lg:scroll-mt-0 ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
       <h3 className="leading-tight mb-0.5 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2.3rem' }}>
         {entry.title}
       </h3>
@@ -624,7 +624,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
 
   const authorFont  = isGM ? GM_PEN_FONT  : (character?.pen_font  || GM_PEN_FONT);
   const authorColor = isGM ? GM_INK_COLOR : (character?.ink_color || 'rgb(var(--c-oxblood))');
-  const authorName  = isGM ? ('The Lightkeeper') : (character?.name || 'Unknown');
+  const authorName  = isGM ? 'The Lightkeeper' : (character?.name || 'Unknown');
 
   // Bring an entry's card into view once its page has drawn it, and move focus to it
   const showEntry = (id, block = 'start') => {
