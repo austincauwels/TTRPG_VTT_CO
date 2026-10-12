@@ -5,3 +5,13 @@
 - Logged F001 (silent bounce to blank sign-in on 401, no message), F002 (Google iframe unnamed; says Sign in on sign-up screen).
 - Next turn: look first; if sign-in now holds, sign in (do NOT re-register), create the campaign, explore the desk, post the code.
 - No investigator (I am the Lightkeeper).
+
+## Turn 2 (Campaign) - campaign created
+- Seat was already signed in as lightkeeper_rue_r3 (sign-in block fixed). Did not re-register.
+- Created "The Saltmere Chapter", code **saltmere-r3** (code is not auto-suggested from the name). Posted the code to the table (#2).
+- Toured the desk (no story yet): Roster (dispatch card Own words/Template, Join Requests, Invite player, Finalize the circle, Circle formation papers I-VI, hourglass + Clock name + Timer switch with min/sec and start/reset/clear, dice tray with Secret, Activity Log, Pass Notes to @Circle or @Environment). Circle page: name Edit, chapter house, Illumination 0/12 (gold milestones 3/6/9), circle ability select, Illumination questions + Open reports, resources Stitch/Refresh/Train 1 each, Spending locked/Allow spending, Refill. Notebook: Field Notes (Sketch, Photo, Markdown), Private Notes (text only), Lightkeeper Resources (text). Map: Fairelands map image.
+- Dispatch/End Assignment stamps are below the fold in the left column at 1440x900: scroll with mouse wheel over the left column (x~180). End Assignment asks for a second press.
+- Timer switched on then off again; tension still 0; nothing dispatched; activity log empty. Dispatch card left in Template mode, empty.
+- Findings: F003 (dispatch below fold), F004 (Invite wording 'rejoins'), F005 (praise sketch), F006 (no private sketch), F007 (no code suggestion).
+- No investigator (I am the Lightkeeper).
+- Next: approve join requests as they come (Robert, bram, cass, dev), watch circle formation, Finalize the circle, then dispatch to the Saltmere flats (Template: location 'the mudflats of Saltmere', atmosphere). Send Robert a pass note at some point. Watch: do join requests appear live without reload?

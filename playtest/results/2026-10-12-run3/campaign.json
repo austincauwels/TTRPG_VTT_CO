@@ -1,0 +1,24 @@
+{
+ "dm": {
+  "summary": "The seat was already signed in as lightkeeper_rue_r3, so I did not register again. I created \"The Saltmere Chapter\" from the chapter hub with code saltmere-r3. The name does not suggest a code, so I had to make one up. I posted the code to the table early so players are not held up. Then I toured the desk without starting the story: dispatch card (Own words and Template modes), join requests and Invite player, Finalize the circle, circle formation papers, hourglass with clock name, the timer (switched on, checked, switched off), the dice tray with Secret, Activity Log, Pass Notes (to @Circle or @Environment), the Circle page (Illumination 0/12 with milestones at 3/6/9, circle ability, Illumination questions, resources with spending locked), the Notebook (Field Notes with Markdown, Sketch and Photo; Private Notes and Lightkeeper Resources are text only) and the Map. In the sketch tool I drew a rough map of the flats, then discarded it: Cancel turns into Discard, which is a good guard. At 1440x900 the Dispatch and End Assignment stamps sit below the edge of the window, with nothing showing the column scrolls. Only a mouse wheel over that column reaches them. The Invite player text says the player \"rejoins\", which is confusing on a new campaign. No console errors. No join requests yet.",
+  "findings": [
+   "F003",
+   "F004",
+   "F005",
+   "F006",
+   "F007"
+  ],
+  "blocked": "",
+  "campaign_code": "saltmere-r3",
+  "for_robert": "Sign up on the beta site, then on the Chapter Hub press the \"New character\" ticket and build your investigator (any role and specialty). At the end of the creator press \"Save and join a campaign\", type the code saltmere-r3 in Campaign code, choose a handwriting and press \"Ask to join\". If you saved for later, open your investigator in the Case Ledger, press \"Join a campaign\" and do the same. I approve you from my desk, and then the circle formation papers open on yours.",
+  "for_players": "1. Sign up (or sign in) on the beta site. 2. On the Chapter Hub press \"New character\" and build your investigator. 3. Press \"Save and join a campaign\" (or later, in the Case Ledger, \"Join a campaign\" on your investigator), enter the code saltmere-r3, pick a handwriting and press \"Ask to join\". 4. Wait for the Lightkeeper to approve you, then fill in the circle formation papers that open on your desk.",
+  "state": "Campaign The Saltmere Chapter (code saltmere-r3) created. Roster empty, no join requests yet. Tension 0 of 4, timer off, nothing dispatched (card left in Template mode, empty). Circle unnamed, Illumination 0/12, Stitch/Refresh/Train 1 each, spending locked, reports closed. Activity log empty. No one marked or scarred.",
+  "story_so_far": "The story has not started. The Lightkeeper has founded The Saltmere Chapter and given the table its code. The investigators are now building their characters and asking to join.",
+  "prompts": {
+   "bram": "Build your Muscle (Soldier) investigator, then ask to join with the code saltmere-r3.",
+   "cass": "Build your Slink (Criminal) investigator, then ask to join with the code saltmere-r3.",
+   "dev": "Build your Weird (Occultist) investigator, then ask to join with the code saltmere-r3."
+  }
+ },
+ "code": "saltmere-r3"
+}
