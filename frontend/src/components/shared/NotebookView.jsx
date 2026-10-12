@@ -1263,7 +1263,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                 <div className="absolute top-3 left-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">
                   Field Notes, page {currentSpread}
                 </div>
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative lg:mt-6 lg:[container-type:size]" style={LINED_PAPER}>
+                <div className="flex-1 min-h-0 lg:overflow-y-auto custom-scrollbar relative lg:mt-6 lg:[container-type:size]" style={LINED_PAPER}>
                   {leftEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === leftEntries.length - 1}
                     onRedraw={canRedraw(entry) ? () => openRedraw(entry) : undefined} />)}
                 </div>
@@ -1388,7 +1388,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
             ) : (
               <div className="p-4 pt-10 sm:p-8 lg:pl-10 relative flex flex-col min-h-[360px] lg:min-h-0 lg:h-full min-w-0 bg-cream">
                 <div className="absolute top-3 right-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">Field Notes</div>
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative mt-6 lg:[container-type:size]" style={LINED_PAPER}>
+                <div className="flex-1 min-h-0 lg:overflow-y-auto custom-scrollbar relative mt-6 lg:[container-type:size]" style={LINED_PAPER}>
                   {rightEntries.length === 0
                     ? <div className="h-full flex flex-col items-center justify-center gap-4 opacity-[0.055] pointer-events-none select-none">
                         <div className="w-32 h-32 rounded-full border-4 border-ink flex flex-col items-center justify-center">
