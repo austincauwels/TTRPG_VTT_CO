@@ -587,13 +587,27 @@ export const CircleView = () => {
 
   // A player spends a resource in two presses: the first asks, the second spends (the
   // pips were 16 px squares 4 px apart, and one tap spent for the whole circle; playtest,
-  // resource-spend-no-guard). The question lapses after a few seconds.
+  // resource-spend-no-guard). The question stays until the player presses elsewhere, presses
+  // Escape or moves focus away, like every other confirm (ConfirmAction.jsx): it lapsed after
+  // four seconds, and every player lost spends to it (playtest 3, spend-confirm-lapses-fast).
   const [confirmKey, setConfirmKey] = useState(null);
   useEffect(() => {
     if (!confirmKey) return undefined;
-    const t = setTimeout(() => setConfirmKey(null), 4000);
-    return () => clearTimeout(t);
+    const onPointerDown = (e) => {
+      if (e.target.closest?.('[data-spend-key]')?.dataset.spendKey !== confirmKey) setConfirmKey(null);
+    };
+    const onKeyDown = (e) => { if (e.key === 'Escape') { e.preventDefault(); setConfirmKey(null); } };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown, true);
+    };
   }, [confirmKey]);
+  // Spending locked, or the resource gone, while it asked: there is nothing left to confirm
+  useEffect(() => {
+    if (confirmKey && (spendBlock || (circle?.[confirmKey] ?? maxCap) <= 0)) setConfirmKey(null);
+  }, [confirmKey, spendBlock, circle, maxCap]);
   const spendHeld = useRef(false);
   const askedAt = useRef(0);
   function pressSpend(key) {
@@ -915,7 +929,9 @@ export const CircleView = () => {
                 {!isGM && (
                   <button
                     type="button"
+                    data-spend-key={key}
                     onClick={() => { if (!cannot) pressSpend(key); }}
+                    onBlur={(e) => { if (confirmKey === key && e.relatedTarget && e.relatedTarget !== e.currentTarget) setConfirmKey(null); }}
                     aria-disabled={cannot}
                     aria-describedby={spendBlock ? 'resource-reason' : undefined}
                     className={`mt-2 w-full min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-colors ${
