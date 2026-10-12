@@ -134,9 +134,9 @@ Three components send on the socket directly instead of through a store action: 
 
 All in the `onmessage` if/else chain in gameStore.js:106-353. Only one branch runs per message.
 
-`character_update`, `circle_update`, `roll_result`, `roll_error`, `trigger_scar`, `scene_transition` (console only), `notebook_entry` (deduplicated by id), `activity_log` (keeps the last 50), `vote_update`, `backstory_update`, `relationship_update`, `personal_answer_update`, `investigator_joined` (filtered by campaign code), `investigator_approved`, `investigator_rejected`, `roster_finalized`, `assignment_report_submitted`, `circle_advanced`, `campaign_retired`, `ability_mark_offer`, `ability_intercept_offer`, `gm_rejoin_invite`, `character_joined_mid_campaign`.
+`character_update`, `circle_update`, `roll_result`, `roll_error`, `trigger_scar`, `scene_transition` (console only), `notebook_entry` (deduplicated by id), `activity_log` (keeps the last 50), `vote_update`, `backstory_update`, `relationship_update`, `personal_answer_update`, `investigator_joined` (filtered by campaign code), `investigator_approved`, `investigator_rejected`, `investigator_released`, `roster_finalized`, `assignment_report_submitted`, `circle_advanced`, `campaign_retired`, `ability_mark_offer`, `ability_intercept_offer`, `gm_rejoin_invite`, `character_joined_mid_campaign`.
 
-`investigator_approved`, `roster_finalized`, `circle_advanced`, `campaign_retired` and `character_joined_mid_campaign` are dropped when the payload carries a `campaign_id` that differs from `lastPlayedCampaign.campaignId ?? accessSession.campaignId`.
+`investigator_approved`, `investigator_released` (on any desk but the released investigator's own), `roster_finalized`, `circle_advanced`, `campaign_retired` and `character_joined_mid_campaign` are dropped when the payload carries a `campaign_id` that differs from `lastPlayedCampaign.campaignId ?? accessSession.campaignId`.
 
 ## 4. What the browser stores
 
