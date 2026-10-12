@@ -1,0 +1,21 @@
+export const meta = {
+  name: 'playtest3-report',
+  description: 'Write the third playtest report (JSON and Markdown) from the clusters and verdicts',
+  phases: [{ title: 'Report', detail: 'one Opus writer' }],
+}
+const PT = '/home/user/pt3'
+const SRC = '/home/user/sut'
+phase('Report')
+const out = await agent(`Write the report of Candela VTT's THIRD AI playtest (12 October 2026), for Austin (who wrote the app) and Robert (who runs the server and the group). Candela VTT is a React + FastAPI web app for the tabletop RPG Candela Obscura; the build under test is ${SRC} (commit 2d86b77, deployed to the beta site), read-only.
+How it went: the run was played on the real beta site (candela-beta.gatergrid.com). Robert was going to play one seat himself; he built Pontius Aganus, was approved, and then left before play. An AI player (Ada, a Scholar) took his seat. The site had no way to remove an approved investigator, so Pontius stayed as a ghost member for the whole session. Robert's own two findings are seat "robert".
+Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish.
+Inputs (read them all):
+- ${PT}/README.md and ${PT}/personas.md: how the playtest worked, who played what. ${PT}/table.md: the table talk (the story). ${PT}/results/*.json: each step's turn summaries. ${PT}/memory/*.md: each seat's notes and exit notes.
+- ${PT}/findings.jsonl: all ${args.n} findings. ${PT}/issues.md: the open GitHub issues, the #45 checklist and #16 (kept on purpose).
+- ${PT}/triage_result.json: clusters (a.clusters, b.clusters, each with 'issue' when it repeats an open issue) and praise themes (b.praise).
+- ${PT}/verify_result.json: verifiers' verdicts on the clusters marked reproduce, with an adversarial 'refute' on confirmed high or rules ones. Clusters with reproduce=false repeat an open issue or are low taste items: list them with their issue, unverified.
+Write two files:
+1. ${PT}/report.json: { "session": { "story": a short recap of The Drowned Choir as played, "stats": { findings, clusters, new_confirmed, partly, repeats_of_open_issues, by_design, not_reproduced }, "timeline": [ { "phase", "what happened" } ] }, "bugs": [ ranked new confirmed and partly-confirmed bugs and rules problems, each { key, title, severity, area, devices, what_happens, steps, root_cause, fix, effort, verdict, members, shots } ], "repeats": [ clusters that repeat an open issue: { key, issue, title, what_this_run_added } ], "not_reproduced": [ { key, title, why } ], "ux": [ ranked new ux clusters { key, title, severity, area, devices, what_happens, suggestion, verdict, members, shots } ], "ideas": [ ranked { key, title, why, members, issue } ], "keep": [ praise themes { title, summary, members } ], "personas": { "dm"|"ada"|"bram"|"cass"|"dev": a few sentences on how the site felt for that player and their device }, "decisions_for_robert": [ product questions only he can answer, each one sentence with the options (for example: who may take an approved investigator off a roster) ], "top_fixes": [ the 10 changes that would most improve the next real session, each one sentence, referencing keys ], "method_notes": [ what to do differently next time ] }.
+2. ${PT}/report.md: the same as a readable document: plain language, short sections, no em dashes, ranked so the most important things come first. Start with "The short version" (5 to 7 bullets), then "Fix these first", then "Decisions for Robert", then the session and its timeline, then new bugs (a ranked table, then a short section per high and medium bug), then repeats of open issues (a table: issue, what this run added), then UX, ideas, keep, the players' view, and method notes.
+Rank bugs by harm to a real session (data loss and wrong numbers first, then blocked actions, then visible defects), breaking ties by how many seats hit them. Use the verifier's severity, or the refuter's where it differs. Leave out of bugs and ux anything a verifier found by-design, not reproduced or a harness artifact (list it under not_reproduced with the reason). Only claims the evidence supports. Never write model names. Return a 10-line summary of the report.`, { label: 'report', phase: 'Report', model: 'opus', effort: 'high' })
+return out
