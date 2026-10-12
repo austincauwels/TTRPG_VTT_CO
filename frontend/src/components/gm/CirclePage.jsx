@@ -272,6 +272,15 @@ function ReportFlipCard({ inv, report }) {
             </div>
           )}
 
+          {/* The report's own line on what happened, when it has one (playtest 3,
+              report-text-line) */}
+          {report?.note && (
+            <div>
+              <p className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-1">What happened</p>
+              <p className="font-serif text-sm italic leading-snug text-ink break-words">"{report.note}"</p>
+            </div>
+          )}
+
           {/* The front's turn-over mark, here a button of its own */}
           <button
             type="button"

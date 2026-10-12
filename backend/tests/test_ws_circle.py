@@ -497,6 +497,37 @@ def test_submit_assignment_report(client):
         "reports": {str(a["id"]): _report(a, {"keys_detail": {"1": True}})}}
 
 
+def test_a_report_carries_a_short_line_that_an_amendment_can_change(client):
+    """Playtest 3 (report-text-line): the report had only the key ticks, so the line on
+    what happened the Lightkeeper asked for went into table talk. A report may carry a
+    line of up to 280 characters (note), kept with its keys and sent to the Lightkeeper;
+    an amended report replaces it, and one without a line has none. A longer line, or
+    one that is not text, saves nothing of the report."""
+    camp, (a,), cid = _campaign(client)
+    support.update(Circle, cid, reports_open=True)
+    keys = {"keys_detail": {"0": True}}
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+        for bad in ("x" * 281, 7):
+            wa.send("submit_assignment_report", character_id=a["id"], responses=keys, note=bad)
+            assert wa.sync() == [_rejected("submit_assignment_report", status=422,
+                                           detail="A report's line is text of up to 280 characters.")]
+        assert support.fetch(Circle, cid).backstory_answers in (None, {})
+        wa.send("submit_assignment_report", character_id=a["id"], responses=keys, note="  We burned the ledger.  ")
+        [msg] = support.of_type(wa.sync(), "assignment_report_submitted")
+        assert msg["payload"]["note"] == "We burned the ledger."
+        assert support.of_type(gm.drain(), "assignment_report_submitted") == [msg]
+        assert _undated(support.fetch(Circle, cid).backstory_answers) == {
+            "reports": {str(a["id"]): {**_report(a, keys), "note": "We burned the ledger."}}}
+        # 280 characters, spaces round it not counted
+        wa.send("submit_assignment_report", character_id=a["id"], responses=keys, note=" " + "y" * 280 + " ", replace=True)
+        [msg] = support.of_type(wa.sync(), "assignment_report_submitted")
+        assert msg["payload"]["note"] == "y" * 280
+        wa.send("submit_assignment_report", character_id=a["id"], responses=keys, note="   ", replace=True)
+        [msg] = support.of_type(wa.sync(), "assignment_report_submitted")
+        assert "note" not in msg["payload"]
+    assert _undated(support.fetch(Circle, cid).backstory_answers) == {"reports": {str(a["id"]): _report(a, keys)}}
+
+
 def test_reports_reach_only_the_lightkeeper_and_their_authors(client):
     """Fixed (playtest, 2026-10-09): the circle every desk is sent carried every report, and
     so did the circle-creation-state route. The circle leaves them out, and the route

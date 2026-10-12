@@ -45,6 +45,8 @@ const ADVANCEMENT_OPTIONS = [
 
 const TRACK_SIZE = 12;
 const RESOURCE_MAX_SQUARES = 9;
+// The longest line a report may carry (backend vtt/ws/access.py REPORT_NOTE_MAX)
+const REPORT_NOTE_MAX = 280;
 
 const RESOURCES = [
   { label: 'Stitch',  key: 'stitch',  desc: 'Clear all marks (Body, Brain, Bleed) for yourself.' },
@@ -522,7 +524,11 @@ export const CircleView = () => {
   // The keys this investigator fulfilled: { 0: bool, ... }. The circle's three questions
   // are the Lightkeeper's to answer once, on their page (playtest, report-questions-tally)
   const keyChecks = showFiled ? (filedResponses.keys_detail || {}) : (draft?.keyChecks || {});
-  const setKeyChecks = (update) => setReportDraft(character?.id, { keyChecks: update(keyChecks), amending });
+  // The report's optional line on what happened, kept in the draft with the ticks (playtest
+  // 3, report-text-line)
+  const noteText = showFiled ? (myReport?.note || '') : (draft?.note || '');
+  const setKeyChecks = (update) => setReportDraft(character?.id, { keyChecks: update(keyChecks), note: noteText, amending });
+  const setNote = (note) => setReportDraft(character?.id, { keyChecks, note, amending });
 
   // Relationship drafts for the shared relationship form
   const relForms = useRelationshipForms();
@@ -615,7 +621,7 @@ export const CircleView = () => {
       keys_detail: keyChecks,
     };
     // The ticks stay on the form until the filed report comes back in their place
-    if (submitAssignmentReport(circId, character?.id, responses, { replace: !!myReport })) {
+    if (submitAssignmentReport(circId, character?.id, responses, { replace: !!myReport, note: noteText.trim() })) {
       sentHere.current = true;
     }
   }
@@ -628,7 +634,7 @@ export const CircleView = () => {
 
   // Amend: the filed ticks become the draft, to change and send again in its place
   function startAmending() {
-    setReportDraft(character?.id, { keyChecks, amending: true });
+    setReportDraft(character?.id, { keyChecks, note: noteText, amending: true });
   }
 
   return (
@@ -782,6 +788,34 @@ export const CircleView = () => {
           </div>
         )}
 
+        {/* A line on what happened, for the Lightkeeper's report card. Filed, it reads
+            back as written; a report filed without one shows nothing here. */}
+        {showFiled ? (myReport?.note && (
+          <div className="mb-3">
+            <p className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-1">What happened</p>
+            <p className="font-serif text-sm italic leading-snug text-ink break-words">"{myReport.note}"</p>
+          </div>
+        )) : (
+          <div className="mb-3">
+            <label htmlFor="circle-report-note" className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1">
+              What happened <span className="font-bold normal-case tracking-normal text-sepia/80">(a line, optional)</span>
+            </label>
+            <textarea
+              id="circle-report-note"
+              value={noteText}
+              onChange={e => setNote(e.target.value.replace(/\n/g, ' '))}
+              onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+              maxLength={REPORT_NOTE_MAX}
+              rows={2}
+              aria-describedby="circle-report-note-count"
+              className="block w-full resize-none bg-transparent border border-dashed border-sepia/50 focus:border-oxblood px-2 py-1 font-serif text-base leading-snug text-ink"
+            />
+            <p id="circle-report-note-count" className={`mt-0.5 text-right font-mono text-xs tabular-nums ${noteText.length >= REPORT_NOTE_MAX ? 'text-oxblood' : 'text-sepia'}`}>
+              {noteText.length} / {REPORT_NOTE_MAX}<span className="sr-only"> characters</span>
+            </p>
+          </div>
+        )}
+
         {/* Filed: the stamp, with Amend while reports are open. Not filed: Send report. */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-ink/10">
           {showFiled ? (
@@ -804,7 +838,7 @@ export const CircleView = () => {
               </span>
               <span className="flex items-center gap-3">
                 {myReport && (
-                  <button type="button" onClick={() => setReportDraft(character?.id, { keyChecks: {}, amending: false })}
+                  <button type="button" onClick={() => setReportDraft(character?.id, { keyChecks: {}, note: '', amending: false })}
                     className="pen-host min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-1 font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink">
                     <span className="pen-underline">Cancel</span>
                   </button>

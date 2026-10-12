@@ -1,7 +1,8 @@
 """An assignment's paperwork on the circle: the players' assignment reports.
 
 They live in the circle's backstory_answers JSON (where the reports always were), under
-"reports" ({character id: {character_name, responses, submitted_at}}), with
+"reports" ({character id: {character_name, responses, submitted_at, and note when the
+report has a line on what happened}}), with
 "assignment", the number of the assignment they belong to (1 until the first End
 Assignment), and "tally", the Lightkeeper's three answers to the circle's questions and
 the Illumination the reports added ({answers: [bool, bool, bool], added: int or None}),

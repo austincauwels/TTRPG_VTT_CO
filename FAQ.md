@@ -225,6 +225,10 @@ The illumination track is a 0–12 numeric value on the Circle. Players can incr
 
 By the book (p. 55): 1 Illumination for each of the circle's three Illumination questions answered yes, then for the Illumination Keys 2 if some of the investigators fulfilled one and 4 if every one of them did (nothing if none did). Since 2026-10-10 the Lightkeeper ticks the three questions once, for the circle, on their Circle page, and the players' reports carry only their keys. Under the report cards the page totals it (a living investigator with no report filed counts as no key) and adds it with one press, "Add N Illumination", once per assignment. The ticks and the added total are kept on the circle, so every Lightkeeper desk (another tab, another device) shows them and "Added N Illumination" once it is pressed; the server refuses a second add. End Assignment clears the reports and the tally, and its confirm warns when the reports' Illumination is not added yet, since it would be lost. Every change to the track is logged, such as "The Ninth Night gains 2 Illumination (3 to 5)." Before, each player's report carried the three questions too, so one yes could come in four times, nothing totalled the reports, and the playtest's circle counted keys at 1 each and advanced about 5 Illumination early.
 
+### What goes on an assignment report?
+
+The investigator's Illumination Keys, each ticked or not, and since 2026-10-12 (playtest 3, report-text-line) an optional line on what happened, up to 280 characters, which the server enforces. The Lightkeeper reads the line on the back of that player's report card on their Circle page. An amended report replaces the line with whatever it carries, so sending it with the line emptied removes it. Like the keys, the line goes to the Lightkeeper and its author only, and End Assignment clears it with the report.
+
 ---
 
 ## Post-Roll Abilities
