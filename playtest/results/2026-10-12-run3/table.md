@@ -1,0 +1,1 @@
+1. [03:02:41] **LIGHTKEEPER:** Forgive me, investigators: the chapter-house door will not open for me yet. The Saltmere Chapter is not founded; I will give you its code the moment it is. Hold your lanterns.
