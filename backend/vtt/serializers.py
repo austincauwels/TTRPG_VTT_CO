@@ -57,13 +57,13 @@ def get_char_dict(char):
         "gilded_read": bool(getattr(char, "gilded_read", False)),
         "gilded_sense": bool(getattr(char, "gilded_sense", False)),
 
-        "nerve_max": getattr(char, "nerve_max", 1) or 1,
+        "nerve_max": getattr(char, "nerve_max", 0) or 0,
         "nerve_current": max(0, getattr(char, "nerve_current", 0) or 0),
         "nerve_resistance_spent": getattr(char, "nerve_resistance_spent", 0) or 0,
-        "cunning_max": getattr(char, "cunning_max", 1) or 1,
+        "cunning_max": getattr(char, "cunning_max", 0) or 0,
         "cunning_current": max(0, getattr(char, "cunning_current", 0) or 0),
         "cunning_resistance_spent": getattr(char, "cunning_resistance_spent", 0) or 0,
-        "intuition_max": getattr(char, "intuition_max", 1) or 1,
+        "intuition_max": getattr(char, "intuition_max", 0) or 0,
         "intuition_current": max(0, getattr(char, "intuition_current", 0) or 0),
         "intuition_resistance_spent": getattr(char, "intuition_resistance_spent", 0) or 0,
 

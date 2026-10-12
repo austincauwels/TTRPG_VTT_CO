@@ -212,6 +212,23 @@ def test_get_investigator_is_the_whole_sheet(client):
         camp["id"], made["id"], ["action"])
 
 
+def test_a_drive_maximum_of_0_is_sent_as_0(client):
+    """Fixed (playtest 3, drive-max-zero-shows-one): a Professor or an Occultist may start
+    with a drive at 0, and the sheet went out with a maximum of 1 ("0 of 1", a pip the
+    server refused to fill). A maximum of 0 is sent as 0, to the player, to the
+    Lightkeeper reading an applicant, and over the socket."""
+    camp = support.new_campaign(client)
+    zero = dict(nerve_max=0, nerve_current=0, cunning_max=0, cunning_current=0,
+                intuition_max=0, intuition_current=0)
+    made = support.pending_member(client, camp, **zero)
+    for headers in (support.as_owner(made["id"]), support.as_gm(camp)):
+        body = client.get(f"/api/investigators/{made['id']}", headers=headers).json()
+        assert {k: body[k] for k in zero} == zero
+    with support.ws_connect(client, made["id"]) as ws:
+        sheet = ws.initial[0]["payload"]
+        assert {k: sheet[k] for k in zero} == zero
+
+
 def test_get_investigator_not_found(client):
     r = client.get("/api/investigators/987654321", headers=support.as_stranger())
     assert r.status_code == 404

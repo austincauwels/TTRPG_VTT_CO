@@ -576,7 +576,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
   const handleSpendDrive = (pool, value) => {
     if (dead) return;
-    const maxDrive = character[`${pool}_max`] || 1;
+    const maxDrive = character[`${pool}_max`] ?? 0;
     if (value < 0 || value > maxDrive) return;
     // The Lightkeeper's copy sets it through her trauma edit; a player's own desk through the store
     if (readOnly) { if (driveEdit) traumaEdit.setDrive(pool, value); return; }
@@ -979,7 +979,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       <div data-desk="drives" className="dossier-drives grid grid-cols-1 gap-4">
         {domainCategories.map((cat) => {
           const currentDrive = character[`${cat.driveKey}_current`] || 0;
-          const maxDrive = character[`${cat.driveKey}_max`] || 1;
+          // A maximum of 0 is a real one (a Professor or an Occultist may start at it)
+          const maxDrive = character[`${cat.driveKey}_max`] ?? 0;
           // A resistance point for every 3 maximum drive (p. 13), less those burned
           const resistMax = Math.floor(maxDrive / 3);
           const resistLeft = Math.max(0, resistMax - (character[`${cat.driveKey}_resistance_spent`] || 0));
@@ -1019,12 +1020,16 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   )}
                 </div>
                 {/* One row for the drive: filled pips are available, empty ones up to the
-                    maximum are spent, and dotted ones lie beyond the maximum */}
+                    maximum are spent, and dotted ones lie beyond the maximum. A drive whose
+                    maximum is 0 reads "none", as a resistance of 0 does (playtest 3,
+                    drive-max-zero-shows-one: it showed "0 of 1" and a pip that never filled) */}
                 <div className="drive-row flex items-center justify-between">
                   <span className="font-sans text-xs text-sepia uppercase font-bold shrink-0 mr-2" id={`drive-avail-${cat.driveKey}`}>Available</span>
                   <div className="drive-pips flex gap-0.5 flex-wrap justify-end" role="group" aria-labelledby={`drive-avail-${cat.driveKey}`}>
-                    <span className="sr-only">{cat.name}: {currentDrive} of {maxDrive} available.</span>
-                    {Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => {
+                    {maxDrive === 0 ? (
+                      <span className="font-mono text-xs text-sepia italic"><span className="sr-only">{cat.name}: </span>none</span>
+                    ) : <span className="sr-only">{cat.name}: {currentDrive} of {maxDrive} available.</span>}
+                    {maxDrive > 0 && Array.from({ length: DRIVE_PIP_TOTAL }).map((_, i) => {
                       // An empty pip below the maximum fills up to it; the last filled pip clears
                       // one point, so a mistaken tap can be undone
                       const refill = !dead && (!readOnly || driveEdit) && i < maxDrive && i >= currentDrive;

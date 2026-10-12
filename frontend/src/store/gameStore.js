@@ -239,7 +239,7 @@ export const postRollChoiceWaiting = (s) => {
   if (!outcome || outcome === 'full_success' || outcome === 'critical_success') return false;
   const drive = s.lastRoll.action ? driveKeyFor(s.lastRoll.action) : null;
   if (!drive || !s.character) return false;
-  const max = Math.floor((s.character[`${drive}_max`] || 1) / 3);
+  const max = Math.floor((s.character[`${drive}_max`] ?? 0) / 3);
   return max > (s.character[`${drive}_resistance_spent`] || 0);
 };
 
