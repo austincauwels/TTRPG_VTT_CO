@@ -1,0 +1,65 @@
+{
+ "players": [
+  {
+   "summary": "Looked first without reloading: the new 04:06 dispatch, the private pass note and the hourglass were all current, and Bram's rolls appeared live while I played. Said my action at the table (#38), spent 1 Cunning and rolled Read (gilded) for 3 dice: gilded 6, 4, 6. That is a critical success. Kept the gilded 6, so Cunning went back to 4/4. Narrated at the table (#40) that the lower hand writes the choir's next verse, in the same half-beat voice that sang my name. Read the pass note (the voice that used my mother's name). I did not use Learn from My Mistakes, since it only applies on a result of 3 or less. Well-Read did not fire either, since it needs 3 or less. No Behind Me offer was visible on my side. Logged F073 to F076: two praise, two ux (the pass note has no private or new marker in the log, and the keep-die click is ambiguous and slow because of the animation, as in F048, F053 and F061). No console errors. I did not need start_all.sh. Memory appended.",
+   "findings": [
+    "F073",
+    "F074",
+    "F075",
+    "F076"
+   ],
+   "blocked": "",
+   "state": "Ada Quill: Nerve 1/1, Cunning 4/4, Intuition 4/4, resistances Cunning 1 and Intuition 1 unused, 1 Brain mark (1 of 3), no scars, able to act. Gear Thick Reference Tome, Chemical Kit, Lantern. Abilities Well-Read and Learn from My Mistakes unused this round."
+  },
+  {
+   "summary": "Looked first without reloading: the desk was current (new dispatch, Ada's Brain mark, tension 1 of 4, the LK's open roll, and later Ada's Read crit arrived live). Said at the table that I watch the lane and room from the window, spent 1 Intuition, and rolled Survey: 3 dice (3, 2, 4), kept the 4, mixed success. Then I burned Intuition resistance to try for better: 2 dice (2, 5), a 5, still mixed. This matches the FAQ. No Behind Me offer was on my desk (Ada's mark was 04:04), so I had nothing to answer. Logged F070 (a 'choice is waiting' badge after a plain roll), F071 (praise for burn flow) and F072 (idea: no trace of Behind Me availability). No console errors. I did not post a second table line describing the result, which I should have done (the narration of the roll outcome is missing from table talk). Memory file updated.",
+   "findings": [
+    "F070",
+    "F071",
+    "F072"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Looked first without reloading: my desk was current (Ada's, Bram's and the Lightkeeper's rolls, the new dispatch, tension 1 of 4 and the hourglass all showed live). No pass note had come for me, so there was none to read. In character I said Cass picks the lock slowly and spends one Nerve. Keyboard only, I tabbed to \"Spend one more Nerve\", pressed Space, then tabbed to \"Roll Control\" and pressed Enter. The roll was 2 dice (2, 6), a Success with no choices, and Nerve is now 2 of 3. The log line and result card appeared live, and `errors` showed nothing. I told the table the cabinet is open. Findings: F077 (praise, keyboard roll works with clear button names) and F078 (ux: about 12 Tabs to reach the first drive stepper, no skip link, the disabled \"Spend one less\" button still takes focus, and the log and tray can't be reached by Tab). Memory file updated. No machine restart was needed.",
+   "findings": [
+    "F077",
+    "F078"
+   ],
+   "blocked": "",
+   "character_name": "Cass Moreau",
+   "state": "Cass Moreau, Slink/Criminal: no marks, no scars. Nerve 2 of 3 (one spent on the Control roll), Cunning 4, Intuition 2. Resistance Nerve 1, Cunning 1, Intuition none. Gear: Advanced Lockpicks, Concealed Blade, Lantern. Scout unused."
+  },
+  {
+   "summary": "Looked first without reloading: the desk was current (Cass's roll, the new dispatch, the Lightkeeper card, tension 1/4). In character I said at the table that I lay the daybook under the lantern and spend two Intuition on Focus. I rolled Focus (rating 1, gilded, +2 Intuition = 3 dice: 6 gilded, 3, 2) and kept the gilded 6, a Success. Intuition went 4 to 2, then 3 after the gilded refund, which is correct. I narrated the result: the daybook is a bell-ringer's change book that spells my grandmother's next verse minus its last line, with 'Maren' pencilled in the margin. I posted a notebook field entry 'The choirmaster's daybook' with Markdown, the hymn_sheet.jpg photo and a caption; it rendered correctly. I sent a private pass note to Ada, logged as 'Dev Lindqvist \u2192 @Ada Quill'. Problems: the Keep-gilded-die button again had two same-named matches and failed with 'element is not stable' on touch; only a forced click via a script worked. The pass-note recipient menu opens upward and is mostly off-screen on the tablet. Logged five findings (two ux, three praise), including F079-F081, and updated memory/dev.md. No console errors. I did not need to run start_all.sh.",
+   "findings": [
+    "F079",
+    "F080",
+    "F081",
+    "F082",
+    "F083"
+   ],
+   "blocked": "",
+   "character_name": "Dev Lindqvist",
+   "state": "Dev Lindqvist, Weird/Occultist: Nerve 0, Cunning 3/3, Intuition 3/6, resistances Cunning 1 and Intuition 2, no marks, no scars, Ritual unused, gear Arcane Texts, Ritual Dagger and Lantern. My Rival (Cass) and Champion (Bram) relationship proposals are still waiting."
+  }
+ ],
+ "dm": {
+  "summary": "I looked first without reloading. The desk was current: all Round 2 rolls (Bram's Survey 4 and his burn to 5, Ada's Read crit, Cass's Control 6, Dev's gilded Focus 6), Dev's photo and Dev's private note to Ada were all there, and there were no console errors. I answered every action at the table (#45-48). No roll failed this round and Cass has no marks, so a third mark and the scar flow for her could not honestly happen. I gave Bram a Bleed mark for his mixed 5 instead. It landed at once, with a log line and 'Marks: 1 Bleed' on his roster card. For the circle resource, I opened spending and offered a Stitch to Ada and Bram at the table (#49), because the Lightkeeper has no way to spend one on a player's behalf (F086). I drew a rough map in Field Notes with the sketch tools and posted it. Shapes were quick, but 3 of 5 text labels were lost the first time (Enter does not finish a label, the tool drops back to Select, and typed letters switch tools, ending on Eraser). It worked once I pressed T before each label and Escape after it (F084). On the page the labels shrink to tiny text, and the log calls me 'lightkeeper_rue_r3' instead of 'The Lightkeeper' (F085). Scene 3: I sent a new dispatch, raised tension to 2 of 4, and set and started a 30:00 timer; each step wrote a clear log line (F087 praise). I posted the scene and a prompt for each player (#50-51). One small thing I did not log: the Lightkeeper's dice stepper went from 2 back to 1 after I switched desk sections. I did not need start_all.sh. Memory is appended.",
+  "findings": [
+   "F084",
+   "F085",
+   "F086",
+   "F087"
+  ],
+  "blocked": "",
+  "prompts": {
+   "ada": "Survey (Intuition): the channels are filling and Bram's firm line is going under. Read the flats against the Lightkeeper's map in the notebook and pick the way that still holds. Spending is open, so you may Stitch your Brain mark first.",
+   "bram": "Move (Nerve): lead the circle through knee-deep water along the firm line and haul up whoever falls. Behind Me is yours if someone is about to take a mark. Spending is open, so you may Stitch your Bleed mark first.",
+   "cass": "Move (Nerve): beat the water to the tower door with the ring of green iron keys from the cabinet and find the one that turns.",
+   "dev": "Sway (Cunning): the choir is waiting for its ringer and knows your grandmother's voice. Sing anything back except the last line, and hold its attention while the others run."
+  },
+  "story_so_far": "The Lantern Wall searched dead choirmaster Mr Abel's lodging beneath their own loft. Ada's critical Read showed that the cramped lower hand on the hymn sheet is the choir writing through Abel, a verse ahead, signed Maren, who drowned with the chapel. It is the same voice that sang her mother's name for her. Cass picked the salt-crusted cabinet cleanly: inside were dry choir surplices, a ring of seven green-iron bell-tower keys (Cass has them) and a set of handbells, one slot empty and wet. Dev read the daybook as the tower's change book, one change short and waiting for a ringer, with his grandmother Maren's name in the margin. The book wants him to supply the last row. From the window Bram saw choir-white figures on the chandler's slates, all of them turning to face the tide. A salt hand cracked the glass under his hand and left him a Bleed mark. Then the harmonium stopped and the tide turned. A black bell tower now stands out on the flats where the rope was, the water is coming in fast, and the choir is on its second-to-last verse. The circle is racing through the mud to the tower.",
+  "state": "Scene 3 (the bell tower, tide turning). The dispatch went out at 04:14. Tension is 2 of 4 ('The bells beneath the mud'). The timer is on: 30:00, started 04:15, ends about 04:45. Marks: Ada Brain 1, Bram Bleed 1, Cass none, Dev none. No scars and no one incapacitated. Circle spending is open (up to two each); Stitch, Refresh and Train are 5 each of a maximum of 6 (Pontius ghost still on the roster). Reports are closed. Illumination 0 of 12. A sketch map is posted in Field Notes. Drives: Ada Cunning 4/4, Intuition 4/4; Bram Nerve 4/5, Intuition 2/3 (Intuition resistance burned); Cass Nerve 2/3; Dev Intuition 3/6, Cunning 3."
+ }
+}

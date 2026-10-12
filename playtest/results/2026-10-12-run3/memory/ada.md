@@ -13,3 +13,9 @@
 - Desk was current at start (seal, dispatch, resources 5/6, hourglass 0/4 all shown without reload). Said my action at table (#25). Spent 1 Intuition, rolled Focus +1d: 3 dice (gilded 2, 3, 3), kept gilded 2 = Failure; gilded refresh + Well-Read both fired, Intuition back to 4/4. Logged F051-F054 (Learn from My Mistakes offered with all drives full, double refund capped, duplicate keep buttons, praise). Accepted Cass's Rival and Dev's Muse (all relationships confirmed except my Ward to Bram, waiting). Logged Pontius propose button and praise.
 - State: Nerve 1/1, Cunning 4/4, Intuition 4/4, resistances Cunning 1, Intuition 1 unused, no marks/scars. Learn from My Mistakes offer still open (USE/SKIP) - not used. Gear tome, chemical kit, lantern.
 - Watching: LK response to my failed Focus (marks?), whether the LfMM offer persists, Burn and reroll cost, Illumination, sidebar still shows my own relationship labels.
+
+## Turn 4 (Round 2)
+- Desk current at start (new dispatch, pass note in log, no reload). Said action at table (#38, #40). Spent 1 Cunning, rolled Read (gilded): 3 dice gilded 6, 4, 6 = Critical; kept gilded 6, Cunning back to 4/4. Logged F073-F076 (praise live desk, praise critical, ux pass note unmarked in log, ux keep-die click timing). Specialty ability Learn from My Mistakes only on 3 or less: not used (success). Well-Read not triggered.
+- State: Nerve 1/1, Cunning 4/4, Intuition 4/4, resistances Cunning 1, Intuition 1 unused, 1 Brain mark (1 of 3), no scars. Gear tome, chemical kit, lantern.
+- Pass note read: voice a half-beat behind sang my name, the one only my mother used. I narrated the lower hand as the next verse, the same voice.
+- Watching: LK reaction to the crit, Behind Me offer from Bram on my Brain mark, Pontius still on roster, Illumination, Stitch unlock.

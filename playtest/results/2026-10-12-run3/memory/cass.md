@@ -10,3 +10,8 @@ Watching: accept replies from Bram/Ada/Dev, seal, dispatch; Pontius still counte
 Saw seal/dispatch/log live without reload. Spent 1 Cunning, double-clicked Sway: one roll, 3 dice (4 gilded,4,3), kept gilded 4 (Mixed, Cunning refunded to 4/4). Enter twice on keep die = one keep. Reload: roll in log, tray empty (F060). Nell talks: the fisherman 'followed' something, humming. Findings F059-F062.
 State: no marks/scars, Nerve3 Cunning4 Intuition2, resistance Nerve1 Cunning1 Intuition none, gear lockpicks/blade/lantern, Scout unused. No relationship proposals pending seen.
 Watching: next LK prompt, tension rising, my scar chance.
+
+## Turn 4 (Round 2)
+Desk was current (rolls, new dispatch, tension all live, no reload). No pass note for me. Keyboard only: spent 1 Nerve (Tab+Space), rolled Control via Enter: 2 dice (2,6) = Success; cabinet opens. Nerve now 2/3. Findings F073-F074 range (praise keyboard roll, ux tab count).
+State: no marks/scars, Nerve 2/3 Cunning4 Intuition2, resistance Nerve1 Cunning1 Intuition none, gear lockpicks/blade/lantern, Scout unused.
+Watching: what is in the cabinet, Nerve refresh, my scar chance.

@@ -9,3 +9,7 @@ Watching: whether others propose to me (need to accept/counter), chapter house w
 Desk was current without reload (dispatch, seal, Lantern Wall, Ada's roll live). Said I lead out testing mud. Spent 1 Nerve, rolled Move (3 dice, gilded 2, 3, 4); kept the 4 = mixed success. Told table. Findings F048-F052 (tap timeout on keep buttons, stepper, stale badge, praise). Relationship proposals to me: none seen yet (didn't check papers).
 State: Nerve 4 of 5, Cunning 1, Intuition 3; Nerve resistance 1 of 1 unused; no marks/scars; gear Heavy Firearm, Tactical Armor, Lantern; Behind Me unused.
 Watching: LK consequence of the mixed success, hourglass, pending relationships, whether Burn and reroll appears usable.
+## Turn 4 (Round 2)
+Desk current without reload (dispatch, Ada's marks, hourglass, Ada's later Read roll appeared live). Said I watch window; spent 1 Intuition, Survey 3 dice: 4 mixed. Burned Intuition resistance, rerolled 2 dice: 5 mixed (kept same outcome). No Behind Me offer was on my desk. Findings: badge, burn praise, Behind Me idea.
+State: Nerve 4/5, Cunning 1/1, Intuition 2 of 3 (1 spent) and Intuition resistance 0 of 1 (burned); Nerve resistance 1; no marks/scars; gear Heavy Firearm, Tactical Armor, Lantern; Behind Me unused.
+Watching: LK consequence of Survey, Behind Me offers, resource spending.
