@@ -4,6 +4,8 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 // on the GM's view of a sheet: the first press arms the button and shows, in visible
 // text, what will happen; the second press does it. Escape, Cancel, moving focus away or
 // pressing anywhere else puts it back.
+const DOUBLE_CLICK_MS = 500;
+
 export const useConfirmStep = () => {
   const [armed, setArmed] = useState(false);
   const ref = useRef(null);
@@ -24,13 +26,21 @@ export const useConfirmStep = () => {
     };
   }, [armed]);
 
+  // A second press that comes this soon after arming is the other half of a double-click,
+  // not a reply to the armed hint, so it is ignored: a double-click on End Assignment ended
+  // the assignment before its unadded-tally warning was ever on screen (re-check of the
+  // second playtest, 150 ms apart). 500 ms is the usual system double-click time.
+  const armedAt = useRef(0);
+  const arm = () => { armedAt.current = Date.now(); setArmed(true); };
+
   const press = (action) => {
-    if (!armed) { setArmed(true); return; }
+    if (!armed) { arm(); return; }
+    if (Date.now() - armedAt.current < DOUBLE_CLICK_MS) return;
     setArmed(false);
     action();
   };
 
-  return { armed, press, arm: () => setArmed(true), disarm: () => setArmed(false), ref };
+  return { armed, press, arm, disarm: () => setArmed(false), ref };
 };
 
 // Hint and Cancel colors for the two grounds the pattern sits on.
