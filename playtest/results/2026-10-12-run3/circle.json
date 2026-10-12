@@ -1,0 +1,42 @@
+{
+ "players": [
+  {
+   "summary": "Without reloading, my hub had updated live (roster showed Ada Quill in a campaign with Play), but the formation papers did not open on their own; they appeared only after I clicked the row (F032). I filled my part of the papers. Part I: voted the secret-goal question and wrote a personal answer, which showed Saved. Part II: suggested The Citation Society and voted The Lantern Wall, where counts updated live. Parts IV and V: voted Nobody Left Behind and Candlelight. Part VI: proposed Coworker to Cass, Ward to Bram and Confidant to Dev, accepted Bram's Mentor, and left Pontius empty. Cass has not yet proposed to me. Part III (chapter house) is left to Dev as instructed. I said \"papers done\" at the table (#19). I did not check the rulebook for the circle-ability or relationship lists, and only compared the starting-resource formula by memory. Pontius does block something: Starting Resource Points reads \"1 + 5 investigators\" = 6 with only 4 playing (F036). I also logged the sidebar showing 'Coworker' for Cass while her answer is still pending (F038). No console errors. The memory file is updated. The site is now waiting on Cass's and Dev's parts and the Lightkeeper's seal.",
+   "findings": [
+    "F032",
+    "F036",
+    "F038"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Without reloading, the hub showed In play and the campaign opened with the papers as a modal, so the approval and vote counts were live. I filled my parts on the phone. I voted for the second circle question and wrote a personal answer, which showed Saved. I suggested and voted The Lantern Wall, voted Nobody Left Behind and Candlelight, and proposed Old Friend to Cass, Ward to Dev and Mentor to Ada (all show Waiting for). I left III to Dev and Pontius's row empty. Nobody had proposed to me yet, so I had nothing to accept or counter. I said 'papers done' at the table. Findings: Pontius is still counted in Starting Resource Points (\"1 + 5 investigators\" = 6), his relationship row is disabled and unexplained, and a praise entry for the live updates. No console errors. The memory file is updated.",
+   "findings": [
+    "F032",
+    "F033",
+    "F034"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Looked first without reloading: the hub had flipped live to In play, but the papers did not open until I clicked Last Played (logged F037, same as F032). Once open, the papers showed other players' votes and proposals live. Filled my parts: question 2 with a personal answer (shows Saved), suggested an emoji, HTML and very long name (stored cut at about 80 chars mid-word, F039; Enter twice made only one suggestion), voted fast, including parallel double-clicks, and the toggle stayed consistent. Then voted Lantern Wall, Nobody Left Behind and Candlelight. Accepted Bram's Old Friend and Ada's Coworker (Ada's showed CONFIRMED BY YOU BOTH). Proposed Confidant to Bram, Mentor to Dev, Rival to Ada, all waiting on replies. Left Pontius alone; he only shows in the 1 + 5 resource count (F033). No console errors. Posted papers done at the table. Memory file updated.",
+   "findings": [
+    "F037",
+    "F039"
+   ],
+   "blocked": "",
+   "state": "Cass Moreau, Slink/Criminal: no marks, no scars. Nerve 3, Cunning 4, Intuition 2, all full. Resistance Nerve 1, Cunning 1, Intuition none. Gear: Advanced Lockpicks, Concealed Blade, Lantern. Papers: done, waiting on Dev's chapter house, replies to my three proposals, and the Lightkeeper's seal."
+  },
+  {
+   "summary": "Hub flipped to \"In play\" live without reload, but the papers did not open on their own; I had to go Case Ledger > Play (same as F032/F037, logged as F042). Papers showed Bram's, Ada's and Cass's proposals live. I did all six parts: backed question 2 and wrote my answer (showed Saved), voted Lantern Wall, Nobody Left Behind and Candlelight, and wrote the chapter house (a loft above the chandler's on Wick Lane). I accepted Cass's Mentor, Bram's Ward and Ada's Confidant; each showed \"Confirmed by you both\". I proposed Muse to Ada, Rival to Cass and Champion to Bram; all three show waiting. Pontius's row was left empty. The Starting Resource Points panel still reads 1 + 5 investigators = 6 (F033/F036, already logged). Findings: F041 (chapter house saves silently, with no Saved note and no warning that it replaces others' text), F042, F043 (praise). No console errors. I said \"papers done\" at the table and updated memory/dev.md. Waiting on the Lightkeeper's seal and on others accepting my proposals.",
+   "findings": [
+    "F041",
+    "F042",
+    "F043"
+   ],
+   "blocked": "",
+   "character_name": "Dev Lindqvist",
+   "state": "Weird/Occultist, they/them. Nerve 0, Cunning 3/3, Intuition 6/6. Resistance: Cunning 1/1, Intuition 2/2. No marks, no scars. Gear: Arcane Texts, Ritual Dagger, Lantern. Ritual unused. Relationships: Cass Mentor (confirmed), Bram Ward (confirmed), Ada Confidant (confirmed); my proposals to Ada, Cass and Bram are pending."
+  }
+ ]
+}

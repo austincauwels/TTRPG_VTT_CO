@@ -1,0 +1,38 @@
+{
+ "players": [
+  {
+   "summary": "Signed up as ada_quill_r3 through the form without trouble. Built Ada Quill (Scholar, Professor) in the creator: abilities Learn from My Mistakes and Well-Read, Read raised to 1 then 2 (gilded), Sway 2, Control 1, Survey 2, Focus 2 (gilded by specialty), drives Nerve 1, Cunning 4, Intuition 4, gear Thick Reference Tome, Chemical Kit and Lantern. I uploaded hymn_sheet.jpg as the portrait and picked the Cedarville Cursive handwriting. Joined with code saltmere-r3 and posted an in-character intro at the table (#13). After about two minutes the hub still showed 1 waiting for approval. The Case Ledger book shows Check again and Withdraw buttons, so I could not confirm the hub notices approval by itself; I did not press Check again or reload. The Lightkeeper had not yet approved me. Two small hiccups: the first portrait attempt via the visible button timed out because the file input is hidden, so I used the input directly; and the portrait step's header is clipped under the banner when scrolled. Logged F024 to F029: the duplicate Handwriting label on desktop, the join toast wording, the dead dark band under the sign-in map, a praise for the creator, the drive total breakdown, and the waiting book wording. No console errors. Memory file updated; the machine did not need restarting.",
+   "findings": [
+    "F024",
+    "F025",
+    "F026",
+    "F027",
+    "F028",
+    "F029"
+   ],
+   "blocked": "",
+   "character_name": "Ada Quill",
+   "state": "Ada Quill, Scholar (Professor), join request to saltmere-r3 pending approval. Drives Nerve 1, Cunning 4, Intuition 4. No marks, scars or resistance changes yet. Gear: Thick Reference Tome, Chemical Kit, Lantern. Abilities: Learn from My Mistakes, Well-Read (no uses yet)."
+  }
+ ],
+ "dm": {
+  "summary": "At the start of the turn I looked at my desk without reloading. It was up to date: Ada's join request had arrived on its own, and the log and formation panel matched the table talk. I tried to take Pontius Aganus (Chilly, approved last turn) off the table and found no way to do it. His roster card opens his sheet, which has no remove option, and neither the Circle page nor the Finalize slip has one. Reject only works on requests still waiting. The source agrees: reject_investigator needs 'pending', there is no remove endpoint, and the only option is Retire campaign, which drops everyone. Because the site asked me to confirm nothing, there was nothing to report there. I logged this as F030 (bug, high). Pontius stays a circle member: he is listed as a voter ('0 of 5 voted'), he takes the 5th seat ('5 in the circle (up to 5)'), circle resources rose on their own to 6 of 6 instead of 5, and he has a report card, so the +4 'all of you fulfilled a key' bonus can never be reached. I opened Ada's sheet, checked it against her build (it matches) and approved her at 03:52. The approval worked cleanly, with a log line and 'No one waiting to join'. I logged F031 (ux, medium): Approve is final but gives no warning and has no undo, while Reject has a two-press confirm. I welcomed Ada at the table (#14), told the players to ignore Pontius's listing (#15) and gave them the formation instructions (#16; #17 corrects my slip to six parts). Circle formation is open on all five desks with nothing voted yet, and it is NOT finalized. No console errors, and the machine did not need restarting.",
+  "findings": [
+   "F030",
+   "F031"
+  ],
+  "blocked": "",
+  "for_players": "Your Circle Formation Papers are open on your desk (Ada: they should have opened when you were approved). Fill in all six parts:\n1. I. Circle Question: click the question you want, then write your own answer in 'Your Personal Answer' under the leading question (it saves when you click away and shows 'Saved').\n2. II. Name the Circle: type a name in 'Circle name' and press Suggest (up to 5 each), then click a suggested name to vote for it.\n3. III. Chapter house: ONE of you writes it (or clicks one of the Examples). The box is shared, and saving replaces what anyone else wrote.\n4. IV. Circle ability: click one to vote.\n5. V. Insignia: click one to vote.\n6. VI. Relationships: propose a relationship to each of the other three players (Ada, Bram, Cass, Dev), and accept or counter the ones proposed to you. Leave Pontius Aganus's row empty: he has left, but the site cannot remove him.\n7. Say 'papers done' at the table. The papers stay open until the Lightkeeper seals them.\nLeft for the Lightkeeper: once every part has a choice, press Finalize the circle twice (the first press shows a warning, the second seals). Then send the dispatch to Saltmere.",
+  "prompts": {
+   "ada": "Welcome; fill all six parts of the formation papers, propose relationships to Bram, Cass and Dev, then say 'papers done'.",
+   "bram": "Fill the formation papers (vote, name, ability, insignia), propose relationships to Ada, Cass and Dev, then say 'papers done'.",
+   "cass": "Fill the formation papers, propose relationships to Ada, Bram and Dev (ignore Pontius), then say 'papers done'.",
+   "dev": "Fill the formation papers (maybe write the chapter house), propose relationships to Ada, Bram and Cass, then say 'papers done'."
+  },
+  "state": "Roster: Cass, Bram, Pontius Aganus (ghost, cannot be removed), Dev, Ada: 5 of 5 seats. No join requests. Formation open on all five desks, 0 votes on every part, NOT finalized. Circle resources Stitch/Refresh/Train 6 of 6 (inflated by Pontius), spending locked. Tension 0 of 4, timer off, no clock name. Not dispatched. Reports closed. Illumination 0/12. Nobody marked or scarred.",
+  "story_so_far": "The Saltmere Chapter is founded (code saltmere-r3). Cass Moreau (Slink), Bram Okafor (Muscle), Dev Lindqvist (Weird) and now Professor Ada Quill (Scholar), in the chair Pontius Aganus left empty, have been welcomed into the circle. They are filling in their Circle Formation Papers before the Lightkeeper seals them and sends them to the drowned chapel's mudflats."
+ },
+ "investigators": {
+  "ada": "Ada Quill"
+ }
+}
