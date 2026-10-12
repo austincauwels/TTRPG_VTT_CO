@@ -760,7 +760,10 @@ export const CircleView = () => {
         {myKeys.length > 0 && (
           <div className="border-t border-ink/10 pt-2.5 mb-3">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1.5">
-              <InfoTerm label={`${character?.specialty} Illumination Keys`} text="If any of the circle fulfilled a key, the circle earns 2 Illumination, and 4 if all did." />
+              {/* The slip opens above the heading, over the intro text: under it, it lay
+                  over the key boxes and caught their clicks (playtest, info-slip-covers-keys) */}
+              <InfoTerm label={`${character?.specialty} Illumination Keys`} text="If any of the circle fulfilled a key, the circle earns 2 Illumination, and 4 if all did."
+                slipClassName="left-0 bottom-full mb-1 w-[min(18rem,calc(100vw-2.5rem))]" />
             </span>
             <div className="space-y-1">
               {myKeys.map((k, i) => (
