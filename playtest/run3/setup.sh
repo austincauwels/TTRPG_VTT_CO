@@ -22,4 +22,7 @@ git -C $H fetch -q origin main
 if [ -d $SUT ]; then git -C $SUT checkout -q --detach $COMMIT; else git -C $H worktree add -q --detach $SUT $COMMIT; fi
 git -C $SUT rev-parse --short HEAD > $PT/build.txt
 echo "pt3 ready; source at $(cat $PT/build.txt)"
-env | grep -q '^CANDELA_BETA_USER=' && env | grep -q '^CANDELA_BETA_PASS=' && echo "beta password: set" || echo "beta password: MISSING (add CANDELA_BETA_USER and CANDELA_BETA_PASS to the environment)"
+# The beta password reaches the site either as a network secret (the proxy adds it) or as
+# CANDELA_BETA_USER and CANDELA_BETA_PASS in the environment. Either way the pages answer 200.
+code=$(curl -s -m 10 -o /dev/null -w '%{http_code}' ${CANDELA_BETA_PASS:+-u "$CANDELA_BETA_USER:$CANDELA_BETA_PASS"} "$(cat $PT/site.txt)/")
+[ "$code" = 200 ] && echo "beta password: works (pages 200)" || echo "beta password: NOT WORKING (pages $code); Robert adds it in the environment settings and starts a new chat"
