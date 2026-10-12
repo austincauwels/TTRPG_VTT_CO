@@ -188,7 +188,8 @@ export const AppRouter = () => {
     // Asking to join lands on the hub: it says the request went (it used to say nothing)
     if (characterData.mode === 'join' && characterData.campaignCode) {
       const name = characterData.name || savedCharacter?.name || 'Your investigator';
-      setHubNotice(`${name} asked to join. The hub will say when the Lightkeeper answers.`);
+      const campaign = useGameStore.getState().characters.find(c => c.id === savedCharacter?.id)?.campaign_name;
+      setHubNotice(`You asked to join ${campaign || 'the campaign'} with ${name}. The hub will say when the Lightkeeper answers.`);
     }
     setStage('HOME');
     return { ok: true };

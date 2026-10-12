@@ -418,6 +418,7 @@ const useGameStore = create(
       // GLOBAL GAME STATE
       // ==========================================
       accessSession: null,
+      sessionEnded: false,       // the server refused the session (401 or 4401): the sign-in slip says so
       socket: null,
       socketGameId: null,        // the channel the socket was opened for (character id or campaign code)
       // 'idle' | 'connecting' | 'open' | 'reconnecting' | 'replaced' | 'refused'
@@ -517,9 +518,18 @@ const useGameStore = create(
       setAccessSession: (session) => {
         set({
           accessSession: session,
+          sessionEnded: session ? false : get().sessionEnded,
           stage: session ? 'HOME' : 'LOGIN',
           rejoinInvite: session?.pendingRejoinInvite || null,
         });
+      },
+
+      // The server ended this session: sign out, and keep the reason for the sign-in slip.
+      // Parallel 401s end it once.
+      endSession: () => {
+        if (!get().accessSession) return;
+        get().logout();
+        set({ sessionEnded: true });
       },
 
       // Safely close the connection and wipe the local session data
@@ -705,7 +715,7 @@ const useGameStore = create(
           if (get().socket !== socket) return;
           stopHeartbeat();
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
-          if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
+          if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().endSession(); return; }
           // A roll waiting to be sent, or sent with no answer, waits on only while the desk
           // reconnects by itself; the sent one goes again with its roll_id
           const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
@@ -2333,7 +2343,7 @@ const useGameStore = create(
 // Every API call sends the session's token; a 401 means it is gone or expired.
 configureApiAuth({
   getToken: () => useGameStore.getState().accessSession?.token || null,
-  onUnauthorized: () => useGameStore.getState().logout(),
+  onUnauthorized: () => useGameStore.getState().endSession(),
 });
 
 // A phone that wakes up or a network that comes back should not wait out the backoff.
