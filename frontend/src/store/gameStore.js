@@ -243,6 +243,33 @@ export const postRollChoiceWaiting = (s) => {
   return max > (s.character[`${drive}_resistance_spent`] || 0);
 };
 
+// Whether two rolls are the same throw: the same action and the same dice
+const sameRoll = (a, b) => !!a && !!b && a.action === b.action && Array.isArray(a.dice) && Array.isArray(b.dice)
+  && a.dice.length === b.dice.length
+  && a.dice.every((d, i) => d.value === b.dice[i].value && !!d.is_gilded === !!b.dice[i].is_gilded);
+
+// The die kept from this desk's last roll (roll_kept), or null
+const keptOf = (s) => (s.lastRoll && s.lastRollKept && s.lastRollKept.rollId === s.lastRoll.id ? s.lastRollKept : null);
+
+// A roll the desk shows, sent again as it opens (roll_result with replayed): what the
+// server has for it now, its outcome (a post-roll ability may have changed it), the die
+// kept from it, the abilities used on it, whether it is settled, and the sheet
+const replayOnto = (s, p) => {
+  const next = { character: p.character || s.character, lastRollSettled: s.lastRollSettled || p.settled === true };
+  if (Array.isArray(p.used)) next.dismissedPrompts = [...new Set([...s.dismissedPrompts, ...p.used])];
+  const kept = keptOf(s);
+  if (p.kept) {
+    if (!kept || kept.index !== p.kept.index || kept.outcome !== p.kept.outcome) {
+      next.lastRollKept = { ...p.kept, is_gilded: !!p.kept.is_gilded, rollId: s.lastRoll.id, seq: ++rollSeq };
+    }
+    next.pendingGildedChoice = null;
+  } else if (p.roll?.outcome && p.roll.outcome !== s.lastRoll.outcome) {
+    // A new id, so the post-roll prompts are worked out for the new outcome
+    next.lastRoll = { ...s.lastRoll, outcome: p.roll.outcome, id: ++rollSeq };
+  }
+  return next;
+};
+
 // A report the table has not answered within this long is not sent, as far as the form knows
 const REPORT_REPLY_MS = 8000;
 const REPORT_NO_REPLY = 'The table did not answer. If the stamp does not show, send the report again.';
@@ -848,25 +875,40 @@ const useGameStore = create(
             if (seen && next && seen.id === next.id && value !== seen.value) playTensionTick(value > seen.value ? value : 1);
           }
           else if (message.type === 'roll_result') {
-            // A roll sent twice (a resend after a stall) can be answered twice: the copy
-            // of a result this desk has shown is ignored, so the dice do not land again
             const rollId = message.payload.roll_id;
-            if (rollId && rollId === answeredRollId) return;
-            if (rollId) answeredRollId = rollId;
+            // The desk's last roll, sent again as the socket opens (a reload, another
+            // device; #40): shown with no dice sound, open to a burn while the server holds
+            // it open. A roll this desk is waiting for is its answer, whichever frame brings it.
+            const replay = !!message.payload.replayed && !(rollId && sentRoll?.payload?.roll_id === rollId);
+            if (replay) {
+              const st = get();
+              // A roll on its way from this desk is newer
+              if (st.isRolling) return;
+              if (rollId) answeredRollId = rollId;
+              if (sameRoll(st.lastRoll, message.payload.roll)) { set(replayOnto(st, message.payload)); return; }
+            } else {
+              // A roll sent twice (a resend after a stall) can be answered twice: the copy
+              // of a result this desk has shown is ignored, so the dice do not land again
+              if (rollId && rollId === answeredRollId) return;
+              if (rollId) answeredRollId = rollId;
+            }
+            const kept = message.payload.kept;
             sentRoll = null;
             queuedRoll = null;
             // Each roll gets an id here (the server's roll_id is per throw, not per
             // result), so what is keyed on the roll, such as the post-roll ability
             // prompts, sees a new roll as new
-            const roll = message.payload.roll ? { ...message.payload.roll, id: ++rollSeq } : message.payload.roll;
+            // (a roll sent again is marked replayed: its dice do not tumble in again)
+            const roll = message.payload.roll ? { ...message.payload.roll, id: ++rollSeq, ...(replay ? { replayed: true } : {}) } : message.payload.roll;
             clearRollTimer();
             set({
               lastRoll: roll,
-              lastRollKept: null,
+              // A roll sent again after its gilded die was kept comes with that die
+              lastRollKept: kept && roll ? { ...kept, is_gilded: !!kept.is_gilded, rollId: roll.id, seq: ++rollSeq } : null,
               // A roll the table has moved past while this desk was away (the server says
               // so): its die can be kept, but it offers no burn
               lastRollSettled: message.payload.settled === true,
-              dismissedPrompts: [],
+              dismissedPrompts: Array.isArray(message.payload.used) ? message.payload.used : [],
               postRollTried: null,
               tableRoll: null, // this desk's own roll is the newest on its felt
               character: message.payload.character,
@@ -875,13 +917,14 @@ const useGameStore = create(
               rollError: null,
               pendingRoll: null,
               pendingRollMods: [],
-              pendingGildedChoice: roll?.needs_gilded_choice
+              pendingGildedChoice: roll?.needs_gilded_choice && !kept
                 ? { action: message.payload.action, roll, character_id: message.payload.character_id }
                 : null,
             });
             // The dice start tumbling on this desk now; a gilded roll's dice wait, still, for
-            // the choice, and tumble when a die is kept (resolveGildedChoice)
-            if (roll?.dice && !roll.needs_gilded_choice) playDiceTumble();
+            // the choice, and tumble when a die is kept (resolveGildedChoice). A roll sent
+            // again has landed already.
+            if (!replay && roll?.dice && !roll.needs_gilded_choice) playDiceTumble();
           }
           else if (message.type === 'roll_kept') {
             // The server scored the die this desk kept: the outcome slip, the post-roll
@@ -914,11 +957,20 @@ const useGameStore = create(
               }
             }
           }
-          else if (message.type === 'roll_settled') {
-            // As the socket opens: this investigator's last roll was settled by dice this
-            // desk missed (it was away), so the roll it still shows offers no burn
-            const { lastRoll, character } = get();
-            if (lastRoll && message.payload?.character_id === character?.id) set({ lastRollSettled: true });
+          else if (message.type === 'roll_outcome') {
+            // A post-roll ability (Flourish, Bending Spoons) changed a roll's outcome (#19):
+            // the roller's slip and the Lightkeeper's felt show the new one
+            const p = message.payload || {};
+            const st = get();
+            if (st.lastRoll && p.character_id != null && p.character_id === st.character?.id && st.lastRoll.action === p.action) {
+              const kept = keptOf(st);
+              if (kept) set({ lastRollKept: { ...kept, outcome: p.outcome, seq: ++rollSeq } });
+              // A new id, so the post-roll prompts are worked out for the new outcome
+              else if (!st.lastRoll.needs_gilded_choice) set({ lastRoll: { ...st.lastRoll, outcome: p.outcome, id: ++rollSeq } });
+            }
+            if (st.tableRoll?.roll && st.tableRoll.character_id === p.character_id && st.tableRoll.action === p.action) {
+              set({ tableRoll: { ...st.tableRoll, roll: { ...st.tableRoll.roll, outcome: p.outcome } } });
+            }
           }
           else if (message.type === 'roll_error') {
             failRoll(set, ROLL_FAILED);

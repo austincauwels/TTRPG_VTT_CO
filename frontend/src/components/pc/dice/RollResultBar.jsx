@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDialog } from '../../shared/useDialog';
 import { CrossMark } from '../../shared/InkMarks';
@@ -52,13 +52,24 @@ export const RollResultBar = ({
 }) => {
   const [open, setOpen] = useState(false);
   const keptIdx = keptDie ? keptDie.idx : null;
-  // Each roll, kept die or error is a new result for the bar
-  const result = useMemo(() => ({}), [lastRoll, isRolling, rollError, keptIdx, gildedPending]);
+  const keptOutcome = keptDie?.outcome;
+  // Each roll, kept die, new outcome or error is a new result for the bar
+  const result = useMemo(() => ({}), [lastRoll, isRolling, rollError, keptIdx, keptOutcome, gildedPending]);
   const [goneFor, setGoneFor] = useState(null);      // the result the bar closed on
   const [fadingFor, setFadingFor] = useState(null);  // the result it is fading out on
   const [held, setHeld] = useState(false);           // a finger is on it
   const [recheck, setRecheck] = useState(0);
   const barRef = useRef(null);
+  // A roll sent again as the desk opened (a reload) is not news: the bar stays down for
+  // it (the dice button's dot says when it still offers a choice), and comes up for
+  // anything new on it, such as a new outcome
+  const replayedDice = useRef(null);
+  useLayoutEffect(() => {
+    if (lastRoll?.replayed && replayedDice.current !== lastRoll.dice) {
+      replayedDice.current = lastRoll.dice;
+      setGoneFor(result);
+    }
+  }, [lastRoll, result]);
 
   const settled = !isRolling && !gildedPending;
   const hasResult = !!(lastRoll || isRolling || rollError);
@@ -109,7 +120,7 @@ export const RollResultBar = ({
 
   const dice = lastRoll?.dice || [];
   const poolText = isRolling || !lastRoll ? '' : rollPoolText(lastRoll, keptDie, rating);
-  const outcomeKey = lastRoll?.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll?.dice) : null);
+  const outcomeKey = lastRoll?.outcome || keptDie?.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll?.dice) : null);
   const outcome = !isRolling && !gildedPending ? OUTCOME[outcomeKey] : null;
   // A roll that did not reach the table: the bar says so in short with the reason under
   // it (the tray's slip carries the alert for screen readers). One that left the desk and

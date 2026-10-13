@@ -19,9 +19,11 @@ const OUTCOME_STAMP = {
 // Each roll object the tray is handed gets its own number, for React's key
 const rollSerials = new WeakMap();
 let nextRollSerial = 1;
+// Keyed by the roll's dice, which a new outcome for the same roll keeps (roll_outcome)
 const rollSerial = (roll) => {
-  if (!rollSerials.has(roll)) rollSerials.set(roll, nextRollSerial++);
-  return rollSerials.get(roll);
+  const dice = roll.dice || roll;
+  if (!rollSerials.has(dice)) rollSerials.set(dice, nextRollSerial++);
+  return rollSerials.get(dice);
 };
 
 // A roll has no id from the server; its action and dice give the slip its number
@@ -34,7 +36,7 @@ const rollKey = (roll) =>
 // secret roll (the Lightkeeper's Secret) says so under the name: no other desk was told
 // of it, and its line in the log is on this desk alone.
 const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, rating, character, onDieClick }) => {
-  const outcomeKey = lastRoll.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll.dice) : null);
+  const outcomeKey = lastRoll.outcome || keptDie?.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll.dice) : null);
   const outcome = OUTCOME[outcomeKey];
   const key = rollKey(lastRoll);
   return (
@@ -190,7 +192,8 @@ export const DiceTray = forwardRef(({
                 extraClasses = 'ring-2 ring-seal-green-lit/70';
               }
 
-              const tumbleClass = gildedPending ? '' : 'animate-dieTumble opacity-0';
+              // A roll sent again as the desk opened (a reload) has landed already
+              const tumbleClass = gildedPending || lastRoll.replayed ? '' : 'animate-dieTumble opacity-0';
 
               return (
                 <div
