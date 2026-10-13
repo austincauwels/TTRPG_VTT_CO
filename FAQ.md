@@ -59,9 +59,9 @@ All use counts are reset to `{}` for every active character when the GM fires **
 
 ### How are the question abilities used?
 
-Scout (1 Intuition), Uncanny Eye (1 Intuition) and Tactician (1 Nerve) each ask the Lightkeeper one of three questions, in the rulebook's words. On the sheet the player picks the question first ("Question to ask" starts blank), then presses Use; the server refuses a use without one of the three, and spends nothing. The Activity Log names the question: "Mira used Tactician: How do I get to safety? (1 Nerve)." They have no use limit, so the choice goes back to blank after each use, and a line after the button says "Spent 1 Nerve" for a few seconds once the server has paid.
+Scout (1 Intuition), Uncanny Eye (1 Intuition) and Tactician (1 Nerve) each ask the Lightkeeper a question. Since 2026-10-13 (issue #63) it is any question the player writes: the rulebook's three are examples, not a list to choose from. On the sheet the player writes the question in the "Question to ask" box (up to 200 characters), or taps one of the book's questions shown under the empty box to fill it in, then presses Use; the server refuses a use with no question, and spends nothing. The Activity Log names the question as written, on one line: "Mira used Tactician: Where would the creature go to ground? (1 Nerve)." They have no use limit, so the box empties after each use, and a line after the button says "Spent 1 Nerve" for a few seconds once the server has paid. Until then the sheet offered only the three questions, in a select.
 
-| Ability | Questions |
+| Ability | The book's questions (examples) |
 |---------|-----------|
 | Scout | What do I notice here that others do not see? What in this place might be of use to us? What path should we follow? |
 | Uncanny Eye | How can I leverage something here to my advantage? What here doesn't work the way it appears? What is out of place here? |

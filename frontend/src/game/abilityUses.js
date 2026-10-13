@@ -2,28 +2,29 @@
 // "Use" button on the sheet's ability card sends use_ability; the server pays the cost
 // (backend/vtt/ability_uses.py, which names the same abilities; tests/test_creation.py
 // checks that the two tables agree). cost is what the button says; options is a choice
-// the player makes; ask: the options are the questions the ability asks, in the
-// rulebook's words, and the choice starts blank, so Use waits for one (playtest,
-// tactician-one-tap); needs is a further choice (a resource, an object to write in, an
-// ally, or a split of drive points); target lets the player name an ally instead of
-// themselves (Ritual, Great Wards).
+// the player makes; ask: the player writes the question the ability asks, any question
+// (issue #63), in a box that starts empty, so Use waits for one (playtest,
+// tactician-one-tap), and examples are the rulebook's questions, a tap away; needs is a
+// further choice (a resource, an object to write in, an ally, or a split of drive
+// points); target lets the player name an ally instead of themselves (Ritual, Great
+// Wards).
 export const ABILITY_USES = {
-  'Scout':               { cost: '1 Intuition', ask: true, options: {
-    'What do I notice here that others do not see?': 'What do I notice here that others do not see?',
-    'What in this place might be of use to us?': 'What in this place might be of use to us?',
-    'What path should we follow?': 'What path should we follow?' } },
-  'Uncanny Eye':         { cost: '1 Intuition', ask: true, options: {
-    'How can I leverage something here to my advantage?': 'How can I leverage something here to my advantage?',
-    "What here doesn't work the way it appears?": "What here doesn't work the way it appears?",
-    'What is out of place here?': 'What is out of place here?' } },
+  'Scout':               { cost: '1 Intuition', ask: true, examples: [
+    'What do I notice here that others do not see?',
+    'What in this place might be of use to us?',
+    'What path should we follow?'] },
+  'Uncanny Eye':         { cost: '1 Intuition', ask: true, examples: [
+    'How can I leverage something here to my advantage?',
+    "What here doesn't work the way it appears?",
+    'What is out of place here?'] },
   'Well-Researched':     { cost: '1 Intuition' },
   'Obscure Lexicon':     { cost: '1 Intuition' },
   'Miasma':              { cost: '1 Intuition' },
   'Escape Artist':       { cost: '1 Nerve' },
-  'Tactician':           { cost: '1 Nerve', ask: true, options: {
-    'How do I get to safety?': 'How do I get to safety?',
-    'What poses the largest immediate threat to my circle?': 'What poses the largest immediate threat to my circle?',
-    'Where is the target going to move next?': 'Where is the target going to move next?' } },
+  'Tactician':           { cost: '1 Nerve', ask: true, examples: [
+    'How do I get to safety?',
+    'What poses the largest immediate threat to my circle?',
+    'Where is the target going to move next?'] },
   'Tricks of the Trade': { cost: '1 Nerve' },
   'Press Conference':    { cost: '1 Cunning' },
   'Sticky Fingers':      { cost: '1 Cunning' },
@@ -43,6 +44,9 @@ export const ABILITY_USES = {
   'Blood of the Covenant': { cost: 'once per assignment: drive equal to your Intuition resistance', needs: 'split' },
   'Great Wards':         { cost: 'inscribe the ward', target: true },
 };
+
+// The longest question an ask ability sends (QUESTION_MAX in backend/vtt/ability_uses.py)
+export const QUESTION_MAX = 200;
 
 // Abilities that take a scar on purpose (pp. 29 and 32). Their "Use" button opens the
 // scar form, which sends apply_scar with the ability's name; the server checks the

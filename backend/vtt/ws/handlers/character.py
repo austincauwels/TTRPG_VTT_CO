@@ -6,7 +6,7 @@ from engine import ALL_ACTIONS, apply_advancement
 from models import Character, Circle
 from vtt.abilities import (GEARED_UP_SLOT, ONE_STEP_AHEAD, WARD, count_use, counted_gear, gear_limit, has_ability,
                            resistance_left, uses_of, written_in)
-from vtt.ability_uses import ABILITY_USES, DRIVES, SCAR_ABILITIES
+from vtt.ability_uses import ABILITY_USES, DRIVES, QUESTION_MAX, SCAR_ABILITIES, clean_question
 from vtt.circle_queries import RESOURCES, circle_abilities
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.creation import ACTION_LABELS
@@ -264,12 +264,22 @@ async def handle_use_ability(ctx):
         # A list or an object is no option: looked up, it ended the socket (unhashable)
         option = None
     options = use.get("options")
-    if options is not None and option not in options:
-        # A desk loaded before the question abilities asked (no option key at all) has no
-        # question select, so it is told how to get one rather than to choose
-        await refuse(422, (f"Reload the page to choose the question to ask with {name}." if "option" not in payload
-                           else f"Choose the question to ask with {name}.") if use.get("ask")
-                     else f"Choose how to use {name}: " + ", ".join(o for o in options if o) + ".")
+    if use.get("ask"):
+        # The question the player wrote (issue #63). A desk loaded before the box sends the
+        # book's question it chose as option, which is taken as written; one loaded before
+        # the questions were asked at all sends neither and is told to reload.
+        if "question" not in payload and "option" not in payload:
+            await refuse(422, f"Reload the page to write the question to ask with {name}.")
+            return
+        option = clean_question(payload["question"] if "question" in payload else payload["option"])
+        if not option:
+            await refuse(422, f"Write the question to ask with {name}.")
+            return
+        if len(option) > QUESTION_MAX:
+            await refuse(422, f"A question is up to {QUESTION_MAX} characters.")
+            return
+    elif options is not None and option not in options:
+        await refuse(422, f"Choose how to use {name}: " + ", ".join(o for o in options if o) + ".")
         return
     # An option either adds a mark (Last Moments' still image) or names an effect (Ritual's
     # Reinvigorate)

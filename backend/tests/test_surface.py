@@ -285,9 +285,9 @@ WS_CASES = {
     "add_notebook_entry": dict(
         payload=lambda c: {"campaign_id": c.camp_id, "title": "t", "content": "c", "visibility": "self"},
         expect=["notebook_entry"]),
-    # Scout spends 1 Intuition for one of its questions (p. 27; vtt/ability_uses.py)
+    # Scout spends 1 Intuition for a question the player writes (p. 27; vtt/ability_uses.py)
     "use_ability": dict(fields={"role_ability": "Scout", "intuition_max": 3, "intuition_current": 3},
-                        payload=lambda c: {"ability": "Scout", "option": "What path should we follow?"},
+                        payload=lambda c: {"ability": "Scout", "question": "Who was here before us?"},
                         expect=["character_update", "activity_log"]),
     # The Lightkeeper rewords a scar on the trauma record
     "gm_update_scars": dict(
