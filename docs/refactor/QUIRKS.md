@@ -246,5 +246,5 @@ Frontend only; there is no test runner for it, so each was checked in Chromium (
 - A refused Edit sheet (`action_rejected` for `edit_sheet`) reopens the editor with the last draft and the server's reason (`InvestigatorDossier.jsx` keeps the draft sent; `SheetEditor` takes `restore`). The gear dialog sends the live gear with only this dialog's additions and removals applied, so an item that changed at the table meanwhile is kept.
 - An ability's typed question, item and split empty when the server has paid (`abilityUsed`), not when sent: a refusal leaves them in the box.
 - The notebook's preview toggle reads "Edit" while previewing and carries no `aria-pressed` (the label says which way it goes).
-- The Skip to actions link is the first stop of the player's sheet after the desk header; "Spend one less" has `tabIndex -1` at +0d.
+- The Skip to actions link is the third Tab stop on a phone and the sixth on a tablet or laptop (after the desk header controls, which another group owns); "Spend one less" has `tabIndex -1` at +0d.
 - The Chapter House box says "Saved" or "Not saved yet" from what this desk sent against what the circle holds.

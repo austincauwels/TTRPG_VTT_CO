@@ -805,7 +805,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       {!readOnly && (
         <a href={`#actions-${character.id ?? 'sheet'}`}
           onClick={(e) => { e.preventDefault(); document.getElementById(`actions-${character.id ?? 'sheet'}`)?.focus(); }}
-          className="sr-only focus:not-sr-only focus:absolute focus:z-20 focus:bg-cream focus:text-ink focus:border focus:border-ink focus:px-3 focus:py-2 focus:font-sans focus:text-xs focus:font-black focus:uppercase focus:tracking-wider">
+          className="sr-only focus:not-sr-only focus:block focus:mb-2 focus:w-fit focus:bg-cream focus:text-ink focus:border focus:border-ink focus:px-3 focus:py-2 focus:font-sans focus:text-xs focus:font-black focus:uppercase focus:tracking-wider">
           Skip to actions
         </a>
       )}
@@ -959,7 +959,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           </ul>
           {gear.length === 0 && (readOnly
             ? <span className="sr-only">No gear</span>
-            : <p className="mt-2 font-serif text-sm italic text-sepia leading-snug">Cleared when the assignment ended.</p>)}
+            : dead ? <span className="sr-only">No gear</span> : <p className="mt-2 font-serif text-sm italic text-sepia leading-snug">Cleared when the assignment ended.</p>)}
         </div>
       </div>
 
