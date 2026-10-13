@@ -162,7 +162,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   // copy, so the one on show is taken.
   const panelClosedWithFocus = useRef(false);
   useEffect(() => {
-    if (showGmControls || isRolling || !lastRoll?.dice) return;
+    if (showGmControls || isRolling || !lastRoll?.dice || lastRoll.replayed) return;
     const shown = (sel) => Array.from(document.querySelectorAll(`[data-desk="dice"] ${sel}`)).find(el => el.getClientRects().length);
     const active = document.activeElement;
     const onPage = !active || active === document.body;

@@ -1005,7 +1005,7 @@ const useGameStore = create(
               set(state => {
                 const held = !!(state.pendingGildedChoice && state.lastRoll?.needs_gilded_choice);
                 return { circleCreation: { ...state.circleCreation, reports: {} }, reportError: null,
-                  ...(held ? { lastRollSettled: true } : { lastRoll: null, lastRollKept: null, lastRollSettled: false, dismissedPrompts: [] }) };
+                  ...(held ? { lastRollSettled: true } : { lastRoll: null, lastRollKept: null, lastRollSettled: false, dismissedPrompts: [], rollError: null }) };
               });
             }
             set({ circle: next });

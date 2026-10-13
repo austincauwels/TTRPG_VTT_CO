@@ -152,7 +152,7 @@ export const PlayerRegistryPage = ({
           {characters.filter(c => c.status === 'pending').length > 0 && (
             <div>
               <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-sepia">
-                <InfoTerm label="Waiting for the Lightkeeper to approve" ariaLabel="About waiting for the Lightkeeper"
+                <InfoTerm label="Waiting for the Lightkeeper to approve"
                   text="This page checks by itself every few seconds and tells you when the Lightkeeper answers. Check again asks now." />
               </p>
               <div className="space-y-1.5">

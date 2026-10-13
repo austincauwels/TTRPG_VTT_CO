@@ -170,7 +170,7 @@ export const DiceTray = forwardRef(({
       ) : lastRoll && lastRoll.dice ? (
         // Keyed by the roll, so the next roll's dice tumble in even when they show the same faces
         <div key={rollSerial(lastRoll)} className="flex flex-col items-center justify-center gap-3 animate-fadeIn">
-          <div className="flex flex-wrap justify-center gap-3 2xl:gap-4 max-w-[190px] 2xl:max-w-[260px]" role="group"
+          <div className="flex flex-wrap justify-center gap-3 2xl:gap-4 max-w-[190px] 2xl:max-w-[260px]" {...(gildedPending ? { 'aria-hidden': true } : { role: 'group' })}
             aria-label={gildedPending ? 'Keep one die' : `Dice: ${lastRoll.dice.map((d, i) => `${d.value}${d.is_gilded ? ' gilded' : ''}${getIsCandidate(d, i) ? ' (counts)' : ''}`).join(', ')}`}>
             {lastRoll.dice.map((die, idx) => {
               const isCandidate = getIsCandidate(die, idx);

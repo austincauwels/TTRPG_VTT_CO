@@ -86,7 +86,7 @@ export const RollModifications = ({
               <p className="font-serif text-sm text-parchment-deep mt-0.5">
                 <InfoTerm label={`${action}: ${pool}`} ariaLabel={`${action}: ${pool}, what a reroll throws`}
                   text="A reroll throws the action rating alone. Drive spent and dice an ability added are not thrown again."
-                  slipClassName="left-0 bottom-full mb-1 w-[min(18rem,calc(100vw-2.5rem))]"
+                  slipClassName="left-0 bottom-full mb-1 w-[min(16rem,calc(100vw-2.5rem))]"
                   markClassName="text-parchment-deep group-hover/info:text-cream" />
               </p>
             </div>
@@ -139,5 +139,6 @@ export const RollModifications = ({
           </div>
         </div>
       ))}
-    </div>  );
+    </div>
+  );
 };

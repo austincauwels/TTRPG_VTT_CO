@@ -7,6 +7,7 @@ import { useAutoGrow, GROW_STYLE } from '../../shared/useAutoGrow';
 
 export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat, className = '' }) => {
   const [chatTarget, setChatTarget] = useState('@Circle');
+  const isPrivate = chatTarget !== '@Circle' && chatTarget !== '@Environment';
   const [chatMessage, setChatMessage] = useState('');
   const chatInputRef = useRef(null);
   useAutoGrow(chatInputRef, chatMessage);
@@ -82,12 +83,12 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
           onChange={setChatTarget}
           options={targetOptions}
           darkMode={showGmControls}
-          labelledBy="pass-notes-to-label"
+          labelledBy={isPrivate ? 'pass-notes-to-label pass-notes-private' : 'pass-notes-to-label'}
         />
         {/* The recipient stays after a note is sent (a follow-up to everyone by mistake is the
             worse slip), so a private one is marked where the writer looks */}
-        {chatTarget !== '@Circle' && chatTarget !== '@Environment' && (
-          <span data-private-to="" className="shrink-0 font-sans text-[11px] font-black uppercase tracking-widest text-oxblood border border-oxblood/70 rounded-sm px-1.5 py-0.5">Private</span>
+        {isPrivate && (
+          <span id="pass-notes-private" data-private-to="" className="shrink-0 font-sans text-[11px] font-black uppercase tracking-widest text-oxblood border border-oxblood/70 rounded-sm px-1.5 py-0.5">Private</span>
         )}
       </div>
 
