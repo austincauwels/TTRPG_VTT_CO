@@ -8,8 +8,10 @@ and their maximums, the resistances, the marks and the scars (edit_sheet), and t
 maximums and warns softly. What is checked here is only what the sheet can hold: whole
 numbers within the boxes the sheet prints, names the app knows, text within a length.
 
-Each edit writes one line for the Lightkeeper naming the investigator and each change
-from what to what (vtt/ws/handlers/character.py record_edit), and sets sheet_edited,
+Each edit writes one line naming the investigator and each change from what to what
+(vtt/ws/handlers/character.py record_edit): to the whole table while the character is an
+active member, so the Lightkeeper's log has it, or to the player's own log otherwise.
+It sets sheet_edited,
 the dot on the member's roster card, until the Lightkeeper opens the sheet.
 
 A fourth scar is not written in here: it is fatal (rulebook p. 74), and it comes through
@@ -67,13 +69,15 @@ def edit_problem(character, changes) -> str | None:
     if "name" in changes and not changes["name"].strip():
         return "An investigator needs a name."
     role = changes.get("role", getattr(character, "role", ""))
-    if "role" in changes and role not in ROLES:
+    # A role or specialty that is not text is refused like an unknown one: a list or an
+    # object here must not end the sender's socket with a TypeError
+    if "role" in changes and (not isinstance(role, str) or role not in ROLES):
         return "Choose a role: " + ", ".join(ROLES) + "."
     if "specialty" in changes or "role" in changes:
         specialty = changes.get("specialty", getattr(character, "specialty", ""))
         allowed = ROLES[role]["specialties"] if role in ROLES else \
             {s for r in ROLES.values() for s in r["specialties"]}
-        if specialty not in allowed:
+        if not isinstance(specialty, str) or specialty not in allowed:
             return f"Choose a {role} specialty: " + " or ".join(allowed) + "." if role in ROLES \
                 else "Choose a specialty."
     # A name the sheet already holds stays, known to the app today or not
