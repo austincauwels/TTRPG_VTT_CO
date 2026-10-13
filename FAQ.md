@@ -185,7 +185,7 @@ Circle creation is a collaborative, vote-based flow between all approved players
 Players vote on:
 - **Circle name** — players suggest names (`name_suggest`) and then vote on a favourite (`name_vote`). The most-voted name wins; if no name vote exists, the most-suggested name is used.
 - **Circle ability** — each player votes for one from the available list.
-- **Insignia** — each player votes for a visual symbol. After the seal the Lightkeeper can change it on the Circle page by clicking the insignia (one of the same eight), as a player changes their portrait; the Activity Log says so.
+- **Insignia**: each player votes for a visual symbol. After the seal the Lightkeeper can change it on the Circle page by clicking the insignia (one of the same eight), as a player changes their portrait; the Activity Log says so.
 - **Circle question** — a backstory question the group answers together.
 
 All votes are stored in the `CircleVote` table. When the GM finalises the circle, the server tallies each category using a simple most-votes-wins algorithm and writes the winners to the Circle record. Players each provide a personal written answer to the chosen question, stored on their own character record (`personal_circle_answer`).

@@ -315,8 +315,9 @@ export const OperationsPanel = () => {
               </div>
             )}
             {activeTab === 'requests' && !selectedInvestigator && (
-              // The join requests, one at a time, and Invite player under them
-              <div className="lg:min-h-[600px] xl:min-h-0 p-2 xl:px-2 xl:pt-1 xl:pb-2 w-full max-w-[40rem] mx-auto">
+              // The join requests, one at a time, and Invite player under them (on a phone,
+              // out of sight while the dice or the notes are in front, as the roster is)
+              <div className={`lg:min-h-[600px] xl:min-h-0 p-2 xl:px-2 xl:pt-1 xl:pb-2 w-full max-w-[40rem] mx-auto ${onPhone(current === 'requests')}`}>
                 <CorrespondenceStack
                   campaignRoster={campaignRoster}
                   pendingIndex={pendingIndex}
@@ -330,7 +331,7 @@ export const OperationsPanel = () => {
                 />
               </div>
             )}
-            {activeTab === 'circle' && <CirclePage />}
+            {activeTab === 'circle' && <div className={onPhone(current === 'circle')}><CirclePage /></div>}
             {activeTab === 'archives' && (
               <div className="max-lg:contents lg:min-h-[850px] xl:min-h-0 xl:h-full xl:p-1">
                 <NotebookView isGM={true} fit />

@@ -17,7 +17,13 @@ const keepSeen = (campaignId, seen) => {
 // the Requests page is in front of the Lightkeeper (inView).
 export const useNewRequests = (campaignId, pending, inView) => {
   const [seen, setSeen] = useState(() => readSeen(campaignId));
-  useEffect(() => { setSeen(readSeen(campaignId)); }, [campaignId]);
+  useEffect(() => {
+    setSeen(readSeen(campaignId));
+    // Later or an answer in another tab of this browser puts the pop-up away here too
+    const onStorage = (e) => { if (e.key === seenKey(campaignId)) setSeen(readSeen(campaignId)); };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [campaignId]);
   const markSeen = useCallback((ids) => setSeen((before) => {
     if (ids.every((id) => before.has(id))) return before;
     const next = new Set(before);
