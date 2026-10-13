@@ -214,7 +214,7 @@ WS_CASES = {
     "use_post_roll_ability": dict(
         fields={"role_ability": "Flourish", "cunning_max": 3, "cunning_current": 3, "sneak": 1}, dice=(2,),
         after_connect=lambda c, ws: (ws.send("roll", action="sneak", drive_spent=0), ws.sync()),
-        payload=lambda c: {"ability": "Flourish"}, expect=["character_update", "activity_log"]),
+        payload=lambda c: {"ability": "Flourish"}, expect=["character_update", "roll_outcome", "activity_log"]),
     "update_pen_font": dict(payload=lambda c: {"pen_font": "Kalam"}, expect=["character_update"]),
     "take_mark": dict(payload=lambda c: {"mark_type": "body"}, expect=["character_update", "activity_log"]),
     # Death Defy used on the mark its offer holds, named by the offer's id (handlers/marks.py)

@@ -1320,12 +1320,17 @@ def test_ability_results_reach_campaign_log_but_sheet_stays_private(client, abil
             gm.drain()
         wa.send(action, **payload)
         msgs = wa.sync()
+        # Flourish and Bending Spoons change the roll's outcome, which the whole table is
+        # told (roll_outcome, #19); this test is about the sheet and the line
+        outcome = support.of_type(msgs, "roll_outcome")
+        assert len(outcome) == (1 if ability in ("Flourish", "Bending Spoons") else 0)
+        msgs = [m for m in msgs if m not in outcome]
         assert support.types(msgs) == ["character_update", "activity_log"]
         assert msgs[0]["payload"]["id"] == actor["id"]
         log = msgs[1]
         assert log["payload"]["ink_color"] == engine.INK_COLORS[0]
         assert log["payload"]["message"].startswith(f"{actor['name']} used {ability} {EM} ")
-        seen = wo.drain()
+        seen = [m for m in wo.drain() if m not in outcome]
         sheets = [msgs[0]["payload"]]
         if ability == "Premonitions":
             # The ally whose mark was soaked gets their own sheet's update
@@ -1334,7 +1339,8 @@ def test_ability_results_reach_campaign_log_but_sheet_stays_private(client, abil
             sheets.append(seen[0]["payload"])
             seen = seen[1:]
         assert seen == [log]
-        assert gm.drain() == [{"type": "member_update", "payload": s} for s in sheets] + [log]
+        assert [m for m in gm.drain() if m not in outcome] == [
+            {"type": "member_update", "payload": s} for s in sheets] + [log]
 
 
 # --- the Lightkeeper deals a mark ----------------------------------------------------------------
@@ -1506,8 +1512,10 @@ def test_a_gilded_roll_made_in_life_is_finished_after_the_death_it_led_to(client
             ws.send(action, **payload)
             assert ws.sync() == [{"type": "action_rejected", "payload": {
                 "action": action, "status": 409, "detail": f"{ch['name']} is dead: the sheet is a record."}}]
+    # A desk that opens shows the roll with its die kept, settled (#40), never its choice
     with support.ws_connect(client, ch["id"]) as ws:
-        assert "roll_result" not in support.types(ws.drain())
+        [shown] = support.of_type(ws.drain(), "roll_result")
+        assert (shown["payload"]["kept"]["value"], shown["payload"]["settled"]) == (3, True)
     assert support.fetch(Character, ch["id"]).nerve_current == 2
 
 
