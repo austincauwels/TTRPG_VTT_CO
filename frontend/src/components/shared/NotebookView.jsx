@@ -253,6 +253,8 @@ function useLinesThatFit() {
 // where the page is as long as it needs, 66svh of the screen) and stays centred. Its width
 // follows from its shape once it has loaded, so a photograph's white border hugs it.
 const PICTURE_MAX_H = '66cqh';
+// A sketch leaves room under it for the Keep drawing row, which would otherwise be cut off
+const SKETCH_MAX_H = `calc(${PICTURE_MAX_H} - 3rem)`;
 
 function usePictureRatio() {
   const [ratio, setRatio] = useState(null);
@@ -266,8 +268,8 @@ function usePictureRatio() {
 
 // The width that keeps a picture of this shape within the page and within the height cap;
 // `extra` is a frame's own width (a photograph's border)
-const pictureWidth = (ratio, extra = 0) => (ratio
-  ? `min(100%, calc(${PICTURE_MAX_H} * ${ratio.toFixed(4)} + ${extra}px))`
+const pictureWidth = (ratio, extra = 0, maxH = PICTURE_MAX_H) => (ratio
+  ? `min(100%, calc(${maxH} * ${ratio.toFixed(4)} + ${extra}px))`
   : undefined);
 
 // Ink on the page: the drawing multiplies into the paper, a little crooked. The tilt is on
@@ -276,7 +278,7 @@ function SketchPicture({ entry, onRedraw }) {
   const [ratio, ref, onLoad] = usePictureRatio();
   return (
     <div className="px-2 sm:px-4 pt-4 pb-1">
-      <div className="mx-auto" style={{ width: pictureWidth(ratio), maxWidth: '100%' }}>
+      <div className="mx-auto" style={{ width: pictureWidth(ratio, 0, SKETCH_MAX_H), maxWidth: '100%' }}>
         <img
           ref={ref}
           onLoad={onLoad}
@@ -288,7 +290,7 @@ function SketchPicture({ entry, onRedraw }) {
             width: ratio ? '100%' : 'auto',
             height: 'auto',
             maxWidth: '100%',
-            maxHeight: PICTURE_MAX_H,
+            maxHeight: SKETCH_MAX_H,
             mixBlendMode: 'multiply',
           }}
         />

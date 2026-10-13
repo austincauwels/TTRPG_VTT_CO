@@ -104,14 +104,15 @@ const Stepper = ({ label, value, min = 0, max, onChange, shown, extra = null }) 
 );
 
 // roleOf and specialtyOf: each ability's role or specialty (InvestigatorDossier's tables)
-export const SheetEditor = ({ character, roleOf, specialtyOf, abilityTexts = {}, onSave, onClose }) => {
+// restore: a draft (and the server's reason) brought back after the server refused the save
+export const SheetEditor = ({ character, roleOf, specialtyOf, abilityTexts = {}, onSave, onClose, restore = null }) => {
   // base is the sheet the draft was last brought up to: only what the player changed from
   // it is sent, so a pip, a mark or a spend that lands while the dialog is open is not
   // written back over, nor logged as the player's
   const [base, setBase] = useState(() => draftOf(character));
-  const [d, setD] = useState(base);
+  const [d, setD] = useState(restore?.draft || base);
   const [clash, setClash] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(restore?.error || '');
   const dialogRef = useDialog({ open: true, onClose });
   // First focus on the dialog itself, not the Name field, so a phone's keyboard stays shut
   useLayoutEffect(() => { dialogRef.current?.focus({ preventScroll: true }); }, [dialogRef]);
@@ -167,7 +168,7 @@ export const SheetEditor = ({ character, roleOf, specialtyOf, abilityTexts = {},
 
   const save = () => {
     if (!changed || nameBlank) return;
-    if (onSave(changes)) onClose();
+    if (onSave(changes, d)) onClose();
     // Another tab took the desk: waiting will not help, and on a phone this dialog covers
     // the banner's Use this tab, so the choice is offered here and the draft stays
     else if (useGameStore.getState().connectionState === 'replaced') setError('replaced');

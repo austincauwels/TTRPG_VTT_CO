@@ -522,7 +522,9 @@ export const CircleView = () => {
   // Amending is part of the draft in the store, so a trip to the chapter hub and back
   // keeps the half-made amendment (playtest, report-amend-draft-lost)
   const amending = !!draft?.amending;
-  const showFiled = !!myReport && !amending;
+  // Reports closed with an amendment kept: the filed ticks and the stamp show, and the
+  // draft waits for the reports to reopen
+  const showFiled = !!myReport && (!amending || !circle?.reports_open);
   // The keys this investigator fulfilled: { 0: bool, ... }. The circle's three questions
   // are the Lightkeeper's to answer once, on their page (playtest, report-questions-tally)
   const keyChecks = showFiled ? (filedResponses.keys_detail || {}) : (draft?.keyChecks || {});
@@ -891,7 +893,7 @@ export const CircleView = () => {
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-ink/25 pb-1 mb-2.5">
           <h3 id="circle-resources-title" className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-1.5">
             <SafeIcon name="GiScrollUnfurled" size={14} className="text-oxblood" />
-            Circle Resources
+            <InfoTerm label="Circle Resources" text={refillRule(maxCap, (circle?.circle_ability || '').split('\n'))} />
           </h3>
           {/* Where spending stands: locked by the GM, or how many of this assignment's two are used */}
           <span className="font-sans text-xs font-bold uppercase tracking-wider text-sepia">
@@ -1013,9 +1015,6 @@ export const CircleView = () => {
             {circle.earn_backs === 1 ? 'One' : circle.earn_backs} to earn back, the circle's choice.
           </p>
         )}
-        <p className="mt-2.5 pt-2 border-t border-dashed border-sepia/35 font-serif italic text-sm leading-snug text-sepia">
-          {refillRule(maxCap, (circle?.circle_ability || '').split('\n'))}
-        </p>
       </CirclePaper>
 
       {/* IV. The circle's history: its question, and this investigator's answer */}

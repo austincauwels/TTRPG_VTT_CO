@@ -248,3 +248,11 @@ Frontend only; there is no test runner for it, so each was checked in Chromium (
 - `update_circle` with `insignia` is refused (409) before the seal; the test seals the circle first.
 - End Assignment clears and hides the countdown (`test_end_assignment_clears_and_hides_the_timer`).
 - Desk: the table strip carries the tension's - and + and the timer's Start or Pause on the Lightkeeper's desk from md; from xl the dispatch stamps are the letter's last row, sticky at the column's foot, and End Assignment's armed line floats above its stamp instead of pushing it. A request withdrawn while its sheet is open keeps the sheet with "<Name>'s request is no longer waiting." and only Back to requests. The End stamp still shrinks to "End" when armed (unchanged).
+
+## Fix round 7, sheet
+
+- A refused Edit sheet (`action_rejected` for `edit_sheet`) reopens the editor with the last draft and the server's reason (`InvestigatorDossier.jsx` keeps the draft sent; `SheetEditor` takes `restore`). The gear dialog sends the live gear with only this dialog's additions and removals applied, so an item that changed at the table meanwhile is kept.
+- An ability's typed question, item and split empty when the server has paid (`abilityUsed`), not when sent: a refusal leaves them in the box.
+- The notebook's preview toggle reads "Edit" while previewing and carries no `aria-pressed` (the label says which way it goes).
+- The Skip to actions link is the third Tab stop on a phone and the sixth on a tablet or laptop (after the desk header controls, which another group owns); "Spend one less" has `tabIndex -1` at +0d.
+- The Chapter House box says "Saved" or "Not saved yet" from what this desk sent against what the circle holds.

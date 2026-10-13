@@ -115,8 +115,7 @@ function RelationshipCard({ inv, myId, relationships, index }) {
               ) : hasAny ? (
                 <p className="flex items-center gap-2 font-serif text-sm italic text-sepia mt-1 pr-6">
                   <span className="truncate">{(myRel || theirRel)?.rel_type}</span>
-                  <span aria-hidden="true" className="print-stamp-empty !w-10 !h-4 shrink-0" style={{ '--tilt': '-3deg' }} />
-                  <span className="sr-only">(not yet accepted)</span>
+                  <span className="print-stamp-empty !w-auto !h-auto px-1.5 py-0.5 shrink-0 font-sans text-xs font-black not-italic uppercase tracking-wider" style={{ '--tilt': '-3deg' }}>Proposed</span>
                 </p>
               ) : (
                 <p className="text-sepia mt-2"><BlankEntry label="No relationship" className="!w-24" /></p>
@@ -227,6 +226,7 @@ export const TactileSidebar = ({ phonePart }) => {
                   <p className="font-sans font-bold text-sm text-sepia uppercase tracking-tighter">· {character.specialty}</p>
                 )}
               </div>
+              <Standing inv={character} className="mt-0.5" />
               <p className="font-serif text-sm text-sepia italic mt-1">You</p>
             </div>
           </div>
