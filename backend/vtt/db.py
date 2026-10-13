@@ -424,6 +424,13 @@ def init_db():
     # Resource Management's earn-backs waiting for the circle's choice (RULES_CHECK.md item
     # 16, fix round 5). Existing rows get 0: none waiting.
     add_columns("circles", [("earn_backs", "INTEGER DEFAULT 0")])
+    # The highest milestone already counted for an earn-back (fix round 7, 69.3). Existing
+    # rows get the highest milestone their track stands past, so a fall and a rise back
+    # does not count it a second time; the next rise counts what lies beyond.
+    if add_columns("circles", [("milestones_earned", "INTEGER DEFAULT 0")]):
+        run_migration("UPDATE circles SET milestones_earned = CASE WHEN illumination >= 9 THEN 9 "
+                      "WHEN illumination >= 6 THEN 6 WHEN illumination >= 3 THEN 3 ELSE 0 END",
+                      "Could not count the milestones existing circles already passed")
 
     # Circle advancement picks (RULES_CHECK.md item 14). Existing rows get 0 and an empty
     # list: no advancement waiting.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { SafeIcon } from '../../shared/SafeIcon';
 import { ACTION_LABEL } from '../../../game/actions';
 import { InfoTerm } from '../../shared/ActionInfo';
@@ -48,9 +48,15 @@ const AllyPrompt = ({ prompt, allies, character, onUse, onSkip }) => {
 
 export const RollModifications = ({
   canResist, visiblePrompts, lastRoll, character, resistMax, resistSpent, lastRollDriveKey,
-  burnResistance, usePostRollAbility, drivePickerPrompt, setDrivePickerPrompt, setDismissedPrompts, allies = [],
-}) => (
-    <div className="bg-ink border border-parchment-deep/20 px-4 py-3 rounded-sm space-y-2">
+  burnResistance, usePostRollAbility, drivePickerPrompt, setDrivePickerPrompt, setDismissedPrompts, allies = [], onClosedWithFocus,
+}) => {
+  // When the panel goes with the keyboard's focus inside it, the desk is told, to put the focus on the result slip
+  const panel = useRef(null);
+  const told = useRef(onClosedWithFocus);
+  told.current = onClosedWithFocus;
+  useLayoutEffect(() => () => { if (panel.current?.contains(document.activeElement)) told.current?.(); }, []);
+  return (
+    <div ref={panel} className="bg-ink border border-parchment-deep/20 px-4 py-3 rounded-sm space-y-2">
       <div className="flex items-center gap-2 mb-1">
         <SafeIcon name="GiDiceSixFacesFive" size={15} className="text-parchment-deep/80" />
         <span className="font-sans text-xs font-black uppercase tracking-widest text-parchment-deep/80">After the roll</span>
@@ -80,12 +86,13 @@ export const RollModifications = ({
               <p className="font-serif text-sm text-parchment-deep mt-0.5">
                 <InfoTerm label={`${action}: ${pool}`} ariaLabel={`${action}: ${pool}, what a reroll throws`}
                   text="A reroll throws the action rating alone. Drive spent and dice an ability added are not thrown again."
+                  slipClassName="left-0 bottom-full mb-1 w-[min(16rem,calc(100vw-2.5rem))]"
                   markClassName="text-parchment-deep group-hover/info:text-cream" />
               </p>
             </div>
             <button
-              onClick={() => burnResistance(lastRoll.action, lastRollDriveKey)}
-              className="shrink-0 min-h-[36px] px-3 py-1 font-sans text-xs font-black uppercase tracking-widest border border-oxblood-lit/60 text-oxblood-lit hover:bg-oxblood hover:text-cream transition-all rounded-sm"
+              onClick={() => burnResistance(lastRoll.action, lastRollDriveKey)} data-burn-reroll=""
+              className="shrink-0 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 py-1 font-sans text-xs font-black uppercase tracking-widest border border-oxblood-lit/60 text-oxblood-lit hover:bg-oxblood hover:text-cream transition-all rounded-sm"
             >
               Burn and reroll
             </button>
@@ -105,7 +112,7 @@ export const RollModifications = ({
             {prompt.drivePicker ? (
               drivePickerPrompt === prompt.key ? (
                 <>
-                  {['nerve','cunning','intuition'].map(d => (
+                  {DRIVES.filter(d => (character?.[`${d}_current`] || 0) < (character?.[`${d}_max`] || 0)).map(d => (
                     <button key={d} onClick={() => { usePostRollAbility(prompt.key, { drive: d }); setDrivePickerPrompt(null); setDismissedPrompts(p => [...p, prompt.key]); }}
                       className="px-2 py-0.5 font-sans text-xs font-black uppercase border border-parchment-deep/50 text-parchment-deep hover:bg-parchment-deep/15 rounded-sm transition-all">
                       {d[0].toUpperCase() + d.slice(1)}
@@ -133,4 +140,5 @@ export const RollModifications = ({
         </div>
       ))}
     </div>
-);
+  );
+};

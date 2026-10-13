@@ -70,7 +70,7 @@ export const InvitePlayer = ({ align = 'center', className = '' }) => {
         // A small slip from the Lightkeeper's pad, laid down under the button
         <div className="hand-placed w-full bg-parchment text-ink border border-sepia/30 rounded-sm px-4 py-3 shadow-[2px_6px_12px_rgba(0,0,0,0.55)]" style={{ '--tilt': '-0.6deg' }}>
           <p className="font-serif italic text-sm text-sepia leading-snug">
-            The player rejoins with a new investigator, without waiting for your approval.
+            Brings back a player who has played here, with a new investigator, without your approval.
           </p>
           <div className="mt-2 flex gap-2">
             <input

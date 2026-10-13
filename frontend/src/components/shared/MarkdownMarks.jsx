@@ -155,17 +155,17 @@ export function MarkdownMarks({ targetRef, preview, className = '', label = 'For
   );
 }
 
-// Shows the note as it will read, in place of the textarea, and back
+// Shows the note as it will read, in place of the textarea, and back. While previewing it
+// reads "Edit" (the label says which way it goes, so it carries no pressed state too).
 export function PreviewToggle({ preview, onPreview, className = '' }) {
   return (
     <button
       type="button"
-      aria-pressed={!!preview}
       onClick={() => onPreview(!preview)}
       className={`shrink-0 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2.5 rounded-sm border font-sans text-xs font-black uppercase tracking-widest transition-colors ${
         preview ? 'bg-ink text-cream border-ink' : 'text-sepia border-sepia/50 hover:text-ink hover:border-ink/60'} ${className}`}
     >
-      Preview
+      {preview ? 'Edit' : 'Preview'}
     </button>
   );
 }

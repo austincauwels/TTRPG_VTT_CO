@@ -138,6 +138,8 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
       currentItemStrokeWidth: NIBS[0].width,
       currentItemRoughness: 1,
       currentItemOpacity: 100,
+      // Text starts big enough to read once the picture is shrunk to the page (sketch-label-scale)
+      currentItemFontSize: 28,
       theme: 'light',
     },
     scrollToContent: !!initialElements?.length,

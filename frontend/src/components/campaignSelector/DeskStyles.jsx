@@ -479,6 +479,7 @@ export const DeskStyles = () => (
       overflow: hidden;
       container-type: inline-size;
     }
+    .tome-cover:has(.info-term) { overflow: visible; }
     /* The spine's round, falling away to the left */
     /* The spine's round, falling away to the left; at its head the leather catches the
        candles as it turns over the top edge, and at its foot it goes into the shade of

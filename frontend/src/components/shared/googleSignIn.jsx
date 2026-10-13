@@ -43,9 +43,12 @@ const setUp = (google) => {
 
 export const GOOGLE_LOAD_FAILED = 'Sign in with Google could not load. Please check your connection and reload the page.';
 
+// The frame's accessible name, by Google's button wording
+const GOOGLE_FRAME_TITLE = { signin_with: 'Sign in with Google', signup_with: 'Sign up with Google', continue_with: 'Continue with Google' };
+
 // Google's own standard button, drawn into a box of ours. onCredential receives
 // { credential } after the person picks an account; onLoadError runs if Google's script
-// cannot load. text is Google's wording: 'signin_with' or 'continue_with'.
+// cannot load. text is Google's wording: 'signin_with', 'signup_with' or 'continue_with'.
 export const GoogleButton = ({ onCredential, onLoadError, text = 'signin_with', maxWidth = 400, className = '' }) => {
   const boxRef = useRef(null);
   const handlerRef = useRef(onCredential);
@@ -57,6 +60,7 @@ export const GoogleButton = ({ onCredential, onLoadError, text = 'signin_with', 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return undefined;
     let cancelled = false;
+    let namer = null;
     const mine = (response) => handlerRef.current?.(response);
     handlers.push(mine);
     loadGoogleScript()
@@ -73,10 +77,18 @@ export const GoogleButton = ({ onCredential, onLoadError, text = 'signin_with', 
           width: Math.min(maxWidth, Math.max(200, box.offsetWidth || 300)),
         });
         setDrawn(true);
+        // Google's frame comes without a name; give it the button's words, now and when
+        // Google swaps the frame in
+        const title = GOOGLE_FRAME_TITLE[text] || GOOGLE_FRAME_TITLE.signin_with;
+        const name = () => box.querySelectorAll('iframe').forEach((f) => { if (f.title !== title) f.title = title; });
+        name();
+        namer = new MutationObserver(name);
+        namer.observe(box, { childList: true, subtree: true });
       })
       .catch(() => { if (!cancelled) errorRef.current?.(GOOGLE_LOAD_FAILED); });
     return () => {
       cancelled = true;
+      namer?.disconnect();
       const at = handlers.indexOf(mine);
       if (at !== -1) handlers.splice(at, 1);
     };

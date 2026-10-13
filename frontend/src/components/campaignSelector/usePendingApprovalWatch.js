@@ -16,6 +16,9 @@ export const usePendingApprovalWatch = ({ characters, userId, fetchUserData, set
   useEffect(() => {
     const before = seen.current;
     seen.current = Object.fromEntries(characters.map(c => [c.id, { status: c.status, name: c.name, campaign: c.campaign_name }]));
+    // The Registry's "Let in: press Play" mark, also for an approval that came while this
+    // hub was closed: the browser remembers who it saw waiting
+    useGameStore.getState().noteAwaiting(characters);
     if (!before) return;
     for (const c of characters) {
       const was = before[c.id];
@@ -32,6 +35,8 @@ export const usePendingApprovalWatch = ({ characters, userId, fetchUserData, set
         }
       }
       if (c.status === 'active') {
+        // The row stays marked in the Registry until Play, long after the notice has gone
+        useGameStore.getState().markLetIn(c.id);
         setHubNotice(`The Lightkeeper let ${c.name} into ${campaign}. Open the Case Ledger and press Play.`);
       } else if (c.status === 'unaffiliated') {
         setHubNotice(`The Lightkeeper did not take ${c.name} into ${campaign}. ${c.name} can ask to join another campaign.`);

@@ -240,3 +240,28 @@ Frontend only; there is no test runner for it, so each was checked in Chromium (
 - Sign out (issue #20): `logout` clears the account's Notebook and creator drafts unless called with `{ keepDrafts: true }`, which `endSession` (a server-ended session), the password-reset sign-out and the sign-out after an undone email change use.
 - Back after a reload (issue #21): a held Back (an unsaved sketch) first turns the entry an earlier page added into the hub's and pushes the desk's own entry over it. The sketch pad asks before the page unloads while strokes are unsaved.
 - Join request buttons (issue #46): measured at 390x844, Approve, View sheet and Reject are 44px tall on a phone (commit 7be39b1); a mouse keeps 40px.
+
+## Fix round 7, desk (2026-10-13)
+
+- Resource Management counts a milestone once: `circles.milestones_earned` holds the highest counted. A fall past a milestone takes a waiting earn-back (and frees the milestone); an applied one stays counted, so a fall and a rise past it adds nothing. A milestone that earned nothing (every resource full) is not counted, so a correction back past it and the real rise later earn it then. A circle from before the column is given, when the column is added, the highest milestone its track stands past. The circle advance resets it. Pinned in test_ws_circle.py (`test_a_milestone_is_not_counted_twice_after_its_earn_back_is_applied`, `test_a_milestone_passed_with_every_resource_full_is_not_counted`) and the column in test_00_startup.py.
+- The log names a milestone only on a circle with Resource Management, in its one earn-back line ("passed milestone 3 and earns back one ..."); `_clip` cuts on a space (a hard cut only when none lies in the last 20 characters). Tests in test_ws_circle.py flipped.
+- `update_circle` with `insignia` is refused (409) before the seal; the test seals the circle first.
+- End Assignment clears and hides the countdown (`test_end_assignment_clears_and_hides_the_timer`).
+- Desk: the table strip carries the tension's - and + and the timer's Start or Pause on the Lightkeeper's desk from md; from xl the dispatch stamps are the letter's last row, sticky at the column's foot, and End Assignment's armed line floats above its stamp instead of pushing it. A request withdrawn while its sheet is open keeps the sheet with "<Name>'s request is no longer waiting." and only Back to requests. The End stamp still shrinks to "End" when armed (unchanged).
+
+## Fix round 7, sheet
+
+- A refused Edit sheet (`action_rejected` for `edit_sheet`) reopens the editor with the last draft and the server's reason (`InvestigatorDossier.jsx` keeps the draft sent; `SheetEditor` takes `restore`). The gear dialog sends the live gear with only this dialog's additions and removals applied, so an item that changed at the table meanwhile is kept.
+- An ability's typed question, item and split empty when the server has paid (`abilityUsed`), not when sent: a refusal leaves them in the box.
+- The notebook's preview toggle reads "Edit" while previewing and carries no `aria-pressed` (the label says which way it goes).
+- The Skip to actions link is the third Tab stop on a phone and the sixth on a tablet or laptop (after the desk header controls, which another group owns); "Spend one less" has `tabIndex -1` at +0d.
+- The Chapter House box says "Saved" or "Not saved yet" from what this desk sent against what the circle holds.
+
+### Fix round 7, dice
+
+- The tray is emptied by End Assignment (60.7): the store clears `lastRoll`, `lastRollKept` and the dismissed prompts on the assignment change, and the server drops the campaign's replayable rolls, so a reload no longer brings the last scene's roll back marked settled. A held gilded roll stays, settled.
+- `roll.abilities` (45.10) names the abilities that applied to a roll; the log line reads "<name> rolled <action> (<abilities>) ...".
+- The keep-a-die dice are `aria-hidden` and out of the tab order (60.5); the slip's lines are the one control and take the focus.
+- `postRollChoiceWaiting` returns 'keep', 'burn' or false (60.8): the phone's dice button shows a solid dot for a die to keep and a hollow one for the optional burn.
+- Learn from My Mistakes is offered only while a drive is below its maximum (60.12), worked out when the roll lands like Flourish's Cunning test.
+- A private pass note (target other than @Circle) is marked "Private" in the log and beside To: (60.9); the recipient stays after sending.

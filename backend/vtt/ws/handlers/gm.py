@@ -14,6 +14,7 @@ import re
 from collections import Counter
 
 from models import Character, Circle
+from vtt import countdown
 from vtt.abilities import MARK_TYPES, abilities_of
 from vtt.assignment import TALLY, answers_of, clear_paperwork, end_assignment_for, tally_of
 from vtt.auth import ROSTER_STATUSES
@@ -35,14 +36,24 @@ TABLE_FIELDS = ("name", "stitch", "refresh", "train", "location", "atmosphere", 
 
 
 def _clip(text, limit: int = 80) -> str:
-    """A long name cut for one log line, with an ellipsis so the cut does not read as the whole."""
+    """A long name cut for one log line, with an ellipsis so the cut does not read as the
+    whole. The cut falls on the last space within the limit, so a word is not split ("in
+    the Newfa..."); a name with no space in its last 20 characters is cut where it lands."""
     text = str(text).strip()
-    return text if len(text) <= limit else text[:limit].rstrip() + "..."
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    space = cut.rfind(" ")
+    # A space right after the limit means the cut already ends on a whole word
+    if text[limit] != " " and space >= limit - 20:
+        cut = cut[:space]
+    return cut.rstrip() + "..."
 
 
 def _sentence(text: str) -> str:
-    """The line with its full stop, unless it ends on a clip's ellipsis (not "....")."""
-    return text if text.endswith("...") else text + "."
+    """The line with its full stop, unless it ends on one already, or on a clip's ellipsis
+    or a ! or ? (not "...." or "The lamp room..")."""
+    return text if text.endswith((".", "!", "?")) else text + "."
 
 
 def table_before(circle) -> dict:
@@ -89,34 +100,52 @@ def _resources_full(circle, db) -> bool:
     return all((getattr(circle, key, 0) or 0) >= pool for key in RESOURCE_NAMES)
 
 
-def _count_earn_backs(db, circle, old_illum) -> int:
+def _count_earn_backs(db, circle, old_illum):
     """Resource Management (rulebook p. 41): "When your circle hits a milestone on the
     Illumination Track, earn back 1 Stitch, Refresh, or Train resource." Each milestone a
     rise passes waits on the circle (earn_backs) for the circle's choice, which the
     Lightkeeper applies with one press (gm_earn_back), but never more than the points
     missing (cap_earn_backs): with every resource full there is nothing to earn back, and
-    a tally passing two milestones with one point missing earns one. A fall back past a
-    milestone takes a waiting one away, so a point added by mistake and taken back leaves
-    none. Called before the commit; returns the earn-backs this rise added, for the log
-    (_log_illumination). The Lightkeeper used to add the resource by hand (Robert's issue
-    #66.4)."""
+    a tally passing two milestones with one point missing earns one. A milestone counts
+    once: milestones_earned is the highest already counted, so a fall and a rise past it
+    again, after its earn-back was applied, adds nothing; a milestone that earned nothing
+    is not counted. A fall back past a milestone
+    takes a waiting one away (and lets it count again); an applied one stays counted.
+    Called before the commit; returns (the earn-backs this rise added, the milestones it
+    counted) for the log (_log_illumination). The Lightkeeper used to add the resource by
+    hand (Robert's issue #66.4)."""
     new_illum = getattr(circle, "illumination", 0) or 0
     if not (isinstance(old_illum, int) and isinstance(new_illum, int)) or \
             "Resource Management" not in circle_abilities(circle):
-        return 0
+        return 0, []
     waiting = circle.earn_backs or 0
-    passed = sum(1 for m in MILESTONES if old_illum < m <= new_illum)
-    undone = sum(1 for m in MILESTONES if new_illum < m <= old_illum)
-    circle.earn_backs = max(0, waiting + passed - undone)
+    # A circle from before the column was given the milestones its track stood past when
+    # the column was added (vtt/db.py)
+    before = counted_to = circle.milestones_earned or 0
+    counted = [m for m in MILESTONES if max(old_illum, counted_to) < m <= new_illum]
+    if counted:
+        counted_to = counted[-1]
+    for m in reversed([m for m in MILESTONES if new_illum < m <= old_illum]):
+        if m <= counted_to and waiting > 0:
+            waiting -= 1
+            counted_to = max([x for x in MILESTONES if x < m], default=0)
+    circle.earn_backs = waiting + len(counted)
     cap_earn_backs(circle, db)
-    return max(0, circle.earn_backs - waiting)
+    granted = max(0, circle.earn_backs - waiting)
+    if granted < len(counted):
+        # Only a milestone that earned something counts: one passed with nothing to earn
+        # back (every resource full) is not counted, so a correction back past it and the
+        # real rise later earn it then
+        counted_to = counted[granted - 1] if granted else before
+    circle.milestones_earned = counted_to
+    return granted, counted
 
 
-async def _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum, earned=0):
-    """A log line for each milestone a rise in Illumination passed, a Resource Management
-    line after each when the circle has it, and a line when the track fills (RULES_CHECK.md
-    items 19 and 20). earned: the earn-backs the rise added (_count_earn_backs), the first
-    milestones' lines; a milestone past them says there is nothing (more) to earn back."""
+async def _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum, earned=0, counted=()):
+    """What a rise in Illumination gives, in one Resource Management line when the circle
+    has it (a milestone gives nothing otherwise, so the log does not name one), and a line
+    when the track fills (RULES_CHECK.md items 19 and 20). earned, counted: the earn-backs
+    the rise added and the milestones it counted (_count_earn_backs)."""
     if not (isinstance(old_illum, int) and isinstance(new_illum, int) and new_illum > old_illum):
         return
     circle_name = circle.name or "The Circle"
@@ -124,19 +153,20 @@ async def _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum
     async def log(message):
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log", "payload": {"message": message, "log_type": "field"}}, db)
-    for milestone in MILESTONES:
-        if old_illum < milestone <= new_illum:
-            await log(f"{circle_name} milestone {milestone} reached!")
-            if "Resource Management" in circle_abilities(circle):
-                if earned > 0:
-                    earned -= 1
-                    await log(f"Resource Management: {circle_name} earns back one Stitch, Refresh or Train, "
-                              f"the circle's choice (the Lightkeeper picks it on the Circle page).")
-                elif _resources_full(circle, db):
-                    await log(f"Resource Management: every resource of {circle_name} is full, so there is nothing to earn back.")
-                else:
-                    await log(f"Resource Management: {circle_name} has nothing more to earn back: "
-                              f"what is waiting already fills its resources.")
+    if counted:
+        past = ("milestone " + str(counted[0]) if len(counted) == 1 else
+                "milestones " + ", ".join(str(m) for m in counted[:-1]) + " and " + str(counted[-1]))
+        if earned > 0:
+            how_many = "one" if earned == 1 else str(earned)
+            more = "" if earned >= len(counted) else \
+                "; the rest have nowhere to go, as what is waiting already fills its resources"
+            await log(f"Resource Management: {circle_name} passed {past} and earns back {how_many} Stitch, "
+                      f"Refresh or Train, the circle's choice (the Lightkeeper picks it on the Circle page){more}.")
+        elif _resources_full(circle, db):
+            await log(f"Resource Management: {circle_name} passed {past}, but every resource is full, so there is nothing to earn back.")
+        else:
+            await log(f"Resource Management: {circle_name} passed {past} and has nothing more to earn back: "
+                      f"what is waiting already fills its resources.")
     if old_illum < TRACK <= new_illum:
         await log(f"{circle_name}'s Illumination track is full: the circle can advance.")
 
@@ -344,6 +374,7 @@ async def handle_gm_advance_circle(ctx):
                 target_circle.circle_ability = new_ability
         carry = max(0, (getattr(target_circle, "illumination", 0) or 0) - TRACK)
         target_circle.illumination = carry
+        target_circle.milestones_earned = 0  # the track starts again: its milestones count again
         # Each active member chooses two different advancements (rulebook p. 55), or all
         # four when the circle takes One Last Run (p. 41). The picks wait on the character
         # until chosen, so a player who was away still gets them.
@@ -406,6 +437,10 @@ async def handle_gm_end_assignment(ctx):
         # this assignment's threat, as the dispatch named its place
         target_circle.tension_clock = 0
         target_circle.tension_label = ""
+        # The countdown was this assignment's too: cleared and hidden, not left on at 0:00
+        # (playtest 3, timer-switch-after-end)
+        countdown.apply_action(target_circle, "clear", None)
+        countdown.apply_action(target_circle, "hide", None)
         # Reset ability_uses for all active characters in this campaign
         active_chars = db.query(Character).filter(
             Character.campaign_id == camp_id,
@@ -424,7 +459,7 @@ async def handle_gm_end_assignment(ctx):
         # additional point because of the detailed notes your character returns with."
         note_takers = [ch for ch in active_chars if "Meticulous Notes" in abilities_of(ch)]
         old_illum = target_circle.illumination or 0
-        earned = 0
+        earned = (0, [])
         if note_takers:
             target_circle.illumination = old_illum + len(note_takers)
             earned = _count_earn_backs(db, target_circle, old_illum)
@@ -440,7 +475,7 @@ async def handle_gm_end_assignment(ctx):
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
                 "message": f"Meticulous Notes: {ch.name}'s detailed notes add 1 Illumination.",
                 "log_type": "field", "ink_color": getattr(ch, "ink_color", "") or ""}}, db)
-        await _log_illumination(db, camp_code, camp_id, target_circle, old_illum, target_circle.illumination or 0, earned)
+        await _log_illumination(db, camp_code, camp_id, target_circle, old_illum, target_circle.illumination or 0, *earned)
 
 
 async def handle_gm_reset_character(ctx):
@@ -488,7 +523,7 @@ async def handle_update_circle(ctx):
                       "tension_clock", "tension_label", "insignia"]:
             if field in payload:
                 setattr(target_circle, field, payload[field])
-        earned = _count_earn_backs(db, target_circle, old_illum) if "illumination" in payload else 0
+        earned = _count_earn_backs(db, target_circle, old_illum) if "illumination" in payload else (0, [])
         cap_earn_backs(target_circle, db)  # a square pressed up can fill what was waiting
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
@@ -499,11 +534,11 @@ async def handle_update_circle(ctx):
         # to need the value to land on one), and one when the track fills (RULES_CHECK.md
         # items 19 and 20)
         if "illumination" in payload:
-            await _say_illumination(db, camp_code, camp_id, target_circle, old_illum, earned)
+            await _say_illumination(db, camp_code, camp_id, target_circle, old_illum, *earned)
 
 
-async def _say_illumination(db, camp_code, camp_id, circle, old_illum, earned=0):
-    """The line for a change to the track, then the milestone lines (_log_illumination)."""
+async def _say_illumination(db, camp_code, camp_id, circle, old_illum, earned=0, counted=()):
+    """The line for a change to the track, then what it gave (_log_illumination)."""
     new_illum = getattr(circle, "illumination", 0) or 0
     if isinstance(new_illum, int) and new_illum != old_illum:
         name = circle.name or "The Circle"
@@ -512,7 +547,7 @@ async def _say_illumination(db, camp_code, camp_id, circle, old_illum, earned=0)
                 else f"{name} loses {-change} Illumination ({old_illum} to {new_illum}).")
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log", "payload": {"message": said, "log_type": "field"}}, db)
-    await _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum, earned)
+    await _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum, earned, counted)
 
 
 async def _refuse(ctx, action, detail):
@@ -576,7 +611,7 @@ async def handle_gm_add_tally(ctx):
     target_circle.backstory_answers = answers
     db.commit()
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
-    await _say_illumination(db, camp_code, camp_id, target_circle, old_illum, earned)
+    await _say_illumination(db, camp_code, camp_id, target_circle, old_illum, *earned)
 
 
 async def handle_gm_return_spend(ctx):

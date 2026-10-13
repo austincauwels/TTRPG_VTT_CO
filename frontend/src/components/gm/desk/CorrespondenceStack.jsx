@@ -27,7 +27,7 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
       if (pending.length === 0) {
         return (
           <p className="font-serif text-base text-moonlight-steel text-center py-6 italic">
-            No one waiting to join
+            No one waiting to join.{campaignCode && <> New players ask with the campaign code <span className="font-mono not-italic text-cream">{campaignCode}</span>.</>}
           </p>
         );
       }
@@ -53,7 +53,7 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
                 onClick={() => setPendingIndex(i => Math.max(0, i - 1))}
                 disabled={pendingIndex === 0}
                 aria-label="Previous request"
-                className="w-10 h-10 flex items-center justify-center font-sans font-black text-xl text-moonlight-steel hover:text-cream disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="w-10 h-10 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 flex items-center justify-center font-sans font-black text-xl text-moonlight-steel hover:text-cream disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >‹</button>
               <span className="font-mono text-xs tabular-nums text-moonlight-steel">
                 {pendingIndex + 1} of {pending.length}
@@ -62,7 +62,7 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
                 onClick={() => setPendingIndex(i => Math.min(pending.length - 1, i + 1))}
                 disabled={pendingIndex === pending.length - 1}
                 aria-label="Next request"
-                className="w-10 h-10 flex items-center justify-center font-sans font-black text-xl text-moonlight-steel hover:text-cream disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="w-10 h-10 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 flex items-center justify-center font-sans font-black text-xl text-moonlight-steel hover:text-cream disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >›</button>
             </div>
           )}

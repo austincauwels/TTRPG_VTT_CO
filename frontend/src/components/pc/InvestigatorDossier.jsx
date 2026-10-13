@@ -110,15 +110,21 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
       ...(needsSplit ? { points: split } : {}),
       ...(use.target && targetNow ? { target_character_id: Number(targetNow) } : {}),
     });
-    if (sent && needsItem) setChoice('');
-    if (sent && needsSplit) setSplit({ nerve: 0, cunning: 0, intuition: 0 });
-    if (sent && use.ask) {
+    return sent;
+  };
+  // What was typed and chosen empties once the server has paid, not when it was sent: a
+  // refusal leaves the question in the box to be tried again
+  useEffect(() => {
+    if (!usedAt) return;
+    if (use.needs === 'item') setChoice('');
+    if (use.needs === 'split') setSplit({ nerve: 0, cunning: 0, intuition: 0 });
+    if (use.ask) {
       setQuestion('');
       // Use goes disabled with the focus on it (a keyboard, a screen reader), which would
       // drop to the page: it goes to the question box, where the next use starts
       if (document.activeElement === buttonRef.current) questionRef.current?.focus({ preventScroll: true });
     }
-  };
+  }, [usedAt]); // eslint-disable-line react-hooks/exhaustive-deps
   // 44px and 16px text on every touch screen (Safari zooms the page onto a smaller field)
   const select = 'ml-1 max-w-full min-w-0 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:text-base';
   return (
@@ -591,12 +597,31 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   useEffect(() => { setInfoTabState(infoTabs.get(infoTabKey) || 'role'); }, [infoTabKey]);
   // The player's edit of their own sheet (SheetEditor.jsx)
   const [showEditor, setShowEditor] = useState(false);
+  // The draft last sent from the editor: if the server refuses it, the editor comes back with it
+  const sentDraft = useRef(null);
+  const [restoreDraft, setRestoreDraft] = useState(null);
+  useEffect(() => {
+    if (!sheetEditError || !sentDraft.current) return;
+    setRestoreDraft({ draft: sentDraft.current, error: sheetEditError });
+    sentDraft.current = null;
+    setShowEditor(true);
+  }, [sheetEditError]);
   const [showGearModal, setShowGearModal] = useState(false);
   const [pendingGear, setPendingGear] = useState([]);
   const [writeIn, setWriteIn] = useState('');   // gear written in by name (p. 53)
   const gearDialogRef = useDialog({ open: showGearModal, onClose: () => setShowGearModal(false) });
   // Pre-spend drive before rolling — keyed by drive category
   const [preSpend, setPreSpend] = useState({ nerve: 0, cunning: 0, intuition: 0 });
+  // What the last roll spent, said by its stepper for a few seconds: the stepper itself
+  // goes back to +0d (playtest, nerve-stepper-spent-cue)
+  const [spentCue, setSpentCue] = useState(null);
+  const rollRefused = useGameStore(s => s.rollError);
+  useEffect(() => {
+    if (!spentCue) return undefined;
+    const t = setTimeout(() => setSpentCue(null), SPENT_SHOWN_MS);
+    return () => clearTimeout(t);
+  }, [spentCue]);
+  useEffect(() => { if (rollRefused) setSpentCue(null); }, [rollRefused]);
   // Toggled ability mods per action key
   const [activeMods, setActiveMods] = useState({});
   // Which action's "i" slip is open on a touch screen (shared/ActionInfo.jsx)
@@ -617,8 +642,15 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   };
 
   // A gear change is a direct edit of the sheet, logged for the Lightkeeper like the others
+  // What the player added and removed since the dialog opened is applied to the gear now,
+  // so an item that came or went at the table meanwhile is not reverted
+  const gearAtOpen = useRef([]);
   const sendGearUpdate = () => {
-    if (updateGear(pendingGear)) setShowGearModal(false);
+    const live = character.gear || [];
+    const removed = gearAtOpen.current.filter(i => !pendingGear.includes(i));
+    const added = pendingGear.filter(i => !gearAtOpen.current.includes(i) && !live.includes(i));
+    sentDraft.current = null;
+    if (updateGear([...live.filter(i => !removed.includes(i)), ...added])) setShowGearModal(false);
   };
 
   const domainCategories = [
@@ -753,6 +785,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   };
   const openGearModal = () => {
     setWriteIn('');
+    gearAtOpen.current = [...gear];
     setPendingGear([...gear]);
     setShowGearModal(true);
   };
@@ -768,6 +801,14 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // sheet follows its own column, not the window).
   return (
     <div className="dossier-c relative z-10 animate-fadeIn">
+      {/* A keyboard reaches the actions without tabbing through the whole sheet */}
+      {!readOnly && (
+        <a href={`#actions-${character.id ?? 'sheet'}`}
+          onClick={(e) => { e.preventDefault(); document.getElementById(`actions-${character.id ?? 'sheet'}`)?.focus(); }}
+          className="sr-only focus:not-sr-only focus:block focus:mb-2 focus:w-fit focus:bg-cream focus:text-ink focus:border focus:border-ink focus:px-3 focus:py-2 focus:font-sans focus:text-xs focus:font-black focus:uppercase focus:tracking-wider">
+          Skip to actions
+        </a>
+      )}
     <div className="dossier space-y-6">
 
       {/* Investigator Portrait Frame: a photograph taped to the sheet. On the player's own
@@ -823,7 +864,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         {canEdit && (
           <button
             type="button"
-            onClick={() => setShowEditor(true)}
+            onClick={() => { setRestoreDraft(null); setShowEditor(true); }}
             className="ml-auto shrink-0 whitespace-nowrap min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] text-xs font-sans font-black uppercase tracking-wider border border-ink/35 bg-cream/40 px-2.5 py-1 hover:bg-cream/80 hover:border-ink/60 transition-colors rounded-sm"
           >
             Edit sheet
@@ -887,12 +928,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <h3 className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2 whitespace-nowrap">
               <SafeIcon name="GiBriefcase" size={18} /> Gear
             </h3>
-            {!readOnly && gear.length === 0 && <InfoTerm label="Why empty" ariaLabel="Why the gear is empty" text="The Lightkeeper clears everyone's gear when an assignment ends. Choose it again for the next one." slipClassName="left-0 top-full mt-1 w-[min(16rem,calc(100vw-4rem))]" className="text-xs" />}
             {!readOnly && !dead && (
               <button
                 type="button"
                 onClick={openGearModal}
-                className="ml-auto whitespace-nowrap min-h-[32px] [@media(pointer:coarse)]:min-h-[40px] text-xs font-sans font-black uppercase tracking-wider border border-ink/35 bg-cream/40 px-2.5 py-1 hover:bg-cream/80 hover:border-ink/60 transition-colors rounded-sm"
+                className="ml-auto whitespace-nowrap min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] text-xs font-sans font-black uppercase tracking-wider border border-ink/35 bg-cream/40 px-2.5 py-1 hover:bg-cream/80 hover:border-ink/60 transition-colors rounded-sm"
               >
                 Change gear
               </button>
@@ -917,7 +957,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               </li>
             ))}
           </ul>
-          {gear.length === 0 && <span className="sr-only">No gear</span>}
+          {gear.length === 0 && (readOnly
+            ? <span className="sr-only">No gear</span>
+            : dead ? <span className="sr-only">No gear</span> : <p className="mt-2 font-serif text-sm italic text-sepia leading-snug">Cleared when the assignment ended.</p>)}
         </div>
       </div>
 
@@ -975,14 +1017,14 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             {infoTab === 'role' && (
               // A role ability taken by advancement is stored after the specialty's, so it is
               // listed here, with the role's own
-              <AbilityPane heading={`${character.role || 'Role'} ability`} renderUse={renderAbilityUse}
+              <AbilityPane heading={`${ROLE_FROM_ABILITY[character.role_ability] || character.role || 'Role'} ability`} renderUse={renderAbilityUse}
                 entries={[{ name: character.role_ability || 'Ability', text: ABILITY_TEXTS[character.role_ability] },
                   ...advancedAbilities.filter(n => ROLE_FROM_ABILITY[n]).map(name => ({ name, text: ABILITY_TEXTS[name] }))]}
                 blank="None chosen" />
             )}
             {infoTab === 'specialty' && (
               // Abilities taken by advancement follow the specialty's own after "; "
-              <AbilityPane heading={`${character.specialty || 'Specialty'} ability`} renderUse={renderAbilityUse}
+              <AbilityPane heading={`${SPECIALTY_FROM_ABILITY[(character.specialty_ability || '').split(';')[0].trim()] || character.specialty || 'Specialty'} ability`} renderUse={renderAbilityUse}
                 entries={specialtyAbilities.length
                   ? specialtyAbilities.map(name => ({ name, text: ABILITY_TEXTS[name] }))
                   : [{ name: 'Specialty', text: undefined }]} blank="None chosen" />
@@ -1007,7 +1049,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       <section className="dossier-actions space-y-4" aria-labelledby={`actions-${character.id ?? 'sheet'}`}>
       {/* Actions section header */}
       <div className="flex items-center justify-between">
-        <h3 id={`actions-${character.id ?? 'sheet'}`} className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
+        <h3 id={`actions-${character.id ?? 'sheet'}`} tabIndex={-1} className="outline-none font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-2">
           <SafeIcon name="GiCrossedSwords" size={15} /> Actions
         </h3>
         {/* Train bonus active indicator */}
@@ -1047,8 +1089,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                       <button
                         onClick={() => setPreSpend(p => ({ ...p, [cat.driveKey]: Math.max(0, (p[cat.driveKey] || 0) - 1) }))}
                         aria-disabled={(preSpend[cat.driveKey] || 0) <= 0}
+                        tabIndex={(preSpend[cat.driveKey] || 0) <= 0 ? -1 : undefined}
                         aria-label={`Spend one less ${cat.name}`}
-                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 aria-disabled:opacity-30 transition-colors"
+                        className="w-5 h-5 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 aria-disabled:opacity-30 transition-colors"
                       >−</button>
                       <span className={`font-mono tabular-nums text-xs font-black w-7 text-center ${(preSpend[cat.driveKey] || 0) > 0 ? 'text-oxblood' : 'text-sepia'}`}>+{preSpend[cat.driveKey] || 0}d</span>
                       <button
@@ -1059,11 +1102,14 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                         // Up to six dice (p. 11): the roll keeps only what fits after the rating
                         aria-disabled={(preSpend[cat.driveKey] || 0) >= Math.min(currentDrive, 6)}
                         aria-label={`Spend one more ${cat.name} for +1d`}
-                        className="w-5 h-5 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 aria-disabled:opacity-30 transition-colors"
+                        className="w-5 h-5 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/10 border border-ink/20 text-xs font-black rounded-sm flex items-center justify-center hover:bg-black/20 aria-disabled:opacity-30 transition-colors"
                       >+</button>
                     </div>
                   )}
                 </div>
+                {spentCue?.drive === cat.driveKey && (
+                  <p role="status" className="font-serif text-sm italic text-oxblood leading-snug">{spentCue.n} {cat.name} spent</p>
+                )}
                 {/* One row for the drive: filled pips are available, empty ones up to the
                     maximum are spent, and dotted ones lie beyond the maximum. A drive whose
                     maximum is 0 reads "none", as a resistance of 0 does (playtest 3,
@@ -1215,6 +1261,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                             const actionRating = character[act.key] || 0;
                             const effectiveSpend = Math.min(spend, Math.max(0, 6 - actionRating));
                             setPreSpend(p => ({ ...p, [spendKey]: 0 }));
+                            setSpentCue(effectiveSpend > 0 ? { drive: spendKey, n: effectiveSpend, at: Date.now() } : null);
                             setActiveMods(p => ({ ...p, [act.key]: [] }));
                             rollAction(act.key, effectiveSpend, false, selectedMods, extra);
                           }}
@@ -1495,7 +1542,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 )}
               </div>
             ) : (
-              <div className="scars-lines min-w-0"
+              <div ref={scarLinesRef} className="scars-lines min-w-0"
                    style={{
                      backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, rgb(var(--c-sepia) / 0.16) 24px)',
                      backgroundSize: '100% 24px',
@@ -1520,7 +1567,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             <div className="trauma-edit col-span-full flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5 mt-3 pt-2 border-t border-dotted border-ink/30">
               {editing && (
                 <p className="font-serif text-sm italic text-sepia leading-snug min-w-0 flex-1 basis-56">
-                  Editing {recordOf}trauma record. Press a box to fill its track to it, or the last filled box to clear it. Removing a scar gives back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, use Deal a mark.
+                  Editing {recordOf}trauma record.{' '}
+                  <InfoTerm label="How editing works" text="Press a box to fill its track to it, or the last filled box to clear it. Removing a scar gives back the action point it shifted. For corrections: a mark set here does not offer soaks, Death Defy, Behind Me, Premonitions or Let Them In. To deal a mark, use Deal a mark." />
                 </p>
               )}
               {/* Deal a mark: a story consequence, which offers what a mark the player takes
@@ -1562,7 +1610,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
 
       {showEditor && (
         <SheetEditor character={character} roleOf={ROLE_FROM_ABILITY} specialtyOf={SPECIALTY_FROM_ABILITY}
-          abilityTexts={ABILITY_TEXTS} onSave={editSheet} onClose={() => setShowEditor(false)} />
+          abilityTexts={ABILITY_TEXTS} restore={restoreDraft}
+          onSave={(changes, draft) => { sentDraft.current = draft; return editSheet(changes); }}
+          onClose={() => { setShowEditor(false); setRestoreDraft(null); }} />
       )}
 
       {/* Gear Change Modal: in a portal, so the sheet's stacking context (z-10), its
@@ -1648,15 +1698,18 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-4" style={{ borderTop: '1px solid rgb(var(--c-sepia)/0.18)' }}>
-              <span className={`text-sm font-sans font-black whitespace-nowrap ${pendingCount > slots ? 'text-oxblood' : 'text-sepia'}`}>{pendingCount} / {slots} selected</span>
+            {/* Stuck to the dialog's foot, so the count is in view where the finger taps */}
+            <div className="sticky bottom-[-1.5rem] sm:bottom-[-2rem] z-10 -mx-5 sm:-mx-9 -mb-6 sm:-mb-8 px-5 sm:px-9 pb-6 sm:pb-8 flex flex-wrap items-center justify-between gap-3 pt-4" style={{ borderTop: '1px solid rgb(var(--c-sepia)/0.18)', background: 'rgb(var(--c-parchment))' }}>
+              <span className={`text-sm font-sans font-black ${pendingCount > slots ? 'text-oxblood' : 'text-sepia'}`}>
+                {pendingCount} / {slots} selected{pendingCount > slots ? `. Over the limit of ${slots}` : ''}
+              </span>
               <div className="flex gap-3 max-sm:flex-1 max-sm:justify-end">
                 <button onClick={() => setShowGearModal(false)}
-                  className="px-4 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-sepia/25 hover:border-sepia/50 text-sepia transition-colors rounded-sm">
+                  className="px-4 py-2 min-h-[44px] sm:min-h-0 [@media(pointer:coarse)]:min-h-[44px] whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-sepia/25 hover:border-sepia/50 text-sepia transition-colors rounded-sm">
                   Cancel
                 </button>
                 <button onClick={sendGearUpdate}
-                  className="px-6 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest rounded-sm shadow transition-all"
+                  className="px-6 py-2 min-h-[44px] sm:min-h-0 [@media(pointer:coarse)]:min-h-[44px] whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest rounded-sm shadow transition-all"
                   style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
                   Save gear
                 </button>

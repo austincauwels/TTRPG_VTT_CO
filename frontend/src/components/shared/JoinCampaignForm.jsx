@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { InfoTerm } from './ActionInfo';
 import { PEN_FONTS } from '../campaignSelector/penFonts';
 import { CAMPAIGN_CODE_PATTERN, CAMPAIGN_CODE_RULE } from '../../utils/campaignErrors';
@@ -17,6 +17,11 @@ export const JoinCampaignForm = ({
 }) => {
   const [penListOpen, setPenListOpen] = useState(false);
   const penTriggerRef = useRef(null);
+  const penListRef = useRef(null);
+  // The list opens in view: in a dialog that scrolls, it used to run past the dialog's edge
+  useEffect(() => {
+    if (penListOpen) penListRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [penListOpen]);
   const currentPen = pen || 'Caveat';
   const trimmed = (code || '').trim();
   const codeLooksWrong = trimmed.length > 0 && !CAMPAIGN_CODE_PATTERN.test(trimmed);
@@ -57,10 +62,12 @@ export const JoinCampaignForm = ({
           penTriggerRef.current?.focus();
         }
       }}>
-        <div className="flex items-center gap-1">
-          <span id={`${idPrefix}-pen-label`} className={labelClass}>Handwriting</span>
-          <InfoTerm label="Handwriting" text="Your notebook entries are written in this pen. You can change it later in the Notebook." />
-        </div>
+        {/* The term is the label, so the word shows once; the pen button and its list are named
+            by the hidden copy */}
+        <span id={`${idPrefix}-pen-label`} aria-hidden="true" className="sr-only">Handwriting</span>
+        <InfoTerm label="Handwriting" text="Your notebook entries are written in this pen. You can change it later in the Notebook."
+          className="font-sans font-bold text-xs tracking-widest uppercase text-sepia mb-1"
+          slipClassName="left-0 top-full mt-1 w-[min(16rem,calc(100vw-5rem))]" />
         <button
           type="button"
           ref={penTriggerRef}
@@ -73,7 +80,7 @@ export const JoinCampaignForm = ({
           <span aria-hidden="true" className="text-sm text-sepia ml-2 shrink-0">{penListOpen ? '▲' : '▼'}</span>
         </button>
         {penListOpen && (
-          <div role="group" aria-labelledby={`${idPrefix}-pen-label`} className="max-h-52 overflow-y-auto border border-sepia/40 border-t-0 bg-cream">
+          <div ref={penListRef} role="group" aria-labelledby={`${idPrefix}-pen-label`} className="max-h-52 [@media(max-height:800px)]:max-h-40 overflow-y-auto border border-sepia/40 border-t-0 bg-cream">
             {PEN_FONTS.map(font => (
               <button
                 key={font}

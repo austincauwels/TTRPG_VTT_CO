@@ -110,7 +110,7 @@ const ReleaseMember = ({ name, trainDice, onRelease }) => {
 
 // backLabel names where onClose returns: the roster, or the Requests page a request's sheet
 // was opened from (its card or the pop-up)
-export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, onRelease, busy = false, error: requestError = '', backLabel = 'Back to roster' }) => {
+export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, onRelease, busy = false, error: requestError = '', backLabel = 'Back to roster', closed = false }) => {
   const [fullChar, setFullChar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -305,7 +305,15 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
           </div>
         )}
 
-        {pending && (onApprove || onReject) && (
+        {pending && closed && (
+          // The request left the campaign while this sheet was open (taken back, or answered
+          // at another desk): the sheet stays to be read, with nothing left to decide
+          <p role="status" className="relative mb-5 pb-4 border-b border-ink/15 font-sans font-bold text-xs uppercase tracking-widest text-oxblood">
+            {rosterItem.name ? `${rosterItem.name}'s` : 'This'} request is no longer waiting.
+          </p>
+        )}
+
+        {pending && !closed && (onApprove || onReject) && (
           <div className="relative mb-5 pb-4 border-b border-ink/15 flex flex-wrap items-center gap-x-3 gap-y-2">
             <p className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood basis-full sm:basis-auto sm:mr-auto">
               Join request, not yet approved
@@ -356,9 +364,10 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
               onConfirm={() => gmResetCharacter(rosterItem.id)}
               armedHint={`Press again to refill ${fullChar.name ? `${fullChar.name}'s` : 'the'} drives and resistance and clear ability uses.`}
               renderButton={(armed, props) => (
+                <>
                 <button
                   {...props}
-                  className={`font-sans text-xs font-black uppercase tracking-widest px-4 py-2 min-h-[40px] border rounded transition ${
+                  className={`font-sans text-xs font-black uppercase tracking-widest px-4 py-2 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] border rounded transition ${
                     armed
                       ? 'bg-oxblood text-cream border-ink hover:brightness-125'
                       : 'bg-transparent text-oxblood border-oxblood/50 hover:bg-oxblood/10'
@@ -366,6 +375,10 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                 >
                   {armed ? 'Reset' : 'Reset drive and ability uses'}
                 </button>
+                {/* The rule beside it (fix round 7, 60.6): drives come back with a Refresh, not at End Assignment */}
+                <ArmedDetail label="About Reset" above={false}
+                  text="Refills this investigator's drives and resistance and clears ability uses. For a correction or a new session; the rules restore drives with a Refresh." />
+                </>
               )}
             />
             {/* A dead investigator stays with the campaign; the living may be released */}

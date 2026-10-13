@@ -16,8 +16,8 @@ const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', min
 
 const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reconnects by itself; try again in a moment.';
 
-// What End Assignment clears, said by its confirm and its receipt (the log line says the same)
-const ENDS = "Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared.";
+// What End Assignment clears, said by its confirm and its receipt (the log line says the first two sentences)
+const ENDS = "Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared, and so is the timer. Drives carry over; a Refresh restores them.";
 
 // ── The tension clock: an hourglass on the desk ───────────────────────────────────
 // Starts with all the sand above and runs a quarter of it down per step, from 0 to 4
@@ -148,6 +148,12 @@ const dispatchOf = (c) => ({ location: c?.location || '', atmosphere: c?.atmosph
 
 // The unsent draft, with the dispatch it was written over
 const keptDraft = { circleId: undefined, base: dispatchOf(null), location: '', atmosphere: '', ownText: '' };
+
+const Receipt = ({ receipt, className }) => (
+  <p role={receipt.ok ? 'status' : 'alert'} className={`mt-2 font-serif text-base leading-snug ${receipt.ok ? 'text-seal-green' : 'text-oxblood'} ${className}`}>
+    {receipt.text}
+  </p>
+);
 
 export const SceneManager = () => {
   const { circle, socket, accessSession, circleRefusal, circleCreation } = useGameStore();
@@ -282,7 +288,7 @@ export const SceneManager = () => {
   ) : 'Press again to end the assignment.';
 
   return (
-    <div ref={letterRef} className="bg-parchment text-ink p-5 sm:p-8 lg:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
+    <div ref={letterRef} className="xl:flex xl:flex-col bg-parchment text-ink p-5 sm:p-8 lg:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
          style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.1) 28px)', backgroundSize: '100% 28px', lineHeight: '28px' }}>
 
       {/* Masking tape strip */}
@@ -391,22 +397,27 @@ export const SceneManager = () => {
       {/* Stamp buttons; End Assignment asks for a second press and says what it clears.
           Where the letter is too narrow for both side by side (its column at 1024 to 1280
           wide), Dispatch goes under End Assignment, still at the right, instead of running
-          off the letter's edge. */}
-      <div className="mt-8 xl:mt-5 flex flex-wrap justify-between items-start gap-x-4 gap-y-4 relative">
+          off the letter's edge. From xl the letter scrolls inside its column, so the stamps
+          are the letter's last row and stay at the foot of the column (sticky, on the
+          letter's paper), in view without scrolling (fix round 7, 45.4). */}
+      <div className="mt-8 xl:mt-5 xl:order-last xl:sticky xl:bottom-[-0.75rem] xl:z-10 xl:-mx-5 2xl:-mx-6 xl:px-5 2xl:px-6 xl:pt-3 xl:pb-5 2xl:pb-6 xl:-mb-5 2xl:-mb-6 xl:bg-parchment xl:shadow-[0_-14px_12px_-6px_rgb(var(--c-parchment))] relative">
+      <div className="flex flex-wrap justify-between items-start xl:items-end gap-x-4 gap-y-4">
         {/* End Assignment: left stamp */}
         <ConfirmAction
-          className="flex flex-col items-start gap-2 max-w-[11rem]"
+          // From xl the armed line floats above the stamp instead of pushing it: the stamp
+          // stays under the pointer and the column does not scroll (fix round 7, 45.5)
+          className="relative flex flex-col items-start gap-2 max-w-[11rem]"
           onConfirm={endAssignment}
           cancelLabel="Keep going"
           armedHint={endHint}
           armedInfo={<ArmedDetail label="What ending does" text={`The dispatch clears. ${ENDS}`} />}
-          hintClassName="[&>p]:text-sm"
+          hintClassName="[&>p]:text-sm xl:absolute xl:bottom-full xl:left-0 xl:mb-2 xl:w-[16rem] xl:p-3 xl:bg-parchment xl:border xl:border-sepia/40 xl:shadow-[0_4px_14px_rgba(0,0,0,0.35)]"
           renderButton={(armed, props) => (
             <button
               {...props}
               className="relative group transform rotate-2 hover:rotate-0 transition-transform active:scale-95"
             >
-              <div className={`border-[3px] rounded px-3 py-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center font-sans font-black uppercase tracking-widest text-xs ${
+              <div className={`border-[3px] rounded px-3 py-1.5 xl:min-w-[8.5rem] xl:text-center [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center xl:[@media(pointer:coarse)]:justify-center font-sans font-black uppercase tracking-widest text-xs ${
                 armed
                   ? 'border-oxblood bg-oxblood text-cream'
                   : 'border-sepia text-sepia opacity-90 group-hover:opacity-100 group-hover:bg-sepia/5'
@@ -435,6 +446,9 @@ export const SceneManager = () => {
           </p>
         </div>
       </div>
+      {/* From xl the receipt sits under the stamps, in the sticky row, so it is never hidden */}
+      {receipt && <Receipt receipt={receipt} className="hidden xl:block" />}
+      </div>
       <div className="mt-6 xl:mt-4 flex items-center gap-2" aria-hidden="true">
         <PrinterMark size={12} />
         <FormLine>Form C.O. 2 · Dispatch</FormLine>
@@ -442,11 +456,7 @@ export const SceneManager = () => {
       <p className="mt-4 font-sans text-xs font-black uppercase tracking-widest text-sepia">
         {onDesks ? "On the players' desks" : 'Not dispatched yet'}
       </p>
-      {receipt && (
-        <p role={receipt.ok ? 'status' : 'alert'} className={`mt-2 font-serif text-base leading-snug ${receipt.ok ? 'text-seal-green' : 'text-oxblood'}`}>
-          {receipt.text}
-        </p>
-      )}
+      {receipt && <Receipt receipt={receipt} className="xl:hidden" />}
     </div>
   );
 };

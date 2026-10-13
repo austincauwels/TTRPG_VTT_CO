@@ -118,7 +118,7 @@ def test_migrated_columns_exist(client):
             "circle_ability", "insignia", "backstory_answers", "is_finalized", "illumination",
             "tension_clock", "tension_label", "resources_editable", "reports_open",
             "campaign_id", "timer_duration_ms", "timer_remaining_ms", "timer_ends_at", "timer_running",
-            "timer_visible", "dispatch_text", "earn_backs"} <= cols["circles"]
+            "timer_visible", "dispatch_text", "earn_backs", "milestones_earned"} <= cols["circles"]
     assert {"gm_user_id", "roster_finalized", "is_retired", "deleted_at", "released_characters"} <= cols["campaigns"]
     assert {"role", "specialty", "personal_circle_answer", "nerve_resistance_spent",
             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
@@ -311,6 +311,7 @@ MIGRATED_COLUMNS = {
     ("circles", "timer_visible"): ("boolean", "false"),
     ("circles", "dispatch_text"): ("text", "''::text"),
     ("circles", "earn_backs"): ("integer", "0"),
+    ("circles", "milestones_earned"): ("integer", "0"),
     ("campaigns", "gm_user_id"): ("integer", None),
     ("campaigns", "roster_finalized"): ("boolean", "false"),
     ("campaigns", "deleted_at"): ("timestamp without time zone", None),
@@ -388,13 +389,13 @@ def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client
     alone now, and the new columns are added."""
     added = [("circles", "stamina_dice_used"), ("characters", "warded_by_id"), ("characters", "train_dice"),
              ("characters", "advancement_set"), ("characters", "sheet_edited"), ("circles", "earn_backs"),
-             ("characters", "held_mark"), ("characters", "taken_mark_ids")]
+             ("circles", "milestones_earned"), ("characters", "held_mark"), ("characters", "taken_mark_ids")]
     with support.isolated_schema() as (eng, Session, schema):
         with eng.begin() as conn:
             for table, col in added:
                 conn.execute(text(f"ALTER TABLE {table} DROP COLUMN {col}"))
             conn.execute(text("DROP TABLE activity_lines"))
-            conn.execute(text("INSERT INTO circles (id, name) VALUES (1, 'The Order of Light')"))
+            conn.execute(text("INSERT INTO circles (id, name, illumination) VALUES (1, 'The Order of Light', 7)"))
             conn.execute(text("INSERT INTO users (id, username, email, hashed_password) VALUES (1, 'admin', 'a@b.c', 'x')"))
         monkeypatch.setattr(main, "db_engine", eng)
         monkeypatch.setattr(main, "SessionLocal", Session)
@@ -404,6 +405,9 @@ def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client
         cols = _schema_columns(eng, schema)
         assert all(key in cols for key in added)
         assert ("activity_lines", "line") in cols
+        # An existing circle counts the milestones its track already stands past (69.3)
+        with eng.connect() as conn:
+            assert conn.execute(text("SELECT milestones_earned FROM circles WHERE id = 1")).scalar() == 6
 
 
 def _column_types(eng, schema):

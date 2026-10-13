@@ -420,7 +420,7 @@ def test_two_gilds_roll_two_gilded_dice(client, dice):
         ws.send("resolve_gilded", action="hide", chosen_type="gilded")
         msgs = ws.sync()
         assert msgs[1]["payload"]["message"] == (
-            f"{ch['name']} rolled hide {EM} 5 {DOT} Mixed Success (3 dice: 2 gilded, 5 gilded, 4; kept the gilded 5). [gilded {EM} cunning Drive refreshed]")
+            f"{ch['name']} rolled hide (Born in the Shadows) {EM} 5 {DOT} Mixed Success (3 dice: 2 gilded, 5 gilded, 4; kept the gilded 5). [gilded {EM} cunning Drive refreshed]")
         assert msgs[2]["payload"]["cunning_current"] == 2
 
 
@@ -2042,3 +2042,47 @@ def test_an_automatic_gilded_refresh_at_a_full_drive_logs_nothing_extra(client, 
         assert support.types(msgs) == ["roll_result", "activity_log"]
         assert "refreshed" not in msgs[1]["payload"]["message"]
     assert support.fetch(Character, ch["id"]).nerve_current == 3
+
+
+def test_roll_names_the_abilities_that_applied(client, dice):
+    """Fix round 7 (45.10): the sheet's chips untoggle after a roll, so the roll carries
+    the abilities that applied (roll.abilities, absent when none did) and the log line
+    names them after the action; a roll without any is as it was."""
+    ch = support.forge(client, hide=3, gilded_hide=True, specialty_ability="Born in the Shadows",
+                       cunning_max=3, cunning_current=3)
+    dice(2, 5, 4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="hide", drive_spent=0, ability_mods=["Born in the Shadows"])
+        roll = ws.sync()[0]["payload"]["roll"]
+        assert roll["abilities"] == ["Born in the Shadows"]
+        ws.send("resolve_gilded", action="hide", chosen_type="gilded")
+        assert ws.sync()[1]["payload"]["message"].startswith(f"{ch['name']} rolled hide (Born in the Shadows) {EM} 5")
+        dice(1, 2, 3)
+        ws.send("roll", action="hide", drive_spent=0)
+        msgs = ws.sync()
+        assert "abilities" not in msgs[0]["payload"]["roll"]
+
+
+def test_end_assignment_empties_the_trays_a_reload_would_refill(client, dice):
+    """Fix round 7 (60.7): the last roll a desk opens with came back after End
+    Assignment, marked settled, as the last scene's roll. The campaign's shown rolls are
+    dropped with the settling; a gilded roll still waiting for its die is kept."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=1, nerve_max=6)
+    b = support.active_member(client, camp, move=2, gilded_move=True)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        with support.ws_connect(client, a["id"]) as wa:
+            dice(2)
+            wa.send("roll", action="move", drive_spent=0)
+            wa.sync()
+        with support.ws_connect(client, b["id"]) as wb:
+            dice(3, 5)
+            wb.send("roll", action="move", drive_spent=0)
+            wb.sync()
+        gm.send("gm_end_assignment")
+        gm.sync()
+        with support.ws_connect(client, a["id"]) as wa:
+            assert support.of_type(wa.sync(), "roll_result") == []
+        with support.ws_connect(client, b["id"]) as wb:
+            [held] = support.of_type(wb.sync(), "roll_result")
+            assert held["payload"]["roll"]["needs_gilded_choice"] is True and held["payload"]["settled"] is True
