@@ -8,8 +8,10 @@ import { accountHref, openAccountPage } from '../account/accountAddress';
 // The signed-in account: a member's card that opens from "Account" on the hub and on both
 // desks (owner's round 3 item 22). It names the account (name, email, member number), leads
 // to the account page, where the username, the password, the email and the Google sign-in
-// change (owner's request, 2026-10-04), and holds Sign out. The card is paper on every desk;
-// only the button that opens it takes the colours of where it sits.
+// change (owner's request, 2026-10-04), and holds Sign out. The way to the page reads "Edit
+// account", not the button's own name again (issue #65: Account opened a card whose first
+// entry was Account). The card is paper on every desk; only the button that opens it takes
+// the colours of where it sits.
 
 const TRIGGER = {
   // the hub's night header
@@ -161,7 +163,7 @@ export const AccountMenu = ({ tone = 'night', className = '', onSignOut, extra =
         {account?.email && <p className="font-mono text-sm text-sepia [overflow-wrap:anywhere] leading-snug">{account.email}</p>}
 
         <div className="mt-3 pt-3 border-t border-dashed border-sepia/45">
-          <a href={accountHref} onClick={goToAccount} className={outlineClass}>Account</a>
+          <a href={accountHref} onClick={goToAccount} className={outlineClass}>Edit account</a>
         </div>
 
         {extra}
