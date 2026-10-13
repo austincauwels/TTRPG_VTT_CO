@@ -3,8 +3,16 @@ import { AnimatePresence } from 'framer-motion';
 import { PlayerRosterCard } from '../PlayerRosterCard';
 import { InvitePlayer } from './InvitePlayer';
 
+// Whether the player who sent this request already has a living investigator in the
+// campaign ('active') or another request waiting ('pending'), as the card says
+export const samePlayerOf = (campaignRoster, request) => !request?.owner_username ? ''
+  : (campaignRoster.active_investigators || []).some(c => c.owner_username === request.owner_username && !c.is_dead) ? 'active'
+  : (campaignRoster.pending_investigators || []).some(c => c.id !== request.id && c.owner_username === request.owner_username) ? 'pending' : '';
+
 // Join requests, one card at a time with a pager, and under them the quiet Invite player
-// for a player the Lightkeeper brings back (InvitePlayer.jsx).
+// for a player the Lightkeeper brings back (InvitePlayer.jsx). They lie on the desk's
+// Requests page (issue #66.1); one that comes in while the Lightkeeper is elsewhere pops up
+// (JoinRequestPopup.jsx).
 export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIndex, handleStamp, handleReject, onView, campaignCode, error, busy = false, invite = true }) => (
   <>
     <div className="flex items-center gap-3 mb-4">
@@ -35,9 +43,7 @@ export const CorrespondenceStack = ({ campaignRoster, pendingIndex, setPendingIn
                 onReject={() => handleReject(current.id)}
                 onView={onView ? () => onView(current) : undefined}
                 busy={busy}
-                samePlayer={!current.owner_username ? '' : (campaignRoster.active_investigators || [])
-                  .some(c => c.owner_username === current.owner_username && !c.is_dead) ? 'active'
-                  : pending.some(c => c.id !== current.id && c.owner_username === current.owner_username) ? 'pending' : ''}
+                samePlayer={samePlayerOf(campaignRoster, current)}
               />
             )}
           </AnimatePresence>

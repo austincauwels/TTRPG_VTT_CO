@@ -40,28 +40,54 @@ const DrawerPull = () => (
   </svg>
 );
 
+// The Lightkeeper's desk on phones has the same drawer (issue #66.3, decision 2): its own
+// pages first, the Join requests among them, then the papers that lie beside them.
+export const GM_DESK_PARTS = [
+  { id: 'roster', label: 'Roster', icon: 'GiFiles' },
+  { id: 'circle', label: 'Circle', icon: 'GiEyeShield' },
+  { id: 'archives', label: 'Notebook', icon: 'GiScrollUnfurled' },
+  { id: 'map', label: 'Map', icon: 'GiCompass' },
+  { id: 'requests', label: 'Join requests', icon: 'GiPapers' },
+  { id: 'dice', label: 'Dice and log', icon: 'GiRollingDices', gap: true },
+  { id: 'notes', label: 'Pass notes', icon: 'GiQuillInk' },
+  { id: 'dispatch', label: 'Dispatch', icon: 'GiCandleLight' },
+  { id: 'watch', label: 'Hourglass', icon: 'GiHourglass' },
+];
+
 // Each slip is a strip of the world's aged paper (paperArt.js, as the hub's papers): torn
 // off at its right end with the pale fibres showing, worn along its long edges, yellowed
 // unevenly, its rim tea-stained and a few fox marks, some with a soft crease or a corner
-// turned down. Drawn once, when the desk's code loads. W x H are the slip's units (about a
-// pixel each; the two-line slip is taller).
-const SLIP_PAPER = Object.fromEntries(DESK_PARTS.map((part, i) => {
-  const H = part.id === 'dispatch' ? 66 : 52;
-  const corners = [{ bl: { r: 3 } }, { br: { ear: 13 } }, { tl: { r: 4 } }, { tr: { torn: 12 } }, { bl: { r: 5 } }, { tl: { ear: 11 } }, { br: { r: 4 } }][i];
-  const creases = i === 2 ? [[[0.36, 0], [0.33, 1]]] : i === 5 ? [[[0.71, 0], [0.74, 1]]] : undefined;
-  return [part.id, agedPaper({
-    W: 300, H, seed: 401 + i * 17,
-    edges: [i % 3 ? 'worn' : 'cut', 'torn', i % 2 ? 'cut' : 'worn', 'worn'],
-    corners, creases,
-    stain: { yellow: 0.24, rim: 0.65, rimW: 4, fox: 3 + (i % 3) },
-  })];
-}));
+// turned down. Each is drawn once, the first time its drawer opens, from its place in the
+// drawer. W x H are the slip's units (about a pixel each; the two-line slip is taller).
+const SLIP_PAPER = new Map();
+const slipPaper = (part, i) => {
+  const key = `${part.id}:${i}`;
+  if (!SLIP_PAPER.has(key)) {
+    const H = part.id === 'dispatch' && part.label.length > 12 ? 66 : 52;
+    const corners = [{ bl: { r: 3 } }, { br: { ear: 13 } }, { tl: { r: 4 } }, { tr: { torn: 12 } }, { bl: { r: 5 } }, { tl: { ear: 11 } }, { br: { r: 4 } }][i % 7];
+    const creases = i === 2 ? [[[0.36, 0], [0.33, 1]]] : i === 5 ? [[[0.71, 0], [0.74, 1]]] : undefined;
+    SLIP_PAPER.set(key, agedPaper({
+      W: 300, H, seed: 401 + i * 17,
+      edges: [i % 3 ? 'worn' : 'cut', 'torn', i % 2 ? 'cut' : 'worn', 'worn'],
+      corners, creases,
+      stain: { yellow: 0.24, rim: 0.65, rimW: 4, fox: 3 + (i % 3) },
+    }));
+  }
+  return SLIP_PAPER.get(key);
+};
+
+// A count on a slip or a button: how many wait (the Lightkeeper's join requests)
+export const CountBadge = ({ count, className = '' }) => (
+  <span className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-oxblood text-cream border border-cream/70 font-mono text-xs font-bold leading-none tabular-nums shadow-sm ${className}`}>
+    {count}<span className="sr-only"> waiting</span>
+  </span>
+);
 
 // One slip in the drawer: a torn strip of aged paper, a little crooked, its label inked
 // under with the pen while it is the part on show (the brighter, cleaner slip). Its shadow
 // is the button's drop-shadow, which follows the torn edge.
-const Slip = ({ part, active, onChoose, index, isNew }) => {
-  const paper = SLIP_PAPER[part.id];
+const Slip = ({ part, active, onChoose, index, isNew, count = 0 }) => {
+  const paper = slipPaper(part, index);
   return (
     <button
       type="button"
@@ -89,19 +115,26 @@ const Slip = ({ part, active, onChoose, index, isNew }) => {
         <span className={`relative pen-underline font-serif uppercase tracking-[0.12em] text-base leading-tight ${active ? 'is-inked font-bold' : 'font-semibold'}`}>
           {part.label}
         </span>
-        {isNew && <span className="relative ml-auto"><NewDot /></span>}
+        {count > 0 ? <span className="relative ml-auto"><CountBadge count={count} /></span>
+          : isNew && <span className="relative ml-auto"><NewDot /></span>}
       </span>
     </button>
   );
 };
 
-export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
+// parts: the drawer's slips (the player's by default; GM_DESK_PARTS on the Lightkeeper's
+// desk). counts: a number to show on a slip and on Menu ({ requests: 2 }). tone: the band
+// the die and Menu lie on, the player's paper or the Lightkeeper's night bar. accountExtra:
+// more on the account card (the Lightkeeper's Retire).
+export const PhoneDeskNav = ({ current, onChoose, onHub, parts = DESK_PARTS, counts = {}, tone = 'paper', accountExtra = null }) => {
   // closed, open, or closing (sliding back in before it leaves the page)
   const [phase, setPhase] = useState('closed');
   const open = phase === 'open';
   // Parts with a change from the Lightkeeper the player has not looked at (a "new" dot)
   const unseen = useGameStore((s) => s.unseen);
-  const anyNew = ['dispatch', 'watch', 'circle'].some((k) => unseen[k]);
+  const waiting = Object.values(counts).reduce((n, c) => n + (c || 0), 0);
+  const anyNew = waiting > 0 || (parts === DESK_PARTS && ['dispatch', 'watch', 'circle'].some((k) => unseen[k]));
+  const night = tone === 'night';
   // A Burn and reroll or a gilded die waits on the player after the roll bar has faded
   const choiceWaiting = useGameStore(postRollChoiceWaiting);
 
@@ -150,7 +183,9 @@ export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
         aria-pressed={onDice}
         aria-label={choiceWaiting && !onDice ? 'Dice and log, a choice is waiting' : 'Dice and log'}
         className={`relative w-11 h-11 inline-flex items-center justify-center rounded border transition-colors ${
-          onDice ? 'bg-ink border-ink' : 'bg-transparent border-ink/25 [@media(hover:hover)]:hover:bg-black/5'}`}
+          onDice ? (night ? 'bg-parchment border-parchment' : 'bg-ink border-ink')
+          : night ? 'bg-transparent border-moonlight-steel/50 [@media(hover:hover)]:hover:bg-gm-night/60'
+          : 'bg-transparent border-ink/25 [@media(hover:hover)]:hover:bg-black/5'}`}
       >
         <span aria-hidden="true" className={`w-7 h-7 p-px rounded ${DIE_BODY.regular} shadow-[1px_2px_3px_rgba(0,0,0,0.35)] -rotate-6`}>
           <DieFace value={5} />
@@ -162,11 +197,15 @@ export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
         onClick={() => setPhase('open')}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="h-11 inline-flex items-center gap-1.5 pl-2 pr-2.5 rounded border border-ink/25 text-sepia font-sans text-xs font-black uppercase tracking-widest [@media(hover:hover)]:hover:bg-black/5 [@media(hover:hover)]:hover:text-ink transition-colors"
+        aria-label={waiting > 0 ? `Menu, ${waiting} waiting` : undefined}
+        className={`h-11 inline-flex items-center gap-1.5 pl-2 pr-2.5 rounded border font-sans text-xs font-black uppercase tracking-widest transition-colors ${night
+          ? 'border-moonlight-steel/50 text-moonlight-steel [@media(hover:hover)]:hover:bg-gm-night/60 [@media(hover:hover)]:hover:text-cream'
+          : 'border-ink/25 text-sepia [@media(hover:hover)]:hover:bg-black/5 [@media(hover:hover)]:hover:text-ink'}`}
       >
         <DrawerPull />
         Menu
-        {anyNew && <span className="-ml-0.5"><NewDot /></span>}
+        {waiting > 0 ? <CountBadge count={waiting} className="-ml-0.5" />
+          : anyNew && <span className="-ml-0.5"><NewDot /></span>}
       </button>
 
       {phase !== 'closed' && createPortal(
@@ -180,7 +219,7 @@ export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
             className="desk-drawer fixed top-0 right-0 bottom-0 z-[81] w-[min(20rem,86vw)] flex flex-col overflow-y-auto overscroll-contain bg-night bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] border-l-[6px] border-mahogany shadow-[-14px_0_34px_rgba(0,0,0,0.8)] pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] px-4"
           >
             <div className="flex items-center justify-between gap-3">
-              <AccountMenu tone="desk" className="min-h-[44px]" />
+              <AccountMenu tone="desk" className="min-h-[44px]" extra={accountExtra} />
               <button
                 type="button"
                 onClick={close}
@@ -192,8 +231,9 @@ export const PhoneDeskNav = ({ current, onChoose, onHub }) => {
             </div>
 
             <nav aria-label="Desk" className="mt-5 flex flex-col gap-2.5 px-1">
-              {DESK_PARTS.map((part, i) => (
-                <Slip key={part.id} part={part} index={i} active={current === part.id} onChoose={choose} isNew={!!unseen[part.id]} />
+              {parts.map((part, i) => (
+                <Slip key={part.id} part={part} index={i} active={current === part.id} onChoose={choose}
+                  isNew={parts === DESK_PARTS && !!unseen[part.id]} count={counts[part.id] || 0} />
               ))}
             </nav>
 
