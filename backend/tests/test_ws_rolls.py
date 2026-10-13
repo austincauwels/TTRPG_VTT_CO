@@ -303,8 +303,11 @@ def test_a_roll_sent_again_with_its_id_is_answered_not_rolled_again(client, dice
         assert support.types(msgs) == ["roll_result", "activity_history", "roll_result"]
         assert msgs[0] == {"type": "roll_result", "payload": {**first, "replayed": True}}
         assert msgs[2] == {"type": "roll_result", "payload": first}
-        # The Lightkeeper's desk gets the sheet it mirrors, and no dice or log line
-        assert support.types(gm.drain()) == ["activity_history", "member_update"]
+        # The Lightkeeper's desk gets the sheet it mirrors, and no new dice or log line: the
+        # first roll comes back to her felt as it opens, replayed (#40), not thrown again
+        to_gm = gm.drain()
+        assert support.types(to_gm) == ["dice_thrown", "activity_history", "member_update"]
+        assert to_gm[0]["payload"]["replayed"] is True and to_gm[0]["payload"]["roll"] == first["roll"]
         # A new roll
         dice(1, 1, 4)
         again.send("roll", action="move", drive_spent=1, roll_id="r-2")
@@ -1224,6 +1227,40 @@ def test_a_roll_is_the_one_shown_again_before_its_result_goes_out(client, dice, 
         ws.send("burn_resistance", action="move")
         ws.sync()
     assert seen == [_d(2), _d(5)]
+
+
+def test_the_lightkeepers_desk_that_opens_again_is_shown_the_newest_roll_on_her_felt(client, dice):
+    """Fixed (#40): the Lightkeeper's felt came back empty after a reload. Her desk that
+    opens is sent the newest roll on it, marked replayed (no dice): her own roll as
+    roll_result, or a player's roll as the dice_thrown that put it there, with its
+    outcome as it is now. A player's secret roll never takes her felt, and a player's
+    desk is sent no one else's roll."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, sneak=1, cunning_max=6, cunning_current=6, role_ability="Flourish")
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        dice(4)
+        gm.send("roll", action="Lightkeeper", drive_spent=1, roll_id="g-1")
+        own = support.of_type(gm.sync(), "roll_result")[0]["payload"]
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        msgs = gm.sync()
+        assert support.of_type(msgs, "roll_result") == [{"type": "roll_result", "payload": {**own, "replayed": True}}]
+        assert support.of_type(msgs, "dice_thrown") == []
+    with support.ws_connect(client, ch["id"]) as ws:
+        dice(2)
+        ws.send("roll", action="sneak", drive_spent=0)
+        ws.send("use_post_roll_ability", ability="Flourish")
+        ws.sync()
+        dice(3)
+        ws.send("roll", action="sneak", drive_spent=0, is_secret=True)
+        ws.sync()
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        msgs = gm.sync()
+        assert support.of_type(msgs, "roll_result") == []
+        [thrown] = support.of_type(msgs, "dice_thrown")
+        assert thrown["payload"]["replayed"] is True and thrown["payload"]["character_id"] == ch["id"]
+        assert (thrown["payload"]["roll"]["dice"], thrown["payload"]["roll"]["outcome"]) == (_d(2), "mixed_success")
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert support.of_type(ws.sync(), "dice_thrown") == []
 
 
 def test_a_burn_answers_only_the_newest_roll(client, dice):

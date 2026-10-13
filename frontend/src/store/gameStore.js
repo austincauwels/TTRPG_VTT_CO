@@ -945,7 +945,17 @@ const useGameStore = create(
             const own = p.character_id == null
               ? st.accessSession?.role === 'GM'
               : p.character_id === st.character?.id;
-            if (!own) {
+            if (!own && p.replayed) {
+              // The newest roll on the Lightkeeper's felt, sent again as her desk opens
+              // (#40): it has landed already, so it plays no dice and settles nothing. The
+              // same roll already on the felt only takes its outcome, so it stays still.
+              if (!Array.isArray(p.roll?.dice)) return;
+              const shown = st.tableRoll;
+              set({ tableRoll: shown?.character_id === p.character_id && sameRoll(shown.roll, p.roll)
+                ? { ...shown, kept: p.kept, roll: { ...shown.roll, outcome: p.roll.outcome } }
+                : { ...p, roll: { ...p.roll, replayed: true } } });
+            }
+            else if (!own) {
               playDiceTumble();
               if (Array.isArray(p.roll?.dice)) set({ tableRoll: p });
               // They settle this desk's own roll once its result is known: a gilded roll

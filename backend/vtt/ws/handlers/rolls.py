@@ -130,6 +130,18 @@ async def send_held_roll(websocket, character):
         await websocket.send_json({"type": "roll_result", "payload": payload})
 
 
+async def send_felt_roll(websocket, campaign_id):
+    """The Lightkeeper's desk opening again (a reload, another device) is sent the newest
+    roll on her felt, marked replayed (it plays no dice): her own as roll_result, or a
+    player's as the dice_thrown that put it there, with its outcome as it is now. Her felt
+    used to come back empty (#40)."""
+    felt = _felt_roll.get(campaign_id)
+    if felt is not None:
+        kind, payload = felt
+        await websocket.send_json({"type": "roll_result" if kind == "own" else "dice_thrown",
+                                   "payload": {**payload, "replayed": True}})
+
+
 async def _refuse(ctx, action, status, detail):
     """An action_rejected frame to the sender's own channel, as vtt.ws.access sends."""
     await manager.broadcast(ctx.channel, {"type": "action_rejected", "payload": {
@@ -190,19 +202,21 @@ async def _dice_thrown(ctx, character, action, roll, rating, kept=None, settles=
     if settles:
         settle_rolls(ctx.camp_id, keep=character.id if character is not None else None)
     extra = {} if settles else {"settles": False}
+    payload = {**extra,
+        "character_id": character.id if character is not None else None,
+        "campaign_id": ctx.camp_id,
+        "name": character.name if character is not None else "Lightkeeper",
+        "ink_color": (getattr(character, "ink_color", "") or "") if character is not None else "",
+        "action": action,
+        "rating": rating,
+        "roll": roll,
+        "kept": kept,
+    }
+    # A player's roll is now the newest on the Lightkeeper's felt (her own is: handle_roll)
+    if character is not None and ctx.camp_id is not None:
+        _felt_roll[ctx.camp_id] = ("table", payload)
     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
-        "type": "dice_thrown",
-        "payload": {**extra,
-            "character_id": character.id if character is not None else None,
-            "campaign_id": ctx.camp_id,
-            "name": character.name if character is not None else "Lightkeeper",
-            "ink_color": (getattr(character, "ink_color", "") or "") if character is not None else "",
-            "action": action,
-            "rating": rating,
-            "roll": roll,
-            "kept": kept,
-        },
-    }, ctx.db, exclude=ctx.channel)
+        "type": "dice_thrown", "payload": payload}, ctx.db, exclude=ctx.channel)
 
 
 async def _log_roll(ctx, character, message, secret=False, log_type="roll"):
@@ -326,6 +340,10 @@ _settled_roll: set = set()
 # from its gilded choice, as roll_kept told it)}. Set as a roll or a reroll is sent. In
 # memory only: after a restart the tray starts empty, as nothing can be burned then.
 _shown_roll: dict = {}
+# The newest roll on each campaign's Lightkeeper felt, for her desk opening again
+# (send_felt_roll): ("own", her roll_result payload) for her own roll, secret or not, or
+# ("table", the dice_thrown payload) for a player's roll the table saw. In memory only.
+_felt_roll: dict = {}
 
 
 async def _outcome_changed(ctx, character, last, ability):
@@ -339,6 +357,10 @@ async def _outcome_changed(ctx, character, last, ability):
             shown["kept"] = {**shown["kept"], "outcome": last["outcome"]}
         else:
             shown["roll"] = {**shown["roll"], "outcome": last["outcome"]}
+    felt = _felt_roll.get(ctx.camp_id)
+    if felt is not None and felt[0] == "table" and not last.get("secret") \
+            and felt[1]["character_id"] == character.id and felt[1]["action"] == last["action"]:
+        _felt_roll[ctx.camp_id] = ("table", {**felt[1], "roll": {**felt[1]["roll"], "outcome": last["outcome"]}})
     message = {"type": "roll_outcome", "payload": {
         "character_id": character.id, "action": last["action"], "outcome": last["outcome"], "by": ability}}
     if last.get("secret"):
@@ -548,6 +570,9 @@ async def handle_roll(ctx):
             # socket meanwhile is answered from it
             reply["roll_id"] = roll_id
             _roll_replies[channel] = {"roll_id": roll_id, "payload": reply}
+        if character is None and camp_id is not None:
+            # The Lightkeeper's own roll is now the newest on her felt (send_felt_roll)
+            _felt_roll[camp_id] = ("own", reply)
         await manager.broadcast(channel, {"type": "roll_result", "payload": reply})
         if character and stamina_circle is not None:
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(stamina_circle)}, db)
