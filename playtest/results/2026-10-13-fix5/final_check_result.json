@@ -1,0 +1,716 @@
+{
+ "sweep": {
+  "fixed": [
+   {
+    "issue": "frontend/src/components/shared/NotebookView.jsx: armed 'Yes, delete' (private note and shared entry) and aria-labels 'Yes, delete this private note' / 'Yes, delete <title>'",
+    "what": "Armed button reads 'Delete'. The aria-labels are now 'Delete this private note' and 'Delete <title>' in both states. The hints were already one short sentence, so they are unchanged.",
+    "checked": "vite build"
+   },
+   {
+    "issue": "frontend/src/components/gm/GMCharacterSheet.jsx and gm/PlayerRosterCard.jsx: 'Press again to reject X. They go back to the player, out of the campaign.' / 'Yes, reject'",
+    "what": "Now 'Press again to reject X.' and the button reads 'Reject'.",
+    "checked": "Chromium at 1366x768 and 820x1180, on the join request pop-up: the status reads 'Press again to reject Cass Reed.' and no 'Yes,' button appears"
+   },
+   {
+    "issue": "frontend/src/components/gm/GMCharacterSheet.jsx: 'Press again to refill drive and resistance and clear ability uses for X.' / 'Yes, reset'",
+    "what": "Now 'Press again to refill X's drives and clear ability uses.' and the button reads 'Reset'.",
+    "checked": "vite build"
+   },
+   {
+    "issue": "frontend/src/components/gm/desk/FinalizeRosterSlip.jsx: 'Press again to finalize with N investigators. Every player's formation papers close, and this cannot be undone.' + 'Nothing is chosen yet for A, so the circle is sealed without it.' + 'The N requests still waiting to join are turned away.' + the repeated waiting-relationships line / 'Yes, finalize the circle'",
+    "what": "The armed line is now 'Press again to finalize the circle with N investigators; this cannot be undone.', then 'Nothing is chosen yet for A.' and 'N waiting requests are turned away.' The waiting-relationships line no longer repeats in the armed line. The idle line now reads 'N relationships still waiting; they can be accepted after the seal.' The button reads 'Finalize'.",
+    "checked": "Chromium at 1366x768 and 820x1180: the armed slip reads FINALIZE and the status text matches. Screenshot reviewed."
+   },
+   {
+    "issue": "frontend/src/components/gm/desk/GMDeskHeader.jsx: 'Press again to retire X. Every investigator leaves it and no one can join. Nothing is deleted.' / 'Yes, retire campaign'",
+    "what": "Now 'Press again to retire X and free its investigators.' and the button reads 'Retire'.",
+    "checked": "Chromium at 1366x768 and 820x1180, on the account card: the status text matches and the button reads Retire"
+   },
+   {
+    "issue": "frontend/src/components/gm/SceneManager.jsx: 'Press again to end it: the dispatch clears. Ability uses and the hourglass are reset; everyone's gear is cleared... The reports are closed and cleared.' / unadded warning '...will be lost: add it on the Circle page first.' / 'Yes, end it'",
+    "what": "The line is now 'Press again to end the assignment.' ('...anyway.' when a tally is unadded). The rest sits behind a 'What ending does' i, using armedInfo with ArmedDetail. The unadded warning drops the instruction and keeps 'will be lost'. The 'Not filed:' line is kept, as decision 5 of round 4 requires. The button reads 'End'.",
+    "checked": "Chromium at 1366x768 and 820x1180: the status reads 'Press again to end the assignment.' Pressing the i opens the slip with the full text and the button stays armed. Screenshots reviewed."
+   },
+   {
+    "issue": "frontend/src/components/campaignSelector/RowDelete.jsx, PlayerRegistryPage.jsx, LightkeeperLedgerPage.jsx: 'Delete X?' / 'Delete campaign X? N investigators return to their players.' / 'Yes, delete' and aria 'Yes, delete X'",
+    "what": "The lines are now 'Press again to delete X.' and 'Press again to delete X and free its N investigators.' The button reads 'Delete' and the aria-label is 'Delete X' in both states.",
+    "checked": "Chromium at 1366x768, in the hub's registry: the status reads 'Press again to delete Dev Okafor.' and the button reads DELETE"
+   },
+   {
+    "issue": "frontend/src/components/CharacterCreator.jsx: 'Press again to clear every choice and start from the first card.' / 'Yes, start over'",
+    "what": "Now 'Press again to clear every choice.' and the button reads 'Start over'.",
+    "checked": "vite build"
+   },
+   {
+    "issue": "frontend/src/components/pc/InvestigatorDossier.jsx: 'Press again to remove this scar from X's record. With three scars, X is alive again, and incapacitated until revived.' / 'Yes, remove'",
+    "what": "Now 'Press again to remove this scar.' On the dead it reads 'Press again to remove this scar; X lives again, incapacitated.' The button reads 'Remove' and the aria-label is always 'Remove scar n'. A code comment is updated.",
+    "checked": "vite build"
+   },
+   {
+    "issue": "frontend/src/components/pc/CircleView.jsx: armed button 'Press again: spend 1 Refresh' and line 'Press again to spend it. It is spent for the whole circle.'",
+    "what": "The armed button reads 'Spend'. The line under it, and the status, read 'Press again to spend 1 <resource> for the circle.' The confirm still stays armed (decision 3 of round 4).",
+    "checked": "Chromium at 1366x768 on a circle sealed in SQL with spending open: arming shows SPEND and the line, the status text matches, Escape restores 'Spend 1 Refresh', and there are no page errors. Screenshot reviewed."
+   },
+   {
+    "issue": "DESIGN.md, FAQ.md, docs/refactor/DELETION.md, docs/refactor/QUIRKS.md quoting the old strings",
+    "what": "DESIGN.md Buttons gains a 'Two-press confirm' bullet with the Confirm Wording Rule (issue #66.6), including armedInfo and sublines. The spend and Finalize quotes in DESIGN.md are updated. FAQ's Finalize waiting-relationships quote, DELETION.md's delete questions and QUIRKS' End Assignment lines (which now point to the confirm's i) are updated too.",
+    "checked": "grep shows no remaining old strings, and the diff adds no em dashes"
+   }
+  ],
+  "skipped": [
+   {
+    "issue": "frontend/src/components/shared/sketch/SketchPad.jsx: armed 'Discard and upload' on Upload a picture",
+    "why": "This step has no hint line, so these two words are the only place that says the drawing is discarded. A bare 'Discard' in the upload button's place would hide that the picture flow follows. Its Cancel step already reads 'Discard'."
+   },
+   {
+    "issue": "frontend/src/components/pc/InvestigatorDossier.jsx: Lightkeeper's trauma Edit subline 'Editing ... trauma record. Press a box to fill its track... To deal a mark, use Deal a mark.'",
+    "why": "This is a long subline, not a confirm, and it shows only while editing. Moving it behind an i is a subline-sweep change outside this confirm task. It is worth a follow-up under #62's spirit."
+   },
+   {
+    "issue": "frontend/src/components/pc/CircleView.jsx: the permanent paragraph under Circle Resources ('Each player may spend up to two each assignment, ... each refills to 3 (1 plus the circle's 2 members).')",
+    "why": "This is a subline, not a confirm. It was written by the circle group this round. It is a candidate for the i in a subline sweep."
+   },
+   {
+    "issue": "Account email pages (ConfirmEmailPage 'Confirm new email', UndoEmailChangePage 'Undo the change' with its note about signing out everywhere)",
+    "why": "These are full-page answers to a mailed link, not two-press confirms. The note is information needed before an act that cannot be taken back."
+   },
+   {
+    "issue": "SceneManager receipt 'Assignment ended at HH:MM. <ENDS>'",
+    "why": "This is a receipt shown after the act, not a confirm, and QUIRKS records it on purpose."
+   },
+   {
+    "issue": "Finalize armed line still runs to three short sentences when parts are empty and requests wait",
+    "why": "The parts left empty and the requests turned away are facts that matter before an act that cannot be undone. Each is now a few words."
+   }
+  ],
+  "commits": [
+   "a38ee60 Apply the confirm wording rule across the app"
+  ],
+  "tests": "The vite build into /tmp/build_main5 passes. That build is the final state of HEAD a38ee60: the commit was only amended to update its message, and no files changed after the build. backend tests/test_creation.py passes (7) on a throwaway database; it is the only backend test that reads the changed .jsx files, and no backend test pins these strings. Chromium checks ran on a fresh table at 1366x768 and 820x1180, with backend 8051 and site 4051 on database bc_sweep_8051. They passed for Finalize, End Assignment (its i opens and the confirm stays armed), Reject, Retire, the player's Refresh spend (on a circle sealed in SQL, laptop only) and a hub row Delete (laptop only), with no page errors. The Finalize check reported FAIL only because its regex did not allow for the CSS upper case (FINALIZE); the status text matched. The phone run timed out on the Lightkeeper desk because End Assignment sits on the drawer's Dispatch page there. Scripts and screenshots are in /tmp/claude-0/sc/ (out_8051/). Both servers were stopped by PID; bc_sweep_8051 was kept and bc_sweep_tests was dropped. Nothing was pushed."
+ },
+ "checks": [
+  {
+   "summary": "Final review of 770a2ed..HEAD (27 commits: the four merged groups plus the confirm-wording sweep). I found nothing blocking. Every decision in decisions.md is built in the merged code, and I found no earlier binding decision removed or weakened: fix4's release and leave at any time, the spend confirm that stays armed, the Not filed line, the dropped tally with its warning, the dead sheet as a record, Lightkeeper-only usernames, and issue #16's list.\n\nEvery claim in the four groups' reports is in the code, including all repair fixes: the SheetEditor three-way merge, table-wide edit lines, the dot cleared on approve and rejoin, the onPhone wrappers on the Circle and Requests pages, the storage listener, cap_earn_backs at every write, EarnBackAsk under Add Illumination, the Keys wording and the Meticulous Notes test.\n\nThe seams between the groups hold:\n- access.py, HANDLERS and GM_ONLY/GM_MAY_TARGET merged cleanly. test_surface lists 41 types in WS_CASES order.\n- The insignia check runs in the access layer, before update_circle's locked re-read, and its log line comes from table_lines.\n- edit_sheet does not touch circle resources or earn_backs. A released member's edit goes to their own log only, with no dot (_edit_counts). lower_resources_to_pool caps earn-backs on release.\n- The Account card keeps the Edit account link and its extra slot. Retire is reachable at every size: the md-xl header, the xl band and the phone drawer.\n- DESIGN.md's Account paragraph carries both groups' sentences. WEBSOCKET.md's \"35 types\" count is still correct, because no server-to-client type was added.\n- No docs or tests quote the old confirm strings.\n\nChecks I ran myself:\n- Targeted backend run on a throwaway database (since dropped) over test_00_startup, test_surface, test_ws_sheet_edits, test_ws_circle, test_ws_character, test_circle_rest, test_campaigns, test_access and test_creation: 788 passed, 1 failed. The failure was test_cors_allows_configured_origin_only, and it is environment only: I did not set CORS_ORIGINS, which the harness normally sets.\n- vite build passes.\n- No em dashes in added lines or commit messages, and no AI model names in files.\n- The openapi snapshot and test_00_startup pin the two new columns. QUIRKS-pinned tests were flipped with docstrings, not deleted.\n\nIssues found:\n- **Should, edit_sheet crash:** a non-text role or specialty raises TypeError inside the access check, and that ends the sender's own socket.\n- **Should, wording sweep:** the sweep missed SketchPad's two two-press confirms.\n- **Should, fourth scar:** refusing a fourth scar in Edit sheet is the one place the app blocks a player's edit, against decision 1's \"Nothing ... is blocked\". It is defensible under issue #16 and fix4, but Robert should be told in the PR, and #16's list needs updating.\n- Everything else is a nit: things to tell Robert, doc gaps (ROUTES.md, STRUCTURE.md, DESIGN.md, the WEBSOCKET.md activity_log row), two slightly inexact confirm lines, and small client-side data-loss edges.\n\nHow the three group choices fit decisions.md:\n- **Edit lines to the whole table:** a superset of \"the Lightkeeper's log\". It keeps the old table-wide reach of pip and gear lines, so it fits, but tell Robert.\n- **Fourth scar refused:** the one deviation from decision 1, justified by #16 and fix4. Robert needs to be told.\n- **Account card kept with Edit account and Sign out (and Retire for the Lightkeeper):** satisfies decision 9's \"or the menu gets real choices\". Only the label changed, so tell Robert.",
+   "items": [
+    {
+     "item": "#64 / decision 1: edit the whole sheet, logged change, roster dot, gear editable",
+     "control": "n/a (code review; groups checked 770a2ed in Chromium)",
+     "fixed": "Present. edit_sheet (vtt/sheet_edits.py, handlers/character.py handle_edit_sheet, access _edit_sheet) stores name, pronouns, role and specialty, abilities, ratings and gilds, drive max, amount and resistance, marks, and up to 3 scars. It checks shape only. A lowered max brings the amount down. A dead sheet gets 409. record_edit sends one from-to line through broadcast_campaign for an active member, or to the player's own key otherwise. characters.sheet_edited is set by edit_sheet, a player's update_drive and update_gear. gm_sheet_seen (GM only, GM_MAY_TARGET) clears it and is sent by GMCharacterSheet on open, on a live edit and on resync. The dot sits on InvestigatorBusinessCard. Gear is unlocked: the GEAR_STAYS, slot and One Step Ahead refusals are gone, and the dialog warns softly. SheetEditor diffs against the base sheet (three-way merge), so changes made at the table are not written back. The dot is cleared on approve and rejoin. The Lightkeeper's own corrections put no dot. 788 targeted tests pass. Exception: a fourth scar is refused (see issues).",
+     "verdict": "fixed",
+     "shots": []
+    },
+    {
+     "item": "#66.3 / decision 2: one navigation for both desks",
+     "control": "n/a",
+     "fixed": "Present. GMDeskHeader follows the investigator layout: below xl the title header, then the bar with tabs Roster, Circle, Notebook, Map and Requests (with a count); from xl one slim band; below md a sticky band with the die and Menu, using PhoneDeskNav with GM_DESK_PARTS. GMSidebar is deleted. OperationsPanel shows one part at a time on phones (showPart, back via the die), and the onPhone wrappers now cover the Circle and Requests pages. Retire is on the Account card at every size. The player desk keeps its defaults (DESK_PARTS, the 66px dispatch slip).",
+     "verdict": "fixed",
+     "shots": []
+    },
+    {
+     "item": "#66.1 / decision 6: join requests as a pop-up plus a tab",
+     "control": "n/a",
+     "fixed": "Present. CorrespondenceStack and Invite player moved off the roster to the Requests page (tab from md; 'Join requests' slip on phones). Counts show on the tab, the slip and Menu. JoinRequestPopup (z-75, does not take focus, sr-only status line, Approve, View sheet, Reject, All requests, Later) shows each request once per browser, using localStorage with a storage listener. FinalizeRosterSlip still says waiting requests are turned away.",
+     "verdict": "fixed",
+     "shots": []
+    },
+    {
+     "item": "#66.2 Dispatch button fits",
+     "control": "n/a",
+     "fixed": "Present. SceneManager's stamp row is flex-wrap, Dispatch has ml-auto, and the letter uses lg:p-5. The desk group measured it in Chromium at 13 sizes. The CSS is in the merged file.",
+     "verdict": "fixed",
+     "shots": []
+    },
+    {
+     "item": "#66.7 / decision 7: insignia changed by clicking",
+     "control": "n/a",
+     "fixed": "Present. InsigniaStamp on CirclePage: after the seal it is a button that opens a chooser of the 8 insignia, sends update_circle {insignia} at once, and offers Undo for 8 s. The server checks the value against INSIGNIA_LABELS (422) and logs 'The Lightkeeper changed the circle's insignia to X.' through table_lines. The check runs before update_circle's locked refresh, so the two groups' changes do not clash. Clickable only after the seal (the vote decides it before).",
+     "verdict": "fixed",
+     "shots": []
+    },
+    {
+     "item": "#66.4 / decision 3: resources start and refill at 1 + members, no Refill button, one-press earn-back, logged adjust",
+     "control": "n/a",
+     "fixed": "Present. get_or_create_campaign_circle calls fill_resources, so a new circle starts at 1 + members (test_a_new_circle_starts_at_one_plus_its_members). The Refill button and its store action are gone; the server handler stays for older clients and is documented. circles.earn_backs is counted by _count_earn_backs in update_circle, gm_add_tally and End Assignment's Meticulous Notes, and capped by cap_earn_backs after every change to resources, pool or earn-backs (release included). gm_earn_back applies one under a row lock, with 409 when nothing waits or the resource is full. EarnBackAsk sits under Add Illumination and on the ledger, with a busy guard. The squares stay as the logged adjust control. fill_resources (the advance) clears waiting earn-backs.",
+     "verdict": "fixed",
+     "shots": []
+    },
+    {
+     "item": "#66.5 / decision 8: Keys line and the Illumination questions explained",
+     "control": "n/a",
+     "fixed": "Present. The Keys line now reads 'Illumination Keys (i) on the reports: N of M fulfilled one (some, not all)' with +0, +2 or +4. KEYS_RULE (what a key is, with the Criminal's keys as an example, and p. 55) is behind the 'i'. A visible sentence reads 'Answered together at the end of an assignment: each yes adds 1 Illumination.' The old always-visible rule line is gone.",
+     "verdict": "fixed",
+     "shots": []
+    },
+    {
+     "item": "#66.6 / decision 4: circle ability confirm and the app-wide confirm wording sweep",
+     "control": "n/a",
+     "fixed": "The circle ability confirm reads 'Press again to remove all circle abilities.' with a Remove button. The a38ee60 sweep removes every 'Yes, X' button (grep finds none) and shortens the armed lines for Reject, Reset, Finalize, Retire, End (detail behind a 'What ending does' i), the hub deletes, the creator, the scar and Spend. DESIGN.md has the Confirm Wording Rule, and DESIGN, FAQ, DELETION and QUIRKS quote the new strings. Missed: SketchPad's two two-press confirms ('Discard', 'Discard and upload', with no armed sentence).",
+     "verdict": "partly",
+     "shots": []
+    },
+    {
+     "item": "#63 / decision 5: free-text question abilities",
+     "control": "n/a",
+     "fixed": "Present. Scout, Uncanny Eye and Tactician have a 'Question to ask' box (200 characters, QUESTION_MAX shared with the server and checked in test_creation). The book's questions show as tap-to-fill examples while the box is empty. The server cleans the text to one line and refuses blank, non-text or over-length questions with 422, spending nothing. option is still accepted from older desks. The log names the question as written. Ritual and Last Moments keep their effect selects.",
+     "verdict": "fixed",
+     "shots": []
+    },
+    {
+     "item": "#62 shorter leave subline",
+     "control": "n/a",
+     "fixed": "Present. Leave on the desk and the hub, and Release on the Lightkeeper's sheet, now read 'Press again to leave X.' and 'Press again to release X.' with Leave and Release buttons. The fix4 decision 1 details sit behind the 'What leaving does' and 'What release does' i, through ConfirmAction's armedInfo, so the confirm stays armed.",
+     "verdict": "fixed",
+     "shots": []
+    },
+    {
+     "item": "#65 / decision 9: Account menu",
+     "control": "n/a",
+     "fixed": "Present. AccountMenu's link now reads 'Edit account'. The card keeps Sign out, and Retire on the Lightkeeper's desk at every size, so it is a menu with real choices. DESIGN.md and AUTH.md are updated.",
+     "verdict": "fixed",
+     "shots": []
+    },
+    {
+     "item": "Seams between the groups (access.py, HANDLERS, imports, test_surface, test_00_startup, WEBSOCKET.md, DESIGN.md)",
+     "control": "n/a",
+     "fixed": "Hold. GM_ONLY, GM_MAY_TARGET and RULES contain both groups' types. test_surface lists 41 types in WS_CASES order and its access table includes _gm_earn_back and _gm_update_circle_fields. test_00_startup covers both new columns and the upgrade. character.py imports both cap_earn_backs and sheet_edits. WEBSOCKET.md rows for edit_sheet, gm_sheet_seen, gm_earn_back, update_circle insignia, member_update (gm_sheet_seen) and circle_update (gm_earn_back) are present. DESIGN.md's Account paragraph has Edit account plus Retire 'at every size'.",
+     "verdict": "fixed",
+     "shots": []
+    }
+   ],
+   "issues": [
+    {
+     "level": "should",
+     "item": "#64 edit_sheet protocol robustness",
+     "where": "backend/vtt/sheet_edits.py:69-76 (edit_problem: `role not in ROLES`, `specialty not in allowed`)",
+     "problem": "A non-text role or specialty (for example {changes:{role:[\"Face\"]}} or {specialty:{}}) raises TypeError ('unhashable type') inside access._edit_sheet. check_message only catches Rejected, so the exception escapes to the endpoint's outer handler and ends the sender's socket. I confirmed it by calling edit_problem directly. The codebase already treated this class of bug as a defect and fixed it for use_ability's option.",
+     "fix": "In edit_problem, refuse a non-str role or specialty with 422 before the membership tests (for example `if \"role\" in changes and (not isinstance(role, str) or role not in ROLES)`, and the same for specialty). Add both payloads to test_an_edit_the_sheet_cannot_hold_is_refused_whole."
+    },
+    {
+     "level": "should",
+     "item": "#66.6 / decision 4 app-wide sweep",
+     "where": "frontend/src/components/shared/sketch/SketchPad.jsx:290-298 and 377-385",
+     "problem": "The notebook sketch's two two-press confirms (Cancel arms to 'Discard', 'Upload a picture' arms to 'Discard and upload') have no armed sentence saying what will happen. 'Discard and upload' is two verbs. Decision 4 says the rule applies across the whole app, not only the desk, and the a38ee60 sweep did not touch SketchPad.",
+     "fix": "Give each one a short armed line (for example 'Press again to discard this drawing.') and a one-verb armed button ('Discard'), or move both to ConfirmAction. Check in the browser that the toolbar still fits a 360px phone."
+    },
+    {
+     "level": "should",
+     "item": "Group choice: a fourth scar is still refused in Edit sheet",
+     "where": "backend/vtt/sheet_edits.py:127-128; frontend/src/components/pc/SheetEditor.jsx (Add a scar hidden at 3)",
+     "problem": "Decision 1 says nothing the player edits on their own sheet is blocked. This is the one place the editor refuses (422 'A fourth scar is taken through the scar form.'). It fits issue #16 (scars from the story come through the scar form) and fix4 (a dead sheet is a record), because a fourth scar is a death. But it is a deviation Robert did not ask for. Separately, issue #16's line about scars coming through four marks and the scar form no longer covers the player, who can now add up to three scars directly.",
+     "fix": "No code change needed. In the PR description, tell Robert that a fourth scar (a death) still goes through the scar form and is the only edit refused. Update issue #16's list to say the player's Edit sheet can now write in up to three scars."
+    },
+    {
+     "level": "nit",
+     "item": "Group choice: sheet edit lines go to the whole table",
+     "where": "backend/vtt/ws/handlers/character.py record_edit",
+     "problem": "Decision 1 says 'one line to the Lightkeeper's log'. The repair sends edit_sheet, pip and gear lines to every active member, keeping the reach pip and gear lines already had. That covers the decision, but other players will now see, for example, catalyst or question text changes (clipped to 40 characters).",
+     "fix": "Say so in the PR so Robert can narrow it to the Lightkeeper if he wants. No change needed otherwise."
+    },
+    {
+     "level": "nit",
+     "item": "Group choice: Account card kept as a menu",
+     "where": "frontend/src/components/shared/AccountMenu.jsx:166",
+     "problem": "#65 is solved by relabeling the self-named link 'Edit account'. Sign out was already on the card (and Retire on the Lightkeeper's). This satisfies decision 9's second option, but Robert may see the card as almost unchanged.",
+     "fix": "Say in the PR that the card now holds Edit account, Sign out and (on the Lightkeeper's desk) Retire."
+    },
+    {
+     "level": "nit",
+     "item": "#66.7 insignia before the seal",
+     "where": "frontend/src/components/gm/desk/InsigniaStamp.jsx:19; backend/vtt/ws/access.py _gm_update_circle_fields",
+     "problem": "The stamp is clickable only after the seal, because before it the players' vote decides the insignia. Robert may expect to click it any time. The server also accepts an insignia before the seal, which the seal's tally then overwrites.",
+     "fix": "Mention it in the PR. Optionally refuse insignia with 409 while the circle is not finalized."
+    },
+    {
+     "level": "nit",
+     "item": "#64 draft lost on a refused save",
+     "where": "frontend/src/components/pc/SheetEditor.jsx save()",
+     "problem": "The dialog closes as soon as the frame is sent. If the server answers 422, the error shows under the Edit sheet button, but every change in the draft is gone. The gear dialog takes its list when it opens, so an End Assignment that clears gear while it is open is written back on Save and logged as the player's edit.",
+     "fix": "Optionally keep the dialog open until character_update or action_rejected arrives. In the gear dialog, send only the added and removed items against the list as it was when the dialog opened."
+    },
+    {
+     "level": "nit",
+     "item": "Docs consistency",
+     "where": "docs/refactor/ROUTES.md:163; docs/refactor/STRUCTURE.md character.py row; DESIGN.md; docs/refactor/WEBSOCKET.md activity_log row; backend/vtt/sheet_edits.py:11",
+     "problem": "ROUTES.md's Lightkeeper-only roster fields omit sheet_edited. STRUCTURE.md's handlers/character.py row omits edit_sheet and gm_sheet_seen. DESIGN.md has no entry for the Edit sheet dialog, the oxblood roster dot, the earn-back ask or the insignia chooser. WEBSOCKET.md's activity_log recipients do not mention edit lines going to the player's own key for a pending or unaffiliated character. The sheet_edits.py docstring still says the line is 'for the Lightkeeper' when it goes to the whole table.",
+     "fix": "Add those rows and sentences."
+    },
+    {
+     "level": "nit",
+     "item": "Confirm line accuracy after the sweep",
+     "where": "frontend/src/components/gm/GMCharacterSheet.jsx:355; frontend/src/components/gm/desk/GMDeskHeader.jsx:28",
+     "problem": "The Reset line now says 'refill X's drives and clear ability uses', but the reset also refills resistance. The Retire line says 'free its investigators', but the dead stay with the campaign (an earlier binding decision).",
+     "fix": "For example: 'Press again to refill X's drives and resistance and clear ability uses.' and 'Press again to retire X and free its living investigators.'"
+    },
+    {
+     "level": "nit",
+     "item": "#63 words-group nits left open (no repair ran)",
+     "where": "frontend/src/components/pc/InvestigatorDossier.jsx:127 and :113",
+     "problem": "Enter sends the use while an input method is still composing (an IME, as used for Japanese or Chinese), which can spend the drive on a half-written question. A refused use (not enough drive) clears the typed question.",
+     "fix": "Check !e.nativeEvent.isComposing before sending. Optionally clear the box only after the server confirms the use (abilityUsed)."
+    },
+    {
+     "level": "nit",
+     "item": "Earn-back counted twice around a milestone",
+     "where": "backend/vtt/ws/handlers/gm.py _count_earn_backs",
+     "problem": "After an earn-back is applied, lowering the track by one past the milestone and raising it again counts that milestone a second time. cap_earn_backs limits this to points actually missing. The circle repair skipped it as documented.",
+     "fix": "Accept it, or record the highest milestone already rewarded until the advance resets it."
+    }
+   ]
+  },
+  {
+   "summary": "#64 is fixed on HEAD at phone (390x844), tablet (820x1180) and laptop (1366x768), checked on both the player's desk and the Lightkeeper's desk. Control (770a2ed): there is no Edit sheet button. In Change gear the owned items are disabled and the other items are aria-disabled at 3/3 (\"All 3 gear slots are marked until the assignment ends.\"). The server refuses a player's unmark with 409 \"Marked gear stays until the Lightkeeper ends the assignment.\". HEAD: a player in a sealed campaign opened Edit sheet and saved, in one save, a new name, Nerve maximum 4 to 5, Strike 0 to 1, Body marks 0 to 1, an added ability (Leverage) and an added scar. The client sent only those fields. The database matched. The Lightkeeper's socket, the Lightkeeper's visible log and the other player's socket each got exactly one line: \"Iris Vane-Hale: name Iris Vane to Iris Vane-Hale, abilities Leverage added, Strike 0 to 1, Nerve maximum 4 to 5, Body marks 0 to 1, scars A burn across the left palm added.\" Gear: Lantern (a starting item) came off and Hand Weapon and First Aid Kit went on, giving 4 for 3 slots. The dialog showed only a soft oxblood warning (\"4 items for 3 gear slots: more than you carry this assignment.\", \"4 / 3 selected\"), saved, and logged \"gear Lantern removed, Hand Weapon added, First Aid Kit added.\" A dot showed on that player's roster card (aria-label ending \", changed by the player\"). Opening the sheet sent gm_sheet_seen, cleared sheet_edited in the database, and the dot stayed gone after Back to roster. A player edit made while the Lightkeeper had the sheet open was cleared at once. A drive pip set by hand logged \"Cunning 4 to 3\" and put the dot back, and the dot survived a reload of the Lightkeeper's desk. A Lightkeeper correction logged \"The Lightkeeper set ...\", with no dot. After the edits, a roll with +1 Nerve spent Nerve (4 to 3) and logged; Scout with a free-text question spent 1 Intuition and logged. Neighbouring paths: a player reload kept every change. Role Slink to Face (specialty follows to Journalist) saved and logged, with a soft \"Not a Face ability.\" warning and no stop. Lowering a drive maximum below the amount brings the amount and resistance down and logs all three. Escape cancels with nothing saved. A rename reached the other player's circle card live. A dead investigator has no Edit sheet button and the server answers 409. Second tab: the stale tab's Save says \"Not connected\"; after Use this tab the editor followed the other tab's Strike change and sent only the player's own field, so nothing was overwritten. No page errors on any seat. Problems found are all minor: the editor's text fields and selects are 37px on touch screens; on a phone the stale-tab banner hides under the editor and the message says \"Try again in a moment\"; and the editor stops at three scars, which the group recorded as a deliberate call. The diff adds no em dashes. The roll log's raw message still has one (\"rolled strike \u2014 5 \u00b7 ...\"), but that comes from 770a2ed's rolls.py, the desks reword it when they show it, and it is outside this item. Servers stopped by PID; both databases dropped. Scripts are in /tmp/bc_sheet/js; raw outputs are /tmp/bc_sheet/out_head_*.json and /tmp/bc_sheet/out_x_*.json.",
+   "items": [
+    {
+     "item": "#64 (decision 1): player edits own sheet in a sealed campaign; Lightkeeper gets one from-to log line per save and a roster dot cleared by opening the sheet; gear changeable with soft warning; rolls and spends still work",
+     "control": "No Edit sheet button at any size. Change gear: Lantern, Advanced Lockpicks and Forged Documents are disabled (cannot be taken off). Every other item is aria-disabled with \"All 3 gear slots are marked until the assignment ends.\" and stays at 3 / 3 after clicks. Server: a player's update_gear removing Lantern gets action_rejected 409 \"Marked gear stays until the Lightkeeper ends the assignment.\" and the database keeps the 3 items. edit_sheet does not exist (no answer, nerve_max unchanged).",
+     "fixed": "At all three sizes: Edit sheet opens a dialog with focus on the dialog (no phone keyboard) and Save disabled until something changes. One save of name, Nerve max 4 to 5, Strike 0 to 1, Body 0 to 1, ability Leverage added and a scar added sent only those fields, closed the dialog and stored them. The Lightkeeper socket and log got exactly one line naming each change from what to what, the other player got it too, and the player's own log showed it. The roster card got an oxblood dot with aria-label \", changed by the player\" and a title (seen visually at phone, tablet scrolled and laptop). Gear: Lantern taken off, Hand Weapon and First Aid Kit added: 4 / 3 in oxblood with a soft warning, saved, logged \"gear Lantern removed, Hand Weapon added, First Aid Kit added.\". A written-in item (Silver Locket) and taking off one item also save and log. Strike roll with +1 Nerve: roll_result, Nerve 4 to 3, roll line logged. Scout with a typed question: Intuition 1 to 0, logged. The Lightkeeper opened the sheet: gm_sheet_seen sent, sheet_edited false, no dot after Back to roster. A player edit while the sheet is open is seen at once (dot stays off). A hand-set pip (Cunning 4 to 3) is logged and the dot returns, and it survives a reload. A Lightkeeper correction gives a Lightkeeper line and no dot. Player reload keeps the changes. Role/specialty change, gild, ability removal and lowering a drive maximum all save with soft warnings only. Rename reaches the other player's circle card live. A dead sheet hides the button and the server answers 409. Second-tab race: no overwrite, only the player's field sent. No page errors.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_sheet/shots/ctl_gear_phone_after_tries.png",
+      "/tmp/bc_sheet/shots/ctl_gear_tablet_after_tries.png",
+      "/tmp/bc_sheet/shots/ctl_gear_laptop_open.png",
+      "/tmp/bc_sheet/shots/head_phone_edit_open.png",
+      "/tmp/bc_sheet/shots/head_phone_edit_filled.png",
+      "/tmp/bc_sheet/shots/head_phone_edit_filled_bottom.png",
+      "/tmp/bc_sheet/shots/head_phone_lk_dot_after_edit.png",
+      "/tmp/bc_sheet/shots/head_phone_player_after_edit.png",
+      "/tmp/bc_sheet/shots/head_phone_gear_warn_top.png",
+      "/tmp/bc_sheet/shots/head_phone_gear_warn_bottom.png",
+      "/tmp/bc_sheet/shots/head_phone_player_after_gear.png",
+      "/tmp/bc_sheet/shots/head_phone_player_after_roll.png",
+      "/tmp/bc_sheet/shots/head_phone_lk_before_open.png",
+      "/tmp/bc_sheet/shots/head_phone_lk_sheet_open.png",
+      "/tmp/bc_sheet/shots/head_phone_lk_sheet_open_live_edit.png",
+      "/tmp/bc_sheet/shots/head_phone_lk_after_back.png",
+      "/tmp/bc_sheet/shots/head_phone_lk_dot_after_pip.png",
+      "/tmp/bc_sheet/shots/head_phone_lk_after_reload.png",
+      "/tmp/bc_sheet/shots/head_phone_player_after_reload.png",
+      "/tmp/bc_sheet/shots/head_tablet_edit_open.png",
+      "/tmp/bc_sheet/shots/head_tablet_edit_filled.png",
+      "/tmp/bc_sheet/shots/head_tablet_edit_filled_bottom.png",
+      "/tmp/bc_sheet/shots/head_tablet_lk_dot_after_edit.png",
+      "/tmp/bc_sheet/shots/head_tablet_player_after_edit.png",
+      "/tmp/bc_sheet/shots/head_tablet_gear_warn_top.png",
+      "/tmp/bc_sheet/shots/head_tablet_lk_sheet_open.png",
+      "/tmp/bc_sheet/shots/head_tablet_lk_dot_after_pip.png",
+      "/tmp/bc_sheet/shots/head_tablet_lk_dot_visible.png",
+      "/tmp/bc_sheet/shots/head_laptop_edit_filled.png",
+      "/tmp/bc_sheet/shots/head_laptop_lk_dot_after_edit.png",
+      "/tmp/bc_sheet/shots/head_laptop_gear_warn_top.png",
+      "/tmp/bc_sheet/shots/head_laptop_player_after_roll.png",
+      "/tmp/bc_sheet/shots/head_laptop_lk_sheet_open.png",
+      "/tmp/bc_sheet/shots/head_laptop_x_offbook_top.png",
+      "/tmp/bc_sheet/shots/head_laptop_x_gear_writein.png",
+      "/tmp/bc_sheet/shots/head_laptop_x_after_role_change.png",
+      "/tmp/bc_sheet/shots/head_laptop_x_race_tab1.png",
+      "/tmp/bc_sheet/shots/head_phone_x_stale_save.png",
+      "/tmp/bc_sheet/shots/head_phone_x_offbook_top.png",
+      "/tmp/bc_sheet/shots/head_phone_x_gear_writein.png",
+      "/tmp/bc_sheet/shots/head_tablet_x_offbook_mid.png",
+      "/tmp/bc_sheet/shots/head_phone_x_other_player_rename.png"
+     ]
+    }
+   ],
+   "issues": [
+    {
+     "level": "should",
+     "item": "#64",
+     "where": "frontend/src/components/pc/SheetEditor.jsx:76 (the field class used by every input, select and textarea in Edit sheet)",
+     "problem": "On touch screens the editor's text inputs and selects are 37px tall (measured 37x328 on the phone and 37x279 on the tablet, coarse pointer). The 44px touch-target rule in DESIGN.md requires 44px, as for the creator's fields. The steppers, Gilded labels, Remove and Save do reach 44px.",
+     "fix": "Add [@media(pointer:coarse)]:min-h-[44px] to the field class (as the steppers and buttons already do)."
+    },
+    {
+     "level": "nit",
+     "item": "#64",
+     "where": "frontend/src/components/pc/SheetEditor.jsx:170 (save) with the stale-tab banner, phone 390x844",
+     "problem": "With the desk open in a second tab, Save in the stale tab shows \"Not connected to the table. Try again in a moment.\", which will never succeed by waiting. On a phone the dialog covers the \"This desk is open in another tab... Use this tab\" banner, so the player must press Cancel and lose the draft to reach it. On the laptop the banner stays visible above the dialog. Nothing is overwritten: after taking over, only the player's own field is sent.",
+     "fix": "When the socket was taken by another tab, say so in the editor's error (for example \"This desk is open in another tab. Use this tab to save.\") or keep the banner above the dialog. The draft should survive taking the tab back."
+    },
+    {
+     "level": "nit",
+     "item": "#64",
+     "where": "frontend/src/components/pc/SheetEditor.jsx:323 and backend/vtt/sheet_edits.py (EDIT_SCARS_MAX)",
+     "problem": "Edit sheet has no Add a scar at three, and the server refuses a fourth (422). This is the one hard stop in an editor that decision 1 says blocks nothing. The sheet group recorded it on purpose (a fourth scar is death and goes through the scar form, issue #16 and fix round 4), and the scar form is still there.",
+     "fix": "None needed if Robert agrees. Worth one line in decisions.md or QUIRKS.md so a later reviewer does not take it as a missed block."
+    },
+    {
+     "level": "nit",
+     "item": "#64",
+     "where": "InvestigatorDossier.jsx ability card after a role change",
+     "problem": "After the player changes role Slink to Face and keeps Scout, the ability card heads it \"FACE ABILITY\" over \"SCOUT\", a Slink ability. The editor did warn \"Not a Face ability.\" before Save. This is cosmetic.",
+     "fix": "Label the role-ability card by the ability's own role (ROLE_FROM_ABILITY), or leave it as is: detection over prevention."
+    }
+   ]
+  },
+  {
+   "summary": "I checked all five items in Chromium on the control (770a2ed) and on HEAD at phone (390x844), tablet (820x1180) and laptop (1366x768), plus the extra sizes asked for #66.2. On HEAD all five are fixed and no page errors came up in any run. Two gaps turned up in the new join-request flow. First, a request's sheet, opened from the pop-up or from View sheet on the Requests page, has a button that still says \"Back to roster\", but it lands on the Join requests page. Second, Approve and Reject on the request card are 40px tall on phones. That card is the same one the control used on its roster, but HEAD now puts it in the new phone pop-up and on the phone Requests page, below the 44px touch rule. I found nothing blocking.\n\n#66.3: on HEAD the Lightkeeper's desk uses the investigator desk's layout at each size. Below the xl breakpoint it has the title header, then a bar with Roster, Circle, Notebook, Map and Requests (the tabs are 44px on touch). From xl it is one slim band. On a phone it has the die and the Menu drawer with 9 slips, each 54 to 56px tall. On the phone the die, Dice and log, and Pass notes each show only the chosen part, in view, from Circle, Join requests and Roster, and pressing the die again goes back. Every tool is reachable at every size, including Retire, which is on the account card and works.\n\n#66.1: a request pops up live without taking focus and with a screen-reader announcement. Later, a reload and the count all behave, the count is on the tab, the drawer slip and Menu, and Invite player is on the Requests page even with nothing waiting. Approve and two-press Reject work from the pop-up, View sheet works on the phone, and the drawer lies over the pop-up.\n\n#66.2: the Dispatch button now sits inside its letter at every size. On the control it ran off the letter at 1024x768, 1280x720 (clipped) and 1180x820. A sweep of widths from 768 to 1700 on HEAD also passed.\n\n#66.7: the insignia changes by clicking it, on a sealed circle only. The change reaches the database, the log and the player's desk, Undo puts the old one back, and it survives a reload.\n\n#65: the card's link now reads \"Edit account\" (Retire is on it too on the Lightkeeper's desk) on the hub and both desks. All servers were stopped by PID and both databases dropped. Nothing was edited, committed or pushed. Scripts are in /tmp/bc_desk/js and screenshots in /tmp/bc_desk/shots; I looked at every screenshot cited.",
+   "items": [
+    {
+     "item": "#66.3 one navigation for both desks (decision 2)",
+     "control": "The Lightkeeper's desk had its own layout. At 1366 it had a night bar with Retire, Back and Account, plus a left rail of parchment slips (Roster, Circle, Notebook, Map). At 820 and 390 there was a big header, then Back and Account, then four parchment slip tabs, with everything stacked in one long column. On the phone, the die and drawer of the player desk were missing (ctl_ov_gm_S_laptop, ctl_ov_gm_U_tablet, ctl_ov_gm_U_phone, ctl_ov_gm_U_phone_full_cols).",
+     "fixed": "HEAD matches the player desk at every size. At 1366 it has one band (campaign and code, the Roster/Circle/Notebook/Map/Requests tabs, then Back to chapter hub and Account behind a rule). At 820 it has the title header with Back and Account, then the Lightkeeper's Desk bar with tabs (44px on touch, the same as the player tabs). At 390 it has a slim band with the die and Menu; the drawer holds 9 slips (Roster, Circle, Notebook, Map, Join requests with its count, Dice and log, Pass notes, Dispatch, Hourglass), 54 to 56px each, with Account and Back to chapter hub. Every part showed alone and in view. On the phone, the die, the drawer's Dice and log and its Pass notes each put the dice or notes in view with the page hidden, from Circle, Join requests and Roster, and the die pressed again went back. The page height drops from 2156 to 860 with the dice up. At 820, 1180x820, 1024, 1280, 1366 and 1920, Roster has dice, notes, Dispatch and Hourglass; Requests has dice and notes, and Circle has them below xl. Nothing scrolls sideways. Retire is on the account card at every size and retiring a test campaign worked. A request sheet opened on the phone survives the die and back. No page errors.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_desk/shots/ctl_ov_gm_S_laptop.png",
+      "/tmp/bc_desk/shots/ctl_ov_gm_U_tablet.png",
+      "/tmp/bc_desk/shots/ctl_ov_gm_U_phone.png",
+      "/tmp/bc_desk/shots/ctl_ov_gm_U_phone_full_cols.png",
+      "/tmp/bc_desk/shots/head_ov_gm_S_laptop.png",
+      "/tmp/bc_desk/shots/head_ov_pc_laptop.png",
+      "/tmp/bc_desk/shots/head_ov_gm_U_tablet.png",
+      "/tmp/bc_desk/shots/head_ov_pc_tablet.png",
+      "/tmp/bc_desk/shots/head_ov_gm_U_phone.png",
+      "/tmp/bc_desk/shots/head_ov_pc_phone.png",
+      "/tmp/bc_desk/shots/head_pn_U_drawer.png",
+      "/tmp/bc_desk/shots/head_pn_U_Circle_die.png",
+      "/tmp/bc_desk/shots/head_pn_U_Joinrequests_notes.png",
+      "/tmp/bc_desk/shots/head_pn_U_part_Dispatch.png",
+      "/tmp/bc_desk/shots/head_pn_U_part_Map.png",
+      "/tmp/bc_desk/shots/head_pn_U_account.png",
+      "/tmp/bc_desk/shots/head_misc_tab_d1024_Roster.png",
+      "/tmp/bc_desk/shots/head_misc_tab_d1280_Requests.png",
+      "/tmp/bc_desk/shots/head_retire_laptop_after.png"
+     ]
+    },
+    {
+     "item": "#66.1 join requests (decision 6)",
+     "control": "Join requests sat on the front of the roster under the investigators, with Invite player below them, at 1366 and in the phone's single column. A new request had no pop-up (ctl_ov_gm_U_laptop, ctl_ov_gm_U_phone_full_cols).",
+     "fixed": "The roster front has no request card. I sent a request over the API while the desk showed the Notebook. On laptop, tablet and phone it popped up within 3s and focus stayed on the Notebook tab. The status line said 'Join request from Mara Lowe ...' and the count showed on the Requests tab, the drawer slip and Menu. Later put it away. After a reload there was no pop-up and the count was still 1. The Requests page shows the card, the pager (1 of 2) and Invite player (its form opens), and Invite player also shows when nothing waits. Approve from the page dropped the count. Approve from the pop-up made the character active, the pop-up closed and the count cleared. Reject from the pop-up arms with 'Press again to reject Tess Ward.' and Keep request, and the second press rejects. On the phone, View sheet from the pop-up opens the sheet, which survives the die and back, and the drawer lies over the pop-up. Second tab: the existing 'open in another tab' handover makes the stale tab step aside; the live tab pops up and Later reaches across tabs. Gaps: the request sheet's 'Back to roster' leads to Join requests, and Approve and Reject are 40px on phones (issues).",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_desk/shots/ctl_ov_gm_U_laptop.png",
+      "/tmp/bc_desk/shots/head_ov_gm_U_laptop.png",
+      "/tmp/bc_desk/shots/head_join_laptop_popup.png",
+      "/tmp/bc_desk/shots/head_join_laptop_reload.png",
+      "/tmp/bc_desk/shots/head_join_laptop_invite.png",
+      "/tmp/bc_desk/shots/head_join_laptop_roster.png",
+      "/tmp/bc_desk/shots/head_join_tablet_popup.png",
+      "/tmp/bc_desk/shots/head_join_phone_popup.png",
+      "/tmp/bc_desk/shots/head_join_phone_invite.png",
+      "/tmp/bc_desk/shots/head_join_laptop_second.png",
+      "/tmp/bc_desk/shots/head_misc_laptop_requests_empty.png",
+      "/tmp/bc_desk/shots/head_misc_laptop_popup_reject_armed.png",
+      "/tmp/bc_desk/shots/head_misc_phone_drawer_over_popup.png",
+      "/tmp/bc_desk/shots/head_misc_phone_sheet_after_die.png",
+      "/tmp/bc_desk/shots/head_backlabel_laptop_after.png"
+     ]
+    },
+    {
+     "item": "#66.2 Dispatch button fits",
+     "control": "Measured on sealed and unsealed campaigns. The button runs past the letter's right edge at 1024x768 (button right 317, letter right 246), at 1180x820 (318 vs 285), and at 1280x720 (307 vs 293, also clipped by the column). It fits at 1366x768, 1440x900, 1920x1080, 820x1180, 390x844 and 844x390.",
+     "fixed": "Inside the letter and inside every clipping column, with no sideways scroll, at 1024x768, 1280x720, 1366x768, 1440x900, 1920x1080, 820x1180, 1180x820, 390x844 (on the drawer's Dispatch page) and 844x390, sealed and unsealed. A sweep of every 37px from 768 to 1700 wide also passed. In the crops, End Assignment sits above and Dispatch at the right, on the paper.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_desk/shots/combo_dispatch.png",
+      "/tmp/bc_desk/shots/ctl_disp_d1024_S.png",
+      "/tmp/bc_desk/shots/ctl_disp_d1280_S.png",
+      "/tmp/bc_desk/shots/ctl_disp_t1180_S.png",
+      "/tmp/bc_desk/shots/head_disp_d1024_S.png",
+      "/tmp/bc_desk/shots/head_disp_d1280_S.png",
+      "/tmp/bc_desk/shots/head_disp_t1180_S.png",
+      "/tmp/bc_desk/shots/head_disp_p390_S.png",
+      "/tmp/bc_desk/shots/head_pn_U_part_Dispatch.png"
+     ]
+    },
+    {
+     "item": "#66.7 insignia changed by clicking it",
+     "control": "On the sealed circle the insignia is a role=img stamp. Clicking it opens nothing (no button, 0 dialogs).",
+     "fixed": "On a sealed circle the stamp is a button labelled 'Insignia: Moon. Change insignia', with Change under it. At 1366, 820 and 390 it opens a chooser with the 8 formation insignia (each at least 84px tall), the current one pressed, and a 44px Close. Choosing Compass saved GiCompass in the database and the log read 'The Lightkeeper changed the circle's insignia to Compass.' Undo with an 8s countdown put back GiMoon. Escape closes the chooser. After a reload Orbital Ring is still there. The player's Circle page shows the new stamp. On the unsealed campaign there is no change button.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_desk/shots/ctl_ins_laptop_clicked.png",
+      "/tmp/bc_desk/shots/head_ins_laptop_before.png",
+      "/tmp/bc_desk/shots/head_ins_laptop_chooser.png",
+      "/tmp/bc_desk/shots/head_ins_laptop_changed.png",
+      "/tmp/bc_desk/shots/head_ins_tablet_chooser.png",
+      "/tmp/bc_desk/shots/head_ins_phone_chooser.png",
+      "/tmp/bc_desk/shots/head_ins_phone_player.png"
+     ]
+    },
+    {
+     "item": "#65 Account no longer opens a menu holding only its own name",
+     "control": "On the hub, the player desk and the Lightkeeper's desk at all three sizes, Account opens a card whose link is 'ACCOUNT', the button's own name again, then Sign out (plus Retire on the Lightkeeper's card).",
+     "fixed": "On the hub, the player desk and the Lightkeeper's desk at all three sizes, the card shows name and email, then 'Edit account' (47px, leads to /account), then Sign out. The Lightkeeper's card also has 'Retire campaign\u2026'. No entry repeats the button's name. This is the 'real choices' option of decision 9. The change itself is the link's new name.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_desk/shots/ctl_acct_hub_laptop.png",
+      "/tmp/bc_desk/shots/ctl_acct_gm_phone.png",
+      "/tmp/bc_desk/shots/head_acct_pc_laptop.png",
+      "/tmp/bc_desk/shots/head_acct_gm_laptop.png",
+      "/tmp/bc_desk/shots/head_acct_hub_phone.png",
+      "/tmp/bc_desk/shots/head_acct_gm_phone.png",
+      "/tmp/bc_desk/shots/head_acct_pc_laptop_page.png"
+     ]
+    }
+   ],
+   "issues": [
+    {
+     "level": "should",
+     "item": "#66.1 join requests",
+     "where": "frontend/src/components/gm/GMCharacterSheet.jsx:277 and :300 (with OperationsPanel.jsx viewRequest / sheetOpen on the requests tab)",
+     "problem": "A request sheet now opens from the Requests page or the pop-up (activeTab 'requests'), but its back button still says 'Back to roster'. Pressing it at 390, 820 and 1366 lands on the Join requests page, not the roster (head_backlabel_laptop_after.png, head_misc_phone_sheet_after_die.png).",
+     "fix": "Name the back button after where it returns: 'Back to requests' when the sheet was opened from the Requests page or the pop-up, 'Back to roster' otherwise."
+    },
+    {
+     "level": "should",
+     "item": "#66.1 join requests",
+     "where": "frontend/src/components/gm/PlayerRosterCard.jsx:48 and :72 (Approve and Reject use md:[@media(pointer:coarse)]:min-h-[44px])",
+     "problem": "At 390x844 with a touch pointer, Approve and Reject on the request card are 40px tall, against DESIGN.md's 44px touch targets; View sheet, All requests and Later are 44px. The card was already like this on the control's roster column, but HEAD now uses it in the new phone pop-up and on the new phone Requests page.",
+     "fix": "Use [@media(pointer:coarse)]:min-h-[44px] without the md: prefix on Approve and Reject, as View sheet already does."
+    },
+    {
+     "level": "nit",
+     "item": "#66.3 navigation",
+     "where": "frontend/src/components/gm/desk/GMDeskHeader.jsx header grid (lg:grid-cols-[1fr_auto_1fr]), same as the player desk header",
+     "problem": "Between lg and xl (1024 to about 1150 wide), the 'CANDELA OBSCURA' title runs up against 'Back to chapter hub' with 0px between them (title right 641, button left 641 at 1024). The player desk's header does exactly the same, so the Lightkeeper's desk inherited it rather than introduced it.",
+     "fix": "Optional: give the right column a min gap, or let the title shrink a step between lg and xl on both desks."
+    }
+   ]
+  },
+  {
+   "summary": "I checked HEAD (a38ee60 on 770a2ed) against the control in Chromium at 390x844, 820x1180 and 1366x768, on the Lightkeeper's desk, the investigator's desk and the hub. Every item is fixed and nothing blocks. No page errors appeared, and no size scrolled sideways. The /tmp/build_main5 bundle contains no \"Yes, \" string at all; the control bundle has 17.\n\n#66.4: a circle made late now starts at 4|4|4 for 3 members (the control gave 1|1|1, and its desk read \"1 \u00b7 max 4\"). The Refill button is gone. With Resource Management, +1 Illumination from 2 to 3 shows the ask under Add Illumination, and one press raises the chosen resource and logs \"Resource Management: ... earns back a Stitch (4 of 4).\" Adding the tally from 2 to 7 asks \"earn back 2\", and two presses use up both earn-backs. The ask survives a reload. It shows in a second desk tab and on the wide desk's circle summary, and the player's circle page shows \"One to earn back\". A square correction writes its log line and caps a waiting earn-back. A full circle passing a milestone asks nothing. A mistaken +1 then -1 leaves nothing waiting, and the advance refills the resources. The control only logged \"gains one resource of its choice\" and asked nothing.\n\n#66.5: the Keys line and the Illumination questions are clear at a glance.\n\n#66.6 and the decision 4 sweep: every confirm I tried on both desks and the hub now uses a one-verb button and a short sentence.\n\n#63: Scout, Uncanny Eye and Tactician take any typed question, with the book's questions as tap-to-fill examples. The cost is spent, and the question reaches both logs.\n\n#62: the Leave confirm is one sentence, with the details behind an \"i\" that keeps it armed, on the desk and the hub.\n\nWhat remains is small. The Finalize armed text is still three sentences. A refused question loses what was typed. The \"Remove\" button on the circle ability confirm is 36px tall on touch screens, below the 44px rule.\n\nServers on 8031, 8032, 4031 and 4032 are stopped by PID, and both databases are dropped. Scripts are in /tmp/bc_circle_words/js and screenshots in /tmp/bc_circle_words/shots; I looked at the key ones for every item.",
+   "items": [
+    {
+     "item": "#66.4 a new circle starts each resource at 1 plus the members",
+     "control": "Members approved before the circle existed gave a circle made late at stitch|refresh|train 1|1|1, and the Lightkeeper's desk read 'Stitch 1 \u00b7 max 4'. A circle opened first gave 1|1|1, then 2|2|2 after one approval.",
+     "fixed": "The same API sequence now gives 4|4|4 for 3 members, and the desk reads '4 \u00b7 max 4'. The open-first path still gives 1|1|1, then 2|2|2.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_circle_words/shots/ctl_explore_lk_laptop.png",
+      "/tmp/bc_circle_words/shots/head_explore_lk_laptop.png"
+     ]
+    },
+    {
+     "item": "#66.4 no Refill button",
+     "control": "The Circle Resources card had 'REFILL EACH RESOURCE TO 4' at every size.",
+     "fixed": "The button is gone at phone, tablet and laptop. Only 'Allow spending' remains. The card's text explains the milestone earn-back and the refill when the circle advances. Advancing on a full track still refills to 4|4|4 and clears any waiting earn-back.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_circle_words/shots/ctl_phone_A6_resources_card.png",
+      "/tmp/bc_circle_words/shots/head_phone_A6_resources_card.png",
+      "/tmp/bc_circle_words/shots/head_laptop_A1_circle_full.png"
+     ]
+    },
+    {
+     "item": "#66.4 Resource Management earn-back, one press per earn-back, including two milestones at once through the tally",
+     "control": "+1 Illumination (2 to 3) only logged 'Resource Management: The Lantern Watch gains one resource of its choice.' Nothing was asked and no resource changed. The tally from 2 to 7 logged that line twice, and nothing was asked.",
+     "fixed": "+1 (2 to 3): earn_backs 1, and the log tells the Lightkeeper to pick on the Circle page. The ask appears under Add Illumination with Stitch, Refresh and Train; a full resource is disabled and marked 'full'. One press on Stitch went 3 to 4 of 4 with the line 'Resource Management: ... earns back a Stitch (4 of 4).', and the ask went away. Tally +5 (2 to 7): two milestone lines, ask 'EARN BACK 2'. After a reload it still asked. Press 1 took Stitch 2 to 3 ('EARN BACK ONE'), press 2 took it 3 to 4, earn_backs 0, ask gone. Same at all three sizes. The ask also shows in a second tab and on the wide desk's Roster summary card, where one press from tab 2 put Refresh back. The player's circle page shows 'One to earn back, the circle's choice.' A full circle passing 9 logs 'every resource ... is full, so there is nothing to earn back.' and asks nothing. +1 then -1 around a milestone leaves 0 waiting. A square correction to full while one waits brings it to 0 and the ask goes.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_circle_words/shots/head_laptop_A3_after_plus1_viewport.png",
+      "/tmp/bc_circle_words/shots/head_laptop_B2_ask_two.png",
+      "/tmp/bc_circle_words/shots/head_laptop_B3_ask_one_left.png",
+      "/tmp/bc_circle_words/shots/head_phone_A3_after_plus1_viewport.png",
+      "/tmp/bc_circle_words/shots/head_phone_B2_ask_two.png",
+      "/tmp/bc_circle_words/shots/head_tablet_A4_ask.png",
+      "/tmp/bc_circle_words/shots/head_laptop_n_1b_roster_ledger_ask.png",
+      "/tmp/bc_circle_words/shots/head_laptop_n_2_player_circle.png",
+      "/tmp/bc_circle_words/shots/ctl_laptop_B2_after_tally.png"
+     ]
+    },
+    {
+     "item": "#66.4 the adjust control writes a log line",
+     "control": "A square press logged 'The Lightkeeper set the circle's Refresh to 3 (was 2).'",
+     "fixed": "Same line at all three sizes. The squares remain the Lightkeeper's correction, and a correction caps waiting earn-backs.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_circle_words/shots/head_phone_A6_resources_card.png"
+     ]
+    },
+    {
+     "item": "#66.5 Keys line and the Illumination questions are clear to a Lightkeeper",
+     "control": "'Keys: some investigators (1 of 3) +2', followed by an always-visible 'Keys are worth 2 when some of you fulfilled one, 4 when all of you did (p. 55). A report not filed counts as no key.' The questions had no stated purpose.",
+     "fixed": "'Illumination Keys (i) on the reports: 1 of 3 fulfilled one (some, not all) +2' (also 'none of 3' +0 and 'all 3' +4). The rule and what a key is sit behind the 'i'; on a phone the slip stays on the paper (left 47, right 340 of 390). Under the heading: 'Answered together at the end of an assignment: each yes adds 1 Illumination.' Same at all three sizes.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_circle_words/shots/head_phone_k_1_paper.png",
+      "/tmp/bc_circle_words/shots/head_phone_k_2_keys_info.png",
+      "/tmp/bc_circle_words/shots/ctl_laptop_A1_circle_full.png"
+     ]
+    },
+    {
+     "item": "#66.6 circle ability removal confirm",
+     "control": "'Press again to remove every circle ability listed above, including ones gained by advancing. You then choose one again from the list.' with 'YES, CLEAR'.",
+     "fixed": "'Press again to remove all circle abilities.' with 'REMOVE' and 'Keep it', at all three sizes.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_circle_words/shots/ctl_laptop_C1_clear_armed.png",
+      "/tmp/bc_circle_words/shots/head_laptop_C1_clear_armed.png",
+      "/tmp/bc_circle_words/shots/head_phone_C1_clear_armed.png"
+     ]
+    },
+    {
+     "item": "Decision 4 sweep: other confirms on both desks and the hub",
+     "control": "End Assignment had 'Yes, end it'. Retire had 'Yes, retire campaign' and 'Every investigator leaves it and no one can join. Nothing is deleted.' Reset had 'Yes, reset'. Release had 'Yes, release' and a paragraph. Finalize had 'Yes, finalize the circle' and four sentences. Reject had 'Yes, reject' and 'They go back to the player...'. The player's Refresh spend had 'Press again: spend 1 Refresh'. Scar removal had 'Yes, remove'. Hub Leave had 'Yes, leave' and a paragraph. Hub campaign delete had 'Delete campaign X? ...' with 'Yes, delete'.",
+     "fixed": "End Assignment: 'End' / 'Keep going'; the Illumination warning and the 'Not filed:' line are kept, plus a 'What ending does' i. Retire (on the Account card): 'Press again to retire X and free its investigators.' / 'Retire'. Reset: one sentence / 'Reset'. Release: 'Press again to release Iris Vane.' / 'Release' with an i. Finalize: 'Finalize' / 'Not yet', but still three sentences. Reject (Requests page and the phone pop-up): 'Press again to reject Edda Rook.' / 'Reject'. Spend: 'Press again to spend 1 Refresh for the circle.' / 'Spend'. Scar on the Lightkeeper's sheet: 'Press again to remove this scar.' / 'Remove'. Hub Leave: one sentence and an i. Hub delete: 'Press again to delete The Umber Chapter and free its 2 investigators.' / 'Delete'. No 'Yes, X' button anywhere at phone, tablet or laptop.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_circle_words/shots/head_laptop_s_end_assignment.png",
+      "/tmp/bc_circle_words/shots/head_phone_s_retire.png",
+      "/tmp/bc_circle_words/shots/head_laptop_s_release.png",
+      "/tmp/bc_circle_words/shots/head_laptop_s_finalize.png",
+      "/tmp/bc_circle_words/shots/head_laptop_s_reject.png",
+      "/tmp/bc_circle_words/shots/head_phone_m_popup_reject.png",
+      "/tmp/bc_circle_words/shots/head_laptop_s_spend_refresh.png",
+      "/tmp/bc_circle_words/shots/head_laptop_s_scar_remove_lk.png",
+      "/tmp/bc_circle_words/shots/head_phone_s_hub_leave.png",
+      "/tmp/bc_circle_words/shots/head_laptop_s_hub_delete_campaign.png"
+     ]
+    },
+    {
+     "item": "#63 free questions (Scout, Uncanny Eye, Tactician)",
+     "control": "Scout had a 'Question to ask' select limited to the book's three questions. The log line used the chosen book question.",
+     "fixed": "A 'Question to ask' text box, 44px on touch. Use stays off while it is empty or holds only spaces. The book's three questions sit under it as tap-to-fill lines. A typed 'Who lit the lamp in the boathouse?' sent {ability, question}, took Intuition from 3 to 2, and logged 'Iris Vane used Scout: Who lit the lamp in the boathouse? (1 Intuition).' on the player's desk and the Lightkeeper's. An example edited and sent with Enter logged the edited text and spent again. Uncanny Eye and Tactician have the same box and examples. Checked at all three sizes.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_circle_words/shots/ctl_phone_p_2_ctl_select.png",
+      "/tmp/bc_circle_words/shots/head_phone_p_2_typed.png",
+      "/tmp/bc_circle_words/shots/head_phone_p_3_after_use.png",
+      "/tmp/bc_circle_words/shots/head_laptop_p_4_example_filled.png",
+      "/tmp/bc_circle_words/shots/head_phone_s_tactician.png"
+     ]
+    },
+    {
+     "item": "#62 Leave campaign confirm is short",
+     "control": "Desk and hub: 'Press again to leave The Saltmere Chapter. Iris Vane comes back to you, free to join another campaign. Their circle votes, relationships and this assignment's report there are dropped, and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' with 'Yes, leave'.",
+     "fixed": "'Press again to leave The Saltmere Chapter.' with 'Leave' / 'Stay'. 'What leaving does (i)' holds the decision 1 detail of fix round 4. Pressing the i leaves the confirm armed, and its slip stays on screen at phone, tablet and laptop, on the desk and on the hub registry row.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc_circle_words/shots/ctl_phone_p_5_leave_armed.png",
+      "/tmp/bc_circle_words/shots/head_phone_p_5_leave_armed.png",
+      "/tmp/bc_circle_words/shots/head_phone_p_6_leave_info.png",
+      "/tmp/bc_circle_words/shots/head_laptop_p_5_leave_armed.png"
+     ]
+    }
+   ],
+   "issues": [
+    {
+     "level": "nit",
+     "item": "Decision 4 sweep",
+     "where": "frontend/src/components/gm/desk/FinalizeRosterSlip.jsx:35",
+     "problem": "The armed Finalize text is still three sentences: 'Press again to finalize the circle with 1 investigator; this cannot be undone. Nothing is chosen yet for the circle question, the insignia, the circle ability and the name. 1 waiting request is turned away.' On a phone the join-request pop-up covers its lower half. The button wording is right.",
+     "fix": "Keep the first sentence armed. Put the unchosen-papers and turned-away notes in the idle line or behind a 'What finalizing does' i (armedInfo), as Leave and End Assignment already do."
+    },
+    {
+     "level": "nit",
+     "item": "#66.6 / DESIGN.md 44px touch targets",
+     "where": "frontend/src/components/gm/CirclePage.jsx:16-30 (ClearButton)",
+     "problem": "On a 390x844 touch screen the armed 'Remove' button measures 73x36, while its 'Keep it' is 44 tall. The +1 Illumination and -1 buttons on the same charter are 27 tall. These sizes predate this round, but the button changed in it.",
+     "fix": "Add [@media(pointer:coarse)]:min-h-[44px] to ClearButton and to the +1 / -1 Illumination buttons."
+    },
+    {
+     "level": "nit",
+     "item": "#63",
+     "where": "frontend/src/components/pc/InvestigatorDossier.jsx:114",
+     "problem": "A refused use loses the typed question. With Intuition at 0, 'Is the ledger forged?' was sent, the server answered 409 'Not enough Intuition for Uncanny Eye.', and the box was empty.",
+     "fix": "Clear the box only when the server confirms the use (the abilityUsed signal), or put the text back on action_rejected for use_ability."
+    },
+    {
+     "level": "nit",
+     "item": "#66.4",
+     "where": "frontend/src/components/gm/EarnBackAsk.jsx:47",
+     "problem": "With two earn-backs waiting the ask reads 'RESOURCE MANAGEMENT: EARN BACK 2' and then 'A milestone passed. The circle chooses:', which says one milestone when two passed. On a phone after +1 Illumination on the charter, the ask is about 600px below the button and only its heading is in view.",
+     "fix": "Use 'Milestones passed.' when waiting > 1. Optionally scroll the ask into view when earn_backs goes up on a phone."
+    }
+   ]
+  }
+ ],
+ "repair": {
+  "fixed": [
+   {
+    "issue": "Should: edit_sheet crashes on a non-text role or specialty (TypeError ends the sender's socket)",
+    "what": "backend/vtt/sheet_edits.py edit_problem now refuses a non-str role or specialty with the same 422 words as an unknown one, before the membership tests. Four cases ({role:[\"Face\"]}, {role:{}}, {specialty:{}}, {specialty:[\"Criminal\"]}) were added to test_an_edit_the_sheet_cannot_hold_is_refused_whole. The module docstring now says the edit line goes to the whole table for an active member and to the player's own log otherwise.",
+    "checked": "tests/test_ws_sheet_edits.py: 35 passed on a throwaway database (since dropped). The four new cases get action_rejected 422 and nothing is stored."
+   },
+   {
+    "issue": "Should / partly: the decision 4 sweep missed SketchPad's two two-press confirms",
+    "what": "frontend/src/components/shared/sketch/SketchPad.jsx: a status line under the head shows 'Press again to discard this drawing.' (or 'Press again to discard your changes.' for a drawing taken up again) when Cancel is armed to Discard. 'Upload a picture' now arms to the one verb 'Upload' under 'Press again to discard this drawing and upload a picture.' DESIGN.md's sketch sheet section quotes both.",
+    "checked": "Chromium at 360x740, 390x844 and 1366x768. The armed lines show, the head buttons stay on one row (same top at all sizes), pressing the paper disarms and empties the line, nothing scrolls sideways and there are no page errors. Shots: /tmp/bc_repair/shots/rep_p360_sketch_discard_armed.png, rep_*_sketch_upload_armed.png."
+   },
+   {
+    "issue": "Should: Edit sheet text fields and selects are 37px on touch screens",
+    "what": "The field class in frontend/src/components/pc/SheetEditor.jsx now has [@media(pointer:coarse)]:min-h-[44px]. Nit fixed in the same file: when another tab holds the desk, Save says 'This desk is open in another tab. Use this tab, then save.' and offers a 44px Use this tab button inside the dialog, so the draft survives taking the desk back.",
+    "checked": "Chromium phone (390x844) and tablet (820x1180): every input and select is at least 44px. On the laptop they stay 37 to 38px (mouse). In each run a second tab took the desk. In the stale tab, Save showed the new alert, Use this tab reconnected with the dialog and the typed name still there, and Save then stored the name in the database. Shot: /tmp/bc_repair/shots/rep_phone_editor_stale.png."
+   },
+   {
+    "issue": "Should: a request's sheet says 'Back to roster' but returns to the Join requests page",
+    "what": "GMCharacterSheet takes backLabel (default 'Back to roster') for both back buttons. OperationsPanel passes 'Back to requests' when the sheet was opened on the requests tab, which covers both the pop-up's and the page card's View sheet.",
+    "checked": "Chromium at 390x844 and 1366x768. Pop-up View sheet shows '\u2190 Back to requests' and lands on the Join requests page. The page card's View sheet shows the same. A member opened from the roster shows '\u2190 Back to roster'."
+   },
+   {
+    "issue": "Should: Approve and Reject on the request card are 40px on phones",
+    "what": "In PlayerRosterCard.jsx, Approve and Reject use [@media(pointer:coarse)]:min-h-[44px] without the md: prefix.",
+    "checked": "Chromium at 390x844 with touch: Approve 101x44 and Reject 88x44, both in the pop-up and on the phone Requests page."
+   },
+   {
+    "issue": "Nit: Reset and Retire armed lines were inexact",
+    "what": "Reset now reads 'Press again to refill X's drives and resistance and clear ability uses.' Retire now reads 'Press again to retire X and free its living investigators.' (retire_campaign keeps the dead with the campaign).",
+    "checked": "Chromium phone and laptop: both armed lines read as above. No doc quoted the old strings."
+   },
+   {
+    "issue": "Nit: the circle ability Remove (36px) and the +1/-1 Illumination buttons (27px) were under 44px on touch",
+    "what": "CirclePage.jsx: ClearButton and both Illumination buttons gain [@media(pointer:coarse)]:min-h-[44px], and the -1 button also gets min-w-[44px].",
+    "checked": "Chromium at 390x844 with touch: Remove 73x44, Keep it 44, +1 141x45, -1 44x44. On the laptop the sizes are unchanged (37, 27, 26)."
+   },
+   {
+    "issue": "Nit: the earn-back ask said 'A milestone passed.' with two waiting",
+    "what": "EarnBackAsk.jsx says 'Milestones passed. The circle chooses:' when more than one earn-back waits.",
+    "checked": "Chromium phone and laptop with earn_backs=2 seeded: the ask reads 'Resource Management: earn back 2' and then 'Milestones passed. The circle chooses:'."
+   },
+   {
+    "issue": "Nit: Enter sent a question while an input method was still composing",
+    "what": "In InvestigatorDossier.jsx, the question box's Enter handler checks !e.nativeEvent.isComposing.",
+    "checked": "Chromium: a keydown Enter with isComposing true left Intuition at 1 and kept the text, at all three sizes. A plain Enter still used Scout (Intuition 1 to 0)."
+   },
+   {
+    "issue": "Nit: docs consistency",
+    "what": "ROUTES.md's Lightkeeper-only roster fields now list sheet_edited. STRUCTURE.md's handlers/character.py row lists edit_sheet and gm_sheet_seen. WEBSOCKET.md's activity_log row says a player's own sheet edit line goes to the campaign for an active member and to the character's own key otherwise. The sheet_edits.py docstring is corrected (see the first fix).",
+    "checked": "Read against record_edit and the roster route in campaigns.py."
+   }
+  ],
+  "skipped": [
+   {
+    "issue": "Should: a fourth scar is refused in Edit sheet",
+    "why": "This fits decisions.md as read with issue #16 and fix round 4: a fourth scar is a death, a dead sheet is a record, and the scar form remains the way in. No code change. The organiser should tell Robert in the PR that this is the only edit the editor refuses, and update issue #16's list to say the player's Edit sheet can now write in up to three scars. I did not edit GitHub (no push, no issue writes)."
+   },
+   {
+    "issue": "Nit: sheet edit lines go to the whole table, not only the Lightkeeper's log",
+    "why": "A superset of decision 1 that keeps the reach pip and gear lines already had. It fits decisions.md, so Robert should be told and may choose to narrow it."
+   },
+   {
+    "issue": "Nit: the Account card was solved by relabeling to 'Edit account' (card keeps Sign out, and Retire on the Lightkeeper's desk)",
+    "why": "This meets decision 9's 'real choices' option. Tell Robert in the PR, since the card may look almost unchanged to him."
+   },
+   {
+    "issue": "Nit: the insignia stamp is clickable only after the seal, and the server accepts an insignia before the seal",
+    "why": "Before the seal the players' vote decides the insignia, which fits decision 7 and the formation flow. Refusing it before the seal would be a new server rule, so I left it for Robert."
+   },
+   {
+    "issue": "Nit: Edit sheet loses the draft on a refused (422) save, and the gear dialog writes back a list taken at open",
+    "why": "Not cheap. It needs Edit sheet to wait for character_update or action_rejected, and the gear dialog to send a diff. Left for a later round. (The stale-tab case, which also lost the draft, is fixed.)"
+   },
+   {
+    "issue": "Nit: the Finalize armed text is still three sentences",
+    "why": "The group kept on purpose only the warnings of what is lost (the unchosen papers and the turned-away requests), like End Assignment's kept warnings. Hiding loss warnings behind an i is a judgement call, not plainly right, so it is left for Robert."
+   },
+   {
+    "issue": "Nit: a refused ability use clears the typed question",
+    "why": "Fixing it means tying the clear to the server's abilityUsed or action_rejected signal. Not cheap enough for this pass."
+   },
+   {
+    "issue": "Nit: an earn-back can be counted twice around a milestone, after a -1 then +1",
+    "why": "The circle repair skipped this as documented, and cap_earn_backs limits it to resources actually missing. A fix means storing the highest milestone already rewarded, which is a schema change."
+   },
+   {
+    "issue": "Nit: the role ability card is headed by the new role after a role change; the lg to xl header title touches Back to chapter hub; the earn-back ask sits about 600px below +1 on a phone; DESIGN.md has no entries for the Edit sheet dialog, the roster dot, the earn-back ask or the insignia chooser",
+    "why": "Cosmetic or documentation-only. The header gap was inherited from the player desk. None is plainly cheap without design choices, so all are left for the organiser."
+   }
+  ],
+  "commits": [
+   "438792d Refuse a non-text role or specialty in Edit sheet instead of crashing",
+   "2c2a585 Give the sketch sheet's two confirms an armed sentence and one verb",
+   "7be39b1 Fix touch heights, the request sheet's back label and small confirm words"
+  ],
+  "tests": "Backend: tests/test_ws_sheet_edits.py, 35 passed on a throwaway database (rp5_tests, dropped), including 4 new refused-shape cases. Frontend: npx vite build --outDir /tmp/build_main5 passes. Browser: the backend ran on 8041 (database bc_repair_8041, dropped afterwards) with the site preview on 4041, and both were stopped by PID. I replayed each changed screen in Chromium at 390x844, 820x1180 and 1366x768 (plus 360x740 for the sketch sheet) with scripts in /tmp/bc_repair/js and screenshots in /tmp/bc_repair/shots. No page errors and no sideways scroll. No em dashes in added lines or commit messages. Not pushed. Note: commits 2c2a585 and 7be39b1 were made before the browser replay their messages describe; the replay ran afterwards and passed without further changes."
+ }
+}
