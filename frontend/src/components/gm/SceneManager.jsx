@@ -397,14 +397,14 @@ export const SceneManager = () => {
       <div className="mt-8 xl:mt-5 xl:order-last xl:sticky xl:bottom-0 xl:z-10 xl:-mx-5 2xl:-mx-6 xl:px-5 2xl:px-6 xl:pt-3 xl:pb-2 xl:-mb-5 2xl:-mb-6 xl:bg-parchment xl:shadow-[0_-14px_12px_-6px_rgb(var(--c-parchment))] flex flex-wrap justify-between items-start xl:items-end gap-x-4 gap-y-4 relative">
         {/* End Assignment: left stamp */}
         <ConfirmAction
-          // From xl the armed line lies above the stamp, so arming grows the row upward and
-          // the stamp stays under the pointer (fix round 7, 45.5)
-          className="flex flex-col xl:flex-col-reverse items-start gap-2 max-w-[11rem]"
+          // From xl the armed line floats above the stamp instead of pushing it: the stamp
+          // stays under the pointer and the column does not scroll (fix round 7, 45.5)
+          className="relative flex flex-col items-start gap-2 max-w-[11rem]"
           onConfirm={endAssignment}
           cancelLabel="Keep going"
           armedHint={endHint}
           armedInfo={<ArmedDetail label="What ending does" text={`The dispatch clears. ${ENDS}`} />}
-          hintClassName="[&>p]:text-sm"
+          hintClassName="[&>p]:text-sm xl:absolute xl:bottom-full xl:left-0 xl:mb-2 xl:w-[16rem] xl:p-3 xl:bg-parchment xl:border xl:border-sepia/40 xl:shadow-[0_4px_14px_rgba(0,0,0,0.35)]"
           renderButton={(armed, props) => (
             <button
               {...props}
