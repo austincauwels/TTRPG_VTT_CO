@@ -137,13 +137,13 @@ export function getAvailableRollMods(character, action, circle = null) {
       autoApply: false, extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
     });
   }
-  // Train (p. 41): a die the circle's resource gives for one roll this assignment, on the
-  // roll the player picks
+  // Train (p. 41): a die the circle's resource gives for one roll the player picks, kept
+  // until a roll uses it (End Assignment does not clear it)
   if (character.train_bonus) {
     // Each Train spent is a die (p. 41); a player may spend two
     const left = character.train_dice || 1;
     mods.push({
-      key: 'Train', label: `Train (+1d on this roll; ${left} Train ${left === 1 ? 'die' : 'dice'} this assignment)`, autoApply: false,
+      key: 'Train', label: `Train (+1d on this roll; ${left === 1 ? '1 Train die, kept until a roll uses it' : `${left} Train dice, each kept until a roll uses it`})`, autoApply: false,
       extraDice: 1, extraGild: false, driveSubstitute: null, shows: { dice: 1, gild: false, use: null },
     });
   }

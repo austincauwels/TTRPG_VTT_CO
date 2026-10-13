@@ -477,6 +477,8 @@ const LoginScreen = ({ resetToken = null, onLeaveReset }) => {
   const [screen, setScreen] = useState(resetToken !== null ? 'reset' : 'signin');
   // After a new password is set: the username to sign in with, and whether Google was unlinked
   const [afterReset, setAfterReset] = useState(null);
+  // The server refused the session (another device changed the password, or it expired)
+  const sessionEnded = useGameStore((s) => s.sessionEnded);
   // { linkToken, suggestedName, email } after a Google sign-in that needs an account
   const [pendingGoogle, setPendingGoogle] = useState(null);
   const headingRef = useRef(null);
@@ -632,6 +634,12 @@ const LoginScreen = ({ resetToken = null, onLeaveReset }) => {
                 </h2>
                 {lead && <p className="mt-1.5 font-serif italic text-base sm:text-lg leading-snug text-sepia">{lead}</p>}
               </header>
+
+              {sessionEnded && atSignIn && !registering && !afterReset && (
+                <p role="status" className="mt-5 font-serif text-base leading-snug text-ink">
+                  <strong className="font-semibold text-oxblood">Your session ended; please sign in again.</strong>
+                </p>
+              )}
 
               {/* A new password was just set: stamped on the slip */}
               {afterReset && atSignIn && !registering && (

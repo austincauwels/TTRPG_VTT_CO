@@ -1161,6 +1161,9 @@
 @media (pointer: coarse) {
   .drive-row { flex-wrap: wrap; }
   .drive-pips, .dossier-c .drive-pips { flex: 1 1 auto; gap: 0; flex-wrap: nowrap; min-width: min(100%, 189px); }
+  /* A drive whose maximum is 0 reads "none" in a row as tall as the pips, so its action
+     rows stay level with the other two columns' (fix round 4 review) */
+  .drive-pips { min-height: 44px; align-items: center; }
   .drive-pip-hit { flex: 0 0 auto; width: clamp(21px, calc(100% / 9), 44px); height: 44px; }
 }
 

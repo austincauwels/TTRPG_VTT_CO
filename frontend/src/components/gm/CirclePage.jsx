@@ -36,9 +36,9 @@ import { TurnOverMark } from '../shared/Decorations';
 import { FormLine, SerialNo, PrinterMark, DateStamp, EmptyStamp, BlankEntry, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
-import { tallyReports, tallyOf } from '../../game/illumination';
+import { tallyReports, tallyOf, unfiledNames, notFiledLine, reportsDue } from '../../game/illumination';
 import { reportingMembers } from '../../game/roster';
-import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
+import { CIRCLE_QUESTIONS, insigniaLabel, relationshipsAmong, answererOf } from '../../game/circleFormation';
 
 // A line of the charter the Lightkeeper may change: its value with an Edit button, which
 // turns it into a field holding the value. Enter or leaving the field saves, Escape puts
@@ -272,6 +272,15 @@ function ReportFlipCard({ inv, report }) {
             </div>
           )}
 
+          {/* The report's own line on what happened, when it has one (playtest 3,
+              report-text-line) */}
+          {report?.note && (
+            <div>
+              <p className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-1">What happened</p>
+              <p className="font-serif text-sm italic leading-snug text-ink break-words">"{report.note}"</p>
+            </div>
+          )}
+
           {/* The front's turn-over mark, here a button of its own */}
           <button
             type="button"
@@ -315,6 +324,9 @@ export const CirclePage = () => {
     ...fallen.filter(inv => inv.personal_circle_answer),
   ];
   const reports          = circleCreation?.reports || {};
+  // The members' relationships, agreed and still waiting, read only: the players answer them
+  const memberRels = relationshipsAmong(circleCreation?.relationships, investigators);
+  const memberName = (id) => investigators.find(i => i.id === id)?.name || 'Someone';
 
   const trackFull = illum >= TRACK_SIZE;
 
@@ -325,6 +337,9 @@ export const CirclePage = () => {
   const thisTally = tallyOf(circle);
   const answers = thisTally.answers;
   const tally = tallyReports(investigators, reports, answers);
+  // Who has not filed, named over Add Illumination once reports are due, which does not
+  // wait for them (decision 5, playtest 3, missing-report-silent)
+  const notFiled = reportsDue(circle, reports) ? notFiledLine(unfiledNames(investigators, reports)) : '';
   const addTally = () => {
     if (tally.total <= 0 || thisTally.added != null) return;
     gmAddTally(circId, tally.keys);
@@ -543,6 +558,9 @@ export const CirclePage = () => {
               <p className="font-serif italic text-xs text-sepia leading-snug">
                 Keys are worth 2 when some of you fulfilled one, 4 when all of you did (p. 55). A report not filed counts as no key.
               </p>
+              {thisTally.added == null && notFiled && (
+                <p className="font-serif text-sm text-oxblood leading-snug">{notFiled}</p>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                 <span className="font-sans font-black text-xs uppercase tracking-widest text-ink">Total +{tally.total}</span>
                 {thisTally.added != null ? (
@@ -719,6 +737,28 @@ export const CirclePage = () => {
           </div>
         )}
       </CirclePaper>
+
+      {memberRels.length > 0 && (
+        <CirclePaper kind="plain" tilt={-0.5} data-circle-paper="relationships" aria-labelledby="gm-circle-relationships-title">
+          <h3 id="gm-circle-relationships-title" className="font-sans text-sm font-black uppercase tracking-widest text-ink border-b border-ink/30 pb-1 mb-3 flex flex-wrap items-center gap-1.5">
+            <SafeIcon name="GiHeartInside" size={14} className="text-oxblood" />
+            Circle Relationships
+          </h3>
+          <div className="divide-y divide-dashed divide-sepia/40">
+            {memberRels.map(rel => (
+              <div key={rel.id} className="py-2">
+                <p className="font-serif text-base text-ink leading-snug">
+                  <span className="font-bold">{memberName(rel.from_character_id)}</span> to <span className="font-bold">{memberName(rel.to_character_id)}</span>: <span className="font-bold">{rel.rel_type}</span>
+                  {rel.status === 'accepted'
+                    ? <span className="font-sans font-bold text-xs uppercase tracking-wide text-seal-green ml-2">Agreed</span>
+                    : <span className="font-serif italic text-sm text-sepia ml-2">waiting for {memberName(answererOf(rel))}</span>}
+                </p>
+                {rel.lore ? <p className="font-serif text-sm text-sepia italic leading-tight mt-1 whitespace-pre-line">{rel.lore}</p> : null}
+              </div>
+            ))}
+          </div>
+        </CirclePaper>
+      )}
 
     </CirclePapers>
       {/* Circle Advancement Modal */}

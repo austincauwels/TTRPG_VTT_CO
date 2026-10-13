@@ -121,3 +121,6 @@ _SAFE_FONT_NAMES = {
     "Patrick Hand", "Rock Salt", "Gochi Hand",
 }
 _ALLOWED_CAMPAIGN_CODE_RE = _re.compile(r"^[a-zA-Z0-9\-_]{3,32}$")
+
+# What the Lightkeeper's notebook entries are signed with: never her login name
+GM_AUTHOR = "The Lightkeeper"

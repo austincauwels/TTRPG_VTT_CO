@@ -58,6 +58,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 | POST | /campaign/{campaign_id}/retire | retire_campaign | 545 | yes | OperationsPanel.jsx | GM of that campaign |
 | POST | /campaign/{campaign_id}/unretire | unretire_campaign | - | yes | gameStore.unretireCampaign (ledger Retired list) | GM of that campaign |
 | POST | /campaign/withdraw/{character_id} | withdraw_request | - | yes | gameStore.withdrawRequest (registry) | the character's owner |
+| POST | /campaign/release/{character_id} | release_member | - | yes | gameStore.releaseMember (GMCharacterSheet via OperationsPanel, LeaveCampaign, registry) | the character's owner, or the GM of its campaign |
 | POST | /campaign/rejoin | rejoin_campaign | 568 | yes | AppRouter.jsx | owner of the character, if invited or their old character there died |
 | POST | /campaign/{campaign_id}/invite-rejoin | invite_rejoin | 638 | yes | gm/desk/InvitePlayer.jsx (the Lightkeeper's roster; DiceVault.jsx until 2026-10-09) | GM of that campaign |
 | GET | /campaign/{campaign_id}/roster | get_roster | 663 | no | OperationsPanel.jsx, TactileSidebar.jsx | GM or member of that campaign |
@@ -131,6 +132,12 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **POST /campaign/withdraw/{character_id}** (`async def`)
 - Owner only. A `pending` character goes to `unaffiliated` with no campaign (row locked). 409 "This request is no longer waiting." otherwise.
 - Broadcast: `investigator_rejected` `{character_id, pending_investigators}` to the campaign (named cards on the Lightkeeper's key), as a reject sends it, but not to the character's own channel (the hub has no socket).
+
+**POST /campaign/release/{character_id}** (`async def`, since 2026-10-12)
+- The Lightkeeper of the character's campaign releases a member, or the character's owner leaves (decision 1 of fix round 4, playtest ghost-member-no-release). Any time, before or after the seal.
+- Tables: characters (row locked; a living `active` member goes to `unaffiliated`, campaign_id NULL, ink cleared, its assignment ended as a retire ends it; the row is kept), circles (row locked; its report for the current assignment leaves `backstory_answers.reports`; after the seal each of stitch, refresh and train above 1 plus the members is lowered to it, nothing raised; before the seal all three fill to it, as an approval fills them), circle_votes (its votes on the campaign's circle deleted), relationships (every row on the campaign's circle with it at either end, agreed or proposed, deleted). In memory: a Non-Combatant drive point the old circle's Doctor offered it is dropped, so its desk, now with no campaign, cannot take it (fix round 4 review).
+- Broadcast: `investigator_released` to the campaign (the GM key's cards carry `owner_username`) and to channel `str(character_id)`, then `circle_update`, then the log line "The Lightkeeper released <name> from the circle." or "<name> left the circle."
+- Response `{ok: true, character}`. 409 "This investigator is not a member of the campaign." for a pending, dead or already free character (a request is rejected or withdrawn; the dead stay with the campaign); 403 for anyone but the owner and that Lightkeeper.
 
 **POST /campaign/rejoin** (line 568, `async def`)
 - Inputs: JSON body `RejoinRequest {character_id, campaign_code}`.
@@ -321,7 +328,7 @@ Intended: a numeric channel only for the owner of that character; a code channel
 | submit_assignment_report | 2074 | circle_id, character_id, responses | circle_id, character_id | circles.backstory_answers.reports | CircleView | owner of character_id, member | No "and character" guard. |
 | gm_advance_circle | 2097 | role, circle_id, circle_ability | circle_id | circles (circle_ability appended, illumination minus 12) | CirclePage | GM | Sends `activity_log` and `circle_advanced`. |
 | refill_resources | 2122 | role, circle_id | circle_id | circles stitch/refresh/train | CirclePage | GM | Capacity counts `circle.characters` (see legacy fallbacks). |
-| gm_end_assignment | 2134 | role, circle_id, campaign_id (ignored) | circle_id | circles (location, atmosphere, tension_label cleared; tension_clock and stamina_dice_used set to 0; illumination +1 per member with Meticulous Notes), characters (ability_uses, resources_spent_assignment, train_bonus, train_dice and gear reset for active members) | SceneManager | GM | Sends `circle_update`, `character_update` to each member, and `activity_log`. |
+| gm_end_assignment | 2134 | role, circle_id, campaign_id (ignored) | circle_id | circles (location, atmosphere, tension_label cleared; tension_clock and stamina_dice_used set to 0; illumination +1 per member with Meticulous Notes), characters (ability_uses, resources_spent_assignment and gear reset for active members; since 2026-10-12 train_bonus and train_dice are kept until a roll uses them) | SceneManager | GM | Sends `circle_update`, `character_update` to each member, and `activity_log`. |
 | gm_reset_character | 2160 | role, character_id | character_id (scoped to camp_id) | characters drives, resistances, ability_uses | GMCharacterSheet | GM | One of the few scoped lookups. |
 | spend_resource | 2189 | resource_type, circle_id (ignored) | character_id | circles resource -1, characters | CircleView | owner, member | Uses the connection's circle; requires resources_editable; max 2 per assignment. |
 | apply_advancement | 2236 | choice, detail, character_id | character_id | characters | CircleView | owner, after a circle advancement | No server gate on when advancement is allowed. Frontend sends `accessSession.characterId`, which is normally undefined, so the channel id is used. |
@@ -338,7 +345,7 @@ Intended: a numeric channel only for the owner of that character; a code channel
 
 From the WebSocket handler: `character_update`, `circle_update`, `roll_result`, `roll_error`, `scene_transition`, `activity_log`, `ability_mark_offer`, `ability_intercept_offer`, `trigger_scar`, `assignment_report_submitted`, `circle_advanced`, `vote_update`, `backstory_update`, `personal_answer_update`, `relationship_update`, `notebook_entry`.
 
-From REST routes: `investigator_joined`, `investigator_approved`, `investigator_rejected`, `campaign_retired`, `campaign_restored` (undo of a delete, and unretire), `character_joined_mid_campaign`, `gm_rejoin_invite`, `roster_finalized`, `notebook_entry`, `activity_log`.
+From REST routes: `investigator_joined`, `investigator_approved`, `investigator_rejected`, `investigator_released`, `campaign_retired`, `campaign_restored` (undo of a delete, and unretire), `character_joined_mid_campaign`, `gm_rejoin_invite`, `roster_finalized`, `notebook_entry`, `activity_log`.
 
 `character_update` payloads come from `get_char_dict` (line 1352) and `circle_update` payloads from `get_circle_dict` (line 1419). Both shapes must stay identical.
 

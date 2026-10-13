@@ -218,6 +218,21 @@ def _member_circle_vote(ctx, payload, character):
     _circle_of(ctx, _default_circle(ctx, payload), _sender_campaign(ctx))
 
 
+# The longest line a report may carry about what happened (CircleView.jsx has the same limit)
+REPORT_NOTE_MAX = 280
+REPORT_NOTE_TOO_LONG = f"A report's line is text of up to {REPORT_NOTE_MAX} characters."
+
+
+def _submit_assignment_report(ctx, payload, character):
+    """A member's report. Its optional line (note) is text within the limit, or nothing of
+    the report is saved."""
+    _member_circle_vote(ctx, payload, character)
+    note = payload.get("note")
+    if payload.get("character_id") and note is not None \
+            and (not isinstance(note, str) or len(note.strip()) > REPORT_NOTE_MAX):
+        _invalid(REPORT_NOTE_TOO_LONG)
+
+
 def _circle_creation_vote(ctx, payload, character):
     """An unknown vote_type used to be stored, and then the reply's lookup raised and
     ended the socket."""
@@ -439,7 +454,7 @@ RULES = {
     "gm_update_scars": _gm_update_scars,
     "intercept_mark": _intercept_mark,
     "spend_resource": _spend_resource,
-    "submit_assignment_report": _member_circle_vote,
+    "submit_assignment_report": _submit_assignment_report,
     "circle_creation_vote": _circle_creation_vote,
     "circle_backstory_update": _circle_backstory_update,
     "circle_relationship_propose": _circle_relationship_propose,

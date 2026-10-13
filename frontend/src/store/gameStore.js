@@ -239,7 +239,7 @@ export const postRollChoiceWaiting = (s) => {
   if (!outcome || outcome === 'full_success' || outcome === 'critical_success') return false;
   const drive = s.lastRoll.action ? driveKeyFor(s.lastRoll.action) : null;
   if (!drive || !s.character) return false;
-  const max = Math.floor((s.character[`${drive}_max`] || 1) / 3);
+  const max = Math.floor((s.character[`${drive}_max`] ?? 0) / 3);
   return max > (s.character[`${drive}_resistance_spent`] || 0);
 };
 
@@ -384,6 +384,24 @@ const withoutCampaign = (state, campaignId, campaignCode) => {
   };
 };
 
+// An investigator its campaign let go (the Lightkeeper released it, or its player left):
+// free in the registry, and no longer the hub's Last Played
+const freedInvestigator = (state, characterId) => ({
+  characters: state.characters.map(c => (c.id === characterId
+    ? { ...c, status: 'unaffiliated', campaign_id: null, campaign_name: null, campaign_code: null }
+    : c)),
+  lastPlayedCampaign: state.lastPlayedCampaign?.type === 'player' && state.lastPlayedCampaign.characterId === characterId
+    ? null : state.lastPlayedCampaign,
+});
+
+// What the hub says when this player's investigator left its campaign
+const releasedWords = (by, name, campaignName) => {
+  const where = campaignName || 'the campaign';
+  return by === 'player'
+    ? `${name} left ${where} and is free to join another campaign.`
+    : `The Lightkeeper released ${name} from ${where}. ${name} is free to join another campaign.`;
+};
+
 // Closes this tab's socket when it is open on the channel about to be deleted (the
 // server would close it), and returns a function that opens it again, for a delete that
 // did not go through. Nothing to reopen when another socket has been opened meanwhile.
@@ -418,6 +436,7 @@ const useGameStore = create(
       // GLOBAL GAME STATE
       // ==========================================
       accessSession: null,
+      sessionEnded: false,       // the server refused the session (401 or 4401): the sign-in slip says so
       socket: null,
       socketGameId: null,        // the channel the socket was opened for (character id or campaign code)
       // 'idle' | 'connecting' | 'open' | 'reconnecting' | 'replaced' | 'refused'
@@ -517,9 +536,18 @@ const useGameStore = create(
       setAccessSession: (session) => {
         set({
           accessSession: session,
+          sessionEnded: session ? false : get().sessionEnded,
           stage: session ? 'HOME' : 'LOGIN',
           rejoinInvite: session?.pendingRejoinInvite || null,
         });
+      },
+
+      // The server ended this session: sign out, and keep the reason for the sign-in slip.
+      // Parallel 401s end it once.
+      endSession: () => {
+        if (!get().accessSession) return;
+        get().logout();
+        set({ sessionEnded: true });
       },
 
       // Safely close the connection and wipe the local session data
@@ -705,7 +733,7 @@ const useGameStore = create(
           if (get().socket !== socket) return;
           stopHeartbeat();
           // 4401: the token is missing, expired or no longer valid. Back to the login screen.
-          if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().logout(); return; }
+          if (event.code === WS_CLOSE_UNAUTHENTICATED) { get().endSession(); return; }
           // A roll waiting to be sent, or sent with no answer, waits on only while the desk
           // reconnects by itself; the sent one goes again with its roll_id
           const closesForGood = event.code === WS_CLOSE_REPLACED || event.code === 4403 || event.code === 4404;
@@ -1132,6 +1160,52 @@ const useGameStore = create(
               };
             });
           }
+          else if (message.type === 'investigator_released') {
+            // A member left the roster (released by the Lightkeeper, or their player left).
+            // This desk's own investigator: back to the hub, which says so, on a socket that
+            // no longer carries the campaign. Any other desk of the campaign: the members,
+            // votes and relationships left, and the report it filed goes.
+            const p = message.payload || {};
+            const { character: myChar, socketGameId } = get();
+            if (p.character_id != null && p.character_id === myChar?.id) {
+              if (String(socketGameId) === String(myChar.id)) setTimeout(() => get().reconnect(), 0);
+              set(state => ({
+                ...freedInvestigator(state, p.character_id),
+                ...(state.stage === 'DESK'
+                  ? { stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null }
+                  : { character: { ...state.character, status: 'unaffiliated', campaign_id: null } }),
+                hubNotice: releasedWords(p.by, p.character_name || myChar.name, p.campaign_name),
+              }));
+              get().fetchUserData(get().accessSession?.userId);
+              return;
+            }
+            if (!isForThisCampaign(p)) return;
+            set(state => {
+              const gone = p.character_id;
+              const cards = state.campaignRoster.active_investigators || [];
+              const listed = Array.isArray(p.active_investigators);
+              const reports = { ...(state.circleCreation.reports || {}) };
+              delete reports[gone];
+              delete reports[String(gone)];
+              return {
+                campaignRoster: {
+                  ...state.campaignRoster,
+                  active_investigators: listed
+                    ? p.active_investigators.map(sheet => sheetOnCard(cards.find(c => c.id === sheet.id), sheet))
+                    : cards.filter(c => c.id !== gone),
+                },
+                circleCreation: {
+                  ...state.circleCreation,
+                  activeInvestigators: listed
+                    ? p.active_investigators
+                    : state.circleCreation.activeInvestigators.filter(inv => inv.id !== gone),
+                  ...(p.votes ? { votes: { ...state.circleCreation.votes, ...p.votes } } : {}),
+                  ...(Array.isArray(p.relationships) ? { relationships: p.relationships } : {}),
+                  reports,
+                },
+              };
+            });
+          }
           else if (message.type === 'roster_finalized') {
             if (!isForThisCampaign(message.payload)) return;
             const rejectedIds = message.payload.rejected_character_ids || [];
@@ -1166,7 +1240,7 @@ const useGameStore = create(
           else if (message.type === 'assignment_report_submitted') {
             // A report filed: the Lightkeeper's desk and its author's get it. The author's
             // form shows what was filed, and its draft goes.
-            const { character_id, character_name, responses, submitted_at } = message.payload;
+            const { character_id, character_name, responses, submitted_at, note } = message.payload;
             const own = character_id === get().character?.id;
             set(state => {
               const drafts = { ...state.reportDrafts };
@@ -1176,7 +1250,7 @@ const useGameStore = create(
                   ...state.circleCreation,
                   reports: {
                     ...(state.circleCreation.reports || {}),
-                    [character_id]: { character_name, responses, submitted_at },
+                    [character_id]: { character_name, responses, submitted_at, ...(note ? { note } : {}) },
                   },
                 },
                 ...(own ? { reportDrafts: drafts, reportSending: false, reportError: null } : {}),
@@ -1703,14 +1777,15 @@ const useGameStore = create(
       },
 
       // replace: an amended report, which takes the place of the one filed (the server
-      // refuses a second report without it)
-      submitAssignmentReport: (circleId, characterId, responses, { replace = false } = {}) => {
+      // refuses a second report without it). note: the report's optional line on what
+      // happened (playtest 3, report-text-line)
+      submitAssignmentReport: (circleId, characterId, responses, { replace = false, note = '' } = {}) => {
         const { socket, reportSending } = get();
         if (reportSending) return false;
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'submit_assignment_report',
-            payload: { circle_id: circleId, character_id: characterId, responses, ...(replace ? { replace: true } : {}) },
+            payload: { circle_id: circleId, character_id: characterId, responses, ...(note.trim() ? { note } : {}), ...(replace ? { replace: true } : {}) },
           }));
           set({ reportSending: true, reportError: null });
           // An answer that never comes (a dead socket) does not lock the form
@@ -2274,6 +2349,35 @@ const useGameStore = create(
         await get().fetchUserData(get().accessSession?.userId);
         return result;
       },
+      // Takes an approved investigator off its campaign's roster: the Lightkeeper releases a
+      // member, or the player leaves (from the desk or the hub). Every desk hears
+      // investigator_released; the answer frees the investigator here too, for a hub with no
+      // socket, and takes a desk whose socket missed the frame back to the hub.
+      releaseMember: async (characterId) => {
+        const result = await deletionRequest(`/campaign/release/${characterId}`, 'POST');
+        if (!result.success) {
+          // Refused (a 409 means it was released elsewhere): the hub, which has no socket,
+          // reads the registry again so the row moves with the message
+          if (result.status) await get().fetchUserData(get().accessSession?.userId);
+          return result;
+        }
+        const ch = result.character || {};
+        const ownDesk = get().stage === 'DESK' && get().character?.id === characterId;
+        // The campaign's name, read before the investigator is freed (the frame may come later)
+        const last = get().lastPlayedCampaign;
+        const wasIn = (last?.type === 'player' && last.characterId === characterId ? last.campaignName : null)
+          || get().characters.find(c => c.id === characterId)?.campaign_name || null;
+        if (ownDesk && String(get().socketGameId) === String(characterId)) setTimeout(() => get().reconnect(), 0);
+        set(state => ({
+          ...freedInvestigator(state, characterId),
+          ...(ownDesk && state.character?.id === characterId
+            ? { stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null,
+                hubNotice: releasedWords('player', ch.name || state.character.name, wasIn) }
+            : {}),
+        }));
+        if (get().accessSession?.userId != null && get().stage === 'HOME') get().fetchUserData(get().accessSession.userId);
+        return result;
+      },
       // The hub has said "You withdrew ..." for this one (usePendingApprovalWatch.js)
       forgetWithdrawn: (characterId) => set(st => ({ withdrawnIds: st.withdrawnIds.filter(id => id !== characterId) })),
 
@@ -2333,7 +2437,7 @@ const useGameStore = create(
 // Every API call sends the session's token; a 401 means it is gone or expired.
 configureApiAuth({
   getToken: () => useGameStore.getState().accessSession?.token || null,
-  onUnauthorized: () => useGameStore.getState().logout(),
+  onUnauthorized: () => useGameStore.getState().endSession(),
 });
 
 // A phone that wakes up or a network that comes back should not wait out the backoff.

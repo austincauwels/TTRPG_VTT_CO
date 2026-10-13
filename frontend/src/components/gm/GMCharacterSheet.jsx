@@ -58,7 +58,55 @@ const SpendBack = ({ character, onGive }) => {
   );
 };
 
-export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, busy = false, error: requestError = '' }) => {
+// Takes the member off the roster, at any time (decision 1 of fix round 4, playtest
+// ghost-member-no-release): two presses, the armed line saying what goes with them. A
+// refusal says why under it; the sheet closes once the release goes through.
+const ReleaseMember = ({ name, trainDice, onRelease }) => {
+  const sealed = useGameStore(s => !!s.circle?.is_finalized);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const release = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    const result = await onRelease();
+    setBusy(false);
+    if (!result?.success) {
+      setError(result?.status === 0
+        ? `Could not reach the server, so ${name} is still in the circle. Check your connection and try again.`
+        : result?.status === 409
+          ? `${name} is no longer a member of the circle.`
+          : `${name} was not released. Try again in a moment.`);
+    }
+  };
+  return (
+    <div className="mt-6 pt-4 border-t border-ink/10">
+      <ConfirmAction
+        className="flex flex-wrap items-center gap-3"
+        hintClassName="basis-full"
+        onConfirm={release}
+        disabled={busy}
+        cancelLabel="Keep in the circle"
+        armedHint={`Press again to release ${name}. They go back to the player, out of the campaign. Their circle votes, relationships and this assignment's report are dropped${
+          sealed ? ', and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' : '.'}${
+          trainDice > 0 ? ' Any Train die they hold is lost.' : ''}`}
+        renderButton={(armed, props) => (
+          <button
+            {...props}
+            className={`disabled:opacity-50 disabled:cursor-wait font-sans text-xs font-black uppercase tracking-widest px-4 py-2 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] border rounded transition-colors ${
+              armed ? 'bg-ink text-cream border-ink' : 'border-sepia/50 text-sepia hover:bg-sepia/10'
+            }`}
+          >
+            {busy ? 'Releasing…' : armed ? 'Yes, release' : 'Release from the circle'}
+          </button>
+        )}
+      />
+      {error && <p role="alert" className="mt-2 font-serif text-base text-oxblood leading-snug">{error}</p>}
+    </div>
+  );
+};
+
+export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, onRelease, busy = false, error: requestError = '' }) => {
   const [fullChar, setFullChar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -307,6 +355,10 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                 </button>
               )}
             />
+            {/* A dead investigator stays with the campaign; the living may be released */}
+            {onRelease && !sheet.is_dead && (
+              <ReleaseMember name={fullChar.name || 'this investigator'} trainDice={fullChar.train_bonus ? (fullChar.train_dice || 1) : 0} onRelease={() => onRelease(rosterItem.id)} />
+            )}
             </>}
           </>
         )}

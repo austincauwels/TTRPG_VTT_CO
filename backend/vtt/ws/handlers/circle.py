@@ -23,7 +23,9 @@ async def handle_submit_assignment_report(ctx):
     (rulebook p. 54). One each, while the Lightkeeper has reports open; another replaces
     it only when it says so (replace: true, the form's Amend), so a stray Send no longer
     wipes a filed report (playtest, 2026-10-09). It goes to the Lightkeeper and back to
-    its author, never to the other players (vtt/assignment.py)."""
+    its author, never to the other players (vtt/assignment.py). It may carry a short line
+    on what happened (note, checked in vtt/ws/access.py), kept only when it says something;
+    an amended report without one has none (playtest 3, report-text-line)."""
     db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     char_id = payload.get("character_id")
@@ -44,13 +46,23 @@ async def handle_submit_assignment_report(ctx):
             if str(char_id) in reports and payload.get("replace") is not True:
                 await refuse(ctx, "submit_assignment_report", 409, "Your report is already filed.")
                 return
-            reporter = db.query(Character).filter(Character.id == char_id).first()
-            reporter_name = reporter.name if reporter else "Unknown"
+            # Read again under the circle's lock: a release (POST /campaign/release) that
+            # committed after the access check dropped this member's report, and must not
+            # get one back (fix round 4 review)
+            reporter = db.query(Character).filter(Character.id == char_id).populate_existing().first()
+            if reporter is None or reporter.status != "active" \
+                    or reporter.campaign_id != target_circle.campaign_id:
+                await refuse(ctx, "submit_assignment_report", 409, "This investigator is not a member of the campaign.")
+                return
+            reporter_name = reporter.name
             amended = str(char_id) in reports
             # The shape of the frame below, which the GM's report card reads after a
             # reload too, with when it was filed for its date stamp
             report = {"character_name": reporter_name, "responses": responses,
                       "submitted_at": datetime.now(timezone.utc).isoformat()}
+            note = (payload.get("note") or "").strip()
+            if note:
+                report["note"] = note
             reports[str(char_id)] = report
             existing[REPORTS] = reports
             target_circle.backstory_answers = existing
@@ -89,7 +101,8 @@ async def handle_spend_resource(ctx):
         character.cunning_resistance_spent   = 0
         character.intuition_resistance_spent = 0
     elif resource_type == "train":
-        # Each Train is a die for a roll in the next assignment (p. 41): two spends, two dice
+        # Each Train is a die for a roll the player picks (p. 41), kept until a roll uses
+        # it, End Assignment or not: two spends, two dice
         take_train_die(character, 1)
 
     setattr(circle, resource_type, cur_val - 1)
@@ -99,7 +112,7 @@ async def handle_spend_resource(ctx):
     _RESOURCE_MSG = {
         "stitch":  "all marks cleared.",
         "refresh": "drives & resistances restored.",
-        "train":   "a Train d6 for a roll of their choice this assignment.",
+        "train":   "a Train d6 for a roll of their choice, kept until a roll uses it.",
     }
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)

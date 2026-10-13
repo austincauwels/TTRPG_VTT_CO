@@ -9,7 +9,7 @@ import { Hourglass } from '../shared/Hourglass';
 import { TensionTimer, formatTime, useTimeLeft } from '../shared/TensionTimer';
 import { arrivedAt } from '../../store/circleArrivals';
 import { useAutoGrow, fitHeight, GROW_STYLE } from '../shared/useAutoGrow';
-import { tallyReports, tallyOf } from '../../game/illumination';
+import { tallyReports, tallyOf, unfiledNames, notFiledLine, reportsDue } from '../../game/illumination';
 
 const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -259,16 +259,22 @@ export const SceneManager = () => {
 
   // End Assignment clears the reports and their tally (backend vtt/assignment.py), so the
   // confirm says so, and warns of a tally not yet added, which would be lost (playtest,
-  // end-assignment-drops-unadded-tally)
+  // end-assignment-drops-unadded-tally). Once reports are due it names who has not filed
+  // one, without waiting for them (decision 5, playtest 3, missing-report-silent)
   const tally = tallyOf(circle);
   const unadded = tally.added == null
     ? tallyReports(circleCreation?.activeInvestigators, circleCreation?.reports, tally.answers).total : 0;
-  const endHint = unadded > 0 ? (
+  const notFiled = reportsDue(circle, circleCreation?.reports)
+    ? notFiledLine(unfiledNames(circleCreation?.activeInvestigators, circleCreation?.reports)) : '';
+  const endHint = unadded > 0 || notFiled ? (
     <>
-      <strong className="block mb-1 not-italic font-bold">
-        The reports' {unadded} Illumination is not added yet and will be lost: add it on the Circle page first.
-      </strong>
-      {`Press again to end it anyway: the dispatch clears. ${ENDS}`}
+      {unadded > 0 && (
+        <strong className="block mb-1 not-italic font-bold">
+          The reports' {unadded} Illumination is not added yet and will be lost: add it on the Circle page first.
+        </strong>
+      )}
+      {notFiled && <span className="block mb-1">{notFiled}</span>}
+      {`Press again to end it${unadded > 0 ? ' anyway' : ''}: the dispatch clears. ${ENDS}`}
     </>
   ) : `Press again to end it: the dispatch clears. ${ENDS}`;
 

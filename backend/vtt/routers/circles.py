@@ -206,11 +206,12 @@ async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get
     campaign = db.query(Campaign).filter(Campaign.id == body.campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    # Find circle: prefer exact match by id+campaign, fall back to campaign's circle
+    # Find circle: prefer exact match by id+campaign, fall back to campaign's circle.
+    # Locked, so a release in flight lands first and the seal counts the members left.
     circle = db.query(Circle).filter(
         Circle.id == body.circle_id,
         Circle.campaign_id == body.campaign_id,
-    ).first()
+    ).populate_existing().with_for_update().first()
     if not circle:
         circle = get_or_create_campaign_circle(db, body.campaign_id)
     if not circle:

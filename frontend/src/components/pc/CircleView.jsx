@@ -5,6 +5,7 @@ import { RelationshipNegotiation, useRelationshipForms } from './relationships/R
 import { InfoTerm } from '../shared/ActionInfo';
 import { useDialog } from '../shared/useDialog';
 import { onActivateKey } from '../shared/a11y';
+import { useAutoGrow, GROW_STYLE } from '../shared/useAutoGrow';
 import { FormLine, SerialNo, DateStamp, PrinterMark, BlankEntry, BlankQuestionCard, serialFor, stampDate } from '../shared/PrintMarks';
 import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { refillRule } from '../../game/circleResources';
@@ -45,11 +46,13 @@ const ADVANCEMENT_OPTIONS = [
 
 const TRACK_SIZE = 12;
 const RESOURCE_MAX_SQUARES = 9;
+// The longest line a report may carry (backend vtt/ws/access.py REPORT_NOTE_MAX)
+const REPORT_NOTE_MAX = 280;
 
 const RESOURCES = [
   { label: 'Stitch',  key: 'stitch',  desc: 'Clear all marks (Body, Brain, Bleed) for yourself.' },
   { label: 'Refresh', key: 'refresh', desc: 'Restore all your drives and resistances.' },  // p. 41: not ability uses
-  { label: 'Train',   key: 'train',   desc: 'Take a d6 to use on any roll you choose in the next assignment.' },  // p. 41
+  { label: 'Train',   key: 'train',   desc: 'Take a d6 to add to any roll you choose, kept until a roll uses it.' },  // p. 41
 ];
 
 const ILLUM_QUESTIONS = [
@@ -522,7 +525,15 @@ export const CircleView = () => {
   // The keys this investigator fulfilled: { 0: bool, ... }. The circle's three questions
   // are the Lightkeeper's to answer once, on their page (playtest, report-questions-tally)
   const keyChecks = showFiled ? (filedResponses.keys_detail || {}) : (draft?.keyChecks || {});
-  const setKeyChecks = (update) => setReportDraft(character?.id, { keyChecks: update(keyChecks), amending });
+  // The report's optional line on what happened, kept in the draft with the ticks (playtest
+  // 3, report-text-line)
+  const noteText = showFiled ? (myReport?.note || '') : (draft?.note || '');
+  // The line's box grows with it, so a long line is read whole before Send (it scrolled
+  // inside two rows on a phone)
+  const noteRef = useRef(null);
+  useAutoGrow(noteRef, `${showFiled}|${noteText}`);
+  const setKeyChecks = (update) => setReportDraft(character?.id, { keyChecks: update(keyChecks), note: noteText, amending });
+  const setNote = (note) => setReportDraft(character?.id, { keyChecks, note, amending });
 
   // Relationship drafts for the shared relationship form
   const relForms = useRelationshipForms();
@@ -587,13 +598,31 @@ export const CircleView = () => {
 
   // A player spends a resource in two presses: the first asks, the second spends (the
   // pips were 16 px squares 4 px apart, and one tap spent for the whole circle; playtest,
-  // resource-spend-no-guard). The question lapses after a few seconds.
+  // resource-spend-no-guard). The question stays until the player presses elsewhere, presses
+  // Escape or moves focus away, like every other confirm (ConfirmAction.jsx): it lapsed after
+  // four seconds, and every player lost spends to it (playtest 3, spend-confirm-lapses-fast).
+  // A press elsewhere is read on its click, not as the pointer goes down, and the question's
+  // line under each button keeps its space, so nothing moves under the finger as it arms or
+  // disarms. A press on another resource asks about that one.
+  const SPEND_ASK = 'Press again to spend it. It is spent for the whole circle.';
   const [confirmKey, setConfirmKey] = useState(null);
   useEffect(() => {
     if (!confirmKey) return undefined;
-    const t = setTimeout(() => setConfirmKey(null), 4000);
-    return () => clearTimeout(t);
+    const onClick = (e) => {
+      if (e.target.closest?.('[data-spend-key]')?.dataset.spendKey !== confirmKey) setConfirmKey(null);
+    };
+    const onKeyDown = (e) => { if (e.key === 'Escape') { e.preventDefault(); setConfirmKey(null); } };
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('click', onClick, true);
+      document.removeEventListener('keydown', onKeyDown, true);
+    };
   }, [confirmKey]);
+  // Spending locked, or the resource gone, while it asked: there is nothing left to confirm
+  useEffect(() => {
+    if (confirmKey && (spendBlock || (circle?.[confirmKey] ?? maxCap) <= 0)) setConfirmKey(null);
+  }, [confirmKey, spendBlock, circle, maxCap]);
   const spendHeld = useRef(false);
   const askedAt = useRef(0);
   function pressSpend(key) {
@@ -615,7 +644,7 @@ export const CircleView = () => {
       keys_detail: keyChecks,
     };
     // The ticks stay on the form until the filed report comes back in their place
-    if (submitAssignmentReport(circId, character?.id, responses, { replace: !!myReport })) {
+    if (submitAssignmentReport(circId, character?.id, responses, { replace: !!myReport, note: noteText.trim() })) {
       sentHere.current = true;
     }
   }
@@ -628,7 +657,7 @@ export const CircleView = () => {
 
   // Amend: the filed ticks become the draft, to change and send again in its place
   function startAmending() {
-    setReportDraft(character?.id, { keyChecks, amending: true });
+    setReportDraft(character?.id, { keyChecks, note: noteText, amending: true });
   }
 
   return (
@@ -760,7 +789,10 @@ export const CircleView = () => {
         {myKeys.length > 0 && (
           <div className="border-t border-ink/10 pt-2.5 mb-3">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1.5">
-              <InfoTerm label={`${character?.specialty} Illumination Keys`} text="If any of the circle fulfilled a key, the circle earns 2 Illumination, and 4 if all did." />
+              {/* The slip opens above the heading, over the intro text: under it, it lay
+                  over the key boxes and caught their clicks (playtest, info-slip-covers-keys) */}
+              <InfoTerm label={`${character?.specialty} Illumination Keys`} text="If any of the circle fulfilled a key, the circle earns 2 Illumination, and 4 if all did."
+                slipClassName="left-0 bottom-full mb-1 w-[min(18rem,calc(100vw-2.5rem))]" />
             </span>
             <div className="space-y-1">
               {myKeys.map((k, i) => (
@@ -776,6 +808,45 @@ export const CircleView = () => {
                 </label>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* A line on what happened, for the Lightkeeper's report card. Filed, it reads
+            back as written; a report filed without one shows nothing here. */}
+        {showFiled ? (myReport?.note && (
+          <div className="mb-3">
+            <p className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-1">What happened</p>
+            <p className="font-serif text-sm italic leading-snug text-ink break-words">"{myReport.note}"</p>
+          </div>
+        )) : (
+          <div className="mb-3">
+            <label htmlFor="circle-report-note" className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1">
+              What happened <span className="font-bold normal-case tracking-normal text-sepia/80">(a line, optional)</span>
+            </label>
+            <textarea
+              id="circle-report-note"
+              ref={noteRef}
+              value={noteText}
+              onChange={e => setNote(e.target.value.replace(/[\r\n]+/g, ' '))}
+              onKeyDown={e => {
+                // One line: Enter puts a space between the words instead of a line break
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                const el = e.currentTarget;
+                const before = el.value.slice(0, el.selectionStart);
+                if (!before || /\s$/.test(before) || el.value.length >= REPORT_NOTE_MAX) return;
+                el.setRangeText(' ', el.selectionStart, el.selectionEnd, 'end');
+                setNote(el.value);
+              }}
+              maxLength={REPORT_NOTE_MAX}
+              rows={2}
+              style={GROW_STYLE}
+              aria-describedby="circle-report-note-count"
+              className="block w-full min-h-[3.5rem] resize-none bg-transparent border border-dashed border-sepia/50 focus:border-oxblood px-2 py-1 font-serif text-base leading-snug text-ink"
+            />
+            <p id="circle-report-note-count" className={`mt-0.5 text-right font-mono text-xs tabular-nums ${noteText.length >= REPORT_NOTE_MAX ? 'text-oxblood' : 'text-sepia'}`}>
+              {noteText.length} / {REPORT_NOTE_MAX}<span className="sr-only"> characters</span>
+            </p>
           </div>
         )}
 
@@ -801,7 +872,7 @@ export const CircleView = () => {
               </span>
               <span className="flex items-center gap-3">
                 {myReport && (
-                  <button type="button" onClick={() => setReportDraft(character?.id, { keyChecks: {}, amending: false })}
+                  <button type="button" onClick={() => setReportDraft(character?.id, { keyChecks: {}, note: '', amending: false })}
                     className="pen-host min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-1 font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink">
                     <span className="pen-underline">Cancel</span>
                   </button>
@@ -848,11 +919,14 @@ export const CircleView = () => {
           </span>
         </div>
 
-        {!isGM && (spendBlock || confirmKey) && (
+        {!isGM && spendBlock && (
           <p id="resource-reason" className="mb-2 font-serif text-sm italic leading-snug text-sepia">
-            {spendBlock || 'Press again to spend it. It is spent for the whole circle.'}
+            {spendBlock}
           </p>
         )}
+        {/* The question is said under the button it asks about (above them all, it pushed
+            the buttons down as it came, so a double-click's second press missed) */}
+        {!isGM && <span role="status" className="sr-only">{confirmKey ? SPEND_ASK : ''}</span>}
         <div className="divide-y divide-dashed divide-sepia/35">
           {RESOURCES.map(({ label, key, desc }) => {
             const avail = circle?.[key] ?? maxCap;
@@ -915,7 +989,9 @@ export const CircleView = () => {
                 {!isGM && (
                   <button
                     type="button"
+                    data-spend-key={key}
                     onClick={() => { if (!cannot) pressSpend(key); }}
+                    onBlur={(e) => { if (confirmKey === key && e.relatedTarget && !e.relatedTarget.dataset?.spendKey) setConfirmKey(null); }}
                     aria-disabled={cannot}
                     aria-describedby={spendBlock ? 'resource-reason' : undefined}
                     className={`mt-2 w-full min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest border-2 rounded-sm transition-colors ${
@@ -926,6 +1002,12 @@ export const CircleView = () => {
                     {avail <= 0 && !spendBlock ? `No ${label} left`
                       : confirmKey === key ? `Press again: spend 1 ${label}` : `Spend 1 ${label}`}
                   </button>
+                )}
+                {/* Its line is always there while spending is open, and only shown while
+                    asking: arming one resource and then another moved the second button up
+                    under the finger, and its second press landed on the line below it */}
+                {!isGM && !spendBlock && (
+                  <p aria-hidden="true" className={`mt-1 font-serif text-sm italic leading-snug text-sepia ${confirmKey === key ? '' : 'invisible'}`}>{SPEND_ASK}</p>
                 )}
               </div>
             );

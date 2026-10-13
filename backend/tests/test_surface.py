@@ -39,6 +39,7 @@ HTTP_ROUTES = [
     (["POST"], "/campaign/{campaign_id}/retire", "retire_campaign", None, None),
     (["POST"], "/campaign/{campaign_id}/unretire", "unretire_campaign", None, None),
     (["POST"], "/campaign/withdraw/{character_id}", "withdraw_request", None, None),
+    (["POST"], "/campaign/release/{character_id}", "release_member", None, None),
     (["DELETE"], "/campaign/{campaign_id}", "delete_campaign", None, None),
     (["POST"], "/campaign/{campaign_id}/restore", "restore_campaign", None, None),
     (["POST"], "/campaign/rejoin", "rejoin_campaign", None, None),

@@ -35,6 +35,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /campaign/{campaign_id}/retire | GM of that campaign |
 | POST /campaign/{campaign_id}/unretire | GM of that campaign (a player it let go, the owner of one of its dead, or a stranger: 403) |
 | POST /campaign/withdraw/{character_id} | the character's owner |
+| POST /campaign/release/{character_id} | the character's owner (they leave), or the GM of the character's campaign (they release a member); 409 unless the character is a living active member |
 | DELETE /campaign/{campaign_id} | GM of that campaign; the characters on its roster go back to their owners, retired ones stay with it (DELETION.md) |
 | POST /campaign/{campaign_id}/restore | GM of that campaign, within two minutes of deleting it; anyone else, or a campaign that is not deleted, is 404 (DELETION.md) |
 | POST /campaign/rejoin | owner of `character_id` (checked before any row is locked), and only when the user has a pending rejoin invite to that campaign or an approved character there that died and has not been replaced yet (dead, status active; the rejoin retires it, so one death opens the way once). Rejoin skips GM approval, so a dead pending character does not count. After these checks, a retired campaign is 409, and a character on a roster is 409 as for a join ("This investigator is already in a campaign." or "This investigator is already waiting to join a campaign."), a dead one included. A living active member of this same campaign is a retry of a rejoin that went through: the same answer, and nothing changes or is broadcast |
@@ -59,7 +60,7 @@ Terms: the **GM** of a campaign is `campaigns.gm_user_id`. A **member** is a use
 | POST /api/auth/email-change/undo | anyone with the undo link (no login: the link was mailed to the old address) |
 | POST /api/auth/me/google/remove | any logged-in user who also sends the account's current password; their own account. Every other session of the account ends |
 | GET /api/notebook/{campaign_id}/entries | GM or member; `role=GM` only for the GM (403 otherwise); `character_id` must be the caller's own character (an empty `character_id=` means none) |
-| POST /api/notebook/{campaign_id}/entries | GM or member; a player must send `character_id`, and it must be the caller's own character and an active member of this campaign (the GM may leave it out); Lightkeeper entries (author_type gm, entry_type lightkeeper or visibility gm_only) only for the GM. The server sets `author_name` (the character's name, or the GM's username), pen and ink |
+| POST /api/notebook/{campaign_id}/entries | GM or member; a player must send `character_id`, and it must be the caller's own character and an active member of this campaign (the GM may leave it out); Lightkeeper entries (author_type gm, entry_type lightkeeper or visibility gm_only) only for the GM. The server sets `author_name` (the character's name, or The Lightkeeper for the GM, never her login name), pen and ink |
 | PUT, DELETE /api/notebook/entries/{entry_id} | the author: the owner of the entry's character while that character is an active member of the entry's campaign, or the campaign's GM for an entry without a character. An entry of a deleted campaign is 404 "Entry not found" |
 | POST /api/notebook/{campaign_id}/upload | as for adding an entry. A `scene` part (a drawn sketch's drawing) only with `entry_type` sketch: 422 "Only a sketch keeps a drawing." otherwise |
 | GET /api/notebook/entries/{entry_id}/scene | the author of the sketch alone, as for PUT on an entry. This one differs from the other notebook reads: everyone in the campaign sees a sketch's picture in the entry list, but only its author reads its drawing, so the campaign's GM gets 403 for a player's drawing, as do the other members. The 403 comes before anything is said about the scene; then 404 "This sketch keeps no drawing." when it has none |
@@ -127,7 +128,7 @@ The character a message acts on is `payload.character_id`, or the player channel
 | circle_relationship_propose | a player for their own `from_character_id`, to a fellow member, on their campaign's circle |
 | circle_relationship_respond | the other party: the character that did not act last (for a proposal made over REST, which records no actor, the character it was made to); never the GM |
 | chat_message | a member (an active character) or the GM; `@Environment` only from the GM. The sender name is the character's name, or "Lightkeeper" for the GM; `sender_name` is ignored |
-| add_notebook_entry | a member or the GM, into their own campaign only; Lightkeeper entries only from the GM. The author is the socket's: the player's character (name, pen, ink, character_id) or the GM's username with the default pen and ink; payload `author_name`, `pen_font`, `ink_color` and `character_id` are ignored |
+| add_notebook_entry | a member or the GM, into their own campaign only; Lightkeeper entries only from the GM. The author is the socket's: the player's character (name, pen, ink, character_id) or The Lightkeeper for the GM (never her login name) with the default pen and ink; payload `author_name`, `pen_font`, `ink_color` and `character_id` are ignored |
 
 "Member" here is read fresh from the database for every message, so a player who is approved while connected is a member at once (the handlers themselves still use the campaign fixed at connect, see QUIRKS.md).
 
@@ -138,8 +139,8 @@ Not changed: game rules that are not about who is acting (pending offers, `repor
 ## Frontend
 
 - The token is kept in the persisted session (`accessSession.token`, localStorage key `candela-vtt-storage`).
-- Every API call goes through `apiFetch` in `utils/api.js`, which adds `Authorization: Bearer`. A 401 on a call that carried a token logs the user out (session cleared, back to the login screen).
-- The WebSocket gets the token as its `bearer.<token>` subprotocol (it got `?token=` before 2026-10-10). A 4401 close logs the user out the same way; `action_rejected` is logged to the console (and ends a pending roll).
+- Every API call goes through `apiFetch` in `utils/api.js`, which adds `Authorization: Bearer`. A 401 on a call that carried a token ends the session (`endSession` in the store: session cleared, back to the login screen, which says "Your session ended; please sign in again." until the next sign-in; parallel 401s end it once).
+- The WebSocket gets the token as its `bearer.<token>` subprotocol (it got `?token=` before 2026-10-10). A 4401 close ends the session the same way; `action_rejected` is logged to the console (and ends a pending roll).
 - A session persisted before this change has no token; on load it is cleared and the login screen is shown.
 - SceneManager sends the campaign's circle id instead of 1 (see gm_update_circle above).
 

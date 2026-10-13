@@ -452,6 +452,12 @@ def init_db():
             run_migration(f"UPDATE {table} SET pen_font = '{new}' WHERE pen_font = '{old}'",
                           f"Could not rename the pen font {old} in {table}")
 
+    # The Lightkeeper signs her entries 'The Lightkeeper', never her login name (it used to
+    # be stored, and every player saw it)
+    run_migration(f"UPDATE notebook_entries SET author_name = '{config.GM_AUTHOR}' "
+                  f"WHERE author_type = 'gm' AND character_id IS NULL AND author_name <> '{config.GM_AUTHOR}'",
+                  "Could not sign the Lightkeeper's notebook entries as The Lightkeeper")
+
     convert_integer_flags()
     rename_relationship_types()
     retire_published_passwords()

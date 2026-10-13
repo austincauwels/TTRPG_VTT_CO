@@ -228,7 +228,7 @@ function useLinesThatFit() {
     const measure = () => {
       const narrow = typeof window.matchMedia === 'function' && window.matchMedia(NARROW_TOC).matches;
       const fits = Math.floor((node.clientHeight + TOC_GAP) / ((narrow ? TOC_ROW_NARROW : TOC_ROW) + TOC_GAP));
-      setCount(Math.max(3, fits));
+      setCount(Math.max(1, fits));
     };
     measure();
     if (typeof ResizeObserver !== 'undefined') {
@@ -347,7 +347,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
   // then the picture across the page (owner, 2026-10-05: never shrunk off to the side), then the hand
   if ((eType === 'sketch' || eType === 'photo') && entry.image_data) {
     return (
-      <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
+      <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none scroll-mt-28 lg:scroll-mt-0 ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
         <h3 className="leading-tight mb-1 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2rem' }}>
           {entry.title}
         </h3>
@@ -367,7 +367,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
   // Lightkeeper: letterhead style
   if (eType === 'lightkeeper') {
     return (
-      <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
+      <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none scroll-mt-28 lg:scroll-mt-0 ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
         <div className="border-b-2 border-ink/70 pb-2 mb-3 flex flex-wrap gap-2 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full border-2 border-ink/70 flex items-center justify-center text-lg font-serif font-black">✦</div>
@@ -386,7 +386,7 @@ function EntryCard({ entry, isLast, onRedraw }) {
 
   // Standard field_log
   return (
-    <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
+    <div data-entry-id={entry.id} tabIndex={-1} className={`break-words outline-none scroll-mt-28 lg:scroll-mt-0 ${isLast ? '' : 'pb-5 mb-5 border-b border-ink/10'}`}>
       <h3 className="leading-tight mb-0.5 font-normal" style={{ fontFamily: entry.pen_font, color: entry.ink_color, fontSize: '2.3rem' }}>
         {entry.title}
       </h3>
@@ -624,7 +624,17 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
 
   const authorFont  = isGM ? GM_PEN_FONT  : (character?.pen_font  || GM_PEN_FONT);
   const authorColor = isGM ? GM_INK_COLOR : (character?.ink_color || 'rgb(var(--c-oxblood))');
-  const authorName  = isGM ? (accessSession?.name || 'Lightkeeper') : (character?.name || 'Unknown');
+  const authorName  = isGM ? 'The Lightkeeper' : (character?.name || 'Unknown');
+
+  // Bring an entry's card into view once its page has drawn it, and move focus to it
+  const showEntry = (id, block = 'start') => {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const card = [...document.querySelectorAll(`[data-entry-id="${id}"]`)].find(n => n.offsetParent !== null);
+      if (!card) return;
+      card.scrollIntoView({ block, behavior: 'auto' });
+      card.focus({ preventScroll: true });
+    }));
+  };
 
   const handleSubmitEntry = () => {
     if (isSubmitting) return;
@@ -696,13 +706,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
       setCurrentSpread(Math.floor((at === -1 ? entries.length : at) / perSpread) + 1);
       // The window keeps its offset when the book turns, so the new entry may lie screens
       // down: bring it into view once the page has drawn it, and move focus to it.
-      const id = result.entry.id;
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const card = [...document.querySelectorAll(`[data-entry-id="${id}"]`)].find(n => n.offsetParent !== null);
-        if (!card) return;
-        card.scrollIntoView({ block: 'center', behavior: 'auto' });
-        card.focus({ preventScroll: true });
-      }));
+      showEntry(result.entry.id, 'center');
     } else if (!result.tooLarge) {
       setSubmitError('The entry was not saved. Check your connection and try again; your text is still here.');
     }
@@ -1188,7 +1192,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                       : entry.author_name === authorName;
                     return (
                       <li key={entry.id} className="group shrink-0 w-full flex flex-wrap items-center gap-x-1" style={{ minHeight: TOC_ROW }}>
-                        <button onClick={() => setCurrentSpread(entrySpread(entry))}
+                        <button onClick={() => { setCurrentSpread(entrySpread(entry)); showEntry(entry.id); }}
                           className="flex-1 min-w-0 flex items-center gap-2 px-2 text-left rounded-sm hover:bg-ink/[0.04] transition-colors"
                           style={{ minHeight: TOC_ROW }}
                         >
@@ -1259,7 +1263,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                 <div className="absolute top-3 left-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">
                   Field Notes, page {currentSpread}
                 </div>
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative lg:mt-6 lg:[container-type:size]" style={LINED_PAPER}>
+                <div className="flex-1 min-h-0 lg:overflow-y-auto custom-scrollbar relative lg:mt-6 lg:[container-type:size]" style={LINED_PAPER}>
                   {leftEntries.map((entry, i) => <EntryCard key={entry.id} entry={entry} isLast={i === leftEntries.length - 1}
                     onRedraw={canRedraw(entry) ? () => openRedraw(entry) : undefined} />)}
                 </div>
@@ -1384,7 +1388,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
             ) : (
               <div className="p-4 pt-10 sm:p-8 lg:pl-10 relative flex flex-col min-h-[360px] lg:min-h-0 lg:h-full min-w-0 bg-cream">
                 <div className="absolute top-3 right-3 font-sans font-bold text-sm text-sepia tracking-widest uppercase">Field Notes</div>
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative mt-6 lg:[container-type:size]" style={LINED_PAPER}>
+                <div className="flex-1 min-h-0 lg:overflow-y-auto custom-scrollbar relative mt-6 lg:[container-type:size]" style={LINED_PAPER}>
                   {rightEntries.length === 0
                     ? <div className="h-full flex flex-col items-center justify-center gap-4 opacity-[0.055] pointer-events-none select-none">
                         <div className="w-32 h-32 rounded-full border-4 border-ink flex flex-col items-center justify-center">

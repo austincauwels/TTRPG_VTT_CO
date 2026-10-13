@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 
 import support
+from vtt.ws import access
 from models import Character, Circle, CircleVote, Relationship
 
 EM = support.EM
@@ -497,6 +498,56 @@ def test_submit_assignment_report(client):
         "reports": {str(a["id"]): _report(a, {"keys_detail": {"1": True}})}}
 
 
+def test_a_report_carries_a_short_line_that_an_amendment_can_change(client):
+    """Playtest 3 (report-text-line): the report had only the key ticks, so the line on
+    what happened the Lightkeeper asked for went into table talk. A report may carry a
+    line of up to 280 characters (note), kept with its keys and sent to the Lightkeeper;
+    an amended report replaces it, and one without a line has none. A longer line, or
+    one that is not text, saves nothing of the report."""
+    camp, (a,), cid = _campaign(client)
+    support.update(Circle, cid, reports_open=True)
+    keys = {"keys_detail": {"0": True}}
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+        for bad in ("x" * 281, 7):
+            wa.send("submit_assignment_report", character_id=a["id"], responses=keys, note=bad)
+            assert wa.sync() == [_rejected("submit_assignment_report", status=422,
+                                           detail="A report's line is text of up to 280 characters.")]
+        assert support.fetch(Circle, cid).backstory_answers in (None, {})
+        wa.send("submit_assignment_report", character_id=a["id"], responses=keys, note="  We burned the ledger.  ")
+        [msg] = support.of_type(wa.sync(), "assignment_report_submitted")
+        assert msg["payload"]["note"] == "We burned the ledger."
+        assert support.of_type(gm.drain(), "assignment_report_submitted") == [msg]
+        assert _undated(support.fetch(Circle, cid).backstory_answers) == {
+            "reports": {str(a["id"]): {**_report(a, keys), "note": "We burned the ledger."}}}
+        # 280 characters, spaces round it not counted
+        wa.send("submit_assignment_report", character_id=a["id"], responses=keys, note=" " + "y" * 280 + " ", replace=True)
+        [msg] = support.of_type(wa.sync(), "assignment_report_submitted")
+        assert msg["payload"]["note"] == "y" * 280
+        wa.send("submit_assignment_report", character_id=a["id"], responses=keys, note="   ", replace=True)
+        [msg] = support.of_type(wa.sync(), "assignment_report_submitted")
+        assert "note" not in msg["payload"]
+    assert _undated(support.fetch(Circle, cid).backstory_answers) == {"reports": {str(a["id"]): _report(a, keys)}}
+
+
+def test_a_report_sent_as_its_author_is_released_is_not_kept(client, monkeypatch):
+    """Fixed (fix round 4 review): a report that passed the access check while a release
+    committed was stored for an investigator no longer in the circle. Under the circle's
+    lock the handler reads the member again and refuses."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Circle, cid, reports_open=True)
+    passed = access.RULES["submit_assignment_report"]
+
+    def then_released(ctx, payload, character):
+        passed(ctx, payload, character)
+        support.update(Character, a["id"], status="unaffiliated", campaign_id=None)
+    monkeypatch.setitem(access.RULES, "submit_assignment_report", then_released)
+    with support.ws_connect(client, a["id"]) as wa:
+        wa.send("submit_assignment_report", character_id=a["id"], responses={"keys_detail": {"0": True}})
+        assert wa.sync() == [_rejected("submit_assignment_report", status=409,
+                                       detail="This investigator is not a member of the campaign.")]
+    assert support.fetch(Circle, cid).backstory_answers in (None, {})
+
+
 def test_reports_reach_only_the_lightkeeper_and_their_authors(client):
     """Fixed (playtest, 2026-10-09): the circle every desk is sent carried every report, and
     so did the circle-creation-state route. The circle leaves them out, and the route
@@ -621,10 +672,14 @@ def test_meticulous_notes_add_illumination_after_an_assignment(client):
 
 
 def test_gm_end_assignment(client):
+    """Fixed (playtest 3, circle-spend-timing-wording; decision 2 of fix round 4): End
+    Assignment also cleared the Train dice, so a die bought while the assignment was open
+    was lost unused. A bought Train die is kept until a roll uses it; the spend count still
+    starts again."""
     camp, (a, b), cid = _campaign(client, members=2)
     for ch in (a, b):
         support.update(Character, ch["id"], ability_uses={"Steel Mind": 1}, resources_spent_assignment=2,
-                       train_bonus=True, gear=["Lantern"])
+                       train_bonus=True, train_dice=2, gear=["Lantern"])
     outsider = support.forge(client)
     support.update(Character, outsider["id"], resources_spent_assignment=2)
     support.update(Circle, cid, location="Docks", atmosphere="Fog", dispatch_text="Bring lamps.")
@@ -641,9 +696,10 @@ def test_gm_end_assignment(client):
         assert support.types(got) == ["circle_update", "character_update", "activity_log"]
         assert got[1]["payload"]["ability_uses"] == {}
         assert got[1]["payload"]["resources_spent_assignment"] == 0
-        assert got[1]["payload"]["train_bonus"] is False
+        assert (got[1]["payload"]["train_bonus"], got[1]["payload"]["train_dice"]) == (True, 2)
         assert got[1]["payload"]["gear"] == []  # gear slots reset with the assignment (p. 52)
-    assert support.fetch(Character, b["id"]).resources_spent_assignment == 0
+    row = support.fetch(Character, b["id"])
+    assert (row.resources_spent_assignment, row.train_bonus, row.train_dice) == (0, True, 2)
     assert support.fetch(Character, outsider["id"]).resources_spent_assignment == 2
     assert support.fetch(Circle, cid).dispatch_text == ""
 
