@@ -1,0 +1,678 @@
+[
+ {
+  "group": "sheet",
+  "impl": {
+   "done": [
+    {
+     "item": "#64 Detection, not prevention: the player can edit their whole sheet at any time (server)",
+     "what": "New WebSocket message edit_sheet (backend/vtt/sheet_edits.py, handle_edit_sheet in backend/vtt/ws/handlers/character.py, rule _edit_sheet in backend/vtt/ws/access.py). It stores any of: name, pronouns, style, catalyst, question, role with its specialty, role_ability, the specialty and advancement ability list, the nine ratings and their gilds, each drive's maximum, amount and burned resistance, the three mark tracks, and up to three scars. Only shape is checked (422): the boxes the sheet prints, known role, specialty and ability names, text lengths. No rules check. A lowered maximum brings the amount and the burned resistance down with it. An edit that changes nothing sends nothing. A dead sheet is still refused (409, added to DEAD_REFUSED).",
+     "checked": "New backend/tests/test_ws_sheet_edits.py (29 cases) covers storing, the log line, the dot, rule-breaking edits being accepted, the shape refusals storing nothing, the dead, other players and the Lightkeeper being refused, pending and unaffiliated characters, a rename reaching other members, and Lightkeeper corrections putting no dot. All pass."
+    },
+    {
+     "item": "#64 One log line per direct edit, for the Lightkeeper, naming the investigator and each change from what to what",
+     "what": "record_edit in handlers/character.py sends a line like \"Mara: Nerve maximum 5 to 6, gear Lantern removed, Revolver added.\" to the Lightkeeper's channel and the player's own channel. Other members do not get it. A player's update_drive pip is now a direct edit: \"Mara: Nerve 3 to 2.\" used to go to every member as \"Mara set Nerve to 2 of 3.\". The Lightkeeper's own corrections keep their campaign-wide lines and set no dot.",
+     "checked": "test_update_drive_* and test_update_gear in test_ws_character.py were flipped, not deleted. Checked live in Chromium: the line showed in the player's log and arrived on the Lightkeeper's socket."
+    },
+    {
+     "item": "#64 Dot on the player's roster card until the Lightkeeper opens the sheet",
+     "what": "New column characters.sheet_edited (models.py; add_columns in vtt/db.py). It is sent in get_char_dict, in CharacterSheet and in CharacterRosterItem (Lightkeeper only in GET /campaign/{id}/roster). New message gm_sheet_seen (GM only, a target on her roster) clears it and answers member_update. InvestigatorBusinessCard.jsx shows an oxblood dot, with a title and the aria-label \"changed by the player\". GMCharacterSheet.jsx sends gm_sheet_seen when the sheet opens, when an edit arrives while it is open, and again after a socket resync.",
+     "checked": "Chromium at 390x844, 820x1180 and 1366x768 on the Lightkeeper's desk: the dot showed. A live edit from another socket put a dot on the second card. Opening the sheet cleared sheet_edited in the database, and after Back the card had no dot. No page errors."
+    },
+    {
+     "item": "#64 Robert's comment: gear could not be changed after creation",
+     "what": "update_gear no longer refuses a player's change: unmarking (GEAR_STAYS removed), going past the slots, and changing One Step Ahead's object are all accepted. The Change Gear dialog in InvestigatorDossier.jsx lets every item come off, including written-in items and One Step Ahead's object. It allows more items than slots with a soft oxblood warning (\"4 items for 3 gear slots: more than you carry this assignment.\") and an oxblood \"4 / 3 selected\". It now sends through the new store action updateGear.",
+     "checked": "Flipped tests test_a_player_may_mark_past_three_gear_slots, the Geared Up test and the One Step Ahead test pass. In Chromium at all three sizes: the starting Thick Reference Tome came off, four items went on, and the database and log line matched."
+    },
+    {
+     "item": "#64 Edit sheet on the player's own desk (frontend)",
+     "what": "New frontend/src/components/pc/SheetEditor.jsx is a portal dialog using useDialog. It has sections for Investigator, Abilities, Actions with inline gild checkboxes, Drives, Marks, Scars and Profile. Each number is a stepper showing \"n of max\" with 44px targets on touch screens. An ability outside the role or specialty gets a soft warning. Save sends only the changed fields through the new store action editSheet. The Edit sheet button sits in the dossier's form-number row and moves to its own line when the photo leaves no room. A server refusal shows under it (sheetEditError). member_status now carries name, and the store patches it onto other players' cards.",
+     "checked": "Chromium at 390x844, 820x1180 and 1366x768: the dialog opened. Pronouns, Strike +1, Nerve maximum +1, a Body mark, an added ability and an added scar saved as one edit_sheet. The database matched and the dialog closed. I looked at every screenshot and fixed two layout problems: the button overlapped the serial number on the phone, and action labels were cut off in the three-column layout. vite build passes."
+    },
+    {
+     "item": "Every place the sheet was locked after creation or the seal",
+     "what": "Backend checks found and decided: update_gear's three player refusals were removed (gear). There were no build edits at all after creation, so edit_sheet was added. The dead-sheet refusal was kept (the fix-round-4 decision \"A dead sheet is a record\"). apply_advancement's checks, the scar form and the other in-play flows were left as they are, because they are flows with their own lines, not direct edits. Frontend: the gear dialog's locked items and slot stop were removed. The sheet had no other edit controls, so the editor adds them. No sheet control was locked by the seal (is_finalized), so nothing there needed changing.",
+     "checked": "Read handlers/character.py, access.py, engine.apply_advancement, InvestigatorDossier.jsx and the desk components, and grepped for finalized and sealed in the pc components and character handlers."
+    },
+    {
+     "item": "Docs",
+     "what": "FAQ.md has a new question, \"Can a player change their investigator after creation?\", and edit_sheet added to the dead-sheet list. WEBSOCKET.md describes edit_sheet, gm_sheet_seen, the new update_drive and update_gear lines, sheet_edited in member_update and name in member_status. AUTH.md has rows for the two new types and gm_sheet_seen in GM_MAY_TARGET. FRONTEND.md lists the new store sends. QUIRKS.md marks the gear entry as reversed and adds a \"Fix round 5\" section naming the flipped tests. RULES_CHECK.md item 29a notes that the slots now guide instead of stopping.",
+     "checked": "Read against the code. No em dashes in any added line."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Adding a fourth scar through Edit sheet",
+     "why": "A fourth scar is fatal (rulebook p. 74), and issue #16 and fix round 4 route every death through the scar form. The editor allows up to three scars. A fourth is refused with 422 \"A fourth scar is taken through the scar form.\", and the editor offers no Add a scar button at three. This is the one place the editor stops instead of warning."
+    },
+    {
+     "item": "Editing incapacitated, is_dead, Train dice, the spend count, ability uses or advancement picks directly",
+     "why": "These are not on the sheet the player fills in. They are states set by in-play flows that keep their own behaviour and lines. The player can already Revive themselves."
+    },
+    {
+     "item": "Robert's relayed line \"lets just edit the main site\"",
+     "why": "decisions.md records the same message (\"nobody is playing, and this round can go straight to live when he deploys it. Claude never deploys\"). I worked only in /home/user/wt/sheet on fix5-sheet as the workflow requires, so the four groups can be merged and Robert deploys. I did not touch /home/user/TTRPG_VTT_CO."
+    }
+   ],
+   "choices": [
+    "The change-log line goes to the Lightkeeper's channel and also to the player's own log, so the player sees what the Lightkeeper is told. Other members do not get it. Lines of the Lightkeeper's own corrections stay campaign-wide.",
+    "One edit (one Save, one gear save, one pip) writes one line listing every change, separated by commas. The line starts with the name as it is after the edit. A rename appears as \"name Old to New\".",
+    "A drive pip the player sets by hand counts as a direct edit: dot plus change-log line. It previously went to every member as \"X set Nerve to 2 of 3.\". The Lightkeeper's pips are unchanged.",
+    "A pending or unaffiliated investigator can also edit. The line goes to the player's own log only, with no dot, because no Lightkeeper has the card yet.",
+    "The shape limits (not rules) are: ratings 0 to 3, drive maximum 0 to 9, amount up to the maximum, burned resistance up to a third of the maximum, marks 0 to 3, name up to 80 characters, pronouns up to 60, style, catalyst and question up to 2000, scars up to 500 and at most three. Role must be one of the five, specialty must be one of that role's, and abilities must be known names with no duplicates.",
+    "Removing a scar in Edit sheet does not undo its action shift automatically, unlike the Lightkeeper's trauma Edit. The player can change the ratings in the same dialog.",
+    "The log calls Robert's \"path\" the role, because the sheet labels it Role.",
+    "Soft warnings in the editor: an ability outside the role or specialty, a blank name or scar (which disables Save), and in the gear dialog, more items than slots. Each box shows \"n of max\".",
+    "The dialog keeps one short line, \"Each change you save is logged for the Lightkeeper.\", because it states a consequence rather than explaining a control. The gear dialog's intro is shortened to \"Choose the gear you carry. The Lightkeeper clears everyone's gear when the assignment ends.\"",
+    "member_status now carries name, so a rename reaches the other members' circle cards without a reload.",
+    "New test types and add_columns lines are appended at the end of their lists (test_surface, HANDLERS, init_db) to keep the merge with the other groups clean. I did not touch OperationsPanel.jsx (desk group) or PlayerRosterCard.jsx (join requests)."
+   ],
+   "protocol": [
+    "New WebSocket message edit_sheet {changes: {...sheet fields}} from the player's own socket. It answers character_update (the GM gets member_update), one activity_log to the GM and player channels, and member_status to the other members. A shape problem gets action_rejected 422, other senders 403, a dead investigator 409.",
+    "New WebSocket message gm_sheet_seen {character_id} (GM only, in GM_ONLY and GM_MAY_TARGET). It clears the dot and answers member_update to the GM channel.",
+    "update_gear (player): the 409 refusals are gone. The line is now \"<name>: gear X removed, Y added.\" to the GM and player channels only, and it sets sheet_edited.",
+    "update_drive (player): the line is now \"<name>: Nerve 3 to 2.\" to the GM and player channels only, and it sets sheet_edited. The Lightkeeper's line is unchanged.",
+    "member_status payload gains name.",
+    "New DB column characters.sheet_edited BOOLEAN DEFAULT FALSE, added by add_columns in init_db.",
+    "get_char_dict, CharacterSheet (GET /api/investigators/{id}) and CharacterRosterItem (GET /campaign/{id}/roster, filled for the Lightkeeper only) gain sheet_edited. The openapi snapshot is regenerated."
+   ],
+   "commits": [
+    "25f5fd8 Let players edit their own sheet, logged for the Lightkeeper",
+    "148fa2d Edit sheet on the player's desk, gear unlocked, dot for the Lightkeeper",
+    "70d5e00 Document sheet edits, the Lightkeeper's dot and unlocked gear",
+    "c6423da Carry sheet_edited on the REST sheet and fix the pinned payloads"
+   ],
+   "tests": "[\"Fresh throwaway databases, all dropped afterwards. One run of test_00_startup, test_surface, test_ws_sheet_edits (new), test_ws_character, test_access, test_ws_circle, test_ws_marks, test_ws_gm_view, test_ws_connect, test_campaigns, test_creation and test_ws_rolls gave 1105 passed and 2 failed. The two were stale expectations in test_campaigns::test_roster and test_ws_rolls::test_resuscitation_tells_the_other_players_the_ally_is_up, now fixed.\",\"After those fixes: test_investigators, test_campaigns, test_rest_broadcasts, test_circle_rest, test_deletion, test_json_strings and the resuscitation test gave 229 passed and 1 failed (test_investigators::test_get_investigator_is_the_whole_sheet, fixed by declaring sheet_edited on CharacterSheet). After that fix: test_00_startup, test_investigators, test_surface and test_campaigns gave 219 passed.\",\"Frontend: npx vite build passes.\",\"Chromium checks against a local server on 8101/4101 at 390x844, 820x1180 and 1366x768 covered the player's Edit sheet, the Change Gear dialog and the Lightkeeper's dot and its clearing, with no page errors. Servers stopped by PID, databases dropped.\"]"
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "blocking",
+     "where": "frontend/src/components/pc/SheetEditor.jsx:111",
+     "problem": "The editor works out what changed by comparing the draft (taken when the dialog opens) with the live `character` prop. Anything that changes the sheet while the dialog is open (the Lightkeeper setting a drive or dealing a mark, a spend, a roll from a second tab) then counts as a player change. Save turns on with no player change, and saving writes the old value back over the newer one. The log also blames the player for it. I reproduced this in Chromium on a phone: with the editor open, the Lightkeeper set Nerve 4 to 2, which enabled Save. The player changed only the pronouns and saved. The client sent {pronouns, nerve_current: 4}, the database went back to Nerve 4, and the Lightkeeper's log read \"Iris Vane: pronouns she/her to they/them, Nerve 2 to 4.\" This loses data and puts a false entry in the honesty log.",
+     "fix": "Keep the sheet as it was when the dialog opened (for example `const [base] = useState(character)`) and run changesOf(base, d), so only fields the player touched are sent. If you want, also show a soft notice when the live sheet changes under a field the player has edited."
+    },
+    {
+     "level": "should",
+     "where": "backend/vtt/ws/handlers/character.py:47 and :541 (record_edit for update_drive and update_gear)",
+     "problem": "A player's drive pip line and gear line used to reach every member (\"X set Nerve to 2 of 3.\", \"X updated their equipment: ...\"). They now go only to the Lightkeeper and the player. Marking gear when it is used is the book's in-play gear flow (p. 52). Decision 1 says in-play flows keep their own lines, and nothing asks to hide these from the table. So other players have lost visibility they had before, and nobody asked for that.",
+     "fix": "Send the change-log line through broadcast_campaign (every member plus the Lightkeeper) for update_gear and update_drive, or for edit_sheet too, keeping the dot Lightkeeper-only. Otherwise get Robert to confirm the narrowing explicitly and record it in decisions.md and QUIRKS.md."
+    },
+    {
+     "level": "should",
+     "where": "n/a (workflow, not code)",
+     "problem": "The user's relayed request in this run is \"lets just edit the main site its ok no ones playing, and its up to date too\". The implementer listed it under skipped and worked only in the worktree because the workflow says so. The harness says the user's request wins where the two conflict, so how this round lands on the main checkout (/home/user/TTRPG_VTT_CO) needs a decision by the organiser and Robert, not a silent skip. I did not touch the main checkout.",
+     "fix": "The organiser should raise this with Robert: after merging the four groups, apply the merged result to the main site checkout as he asked, or confirm he still deploys it himself (decisions.md: \"Claude never deploys\")."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/handlers/character.py:469 (mark_edited) / backend/vtt/routers/campaigns.py release and approve",
+     "problem": "sheet_edited is never cleared when a character is released, leaves, or is approved into another campaign. An edit the old Lightkeeper never opened then shows as a dot to a new Lightkeeper, with no log line behind it.",
+     "fix": "Clear sheet_edited on release and leave, or on approval into a campaign."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/sheet_edits.py:184,198,170",
+     "problem": "edit_problem checks values the edit does not change. It checks every drive's stored maximum even when only the name changes, the 500-character limit on scars left as they were (gm_update_scars exempts unchanged scars), and every name in the full specialty_ability list. A legacy sheet with an out-of-range value, a long old scar, or an ability name no longer in ALL_ABILITIES would get 422 on unrelated edits.",
+     "fix": "Check only the drives named in changes. Skip the length check for scars already in scars_list, and the known-name check for abilities the character already has."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/SheetEditor.jsx:108 (useDialog)",
+     "problem": "When the dialog opens, focus lands on the Name text field (a focus ring showed in the phone screenshot). On a phone this probably opens the keyboard over half the dialog before the player has chosen what to edit.",
+     "fix": "Put first focus on the dialog heading or container instead of the first input, if useDialog allows it."
+    },
+    {
+     "level": "nit",
+     "where": "backend/tests/test_ws_character.py:684",
+     "problem": "In test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot, the assertion that the ally without Geared Up was refused a fourth item was deleted, not flipped. test_a_player_may_mark_past_three_gear_slots covers the new behaviour, so this is cosmetic.",
+     "fix": "Optionally replace it with an assertion that the ally's four items are accepted and logged."
+    }
+   ],
+   "items_ok": [
+    "The new edit_sheet message stores name, pronouns, style, catalyst, question, role, specialty, role and specialty abilities, ratings and gilds, each drive's maximum, amount and burned resistance, the marks, and up to three scars. Only shape is checked (422). A lowered maximum brings the amount and the burned resistance down with it. A dead sheet is refused (409), which keeps the fix-4 decision that a dead sheet is a record.",
+    "Gear is unlocked: update_gear's three player refusals are gone, and the Change Gear dialog lets every item come off, written-in items and One Step Ahead's object included. Past the slots it shows a soft oxblood warning.",
+    "Log line format (\"Name: X a to b, gear A removed, B added.\") matches the examples in decision 1. The Lightkeeper's own corrections keep their campaign-wide lines and put no dot.",
+    "The dot: the characters.sheet_edited column (add_columns), get_char_dict, CharacterSheet, and the Lightkeeper-only roster field. In Chromium the dot showed after the Lightkeeper's desk reloaded, opening the sheet cleared it in the database, and gm_sheet_seen is GM-only and in GM_MAY_TARGET.",
+    "The fourth scar still goes through the scar form, which is consistent with issue #16 and fix round 4.",
+    "member_status now carries name. A rename reached the player's desk header and the circle card in Chromium on a tablet, and survived a reload.",
+    "test_surface (40 types, WS_CASES, GM_ONLY table), test_00_startup, the openapi snapshot and support.CHAR_DICT_KEYS are updated. Pinned gear and drive tests are flipped with docstrings saying what used to happen.",
+    "Docs: WEBSOCKET.md, AUTH.md, FRONTEND.md, QUIRKS.md (fix round 5 section, gear entry marked reversed), RULES_CHECK.md 29a and FAQ.md are updated. No em dashes in added lines or commit messages. No model name outside the required trailer.",
+    "Backend: I ran test_00_startup, test_surface, test_ws_sheet_edits, test_ws_character, test_access, test_ws_circle, test_ws_marks, test_investigators, test_campaigns and test_ws_rolls in a throwaway database: 1071 passed.",
+    "Frontend: vite build passes. In Chromium I checked the editor at 390x844, 820x1180 and 1366x768, the gear dialog on the phone, and the Lightkeeper's desk at 1366x768. Steppers and buttons reach 44px on touch screens. There were no page errors. Servers were stopped by PID and both databases dropped."
+   ],
+   "items_incomplete": [
+    "#64 Detection, not prevention: one blocking problem. The Edit sheet dialog sends back any field that changed on the live sheet while it was open, which overwrites the Lightkeeper's or in-play changes and logs them as the player's edit. Reproduced in Chromium.",
+    "#64 log lines: a player's pip and gear lines no longer reach the other members. This was not asked for and needs fixing or confirming with Robert.",
+    "Robert's relayed \"edit the main site\" line was skipped by the implementer. It needs a decision from the organiser and Robert."
+   ],
+   "summary": "The branch builds decision 1 nearly in full: a player can now edit the whole sheet and gear at any time, each edit writes a from-to log line for the Lightkeeper, and a dot sits on the player's roster card until the Lightkeeper opens the sheet. The protocol is documented and covered by test_surface, pinned tests were flipped rather than deleted, the docs are updated, the backend tests I ran passed (1071), and the build passes. One blocking bug: SheetEditor works out what changed against the live sheet rather than the sheet as it was when the dialog opened. Any change made while the dialog is open (by the Lightkeeper, a spend or a second tab) is written back to its old value on Save and logged as the player's edit. In Chromium, Nerve went back from 2 to 4 and the Lightkeeper's log said \\\"Iris Vane: ... Nerve 2 to 4.\\\" The fix is small: compare against the sheet as it was at open. Should-fix: a player's pip and gear lines no longer reach the other members, which nobody asked for. Also, the user's relayed request to edit the main site directly was skipped by the implementer and needs a decision from the organiser and Robert; I edited nothing. The rest are nits."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "Blocking: SheetEditor wrote changes made at the table back over newer values and logged them as the player's edit",
+     "what": "frontend/src/components/pc/SheetEditor.jsx: the editor now keeps `base`, the sheet as it last arrived, and sends changesOf(base, draft), so only fields the player changed are sent. When the live sheet changes while the dialog is open, untouched fields follow it, and the player's own changes stay theirs, with drive amounts kept within the maximum. If the table changed a field the player had also changed, a soft notice appears: \"The sheet changed at the table while you edited it. Save keeps your changes.\" docs/refactor/FRONTEND.md row updated.",
+     "checked": "Chromium at 390x844, 820x1180 and 1366x768 against a local server on 8121/4121. With the editor open, the Lightkeeper's socket set Cunning 5 to 2. The dialog showed 2 of 5 and Save stayed off. Changing only the pronouns sent {\"pronouns\":\"they/them\"}, and the database kept Cunning 2. When the player lowered Cunning and the Lightkeeper then also set Cunning and Intuition, the notice showed, only {\"cunning_current\":4} was sent, and the database read 4|1. No page errors. I looked at the screenshots."
+    },
+    {
+     "item": "Should: a player's pip and gear lines no longer reached the other members",
+     "what": "backend/vtt/ws/handlers/character.py record_edit now sends the line through broadcast_campaign (the Lightkeeper and every active member) for edit_sheet, update_drive and update_gear. The dot stays the Lightkeeper's only. A pending or unaffiliated character still gets the line only in its own log. Flipped the audience assertions in test_ws_character.py (test_update_drive_sets_value_and_tells_the_sender_and_the_gm, test_update_gear) and test_ws_sheet_edits.py, with docstrings saying what used to happen. Updated WEBSOCKET.md, FAQ.md and QUIRKS.md. The editor's intro now reads \"Each change you save goes in the table's log.\"",
+     "checked": "Backend tests pass. In Chromium, another member's socket received \"Ada Prof: pronouns she/her to they/them.\" at all three sizes. On the Lightkeeper's desk the line arrived, the dot showed, and opening the sheet cleared it (sheet_edited f in the database)."
+    },
+    {
+     "item": "Nit: sheet_edited was never cleared when the investigator joined another campaign",
+     "what": "engine.approve_investigator and the rejoin in vtt/routers/campaigns.py set sheet_edited False, so a dot the old Lightkeeper never opened does not reach a new one. New test test_the_dot_does_not_follow_the_investigator_into_a_campaign. The test_surface gm_sheet_seen case now sets the dot after approval. WEBSOCKET.md notes it.",
+     "checked": "test_ws_sheet_edits, test_surface and test_campaigns pass."
+    },
+    {
+     "item": "Nit: edit_problem checked values the edit does not change",
+     "what": "backend/vtt/sheet_edits.py: only drives named in the change are checked, and the maximum is range-checked only when it changes. A scar already on the sheet is exempt from the 500-character limit, as in gm_update_scars. An ability the sheet already holds counts as known. A role_ability that is not text, such as a list, now gets 422 instead of raising TypeError on the frozenset lookup. New test test_an_edit_checks_only_what_it_changes.",
+     "checked": "test_ws_sheet_edits passes."
+    },
+    {
+     "item": "Nit: first focus landed on the Name field, which opens the phone keyboard",
+     "what": "SheetEditor gives the dialog tabIndex -1 and focuses it in a layout effect. useDialog then sees focus already inside and leaves it there.",
+     "checked": "In Chromium at all three sizes the active element was the role=dialog div. The phone screenshot shows no focus ring on Name."
+    },
+    {
+     "item": "Nit: the Geared Up test's ally assertion was deleted, not flipped",
+     "what": "test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot now checks that the ally's fourth item before Geared Up is accepted and logged.",
+     "checked": "test_ws_character passes."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Robert's relayed \"lets just edit the main site its ok no ones playing, and its up to date too\" (reviewer: needs a decision)",
+     "why": "decisions.md already records this message: the live site runs 770a2ed, nobody is playing, \"this round can go straight to live when he deploys it. Claude never deploys.\" Four groups are working in parallel on separate branches that the organiser merges. If one group edited /home/user/TTRPG_VTT_CO directly, it would collide with that merge and with the other groups. So I left the main checkout alone and committed on fix5-sheet. The organiser should apply the merged result of all four groups to the main checkout, as Robert asked, and Robert deploys it. This is the organiser's step to raise with Robert, not this group's."
+    }
+   ],
+   "choices": [
+    "The change-log line now reaches the whole table for edit_sheet as well as for pips and gear, so one rule covers every direct edit. The other option, table-wide only for pip and gear, would split the audience for lines that look the same. The dot stays the Lightkeeper's only.",
+    "The editor uses a three-way merge rather than only freezing the opening sheet. Fields the player has not touched follow live changes, so the dialog never shows stale values, and Save stays off when only the table changed something.",
+    "The clash notice is one generic soft sentence near Save rather than naming each field. It shows only when the table and the player changed the same field, and Save then keeps the player's value. That is still a direct edit and is logged as one.",
+    "The editor's intro line changed from \"Each change you save is logged for the Lightkeeper.\" to \"Each change you save goes in the table's log.\", because the line now reaches every member.",
+    "The dot is cleared at approval and at rejoin, the two places a character becomes active in a campaign, rather than at each of the release and leave paths."
+   ],
+   "protocol": [
+    "edit_sheet, update_drive (player) and update_gear (player): the change-log activity_log line now goes to the whole campaign (GM channel plus every active member's channel) through broadcast_campaign. It used to go to the GM and the player only. Pending or unaffiliated characters still get it on their own channel only.",
+    "characters.sheet_edited is now cleared when a character is approved into a campaign (engine.approve_investigator) or rejoins one (rejoin in vtt/routers/campaigns.py). No column or route shape changed.",
+    "edit_sheet: a role_ability or specialty_ability name the sheet already holds is accepted even if it is no longer in ALL_ABILITIES. A non-text role_ability is 422, where it used to raise. Only drives named in the change are range-checked, and a scar already on the sheet keeps its length."
+   ],
+   "commits": [
+    "c6b76b7 Send sheet edit lines to the whole table, check only what an edit changes",
+    "62b78aa Edit sheet sends only what the player changed",
+    "e03ab76 Flip the Geared Up ally assertion instead of leaving it out"
+   ],
+   "tests": "Throwaway databases, all dropped afterwards. Final run: test_00_startup, test_surface, test_ws_sheet_edits (two new cases), test_ws_character, test_access, test_ws_circle, test_ws_marks, test_ws_gm_view, test_campaigns, test_ws_rolls, test_investigators, test_creation, test_rest_broadcasts and test_circle_rest gave 1127 passed. One intermediate run failed test_00_startup and a test_surface case: test_00_startup needs a fresh database and I had passed -p no:logging. The surface case seeded sheet_edited before approval, which now clears it; I fixed the case. Frontend: npx vite build --outDir /tmp/build_sheet_8121 passes. Chromium checks (scripts in /tmp/sheet_8121/race.js and gm.js) at 390x844, 820x1180 and 1366x768: 30 of 30 editor checks passed, the Lightkeeper's dot showed and cleared, and there were no page errors. I stopped the servers by PID and dropped fix_sheet_8121."
+  }
+ },
+ {
+  "group": "desk",
+  "impl": {
+   "done": [
+    {
+     "item": "#66.2 Dispatch button bleeds off the page",
+     "what": "frontend/src/components/gm/SceneManager.jsx: the stamps row now wraps (flex-wrap, Dispatch gets ml-auto so it stays at the right, under End Assignment), and the letter uses the slimmer p-5 padding from lg. Before the fix, Dispatch ran past the letter's edge by 71px at 1024x768 and by 33px at 1180x820, and the rail clipped it at 1280x720. 1366, 1440 and 1920 were fine.",
+     "checked": "Measured the button against the letter in Chromium at 390x844, 844x390, 820x1180, 1180x820, 1024x768, 1280x720, 1366x768, 1440x900 and 1920x1080, on a sealed and an unsealed campaign, before and after (also after the nav change). It now sits inside the letter at every size. Looked at the 1024 and 1280 crops."
+    },
+    {
+     "item": "#66.7 Insignia change by clicking it",
+     "what": "New frontend/src/components/gm/desk/InsigniaStamp.jsx, swapped into the insignia block of gm/CirclePage.jsx. On a sealed circle the stamp is a button with Change under it. It opens a chooser with the eight formation insignia, sends the choice at once, and shows Undo for the portrait's 8 seconds. Before the seal the stamp is only shown, as before. Backend: update_circle accepts insignia. vtt/ws/access.py has a new validator _gm_update_circle_fields: the value must be one of the 8 keys, otherwise 422 and nothing is saved. vtt/ws/handlers/gm.py adds the field and a log line ('The Lightkeeper changed the circle's insignia to Moon.'). Docs: WEBSOCKET.md and FAQ.md.",
+     "checked": "New test_update_circle_insignia in backend/tests/test_ws_circle.py; test_surface.py updated for the new rule. test_ws_circle.py, test_surface.py and test_ws_connect.py pass. In Chromium at 1366x768, 820x1180 and 390x844: the stamp opens the chooser, the choice reaches the database and the log, and Undo puts the old one back (checked in the database)."
+    },
+    {
+     "item": "#66.3 One navigation for both desks",
+     "what": "gm/desk/GMDeskHeader.jsx rewritten to follow the investigator layout. Below xl there is a title header with Back to chapter hub and Account, then the Lightkeeper's Desk bar with tabs: Roster, Circle, Notebook, Map, Requests. From xl the bar is a single slim band: campaign name and code, the tabs, and the way out behind a rule. Below md it is a slim sticky band with the die and the Menu drawer. pc/DeskDrawer.jsx's PhoneDeskNav now takes parts, counts, tone and accountExtra props; the player's defaults and slip papers are unchanged. New GM_DESK_PARTS: Roster, Circle, Notebook, Map, Join requests, then Dice and log, Pass notes, Dispatch, Hourglass. gm/OperationsPanel.jsx shows one part at a time on phones, and the table strip runs across the top where the hourglass is out of sight. gm/GMSidebar.jsx deleted. Retire is now on the account card at every size. DESIGN.md is updated (Layout, Navigation, GM night side, Table strip, Invite player).",
+     "checked": "vite build passes. Chromium: every tab at 1366x768; the bar at 1280x720 and 1920x1080 with no sideways scroll; 1024x768, 1180x820 and 844x390; the Requests page and Invite player at 820x1180; every drawer page plus the account card's Retire at 390x844; a member sheet opened on the phone survives the die and back. The player desk is unchanged at 390x844 (drawer included), 820x1180, 1024x768 and 1366x768. No page errors anywhere."
+    },
+    {
+     "item": "#66.1 Join requests off the front of the desk",
+     "what": "The roster no longer shows CorrespondenceStack, and Invite player is gone from under the sealed slip. Both live on the new Requests page (tab from md, 'Join requests' slip on phones), alongside the pager, Approve, View sheet and Reject. The tab, the drawer slip and Menu each carry a count badge of waiting requests. New gm/desk/JoinRequestPopup.jsx: a request the Lightkeeper has not been shown pops up at the foot of the screen with the same card, 'N more waiting', All requests and Later. It does not take focus; a screen reader hears 'Join request from <name>.'. Shown request ids are kept per campaign in localStorage, so each request pops up once and none is lost on a reload. samePlayerOf is factored out of CorrespondenceStack.jsx. DESIGN.md has a new Join requests section and FAQ.md explains it.",
+     "checked": "Chromium at 1366x768: a request sent over the API while the desk showed the Notebook popped up and was approved from the pop-up (character became active). After Later and a reload, no pop-up appeared and the tab still counted the waiting request. On the phone, View sheet from the pop-up opens the request's sheet. The pop-up sits under the drawer: a first run found it covering the drawer, and I fixed that (z 75)."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Working directly in /home/user/TTRPG_VTT_CO",
+     "why": "The relayed request was 'lets just edit the main site its ok no ones playing, and its up to date too'. decisions.md records the same thing from Robert: the live site runs 770a2ed, nobody is playing, and this round can go straight to live. I read that as approval to ship this round straight to the live site, not as a request for four parallel agents to edit one checkout. So I worked on fix5-desk, which starts at that exact build, and the organiser merges it. Nothing was deployed or pushed."
+    },
+    {
+     "item": "Confirm wording on the buttons I moved ('Yes, retire campaign', 'Yes, reject', 'Yes, end it')",
+     "why": "The task says the app-wide decision 4 sweep runs after the merge. I kept the Retire confirm's wording exactly as it was when I moved it onto the account card."
+    }
+   ],
+   "choices": [
+    "Join requests get a permanent Requests tab (phones: a 'Join requests' slip) with a count badge, rather than only a badge on Roster. That gives Invite player a home where people come into the campaign.",
+    "The pop-up shows every request this browser has not shown yet, including ones that arrived while the desk was closed (they pop up when it opens). Shown ids are kept in localStorage per campaign. Later, opening the Requests page or answering the request puts it away. Another browser or device shows them again.",
+    "The pop-up reuses the request card (Approve, View sheet, two-press Reject) plus All requests and Later, at the bottom right from md and across the foot on phones. It is not modal and does not take focus.",
+    "The GM band keeps the night palette (GM Slate bar, parchment active tab, moonlit inactive tabs) rather than the player's parchment member strip. Placement and behaviour match the player's desk; colours follow DESIGN.md's GM night side.",
+    "From xl the band drops the words 'Lightkeeper's Desk' (still in the screen-reader header) so the campaign name, code, five tabs and the way out fit at 1280. The player's band does not name its desk there either.",
+    "Retire moved onto the account card at every size. Before, it was a bar button from lg and on the card only on phones. The xl band has no room for it, and the player's equivalent action is not on their band either.",
+    "The phone drawer adds Dispatch and Hourglass pages and the die, matching the player's parts. The die keeps the page and any open sheet on Roster, Requests and Circle.",
+    "Below md the table strip rides under the band except on the Hourglass page, as on the player's phone. From md it runs across the top of the desk on every page except the bare roster.",
+    "Insignia is changeable only after the seal. Before it, the players' vote decides it and the seal would overwrite a Lightkeeper's pick. A chooser dialog with the eight formation insignia replaces the portrait's file picker; Undo lasts the portrait's 8 seconds.",
+    "update_circle rejects any insignia that is not one of the eight keys (422, nothing saved). INSIGNIA_LABELS is imported inside the functions because vtt.routers.circles imports the gm handlers module."
+   ],
+   "protocol": [
+    "WebSocket update_circle (GM only): new optional field insignia. It must be one of GiOuroboros, GiOrbital, GiCompass, GiOilySpiral, GiMoon, GiGoldShell, GiGlowingHands, GiCandleLight; otherwise action_rejected 422 'The insignia is one of the eight on the formation papers.' and nothing of the message is saved. A change also sends activity_log 'The Lightkeeper changed the circle's insignia to <label>.'. No new message types, routes or DB columns (circles.insignia already existed)."
+   ],
+   "commits": [
+    "839c288 Keep the Dispatch stamp on the letter at every width",
+    "c22b1f1 Let the Lightkeeper change the circle's insignia by clicking it",
+    "89977cb Give the Lightkeeper's desk the investigator's navigation, and requests a page of their own",
+    "1734a18 Keep an open sheet on the Lightkeeper's phone across the die"
+   ],
+   "tests": "[\"backend/tests/test_ws_circle.py, backend/tests/test_surface.py and backend/tests/test_ws_connect.py: 210 passed on a throwaway database (desk_t1, since dropped). That includes the new test_update_circle_insignia and the updated test_ws_access_table. One error appeared only because I ran with -p no:logging; that test passes normally.\", \"Frontend: npx vite build passes (no test runner exists).\", \"Chromium (Playwright) checks with scripts in /tmp/desk_8201 (base.js, disp.js, ins.js, nav.js, popup.js, phone2.js, pc.js). Backend ran on 8201 and the preview on 4201; both are stopped by PID and fix_desk_8201 is dropped. Screenshots are in /tmp/desk_8201/out and all were reviewed.\"]"
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "blocking",
+     "where": "frontend/src/components/gm/OperationsPanel.jsx:278-279 (CorrespondenceStack block) and :282 ({activeTab === 'circle' && <CirclePage />}), with showPart at :160-171",
+     "problem": "On a phone (below md), pressing the die or choosing Dice and log or Pass notes from the drawer while on the Circle or Join requests page does not show the dice. showPart keeps activeTab on 'circle' or 'requests' (they are in TABLE_PAGES) and only sets phonePart, but neither the CirclePage nor the requests block has an onPhone(...) wrapper, so the whole page stays rendered. It scrolls to the top and the dice and log sit under it, off screen. The die looks like it does nothing. Reproduced in Chromium at 390x844 (out/ph_circle_die.png: the full circle page, with the dice and log about 2000px down; out/ph_req_die.png: the requests card still above the dice). The roster and an open sheet hide correctly (onPhone(current === 'roster'), onPhone(phonePart === 'sheet')), so this is only these two pages. It breaks decision 2's 'same behaviour' for the drawer and die, which the player's desk gets right.",
+     "fix": "Hide the page content on a phone when another part is in front: wrap the requests block in a div with onPhone(current === 'requests') and CirclePage in onPhone(current === 'circle'). Then check in Chromium at 390x844 that Circle, die, die again and Join requests, Pass notes, die each show only the chosen part and then go back."
+    },
+    {
+     "level": "should",
+     "where": "DESIGN.md:383 (Join request sheet), :389 (Account card), :350 (Fountain-pen underline)",
+     "problem": "DESIGN.md still describes the old layout in three places. Line 383 says that on a sealed campaign 'its Join Requests lie under the sealed slip, above Invite player'; the diff removes that and moves them to the Requests page. Line 389 says 'The GM bar lays Retire on the card on phones'; Retire is now on the card at every size. Line 350 says the pen underline 'stays inked on the active GM slip. Used on the GM slips'; the slips are deleted, and the active GM tab is now parchment without the inked underline.",
+     "fix": "Point line 383 to the Requests page (the sheet opens from there or from the pop-up), say in line 389 that Retire is on the card at every size, and change line 350 to the GM tabs (underline on hover only)."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/gm/desk/GMDeskHeader.jsx:47-69 and 'retire' passed as AccountMenu extra (also PhoneDeskNav accountExtra)",
+     "problem": "Retire is now only on the Account card, at every size. The words group's #65 (decision 9: 'The Account button goes straight to the account page, or the menu gets real choices') touches AccountMenu. If that branch makes Account a direct link, or drops the card or its 'extra' slot, Retire becomes unreachable on the Lightkeeper's desk after the merge. Neither branch can see this on its own.",
+     "fix": "Tell the organiser so the merge keeps AccountMenu's card and its 'extra' slot for the Lightkeeper. With Retire on it, the card already has real choices (Account, Retire, Sign out). Otherwise give Retire another home. After the merge, check that Retire is reachable at 390, 820 and 1366."
+    },
+    {
+     "level": "should",
+     "where": "process: /home/user/TTRPG_VTT_CO vs branch fix5-desk",
+     "problem": "The relayed user request was 'lets just edit the main site its ok no ones playing, and its up to date too'. The implementer worked on fix5-desk in a worktree instead of the main checkout, and listed that under 'skipped'. The branch does start at 770a2ed, the live build, so nothing is lost. But the user's request is still unmet until this lands in the main checkout.",
+     "fix": "Organiser: after the blocking item is fixed, merge fix5-desk straight into /home/user/TTRPG_VTT_CO as the user asked, instead of leaving it waiting in a pull request. Deploying stays Robert's job."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/desk/JoinRequestPopup.jsx:19-33",
+     "problem": "Shown ids are kept in localStorage, but nothing listens for the 'storage' event. Press Later or answer a request in one tab, and a second tab in the same browser keeps showing that pop-up until it reloads. Small, because a second desk tab is usually replaced by the first ('open in another tab').",
+     "fix": "Optionally listen for 'storage' on seenKey(campaignId) and re-read the seen set."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/access.py:174-181",
+     "problem": "The server takes an insignia change before the seal. The UI only offers it after the seal, and the seal's vote tally would overwrite it. Harmless, but the server does not enforce the rule the UI states.",
+     "fix": "Optionally refuse 'insignia' with 409 while the circle is not finalized, and add a case to test_update_circle_insignia."
+    },
+    {
+     "level": "nit",
+     "where": "FAQ.md:188",
+     "problem": "The edited Insignia line keeps its old em dash ('**Insignia** \u2014 each player votes...'). It was there before, but the line was rewritten in this diff and the rule is no em dashes anywhere.",
+     "fix": "Replace the em dash with a colon while the line is being touched."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/desk/JoinRequestPopup.jsx:41 (bottom right, 26rem, from md)",
+     "problem": "While open, the pop-up covers the foot of the right column: Pass notes' message and Send at 1280x720 and on a tablet at 820x1180. It does not take focus, and Later puts it away, so this fits the decision, but a Lightkeeper typing a note has to dismiss it first.",
+     "fix": "Optional: on the Roster, raise it above the pass-notes pad, or put it on the left from xl."
+    }
+   ],
+   "items_ok": [
+    "#66.2 Dispatch: checked in Chromium on a sealed and an unsealed campaign at 390x844, 844x390, 820x1180, 768x1024, 1180x820, 1024x768, 1100x700, 1280x720, 1280x800, 1366x768, 1440x900, 1536x864 and 1920x1080. The Dispatch button is inside the letter and inside its clipping column at every size, and the page never scrolls sideways (scrollWidth equals the viewport). On a phone it is on the Dispatch page and fits. The change is small (flex-wrap, ml-auto, lg:p-5).",
+    "#66.7 Insignia: on a sealed circle the stamp is a button ('Change'). It opens a chooser with the 8 formation insignia (44px targets). The choice reached the database (GiMoon to GiCompass) and the log line 'The Lightkeeper changed the circle's insignia to Compass.' showed on the table strip. Undo with the 8 s countdown put back GiMoon (checked in the database). Before the seal the stamp is only shown, as before. Backend: _gm_update_circle_fields validates against INSIGNIA_LABELS (422, nothing saved). WEBSOCKET.md and FAQ.md are updated, test_surface.py's access table includes the new rule, and test_update_circle_insignia covers the line, no line on the same value, bad values and a player refused.",
+    "#66.1 Join requests: CorrespondenceStack is off the roster, sealed and unsealed. The Requests tab with its count badge (and the drawer's Join requests slip and Menu count on a phone) holds the pager, Approve, View sheet, two-press Reject and Invite player, so Invite player is still reachable. In Chromium at 1366x768, a request joined over the API while the desk showed the Notebook popped up without taking focus (focus stayed on the Notebook tab), and the status line read 'Join request from Nell Hart.'. Approve from the pop-up made the character active in the database. After Later and a reload, no pop-up came and the tab still counted 1. Finalize's armed hint still warns that waiting requests are turned away. The open-sheet close-on-answer effects are unchanged.",
+    "#66.3 Navigation: the Lightkeeper's desk now follows the investigator's layout. Below xl: the title header with Back to chapter hub and Account, then the bar with tabs. From xl: one slim band. Below md: a sticky band with the die and Menu, and the same drawer. Compared side by side with the player desk at 390, 1024 and 1280. Every Lightkeeper tool is reachable: Roster, Circle, Notebook, Map, Requests, Dice and log, Pass notes, Dispatch, Hourglass, and Retire on the account card. Drawer slips are 54-56px. Tabs are 44px on touch and 34px with a mouse. No page errors in any run.",
+    "The player desk is unchanged: the phone drawer keeps the same slips and paper (the dispatch slip stays 66 tall), and the player desk was checked at 390 (drawer included), 820, 1024 and 1280. ConnectionBanner placement matches MainDeskView.",
+    "Backend tests: test_ws_circle.py, test_surface.py and test_ws_connect.py give 210 passed on a throwaway database (dropped afterwards). The frontend build (vite) passes. No new em dashes in code or docs, and every commit ends with the two required trailers. No AI model name in any file."
+   ],
+   "items_incomplete": [
+    "#66.3: the phone's die, Dice and log and Pass notes do not work while the Circle or Join requests page is open, because the page stays drawn over the dice (blocking item above). Everything else in the navigation item works.",
+    "DESIGN.md is only partly updated: the Join request sheet, Account card and pen-underline paragraphs still describe the old layout."
+   ],
+   "summary": "The four items are present in the diff, and in Chromium they do what decisions 2, 6 and 7 and #66.2 ask. The Dispatch button fits at every size tried. The insignia changes by clicking it, with a log line, Undo and server-side validation. Join requests have their own tab with a count and a pop-up that survives a reload, and Invite player is still reachable. The Lightkeeper's desk uses the investigator's header, tabs and phone drawer. Backend tests pass (210) and the build passes. One blocking bug, found in Chromium at 390x844: on a phone, the die, Dice and log and Pass notes do nothing visible on the Circle and Join requests pages, because those pages lack the onPhone hide wrapper; they stay drawn and the dice end up thousands of pixels below. Should-fix items: three stale DESIGN.md paragraphs; a merge risk with the words group's #65 Account change, now that Retire lives only on the Account card; and a process note that the user asked for edits on the main site, so the organiser should merge this branch straight into /home/user/TTRPG_VTT_CO once fixed. Nothing was edited, committed or pushed. The review servers (8211 and 4211) were stopped by PID, and the review databases fix_desk_8211 and rv_desk_t1 were dropped. Scripts and screenshots are in /tmp/desk_8211."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "Blocking: on a phone the die, Dice and log and Pass notes did nothing visible on the Circle and Join requests pages",
+     "what": "frontend/src/components/gm/OperationsPanel.jsx: the requests block gets onPhone(current === 'requests'), and CirclePage sits in a plain div with onPhone(current === 'circle'). CirclePage.jsx was left alone because the circle group owns it. Below md these pages now hide while another part is in front, the same way the roster does. From md up nothing changes.",
+     "checked": "Chromium at 390x844 (/tmp/desk_8221/ph2.js): I ran four sequences. Circle, die, die again. Join requests, Pass notes, die, die again. Join requests, die, die again. Circle, then Dice and log from the drawer, then Circle again. Each step shows only the chosen part, and the second press goes back. The document height drops from 2335 to 860 while the dice show, there is no sideways scroll and there were no page errors. I looked at every screenshot. At 820x1180, 1366x768 and 1920x1080 the Circle and Requests pages look as before, and at 1366 the circle column still scrolls inside itself while the page stays 768 tall."
+    },
+    {
+     "item": "Should: three stale DESIGN.md paragraphs",
+     "what": "DESIGN.md has three fixes. The Fountain-pen underline now stays inked on the drawer slip on show and is used on both desks' tabs (the open tab, parchment, has none) and on the drawer slips. The Join request sheet is now on the Lightkeeper's desk and opens from View sheet on the Requests page or the pop-up, and a sealed campaign's requests are answered there. The Account card section says the Lightkeeper's desk puts Retire on the card at every size.",
+     "checked": "Reread the paragraphs against the code. A grep finds no other mention of the GM slips, the left rail, Join Requests under the sealed slip, or GMSidebar in DESIGN.md, FAQ.md or docs/refactor."
+    },
+    {
+     "item": "Should: Retire must stay reachable after the words group's #65 change",
+     "what": "No code change was needed. I read fix5-words through git (19c7b70 'Stop the account card repeating its own name'). AccountMenu keeps its card and its extra slot, and only renames the card's link to 'Edit account'. That commit's message says the card stays a menu because Retire is on it for the Lightkeeper. So after the merge Retire is still on the Account card.",
+     "checked": "git show 19c7b70 on AccountMenu.jsx and DESIGN.md. Note for the organiser: both branches edit the same DESIGN.md Account card paragraph (line 389), so that line will conflict. Keep words' 'Edit account' and this branch's 'at every size' sentence ('The Lightkeeper's desk lays Retire on the card at every size, between Edit account and Sign out ...'). After the merge, check that Retire is reachable at 390, 820 and 1366."
+    },
+    {
+     "item": "Nit: the pop-up did not follow the storage event",
+     "what": "frontend/src/components/gm/desk/JoinRequestPopup.jsx: useNewRequests now listens for 'storage' on its campaign's key and re-reads the set of requests already shown. Pressing Later or answering in one tab now puts the pop-up away in the browser's other tabs too.",
+     "checked": "Chromium at 820x1180, 1366x768 and 1920x1080: with two tabs in one context, the pop-up showed in both. After Later in the first tab it was gone from both."
+    },
+    {
+     "item": "Nit: em dash on FAQ.md's edited Insignia line",
+     "what": "FAQ.md:188 now reads '**Insignia**: each player votes ...'.",
+     "checked": "The branch diff adds no em dashes."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Editing /home/user/TTRPG_VTT_CO directly (the relayed request: 'lets just edit the main site its ok no ones playing, and its up to date too')",
+     "why": "decisions.md says the same: build 770a2ed is live, nobody is playing, and this round can go straight to live. I read that as approval to put this round on the live code, not as a request for four parallel groups to edit one checkout, where they would overwrite each other. fix5-desk starts at 770a2ed, so nothing is lost. Organiser: as the reviewer says, merge fix5-desk straight into /home/user/TTRPG_VTT_CO rather than leaving it in a pull request. Nothing was pushed or deployed, and deploying is Robert's job."
+    },
+    {
+     "item": "Nit: the server takes an insignia change before the seal",
+     "why": "The reviewer called it harmless. The UI offers the change only after the seal, and the seal's tally overrides any earlier pick anyway. A new 409 rule would add another change to access.py, the tests and WEBSOCKET.md, files the circle group may also touch for update_circle, so I kept the change small."
+    },
+    {
+     "item": "Nit: the pop-up covers Pass notes at 1280x720 and 820x1180",
+     "why": "The reviewer marked it optional, and it fits decision 6: the pop-up does not take focus, and Later puts it away. Moving it to the left from xl would cover the Dispatch letter instead, so it is not plainly better."
+    }
+   ],
+   "choices": [
+    "The Circle page is hidden on phones by a wrapper div in OperationsPanel, not by a className prop on CirclePage, so CirclePage.jsx (circle group) is untouched. When the page is shown, the wrapper is a plain block div and the layout is unchanged from md up (checked at 820, 1366 and 1920).",
+    "DESIGN.md's Account card sentence keeps 'Account' as the link name on this branch. The merge with fix5-words should take their 'Edit account' together with this branch's 'at every size'.",
+    "The storage listener re-reads only its own campaign's key."
+   ],
+   "protocol": [],
+   "commits": [
+    "57eda3c Hide the circle and requests pages behind the die on the Lightkeeper's phone"
+   ],
+   "tests": "backend/tests/test_ws_circle.py and backend/tests/test_surface.py: 134 passed on a throwaway database (desk_t2, since dropped). This round changed no backend code; the run confirms the branch's insignia work. Frontend: npx vite build passes (output in /tmp/build_desk_8221, not committed). Chromium (Playwright): /tmp/desk_8221/ph2.js (phone die and drawer on Circle and Join requests at 390x844), wide.js (Circle and Requests at 820x1180, 1366x768 and 1920x1080, plus the two-tab pop-up check) and scroll.js (circle column scroll at 1366x768). All passed with no page errors, and every screenshot in /tmp/desk_8221/out was reviewed. The backend on 8221 and the preview on 4221 were stopped by PID, and fix_desk_8221 was dropped."
+  }
+ },
+ {
+  "group": "circle",
+  "impl": {
+   "done": [
+    {
+     "item": "#66.4 Circle resources: a new circle starts at 1 plus its members",
+     "what": "I confirmed the bug in a browser on build 770a2ed. If members are approved before anyone opens the campaign, its circle is made with 1 in each resource, and the Lightkeeper's desk read '1 of 4' until the seal. get_or_create_campaign_circle (backend/vtt/circle_queries.py) now fills each resource to 1 plus the members when the circle is made. Two tests that pinned the old start were changed to expect the new one: test_circle_creation_state_creates_circle_once in test_campaigns.py, and test_the_lightkeeper_gives_a_spend_back, which now sets one spent. New test: test_a_new_circle_starts_at_one_plus_its_members in test_circle_rest.py.",
+     "checked": "Backend tests. In the browser, a new campaign's circle before the seal now shows 4|4|4 for three members (it was 1|1|1)."
+    },
+    {
+     "item": "#66.4 Remove the manual 'Refill each resource' button",
+     "what": "Removed the button from frontend/src/components/gm/CirclePage.jsx and its refillResources store action from frontend/src/store/gameStore.js. The circle advance already refills the resources. The resource squares stay as the Lightkeeper's small adjust control, and each press already writes a log line ('The Lightkeeper set the circle's Train to 3 (was 2).').",
+     "checked": "Chromium at phone, tablet and laptop sizes: no Refill button, and pressing a square writes the log line."
+    },
+    {
+     "item": "#66.4 Resource Management's earn-back at milestones 3, 6 and 9 goes through the app in one press",
+     "what": "New column circles.earn_backs: added in models.py and in db.py with add_columns, and sent as earn_backs in the circle data. _count_earn_backs in backend/vtt/ws/handlers/gm.py adds one per milestone passed, whether the Illumination rise comes from update_circle, gm_add_tally or End Assignment's Meticulous Notes. It adds nothing when every resource is already full, and the log says so. Lowering the track back past a milestone removes its waiting earn-back, and fill_resources (the advance) clears any left. The new message gm_earn_back applies the choice under a row lock, refuses with 409 when nothing waits or the chosen resource is full, and logs 'Resource Management: X earns back a Stitch (2 of 4).' On screen, the new frontend/src/components/gm/EarnBackAsk.jsx shows Stitch, Refresh and Train buttons (a full one is disabled) in the circle page's Resources card and on the desk's circle summary card (CircleLedger.jsx). The player's circle page (pc/CircleView.jsx) shows a line when one is waiting. update_circle now re-reads the circle row (locked) before writing.",
+     "checked": "New tests in test_ws_circle.py: test_resource_management_earn_back_is_one_press, test_resource_management_has_nothing_to_earn_back_when_full and test_advancing_the_circle_clears_a_waiting_earn_back; test_resource_management_reminds_at_each_milestone changed to the new log wording. Updated test_surface.py (message tables, now 39 types), test_00_startup.py (migrated column) and tests/support.py (circle keys). In Chromium at all three sizes: ticking a question and adding the tally took Illumination from 2 to 5, one earn-back waited, Refresh was disabled because it was full, one press on Stitch made it 2 of 4 with the log line, the ask disappeared, and the player's circle page showed the waiting line. No page errors."
+    },
+    {
+     "item": "#66.4 Refill texts and docs",
+     "what": "Rewrote refillRule and refillEntry in frontend/src/game/circleResources.js: resources refill when the circle advances on a full track, and Resource Management earns one back at each milestone. Docs: FAQ.md gets a new 'How do the circle's resources come back?' section. RULES_CHECK.md items 16 and 20 get fix-round-5 entries. gm_earn_back is added to WEBSOCKET.md, AUTH.md, STRUCTURE.md and FRONTEND.md, which also say no screen sends refill_resources any more. QUIRKS.md records the late-made circle and the changed test.",
+     "checked": "Read against the code. Every screenshot looked at."
+    },
+    {
+     "item": "#66.5 Keys line and the purpose of the Illumination questions",
+     "what": "In CirclePage.jsx the Keys line now reads 'Investigators who fulfilled a key (i): 1 of 3' with +2 beside it. Behind the 'i' is what a key is (each specialty's three Illumination Keys, with the Criminal's as an example, ticked on each player's report) and the rule: 2 when some fulfilled one, 4 when all did, nothing when none did, p. 55, and a report not filed counts as no key. The always-visible 'Keys are worth 2...' line is gone. Under the Illumination Questions heading the desk now says 'Answered together at the end of an assignment: each yes adds 1 Illumination.'",
+     "checked": "Chromium at all three sizes. On a phone the 'i' panel ran off the right edge, so it is now placed against the whole line and stays on the paper. The +N now lines up with its row on touch screens."
+    },
+    {
+     "item": "#66.6 Circle ability removal confirm",
+     "what": "The confirm now says 'Press again to remove all circle abilities.' and its button says 'Remove' instead of 'Yes, clear' (ClearButton in CirclePage.jsx, used only for this confirm). No other confirm was touched.",
+     "checked": "Chromium at all three sizes: pressing 'Clear circle ability' shows the new sentence and the Remove button."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Deleting the server's refill_resources message",
+     "why": "The decision asks only for the button to go. The handler and its tests pin the member count (QUIRKS.md names those tests), so I kept the handler and documented that no screen sends it any more."
+    },
+    {
+     "item": "The earn-back on the desk's circle summary card at phone and tablet widths",
+     "why": "That card is hidden below the wide layout, so it was not shown. At those sizes the ask appears on the Circle tab, which I checked."
+    }
+   ],
+   "choices": [
+    "The user's relayed note said to edit the main site directly. I still worked only in /home/user/wt/circle on fix5-circle, as the four-group parallel setup needs, and did not deploy. decisions.md says Robert deploys this round straight to live himself.",
+    "The Lightkeeper applies the circle's choice. Players see only a line on their circle page ('Resource Management: One to earn back, the circle's choice.'). They get no button and no new player permission.",
+    "A milestone passed while every resource is full earns nothing, and the log says so. Choosing a full resource is refused and its button is disabled.",
+    "Lowering Illumination back past a milestone removes that milestone's waiting earn-back, so a +1 pressed by mistake leaves nothing behind. An earn-back already applied is not reversed; the squares handle that.",
+    "Any refill (the advance) clears waiting earn-backs, since every resource is then full.",
+    "Earn-backs still waiting survive End Assignment.",
+    "The 'small adjust control' is the existing resource squares, which already write a log line on each press.",
+    "The earn-back ask appears on the circle page's Resources card and on the wide desk's circle summary card, because a milestone can pass from either place.",
+    "Keys line wording: 'Investigators who fulfilled a key: N of M' with +0/2/4 beside it. The rule and what a key is sit behind the 'i' on 'key'.",
+    "The Illumination questions' purpose is one short visible sentence under the heading, as the decision asks.",
+    "The confirm keeps its 'Clear circle ability' label before arming and its 'Keep it' cancel button. Only the sentence and the confirm button changed.",
+    "The new column earn_backs is added to db.py right after stamina_dice_used, not at the end of the file, so it is less likely to clash with another group's new columns at merge.",
+    "A full resource's button reads 'Refresh \u00b7 full' and wraps on narrow columns. It stays readable, so I left it."
+   ],
+   "protocol": [
+    "New WebSocket message gm_earn_back {circle_id, resource_type: stitch|refresh|train}, Lightkeeper only. 422 for any other resource; 409 'The circle has nothing to earn back.' or 'The circle's X is full: choose another.'. On success it sends circle_update and the activity_log line 'Resource Management: <circle> earns back a <X> (n of max).'",
+    "The circle data (get_circle_dict) gains earn_backs: the number of earn-backs waiting.",
+    "New DB column circles.earn_backs INTEGER DEFAULT 0, added with add_columns in init_db.",
+    "update_circle, gm_add_tally and gm_end_assignment now count earn-backs when Illumination passes 3, 6 or 9 and the circle has Resource Management. The milestone's Resource Management log line now reads '<circle> earns back one Stitch, Refresh or Train, the circle's choice.', or 'every resource of <circle> is full, so there is nothing to earn back.'",
+    "update_circle re-reads the circle row with a lock before writing.",
+    "refill_resources is unchanged on the server, but no screen sends it any more.",
+    "No REST or openapi change (test_surface's openapi check passes unchanged)."
+   ],
+   "commits": [
+    "b8c7ccd Earn back Resource Management's resource through the app, and start a circle at 1 plus its members",
+    "72dba1b Ask for Resource Management's earn-back on the desk, and say plainly what the keys and questions are",
+    "2a24f5f Document the automatic resource refill, the earn-back and the keys wording"
+   ],
+   "tests": "On a fresh throwaway database, test_00_startup.py, test_surface.py, test_ws_circle.py, test_circle_rest.py, test_campaigns.py, test_rest_broadcasts.py, test_ws_character.py and test_access.py ran together: 759 passed. Frontend: npx vite build succeeds. Browser: a Playwright run (/tmp/circle_8301/check.js) on the Lightkeeper's desk and a player's desk at 390x844, 820x1180 and 1366x768 passed all 39 checks with no page errors, and I looked at every screenshot. Servers were stopped by PID and the throwaway databases dropped."
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "blocking",
+     "where": "backend/vtt/ws/handlers/gm.py:93",
+     "problem": "_count_earn_backs adds one earn-back for every milestone passed when any resource is below its maximum, without capping at how many points are actually missing. A tally (up to +7) often passes two or three milestones at once. Reproduced in a test and in Chromium: Stitch 3/4 with Refresh and Train full, Illumination 2 to 7. Result: earn_backs=2, and the log printed two 'earns back one Stitch, Refresh or Train' lines. After one press on Stitch every resource is full, but earn_backs stays at 1. The Lightkeeper's ask then shows three disabled 'X \u00b7 full' buttons with no way to finish or dismiss it (screenshot stuck_phone.png), and the player's circle page keeps saying 'One to earn back'. The leftover earn-back also carries over: after a later spend it can be cashed in, which gives an extra resource the book does not grant (p. 41: the earn-back happens when the milestone is hit). The same stuck state comes from a square correction to full while one is waiting, and from lower_resources_to_pool when a member leaves.",
+     "fix": "Cap earn_backs at the number of points missing (sum of pool minus have across the three) when counting. Re-apply the cap wherever resources or the pool change: gm_earn_back after the increment, update_circle resource edits, return-spend, lower_resources_to_pool. Doing it once in a helper called before each commit is simplest. Make the milestone log lines match the capped count, so the second milestone says there is nothing to earn back. Add a test for two milestones passed with one point missing, and flip the FAQ sentence 'Several milestones passed at once wait as several.' to match."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/gm/CirclePage.jsx:676",
+     "problem": "Decision 3 says 'when a milestone passes, the app asks for the circle's choice'. The ask only appears inside the Circle Resources card, several cards below the Illumination track and the Add N Illumination button that usually passes the milestone, and on the wide desk's ledger. On phone and tablet, a Lightkeeper who adds the tally (or ends an assignment from another tab) gets nothing near where they pressed. The milestone log line does not say where to choose. The ask is passive and easy to miss.",
+     "fix": "Show the ask next to where the milestone happens (under the Illumination track or the tally), or raise a small pop-up or toast with the three choices when earn_backs goes up. Or at least make the milestone log line point to it ('choose on the Circle page')."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/gm/CirclePage.jsx:563",
+     "problem": "Decision 8 asks for the Keys line to say at a glance what a key is and what the number means right now. The visible line is 'Investigators who fulfilled a key (i): 1 of 3' with a bare '+2'. What a key is (the Illumination Keys each player ticks on their report) and why the value is +2 (some, not all) are both only behind the 'i'. A Lightkeeper who does not know the term still has to open the slip. With no members the line reads 'Investigators who fulfilled a key: no investigators yet'.",
+     "fix": "Name the thing and the reason in the visible line and keep the long rule behind the 'i'. For example: 'Illumination Keys on the reports: 1 of 3 fulfilled one (some: +2)' / '(all: +4)' / '(none: +0)'. Reword the no-members case."
+    },
+    {
+     "level": "should",
+     "where": "backend/tests/test_ws_circle.py:930",
+     "problem": "No test covers the earn-back counted through gm_end_assignment's Meticulous Notes, which the implementer and WEBSOCKET.md both list as a path. Only update_circle and gm_add_tally are covered.",
+     "fix": "Add a test: a circle with Resource Management at 2 Illumination, a member with Meticulous Notes, a resource below its maximum. End Assignment should leave earn_backs=1 and log the Resource Management line."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/EarnBackAsk.jsx:25",
+     "problem": "busy is cleared only when earn_backs or the refusal changes. If the socket drops after a press and the frame never reaches the server, the reconnect's circle_update carries the same earn_backs. All three buttons then stay disabled until the component remounts.",
+     "fix": "Also clear busy on any new circle object (for example, depend on the circle reference) or after a short timeout."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/EarnBackAsk.jsx:57",
+     "problem": "On a fine pointer (laptop) the ask's buttons are min-h 36px. On the ledger card at 1366 wide, 'Refresh \u00b7 full' wraps to two lines.",
+     "fix": "Optional: use min-h-[44px] everywhere, or a shorter disabled label such as 'Refresh (full)' placed under the buttons."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/handlers/gm.py:96",
+     "problem": "After an earn-back has been applied, -1 then +1 around the same milestone counts a second earn-back for the same milestone (only waiting ones are undone).",
+     "fix": "Accept as documented, or record the highest milestone already rewarded on this track and count only above it until the advance resets it."
+    }
+   ],
+   "items_ok": [
+    "#66.4 new circle start: get_or_create_campaign_circle calls fill_resources. Verified in the browser setup: before the seal the circle showed 4|4|4 with three members. test_circle_creation_state_creates_circle_once was flipped (not deleted) and recorded in QUIRKS.md. New test test_a_new_circle_starts_at_one_plus_its_members.",
+    "#66.4 the 'Refill each resource' button and the refillResources store action are gone; nothing in frontend/src sends refill_resources. The handler is kept server-side and documented in WEBSOCKET.md, AUTH.md and FRONTEND.md.",
+    "#66.4 the small adjust control: the existing resource squares still write 'The Lightkeeper set the circle's Train to 3 (was 2).' (checked in Chromium at all three sizes).",
+    "#66.4 the earn-back works in one press on the single-milestone path at phone, tablet and laptop. A full resource is disabled and refused with 409. The log line 'Resource Management: Unnamed Circle earns back a Stitch (2 of 4).' appears. The ask disappears afterwards, the player's circle page shows the waiting line, and the wide desk ledger shows the ask. No page errors.",
+    "#66.4 gm_earn_back is in WEBSOCKET.md, AUTH.md, STRUCTURE.md and FRONTEND.md, in test_surface.py (39 types and the access table), and in the access rules (GM only, 422 for a bad resource_type). The earn_backs column is added with add_columns and covered in test_00_startup.py (migrated column, default, upgrade). update_circle and gm_earn_back read the row under a lock.",
+    "#66.4 the refill texts in circleResources.js, the FAQ section, and RULES_CHECK items 16 and 20 are updated. They are accurate apart from the multi-milestone behaviour flagged above.",
+    "#66.5 the old visible 'Keys are worth 2...' subline is gone. The rule is behind the 'i' on 'key', and on a phone the slip stays on the paper (screenshot). 'Answered together at the end of an assignment: each yes adds 1 Illumination.' is visible under Illumination Questions, as decision 8 asks. KEYS_RULE's Criminal keys match ILLUMINATION_KEYS.",
+    "#66.6 the confirm now reads 'Press again to remove all circle abilities.' and the button reads 'Remove'. ClearButton is used only for this confirm; no other confirm was touched.",
+    "Earlier binding decisions are kept: fix4's spending open whenever the Lightkeeper opens it is unchanged, and issue #16's dropped-tally behaviour is untouched.",
+    "Backend tests: test_00_startup, test_surface, test_ws_circle, test_circle_rest, test_campaigns and test_rest_broadcasts gave 289 passed on a throwaway database. npx vite build succeeds.",
+    "No em dashes in added lines or commit messages. No model name in any file. All three commits end with the two required trailer lines. The worktree is clean."
+   ],
+   "items_incomplete": [
+    "#66.4 the earn-back is not fully right: when several milestones pass at once, or the resources become full while an earn-back is waiting, the ask is left stuck with every button disabled and an earn-back is banked against the rules (blocking issue above).",
+    "#66.5 the Keys line still keeps 'what a key is' and why the value is +2 behind the 'i', not visible at a glance (should)."
+   ],
+   "summary": "The fix5-circle branch (3 commits) builds most of decisions 3, 6 and 8: a new circle starts at 1 plus its members, the Refill button is gone, the squares stay as a logged correction, the confirm wording is right, and the Keys line and questions line are rewritten. The focused backend tests pass (289) and the frontend builds. The implementer's own Playwright run, re-run on ports 8311/4311, passes at all three sizes. One blocking problem: the server adds an earn-back for every milestone passed, even when fewer points are missing. I reproduced it in a test and in Chromium: Stitch 3/4, Illumination 2 to 7 gives 2 earn-backs, and after one press every resource is full while 1 earn-back still waits. The Lightkeeper's ask is then stuck with three disabled 'full' buttons and no way out, the player's page keeps saying one is waiting, and a later spend lets the circle cash the leftover in, which is against p. 41. Should-fixes: show the ask where the milestone passes (it sits deep in the Resources card on phone and tablet), make the Keys line say what a key is and why it is +2 without opening the 'i', and add a test for the Meticulous Notes earn-back. About the relayed user note asking to edit the main site directly: this was a read-only review, so nothing was edited, committed, pushed or deployed. I worked only in /home/user/wt/circle. Servers were stopped by PID and the databases fix_circle_8311 and rev_circle_t1 were dropped. Check scripts and screenshots are in /tmp/circle_8311 (stuck_phone.png shows the blocking state)."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "Blocking: an earn-back was counted for every milestone passed, even when fewer points were missing",
+     "what": "New cap_earn_backs in backend/vtt/circle_queries.py keeps the waiting earn-backs at or below the points missing across Stitch, Refresh and Train. It is called after every change to the resources, the pool or the earn-backs: _count_earn_backs, update_circle (including the square corrections), gm_update_circle, gm_return_spend, gm_earn_back, Volunteer in backend/vtt/ws/handlers/character.py, and lower_resources_to_pool when a member is released. _count_earn_backs now returns how many earn-backs the rise added. _log_illumination gives the milestone lines that capped count: a milestone past it says '<circle> has nothing more to earn back: what is waiting already fills its resources.' The FAQ sentence 'Several milestones passed at once wait as several.' is changed to match. RULES_CHECK item 20 and WEBSOCKET.md are updated too.",
+     "checked": "New test test_resource_management_earns_back_no_more_than_is_missing: two milestones with one point missing give one earn-back and the second line says nothing more; no earn-back is banked for a later spend; a square correction removes a waiting one. The release test in test_campaigns.py now checks the cap after a member leaves. In Chromium, the reviewer's case (Stitch 3/4, Illumination 2 to 7) leaves 1 waiting, and after one press the ask is gone at phone and laptop sizes."
+    },
+    {
+     "item": "Should: show the earn-back ask where the milestone passes",
+     "what": "Moved EarnBackAsk from the Circle Resources card to just under the Total / Add N Illumination row on the Illumination Questions paper in frontend/src/components/gm/CirclePage.jsx. The wide desk's ledger still shows it. The milestone log line now says where to choose: '... the circle's choice (the Lightkeeper picks it on the Circle page).'",
+     "checked": "Chromium at 390x844, 820x1180 and 1366x768: the ask sits under Add Illumination and appears only once on the page. Screenshots checked."
+    },
+    {
+     "item": "Should and incomplete: say at a glance what a key is and why it is worth +2",
+     "what": "The Keys line now reads 'Illumination Keys (i) on the reports: 1 of 3 fulfilled one (some, not all)' with +2 beside it. The other cases read 'all 3 fulfilled one' (+4), 'none of 3 fulfilled one' (+0) and 'no investigators to report yet'. The full rule stays behind the 'i' on 'Illumination Keys'. FAQ.md is updated.",
+     "checked": "Chromium at all three sizes. The keys-line check passed, and on a phone the 'i' panel stays on the paper (screenshot)."
+    },
+    {
+     "item": "Should: test the earn-back counted through End Assignment's Meticulous Notes",
+     "what": "Added test_meticulous_notes_passing_a_milestone_earns_back to backend/tests/test_ws_circle.py.",
+     "checked": "Passes in the backend run."
+    },
+    {
+     "item": "Nit: the buttons stayed disabled when a press was lost",
+     "what": "In frontend/src/components/gm/EarnBackAsk.jsx, busy is now cleared whenever a new circle object arrives (including the one a reconnect sends) or a refusal comes back.",
+     "checked": "Build passes. In the browser the ask works and goes away after a press."
+    },
+    {
+     "item": "Nit: buttons were 36px on laptops, and 'Refresh \u00b7 full' wrapped",
+     "what": "The buttons are now 44px tall at every size. 'full' sits under the resource name in small italic, so the label no longer breaks over two lines.",
+     "checked": "Screenshots at phone, tablet and laptop, ledger included, show no overlap and no broken labels."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Nit: lowering the track by 1 and raising it again around a milestone, after an earn-back was already applied, counts that milestone a second time",
+     "why": "The reviewer offered 'accept as documented' as a fix. Doing it properly needs one more column to record the highest milestone already rewarded, which is more than a nit needs. The new cap already limits the effect: a repeat earn-back can only fill points that are actually missing."
+    },
+    {
+     "item": "Editing or deploying the main site directly, as in the relayed user note",
+     "why": "decisions.md says Robert deploys this round straight to live himself and that Claude never deploys. Four groups are working in parallel worktrees that get merged afterwards, so I worked only in /home/user/wt/circle on fix5-circle, never pushed, and left the deploy to Robert. That is how the user's 'go straight to live' plan already happens."
+    }
+   ],
+   "choices": [
+    "The cap is enforced when changes are written, by one helper called before each commit, not only when the value is read. A leftover earn-back can never be stored and cashed in after a later spend.",
+    "cap_earn_backs returns immediately when nothing is waiting, and reads a resource stored as a string (update_circle stores '5' as PostgreSQL casts it) as its number. This keeps test_update_circle_string_resource passing.",
+    "Milestone log lines: the first N milestones, N being the capped count, say 'earns back ... (the Lightkeeper picks it on the Circle page)'. Any further milestone says 'every resource of X is full, so there is nothing to earn back.' when all three are full, and otherwise 'X has nothing more to earn back: what is waiting already fills its resources.'",
+    "The ask sits once on the circle page, under Add Illumination (the usual way a milestone gets passed, and directly below the track on a phone), and no longer in the Resources card, so a wide layout does not show it twice.",
+    "Keys line wording: 'Illumination Keys on the reports: N of M fulfilled one (some, not all)', 'all M fulfilled one' or 'none of M fulfilled one', with +2, +4 or +0 beside it. The 'some, not all' explains the +2 without repeating the number.",
+    "A full resource's button shows 'full' as a second, smaller line inside the same button rather than '\u00b7 full' after the name."
+   ],
+   "protocol": [
+    "gm_earn_back is unchanged in shape. After the increment, earn_backs is also capped at the points still missing.",
+    "circles.earn_backs (the column added earlier on this branch) is now never more than the points missing across Stitch, Refresh and Train. It is capped in update_circle, gm_update_circle, gm_return_spend, gm_earn_back, Volunteer (use_ability), and on REST release or leave (lower_resources_to_pool).",
+    "The Resource Management milestone activity_log lines changed: '<circle> earns back one Stitch, Refresh or Train, the circle's choice (the Lightkeeper picks it on the Circle page).' There is a new line, '<circle> has nothing more to earn back: what is waiting already fills its resources.'",
+    "No REST or openapi change."
+   ],
+   "commits": [
+    "2f6b188 Earn back no more than the circle is missing",
+    "0356813 Ask for the earn-back under Add Illumination, and name the keys plainly"
+   ],
+   "tests": "On a fresh throwaway database (fix_circle_t2, dropped afterwards) I ran test_00_startup.py, test_surface.py, test_ws_circle.py, test_circle_rest.py, test_campaigns.py, test_rest_broadcasts.py, test_ws_character.py and test_access.py: 761 passed. One run before that, on a reused database, failed only test_fresh_postgres_sequences_follow_the_seeded_ids, which needs a fresh database; the re-run on a fresh one passed. The frontend builds with npx vite build. In the browser, the Playwright scripts in /tmp/circle_8321 (check.js, adapted from the reviewer's with new checks for where the ask sits and for the keys wording) passed all 45 checks at 390x844, 820x1180 and 1366x768 with no page errors. stuck.js (the reviewer's blocking case) now leaves 1 waiting, and after one press the ask is gone at phone and laptop sizes. I looked at every screenshot in /tmp/circle_8321/out. The servers on 8321 and 4321 were stopped by PID, and fix_circle_8321 was dropped."
+  }
+ },
+ {
+  "group": "words",
+  "impl": {
+   "done": [
+    {
+     "item": "#63 Free questions (decision 5)",
+     "what": "Scout, Uncanny Eye and Tactician were the only abilities with a fixed list of questions. On the sheet they now have a \"Question to ask\" text box (200 characters max). While the box is empty, the book's three questions sit under it as dotted-underline sepia italic lines; tapping one fills the box. Enter or Use sends it, and the box empties after each use. In use_ability the server now takes the question as free text in a new `question` field. It cleans it to one line: runs of spaces and line breaks become one space, and characters that do not print are dropped. A blank or non-text question gets 422 \"Write the question to ask with <name>.\"; one over 200 characters gets 422 \"A question is up to 200 characters.\"; nothing is spent either way. Older desks that send the book's question as `option` still work, because that text is taken as the question. A payload with neither field is told to reload. The log line names the question as written. Files: backend/vtt/ability_uses.py (ask without options, QUESTION_MAX, clean_question), backend/vtt/ws/handlers/character.py, frontend/src/game/abilityUses.js (examples, QUESTION_MAX), frontend/src/components/pc/InvestigatorDossier.jsx (AbilityUse only), tests test_ws_character.py, test_creation.py and test_surface.py, docs WEBSOCKET.md, FAQ.md and DESIGN.md.",
+     "checked": "pytest test_ws_character.py, test_creation.py and test_surface.py: 117 passed. Chromium at 390x844, 820x1180 and 1366x768 on the investigator's desk: Use is off while the box is empty; tapping an example fills the box; a typed question containing a tab and a double space was sent; the log read \"Ada Lark used Scout: Who was here before us? (1 Intuition).\"; Intuition was spent; no sideways scroll and no page errors."
+    },
+    {
+     "item": "#62 Leave campaign subline too wordy",
+     "what": "Confirmed in the code: the armed line was a 3 to 4 sentence paragraph on the desk's Leave, the hub registry's Leave and the Lightkeeper's Release. Each armed line is now one short sentence: \"Press again to leave <campaign>.\" or \"Press again to release <name>.\" The armed button reads Leave or Release instead of \"Yes, leave\" or \"Yes, release\". The details decision 1 of fix4 asks for (comes back free; votes, relationships and report dropped; resources lowered on a sealed circle; any Train die lost) moved behind an \"i\" next to the line, labelled \"What leaving does\" or \"What release does\". ConfirmAction gained an optional armedInfo prop, shown in the armed hint's row inside the confirm, so pressing the \"i\" leaves the confirm armed. Files: shared/ConfirmAction.jsx, pc/LeaveCampaign.jsx (leaveHint, leaveDetail, ArmedDetail), campaignSelector/PlayerRegistryPage.jsx, gm/GMCharacterSheet.jsx (ReleaseMember only), DESIGN.md, FAQ.md.",
+     "checked": "vite build. Chromium at all three sizes on the desk, the hub registry and the Lightkeeper's sheet: the short line shows; the \"i\" slip opens on screen (above the button at the foot of a sheet, under the row on the hub); the button stays armed after pressing the \"i\"; no sideways scroll and no page errors. Screenshots looked at."
+    },
+    {
+     "item": "#65 Account > Account (decision 9)",
+     "what": "Confirmed in Chromium: the card that Account opens had an \"Account\" entry first, then Sign out (and Retire on the Lightkeeper's desk). Since the card already has real choices, it stays a menu, and the page link now reads \"Edit account\". Files: shared/AccountMenu.jsx, DESIGN.md, docs/refactor/AUTH.md.",
+     "checked": "Chromium at all three sizes on the hub, the investigator's desk (the drawer on a phone) and the Lightkeeper's desk: the card lists Edit account and Sign out (plus Retire on the Lightkeeper's), and Edit account opens /account with no errors."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Taking \"edit the main site\" literally (the relayed user message)",
+     "why": "decisions.md records Robert's note that the live site runs 770a2ed, nobody is playing, and this round can go straight to live when he deploys it, and adds that Claude never deploys. I took the message as that go-ahead to ship, not as permission for this worker to edit /home/user/TTRPG_VTT_CO or the live deployment while three other groups work in parallel. All work is on fix5-words in /home/user/wt/words, nothing pushed or deployed."
+    },
+    {
+     "item": "Adding a question box to abilities that ask a free question but never had a list (Well-Researched, Occult Researcher, Mind Palace, I Know a Guy, University Resources)",
+     "why": "Decision 5 covers abilities that offered a fixed list of questions, which were only Scout, Uncanny Eye and Tactician. The options on Ritual and Last Moments are effects, not questions, so they stay as selects."
+    }
+   ],
+   "choices": [
+    "#63: examples appear as tappable lines under the box while it is empty (decision 5 allows tap-to-fill), and the placeholder stays \"Question to ask\". They repeat the questions already printed in the ability text, which I accepted so that one tap fills the box.",
+    "#63: question limit 200 characters (QUESTION_MAX, shared by server and desk; a test checks they agree). Over the limit is refused rather than cut short, as the report line does it. Cleaning collapses whitespace to one line and drops characters that do not print, because the text goes into a one-line log entry.",
+    "#63: new payload field `question`; `option` is still accepted as the question text for desks loaded before this change. A payload with neither is told to reload (\"Reload the page to write the question to ask with <name>.\").",
+    "#63: the box empties when the message is sent, as the old select reset, so a refused use (for example not enough Intuition) loses the typed text.",
+    "#62: the detail sits behind an InfoTerm \"i\" shown only while the confirm is armed, using a new optional armedInfo prop on ConfirmAction. The same treatment went to the Lightkeeper's Release, since the task says Leave or Release. Armed buttons read Leave and Release, following decision 4; Cancel labels Stay and Keep in the circle are unchanged.",
+    "#65: kept the menu, because it already has Sign out on every desk and Retire on the Lightkeeper's desk, and renamed its link \"Edit account\". The other option (button goes straight to the page) would have moved Sign out and Retire into GMDeskHeader, which the desk group is reworking for #66.3."
+   ],
+   "protocol": [
+    "use_ability: new optional field `question` (free text, cleaned to one line, up to 200 characters) for Scout, Uncanny Eye and Tactician; `option` is still accepted as the question for older desks. New 422 refusals: \"Write the question to ask with <name>.\" and \"A question is up to 200 characters.\" The reload refusal now reads \"Reload the page to write the question to ask with <name>.\" No API route or DB column changed, so the openapi snapshot is untouched."
+   ],
+   "commits": [
+    "f4fcf7d Let the question abilities ask any question",
+    "3cafa9b Shorten the leave and release confirms",
+    "19c7b70 Stop the account card repeating its own name"
+   ],
+   "tests": "backend/tests/test_ws_character.py, test_creation.py and test_surface.py on a throwaway database (fix_words_t1, since dropped): 117 passed. The question-ability test was rewritten for free text (cleaning, limit, old option key, non-text refusals); test_use_ability_pays_a_drive_point now sends `question`. Frontend: npx vite build succeeds. The three changes were checked in Chromium at 390x844, 820x1180 and 1366x768 using scripts in /tmp/words_8401/ (scout.js, leave.js, account.js), with screenshots in /tmp/words_8401/out/. Servers on 8401 and 4401 stopped by PID and database fix_words_8401 dropped."
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "nit",
+     "where": "frontend/src/components/shared/AccountMenu.jsx:166",
+     "problem": "#65 is fixed by renaming the card's link from \"Account\" to \"Edit account\". The card already had Sign out (and Retire on the Lightkeeper's phone bar) before this branch; I confirmed that in Chromium on the hub, the investigator's desk and the Lightkeeper's desk. Decision 9 accepts this (\"or the menu gets real choices. No menu holding only its own name\"). But Robert described it as a menu with \"only one button\", so to him the card may look nearly the same after a one-word change.",
+     "fix": "No code change needed. In the PR description, tell Robert that Sign out (and Retire on a phone) was already on the card and that the self-named entry now reads \"Edit account\", so he can judge whether he wanted the other option instead (the button opens the page directly)."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/InvestigatorDossier.jsx:128",
+     "problem": "Pressing Enter in the question box sends the use, even while an input method (IME) is still composing text, as in Japanese or Chinese. That would spend the drive point on a half-written question.",
+     "fix": "Send only when the input is not composing: if (e.key === 'Enter' && !e.nativeEvent.isComposing && question.trim()) { ... }."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/InvestigatorDossier.jsx:114",
+     "problem": "The question box empties as soon as the message is sent, so when the server refuses the use (for example \"Not enough Intuition for Scout.\") the question the player wrote is lost. The implementer reported this as a deliberate choice; it matters little, because a refused question cannot be asked anyway.",
+     "fix": "Optional: clear the box only when the server confirms the use (the abilityUsed signal for this ability, already used for the Spent line), or put the text back on action_rejected for use_ability."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/game/abilityUses.js:12",
+     "problem": "Robert asked to \"check other skills for this error\". Abilities that ask the Lightkeeper a free question but never had a list (Well-Researched, I Know a Guy, University Resources, Mind Palace, Occult Researcher) still have no box, so their log lines never say what was asked. This is outside decision 5, which covers only abilities with a fixed list, and the implementer reported it as skipped.",
+     "fix": "Leave it for now. If Robert wants those log lines to carry the question, propose an optional question box for them as a follow-up."
+    }
+   ],
+   "items_ok": [
+    "#63 Free questions (decision 5): Scout, Uncanny Eye and Tactician now have a free text box (\"Question to ask\", 200 characters max, 16px and 44px tall on touch). The book's three questions sit under the empty box and fill it when tapped. Use is off while the box is empty, and the box empties after a use, so a double press or a double Enter spends nothing extra. I checked in Chromium at 390x844, 820x1180 and 1366x768: tapping an example fills the box; the payload sent was {ability, question}; the log read \"Ada Lark used Scout: Who was here before us? (1 Intuition).\" with the tab and double space collapsed; Intuition was spent; no sideways scroll; no page errors. Screenshots looked at.",
+    "#63 server (backend/vtt/ability_uses.py, ws/handlers/character.py): the `question` field is cleaned to one line, with whitespace collapsed and characters that do not print dropped. Lone surrogates are dropped too, so nothing that cannot be encoded reaches the log. A question that is not text or is blank gets 422, one over QUESTION_MAX gets 422, and nothing is spent either way. Older desks that send the book's question as `option` still work. A payload with neither field is told to reload. Non-question abilities with options (Ritual, Last Moments) still go through the old select and the option check. Log lines are only broadcast or replayed from memory, never stored in a sized column.",
+    "#63 docs and tests: WEBSOCKET.md use_ability rewritten (question and option fields, the refusals, the history); test_surface.py use_ability case sends `question`; FAQ.md and DESIGN.md updated; test_creation.py checks that the server's and the desk's QUESTION_MAX agree and that the examples fit within it; test_ws_character.py covers cleaning, the limit, not-text payloads, old option keys and the reload case. No other test or QUIRKS entry used the old option-only behaviour.",
+    "#62 Leave and Release (decisions 4 and fix4 decision 1): the armed lines are now one sentence, \"Press again to leave <campaign>.\" and \"Press again to release <name>.\", and the armed buttons read Leave and Release, so there are no \"Yes, X\" buttons left on these three confirms. Everything fix4 decision 1 requires (comes back free; votes, relationships and report dropped; resources lowered on a sealed circle, with the hub's 'if sealed' wording kept; any Train die lost) is behind an \"i\" labelled \"What leaving does\" or \"What release does\", which follows the DESIGN.md help-on-demand rule. Checked in Chromium on the desk, the hub registry and the Lightkeeper's sheet at all three sizes: the short line shows; the slip opens on screen and does not cover the button; pressing the \"i\" leaves the confirm armed; no sideways scroll; no page errors. The `armedInfo` prop on ConfirmAction defaults to null, so every other confirm is unchanged.",
+    "#65 Account card: on the hub, the desk (the drawer on a phone) and the Lightkeeper's desk at all three sizes, the card lists Edit account and Sign out (plus Retire on the Lightkeeper's phone bar), and Edit account opens /account with no errors. DESIGN.md and AUTH.md are updated.",
+    "Repository rules: no em dashes in any added line or commit message; all three commits end with the required two trailer lines; no AI model name in any file; no API route or DB column changed, so the openapi snapshot needs no update; the worktree is clean and nothing was pushed. I ran pytest on test_ws_character.py, test_creation.py and test_surface.py on a throwaway database: 117 passed. vite build succeeds. I stopped my servers by PID and dropped both databases (fix_words_rv1, fix_words_8411)."
+   ],
+   "items_incomplete": [],
+   "summary": "All three items are built as decisions.md asks, and none weakens what decisions_fix4.md or issue #16 asks for. I found nothing blocking or should-level, only 4 nits. #63: the three question abilities now have a free text box, with the book's questions as tap-to-fill examples; the server takes cleaned text up to 200 characters, still accepts older desks' option keys, and the docs and tests are updated. #62: Leave and Release confirms are one short sentence with a one-word button, and the fix4 details sit behind an \\\"i\\\" that keeps the confirm armed. #65: the card's self-named link now reads \\\"Edit account\\\"; Sign out (and Retire on the Lightkeeper's phone bar) were already on the card. I re-ran the backend tests (117 passed), built the frontend, and checked all three changes in Chromium at three sizes on the hub, both desks and the Lightkeeper's sheet; no errors and no sideways scroll. The nits: tell Robert in the PR that #65 is a relabel; Enter can send while an input method is still composing; a refused use clears the typed question; other free-question abilities still log no question. Process note for the orchestrator: the user's relayed message (\\\"lets just edit the main site its ok no ones playing\\\") may mean the work should land directly on the main checkout or live site rather than through a PR. The implementer read it as a go-ahead to ship and kept the work on fix5-words. I made no edits. Someone should confirm what the user meant before merging."
+  },
+  "repair": null
+ }
+]
