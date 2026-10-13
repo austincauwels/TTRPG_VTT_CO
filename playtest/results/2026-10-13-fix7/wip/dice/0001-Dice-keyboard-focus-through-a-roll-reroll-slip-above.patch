@@ -1,0 +1,255 @@
+From 5ad73fdd57ebaf1b4757f0645dbca672943939dd Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 13 Oct 2026 12:02:04 +0000
+Subject: [PATCH 1/3] Dice: keyboard focus through a roll, reroll slip above
+ the button, abilities named on the roll, one announcement per kept die
+
+45.8 focus moves to Burn and reroll after a keyboard roll and to the result slip when the panel closes; Burn is 44px on touch. 45.9 the reroll slip opens above the line. 45.10 roll.abilities and the log line name the applied abilities. 60.5 the dice leave the tab order and the slip lines are the one control. Checked with test_ws_rolls.py (new test); browser checks follow.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WaLz6UBTQ5XaTKSYwqeMKA
+---
+ DESIGN.md                                     |  2 +-
+ backend/tests/test_ws_rolls.py                | 21 ++++++++++++++++-
+ backend/vtt/ws/handlers/rolls.py              | 11 +++++++--
+ frontend/src/components/pc/DiceVault.jsx      | 15 ++++++++++++
+ frontend/src/components/pc/dice/DiceTray.jsx  | 15 ++++--------
+ .../components/pc/dice/RollModifications.jsx  | 23 ++++++++++++-------
+ frontend/src/game/outcomes.js                 |  3 ++-
+ 7 files changed, 66 insertions(+), 24 deletions(-)
+
+diff --git a/DESIGN.md b/DESIGN.md
+index 6e50e6d..33d7b9f 100644
+--- a/DESIGN.md
++++ b/DESIGN.md
+@@ -417,7 +417,7 @@ One hourglass (`TensionClock` in `SceneManager.jsx`, drawn by `Hourglass` in `sh
+ - **Table strip** (`shared/TableStrip.jsx`): one slim parchment band with the tension (hourglass mark, n/4), the running timer in mono (oxblood at 0:00, "(paused)" when paused) and the newest Activity Log line as the log shows it (the server's lines in the rulebook's words, chat as written), italic and cut off with an ellipsis. It draws nothing when the tension is 0, no timer shows and there is no log line. It sits where the hourglass itself is out of sight: under a phone's band (held with it, except on the Hourglass page), at the top of a tablet's page and over the Notebook at every size, and on the Lightkeeper's desk across the top of the desk whenever the roster is not showing (an open sheet, the Circle, the Notebook, the Map or the Requests), and under a phone's band as on the player's (it once fell to the foot of the page, after them and the dice). From xl the player's rail shows the hourglass, so the strip steps aside there except over the Notebook. It is not a live region: a ticking timer would be read out every second.
+ - **"New" dots** (`NewDot`): a 10 px oxblood dot with a cream rim and "(new)" for screen readers, on the Menu button, on the drawer rows (From the Lightkeeper, Hourglass, Circle) and on the md+ Circle tab. The store keeps `unseen` for a new dispatch, a moved tension or timer and reports opening; a part's dot goes when that part is in front of the player (from md the dispatch and hourglass stand on the desk, so theirs clear at once). Nothing is marked when the desk first loads a circle.
+ - **Rail and log at laptop heights**: the player's left rail scrolls as a whole from xl, Your Circle keeps a floor of 7.5 rem, the log keeps 9 rem, and the dice column scrolls inside itself, so the timer and Pass Notes are always reachable. On a tablet the rail follows the dice in the page, so reading order matches what is drawn.
+-- **Gilded choice**: under "Keep one die" the slip lists what each die would do ("Keep the gilded 4: Mixed success, 1 Nerve back" / "Keep the 4: Mixed success"), the dice and the phone bar's buttons carry the same words, and after a gilded keep the slip says "1 Nerve back". Each line on the slip is a button doing what its die does (44 px high). When the drive is already full the gilded line drops ", 1 X back", since nothing would come back, and the log carries no "refreshed" tag then.
++- **Gilded choice**: under "Keep one die" the slip lists what each die would do ("Keep the gilded 4: Mixed success, 1 Nerve back" / "Keep the 4: Mixed success"), the phone bar's buttons carry the same words (the dice themselves are hidden from assistive tech and leave the tab order, so each choice is announced once, from its line; a die stays clickable and stops shimmying on hover), and after a gilded keep the slip says "1 Nerve back". Each line on the slip is a button doing what its die does (44 px high). When the drive is already full the gilded line drops ", 1 X back", since nothing would come back, and the log carries no "refreshed" tag then.
+ - **Circle resources**: a player spends with one button per resource that asks first (armed, it reads "Spend", with "Press again to spend 1 Refresh for the circle." under it) and stays armed until the player presses elsewhere, presses Escape or moves focus away, like every other confirm (a four-second lapse cost every player of the third playtest a spend); a second press within half a second of the first is the rest of a double-click and is ignored; the "Press again" line under each button keeps its space while spending is open and is shown only on the armed one, so arming or disarming never moves a button under the finger; the pips are display only for players, the reason spending is blocked is printed above the buttons, and the counter reads "Your spends n / 2". The Lightkeeper keeps the pips and, on a member's sheet, "Give a spend back".
+ 
+ ### Formation papers on the Lightkeeper's desk (2026-10-10, playtest)
+diff --git a/backend/tests/test_ws_rolls.py b/backend/tests/test_ws_rolls.py
+index 6e3c3ff..4148740 100644
+--- a/backend/tests/test_ws_rolls.py
++++ b/backend/tests/test_ws_rolls.py
+@@ -420,7 +420,7 @@ def test_two_gilds_roll_two_gilded_dice(client, dice):
+         ws.send("resolve_gilded", action="hide", chosen_type="gilded")
+         msgs = ws.sync()
+         assert msgs[1]["payload"]["message"] == (
+-            f"{ch['name']} rolled hide {EM} 5 {DOT} Mixed Success (3 dice: 2 gilded, 5 gilded, 4; kept the gilded 5). [gilded {EM} cunning Drive refreshed]")
++            f"{ch['name']} rolled hide (Born in the Shadows) {EM} 5 {DOT} Mixed Success (3 dice: 2 gilded, 5 gilded, 4; kept the gilded 5). [gilded {EM} cunning Drive refreshed]")
+         assert msgs[2]["payload"]["cunning_current"] == 2
+ 
+ 
+@@ -2042,3 +2042,22 @@ def test_an_automatic_gilded_refresh_at_a_full_drive_logs_nothing_extra(client,
+         assert support.types(msgs) == ["roll_result", "activity_log"]
+         assert "refreshed" not in msgs[1]["payload"]["message"]
+     assert support.fetch(Character, ch["id"]).nerve_current == 3
++
++
++def test_roll_names_the_abilities_that_applied(client, dice):
++    """Fix round 7 (45.10): the sheet's chips untoggle after a roll, so the roll carries
++    the abilities that applied (roll.abilities, absent when none did) and the log line
++    names them after the action; a roll without any is as it was."""
++    ch = support.forge(client, hide=3, gilded_hide=True, specialty_ability="Born in the Shadows",
++                       cunning_max=3, cunning_current=3)
++    dice(2, 5, 4)
++    with support.ws_connect(client, ch["id"]) as ws:
++        ws.send("roll", action="hide", drive_spent=0, ability_mods=["Born in the Shadows"])
++        roll = ws.sync()[0]["payload"]["roll"]
++        assert roll["abilities"] == ["Born in the Shadows"]
++        ws.send("resolve_gilded", action="hide", chosen_type="gilded")
++        assert ws.sync()[1]["payload"]["message"].startswith(f"{ch['name']} rolled hide (Born in the Shadows) {EM} 5")
++        dice(1, 2, 3)
++        ws.send("roll", action="hide", drive_spent=0)
++        msgs = ws.sync()
++        assert "abilities" not in msgs[0]["payload"]["roll"]
+diff --git a/backend/vtt/ws/handlers/rolls.py b/backend/vtt/ws/handlers/rolls.py
+index f8533f0..f089026 100644
+--- a/backend/vtt/ws/handlers/rolls.py
++++ b/backend/vtt/ws/handlers/rolls.py
+@@ -553,6 +553,11 @@ async def handle_roll(ctx):
+         # held dice of a gilded choice and a roll sent again keep it too.
+         if is_secret:
+             res["is_secret"] = True
++        # The abilities that applied to the roll, so the slip and the log can name them (the
++        # sheet's chips untoggle after the roll)
++        used_abilities = plan["applied"] if plan else []
++        if used_abilities:
++            res["abilities"] = list(used_abilities)
+         if character:
+             if "Patch Up" in mods and act == "read" and "Patch Up" in abilities_of(character):
+                 _patch_up_declared.add(character.id)
+@@ -594,7 +599,8 @@ async def handle_roll(ctx):
+             outcome_label = OUTCOME_LABELS.get(outcome_key, outcome_key)
+             # GM rolls omit the internal action name from the log label
+             if character:
+-                log_msg = f"{char_name} rolled {act} — {result_val} · {outcome_label} {_dice_text(res)}."
++                named = f" ({', '.join(used_abilities)})" if used_abilities else ""
++                log_msg = f"{char_name} rolled {act}{named} — {result_val} · {outcome_label} {_dice_text(res)}."
+             else:
+                 log_msg = f"Lightkeeper rolled — {result_val} · {outcome_label} {_dice_text(res)}."
+ 
+@@ -663,7 +669,8 @@ async def handle_resolve_gilded(ctx):
+     # A burn's reroll that waited for this choice is logged as the burn it was
+     # (handle_burn_resistance), with the drive whose resistance went
+     verb = f"burned {pending['burned'].capitalize()} resistance on" if pending.get("burned") else "rolled"
+-    log_msg = f"{character.name} {verb} {r_act} — {chosen_value} · {outcome_label} {dice_text}."
++    named = f" ({', '.join(roll['abilities'])})" if roll.get("abilities") else ""
++    log_msg = f"{character.name} {verb} {r_act}{named} — {chosen_value} · {outcome_label} {dice_text}."
+ 
+     changed = False
+     # A roll made in life, kept after the death it led to: scored and logged, but the sheet
+diff --git a/frontend/src/components/pc/DiceVault.jsx b/frontend/src/components/pc/DiceVault.jsx
+index 22dbbd2..4997cf8 100644
+--- a/frontend/src/components/pc/DiceVault.jsx
++++ b/frontend/src/components/pc/DiceVault.jsx
+@@ -156,6 +156,20 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
+       className="font-serif italic text-sm text-parchment-deep"
+       markClassName="text-parchment-deep group-hover/info:text-cream" />
+   );
++  // A keyboard user's place through a roll (playtest F009): when this desk's roll lands from
++  // its row on the sheet and a burn is offered, focus goes to Burn and reroll; when the panel
++  // closes with focus inside it, to the result slip. The desk and the phone bar each have a
++  // copy, so the one on show is taken.
++  const panelClosedWithFocus = useRef(false);
++  useEffect(() => {
++    if (showGmControls || isRolling || !lastRoll?.dice) return;
++    const shown = (sel) => Array.from(document.querySelectorAll(`[data-desk="dice"] ${sel}`)).find(el => el.getClientRects().length);
++    const active = document.activeElement;
++    const onPage = !active || active === document.body;
++    if (canResist && (active?.closest?.('[data-roll-row]') || (onPage && panelClosedWithFocus.current))) shown('[data-burn-reroll]')?.focus();
++    else if (!canResist && onPage && panelClosedWithFocus.current) shown('[data-result-slip]')?.focus();
++    panelClosedWithFocus.current = false;
++  }, [lastRoll, isRolling, canResist, showGmControls]);
+   const onPhone = (...parts) => (phonePart === undefined || parts.includes(phonePart) ? '' : 'max-md:hidden');
+   const phoneEmpty = phonePart !== undefined && phonePart !== 'dice' && phonePart !== 'notes';
+   const rollModifications = (
+@@ -172,6 +186,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
+       drivePickerPrompt={drivePickerPrompt}
+       setDrivePickerPrompt={setDrivePickerPrompt}
+       setDismissedPrompts={setDismissedPrompts}
++      onClosedWithFocus={() => { panelClosedWithFocus.current = true; }}
+       allies={livingMembers(campaignRoster?.active_investigators).filter(inv => inv.id !== character?.id)}
+     />
+   );
+diff --git a/frontend/src/components/pc/dice/DiceTray.jsx b/frontend/src/components/pc/dice/DiceTray.jsx
+index d261e4c..96a4598 100644
+--- a/frontend/src/components/pc/dice/DiceTray.jsx
++++ b/frontend/src/components/pc/dice/DiceTray.jsx
+@@ -1,7 +1,6 @@
+ import React, { forwardRef, useEffect, useRef } from 'react';
+ import { OUTCOME, keepChoices, outcomeForKept, rollPoolText } from '../../../game/outcomes';
+ import { useRollSounds } from '../../../game/rollSounds';
+-import { onActivateKey } from '../../shared/a11y';
+ import { tiltFor } from '../../shared/handPlaced';
+ import { SerialNo, serialFor } from '../../shared/PrintMarks';
+ import { DieFace, DIE_BODY } from './Die';
+@@ -63,8 +62,8 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
+           {/* What each die would do, so the choice is made knowing it; each line does what
+               its die does */}
+           <span className="block mt-1.5 font-serif text-base leading-snug">
+-            {keepChoices(lastRoll, character).map((c) => (
+-              <button key={c.idx} type="button" onClick={() => onDieClick?.(c.die, c.idx)}
++            {keepChoices(lastRoll, character).map((c, i) => (
++              <button key={c.idx} type="button" {...(i === 0 ? { 'data-keep-die': '' } : {})} onClick={() => onDieClick?.(c.die, c.idx)}
+                 className="block w-full min-h-[44px] mb-1.5 last:mb-0 px-3 py-1.5 text-left font-serif text-base leading-snug text-ink border border-sepia/60 rounded-sm bg-parchment-deep/60 hover:bg-parchment-deep active:scale-[0.99]">
+                 {c.label}
+               </button>
+@@ -183,7 +182,7 @@ export const DiceTray = forwardRef(({
+ 
+               if (gildedPending) {
+                 if (isCandidate) {
+-                  extraClasses = 'animate-liftShimmy cursor-pointer ring-2 ring-cream/60 hover:ring-cream hover:scale-110 transition-transform';
++                  extraClasses = 'animate-liftShimmy hover:animate-none cursor-pointer ring-2 ring-cream/60 hover:ring-cream hover:scale-110 transition-transform';
+                   clickHandler = () => onDieClick(die, idx);
+                 } else {
+                   extraClasses = 'opacity-35';
+@@ -198,13 +197,7 @@ export const DiceTray = forwardRef(({
+               return (
+                 <div
+                   key={`${idx}-${die.value}`}
+-                  {...(clickHandler ? {
+-                    role: 'button',
+-                    tabIndex: 0,
+-                    'data-keep-die': '',
+-                    onKeyDown: onActivateKey(clickHandler),
+-                    'aria-label': keepChoices(lastRoll, character).find((c) => c.idx === idx)?.label || `Keep the ${die.is_gilded ? 'gilded' : 'highest regular'} die, ${die.value}`,
+-                  } : { 'aria-hidden': true })}
++                  aria-hidden="true"
+                   onClick={clickHandler}
+                   onTouchEnd={clickHandler ? (e) => { e.preventDefault(); clickHandler(); } : undefined}
+                   className={`w-11 h-11 2xl:w-14 2xl:h-14 p-0.5 rounded flex items-center justify-center ${tumbleClass}
+diff --git a/frontend/src/components/pc/dice/RollModifications.jsx b/frontend/src/components/pc/dice/RollModifications.jsx
+index 36e8c5f..5c1ea2e 100644
+--- a/frontend/src/components/pc/dice/RollModifications.jsx
++++ b/frontend/src/components/pc/dice/RollModifications.jsx
+@@ -1,4 +1,4 @@
+-import React, { useState } from 'react';
++import React, { useLayoutEffect, useRef, useState } from 'react';
+ import { SafeIcon } from '../../shared/SafeIcon';
+ import { ACTION_LABEL } from '../../../game/actions';
+ import { InfoTerm } from '../../shared/ActionInfo';
+@@ -48,9 +48,15 @@ const AllyPrompt = ({ prompt, allies, character, onUse, onSkip }) => {
+ 
+ export const RollModifications = ({
+   canResist, visiblePrompts, lastRoll, character, resistMax, resistSpent, lastRollDriveKey,
+-  burnResistance, usePostRollAbility, drivePickerPrompt, setDrivePickerPrompt, setDismissedPrompts, allies = [],
+-}) => (
+-    <div className="bg-ink border border-parchment-deep/20 px-4 py-3 rounded-sm space-y-2">
++  burnResistance, usePostRollAbility, drivePickerPrompt, setDrivePickerPrompt, setDismissedPrompts, allies = [], onClosedWithFocus,
++}) => {
++  // When the panel goes with the keyboard's focus inside it, the desk is told, to put the focus on the result slip
++  const panel = useRef(null);
++  const told = useRef(onClosedWithFocus);
++  told.current = onClosedWithFocus;
++  useLayoutEffect(() => () => { if (panel.current?.contains(document.activeElement)) told.current?.(); }, []);
++  return (
++    <div ref={panel} className="bg-ink border border-parchment-deep/20 px-4 py-3 rounded-sm space-y-2">
+       <div className="flex items-center gap-2 mb-1">
+         <SafeIcon name="GiDiceSixFacesFive" size={15} className="text-parchment-deep/80" />
+         <span className="font-sans text-xs font-black uppercase tracking-widest text-parchment-deep/80">After the roll</span>
+@@ -80,12 +86,13 @@ export const RollModifications = ({
+               <p className="font-serif text-sm text-parchment-deep mt-0.5">
+                 <InfoTerm label={`${action}: ${pool}`} ariaLabel={`${action}: ${pool}, what a reroll throws`}
+                   text="A reroll throws the action rating alone. Drive spent and dice an ability added are not thrown again."
++                  slipClassName="left-0 bottom-full mb-1 w-[min(18rem,calc(100vw-2.5rem))]"
+                   markClassName="text-parchment-deep group-hover/info:text-cream" />
+               </p>
+             </div>
+             <button
+-              onClick={() => burnResistance(lastRoll.action, lastRollDriveKey)}
+-              className="shrink-0 min-h-[36px] px-3 py-1 font-sans text-xs font-black uppercase tracking-widest border border-oxblood-lit/60 text-oxblood-lit hover:bg-oxblood hover:text-cream transition-all rounded-sm"
++              onClick={() => burnResistance(lastRoll.action, lastRollDriveKey)} data-burn-reroll=""
++              className="shrink-0 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 py-1 font-sans text-xs font-black uppercase tracking-widest border border-oxblood-lit/60 text-oxblood-lit hover:bg-oxblood hover:text-cream transition-all rounded-sm"
+             >
+               Burn and reroll
+             </button>
+@@ -132,5 +139,5 @@ export const RollModifications = ({
+           </div>
+         </div>
+       ))}
+-    </div>
+-);
++    </div>  );
++};
+diff --git a/frontend/src/game/outcomes.js b/frontend/src/game/outcomes.js
+index a41f005..28c6342 100644
+--- a/frontend/src/game/outcomes.js
++++ b/frontend/src/game/outcomes.js
+@@ -60,7 +60,8 @@ export const rollPoolText = (roll, keptDie = null, rating = null) => {
+   const label = ACTION_LABEL[roll.action];
+   if (!label) return thrown;
+   const added = !roll.is_resistance_roll && roll.type !== 'zero' && Number.isFinite(rating) ? count - rating : 0;
+-  return `${label}${added > 0 ? ` +${added}d` : ''}${roll.is_resistance_roll ? ', resistance burned' : ''}: ${thrown}`;
++  const named = Array.isArray(roll.abilities) && roll.abilities.length ? ` (${roll.abilities.join(', ')})` : '';
++  return `${label}${added > 0 ? ` +${added}d` : ''}${named}${roll.is_resistance_roll ? ', resistance burned' : ''}: ${thrown}`;
+ };
+ 
+ const ACTION_KEYS = Object.keys(ACTION_LABEL).join('|');
+-- 
+2.43.0
+
