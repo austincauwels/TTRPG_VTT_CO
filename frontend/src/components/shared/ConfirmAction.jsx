@@ -59,10 +59,12 @@ const TONES = {
 // hint is read with the button and is not announced when it changes (the Finalize slip's
 // idle hint changes whenever a player proposes or accepts a relationship). The wrapper
 // takes className, so a caller can use "contents" to let the button and the hint sit in
-// its own flex row.
+// its own flex row. armedInfo is laid after the armed hint, inside the confirm, so pressing
+// it leaves the button armed: the detail behind an "i" (an InfoTerm) that keeps the hint to
+// one short sentence (DESIGN.md, help on demand).
 // cancelSize sets Cancel's height: 36px with a mouse, 44px on a touch screen by default.
 export const ConfirmAction = ({
-  onConfirm, renderButton, idleHint, armedHint, cancelLabel = 'Cancel',
+  onConfirm, renderButton, idleHint, armedHint, armedInfo = null, cancelLabel = 'Cancel',
   tone = 'paper', disabled = false, className = '', hintClassName = '', cancelSize = 'min-h-[36px] [@media(pointer:coarse)]:min-h-[44px]',
 }) => {
   const { armed, press, disarm, ref } = useConfirmStep();
@@ -105,6 +107,7 @@ export const ConfirmAction = ({
               {hint}
             </p>
           )}
+          {armed && armedInfo}
           {armed && (
             <button
               type="button"
