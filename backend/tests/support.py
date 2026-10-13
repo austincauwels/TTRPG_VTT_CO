@@ -69,7 +69,7 @@ CIRCLE_DICT_KEYS = {
     "tension_clock", "tension_label", "location", "atmosphere", "dispatch_text", "max_capacity",
     "chapter_house_location", "circle_ability", "insignia", "backstory_answers",
     "is_finalized", "illumination", "resources_editable", "reports_open", "stamina_dice_left",
-    "incapacitated_members", "saw_this_coming",
+    "incapacitated_members", "saw_this_coming", "earn_backs",
     "timer_duration_ms", "timer_remaining_ms", "timer_running", "timer_visible",
 }
 

@@ -78,10 +78,12 @@ def saw_this_coming(circle, db: Session = None) -> list:
 def fill_resources(circle, db: Session = None):
     """Sets each of Stitch, Refresh and Train to 1 plus the active members. (On
     2026-10-06 this split one pool of that size across the three, a misreading of p. 41
-    that the p. 62 example rules out.)"""
+    that the p. 62 example rules out.) A full circle has nothing left to earn back, so
+    any Resource Management earn-back still waiting goes."""
     points = resource_pool(circle, db)
     for key in RESOURCES:
         setattr(circle, key, points)
+    circle.earn_backs = 0
 
 
 def lower_resources_to_pool(circle, db: Session = None):
@@ -104,8 +106,11 @@ def get_or_create_campaign_circle(db: Session, campaign_id: int) -> Circle:
     """Returns the circle owned by this campaign, creating one if it doesn't exist yet."""
     circle = db.query(Circle).filter(Circle.campaign_id == campaign_id).first()
     if not circle:
-        circle = Circle(name="Unnamed Circle", stitch=1, refresh=1, train=1, campaign_id=campaign_id)
+        circle = Circle(name="Unnamed Circle", campaign_id=campaign_id)
         db.add(circle)
+        # 1 plus the members in each resource, as an approval fills them (rulebook p. 41):
+        # members approved before anyone opened the campaign used to find 1 in each
+        fill_resources(circle, db)
         db.commit()
         db.refresh(circle)
     return circle

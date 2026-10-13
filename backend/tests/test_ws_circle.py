@@ -909,14 +909,80 @@ def test_update_circle_milestone_log(client):
 
 def test_resource_management_reminds_at_each_milestone(client):
     """RULES_CHECK 20: Resource Management gains a resource of the circle's choice at each
-    milestone; the log says so (the choice stays with the table)."""
+    milestone; the log says so. Since fix round 5 (Robert's issue #66.4) the app asks for
+    the choice and applies it (gm_earn_back): the line says one is waiting, and each
+    milestone passed waits on the circle as an earn-back."""
     camp, _, cid = _campaign(client, members=0)
-    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Hunters\nResource Management")
+    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Hunters\nResource Management",
+                   stitch=0)
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("update_circle", illumination=7)
-        lines = [m["payload"]["message"] for m in gm.sync()[2:]]
-        assert lines == ["The Moths milestone 3 reached!", "Resource Management: The Moths gains one resource of its choice.",
-                         "The Moths milestone 6 reached!", "Resource Management: The Moths gains one resource of its choice."]
+        msgs = gm.sync()
+        assert msgs[0]["payload"]["earn_backs"] == 2
+        lines = [m["payload"]["message"] for m in msgs[2:]]
+        assert lines == [
+            "The Moths milestone 3 reached!",
+            "Resource Management: The Moths earns back one Stitch, Refresh or Train, the circle's choice.",
+            "The Moths milestone 6 reached!",
+            "Resource Management: The Moths earns back one Stitch, Refresh or Train, the circle's choice."]
+
+
+def test_resource_management_earn_back_is_one_press(client):
+    """Robert's decision 3 (issue #66.4): at each milestone (3, 6, 9) Resource
+    Management's earn-back happens through the app. One press applies the circle's choice
+    and logs it; a full resource is refused (choose another), and so is a press with
+    nothing waiting. The track lowered back past a milestone takes its earn-back away."""
+    camp, members, cid = _campaign(client, members=2)
+    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Resource Management",
+                   stitch=1, refresh=3, train=3)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_set_tally_answer", index=0, checked=True)
+        gm.sync()
+        gm.send("gm_add_tally", keys=4)  # 2 to 7: milestones 3 and 6
+        assert gm.sync()[0]["payload"]["earn_backs"] == 2
+        gm.send("gm_earn_back", resource_type="refresh")
+        assert gm.sync() == [_rejected("gm_earn_back", status=409,
+                                       detail="The circle's Refresh is full: choose another.")]
+        gm.send("gm_earn_back", resource_type="stitch")
+        msgs = gm.sync()
+        assert support.types(msgs) == ["circle_update", "activity_log"]
+        assert (msgs[0]["payload"]["stitch"], msgs[0]["payload"]["earn_backs"]) == (2, 1)
+        assert msgs[1]["payload"]["message"] == "Resource Management: The Moths earns back a Stitch (2 of 3)."
+        # The Lightkeeper takes a point back past 6: the earn-back it brought goes
+        gm.send("update_circle", illumination=5)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 0
+        gm.send("gm_earn_back", resource_type="stitch")
+        assert gm.sync() == [_rejected("gm_earn_back", status=409, detail="The circle has nothing to earn back.")]
+        gm.send("gm_earn_back", resource_type="lantern")
+        assert gm.sync()[0]["payload"]["status"] == 422
+    assert support.fetch(Circle, cid).stitch == 2
+
+
+def test_resource_management_has_nothing_to_earn_back_when_full(client):
+    """A milestone passed with every resource at its maximum earns nothing back, and the
+    log says so; a circle without Resource Management has no earn-back at all."""
+    camp, _, cid = _campaign(client, members=1)
+    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Resource Management",
+                   stitch=2, refresh=2, train=2)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_circle", illumination=3)
+        msgs = gm.sync()
+        assert msgs[0]["payload"]["earn_backs"] == 0
+        assert msgs[-1]["payload"]["message"] == \
+            "Resource Management: every resource of The Moths is full, so there is nothing to earn back."
+        support.update(Circle, cid, circle_ability="Hunters", stitch=0)
+        gm.send("update_circle", illumination=6)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 0
+
+
+def test_advancing_the_circle_clears_a_waiting_earn_back(client):
+    """The advance refills every resource (p. 41), so an earn-back still waiting goes."""
+    camp, _, cid = _campaign(client, members=1)
+    support.update(Circle, cid, illumination=12, circle_ability="Resource Management", stitch=0, earn_backs=1)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_advance_circle")
+        circle = gm.sync()[-1]["payload"]["circle"]
+    assert (circle["stitch"], circle["earn_backs"]) == (2, 0)
 
 
 def test_advancing_the_circle_replenishes_its_resources(client):
@@ -1523,6 +1589,7 @@ def test_the_lightkeeper_resource_and_report_changes_are_logged(client):
 def test_the_lightkeeper_gives_a_spend_back(client):
     camp, (member,), cid = _campaign(client)
     support.update(Character, member["id"], resources_spent_assignment=2)
+    support.update(Circle, cid, stitch=1)  # one of the two spent
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         before = support.fetch(Circle, cid).stitch
         gm.send("gm_return_spend", character_id=member["id"], resource_type="stitch", circle_id=cid)

@@ -137,6 +137,8 @@ def get_circle_dict(circle):
         # The resource pool (1 plus the active members, rulebook p. 41): any one resource
         # can hold all of it
         "max_capacity": resource_pool(circle),
+        # Resource Management's earn-backs waiting for the circle's choice (p. 41)
+        "earn_backs": getattr(circle, "earn_backs", 0) or 0,
         "stamina_dice_left": max(0, STAMINA_DICE - (getattr(circle, "stamina_dice_used", 0) or 0))
         if "Stamina Training" in circle_abilities(circle) else 0,
         # Nobody Left Behind (p. 41): who is down, for the +1d chip on the desks

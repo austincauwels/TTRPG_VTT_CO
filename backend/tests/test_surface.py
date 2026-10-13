@@ -155,7 +155,7 @@ WS_MESSAGE_TYPES = [
     "apply_advancement", "update_circle", "circle_creation_vote",
     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
     "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
-    "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally",
+    "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally", "gm_earn_back",
 ]
 
 
@@ -179,6 +179,12 @@ def _resources_editable(client, ctx):
     r = client.get(f"/campaign/{ctx.camp_id}/circle-creation-state", headers=support.as_gm(ctx.camp_id))
     assert r.status_code == 200, r.text
     support.update(Circle, r.json()["circle_id"], resources_editable=True)
+
+
+def _earn_back_waiting(client, ctx):
+    r = client.get(f"/campaign/{ctx.camp_id}/circle-creation-state", headers=support.as_gm(ctx.camp_id))
+    assert r.status_code == 200, r.text
+    support.update(Circle, r.json()["circle_id"], circle_ability="Resource Management", stitch=0, earn_backs=1)
 
 
 # type -> sender ("player" or "gm"), forge fields for the player's character, the
@@ -307,11 +313,17 @@ WS_CASES = {
     "gm_add_tally": dict(
         sender="gm", payload=lambda c: {"circle_id": c.circle_id, "keys": 2},
         expect=["circle_update", "activity_log"]),
+    # Resource Management's earn-back waiting at a milestone, the circle's choice applied
+    "gm_earn_back": dict(
+        sender="gm",
+        before_connect=_earn_back_waiting,
+        payload=lambda c: {"circle_id": c.circle_id, "resource_type": "stitch"},
+        expect=["circle_update", "activity_log"]),
 }
 
 
 def test_ws_cases_cover_every_message_type():
-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 38
+    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 39
     assert list(WS_CASES) == WS_MESSAGE_TYPES
 
 
@@ -380,7 +392,7 @@ def test_ws_access_table():
     and GM-target type is a real message type."""
     from vtt.ws import access
     gm_rules = (access._gm_only, access._gm_circle, access._gm_update_circle, access._gm_update_scars,
-                access._gm_set_tally_answer, access._gm_add_tally)
+                access._gm_set_tally_answer, access._gm_add_tally, access._gm_earn_back)
     assert access.GM_ONLY == {t for t, rule in access.RULES.items() if rule in gm_rules}
     assert set(access.RULES) <= set(WS_MESSAGE_TYPES)
     assert access.GM_MAY_TARGET <= set(WS_MESSAGE_TYPES)
@@ -388,7 +400,7 @@ def test_ws_access_table():
         "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
         "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
         "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
-        "gm_set_tally_answer", "gm_add_tally",
+        "gm_set_tally_answer", "gm_add_tally", "gm_earn_back",
     }
 
 

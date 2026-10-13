@@ -1103,7 +1103,8 @@ def test_circle_creation_state_creates_circle_once(client):
     circle = support.campaign_circle(camp["id"])
     assert body["circle_id"] == circle.id
     assert circle.name == "Unnamed Circle"
-    assert (circle.stitch, circle.refresh, circle.train) == (1, 1, 1)
+    # 1 plus the member in each (rulebook p. 41); it was 1 each until the seal (issue #66.4)
+    assert (circle.stitch, circle.refresh, circle.train) == (2, 2, 2)
     assert body["is_finalized"] is False
     assert [c["id"] for c in body["active_investigators"]] == [member["id"]]
     assert set(body["active_investigators"][0]) == support.CHAR_DICT_KEYS
