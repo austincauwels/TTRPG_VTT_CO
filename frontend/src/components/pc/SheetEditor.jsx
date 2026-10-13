@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDialog } from '../shared/useDialog';
+import useGameStore from '../../store/gameStore';
 import { ACTION_LABEL, SCAR_TEXT_MAX, scarDisplayText } from '../../game/actions';
 
 // The player's edit of their own sheet (issue #64, decision 1 of fix round 5): detection,
@@ -73,7 +74,7 @@ const changesOf = (o, d) => {
 };
 
 const small = 'min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest rounded-sm transition-colors';
-const field = 'w-full bg-cream border border-sepia/40 rounded-sm px-2 py-1.5 font-serif text-base text-ink focus:border-oxblood focus:outline-none';
+const field = 'w-full min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] bg-cream border border-sepia/40 rounded-sm px-2 py-1.5 font-serif text-base text-ink focus:border-oxblood focus:outline-none';
 const Heading = ({ children }) => (
   <h3 className="font-sans text-xs font-black uppercase tracking-widest text-oxblood mb-2">{children}</h3>
 );
@@ -167,6 +168,9 @@ export const SheetEditor = ({ character, roleOf, specialtyOf, abilityTexts = {},
   const save = () => {
     if (!changed || nameBlank) return;
     if (onSave(changes)) onClose();
+    // Another tab took the desk: waiting will not help, and on a phone this dialog covers
+    // the banner's Use this tab, so the choice is offered here and the draft stays
+    else if (useGameStore.getState().connectionState === 'replaced') setError('replaced');
     else setError('Not connected to the table. Try again in a moment.');
   };
 
@@ -339,7 +343,15 @@ export const SheetEditor = ({ character, roleOf, specialtyOf, abilityTexts = {},
 
         <div className="px-4 py-3 sm:px-8 border-t border-sepia/20 flex flex-wrap items-center justify-end gap-3">
           {clash && <p role="status" className="basis-full font-serif text-sm italic text-oxblood/90 leading-snug">The sheet changed at the table while you edited it. Save keeps your changes.</p>}
-          {error && <p role="alert" className="basis-full font-serif text-base text-oxblood leading-snug">{error}</p>}
+          {error === 'replaced' ? (
+            <div role="alert" className="basis-full flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="flex-1 basis-48 font-serif text-base text-oxblood leading-snug">This desk is open in another tab. Use this tab, then save.</p>
+              <button type="button" onClick={() => { setError(''); useGameStore.getState().reconnect(); }}
+                className="px-4 py-2 min-h-[44px] whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-colors rounded-sm">
+                Use this tab
+              </button>
+            </div>
+          ) : error && <p role="alert" className="basis-full font-serif text-base text-oxblood leading-snug">{error}</p>}
           <button type="button" onClick={onClose}
             className="px-4 py-2 min-h-[44px] whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-sepia/25 hover:border-sepia/50 text-sepia transition-colors rounded-sm">
             Cancel

@@ -45,7 +45,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy
             <button
               onClick={approve}
               disabled={busy}
-              className="disabled:opacity-50 disabled:cursor-wait min-h-[40px] md:[@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream border border-ink rounded hover:brightness-125 transition"
+              className="disabled:opacity-50 disabled:cursor-wait min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream border border-ink rounded hover:brightness-125 transition"
             >
               {sealing ? 'Approving…' : 'Approve'}
             </button>
@@ -69,7 +69,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy
               renderButton={(armed, props) => (
                 <button
                   {...props}
-                  className={`disabled:opacity-50 disabled:cursor-wait min-h-[40px] md:[@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border rounded transition-colors ${
+                  className={`disabled:opacity-50 disabled:cursor-wait min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 py-2 font-sans text-xs font-black uppercase tracking-widest border rounded transition-colors ${
                     armed
                       ? 'bg-ink text-cream border-ink'
                       : 'border-sepia/50 text-sepia hover:bg-sepia/10'

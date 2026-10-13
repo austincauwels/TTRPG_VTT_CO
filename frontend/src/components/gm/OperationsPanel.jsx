@@ -245,6 +245,7 @@ export const OperationsPanel = () => {
                   key={selectedInvestigator.id}
                   character={selectedInvestigator}
                   onClose={() => setSelectedInvestigator(null)}
+                  backLabel={activeTab === 'requests' ? 'Back to requests' : 'Back to roster'}
                   // a request's sheet carries the decision, and closes once it is made
                   onApprove={async (id) => { if (await handleStamp(id)) setSelectedInvestigator(null); }}
                   onReject={async (id) => { if (await handleReject(id)) setSelectedInvestigator(null); }}

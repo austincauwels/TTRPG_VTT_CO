@@ -49,7 +49,7 @@ Assigning `main.db_engine` or `main.SessionLocal` (the tests do this with monkey
 | `vtt/ws/handlers/__init__.py` | `HANDLERS`: message type to (handler, needs_character) | new |
 | `vtt/ws/handlers/gm.py` | `gm_update_tension`, `gm_update_scars`, `gm_update_circle`, `gm_transition_scene`, `gm_toggle_resource_edit`, `gm_toggle_reports`, `gm_advance_circle`, `refill_resources`, `gm_end_assignment`, `gm_reset_character`, `update_circle`, `gm_earn_back` | WEBSOCKET.md 4.2 |
 | `vtt/ws/handlers/rolls.py` | `roll`, `resolve_gilded`, `use_post_roll_ability`, `burn_resistance` | WEBSOCKET.md 4.3 |
-| `vtt/ws/handlers/character.py` | `update_drive`, `update_pen_font`, `apply_scar`, `revive_character`, `update_gear`, `apply_advancement` | WEBSOCKET.md 4.4 |
+| `vtt/ws/handlers/character.py` | `update_drive`, `update_pen_font`, `apply_scar`, `revive_character`, `update_gear`, `apply_advancement`, `edit_sheet`, `gm_sheet_seen` | WEBSOCKET.md 4.4 |
 | `vtt/ws/handlers/marks.py` | `take_mark`, `resolve_ability_mark`, `intercept_mark`, `INTERCEPT_ABILITIES` | WEBSOCKET.md 4.5 |
 | `vtt/ws/handlers/circle.py` | `submit_assignment_report`, `spend_resource`, `circle_creation_vote`, `circle_backstory_update`, `circle_personal_answer`, `circle_relationship_propose`, `circle_relationship_respond` | WEBSOCKET.md 4.6 |
 | `vtt/ws/handlers/chat.py` | `chat_message`, `add_notebook_entry` | WEBSOCKET.md 4.7 |

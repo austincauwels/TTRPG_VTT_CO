@@ -108,7 +108,9 @@ const ReleaseMember = ({ name, trainDice, onRelease }) => {
   );
 };
 
-export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, onRelease, busy = false, error: requestError = '' }) => {
+// backLabel names where onClose returns: the roster, or the Requests page a request's sheet
+// was opened from (its card or the pop-up)
+export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, onRelease, busy = false, error: requestError = '', backLabel = 'Back to roster' }) => {
   const [fullChar, setFullChar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -274,7 +276,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
         onClick={onClose}
         className="mb-4 font-sans text-sm uppercase tracking-widest text-moonlight-steel hover:text-cream border border-moonlight-steel/40 hover:border-moonlight-steel rounded px-5 py-2.5 transition-colors font-bold"
       >
-        ← Back to roster
+        ← {backLabel}
       </button>
 
       {/* Parchment panel — matches MainDeskView center column styling */}
@@ -297,7 +299,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                 Try again
               </button>
               <button onClick={onClose} className="font-sans text-xs font-black uppercase tracking-widest px-4 py-2 min-h-[40px] border border-oxblood/50 rounded hover:bg-oxblood/10 transition-colors">
-                Back to roster
+                {backLabel}
               </button>
             </div>
           </div>
@@ -352,7 +354,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
             <ConfirmAction
               className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-3"
               onConfirm={() => gmResetCharacter(rosterItem.id)}
-              armedHint={`Press again to refill ${fullChar.name ? `${fullChar.name}'s` : 'the'} drives and clear ability uses.`}
+              armedHint={`Press again to refill ${fullChar.name ? `${fullChar.name}'s` : 'the'} drives and resistance and clear ability uses.`}
               renderButton={(armed, props) => (
                 <button
                   {...props}

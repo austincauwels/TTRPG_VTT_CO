@@ -44,7 +44,7 @@ export const EarnBackAsk = ({ className = '', titled = true }) => {
         </p>
       )}
       <p className="font-serif italic text-sm leading-snug text-sepia">
-        {titled ? 'A milestone passed. The circle chooses:' : `${waiting === 1 ? 'One' : waiting} from a milestone, the circle's choice:`}
+        {titled ? `${waiting === 1 ? 'A milestone' : 'Milestones'} passed. The circle chooses:` : `${waiting === 1 ? 'One' : waiting} from a milestone, the circle's choice:`}
       </p>
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         {RESOURCES.map(({ label, key }) => {

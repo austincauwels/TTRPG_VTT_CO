@@ -126,7 +126,7 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
       {use.ask && (
         <input ref={questionRef} type="text" aria-label={`Question for ${name}`} placeholder="Question to ask"
           maxLength={QUESTION_MAX} value={question} onChange={e => setQuestion(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && question.trim()) { e.preventDefault(); send(); } }}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && question.trim()) { e.preventDefault(); send(); } }}
           className={`${select} w-72`} />
       )}
       {optionKeys && (

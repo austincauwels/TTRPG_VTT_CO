@@ -23,7 +23,7 @@ const ClearButton = ({ label, armedHint, onConfirm, className = '' }) => (
     renderButton={(armed, props) => (
       <button
         {...props}
-        className={`shrink-0 min-h-[36px] px-2 py-1 font-sans font-bold text-xs uppercase tracking-wider border rounded-sm transition-colors ${
+        className={`shrink-0 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2 py-1 font-sans font-bold text-xs uppercase tracking-wider border rounded-sm transition-colors ${
           armed ? 'bg-oxblood text-cream border-ink hover:brightness-125' : 'text-sepia hover:text-oxblood border-ink/20 hover:border-oxblood/50'
         }`}
       >
@@ -465,12 +465,12 @@ export const CirclePage = () => {
               toward your next advancement cycle" (rulebook p. 55), which the advance keeps */}
           <div className="mt-2 flex items-center gap-2">
             <button type="button" onClick={() => setIllum(illum + 1)}
-              className="px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink">
+              className="[@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink">
               +1 Illumination
             </button>
             <button type="button" onClick={() => setIllum(Math.max(0, illum - 1))} disabled={illum <= 0}
               aria-label="Take back 1 Illumination"
-              className="px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink disabled:opacity-40">
+              className="[@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink disabled:opacity-40">
               −1
             </button>
           </div>
