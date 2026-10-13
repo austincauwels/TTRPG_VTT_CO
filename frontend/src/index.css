@@ -404,6 +404,11 @@
 @media (min-width: 1024px) {
   .contents-ribbon { height: 132px; }
 }
+/* 44px wide on a touch screen (#25); the sewn band stays 26px, centred in it */
+@media (pointer: coarse) {
+  .contents-ribbon { width: 44px; margin-left: -9px; margin-right: -9px; display: flex; justify-content: center; }
+  .contents-ribbon-band { width: 26px; flex: none; }
+}
 .contents-ribbon:hover,
 .contents-ribbon:focus-visible { transform: translateY(7px); }
 .contents-ribbon-band {

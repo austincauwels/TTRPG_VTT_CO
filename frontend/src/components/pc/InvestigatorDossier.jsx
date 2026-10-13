@@ -463,6 +463,8 @@ const GEAR_ICONS = {
 // dealMark(type, fromEnemy), error }.
 // It gives the trauma record an Edit button that sets the mark tracks and rewords or
 // removes scars right on the record, and, while it is on, makes the drive pips live (GMCharacterSheet.jsx).
+const infoTabs = new Map();
+
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false, traumaEdit = null }) => {
   const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster, editSheet, updateGear, sheetEditError } = useGameStore(useShallow(s => ({
     character: s.character,
@@ -577,7 +579,13 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     focusScarAfter.current = null;
     target?.focus({ preventScroll: true });
   });
-  const [infoTab, setInfoTab] = useState('role'); // 'role' | 'specialty' | 'profile'
+  // 'role' | 'specialty' | 'profile'. The sheet unmounts on a desk tab switch, so the choice
+  // is kept per character and per view (the player's own, the Lightkeeper's copy) for the
+  // page's life (#24).
+  const infoTabKey = `${readOnly ? 'copy' : 'own'}:${character?.id}`;
+  const [infoTab, setInfoTabState] = useState(() => infoTabs.get(infoTabKey) || 'role');
+  const setInfoTab = (tab) => { infoTabs.set(infoTabKey, tab); setInfoTabState(tab); };
+  useEffect(() => { setInfoTabState(infoTabs.get(infoTabKey) || 'role'); }, [infoTabKey]);
   // The player's edit of their own sheet (SheetEditor.jsx)
   const [showEditor, setShowEditor] = useState(false);
   const [showGearModal, setShowGearModal] = useState(false);
@@ -925,7 +933,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               type="button"
               aria-pressed={infoTab === tab.key}
               onClick={() => setInfoTab(tab.key)}
-              className="max-sm:flex-1 max-sm:min-h-[36px] sm:[@media(pointer:coarse)]:min-h-[44px] leading-tight px-2 sm:px-3 py-1.5 text-xs font-sans font-black uppercase tracking-wider sm:tracking-widest transition-all duration-150 rounded-t-sm mr-0.5"
+              className="max-sm:flex-1 max-sm:min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] leading-tight px-2 sm:px-3 py-1.5 text-xs font-sans font-black uppercase tracking-wider sm:tracking-widest transition-all duration-150 rounded-t-sm mr-0.5"
               style={{
                 background: infoTab === tab.key ? 'rgb(var(--c-oxblood))' : 'rgb(var(--c-parchment-deep))',
                 color: infoTab === tab.key ? 'rgb(var(--c-cream))' : 'rgb(var(--c-sepia))',
