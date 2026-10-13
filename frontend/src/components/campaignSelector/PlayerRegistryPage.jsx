@@ -12,7 +12,7 @@ import { ArmedDetail, leaveDetail, leaveError, leaveHint } from '../pc/LeaveCamp
 const NOT_DELETABLE = { active: 'In a campaign' };
 
 export const PlayerRegistryPage = ({
-  isLoadingBook, characters, enterAsPlayer, refreshBook,
+  isLoadingBook, characters, enterAsPlayer, entering = null, refreshBook,
   joinForms, setJoinForms, handleJoinForChar, closeBook, setStage, hiddenOnNarrow = false,
 }) => {
   const deleteCharacter = useGameStore(s => s.deleteCharacter);
@@ -42,7 +42,7 @@ export const PlayerRegistryPage = ({
   const [leavingId, setLeavingId] = useState(null);
   const [leaveFailed, setLeaveFailed] = useState('');
   const leave = async (char) => {
-    if (leavingId) return;
+    if (leavingId || entering === char.id) return;
     setLeavingId(char.id);
     setLeaveFailed('');
     const result = await releaseMember(char.id);
@@ -56,7 +56,7 @@ export const PlayerRegistryPage = ({
       hintClassName="basis-full px-3 pb-2"
       cancelSize="min-h-[44px]"
       cancelLabel="Stay"
-      disabled={leavingId === char.id}
+      disabled={leavingId === char.id || entering === char.id}
       onConfirm={() => leave(char)}
       armedHint={leaveHint(char.campaign_name)}
       armedInfo={<ArmedDetail label="What leaving does" text={leaveDetail(char.name)} above={false} />}
@@ -108,9 +108,13 @@ export const PlayerRegistryPage = ({
               <div className="space-y-1.5">
                 {characters.filter(c => c.status === 'active').map(char => (
                   <div key={char.id} className="relative flex flex-wrap items-center" style={{ border: '1px solid rgb(var(--c-sepia) / 0.15)' }}>
+                  {/* Play reads the lists again before the desk opens (issue #42): meanwhile the
+                      row says Opening, and Leave waits */}
                   <button
-                    onClick={() => enterAsPlayer(char)}
-                    className="flex-1 min-w-0 max-sm:basis-full flex items-center gap-3 px-3 py-2.5 hover:bg-sepia/10 transition-colors text-left group"
+                    onClick={() => { if (leavingId !== char.id) enterAsPlayer(char); }}
+                    aria-busy={entering === char.id}
+                    aria-disabled={entering != null || undefined}
+                    className={`flex-1 min-w-0 max-sm:basis-full flex items-center gap-3 px-3 py-2.5 hover:bg-sepia/10 transition-colors text-left group ${entering === char.id ? 'cursor-wait' : ''}`}
                   >
                     <span aria-hidden="true" className="text-seal-green text-lg shrink-0">●</span>
                     <div className="flex-1 min-w-0">
@@ -119,7 +123,9 @@ export const PlayerRegistryPage = ({
                         <p className="font-serif italic text-base text-sepia truncate">{char.campaign_name}</p>
                       )}
                     </div>
-                    <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-focus-visible:opacity-100 transition-opacity">Play →</span>
+                    <span className={`font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 transition-opacity ${entering === char.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-focus-visible:opacity-100'}`}>
+                      {entering === char.id ? 'Opening…' : 'Play →'}
+                    </span>
                   </button>
                   {deleteControl(char)}
                   {!char.is_dead && leaveControl(char)}

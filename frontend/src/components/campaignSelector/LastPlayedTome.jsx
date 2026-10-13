@@ -21,7 +21,7 @@ const Head = ({ children }) => (
 
 // The plum tome: the last campaign played, with its own mark (owner's round 3 item 7).
 // Without one it lies strapped and locked.
-export const LastPlayedTome = ({ lastPlayedCampaign, onResume }) => {
+export const LastPlayedTome = ({ lastPlayedCampaign, onResume, busy = false }) => {
   if (!lastPlayedCampaign) {
     return (
       <Tome
@@ -52,12 +52,14 @@ export const LastPlayedTome = ({ lastPlayedCampaign, onResume }) => {
   return (
     <Tome
       {...pressable(onResume, `${heading}: ${name}`)}
+      aria-busy={busy}
       leather="#1e0624"
       className={`${SIZE} cursor-pointer rotate-[2deg] translate-y-3 lg:landscape:translate-y-2 lg:landscape:translate-x-3 lg:landscape:hover:-translate-y-1 lg:landscape:hover:rotate-[1deg]`}
       frames={<span className="tome-frame tome-frame-gilt" data-part="frame" style={{ '--fi': '5%' }} />}
     >
       <span className="flex flex-col items-center justify-between h-full w-full py-[4%]">
-        <Head>{heading}</Head>
+        {/* While the hub checks the investigator is still in the campaign (issue #42) */}
+        <Head>{busy ? 'Opening…' : heading}</Head>
         <span className="flex-1 flex flex-col items-center justify-center gap-[7%] w-full min-h-0">
           <span data-glow className="gilt-glow embossed-gold font-display leading-[1.15] tracking-[0.03em] [text-wrap:balance] break-words max-w-full text-[clamp(18px,9.5cqw,40px)]"
             style={titleSize ? { fontSize: titleSize } : undefined}>
