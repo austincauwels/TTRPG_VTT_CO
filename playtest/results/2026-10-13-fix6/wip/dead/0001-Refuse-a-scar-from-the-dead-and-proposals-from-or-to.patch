@@ -1,0 +1,273 @@
+From cb5cf96a6f384f5d558a06a78b9fa6cf087b6446 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 13 Oct 2026 08:50:07 +0000
+Subject: [PATCH 1/6] Refuse a scar from the dead and proposals from or to the
+ dead
+
+apply_scar joins DEAD_REFUSED, and both relationship propose paths
+(REST and WebSocket) refuse a dead proposer or recipient with 409.
+character_facts carries is_dead and name for the checks. A living
+player's Circle page stamps a dead investigator's relationship paper
+Dead and offers no Propose; a relationship from before the death still
+shows, without Edit. FAQ.md, WEBSOCKET.md and QUIRKS.md updated.
+
+Checked with new tests in test_ws_circle.py and test_circle_rest.py
+(failing before), and test_ws_circle, test_circle_rest, test_access,
+test_ws_marks and test_deletion all passing; frontend builds.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WaLz6UBTQ5XaTKSYwqeMKA
+---
+ FAQ.md                                        |  2 +-
+ backend/tests/test_circle_rest.py             | 12 ++++++++
+ backend/tests/test_ws_circle.py               | 30 +++++++++++++++++++
+ backend/vtt/auth.py                           |  5 ++--
+ backend/vtt/routers/circles.py                |  4 +++
+ backend/vtt/ws/access.py                      |  7 ++++-
+ docs/refactor/QUIRKS.md                       |  6 ++++
+ docs/refactor/WEBSOCKET.md                    |  6 ++--
+ .../relationships/RelationshipNegotiation.jsx |  9 +++---
+ frontend/src/components/shared/Standing.jsx   | 15 ++++++++--
+ 10 files changed, 82 insertions(+), 14 deletions(-)
+
+diff --git a/FAQ.md b/FAQ.md
+index 1df5de6..f3fb933 100644
+--- a/FAQ.md
++++ b/FAQ.md
+@@ -138,7 +138,7 @@ While a scar is owed, the sheet carries `scar_pending` (the Lightkeeper's copy r
+ 
+ Death triggers automatically when a character's `scars_count` reaches **4** during `apply_scar`. The server sets both `is_dead = true` and `incapacitated = true`.
+ 
+-Once dead, the sheet is a record: the server refuses the dead investigator's own `roll`, `take_mark`, `update_gear`, `update_drive`, `edit_sheet`, `spend_resource`, `use_ability`, advancement, relationship proposals and the rest of the sheet's actions (409, "<name> is dead: the sheet is a record."), and the Lightkeeper's Deal a mark, and the desk shows the controls off: no ability Use, no Burn and reroll or post-roll ability. A gilded roll made in life whose die is still to be kept when the fourth scar comes can still be kept (it is scored and logged, with no drive back), and a soak or Death Defy offer open at the death closes, its mark not taken. Chat, the notebook and Create a new investigator stay. The death is logged to every desk, the Lightkeeper's included ("<name> is deceased: a fourth scar."). A GM can still issue `revive_character` to clear `incapacitated` (e.g., for narrative resurrection), though `is_dead` remains `true` as a permanent record. The Lightkeeper's copy of an incapacitated investigator's sheet has a Revive button beside the status stamp. Dead characters remain in the campaign roster until their player's new investigator is approved; then the dead one is retired and stays on the Lightkeeper's desk as a Fallen card (a record, which does not open) and as a line in Circle History. The Lightkeeper's roster cards show each living investigator's state at a glance: incapacitated, marks, scars and advancements waiting.
++Once dead, the sheet is a record: the server refuses the dead investigator's own `roll`, `take_mark`, `update_gear`, `update_drive`, `edit_sheet`, `spend_resource`, `use_ability`, advancement, relationship proposals, a fifth scar and the rest of the sheet's actions (409, "<name> is dead: the sheet is a record."), a proposal to the dead from a living member, over the WebSocket or `POST /circle/relationship/propose` (same 409; since fix round 6, issue #38), and the Lightkeeper's Deal a mark, and the desk shows the controls off: no ability Use, no Burn and reroll or post-roll ability. On a living player's Circle page the dead investigator's relationship paper is stamped Dead and offers no Propose (a relationship agreed or proposed before the death still shows). A gilded roll made in life whose die is still to be kept when the fourth scar comes can still be kept (it is scored and logged, with no drive back), and a soak or Death Defy offer open at the death closes, its mark not taken. Chat, the notebook and Create a new investigator stay. The death is logged to every desk, the Lightkeeper's included ("<name> is deceased: a fourth scar."). A GM can still issue `revive_character` to clear `incapacitated` (e.g., for narrative resurrection), though `is_dead` remains `true` as a permanent record. The Lightkeeper's copy of an incapacitated investigator's sheet has a Revive button beside the status stamp. Dead characters remain in the campaign roster until their player's new investigator is approved; then the dead one is retired and stays on the Lightkeeper's desk as a Fallen card (a record, which does not open) and as a line in Circle History. The Lightkeeper's roster cards show each living investigator's state at a glance: incapacitated, marks, scars and advancements waiting.
+ 
+ ---
+ 
+diff --git a/backend/tests/test_circle_rest.py b/backend/tests/test_circle_rest.py
+index cec419f..1f3fb3a 100644
+--- a/backend/tests/test_circle_rest.py
++++ b/backend/tests/test_circle_rest.py
+@@ -120,6 +120,18 @@ def test_propose_relationship(client):
+                    "last_actor_id": a["id"]}  # None before the token fixes
+ 
+ 
++def test_no_proposal_from_or_to_the_dead(client):
++    """A dead investigator stays on the roster until replaced, and the route stored a
++    proposal from or to it (issue #38). Both are refused: the sheet is a record."""
++    camp, (a, b), cid = _setup(client)
++    support.update(Character, b["id"], is_dead=True, scars_count=4)
++    for frm, to in ((a, b), (b, a)):
++        r = _propose(client, {"circle_id": cid, "from_character_id": frm["id"], "to_character_id": to["id"],
++                              "rel_type": "Rivals"})
++        assert (r.status_code, r.json()["detail"]) == (409, f"{b['name']} is dead: the sheet is a record.")
++    assert support.fetch_all(Relationship, circle_id=cid) == []
++
++
+ def test_propose_only_for_own_character_with_a_fellow_member(client):
+     camp, (a, b), cid = _setup(client)
+     outsider = support.active_member(client, support.new_campaign(client))
+diff --git a/backend/tests/test_ws_circle.py b/backend/tests/test_ws_circle.py
+index 0b52705..c207115 100644
+--- a/backend/tests/test_ws_circle.py
++++ b/backend/tests/test_ws_circle.py
+@@ -1341,6 +1341,36 @@ def test_relationship_messages_only_for_the_rightful_party(client):
+     assert support.fetch(Relationship, rel_id).status == "proposed"
+ 
+ 
++def test_no_relationship_proposal_from_or_to_the_dead(client):
++    """A dead investigator's sheet is a record: the WebSocket refused a proposal from the
++    dead but stored one to the dead (issue #38). Both are refused now."""
++    camp, (a, b), cid = _campaign(client, members=2)
++    support.update(Character, b["id"], is_dead=True, scars_count=4)
++    dead = lambda: _rejected("circle_relationship_propose", status=409,
++                             detail=f"{b['name']} is dead: the sheet is a record.")
++    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
++        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"], rel_type="X")
++        assert wa.sync() == [dead()]
++        wb.send("circle_relationship_propose", from_character_id=b["id"], to_character_id=a["id"], rel_type="X")
++        assert wb.sync() == [dead()]
++    assert support.fetch_all(Relationship, circle_id=cid) == []
++
++
++def test_the_dead_take_no_fifth_scar(client):
++    """apply_scar from a dead investigator's own socket stored a fifth scar and moved an
++    action point on the record (issue #38). It is refused like the dead sheet's other actions."""
++    four = ["a", "b", "c", "d"]
++    camp, (member,), cid = _campaign(client, scars_list=four, scars_count=4, is_dead=True, incapacitated=True)
++    before = support.fetch(Character, member["id"])
++    with support.ws_connect(client, member["id"]) as ws:
++        ws.send("apply_scar", scar_text="A fifth", shift_down="strike", shift_up="sense")
++        assert ws.sync() == [_rejected("apply_scar", status=409,
++                                       detail=f"{member['name']} is dead: the sheet is a record.")]
++    row = support.fetch(Character, member["id"])
++    assert (row.scars_list, row.scars_count) == (four, 4)
++    assert (row.strike, row.sense) == (before.strike, before.sense)
++
++
+ def test_circle_relationship_respond_on_gm_socket_is_rejected(client):
+     """Before tokens the actor id was int(game_id), which raised on a campaign-code
+     socket and ended it (bug D9). The GM is not a party, so it is rejected first."""
+diff --git a/backend/vtt/auth.py b/backend/vtt/auth.py
+index 6fb10a9..3a4dfb6 100644
+--- a/backend/vtt/auth.py
++++ b/backend/vtt/auth.py
+@@ -90,8 +90,9 @@ def campaign_facts(db: Session, campaign_id):
+ 
+ 
+ def character_facts(db: Session, character_id):
+-    """(id, user_id, campaign_id, status) of a character, or None."""
+-    return db.query(Character.id, Character.user_id, Character.campaign_id, Character.status).filter(
++    """(id, user_id, campaign_id, status, is_dead, name) of a character, or None."""
++    return db.query(Character.id, Character.user_id, Character.campaign_id, Character.status,
++                    Character.is_dead, Character.name).filter(
+         Character.id == character_id).first()
+ 
+ 
+diff --git a/backend/vtt/routers/circles.py b/backend/vtt/routers/circles.py
+index 8ae8284..84544a5 100644
+--- a/backend/vtt/routers/circles.py
++++ b/backend/vtt/routers/circles.py
+@@ -130,6 +130,10 @@ def propose_relationship(body: RelationshipPropose, db: Session = Depends(get_db
+     circle_campaign = _circle_campaign_or_404(db, body.circle_id)
+     _require_member_of(proposer, circle_campaign)
+     _require_member_of(other, circle_campaign)
++    # A dead investigator's sheet is a record: no proposal from or to it (as on the WebSocket)
++    for party in (proposer, other):
++        if party.is_dead:
++            raise HTTPException(status_code=409, detail=f"{party.name} is dead: the sheet is a record.")
+     existing = db.query(Relationship).filter(
+         Relationship.circle_id == body.circle_id,
+         Relationship.from_character_id == body.from_character_id,
+diff --git a/backend/vtt/ws/access.py b/backend/vtt/ws/access.py
+index ebf0ebb..3b6056b 100644
+--- a/backend/vtt/ws/access.py
++++ b/backend/vtt/ws/access.py
+@@ -294,6 +294,9 @@ def _circle_relationship_propose(ctx, payload, character):
+             _not_found("Character")
+         if other.campaign_id != campaign_id or other.status not in MEMBER_STATUSES:
+             _forbid()
++        if other.is_dead:
++            # A proposal from the dead is refused in DEAD_REFUSED; one to the dead here
++            raise Rejected(409, f"{other.name} is dead: the sheet is a record.")
+     _circle_of(ctx, _default_circle(ctx, payload), campaign_id)
+ 
+ 
+@@ -529,11 +532,13 @@ def _still_in_connect_campaign(ctx):
+ 
+ # What a dead investigator's own socket may no longer do: the sheet is a record once the
+ # fourth scar is taken (p. 74). Chat, the notebook, the pen font and a new investigator stay.
+-# A direct edit (edit_sheet) is refused too: a dead sheet stays a record (fix round 4).
++# A direct edit (edit_sheet) is refused too: a dead sheet stays a record (fix round 4), and
++# so is a fifth scar (fix round 6).
+ DEAD_REFUSED = frozenset({
+     "roll", "resolve_gilded", "use_post_roll_ability", "burn_resistance", "take_mark",
+     "resolve_ability_mark", "intercept_mark", "spend_resource", "update_drive", "update_gear",
+     "apply_advancement", "use_ability", "circle_relationship_propose", "revive_character", "edit_sheet",
++    "apply_scar",
+ })
+ 
+ 
+diff --git a/docs/refactor/QUIRKS.md b/docs/refactor/QUIRKS.md
+index fa53747..b9d028b 100644
+--- a/docs/refactor/QUIRKS.md
++++ b/docs/refactor/QUIRKS.md
+@@ -198,3 +198,9 @@ Issue #64, decision 1: detection, not prevention. The pinned expectations were f
+ 
+ - A player could change little of their sheet after creation (issue #64): gear could not be unmarked, nor go past the slots, nor could One Step Ahead's object be changed (409), and nothing but advancement changed the build, the maximums, the marks or the scars. A player's update_gear is no longer refused for the rules, and the new edit_sheet stores any field of the sheet, checked only for what the sheet can hold (vtt/sheet_edits.py). Each such edit, and a drive pip the player sets, writes one line for the whole table ("<name>: Nerve 2 to 3.", which used to read "<name> set Nerve to 2 of 3.") and sets characters.sheet_edited, a dot on the roster card until gm_sheet_seen. Tests: test_update_gear, test_a_player_may_mark_past_three_gear_slots, test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot, test_one_step_ahead_writes_in_an_object_outside_the_limit, test_update_drive_sets_value_and_tells_the_sender_and_the_gm, test_update_drive_writes_a_log_line_only_when_the_value_changes, tests/test_ws_sheet_edits.py.
+ - member_status carries the name, so a rename reaches the other members' circle cards without a reload. Tests: test_a_new_name_reaches_the_other_members_cards, test_a_death_and_its_undo_reach_the_other_players.
++
++## Fix round 6, dead (2026-10-13)
++
++Issues #22, #38, #39, #41, #42 and #47, decisions 3, 4 and 5: the dead are a record, and a replaced or retired investigator leaves the desk.
++
++- The server took a fifth scar from a dead investigator's own socket, and a relationship proposal from the dead over REST or to the dead over either (issue #38). apply_scar is in DEAD_REFUSED, and both propose paths refuse a dead proposer or recipient with 409 "<name> is dead: the sheet is a record.". A relationship agreed or proposed before the death is kept as it is. Tests: test_ws_circle.test_no_relationship_proposal_from_or_to_the_dead, test_ws_circle.test_the_dead_take_no_fifth_scar, test_circle_rest.test_no_proposal_from_or_to_the_dead.
+diff --git a/docs/refactor/WEBSOCKET.md b/docs/refactor/WEBSOCKET.md
+index e37de58..443952f 100644
+--- a/docs/refactor/WEBSOCKET.md
++++ b/docs/refactor/WEBSOCKET.md
+@@ -28,7 +28,7 @@ Receive loop (main.py:1496-2516):
+ - `type` and `payload` (default `{}`) are read from the message. Unknown types are ignored with no reply.
+ - Since 2026-10-10 `ping` (no payload) is answered with `pong` at once, before anything else is read. It is the desk's heartbeat: after 10 seconds with nothing heard the desk pings, and a ping with no answer (`pong` or any other frame) within 15 seconds (so about 30 seconds at most, before the server's own 40) means the socket is dead though it looks open, so the desk opens a new one. Chromium keeps a socket open through a network that goes quiet, and a mark sent into it was lost (playtest, `offline-not-shown`). The desk also shows the banner and reconnects at once on the browser's `offline` event. Since 2026-10-11 a mark the desk sent with no answer yet goes again on the new socket with its `mark_id` (see `take_mark`), drawn held meanwhile; it was let go when the heartbeat replaced the socket, and lost without a word (playtest 2, `silent-socket-loses-mark`).
+ - Target character for the message: `payload.character_id` when present, otherwise `int(game_id)` when the path is numeric, otherwise None. The `character` variable is reassigned on every message. Any message carrying a `character_id` therefore acts on that character, whichever socket sent it.
+-- Since 2026-10-11 a dead investigator's own socket may not send `roll`, `resolve_gilded`, `use_post_roll_ability`, `burn_resistance`, `take_mark`, `resolve_ability_mark`, `intercept_mark`, `spend_resource`, `update_drive`, `update_gear`, `apply_advancement`, `use_ability`, `circle_relationship_propose` or `revive_character` (`action_rejected` 409, "<name> is dead: the sheet is a record."), and the Lightkeeper's `take_mark` (Deal a mark) is refused for a dead member too (`DEAD_REFUSED` in vtt/ws/access.py). The Lightkeeper's other corrections, chat and the notebook stand. Since the final check of playtest 2 (`dead-investigator-still-acts`) a `resolve_gilded` for a gilded roll the server still holds for them (`holds_roll`) goes through: the roll was made in life and the mark that followed it brought the fourth scar. It is scored and logged, gives no drive back (nor Well-Read's refund) and is never burned on. A soak or Death Defy offer that holds a mark at the death is dropped, its mark not taken, and the desk gets `mark_offer_closed` with `dropped: true`; an Adrenaline Rush or Non-Combatant point waiting goes too.
++- Since 2026-10-11 a dead investigator's own socket may not send `roll`, `resolve_gilded`, `use_post_roll_ability`, `burn_resistance`, `take_mark`, `resolve_ability_mark`, `intercept_mark`, `spend_resource`, `update_drive`, `update_gear`, `apply_advancement`, `use_ability`, `circle_relationship_propose`, `revive_character`, `edit_sheet` or (since fix round 6, issue #38) `apply_scar` (`action_rejected` 409, "<name> is dead: the sheet is a record."), and the Lightkeeper's `take_mark` (Deal a mark) is refused for a dead member too (`DEAD_REFUSED` in vtt/ws/access.py). Since fix round 6 a living member's `circle_relationship_propose` to a dead investigator is refused the same way, with the dead one's name. The Lightkeeper's other corrections, chat and the notebook stand. Since the final check of playtest 2 (`dead-investigator-still-acts`) a `resolve_gilded` for a gilded roll the server still holds for them (`holds_roll`) goes through: the roll was made in life and the mark that followed it brought the fourth scar. It is scored and logged, gives no drive back (nor Well-Read's refund) and is never burned on. A soak or Death Defy offer that holds a mark at the death is dropped, its mark not taken, and the desk gets `mark_offer_closed` with `dropped: true`; an Adrenaline Rush or Non-Combatant point waiting goes too.
+ - Only the `roll` handler has its own try/except. An exception in any other handler (wrong type in a field, KeyError, NameError, a database error on commit) leaves the loop, is logged as "WebSocket fatal error", removes the socket from the manager and ends the connection. Since the bug-fix stage, a JSON message that is not an object (a list, a number) is ignored like invalid JSON, a null payload counts as `{}`, and a payload that is not an object gets `action_rejected` with status 422 (for a known type; an unknown type is ignored). Before, both ended the connection, because `.get` was called on them.
+ - `WebSocketDisconnect` calls `manager.disconnect`. The session is closed in `finally`.
+ 
+@@ -185,7 +185,7 @@ Validation gaps: `action` is not checked against the nine actions, so `getattr`
+ 
+ **`revive_character`** (2006). No fields. Does nothing for an investigator who is not incapacitated (since the re-check of playtest 2, so a double press on Revive is one revive and one log line). Otherwise sets `incapacitated` False (the mark tracks keep their marks; refused for a dead investigator's own socket, the Lightkeeper's still works); `is_dead` is left as is. Sends `character_update` to the character's own channel (since 2026-10-11, so a revive the Lightkeeper sends reaches the player's desk; the Lightkeeper's desk follows through `member_update`) and `activity_log` to the campaign. The Lightkeeper's sheet sends it with `character_id` from the Revive button.
+ 
+-**`apply_scar`** (1985). Fields: `scar_text`, `shift_down`, `shift_up`, `skip_shifts` (the UI never sends `skip_shifts`). Appends the scar text, sets `scars_count`, and at 4 scars sets `is_dead` and `incapacitated`. If both shift names are attributes of the model, `shift_down` is above 0 and `shift_up` is below 3, moves one point from one to the other. The names are not limited to the nine actions; any numeric column qualifies, including `nerve_max` and the primary key `id`. Sends `character_update` to the sender, then `member_status` to the campaign's players (since 2026-10-11, always, so the circle cards follow the scar count; the scar is no longer owed, so `scar_pending` on the sheet is false). A scar that does not kill and is not an ability's also writes an `activity_log` line to the campaign (log_type `field`), "<name> recorded a scar (2 of 4)." (playtest 3, `scar-recorded-no-confirmation`). A fourth scar also sends the campaign, the Lightkeeper's desk too, an `activity_log` line of type `danger`, "<name> is deceased: a fourth scar." (since 2026-10-11; before, only the dying player's desk made its own line). Nothing ties it to a pending `trigger_scar`. Since 2026-10-07 the desk sends `skip_shifts`, and `ability` for a scar taken on purpose from the sheet: Not Again (once per assignment, the ratings stay) or Forbidden Ritual (a Bleed scar). Such a scar is logged to the campaign with `activity_log`, and a refused scar opens the form again with the server's reason. Since 2026-10-08 `scar_text` must be text of up to 500 characters (else 422); the form's description takes up to 460, leaving room for the shift note it adds.
++**`apply_scar`** (1985). Fields: `scar_text`, `shift_down`, `shift_up`, `skip_shifts` (the UI never sends `skip_shifts`). Refused for a dead investigator (409, since fix round 6: a fifth scar was stored on the record). Appends the scar text, sets `scars_count`, and at 4 scars sets `is_dead` and `incapacitated`. If both shift names are attributes of the model, `shift_down` is above 0 and `shift_up` is below 3, moves one point from one to the other. The names are not limited to the nine actions; any numeric column qualifies, including `nerve_max` and the primary key `id`. Sends `character_update` to the sender, then `member_status` to the campaign's players (since 2026-10-11, always, so the circle cards follow the scar count; the scar is no longer owed, so `scar_pending` on the sheet is false). A scar that does not kill and is not an ability's also writes an `activity_log` line to the campaign (log_type `field`), "<name> recorded a scar (2 of 4)." (playtest 3, `scar-recorded-no-confirmation`). A fourth scar also sends the campaign, the Lightkeeper's desk too, an `activity_log` line of type `danger`, "<name> is deceased: a fourth scar." (since 2026-10-11; before, only the dying player's desk made its own line). Nothing ties it to a pending `trigger_scar`. Since 2026-10-07 the desk sends `skip_shifts`, and `ability` for a scar taken on purpose from the sheet: Not Again (once per assignment, the ratings stay) or Forbidden Ritual (a Bleed scar). Such a scar is logged to the campaign with `activity_log`, and a refused scar opens the form again with the server's reason. Since 2026-10-08 `scar_text` must be text of up to 500 characters (else 422); the form's description takes up to 460, leaving room for the shift note it adds.
+ 
+ **`apply_advancement`** (2236). Fields: `choice`, `detail`, `character_id`. The UI sends `accessSession.characterId`, which is never set anywhere, so `JSON.stringify` drops the key and the server falls back to the socket's own character. Calls `engine.apply_advancement` (section 6). Nothing checks that an advancement was earned. Sends `character_update` to the sender and `activity_log` to the campaign.
+ 
+@@ -233,7 +233,7 @@ Nothing checks that an offer was made, that the target took a mark, or that the
+ 
+ **`circle_personal_answer`** (2343). Fields: `character_id`, `answer` (the UI also sends `circle_id`, ignored). Scoped to `camp_id` when the connection has one. Sends `personal_answer_update {character_id, answer}` to the campaign.
+ 
+-**`circle_relationship_propose`** (2359). Fields: `circle_id`, `from_character_id`, `to_character_id`, `rel_type`, `lore`. Upserts by (circle, from, to), sets status `proposed` and `last_actor_id = from`. Sends `relationship_update {relationships}` to the campaign. No ownership or membership check.
++**`circle_relationship_propose`** (2359). Fields: `circle_id`, `from_character_id`, `to_character_id`, `rel_type`, `lore`. Upserts by (circle, from, to), sets status `proposed` and `last_actor_id = from`. Sends `relationship_update {relationships}` to the campaign. No ownership or membership check. (Since then vtt/ws/access.py checks that the sender proposes for their own character to a fellow member; since fix round 6, issue #38, a proposal from or to a dead investigator is refused with 409 "<name> is dead: the sheet is a record.".)
+ 
+ **`circle_relationship_respond`** (2390). Fields: `relationship_id`, `action` (`accept` or `counter`), `counter_type`, `counter_lore`. The actor is `int(game_id)`, which raises on a GM socket and ends the connection. `accept` sets status `accepted`. `counter` replaces `rel_type` and `lore` and sets status back to `proposed`. Nothing checks that the actor is a party to the relationship. Sends `relationship_update` to the campaign. The REST route `/circle/relationship/respond` handles `counter` differently (status `countered`, counter fields stored).
+ 
+diff --git a/frontend/src/components/pc/relationships/RelationshipNegotiation.jsx b/frontend/src/components/pc/relationships/RelationshipNegotiation.jsx
+index 08ae038..91659c1 100644
+--- a/frontend/src/components/pc/relationships/RelationshipNegotiation.jsx
++++ b/frontend/src/components/pc/relationships/RelationshipNegotiation.jsx
+@@ -221,11 +221,12 @@ export const RelationshipNegotiation = ({
+         <Standing inv={inv} />
+       </div>
+ 
+-      <div>
++      {/* The dead are a record: no proposal to them (the server refuses one), only what was already there */}
++      {(!inv.is_dead || mine) && <div>
+         <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>Your relationship to {inv.name}</h4>
+-        {mine && !isEditing ? (
++        {mine && (!isEditing || inv.is_dead) ? (
+           <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
+-            onEdit={startEdit} focusRequest={focusRequest} />
++            onEdit={inv.is_dead ? undefined : startEdit} focusRequest={focusRequest} />
+         ) : proposeBlocked ? (
+           <p className="font-serif text-base text-sepia">A dead investigator proposes no relationships.</p>
+         ) : !formOpen ? (
+@@ -243,7 +244,7 @@ export const RelationshipNegotiation = ({
+             </div>
+           </div>
+         )}
+-      </div>
++      </div>}
+ 
+       {theirs && (
+         <div className={compact ? 'pt-2' : 'pt-3 border-t border-parchment-deep'}>
+diff --git a/frontend/src/components/shared/Standing.jsx b/frontend/src/components/shared/Standing.jsx
+index 31d176c..7569b68 100644
+--- a/frontend/src/components/shared/Standing.jsx
++++ b/frontend/src/components/shared/Standing.jsx
+@@ -1,10 +1,19 @@
+ import React from 'react';
++import { MourningCross } from './InkMarks';
+ 
+ // How an investigator stands, in a few words on a circle card: incapacitated, and the scars
+-// they carry. Nothing for one who is able to act and unmarked. The dead are not shown here
+-// (the circle's cards leave them out; the Lightkeeper's roster stamps them Deceased).
++// they carry. Nothing for one who is able to act and unmarked. The circle's cards leave the
++// dead out; the relationships paper still lists them, stamped Dead (the Lightkeeper's
++// roster stamps them Deceased).
+ export const Standing = ({ inv, className = '' }) => {
+-  const down = !!inv?.incapacitated && !inv?.is_dead;
++  if (inv?.is_dead) {
++    return (
++      <span className={`inline-flex items-center gap-1 font-sans text-xs font-bold uppercase tracking-wider text-oxblood ${className}`}>
++        <MourningCross className="h-[0.95em]" /> Dead
++      </span>
++    );
++  }
++  const down = !!inv?.incapacitated;
+   const scars = inv?.scars_count || 0;
+   if (!down && scars === 0) return null;
+   return (
+-- 
+2.43.0
+

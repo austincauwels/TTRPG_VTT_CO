@@ -1,0 +1,217 @@
+From b4e4015bd88205d166826106c621848090eac796 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 13 Oct 2026 09:04:35 +0000
+Subject: [PATCH 1/3] Illumination track as a clock-face ring of pips around
+ the candle (#67)
+
+New shared/IlluminationRing.jsx used by both Circle pages: pip 12 at the top, gold milestones at 3, 6 and 9, candle warming with the fill. The Lightkeeper's pips stay buttons in order 1 to 12 with 44px non-overlapping square targets on touch; the player's ring is one labelled image. DESIGN.md updated. Checked in Chromium at 390, 820 and 1366 on both desks (12 buttons, zero overlapping boxes, no horizontal overflow); vite build passes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WaLz6UBTQ5XaTKSYwqeMKA
+---
+ DESIGN.md                                     |  4 +-
+ frontend/src/components/gm/CirclePage.jsx     | 24 +--------
+ frontend/src/components/pc/CircleView.jsx     | 16 +-----
+ .../components/shared/IlluminationRing.jsx    | 52 +++++++++++++++++++
+ frontend/src/index.css                        | 28 ++++++++++
+ 5 files changed, 86 insertions(+), 38 deletions(-)
+ create mode 100644 frontend/src/components/shared/IlluminationRing.jsx
+
+diff --git a/DESIGN.md b/DESIGN.md
+index 16face2..03a995b 100644
+--- a/DESIGN.md
++++ b/DESIGN.md
+@@ -283,7 +283,7 @@ Breakpoints are Tailwind defaults (sm 640, md 768, lg 1024, xl 1280, 2xl 1536).
+ 
+ **Desks fit the screen (xl, owner's round 3 item 24).** From 1280px the player and GM desks are one window tall and the page never scrolls. The tall title header steps aside (kept for screen readers) and the member ID strip, or on the GM desk the Lightkeeper's Desk bar, becomes one slim band: on the player desk her seal, the name and campaign, the misprinted registry number, the tabs, and Back to chapter hub behind a printed rule; on the GM desk its eye-shield mark, the campaign's name and code, the tabs, and Back to chapter hub and Account behind a rule. Three columns fill the width with about 16px edge gutters (player desk 1fr / 3.1fr / 1.3fr): on the left the GM's pinned note, Your Circle and the hourglass at the foot; in the middle the sheet; on the right the felt with its tilted result slip, the log notepad and the pass-notes pad lying over the log's foot. A column whose papers run longer than the window scrolls inside itself, never the page. The sheet lays itself out by its own width (a container query), so the GM's copy follows its column: from 44rem it is a ledger page with the name, the gear tag and the square taped photo side by side, the ability index card across the page as tall as its text, then Nerve, Cunning and Intuition side by side with their actions under them, then the trauma record. At 1440x900 and 1920x1080 (demo Edith) all nine actions and the whole trauma record are in view and the sheet does not scroll; its printed edge line has a strip of its own at the foot, under a hairline, so nothing scrolls beneath it. The Circle tab is not one sheet: from xl its papers (the charter, the assignment report, the stores' ledger card, the history, the relationships) lie on the desk side by side in balanced columns across the sheet's column and the felt's, as the Notebook tab takes the whole desk, and the tab fits the screen; below xl they lie one under the other on the sheet. The GM desk follows the same idea with no panels: on the Roster a left rail with the dispatch letter; the investigators' business cards two across (three where there is room, from about 1860 wide), the Finalize slip and the formation papers or the sealed slip under them (the join requests and Invite player have a page of their own, see Join requests under Components), the circle's ruled ledger card running to the foot of the desk, and the hourglass standing in a column of its own beside them all, from the top of the desk, where it stays while the column scrolls (sticky), so its − and + and its countdown are never below the fold however many cards there are and however long the ledger runs (2026-10-08: beside the ledger card alone, the countdown started below the fold once a fourth investigator took the cards to a second row); and on the right the dice tray with the Lightkeeper's controls on its wooden top rail, the log and the notes. The circle page (the same papers as the player's tab, with each investigator's report card; the relationships paper is read only), the notebook and the map take the whole desk from xl (the Requests page keeps the dice rail beside it), with the table strip across the top; a sheet opens in the middle column, and the map fills its column at 3:2. Every object stays a distinct physical thing with its own paper, tilt, pin or tape: a desk of scattered papers, never a tidy grid. Tablets keep the stacked layout.
+ 
+-**Tablets (iPad pass, 2026-10-05).** A tablet is a touch screen from md: held upright it has the stacked desk, held sideways (lg) the three columns on a page that scrolls, and a 12.9 inch iPad sideways the desk that fits the screen. Its controls keep 44px where a phone's or a mouse's are smaller: the sheet's action rows and drive squares keep their touch sizes on the ledger page (the ledger page's small rows and squares are for a mouse, `@media (pointer: fine)` in index.css; where a drive is too narrow for its label and nine squares, the squares go under the label), the drive's +d steppers are 44px on the line under the drive's name, the same in all three drives, and the desk tabs, the ability card's tabs, the notebook's folder tabs, the ability chips, the Lightkeeper's dice and tension buttons and the clock's name, Approve and Reject, the bars' Back to chapter hub and Account, Close book and the book's New buttons, the close mark on the back of the Lightkeeper's ticket, the notebook's Sketch and Photo, its author filters, Keep drawing, the cross that removes a picture and the handwriting list, Sounds and the sketch sheet's inks are 44px; the Illumination dots and the circle's resource squares keep their size and take a finger over 44px of height (`.touch-pip`). These are `md:[@media(pointer:coarse)]:` utilities, so a phone keeps its own sizes and a mouse its own. Five hold on every touch screen, a phone's too (finish review, 2026-10-05): the pass-notes pad (its picker, its list, the message and Send) is 44px, the clock's name is 16px text, since iPhone and iPad Safari zoom the page onto a field under 16px, the creator's action ratings have the printed "i", the Lightkeeper's tension − and + are 44px (2026-10-08), and every control in the character creator is 44px (2026-10-10, see Layout). `candela-ui-review/2026-10-05-ipad/work/r2/probe/verify3.mjs` measures each of these on WebKit at the ten iPad sizes (drawn size and the area a finger hits) and on an iPhone. The one-column sheet places its photograph by its own width, not the window's: from 33rem the larger photo taped at the top right with the form line, the name, the note and the gear tag in the two thirds beside it, narrower the small photo floated beside the name as on a phone (a tablet held sideways gives the sheet 420 to 505px). Nothing on a desk makes the page wider than the screen (`overflow-x: clip` at the desk's root, and the pass-notes picker shrinks with its pad): a 2px sideways overflow at 1024 wide aborted WebKit on every load. Nothing in the circle papers' columns carries a 3D transform or a running transform animation either, since WebKit draws such a layer in the wrong column: the Lightkeeper's report cards turn flat (see Flips).
++**Tablets (iPad pass, 2026-10-05).** A tablet is a touch screen from md: held upright it has the stacked desk, held sideways (lg) the three columns on a page that scrolls, and a 12.9 inch iPad sideways the desk that fits the screen. Its controls keep 44px where a phone's or a mouse's are smaller: the sheet's action rows and drive squares keep their touch sizes on the ledger page (the ledger page's small rows and squares are for a mouse, `@media (pointer: fine)` in index.css; where a drive is too narrow for its label and nine squares, the squares go under the label), the drive's +d steppers are 44px on the line under the drive's name, the same in all three drives, and the desk tabs, the ability card's tabs, the notebook's folder tabs, the ability chips, the Lightkeeper's dice and tension buttons and the clock's name, Approve and Reject, the bars' Back to chapter hub and Account, Close book and the book's New buttons, the close mark on the back of the Lightkeeper's ticket, the notebook's Sketch and Photo, its author filters, Keep drawing, the cross that removes a picture and the handwriting list, Sounds and the sketch sheet's inks are 44px; the circle's resource squares keep their size and take a finger over 44px of height (`.touch-pip`; the Illumination pips are a ring with their own 44px targets, see Action Pips). These are `md:[@media(pointer:coarse)]:` utilities, so a phone keeps its own sizes and a mouse its own. Five hold on every touch screen, a phone's too (finish review, 2026-10-05): the pass-notes pad (its picker, its list, the message and Send) is 44px, the clock's name is 16px text, since iPhone and iPad Safari zoom the page onto a field under 16px, the creator's action ratings have the printed "i", the Lightkeeper's tension − and + are 44px (2026-10-08), and every control in the character creator is 44px (2026-10-10, see Layout). `candela-ui-review/2026-10-05-ipad/work/r2/probe/verify3.mjs` measures each of these on WebKit at the ten iPad sizes (drawn size and the area a finger hits) and on an iPhone. The one-column sheet places its photograph by its own width, not the window's: from 33rem the larger photo taped at the top right with the form line, the name, the note and the gear tag in the two thirds beside it, narrower the small photo floated beside the name as on a phone (a tablet held sideways gives the sheet 420 to 505px). Nothing on a desk makes the page wider than the screen (`overflow-x: clip` at the desk's root, and the pass-notes picker shrinks with its pad): a 2px sideways overflow at 1024 wide aborted WebKit on every load. Nothing in the circle papers' columns carries a 3D transform or a running transform animation either, since WebKit draws such a layer in the wrong column: the Lightkeeper's report cards turn flat (see Flips).
+ 
+ **The player desk on phones shows one part at a time (owner's round 4 item 14).** Below md the title header steps aside (kept for screen readers) and the member ID strip becomes a slim band held at the top of the screen as the page scrolls: her seal, the name and the campaign, then a die and the drawer pull (see Navigation). When the desk loses the table, the connection message hangs under the band and moves with it, so a scrolled page never has it over the Menu and the die (on the Lightkeeper's desk and from md it is held at the top of the screen as before). Under it lies one part of the desk: the sheet's tab (Investigator, Circle with the circle's cards under its papers, or Notebook), the felt and the log, the pass-notes pad over the log, the From the Lightkeeper note, or the hourglass, which stands half as large again when it is alone on the screen. The page scrolls within the part on show and starts at its top. From md every part shows as before. The Lightkeeper's desk does the same (issue #66.3, decision 2: one navigation for both desks): below md its bar is a slim band held at the top with the eye-shield mark, the campaign's name and code, the die and the drawer pull, and under it lies one part: Roster (the cards, Finalize and the formation papers, or the sealed slip), Circle, Notebook, Map, Join requests, the felt and the log, the pass-notes pad, the dispatch letter or the hourglass.
+ 
+@@ -356,7 +356,7 @@ Tactile and stamped: small, heavy, uppercase, tracked.
+ - **Back and Forward** (playtest, browser-back-exits; `components/stageHistory.js`): the hub, the creator and the desks share one address, so the creator, a player's desk and the Lightkeeper's Desk each get a history entry of their own over the hub's. The browser's Back, or a phone's back gesture, on any of them comes to the chapter hub (it used to leave the site), and Forward opens the same desk again while its investigator, or its campaign in the Lightkeeper's ledger, is still there (the entry remembers which; another investigator, a retired or deleted campaign or another account keeps it shut). There is never more than one such entry: Create investigator on a desk, or a rejoin from the creator, takes the entry over (Back from that creator still comes to the hub, as its link says), and leaving for the hub any other way (Back to chapter hub, Escape in the creator, a save, a retired or deleted campaign, Sign out) steps back over it, so Back from the hub leaves the site. A reload stays on its entry and adds none. The hub's entry under it then belongs to the page from before the reload (a phone that put the tab away and loads it again is the same), and going back to it may load the site afresh (Chrome shows it without a load; other browsers may not), so leaving by the desk's own buttons turns the entry into the hub's in place instead, and Back from the hub passes that older hub entry once before it leaves the site (in Chrome that press shows the same hub and changes nothing on screen). Back itself, after a reload, comes to the hub, loading the site afresh where the browser does, not the desk this browser kept, and Forward from there opens the desk again. The account page keeps its own entry over whichever screen opened it, and Forward onto it leaves that screen as it was. On the sketch sheet with something drawn, Back keeps the sheet and the desk (Sketch sheet, Leaving). The Circle Advancement dialog with picks half made is the same: Back closes it like Later and stays on the desk, and the picks are kept.
+ 
+ ### Action Pips and Mark Boxes (signature)
+-The game's numbers are drawn as physical marks. Action pips are 13px circles with a 1.5px sepia ring; filled pips are solid oxblood. A pip is never gilded: the sheet marks a gilded action with a small gold dot in a sepia ring before its name. Drive points are small squares filled with their drive's tint. The squares are live (an empty one up to the maximum refills to it, the last filled one clears a point, on the player's sheet and in the Lightkeeper's Edit), so on a touch screen, a phone's too, each square's button is 44px tall and shares the row's width with its neighbours, up to 44px each, never over them; the nine stay on one line, which goes under "Available" where it does not fit beside it; the square drawn inside keeps its 20px (`.drive-pip-hit` in index.css). Each drive and its actions are a printed section of the form under a double rule in the drive's ink, with a faint wash of it; there is no tray around them. Mark boxes are 20px squares with a 2px ink border and an inset shadow, filling with oxblood; they are inked on the trauma record (Form C.O. 14, owner, 2026-10-04), the dashed cut-out form at the foot of the sheet that holds the marks and the scars, its form number printed on its top edge. On a wide sheet it is two ruled lines in three columns: Marks, then Body, Brain and Bleed with their boxes on one line, then the status rubber-stamped at the end; Scars, then the scars written on the ruled line, then their count. On a narrow sheet and on touch screens the three tracks stand one under the other with 44px boxes, the stamp under them, then the scars; a scar's edit box grows with its text. The gear is a manila luggage tag tied to the sheet beside the name (cut at its narrow end, a reinforced eyelet, its string running off over the page), its items drawn large with Change gear on its head, its shadow a drop-shadow on its wrapper. The illumination track is a row of ink dots with gold-ringed milestones every third pip. A short caption under the track says the ringed pips are milestones (3, 6, 9), that 12 fills the track and that a milestone matters only with Resource Management; the insignia is captioned with its name on both circle pages once one is chosen, and before that the caption is a blank printed line ("None chosen" for a screen reader).
++The game's numbers are drawn as physical marks. Action pips are 13px circles with a 1.5px sepia ring; filled pips are solid oxblood. A pip is never gilded: the sheet marks a gilded action with a small gold dot in a sepia ring before its name. Drive points are small squares filled with their drive's tint. The squares are live (an empty one up to the maximum refills to it, the last filled one clears a point, on the player's sheet and in the Lightkeeper's Edit), so on a touch screen, a phone's too, each square's button is 44px tall and shares the row's width with its neighbours, up to 44px each, never over them; the nine stay on one line, which goes under "Available" where it does not fit beside it; the square drawn inside keeps its 20px (`.drive-pip-hit` in index.css). Each drive and its actions are a printed section of the form under a double rule in the drive's ink, with a faint wash of it; there is no tray around them. Mark boxes are 20px squares with a 2px ink border and an inset shadow, filling with oxblood; they are inked on the trauma record (Form C.O. 14, owner, 2026-10-04), the dashed cut-out form at the foot of the sheet that holds the marks and the scars, its form number printed on its top edge. On a wide sheet it is two ruled lines in three columns: Marks, then Body, Brain and Bleed with their boxes on one line, then the status rubber-stamped at the end; Scars, then the scars written on the ruled line, then their count. On a narrow sheet and on touch screens the three tracks stand one under the other with 44px boxes, the stamp under them, then the scars; a scar's edit box grows with its text. The gear is a manila luggage tag tied to the sheet beside the name (cut at its narrow end, a reinforced eyelet, its string running off over the page), its items drawn large with Change gear on its head, its shadow a drop-shadow on its wrapper. The illumination track is a ring of twelve ink pips around the candle icon, laid out like a clock face (`shared/IlluminationRing.jsx`, #67): pip 12 at the top, pip n at n x 30 degrees clockwise, the milestones 3, 6 and 9 at the right, bottom and left, larger and gold-ringed. The candle in the middle warms from sepia to gold as the track fills and is gold when it is full (a colour change only, no glow; it stops under reduced motion). On the player's page the ring is one image labelled "Illumination n of 12". On the Lightkeeper's page the pips are real buttons in order 1 to 12; on a touch screen, a phone's too, each is a 44px square on a radius of 120px so no two overlap (the ring is about 270px wide), with a mouse the ring is 170px. +1 and -1 stay under it, and the count line and the Track full banner stay above. The Lightkeeper's desk summary card keeps its row of small dots. A short caption under the track says the ringed pips are milestones (3, 6, 9), that 12 fills the track and that a milestone matters only with Resource Management; the insignia is captioned with its name on both circle pages once one is chosen, and before that the caption is a blank printed line ("None chosen" for a screen reader).
+ 
+ **The creator's action ratings** (step 3, playtest 2026-10-10) draw a point the specialty gave as a faded pip in a sepia ring and the player's own points (the free raise and the three free points) as full pips. Each action's gild sits beside its name: an open sepia star where the free gild may go, the star on a gold disc in a sepia ring once gilded, and on the specialty's gild, which is fixed, a small ink padlock as well. Every gilded action shows the disc whatever its rating (an action at 0 has no pip to gild), so the two gilds always look alike but for the padlock. Under part B's heading a line of its own, "Gild One More Action" with the open star and its "choose one" (the action's name with a tick once chosen), then "Key to the marks" with its "i" (`InfoTerm`), whose slip shows the marks on hover, focus or a tap: From your specialty, Your points, Gilded, Gilded by your specialty. Nothing of the key is printed on the page. The foot of the step reads "Gilded: Focus (your specialty), Sway", marking the specialty's action in place; its locked padlock star's `title` reads "Gilded by your specialty".
+ 
+diff --git a/frontend/src/components/gm/CirclePage.jsx b/frontend/src/components/gm/CirclePage.jsx
+index 3bc664e..c65f8fd 100644
+--- a/frontend/src/components/gm/CirclePage.jsx
++++ b/frontend/src/components/gm/CirclePage.jsx
+@@ -41,6 +41,7 @@ import { tallyReports, tallyOf, unfiledNames, notFiledLine, reportsDue } from '.
+ import { reportingMembers } from '../../game/roster';
+ import { CIRCLE_QUESTIONS, insigniaLabel, relationshipsAmong, answererOf } from '../../game/circleFormation';
+ import { InsigniaStamp } from './desk/InsigniaStamp';
++import { IlluminationRing } from '../shared/IlluminationRing';
+ 
+ // A line of the charter the Lightkeeper may change: its value with an Edit button, which
+ // turns it into a field holding the value. Enter or leaving the field saves, Escape puts
+@@ -439,28 +440,7 @@ export const CirclePage = () => {
+               </span>
+             </button>
+           )}
+-          <div className="flex gap-1.5 flex-wrap">
+-            {Array.from({ length: TRACK_SIZE }).map((_, i) => {
+-              const filled    = i < illum;
+-              const milestone = [3, 6, 9].includes(i + 1);
+-              return (
+-                <div
+-                  key={i}
+-                  onClick={() => setIllum(filled && illum === i + 1 ? i : i + 1)}
+-                  onKeyDown={onActivateKey(() => setIllum(filled && illum === i + 1 ? i : i + 1))}
+-                  tabIndex={0}
+-                  role="button"
+-                  aria-label={filled && illum === i + 1 ? `Illumination ${i + 1}, current. Press to lower to ${i}` : `Set Illumination to ${i + 1}`}
+-                  title={milestone ? `Illumination ${i + 1}, a milestone` : `Illumination ${i + 1}`}
+-                  className={`touch-pip [--hit-y:-14px] [--hit-x:-4px] w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
+-                    filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'
+-                  } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}
+-                >
+-                  {milestone && <div aria-hidden="true" className={`w-1.5 h-1.5 rounded-full bg-candle-gold ${filled ? 'opacity-100' : 'opacity-30'}`} />}
+-                </div>
+-              );
+-            })}
+-          </div>
++          <IlluminationRing illum={illum} onPick={setIllum} />
+           {/* Points awarded one at a time can pass 12: "Any leftover Illumination counts
+               toward your next advancement cycle" (rulebook p. 55), which the advance keeps */}
+           <div className="mt-2 flex items-center gap-2">
+diff --git a/frontend/src/components/pc/CircleView.jsx b/frontend/src/components/pc/CircleView.jsx
+index d3d1463..6ee9908 100644
+--- a/frontend/src/components/pc/CircleView.jsx
++++ b/frontend/src/components/pc/CircleView.jsx
+@@ -11,6 +11,7 @@ import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
+ import { refillRule } from '../../game/circleResources';
+ import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
+ import { holdBack } from '../stageHistory';
++import { IlluminationRing } from '../shared/IlluminationRing';
+ import { ABILITY_TEXTS } from './InvestigatorDossier';
+ 
+ // ─── Canonical game content ───────────────────────────────────────────────────
+@@ -731,20 +732,7 @@ export const CircleView = () => {
+               </span>
+             </div>
+           )}
+-          <div className="flex gap-1.5 flex-wrap" role="img" aria-label={`Illumination ${illum} of ${TRACK_SIZE}`}>
+-            {Array.from({ length: TRACK_SIZE }).map((_, i) => {
+-              const filled    = i < illum;
+-              const milestone = [3, 6, 9].includes(i + 1);
+-              return (
+-                <div key={i} title={milestone ? `Illumination ${i + 1}, a milestone` : `Illumination ${i + 1}`}
+-                  className={`w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center shadow-inner transition-all ${
+-                    filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50'
+-                  } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}>
+-                  {milestone && <div className={`w-1.5 h-1.5 rounded-full bg-candle-gold ${filled ? 'opacity-100' : 'opacity-30'}`} />}
+-                </div>
+-              );
+-            })}
+-          </div>
++          <IlluminationRing illum={illum} compact />
+         </div>
+ 
+         {/* Active Circle Abilities (stacked) */}
+diff --git a/frontend/src/components/shared/IlluminationRing.jsx b/frontend/src/components/shared/IlluminationRing.jsx
+new file mode 100644
+index 0000000..52209a7
+--- /dev/null
++++ b/frontend/src/components/shared/IlluminationRing.jsx
+@@ -0,0 +1,52 @@
++import React from 'react';
++import { SafeIcon } from './SafeIcon';
++
++// The Illumination track drawn as a clock face of twelve pips around the candle: pip 12 at
++// the top, so the milestones (3, 6 and 9) sit at those clock positions. Pip n is n x 30
++// degrees clockwise from the top. The candle warms as the track fills and is lit when full.
++// `onPick` makes the pips buttons in order 1 to 12 (the Lightkeeper's ring, 44px targets on
++// touch that never overlap); without it the ring is one image for a screen reader.
++export const TRACK_SIZE = 12;
++const MILESTONES = [3, 6, 9];
++
++export function IlluminationRing({ illum, onPick, compact = false }) {
++  const lit = Math.min(illum, TRACK_SIZE);
++  const warmth = Math.round((lit / TRACK_SIZE) * 100);
++  const live = typeof onPick === 'function';
++  const pips = Array.from({ length: TRACK_SIZE }, (_, i) => {
++    const n = i + 1;
++    const rad = (n * 30 * Math.PI) / 180;
++    const filled = n <= illum;
++    const milestone = MILESTONES.includes(n);
++    const title = milestone ? `Illumination ${n}, a milestone` : `Illumination ${n}`;
++    const dot = (
++      <span aria-hidden="true"
++        className={`illum-dot rounded-full border flex items-center justify-center shadow-inner transition-all ${
++          milestone ? 'w-6 h-6 ring-2 ring-offset-1 ring-candle-gold' : 'w-[1.125rem] h-[1.125rem]'
++        } ${filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50'}`}>
++        {milestone && <span className={`w-1.5 h-1.5 rounded-full bg-candle-gold ${filled ? 'opacity-100' : 'opacity-30'}`} />}
++      </span>
++    );
++    const style = { '--dx': Math.sin(rad).toFixed(4), '--dy': (-Math.cos(rad)).toFixed(4) };
++    if (!live) {
++      return <span key={n} className="illum-pip" style={style} title={title}>{dot}</span>;
++    }
++    const current = filled && illum === n;
++    return (
++      <button key={n} type="button" className="illum-pip illum-pip-live" style={style} title={title}
++        onClick={() => onPick(current ? n - 1 : n)}
++        aria-label={current ? `Illumination ${n}, current. Press to lower to ${n - 1}` : `Set Illumination to ${n}`}>
++        {dot}
++      </button>
++    );
++  });
++  const candle = (
++    <span aria-hidden="true" className="illum-candle" style={{ '--warm': `${warmth}%` }} data-lit={lit >= TRACK_SIZE ? 'full' : undefined}>
++      <SafeIcon name="GiCandleLight" size={compact ? 44 : 64} />
++    </span>
++  );
++  const cls = `illum-ring ${compact ? 'illum-ring-compact' : ''} mx-auto`;
++  return live
++    ? <div className={cls}>{candle}{pips}</div>
++    : <div className={cls} role="img" aria-label={`Illumination ${illum} of ${TRACK_SIZE}`}>{candle}{pips}</div>;
++}
+diff --git a/frontend/src/index.css b/frontend/src/index.css
+index 8c79be3..b3a6750 100644
+--- a/frontend/src/index.css
++++ b/frontend/src/index.css
+@@ -1150,6 +1150,34 @@
+   .touch-pip::before { content: ''; position: absolute; inset: var(--hit-y, -14px) var(--hit-x, -3px); }
+ }
+ 
++/* The Illumination ring (#67): twelve pips on a clock face around the candle. --r is the
++   radius to a pip's centre and --box the square it sits in. On a touch screen a live pip
++   is a 44px square target on a radius of 120px: two neighbours are at least 0.366 x 120 =
++   44px apart on one axis (the closest pair, 1 and 2, sit diagonally), so the squares never
++   overlap; with a mouse the ring is smaller. The candle warms from sepia to gold as
++   the track fills (--warm) and is lit when full. */
++.illum-ring { --r: 66px; --box: 168px; --hit: 24px; position: relative; width: var(--box); height: var(--box); }
++.illum-ring-compact { --r: 58px; --box: 150px; }
++@media (pointer: coarse) {
++  .illum-ring:not(.illum-ring-compact) { --r: 120px; --box: 268px; --hit: 44px; }
++}
++.illum-pip {
++  position: absolute; display: flex; align-items: center; justify-content: center;
++  width: var(--hit); height: var(--hit);
++  left: calc(50% + var(--r) * var(--dx) - var(--hit) / 2);
++  top: calc(50% + var(--r) * var(--dy) - var(--hit) / 2);
++}
++.illum-ring-compact .illum-pip { --hit: 24px; }
++.illum-pip-live { background: none; border: 0; padding: 0; cursor: pointer; }
++.illum-pip-live:hover .illum-dot { border-color: rgb(var(--c-ink)); }
++.illum-candle {
++  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
++  display: flex; color: color-mix(in srgb, #d4af37 var(--warm, 0%), #5a3a28);
++  transition: color 0.6s;
++}
++.illum-candle[data-lit='full'] { color: #d4af37; }
++.illum-candle[data-lit='full'] svg { filter: drop-shadow(0 1px 0 rgba(90, 58, 40, 0.6)); }
++
+ /* The drive pips are live (a refill, and the last filled one clears a point; the
+    Lightkeeper's copy in its Edit too), and a mis-tap costs a drive point and writes a log
+    line: on a touch screen, a phone's too, each pip's button is 44px tall and takes a
+-- 
+2.43.0
+

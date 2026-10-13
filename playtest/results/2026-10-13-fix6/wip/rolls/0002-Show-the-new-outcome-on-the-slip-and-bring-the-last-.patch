@@ -1,0 +1,356 @@
+From d5c2d808bb98b2dd6bf947dbb1546b5e46c625a2 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 13 Oct 2026 08:44:34 +0000
+Subject: [PATCH 2/2] Show the new outcome on the slip and bring the last roll
+ back after a reload
+
+The store handles roll_outcome: the roller's slip (a kept gilded die's
+too) and the Lightkeeper's felt show the outcome Flourish or Bending
+Spoons gave the roll, and the post-roll prompts are worked out again
+(#19). A roll_result marked replayed brings the last roll back to the
+tray after a reload with Burn and reroll while the server holds it open,
+its kept die, the abilities already used and its settled state, with no
+dice sound or tumble and no roll bar pop-up; a desk that already shows
+that roll only takes what changed, a rolling desk ignores it, and a
+replay of the roll the desk is waiting for is its answer (#40). The
+roll_settled handler goes, as the server no longer sends it. The felt
+and the die skews are keyed on the dice, so a new outcome does not throw
+them again. FAQ.md, QUIRKS.md (Fix round 6, rolls) and WEBSOCKET.md
+describe it.
+
+Checked: vite build; Chromium at 390x844, 820x1180 and 1366x768 on the
+player's and the Lightkeeper's desks (Flourish on a plain and a kept
+gilded roll, reload, Burn after reload, a reload while another roll
+settles it, a dropped socket, a server restart).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WaLz6UBTQ5XaTKSYwqeMKA
+---
+ FAQ.md                                        |  4 +
+ docs/refactor/QUIRKS.md                       |  7 ++
+ docs/refactor/WEBSOCKET.md                    | 11 +--
+ frontend/src/components/pc/DiceVault.jsx      | 15 ++--
+ frontend/src/components/pc/dice/DiceTray.jsx  | 11 ++-
+ .../src/components/pc/dice/RollResultBar.jsx  | 19 ++++-
+ frontend/src/store/gameStore.js               | 82 +++++++++++++++----
+ 7 files changed, 115 insertions(+), 34 deletions(-)
+
+diff --git a/FAQ.md b/FAQ.md
+index 1df5de6..a50f107 100644
+--- a/FAQ.md
++++ b/FAQ.md
+@@ -75,6 +75,10 @@ Burning resistance: spends 1 pip and rerolls using **only the action rating** (n
+ 
+ A burn answers your own last roll, until the table moves past it: another roll at the table whose dice everyone sees (the Lightkeeper's open roll too, and a gilded roll once its die is kept), or End Assignment. A secret roll does not. A gilded roll of yours whose die you keep after someone else's roll can still be burned on, until the next roll at the table or End Assignment. A gilded roll whose die is still to be kept when the Lightkeeper ends the assignment is scored when you keep it, but cannot be burned on. A desk that was away while your roll was settled is told so when it reconnects, and offers no burn for it.
+ 
++Your last roll stays in your tray over a reload, or when you open your desk on another device (since 2026-10-13, issue #40): the same dice and the outcome as it stands now, with Burn and reroll while the table has not moved past it. It plays no dice sound and does not tumble in again, and on a phone the roll bar does not pop up for it (the dice button's dot says when a choice is waiting). Abilities already used on it are not offered again. After a server restart the tray starts empty, since the server no longer holds the roll and would refuse a burn on it.
++
++When Flourish or Bending Spoons changes a roll's outcome, the result slip shows the new outcome (since 2026-10-13, issue #19; it used to keep the old one): on your tray and on the Lightkeeper's, unless the roll was secret, when only your own desk is told.
++
+ ### Can the GM roll dice?
+ 
+ Yes. When a GM client sends a `roll` message, no character is attached. Drive spent is interpreted directly as the pool size. GM rolls can be marked **secret**, in which case the result and its log line go to the Lightkeeper's own desk only, never to the players. Her result slip reads "Secret: only you saw this" and her own log keeps the line, "(Secret) Lightkeeper rolled a 4: Mixed success (2 dice: 1, 4)." (every roll line names its dice, since a tray shows only its owner's rolls), so the result is still on her desk after a player's roll takes the felt (since 2026-10-10; before that a secret roll wrote no line at all). The line goes to her channel alone and is kept only in her channel's history: no player's desk gets it, live, on a reload or on a first visit. It plays no result sound.
+diff --git a/docs/refactor/QUIRKS.md b/docs/refactor/QUIRKS.md
+index fa53747..ba59fbd 100644
+--- a/docs/refactor/QUIRKS.md
++++ b/docs/refactor/QUIRKS.md
+@@ -198,3 +198,10 @@ Issue #64, decision 1: detection, not prevention. The pinned expectations were f
+ 
+ - A player could change little of their sheet after creation (issue #64): gear could not be unmarked, nor go past the slots, nor could One Step Ahead's object be changed (409), and nothing but advancement changed the build, the maximums, the marks or the scars. A player's update_gear is no longer refused for the rules, and the new edit_sheet stores any field of the sheet, checked only for what the sheet can hold (vtt/sheet_edits.py). Each such edit, and a drive pip the player sets, writes one line for the whole table ("<name>: Nerve 2 to 3.", which used to read "<name> set Nerve to 2 of 3.") and sets characters.sheet_edited, a dot on the roster card until gm_sheet_seen. Tests: test_update_gear, test_a_player_may_mark_past_three_gear_slots, test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot, test_one_step_ahead_writes_in_an_object_outside_the_limit, test_update_drive_sets_value_and_tells_the_sender_and_the_gm, test_update_drive_writes_a_log_line_only_when_the_value_changes, tests/test_ws_sheet_edits.py.
+ - member_status carries the name, so a rename reaches the other members' circle cards without a reload. Tests: test_a_new_name_reaches_the_other_members_cards, test_a_death_and_its_undo_reach_the_other_players.
++
++## Fix round 6, rolls (2026-10-13)
++
++Decision 2: the tray tells the truth. The pinned expectations were flipped, not deleted.
++
++- After Flourish or Bending Spoons the result slip kept the old outcome (#19): the server changed the roll's outcome and logged it, but told no desk. It now sends roll_outcome {character_id, action, outcome, by} to the roller and, unless the roll was secret, to the rest of the table; the roller's slip (a kept gilded die's too) and the Lightkeeper's felt show the new outcome, and the post-roll prompts are worked out again for it. Tests: test_an_ability_that_changes_the_outcome_tells_the_desk_and_the_table, test_a_secret_rolls_new_outcome_goes_to_the_roller_alone, test_flourish_after_a_kept_die, test_post_roll_abilities_check_the_last_roll, test_bending_spoons_fourth_mark_incapacitates.
++- A reload emptied the tray (#40): only a gilded roll still waiting for its die came back, so Burn and reroll was gone while the server still took the burn. The server keeps each character's last shown roll in memory (_shown_roll in vtt/ws/handlers/rolls.py) and sends it to a desk that opens as roll_result with replayed: true, its current outcome, the die kept from it (kept), the post-roll abilities already used (used) and settled: true when the table has moved past it. The desk shows it without a dice sound or tumble, and the phone's roll bar stays down for it. This replaces roll_settled, which said only that the roll was settled. The roll is remembered before its result is sent, so a desk that opens while a result is on its way is shown that roll, not the one before; a desk waiting for its own roll's answer takes a replay with that roll_id as the answer. In memory only: after a server restart the tray starts empty, as the server takes no burn then. Tests: test_a_desk_that_opens_again_is_shown_its_last_roll_open_to_a_burn, test_the_roll_shown_again_has_its_outcome_as_it_is_now, test_a_roll_is_the_one_shown_again_before_its_result_goes_out, test_a_desk_that_missed_the_settling_dice_is_told_when_it_opens, test_a_desk_that_opens_again_is_offered_the_held_gilded_roll, test_a_roll_sent_again_with_its_id_is_answered_not_rolled_again, test_a_gilded_roll_made_in_life_is_finished_after_the_death_it_led_to.
+diff --git a/docs/refactor/WEBSOCKET.md b/docs/refactor/WEBSOCKET.md
+index e37de58..970be3e 100644
+--- a/docs/refactor/WEBSOCKET.md
++++ b/docs/refactor/WEBSOCKET.md
+@@ -17,7 +17,7 @@ Setup, in order:
+ 4. Campaign: the character's campaign if it has one, else the campaign whose `campaign_code == game_id`.
+ 5. Circle: `get_or_create_campaign_circle(campaign.id)` (this inserts an "Unnamed Circle" if the campaign has none, so connecting can write to the database). Without a campaign it uses circle id 1, and creates circle id 1 if it is missing.
+ 6. `camp_code = campaign.campaign_code` (or `game_id` when there is no campaign) and `camp_id = campaign.id` (or None). These are resolved once and never refreshed for the life of the socket.
+-7. The server sends `character_update` (only when a character was resolved) and then `circle_update`, to this socket only. Since the security review a pending or retired character's socket gets circle 1 here instead of its campaign's circle (AUTH.md). Since 2026-10-09 a character whose gilded roll still waits for its die to be kept (`_pending_gilded`) also gets that roll's `roll_result` again, the same dice and the sheet as it is now, after `circle_update`: a desk reloaded during the choice used to forget the roll, and its next roll replaced the held one (a free reroll, with the drive the first had spent lost). Since 2026-10-10 a character whose mark an open soak or Death Defy offer holds (`_pending_marks` in handlers/marks.py) also gets that offer again as `ability_mark_offer`, after any held roll: a desk reloaded or reconnected during the offer forgot it, and the mark waited unseen, with no countdown to land it, until the character's next mark (playtest, `mark-undo-then-death-defy`). Since 2026-10-11 an active member also gets, after that, an `ability_intercept_offer` for each fellow member's mark that can still be answered (Behind Me or Premonitions, as the member can pay now), its `expires_in` the whole seconds left of the window (`send_open_intercepts`): a reload lost the card while the server still took the answer (playtest 2, `ally-offer-cards-lost-or-stale`). Since 2026-10-11 a held gilded roll that End Assignment settled comes with `settled: true` in its `roll_result`, and a character whose last roll was settled by the table (`_settled_roll` in handlers/rolls.py, set by `settle_rolls` and cleared by the character's next roll) and has no held roll gets `roll_settled {character_id}` instead, so a desk that missed the dice that settled its roll offers no burn the server refuses (playtest 2 review, `roll-settling-client-server-mismatch`).
++7. The server sends `character_update` (only when a character was resolved) and then `circle_update`, to this socket only. Since the security review a pending or retired character's socket gets circle 1 here instead of its campaign's circle (AUTH.md). Since 2026-10-09 a character whose gilded roll still waits for its die to be kept (`_pending_gilded`) also gets that roll's `roll_result` again, the same dice and the sheet as it is now, after `circle_update`: a desk reloaded during the choice used to forget the roll, and its next roll replaced the held one (a free reroll, with the drive the first had spent lost). Since 2026-10-10 a character whose mark an open soak or Death Defy offer holds (`_pending_marks` in handlers/marks.py) also gets that offer again as `ability_mark_offer`, after any held roll: a desk reloaded or reconnected during the offer forgot it, and the mark waited unseen, with no countdown to land it, until the character's next mark (playtest, `mark-undo-then-death-defy`). Since 2026-10-11 an active member also gets, after that, an `ability_intercept_offer` for each fellow member's mark that can still be answered (Behind Me or Premonitions, as the member can pay now), its `expires_in` the whole seconds left of the window (`send_open_intercepts`): a reload lost the card while the server still took the answer (playtest 2, `ally-offer-cards-lost-or-stale`). Since 2026-10-11 a held gilded roll that End Assignment settled comes with `settled: true` in its `roll_result`, and a character whose last roll was settled by the table (`_settled_roll` in handlers/rolls.py, set by `settle_rolls` and cleared by the character's next roll) and has no held roll gets `roll_settled {character_id}` instead, so a desk that missed the dice that settled its roll offers no burn the server refuses (playtest 2 review, `roll-settling-client-server-mismatch`). Since 2026-10-13 (#40) a character with no held roll gets its last shown roll again instead (`_shown_roll`, set as a roll or a reroll is sent, in memory only): `roll_result` with `replayed: true`, the roll with its current outcome, `roll_id` when it had one, `kept` ({index, is_gilded, value, outcome}, as `roll_kept`) when a gilded die was kept from it, `used` (the post-roll abilities used on it, while it is open) and `settled: true` when the table has moved past it. `roll_settled` is no longer sent.
+ 8. Since 2026-10-10 a socket whose channel has Activity Log lines kept (section 2) gets them as `activity_history {entries}` after that, oldest first. Each entry is an `activity_log` payload plus `at`, when it was sent (ISO 8601, UTC). Only the lines of the socket's campaign come (`camp_id`), and none at all means no frame. A secret roll's line is kept for the roller's own channel alone (section 4.3), so the Lightkeeper's desk gets her secret lines again and no player's desk ever does.
+ 
+ Since 2026-10-10 the desk sends its login token as a subprotocol: `new WebSocket(url, ['candela', 'bearer.<token>'])`, and the server accepts with `candela`. The browser printed the URL, token and all, in its console on every failed reconnect (playtest, `ws-token-in-url`). `?token=` still works, for a desk loaded before the change.
+@@ -167,9 +167,9 @@ Validation gaps: `action` is not checked against the nine actions, so `getattr`
+ 
+ **`resolve_gilded`** (1706). Fields: `action`, `chosen_type` (`gilded` or anything else), `chosen_value`. If `gilded`, adds one to the action's drive (capped at max) and commits. The outcome is `calculate_outcome(chosen_value)` using the value the client sent, without the dice, so it can never be a critical. Sends `activity_log` to the campaign and `character_update` to the sender if the drive changed. The value is not checked against the roll: a client can send this at any time, any number of times, with any value. A non-numeric `chosen_value` ends the connection. The server does hold a gilded roll's dice in memory per character (`_pending_gilded` in `vtt/ws/handlers/rolls.py`, replaced by the character's next roll) only to show them: the first `resolve_gilded` for that action sends `dice_thrown` to the rest of the table with the held dice, the result and outcome of the kept value, and `kept {index, is_gilded, value}` (index null when no held die has that type and value), before the log line. A later or unmatched `resolve_gilded`, a secret roll and a restart send no `dice_thrown`. Since 2026-10-11 its line names the dice and the kept one (see `roll`), and for the reroll of a `burn_resistance` it is the burn's one line (below). (Since 2026-10-10 a secret roll's kept die writes its line, "(Secret) ...", to the roller's own channel alone, as `roll` does.)
+ 
+-**`burn_resistance`** (2023). Fields: `action`, `drive_key`. Calls `engine.burn_resistance`: if a resistance pip remains it spends it, commits, then rolls the action rating alone (no drive), gilded per the character. Sends `roll_result` to the sender, `dice_thrown` to the rest of the table (or holds the dice when a gilded choice is pending, as for `roll`) and `activity_log` to the campaign. Since 2026-10-11 there is one line for every burn and it names the drive and the dice: "<name> burned Nerve resistance on move, dash, 6 · Critical Success (2 dice: 6, 6)."; a burn that needs a gilded choice logs nothing until `resolve_gilded`, which writes that same line with the kept die (the drive travels in the held roll, `_pending_gilded[...]["burned"]`; playtest, `burn-log-shape`). (It used to show `?` as the result when a gilded choice was pending, and `resolve_gilded` then logged a second line.) When no pips remain the error is dropped silently. Neither field is validated. (Since 2026-10-10 a burn on a secret roll is secret too: its `roll` carries `is_secret: true`, no `dice_thrown` goes out, and its line, and the kept die's when it waits for a choice, go to the roller's own channel alone, "(Secret) ...", as `roll`'s do. The burn reads this from the roll it answers, not from its payload. It used to show its dice and log its result to the whole table.) A burn answers the character's last roll, of that action (`_last_roll`); with none, `action_rejected` 409 "Burn a resistance after a roll of that action.", after which the desk offers no burn for that roll. Since 2026-10-11 a roll is settled (no burn or post-roll ability for it) when the dice of another roll at the table are thrown, as `dice_thrown` goes out: the Lightkeeper's open roll too, which did not settle it; a secret roll, which no desk sees, does not; and a gilded roll settles the others when its die is kept, not when it is rolled, so a roll whose die is kept after another roll stays open. It used to be settled by any roll as it was made, while the desks read `dice_thrown` (playtest 2, `roll-settling-client-server-mismatch`). End Assignment settles them too. A desk that missed the dice that settled its roll gets `roll_settled` when its socket opens (connect, step 7), and a roll sent again with its `roll_id` after it was settled is answered with `settled: true`.
++**`burn_resistance`** (2023). Fields: `action`, `drive_key`. Calls `engine.burn_resistance`: if a resistance pip remains it spends it, commits, then rolls the action rating alone (no drive), gilded per the character. Sends `roll_result` to the sender, `dice_thrown` to the rest of the table (or holds the dice when a gilded choice is pending, as for `roll`) and `activity_log` to the campaign. Since 2026-10-11 there is one line for every burn and it names the drive and the dice: "<name> burned Nerve resistance on move, dash, 6 · Critical Success (2 dice: 6, 6)."; a burn that needs a gilded choice logs nothing until `resolve_gilded`, which writes that same line with the kept die (the drive travels in the held roll, `_pending_gilded[...]["burned"]`; playtest, `burn-log-shape`). (It used to show `?` as the result when a gilded choice was pending, and `resolve_gilded` then logged a second line.) When no pips remain the error is dropped silently. Neither field is validated. (Since 2026-10-10 a burn on a secret roll is secret too: its `roll` carries `is_secret: true`, no `dice_thrown` goes out, and its line, and the kept die's when it waits for a choice, go to the roller's own channel alone, "(Secret) ...", as `roll`'s do. The burn reads this from the roll it answers, not from its payload. It used to show its dice and log its result to the whole table.) A burn answers the character's last roll, of that action (`_last_roll`); with none, `action_rejected` 409 "Burn a resistance after a roll of that action.", after which the desk offers no burn for that roll. Since 2026-10-11 a roll is settled (no burn or post-roll ability for it) when the dice of another roll at the table are thrown, as `dice_thrown` goes out: the Lightkeeper's open roll too, which did not settle it; a secret roll, which no desk sees, does not; and a gilded roll settles the others when its die is kept, not when it is rolled, so a roll whose die is kept after another roll stays open. It used to be settled by any roll as it was made, while the desks read `dice_thrown` (playtest 2, `roll-settling-client-server-mismatch`). End Assignment settles them too. A desk that missed the dice that settled its roll gets it marked `settled` when its socket opens (connect, step 7; `roll_settled` until 2026-10-13), and a roll sent again with its `roll_id` after it was settled is answered with `settled: true`.
+ 
+-**`use_post_roll_ability`** (1731). Fields: `ability`, `drive` (for Learn from My Mistakes). The ability must equal `role_ability` or `specialty_ability`. Flourish: Cunning minus 2 (floor 0, no check that two are available); the log says the result was pushed up a tier, but the server does not change or record any result. Learn from My Mistakes: one drive plus 1 (capped). Bending Spoons: one Bleed mark (capped at 3, no incapacitation check). Sends `character_update` to the sender and `activity_log` to the campaign. Nothing ties it to a roll, so it can be repeated. Since 2026-10-06 each is checked against the character's last roll and used once on it (RULES_CHECK.md item 28). Since 2026-10-07 the Doctor's Patch Up and Resuscitation (p. 30) follow a Focus roll and name `target_character_id`, an active member of the same campaign other than the roller: Patch Up heals 1 Body mark for 1 Intuition on a 6 or 2 on a 4-5, or on a 3 or less with `take_brain_mark` a Brain mark and 2 Intuition; Resuscitation stands an incapacitated ally back up, free on a 6 or for `cost`, 3 drive points as {nerve, cunning, intuition}, on a 4-5, and not when the scar is their fourth (one still waiting to be recorded counts). The ally gets a `character_update`. A refusal is `action_rejected` 409 (422 for a bad `cost`), which the desk shows on the slip. Since 2026-10-10 Patch Up needs a Focus roll declared a Patch Up: the roll's `ability_mods` holds "Patch Up", and its `roll` then carries `declared: ["Patch Up"]`; the declaration lasts until the character's next roll or the heal. Without it the refusal says Patch Up is chosen before the roll, and an ally with no Body mark gets "<name> has no Body mark to heal." It was offered after any Focus roll, so one investigation roll also healed (playtest, `patch-up-free-rider`). Since 2026-10-10 an ability used on a secret roll writes its line to the roller's own channel alone, "(Secret) ..." with `is_secret: true` (log_type `field`), since the line tells the roll's result. The sheets still go out as before (`character_update` to the roller and any ally, `member_update` to the GM), and so do the lines of a mark it brings (`apply_mark`).
++**`use_post_roll_ability`** (1731). Fields: `ability`, `drive` (for Learn from My Mistakes). The ability must equal `role_ability` or `specialty_ability`. Flourish: Cunning minus 2 (floor 0, no check that two are available); the log says the result was pushed up a tier, but the server does not change or record any result. Learn from My Mistakes: one drive plus 1 (capped). Bending Spoons: one Bleed mark (capped at 3, no incapacitation check). Sends `character_update` to the sender and `activity_log` to the campaign. Nothing ties it to a roll, so it can be repeated. Since 2026-10-06 each is checked against the character's last roll and used once on it (RULES_CHECK.md item 28). Since 2026-10-07 the Doctor's Patch Up and Resuscitation (p. 30) follow a Focus roll and name `target_character_id`, an active member of the same campaign other than the roller: Patch Up heals 1 Body mark for 1 Intuition on a 6 or 2 on a 4-5, or on a 3 or less with `take_brain_mark` a Brain mark and 2 Intuition; Resuscitation stands an incapacitated ally back up, free on a 6 or for `cost`, 3 drive points as {nerve, cunning, intuition}, on a 4-5, and not when the scar is their fourth (one still waiting to be recorded counts). The ally gets a `character_update`. A refusal is `action_rejected` 409 (422 for a bad `cost`), which the desk shows on the slip. Since 2026-10-10 Patch Up needs a Focus roll declared a Patch Up: the roll's `ability_mods` holds "Patch Up", and its `roll` then carries `declared: ["Patch Up"]`; the declaration lasts until the character's next roll or the heal. Without it the refusal says Patch Up is chosen before the roll, and an ally with no Body mark gets "<name> has no Body mark to heal." It was offered after any Focus roll, so one investigation roll also healed (playtest, `patch-up-free-rider`). Since 2026-10-10 an ability used on a secret roll writes its line to the roller's own channel alone, "(Secret) ..." with `is_secret: true` (log_type `field`), since the line tells the roll's result. The sheets still go out as before (`character_update` to the roller and any ally, `member_update` to the GM), and so do the lines of a mark it brings (`apply_mark`). Since 2026-10-13 (#19) Flourish and Bending Spoons send `roll_outcome` with the roll's new outcome, after the sheet (and Bending Spoons' mark) and before the ability's line: to the roller's channel alone for a secret roll, to the campaign otherwise. A roll sent again with its `roll_id` afterwards is answered with the new outcome.
+ 
+ ### 4.4 Character sheet messages
+ 
+@@ -259,8 +259,9 @@ The 35 types in this table have a handler in `gameStore.js`, and the store handl
+ | `member_update` (since 2026-10-08) | `manager.broadcast`, for every `character_update`, `roll_result` and `trigger_scar` it sends (the frames that carry a whole sheet), whatever the handler; not the connect-time `character_update`. Also `gm_sheet_seen`, straight to the GM key (since 2026-10-13). The sheet carries `sheet_edited`, the roster card's dot | The GM key of the sheet's own `campaign_id`, while the character is active or pending there; never a player's key, never another campaign's GM. The manager learns each campaign's GM key when that GM's socket connects, so no query is made | `{type, payload: the sheet}`. GM desk only (campaign-checked): stored in `memberSheets` by id, merged into the matching `campaignRoster` entry (a member who died keeps the entry, flagged `is_dead`, for the deceased card; what counts or addresses the living leaves them out), and the open `GMCharacterSheet` follows it. The frame never reaches a GM socket that is down, so when the GM desk's socket opens again (`keepLog`) the store reloads the roster without clearing it and bumps `memberResync`, and the open sheet loads again |
+ | `member_status` (since 2026-10-08) | `apply_scar` (every scar); `gm_update_scars` (every save that changes the record); `revive_character`; Resuscitation (`use_post_roll_ability`, the ally is up again); the fourth mark that incapacitates (`apply_mark`). All through `announce_status` in `handlers/circle.py` (named `announce_death` until 2026-10-11, when only a death sent it) | Campaign, except the GM key, whose desk has the sheet through `member_update`; only for an active member of the socket's campaign | `{character_id, campaign_id, name, is_dead, incapacitated, scars_count}` (`name` since 2026-10-13, for a rename made with `edit_sheet`, which also sends it), which the roster route and the circle's state already list for members (since 2026-10-11 the last two; the circle cards show who is down and the scar count). Campaign-checked; sets `is_dead` (and `incapacitated` and `scars_count`) on the matching `campaignRoster.active_investigators` card, and (since 2026-10-10) on the matching `circleCreation.activeInvestigators` entry, so the formation papers' Circle Relationships drop a dead member at once (they listed one even after a reload). A player's roster is read once, when the desk opens, so without it the circle's cards and the ally pickers (`livingMembers`) kept a dead ally until a reload, and left out a revived one |
+ | `circle_update` | connect; GM circle handlers; `update_circle`; `spend_resource`; `refill_resources`; `gm_end_assignment`; `gm_earn_back`; REST approve and rejoin (since 2026-10-09: after `investigator_approved`, and after `character_joined_mid_campaign` for a rejoin, so each desk has the new maximum; before the seal each resource is first filled to 1 plus the members, as the seal fills it) | Campaign (connect: sender only) | Replaces `circle`, no campaign check |
+-| `roll_result` | `roll`, `burn_resistance`; connect, for a held gilded roll (since 2026-10-09) | Sender's key | Sets `lastRoll`, `character`, clears rolling state, sets `pendingGildedChoice` when needed. Since 2026-10-09 a frame whose `roll_id` is the last one shown is ignored, so a resent roll answered twice lands once. Since 2026-10-10 `roll.is_secret` (true, only on a secret roll) puts "Secret: only you saw this" on the result slip; and a desk opened in the tab after another one (another channel, or after a sign-out) starts with no `lastRoll`, so one desk's roll never shows on the next. Since 2026-10-11 `settled: true` (a held roll End Assignment settled, or a roll sent again after the table settled it) sets `lastRollSettled`, so the roll offers no burn |
+-| `roll_settled` (since 2026-10-11) | connect, when the character's last roll was settled by the table and no gilded roll is held | Sender only | `{character_id}`. Sets `lastRollSettled` when the desk shows a roll of that character, so it offers no burn the server refuses |
++| `roll_result` | `roll`, `burn_resistance`; connect, for a held gilded roll (since 2026-10-09) and for the last roll otherwise (since 2026-10-13, `replayed`) | Sender's key | Sets `lastRoll`, `character`, clears rolling state, sets `pendingGildedChoice` when needed. Since 2026-10-09 a frame whose `roll_id` is the last one shown is ignored, so a resent roll answered twice lands once. Since 2026-10-10 `roll.is_secret` (true, only on a secret roll) puts "Secret: only you saw this" on the result slip; and a desk opened in the tab after another one (another channel, or after a sign-out) starts with no `lastRoll`, so one desk's roll never shows on the next. Since 2026-10-11 `settled: true` (a held roll End Assignment settled, or a roll sent again after the table settled it) sets `lastRollSettled`, so the roll offers no burn. Since 2026-10-13 (#40) `replayed: true` marks the last roll sent again as the socket opens: it plays no dice sound or tumble and the phone's roll bar stays down for it; when the desk already shows that roll (the same action and dice) only its outcome, `kept` die, `used` abilities (added to `dismissedPrompts`), `settled` and the sheet are taken; while the desk is rolling it is ignored; one whose `roll_id` is the roll the desk is waiting for is that roll's answer. `kept` sets `lastRollKept` |
++| `roll_settled` (2026-10-11 to 2026-10-13) | No longer sent: the last roll comes back as `roll_result` with `replayed` and `settled` (#40) | | |
++| `roll_outcome` (since 2026-10-13) | `use_post_roll_ability`: Flourish, Bending Spoons | Campaign; the sender's key alone for a secret roll | `{character_id, action, outcome, by}` (by: the ability). Sets the outcome on the roller's `lastRoll` (under a new id, so the post-roll prompts are worked out again) or its `lastRollKept`, and on a `tableRoll` of that character and action (#19) |
+ | `roll_kept` (since 2026-10-07) | `resolve_gilded` | Sender's key, secret rolls too | `{character_id, action, index, is_gilded, value, outcome}`: the server's result for the kept die. Sets `lastRollKept`; the dice vault's outcome slip, post-roll prompts and resistance offer read it |
+ | `roll_error` | `roll` exception | Sender's key | Clears `isRolling`; the message text is not shown |
+ | `trigger_scar` | `take_mark`, `intercept_mark` at 4 marks | Sender's key | Sets `character`, opens the scar modal |
+diff --git a/frontend/src/components/pc/DiceVault.jsx b/frontend/src/components/pc/DiceVault.jsx
+index fac8e41..22dbbd2 100644
+--- a/frontend/src/components/pc/DiceVault.jsx
++++ b/frontend/src/components/pc/DiceVault.jsx
+@@ -80,22 +80,25 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
+   const resistSpent = lastRollDriveKey ? (character?.[lastRollDriveKey + '_resistance_spent'] || 0) : 0;
+   const canResist   = !settled && !gildedPending && scoredRoll && scoredRoll.outcome !== 'full_success' && scoredRoll.outcome !== 'critical_success' && resistMax > resistSpent && !showGmControls;
+ 
+-  // Skew values are stable per-roll — computed once when lastRoll changes, not on every render
++  // Skew values are stable per roll: computed once when the dice change, not on every
++  // render, nor when a post-roll ability changes the roll's outcome
++  const rolledDice = lastRoll?.dice;
+   const dieSkews = useMemo(() => {
+-    const count = lastRoll?.dice?.length || 0;
++    const count = rolledDice?.length || 0;
+     return Array.from({ length: count }, () => `${Math.floor(Math.random() * 40) - 20}deg`);
+-  }, [lastRoll]);
++  }, [rolledDice]);
+ 
+   // The die kept in a gilded choice, remembered for the result and the phone roll bar until
+-  // the next roll. On the GM's felt a player's kept die comes with their dice.
++  // the next roll, with the server's outcome for it (a post-roll ability may change it). On
++  // the GM's felt a player's kept die comes with their dice, and the roll has its outcome.
+   const [kept, setKept] = useState(null);
+   const tableKept = shownTable?.kept && Number.isInteger(shownTable.kept.index)
+     ? { roll: lastRoll, value: shownTable.kept.value, idx: shownTable.kept.index,
+       // The roster does not carry the roller's drives, so no "1 X back" is claimed here
+       back: '' } : null;
+   const keptDie = shownTable ? tableKept
+-    : kept && kept.roll === lastRoll ? kept
+-    : resolved ? { roll: lastRoll, value: resolved.value, idx: resolved.index } : null;
++    : kept && kept.roll === lastRoll ? { ...kept, outcome: resolved?.outcome }
++    : resolved ? { roll: lastRoll, value: resolved.value, idx: resolved.index, outcome: resolved.outcome } : null;
+ 
+   const getIsCandidate = (die, idx) => {
+     if (!lastRoll?.dice) return false;
+diff --git a/frontend/src/components/pc/dice/DiceTray.jsx b/frontend/src/components/pc/dice/DiceTray.jsx
+index 9d45985..d261e4c 100644
+--- a/frontend/src/components/pc/dice/DiceTray.jsx
++++ b/frontend/src/components/pc/dice/DiceTray.jsx
+@@ -19,9 +19,11 @@ const OUTCOME_STAMP = {
+ // Each roll object the tray is handed gets its own number, for React's key
+ const rollSerials = new WeakMap();
+ let nextRollSerial = 1;
++// Keyed by the roll's dice, which a new outcome for the same roll keeps (roll_outcome)
+ const rollSerial = (roll) => {
+-  if (!rollSerials.has(roll)) rollSerials.set(roll, nextRollSerial++);
+-  return rollSerials.get(roll);
++  const dice = roll.dice || roll;
++  if (!rollSerials.has(dice)) rollSerials.set(dice, nextRollSerial++);
++  return rollSerials.get(dice);
+ };
+ 
+ // A roll has no id from the server; its action and dice give the slip its number
+@@ -34,7 +36,7 @@ const rollKey = (roll) =>
+ // secret roll (the Lightkeeper's Secret) says so under the name: no other desk was told
+ // of it, and its line in the log is on this desk alone.
+ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, rating, character, onDieClick }) => {
+-  const outcomeKey = lastRoll.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll.dice) : null);
++  const outcomeKey = lastRoll.outcome || keptDie?.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll.dice) : null);
+   const outcome = OUTCOME[outcomeKey];
+   const key = rollKey(lastRoll);
+   return (
+@@ -190,7 +192,8 @@ export const DiceTray = forwardRef(({
+                 extraClasses = 'ring-2 ring-seal-green-lit/70';
+               }
+ 
+-              const tumbleClass = gildedPending ? '' : 'animate-dieTumble opacity-0';
++              // A roll sent again as the desk opened (a reload) has landed already
++              const tumbleClass = gildedPending || lastRoll.replayed ? '' : 'animate-dieTumble opacity-0';
+ 
+               return (
+                 <div
+diff --git a/frontend/src/components/pc/dice/RollResultBar.jsx b/frontend/src/components/pc/dice/RollResultBar.jsx
+index 225ca13..5cf2c9a 100644
+--- a/frontend/src/components/pc/dice/RollResultBar.jsx
++++ b/frontend/src/components/pc/dice/RollResultBar.jsx
+@@ -1,4 +1,4 @@
+-import React, { useEffect, useMemo, useRef, useState } from 'react';
++import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+ import { createPortal } from 'react-dom';
+ import { useDialog } from '../../shared/useDialog';
+ import { CrossMark } from '../../shared/InkMarks';
+@@ -52,13 +52,24 @@ export const RollResultBar = ({
+ }) => {
+   const [open, setOpen] = useState(false);
+   const keptIdx = keptDie ? keptDie.idx : null;
+-  // Each roll, kept die or error is a new result for the bar
+-  const result = useMemo(() => ({}), [lastRoll, isRolling, rollError, keptIdx, gildedPending]);
++  const keptOutcome = keptDie?.outcome;
++  // Each roll, kept die, new outcome or error is a new result for the bar
++  const result = useMemo(() => ({}), [lastRoll, isRolling, rollError, keptIdx, keptOutcome, gildedPending]);
+   const [goneFor, setGoneFor] = useState(null);      // the result the bar closed on
+   const [fadingFor, setFadingFor] = useState(null);  // the result it is fading out on
+   const [held, setHeld] = useState(false);           // a finger is on it
+   const [recheck, setRecheck] = useState(0);
+   const barRef = useRef(null);
++  // A roll sent again as the desk opened (a reload) is not news: the bar stays down for
++  // it (the dice button's dot says when it still offers a choice), and comes up for
++  // anything new on it, such as a new outcome
++  const replayedDice = useRef(null);
++  useLayoutEffect(() => {
++    if (lastRoll?.replayed && replayedDice.current !== lastRoll.dice) {
++      replayedDice.current = lastRoll.dice;
++      setGoneFor(result);
++    }
++  }, [lastRoll, result]);
+ 
+   const settled = !isRolling && !gildedPending;
+   const hasResult = !!(lastRoll || isRolling || rollError);
+@@ -109,7 +120,7 @@ export const RollResultBar = ({
+ 
+   const dice = lastRoll?.dice || [];
+   const poolText = isRolling || !lastRoll ? '' : rollPoolText(lastRoll, keptDie, rating);
+-  const outcomeKey = lastRoll?.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll?.dice) : null);
++  const outcomeKey = lastRoll?.outcome || keptDie?.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll?.dice) : null);
+   const outcome = !isRolling && !gildedPending ? OUTCOME[outcomeKey] : null;
+   // A roll that did not reach the table: the bar says so in short with the reason under
+   // it (the tray's slip carries the alert for screen readers). One that left the desk and
+diff --git a/frontend/src/store/gameStore.js b/frontend/src/store/gameStore.js
+index 3b9e9b6..06d0a9d 100644
+--- a/frontend/src/store/gameStore.js
++++ b/frontend/src/store/gameStore.js
+@@ -243,6 +243,33 @@ export const postRollChoiceWaiting = (s) => {
+   return max > (s.character[`${drive}_resistance_spent`] || 0);
+ };
+ 
++// Whether two rolls are the same throw: the same action and the same dice
++const sameRoll = (a, b) => !!a && !!b && a.action === b.action && Array.isArray(a.dice) && Array.isArray(b.dice)
++  && a.dice.length === b.dice.length
++  && a.dice.every((d, i) => d.value === b.dice[i].value && !!d.is_gilded === !!b.dice[i].is_gilded);
++
++// The die kept from this desk's last roll (roll_kept), or null
++const keptOf = (s) => (s.lastRoll && s.lastRollKept && s.lastRollKept.rollId === s.lastRoll.id ? s.lastRollKept : null);
++
++// A roll the desk shows, sent again as it opens (roll_result with replayed): what the
++// server has for it now, its outcome (a post-roll ability may have changed it), the die
++// kept from it, the abilities used on it, whether it is settled, and the sheet
++const replayOnto = (s, p) => {
++  const next = { character: p.character || s.character, lastRollSettled: s.lastRollSettled || p.settled === true };
++  if (Array.isArray(p.used)) next.dismissedPrompts = [...new Set([...s.dismissedPrompts, ...p.used])];
++  const kept = keptOf(s);
++  if (p.kept) {
++    if (!kept || kept.index !== p.kept.index || kept.outcome !== p.kept.outcome) {
++      next.lastRollKept = { ...p.kept, is_gilded: !!p.kept.is_gilded, rollId: s.lastRoll.id, seq: ++rollSeq };
++    }
++    next.pendingGildedChoice = null;
++  } else if (p.roll?.outcome && p.roll.outcome !== s.lastRoll.outcome) {
++    // A new id, so the post-roll prompts are worked out for the new outcome
++    next.lastRoll = { ...s.lastRoll, outcome: p.roll.outcome, id: ++rollSeq };
++  }
++  return next;
++};
++
+ // A report the table has not answered within this long is not sent, as far as the form knows
+ const REPORT_REPLY_MS = 8000;
+ const REPORT_NO_REPLY = 'The table did not answer. If the stamp does not show, send the report again.';
+@@ -848,25 +875,40 @@ const useGameStore = create(
+             if (seen && next && seen.id === next.id && value !== seen.value) playTensionTick(value > seen.value ? value : 1);
+           }
+           else if (message.type === 'roll_result') {
+-            // A roll sent twice (a resend after a stall) can be answered twice: the copy
+-            // of a result this desk has shown is ignored, so the dice do not land again
+             const rollId = message.payload.roll_id;
+-            if (rollId && rollId === answeredRollId) return;
+-            if (rollId) answeredRollId = rollId;
++            // The desk's last roll, sent again as the socket opens (a reload, another
++            // device; #40): shown with no dice sound, open to a burn while the server holds
++            // it open. A roll this desk is waiting for is its answer, whichever frame brings it.
++            const replay = !!message.payload.replayed && !(rollId && sentRoll?.payload?.roll_id === rollId);
++            if (replay) {
++              const st = get();
++              // A roll on its way from this desk is newer
++              if (st.isRolling) return;
++              if (rollId) answeredRollId = rollId;
++              if (sameRoll(st.lastRoll, message.payload.roll)) { set(replayOnto(st, message.payload)); return; }
++            } else {
++              // A roll sent twice (a resend after a stall) can be answered twice: the copy
++              // of a result this desk has shown is ignored, so the dice do not land again
++              if (rollId && rollId === answeredRollId) return;
++              if (rollId) answeredRollId = rollId;
++            }
++            const kept = message.payload.kept;
+             sentRoll = null;
+             queuedRoll = null;
+             // Each roll gets an id here (the server's roll_id is per throw, not per
+             // result), so what is keyed on the roll, such as the post-roll ability
+             // prompts, sees a new roll as new
+-            const roll = message.payload.roll ? { ...message.payload.roll, id: ++rollSeq } : message.payload.roll;
++            // (a roll sent again is marked replayed: its dice do not tumble in again)
++            const roll = message.payload.roll ? { ...message.payload.roll, id: ++rollSeq, ...(replay ? { replayed: true } : {}) } : message.payload.roll;
+             clearRollTimer();
+             set({
+               lastRoll: roll,
+-              lastRollKept: null,
++              // A roll sent again after its gilded die was kept comes with that die
++              lastRollKept: kept && roll ? { ...kept, is_gilded: !!kept.is_gilded, rollId: roll.id, seq: ++rollSeq } : null,
+               // A roll the table has moved past while this desk was away (the server says
+               // so): its die can be kept, but it offers no burn
+               lastRollSettled: message.payload.settled === true,
+-              dismissedPrompts: [],
++              dismissedPrompts: Array.isArray(message.payload.used) ? message.payload.used : [],
+               postRollTried: null,
+               tableRoll: null, // this desk's own roll is the newest on its felt
+               character: message.payload.character,
+@@ -875,13 +917,14 @@ const useGameStore = create(
+               rollError: null,
+               pendingRoll: null,
+               pendingRollMods: [],
+-              pendingGildedChoice: roll?.needs_gilded_choice
++              pendingGildedChoice: roll?.needs_gilded_choice && !kept
+                 ? { action: message.payload.action, roll, character_id: message.payload.character_id }
+                 : null,
+             });
+             // The dice start tumbling on this desk now; a gilded roll's dice wait, still, for
+-            // the choice, and tumble when a die is kept (resolveGildedChoice)
+-            if (roll?.dice && !roll.needs_gilded_choice) playDiceTumble();
++            // the choice, and tumble when a die is kept (resolveGildedChoice). A roll sent
++            // again has landed already.
++            if (!replay && roll?.dice && !roll.needs_gilded_choice) playDiceTumble();
+           }
+           else if (message.type === 'roll_kept') {
+             // The server scored the die this desk kept: the outcome slip, the post-roll
+@@ -914,11 +957,20 @@ const useGameStore = create(
+               }
+             }
+           }
+-          else if (message.type === 'roll_settled') {
+-            // As the socket opens: this investigator's last roll was settled by dice this
+-            // desk missed (it was away), so the roll it still shows offers no burn
+-            const { lastRoll, character } = get();
+-            if (lastRoll && message.payload?.character_id === character?.id) set({ lastRollSettled: true });
++          else if (message.type === 'roll_outcome') {
++            // A post-roll ability (Flourish, Bending Spoons) changed a roll's outcome (#19):
++            // the roller's slip and the Lightkeeper's felt show the new one
++            const p = message.payload || {};
++            const st = get();
++            if (st.lastRoll && p.character_id != null && p.character_id === st.character?.id && st.lastRoll.action === p.action) {
++              const kept = keptOf(st);
++              if (kept) set({ lastRollKept: { ...kept, outcome: p.outcome, seq: ++rollSeq } });
++              // A new id, so the post-roll prompts are worked out for the new outcome
++              else if (!st.lastRoll.needs_gilded_choice) set({ lastRoll: { ...st.lastRoll, outcome: p.outcome, id: ++rollSeq } });
++            }
++            if (st.tableRoll?.roll && st.tableRoll.character_id === p.character_id && st.tableRoll.action === p.action) {
++              set({ tableRoll: { ...st.tableRoll, roll: { ...st.tableRoll.roll, outcome: p.outcome } } });
++            }
+           }
+           else if (message.type === 'roll_error') {
+             failRoll(set, ROLL_FAILED);
+-- 
+2.43.0
+

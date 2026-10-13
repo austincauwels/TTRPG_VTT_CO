@@ -1,0 +1,104 @@
+From d78d92095249f782e4fad46b4d959757796afcb4 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 13 Oct 2026 09:09:19 +0000
+Subject: [PATCH 5/6] Check again before Play opens a desk from the Registry
+
+With the Case Ledger open when the Lightkeeper retired a campaign, the
+row kept its Play, which opened a desk for the retired campaign (issue
+#42). enterAsPlayer now reads the user's lists first; an investigator
+no longer active in that campaign stays on the hub with "<name> is no
+longer in <campaign>." and the book shows the fresh lists. FAQ.md and
+QUIRKS.md say so.
+
+Checked in Chromium at 390x844, 820x1180 and 1366x768: book open,
+campaign retired over the API, Play pressed; the tab stays on the hub
+with the notice, opens no socket, and the row moves to Not in a
+campaign. Frontend builds.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WaLz6UBTQ5XaTKSYwqeMKA
+---
+ FAQ.md                                          |  2 +-
+ docs/refactor/QUIRKS.md                         |  1 +
+ frontend/src/components/CampaignSelector.jsx    |  2 +-
+ .../campaignSelector/useCampaignEntry.js        | 17 +++++++++++++++--
+ 4 files changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/FAQ.md b/FAQ.md
+index 229aa1f..e37f1d7 100644
+--- a/FAQ.md
++++ b/FAQ.md
+@@ -178,7 +178,7 @@ Yes, at any time, before or after the seal (`POST /campaign/release/{id}`). The
+ 
+ ### Can campaigns be ended?
+ 
+-Yes. The GM can **retire** a campaign, which sets `is_retired = true` on the Campaign record and detaches all living active/pending characters (sets their `campaign_id` to null and status to `unaffiliated`, so their players can use them in another campaign; a dead one stays `retired` with the campaign). A retirement notice is broadcast via WebSocket to any connected players, and a hub reads its lists again when the tab comes back or the Case Ledger opens. Retired campaigns are excluded from the GM's campaign list but the data is not deleted: they lie in the Lightkeeper Ledger's Retired list, where Restore (`POST /campaign/{id}/unretire`, the campaign's Lightkeeper only) brings one back. It comes back with its dead (still `retired` with it, the desk's Fallen cards) and takes members again, but puts no living investigator back on its roster: the ones the retire let go stay with their players, and one that has joined another campaign since stays there. The Lightkeeper's open desks read the ledger again, and the campaign's Activity Log says "The Lightkeeper brought <name> back from retirement."
++Yes. The GM can **retire** a campaign, which sets `is_retired = true` on the Campaign record and detaches all living active/pending characters (sets their `campaign_id` to null and status to `unaffiliated`, so their players can use them in another campaign; a dead one stays `retired` with the campaign). A retirement notice is broadcast via WebSocket to any connected players, and a hub reads its lists again when the tab comes back or the Case Ledger opens. Play on a Registry row reads them again before it opens a desk (since fix round 6, issue #42): an investigator no longer active in that campaign opens none, the hub says "<name> is no longer in <campaign>." and the book shows the lists as they are now. Retired campaigns are excluded from the GM's campaign list but the data is not deleted: they lie in the Lightkeeper Ledger's Retired list, where Restore (`POST /campaign/{id}/unretire`, the campaign's Lightkeeper only) brings one back. It comes back with its dead (still `retired` with it, the desk's Fallen cards) and takes members again, but puts no living investigator back on its roster: the ones the retire let go stay with their players, and one that has joined another campaign since stays there. The Lightkeeper's open desks read the ledger again, and the campaign's Activity Log says "The Lightkeeper brought <name> back from retirement."
+ 
+ ---
+ 
+diff --git a/docs/refactor/QUIRKS.md b/docs/refactor/QUIRKS.md
+index b3866a1..f703d00 100644
+--- a/docs/refactor/QUIRKS.md
++++ b/docs/refactor/QUIRKS.md
+@@ -207,3 +207,4 @@ Issues #22, #38, #39, #41, #42 and #47, decisions 3, 4 and 5: the dead are a rec
+ - A replacement approved through a join request started with 0 spends used, so a player could take two more in the same break (issue #41). approve_investigator now carries the larger spend count of the dead predecessors still active, as rejoin does. Test: test_campaigns.test_approve_keeps_the_players_spends_from_the_dead_predecessor.
+ - A dead investigator's player opening the desk of a retired campaign got a 403 in the console (issue #22): the desk asked for the roster on opening and on every reconnect, and the roster route serves only the Lightkeeper and active members. The desk asks only while its investigator is active (TactileSidebar.jsx and the store's reconnect). Checked in Chromium (no roster request, no 403); no backend change.
+ - A rejoin from another device left the replaced investigator's open desk live, with the used invite banner (issue #39). The rejoin sends investigator_replaced to the key of each investigator it retires; that desk goes to the hub with "<new> joined <campaign> in place of <old>.", the invite is cleared and the socket closes. Test: test_rest_broadcasts.test_rejoin_tells_the_desk_of_the_investigator_it_retires.
++- With the Case Ledger open when a campaign was retired, Play still opened a desk for it (issue #42). enterAsPlayer (useCampaignEntry.js) reads the lists again first; an investigator no longer active in that campaign stays on the hub with "<name> is no longer in <campaign>." and the book shows the fresh lists. Checked in Chromium; no backend change.
+diff --git a/frontend/src/components/CampaignSelector.jsx b/frontend/src/components/CampaignSelector.jsx
+index b3f8705..739becd 100644
+--- a/frontend/src/components/CampaignSelector.jsx
++++ b/frontend/src/components/CampaignSelector.jsx
+@@ -37,7 +37,7 @@ export const CampaignSelector = () => {
+     enterAsPlayer, enterAsGM, handleLastPlayed,
+   } = useCampaignEntry({
+     accessSession, characters, gmCampaigns, lastPlayedCampaign,
+-    setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData,
++    setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData, setHubNotice,
+   });
+ 
+   // Per-character inline join form state  { [charId]: { code, pen, error, loading } }
+diff --git a/frontend/src/components/campaignSelector/useCampaignEntry.js b/frontend/src/components/campaignSelector/useCampaignEntry.js
+index 04ce52d..5ce4dd9 100644
+--- a/frontend/src/components/campaignSelector/useCampaignEntry.js
++++ b/frontend/src/components/campaignSelector/useCampaignEntry.js
+@@ -1,4 +1,5 @@
+ import { useState } from 'react';
++import useGameStore from '../../store/gameStore';
+ import { playPaperSound } from '../../game/rollSounds';
+ 
+ // Book open/close state and the ways into a campaign. enterAsPlayer and enterAsGM keep their
+@@ -8,7 +9,7 @@ import { playPaperSound } from '../../game/rollSounds';
+ // book is never seen closing.
+ export const useCampaignEntry = ({
+   accessSession, characters, gmCampaigns, lastPlayedCampaign,
+-  setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData,
++  setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData, setHubNotice,
+ }) => {
+   const [showBook, setShowBook] = useState(false);
+   const [isClosingBook, setIsClosingBook] = useState(false);
+@@ -41,7 +42,19 @@ export const useCampaignEntry = ({
+     setIsLoadingBook(false);
+   };
+ 
+-  const enterAsPlayer = (char) => {
++  // The book may have been open since before the campaign was retired, or the investigator
++  // released or replaced (issue #42): the lists are read again first, and an investigator no
++  // longer active in that campaign opens no desk. The hub says so, and the book shows the
++  // lists as they are now.
++  const enterAsPlayer = async (char) => {
++    if (accessSession?.userId) {
++      await fetchUserData(accessSession.userId);
++      const now = useGameStore.getState().characters.find(c => c.id === char.id);
++      if (!now || now.status !== 'active' || now.campaign_id !== char.campaign_id) {
++        setHubNotice(`${char.name} is no longer in ${char.campaign_name || 'that campaign'}.`);
++        return;
++      }
++    }
+     setLocalCharacter({ id: char.id, name: char.name, status: char.status });
+     connect(char.id);
+     setLastPlayed({ type: 'player', characterId: char.id, campaignName: char.campaign_name || 'Active Campaign', campaignCode: char.campaign_code || '', campaignId: char.campaign_id || null });
+-- 
+2.43.0
+

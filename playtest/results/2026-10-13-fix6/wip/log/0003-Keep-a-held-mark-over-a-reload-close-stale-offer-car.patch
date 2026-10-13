@@ -1,0 +1,242 @@
+From 7329772fb271474443a02eb832fac4f658c16d4d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 13 Oct 2026 08:42:24 +0000
+Subject: [PATCH 3/4] Keep a held mark over a reload, close stale offer cards,
+ and draw held marks on the Lightkeeper's copy
+
+The desk: a mark sent from the sheet and still unanswered is now kept in the
+persisted store with its mark_id and when it was taken, and sent again when
+the same character's socket opens after a reload, so a mark taken during a
+silent outage is no longer lost (#43); the server takes it once. One taken
+more than ten minutes before is let go with a line under the marks: "A Body
+mark taken before the reload may not have counted. Check the trauma
+record."
+
+mark_offer_closed with dropped and an offer_id (the server's answer to a
+card it did not hold, #18) closes only that card and lets go of the marks
+its answer sent on their way, so a newer card stays.
+
+The read-only sheet (the Lightkeeper's copy) draws the marks the sheet's
+held_marks names as dashed held boxes with the "held for" line (#23).
+
+Checked with a vite build; browser checks follow.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WaLz6UBTQ5XaTKSYwqeMKA
+---
+ .../src/components/pc/InvestigatorDossier.jsx | 12 ++-
+ frontend/src/store/gameStore.js               | 76 +++++++++++++++----
+ 2 files changed, 68 insertions(+), 20 deletions(-)
+
+diff --git a/frontend/src/components/pc/InvestigatorDossier.jsx b/frontend/src/components/pc/InvestigatorDossier.jsx
+index 25f1675..d300b14 100644
+--- a/frontend/src/components/pc/InvestigatorDossier.jsx
++++ b/frontend/src/components/pc/InvestigatorDossier.jsx
+@@ -513,11 +513,14 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
+   // has them
+   const storeHeld = useGameStore(s => s.heldMarks);
+   const tableHeld = !readOnly && storeHeld && storeHeld.characterId === character?.id ? storeHeld : null;
+-  const heldOffer = tableHeld?.offer || null;
++  // The Lightkeeper's read-only copy draws what the sheet says an offer holds (held_marks,
++  // sent with every change of it), the same way (#23)
++  const sheetHeld = readOnly && character?.held_marks?.mark_types?.length ? character.held_marks : null;
++  const heldOffer = tableHeld?.offer || (sheetHeld ? { types: sheetHeld.mark_types, ability: sheetHeld.ability } : null);
+   // (a mark the Undo has just sent counts as the Undo's until the Undo lets it go)
+   const tableHolds = (type) => (tableHeld ? [...(heldOffer?.types || []),
+     ...tableHeld.landing.filter(m => m.undoId == null || m.undoId !== heldMark?.id).map(m => m.type)]
+-    .filter(t => t === type).length : 0);
++    .filter(t => t === type).length : (heldOffer?.types || []).filter(t => t === type).length);
+   // A note under the marks (the Undo strip, the held line, a refusal) that runs the record
+   // past the foot of a desk column that scrolls inside itself (xl) brings the record's foot
+   // back into view, its top kept in view: the Undo it offers is for the next five seconds.
+@@ -540,7 +543,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
+   // Death Defy escapes every mark of one harm (p. 27): a mark still held for undo when its
+   // offer appears goes now, so it joins the harm the offer counts
+   useEffect(() => {
+-    if (heldOffer?.ability === 'Death Defy' && tableHeld.characterId === storeChar?.id) flushMark();
++    if (heldOffer?.ability === 'Death Defy' && tableHeld?.characterId === storeChar?.id) flushMark();
+   }, [heldOffer?.seq]);
+   // The player's own photo: the answer to a change is the sheet as the table now has it
+   const photoInputRef = useRef(null);
+@@ -1295,7 +1298,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
+             {/* Each box is its own target: only the next empty box takes a mark. A mark is
+                 held for a few seconds with an Undo before it goes to the table, while a soak
+                 or Death Defy offer holds it there, and on its way until the sheet has it; a
+-                held mark's box is drawn half inked with a dashed edge. In the Lightkeeper's
++                held mark's box is drawn half inked with a dashed edge, on the Lightkeeper's
++                copy too (the sheet's held_marks). In the Lightkeeper's
+                 edit, any box sets the track: to that box, or, for the last filled box, to the
+                 one before it. */}
+             <div className={`mark-tracks flex flex-col ${readOnly && !editing ? 'gap-2' : 'gap-1'}`}>
+diff --git a/frontend/src/store/gameStore.js b/frontend/src/store/gameStore.js
+index 3b9e9b6..71d25d0 100644
+--- a/frontend/src/store/gameStore.js
++++ b/frontend/src/store/gameStore.js
+@@ -131,15 +131,32 @@ const offerHolds = (state, offer) => {
+     if (i >= 0) left.splice(i, 1);
+     return i < 0;
+   });
+-  return { heldMarks: { characterId: offer.character_id, offer: { types, ability: offer.ability, seq: offer.seq }, landing } };
++  return { heldMarks: { characterId: offer.character_id, offer: { types, ability: offer.ability, seq: offer.seq, offerId: offer.offer_id }, landing } };
+ };
+ // The open offer's marks go on their way: let go, or used (answer: the soak or Death Defy
+ // keeps them off the sheet, or the server refuses it and lands them). Only the offer with
+-// that seq: a card answered after another replaced it holds nothing now.
+-const offerLets = (state, answer, seq) => {
++// that seq: a card answered after another replaced it holds nothing now. Marks this desk's
++// own answer sends on their way carry its offerId, so the server's word that it did not
++// hold that offer (offerDropped) takes them back.
++const offerLets = (state, answer, seq, offerId) => {
+   const held = state.heldMarks;
+   if (!held?.offer || held.offer.seq !== seq) return {};
+-  return heldMarksAre({ ...held, offer: null, landing: [...held.landing, ...held.offer.types.map(type => ({ type, answer }))] });
++  return heldMarksAre({ ...held, offer: null,
++    landing: [...held.landing, ...held.offer.types.map(type => ({ type, answer, ...(offerId ? { offerId } : {}) }))] });
++};
++// The server did not hold the offer an answer named (a card from before a restart, or one
++// it had closed meanwhile; backend marks.py _close_stale): that card goes, shown or
++// waiting, and so do the marks the answer sent on their way, since nothing lands for it
++// (#18). Only that offer: another one shown now holds marks of its own.
++const offerDropped = (state, offerId) => {
++  const gone = (o) => holdsOwnMark(o) && o.offer_id === offerId;
++  const queue = state.abilityMarkQueue.filter(o => !gone(o));
++  const held = state.heldMarks;
++  return {
++    ...(gone(state.abilityMarkOffer) ? { abilityMarkOffer: queue[0] || null, abilityMarkQueue: queue.slice(1) } : { abilityMarkQueue: queue }),
++    ...(held ? heldMarksAre({ ...held, offer: held.offer?.offerId === offerId ? null : held.offer,
++      landing: held.landing.filter(m => m.offerId !== offerId) }) : {}),
++  };
+ };
+ // The sheet arrived. A mark on its way is on it when its track rose, one mark a box; on a
+ // full track, at the next sheet (Endurance keeps it at three; a fourth that brings a scar
+@@ -175,6 +192,17 @@ const USE_ANSWER_MS = 10000;
+ // let go, and a mark sent into a silent socket was lost without a word (playtest 2,
+ // silent-socket-loses-mark). An answer to an offer is not sent again: the server sends
+ // again an offer that still holds its mark.
++// A mark sent from the sheet and still unanswered is kept over a reload too (#43; store
++// persist below): a mark taken in a silent outage was lost when the page was reloaded
++// before the desk reconnected. The next socket sends it again with its mark_id, which the
++// server stores, so it is taken once even after a restart. One taken longer ago than this
++// is let go instead, with a word under the marks: the table has moved on since.
++const MARK_RESEND_MS = 10 * 60 * 1000;
++const MARK_WORD = { body: 'Body', brain: 'Brain', bleed: 'Bleed' };
++const keptOverReload = (held) => {
++  const landing = (Array.isArray(held?.landing) ? held.landing : []).filter(m => m && !m.answer && !!m.markId);
++  return landing.length ? { characterId: held.characterId, offer: null, landing: landing.map(m => ({ ...m, undoId: null, reloaded: true })) } : null;
++};
+ const forgetUnanswered = (set, get, keepMarks = false) => {
+   if (get().abilityUseSent) set({ abilityUseSent: null });
+   const keep = (m) => keepMarks && !m.answer && !!m.markId;
+@@ -182,9 +210,20 @@ const forgetUnanswered = (set, get, keepMarks = false) => {
+     set(state => heldMarksAre({ ...state.heldMarks, landing: state.heldMarks.landing.filter(keep) }));
+   }
+ };
+-const resendMarks = (get, socket) => {
+-  const held = get().heldMarks;
++const resendMarks = (set, get, socket) => {
++  let held = get().heldMarks;
+   if (!held || held.characterId !== get().character?.id) return;
++  const stale = held.landing.filter(m => m.reloaded && !(Date.now() - (m.at || 0) < MARK_RESEND_MS));
++  if (stale.length) {
++    set(state => ({
++      ...heldMarksAre({ ...state.heldMarks, landing: state.heldMarks.landing.filter(m => !stale.includes(m)) }),
++      abilityMarkRefused: stale.length === 1
++        ? `A ${MARK_WORD[stale[0].type] || 'marked'} mark taken before the reload may not have counted. Check the trauma record.`
++        : `${stale.length} marks taken before the reload may not have counted. Check the trauma record.`,
++    }));
++    held = get().heldMarks;
++    if (!held) return;
++  }
+   held.landing.filter(m => m.markId).forEach((m) => {
+     try {
+       socket.send(JSON.stringify({ type: 'take_mark', payload: { mark_type: m.type, mark_id: m.markId } }));
+@@ -495,10 +534,12 @@ const useGameStore = create(
+       abilityMarkOffer: null,    // { ability, mark_type, character_id, options?, intercept?, seq } — mark intercept prompt
+       abilityMarkQueue: [],      // offers waiting behind the one shown
+       // The marks the sheet draws held, as it does a mark waiting for its Undo: those an open
+-      // soak or Death Defy offer holds back (the server's _pending_marks), and those on their
+-      // way until the sheet arrives with them. { characterId, offer: { types, ability, seq }
+-      // or null, landing: [{ type, answer }] } (offerHolds and the helpers after it;
+-      // playtest, mark-undo-then-death-defy: the box went empty for the offer's 30 seconds)
++      // soak or Death Defy offer holds back (the server's characters.held_mark), and those on
++      // their way until the sheet arrives with them. { characterId, offer: { types, ability,
++      // seq, offerId } or null, landing: [{ type, answer, undoId?, markId?, at?, offerId? }] }
++      // (offerHolds and the helpers after it; playtest, mark-undo-then-death-defy: the box
++      // went empty for the offer's 30 seconds). The marks sent from the sheet and still
++      // unanswered are kept over a reload (keptOverReload, #43).
+       heldMarks: null,
+       abilityUseError: null,     // why the server refused an ability used outside a roll
+       abilityMarkRefused: null,  // why the server refused an answer to a mark offer (its mark then landed)
+@@ -710,7 +751,7 @@ const useGameStore = create(
+             }
+           }, HEARTBEAT_TICK_MS);
+           if (queuedRoll) sendRoll(set, get, queuedRoll);
+-          resendMarks(get, socket);
++          resendMarks(set, get, socket);
+           set(state => withoutIntercepts(state));
+           // The GM desk opened again (a drop, a laptop waking, "Use this tab"): the members'
+           // changes made while it was down never came, so what it shows loads again. So do
+@@ -1347,7 +1388,8 @@ const useGameStore = create(
+             // The offer's mark landed because another mark came (backend marks.py
+             // mark_or_offer): its card goes, so its countdown cannot land the mark again.
+             // Dropped at the death (close_offers_at_death): its marks are not taken either
+-            if (message.payload?.dropped) {
++            if (message.payload?.dropped && message.payload.offer_id) set(state => offerDropped(state, message.payload.offer_id));
++            else if (message.payload?.dropped) {
+               set(state => ({ ...withoutOwnOffer(state), ...(state.heldMarks?.offer ? heldMarksAre({ ...state.heldMarks, offer: null }) : {}) }));
+             }
+             else set(state => ({ ...withoutOwnOffer(state), ...offerLets(state, false, state.heldMarks?.offer?.seq) }));
+@@ -1572,7 +1614,7 @@ const useGameStore = create(
+         markAnswerOut = holdsOwnMark(get().abilityMarkOffer);
+         // Used: its marks stay held until the answer, which keeps them off the sheet or lands them
+         set(state => ({ ...nextOffer(state),
+-          ...(holdsOwnMark(state.abilityMarkOffer) ? offerLets(state, true, state.abilityMarkOffer.seq) : {}) }));
++          ...(holdsOwnMark(state.abilityMarkOffer) ? offerLets(state, true, state.abilityMarkOffer.seq, offerId) : {}) }));
+         if (socket?.readyState === WebSocket.OPEN) {
+           socket.send(JSON.stringify({ type: 'resolve_ability_mark', payload: { ability, choice, offer_id: offerId } }));
+         }
+@@ -1619,7 +1661,7 @@ const useGameStore = create(
+       // (or letting its countdown run out, timedOut) tells the server, which lets the mark land.
+       declineAbilityMark: (offer, timedOut = false) => {
+         const { socket } = get();
+-        set(state => ({ ...nextOffer(state), ...(holdsOwnMark(offer) ? offerLets(state, false, offer.seq) : {}) }));
++        set(state => ({ ...nextOffer(state), ...(holdsOwnMark(offer) ? offerLets(state, false, offer.seq, offer.offer_id) : {}) }));
+         if (offer && socket?.readyState === WebSocket.OPEN) {
+           socket.send(JSON.stringify({
+             type: 'resolve_ability_mark',
+@@ -1671,7 +1713,7 @@ const useGameStore = create(
+           set((state) => {
+             const characterId = state.character?.id;
+             const held = state.heldMarks?.characterId === characterId ? state.heldMarks : { characterId, offer: null, landing: [] };
+-            return { heldMarks: { ...held, landing: [...held.landing, { type: markType, answer: false, undoId, markId }] } };
++            return { heldMarks: { ...held, landing: [...held.landing, { type: markType, answer: false, undoId, markId, at: Date.now() }] } };
+           });
+           return true;
+         }
+@@ -2444,13 +2486,14 @@ const useGameStore = create(
+         rejoinInvite: state.rejoinInvite,
+         pendingScar: state.pendingScar,
+         reportDrafts: state.reportDrafts,
++        heldMarks: keptOverReload(state.heldMarks),
+       }),
+ 
+       // A session saved before login tokens existed has no token, and the server
+       // refuses every call without one. Drop it, and what belonged to it, so the app
+       // starts on the login screen.
+       merge: (persisted, current) => {
+-        const merged = { ...current, ...(persisted || {}) };
++        const merged = { ...current, ...(persisted || {}), heldMarks: keptOverReload(persisted?.heldMarks) };
+         if (merged.accessSession?.token) return merged;
+         return {
+           ...merged,
+@@ -2464,6 +2507,7 @@ const useGameStore = create(
+           circle: null,
+           rejoinInvite: null,
+           pendingScar: null,
++          heldMarks: null,
+         };
+       },
+     }
+-- 
+2.43.0
+
