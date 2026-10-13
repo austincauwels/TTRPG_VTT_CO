@@ -10,6 +10,7 @@ import { TickMark } from './InkMarks';
 import { NoteMarkdown } from './NoteMarkdown';
 import { MarkdownMarks, PreviewToggle } from './MarkdownMarks';
 import { SketchSheet } from './sketch/SketchSheet';
+import { onDraftsCleared, notebookDraftPrefix } from '../../utils/drafts';
 
 const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
@@ -107,6 +108,13 @@ const openParts = new Map();
 // again meanwhile (a step to another tab and back) shows it sending and takes its answer,
 // so writing that went is never offered to send again.
 const sending = new Map();
+// Sign out forgets this account's writing held in the page too (utils/drafts.js)
+onDraftsCleared((userId) => {
+  const prefix = notebookDraftPrefix(userId);
+  for (const m of [keptInPage, stagedPictures, openParts, sending]) {
+    for (const k of [...m.keys()]) if (k.startsWith(prefix)) m.delete(k);
+  }
+});
 const useSending = (key, onAnswer) => {
   const [request, setRequest] = useState(() => (key && sending.get(key)) || null);
   const answer = useRef(onAnswer);

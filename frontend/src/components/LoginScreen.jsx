@@ -550,7 +550,7 @@ const LoginScreen = ({ resetToken = null, onLeaveReset }) => {
   // The new password is set. Every earlier sign-in has ended, this browser's too, so the
   // slip goes back to signing in, with the username filled in.
   const resetDone = (data) => {
-    if (useGameStore.getState().accessSession) useGameStore.getState().logout();
+    if (useGameStore.getState().accessSession) useGameStore.getState().logout({ keepDrafts: true });
     setAfterReset({ username: data?.name || '', googleUnlinked: data?.googleUnlinked === true, on: stampDate(new Date()) });
     focusAfterStep.current = data?.name ? 'password' : 'username';
     setScreen('signin');
