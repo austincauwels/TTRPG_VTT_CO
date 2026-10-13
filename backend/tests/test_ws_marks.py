@@ -90,8 +90,8 @@ def test_fourth_mark_incapacitates(client):
         assert msgs[2]["payload"] == {"message": f"{ch['name']} has been incapacitated!",
                                       "log_type": "danger", "ink_color": engine.INK_COLORS[0]}
         # The players' circle cards follow who is down
-        assert msgs[3]["payload"] == {"character_id": ch["id"], "campaign_id": camp["id"], "is_dead": False,
-                                      "incapacitated": True, "scars_count": 0}
+        assert msgs[3]["payload"] == {"character_id": ch["id"], "campaign_id": camp["id"], "name": ch["name"],
+                                      "is_dead": False, "incapacitated": True, "scars_count": 0}
         # The GM gets the sheet trigger_scar carries, and not member_status
         assert gm.drain() == [msgs[0], {"type": "member_update", "payload": msgs[1]["payload"]["character"]}, msgs[2]]
     row = support.fetch(Character, ch["id"])
@@ -1551,7 +1551,7 @@ def test_a_scar_owed_is_on_the_sheet_and_the_recorded_scar_is_logged(client):
         msgs = ws.sync()
         assert support.types(msgs) == ["character_update", "member_status", "activity_log"]
         assert msgs[0]["payload"]["scar_pending"] is False
-        assert msgs[1]["payload"] == {"character_id": ch["id"], "campaign_id": camp["id"], "is_dead": False,
+        assert msgs[1]["payload"] == {"character_id": ch["id"], "campaign_id": camp["id"], "name": ch["name"], "is_dead": False,
                                       "incapacitated": True, "scars_count": 1}
         assert msgs[2]["payload"]["message"] == f"{ch['name']} recorded a scar (1 of 4)."
         assert msgs[2]["payload"]["log_type"] == "field"

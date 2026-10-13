@@ -1047,8 +1047,8 @@ def test_roster(client):
     member_view = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(active["id"])).json()
     assert all(c.pop("owner_username") for c in body["pending_investigators"] + body["active_investigators"])
     assert {c.pop("owner_username") for c in member_view["pending_investigators"] + member_view["active_investigators"]} == {""}
-    # The marks, picks and owed scar are the Lightkeeper's read alone
-    ours = ("body_marks", "brain_marks", "bleed_marks", "advancement_picks", "scar_pending")
+    # The marks, picks, owed scar and the dot for a player's edit are the Lightkeeper's read alone
+    ours = ("body_marks", "brain_marks", "bleed_marks", "advancement_picks", "scar_pending", "sheet_edited")
     assert all(not any(c[k] for k in ours) for c in member_view["active_investigators"])
     for c in body["pending_investigators"] + body["active_investigators"]:
         for k in ours:
@@ -1078,7 +1078,7 @@ def test_roster(client):
         "owner_username": support.fetch(User, support.fetch(Character, active["id"]).user_id).username,
         # The Lightkeeper's read also tells how the investigator stands
         "incapacitated": False, "scars_count": 0, "body_marks": 0, "brain_marks": 0,
-        "bleed_marks": 0, "advancement_picks": 0, "scar_pending": False,
+        "bleed_marks": 0, "advancement_picks": 0, "scar_pending": False, "sheet_edited": False,
     }
 
 

@@ -831,6 +831,11 @@
             "title": "Scars Count",
             "type": "integer"
           },
+          "sheet_edited": {
+            "default": false,
+            "title": "Sheet Edited",
+            "type": "boolean"
+          },
           "specialty": {
             "anyOf": [
               {
@@ -1139,6 +1144,11 @@
             "default": 0,
             "title": "Sense",
             "type": "integer"
+          },
+          "sheet_edited": {
+            "default": false,
+            "title": "Sheet Edited",
+            "type": "boolean"
           },
           "sneak": {
             "default": 0,

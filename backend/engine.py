@@ -103,6 +103,8 @@ def approve_investigator(db: Session, character_id: int):
         ).count()
         character.ink_color = INK_COLORS[active_count % len(INK_COLORS)]
         character.status = "active"
+        # A dot left from another campaign is not this Lightkeeper's to see
+        character.sheet_edited = False
         db.commit()
         db.refresh(character)
         return {"success": True, "character": character}

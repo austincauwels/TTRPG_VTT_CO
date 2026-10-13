@@ -41,15 +41,23 @@ export const InvestigatorBusinessCard = ({ inv, onClick, index = 0, deceased = f
   const penFont = inv.pen_font || 'Caveat';
   deceased = deceased || fallen;
   const accentColor = deceased ? 'rgb(var(--c-ink))' : (inv.ink_color || 'rgb(var(--c-ink))');
+  // The player changed the sheet by hand since the Lightkeeper last opened it (issue #64);
+  // opening it takes the dot away
+  const edited = !fallen && !!inv.sheet_edited;
 
   return (
     <Tag
       {...(fallen ? { role: 'group' } : { type: 'button', onClick })}
-      aria-label={fallen ? `${inv.name}, fallen` : `Open ${inv.name}'s investigator sheet${deceased ? ' (deceased)' : ''}`}
+      aria-label={fallen ? `${inv.name}, fallen` : `Open ${inv.name}'s investigator sheet${deceased ? ' (deceased)' : ''}${edited ? ', changed by the player' : ''}`}
+      title={edited ? 'Changed by the player since you last opened the sheet' : undefined}
       {...(fallen ? {} : { whileHover: { scale: 1.04, rotate: 0, zIndex: 10 }, whileTap: { scale: 0.97 } })}
       style={{ rotate: rotation }}
       className={`relative max-w-full min-w-0 ${fallen ? '' : 'cursor-pointer'} text-left shadow-[4px_6px_16px_rgba(0,0,0,0.65)]`}
     >
+      {edited && (
+        <span aria-hidden="true" data-sheet-edited=""
+          className="absolute -top-1.5 -right-1.5 z-10 w-4 h-4 rounded-full bg-oxblood border-2 border-cream shadow-[0_1px_3px_rgba(0,0,0,0.6)]" />
+      )}
       <div className={`w-full rounded-sm overflow-hidden border bg-cream ${deceased ? 'border-ink/60' : 'border-ink/20'}`} style={{ minHeight: '140px' }}>
         {/* Accent stripe — player's ink color; a mourning band for the dead */}
         <div className={`${deceased ? 'h-5' : 'h-3'} w-full`} style={{ background: accentColor }} />

@@ -393,6 +393,8 @@ class CharacterSheet(CharacterResponse):
     advancement_picks: int = 0
     advancement_taken: List[str] = []
     scar_pending: bool = False
+    # A direct edit by the player the Lightkeeper has not seen (vtt/sheet_edits.py)
+    sheet_edited: bool = False
 
 class CharacterRosterItem(BaseModel):
     id: int
@@ -422,6 +424,9 @@ class CharacterRosterItem(BaseModel):
     bleed_marks: int = 0
     advancement_picks: int = 0
     scar_pending: bool = False
+    # A direct edit by the player the Lightkeeper has not seen (the roster card's dot),
+    # filled for the Lightkeeper alone
+    sheet_edited: bool = False
     class Config:
         from_attributes = True
 

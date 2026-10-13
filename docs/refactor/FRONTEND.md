@@ -126,7 +126,9 @@ Every store send is guarded by `socket.readyState === WebSocket.OPEN` and is sil
 | `gm_update_circle` | `{role, circle_id: 1, tension_clock}` | gm/SceneManager.jsx:24 | TensionClock +/- buttons |
 | `gm_update_circle` | `{role, circle_id: 1, location, atmosphere}` | gm/SceneManager.jsx:136 | SceneManager broadcast |
 | `gm_end_assignment` | `{role, circle_id: circle.id \|\| 1, campaign_id: accessSession.campaignId}` | gm/SceneManager.jsx:145 | SceneManager end assignment |
-| `update_gear` | `{character_id, gear}` | pc/InvestigatorDossier.jsx:232 | gear modal confirm |
+| `update_gear` | `{gear}` | store `updateGear` (since 2026-10-13) | gear modal confirm |
+| `edit_sheet` | `{changes}` | store `editSheet` | pc/SheetEditor.jsx Save (since 2026-10-13); only the fields the player changed from the sheet as it last arrived, so a change made at the table while the dialog is open is not written back |
+| `gm_sheet_seen` | `{character_id}` | store `gmSheetSeen` | gm/GMCharacterSheet.jsx, a sheet with the dot opened (since 2026-10-13) |
 
 Three components send on the socket directly instead of through a store action: SceneManager.jsx (3 sends) and InvestigatorDossier.jsx (1 send).
 

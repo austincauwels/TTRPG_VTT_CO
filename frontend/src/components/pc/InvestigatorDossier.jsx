@@ -20,6 +20,7 @@ import { usePortraitChange } from './usePortraitChange';
 import { TickMark } from '../shared/InkMarks';
 import { ActionInfo, InfoTerm, useActionInfo } from '../shared/ActionInfo';
 import { ConfirmAction } from '../shared/ConfirmAction';
+import { SheetEditor } from './SheetEditor';
 
 // A die face (three pips). The whole action row is the roll; this die only shows on hover
 // or keyboard focus (.action-die in index.css), never as a standing icon on every row.
@@ -445,8 +446,11 @@ const GEAR_ICONS = {
 // It gives the trauma record an Edit button that sets the mark tracks and rewords or
 // removes scars right on the record, and, while it is on, makes the drive pips live (GMCharacterSheet.jsx).
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false, traumaEdit = null }) => {
-  const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, socket, accessSession, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster } = useGameStore(useShallow(s => ({
+  const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster, editSheet, updateGear, sheetEditError } = useGameStore(useShallow(s => ({
     character: s.character,
+    editSheet: s.editSheet,
+    updateGear: s.updateGear,
+    sheetEditError: s.sheetEditError,
     useAbility: s.useAbility,
     abilityUseError: s.abilityUseError,
     openAbilityScar: s.openAbilityScar,
@@ -458,8 +462,6 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     rollAction: s.rollAction,
     takeMark: s.takeMark,
     reviveCharacter: s.reviveCharacter,
-    socket: s.socket,
-    accessSession: s.accessSession,
     setStage: s.setStage,
     pendingGildedChoice: s.pendingGildedChoice,
     isRolling: s.isRolling,
@@ -558,6 +560,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     target?.focus({ preventScroll: true });
   });
   const [infoTab, setInfoTab] = useState('role'); // 'role' | 'specialty' | 'profile'
+  // The player's edit of their own sheet (SheetEditor.jsx)
+  const [showEditor, setShowEditor] = useState(false);
   const [showGearModal, setShowGearModal] = useState(false);
   const [pendingGear, setPendingGear] = useState([]);
   const [writeIn, setWriteIn] = useState('');   // gear written in by name (p. 53)
@@ -583,13 +587,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     updateDrive(pool, value);
   };
 
+  // A gear change is a direct edit of the sheet, logged for the Lightkeeper like the others
   const sendGearUpdate = () => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    socket.send(JSON.stringify({
-      type: 'update_gear',
-      payload: { character_id: character.id, gear: pendingGear },
-    }));
-    setShowGearModal(false);
+    if (updateGear(pendingGear)) setShowGearModal(false);
   };
 
   const domainCategories = [
@@ -664,6 +664,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The photo. On the player's own desk it can be added or changed (owner's item 15); the
   // GM's copy of the sheet only shows it.
   const canChangePhoto = !readOnly && character.id != null && character.id === storeChar?.id;
+  // The rest of the sheet, the same way, at any time (issue #64): logged for the Lightkeeper
+  const canEdit = canChangePhoto && !dead;
   const photo = canChangePhoto ? portrait.shown : (character.profile_pic ?? character.profilePic ?? null);
   const pickPhoto = () => photoInputRef.current?.click();
   const onPhotoPicked = (e) => {
@@ -700,21 +702,20 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     ) : null;
 
   const gear = character.gear || [];
-  // Gear is marked when it is used, and stays marked until the Lightkeeper ends the
-  // assignment (rulebook p. 52; the server refuses unmarking). Every marked item is kept,
-  // including ones from outside these lists, which the dialog used to drop.
+  // Gear is marked when it is used, and the Lightkeeper clears it when the assignment ends
+  // (rulebook p. 52). The player may change it at any time, marked items and items past the
+  // slots included: a change is logged for the Lightkeeper (issue #64), and the dialog warns
+  // past the slots. Every item is kept, including ones from outside these lists.
   const listedGear = [...STANDARD_GEAR, ...(character.specialty ? (SPECIALTY_GEAR[character.specialty] || []) : [])];
-  const otherGear = gear.filter(item => !listedGear.includes(item));
   // Three slots, four with Geared Up (p. 30); One Step Ahead's object has a slot of its own
   const slots = gearLimit(character);
   const stepAhead = writtenIn(gear);
   const counted = countedGear(gear);
   const pendingCount = countedGear(pendingGear).length;
-  // Gear written in by name in this dialog and not saved yet: it can still be taken off
-  const pendingWritten = pendingGear.filter(item => !listedGear.includes(item) && !gear.includes(item));
-  const swappable = countedGear(pendingGear.filter(item => !gear.includes(item))).length > 0;
+  // Gear written in by name, One Step Ahead's object among it, saved or not: it can be taken off
+  const pendingWritten = pendingGear.filter(item => !listedGear.includes(item));
   const writeInName = writeIn.trim();
-  const canWriteIn = writeInName && pendingCount < slots && !pendingGear.includes(writeInName)
+  const canWriteIn = writeInName && !pendingGear.includes(writeInName)
     && !writeInName.startsWith(GEAR_RULES.oneStepAhead);
   const addWriteIn = () => {
     if (!canWriteIn) return;
@@ -783,10 +784,25 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
       )}
 
       {/* The form's printed head: its number, and the registry's serial in red */}
-      <div className="dossier-form flex items-center gap-2 -mt-1" aria-hidden="true">
-        <PrinterMark size={13} />
-        <FormLine>Form C.O. 7<span className="form-line-long hidden"> · Investigator record</span></FormLine>
-        <SerialNo value={serialFor(character.id)} className="ml-auto" />
+      <div className="dossier-form flex flex-wrap items-center gap-x-2 gap-y-1 -mt-1">
+        {/* Grows, never shrinks: where the button has no room beside it, the button takes the next line */}
+        <div aria-hidden="true" className="flex items-center gap-2 flex-[1_0_auto]">
+          <PrinterMark size={13} />
+          <FormLine>Form C.O. 7<span className="form-line-long hidden"> · Investigator record</span></FormLine>
+          <SerialNo value={serialFor(character.id)} className="ml-auto" />
+        </div>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setShowEditor(true)}
+            className="ml-auto shrink-0 whitespace-nowrap min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] text-xs font-sans font-black uppercase tracking-wider border border-ink/35 bg-cream/40 px-2.5 py-1 hover:bg-cream/80 hover:border-ink/60 transition-colors rounded-sm"
+          >
+            Edit sheet
+          </button>
+        )}
+        {canEdit && sheetEditError && (
+          <p role="alert" className="basis-full font-serif text-base text-oxblood leading-snug">{sheetEditError}</p>
+        )}
       </div>
 
       {/* Investigator Identity Headers: the name with the role and specialty under it,
@@ -1513,6 +1529,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
         </div>
       </div>
 
+      {showEditor && (
+        <SheetEditor character={character} roleOf={ROLE_FROM_ABILITY} specialtyOf={SPECIALTY_FROM_ABILITY}
+          abilityTexts={ABILITY_TEXTS} onSave={editSheet} onClose={() => setShowEditor(false)} />
+      )}
+
       {/* Gear Change Modal: in a portal, so the sheet's stacking context (z-10), its
           space-y margin and its overflow cannot place or clip it */}
       {showGearModal && createPortal(
@@ -1521,29 +1542,24 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
           <div ref={gearDialogRef} role="dialog" aria-modal="true" aria-labelledby="gear-dialog-title" className="relative rounded-sm overflow-y-auto w-full max-w-[520px] max-h-[85dvh] px-5 py-6 sm:px-9 sm:py-8" onClick={e => e.stopPropagation()}
             style={{ background: 'rgb(var(--c-parchment))', border: '3px double rgb(var(--c-sepia)/0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
             <h2 id="gear-dialog-title" className="text-2xl font-serif font-black text-ink mb-2">Change Gear</h2>
-            <p className="text-sm font-serif italic text-sepia mb-3">Choose the gear you carry. A chosen item is marked and stays until the Lightkeeper ends the assignment, when everyone's gear is cleared, to be chosen again.</p>
-            {/* Why the rest are greyed, at the top where a phone shows it */}
-            <p role="status" className="mb-2 text-xs font-sans font-black text-sepia">
-              {pendingCount < slots ? '' : swappable ? `All ${slots} gear slots are marked. Untick one to swap.` : `All ${slots} gear slots are marked until the assignment ends.`}
+            <p className="text-sm font-serif italic text-sepia mb-3">Choose the gear you carry. The Lightkeeper clears everyone's gear when the assignment ends.</p>
+            {/* Past the slots, a soft warning at the top where a phone shows it: never a stop */}
+            <p role="status" className="mb-2 text-xs font-sans font-black text-oxblood">
+              {pendingCount > slots ? `${pendingCount} items for ${slots} gear slots: more than you carry this assignment.` : ''}
             </p>
             {/* The sheet's blank gear line (p. 53): circle gear, or gear found on the way,
-                written in by name. Marked items stay; new ones can be taken off until saved. */}
+                written in by name, and One Step Ahead's object. Each can be taken off. */}
             <div className="mb-4">
               <p className="text-xs font-sans font-black uppercase tracking-wider text-sepia mb-2">Other gear</p>
-              {(otherGear.length > 0 || pendingWritten.length > 0) && (
+              {pendingWritten.length > 0 && (
                 <ul className="space-y-1.5 mb-2">
-                  {otherGear.map(item => (
-                    <li key={item} className="flex items-center gap-3 p-2.5 rounded-sm text-sm font-serif font-bold text-ink"
-                      style={{ background: 'rgb(var(--c-oxblood)/0.08)', border: '1px solid rgb(var(--c-oxblood) / 0.5)' }}>
-                      <TickMark /> {item}
-                    </li>
-                  ))}
                   {pendingWritten.map(item => (
-                    <li key={item} className="flex items-center gap-3 p-2.5 rounded-sm text-sm font-serif font-bold text-ink"
+                    <li key={item} className="flex items-center gap-3 pl-2.5 pr-1 py-1 rounded-sm text-sm font-serif font-bold text-ink"
                       style={{ background: 'rgb(var(--c-oxblood)/0.08)', border: '1px solid rgb(var(--c-oxblood) / 0.5)' }}>
-                      <TickMark /> <span className="flex-1 min-w-0 break-words">{item}</span>
+                      <TickMark /> <span className="flex-1 min-w-0 break-words">{item.startsWith(GEAR_RULES.oneStepAhead) ? `${item.slice(GEAR_RULES.oneStepAhead.length)} (One Step Ahead)` : item}</span>
                       <button type="button" onClick={() => setPendingGear(g => g.filter(x => x !== item))}
-                        className="text-xs font-sans font-black uppercase tracking-widest text-sepia hover:text-oxblood">Take off</button>
+                        aria-label={`Take off ${item}`}
+                        className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-2 text-xs font-sans font-black uppercase tracking-widest text-sepia hover:text-oxblood">Take off</button>
                     </li>
                   ))}
                 </ul>
@@ -1570,9 +1586,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   {SPECIALTY_GEAR[character.specialty].map(item => {
                     const sel = pendingGear.includes(item);
                     return (
-                      <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingCount < slots && setPendingGear(g=>[...g,item])}
-                        aria-disabled={!sel && pendingCount >= slots && !gear.includes(item) ? true : undefined}
-                        className={`w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm ${!sel && pendingCount >= slots ? 'opacity-50' : ''}`}
+                      <button type="button" key={item} aria-pressed={sel} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : setPendingGear(g=>[...g,item])}
+                        className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
                         style={{ background: sel ? 'rgb(var(--c-oxblood)/0.1)' : 'rgb(var(--c-parchment-deep)/0.3)', border:`1px solid ${sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia)/0.22)'}` }}>
                         <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/40'}`}>{sel&&<TickMark />}</div>
                         <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />
@@ -1590,9 +1605,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                 {STANDARD_GEAR.map(item => {
                   const sel = pendingGear.includes(item);
                   return (
-                    <button type="button" key={item} aria-pressed={sel} disabled={gear.includes(item)} title={gear.includes(item) ? 'Marked until the assignment ends' : undefined} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : pendingCount < slots && setPendingGear(g=>[...g,item])}
-                      aria-disabled={!sel && pendingCount >= slots && !gear.includes(item) ? true : undefined}
-                        className={`w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm ${!sel && pendingCount >= slots ? 'opacity-50' : ''}`}
+                    <button type="button" key={item} aria-pressed={sel} onClick={() => sel ? setPendingGear(g => g.filter(x=>x!==item)) : setPendingGear(g=>[...g,item])}
+                      className="w-full text-left flex items-center gap-3 p-2.5 cursor-pointer transition-all select-none rounded-sm"
                       style={{ background: sel ? 'rgb(var(--c-oxblood)/0.08)' : 'rgb(var(--c-parchment-deep)/0.15)', border:`1px solid ${sel?'rgb(var(--c-oxblood) / 0.5)':'rgb(var(--c-sepia)/0.15)'}` }}>
                       <div className={`w-4 h-4 border flex items-center justify-center text-xs shrink-0 ${sel?'bg-oxblood border-oxblood text-cream':'border-sepia/35'}`}>{sel&&<TickMark />}</div>
                       <SafeIcon name={GEAR_ICONS[item]||'GiSuitcase'} size={15} style={{ color: sel?'rgb(var(--c-oxblood))':'rgb(var(--c-sepia))', flexShrink:0 }} />
@@ -1604,7 +1618,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-4" style={{ borderTop: '1px solid rgb(var(--c-sepia)/0.18)' }}>
-              <span className="text-sm font-sans font-black text-sepia whitespace-nowrap">{pendingCount} / {slots} selected</span>
+              <span className={`text-sm font-sans font-black whitespace-nowrap ${pendingCount > slots ? 'text-oxblood' : 'text-sepia'}`}>{pendingCount} / {slots} selected</span>
               <div className="flex gap-3 max-sm:flex-1 max-sm:justify-end">
                 <button onClick={() => setShowGearModal(false)}
                   className="px-4 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-sepia/25 hover:border-sepia/50 text-sepia transition-colors rounded-sm">
