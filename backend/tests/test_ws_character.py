@@ -684,6 +684,11 @@ def test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot(client):
         ws.send("update_gear", gear=four)
         assert support.types(ws.sync()) == ["character_update", "activity_log"]
         wa.drain()
+        # The ally's fourth item before the slot is taken and logged too (it used to be
+        # refused, 409): detection, not prevention (decision 1 of fix round 5)
+        wa.send("update_gear", gear=["Lantern", "Camera", "Rope", "Chalk"])
+        assert support.types(wa.sync()) == ["character_update", "activity_log"]
+        ws.drain()
         ws.send("use_ability", ability="Geared Up", ally_id=soldier["id"])   # not themselves
         ws.send("use_ability", ability="Geared Up", ally_id=999999)
         ws.send("use_ability", ability="Geared Up")
