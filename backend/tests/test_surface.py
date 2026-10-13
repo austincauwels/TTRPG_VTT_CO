@@ -155,8 +155,8 @@ WS_MESSAGE_TYPES = [
     "apply_advancement", "update_circle", "circle_creation_vote",
     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
     "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
-    "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally", "gm_earn_back",
-    "edit_sheet", "gm_sheet_seen",
+    "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally",
+    "edit_sheet", "gm_sheet_seen", "gm_earn_back",
 ]
 
 
