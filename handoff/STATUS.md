@@ -19,6 +19,15 @@ You are continuing work on **Candela VTT** (`austincauwels/TTRPG_VTT_CO`), a web
 - Robert's preferences: plain language, short answers, no em dashes; log durable decisions and facts to his Obsidian vault with the Galga `append_daily_log` tool, after reading the vault's `CLAUDE.md`, with wiki-links such as [[Candela VTT]], [[Austin]], [[Candela Obscura Campaign]] and [[GaterGrid Server]]. Link only notes that exist. Vault dates are Pacific.
 - If the repo is not in the session, attach it with `add_repo` (owner `austincauwels`, repo `TTRPG_VTT_CO`, access `push`).
 
+## Overnight run (Robert, 13 October, before bed)
+
+Robert asked the session to keep going unattended: finish fix round 6, then fix the next set, compacting to these instructions between sets. Binding for this run:
+- **Merge allowed tonight:** merge a round's PR once CI is green and the final checks pass, so the next round builds on main. Never deploy.
+- **Next set after round 6:** the low UX checklists only: #69, #45 and the UX lines of #60 (not the ideas, not #27-#34). Same shape as round 6 (triage, groups, review, repair, final check). Tick checklist lines by hand when merged.
+- **Before each set:** re-read open GitHub issues and comments; fold in any new hand-filed issue by Robert that needs no product decision; leave ones needing a decision for him with a recommendation.
+- **Between sets:** rewrite this file (the hand-off), push it, then continue. Stop after the checklists are done and leave a summary for the morning.
+- Session: session_01WaLz6UBTQ5XaTKSYwqeMKA, branch claude/loving-fermi-2giawj (restart it from main for each new round once the last PR merges). Work folder /home/user/pt6, worktrees /home/user/wt/<group>.
+
 ## GitHub issues
 
 Open problems live in GitHub issues; this file only points at them.
