@@ -124,6 +124,7 @@ export const CircleCreationPopup = () => {
   const loadedAnswer = useRef(character?.personal_circle_answer || '');
   const sentAnswer = confirmedPersonalAnswer?.characterId === myId ? confirmedPersonalAnswer.answer : loadedAnswer.current;
   const [houseDraft, setHouseDraft] = useState(null);   // the chapter house text while its box has focus
+  const [houseSent, setHouseSent] = useState(null);      // what this desk last sent for the chapter house
   const houseAtFocus = useRef('');                      // what the box held when it got focus
 
   // ── Ability section state ──
@@ -173,7 +174,10 @@ export const CircleCreationPopup = () => {
 
   const handleLocationBlur = (e) => {
     // Sent only when this player changed it: an untouched copy would overwrite a newer chapter house
-    if (e.target.value !== houseAtFocus.current) updateBackstoryAnswer(circleId, 'chapter_house', e.target.value);
+    if (e.target.value !== houseAtFocus.current) {
+      updateBackstoryAnswer(circleId, 'chapter_house', e.target.value);
+      setHouseSent(e.target.value);
+    }
     setHouseDraft(null);
   };
 
@@ -412,6 +416,11 @@ export const CircleCreationPopup = () => {
                 className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:border-sepia rounded-sm"
                 style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
               />
+              {/* No word until this desk has typed or sent something, as the personal answer's */}
+              <p role="status" className="font-serif italic text-sm text-sepia mt-1 text-right min-h-[1.25rem]">
+                {houseDraft !== null && houseDraft !== house ? 'Not saved yet'
+                  : houseSent === null ? '' : house === houseSent ? 'Saved' : 'Not saved yet'}
+              </p>
             </div>
 
             <div className="space-y-2">
