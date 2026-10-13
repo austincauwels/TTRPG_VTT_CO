@@ -424,6 +424,9 @@ def init_db():
     # Resource Management's earn-backs waiting for the circle's choice (RULES_CHECK.md item
     # 16, fix round 5). Existing rows get 0: none waiting.
     add_columns("circles", [("earn_backs", "INTEGER DEFAULT 0")])
+    # The highest milestone already counted for an earn-back (fix round 7, 69.3). Existing
+    # rows get 0: the next rise counts what it passes, as before.
+    add_columns("circles", [("milestones_earned", "INTEGER DEFAULT 0")])
 
     # Circle advancement picks (RULES_CHECK.md item 14). Existing rows get 0 and an empty
     # list: no advancement waiting.

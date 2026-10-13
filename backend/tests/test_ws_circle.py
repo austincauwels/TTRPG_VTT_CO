@@ -666,9 +666,21 @@ def test_meticulous_notes_add_illumination_after_an_assignment(client):
         msgs = gm.sync()
         assert msgs[0]["payload"]["illumination"] == 3
         lines = [m["payload"]["message"] for m in msgs if m["type"] == "activity_log"]
-        assert lines[1:] == [f"Meticulous Notes: {a['name']}'s detailed notes add 1 Illumination.",
-                             "The Moths milestone 3 reached!"]
+        # The circle has no Resource Management: a milestone gives nothing, so no line names it
+        assert lines[1:] == [f"Meticulous Notes: {a['name']}'s detailed notes add 1 Illumination."]
     assert support.fetch(Circle, cid).illumination == 3
+
+
+def test_end_assignment_clears_and_hides_the_timer(client):
+    """Fixed (playtest 3, timer-switch-after-end; fix round 7, 60.13): End Assignment left
+    the Timer switch on with an empty 0:00 face. The countdown is cleared and hidden."""
+    camp, _, cid = _campaign(client, members=1)
+    support.update(Circle, cid, timer_duration_ms=60000, timer_remaining_ms=40000, timer_visible=True)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_end_assignment")
+        payload = gm.sync()[0]["payload"]
+    assert (payload["timer_duration_ms"], payload["timer_remaining_ms"], payload["timer_running"],
+            payload["timer_visible"]) == (0, 0, False, False)
 
 
 def test_gm_end_assignment(client):
@@ -747,11 +759,10 @@ def test_the_tally_is_added_once_whichever_desk_presses(client):
         assert update["payload"]["backstory_answers"]["tally"] == {"answers": [True, False, True], "added": None}
         desk_a.send("gm_add_tally", circle_id=cid, keys=2)
         msgs = desk_a.sync()
-        assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
+        assert support.types(msgs) == ["circle_update", "activity_log"]
         assert msgs[0]["payload"]["illumination"] == 5
         assert msgs[0]["payload"]["backstory_answers"]["tally"] == {"answers": [True, False, True], "added": 4}
-        assert [m["payload"]["message"] for m in msgs[1:]] == [
-            "The Moths gains 4 Illumination (1 to 5).", "The Moths milestone 3 reached!"]
+        assert [m["payload"]["message"] for m in msgs[1:]] == ["The Moths gains 4 Illumination (1 to 5)."]
         assert support.of_type(wa.drain(), "circle_update")[-1]["payload"]["illumination"] == 5
     # Another desk (a second tab, another device) opens on the tally as added
     with support.ws_connect(client, camp["campaign_code"]) as desk_b:
@@ -876,6 +887,12 @@ def test_update_circle_insignia(client):
     camp, (member,), cid = _campaign(client)
     support.update(Circle, cid, insignia="GiCompass")
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        # Until the seal the circle's vote chooses it (fix round 7, 69.7)
+        gm.send("update_circle", circle_id=cid, insignia="GiMoon")
+        assert gm.sync() == [_rejected("update_circle", status=409,
+                                       detail="The insignia is chosen by the circle's vote until the seal.")]
+        assert support.fetch(Circle, cid).insignia == "GiCompass"
+        support.update(Circle, cid, is_finalized=True)
         gm.send("update_circle", circle_id=cid, insignia="GiMoon")
         msgs = gm.sync()
         assert support.types(msgs) == ["circle_update", "activity_log"]
@@ -913,22 +930,22 @@ def test_update_circle_milestone_log(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("update_circle", role="GM", illumination=3)
         msgs = gm.sync()
-        assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
-        # Every change says so (playtest, report-questions-tally: a plain +1 left no line)
+        # Every change says so (playtest, report-questions-tally: a plain +1 left no line); a
+        # circle without Resource Management gets no line for the milestone, which gives it nothing
+        # (fix round 7, 45.3)
+        assert support.types(msgs) == ["circle_update", "activity_log"]
         assert msgs[1]["payload"] == {"message": "The Moths gains 1 Illumination (2 to 3).", "log_type": "field"}
-        assert msgs[2]["payload"] == {"message": "The Moths milestone 3 reached!", "log_type": "field"}
         gm.send("update_circle", role="GM", illumination=4)
         gm.send("update_circle", role="GM", illumination=3)  # going down: no milestone
         assert [m["payload"]["message"] for m in gm.sync() if m["type"] == "activity_log"] == [
             "The Moths gains 1 Illumination (3 to 4).", "The Moths loses 1 Illumination (4 to 3)."]
         gm.send("update_circle", role="GM", illumination=3)  # no change: no line
         assert support.types(gm.sync()) == ["circle_update"]
-        # Fixed (RULES_CHECK 19): every milestone passed gets its line, and a full track says so
+        # A full track says so (RULES_CHECK 19)
         gm.send("update_circle", role="GM", illumination=12)
         msgs = gm.sync()
         assert [m["payload"]["message"] for m in msgs[1:]] == [
             "The Moths gains 9 Illumination (3 to 12).",
-            "The Moths milestone 6 reached!", "The Moths milestone 9 reached!",
             "The Moths's Illumination track is full: the circle can advance."]
 
 
@@ -945,11 +962,12 @@ def test_resource_management_reminds_at_each_milestone(client):
         msgs = gm.sync()
         assert msgs[0]["payload"]["earn_backs"] == 2
         lines = [m["payload"]["message"] for m in msgs[2:]]
-        assert lines == ["The Moths milestone 3 reached!", EARN_LINE, "The Moths milestone 6 reached!", EARN_LINE]
+        assert lines == [EARN_LINE.format("milestones 3 and 6", "2")]
 
 
-EARN_LINE = ("Resource Management: The Moths earns back one Stitch, Refresh or Train, the circle's choice "
-             "(the Lightkeeper picks it on the Circle page).")
+# One Resource Management line for a change, naming the milestones it passed (fix round 7, 45.3)
+EARN_LINE = ("Resource Management: The Moths passed {} and earns back {} Stitch, Refresh or Train, the "
+             "circle's choice (the Lightkeeper picks it on the Circle page).")
 
 
 def test_resource_management_earns_back_no_more_than_is_missing(client):
@@ -967,8 +985,8 @@ def test_resource_management_earns_back_no_more_than_is_missing(client):
         msgs = gm.sync()
         assert msgs[0]["payload"]["earn_backs"] == 1
         assert [m["payload"]["message"] for m in msgs[2:]] == [
-            "The Moths milestone 3 reached!", EARN_LINE, "The Moths milestone 6 reached!",
-            "Resource Management: The Moths has nothing more to earn back: what is waiting already fills its resources."]
+            EARN_LINE.format("milestones 3 and 6", "one") [:-1] +
+            "; the rest have nowhere to go, as what is waiting already fills its resources."]
         gm.send("gm_earn_back", resource_type="stitch")
         assert (gm.sync()[0]["payload"]["stitch"], support.fetch(Circle, cid).earn_backs) == (2, 0)
         # A spend later does not bring a banked one back
@@ -994,7 +1012,7 @@ def test_meticulous_notes_passing_a_milestone_earns_back(client):
         msgs = gm.sync()
         assert (msgs[0]["payload"]["illumination"], msgs[0]["payload"]["earn_backs"]) == (3, 1)
         lines = [m["payload"]["message"] for m in msgs if m["type"] == "activity_log"]
-        assert lines[-2:] == ["The Moths milestone 3 reached!", EARN_LINE]
+        assert lines[-1:] == [EARN_LINE.format("milestone 3", "one")]
     assert support.fetch(Circle, cid).earn_backs == 1
 
 
@@ -1040,10 +1058,45 @@ def test_resource_management_has_nothing_to_earn_back_when_full(client):
         msgs = gm.sync()
         assert msgs[0]["payload"]["earn_backs"] == 0
         assert msgs[-1]["payload"]["message"] == \
-            "Resource Management: every resource of The Moths is full, so there is nothing to earn back."
+            "Resource Management: The Moths passed milestone 3, but every resource is full, so there is nothing to earn back."
         support.update(Circle, cid, circle_ability="Hunters", stitch=0)
         gm.send("update_circle", illumination=6)
         assert gm.sync()[0]["payload"]["earn_backs"] == 0
+
+
+def test_a_milestone_is_not_counted_twice_after_its_earn_back_is_applied(client):
+    """Fixed (fix round 7, 69.3): once an earn-back was applied, a fall below its milestone
+    took nothing away and the next rise counted the milestone again. The circle remembers
+    the highest milestone counted (milestones_earned); a fall takes a waiting earn-back
+    (and frees its milestone), an applied one stays counted, and the advance starts over."""
+    camp, _, cid = _campaign(client, members=1)
+    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Resource Management",
+                   stitch=0, refresh=2, train=2)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_circle", illumination=3)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 1
+        gm.send("gm_earn_back", resource_type="stitch")
+        gm.sync()
+        support.update(Circle, cid, stitch=0)  # spent again, so a point is missing
+        gm.send("update_circle", illumination=2)  # the earn-back was applied: nothing to take away
+        assert gm.sync()[0]["payload"]["earn_backs"] == 0
+        gm.send("update_circle", illumination=3)  # and the milestone is not counted again
+        msgs = gm.sync()
+        assert msgs[0]["payload"]["earn_backs"] == 0
+        assert [m["payload"]["message"] for m in msgs[1:]] == ["The Moths gains 1 Illumination (2 to 3)."]
+        assert support.fetch(Circle, cid).milestones_earned == 3
+        # A waiting earn-back taken away by a fall frees its milestone: the next rise counts it
+        gm.send("update_circle", illumination=6)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 1
+        gm.send("update_circle", illumination=4)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 0
+        assert support.fetch(Circle, cid).milestones_earned == 3
+        gm.send("update_circle", illumination=6)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 1
+        support.update(Circle, cid, illumination=12)
+        gm.send("gm_advance_circle")
+        gm.sync()
+    assert support.fetch(Circle, cid).milestones_earned == 0
 
 
 def test_advancing_the_circle_clears_a_waiting_earn_back(client):
@@ -1548,9 +1601,8 @@ def test_milestone_log_for_unnamed_circle(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("update_circle", role="GM", illumination=6)
         msgs = gm.sync()
-        assert support.types(msgs) == ["circle_update", "activity_log", "activity_log"]
+        assert support.types(msgs) == ["circle_update", "activity_log"]
         assert msgs[1]["payload"] == {"message": "The Circle gains 1 Illumination (5 to 6).", "log_type": "field"}
-        assert msgs[2]["payload"] == {"message": "The Circle milestone 6 reached!", "log_type": "field"}
 
 
 def test_update_circle_player_claiming_gm_is_rejected(client):
@@ -1792,4 +1844,5 @@ def test_spending_and_renaming_and_long_names_are_logged(client):
     assert lines[:3] == ["The Lightkeeper opened spending: up to two each.", "The Lightkeeper locked spending.",
                          "The Lightkeeper renamed the circle to The Green Lamp Society."]
     # the clip's ellipsis ends the line: no full stop after it
-    assert lines[3] == f"The Lightkeeper sent a dispatch: {place[:80].rstrip()}..."
+    # the cut falls on a space, not in a word (fix round 7, 45.2)
+    assert lines[3] == "The Lightkeeper sent a dispatch: The flooded crypt beneath the Church of Saint Aldric the Unmourned, Newfaire..."
