@@ -112,8 +112,8 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
 
-  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark, gmReturnSpend, gmSetDrive, gmRevive } = useGameStore(useShallow(s => ({
-    gmReturnSpend: s.gmReturnSpend, gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetDrive: s.gmSetDrive, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark, gmRevive: s.gmRevive })));
+  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark, gmReturnSpend, gmSetDrive, gmRevive, gmSheetSeen } = useGameStore(useShallow(s => ({
+    gmReturnSpend: s.gmReturnSpend, gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetDrive: s.gmSetDrive, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark, gmRevive: s.gmRevive, gmSheetSeen: s.gmSheetSeen })));
   // Corrections on the trauma record (its Edit button, on this copy of the sheet only)
   const [traumaError, setTraumaError] = useState(null);
   const notConnected = 'Not connected to the table. Try again in a moment.';
@@ -245,6 +245,15 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
     if (!live || live === liveAtFetch.current) return;
     setFullChar(c => (c ? { ...c, ...live } : c));
   }, [live]);
+
+  // A sheet the player changed by hand carries a dot on its roster card (issue #64): open
+  // here, it is seen, and the dot goes. An edit made while it is open is seen at once; the
+  // socket opening again (resync) sends it again if it could not go before.
+  const edited = useGameStore(s => !!(s.campaignRoster.active_investigators || [])
+    .find(c => c.id === rosterItem?.id)?.sheet_edited);
+  useEffect(() => {
+    if (edited && rosterItem?.id != null) gmSheetSeen(rosterItem.id);
+  }, [edited, rosterItem?.id, resync]);
 
   if (!rosterItem) return null;
   const pending = rosterItem.status === 'pending';
