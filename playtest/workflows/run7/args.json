@@ -1,0 +1,77 @@
+{
+ "groups": [
+  {
+   "name": "desk",
+   "model": "sonnet",
+   "reviewModel": "opus",
+   "port": 8300,
+   "items": [
+    "69.3: Resource Management can count an earn-back twice across a milestone (-1 then +1) (see triage7.md 69.3)",
+    "69.4: The Finalize confirm runs to three short sentences (see triage7.md 69.4)",
+    "69.7: The server accepts an insignia change before the seal (see triage7.md 69.7)",
+    "69.8 (part b only: the desk header title touching Back to chapter hub at lg to xl): (a) After a role change the role ability card is headed by the new role; (b) at lg to xl the desk header title touches Back to chapter hub (see triage7.md 69.8)",
+    "45.1: With a sheet open (and on Circle, Notebook, Map) the Lightkeeper has no tension or timer controls (F013) (see triage7.md 45.1)",
+    "45.2: A long dispatch location is cut mid-word in the log (\"in the Newfa...\") (F015) (see triage7.md 45.2)",
+    "45.3: Illumination still writes a line per milestone after its gains line (F014) (see triage7.md 45.3)",
+    "45.4: On a 1440x900 laptop the Dispatch and End Assignment stamps are below the fold with no cue (F016) (see triage7.md 45.4)",
+    "45.5: When End Assignment arms, the side column scrolls to show the warning, so the stamp moves from under the pointer (see triage7.md 45.5)",
+    "45.6: Invite player on a campaign nobody has joined still says \"The player rejoins...\" and nothing points to the campaign code (F006) (see triage7.md 45.6)",
+    "45.7: A withdrawn join request vanishes with no word, closing the Lightkeeper's open sheet of it (F023) (see triage7.md 45.7)",
+    "45.13: The milestone log line says nothing of what it gives (F024) (see triage7.md 45.13)",
+    "60.6: Nothing says drives do not refill at End Assignment; the Lightkeeper's Reset has no rule beside it (drive-refill-unexplained) (see triage7.md 60.6)",
+    "60.13: End Assignment leaves the Timer switch on with an empty 0:00 face (timer-switch-after-end) (see triage7.md 60.13)",
+    "60.19: The Lightkeeper's \"Waiting for an answer from\" line gives counts for some names only (rel-waiting-line-counts) (see triage7.md 60.19)"
+   ]
+  },
+  {
+   "name": "sheet",
+   "model": "sonnet",
+   "reviewModel": "sonnet",
+   "port": 8330,
+   "items": [
+    "69.1: Edit sheet loses the draft on a refused save; the gear dialog writes back the whole list it took when it opened (see triage7.md 69.1)",
+    "69.2: A refused ability use clears the typed question (see triage7.md 69.2)",
+    "69.5: The Lightkeeper's trauma Edit subline is long (see triage7.md 69.5)",
+    "69.6: The permanent paragraph under Circle Resources on the player's Circle page (see triage7.md 69.6)",
+    "69.8 (part a only: the role ability card heading after a role change): (a) After a role change the role ability card is headed by the new role; (b) at lg to xl the desk header title touches Back to chapter hub (see triage7.md 69.8)",
+    "45.11: The \"Why empty\" slip on an empty gear tag is cut off; on a tablet the empty tag also clips Change Gear (F018) (see triage7.md 45.11)",
+    "45.12: The player's own \"You\" card in Your Circle shows no Incapacitated or scars (F020) (see triage7.md 45.12)",
+    "45.14: With an amendment kept in the draft, closing the reports leaves the card showing the unsent ticks, with no Report sent stamp (F025) (see triage7.md 45.14)",
+    "45.15: The \"scroll to the new scar\" never runs on the player's sheet (F005) (see triage7.md 45.15)",
+    "60.10: A posted sketch is scaled down so its text labels are about 8px and Keep drawing is cut off (sketch-label-scale) (see triage7.md 60.10)",
+    "60.11: After a roll the drive stepper goes back to +0d and only the pips show a point was spent (nerve-stepper-spent-cue) (see triage7.md 60.11)",
+    "60.16: With a keyboard it takes 12 Tabs to reach the first drive stepper; no skip link; the disabled \"one less\" stepper takes focus (keyboard-path-to-actions) (see triage7.md 60.16)",
+    "60.17: A Your Circle card shows a proposed relationship almost as if agreed (pending-rel-looks-agreed) (see triage7.md 60.17)",
+    "60.18: The shared Chapter House box saves silently (chapter-house-no-saved) (see triage7.md 60.18)",
+    "60.21: The notebook's Preview button keeps its label while previewing (notebook-preview-label) (see triage7.md 60.21)",
+    "60.22: On a phone, a tap on a fourth gear item shows nothing where the finger is; the limit message is off-screen (gear-limit-feedback-offscreen) (see triage7.md 60.22)"
+   ]
+  },
+  {
+   "name": "dice",
+   "model": "sonnet",
+   "reviewModel": "opus",
+   "port": 8360,
+   "items": [
+    "45.8: Burn and reroll is about 25 Tab presses after a keyboard roll, and focus falls to the page when the next roll closes it (F009) (see triage7.md 45.8)",
+    "45.9: At 1366x768 the \"what a reroll throws\" slip covers Burn and reroll (F010) (see triage7.md 45.9)",
+    "45.10: Open Book and Interrogation untoggle after the roll with no word; the slip and log never name the ability (F011) (see triage7.md 45.10)",
+    "45.17: On a phone the waiting row's Check again is 30px tall beside the 44px Withdraw (F022) (see triage7.md 45.17)",
+    "45.18: The locked Last Played tome explains itself only in a hover title (F027) (see triage7.md 45.18)",
+    "45.19: The path card's arrows and \"1 / 10\" are under the sticky footer on 360x705, 375x667 and 390x667 (F028) (see triage7.md 45.19)",
+    "45.20: The Handwriting help prints the word twice, and on a phone its slip is cut off at the dialog's edge (F029) (see triage7.md 45.20)",
+    "60.4: Approval reaches the hub only as a 12-second notice (hub-approval-feedback) (see triage7.md 60.4)",
+    "60.5: The keep-a-die choice is a moving target and each choice is announced twice (keep-die-moving-duplicate) (see triage7.md 60.5)",
+    "60.7: After End Assignment the player's tray still shows the last scene's roll and \"Roll settled\" (tray-old-roll-after-end) (see triage7.md 60.7)",
+    "60.8: \"A choice is waiting\" stays on Dice and log when only the optional burn is left (choice-waiting-badge-burn) (see triage7.md 60.8)",
+    "60.9: Private pass notes are not marked clearly (private-note-cues) (see triage7.md 60.9)",
+    "60.12: Learn from My Mistakes is offered even when every drive is full (lfmm-offer-drives-full) (see triage7.md 60.12)",
+    "60.14: On the upright tablet the recipient list opens upward, mostly off the screen (recipient-menu-offscreen-tablet) (see triage7.md 60.14)",
+    "60.15: On the tablet the Handwriting list runs past the Join dialog and covers the sample line (handwriting-select-overflow-tablet) (see triage7.md 60.15)",
+    "60.23: The creator summary shows drive totals without their sources (creator-drive-breakdown) (see triage7.md 60.23)",
+    "60.24: The sign-in page leaves a dark band under the map, and at 1366x768 Create an account is below the fold (signin-fold-band) (see triage7.md 60.24)",
+    "60.25: The Google button's frame has no accessible name, and the sign-up screen still says \"Sign in with Google\" (google-frame-unnamed) (see triage7.md 60.25)"
+   ]
+  }
+ ]
+}
