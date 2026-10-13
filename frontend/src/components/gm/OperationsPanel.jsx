@@ -24,6 +24,9 @@ import { livingMembers } from '../../game/roster';
 // The desk's pages (tabs from md, the drawer's first slips on a phone)
 const PAGES = ['roster', 'circle', 'archives', 'map', 'requests'];
 
+// The pages with the table (the dice, the log and the notes) beside them
+const TABLE_PAGES = ['roster', 'requests', 'circle'];
+
 // Each page's columns from lg: the roster's three (the dispatch, the desk, the table); the
 // requests and the circle's file beside the table (the circle's file takes its width from
 // xl); the notebook and the map across the desk
@@ -150,15 +153,18 @@ export const OperationsPanel = () => {
   // Choosing a page or a part closes the sheet that was open, so the Roster tab brings back
   // the roster, not the last sheet (playtest, section-hides-table-column)
   const chooseTab = (tab) => { setActiveTab(tab); setPhonePart('sheet'); setSelectedInvestigator(null); };
+  // The die and back again keep a sheet that was open, as the player's keeps its tab
   const showPart = (id) => {
-    if (id === 'back') id = backTo.current;
+    const back = id === 'back';
+    if (back) id = backTo.current;
     else if (id === 'dice' && current !== 'dice') backTo.current = current;
-    if (PAGES.includes(id)) chooseTab(id);
+    if (back && PAGES.includes(id)) { setActiveTab(id); setPhonePart('sheet'); }
+    else if (PAGES.includes(id)) chooseTab(id);
     else {
-      // The dice, the notes, the dispatch and the hourglass lie on the roster's desk
+      // The dice and the notes lie beside the roster, the requests and the circle's file;
+      // the dispatch and the hourglass on the roster's desk
       setPhonePart(id);
-      setActiveTab('roster');
-      setSelectedInvestigator(null);
+      if (!((id === 'dice' || id === 'notes') && TABLE_PAGES.includes(activeTab))) setActiveTab('roster');
     }
     window.scrollTo({ top: 0 });
   };
@@ -184,7 +190,7 @@ export const OperationsPanel = () => {
 
   const onRoster = activeTab === 'roster';
   const sheetOpen = (onRoster || activeTab === 'requests') && selectedInvestigator;
-  const withTable = onRoster || activeTab === 'requests' || activeTab === 'circle';
+  const withTable = TABLE_PAGES.includes(activeTab);
 
   return (
     // overflow-x-clip: as on the player's desk, the page is never wider than the screen
