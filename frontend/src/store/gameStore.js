@@ -402,6 +402,34 @@ const releasedWords = (by, name, campaignName) => {
     : `The Lightkeeper released ${name} from ${where}. ${name} is free to join another campaign.`;
 };
 
+// The player rejoined a campaign with another investigator from another device, which
+// retired this one (issue #39): its desk goes to the hub, which says so, the invite the
+// rejoin used is spent, it is no longer Last Played, and its socket closes (it is no longer
+// in play). Told by investigator_replaced, or by its own sheet coming back retired to a desk
+// that missed that frame (asleep, reloading or reconnecting). The device that made the
+// rejoin hears it too, on the old channel while its creator is open: it says nothing there,
+// and its timer closes only a socket still on the old investigator.
+const leaveReplacedDesk = (set, get, { characterId, campaignId, notice }) => {
+  const { character: myChar, socketGameId } = get();
+  const mine = characterId != null && myChar?.id === characterId;
+  const onItsChannel = characterId != null && String(socketGameId) === String(characterId);
+  if (!mine && !onItsChannel) return;
+  if (onItsChannel) {
+    setTimeout(() => { if (String(get().socketGameId) === String(characterId)) get().disconnect(); }, 0);
+  }
+  set(state => ({
+    characters: state.characters.map(c => (c.id === characterId ? { ...c, status: 'retired' } : c)),
+    lastPlayedCampaign: state.lastPlayedCampaign?.type === 'player' && state.lastPlayedCampaign.characterId === characterId
+      ? null : state.lastPlayedCampaign,
+    rejoinInvite: campaignId != null && state.rejoinInvite?.campaign_id === campaignId ? null : state.rejoinInvite,
+    ...(mine && state.stage === 'DESK'
+      ? { stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null }
+      : mine ? { character: { ...state.character, status: 'retired' } } : {}),
+    ...(mine && (state.stage === 'DESK' || state.stage === 'HOME') ? { hubNotice: notice } : {}),
+  }));
+  get().fetchUserData(get().accessSession?.userId);
+};
+
 // Closes this tab's socket when it is open on the channel about to be deleted (the
 // server would close it), and returns a function that opens it again, for a delete that
 // did not go through. Nothing to reopen when another socket has been opened meanwhile.
@@ -787,6 +815,18 @@ const useGameStore = create(
             // (member_update is how it follows them) must not become its store character,
             // which would make that member's dice its own and write their lines here
             if (onGmDesk(get) && incoming?.id !== prevChar?.id) return;
+            // A living investigator is retired only by a rejoin that replaced it: a desk that
+            // missed investigator_replaced learns it from its sheet when it opens again (the
+            // dead stay, as a record)
+            if (!onGmDesk(get) && incoming?.status === 'retired' && !incoming.is_dead
+                && incoming.id === prevChar?.id && prevChar.status !== 'retired') {
+              const last = get().lastPlayedCampaign;
+              const where = (last?.type === 'player' && last.characterId === incoming.id ? last.campaignName : null)
+                || get().characters.find(c => c.id === incoming.id)?.campaign_name || 'the campaign';
+              leaveReplacedDesk(set, get, { characterId: incoming.id, campaignId: incoming.campaign_id,
+                notice: `${incoming.name} is no longer in ${where}.` });
+              return;
+            }
             // The sheet, and the held marks that were on their way and are on it now
             set(state => ({ character: incoming, ...sheetArrived(state, prevChar, incoming) }));
             // The answer to an ability used outside a roll: the server paid its cost (a
@@ -1222,22 +1262,10 @@ const useGameStore = create(
             // which retired this one (issue #39): its desk goes to the hub, which says so, the
             // invite it used is spent, and its socket closes (it is no longer in play)
             const p = message.payload || {};
-            const { character: myChar, socketGameId } = get();
-            const mine = p.character_id != null && p.character_id === myChar?.id;
-            const onItsChannel = p.character_id != null && String(socketGameId) === String(p.character_id);
-            if (!mine && !onItsChannel) return;
-            if (onItsChannel) setTimeout(() => get().disconnect(), 0);
-            set(state => ({
-              characters: state.characters.map(c => (c.id === p.character_id ? { ...c, status: 'retired' } : c)),
-              lastPlayedCampaign: state.lastPlayedCampaign?.type === 'player' && state.lastPlayedCampaign.characterId === p.character_id
-                ? null : state.lastPlayedCampaign,
-              rejoinInvite: state.rejoinInvite?.campaign_id === p.campaign_id ? null : state.rejoinInvite,
-              ...(mine && state.stage === 'DESK'
-                ? { stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null }
-                : mine ? { character: { ...state.character, status: 'retired' } } : {}),
-              hubNotice: `${p.replaced_by || 'Your new investigator'} joined ${p.campaign_name || 'the campaign'} in place of ${p.character_name || myChar?.name}.`,
-            }));
-            get().fetchUserData(get().accessSession?.userId);
+            leaveReplacedDesk(set, get, {
+              characterId: p.character_id, campaignId: p.campaign_id,
+              notice: `${p.replaced_by || 'Your new investigator'} joined ${p.campaign_name || 'the campaign'} in place of ${p.character_name || get().character?.name}.`,
+            });
           }
           else if (message.type === 'roster_finalized') {
             if (!isForThisCampaign(message.payload)) return;
