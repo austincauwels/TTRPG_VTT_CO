@@ -120,6 +120,36 @@ def test_propose_relationship(client):
                    "last_actor_id": a["id"]}  # None before the token fixes
 
 
+def test_no_proposal_from_or_to_the_dead(client):
+    """A dead investigator stays on the roster until replaced, and the route stored a
+    proposal from or to it (issue #38). Both are refused: the sheet is a record."""
+    camp, (a, b), cid = _setup(client)
+    support.update(Character, b["id"], is_dead=True, scars_count=4)
+    for frm, to in ((a, b), (b, a)):
+        r = _propose(client, {"circle_id": cid, "from_character_id": frm["id"], "to_character_id": to["id"],
+                              "rel_type": "Rivals"})
+        assert (r.status_code, r.json()["detail"]) == (409, f"{b['name']} is dead: the sheet is a record.")
+    assert support.fetch_all(Relationship, circle_id=cid) == []
+
+
+def test_no_counter_from_or_to_the_dead(client):
+    """A counter is a new proposal, so the route refuses it from or to the dead as it
+    refuses a proposal (review of issue #38). Accept still answers it."""
+    camp, (a, b), cid = _setup(client)
+    to_b = _propose(client, {"circle_id": cid, "from_character_id": a["id"], "to_character_id": b["id"],
+                             "rel_type": "Rivals"}).json()["relationships"][0]["id"]
+    to_a = next(r["id"] for r in _propose(client, {"circle_id": cid, "from_character_id": b["id"],
+                                                   "to_character_id": a["id"], "rel_type": "Allies"}).json()["relationships"]
+                if r["to_character_id"] == a["id"])
+    support.update(Character, b["id"], is_dead=True, scars_count=4)
+    for rel_id, answerer in ((to_b, b), (to_a, a)):
+        r = _respond(client, rel_id, answerer["id"], action="counter", counter_type="Lovers", counter_lore="x")
+        assert (r.status_code, r.json()["detail"]) == (409, f"{b['name']} is dead: the sheet is a record.")
+    assert {r.id: (r.status, r.counter_type) for r in support.fetch_all(Relationship, circle_id=cid)} \
+        == {to_b: ("proposed", None), to_a: ("proposed", None)}
+    assert _respond(client, to_a, a["id"], action="accept").status_code == 200
+
+
 def test_propose_only_for_own_character_with_a_fellow_member(client):
     camp, (a, b), cid = _setup(client)
     outsider = support.active_member(client, support.new_campaign(client))

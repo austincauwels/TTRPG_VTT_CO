@@ -294,7 +294,16 @@ def _circle_relationship_propose(ctx, payload, character):
             _not_found("Character")
         if other.campaign_id != campaign_id or other.status not in MEMBER_STATUSES:
             _forbid()
+        # A proposal from the dead is refused in DEAD_REFUSED; one to the dead here
+        _refuse_the_dead(other)
     _circle_of(ctx, _default_circle(ctx, payload), campaign_id)
+
+
+def _refuse_the_dead(*parties):
+    """A dead investigator's sheet is a record: no relationship is proposed to or by it."""
+    for party in parties:
+        if party is not None and party.is_dead:
+            raise Rejected(409, f"{party.name} is dead: the sheet is a record.")
 
 
 def _circle_relationship_respond(ctx, payload, character):
@@ -316,6 +325,11 @@ def _circle_relationship_respond(ctx, payload, character):
     if (rel.last_actor_id is not None and me == rel.last_actor_id) or \
             (rel.last_actor_id is None and me != rel.to_character_id):
         _forbid()
+    if payload.get("action") == "counter":
+        # A counter proposes a new relationship, so it is refused from or to the dead as a
+        # proposal is (fix round 6). Accept answers what was proposed before the death.
+        _refuse_the_dead(character_facts(ctx.db, rel.from_character_id),
+                         character_facts(ctx.db, rel.to_character_id))
     _circle_of(ctx, rel.circle_id, _sender_campaign(ctx))
 
 
@@ -529,11 +543,13 @@ def _still_in_connect_campaign(ctx):
 
 # What a dead investigator's own socket may no longer do: the sheet is a record once the
 # fourth scar is taken (p. 74). Chat, the notebook, the pen font and a new investigator stay.
-# A direct edit (edit_sheet) is refused too: a dead sheet stays a record (fix round 4).
+# A direct edit (edit_sheet) is refused too: a dead sheet stays a record (fix round 4), and
+# so is a fifth scar (fix round 6).
 DEAD_REFUSED = frozenset({
     "roll", "resolve_gilded", "use_post_roll_ability", "burn_resistance", "take_mark",
     "resolve_ability_mark", "intercept_mark", "spend_resource", "update_drive", "update_gear",
     "apply_advancement", "use_ability", "circle_relationship_propose", "revive_character", "edit_sheet",
+    "apply_scar",
 })
 
 

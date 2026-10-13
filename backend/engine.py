@@ -93,6 +93,12 @@ def approve_investigator(db: Session, character_id: int):
                 Character.id != character.id,
                 Character.is_dead == True,
             ).all()
+            # The replacement keeps the spends its player used this break, as a rejoin
+            # does (vtt/routers/campaigns.py rejoin): only a predecessor still active counts
+            spent_before = [old.resources_spent_assignment or 0 for old in dead_predecessors
+                            if old.status == "active"]
+            character.resources_spent_assignment = max(
+                [character.resources_spent_assignment or 0] + spent_before)
             for old in dead_predecessors:
                 old.status = "retired"
 

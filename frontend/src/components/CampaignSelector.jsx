@@ -32,12 +32,12 @@ export const CampaignSelector = () => {
 
   // Book overlay state and the ways into a campaign
   const {
-    showBook, isClosingBook, isLoadingBook,
+    showBook, isClosingBook, isLoadingBook, entering,
     closeBook, handleOpenRoster, refreshBook,
     enterAsPlayer, enterAsGM, handleLastPlayed,
   } = useCampaignEntry({
     accessSession, characters, gmCampaigns, lastPlayedCampaign,
-    setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData,
+    setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData, setHubNotice,
   });
 
   // Per-character inline join form state  { [charId]: { code, pen, error, loading } }
@@ -190,7 +190,7 @@ export const CampaignSelector = () => {
               <CryptidSketch which="postcard" drop={drop} />
               <CryptidSketch which="sketchbook" drop={drop} />
               <CaseLedgerTome characters={characters} gmCampaigns={gmCampaigns} onOpen={openRoster} />
-              <LastPlayedTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} />
+              <LastPlayedTome lastPlayedCampaign={lastPlayedCampaign} onResume={handleLastPlayed} busy={entering === 'last'} />
             </div>
           </div>
 
@@ -223,7 +223,7 @@ export const CampaignSelector = () => {
           isClosingBook={isClosingBook}
           closeBook={closeBook}
           registryProps={{
-            isLoadingBook, characters, enterAsPlayer, refreshBook,
+            isLoadingBook, characters, enterAsPlayer, entering, refreshBook,
             joinForms, setJoinForms, handleJoinForChar, setStage,
           }}
           ledgerProps={{

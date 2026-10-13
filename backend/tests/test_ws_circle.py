@@ -1341,6 +1341,65 @@ def test_relationship_messages_only_for_the_rightful_party(client):
     assert support.fetch(Relationship, rel_id).status == "proposed"
 
 
+def test_no_relationship_proposal_from_or_to_the_dead(client):
+    """A dead investigator's sheet is a record: the WebSocket refused a proposal from the
+    dead but stored one to the dead (issue #38). Both are refused now."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Character, b["id"], is_dead=True, scars_count=4)
+    dead = lambda: _rejected("circle_relationship_propose", status=409,
+                             detail=f"{b['name']} is dead: the sheet is a record.")
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"], rel_type="X")
+        assert wa.sync() == [dead()]
+        wb.send("circle_relationship_propose", from_character_id=b["id"], to_character_id=a["id"], rel_type="X")
+        assert wb.sync() == [dead()]
+    assert support.fetch_all(Relationship, circle_id=cid) == []
+
+
+def test_no_counter_from_or_to_the_dead(client):
+    """A counter is a new proposal: the dead could still counter one made before the death,
+    and the living could counter one from the dead (review of issue #38). Both are refused;
+    Accept still answers what was proposed before the death."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"], rel_type="Rivals")
+        [to_b] = [r["id"] for r in wa.sync()[0]["payload"]["relationships"]]
+        wb.drain()
+        wb.send("circle_relationship_propose", from_character_id=b["id"], to_character_id=a["id"], rel_type="Allies")
+        wb.sync()
+        wa.drain()
+    to_a = next(r.id for r in support.fetch_all(Relationship, circle_id=cid) if r.to_character_id == a["id"])
+    support.update(Character, b["id"], is_dead=True, scars_count=4)
+    dead = _rejected("circle_relationship_respond", status=409, detail=f"{b['name']} is dead: the sheet is a record.")
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        wb.send("circle_relationship_respond", relationship_id=to_b, action="counter",
+                counter_type="Lovers", counter_lore="from the grave")
+        assert wb.sync() == [dead]
+        wa.send("circle_relationship_respond", relationship_id=to_a, action="counter", counter_type="Rivals")
+        assert wa.sync() == [dead]
+        assert [(r.rel_type, r.status) for r in sorted(support.fetch_all(Relationship, circle_id=cid), key=lambda r: r.id)] \
+            == [("Rivals", "proposed"), ("Allies", "proposed")]
+        wa.send("circle_relationship_respond", relationship_id=to_a, action="accept")
+        [msg] = wa.sync()
+        assert msg["type"] == "relationship_update"
+    assert support.fetch(Relationship, to_a).status == "accepted"
+
+
+def test_the_dead_take_no_fifth_scar(client):
+    """apply_scar from a dead investigator's own socket stored a fifth scar and moved an
+    action point on the record (issue #38). It is refused like the dead sheet's other actions."""
+    four = ["a", "b", "c", "d"]
+    camp, (member,), cid = _campaign(client, scars_list=four, scars_count=4, is_dead=True, incapacitated=True)
+    before = support.fetch(Character, member["id"])
+    with support.ws_connect(client, member["id"]) as ws:
+        ws.send("apply_scar", scar_text="A fifth", shift_down="strike", shift_up="sense")
+        assert ws.sync() == [_rejected("apply_scar", status=409,
+                                       detail=f"{member['name']} is dead: the sheet is a record.")]
+    row = support.fetch(Character, member["id"])
+    assert (row.scars_list, row.scars_count) == (four, 4)
+    assert (row.strike, row.sense) == (before.strike, before.sense)
+
+
 def test_circle_relationship_respond_on_gm_socket_is_rejected(client):
     """Before tokens the actor id was int(game_id), which raised on a campaign-code
     socket and ended it (bug D9). The GM is not a party, so it is rejected first."""

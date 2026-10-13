@@ -4,6 +4,8 @@ import { UnaffiliatedCharacterRow } from './UnaffiliatedCharacterRow';
 import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
 import { useDeleteUndo } from './useDeleteUndo';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
+import { MourningCross } from '../shared/InkMarks';
+import { Standing } from '../shared/Standing';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { ArmedDetail, leaveDetail, leaveError, leaveHint } from '../pc/LeaveCampaign';
 
@@ -11,7 +13,7 @@ import { ArmedDetail, leaveDetail, leaveError, leaveHint } from '../pc/LeaveCamp
 const NOT_DELETABLE = { active: 'In a campaign' };
 
 export const PlayerRegistryPage = ({
-  isLoadingBook, characters, enterAsPlayer, refreshBook,
+  isLoadingBook, characters, enterAsPlayer, entering = null, refreshBook,
   joinForms, setJoinForms, handleJoinForChar, closeBook, setStage, hiddenOnNarrow = false,
 }) => {
   const deleteCharacter = useGameStore(s => s.deleteCharacter);
@@ -41,7 +43,7 @@ export const PlayerRegistryPage = ({
   const [leavingId, setLeavingId] = useState(null);
   const [leaveFailed, setLeaveFailed] = useState('');
   const leave = async (char) => {
-    if (leavingId) return;
+    if (leavingId || entering === char.id) return;
     setLeavingId(char.id);
     setLeaveFailed('');
     const result = await releaseMember(char.id);
@@ -55,7 +57,7 @@ export const PlayerRegistryPage = ({
       hintClassName="basis-full px-3 pb-2"
       cancelSize="min-h-[44px]"
       cancelLabel="Stay"
-      disabled={leavingId === char.id}
+      disabled={leavingId === char.id || entering === char.id}
       onConfirm={() => leave(char)}
       armedHint={leaveHint(char.campaign_name)}
       armedInfo={<ArmedDetail label="What leaving does" text={leaveDetail(char.name)} above={false} />}
@@ -82,6 +84,8 @@ export const PlayerRegistryPage = ({
     />
   );
 
+  const fallen = characters.filter(c => c.is_dead && c.status === 'retired');
+
   return (
   <div className={`book-page flex flex-col overflow-hidden min-w-0 max-lg:rounded-r-xl ${hiddenOnNarrow ? 'max-lg:hidden' : ''}`} style={{ flex: 1, borderRight: '2px solid rgb(var(--c-sepia) / 0.25)' }}>
     <div className="px-4 pt-4 lg:px-7 lg:pt-6 pb-3 shrink-0" style={{ borderBottom: '2px solid rgb(var(--c-sepia) / 0.18)' }}>
@@ -105,9 +109,13 @@ export const PlayerRegistryPage = ({
               <div className="space-y-1.5">
                 {characters.filter(c => c.status === 'active').map(char => (
                   <div key={char.id} className="relative flex flex-wrap items-center" style={{ border: '1px solid rgb(var(--c-sepia) / 0.15)' }}>
+                  {/* Play reads the lists again before the desk opens (issue #42): meanwhile the
+                      row says Opening, and Leave waits */}
                   <button
-                    onClick={() => enterAsPlayer(char)}
-                    className="flex-1 min-w-0 max-sm:basis-full flex items-center gap-3 px-3 py-2.5 hover:bg-sepia/10 transition-colors text-left group"
+                    onClick={() => { if (leavingId !== char.id) enterAsPlayer(char); }}
+                    aria-busy={entering === char.id}
+                    aria-disabled={entering != null || undefined}
+                    className={`flex-1 min-w-0 max-sm:basis-full flex items-center gap-3 px-3 py-2.5 hover:bg-sepia/10 transition-colors text-left group ${entering === char.id ? 'cursor-wait' : ''}`}
                   >
                     <span aria-hidden="true" className="text-seal-green text-lg shrink-0">●</span>
                     <div className="flex-1 min-w-0">
@@ -116,7 +124,11 @@ export const PlayerRegistryPage = ({
                         <p className="font-serif italic text-base text-sepia truncate">{char.campaign_name}</p>
                       )}
                     </div>
-                    <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-focus-visible:opacity-100 transition-opacity">Play →</span>
+                    {/* Dead and not yet replaced: its desk is where the new investigator is made */}
+                    {char.is_dead && <Standing inv={char} className="shrink-0" />}
+                    <span className={`font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 transition-opacity ${entering === char.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-focus-visible:opacity-100'}`}>
+                      {entering === char.id ? 'Opening…' : 'Play →'}
+                    </span>
                   </button>
                   {deleteControl(char)}
                   {!char.is_dead && leaveControl(char)}
@@ -184,6 +196,30 @@ export const PlayerRegistryPage = ({
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* The fallen (issue #47): a dead investigator whose player was replaced, or whose
+              campaign was retired, stays with that campaign. A record only: no Play, Leave or Delete */}
+          {fallen.length > 0 && (
+            <div>
+              <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-sepia">Fallen</p>
+              <ul className="space-y-1.5">
+                {fallen.map(char => (
+                  <li key={char.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5"
+                    style={{ border: '1px solid rgb(var(--c-sepia) / 0.15)', background: 'rgb(var(--c-parchment-deep) / 0.2)' }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-serif font-bold text-xl text-ink/70 truncate" title={char.name}>{char.name}</p>
+                      {char.campaign_name && (
+                        <p className="font-serif italic text-base text-sepia truncate" title={char.campaign_name}>{char.campaign_name}</p>
+                      )}
+                    </div>
+                    <span className="shrink-0 -rotate-3 inline-flex items-center gap-1 border-2 border-ink/70 rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight text-ink/80">
+                      <MourningCross className="h-[0.95em]" /> Fallen
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
