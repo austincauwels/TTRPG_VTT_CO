@@ -210,17 +210,24 @@ const forgetUnanswered = (set, get, keepMarks = false) => {
     set(state => heldMarksAre({ ...state.heldMarks, landing: state.heldMarks.landing.filter(keep) }));
   }
 };
+// The word under the marks for kept marks let go; whose names the investigator when the
+// marks were taken on another sheet than the one shown
+const reloadNotice = (marks, whose) => {
+  const what = marks.length === 1 ? `A ${MARK_WORD[marks[0].type] || 'marked'} mark` : `${marks.length} marks`;
+  return whose
+    ? `${what} taken on ${whose}'s sheet before the reload may not have counted. Check the trauma record there.`
+    : `${what} taken before the reload may not have counted. Check the trauma record.`;
+};
+const letGoOfKept = (set, marks, whose) => set(state => ({
+  ...heldMarksAre({ ...state.heldMarks, landing: state.heldMarks.landing.filter(m => !marks.includes(m)) }),
+  abilityMarkRefused: reloadNotice(marks, whose),
+}));
 const resendMarks = (set, get, socket) => {
   let held = get().heldMarks;
   if (!held || held.characterId !== get().character?.id) return;
   const stale = held.landing.filter(m => m.reloaded && !(Date.now() - (m.at || 0) < MARK_RESEND_MS));
   if (stale.length) {
-    set(state => ({
-      ...heldMarksAre({ ...state.heldMarks, landing: state.heldMarks.landing.filter(m => !stale.includes(m)) }),
-      abilityMarkRefused: stale.length === 1
-        ? `A ${MARK_WORD[stale[0].type] || 'marked'} mark taken before the reload may not have counted. Check the trauma record.`
-        : `${stale.length} marks taken before the reload may not have counted. Check the trauma record.`,
-    }));
+    letGoOfKept(set, stale);
     held = get().heldMarks;
     if (!held) return;
   }
@@ -229,6 +236,19 @@ const resendMarks = (set, get, socket) => {
       socket.send(JSON.stringify({ type: 'take_mark', payload: { mark_type: m.type, mark_id: m.markId } }));
     } catch { /* this socket closed too: the next one sends it */ }
   });
+};
+// Marks kept over a reload wait for their own investigator's desk. Another desk opening
+// first (another investigator's, or the Lightkeeper's) lets them go with the word under
+// the marks, naming whose they were: that desk would put its own marks in their place, or
+// drop them when it closes, without a word (review of #43). Returns that word, which the
+// caller says again if it clears the store's notes for the new desk.
+const letGoOfKeptElsewhere = (set, get, gameId) => {
+  const held = get().heldMarks;
+  const kept = held && String(held.characterId) !== String(gameId) ? held.landing.filter(m => m.reloaded) : [];
+  if (!kept.length) return null;
+  const whose = (get().characters || []).find(c => c.id === held.characterId)?.name || 'another investigator';
+  letGoOfKept(set, kept, whose);
+  return get().abilityMarkRefused;
 };
 // What one desk's mark offers and ability uses leave in the store: another desk in the
 // tab, or whoever signs in next, starts without them (the server sends again any offer
@@ -682,6 +702,7 @@ const useGameStore = create(
       },
 
       connect: (gameId, { keepLog = false } = {}) => {
+        const keptLetGo = letGoOfKeptElsewhere(set, get, gameId);
         // One socket at a time: an older one would keep writing its own character into the store.
         const { socket: previous } = get();
         if (previous) {
@@ -714,7 +735,8 @@ const useGameStore = create(
         // the hub), and a held gilded roll comes back from the server.
         if (rollDesk !== null && String(rollDesk) !== String(gameId)) {
           answeredRollId = null;
-          set({ ...NO_OFFERS, lastRoll: null, lastRollKept: null, lastRollSettled: false, pendingGildedChoice: null, dismissedPrompts: [], postRollTried: null });
+          set({ ...NO_OFFERS, lastRoll: null, lastRollKept: null, lastRollSettled: false, pendingGildedChoice: null, dismissedPrompts: [], postRollTried: null,
+            ...(keptLetGo ? { abilityMarkRefused: keptLetGo } : {}) });
         }
         rollDesk = gameId;
         const apiBase = import.meta.env.VITE_API_URL || '';

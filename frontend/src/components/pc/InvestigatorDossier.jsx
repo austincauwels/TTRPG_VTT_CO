@@ -543,7 +543,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // Death Defy escapes every mark of one harm (p. 27): a mark still held for undo when its
   // offer appears goes now, so it joins the harm the offer counts
   useEffect(() => {
-    if (heldOffer?.ability === 'Death Defy' && tableHeld?.characterId === storeChar?.id) flushMark();
+    if (heldOffer?.ability === 'Death Defy' && !!tableHeld && tableHeld.characterId === storeChar?.id) flushMark();
   }, [heldOffer?.seq]);
   // The player's own photo: the answer to a change is the sheet as the table now has it
   const photoInputRef = useRef(null);
