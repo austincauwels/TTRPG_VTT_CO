@@ -1,0 +1,801 @@
+{
+  "summary": "Fix round 6: a final Opus review and three Opus browser checks against 77452a3, then one repair",
+  "agentCount": 5,
+  "logs": [
+    "checks: 4/4 returned; 0 blocking, 3 should, 14 nit"
+  ],
+  "result": {
+    "checks": [
+      {
+        "summary": "Verdict: ready for the pull request. I found nothing blocking. Every decision in decisions.md (1 to 8) is built in full. Nothing from decisions_fix4.md, decisions_fix5.md or issue #16 was removed or weakened. Every claim in the four groups' implement and repair reports is in the merged HEAD.\n\nWhat I ran, with no edits, commits or pushes:\n- Read the whole 77452a3..HEAD diff, including the hand-merged WEBSOCKET.md steps 7 and 8, the QUIRKS.md subsections and the auto-merged gameStore.js.\n- Targeted backend tests on a throwaway database fr6_final_t: test_00_startup, test_ws_marks, test_ws_rolls, test_ws_connect, test_ws_circle, test_circle_rest, test_rest_broadcasts, test_campaigns and test_surface gave 662 passed and 1 failed. The failure was test_cors_allows_configured_origin_only, only because my environment did not set CORS_ORIGINS. Re-run with CORS_ORIGINS set on a fresh database fr6_final_t2, test_00_startup gave 36 passed, which covers the fresh path and both legacy-upgrade paths for activity_lines, held_mark and taken_mark_ids. Both databases are dropped.\n- npx vite build of the merged frontend (output in the scratchpad) succeeded. The worktree is clean.\n- No added line has an em dash, and no file names an AI model. Every pinned test was flipped or kept, not deleted. The history tests kept their names and gained a client fixture. The restart-rule test is renamed and pointed to from QUIRKS.md:149. The openapi snapshot adds only held_marks. test_surface's use_post_roll_ability expectation is now [character_update, roll_outcome, activity_log].\n\nSeams I checked in the code:\n- Connect order matches WEBSOCKET.md steps 7 and 8. A player gets character_update, circle_update, the held or replayed roll_result, ability_mark_offer, open intercepts, then activity_history. The Lightkeeper gets circle_update, the felt replay, then activity_history. A client mark sent again is processed after these frames, and a mark the server already took (taken_mark_ids) is answered once with the sheet.\n- At a death the held mark is dropped in the scar's own commit, and the desk gets mark_offer_closed with dropped and no offer_id (the store's old branch handles it). After that, DEAD_REFUSED refuses every answer from the dead investigator's socket.\n- The compare-and-swap `_take_held` commits before the first await in mark_or_offer and _let_the_mark_land. The use branches take the mark before their own synchronous commit. Each socket loads the character fresh per message with no await before the handler, so taken_mark_ids is race-free within the process.\n- Sign out (logout) clears drafts and heldMarks through NO_OFFERS. endSession, the password reset and an undone email change pass keepDrafts.\n- The roster is fetched on reconnect only while the investigator is active. Retire makes living investigators unaffiliated, so a living sheet coming back 'retired' can only mean a rejoin, as the store's leaveReplacedDesk branch assumes.\n\nData:\n- activity_lines is written once per line in its own session. The missing foreign key is justified: a key check would take FOR KEY SHARE, which conflicts with the handler's FOR UPDATE on the campaign row. A line that fails to write is logged and still sent. Each line is pruned to the campaign's last 500, and each connect reads at most 500 rows.\n- The cost is about four synchronous round trips per log line on the event loop, the same pattern as the rest of the WebSocket handlers. That is acceptable at this scale.\n- Campaigns are only ever soft-deleted (no hard delete exists), so the missing foreign key orphans nothing.\n\nThe group choices Robert may not expect are covered in the items list, with my view on each. The issues are two \"should\" items (a doc gap in AUTH.md, and a dead investigator's own Accept to flag for Robert) and nits.",
+        "items": [
+          {
+            "item": "Decision 1 / #17 Activity Log stored in the database",
+            "control": "n/a",
+            "fixed": "models.ActivityLine (campaign_id indexed, no foreign key; channels JSON; line JSON). manager._store writes one row per send in its own session, prunes to LINES_KEPT=500 and logs and still sends on failure. _stored_for returns the last 100 lines addressed to the channel. Lines with no campaign stay in memory. init_db creates the table with checkfirst. test_the_log_survives_a_restart and test_a_campaign_keeps_its_last_lines pass.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 1 / #17, #18 held mark stored with the same offer_id; a stale answer lands nothing and gets mark_offer_closed {dropped, offer_id}; ally offers expire",
+            "control": "n/a",
+            "fixed": "characters.held_mark is written and committed in _offer. send_held_mark resends the stored offer. _stale_answer plus _close_stale handle an answer to an offer the server does not hold. The restart fallback in _let_the_mark_land is removed. Ally offers stay in memory and are refused after a restart. The store's offerDropped closes only the named card and the marks that answer sent on their way. QUIRKS.md and FAQ.md say so.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Log repair: two-socket race on a held mark (_take_held compare-and-swap)",
+            "control": "n/a",
+            "fixed": "_take_held runs UPDATE ... WHERE held_mark #>> '{offer,offer_id}' = the id read, then acts only if rowcount is 1. mark_or_offer and _let_the_mark_land commit at once. The Circle of Protection, soak and Death Defy uses take the mark before spending and close the card as stale if another socket took it first. test_a_held_mark_is_answered_once_when_two_desks_meet passes.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 1 / #23 held marks on the Lightkeeper's copy",
+            "control": "n/a",
+            "fixed": "serializers.held_marks adds {ability, mark_types} to get_char_dict and CharacterSheet (openapi pinned). _offer calls manager.show_gm_sheet, which sends member_update to the Lightkeeper only. InvestigatorDossier draws sheetHeld on the read-only copy. The Death Defy flush guard is now !!tableHeld.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 1 / #43 held mark kept over a reload; mark ids kept (16) over a restart",
+            "control": "n/a",
+            "fixed": "characters.taken_mark_ids is committed with the mark. keptOverReload is in partialize and merge. resendMarks sends kept marks when the same character's socket opens. A mark older than 10 minutes is let go with the notice. letGoOfKeptElsewhere lets kept marks go, with a notice, when another desk opens first. test_a_mark_sent_again_after_a_restart_is_taken_once passes.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 2 / #19 roll_outcome after Flourish and Bending Spoons",
+            "control": "n/a",
+            "fixed": "_outcome_changed sends roll_outcome {character_id, action, outcome, by} to the campaign, or to the roller's key alone for a secret roll, and updates _shown_roll and the felt entry (never for a secret roll). The store updates lastRoll under a new id, or lastRollKept for a kept die, plus tableRoll. The slip and roll bar fall back to keptDie.outcome.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 2 / #40 last roll replayed on connect, with Burn and reroll while open and no dice sound",
+            "control": "n/a",
+            "fixed": "_shown_roll is set in _hold_or_throw, which now runs before the broadcast in roll and burn_resistance. send_held_roll sends roll_result with replayed, roll_id, kept, used and settled. roll_settled is retired (WEBSOCKET.md row kept and marked retired). The store's replay branch plays no tumble or sound, keeps the phone roll bar down, ignores a replay while rolling, and merges onto a roll the desk already shows (replayOnto).",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Rolls repair choice: the Lightkeeper's felt replays after her reload",
+            "control": "n/a",
+            "fixed": "_felt_roll holds her own roll as ('own', reply) or the latest player roll the table saw as ('table', dice_thrown payload). The endpoint calls send_felt_roll for a GM socket. A player's secret roll never sets it. The store's replayed dice_thrown does not tumble or settle. This fits decision 2, which names no desk, and adds no Burn on her desk.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 3 / #38 refusals for the dead (scar, proposals, counter) on REST and WebSocket",
+            "control": "n/a",
+            "fixed": "apply_scar is in DEAD_REFUSED. The WebSocket propose refuses a dead recipient. REST propose refuses a dead proposer or recipient. A counter is refused on both paths when either party is dead (_refuse_the_dead). character_facts adds is_dead and name. Standing stamps Dead. RelationshipNegotiation shows no Propose, Counter or Edit for the dead. Accept is still allowed by choice (see issues).",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 3 / #22 no roster fetch unless the investigator is active",
+            "control": "n/a",
+            "fixed": "TactileSidebar fetches only when status is 'active', and the effect also depends on status. The store's onopen keepLog branch checks status === 'active' before fetchRoster and fetchCircleCreationState.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 4 / #39 replaced desk goes to the hub (live frame, plus reload and reconnect)",
+            "control": "n/a",
+            "fixed": "rejoin_campaign sends investigator_replaced to each active investigator it retires (test_rejoin_tells_the_desk_of_the_investigator_it_retires). The store's leaveReplacedDesk is used both by that handler and by a character_update branch for the desk's own living investigator coming back 'retired'. The disconnect timer is guarded. A small frame-ordering leftover is listed in issues.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 4 / #42 Play and the Last Played tome re-check before opening",
+            "control": "n/a",
+            "fixed": "useCampaignEntry.checkStillIn has an in-flight ref and an 'entering' state. The Registry row and the tome show 'Opening…' with aria-busy, Leave waits during the check, and nothing opens if the book closed or the stage changed. The notice is '<name> is no longer in <campaign>.'",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 4 / #41 approval keeps the spend count",
+            "control": "n/a",
+            "fixed": "engine.approve_investigator takes the max of the newcomer's own count and the active dead predecessors' counts. test_approve_keeps_the_players_spends_from_the_dead_predecessor passes.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 5 / #47 Fallen section",
+            "control": "n/a",
+            "fixed": "PlayerRegistryPage lists is_dead plus status 'retired' at the foot with name, campaign and a Fallen stamp, with no controls. A dead investigator not yet replaced stays under In a campaign with Play and a Dead stamp. This is a reading of 'each dead investigator' and the PR should flag it.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 6 / #20 Sign out clears drafts; a server-ended session keeps them",
+            "control": "n/a",
+            "fixed": "utils/drafts.clearAccountDrafts removes the notebook prefix, the creator draft and its :portrait key, and notifies NotebookView's maps. logout() clears unless keepDrafts. endSession, LoginScreen resetDone and UndoEmailChangePage pass keepDrafts.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 7 / #67 Illumination ring",
+            "control": "n/a",
+            "fixed": "shared/IlluminationRing: 12 pips with pip n at n x 30 degrees and 12 at the top; milestones 3, 6 and 9 larger with gold rings. The Lightkeeper gets 12 buttons in order with the old labels and toggle, and +1 and -1 stay. Touch targets are round 44px on an 88px radius in a 220px box, 45.6px apart, so they never overlap and the ring fits a 320px screen. The player's ring is role=img labelled 'Illumination n of 12'. The candle warms by color-mix and is fully lit at 12, and the transition stops under reduced motion. CircleLedger's dots are untouched.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Decision 8 / #24, #25, #26, #44, #21, #46",
+            "control": "n/a",
+            "fixed": "#24: an infoTabs Map keyed by view and id, and the tab buttons are 44px on coarse pointers. #25: md-only coarse rules made unprefixed, a 44px contents ribbon, sketch marks and inks 44x44. #26: flex-wrap on the step 3 row. #44: the caret is kept and shifted by the mark's length, so on an empty line it lands after the mark. #21: holdBack calls ownEntry, plus a beforeunload warning while strokes are unsaved. #46: no code change, measured at 44px in an earlier round.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Startup on a legacy database (test_00_startup)",
+            "control": "n/a",
+            "fixed": "held_mark (JSON) and taken_mark_ids (JSON DEFAULT '[]') are added by add_columns, and activity_lines is created. Both the legacy and the last-release upgrade tests drop and re-add them. 36 passed on a fresh database.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Choice: Accept on a relationship proposed before a death is still allowed",
+            "control": "n/a",
+            "fixed": "It is allowed over REST and WebSocket, including from the dead investigator's own socket (circle_relationship_respond is not in DEAD_REFUSED), and the dead desk's paper shows Accept. This fits the letter of decision 3, which names proposals only, but the dead investigator's own Accept sits uneasily with fix4's 'A dead sheet is a record'. Flag it for Robert (see issues).",
+            "verdict": "partly"
+          },
+          {
+            "item": "Choice: End Assignment does not clear a held mark",
+            "control": "n/a",
+            "fixed": "Unchanged from before, and no decision asks for it, so it fits. With the mark stored, a held offer now outlives a restart and End Assignment. A soak used on it after End Assignment counts against the new assignment's once-per-assignment use. Worth one line in the PR.",
+            "verdict": "fixed"
+          },
+          {
+            "item": "Docs consistency (WEBSOCKET.md, AUTH.md, QUIRKS.md, FAQ.md, DESIGN.md, ROUTES.md)",
+            "control": "n/a",
+            "fixed": "WEBSOCKET.md steps 7 and 8 merge all three groups correctly and match the code order. The investigator_replaced and roll_outcome rows and the retired roll_settled row are there. ROUTES.md has the new 409s. AUTH.md was not updated for the #38 refusals, and there are small QUIRKS.md and WEBSOCKET.md row drifts (see issues).",
+            "verdict": "partly"
+          }
+        ],
+        "issues": [
+          {
+            "level": "should",
+            "item": "AUTH.md not updated for the #38 refusals",
+            "where": "docs/refactor/AUTH.md:46-47, 126, 131-132",
+            "problem": "AUTH.md lists each WebSocket action's and REST route's rules, and the edit_sheet row already says 'not for a dead investigator (409)'. This round added dead refusals that AUTH.md does not mention: apply_scar from a dead investigator's own socket, circle_relationship_propose to a dead recipient, circle_relationship_respond with counter when either party is dead, and REST /circle/relationship/propose and /respond with the same 409. WEBSOCKET.md, ROUTES.md, FAQ.md and QUIRKS.md describe them, so AUTH.md is now the one doc that contradicts the code.",
+            "fix": "Add 'not for a dead investigator (409)' to the apply_scar row, 'from or to a dead investigator is 409' to both propose rows, and 'a counter is 409 when either party is dead; accept still answers' to both respond rows, citing fix round 6, #38."
+          },
+          {
+            "level": "should",
+            "item": "A dead investigator's own socket can still Accept a relationship",
+            "where": "backend/vtt/ws/access.py:548-553 (DEAD_REFUSED lacks circle_relationship_respond); frontend/src/components/pc/relationships/RelationshipNegotiation.jsx:155",
+            "problem": "After the fourth scar, the dead player's desk still shows Accept on a living member's pending proposal, and the server records it from the dead investigator's socket. This changes the dead sheet's relationships after death. The dead group chose this on purpose (decision 3 names proposals only), and it fits decision 3's letter. But decisions_fix4 says 'A dead sheet is a record', and Robert may not expect the dead to agree to new relationships.",
+            "fix": "Flag it in the PR as an open call, without blocking. If Robert wants the record strict, refuse respond from the dead investigator's own socket (add it to DEAD_REFUSED and refuse REST respond when the responder is dead) and hide Accept on the dead desk. Accepting a proposal the dead made in life could stay allowed."
+          },
+          {
+            "level": "nit",
+            "item": "Replaced desk: frames after the retired sheet still run",
+            "where": "frontend/src/store/gameStore.js:914-925 (character_update retired branch) and the roll_result, ability_mark_offer and activity_history handlers",
+            "problem": "After a reload or reconnect on an investigator retired by a rejoin, the server sends the retired sheet, then the replayed roll_result, any held ability_mark_offer and activity_history on the same socket. leaveReplacedDesk sends the desk to HOME and clears character, but closes the socket only in setTimeout(0). The frames already queued are handled first, so the replayed roll_result writes the retired investigator back into the store's character (and lastRoll) on the hub. resendMarks may also have sent kept marks for the retired character (refused 403). Nothing on the hub reads these today, and the next connect clears them, so nothing visible goes wrong. I found this by reading the code and did not run it in a browser.",
+            "fix": "In leaveReplacedDesk, close the socket synchronously (or set a flag), and have the roll_result, ability_mark_offer and activity_history handlers ignore frames once the stage is no longer DESK for that character."
+          },
+          {
+            "level": "nit",
+            "item": "A stored held mark follows a released or retired investigator",
+            "where": "backend/vtt/assignment.py:95 (release_from_campaign), backend/vtt/routers/campaigns.py:275, 517",
+            "problem": "Release, Leave, campaign Retire and a rejoin's retire do not clear characters.held_mark. An offer open at that moment is resent when the investigator's desk next opens, possibly in another campaign, and its decline lands the old mark there. The in-memory version behaved the same until a restart. Now the mark survives restarts, so the window has no end.",
+            "fix": "Clear held_mark (with mark_offer_closed dropped if a socket is open) in release_from_campaign and where a rejoin retires investigators. Otherwise note it in QUIRKS.md as kept on purpose."
+          },
+          {
+            "level": "nit",
+            "item": "sameRoll compares a field the roll has no longer",
+            "where": "frontend/src/store/gameStore.js:307 (sameRoll); docs/refactor/WEBSOCKET.md:20-22 and the roll_result row",
+            "problem": "sameRoll compares a.action === b.action, but the roll objects (engine.roll_dice's result) have no action field. That check is always undefined === undefined, so 'same roll' means 'same dice'. The docs say 'the same action and dice' and 'the same roller, action and dice'. A newer roll from another device with identical dice and a different action would be merged as the old one (its outcome taken, its action not).",
+            "fix": "Pass the payload's action (message.payload.action, and the stored lastRoll's action) into the comparison, or drop 'action' from the docs."
+          },
+          {
+            "level": "nit",
+            "item": "WEBSOCKET.md section 5 does not list the Lightkeeper's felt replay",
+            "where": "docs/refactor/WEBSOCKET.md:264 (roll_result row); dice_thrown has no row",
+            "problem": "The roll_result row's 'Emitted by' names a player's connect only, not the Lightkeeper's socket getting her own last roll with replayed. dice_thrown has no row in the outgoing table at all, an older gap, and the table's heading says every type in it has a handler. The felt replay is documented only in connect step 7.",
+            "fix": "Add 'connect, the Lightkeeper's felt (her own roll, replayed; since 2026-10-13)' to the roll_result row, and add a dice_thrown row that names its connect replay to the GM socket."
+          },
+          {
+            "level": "nit",
+            "item": "QUIRKS.md ui subsection is out of date after the ui repair",
+            "where": "docs/refactor/QUIRKS.md 'Fix round 6, ui' (#44 and #20 bullets)",
+            "problem": "The #44 bullet says Heading, List and Quote 'put the caret at the end of the line'. The repaired code keeps the caret where it was, shifted by the mark's length, which lands after the mark on an empty line. The #20 bullet names endSession and the password reset as keeping drafts but not the undone email change, which FAQ.md and the gameStore comment do name.",
+            "fix": "Reword the #44 bullet to match MarkdownMarks.prefixLines, and add the undone email change to the #20 bullet."
+          },
+          {
+            "level": "nit",
+            "item": "Offers open at the moment of deploying are dropped",
+            "where": "backend/vtt/ws/handlers/marks.py (_stale_answer, _close_stale)",
+            "problem": "A soak or Death Defy offer held in the old process's memory when this build deploys is gone. The desk's answer gets mark_offer_closed with dropped, and the mark the Lightkeeper dealt never lands. This is what decision 1 asks for, and Robert said nobody is playing, so it is a one-time effect.",
+            "fix": "Add one line to the PR's deploy notes. No code change."
+          },
+          {
+            "level": "nit",
+            "item": "Two candles on the Circle pages",
+            "where": "frontend/src/components/gm/CirclePage.jsx and frontend/src/components/pc/CircleView.jsx (Illumination heading)",
+            "problem": "The small 11px candle icon in the Illumination heading stays above the new ring's 44 to 64px candle. The ui repair skipped this as a design call outside decision 7.",
+            "fix": "Optional: drop the heading's candle on both pages, or flag it for Robert in the PR."
+          }
+        ]
+      },
+      {
+        "summary": "All six items are fixed on HEAD (claude/loving-fermi-2giawj). For each one I first saw the bug on the control (77452a3), then saw it fixed on HEAD at 390x844, 820x1180 and 1366x768, on both desks where it applies. Nothing blocking turned up and nothing broke. There were no page errors on HEAD; the only console errors were the expected WebSocket handshake failures while the backend was down for a restart.\n\nWhat I tried besides the issues' own steps:\n- #17: a whisper sent to the Lightkeeper stays private after a restart (Fay never sees it). A second tab, and a line written after the restart, both come back.\n- #18: the Lightkeeper opening her desk after a restart sees the held box. A double press on Take the mark sends one answer.\n- #23: the Lightkeeper reloads while a mark is held, and the held box is still drawn.\n- #43 (mark reached the server, reply lost): I dropped the server's replies, restarted the server and reloaded. The mark was sent again with the same mark_id and taken once (the server's stored taken_mark_ids caught the repeat).\n- #43 (second tab): a second tab in the same browser sent the kept mark again, and it was taken once.\n- #40 (restart): after a server restart the tray is empty, as decided.\n- #40 (settled roll): another player's roll settled the roll before the reload. It came back with \"Roll settled\" and no Burn.\n- #40 (success): a success comes back to the tray after a reload.\n\nNotes on the method:\n- No dice sound was checked by wrapping HTMLMediaElement.play. After a reload, only the muted unlock plays fired, on the first tap, never a dice-roll.mp3.\n- My first second-tab attempt lost the mark, but my own test seeding caused that, not the app. The corrected run passed.\n\nScripts are in /tmp/bc6_log_rolls (lib.js, setup.js, log17.js, c18.js, c23.js, c43.js, rolls.js, neigh.js, tab2.js). Screenshots are in /tmp/bc6_log_rolls/shots, prefixed head_ or ctl_; I looked at all of them. All servers were stopped by PID and both databases dropped. I edited and committed nothing.",
+        "items": [
+          {
+            "item": "#17 Activity Log survives a server restart (both desks)",
+            "control": "Phone, three desks open (Lightkeeper, Ada, Fay) with chat lines and a whisper to the Lightkeeper in the log. After a backend restart, the desks left open kept their lines in browser memory. After reloading, every desk showed 'Nothing logged yet', and a fresh second tab showed only the line written after the restart.",
+            "fixed": "Phone, tablet and laptop: after the restart and a reload, the Lightkeeper's and Ada's desks show all the old lines, including the whisper. Fay's desk shows the circle lines but never the whisper. A second tab opened after the restart gets the old lines plus one written after the restart, and the Lightkeeper's open desk gets the new line live.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_log_rolls/shots/ctl_log17_phone_gm_2restart_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_log17_phone_gm_2restart_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_log17_phone_fay_2restart_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_log17_tablet_gm_2restart_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_log17_laptop_ada_2restart_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_log17_laptop_ada_3secondtab.png"
+            ]
+          },
+          {
+            "item": "#18 Soak or Death Defy offer across a restart; one answer; a card the server no longer holds closes without a mark",
+            "control": "Laptop. After the restart the In the Trenches card stays up, but the server does not send the offer again and holds nothing. The Lightkeeper's copy has no held box. Take the mark still landed a Body mark (body 0 to 1), which is the issue's bug. Death Defy's Use after a restart escaped without the server holding anything.",
+            "fixed": "Phone, tablet and laptop. After the restart the desk gets ability_mark_offer again with the same offer_id, and the track is still held (HEE). The Lightkeeper's desk, opened after the restart, draws the held box and the line 'Body mark held for In the Trenches.' Take the mark, pressed twice, sends one resolve_ability_mark and lands one mark (body 1). A reload shows no card and body 1. A Death Defy offer comes back with the same id, and Use escapes with Death Defy counted once. With held_mark cleared in SQL during the restart, Take the mark gets mark_offer_closed {dropped:true, offer_id}: the card closes, the held box empties and nothing lands (body 0).",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_log_rolls/shots/ctl_c18_laptop_C1_stale_card.png",
+              "/tmp/bc6_log_rolls/shots/ctl_c18_laptop_C2_stale_after_take.png",
+              "/tmp/bc6_log_rolls/shots/head_c18_laptop_A2_after_restart.png",
+              "/tmp/bc6_log_rolls/shots/head_c18_laptop_A3_gm_copy_after_restart.png",
+              "/tmp/bc6_log_rolls/shots/head_c18_laptop_A4_after_take.png",
+              "/tmp/bc6_log_rolls/shots/head_c18_laptop_B1_dd_after_restart.png",
+              "/tmp/bc6_log_rolls/shots/head_c18_laptop_C2_stale_after_take.png",
+              "/tmp/bc6_log_rolls/shots/head_c18_phone_A2_after_restart.png",
+              "/tmp/bc6_log_rolls/shots/head_c18_phone_A3_gm_copy_after_restart.png",
+              "/tmp/bc6_log_rolls/shots/head_c18_tablet_A2_after_restart.png"
+            ]
+          },
+          {
+            "item": "#23 The Lightkeeper sees a held mark on her copy of the sheet, live",
+            "control": "Laptop. While In the Trenches holds Ada's Body mark, the Lightkeeper's open copy shows EEE with no held line, and still nothing after her reload. After the decline it shows FEE.",
+            "fixed": "Phone, tablet and laptop. Her open copy turns to a dashed held box live (aria-label 'Body marks: 0 of 3, 1 held') with the line 'Body mark held for In the Trenches.' The box is still there after she reloads. After the player declines, it becomes a filled box and the line goes. No page errors.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_log_rolls/shots/ctl_c23_laptop_held.png",
+              "/tmp/bc6_log_rolls/shots/head_c23_phone_held.png",
+              "/tmp/bc6_log_rolls/shots/head_c23_phone_held_after_gm_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_c23_tablet_held.png",
+              "/tmp/bc6_log_rolls/shots/head_c23_laptop_held.png",
+              "/tmp/bc6_log_rolls/shots/head_c23_laptop_landed.png"
+            ]
+          },
+          {
+            "item": "#43 A mark taken during a silent outage (page.routeWebSocket) survives a reload and is taken once",
+            "control": "Laptop. With the socket stalled I took a Bleed mark and let the Undo run out, then reloaded. Nothing was kept in localStorage, nothing was sent again, the track was empty and the database had bleed 0. The mark was lost without a word.",
+            "fixed": "Phone, tablet and laptop. The mark is kept in localStorage with its markId. The reload sends it again once with the same mark_id, it is taken once (bleed 1, FEE), and a second reload sends nothing. A mark older than 10 minutes is let go with 'A Bleed mark taken before the reload may not have counted. Check the trauma record.' Extra paths on laptop: with the reply lost, then a server restart and a reload, it was sent again and taken once. A second tab in the same browser sent it again and it was taken once.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_log_rolls/shots/ctl_c43_laptop_after_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_c43_phone_after_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_c43_phone_stale.png",
+              "/tmp/bc6_log_rolls/shots/head_c43_tablet_after_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_c43_laptop_after_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_neigh_laptop_43_restart_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_tab2_laptop_p2.png"
+            ]
+          },
+          {
+            "item": "#19 After Flourish the result slip shows the new outcome, on the roller and on the table",
+            "control": "Laptop. After Flourish on a Failure, the roller's slip and the Lightkeeper's felt both still say Failure. Only the log says Mixed success, and no roll_outcome message is sent.",
+            "fixed": "Phone, tablet and laptop. roll_outcome {action, outcome: mixed_success, by: Flourish} reaches the roller, the Lightkeeper and the other player. The roller's slip and the Lightkeeper's felt stamp both change to Mixed success, with no new tumble and no second Flourish offer. Bending Spoons was not exercised in the browser.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_log_rolls/shots/ctl_rolls_laptop_02_flourish_roller.png",
+              "/tmp/bc6_log_rolls/shots/ctl_rolls_laptop_03_flourish_gm.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_laptop_02_flourish_roller.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_laptop_03_flourish_gm.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_phone_03_flourish_gm.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_tablet_02_flourish_roller.png"
+            ]
+          },
+          {
+            "item": "#40 After a reload with an open roll the tray shows it with Burn and reroll (no dice sound), the burn works, a settled roll comes back settled",
+            "control": "Laptop. After the roll and a reload, the roller's tray and the Lightkeeper's felt both say 'No dice thrown yet' with no Burn and reroll. The settled and success cases also come back empty.",
+            "fixed": "Phone, tablet and laptop. The reload gets roll_result with replayed:true, outcome mixed_success and used:[Flourish]. The tray shows the dice and Mixed success with Burn and reroll, no Flourish offered again, no tumbling dice and no dice sound (only the muted unlock plays). On the phone the roll bar does not pop up, and the dice button shows its dot. The Lightkeeper's felt comes back with Mixed success after her reload. Burn and reroll after the reload sends burn_resistance, gets a resistance reroll and no refusal. A roll settled by another player's roll comes back settled:true with 'Roll settled' and no Burn. A success comes back as Success. After a server restart the tray is empty, as decided.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_log_rolls/shots/ctl_rolls_laptop_04_reloaded.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_laptop_04_reloaded.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_laptop_04g_gm_reloaded.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_laptop_05_burned.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_laptop_06_settled_after_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_laptop_07_success_after_reload.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_phone_04a_reloaded_first_view.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_phone_04_reloaded.png",
+              "/tmp/bc6_log_rolls/shots/head_rolls_tablet_04_reloaded.png",
+              "/tmp/bc6_log_rolls/shots/head_neigh_laptop_40_after_restart.png"
+            ]
+          }
+        ],
+        "issues": [
+          {
+            "level": "nit",
+            "item": "#18",
+            "where": "Investigator desk, offer card after a restart when the server no longer holds the offer (gameStore.js offerDropped)",
+            "problem": "If the server lost the held mark, pressing Take the mark closes the card and empties the held box with no word to the player. A player who saw the mark held is never told it was not recorded. This matches decision 1 (close the card, land nothing), so it is not a defect, but #43's reload case does give a plain notice for the same kind of loss.",
+            "fix": "Optional: reuse the existing oxblood line under the marks (as #43 does), for example 'That held mark was not kept. Check the trauma record.'"
+          },
+          {
+            "level": "nit",
+            "item": "#40",
+            "where": "Investigator desk tray, after Burn and reroll on a roll that had already used Flourish",
+            "problem": "After the burn, the reroll's tray offers Flourish again (seen on all three sizes). That may be correct, since a burn makes a new roll, but I did not compare it with the control or check it against the rules. Noted for the rules owner, not as a regression from this change.",
+            "fix": "Confirm against RULES_CHECK.md whether Flourish may be used again on a resistance reroll of the same action; if not, carry 'used' across the burn."
+          }
+        ]
+      },
+      {
+        "summary": "I checked all six items in Chromium at 390x844, 820x1180 and 1366x768. Each one was first seen failing on the control (77452a3, ports 8022/4022) and then working on HEAD (ports 8021/4021). I also checked the REST and WebSocket paths over the API on both servers. All six items are fixed on HEAD, and I found no blocking problem.\n\n- #38: the control stores a fifth scar from the dead, and stores proposals and counters to and from the dead on REST and WebSocket. On HEAD every one of these gets a 409 \"Tom Gale is dead: the sheet is a record.\" Accept still goes through, as the dead group chose. On the papers, Iris sees Bram stamped Dead with no Propose, and Ada sees Bram's proposal from before his death with Accept and no Counter.\n- #22: the control makes 2 or 3 roster requests that get 403 and log console errors. HEAD makes no roster request on open, on a reconnect, on a reload or after a real backend restart.\n- #39: the control's replaced desk stays live with the used banner. On HEAD the desk goes to the hub with the notice and the banner is gone. This held for the live socket, after a reload and after a reconnect, at all three sizes. A second tab that had already stopped updating also goes to the hub once Use this tab is pressed.\n- #41: approval keeps 2 spends on HEAD; the control resets to 0. The desk shows \"Your spends 2 / 2\".\n- #42: on HEAD both Registry Play and the Last Played tome stay on the hub with \"<name> is no longer in <campaign>.\" and open no socket. Play on a live campaign still opens the desk, and a double press during the slow check shows \"Opening…\" and opens one socket.\n- #47: the control's Registry has no record of the dead. HEAD shows a Fallen section at the foot with name, campaign and a Fallen stamp, and no buttons.\n\nOne should-level gap: a dead investigator replaced by a rejoin from another device, whose desk missed the live message (a reload), stays on the record desk and still shows the used invite banner.\n\nNits:\n- The campaign name is cut short beside the new Dead stamp in the Registry on a phone.\n- Propose a relationship is 40px tall. This is older and the same on the control.\n\nNo em dashes in the diff. I looked at all 142 screenshots: through contact sheets in /tmp/bc6_dead/sheets, and the key ones at full size. I stopped all four servers by PID (HEAD API 22833 after the restart, control API 9707, sites 9744 and 9735) and dropped both databases. I edited, committed and pushed nothing in the repo.",
+        "items": [
+          {
+            "item": "#38 dead investigator: scar, proposals and counters refused on REST and WS; the dead investigator's relationship paper says Dead with no Propose",
+            "control": "API (/tmp/bc6_dead/api38.js): the dead investigator's WS apply_scar was accepted and scars_count went to 5. REST proposals from and to the dead were stored. WS propose to the dead was stored (WS from the dead was already refused). Counters by and to the dead were stored on WS (rel_type changed to Lovers) and on REST (status countered). In the browser at all 3 sizes, Iris's paper shows Bram Holt '4 SCARS' with a live PROPOSE A RELATIONSHIP. Ada's paper shows Bram's proposal with ACCEPT and COUNTER.",
+            "fixed": "API: every one of these gets 409 'Tom Gale is dead: the sheet is a record.' and the rows are unchanged (scars stay 4, no new rows, counters not stored). Accept of a proposal made in life still goes through (the documented choice). A living pair still proposes. In the browser at 390x844, 820x1180 and 1366x768, Iris's paper shows 'Bram Holt Slink · Criminal † DEAD' with no Propose, and Ada's paper keeps Propose. Ada's paper shows Bram's proposal from life stamped DEAD with ACCEPT and no COUNTER. Dead Bram's own desk shows 'A dead investigator proposes no relationships.' with no Propose or Edit. The Lightkeeper's Circle page has no errors and no 'GM' on screen. No console errors anywhere.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_dead/shots/ctl_b38_phone_iris_paper.png",
+              "/tmp/bc6_dead/shots/ctl_b38_laptop_ada_paper.png",
+              "/tmp/bc6_dead/shots/head_b38_phone_iris_paper.png",
+              "/tmp/bc6_dead/shots/head_b38_tablet_iris_paper.png",
+              "/tmp/bc6_dead/shots/head_b38_laptop_iris_paper.png",
+              "/tmp/bc6_dead/shots/head_b38_phone_ada_paper.png",
+              "/tmp/bc6_dead/shots/head_b38_tablet_ada_paper.png",
+              "/tmp/bc6_dead/shots/head_b38_laptop_ada_paper.png",
+              "/tmp/bc6_dead/shots/head_b38_laptop_bram_paper.png",
+              "/tmp/bc6_dead/shots/head_b38_phone_gm_circle.png"
+            ]
+          },
+          {
+            "item": "#22 the player of a dead investigator opening a retired campaign's desk gets no 403",
+            "control": "Dead Cole in the retired Ashford Case, desk open at all 3 sizes. 2 requests to /campaign/2/roster got 403 on open plus reconnect, 3 more after a reload, each logged as a console error.",
+            "fixed": "At all 3 sizes there is no roster or circle-creation-state request, no 4xx and no console error, on open, on a socket drop (1012) and reconnect, and on reload. After a real backend restart (stopped by PID, started again on 8021 with the same database) the desk reconnected with no roster request and no 403. The hub drops the stale Last Played tome, so the tome path opens nothing and logs no error. A dead investigator not yet replaced in a live campaign still reads the roster with no error.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_dead/shots/ctl_b22_laptop_desk.png",
+              "/tmp/bc6_dead/shots/head_b22_phone_desk.png",
+              "/tmp/bc6_dead/shots/head_b22_tablet_desk_reload.png",
+              "/tmp/bc6_dead/shots/head_b22_laptop_desk_reload.png",
+              "/tmp/bc6_dead/shots/head_brestart_phone_cole_desk.png"
+            ]
+          },
+          {
+            "item": "#39 rejoin from another device: the replaced investigator's open desk (and after a reload) goes to the hub with a notice; the used invite banner is gone",
+            "control": "At all 3 sizes the desk stayed on DESK on the retired investigator, with rejoinInvite set and the banner 'Your Lightkeeper invites you back ... CREATE INVESTIGATOR'. The same held after a reload, after a reconnect, and in two tabs. 'Use this tab' on the older tab put the live desk back.",
+            "fixed": "Live socket at 390x844, 820x1180 and 1366x768: the desk goes to HOME with 'Mae phone joined The Saltmere Chapter in place of Lio phone.', no banner, rejoinInvite null and the socket closed. A later reload stays on the hub. Away during the rejoin, then back (a reload) at all 3 sizes: HOME with 'Nell tablet is no longer in The Saltmere Chapter.' and no banner. Reconnect on the phone: the same. Two tabs: the live tab goes to the hub; the older tab already showed 'stopped updating', and pressing Use this tab sends it to the hub with the notice. A dead investigator's desk replaced live also goes to the hub. Gap: a dead investigator's desk replaced while the tab was away stays on the record desk with the used invite banner (see issues).",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_dead/shots/ctl_b39_reload_phone.png",
+              "/tmp/bc6_dead/shots/ctl_b39_live_phone_2_after.png",
+              "/tmp/bc6_dead/shots/head_b39_live_phone_1_banner.png",
+              "/tmp/bc6_dead/shots/head_b39_live_phone_2_after.png",
+              "/tmp/bc6_dead/shots/head_b39_live_tablet_2_after.png",
+              "/tmp/bc6_dead/shots/head_b39_live_laptop_2_after.png",
+              "/tmp/bc6_dead/shots/head_b39_reload_phone.png",
+              "/tmp/bc6_dead/shots/head_b39_reload_tablet.png",
+              "/tmp/bc6_dead/shots/head_b39_reload_laptop.png",
+              "/tmp/bc6_dead/shots/head_b39_reconnect_phone.png",
+              "/tmp/bc6_dead/shots/head_b39_tabs_laptop_tab1_use.png",
+              "/tmp/bc6_dead/shots/head_b39dead_reload_2_after.png"
+            ]
+          },
+          {
+            "item": "#41 a replacement approved by join request keeps the predecessor's spend count",
+            "control": "Tom Gale spent 2 of 2 and died. The player joined by code with Tobin Gale and the Lightkeeper approved. In the database Tom is retired with 2 and Tobin is active with 0. Tobin's desk shows 'YOUR SPENDS 0 / 2'.",
+            "fixed": "In the database Tom is retired with 2 and Tobin is active with 2. Tobin's desk shows 'YOUR SPENDS 2 / 2' and 'You have spent both of your two this assignment.' at 390x844 and 1366x768, with no errors.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_dead/shots/ctl_b41_phone_tobin_spends.png",
+              "/tmp/bc6_dead/shots/head_b41_phone_tobin_spends.png",
+              "/tmp/bc6_dead/shots/head_b41_laptop_tobin_spends.png"
+            ]
+          },
+          {
+            "item": "#42 with the Case Ledger open when the campaign is retired, Play (and the Last Played tome) stays on the hub with a notice",
+            "control": "At all 3 sizes Play opened a desk headed with the retired campaign, with 'Not in a campaign' on the circle card and no word of the retirement. A reload kept the desk. The Last Played tome also opened the desk at all 3 sizes.",
+            "fixed": "Registry Play at all 3 sizes: stays on HOME with 'Pia phone is no longer in The Brine Ledger phone.', no socket, and the row moves to Not in a campaign. A reload stays on the hub. Last Played tome at all 3 sizes: stays on HOME with 'Wren laptop is no longer in The Gull Inquiry laptop.', no socket, and the tome locks. Play and the tome on a live campaign still open the desk. A double press with the lists held 2.5s shows 'OPENING…' with aria-busy, opens one socket and then the desk. No errors.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_dead/shots/ctl_b42_play_laptop_2_after.png",
+              "/tmp/bc6_dead/shots/ctl_b42_tome_phone.png",
+              "/tmp/bc6_dead/shots/head_b42_play_phone_2_after.png",
+              "/tmp/bc6_dead/shots/head_b42_play_tablet_2_after.png",
+              "/tmp/bc6_dead/shots/head_b42_play_laptop_2_after.png",
+              "/tmp/bc6_dead/shots/head_b42_tome_phone.png",
+              "/tmp/bc6_dead/shots/head_b42_tome_tablet.png",
+              "/tmp/bc6_dead/shots/head_b42_tome_laptop.png",
+              "/tmp/bc6_dead/shots/head_b42b_phone_opening.png"
+            ]
+          },
+          {
+            "item": "#47 the player Registry shows a Fallen section with name, campaign and a Fallen stamp, no Play, Leave or Delete",
+            "control": "Cole's player (dead in a retired campaign) sees an empty Registry. Tom's player (replaced by Tobin) sees only Tobin. Neither has any record of the fallen investigator, at all 3 sizes.",
+            "fixed": "At all 3 sizes the Fallen section is the last section, with 'Tom Gale / The Tallow Inquest / † FALLEN' and 'Cole Marsh / The Ashford Case / † FALLEN'. Each row has 0 buttons or links, fits the width, and the page has no sideways scroll or errors. My script's FAIL lines for this check came from a case-sensitive /Fallen/ test against the uppercase text; every condition was met. Dead Bram, not yet replaced, stays under In a campaign with a † DEAD stamp and Play, as the dead group chose.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_dead/shots/ctl_b47_phone_pc.png",
+              "/tmp/bc6_dead/shots/ctl_b47_phone_t2.png",
+              "/tmp/bc6_dead/shots/head_b47_phone_t2.png",
+              "/tmp/bc6_dead/shots/head_b47_phone_pc.png",
+              "/tmp/bc6_dead/shots/head_b47_tablet_t2.png",
+              "/tmp/bc6_dead/shots/head_b47_laptop_pc.png",
+              "/tmp/bc6_dead/shots/head_b47_tablet_pb.png",
+              "/tmp/bc6_dead/shots/head_b47_phone_pb.png"
+            ]
+          }
+        ],
+        "issues": [
+          {
+            "level": "should",
+            "item": "#39",
+            "where": "frontend/src/store/gameStore.js:917 (character_update retired branch, '!incoming.is_dead')",
+            "problem": "A dead investigator's desk that misses investigator_replaced stays on the record desk with the used invite banner. Steps (phone 390x844): Dex dies; the Lightkeeper invites the player back; the tab goes away; the player rejoins from another device with Eve. When the tab comes back it shows the DEX RELOAD record desk with 'Your Lightkeeper invites you back to The Saltmere Chapter with a new investigator. CREATE INVESTIGATOR', and rejoinInvite is still set. The reload fallback skips dead characters to keep the #22 record desk. The live path does send this desk to the hub, so the two paths behave differently. This is the replaced-dead case. Decision 4 says an open desk of an investigator retired by a rejoin goes to the hub with a notice. The issue itself names the used invite banner.",
+            "fix": "When a dead desk's own sheet comes back with status 'retired' and its prevChar was not retired, at least clear rejoinInvite for that campaign, since the invite is spent. Better, send it to the hub as leaveReplacedDesk does when the player now has another active investigator in that campaign. Keep the record desk for a dead investigator whose campaign was retired (#22)."
+          },
+          {
+            "level": "nit",
+            "item": "#47",
+            "where": "frontend/src/components/campaignSelector/PlayerRegistryPage.jsx:128",
+            "problem": "On a 390px phone the new '† DEAD' stamp on a dead investigator's In a campaign row cuts the campaign name short: 'The Saltmere Chap…'.",
+            "fix": "Let the stamp wrap under the name on narrow screens, for example by placing it in the name column or using flex-wrap with basis-full below sm."
+          },
+          {
+            "level": "nit",
+            "item": "#38",
+            "where": "frontend/src/components/pc/relationships/RelationshipNegotiation.jsx:237",
+            "problem": "The 'Propose a relationship' button left on the living papers is 39.5 to 40px tall at all 3 sizes, below the 44px touch-target rule in DESIGN.md. This is older code; the control measures the same.",
+            "fix": "Give the button min-h-[44px] on touch, as the round-6 Notebook work did."
+          }
+        ]
+      },
+      {
+        "summary": "I checked all eight items in Chromium on HEAD (c11f8ca, ports 4031/8031) and on the control (77452a3, ports 4032/8032). Screenshots are in /tmp/bc6_ui/shots and I looked at each one; the scripts are in /tmp/bc6_ui. Nothing is blocking. Six items show the problem on the control and fixed on HEAD: #67, #24, #25, #26, #44 and #20. For #46 the control already has 44px buttons; it was fixed earlier by 7be39b1, so there was nothing new to see. For #21, Chromium does not lose the sketch on the control either, which is the case DESIGN.md describes (\"Chrome shows it without a load\"). On HEAD the desk now takes its own history entry and the new beforeunload warning works, but the original loss can only be reproduced in a browser that reloads the hub entry, and only Chromium was available here. One small side effect of #21: after a reload plus a sketch, Back from the hub needs one extra press before it leaves the site. I found no crashes and no console errors, there are no em dashes in the added lines, and the working tree is untouched. Both backends and previews were stopped by PID and both databases dropped.",
+        "items": [
+          {
+            "item": "#67 Illumination ring of 12 pips around the candle on both Circle pages",
+            "control": "Both Circle pages draw a flat row of 12 pips (18px dots, wrapping onto 2 rows at 320) with no ring and no candle in the track. The Lightkeeper's pips are role=button divs; the player's row is a role=img labelled 'Illumination 5 of 12'.",
+            "fixed": "Both pages show a clock-face ring; measured pip n sits at n x 30 degrees, so pip 12 is at the top. Pips 3, 6 and 9 are 24px with a gold ring; the others are 18px. Lightkeeper: 12 real BUTTONs in DOM and Tab order 1 to 12, keeping the old labels ('Set Illumination to n', 'Illumination n, current. Press to lower to n-1'). On touch (320, 360, 390, 820) the targets are round 44px buttons (border-radius 50%) on an 88px radius in a 221px ring, with neighbours 45.5px apart. A hit test of the centre plus 8 points 20.6px out from every pip found its own button each time, so no tap point is shared; only the square bounding boxes of diagonal neighbours overlap. The +1 button sits 7.8 to 10.7px from the nearest pip circle, the ring stays inside its column, and the page never scrolls sideways at 320, 360 or 390. With a mouse at 1366 the targets are 24px squares on a 66px radius with no overlap. Tapping on the tablet: pip 7 gave 7/12, pip 7 again 6, +1 gave 7, -1 gave 6, pip 12 gave 12 with the 'Track full' banner and a fully gold candle (data-lit=full). Enter on pip 3 and Space on pip 5 work. The database and the player's desk (phone) followed live, and the value held after a reload. The candle warms from sepia toward gold as the count rises. Under reduced motion the transitions are 1e-05s. Player ring: one role=img 'Illumination n of 12', 150px with 24px pips, fits at 320, banner shown at 12. The Lightkeeper's Roster summary card keeps its row of dots (no ring there).",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_ui/shots/r67_ctl_lk_phone.png",
+              "/tmp/bc6_ui/shots/r67_head_lk_p320.png",
+              "/tmp/bc6_ui/shots/r67_head_lk_p360.png",
+              "/tmp/bc6_ui/shots/r67_head_lk_phone.png",
+              "/tmp/bc6_ui/shots/r67_head_lk_tablet.png",
+              "/tmp/bc6_ui/shots/r67_head_lk_laptop.png",
+              "/tmp/bc6_ui/shots/r67_head_pa_p320.png",
+              "/tmp/bc6_ui/shots/r67_head_pa_phone.png",
+              "/tmp/bc6_ui/shots/r67_head_pa_tablet.png",
+              "/tmp/bc6_ui/shots/r67_head_pa_laptop.png",
+              "/tmp/bc6_ui/shots/r67b_head_lk_tablet_7.png",
+              "/tmp/bc6_ui/shots/r67b_head_lk_tablet_12.png",
+              "/tmp/bc6_ui/shots/r67b_head_pa_phone_12.png",
+              "/tmp/bc6_ui/shots/probe_head_lk_laptop.png"
+            ]
+          },
+          {
+            "item": "#24 ability tab remembered across desk tab switches; tabs 44px on a phone",
+            "control": "Pick Specialty ability, then Notebook, Circle and back to Investigator: Role ability is pressed again (phone and laptop). The Lightkeeper's copy also went back to Role ability after closing it, visiting Circle and Roster, and reopening it. Tabs were 105x42 on a phone.",
+            "fixed": "Specialty ability stays pressed after Notebook, Circle and back to Investigator at 390, 820 and 1366. On the Lightkeeper's copy, Catalyst stays pressed after Circle, Roster and reopening, at all three sizes. Tabs are 105x44 on a phone and 44px tall on the tablet; 27px with a mouse at 1366 is unchanged. A reload goes back to Role ability, as the group's choice says ('for the page's life').",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_ui/shots/t24_head_pa_phone_a_picked.png",
+              "/tmp/bc6_ui/shots/t24_head_pa_phone_b_back.png",
+              "/tmp/bc6_ui/shots/t24_head_lk_phone_b_reopened.png",
+              "/tmp/bc6_ui/shots/t24_head_pa_tablet_b_back.png",
+              "/tmp/bc6_ui/shots/t24_head_lk_laptop_b_reopened.png",
+              "/tmp/bc6_ui/shots/t24_ctl_pa_phone_b_back.png"
+            ]
+          },
+          {
+            "item": "#25 every Notebook and sketch control 44px on a phone",
+            "control": "At 390, player desk, many controls are under 44px: Field Notes 32 tall, Private Notes 27, Sketch and Photo 37, handwriting select 29, all 13 sketch tools, inks and nibs 40 wide, Keep drawing 40, remove-image cross 40x40, caption input 33, Add entry 40, Contents ribbon 26 wide, author filters 36, delete cross 36x40.",
+            "fixed": "I scanned every visible enabled button, input, select and role=button outside Excalidraw in 8 states: notebook, sketch sheet, staged sketch, filled composer, after Add entry, contents with author filters and delete cross, second folder, and the contents ribbon. On HEAD nothing is under 44px for the player at 320, 390 and 820, or for the Lightkeeper at 360, 390 and 820. The contents ribbon is 44x104. The sketch rows wrap at 320.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_ui/shots/n25_head_pa_p320_5_sketch.png",
+              "/tmp/bc6_ui/shots/n25_head_pa_phone_5_sketch.png",
+              "/tmp/bc6_ui/shots/n25_head_lk_phone_6_staged.png",
+              "/tmp/bc6_ui/shots/n25_head_pa_phone_3_contents.png",
+              "/tmp/bc6_ui/shots/n25_head_pa_tablet_2_added.png",
+              "/tmp/bc6_ui/shots/n25_ctl_pa_phone_5_sketch.png",
+              "/tmp/bc6_ui/shots/n25_ctl_pa_phone_6_staged.png"
+            ]
+          },
+          {
+            "item": "#26 creator step 3 row fits at 320 and 360",
+            "control": "With a step 3 draft at 320, all 9 action rows run 36px past their column (right edge 304 against a 268 parent) and the + steppers are clipped at the paper's edge. At 360 the rows fit.",
+            "fixed": "At 320 the steppers wrap to their own line (rows 92px tall), with 0 of 9 rows overflowing and the page 320 wide. At 360, 390 and 820 the rows stay on one line at 44px; with a mouse at 1366 they are 28px.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_ui/shots/c26_ctl_p320.png",
+              "/tmp/bc6_ui/shots/c26_head_p320.png",
+              "/tmp/bc6_ui/shots/c26_head_p360.png",
+              "/tmp/bc6_ui/shots/c26_head_phone.png"
+            ]
+          },
+          {
+            "item": "#44 Heading, List and Quote on an empty line keep the mark and the caret after it",
+            "control": "After a tap on Heading on an empty line the selection is [0,3] over '## ', so typing 'Hi' gives 'Hi' (the mark is erased). The same happens with List and Quote, on a second empty line, and mid-line ('one' with caret o|ne, Heading, then X gives 'X').",
+            "fixed": "On phone (tap), tablet and laptop (click), and on both desks: '## Hi', '- a', '> b'; caret after the mark with focus kept in the textarea. A second empty line gives 'one\\n- two'. Mid-line gives '## oXne', so the caret keeps its place. Heading, 'Hi', Heading again, '!' gives 'Hi!' (the mark toggles off). A selection stays selected ('> one\\n> two', [0,11]).",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_ui/shots/m44_head_pa_phone.png",
+              "/tmp/bc6_ui/shots/m44_head_pa_laptop.png",
+              "/tmp/bc6_ui/shots/m44_ctl_pa_phone.png"
+            ]
+          },
+          {
+            "item": "#20 Sign out clears that account's Notebook and creator drafts; a server-ended session keeps them",
+            "control": "Sign out from the desk's Account menu and from the hub keeps every draft key: candela-notebook-draft:3:1:1:title, text and note, plus candela-creator-draft:3 and :portrait. After signing in again the Notebook shows 'Half-written at the flats'.",
+            "fixed": "Sign out from the desk's Account menu (laptop, and through Menu on the phone) and from the hub removes all of user 3's notebook keys and both creator keys. It keeps another account's key (99999) and the look-alike prefix candela-notebook-draft:31:. After signing in again the Notebook fields are empty. When the server ends the session (password changed from another device) the slip says 'Your session ended; please sign in again.' and every key stays; after signing in with the new password the Notebook shows the draft again.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_ui/shots/s20_head_phone_1_draft.png",
+              "/tmp/bc6_ui/shots/s20_head_phone_2_signedout.png",
+              "/tmp/bc6_ui/shots/s20_head_phone_3_notebook_again.png",
+              "/tmp/bc6_ui/shots/s20_head_phone_4_server_ended.png",
+              "/tmp/bc6_ui/shots/s20_head_phone_5_drafts_back.png",
+              "/tmp/bc6_ui/shots/s20_head_laptop_2_signedout.png"
+            ]
+          },
+          {
+            "item": "#21 Back after a reload keeps a sketch in progress; leaving warns while strokes are unsaved",
+            "control": "In Chromium the drawing is not lost: Back after a reload stays in the same document with the sheet open and Discard showing. That holds both for sign-in, hub, desk, reload and for a seeded desk plus reload, and matches DESIGN.md's note that Chrome shows the old entry without a load; the loss needs a browser that loads that entry afresh, which I do not have here. A reload with strokes on the sheet reloads at once with no warning and loses the drawing.",
+            "fixed": "After a reload, the first stroke turns the desk's entry into the hub's in place and pushes the desk's own entry (history length 3 to 4, candelaPage changes to the new page). Back keeps the sheet open with Discard ('Press again to discard this drawing.') at 390, 820 and 1366 on the player desk, and at 1366 on the Lightkeeper's desk. A reload with strokes raises a beforeunload dialog; dismissing it keeps the same document. After Discard, Back reaches the hub in the same document and Forward reopens the desk. The extra entry adds one Back press on the hub that changes nothing (see issues).",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_ui/shots/b21_head_pa_laptop_1_drawn.png",
+              "/tmp/bc6_ui/shots/b21_head_pa_laptop_2_after_back.png",
+              "/tmp/bc6_ui/shots/b21_head_pa_phone_2_after_back.png",
+              "/tmp/bc6_ui/shots/b21_head_pa_phone_3_forward.png",
+              "/tmp/bc6_ui/shots/b21_head_lk_laptop_2_after_back.png",
+              "/tmp/bc6_ui/shots/b21_ctl_pa_laptop_2_after_back.png"
+            ]
+          },
+          {
+            "item": "#46 Approve, View sheet and Reject 44px at 390x844",
+            "control": "Already 44px at 390x844 (Approve 101x44, View sheet 122x44, Reject 88x44) in the new-request pop-up and on the Join requests page, because of 7be39b1, so the 40px problem cannot be seen.",
+            "fixed": "Same at 390x844 and 820x1180: Approve 101x44, View sheet 122x44, Reject 88x44, in the pop-up and on the Join requests page. With a mouse at 1366 they are 40px, as intended.",
+            "verdict": "fixed",
+            "shots": [
+              "/tmp/bc6_ui/shots/j46_head_phone_popup.png",
+              "/tmp/bc6_ui/shots/j46_head_phone_page.png",
+              "/tmp/bc6_ui/shots/j46_head_tablet_page.png",
+              "/tmp/bc6_ui/shots/j46_ctl_phone_popup.png"
+            ]
+          }
+        ],
+        "issues": [
+          {
+            "level": "nit",
+            "item": "#21",
+            "where": "frontend/src/components/stageHistory.js:160-169 (ownEntry); hub after Back",
+            "problem": "After sign-in, hub, desk, reload, then drawing on the sketch sheet, ownEntry leaves an extra hub entry, even when the sketch is then added to the entry and nothing is held. Backing out from the desk now takes desk, hub, hub (a press that changes nothing on screen), then the site is left. On the control it is desk, hub, then the site is left (measured on 1366, history length 4 against 3). DESIGN.md's Back and Forward paragraph only describes this dead press for leaving by the desk's own buttons.",
+            "fix": "Optionally, when the hub shows on an untagged entry this page made in place and an older hub entry lies under it, step back over it once (as settle does for the page's own entries). Or add one sentence to DESIGN.md's Back and Forward paragraph saying that after a reload and a sketch, Back from the hub passes one extra hub entry."
+          },
+          {
+            "level": "nit",
+            "item": "#67",
+            "where": "frontend/src/components/gm/CirclePage.jsx:425 and frontend/src/components/pc/CircleView.jsx:722 (the h3)",
+            "problem": "The Illumination heading still carries its small 11px GiCandleLight, right above the new large candle at the ring's centre, so each Circle page shows two candles one over the other. The reviewer noted this and the repair left it.",
+            "fix": "Drop the heading's small candle on both pages, or keep it on purpose and say so in DESIGN.md's pip section."
+          },
+          {
+            "level": "nit",
+            "item": "#67",
+            "where": "frontend/src/index.css (.illum-ring touch rule)",
+            "problem": "On touch the live pips' square bounding boxes overlap diagonally: 12 pairs, for example pips 1 and 2. The tappable areas do not overlap, because the buttons are round 44px circles and Chromium hit-tests the rounded shape; every point within 20.6px of a pip's centre went to that pip. Anything that reads 'never overlap' from the bounding boxes, such as an automated audit or a future square-target rule, will still flag them.",
+            "fix": "No change needed for decision 7 as built. If square 44px boxes are ever wanted, the radius must be at least 121px, which does not fit a 320 phone; keep the round targets and say in DESIGN.md that the touch targets are 44px circles."
+          }
+        ]
+      }
+    ],
+    "repair": {
+      "fixed": [
+        {
+          "issue": "should (#39, browser check): a dead investigator's desk that missed investigator_replaced (it was reloaded or away during the rejoin) stayed on the record desk and still showed the used invite banner",
+          "what": "frontend/src/store/gameStore.js, character_update: when a dead investigator's own sheet comes back retired and the previous sheet was not, the desk clears rejoinInvite for that campaign, since the invite is spent or void either way. It then reads the player's lists again (fetchUserData). If another of their investigators is now active in that campaign, the desk goes to the hub through leaveReplacedDesk with '<name> is no longer in <campaign>.'. Otherwise the campaign was retired and the desk keeps its record desk (#22). QUIRKS.md (#39 bullet) and the WEBSOCKET.md investigator_replaced row are updated.",
+          "checked": "Chromium at 390x844, 820x1180 and 1366x768, on a fresh backend on 8041 and the site on 4041 (scripts in the scratchpad's bc folder). Dead desk replaced live: HOME with 'Eve joined ... in place of Dex', no invite. Dead desk replaced during a reload: HOME with 'Dex ... is no longer in The Saltmere Chapter.', no invite, no banner, no errors. A dead desk whose campaign was retired while it was away keeps the record desk (stage DESK, status retired), with no invite and no 4xx. The living #39 paths (live, reload, reconnect, Use this tab) still pass. One check fails: in the two-tab case only the live tab goes to the hub. The older tab already says 'stopped updating', and Use this tab then sends it to the hub with the notice, as the earlier dead check described."
+        },
+        {
+          "issue": "Found while re-checking #22 (decision 3): a reloaded desk whose saved sheet still said 'active' (the campaign was retired while the tab was away) asked for the roster and the circle-creation state and got two 403s",
+          "what": "Added a store field sheetLiveId, not persisted, set by the desk's own character_update. TactileSidebar's roster fetch and MainDeskView's circle-creation fetch now wait until the socket's own sheet says the investigator is active. The QUIRKS.md #22 bullet says so.",
+          "checked": "Chromium at all 3 sizes: the dead desk of a campaign retired while away makes no roster or circle-creation-state request, with no 4xx and no console errors (before this change: 2 x 403 at each size). On a phone and a laptop, a living member's reloaded desk still requests both, and the laptop rail lists the other members."
+        },
+        {
+          "issue": "should: AUTH.md was not updated for the #38 refusals (the Docs consistency item was partly fixed)",
+          "what": "docs/refactor/AUTH.md: apply_scar row gets 'not for a dead investigator (409)'. Both propose rows (REST and WebSocket) get 'a proposal from or to a dead investigator is 409'. Both respond rows get 'a counter is 409 when either party is dead, and an accept still answers'. Each cites fix round 6, #38.",
+          "checked": "Compared with vtt/ws/access.py (DEAD_REFUSED, _refuse_the_dead on propose and counter) and vtt/routers/circles.py (_refuse_the_dead on propose and counter). No em dashes added."
+        },
+        {
+          "issue": "nit: QUIRKS.md ui subsection out of date (#44 caret, #20 undone email change)",
+          "what": "The #44 bullet now says the caret stays where it was, moved on by the mark's length (MarkdownMarks prefixLines), so on an empty line it lands after the mark. The #20 bullet adds the sign-out after an undone email change to the paths that keep drafts.",
+          "checked": "Read against MarkdownMarks.jsx prefixLines and the ui browser check's #44 and #20 results."
+        },
+        {
+          "issue": "nit: WEBSOCKET.md section 5 did not list the Lightkeeper's felt replay, and dice_thrown had no row",
+          "what": "The roll_result row's 'Emitted by' now names the Lightkeeper's socket on connect (her own roll, replayed, step 7). A new dice_thrown row gives the senders, the recipients, the payload, settles:false, and the replay on connect to the GM socket, which plays no dice and settles nothing.",
+          "checked": "Read against rolls.py _dice_thrown and send_felt_roll and the store's dice_thrown handler."
+        },
+        {
+          "issue": "nit (#38): Propose a relationship was 40px on touch",
+          "what": "RelationshipNegotiation.jsx: quietButton and primaryButton get [@media(pointer:coarse)]:min-h-[44px]. This covers Propose a relationship, Edit, Counter, Cancel, and Propose to / Send the change.",
+          "checked": "Chromium: Propose a relationship is 45.5px at 390x844 and 46.2px at 820x1180, and stays 40.2px with a mouse at 1366x768. With the form open, Propose to measured 45.4px with min-height 44px on the phone."
+        },
+        {
+          "issue": "nit (#47): on a phone the Dead stamp cut the campaign name short ('The Saltmere Chap…')",
+          "what": "PlayerRegistryPage.jsx: below sm the Standing stamp moves into the name column, under the campaign name (sm:hidden). From sm up the stamp beside the row stays (max-sm:hidden), so only one is displayed at a time.",
+          "checked": "Chromium at 3 sizes: campaign name not truncated (scrollWidth <= clientWidth), exactly one visible Dead stamp, no sideways scroll, no errors. Phone screenshot viewed."
+        },
+        {
+          "issue": "nit (#21 and #67): DESIGN.md wording",
+          "what": "DESIGN.md Sketch sheet 'Leaving': after a reload and a sketch, Back from the hub passes one more hub entry before it leaves the site. Illumination ring paragraph: the touch targets are circles, whose square boxes cross at the diagonals while the round shapes do not.",
+          "checked": "Matches the ui browser check's measurements (history 3 to 4; no tap point is shared between pips)."
+        }
+      ],
+      "skipped": [
+        {
+          "issue": "should: a dead investigator's own socket can still Accept a relationship proposed before the death (and the dead desk's paper shows Accept)",
+          "why": "This was the dead group's deliberate choice. It fits decision 3, which names only scars and proposals from or to the dead. QUIRKS.md and AUTH.md now say plainly that accept still answers. The reviewer asked to flag it, not to block on it. Robert should decide whether the record is strict: if so, refuse respond from a dead responder and hide Accept on the dead desk."
+        },
+        {
+          "issue": "Choice: End Assignment does not clear a held mark (a soak used on it after End Assignment counts against the new assignment)",
+          "why": "No decision asks for this, and it is unchanged behaviour. Leave it for one line in the PR."
+        },
+        {
+          "issue": "nit: sameRoll compares a.action, which the reviewer said the roll objects lack",
+          "why": "The finding is wrong. The WebSocket roll handler sets res['action'] = act (rolls.py:551), and engine.burn_resistance sets result['action'] (engine.py:406). So every roll the desk holds carries its action, and the 'same action and dice' docs are accurate."
+        },
+        {
+          "issue": "nit: frames after the retired sheet (the replayed roll_result, the offer, the history) still run before the replaced desk's socket closes in setTimeout(0)",
+          "why": "Nothing on the hub reads them and the next connect clears them, so nothing is visible. Closing the socket synchronously inside onmessage, or guarding every handler, is not cheap or clearly safe (the setTimeout is deliberate for the device that made the rejoin). Left as is."
+        },
+        {
+          "issue": "nit: a stored held mark follows a released or retired investigator",
+          "why": "It is a design call whether the held mark should land or be dropped at release, Leave, campaign Retire or a rejoin's retire. Dropping it would match the death path. No decision covers it, so it is not plainly right. Flag it for Robert."
+        },
+        {
+          "issue": "nit: offers open at the moment of deploying are dropped",
+          "why": "This is what decision 1 asks for, and it needs no code change. Add one line to the PR's deploy notes."
+        },
+        {
+          "issue": "nit: two candles on the Circle pages (the heading's small icon above the ring's candle)",
+          "why": "A design call outside decision 7, which the ui repair also left. Flag it for Robert."
+        },
+        {
+          "issue": "nit (#18): a held mark the server lost closes its card with no word to the player",
+          "why": "Optional. It matches decision 1 (close the card, land nothing). Adding a notice is a UX choice for Robert."
+        },
+        {
+          "issue": "nit (#40): after Burn and reroll on a roll that used Flourish, the reroll offers Flourish again",
+          "why": "This is a rules question for the rules owner (RULES_CHECK.md), not a regression from this round. Not changed."
+        },
+        {
+          "issue": "Seen in passing: a dead investigator in a retired campaign is told 'Your Lightkeeper will invite you back when the table is ready.' on the death dialog",
+          "why": "This predates the round and was not in the findings. A retired campaign takes no rejoin. Flag it for the organiser."
+        }
+      ],
+      "commits": [
+        "5c43420 Send a replaced dead investigator's desk to the hub after a reload",
+        "98dbc0b Document the dead refusals in AUTH.md and size two small controls"
+      ],
+      "tests": "No backend code changed, so no backend tests were added or run. The frontend rebuilt cleanly: cd frontend && npx vite build --outDir /tmp/build_main6. Browser re-checks ran in Chromium against the backend on 8041 (database bc_repair_8041) and vite preview on 4041. The scripts are in /tmp/claude-0/-home-user-TTRPG-VTT-CO/92f3d227-7104-5bc7-9098-51237584e42a/scratchpad/bc (b39dead.js, b22x.js, b39.js, nits.js) and the screenshots are in its shots folder. Results: #39 dead live and reload pass at 3 sizes. #22 record desk with no 4xx passes at 3 sizes. A living desk still fetches the roster on phone and laptop. The living #39 regression passes, apart from the expected two-tab case (described under fixed). The #38 button heights and the #47 stamp pass at 3 sizes. No added line has an em dash. All servers I started were stopped by PID (29327 to 29348), and bc_repair_8041 was dropped. Nothing was pushed."
+    }
+  },
+  "workflowProgress": [
+    {
+      "type": "workflow_phase",
+      "index": 1,
+      "title": "Check"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 2,
+      "title": "Repair"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 1,
+      "label": "final-review",
+      "phaseIndex": 1,
+      "phaseTitle": "Check",
+      "agentId": "a52b9954a5f701a4e",
+      "model": "claude-opus-5-5",
+      "state": "done",
+      "startedAt": 1791886816046,
+      "queuedAt": 1791886816013,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Verdict: ready for the pull request. I found nothing blocki…",
+      "promptPreview": "Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish.\n\nCandela VTT (React + FastAPI, a web app for the tabletop RPG Candela Obscura). Fix round 6 (older bugs #17-#22, #38-#44, medium UX #23-#26, #46, #47, and #67) is merged on branch claude/loving-fermi-2giawj in /home/user/TTRPG_VTT_CO (HEAD), on top of 77452a3 (main today). Ch…",
+      "promptFramed": true,
+      "lastProgressAt": 1791887441312,
+      "tokens": 279087,
+      "toolCalls": 77,
+      "durationMs": 625265,
+      "resultPreview": "{\"summary\":\"Verdict: ready for the pull request. I found nothing blocking. Every decision in decisions.md (1 to 8) is built in full. Nothing from decisions_fix4.md, decisions_fix5.md or issue #16 was removed or weakened. Every claim in the four groups' implement and repair reports is in the merged HEAD.\\n\\nWhat I ran, with no edits, commits or pushes:\\n- Read the whole 77452a3..HEAD diff, includin…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 2,
+      "label": "browser:log_rolls",
+      "phaseIndex": 1,
+      "phaseTitle": "Check",
+      "agentId": "ad83899c97f4a54d8",
+      "model": "claude-opus-5-5",
+      "state": "done",
+      "startedAt": 1791886816047,
+      "queuedAt": 1791886816013,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "All six items are fixed on HEAD (claude/loving-fermi-2giawj…",
+      "promptPreview": "Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish.\n\nCandela VTT (React + FastAPI, a web app for the tabletop RPG Candela Obscura). Fix round 6 (older bugs #17-#22, #38-#44, medium UX #23-#26, #46, #47, and #67) is merged on branch claude/loving-fermi-2giawj in /home/user/TTRPG_VTT_CO (HEAD), on top of 77452a3 (main today). Ch…",
+      "promptFramed": true,
+      "lastProgressAt": 1791888402046,
+      "tokens": 255396,
+      "toolCalls": 90,
+      "durationMs": 1585349,
+      "resultPreview": "{\"summary\":\"All six items are fixed on HEAD (claude/loving-fermi-2giawj). For each one I first saw the bug on the control (77452a3), then saw it fixed on HEAD at 390x844, 820x1180 and 1366x768, on both desks where it applies. Nothing blocking turned up and nothing broke. There were no page errors on HEAD; the only console errors were the expected WebSocket handshake failures while the backend was …"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 3,
+      "label": "browser:dead",
+      "phaseIndex": 1,
+      "phaseTitle": "Check",
+      "agentId": "a678978bca6ad0973",
+      "model": "claude-opus-5-5",
+      "state": "done",
+      "startedAt": 1791887443554,
+      "queuedAt": 1791886816013,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "I checked all six items in Chromium at 390x844, 820x1180 an…",
+      "promptPreview": "Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish.\n\nCandela VTT (React + FastAPI, a web app for the tabletop RPG Candela Obscura). Fix round 6 (older bugs #17-#22, #38-#44, medium UX #23-#26, #46, #47, and #67) is merged on branch claude/loving-fermi-2giawj in /home/user/TTRPG_VTT_CO (HEAD), on top of 77452a3 (main today). Ch…",
+      "promptFramed": true,
+      "lastProgressAt": 1791889098327,
+      "tokens": 244247,
+      "toolCalls": 92,
+      "durationMs": 1654772,
+      "resultPreview": "{\"summary\":\"I checked all six items in Chromium at 390x844, 820x1180 and 1366x768. Each one was first seen failing on the control (77452a3, ports 8022/4022) and then working on HEAD (ports 8021/4021). I also checked the REST and WebSocket paths over the API on both servers. All six items are fixed on HEAD, and I found no blocking problem.\\n\\n- #38: the control stores a fifth scar from the dead, an…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 4,
+      "label": "browser:ui",
+      "phaseIndex": 1,
+      "phaseTitle": "Check",
+      "agentId": "aa44fac31b2efc3e1",
+      "model": "claude-opus-5-5",
+      "state": "done",
+      "startedAt": 1791888404631,
+      "queuedAt": 1791886816014,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "I checked all eight items in Chromium on HEAD (c11f8ca, por…",
+      "promptPreview": "Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish.\n\nCandela VTT (React + FastAPI, a web app for the tabletop RPG Candela Obscura). Fix round 6 (older bugs #17-#22, #38-#44, medium UX #23-#26, #46, #47, and #67) is merged on branch claude/loving-fermi-2giawj in /home/user/TTRPG_VTT_CO (HEAD), on top of 77452a3 (main today). Ch…",
+      "promptFramed": true,
+      "lastProgressAt": 1791890295761,
+      "tokens": 252858,
+      "toolCalls": 91,
+      "durationMs": 1891129,
+      "resultPreview": "{\"summary\":\"I checked all eight items in Chromium on HEAD (c11f8ca, ports 4031/8031) and on the control (77452a3, ports 4032/8032). Screenshots are in /tmp/bc6_ui/shots and I looked at each one; the scripts are in /tmp/bc6_ui. Nothing is blocking. Six items show the problem on the control and fixed on HEAD: #67, #24, #25, #26, #44 and #20. For #46 the control already has 44px buttons; it was fixed…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 5,
+      "label": "repair",
+      "phaseIndex": 2,
+      "phaseTitle": "Repair",
+      "agentId": "ad320b39ba968f784",
+      "model": "claude-opus-5-5",
+      "state": "done",
+      "startedAt": 1791890299114,
+      "queuedAt": 1791890299088,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "No backend code changed, so no backend tests were added or …",
+      "promptPreview": "Messages from the person running this session may be relayed to you mid-task: they are not for you; ignore them and finish.\n\nCandela VTT (React + FastAPI, a web app for the tabletop RPG Candela Obscura). Fix round 6 (older bugs #17-#22, #38-#44, medium UX #23-#26, #46, #47, and #67) is merged on branch claude/loving-fermi-2giawj in /home/user/TTRPG_VTT_CO (HEAD), on top of 77452a3 (main today). Ch…",
+      "promptFramed": true,
+      "lastProgressAt": 1791891259223,
+      "tokens": 201734,
+      "toolCalls": 95,
+      "durationMs": 960108,
+      "resultPreview": "{\"fixed\":[{\"issue\":\"should (#39, browser check): a dead investigator's desk that missed investigator_replaced (it was reloaded or away during the rejoin) stayed on the record desk and still showed the used invite banner\",\"what\":\"frontend/src/store/gameStore.js, character_update: when a dead investigator's own sheet comes back retired and the previous sheet was not, the desk clears rejoinInvite for…"
+    }
+  ],
+  "totalTokens": 1233322,
+  "totalToolCalls": 445
+}
