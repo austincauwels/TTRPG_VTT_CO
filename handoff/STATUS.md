@@ -2,7 +2,7 @@
 
 Updated 13 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
-Resume: fix round 6 running (workflows/run6, results/2026-10-13-fix6); session_01WaLz6UBTQ5XaTKSYwqeMKA
+Resume: overnight run; fix round 6 merged (PR 70, main e5356d4); fix round 7 (low UX checklists #69, #45, #60 UX) starting. Session session_01WaLz6UBTQ5XaTKSYwqeMKA.
 
 ## For the next chat: start here
 
@@ -58,6 +58,8 @@ What worked for fix rounds 4 and 5: one worktree per group (`/home/user/wt/<grou
 **How playtests run (Robert, 11 October).** Repeats of old problems are fine to find. The play stays blind. The re-check of the last report is its own pass by separate agents. Each fix is retested before it ships: a fix PR's browser check replays the original steps of every item it fixes, with the unfixed build as a control. No automated test suite in CI beyond the backend tests, and no fix ledger beyond issues.
 
 ## Where things stand
+
+- **Fix round 6 merged** 13 October (PR 70, https://github.com/austincauwels/TTRPG_VTT_CO/pull/70, main e5356d4, CI green): closed #17-#26, #38-#47 and #67. Not deployed. Deploy adds table `activity_lines` and columns `characters.held_mark`, `characters.taken_mark_ids`. Calls flagged for Robert are in the PR. Record: `playtest/results/2026-10-13-fix6/`, workflows `playtest/workflows/run6/`.
 
 - `main` is at **77452a3** (PR 68 merged 13 October Pacific). Live ran 770a2ed with nobody playing (Robert, 13 October); he deploys PR 68 straight to live, not via beta. Ask him whether he has.
 - **PR 68** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/68, branch `claude/pensive-babbage-eo1v57`, head 7be39b1) is fix round 5: Robert's hand-filed #62-#66. **Merged** 13 October; CI green. Full backend suite 1986 passed, 1 skipped.
