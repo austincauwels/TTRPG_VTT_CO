@@ -1157,14 +1157,15 @@
 
 /* The Illumination ring (#67): twelve pips on a clock face around the candle. --r is the
    radius to a pip's centre and --box the square it sits in. On a touch screen a live pip
-   is a 44px square target on a radius of 120px: two neighbours are at least 0.366 x 120 =
-   44px apart on one axis (the closest pair, 1 and 2, sit diagonally), so the squares never
-   overlap; with a mouse the ring is smaller. The candle warms from sepia to gold as
+   is a round 44px target on a radius of 88px: neighbours are 2 x 88 x sin 15 = 45.6px apart
+   centre to centre, so the circles never overlap, and the box is 2 x 88 + 44 = 220px so
+   every target stays inside it and the ring fits a 320px phone; with a mouse the ring is
+   smaller. The candle warms from sepia to gold as
    the track fills (--warm) and is lit when full. */
 .illum-ring { --r: 66px; --box: 168px; --hit: 24px; position: relative; width: var(--box); height: var(--box); }
 .illum-ring-compact { --r: 58px; --box: 150px; }
 @media (pointer: coarse) {
-  .illum-ring:not(.illum-ring-compact) { --r: 120px; --box: 268px; --hit: 44px; }
+  .illum-ring:not(.illum-ring-compact) { --r: 88px; --box: 220px; --hit: 44px; }
 }
 .illum-pip {
   position: absolute; display: flex; align-items: center; justify-content: center;
@@ -1173,14 +1174,14 @@
   top: calc(50% + var(--r) * var(--dy) - var(--hit) / 2);
 }
 .illum-ring-compact .illum-pip { --hit: 24px; }
-.illum-pip-live { background: none; border: 0; padding: 0; cursor: pointer; }
+.illum-pip-live { background: none; border: 0; padding: 0; cursor: pointer; border-radius: 50%; }
 .illum-pip-live:hover .illum-dot { border-color: rgb(var(--c-ink)); }
 .illum-candle {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  display: flex; color: color-mix(in srgb, #d4af37 var(--warm, 0%), #5a3a28);
+  display: flex; color: color-mix(in srgb, rgb(var(--c-candle-gold)) var(--warm, 0%), rgb(var(--c-sepia)));
   transition: color 0.6s;
 }
-.illum-candle[data-lit='full'] { color: #d4af37; }
+.illum-candle[data-lit='full'] { color: rgb(var(--c-candle-gold)); }
 .illum-candle[data-lit='full'] svg { filter: drop-shadow(0 1px 0 rgba(90, 58, 40, 0.6)); }
 
 /* The drive pips are live (a refill, and the last filled one clears a point; the

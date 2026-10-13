@@ -555,7 +555,7 @@ const useGameStore = create(
 
       // Safely close the connection and wipe the local session data. An explicit Sign out
       // also clears this account's Notebook and creator drafts from the browser; a session
-      // the server ended (endSession) or a password reset passes keepDrafts, so the writer
+      // the server ended (endSession, a password reset, an undone email change) passes keepDrafts, so the writer
       // finds them after signing in again (#20). Called straight from an onClick, the
       // argument is an event, which is not keepDrafts.
       logout: (opts) => {

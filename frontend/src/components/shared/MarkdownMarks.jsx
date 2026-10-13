@@ -51,9 +51,10 @@ function prefixLines(el, prefix, strip = null) {
     const bare = strip ? l.replace(strip, '') : l;
     return `${prefix}${bare}`;
   }).join('\n');
-  // With no selection the caret goes to the end of the line, after the mark, so typing
-  // carries on rather than replacing it (#44); a selection stays selected
-  const caret = s === e ? lineStart + next.length : null;
+  // With no selection the caret stays where it was, moved by the mark's length, so on an
+  // empty line it lands after the mark and typing carries on rather than replacing it
+  // (#44); a selection stays selected
+  const caret = s === e ? Math.min(lineStart + next.length, Math.max(lineStart, s + next.length - (lineEnd - lineStart))) : null;
   replaceRange(el, lineStart, lineEnd, next, caret ?? lineStart, caret ?? lineStart + next.length);
 }
 
