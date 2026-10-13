@@ -1699,8 +1699,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             </div>
 
             {/* Stuck to the dialog's foot, so the count is in view where the finger taps */}
-            <div className="sticky bottom-0 z-10 -mx-5 sm:-mx-9 -mb-6 sm:-mb-8 px-5 sm:px-9 pb-6 sm:pb-8 flex flex-wrap items-center justify-between gap-3 pt-4" style={{ borderTop: '1px solid rgb(var(--c-sepia)/0.18)', background: 'rgb(var(--c-parchment))' }}>
-              <span role="status" className={`text-sm font-sans font-black ${pendingCount > slots ? 'text-oxblood' : 'text-sepia'}`}>
+            <div className="sticky bottom-[-1.5rem] sm:bottom-[-2rem] z-10 -mx-5 sm:-mx-9 -mb-6 sm:-mb-8 px-5 sm:px-9 pb-6 sm:pb-8 flex flex-wrap items-center justify-between gap-3 pt-4" style={{ borderTop: '1px solid rgb(var(--c-sepia)/0.18)', background: 'rgb(var(--c-parchment))' }}>
+              <span className={`text-sm font-sans font-black ${pendingCount > slots ? 'text-oxblood' : 'text-sepia'}`}>
                 {pendingCount} / {slots} selected{pendingCount > slots ? `. Over the limit of ${slots}` : ''}
               </span>
               <div className="flex gap-3 max-sm:flex-1 max-sm:justify-end">
