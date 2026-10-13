@@ -1217,6 +1217,28 @@ const useGameStore = create(
               };
             });
           }
+          else if (message.type === 'investigator_replaced') {
+            // The player rejoined this campaign with another investigator from another device,
+            // which retired this one (issue #39): its desk goes to the hub, which says so, the
+            // invite it used is spent, and its socket closes (it is no longer in play)
+            const p = message.payload || {};
+            const { character: myChar, socketGameId } = get();
+            const mine = p.character_id != null && p.character_id === myChar?.id;
+            const onItsChannel = p.character_id != null && String(socketGameId) === String(p.character_id);
+            if (!mine && !onItsChannel) return;
+            if (onItsChannel) setTimeout(() => get().disconnect(), 0);
+            set(state => ({
+              characters: state.characters.map(c => (c.id === p.character_id ? { ...c, status: 'retired' } : c)),
+              lastPlayedCampaign: state.lastPlayedCampaign?.type === 'player' && state.lastPlayedCampaign.characterId === p.character_id
+                ? null : state.lastPlayedCampaign,
+              rejoinInvite: state.rejoinInvite?.campaign_id === p.campaign_id ? null : state.rejoinInvite,
+              ...(mine && state.stage === 'DESK'
+                ? { stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null }
+                : mine ? { character: { ...state.character, status: 'retired' } } : {}),
+              hubNotice: `${p.replaced_by || 'Your new investigator'} joined ${p.campaign_name || 'the campaign'} in place of ${p.character_name || myChar?.name}.`,
+            }));
+            get().fetchUserData(get().accessSession?.userId);
+          }
           else if (message.type === 'roster_finalized') {
             if (!isForThisCampaign(message.payload)) return;
             const rejectedIds = message.payload.rejected_character_ids || [];

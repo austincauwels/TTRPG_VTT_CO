@@ -143,7 +143,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: JSON body `RejoinRequest {character_id, campaign_code}`.
 - Trusted ids: `character_id`, `campaign_code`.
 - Tables: campaigns (read), characters (retire the same user's other active or dead characters in the campaign; set new character campaign_id, ink_color, status `active`, circle_id to the campaign circle if one exists), users (clear pending_rejoin_campaign_id).
-- Broadcast: `investigator_approved` and `character_joined_mid_campaign`, both with the new character and active list; the Lightkeeper's `investigator_approved` also carries `fallen_investigators`. The log line "<name> joined the circle, in place of <old>." is written.
+- Broadcast: `investigator_approved` and `character_joined_mid_campaign`, both with the new character and active list; the Lightkeeper's `investigator_approved` also carries `fallen_investigators`. Since fix round 6 (issue #39) each investigator it retires gets `investigator_replaced` on its own key, so a desk still open on it goes to the hub. The log line "<name> joined the circle, in place of <old>." is written.
 - Response: `{"success": true, "character": get_char_dict(...)}`.
 - Also writes an Activity Log line ("<name> joined the circle, in place of <old>."), and the new character takes the larger circle-resource spend count of the investigators it retires.
 - Notes: skips GM approval entirely and does not check that an invite exists or that a predecessor died. Imports `INK_COLORS` from engine inside the function.
