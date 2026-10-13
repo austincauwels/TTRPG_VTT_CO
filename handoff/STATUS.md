@@ -26,13 +26,13 @@ Open problems live in GitHub issues; this file only points at them.
 - File an issue for each confirmed bug and medium UX item not fixed in the same phase; low UX items go in one checklist issue per round (#45, #60, #69). Raw findings stay on this branch.
 - A fix PR closes its issues with "Fixes #n" lines; tick checklist lines by hand. Austin rarely reads issues, so notifications are fine.
 - **Robert now files issues by hand from the live site** (#62 to #67 on 13 October), often several in a burst. **Read new issues and comments at the start of each phase**, and re-read before launching a workflow: he added #66 and #67 while the round was being planned.
-- Open now: bugs #17-#22, #38-#44; UX #23-#26, #45-#47, #60, #69; ideas #27-#32, #34; **#67 (new, not yet worked): "Make the Illumination tracker a circle of pips around the candle icon"**. PR 68 closes #62-#66 when merged.
+- Open now: bugs #17-#22, #38-#44; UX #23-#26, #45-#47, #60, #69; ideas #27-#32, #34; **#67 (new, not yet worked): "Make the Illumination tracker a circle of pips around the candle icon"**. PR 68 closed #62-#66.
 
 ## Model and effort
 
 Robert sets the model and effort when he opens the chat. As your first step, check yours with `get_session`; if they differ, say so in one line and carry on. A workflow agent's model and effort can be set per agent (`model`: sonnet, opus, haiku or fable; `effort`). Robert asked to see the plan with models per stage before a workflow runs.
 
-**Next chat: Opus 5.5 at high effort.** The next phase is either the older-bug round (rolls and the protocol) or the fourth playtest (Lightkeeper seat and triage); both need Opus. If PR 68 only needs merge help, Sonnet 5.5 medium is enough.
+**Next chat: Opus 5.5 at high effort.** The next phase is either the older-bug round (rolls and the protocol) or the fourth playtest (Lightkeeper seat and triage); both need Opus. 
 
 | Work | Model | Effort |
 |---|---|---|
@@ -50,10 +50,10 @@ What worked for fix rounds 4 and 5: one worktree per group (`/home/user/wt/<grou
 
 ## Where things stand
 
-- `main` is at **770a2ed** (PR 61). **Live runs 770a2ed** and nobody is playing (Robert, 13 October): he will deploy PR 68 straight to live, not via beta. Ask him whether he has.
-- **PR 68** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/68, branch `claude/pensive-babbage-eo1v57`, head 7be39b1) is fix round 5: Robert's hand-filed #62-#66. Open, not merged; CI was green on the head push and running on the PR at hand-off. Full backend suite 1986 passed, 1 skipped. Merge only when he says so.
+- `main` is at **77452a3** (PR 68 merged 13 October Pacific). Live ran 770a2ed with nobody playing (Robert, 13 October); he deploys PR 68 straight to live, not via beta. Ask him whether he has.
+- **PR 68** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/68, branch `claude/pensive-babbage-eo1v57`, head 7be39b1) is fix round 5: Robert's hand-filed #62-#66. **Merged** 13 October; CI green. Full backend suite 1986 passed, 1 skipped.
   - Deploy note for Robert: two new columns are added at startup (`characters.sheet_edited`, `circles.earn_backs`).
-  - **Three calls flagged in the PR for Robert:** sheet-edit log lines go to the whole table (not only the Lightkeeper); a fourth scar is the one edit the editor refuses (it is a death; #16); #65 kept the Account card and renamed its link "Edit account" (the card also holds Sign out and Retire). If he wants any changed, it is a small follow-up on the same branch before merge.
+  - **Three calls flagged in the PR for Robert:** sheet-edit log lines go to the whole table (not only the Lightkeeper); a fourth scar is the one edit the editor refuses (it is a death; #16); #65 kept the Account card and renamed its link "Edit account" (the card also holds Sign out and Retire). If he wants any changed, it is a small follow-up PR.
 - **Decisions of 13 October** (all recommendations taken) are in `playtest/results/2026-10-13-fix5/decisions.md` and logged in the vault: players edit their whole sheet freely with each change logged and a roster dot for the Lightkeeper (detection, not prevention); both desks use the investigator's navigation; resources start and refill at 1 plus members, no Refill button, Resource Management's earn-back asked in one press, a logged manual correction; confirms are one short sentence with a one-verb button, app wide; ability questions are free text with the book's as examples; join requests become a pop-up plus a Requests tab; insignia changed by clicking; Keys and Illumination questions explained; Account without a menu of its own name.
 - **Fix round 5 record** in `playtest/results/2026-10-13-fix5/`: `decisions.md`, `fix_groups_result.json`, `final_check_result.json`, `pr_body.md`. Workflows in `playtest/workflows/run5/`. Left open on purpose: #69 (eight low items).
 - **Fix round 4** and the **third playtest** records stay in `playtest/results/2026-10-12-fix4/` and `2026-10-12-run3/`.
@@ -62,7 +62,7 @@ What worked for fix rounds 4 and 5: one worktree per group (`/home/user/wt/<grou
 
 ## Next phase: Robert's pick
 
-1. Check PR 68 (CI, reviews, merged or not). If Robert asked for changes to the three flagged calls, make them on its branch first. Read new issues and comments (#67 and anything after).
+1. PR 68 is merged. Ask Robert about the three flagged calls and whether live runs 77452a3. Read new issues and comments (#67 and anything after).
 2. **Ask Robert which comes next**, with a recommendation (mine: the older-bug round, folding in #67 and any new hand-filed issues, then the fourth playtest once that is live):
    - **Older-bug round**: bugs #17-#22 and #38-#44, the medium UX #23-#26, #46, #47, and #67. Read each issue first; some may be stale after rounds 4 and 5 (round 5 changed the desk navigation, the sheet and circle resources). Same shape as round 5. Size: about 15 to 20 agents.
    - **Fourth playtest on live or beta**: a re-check pass of PRs 61 and 68, then blind play. Use the run 3 method notes: settle the human seat before approvals, seed a circle near 12 Illumination to reach advancement (and Resource Management's earn-back), a timed script for the 2-minute offer window, and aim at scars and death. Harness: `playtest/run3/` and `playtest/workflows/run3/`. Size: about 45 agents.
