@@ -16,8 +16,8 @@ const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', min
 
 const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reconnects by itself; try again in a moment.';
 
-// What End Assignment clears, said by its confirm and its receipt (the log line says the same)
-const ENDS = "Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared.";
+// What End Assignment clears, said by its confirm and its receipt (the log line says the first two sentences)
+const ENDS = "Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared. Drives carry over; a Refresh restores them.";
 
 // ── The tension clock: an hourglass on the desk ───────────────────────────────────
 // Starts with all the sand above and runs a quarter of it down per step, from 0 to 4
@@ -282,7 +282,7 @@ export const SceneManager = () => {
   ) : 'Press again to end the assignment.';
 
   return (
-    <div ref={letterRef} className="bg-parchment text-ink p-5 sm:p-8 lg:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
+    <div ref={letterRef} className="xl:flex xl:flex-col bg-parchment text-ink p-5 sm:p-8 lg:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
          style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.1) 28px)', backgroundSize: '100% 28px', lineHeight: '28px' }}>
 
       {/* Masking tape strip */}
@@ -391,11 +391,15 @@ export const SceneManager = () => {
       {/* Stamp buttons; End Assignment asks for a second press and says what it clears.
           Where the letter is too narrow for both side by side (its column at 1024 to 1280
           wide), Dispatch goes under End Assignment, still at the right, instead of running
-          off the letter's edge. */}
-      <div className="mt-8 xl:mt-5 flex flex-wrap justify-between items-start gap-x-4 gap-y-4 relative">
+          off the letter's edge. From xl the letter scrolls inside its column, so the stamps
+          are the letter's last row and stay at the foot of the column (sticky, on the
+          letter's paper), in view without scrolling (fix round 7, 45.4). */}
+      <div className="mt-8 xl:mt-5 xl:order-last xl:sticky xl:bottom-0 xl:z-10 xl:-mx-5 2xl:-mx-6 xl:px-5 2xl:px-6 xl:pt-3 xl:pb-2 xl:-mb-5 2xl:-mb-6 xl:bg-parchment xl:shadow-[0_-14px_12px_-6px_rgb(var(--c-parchment))] flex flex-wrap justify-between items-start xl:items-end gap-x-4 gap-y-4 relative">
         {/* End Assignment: left stamp */}
         <ConfirmAction
-          className="flex flex-col items-start gap-2 max-w-[11rem]"
+          // From xl the armed line lies above the stamp, so arming grows the row upward and
+          // the stamp stays under the pointer (fix round 7, 45.5)
+          className="flex flex-col xl:flex-col-reverse items-start gap-2 max-w-[11rem]"
           onConfirm={endAssignment}
           cancelLabel="Keep going"
           armedHint={endHint}

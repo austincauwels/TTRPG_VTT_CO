@@ -28,15 +28,13 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
   const waitingLine = waiting === 0 ? ''
     : `${waiting} relationship${waiting === 1 ? '' : 's'} still waiting; ${waiting === 1 ? 'it' : 'they'} can be accepted after the seal.`;
   const empty = emptyParts(circleCreation?.votes);
-  const emptyLine = empty.length === 0 ? ''
-    : `Nothing is chosen yet for ${nameList(empty)}.`;
-  // One sentence for what the press does, then only what is lost with it (decision 4 of fix
-  // round 5): the waiting relationships are not lost, so the armed line leaves them out
-  const armedHint = [
-    `Press again to finalize the circle with ${activeCount} investigator${activeCount === 1 ? '' : 's'}; this cannot be undone.`,
-    emptyLine,
-    requests === 0 ? '' : `${requests === 1 ? '1 waiting request is' : `${requests} waiting requests are`} turned away.`,
-  ].filter(Boolean).join(' ');
+  // One short sentence that keeps both losses in view (the empty parts and the turned-away
+  // requests; fix round 7, 69.4). The waiting relationships are not lost, so it leaves them out
+  const losses = [
+    empty.length === 0 ? '' : `leaving ${nameList(empty)} empty`,
+    requests === 0 ? '' : `turning away ${requests === 1 ? '1 waiting request' : `${requests} waiting requests`}`,
+  ].filter(Boolean).join(' and ');
+  const armedHint = `Press again to seal the circle for good with ${activeCount} investigator${activeCount === 1 ? '' : 's'}${losses ? `, ${losses}` : ''}.`;
 
   return (
     <>

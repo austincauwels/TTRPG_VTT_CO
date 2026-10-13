@@ -86,11 +86,17 @@ export const OperationsPanel = () => {
   }, [campaignRoster.pending_investigators?.length]);
 
   // A request that left the campaign some other way (the player took it back, another tab
-  // answered it) leaves no strip to press on its open sheet
+  // answered it) leaves no strip to press on its open sheet. The sheet stays open to be read,
+  // with a line saying so and only Back to requests, rather than vanishing under the
+  // Lightkeeper's eyes (fix round 7, 45.7); one answered at this desk closes as before.
+  const answeredHere = useRef(null);
+  const [goneId, setGoneId] = useState(null);
   useEffect(() => {
     if (selectedInvestigator?.status !== 'pending') return;
     const waiting = campaignRoster.pending_investigators || [];
-    if (!waiting.some(p => p.id === selectedInvestigator.id)) setSelectedInvestigator(null);
+    if (waiting.some(p => p.id === selectedInvestigator.id)) return;
+    if (answeredHere.current === selectedInvestigator.id) setSelectedInvestigator(null);
+    else setGoneId(selectedInvestigator.id);
   }, [campaignRoster.pending_investigators]);
 
   // A member released at another desk, or whose player left, has no sheet here to show
@@ -118,10 +124,12 @@ export const OperationsPanel = () => {
     if (requestBusy) return false;
     setRequestBusy(true);
     setRequestError('');
+    answeredHere.current = characterId;
     const p = approveInvestigator(characterId, activeCampaignId);
     setPendingIndex(0);
     const ok = await p;
     setRequestBusy(false);
+    if (ok === false) answeredHere.current = null;
     if (ok === false) setRequestError(`The investigator was not approved. ${REQUEST_FAILED}`);
     return ok !== false;
   };
@@ -130,10 +138,12 @@ export const OperationsPanel = () => {
     if (requestBusy) return false;
     setRequestBusy(true);
     setRequestError('');
+    answeredHere.current = characterId;
     const p = rejectInvestigator(characterId, activeCampaignId);
     setPendingIndex(0);
     const ok = await p;
     setRequestBusy(false);
+    if (ok === false) answeredHere.current = null;
     if (ok === false) setRequestError(`The request was not rejected. ${REQUEST_FAILED}`);
     return ok !== false;
   };
@@ -224,7 +234,7 @@ export const OperationsPanel = () => {
             newest log line in view, across the top of the desk (on a phone it rides under
             the band) */}
         {!(onRoster && !selectedInvestigator) && (
-          <TableStrip withLog className="max-md:hidden mb-4 xl:mb-3 rounded-sm shadow-md xl:shrink-0" />
+          <TableStrip withLog gm className="max-md:hidden mb-4 xl:mb-3 rounded-sm shadow-md xl:shrink-0" />
         )}
         <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-x-6 2xl:gap-x-8 items-start xl:items-stretch xl:flex-1 xl:min-h-0 ${GRID[activeTab] || 'xl:grid-cols-1'}`}>
 
@@ -252,6 +262,7 @@ export const OperationsPanel = () => {
                   onRelease={handleRelease}
                   busy={requestBusy}
                   error={requestError}
+                  closed={goneId === selectedInvestigator.id}
                 />
               </AnimatePresence>
               </div>
