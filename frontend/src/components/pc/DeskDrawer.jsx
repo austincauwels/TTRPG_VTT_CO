@@ -181,7 +181,7 @@ export const PhoneDeskNav = ({ current, onChoose, onHub, parts = DESK_PARTS, cou
         type="button"
         onClick={() => onChoose(onDice ? 'back' : 'dice')}
         aria-pressed={onDice}
-        aria-label={choiceWaiting && !onDice ? 'Dice and log, a choice is waiting' : 'Dice and log'}
+        aria-label={choiceWaiting && !onDice ? (choiceWaiting === 'keep' ? 'Dice and log, a choice is waiting' : 'Dice and log, burn and reroll available') : 'Dice and log'}
         className={`relative w-11 h-11 inline-flex items-center justify-center rounded border transition-colors ${
           onDice ? (night ? 'bg-parchment border-parchment' : 'bg-ink border-ink')
           : night ? 'bg-transparent border-moonlight-steel/50 [@media(hover:hover)]:hover:bg-gm-night/60'
@@ -190,7 +190,8 @@ export const PhoneDeskNav = ({ current, onChoose, onHub, parts = DESK_PARTS, cou
         <span aria-hidden="true" className={`w-7 h-7 p-px rounded ${DIE_BODY.regular} shadow-[1px_2px_3px_rgba(0,0,0,0.35)] -rotate-6`}>
           <DieFace value={5} />
         </span>
-        {choiceWaiting && !onDice && <span aria-hidden="true" data-new-dot="" className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-oxblood border border-cream/70 shadow-sm" />}
+        {choiceWaiting && !onDice && <span aria-hidden="true" data-new-dot="" data-choice={choiceWaiting}
+          className={`absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full shadow-sm ${choiceWaiting === 'keep' ? 'bg-oxblood border border-cream/70' : 'bg-transparent border-2 border-oxblood'}`} />}
       </button>
       <button
         type="button"

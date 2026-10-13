@@ -1,7 +1,6 @@
 import React, { forwardRef, useEffect, useRef } from 'react';
 import { OUTCOME, keepChoices, outcomeForKept, rollPoolText } from '../../../game/outcomes';
 import { useRollSounds } from '../../../game/rollSounds';
-import { onActivateKey } from '../../shared/a11y';
 import { tiltFor } from '../../shared/handPlaced';
 import { SerialNo, serialFor } from '../../shared/PrintMarks';
 import { DieFace, DIE_BODY } from './Die';
@@ -63,8 +62,8 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
           {/* What each die would do, so the choice is made knowing it; each line does what
               its die does */}
           <span className="block mt-1.5 font-serif text-base leading-snug">
-            {keepChoices(lastRoll, character).map((c) => (
-              <button key={c.idx} type="button" onClick={() => onDieClick?.(c.die, c.idx)}
+            {keepChoices(lastRoll, character).map((c, i) => (
+              <button key={c.idx} type="button" {...(i === 0 ? { 'data-keep-die': '' } : {})} onClick={() => onDieClick?.(c.die, c.idx)}
                 className="block w-full min-h-[44px] mb-1.5 last:mb-0 px-3 py-1.5 text-left font-serif text-base leading-snug text-ink border border-sepia/60 rounded-sm bg-parchment-deep/60 hover:bg-parchment-deep active:scale-[0.99]">
                 {c.label}
               </button>
@@ -171,7 +170,7 @@ export const DiceTray = forwardRef(({
       ) : lastRoll && lastRoll.dice ? (
         // Keyed by the roll, so the next roll's dice tumble in even when they show the same faces
         <div key={rollSerial(lastRoll)} className="flex flex-col items-center justify-center gap-3 animate-fadeIn">
-          <div className="flex flex-wrap justify-center gap-3 2xl:gap-4 max-w-[190px] 2xl:max-w-[260px]" role="group"
+          <div className="flex flex-wrap justify-center gap-3 2xl:gap-4 max-w-[190px] 2xl:max-w-[260px]" {...(gildedPending ? { 'aria-hidden': true } : { role: 'group' })}
             aria-label={gildedPending ? 'Keep one die' : `Dice: ${lastRoll.dice.map((d, i) => `${d.value}${d.is_gilded ? ' gilded' : ''}${getIsCandidate(d, i) ? ' (counts)' : ''}`).join(', ')}`}>
             {lastRoll.dice.map((die, idx) => {
               const isCandidate = getIsCandidate(die, idx);
@@ -183,7 +182,7 @@ export const DiceTray = forwardRef(({
 
               if (gildedPending) {
                 if (isCandidate) {
-                  extraClasses = 'animate-liftShimmy cursor-pointer ring-2 ring-cream/60 hover:ring-cream hover:scale-110 transition-transform';
+                  extraClasses = 'animate-liftShimmy hover:animate-none cursor-pointer ring-2 ring-cream/60 hover:ring-cream hover:scale-110 transition-transform';
                   clickHandler = () => onDieClick(die, idx);
                 } else {
                   extraClasses = 'opacity-35';
@@ -198,13 +197,7 @@ export const DiceTray = forwardRef(({
               return (
                 <div
                   key={`${idx}-${die.value}`}
-                  {...(clickHandler ? {
-                    role: 'button',
-                    tabIndex: 0,
-                    'data-keep-die': '',
-                    onKeyDown: onActivateKey(clickHandler),
-                    'aria-label': keepChoices(lastRoll, character).find((c) => c.idx === idx)?.label || `Keep the ${die.is_gilded ? 'gilded' : 'highest regular'} die, ${die.value}`,
-                  } : { 'aria-hidden': true })}
+                  aria-hidden="true"
                   onClick={clickHandler}
                   onTouchEnd={clickHandler ? (e) => { e.preventDefault(); clickHandler(); } : undefined}
                   className={`w-11 h-11 2xl:w-14 2xl:h-14 p-0.5 rounded flex items-center justify-center ${tumbleClass}

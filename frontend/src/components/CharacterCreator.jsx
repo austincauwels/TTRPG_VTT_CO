@@ -690,6 +690,13 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
   const getDriveValue = (driveKey) =>
     (lockedDrives[driveKey]||0) + (driveDistrib[driveKey]||0);
 
+  // "Nerve 4 (2 from Soldier, 2 placed)": a drive's total with where it came from
+  const driveSummary = (driveKey, label) => {
+    const from = lockedDrives[driveKey] || 0, placed = driveDistrib[driveKey] || 0;
+    const parts = [from ? `${from} from ${specialty}` : '', placed ? `${placed} placed` : ''].filter(Boolean);
+    return `${label} ${from + placed}${parts.length ? ` (${parts.join(', ')})` : ''}`;
+  };
+
   const freePtsUsed   = Object.values(freeAdditions).reduce((s,v)=>s+v,0);
   const drivesPtsUsed = Object.values(driveDistrib).reduce((s,v)=>s+v,0);
 
@@ -816,15 +823,15 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
             @keyframes cardFlipInBackward  { from { transform: rotateY(-90deg);  } to { transform: rotateY(0deg);   } }
           `}</style>
 
-          <div className="text-center mb-6">
-            <h2 ref={stepHeadingRef} tabIndex={-1} className="font-display text-3xl sm:text-5xl uppercase tracking-[0.08em] text-cream"
+          <div className="text-center mb-6 max-lg:[@media(max-height:760px)]:mb-3">
+            <h2 ref={stepHeadingRef} tabIndex={-1} className="font-display text-[26px] min-[400px]:text-3xl sm:text-5xl uppercase tracking-[0.08em] text-cream"
               style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}>Choose Your Path</h2>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 items-center lg:items-start">
 
             {/* ── LEFT: stacked card deck ── */}
-            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px] max-lg:[@media(max-height:760px)]:[--card-w:140px]">
+            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px] max-lg:[@media(min-height:701px)_and_(max-height:760px)]:[--card-w:140px] max-lg:[@media(max-height:700px)]:[--card-w:120px]">
 
               {/* Card stack */}
               <div onPointerDown={swipeDown} onPointerUp={swipeUp} onPointerCancel={() => { swipeStart.current = null; }}
@@ -1489,7 +1496,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                       const gild = key === lockedGilded || key === freeGilded ? ' (gilded)' : '';
                       return getActionTotal(key) || gild ? `${label} ${getActionTotal(key)}${gild}` : null;
                     }).filter(Boolean).join(', ') },
-                  { label: "Drives", value: `Nerve ${getDriveValue('nerve')}, Cunning ${getDriveValue('cunning')}, Intuition ${getDriveValue('intuition')}` },
+                  { label: "Drives", value: [['nerve', 'Nerve'], ['cunning', 'Cunning'], ['intuition', 'Intuition']].map(([k, l]) => driveSummary(k, l)).join(', ') },
                   { label: "Style", value: style || 'Unlisted' },
                   { label: "Question", value: question || 'Unlisted' },
                 ].map(({ label, value }) => (

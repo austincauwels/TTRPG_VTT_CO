@@ -608,12 +608,12 @@ const LoginScreen = ({ resetToken = null, onLeaveReset }) => {
       />
 
       {/* On a wide screen the slip lies right of Newfaire, so the city and the Glass Sea stay in view. */}
-      <main className={`relative flex-1 flex items-center justify-center px-4 py-10 sm:py-14 ${mapShown ? 'lg:justify-end lg:pr-[8vw]' : ''}`}>
+      <main className={`relative flex-1 flex items-center justify-center px-4 py-10 sm:py-14 [@media(max-height:820px)]:py-4 ${mapShown ? 'lg:justify-end lg:pr-[8vw]' : ''}`}>
         <div className="relative w-full max-w-md lg:max-w-[30rem] animate-fadeIn">
           {/* Laid on the map by hand: a little crooked, taped down at the two top corners. */}
           <div className={`relative ${SLIP_TILT}`}>
             <PaperSheet
-              bodyClassName="px-5 pt-7 pb-6 sm:px-9 sm:pt-10 sm:pb-8"
+              bodyClassName="px-5 pt-7 pb-6 sm:px-9 sm:pt-10 sm:pb-8 [@media(max-height:820px)]:sm:pt-6 [@media(max-height:820px)]:sm:pb-5"
               printLine="Form C.O. 0 · Admission"
               serial={serialFor(new Date().toDateString())}
               role="region"
@@ -657,7 +657,7 @@ const LoginScreen = ({ resetToken = null, onLeaveReset }) => {
               {/* Sign in with Google. Kept mounted (hidden) on the other slips so Google's button survives them. */}
               {showGoogle && (
                 <div className={atSignIn ? 'mt-6' : 'hidden'}>
-                  <GoogleButton onCredential={handleGoogleCredential} onLoadError={setSignInError} />
+                  <GoogleButton text={registering ? 'signup_with' : 'signin_with'} onCredential={handleGoogleCredential} onLoadError={setSignInError} />
                   <p role="status" className={googleBusy && atSignIn ? `mt-2 text-center italic ${noteClass}` : 'sr-only'}>
                     {googleBusy && atSignIn ? 'Signing in…' : ''}
                   </p>

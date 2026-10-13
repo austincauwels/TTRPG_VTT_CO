@@ -266,7 +266,7 @@ const LOG_LINES = 50;
 const clockTime = (date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 const LOG_TYPES = ['roll', 'chat', 'danger', 'environment'];
 // A line of the log from an activity_log payload (a string, or { message, log_type,
-// ink_color, at, is_secret }). at is when the server sent it (ISO 8601), so a line
+// ink_color, at, is_secret, target }). at is when the server sent it (ISO 8601), so a line
 // replayed after a reconnect keeps its own time. is_secret marks the line of a secret
 // roll, which only the roller's own desk is sent.
 const logLine = (payload) => {
@@ -275,7 +275,10 @@ const logLine = (payload) => {
   const type = LOG_TYPES.includes(payload?.log_type) ? payload.log_type : 'field';
   const inkColor = (typeof payload === 'object' && payload?.ink_color) ? payload.ink_color : null;
   const secret = typeof payload === 'object' && payload?.is_secret === true;
-  return { text, type, time: clockTime(at && !Number.isNaN(at.getTime()) ? at : new Date()), inkColor, secret };
+  // A passed note's recipient: anything but @Circle is a private note
+  const target = type === 'chat' && typeof payload === 'object' && typeof payload?.target === 'string' ? payload.target : null;
+  const priv = !!target && target.toLowerCase() !== '@circle';
+  return { text, type, time: clockTime(at && !Number.isNaN(at.getTime()) ? at : new Date()), inkColor, secret, ...(priv ? { private: true } : {}) };
 };
 
 // The number of the circle's assignment, which End Assignment moves on (backend
@@ -285,14 +288,15 @@ export const assignmentOf = (circle) => {
   return Number.isInteger(n) && n > 0 ? n : 1;
 };
 
-// Whether this desk's own latest roll is waiting on the player: a gilded die to keep, or a
-// Burn and reroll still on offer (the dice vault's canResist, which needs the vault open).
+// Whether this desk's own latest roll is waiting on the player: 'keep' for a gilded die to
+// keep, 'burn' for a Burn and reroll still on offer (the dice vault's canResist, which needs
+// the vault open; optional, so its dot is hollow), else false.
 // The phone's dice button shows a dot for it once the roll bar has faded. A settled roll
 // (store lastRollSettled) is no longer offered (the server refuses the burn), nor is a
 // dead investigator's, though a gilded die still to be kept is.
 export const postRollChoiceWaiting = (s) => {
   if (!s.lastRoll) return false;
-  if (s.pendingGildedChoice && s.lastRoll.needs_gilded_choice) return true;
+  if (s.pendingGildedChoice && s.lastRoll.needs_gilded_choice) return 'keep';
   if (s.lastRollSettled || s.character?.is_dead) return false;
   const kept = s.lastRollKept && s.lastRollKept.rollId === s.lastRoll.id ? s.lastRollKept : null;
   const outcome = kept ? kept.outcome : s.lastRoll.outcome;
@@ -300,7 +304,7 @@ export const postRollChoiceWaiting = (s) => {
   const drive = s.lastRoll.action ? driveKeyFor(s.lastRoll.action) : null;
   if (!drive || !s.character) return false;
   const max = Math.floor((s.character[`${drive}_max`] ?? 0) / 3);
-  return max > (s.character[`${drive}_resistance_spent`] || 0);
+  return max > (s.character[`${drive}_resistance_spent`] || 0) ? 'burn' : false;
 };
 
 // Whether two rolls are the same throw: the same action and the same dice
@@ -560,6 +564,7 @@ const useGameStore = create(
       characters: [],          // all characters belonging to the logged-in user
       gmCampaigns: [],         // campaigns the user manages as GM
       retiredCampaigns: [],    // campaigns the user ran and retired (the ledger's Retired list)
+      letInIds: [],            // investigators the Lightkeeper let in while the hub was open, marked in the Registry until Play (cleared by Play)
       withdrawnIds: [],        // join requests this player took back (the hub does not call those a decision)
       lastPlayedCampaign: null, // { type:'player'|'gm', characterId?, campaignCode, campaignName }
       circle: null,
@@ -994,10 +999,14 @@ const useGameStore = create(
             // End Assignment moves the circle to its next assignment: the reports this desk
             // holds belonged to the one that ended (the server cleared them)
             const prev = get().circle;
-            // and so did the chance to burn on its last roll (the server settles it)
+            // and so did the last roll: the tray starts the next assignment empty (the server
+            // no longer sends it again on a reload). A gilded die still to be kept stays, settled.
             if (prev && next && prev.id === next.id && assignmentOf(prev) !== assignmentOf(next)) {
-              set(state => ({ circleCreation: { ...state.circleCreation, reports: {} }, reportError: null,
-                lastRollSettled: !!state.lastRoll }));
+              set(state => {
+                const held = !!(state.pendingGildedChoice && state.lastRoll?.needs_gilded_choice);
+                return { circleCreation: { ...state.circleCreation, reports: {} }, reportError: null,
+                  ...(held ? { lastRollSettled: true } : { lastRoll: null, lastRollKept: null, lastRollSettled: false, dismissedPrompts: [], rollError: null }) };
+              });
             }
             set({ circle: next });
             if (!onGmDesk(get)) {
@@ -2622,6 +2631,8 @@ const useGameStore = create(
         return result;
       },
       // The hub has said "You withdrew ..." for this one (usePendingApprovalWatch.js)
+      markLetIn: (characterId) => set(st => (st.letInIds.includes(characterId) ? st : { letInIds: [...st.letInIds, characterId] })),
+      forgetLetIn: (characterId) => set(st => (st.letInIds.includes(characterId) ? { letInIds: st.letInIds.filter(id => id !== characterId) } : st)),
       forgetWithdrawn: (characterId) => set(st => ({ withdrawnIds: st.withdrawnIds.filter(id => id !== characterId) })),
 
       clearRelationshipIntro: () => set({ pendingRelationshipIntro: null }),

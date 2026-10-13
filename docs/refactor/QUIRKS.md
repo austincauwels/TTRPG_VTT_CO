@@ -256,3 +256,12 @@ Frontend only; there is no test runner for it, so each was checked in Chromium (
 - The notebook's preview toggle reads "Edit" while previewing and carries no `aria-pressed` (the label says which way it goes).
 - The Skip to actions link is the third Tab stop on a phone and the sixth on a tablet or laptop (after the desk header controls, which another group owns); "Spend one less" has `tabIndex -1` at +0d.
 - The Chapter House box says "Saved" or "Not saved yet" from what this desk sent against what the circle holds.
+
+### Fix round 7, dice
+
+- The tray is emptied by End Assignment (60.7): the store clears `lastRoll`, `lastRollKept` and the dismissed prompts on the assignment change, and the server drops the campaign's replayable rolls, so a reload no longer brings the last scene's roll back marked settled. A held gilded roll stays, settled.
+- `roll.abilities` (45.10) names the abilities that applied to a roll; the log line reads "<name> rolled <action> (<abilities>) ...".
+- The keep-a-die dice are `aria-hidden` and out of the tab order (60.5); the slip's lines are the one control and take the focus.
+- `postRollChoiceWaiting` returns 'keep', 'burn' or false (60.8): the phone's dice button shows a solid dot for a die to keep and a hollow one for the optional burn.
+- Learn from My Mistakes is offered only while a drive is below its maximum (60.12), worked out when the roll lands like Flourish's Cunning test.
+- A private pass note (target other than @Circle) is marked "Private" in the log and beside To: (60.9); the recipient stays after sending.

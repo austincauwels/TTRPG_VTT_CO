@@ -156,6 +156,20 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       className="font-serif italic text-sm text-parchment-deep"
       markClassName="text-parchment-deep group-hover/info:text-cream" />
   );
+  // A keyboard user's place through a roll (playtest F009): when this desk's roll lands from
+  // its row on the sheet and a burn is offered, focus goes to Burn and reroll; when the panel
+  // closes with focus inside it, to the result slip. The desk and the phone bar each have a
+  // copy, so the one on show is taken.
+  const panelClosedWithFocus = useRef(false);
+  useEffect(() => {
+    if (showGmControls || isRolling || !lastRoll?.dice || lastRoll.replayed) return;
+    const shown = (sel) => Array.from(document.querySelectorAll(`[data-desk="dice"] ${sel}`)).find(el => el.getClientRects().length);
+    const active = document.activeElement;
+    const onPage = !active || active === document.body;
+    if (canResist && (active?.closest?.('[data-roll-row]') || (onPage && panelClosedWithFocus.current))) shown('[data-burn-reroll]')?.focus();
+    else if (!canResist && onPage && panelClosedWithFocus.current) shown('[data-result-slip]')?.focus();
+    panelClosedWithFocus.current = false;
+  }, [lastRoll, isRolling, canResist, showGmControls]);
   const onPhone = (...parts) => (phonePart === undefined || parts.includes(phonePart) ? '' : 'max-md:hidden');
   const phoneEmpty = phonePart !== undefined && phonePart !== 'dice' && phonePart !== 'notes';
   const rollModifications = (
@@ -172,6 +186,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       drivePickerPrompt={drivePickerPrompt}
       setDrivePickerPrompt={setDrivePickerPrompt}
       setDismissedPrompts={setDismissedPrompts}
+      onClosedWithFocus={() => { panelClosedWithFocus.current = true; }}
       allies={livingMembers(campaignRoster?.active_investigators).filter(inv => inv.id !== character?.id)}
     />
   );
