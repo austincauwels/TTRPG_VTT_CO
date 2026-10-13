@@ -1277,9 +1277,11 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                           // 44px. A phone has no room for them and the pips on one line, so
                           // there the pips go under the name (the wrapper below is a column);
                           // elsewhere it steps aside (contents) and the order classes keep
-                          // name, "i", pips and steppers in a row.
+                          // name, "i", pips and steppers in a row. Under about 356px the
+                          // steppers do not fit beside them and wrap to a line of their own
+                          // (#26) rather than push the page wider.
                           return (
-                            <div key={key} className="relative flex items-center gap-2">
+                            <div key={key} className="relative flex flex-wrap items-center gap-x-2 gap-y-1">
                               {isLockedGilded ? (
                                 <span className="shrink-0 w-5 h-5 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:pl-0.5 flex items-center" role="img" title="Gilded by your specialty" aria-label={`${label} is gilded by your specialty`}>
                                   <GildStar gilded fixed />

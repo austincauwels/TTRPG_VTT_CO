@@ -41,6 +41,7 @@ import { tallyReports, tallyOf, unfiledNames, notFiledLine, reportsDue } from '.
 import { reportingMembers } from '../../game/roster';
 import { CIRCLE_QUESTIONS, insigniaLabel, relationshipsAmong, answererOf } from '../../game/circleFormation';
 import { InsigniaStamp } from './desk/InsigniaStamp';
+import { IlluminationRing } from '../shared/IlluminationRing';
 
 // A line of the charter the Lightkeeper may change: its value with an Edit button, which
 // turns it into a field holding the value. Enter or leaving the field saves, Escape puts
@@ -439,28 +440,7 @@ export const CirclePage = () => {
               </span>
             </button>
           )}
-          <div className="flex gap-1.5 flex-wrap">
-            {Array.from({ length: TRACK_SIZE }).map((_, i) => {
-              const filled    = i < illum;
-              const milestone = [3, 6, 9].includes(i + 1);
-              return (
-                <div
-                  key={i}
-                  onClick={() => setIllum(filled && illum === i + 1 ? i : i + 1)}
-                  onKeyDown={onActivateKey(() => setIllum(filled && illum === i + 1 ? i : i + 1))}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={filled && illum === i + 1 ? `Illumination ${i + 1}, current. Press to lower to ${i}` : `Set Illumination to ${i + 1}`}
-                  title={milestone ? `Illumination ${i + 1}, a milestone` : `Illumination ${i + 1}`}
-                  className={`touch-pip [--hit-y:-14px] [--hit-x:-4px] w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center cursor-pointer shadow-inner transition-all ${
-                    filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50 hover:border-ink'
-                  } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}
-                >
-                  {milestone && <div aria-hidden="true" className={`w-1.5 h-1.5 rounded-full bg-candle-gold ${filled ? 'opacity-100' : 'opacity-30'}`} />}
-                </div>
-              );
-            })}
-          </div>
+          <IlluminationRing illum={illum} onPick={setIllum} />
           {/* Points awarded one at a time can pass 12: "Any leftover Illumination counts
               toward your next advancement cycle" (rulebook p. 55), which the advance keeps */}
           <div className="mt-2 flex items-center gap-2">

@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiFetch, configureApiAuth, WS_CLOSE_UNAUTHENTICATED } from '../utils/api';
 import { playRollSound, playDiceTumble, playTensionTick } from '../game/rollSounds';
 import { driveKeyFor } from '../game/actions';
+import { clearAccountDrafts } from '../utils/drafts';
 
 // Reconnecting after a dropped connection. The server closes an older socket on the same
 // channel with 1001 when a newer one opens (another tab or device), so 1001 never
@@ -664,12 +665,17 @@ const useGameStore = create(
       // Parallel 401s end it once.
       endSession: () => {
         if (!get().accessSession) return;
-        get().logout();
+        get().logout({ keepDrafts: true });
         set({ sessionEnded: true });
       },
 
-      // Safely close the connection and wipe the local session data
-      logout: () => {
+      // Safely close the connection and wipe the local session data. An explicit Sign out
+      // also clears this account's Notebook and creator drafts from the browser; a session
+      // the server ended (endSession, a password reset, an undone email change) passes keepDrafts, so the writer
+      // finds them after signing in again (#20). Called straight from an onClick, the
+      // argument is an event, which is not keepDrafts.
+      logout: (opts) => {
+        if (opts?.keepDrafts !== true) clearAccountDrafts(get().accessSession?.userId);
         get().disconnect();
         // Nothing of this user's desk stays in the tab for whoever signs in next: not the
         // felt's roll (a Lightkeeper's secret one among them) and not the log

@@ -53,9 +53,10 @@ export const UndoEmailChangePage = ({ token }) => {
       .then((answer) => {
         setResult(answer);
         setState('done');
-        // Every sign-in to that account has ended; this browser's too, if it was one.
+        // Every sign-in to that account has ended; this browser's too, if it was one. The
+        // server ended it, so the drafts stay (#20).
         const { accessSession, logout } = useGameStore.getState();
-        if (accessSession && answer?.userId != null && accessSession.userId === answer.userId) logout();
+        if (accessSession && answer?.userId != null && accessSession.userId === answer.userId) logout({ keepDrafts: true });
       })
       .catch((err) => {
         setMessage(err?.message || SOMETHING_WRONG);

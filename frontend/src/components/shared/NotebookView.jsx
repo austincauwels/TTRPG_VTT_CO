@@ -10,6 +10,7 @@ import { TickMark } from './InkMarks';
 import { NoteMarkdown } from './NoteMarkdown';
 import { MarkdownMarks, PreviewToggle } from './MarkdownMarks';
 import { SketchSheet } from './sketch/SketchSheet';
+import { onDraftsCleared, notebookDraftPrefix } from '../../utils/drafts';
 
 const GM_PEN_FONT  = 'Caveat';
 const GM_INK_COLOR = 'rgb(var(--c-ink))';
@@ -107,6 +108,13 @@ const openParts = new Map();
 // again meanwhile (a step to another tab and back) shows it sending and takes its answer,
 // so writing that went is never offered to send again.
 const sending = new Map();
+// Sign out forgets this account's writing held in the page too (utils/drafts.js)
+onDraftsCleared((userId) => {
+  const prefix = notebookDraftPrefix(userId);
+  for (const m of [keptInPage, stagedPictures, openParts, sending]) {
+    for (const k of [...m.keys()]) if (k.startsWith(prefix)) m.delete(k);
+  }
+});
 const useSending = (key, onAnswer) => {
   const [request, setRequest] = useState(() => (key && sending.get(key)) || null);
   const answer = useRef(onAnswer);
@@ -441,7 +449,7 @@ function EphemeralNote({ entry, onDelete }) {
           <button
             {...props}
             aria-label="Delete this private note"
-            className={`min-h-[36px] px-3 font-sans text-xs font-bold uppercase tracking-widest border rounded-sm transition-colors ${
+            className={`min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-bold uppercase tracking-widest border rounded-sm transition-colors ${
               armed ? 'bg-oxblood text-cream border-ink' : 'text-sepia hover:text-oxblood border-sepia/30 hover:border-oxblood/50'
             }`}
           >
@@ -974,7 +982,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
             type="button"
             aria-pressed={!!tab.active}
             onClick={tab.onClick}
-            className="max-sm:flex-1 max-sm:min-w-0 sm:[@media(pointer:coarse)]:min-h-[46px] leading-tight px-3 sm:px-[22px] font-sans text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all select-none"
+            className="max-sm:flex-1 max-sm:min-w-0 [@media(pointer:coarse)]:min-h-[46px] leading-tight px-3 sm:px-[22px] font-sans text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all select-none"
             style={{
               clipPath: 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 100%, 0% 100%)',
               background: tab.active ? tab.activeColor : tab.inactiveColor,
@@ -1002,7 +1010,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
           </p>
           <button
             onClick={() => campaignId && fetchNotebookEntries(campaignId)}
-            className="shrink-0 min-h-[40px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition"
+            className="shrink-0 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition"
           >
             Try again
           </button>
@@ -1088,7 +1096,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                     <span className="font-serif text-base font-normal text-oxblood">Not saved. Your notes are still here.</span>
                     <button
                       onClick={() => saveLkContent(lkContent)}
-                      className="min-h-[32px] px-2 font-sans text-xs font-black uppercase tracking-widest text-oxblood border border-oxblood/50 rounded-sm hover:bg-oxblood/10"
+                      className="min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-2 font-sans text-xs font-black uppercase tracking-widest text-oxblood border border-oxblood/50 rounded-sm hover:bg-oxblood/10"
                     >Try again</button>
                   </span>
                 ) : (
@@ -1157,7 +1165,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                         type="button"
                         aria-pressed={activeFilter === null}
                         onClick={() => setSelectedAuthorFilter(null)}
-                        className={`px-2.5 py-1 md:[@media(pointer:coarse)]:min-h-[44px] text-sm rounded-sm border transition-all font-sans font-black uppercase tracking-widest ${
+                        className={`px-2.5 py-1 [@media(pointer:coarse)]:min-h-[44px] text-sm rounded-sm border transition-all font-sans font-black uppercase tracking-widest ${
                           activeFilter === null ? 'bg-ink text-cream border-ink' : 'bg-transparent text-sepia border-sepia/60'}`}
                       >All</button>
                       {authorKeys.map(name => {
@@ -1165,7 +1173,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                         const isActive = activeFilter === name;
                         return (
                           <button key={name} type="button" aria-pressed={isActive} onClick={() => setSelectedAuthorFilter(name)}
-                            className="px-2 py-0.5 md:[@media(pointer:coarse)]:min-h-[44px] text-[22px] leading-snug rounded-sm border transition-all"
+                            className="px-2 py-0.5 [@media(pointer:coarse)]:min-h-[44px] text-[22px] leading-snug rounded-sm border transition-all"
                             style={{
                               fontFamily: info.pen_font, color: isActive ? 'rgb(var(--c-cream))' : info.ink_color,
                               borderColor: info.ink_color, background: isActive ? info.ink_color : 'transparent',
@@ -1219,8 +1227,8 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                                 {...props}
                                 aria-label={`Delete ${entry.title}`}
                                 className={armed
-                                  ? 'shrink-0 mr-2 min-h-[36px] px-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:brightness-125 transition rounded-sm'
-                                  : 'shrink-0 w-9 min-h-[40px] font-sans text-lg text-sepia hover:text-oxblood transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'}
+                                  ? 'shrink-0 mr-2 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:brightness-125 transition rounded-sm'
+                                  : 'shrink-0 w-9 min-h-[40px] [@media(pointer:coarse)]:min-w-[44px] [@media(pointer:coarse)]:min-h-[44px] font-sans text-lg text-sepia hover:text-oxblood transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'}
                               >{armed ? 'Delete' : '×'}</button>
                             )}
                           />
@@ -1235,7 +1243,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                 {isGM && (
                   <div className="mt-3 pt-2 border-t border-sepia/30 shrink-0">
                     <button onClick={() => { setShowLKResources(true); setShowEphemeral(false); }}
-                      className="w-full text-left flex items-center justify-between px-2 py-1 rounded-sm hover:bg-sepia/10 transition-all"
+                      className="w-full text-left flex items-center justify-between px-2 py-1 [@media(pointer:coarse)]:min-h-[44px] rounded-sm hover:bg-sepia/10 transition-all"
                     >
                       <span className="font-serif text-2xl text-ink">Lightkeeper Resources</span>
                       <span className="font-sans font-bold text-xs uppercase tracking-widest text-oxblood">Lightkeeper only →</span>
@@ -1323,13 +1331,13 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                   <div className="flex gap-2 items-center flex-wrap">
                     {pendingImageFile && <input type="text" value={uploadCaption} onChange={e => setUploadCaption(e.target.value)}
                       placeholder="Caption (optional)" aria-label="Caption for the picture (optional)"
-                      className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 text-lg font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 md:[@media(pointer:coarse)]:min-h-[44px]" />}
+                      className="flex-1 min-w-[10rem] bg-transparent border-b border-ink/20 focus:border-ink/40 text-lg font-serif text-ink placeholder-sepia/90 placeholder:italic py-0.5 [@media(pointer:coarse)]:min-h-[44px]" />}
                     <button onClick={openNewSketch} disabled={isUploading || !!pendingImageFile}
-                      className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
+                      className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 [@media(pointer:coarse)]:min-h-[44px] border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
                       <span className="inline-flex items-center gap-1.5"><PencilIcon size={16} /> Sketch</span>
                     </button>
                     <button onClick={() => photoInputRef.current?.click()} disabled={isUploading || !!pendingImageFile}
-                      className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 md:[@media(pointer:coarse)]:min-h-[44px] border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
+                      className="font-sans font-black uppercase tracking-widest text-sm px-3 py-1.5 [@media(pointer:coarse)]:min-h-[44px] border border-ink/40 hover:bg-black/5 transition-all disabled:opacity-30">
                       <span className="inline-flex items-center gap-1.5"><CameraIcon size={16} /> Photo</span>
                     </button>
                     <input ref={sketchInputRef} type="file" accept="image/png" className="hidden"
@@ -1344,14 +1352,14 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                       <div className="flex-1 min-w-0">
                         {pendingScene ? (
                           <button type="button" onClick={openNewSketch}
-                            className="min-h-[40px] md:[@media(pointer:coarse)]:min-h-[44px] px-2 -ml-2 inline-flex items-center gap-1.5 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors">
+                            className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-2 -ml-2 inline-flex items-center gap-1.5 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-oxblood rounded-sm hover:bg-ink/[0.04] transition-colors">
                             <PencilIcon size={14} /> Keep drawing
                           </button>
                         ) : (
                           <p className="font-mono text-sm text-sepia truncate">{pendingImageFile?.name}</p>
                         )}
                       </div>
-                      <button onClick={clearPendingImage} aria-label="Remove the image" className="min-w-[40px] min-h-[40px] md:[@media(pointer:coarse)]:min-w-[44px] md:[@media(pointer:coarse)]:min-h-[44px] text-sepia hover:text-oxblood font-black text-lg transition-colors">✕</button>
+                      <button onClick={clearPendingImage} aria-label="Remove the image" className="min-w-[40px] min-h-[40px] [@media(pointer:coarse)]:min-w-[44px] [@media(pointer:coarse)]:min-h-[44px] text-sepia hover:text-oxblood font-black text-lg transition-colors">✕</button>
                     </div>
                   )}
 
@@ -1363,7 +1371,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                         id="notebook-handwriting"
                         value={authorFont}
                         onChange={e => updatePenFont(e.target.value)}
-                        className="bg-transparent border-b border-ink/25 focus:border-ink/50 text-[18px] py-0.5 md:[@media(pointer:coarse)]:min-h-[44px] flex-1 min-w-0"
+                        className="bg-transparent border-b border-ink/25 focus:border-ink/50 text-[18px] py-0.5 [@media(pointer:coarse)]:min-h-[44px] flex-1 min-w-0"
                         style={{ fontFamily: authorFont, color: authorColor }}
                       >
                         {PEN_FONTS.map(f => (
@@ -1380,7 +1388,7 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
 
                   <button onClick={handleSubmitEntry}
                     disabled={isSubmitting || isUploading || !newEntryTitle.trim() || (!newEntryContent.trim() && !pendingImageFile)}
-                    className="font-sans font-black uppercase tracking-widest text-sm sm:text-base px-4 py-2 border-2 border-ink/60 hover:bg-black/5 transition-all disabled:opacity-30 self-end">
+                    className="font-sans font-black uppercase tracking-widest text-sm sm:text-base px-4 py-2 [@media(pointer:coarse)]:min-h-[44px] border-2 border-ink/60 hover:bg-black/5 transition-all disabled:opacity-30 self-end">
                     {isSubmitting || isUploading ? 'Saving…' : 'Add entry'}
                   </button>
                 </div>
