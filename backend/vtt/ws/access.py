@@ -179,6 +179,9 @@ def _gm_update_circle_fields(ctx, payload, character):
         from vtt.routers.circles import INSIGNIA_LABELS
         if not isinstance(payload["insignia"], str) or payload["insignia"] not in INSIGNIA_LABELS:
             _invalid("The insignia is one of the eight on the formation papers.")
+        # Until the seal the circle's vote chooses it (the desk shows the picker only after)
+        if not ctx.db.query(Circle.is_finalized).filter(Circle.id == _default_circle(ctx, payload)).scalar():
+            raise Rejected(409, "The insignia is chosen by the circle's vote until the seal.")
 
 
 # The assignment's tally (rulebook p. 55): three questions worth 1 each, and the keys 2

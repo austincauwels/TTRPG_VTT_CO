@@ -73,8 +73,7 @@ export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, set
   return (
     <>
     <header className="w-full bg-gm-night relative border-b border-black/60 shadow-xl max-md:sr-only xl:sr-only">
-      <div className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto px-4 2xl:px-10 pt-4 pb-5 lg:py-6 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-start gap-y-3">
-        <div className="hidden lg:block" aria-hidden="true" />
+      <div className="max-w-[1500px] 2xl:max-w-[1840px] mx-auto px-4 2xl:px-10 pt-4 pb-5 lg:py-6 flex flex-col items-center gap-y-3">
         <div className="flex flex-col items-center text-center">
           <h1 className="font-display text-[28px] sm:text-4xl tracking-[0.1em] text-cream uppercase">CANDELA OBSCURA</h1>
           {campaignName && (
@@ -88,7 +87,7 @@ export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, set
         </div>
         {/* In normal flow, so it never covers the title. From xl the bar carries it, and
             below md the drawer. */}
-        <div className="relative z-10 flex gap-2 justify-center lg:justify-end lg:-mt-2 max-md:hidden xl:hidden">
+        <div className="relative z-10 flex gap-2 justify-center max-md:hidden xl:hidden">
           <button onClick={() => setStage('HOME')} className={`${hub} text-sm bg-gm-slate/70 hover:bg-gm-slate px-4 py-2.5 lg:py-2`}>
             Back to chapter hub
           </button>

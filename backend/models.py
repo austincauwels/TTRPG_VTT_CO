@@ -186,6 +186,9 @@ class Circle(Base):
     # Resource Management's earn-backs (rulebook p. 41): one for each milestone passed,
     # waiting for the circle's choice of Stitch, Refresh or Train (gm_earn_back)
     earn_backs = Column(Integer, default=0)
+    # The highest Illumination milestone (0, 3, 6 or 9) already counted for an earn-back, so
+    # a fall and a rise past it again does not count it twice; the circle advance resets it
+    milestones_earned = Column(Integer, default=0)
 
     # Per-player assignment report responses stored in backstory_answers JSON keyed by character_id
     # Structure: { "selected_question_key": "...", "reports": { "42": { "q0": true, "q1": false, ... } } }

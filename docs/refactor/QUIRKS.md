@@ -240,3 +240,11 @@ Frontend only; there is no test runner for it, so each was checked in Chromium (
 - Sign out (issue #20): `logout` clears the account's Notebook and creator drafts unless called with `{ keepDrafts: true }`, which `endSession` (a server-ended session), the password-reset sign-out and the sign-out after an undone email change use.
 - Back after a reload (issue #21): a held Back (an unsaved sketch) first turns the entry an earlier page added into the hub's and pushes the desk's own entry over it. The sketch pad asks before the page unloads while strokes are unsaved.
 - Join request buttons (issue #46): measured at 390x844, Approve, View sheet and Reject are 44px tall on a phone (commit 7be39b1); a mouse keeps 40px.
+
+## Fix round 7, desk (2026-10-13)
+
+- Resource Management counts a milestone once: `circles.milestones_earned` holds the highest counted. A fall past a milestone takes a waiting earn-back (and frees the milestone); an applied one stays counted, so a fall and a rise past it adds nothing. The circle advance resets it. Pinned in test_ws_circle.py (`test_a_milestone_is_not_counted_twice_after_its_earn_back_is_applied`) and the column in test_00_startup.py.
+- The log names a milestone only on a circle with Resource Management, in its one earn-back line ("passed milestone 3 and earns back one ..."); `_clip` cuts on a space (a hard cut only when none lies in the last 20 characters). Tests in test_ws_circle.py flipped.
+- `update_circle` with `insignia` is refused (409) before the seal; the test seals the circle first.
+- End Assignment clears and hides the countdown (`test_end_assignment_clears_and_hides_the_timer`).
+- Desk: the table strip carries the tension's - and + and the timer's Start or Pause on the Lightkeeper's desk from md; from xl the dispatch stamps are the letter's last row, sticky at the column's foot, and End Assignment's armed line floats above its stamp instead of pushing it. A request withdrawn while its sheet is open keeps the sheet with "<Name>'s request is no longer waiting." and only Back to requests. The End stamp still shrinks to "End" when armed (unchanged).
