@@ -1,4 +1,4 @@
-import React, { useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDialog } from '../shared/useDialog';
 import { ACTION_LABEL, SCAR_TEXT_MAX, scarDisplayText } from '../../game/actions';
@@ -48,9 +48,10 @@ const draftOf = (c) => ({
   scars: (Array.isArray(c.scars_list) ? c.scars_list : []).map(raw => ({ raw, text: String(scarDisplayText(raw) ?? '') })),
 });
 
-// The fields the edit changes, in the server's terms
-const changesOf = (c, d) => {
-  const o = draftOf(c);
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+// The fields the edit changes from the sheet o (a draft), in the server's terms
+const changesOf = (o, d) => {
   const out = {};
   for (const key of ['name', 'style', 'catalyst', 'question']) if (d[key].trim() !== o[key].trim()) out[key] = d[key].trim();
   if (d.pronouns.trim() !== o.pronouns.trim()) out.pronouns = d.pronouns.trim() || 'Unlisted';
@@ -103,12 +104,44 @@ const Stepper = ({ label, value, min = 0, max, onChange, shown, extra = null }) 
 
 // roleOf and specialtyOf: each ability's role or specialty (InvestigatorDossier's tables)
 export const SheetEditor = ({ character, roleOf, specialtyOf, abilityTexts = {}, onSave, onClose }) => {
-  const [d, setD] = useState(() => draftOf(character));
+  // base is the sheet the draft was last brought up to: only what the player changed from
+  // it is sent, so a pip, a mark or a spend that lands while the dialog is open is not
+  // written back over, nor logged as the player's
+  const [base, setBase] = useState(() => draftOf(character));
+  const [d, setD] = useState(base);
+  const [clash, setClash] = useState(false);
   const [error, setError] = useState('');
   const dialogRef = useDialog({ open: true, onClose });
+  // First focus on the dialog itself, not the Name field, so a phone's keyboard stays shut
+  useLayoutEffect(() => { dialogRef.current?.focus({ preventScroll: true }); }, [dialogRef]);
   const id = useId();
   const set = (patch) => setD(x => ({ ...x, ...patch }));
-  const changes = useMemo(() => changesOf(character, d), [character, d]);
+
+  // The live sheet moved: what the player has not touched follows it, what they have
+  // touched stays theirs (with a soft notice when the table changed it too)
+  const baseRef = useRef(base);
+  useEffect(() => {
+    const live = draftOf(character);
+    const was = baseRef.current;
+    if (same(live, was)) return;
+    baseRef.current = live;
+    setBase(live);
+    // d is this render's draft: the effect runs again only when the sheet does
+    const next = {};
+    let both = false;
+    for (const k of Object.keys(d)) {
+      const mine = !same(d[k], was[k]);
+      next[k] = mine ? d[k] : live[k];
+      if (mine && !same(live[k], was[k]) && !same(live[k], d[k])) both = true;
+    }
+    for (const drive of DRIVES) {
+      next[`${drive}_current`] = Math.min(next[`${drive}_current`], next[`${drive}_max`]);
+      next[`${drive}_resistance_spent`] = Math.min(next[`${drive}_resistance_spent`], Math.floor(next[`${drive}_max`] / 3));
+    }
+    setD(next);
+    if (both) setClash(true);
+  }, [character]); // eslint-disable-line react-hooks/exhaustive-deps
+  const changes = useMemo(() => changesOf(base, d), [base, d]);
   const changed = Object.keys(changes).length > 0;
   const nameBlank = !d.name.trim();
 
@@ -146,12 +179,12 @@ export const SheetEditor = ({ character, roleOf, specialtyOf, abilityTexts = {},
   return createPortal(
     <div className="fixed inset-0 z-[500] flex items-center justify-center p-3 sm:p-4" style={{ background: 'rgb(var(--c-night) / 0.85)' }}
       onClick={onClose}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`}
-        className="relative rounded-sm w-full max-w-[640px] max-h-[90dvh] flex flex-col" onClick={e => e.stopPropagation()}
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} tabIndex={-1}
+        className="relative rounded-sm w-full max-w-[640px] max-h-[90dvh] flex flex-col outline-none" onClick={e => e.stopPropagation()}
         style={{ background: 'rgb(var(--c-parchment))', border: '3px double rgb(var(--c-sepia)/0.7)', boxShadow: '0 20px 60px rgba(0,0,0,0.9)' }}>
         <div className="px-4 pt-5 pb-3 sm:px-8 sm:pt-7 border-b border-sepia/20">
           <h2 id={`${id}-title`} className="text-2xl font-serif font-black text-ink">Edit sheet</h2>
-          <p className="text-sm font-serif italic text-sepia mt-1">Each change you save is logged for the Lightkeeper.</p>
+          <p className="text-sm font-serif italic text-sepia mt-1">Each change you save goes in the table's log.</p>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-8 space-y-6">
@@ -305,6 +338,7 @@ export const SheetEditor = ({ character, roleOf, specialtyOf, abilityTexts = {},
         </div>
 
         <div className="px-4 py-3 sm:px-8 border-t border-sepia/20 flex flex-wrap items-center justify-end gap-3">
+          {clash && <p role="status" className="basis-full font-serif text-sm italic text-oxblood/90 leading-snug">The sheet changed at the table while you edited it. Save keeps your changes.</p>}
           {error && <p role="alert" className="basis-full font-serif text-base text-oxblood leading-snug">{error}</p>}
           <button type="button" onClick={onClose}
             className="px-4 py-2 min-h-[44px] whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-sepia/25 hover:border-sepia/50 text-sepia transition-colors rounded-sm">
