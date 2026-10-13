@@ -120,6 +120,18 @@ def test_propose_relationship(client):
                    "last_actor_id": a["id"]}  # None before the token fixes
 
 
+def test_no_proposal_from_or_to_the_dead(client):
+    """A dead investigator stays on the roster until replaced, and the route stored a
+    proposal from or to it (issue #38). Both are refused: the sheet is a record."""
+    camp, (a, b), cid = _setup(client)
+    support.update(Character, b["id"], is_dead=True, scars_count=4)
+    for frm, to in ((a, b), (b, a)):
+        r = _propose(client, {"circle_id": cid, "from_character_id": frm["id"], "to_character_id": to["id"],
+                              "rel_type": "Rivals"})
+        assert (r.status_code, r.json()["detail"]) == (409, f"{b['name']} is dead: the sheet is a record.")
+    assert support.fetch_all(Relationship, circle_id=cid) == []
+
+
 def test_propose_only_for_own_character_with_a_fellow_member(client):
     camp, (a, b), cid = _setup(client)
     outsider = support.active_member(client, support.new_campaign(client))

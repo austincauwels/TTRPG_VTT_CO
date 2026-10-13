@@ -90,8 +90,9 @@ def campaign_facts(db: Session, campaign_id):
 
 
 def character_facts(db: Session, character_id):
-    """(id, user_id, campaign_id, status) of a character, or None."""
-    return db.query(Character.id, Character.user_id, Character.campaign_id, Character.status).filter(
+    """(id, user_id, campaign_id, status, is_dead, name) of a character, or None."""
+    return db.query(Character.id, Character.user_id, Character.campaign_id, Character.status,
+                    Character.is_dead, Character.name).filter(
         Character.id == character_id).first()
 
 

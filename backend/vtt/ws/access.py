@@ -294,6 +294,9 @@ def _circle_relationship_propose(ctx, payload, character):
             _not_found("Character")
         if other.campaign_id != campaign_id or other.status not in MEMBER_STATUSES:
             _forbid()
+        if other.is_dead:
+            # A proposal from the dead is refused in DEAD_REFUSED; one to the dead here
+            raise Rejected(409, f"{other.name} is dead: the sheet is a record.")
     _circle_of(ctx, _default_circle(ctx, payload), campaign_id)
 
 
@@ -529,11 +532,13 @@ def _still_in_connect_campaign(ctx):
 
 # What a dead investigator's own socket may no longer do: the sheet is a record once the
 # fourth scar is taken (p. 74). Chat, the notebook, the pen font and a new investigator stay.
-# A direct edit (edit_sheet) is refused too: a dead sheet stays a record (fix round 4).
+# A direct edit (edit_sheet) is refused too: a dead sheet stays a record (fix round 4), and
+# so is a fifth scar (fix round 6).
 DEAD_REFUSED = frozenset({
     "roll", "resolve_gilded", "use_post_roll_ability", "burn_resistance", "take_mark",
     "resolve_ability_mark", "intercept_mark", "spend_resource", "update_drive", "update_gear",
     "apply_advancement", "use_ability", "circle_relationship_propose", "revive_character", "edit_sheet",
+    "apply_scar",
 })
 
 

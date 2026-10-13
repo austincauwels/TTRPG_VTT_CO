@@ -130,6 +130,10 @@ def propose_relationship(body: RelationshipPropose, db: Session = Depends(get_db
     circle_campaign = _circle_campaign_or_404(db, body.circle_id)
     _require_member_of(proposer, circle_campaign)
     _require_member_of(other, circle_campaign)
+    # A dead investigator's sheet is a record: no proposal from or to it (as on the WebSocket)
+    for party in (proposer, other):
+        if party.is_dead:
+            raise HTTPException(status_code=409, detail=f"{party.name} is dead: the sheet is a record.")
     existing = db.query(Relationship).filter(
         Relationship.circle_id == body.circle_id,
         Relationship.from_character_id == body.from_character_id,

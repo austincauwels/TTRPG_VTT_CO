@@ -1341,6 +1341,36 @@ def test_relationship_messages_only_for_the_rightful_party(client):
     assert support.fetch(Relationship, rel_id).status == "proposed"
 
 
+def test_no_relationship_proposal_from_or_to_the_dead(client):
+    """A dead investigator's sheet is a record: the WebSocket refused a proposal from the
+    dead but stored one to the dead (issue #38). Both are refused now."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Character, b["id"], is_dead=True, scars_count=4)
+    dead = lambda: _rejected("circle_relationship_propose", status=409,
+                             detail=f"{b['name']} is dead: the sheet is a record.")
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+        wa.send("circle_relationship_propose", from_character_id=a["id"], to_character_id=b["id"], rel_type="X")
+        assert wa.sync() == [dead()]
+        wb.send("circle_relationship_propose", from_character_id=b["id"], to_character_id=a["id"], rel_type="X")
+        assert wb.sync() == [dead()]
+    assert support.fetch_all(Relationship, circle_id=cid) == []
+
+
+def test_the_dead_take_no_fifth_scar(client):
+    """apply_scar from a dead investigator's own socket stored a fifth scar and moved an
+    action point on the record (issue #38). It is refused like the dead sheet's other actions."""
+    four = ["a", "b", "c", "d"]
+    camp, (member,), cid = _campaign(client, scars_list=four, scars_count=4, is_dead=True, incapacitated=True)
+    before = support.fetch(Character, member["id"])
+    with support.ws_connect(client, member["id"]) as ws:
+        ws.send("apply_scar", scar_text="A fifth", shift_down="strike", shift_up="sense")
+        assert ws.sync() == [_rejected("apply_scar", status=409,
+                                       detail=f"{member['name']} is dead: the sheet is a record.")]
+    row = support.fetch(Character, member["id"])
+    assert (row.scars_list, row.scars_count) == (four, 4)
+    assert (row.strike, row.sense) == (before.strike, before.sense)
+
+
 def test_circle_relationship_respond_on_gm_socket_is_rejected(client):
     """Before tokens the actor id was int(game_id), which raised on a campaign-code
     socket and ended it (bug D9). The GM is not a party, so it is rejected first."""
