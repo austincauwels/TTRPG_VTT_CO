@@ -5,7 +5,7 @@ import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
 import { useDeleteUndo } from './useDeleteUndo';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
 import { ConfirmAction } from '../shared/ConfirmAction';
-import { leaveError, leaveHint } from '../pc/LeaveCampaign';
+import { ArmedDetail, leaveDetail, leaveError, leaveHint } from '../pc/LeaveCampaign';
 
 // Why a character on a roster has no Delete (read out with its unpressable control)
 const NOT_DELETABLE = { active: 'In a campaign' };
@@ -57,16 +57,17 @@ export const PlayerRegistryPage = ({
       cancelLabel="Stay"
       disabled={leavingId === char.id}
       onConfirm={() => leave(char)}
-      armedHint={leaveHint(char.name, char.campaign_name)}
+      armedHint={leaveHint(char.campaign_name)}
+      armedInfo={<ArmedDetail label="What leaving does" text={leaveDetail(char.name)} above={false} />}
       renderButton={(armed, props) => (
         <button
           {...props}
-          aria-label={armed ? `Yes, ${char.name} leaves ${char.campaign_name || 'the campaign'}` : `${char.name} leaves ${char.campaign_name || 'the campaign'}`}
+          aria-label={`${char.name} leaves ${char.campaign_name || 'the campaign'}`}
           className={`shrink-0 self-center mr-1 max-sm:mb-1 min-h-[44px] min-w-[44px] px-2.5 font-sans text-xs font-bold uppercase tracking-wider rounded-sm transition-colors disabled:opacity-60 disabled:cursor-wait ${armed
             ? 'bg-ink text-cream'
             : 'text-sepia hover:text-ink hover:bg-sepia/10'}`}
         >
-          {leavingId === char.id ? 'Leaving…' : armed ? 'Yes, leave' : 'Leave'}
+          {leavingId === char.id ? 'Leaving…' : 'Leave'}
         </button>
       )}
     />
@@ -74,7 +75,7 @@ export const PlayerRegistryPage = ({
   const deleteControl = (char) => (
     <RowDelete
       name={char.name}
-      question={`Delete ${char.name}?`}
+      question={`Press again to delete ${char.name}.`}
       onConfirm={() => removal.confirmDelete(char)}
       busy={removal.busyId === char.id}
       blockedReason={NOT_DELETABLE[char.status] || null}
@@ -103,7 +104,7 @@ export const PlayerRegistryPage = ({
               <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-seal-green">In a campaign</p>
               <div className="space-y-1.5">
                 {characters.filter(c => c.status === 'active').map(char => (
-                  <div key={char.id} className="flex flex-wrap items-center" style={{ border: '1px solid rgb(var(--c-sepia) / 0.15)' }}>
+                  <div key={char.id} className="relative flex flex-wrap items-center" style={{ border: '1px solid rgb(var(--c-sepia) / 0.15)' }}>
                   <button
                     onClick={() => enterAsPlayer(char)}
                     className="flex-1 min-w-0 max-sm:basis-full flex items-center gap-3 px-3 py-2.5 hover:bg-sepia/10 transition-colors text-left group"

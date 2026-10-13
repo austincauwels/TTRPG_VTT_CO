@@ -53,12 +53,12 @@ export const RowDelete = ({ name, question, onConfirm, busy = false, blockedReas
       renderButton={(armed, props) => (
         <button
           {...props}
-          aria-label={armed ? `Yes, delete ${name}` : `Delete ${name}`}
+          aria-label={`Delete ${name}`}
           className={`${CONTROL} disabled:opacity-60 disabled:cursor-wait ${armed
             ? 'bg-oxblood text-cream hover:brightness-125'
             : 'text-sepia hover:text-oxblood hover:bg-oxblood/5'}`}
         >
-          {busy ? 'Deleting…' : armed ? 'Yes, delete' : 'Delete'}
+          {busy ? 'Deleting…' : 'Delete'}
         </button>
       )}
     />

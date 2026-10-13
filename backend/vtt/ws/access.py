@@ -81,14 +81,14 @@ GM_ONLY = frozenset({
     "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
     "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
     "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
-    "gm_set_tally_answer", "gm_add_tally",
+    "gm_set_tally_answer", "gm_add_tally", "gm_sheet_seen", "gm_earn_back",
 })
 
 # A GM socket may aim these at a character of its campaign with payload.character_id.
 # Every other type acts for a character only on that character's own socket.
 GM_MAY_TARGET = frozenset({
     "gm_update_tension", "gm_reset_character", "update_drive", "take_mark", "revive_character", "update_gear",
-    "gm_update_scars", "gm_return_spend",
+    "gm_update_scars", "gm_return_spend", "gm_sheet_seen",
 })
 
 
@@ -171,6 +171,16 @@ def _gm_update_circle(ctx, payload, character):
             _invalid(DISPATCH_TOO_LONG)
 
 
+def _gm_update_circle_fields(ctx, payload, character):
+    _gm_circle(ctx, payload, character)
+    # The Lightkeeper changes the insignia by clicking it (issue #66.7): one of the eight the
+    # formation papers offer. Imported here: vtt.routers.circles imports this module.
+    if "insignia" in payload:
+        from vtt.routers.circles import INSIGNIA_LABELS
+        if not isinstance(payload["insignia"], str) or payload["insignia"] not in INSIGNIA_LABELS:
+            _invalid("The insignia is one of the eight on the formation papers.")
+
+
 # The assignment's tally (rulebook p. 55): three questions worth 1 each, and the keys 2
 # when some of the investigators fulfilled one, 4 when every one of them did
 TALLY_KEYS = (0, 2, 4)
@@ -187,6 +197,16 @@ def _gm_add_tally(ctx, payload, character):
     _gm_circle(ctx, payload, character)
     if type(payload.get("keys")) is not int or payload["keys"] not in TALLY_KEYS:
         _invalid("The keys are worth 0, 2 or 4.")
+
+
+# Resource Management's earn-back (rulebook p. 41): one of the circle's three resources
+EARN_BACK_RESOURCES = ("stitch", "refresh", "train")
+
+
+def _gm_earn_back(ctx, payload, character):
+    _gm_circle(ctx, payload, character)
+    if payload.get("resource_type") not in EARN_BACK_RESOURCES:
+        _invalid("Earn back a Stitch, a Refresh or a Train.")
 
 
 def _intercept_mark(ctx, payload, character):
@@ -398,6 +418,19 @@ def _update_gear(ctx, payload, character):
         _invalid("A gear item is a name of up to 80 characters.")
 
 
+def _edit_sheet(ctx, payload, character):
+    """A player's direct edit of their own sheet (vtt/sheet_edits.py), from the player's
+    own socket (check_target). Only the shape is checked: whole numbers within the boxes
+    the sheet prints, names the app knows, text within its length; never the rules
+    (decision 1 of fix round 5)."""
+    from vtt.sheet_edits import edit_problem
+    if ctx.is_gm:
+        _forbid()
+    problem = edit_problem(character, payload.get("changes"))
+    if problem:
+        _invalid(problem)
+
+
 def _roll(ctx, payload, character):
     """A negative drive_spent used to raise the drive above its maximum and commit that
     before the empty pool failed (QUIRK D15). It is refused before anything changes.
@@ -450,7 +483,9 @@ RULES = {
     "gm_return_spend": _gm_circle,
     "gm_set_tally_answer": _gm_set_tally_answer,
     "gm_add_tally": _gm_add_tally,
-    "update_circle": _gm_circle,
+    "gm_sheet_seen": _gm_only,
+    "gm_earn_back": _gm_earn_back,
+    "update_circle": _gm_update_circle_fields,
     "gm_update_scars": _gm_update_scars,
     "intercept_mark": _intercept_mark,
     "spend_resource": _spend_resource,
@@ -465,6 +500,7 @@ RULES = {
     "roll": _roll,
     "chat_message": _chat_message,
     "add_notebook_entry": _add_notebook_entry,
+    "edit_sheet": _edit_sheet,
 }
 
 
@@ -493,10 +529,11 @@ def _still_in_connect_campaign(ctx):
 
 # What a dead investigator's own socket may no longer do: the sheet is a record once the
 # fourth scar is taken (p. 74). Chat, the notebook, the pen font and a new investigator stay.
+# A direct edit (edit_sheet) is refused too: a dead sheet stays a record (fix round 4).
 DEAD_REFUSED = frozenset({
     "roll", "resolve_gilded", "use_post_roll_ability", "burn_resistance", "take_mark",
     "resolve_ability_mark", "intercept_mark", "spend_resource", "update_drive", "update_gear",
-    "apply_advancement", "use_ability", "circle_relationship_propose", "revive_character",
+    "apply_advancement", "use_ability", "circle_relationship_propose", "revive_character", "edit_sheet",
 })
 
 

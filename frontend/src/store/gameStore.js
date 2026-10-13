@@ -510,7 +510,9 @@ const useGameStore = create(
       advancementDeferred: false, // the player chose "Later" on the advancement dialog
       advancementError: null,     // why the server refused an advancement pick
       gmSheetRefusal: null,       // { action, detail, at }: a mark or scar correction the server refused
+      sheetEditError: null,       // why the server did not store the player's edit of their own sheet
       circleRefusal: null,        // { detail, at }: a gm_update_circle the server refused (the dispatch says so)
+      earnBackRefusal: null,      // { detail, at }: a Resource Management earn-back the server refused
       // The assignment report form: the ticks not sent yet, by character id, with the
       // assignment they belong to ({ assignment, keyChecks }), kept across tabs and
       // reloads (playtest, key-ticks-lost); whether a report is on its way; why the server
@@ -948,6 +950,10 @@ const useGameStore = create(
             if (message.payload.action === 'update_drive' && onGmDesk(get)) {
               set(state => ({ memberResync: state.memberResync + 1 }));
             }
+            // The player's own edit of the sheet (edit_sheet), or a gear change: the editor says why
+            if (message.payload.action === 'edit_sheet' || message.payload.action === 'update_gear') {
+              set({ sheetEditError: message.payload.detail || 'That change was not saved.' });
+            }
             if (message.payload.action === 'apply_advancement') {
               set({ advancementError: message.payload.detail || 'That advancement was not applied.' });
             }
@@ -993,6 +999,10 @@ const useGameStore = create(
             // saved, and the dispatch's receipt says why
             if (message.payload.action === 'gm_update_circle') {
               set({ circleRefusal: { detail: message.payload.detail || 'That change was not made.', at: Date.now() } });
+            }
+            // An earn-back refused (a full resource, or another desk chose first): the ask says why
+            if (message.payload.action === 'gm_earn_back') {
+              set({ earnBackRefusal: { detail: message.payload.detail || 'Nothing was earned back.', at: Date.now() } });
             }
             // A correction on the Lightkeeper's trauma record: the sheet reloads and says why
             if (message.payload.action === 'gm_update_scars' || message.payload.action === 'gm_update_tension') {
@@ -1398,7 +1408,7 @@ const useGameStore = create(
             // pickers leave the dead out (livingMembers), so the card takes the flag now. The
             // server sends it to the players only: the GM desk has member_update.
             if (!isForThisCampaign(message.payload)) return;
-            const { character_id: id, is_dead: isDead, incapacitated, scars_count: scars } = message.payload || {};
+            const { character_id: id, is_dead: isDead, incapacitated, scars_count: scars, name } = message.payload || {};
             if (id == null) return;
             // So do the formation papers, whose Circle Relationships leave the dead out. The
             // circle's cards also say who is down and how many scars they carry.
@@ -1406,6 +1416,8 @@ const useGameStore = create(
               ...c, is_dead: !!isDead,
               ...(incapacitated !== undefined ? { incapacitated: !!incapacitated } : {}),
               ...(scars !== undefined ? { scars_count: scars } : {}),
+              // a name the player changed on their own sheet
+              ...(name ? { name } : {}),
             } : c)) : list);
             set(state => ({
               campaignRoster: {
@@ -1832,14 +1844,12 @@ const useGameStore = create(
         set({ circleAdvancement: null });
       },
 
-      refillResources: (circleId) => {
-        const { socket, accessSession } = get();
-        if (socket?.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: 'refill_resources',
-            payload: { circle_id: circleId, role: accessSession?.role },
-          }));
-        }
+      // Resource Management's earn-back at a milestone: the circle's choice, one press
+      gmEarnBack: (circleId, resourceType) => {
+        const { socket } = get();
+        if (socket?.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'gm_earn_back', payload: { circle_id: circleId, resource_type: resourceType } }));
+        return true;
       },
 
       // "Later": the picks stay on the character (advancement_picks) and the dialog comes
@@ -2132,6 +2142,32 @@ const useGameStore = create(
           return true;
         }
         return false;
+      },
+
+      // The player's direct edit of their own sheet: the fields changed and their new values
+      // (backend vtt/sheet_edits.py). Nothing is refused for the rules; the server logs each
+      // change for the Lightkeeper. True when it was sent.
+      editSheet: (changes) => {
+        const { socket } = get();
+        if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+        set({ sheetEditError: null });
+        socket.send(JSON.stringify({ type: 'edit_sheet', payload: { changes } }));
+        return true;
+      },
+      // The player's gear, as the gear dialog leaves it (a direct edit too). True when sent.
+      updateGear: (gear) => {
+        const { socket } = get();
+        if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+        set({ sheetEditError: null });
+        socket.send(JSON.stringify({ type: 'update_gear', payload: { gear } }));
+        return true;
+      },
+      // The Lightkeeper opened a member's sheet: the dot a direct edit put on the roster card goes
+      gmSheetSeen: (characterId) => {
+        const { socket } = get();
+        if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'gm_sheet_seen', payload: { character_id: characterId } }));
+        return true;
       },
 
       // The Lightkeeper deals a member a mark: it goes the way a mark the player takes does,

@@ -26,15 +26,16 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
     circleCreation?.relationships, livingMembers(circleCreation?.activeInvestigators))).length;
   const requests = (campaignRoster.pending_investigators || []).length;
   const waitingLine = waiting === 0 ? ''
-    : `${waiting} relationship${waiting === 1 ? '' : 's'} still waiting for an answer. ${waiting === 1 ? 'It' : 'They'} can still be accepted after the seal.`;
+    : `${waiting} relationship${waiting === 1 ? '' : 's'} still waiting; ${waiting === 1 ? 'it' : 'they'} can be accepted after the seal.`;
   const empty = emptyParts(circleCreation?.votes);
   const emptyLine = empty.length === 0 ? ''
-    : `Nothing is chosen yet for ${nameList(empty)}, so the circle is sealed without ${empty.length === 1 ? 'it' : 'them'}.`;
+    : `Nothing is chosen yet for ${nameList(empty)}.`;
+  // One sentence for what the press does, then only what is lost with it (decision 4 of fix
+  // round 5): the waiting relationships are not lost, so the armed line leaves them out
   const armedHint = [
-    `Press again to finalize with ${activeCount} investigator${activeCount === 1 ? '' : 's'}. Every player's formation papers close, and this cannot be undone.`,
+    `Press again to finalize the circle with ${activeCount} investigator${activeCount === 1 ? '' : 's'}; this cannot be undone.`,
     emptyLine,
-    requests === 0 ? '' : `${requests === 1 ? 'The request' : `The ${requests} requests`} still waiting to join ${requests === 1 ? 'is' : 'are'} turned away.`,
-    waitingLine,
+    requests === 0 ? '' : `${requests === 1 ? '1 waiting request is' : `${requests} waiting requests are`} turned away.`,
   ].filter(Boolean).join(' ');
 
   return (
@@ -61,7 +62,7 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
                 <div className="flex items-center gap-3">
                   <WaxSeal size={32} />
                   <span className={`font-serif font-bold uppercase tracking-[0.12em] text-base ${armed ? 'text-oxblood' : 'text-ink'}`}>
-                    {isFinalizingRoster ? 'Finalizing…' : armed ? 'Yes, finalize the circle' : 'Finalize the circle'}
+                    {isFinalizingRoster ? 'Finalizing…' : armed ? 'Finalize' : 'Finalize the circle'}
                   </span>
                 </div>
                 <span className="font-mono text-xs tabular-nums text-sepia">

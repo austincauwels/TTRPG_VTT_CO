@@ -421,6 +421,9 @@ def init_db():
 
     # Stamina Training's dice used this assignment (RULES_CHECK.md item 20). Existing rows get 0.
     add_columns("circles", [("stamina_dice_used", "INTEGER DEFAULT 0")])
+    # Resource Management's earn-backs waiting for the circle's choice (RULES_CHECK.md item
+    # 16, fix round 5). Existing rows get 0: none waiting.
+    add_columns("circles", [("earn_backs", "INTEGER DEFAULT 0")])
 
     # Circle advancement picks (RULES_CHECK.md item 14). Existing rows get 0 and an empty
     # list: no advancement waiting.
@@ -444,6 +447,9 @@ def init_db():
     # The Lightkeeper's dispatch in their own words, beside the template's location and
     # atmosphere. Existing circles get none.
     add_columns("circles", [("dispatch_text", "TEXT DEFAULT ''")])
+    # A player's direct edit the Lightkeeper has not seen (vtt/sheet_edits.py). Existing
+    # characters get none.
+    add_columns("characters", [("sheet_edited", "BOOLEAN DEFAULT FALSE")])
 
     # Two pens were saved under misspelt family names (Reenie Beenie, Moondance); the
     # server's list now knows the real ones, so stored choices move over.

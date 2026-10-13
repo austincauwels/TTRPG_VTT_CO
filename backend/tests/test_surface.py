@@ -156,6 +156,7 @@ WS_MESSAGE_TYPES = [
     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
     "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
     "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally",
+    "edit_sheet", "gm_sheet_seen", "gm_earn_back",
 ]
 
 
@@ -179,6 +180,12 @@ def _resources_editable(client, ctx):
     r = client.get(f"/campaign/{ctx.camp_id}/circle-creation-state", headers=support.as_gm(ctx.camp_id))
     assert r.status_code == 200, r.text
     support.update(Circle, r.json()["circle_id"], resources_editable=True)
+
+
+def _earn_back_waiting(client, ctx):
+    r = client.get(f"/campaign/{ctx.camp_id}/circle-creation-state", headers=support.as_gm(ctx.camp_id))
+    assert r.status_code == 200, r.text
+    support.update(Circle, r.json()["circle_id"], circle_ability="Resource Management", stitch=0, earn_backs=1)
 
 
 # type -> sender ("player" or "gm"), forge fields for the player's character, the
@@ -285,9 +292,9 @@ WS_CASES = {
     "add_notebook_entry": dict(
         payload=lambda c: {"campaign_id": c.camp_id, "title": "t", "content": "c", "visibility": "self"},
         expect=["notebook_entry"]),
-    # Scout spends 1 Intuition for one of its questions (p. 27; vtt/ability_uses.py)
+    # Scout spends 1 Intuition for a question the player writes (p. 27; vtt/ability_uses.py)
     "use_ability": dict(fields={"role_ability": "Scout", "intuition_max": 3, "intuition_current": 3},
-                        payload=lambda c: {"ability": "Scout", "option": "What path should we follow?"},
+                        payload=lambda c: {"ability": "Scout", "question": "Who was here before us?"},
                         expect=["character_update", "activity_log"]),
     # The Lightkeeper rewords a scar on the trauma record
     "gm_update_scars": dict(
@@ -307,11 +314,25 @@ WS_CASES = {
     "gm_add_tally": dict(
         sender="gm", payload=lambda c: {"circle_id": c.circle_id, "keys": 2},
         expect=["circle_update", "activity_log"]),
+    # The player's direct edit of their own sheet (vtt/sheet_edits.py)
+    "edit_sheet": dict(payload=lambda c: {"changes": {"name": "Ada Quill"}},
+                       expect=["character_update", "activity_log", "member_status"]),
+    # The Lightkeeper opened a sheet the player edited: the roster card's dot goes
+    "gm_sheet_seen": dict(
+        sender="gm", before_connect=lambda client, c: support.update(Character, c.char_id, sheet_edited=True),
+        payload=lambda c: {"character_id": c.char_id},
+        expect=["member_update"]),
+    # Resource Management's earn-back waiting at a milestone, the circle's choice applied
+    "gm_earn_back": dict(
+        sender="gm",
+        before_connect=_earn_back_waiting,
+        payload=lambda c: {"circle_id": c.circle_id, "resource_type": "stitch"},
+        expect=["circle_update", "activity_log"]),
 }
 
 
 def test_ws_cases_cover_every_message_type():
-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 38
+    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 41
     assert list(WS_CASES) == WS_MESSAGE_TYPES
 
 
@@ -365,7 +386,7 @@ WS_NEEDS_CHARACTER = {
     "gm_update_tension", "update_drive", "resolve_gilded", "use_post_roll_ability",
     "update_pen_font", "take_mark", "resolve_ability_mark", "intercept_mark", "apply_scar",
     "revive_character", "burn_resistance", "update_gear", "spend_resource", "apply_advancement",
-    "use_ability", "gm_update_scars",
+    "use_ability", "gm_update_scars", "edit_sheet", "gm_sheet_seen",
 }
 
 
@@ -380,7 +401,8 @@ def test_ws_access_table():
     and GM-target type is a real message type."""
     from vtt.ws import access
     gm_rules = (access._gm_only, access._gm_circle, access._gm_update_circle, access._gm_update_scars,
-                access._gm_set_tally_answer, access._gm_add_tally)
+                access._gm_set_tally_answer, access._gm_add_tally, access._gm_earn_back,
+                access._gm_update_circle_fields)
     assert access.GM_ONLY == {t for t, rule in access.RULES.items() if rule in gm_rules}
     assert set(access.RULES) <= set(WS_MESSAGE_TYPES)
     assert access.GM_MAY_TARGET <= set(WS_MESSAGE_TYPES)
@@ -388,7 +410,7 @@ def test_ws_access_table():
         "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
         "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
         "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
-        "gm_set_tally_answer", "gm_add_tally",
+        "gm_set_tally_answer", "gm_add_tally", "gm_sheet_seen", "gm_earn_back",
     }
 
 

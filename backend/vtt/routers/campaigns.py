@@ -530,6 +530,7 @@ def rejoin(db: Session, campaign_code: str, character_id: int, user: User):
     new_char.campaign_id = campaign.id
     new_char.ink_color = INK_COLORS[active_count % len(INK_COLORS)]
     new_char.status = "active"
+    new_char.sheet_edited = False   # a dot from before the rejoin has no line in this log
 
     # Attach to campaign's circle so relationship proposals work mid-campaign
     campaign_circle = db.query(Circle).filter(Circle.campaign_id == campaign.id).first()
@@ -660,7 +661,8 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
         if is_lk:
             stands.update(
                 body_marks=c.body_marks or 0, brain_marks=c.brain_marks or 0, bleed_marks=c.bleed_marks or 0,
-                advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar)
+                advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar,
+                sheet_edited=bool(c.sheet_edited))
         return CharacterRosterItem(
             **stands,
             owner_username=owners.get(c.user_id, ""),

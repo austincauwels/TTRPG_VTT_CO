@@ -12,10 +12,11 @@ Each entry may have:
 - once: once per assignment, counted in ability_uses.
 - options: a choice the player makes; an option may add a mark (Last Moments' still
   image) or name an effect.
-- ask: the options are the questions the ability asks the Lightkeeper, in the rulebook's
-  words (Scout, Uncanny Eye, Tactician). The player picks one before the drive is spent,
-  and the log names it: one tap on Use spent the point and the log said only "used
-  Tactician" (playtest, tactician-one-tap).
+- ask: the ability asks the Lightkeeper a question the player writes (Scout, Uncanny Eye,
+  Tactician), sent as question: free text of up to QUESTION_MAX characters. The book's
+  questions are examples on the desk, not a list to choose from (issue #63). Nothing is
+  spent without one, and the log names it: one tap on Use spent the point and the log
+  said only "used Tactician" (playtest, tactician-one-tap).
 - target: the player may name an ally in the circle instead of themselves (Ritual,
   Great Wards).
 - effect: what the app plays out: Field Experience refreshes 1 Nerve for everyone in
@@ -29,22 +30,13 @@ Each entry may have:
 
 ABILITY_USES = {
     # 1 drive point for a question or an effect the table plays out
-    "Scout":               {"drive": "intuition", "ask": True,   # p. 27
-                            "options": dict.fromkeys(("What do I notice here that others do not see?",
-                                                      "What in this place might be of use to us?",
-                                                      "What path should we follow?"))},
-    "Uncanny Eye":         {"drive": "intuition", "ask": True,   # p. 28
-                            "options": dict.fromkeys(("How can I leverage something here to my advantage?",
-                                                      "What here doesn't work the way it appears?",
-                                                      "What is out of place here?"))},
+    "Scout":               {"drive": "intuition", "ask": True},  # p. 27
+    "Uncanny Eye":         {"drive": "intuition", "ask": True},  # p. 28
     "Well-Researched":     {"drive": "intuition"},      # p. 28
     "Obscure Lexicon":     {"drive": "intuition"},      # p. 29
     "Miasma":              {"drive": "intuition"},      # p. 32
     "Escape Artist":       {"drive": "nerve"},          # p. 28
-    "Tactician":           {"drive": "nerve", "ask": True,       # p. 29: "in a dangerous scenario"
-                            "options": dict.fromkeys(("How do I get to safety?",
-                                                      "What poses the largest immediate threat to my circle?",
-                                                      "Where is the target going to move next?"))},
+    "Tactician":           {"drive": "nerve", "ask": True},      # p. 29: "in a dangerous scenario"
     "Tricks of the Trade": {"drive": "nerve"},          # p. 31: before a Hide or Sway roll
     "Press Conference":    {"drive": "cunning"},        # p. 28
     "Sticky Fingers":      {"drive": "cunning"},        # p. 31: after a successful melee attack
@@ -73,6 +65,19 @@ ABILITY_USES = {
     # p. 27: "inscribe and maintain a warding symbol on one person at a time"
     "Great Wards":         {"target": True, "effect": "great_ward"},
 }
+
+# The longest question an ask ability takes (the desk's question box has the same limit,
+# QUESTION_MAX in frontend/src/game/abilityUses.js)
+QUESTION_MAX = 200
+
+
+def clean_question(value):
+    """A question as the log shows it: one line, its runs of spaces and line breaks made
+    single spaces and characters that do not print left out. None when it is not text."""
+    if not isinstance(value, str):
+        return None
+    return " ".join("".join(c for c in value if c.isprintable() or c.isspace()).split())
+
 
 # Abilities that take a scar on purpose. Their "Use" button opens the desk's scar form,
 # which sends apply_scar with the ability's name (vtt/ws/handlers/character.py

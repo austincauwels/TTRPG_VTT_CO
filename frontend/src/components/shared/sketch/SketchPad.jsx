@@ -310,6 +310,13 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
           {saving ? 'Saving…' : saveLabel}
         </button>
       </div>
+      {/* What the armed Discard or Upload does, in one sentence (the confirm wording rule) */}
+      <p role="status" className={cancelStep.armed || uploadStep.armed
+        ? 'shrink-0 px-2 sm:px-3 py-1 font-serif text-sm italic text-oxblood leading-snug border-b border-sepia/20'
+        : 'sr-only'}>
+        {cancelStep.armed ? (initialElements?.length ? 'Press again to discard your changes.' : 'Press again to discard this drawing.')
+          : uploadStep.armed ? 'Press again to discard this drawing and upload a picture.' : ''}
+      </p>
 
       {/* Tools, inks and nibs */}
       <div className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 sm:px-3 py-1.5 border-b border-sepia/20">
@@ -381,7 +388,7 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
               className={`min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest rounded-sm border transition-colors ${
                 uploadStep.armed ? 'bg-oxblood text-cream border-ink' : 'text-sepia border-sepia/45 hover:text-ink hover:border-ink/60'}`}
             >
-              {uploadStep.armed ? 'Discard and upload' : 'Upload a picture'}
+              {uploadStep.armed ? 'Upload' : 'Upload a picture'}
             </button>
           </div>
         )}

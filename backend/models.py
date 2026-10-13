@@ -183,6 +183,10 @@ class Circle(Base):
     # Stamina Training's gilded dice used this assignment (rulebook p. 41)
     stamina_dice_used = Column(Integer, default=0)
 
+    # Resource Management's earn-backs (rulebook p. 41): one for each milestone passed,
+    # waiting for the circle's choice of Stitch, Refresh or Train (gm_earn_back)
+    earn_backs = Column(Integer, default=0)
+
     # Per-player assignment report responses stored in backstory_answers JSON keyed by character_id
     # Structure: { "selected_question_key": "...", "reports": { "42": { "q0": true, "q1": false, ... } } }
 
@@ -281,6 +285,10 @@ class Character(SoftDeleted, Base):
     # Great Wards (rulebook p. 27): the Weird whose warding symbol this character holds,
     # one person at a time. They take +1d on Move rolls against phenomena.
     warded_by_id = Column(Integer, nullable=True)
+
+    # A change the player made by hand to their own sheet that the Lightkeeper has not
+    # seen yet: the dot on the member's roster card (vtt/sheet_edits.py)
+    sheet_edited = Column(Boolean, default=False)
 
     # Status
     incapacitated = Column(Boolean, default=False)

@@ -6,6 +6,7 @@ import { FormLine, PrinterMark, SerialNo, serialFor, stampDate } from '../../sha
 import { InfoTerm } from '../../shared/ActionInfo';
 import { RESOURCE_HELP, refillEntry } from '../../../game/circleResources';
 import { livingMembers, reportingMembers } from '../../../game/roster';
+import { EarnBackAsk } from '../EarnBackAsk';
 
 // The circle at a glance, on the GM's roster: an abstract of the charter on a ruled ledger
 // card lying under the investigators' cards. Illumination, the stores (what is left of
@@ -125,6 +126,12 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
             <dt className="pt-0.5">Refills</dt>
             <dd className="text-sm leading-snug text-sepia">{refillEntry(maxCap, abilities)}</dd>
           </div>
+          {(circle.earn_backs || 0) > 0 && (
+            <div className="circle-ledger-row !items-start py-1">
+              <dt className="pt-0.5">Earn back</dt>
+              <dd><EarnBackAsk titled={false} /></dd>
+            </div>
+          )}
           <div className="circle-ledger-row">
             <dt>Reports</dt>
             <dd>

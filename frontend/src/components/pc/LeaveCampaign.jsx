@@ -1,20 +1,34 @@
 import React, { useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { ConfirmAction } from '../shared/ConfirmAction';
+import { InfoTerm } from '../shared/ActionInfo';
 
 // A player may take their investigator out of its campaign at any time (decision 1 of fix
 // round 4, playtest ghost-member-no-release), from the foot of the sheet on their desk or
-// from the hub's registry row. Two presses; the armed line says what goes with them.
-// sealed is the circle's is_finalized where it is known (the desk); the hub has no circle,
-// so its line says what happens if the circle is sealed. trainDice is how many Train dice
-// the investigator holds where it is known (the desk); they go, as at Retire, so the hub,
-// which does not know, says so in any case.
+// from the hub's registry row. Two presses; the armed line says what the second does in one
+// short sentence, and what goes with the investigator is behind its "i" (issue #62: the
+// line was a paragraph). sealed is the circle's is_finalized where it is known (the desk);
+// the hub has no circle, so its detail says what happens if the circle is sealed.
+// trainDice is how many Train dice the investigator holds where it is known (the desk);
+// they go, as at Retire, so the hub, which does not know, says so in any case.
 export const trainLost = (trainDice) => (trainDice === undefined || trainDice > 0 ? ' Any Train die they hold is lost.' : '');
-export const leaveHint = (name, campaignName, sealed, trainDice) => {
-  const dropped = `Press again to leave ${campaignName || 'the campaign'}. ${name} comes back to you, free to join another campaign. Their circle votes, relationships and this assignment's report there are dropped`;
-  if (sealed === undefined) return `${dropped}. If the circle is sealed, its Stitch, Refresh and Train also come down to the smaller maximum, with nothing refunded.${trainLost(trainDice)}`;
-  return `${sealed ? `${dropped}, and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.` : `${dropped}.`}${trainLost(trainDice)}`;
+export const leaveHint = (campaignName) => `Press again to leave ${campaignName || 'the campaign'}.`;
+export const leaveDetail = (name, sealed, trainDice) => {
+  const dropped = `${name} comes back to you, free to join another campaign. Their circle votes, relationships and this assignment's report there are dropped.`;
+  const pools = sealed === undefined ? ' If the circle is sealed, Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.'
+    : sealed ? ' Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' : '';
+  return `${dropped}${pools}${trainLost(trainDice)}`;
 };
+
+// The "i" beside an armed Leave or Release. Its slip lies against the nearest positioned box
+// (the caller's), so it stays on the screen wherever the term wraps to: above it at the foot
+// of a sheet, where the paper ends just below, and under it on the hub's registry row.
+export const ArmedDetail = ({ label, text, above = true }) => (
+  <span className="font-sans not-italic text-xs font-black uppercase tracking-widest text-sepia">
+    <InfoTerm label={label} text={text} anchored={false}
+      slipClassName={`left-0 ${above ? 'bottom-full mb-1' : 'top-full mt-1'} w-[min(24rem,100%)]`} />
+  </span>
+);
 
 // What a leave that did not go through says
 export const leaveError = (result, name) => (result?.status === 0
@@ -48,7 +62,8 @@ export const LeaveCampaign = ({ character, campaignName }) => {
         onConfirm={leave}
         disabled={busy}
         cancelLabel="Stay"
-        armedHint={leaveHint(name, campaignName, sealed, character.train_bonus ? (character.train_dice || 1) : 0)}
+        armedHint={leaveHint(campaignName)}
+        armedInfo={<ArmedDetail label="What leaving does" text={leaveDetail(name, sealed, character.train_bonus ? (character.train_dice || 1) : 0)} />}
         renderButton={(armed, props) => (
           <button
             {...props}
@@ -56,7 +71,7 @@ export const LeaveCampaign = ({ character, campaignName }) => {
               armed ? 'bg-ink text-cream border-ink' : 'border-sepia/50 text-sepia hover:bg-sepia/10'
             }`}
           >
-            {busy ? 'Leaving…' : armed ? 'Yes, leave' : 'Leave the campaign'}
+            {busy ? 'Leaving…' : armed ? 'Leave' : 'Leave the campaign'}
           </button>
         )}
       />

@@ -7,6 +7,7 @@ import { BrassCornerFiligree } from '../shared/Decorations';
 import { apiFetch } from '../../utils/api';
 import { EdgeLine } from '../shared/PrintMarks';
 import { ConfirmAction } from '../shared/ConfirmAction';
+import { ArmedDetail, trainLost } from '../pc/LeaveCampaign';
 
 // How many of the member's two circle-resource spends this assignment are used, with a way
 // to give one back (a ruling at the table, said in the log). The pool can get the resource
@@ -59,8 +60,9 @@ const SpendBack = ({ character, onGive }) => {
 };
 
 // Takes the member off the roster, at any time (decision 1 of fix round 4, playtest
-// ghost-member-no-release): two presses, the armed line saying what goes with them. A
-// refusal says why under it; the sheet closes once the release goes through.
+// ghost-member-no-release): two presses, the armed line saying what the second does, and
+// what goes with them behind its "i" (issue #62). A refusal says why under it; the sheet
+// closes once the release goes through.
 const ReleaseMember = ({ name, trainDice, onRelease }) => {
   const sealed = useGameStore(s => !!s.circle?.is_finalized);
   const [busy, setBusy] = useState(false);
@@ -80,16 +82,16 @@ const ReleaseMember = ({ name, trainDice, onRelease }) => {
     }
   };
   return (
-    <div className="mt-6 pt-4 border-t border-ink/10">
+    <div className="relative mt-6 pt-4 border-t border-ink/10">
       <ConfirmAction
         className="flex flex-wrap items-center gap-3"
         hintClassName="basis-full"
         onConfirm={release}
         disabled={busy}
         cancelLabel="Keep in the circle"
-        armedHint={`Press again to release ${name}. They go back to the player, out of the campaign. Their circle votes, relationships and this assignment's report are dropped${
-          sealed ? ', and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' : '.'}${
-          trainDice > 0 ? ' Any Train die they hold is lost.' : ''}`}
+        armedHint={`Press again to release ${name}.`}
+        armedInfo={<ArmedDetail label="What release does" text={`They go back to the player, out of the campaign. Their circle votes, relationships and this assignment's report are dropped.${
+          sealed ? ' Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' : ''}${trainLost(trainDice)}`} />}
         renderButton={(armed, props) => (
           <button
             {...props}
@@ -97,7 +99,7 @@ const ReleaseMember = ({ name, trainDice, onRelease }) => {
               armed ? 'bg-ink text-cream border-ink' : 'border-sepia/50 text-sepia hover:bg-sepia/10'
             }`}
           >
-            {busy ? 'Releasing…' : armed ? 'Yes, release' : 'Release from the circle'}
+            {busy ? 'Releasing…' : armed ? 'Release' : 'Release from the circle'}
           </button>
         )}
       />
@@ -106,14 +108,16 @@ const ReleaseMember = ({ name, trainDice, onRelease }) => {
   );
 };
 
-export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, onRelease, busy = false, error: requestError = '' }) => {
+// backLabel names where onClose returns: the roster, or the Requests page a request's sheet
+// was opened from (its card or the pop-up)
+export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, onReject, onRelease, busy = false, error: requestError = '', backLabel = 'Back to roster' }) => {
   const [fullChar, setFullChar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
 
-  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark, gmReturnSpend, gmSetDrive, gmRevive } = useGameStore(useShallow(s => ({
-    gmReturnSpend: s.gmReturnSpend, gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetDrive: s.gmSetDrive, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark, gmRevive: s.gmRevive })));
+  const { gmResetCharacter, gmSetMarks, gmSetScars, gmDealMark, gmReturnSpend, gmSetDrive, gmRevive, gmSheetSeen } = useGameStore(useShallow(s => ({
+    gmReturnSpend: s.gmReturnSpend, gmResetCharacter: s.gmResetCharacter, gmSetMarks: s.gmSetMarks, gmSetDrive: s.gmSetDrive, gmSetScars: s.gmSetScars, gmDealMark: s.gmDealMark, gmRevive: s.gmRevive, gmSheetSeen: s.gmSheetSeen })));
   // Corrections on the trauma record (its Edit button, on this copy of the sheet only)
   const [traumaError, setTraumaError] = useState(null);
   const notConnected = 'Not connected to the table. Try again in a moment.';
@@ -246,6 +250,15 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
     setFullChar(c => (c ? { ...c, ...live } : c));
   }, [live]);
 
+  // A sheet the player changed by hand carries a dot on its roster card (issue #64): open
+  // here, it is seen, and the dot goes. An edit made while it is open is seen at once; the
+  // socket opening again (resync) sends it again if it could not go before.
+  const edited = useGameStore(s => !!(s.campaignRoster.active_investigators || [])
+    .find(c => c.id === rosterItem?.id)?.sheet_edited);
+  useEffect(() => {
+    if (edited && rosterItem?.id != null) gmSheetSeen(rosterItem.id);
+  }, [edited, rosterItem?.id, resync]);
+
   if (!rosterItem) return null;
   const pending = rosterItem.status === 'pending';
 
@@ -263,7 +276,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
         onClick={onClose}
         className="mb-4 font-sans text-sm uppercase tracking-widest text-moonlight-steel hover:text-cream border border-moonlight-steel/40 hover:border-moonlight-steel rounded px-5 py-2.5 transition-colors font-bold"
       >
-        ← Back to roster
+        ← {backLabel}
       </button>
 
       {/* Parchment panel — matches MainDeskView center column styling */}
@@ -286,7 +299,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                 Try again
               </button>
               <button onClick={onClose} className="font-sans text-xs font-black uppercase tracking-widest px-4 py-2 min-h-[40px] border border-oxblood/50 rounded hover:bg-oxblood/10 transition-colors">
-                Back to roster
+                {backLabel}
               </button>
             </div>
           </div>
@@ -313,7 +326,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                 onConfirm={() => onReject(rosterItem.id)}
                 disabled={busy}
                 cancelLabel="Keep request"
-                armedHint={`Press again to reject ${rosterItem.name || 'this investigator'}. They go back to the player, out of the campaign.`}
+                armedHint={`Press again to reject ${rosterItem.name || 'this investigator'}.`}
                 renderButton={(armed, props) => (
                   <button
                     {...props}
@@ -321,7 +334,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                       armed ? 'bg-ink text-cream border-ink' : 'border-sepia/50 text-sepia hover:bg-sepia/10'
                     }`}
                   >
-                    {armed ? 'Yes, reject' : 'Reject'}
+                    Reject
                   </button>
                 )}
               />
@@ -341,7 +354,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
             <ConfirmAction
               className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-3"
               onConfirm={() => gmResetCharacter(rosterItem.id)}
-              armedHint={`Press again to refill drive and resistance and clear ability uses for ${fullChar.name || 'this investigator'}.`}
+              armedHint={`Press again to refill ${fullChar.name ? `${fullChar.name}'s` : 'the'} drives and resistance and clear ability uses.`}
               renderButton={(armed, props) => (
                 <button
                   {...props}
@@ -351,7 +364,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                       : 'bg-transparent text-oxblood border-oxblood/50 hover:bg-oxblood/10'
                   }`}
                 >
-                  {armed ? 'Yes, reset' : 'Reset drive and ability uses'}
+                  {armed ? 'Reset' : 'Reset drive and ability uses'}
                 </button>
               )}
             />

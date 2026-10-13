@@ -847,8 +847,10 @@ def _table_with_a_ghost(client, sealed):
 def test_release_after_the_seal_drops_the_member_from_everything_the_circle_counts(client):
     """Decision 1 of fix round 4 (playtest, ghost-member-no-release): the votes, the
     relationships at both ends and the report go, and each resource is lowered to the new
-    maximum (1 plus the members), never raised. The investigator is kept, free."""
+    maximum (1 plus the members), never raised. The investigator is kept, free. Resource
+    Management's earn-backs waiting are cut to the points now missing (fix round 5)."""
     camp, cid, a, b, ghost = _table_with_a_ghost(client, sealed=True)
+    support.update(Circle, cid, earn_backs=2)  # Refresh 2 of 4: two missing
     r = client.post(f"/campaign/release/{ghost['id']}", headers=support.as_gm(camp))
     assert r.status_code == 200, r.text
     assert r.json()["character"]["status"] == "unaffiliated"
@@ -861,7 +863,7 @@ def test_release_after_the_seal_drops_the_member_from_everything_the_circle_coun
     circle = support.fetch(Circle, cid)
     assert list(circle.backstory_answers["reports"]) == [str(a["id"])]
     assert circle.backstory_answers["assignment"] == 1
-    assert (circle.stitch, circle.refresh, circle.train) == (3, 2, 3)
+    assert (circle.stitch, circle.refresh, circle.train, circle.earn_backs) == (3, 2, 3, 1)
     roster = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
     assert [c["id"] for c in roster["active_investigators"]] == [a["id"], b["id"]]
     # free to join again by the normal join flow
@@ -1047,8 +1049,8 @@ def test_roster(client):
     member_view = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_owner(active["id"])).json()
     assert all(c.pop("owner_username") for c in body["pending_investigators"] + body["active_investigators"])
     assert {c.pop("owner_username") for c in member_view["pending_investigators"] + member_view["active_investigators"]} == {""}
-    # The marks, picks and owed scar are the Lightkeeper's read alone
-    ours = ("body_marks", "brain_marks", "bleed_marks", "advancement_picks", "scar_pending")
+    # The marks, picks, owed scar and the dot for a player's edit are the Lightkeeper's read alone
+    ours = ("body_marks", "brain_marks", "bleed_marks", "advancement_picks", "scar_pending", "sheet_edited")
     assert all(not any(c[k] for k in ours) for c in member_view["active_investigators"])
     for c in body["pending_investigators"] + body["active_investigators"]:
         for k in ours:
@@ -1078,7 +1080,7 @@ def test_roster(client):
         "owner_username": support.fetch(User, support.fetch(Character, active["id"]).user_id).username,
         # The Lightkeeper's read also tells how the investigator stands
         "incapacitated": False, "scars_count": 0, "body_marks": 0, "brain_marks": 0,
-        "bleed_marks": 0, "advancement_picks": 0, "scar_pending": False,
+        "bleed_marks": 0, "advancement_picks": 0, "scar_pending": False, "sheet_edited": False,
     }
 
 
@@ -1103,7 +1105,8 @@ def test_circle_creation_state_creates_circle_once(client):
     circle = support.campaign_circle(camp["id"])
     assert body["circle_id"] == circle.id
     assert circle.name == "Unnamed Circle"
-    assert (circle.stitch, circle.refresh, circle.train) == (1, 1, 1)
+    # 1 plus the member in each (rulebook p. 41); it was 1 each until the seal (issue #66.4)
+    assert (circle.stitch, circle.refresh, circle.train) == (2, 2, 2)
     assert body["is_finalized"] is False
     assert [c["id"] for c in body["active_investigators"]] == [member["id"]]
     assert set(body["active_investigators"][0]) == support.CHAR_DICT_KEYS

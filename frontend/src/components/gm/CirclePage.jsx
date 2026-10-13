@@ -9,6 +9,7 @@ import { useDialog } from '../shared/useDialog';
 import { onActivateKey } from '../shared/a11y';
 import { RESOURCE_HELP, refillRule } from '../../game/circleResources';
 import { playPaperSound } from '../../game/rollSounds';
+import { EarnBackAsk } from './EarnBackAsk';
 
 // A small Clear button on the circle sheet. Clearing erases the value on the server, so
 // it takes the shared two-step confirm.
@@ -22,11 +23,11 @@ const ClearButton = ({ label, armedHint, onConfirm, className = '' }) => (
     renderButton={(armed, props) => (
       <button
         {...props}
-        className={`shrink-0 min-h-[36px] px-2 py-1 font-sans font-bold text-xs uppercase tracking-wider border rounded-sm transition-colors ${
+        className={`shrink-0 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2 py-1 font-sans font-bold text-xs uppercase tracking-wider border rounded-sm transition-colors ${
           armed ? 'bg-oxblood text-cream border-ink hover:brightness-125' : 'text-sepia hover:text-oxblood border-ink/20 hover:border-oxblood/50'
         }`}
       >
-        {armed ? 'Yes, clear' : label}
+        {armed ? 'Remove' : label}
       </button>
     )}
   />
@@ -39,6 +40,7 @@ import { TickMark, CrossMark } from '../shared/InkMarks';
 import { tallyReports, tallyOf, unfiledNames, notFiledLine, reportsDue } from '../../game/illumination';
 import { reportingMembers } from '../../game/roster';
 import { CIRCLE_QUESTIONS, insigniaLabel, relationshipsAmong, answererOf } from '../../game/circleFormation';
+import { InsigniaStamp } from './desk/InsigniaStamp';
 
 // A line of the charter the Lightkeeper may change: its value with an Edit button, which
 // turns it into a field holding the value. Enter or leaving the field saves, Escape puts
@@ -133,6 +135,9 @@ const ILLUM_QUESTIONS = [
   'Did you provide comfort or support for those affected by a phenomenon?',
   'Did you bring something of importance back for Candela Obscura to protect or study?',
 ];
+
+// The Keys line's rule, behind its "i" (rulebook p. 55)
+const KEYS_RULE = "Each specialty has three Illumination Keys, things to do on an assignment (a Criminal's: Do Something Illegal, Make a Deal, Stand Up to Authority). Each player ticks the keys they fulfilled on their report. If some of the investigators fulfilled one, the circle gains 2 Illumination; if all of them did, 4; if none did, nothing (p. 55). A report not filed counts as no key.";
 
 const ILLUMINATION_KEYS = {
   Journalist: ['Gather Statements', 'Hunt Down a Lead', 'Speak Truth to Power'],
@@ -300,7 +305,7 @@ function ReportFlipCard({ inv, report }) {
 export const CirclePage = () => {
   const {
     circle, circleCreation, updateCircle,
-    gmToggleResourceEdit, gmToggleReports, gmAdvanceCircle, refillResources,
+    gmToggleResourceEdit, gmToggleReports, gmAdvanceCircle,
     gmSetTallyAnswer, gmAddTally, campaignRoster,
   } = useGameStore();
 
@@ -409,17 +414,8 @@ export const CirclePage = () => {
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
               Insignia
             </span>
-            {/* Named only once one is chosen; the stamp's candle is the blank seal until then */}
-            <div {...(circle?.insignia
-              ? { role: 'img', 'aria-label': `Insignia: ${insigniaLabel(circle.insignia)}`, title: insigniaLabel(circle.insignia) }
-              : { 'aria-hidden': true })}
-              className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
-              <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
-              <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={30} className="text-ink/85" />
-            </div>
-            {circle?.insignia
-              ? <span aria-hidden="true" className="font-serif text-xs italic text-sepia text-center">{insigniaLabel(circle.insignia)}</span>
-              : <span className="text-sepia text-xs"><BlankEntry label="None chosen" className="!w-14" /></span>}
+            {/* After the seal the Lightkeeper changes it by clicking it (InsigniaStamp.jsx) */}
+            <InsigniaStamp circle={circle} onSave={insignia => updateCircle({ circle_id: circId, insignia })} />
           </div>
         </div>
 
@@ -469,12 +465,12 @@ export const CirclePage = () => {
               toward your next advancement cycle" (rulebook p. 55), which the advance keeps */}
           <div className="mt-2 flex items-center gap-2">
             <button type="button" onClick={() => setIllum(illum + 1)}
-              className="px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink">
+              className="[@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink">
               +1 Illumination
             </button>
             <button type="button" onClick={() => setIllum(Math.max(0, illum - 1))} disabled={illum <= 0}
               aria-label="Take back 1 Illumination"
-              className="px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink disabled:opacity-40">
+              className="[@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink disabled:opacity-40">
               −1
             </button>
           </div>
@@ -496,7 +492,7 @@ export const CirclePage = () => {
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <ClearButton
                   label={circle.circle_ability.includes('\n') ? 'Clear circle abilities' : 'Clear circle ability'}
-                  armedHint="Press again to remove every circle ability listed above, including ones gained by advancing. You then choose one again from the list."
+                  armedHint="Press again to remove all circle abilities."
                   onConfirm={() => updateCircle({ circle_id: circId, circle_ability: '' })}
                 />
               </div>
@@ -528,8 +524,12 @@ export const CirclePage = () => {
               <SafeIcon name="GiQuillInk" size={12} />
               Illumination Questions
             </h3>
-            <FormLine className="block mt-1 mb-2.5">Form C.O. 11 · Assignment report</FormLine>
-            {/* Answered once, for the circle, by the table: each yes is 1 Illumination */}
+            <FormLine className="block mt-1">Form C.O. 11 · Assignment report</FormLine>
+            {/* Answered once, for the circle, by the table: what they are for, said on the
+                desk (Robert's decision 8, issue #66.5: their purpose was not clear) */}
+            <p className="mt-1.5 mb-2 font-serif text-sm leading-snug text-ink/85">
+              Answered together at the end of an assignment: each yes adds 1 Illumination.
+            </p>
             <div className="space-y-1">
               {ILLUM_QUESTIONS.map((q, i) => (
                 <label key={i} className="flex items-start gap-2.5 cursor-pointer border-b border-ink/10 pb-1.5 last:border-0 [@media(pointer:coarse)]:min-h-[44px]">
@@ -547,16 +547,21 @@ export const CirclePage = () => {
                 <span>Questions answered yes</span>
                 <span className="font-mono tabular-nums">+{tally.questions}</span>
               </p>
-              <p className="font-serif text-sm text-ink/85 leading-snug flex justify-between gap-3">
+              {/* What a key is and what the number means now, at a glance: the keys are on the
+                  reports, and none, some or all is why it is worth 0, 2 or 4 (the number beside
+                  it; "all 3 fulfilled one" is +4, "1 of 3 (some, not all)" +2). The rule is on
+                  its "i" (Robert's decision 8, issue #66.5: "Keys: no investigators +0" was vague) */}
+              <p className="relative font-serif text-sm text-ink/85 leading-snug flex items-center justify-between gap-3">
                 <span>
-                  Keys: {tally.members === 0 ? 'no investigators' : tally.withKey === 0 ? 'no report has one'
-                    : tally.withKey === tally.members ? `every investigator (${tally.withKey} of ${tally.members})`
-                    : `some investigators (${tally.withKey} of ${tally.members})`}
+                  {/* Its slip lies against the whole line, so on a phone it stays on the paper */}
+                  <InfoTerm label="Illumination Keys" ariaLabel="About Illumination Keys" text={KEYS_RULE}
+                    anchored={false} slipClassName="left-0 right-0 top-full mt-1" />
+                  {' on the reports: '}{tally.members === 0 ? 'no investigators to report yet'
+                    : tally.withKey === 0 ? `none of ${tally.members} fulfilled one`
+                    : tally.withKey === tally.members ? `all ${tally.members} fulfilled one`
+                    : `${tally.withKey} of ${tally.members} fulfilled one (some, not all)`}
                 </span>
                 <span className="font-mono tabular-nums">+{tally.keys}</span>
-              </p>
-              <p className="font-serif italic text-xs text-sepia leading-snug">
-                Keys are worth 2 when some of you fulfilled one, 4 when all of you did (p. 55). A report not filed counts as no key.
               </p>
               {thisTally.added == null && notFiled && (
                 <p className="font-serif text-sm text-oxblood leading-snug">{notFiled}</p>
@@ -572,6 +577,10 @@ export const CirclePage = () => {
                   </button>
                 )}
               </div>
+              {/* Resource Management's earn-back, asked for while one waits, next to the
+                  press that usually passes the milestone (it sat deep in the resources card,
+                  out of sight on a phone; fix round 5 review) */}
+              <EarnBackAsk className="mt-1 pt-2 border-t border-dashed border-sepia/35" />
             </div>
 
             {/* GM Toggle: Open Reports */}
@@ -665,21 +674,16 @@ export const CirclePage = () => {
               );
             })}
           </div>
-          {/* When they come back: not after an assignment, only when the track fills, and one
-              at each milestone with Resource Management */}
+          {/* When they come back: not after an assignment, on their own when the track fills,
+              and one at each milestone with Resource Management. There is no refill button:
+              the advance refills them (Robert's issue #66.4), and the squares above are the
+              Lightkeeper's correction, each press logged */}
           <p className="pt-2 pb-2.5 border-t border-dashed border-sepia/35 font-serif italic text-sm leading-snug text-sepia">
             {refillRule(maxCap, (circle?.circle_ability || '').split('\n'))}
           </p>
 
           {/* Resource controls */}
           <div className="flex gap-2 flex-wrap pt-2.5 mt-1 border-t border-ink/25">
-            <button
-              onClick={() => refillResources(circId)}
-              className="flex-1 px-3 py-2 font-sans text-xs font-black uppercase tracking-widest border border-ink/20 text-sepia hover:bg-black/5 hover:text-ink hover:border-ink/40 rounded-sm transition-all"
-            >
-              {/* 1 + the active members in each resource (rulebook pp. 41 and 62) */}
-              Refill each resource to {maxCap}
-            </button>
             <button
               onClick={() => gmToggleResourceEdit(circId)}
               className={`flex-1 px-3 py-2 font-sans text-xs font-black uppercase tracking-widest border rounded-sm transition-all ${

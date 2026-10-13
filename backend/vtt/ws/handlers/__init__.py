@@ -52,4 +52,10 @@ HANDLERS = {
     # The Lightkeeper's ticks on the circle's questions, and Add N Illumination, once
     "gm_set_tally_answer":         (gm.handle_gm_set_tally_answer, False),
     "gm_add_tally":                (gm.handle_gm_add_tally, False),
+    # A player's direct edit of their own sheet, and the Lightkeeper having seen it
+    # (vtt/sheet_edits.py)
+    "edit_sheet":                  (character.handle_edit_sheet, True),
+    "gm_sheet_seen":               (character.handle_gm_sheet_seen, True),
+    # Resource Management's earn-back, the circle's choice
+    "gm_earn_back":                (gm.handle_gm_earn_back, False),
 }

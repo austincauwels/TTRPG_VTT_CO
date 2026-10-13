@@ -219,6 +219,20 @@ def test_respond_not_found(client):
 
 # --- finalize roster --------------------------------------------------------
 
+def test_a_new_circle_starts_at_one_plus_its_members(client):
+    """Robert's decision 3 (issue #66.4, rulebook p. 41): each of Stitch, Refresh and Train
+    starts at 1 plus the members. A campaign's circle is made when its desk or its
+    formation state is first opened; members approved before that found 1 in each until
+    the seal (seen in the browser: 1 of 4)."""
+    camp, chars, cid = _setup(client, members=3)
+    circle = support.fetch(Circle, cid)
+    assert (circle.stitch, circle.refresh, circle.train) == (4, 4, 4)
+    empty = support.new_campaign(client)
+    cid = client.get(f"/campaign/{empty['id']}/circle-creation-state", headers=support.as_gm(empty['id'])).json()["circle_id"]
+    circle = support.fetch(Circle, cid)
+    assert (circle.stitch, circle.refresh, circle.train) == (1, 1, 1)
+
+
 def test_finalize_roster(client):
     camp, (a, b, c), cid = _setup(client, members=3)
     pending = support.pending_member(client, camp)

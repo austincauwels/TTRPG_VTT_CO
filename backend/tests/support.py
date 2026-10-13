@@ -59,7 +59,7 @@ CHAR_DICT_KEYS = {
     "incapacitated", "is_dead", "circle_id",
     "pronouns", "style", "catalyst", "question", "role", "specialty",
     "role_ability", "specialty_ability", "gear", "profile_pic", "status",
-    "pen_font", "ink_color", "campaign_id", "personal_circle_answer",
+    "pen_font", "ink_color", "campaign_id", "personal_circle_answer", "sheet_edited",
     "ability_uses", "train_bonus", "train_dice", "resources_spent_assignment",
     "advancement_picks", "advancement_taken", "warded_by_id", "scar_pending",
 }
@@ -69,7 +69,7 @@ CIRCLE_DICT_KEYS = {
     "tension_clock", "tension_label", "location", "atmosphere", "dispatch_text", "max_capacity",
     "chapter_house_location", "circle_ability", "insignia", "backstory_answers",
     "is_finalized", "illumination", "resources_editable", "reports_open", "stamina_dice_left",
-    "incapacitated_members", "saw_this_coming",
+    "incapacitated_members", "saw_this_coming", "earn_backs",
     "timer_duration_ms", "timer_remaining_ms", "timer_running", "timer_visible",
 }
 

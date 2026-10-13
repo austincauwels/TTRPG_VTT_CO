@@ -1724,7 +1724,7 @@ def test_resuscitation_tells_the_other_players_the_ally_is_up(client, dice):
         wd.send("use_post_roll_ability", ability="Resuscitation", target_character_id=ally["id"])
         wd.sync()
         status = [m for m in wt.drain() if m["type"] == "member_status"]
-    assert [m["payload"] for m in status] == [{"character_id": ally["id"], "campaign_id": camp["id"],
+    assert [m["payload"] for m in status] == [{"character_id": ally["id"], "campaign_id": camp["id"], "name": ally["name"],
                                                "is_dead": False, "incapacitated": False, "scars_count": 1}]
 
 

@@ -604,7 +604,8 @@ export const CircleView = () => {
   // A press elsewhere is read on its click, not as the pointer goes down, and the question's
   // line under each button keeps its space, so nothing moves under the finger as it arms or
   // disarms. A press on another resource asks about that one.
-  const SPEND_ASK = 'Press again to spend it. It is spent for the whole circle.';
+  // The ask is one short sentence and the armed button one verb (decision 4 of fix round 5)
+  const spendAsk = (label) => `Press again to spend 1 ${label} for the circle.`;
   const [confirmKey, setConfirmKey] = useState(null);
   useEffect(() => {
     if (!confirmKey) return undefined;
@@ -926,7 +927,7 @@ export const CircleView = () => {
         )}
         {/* The question is said under the button it asks about (above them all, it pushed
             the buttons down as it came, so a double-click's second press missed) */}
-        {!isGM && <span role="status" className="sr-only">{confirmKey ? SPEND_ASK : ''}</span>}
+        {!isGM && <span role="status" className="sr-only">{confirmKey ? spendAsk(RESOURCES.find(r => r.key === confirmKey)?.label || '') : ''}</span>}
         <div className="divide-y divide-dashed divide-sepia/35">
           {RESOURCES.map(({ label, key, desc }) => {
             const avail = circle?.[key] ?? maxCap;
@@ -1000,14 +1001,14 @@ export const CircleView = () => {
                         : 'border-ink text-ink hover:bg-ink hover:text-cream'}`}
                   >
                     {avail <= 0 && !spendBlock ? `No ${label} left`
-                      : confirmKey === key ? `Press again: spend 1 ${label}` : `Spend 1 ${label}`}
+                      : confirmKey === key ? 'Spend' : `Spend 1 ${label}`}
                   </button>
                 )}
                 {/* Its line is always there while spending is open, and only shown while
                     asking: arming one resource and then another moved the second button up
                     under the finger, and its second press landed on the line below it */}
                 {!isGM && !spendBlock && (
-                  <p aria-hidden="true" className={`mt-1 font-serif text-sm italic leading-snug text-sepia ${confirmKey === key ? '' : 'invisible'}`}>{SPEND_ASK}</p>
+                  <p aria-hidden="true" className={`mt-1 font-serif text-sm italic leading-snug text-sepia ${confirmKey === key ? '' : 'invisible'}`}>{spendAsk(label)}</p>
                 )}
               </div>
             );
@@ -1016,6 +1017,14 @@ export const CircleView = () => {
         {/* What each does is printed above; when they come back is not (owner's question,
             2026-10-08): not after an assignment, only when the track fills, and one at each
             milestone with Resource Management */}
+        {/* Resource Management's earn-back waiting from a milestone: the circle chooses, and
+            the Lightkeeper's desk applies it (gm/EarnBackAsk.jsx) */}
+        {(circle?.earn_backs || 0) > 0 && (
+          <p role="status" className="mt-2.5 pt-2 border-t border-dashed border-sepia/35 font-serif text-sm leading-snug text-ink">
+            <span className="font-black uppercase tracking-wide mr-1.5">Resource Management</span>
+            {circle.earn_backs === 1 ? 'One' : circle.earn_backs} to earn back, the circle's choice.
+          </p>
+        )}
         <p className="mt-2.5 pt-2 border-t border-dashed border-sepia/35 font-serif italic text-sm leading-snug text-sepia">
           {refillRule(maxCap, (circle?.circle_ability || '').split('\n'))}
         </p>
