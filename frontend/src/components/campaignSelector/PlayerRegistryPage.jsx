@@ -6,6 +6,7 @@ import { useDeleteUndo } from './useDeleteUndo';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
 import { MourningCross } from '../shared/InkMarks';
 import { Standing } from '../shared/Standing';
+import { InfoTerm } from '../shared/ActionInfo';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { ArmedDetail, leaveDetail, leaveError, leaveHint } from '../pc/LeaveCampaign';
 
@@ -16,6 +17,8 @@ export const PlayerRegistryPage = ({
   isLoadingBook, characters, enterAsPlayer, entering = null, refreshBook,
   joinForms, setJoinForms, handleJoinForChar, closeBook, setStage, hiddenOnNarrow = false,
 }) => {
+  const letInIds = useGameStore(s => s.letInIds);
+  const forgetLetIn = useGameStore(s => s.forgetLetIn);
   const deleteCharacter = useGameStore(s => s.deleteCharacter);
   const restoreCharacter = useGameStore(s => s.restoreCharacter);
   const removal = useDeleteUndo({ remove: deleteCharacter, restore: restoreCharacter });
@@ -112,7 +115,7 @@ export const PlayerRegistryPage = ({
                   {/* Play reads the lists again before the desk opens (issue #42): meanwhile the
                       row says Opening, and Leave waits */}
                   <button
-                    onClick={() => { if (leavingId !== char.id) enterAsPlayer(char); }}
+                    onClick={() => { if (leavingId !== char.id) { forgetLetIn(char.id); enterAsPlayer(char); } }}
                     aria-busy={entering === char.id}
                     aria-disabled={entering != null || undefined}
                     className={`flex-1 min-w-0 max-sm:basis-full flex items-center gap-3 px-3 py-2.5 hover:bg-sepia/10 transition-colors text-left group ${entering === char.id ? 'cursor-wait' : ''}`}
@@ -126,6 +129,11 @@ export const PlayerRegistryPage = ({
                       {/* On a phone the stamp sits under the campaign, which it would cut short */}
                       {char.is_dead && <Standing inv={char} className="sm:hidden mt-0.5" />}
                     </div>
+                    {letInIds.includes(char.id) && !char.is_dead && (
+                      <span data-let-in="" className="shrink-0 font-sans text-xs font-black uppercase tracking-widest text-seal-green border-2 border-seal-green rounded-sm px-1.5 py-0.5 -rotate-2">
+                        Let in: press Play
+                      </span>
+                    )}
                     {/* Dead and not yet replaced: its desk is where the new investigator is made */}
                     {char.is_dead && <Standing inv={char} className="shrink-0 max-sm:hidden" />}
                     <span className={`font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 transition-opacity ${entering === char.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-focus-visible:opacity-100'}`}>
@@ -143,7 +151,10 @@ export const PlayerRegistryPage = ({
           {/* Pending characters */}
           {characters.filter(c => c.status === 'pending').length > 0 && (
             <div>
-              <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-sepia">Waiting for the Lightkeeper to approve</p>
+              <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-sepia">
+                <InfoTerm label="Waiting for the Lightkeeper to approve" ariaLabel="About waiting for the Lightkeeper"
+                  text="This page checks by itself every few seconds and tells you when the Lightkeeper answers. Check again asks now." />
+              </p>
               <div className="space-y-1.5">
                 {characters.filter(c => c.status === 'pending').map(char => (
                   <div key={char.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-3 py-2.5"
@@ -158,7 +169,7 @@ export const PlayerRegistryPage = ({
                     <button
                       onClick={refreshBook}
                       disabled={isLoadingBook}
-                      className="font-sans font-bold text-xs tracking-widest uppercase text-sepia hover:text-oxblood hover:border-oxblood/50 transition-colors shrink-0 rounded border border-sepia/40"
+                      className="font-sans font-bold text-xs tracking-widest uppercase text-sepia hover:text-oxblood hover:border-oxblood/50 transition-colors shrink-0 rounded border border-sepia/40 min-h-[36px] [@media(pointer:coarse)]:min-h-[44px]"
                       style={{ padding: '6px 12px' }}
                     >
                       {isLoadingBook ? 'Checking…' : 'Check again'}

@@ -27,7 +27,9 @@ export const usePostRollPrompts = ({ lastRoll, character, showGmControls }) => {
     if (abilities.has('Flourish') && (isFail || isMixed) && couldTakeCunning && (character.cunning_current || 0) >= 2) {
       prompts.push({ key: 'Flourish', label: 'Flourish: spend 2 Cunning to push the result up one tier', params: {} });
     }
-    if (abilities.has('Learn from My Mistakes') && typeof lastRoll.result === 'number' && lastRoll.result <= 3) {
+    // It refreshes a drive point, so it is offered only while some drive is short of its maximum
+    const driveShort = ['nerve', 'cunning', 'intuition'].some(d => (character[`${d}_current`] || 0) < (character[`${d}_max`] || 0));
+    if (abilities.has('Learn from My Mistakes') && typeof lastRoll.result === 'number' && lastRoll.result <= 3 && driveShort) {
       prompts.push({ key: 'Learn from My Mistakes', label: 'Learn from My Mistakes: refresh 1 drive point', params: {}, drivePicker: true });
     }
     if (abilities.has('Bending Spoons') && lastRoll.action === 'sense' && isMixed) {

@@ -84,6 +84,11 @@ export const PassNotes = ({ playerList, circleCreation, showGmControls, sendChat
           darkMode={showGmControls}
           labelledBy="pass-notes-to-label"
         />
+        {/* The recipient stays after a note is sent (a follow-up to everyone by mistake is the
+            worse slip), so a private one is marked where the writer looks */}
+        {chatTarget !== '@Circle' && chatTarget !== '@Environment' && (
+          <span data-private-to="" className="shrink-0 font-sans text-[11px] font-black uppercase tracking-widest text-oxblood border border-oxblood/70 rounded-sm px-1.5 py-0.5">Private</span>
+        )}
       </div>
 
       {/* Message row */}

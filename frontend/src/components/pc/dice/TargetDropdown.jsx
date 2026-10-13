@@ -16,18 +16,25 @@ export function TargetDropdown({ value, onChange, options, darkMode = false, lab
   const updateMenuPosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
+    // What the person can see: the visual viewport when there is one (a tablet's keyboard or a
+    // page zoomed in makes it smaller than the layout viewport and moves it)
+    const vv = window.visualViewport;
+    const seenTop = vv ? vv.offsetTop : 0;
+    const seenBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
     // On a desk that fits the screen the pad lies at the foot of the window, where the
-    // page cannot scroll: there the list opens upward from the field instead
-    const below = window.innerHeight - rect.bottom;
+    // page cannot scroll: there the list opens upward from the field instead, when the
+    // room above is the greater
+    const below = seenBottom - rect.bottom;
+    const above = rect.top - seenTop;
     const rowH = window.matchMedia?.('(pointer: coarse)').matches ? 44 : 36;
     const wanted = Math.min(options.length * rowH + 6, 320);
-    const upward = below < wanted && rect.top > below;
+    const upward = below < wanted && above > below;
     setMenuStyle({
       position: 'fixed',
       ...(upward ? { bottom: window.innerHeight - rect.top } : { top: rect.bottom }),
       left: rect.left,
       width: rect.width,
-      maxHeight: Math.max(120, (upward ? rect.top : below) - 8),
+      maxHeight: Math.max(120, (upward ? above : below) - 8),
       overflowY: 'auto',
       zIndex: 9999,
     });
@@ -44,7 +51,11 @@ export function TargetDropdown({ value, onChange, options, darkMode = false, lab
     document.addEventListener('mousedown', handler);
     window.addEventListener('scroll', updateMenuPosition, true);
     window.addEventListener('resize', updateMenuPosition);
+    window.visualViewport?.addEventListener('resize', updateMenuPosition);
+    window.visualViewport?.addEventListener('scroll', updateMenuPosition);
     return () => {
+      window.visualViewport?.removeEventListener('resize', updateMenuPosition);
+      window.visualViewport?.removeEventListener('scroll', updateMenuPosition);
       document.removeEventListener('mousedown', handler);
       window.removeEventListener('scroll', updateMenuPosition, true);
       window.removeEventListener('resize', updateMenuPosition);

@@ -112,7 +112,7 @@ export const RollModifications = ({
             {prompt.drivePicker ? (
               drivePickerPrompt === prompt.key ? (
                 <>
-                  {['nerve','cunning','intuition'].map(d => (
+                  {DRIVES.filter(d => (character?.[`${d}_current`] || 0) < (character?.[`${d}_max`] || 0)).map(d => (
                     <button key={d} onClick={() => { usePostRollAbility(prompt.key, { drive: d }); setDrivePickerPrompt(null); setDismissedPrompts(p => [...p, prompt.key]); }}
                       className="px-2 py-0.5 font-sans text-xs font-black uppercase border border-parchment-deep/50 text-parchment-deep hover:bg-parchment-deep/15 rounded-sm transition-all">
                       {d[0].toUpperCase() + d.slice(1)}

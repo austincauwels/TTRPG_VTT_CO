@@ -180,7 +180,9 @@ def settle_rolls(campaign_id, keep=None, held=False):
     """The table has moved past its members' last rolls: a burn or a post-roll ability
     can no longer turn one back. keep is the roller whose own roll stays open. held (End
     Assignment) settles the gilded rolls still waiting too: their die is kept and scored,
-    but the roll is not burned on (resolve_gilded)."""
+    but the roll is not burned on (resolve_gilded), and the rolls the desks would be shown
+    again on opening (_shown_roll) are dropped, the held gilded ones apart: the tray starts
+    the next assignment empty."""
     if campaign_id is None:
         return
     for other_id in [k for k, v in _last_roll.items() if v.get("campaign_id") == campaign_id and k != keep]:
@@ -190,6 +192,9 @@ def settle_rolls(campaign_id, keep=None, held=False):
         for pending in _pending_gilded.values():
             if pending.get("campaign_id") == campaign_id:
                 pending["settled"] = True
+        for other_id in [k for k, v in _shown_roll.items() if v.get("campaign_id") == campaign_id
+                         and not (k in _pending_gilded and _pending_gilded[k].get("campaign_id") == campaign_id)]:
+            _shown_roll.pop(other_id, None)
 
 
 async def _dice_thrown(ctx, character, action, roll, rating, kept=None, settles=True):
@@ -258,7 +263,8 @@ def _hold_or_throw(character, action, roll, is_secret, cat=None, spent=0, roll_i
         # waits to be kept
         _last_roll.pop(character.id, None)
         _settled_roll.discard(character.id)
-        _shown_roll[character.id] = {"action": action, "roll": dict(roll), "roll_id": roll_id, "kept": None}
+        _shown_roll[character.id] = {"action": action, "roll": dict(roll), "roll_id": roll_id, "kept": None,
+                                     "campaign_id": character.campaign_id}
         # (the next roll at the table settles everyone else's when its dice are thrown:
         # _dice_thrown)
         if roll.get("needs_gilded_choice"):
@@ -337,7 +343,8 @@ _settled_roll: set = set()
 # The last roll each character's desk was shown, for a desk that opens again (a reload,
 # another device; send_held_roll): {"action", "roll" (as its roll_result carried it, with
 # the outcome a post-roll ability gave it since), "roll_id", "kept" (None, or the die kept
-# from its gilded choice, as roll_kept told it)}. Set as a roll or a reroll is sent. In
+# from its gilded choice, as roll_kept told it), "campaign_id"}. End Assignment drops the
+# campaign's entries but a held gilded roll's (settle_rolls). Set as a roll or a reroll is sent. In
 # memory only: after a restart the tray starts empty, as nothing can be burned then.
 _shown_roll: dict = {}
 # The newest roll on each campaign's Lightkeeper felt, for her desk opening again

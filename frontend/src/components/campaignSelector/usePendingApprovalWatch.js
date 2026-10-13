@@ -32,6 +32,8 @@ export const usePendingApprovalWatch = ({ characters, userId, fetchUserData, set
         }
       }
       if (c.status === 'active') {
+        // The row stays marked in the Registry until Play, long after the notice has gone
+        useGameStore.getState().markLetIn(c.id);
         setHubNotice(`The Lightkeeper let ${c.name} into ${campaign}. Open the Case Ledger and press Play.`);
       } else if (c.status === 'unaffiliated') {
         setHubNotice(`The Lightkeeper did not take ${c.name} into ${campaign}. ${c.name} can ask to join another campaign.`);

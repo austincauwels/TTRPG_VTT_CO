@@ -64,7 +64,8 @@ function LogEntry({ entry }) {
 
   return (
     <p
-      className={`animate-fadeIn border-l-2 pl-2 italic ${!useInk ? (LOG_TEXT_CLASS[entry.type] ?? LOG_TEXT_CLASS.field) : 'text-ink/80'} ${!useInk ? (LOG_BORDER_CLASS[entry.type] ?? LOG_BORDER_CLASS.field) : ''}`}
+      data-private-note={entry.private || undefined}
+      className={`animate-fadeIn border-l-2 pl-2 italic ${entry.private ? 'border-dashed ' : ''}${!useInk ? (LOG_TEXT_CLASS[entry.type] ?? LOG_TEXT_CLASS.field) : 'text-ink/80'} ${!useInk ? (LOG_BORDER_CLASS[entry.type] ?? LOG_BORDER_CLASS.field) : ''}`}
       style={borderStyle}
     >
       <span
@@ -73,6 +74,9 @@ function LogEntry({ entry }) {
       >
         [{entry.time}]
       </span>
+      {entry.private && (
+        <span className="not-italic font-sans text-[11px] font-black uppercase tracking-widest text-oxblood border border-oxblood/60 rounded-sm px-1 py-px mr-1.5">Private</span>
+      )}
       <span style={textStyle}>{entry.type === 'chat' ? <PassNoteText text={text} /> : text}</span>
     </p>
   );

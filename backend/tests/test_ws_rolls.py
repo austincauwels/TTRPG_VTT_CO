@@ -2061,3 +2061,28 @@ def test_roll_names_the_abilities_that_applied(client, dice):
         ws.send("roll", action="hide", drive_spent=0)
         msgs = ws.sync()
         assert "abilities" not in msgs[0]["payload"]["roll"]
+
+
+def test_end_assignment_empties_the_trays_a_reload_would_refill(client, dice):
+    """Fix round 7 (60.7): the last roll a desk opens with came back after End
+    Assignment, marked settled, as the last scene's roll. The campaign's shown rolls are
+    dropped with the settling; a gilded roll still waiting for its die is kept."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=1, nerve_max=6)
+    b = support.active_member(client, camp, move=2, gilded_move=True)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        with support.ws_connect(client, a["id"]) as wa:
+            dice(2)
+            wa.send("roll", action="move", drive_spent=0)
+            wa.sync()
+        with support.ws_connect(client, b["id"]) as wb:
+            dice(3, 5)
+            wb.send("roll", action="move", drive_spent=0)
+            wb.sync()
+        gm.send("gm_end_assignment")
+        gm.sync()
+        with support.ws_connect(client, a["id"]) as wa:
+            assert support.of_type(wa.sync(), "roll_result") == []
+        with support.ws_connect(client, b["id"]) as wb:
+            [held] = support.of_type(wb.sync(), "roll_result")
+            assert held["payload"]["roll"]["needs_gilded_choice"] is True and held["payload"]["settled"] is True
