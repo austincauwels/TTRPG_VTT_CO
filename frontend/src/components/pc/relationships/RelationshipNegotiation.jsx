@@ -223,12 +223,13 @@ export const RelationshipNegotiation = ({
         <Standing inv={inv} />
       </div>
 
-      {/* The dead are a record: no proposal to them (the server refuses one), only what was already there */}
+      {/* The dead are a record: no proposal to or from them, Edit and Counter included (the
+          server refuses each), only what was already there */}
       {(!inv.is_dead || mine) && <div>
         <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>Your relationship to {inv.name}</h4>
         {mine && (!isEditing || inv.is_dead) ? (
           <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
-            onEdit={inv.is_dead ? undefined : startEdit} focusRequest={focusRequest} noCounter={inv.is_dead || proposeBlocked} />
+            onEdit={inv.is_dead || proposeBlocked ? undefined : startEdit} focusRequest={focusRequest} noCounter={inv.is_dead || proposeBlocked} />
         ) : proposeBlocked ? (
           <p className="font-serif text-base text-sepia">A dead investigator proposes no relationships.</p>
         ) : !formOpen ? (
