@@ -564,7 +564,8 @@ const useGameStore = create(
       characters: [],          // all characters belonging to the logged-in user
       gmCampaigns: [],         // campaigns the user manages as GM
       retiredCampaigns: [],    // campaigns the user ran and retired (the ledger's Retired list)
-      letInIds: [],            // investigators the Lightkeeper let in while the hub was open, marked in the Registry until Play (cleared by Play)
+      letInIds: [],            // investigators the Lightkeeper let in, marked in the Registry until Play (cleared by Play); kept over a reload
+      awaitingIds: [],         // investigators this browser has seen waiting for approval, so an approval that came while it was away is marked too; kept over a reload
       withdrawnIds: [],        // join requests this player took back (the hub does not call those a decision)
       lastPlayedCampaign: null, // { type:'player'|'gm', characterId?, campaignCode, campaignName }
       circle: null,
@@ -2630,9 +2631,24 @@ const useGameStore = create(
         if (get().accessSession?.userId != null && get().stage === 'HOME') get().fetchUserData(get().accessSession.userId);
         return result;
       },
-      // The hub has said "You withdrew ..." for this one (usePendingApprovalWatch.js)
       markLetIn: (characterId) => set(st => (st.letInIds.includes(characterId) ? st : { letInIds: [...st.letInIds, characterId] })),
       forgetLetIn: (characterId) => set(st => (st.letInIds.includes(characterId) ? { letInIds: st.letInIds.filter(id => id !== characterId) } : st)),
+      // The list as the hub has it now (usePendingApprovalWatch.js): an investigator seen
+      // waiting is remembered, and one remembered that is now active is marked let in,
+      // whenever the answer came (the hub closed, a reload, another tab). One that is in the
+      // list and no longer waits is forgotten; one not in the list is kept for later.
+      noteAwaiting: (characters) => set(st => {
+        const byId = Object.fromEntries((characters || []).map(c => [c.id, c.status]));
+        const letIn = st.awaitingIds.filter(id => byId[id] === 'active' && !st.letInIds.includes(id));
+        const awaitingIds = [
+          ...st.awaitingIds.filter(id => !(id in byId)),
+          ...(characters || []).filter(c => c.status === 'pending').map(c => c.id),
+        ];
+        const same = awaitingIds.length === st.awaitingIds.length && awaitingIds.every(id => st.awaitingIds.includes(id));
+        if (same && !letIn.length) return st;
+        return { awaitingIds, ...(letIn.length ? { letInIds: [...st.letInIds, ...letIn] } : {}) };
+      }),
+      // The hub has said "You withdrew ..." for this one (usePendingApprovalWatch.js)
       forgetWithdrawn: (characterId) => set(st => ({ withdrawnIds: st.withdrawnIds.filter(id => id !== characterId) })),
 
       clearRelationshipIntro: () => set({ pendingRelationshipIntro: null }),
@@ -2663,6 +2679,8 @@ const useGameStore = create(
         pendingScar: state.pendingScar,
         reportDrafts: state.reportDrafts,
         heldMarks: keptOverReload(state.heldMarks),
+        letInIds: state.letInIds,
+        awaitingIds: state.awaitingIds,
       }),
 
       // A session saved before login tokens existed has no token, and the server
@@ -2684,6 +2702,8 @@ const useGameStore = create(
           rejoinInvite: null,
           pendingScar: null,
           heldMarks: null,
+          letInIds: [],
+          awaitingIds: [],
         };
       },
     }

@@ -613,7 +613,7 @@ const LoginScreen = ({ resetToken = null, onLeaveReset }) => {
           {/* Laid on the map by hand: a little crooked, taped down at the two top corners. */}
           <div className={`relative ${SLIP_TILT}`}>
             <PaperSheet
-              bodyClassName="px-5 pt-7 pb-6 sm:px-9 sm:pt-10 sm:pb-8 [@media(max-height:820px)]:sm:pt-6 [@media(max-height:820px)]:sm:pb-5"
+              bodyClassName="px-5 pt-7 pb-6 sm:px-9 sm:pt-10 sm:pb-8 [@media(max-height:820px)]:sm:pt-8 [@media(max-height:820px)]:sm:pb-5"
               printLine="Form C.O. 0 · Admission"
               serial={serialFor(new Date().toDateString())}
               role="region"

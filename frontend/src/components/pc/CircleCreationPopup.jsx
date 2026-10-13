@@ -420,10 +420,12 @@ export const CircleCreationPopup = () => {
                 className="w-full border border-sepia/40 bg-cream/70 p-3 font-serif text-lg text-ink resize-none focus:border-sepia rounded-sm"
                 style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, rgb(var(--c-sepia) / 0.15) 27px, rgb(var(--c-sepia) / 0.15) 28px)' }}
               />
-              {/* No word until this desk has typed or sent something, as the personal answer's */}
+              {/* No word until this desk has typed or sent something, as the personal answer's;
+                  none either once another member has replaced what this desk saved, since
+                  nothing of this desk's is unsaved then */}
               <p role="status" className="font-serif italic text-sm text-sepia mt-1 text-right min-h-[1.25rem]">
                 {houseDraft !== null && houseDraft !== house ? 'Not saved yet'
-                  : houseSent === null ? '' : houseSent.ok && house === houseSent.text ? 'Saved' : 'Not saved yet'}
+                  : houseSent === null ? '' : !houseSent.ok ? 'Not saved yet' : house === houseSent.text ? 'Saved' : ''}
               </p>
             </div>
 

@@ -1705,11 +1705,11 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               </span>
               <div className="flex gap-3 max-sm:flex-1 max-sm:justify-end">
                 <button onClick={() => setShowGearModal(false)}
-                  className="px-4 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-sepia/25 hover:border-sepia/50 text-sepia transition-colors rounded-sm">
+                  className="px-4 py-2 min-h-[44px] sm:min-h-0 [@media(pointer:coarse)]:min-h-[44px] whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-sepia/25 hover:border-sepia/50 text-sepia transition-colors rounded-sm">
                   Cancel
                 </button>
                 <button onClick={sendGearUpdate}
-                  className="px-6 py-2 min-h-[44px] sm:min-h-0 whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest rounded-sm shadow transition-all"
+                  className="px-6 py-2 min-h-[44px] sm:min-h-0 [@media(pointer:coarse)]:min-h-[44px] whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest rounded-sm shadow transition-all"
                   style={{ background: 'rgb(var(--c-oxblood))', color: 'rgb(var(--c-cream))' }}>
                   Save gear
                 </button>

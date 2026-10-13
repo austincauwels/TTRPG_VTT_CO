@@ -16,6 +16,9 @@ export const usePendingApprovalWatch = ({ characters, userId, fetchUserData, set
   useEffect(() => {
     const before = seen.current;
     seen.current = Object.fromEntries(characters.map(c => [c.id, { status: c.status, name: c.name, campaign: c.campaign_name }]));
+    // The Registry's "Let in: press Play" mark, also for an approval that came while this
+    // hub was closed: the browser remembers who it saw waiting
+    useGameStore.getState().noteAwaiting(characters);
     if (!before) return;
     for (const c of characters) {
       const was = before[c.id];

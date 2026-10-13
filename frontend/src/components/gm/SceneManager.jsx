@@ -17,7 +17,7 @@ const clockTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', min
 const NOT_CONNECTED = 'Not sent: the desk is not connected to the table. It reconnects by itself; try again in a moment.';
 
 // What End Assignment clears, said by its confirm and its receipt (the log line says the first two sentences)
-const ENDS = "Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared. Drives carry over; a Refresh restores them.";
+const ENDS = "Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared, and so is the timer. Drives carry over; a Refresh restores them.";
 
 // ── The tension clock: an hourglass on the desk ───────────────────────────────────
 // Starts with all the sand above and runs a quarter of it down per step, from 0 to 4
