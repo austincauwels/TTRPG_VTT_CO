@@ -25,8 +25,8 @@ export const GM_TABS = [
 export const GMDeskHeader = ({ activeCampaignId, campaignName, campaignCode, setStage, activeTab, onTab, phoneCurrent, onPhonePart, requestCount = 0, phoneBelow = null }) => {
   const [retireBusy, setRetireBusy] = useState(false);
   const [retireError, setRetireError] = useState('');
-  const retireHint = `Press again to retire ${campaignName || 'this campaign'}. Every investigator leaves it and no one can join. Nothing is deleted.`;
-  const retireLabel = (armed) => (retireBusy ? 'Retiring…' : armed ? 'Yes, retire campaign' : 'Retire campaign…');
+  const retireHint = `Press again to retire ${campaignName || 'this campaign'} and free its investigators.`;
+  const retireLabel = (armed) => (retireBusy ? 'Retiring…' : armed ? 'Retire' : 'Retire campaign…');
 
   const handleRetireCampaign = async () => {
     if (!activeCampaignId || retireBusy) return;

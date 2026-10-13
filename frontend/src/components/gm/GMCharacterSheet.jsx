@@ -324,7 +324,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                 onConfirm={() => onReject(rosterItem.id)}
                 disabled={busy}
                 cancelLabel="Keep request"
-                armedHint={`Press again to reject ${rosterItem.name || 'this investigator'}. They go back to the player, out of the campaign.`}
+                armedHint={`Press again to reject ${rosterItem.name || 'this investigator'}.`}
                 renderButton={(armed, props) => (
                   <button
                     {...props}
@@ -332,7 +332,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                       armed ? 'bg-ink text-cream border-ink' : 'border-sepia/50 text-sepia hover:bg-sepia/10'
                     }`}
                   >
-                    {armed ? 'Yes, reject' : 'Reject'}
+                    Reject
                   </button>
                 )}
               />
@@ -352,7 +352,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
             <ConfirmAction
               className="mt-6 pt-4 border-t border-ink/10 flex flex-wrap items-center gap-3"
               onConfirm={() => gmResetCharacter(rosterItem.id)}
-              armedHint={`Press again to refill drive and resistance and clear ability uses for ${fullChar.name || 'this investigator'}.`}
+              armedHint={`Press again to refill ${fullChar.name ? `${fullChar.name}'s` : 'the'} drives and clear ability uses.`}
               renderButton={(armed, props) => (
                 <button
                   {...props}
@@ -362,7 +362,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                       : 'bg-transparent text-oxblood border-oxblood/50 hover:bg-oxblood/10'
                   }`}
                 >
-                  {armed ? 'Yes, reset' : 'Reset drive and ability uses'}
+                  {armed ? 'Reset' : 'Reset drive and ability uses'}
                 </button>
               )}
             />

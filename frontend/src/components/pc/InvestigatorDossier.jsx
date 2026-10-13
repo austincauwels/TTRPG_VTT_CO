@@ -246,9 +246,9 @@ const ScarEditLine = ({ index, raw, draft, onDraft, onSave, onRemove, removeHint
           onConfirm={onRemove}
           armedHint={removeHint}
           renderButton={(armed, props) => (
-            <button {...props} aria-label={armed ? undefined : `Remove scar ${index + 1}`}
+            <button {...props} aria-label={`Remove scar ${index + 1}`}
               className={`${small} border ${armed ? 'bg-oxblood text-cream border-ink' : 'border-oxblood/50 text-oxblood hover:bg-oxblood/10'}`}>
-              {armed ? 'Yes, remove' : 'Remove'}
+              Remove
             </button>
           )}
         />
@@ -554,7 +554,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The Lightkeeper's edit of the trauma record, and the scars' words being changed, by line
   const [editingTrauma, setEditingTrauma] = useState(false);
   const [scarDrafts, setScarDrafts] = useState({});
-  // Save and "Yes, remove" go away once pressed, so keyboard focus moves on to a scar's
+  // Save and an armed Remove go away once pressed, so keyboard focus moves on to a scar's
   // words (that line's, or the next line's after a removal), or to Done when none is left
   const scarLinesRef = useRef(null);
   // A scar newly recorded on a player's own sheet brings the scars list into view, so the new
@@ -1474,8 +1474,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                     onDraft={(words) => setScarDrafts(d => ({ ...d, [i]: words }))}
                     onSave={() => saveScar(i)}
                     onRemove={() => removeScar(i)}
-                    removeHint={`Press again to remove this scar from ${character.name ? `${character.name}'s` : 'the'} record.${
-                      character.is_dead && scars.length === 4 ? ` With three scars, ${character.name || 'the investigator'} is alive again, and incapacitated until revived.` : ''}`}
+                    removeHint={character.is_dead && scars.length === 4
+                      ? `Press again to remove this scar; ${character.name || 'the investigator'} lives again, incapacitated.`
+                      : 'Press again to remove this scar.'}
                   />
                 )) : (
                   <p className="font-serif text-base italic text-sepia pl-1">No scars.</p>

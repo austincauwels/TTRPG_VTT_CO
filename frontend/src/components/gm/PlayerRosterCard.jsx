@@ -65,7 +65,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy
               onConfirm={onReject}
               disabled={busy}
               cancelLabel="Keep request"
-              armedHint={`Press again to reject ${data.name || 'this investigator'}. They go back to the player, out of the campaign.`}
+              armedHint={`Press again to reject ${data.name || 'this investigator'}.`}
               renderButton={(armed, props) => (
                 <button
                   {...props}
@@ -75,7 +75,7 @@ export const PlayerRosterCard = ({ investigator, onStamp, onReject, onView, busy
                       : 'border-sepia/50 text-sepia hover:bg-sepia/10'
                   }`}
                 >
-                  {armed ? 'Yes, reject' : 'Reject'}
+                  Reject
                 </button>
               )}
             />

@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import useGameStore from '../../store/gameStore';
 import { SafeIcon } from '../shared/SafeIcon';
 import { ConfirmAction } from '../shared/ConfirmAction';
+import { ArmedDetail } from '../pc/LeaveCampaign';
 import { FormLine, SerialNo, PrinterMark, BlankEntry, serialFor, dispatchSerial } from '../shared/PrintMarks';
 import { playPaperSound } from '../../game/rollSounds';
 import { Hourglass } from '../shared/Hourglass';
@@ -258,9 +259,11 @@ export const SceneManager = () => {
   const circleName = circle?.name || 'the Circle';
 
   // End Assignment clears the reports and their tally (backend vtt/assignment.py), so the
-  // confirm says so, and warns of a tally not yet added, which would be lost (playtest,
+  // confirm warns of a tally not yet added, which would be lost (playtest,
   // end-assignment-drops-unadded-tally). Once reports are due it names who has not filed
-  // one, without waiting for them (decision 5, playtest 3, missing-report-silent)
+  // one, without waiting for them (decision 5, playtest 3, missing-report-silent). The
+  // armed line is one short sentence; what ending clears is behind its "i" (decision 4 of
+  // fix round 5)
   const tally = tallyOf(circle);
   const unadded = tally.added == null
     ? tallyReports(circleCreation?.activeInvestigators, circleCreation?.reports, tally.answers).total : 0;
@@ -270,13 +273,13 @@ export const SceneManager = () => {
     <>
       {unadded > 0 && (
         <strong className="block mb-1 not-italic font-bold">
-          The reports' {unadded} Illumination is not added yet and will be lost: add it on the Circle page first.
+          The reports' {unadded} Illumination is not added yet and will be lost.
         </strong>
       )}
       {notFiled && <span className="block mb-1">{notFiled}</span>}
-      {`Press again to end it${unadded > 0 ? ' anyway' : ''}: the dispatch clears. ${ENDS}`}
+      {`Press again to end the assignment${unadded > 0 ? ' anyway' : ''}.`}
     </>
-  ) : `Press again to end it: the dispatch clears. ${ENDS}`;
+  ) : 'Press again to end the assignment.';
 
   return (
     <div ref={letterRef} className="bg-parchment text-ink p-5 sm:p-8 lg:p-5 2xl:p-6 shadow-[5px_10px_25px_rgba(0,0,0,0.8)] border border-parchment-deep relative"
@@ -396,6 +399,7 @@ export const SceneManager = () => {
           onConfirm={endAssignment}
           cancelLabel="Keep going"
           armedHint={endHint}
+          armedInfo={<ArmedDetail label="What ending does" text={`The dispatch clears. ${ENDS}`} />}
           hintClassName="[&>p]:text-sm"
           renderButton={(armed, props) => (
             <button
@@ -407,7 +411,7 @@ export const SceneManager = () => {
                   ? 'border-oxblood bg-oxblood text-cream'
                   : 'border-sepia text-sepia opacity-90 group-hover:opacity-100 group-hover:bg-sepia/5'
               }`}>
-                {armed ? 'Yes, end it' : 'End Assignment'}
+                {armed ? 'End' : 'End Assignment'}
               </div>
               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-40 pointer-events-none mix-blend-overlay" />
             </button>

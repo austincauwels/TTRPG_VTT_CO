@@ -897,7 +897,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                   hintClassName="justify-center px-2"
                   onConfirm={startOver}
                   cancelLabel="Keep it"
-                  armedHint="Press again to clear every choice and start from the first card."
+                  armedHint="Press again to clear every choice."
                   renderButton={(armed, props) => (
                     <button
                       {...props}
@@ -905,7 +905,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
                         armed ? 'bg-oxblood text-cream border-ink' : 'text-cream/65 border-cream/15 hover:text-cream hover:border-cream/40'
                       }`}
                     >
-                      {armed ? 'Yes, start over' : 'Start over'}
+                      Start over
                     </button>
                   )}
                 />

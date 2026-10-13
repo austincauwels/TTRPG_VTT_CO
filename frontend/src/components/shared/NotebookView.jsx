@@ -440,12 +440,12 @@ function EphemeralNote({ entry, onDelete }) {
         renderButton={(armed, props) => (
           <button
             {...props}
-            aria-label={armed ? 'Yes, delete this private note' : 'Delete this private note'}
+            aria-label="Delete this private note"
             className={`min-h-[36px] px-3 font-sans text-xs font-bold uppercase tracking-widest border rounded-sm transition-colors ${
               armed ? 'bg-oxblood text-cream border-ink' : 'text-sepia hover:text-oxblood border-sepia/30 hover:border-oxblood/50'
             }`}
           >
-            {armed ? 'Yes, delete' : 'Delete'}
+            Delete
           </button>
         )}
       />
@@ -1217,11 +1217,11 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                             renderButton={(armed, props) => (
                               <button
                                 {...props}
-                                aria-label={armed ? `Yes, delete ${entry.title}` : `Delete ${entry.title}`}
+                                aria-label={`Delete ${entry.title}`}
                                 className={armed
                                   ? 'shrink-0 mr-2 min-h-[36px] px-2 font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:brightness-125 transition rounded-sm'
                                   : 'shrink-0 w-9 min-h-[40px] font-sans text-lg text-sepia hover:text-oxblood transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'}
-                              >{armed ? 'Yes, delete' : '×'}</button>
+                              >{armed ? 'Delete' : '×'}</button>
                             )}
                           />
                         )}

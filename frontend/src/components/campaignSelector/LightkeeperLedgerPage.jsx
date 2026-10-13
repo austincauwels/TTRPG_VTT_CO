@@ -6,15 +6,15 @@ import { useDeleteUndo } from './useDeleteUndo';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
 import { PlayMark } from '../shared/InkMarks';
 
-// "Delete campaign Beta? 4 investigators return to their players." The count is exactly
+// "Press again to delete Beta and free its 4 investigators." The count is exactly
 // what the delete lets go: the investigators on its roster, active or waiting (the
 // server counts them as it releases them). Retired ones stay with the campaign.
 const deleteQuestion = (camp) => {
   const n = camp.investigator_count || 0;
   const back = n === 0 ? '' : n === 1
-    ? ' 1 investigator returns to their player.'
-    : ` ${n} investigators return to their players.`;
-  return `Delete campaign ${camp.name}?${back}`;
+    ? ' and free its investigator'
+    : ` and free its ${n} investigators`;
+  return `Press again to delete ${camp.name}${back}.`;
 };
 
 export const LightkeeperLedgerPage = ({

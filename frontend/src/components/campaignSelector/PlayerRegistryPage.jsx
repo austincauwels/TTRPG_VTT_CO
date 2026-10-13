@@ -75,7 +75,7 @@ export const PlayerRegistryPage = ({
   const deleteControl = (char) => (
     <RowDelete
       name={char.name}
-      question={`Delete ${char.name}?`}
+      question={`Press again to delete ${char.name}.`}
       onConfirm={() => removal.confirmDelete(char)}
       busy={removal.busyId === char.id}
       blockedReason={NOT_DELETABLE[char.status] || null}
