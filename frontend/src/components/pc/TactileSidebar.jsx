@@ -166,8 +166,9 @@ function RelationshipCard({ inv, myId, relationships, index }) {
 // rail shows only the Lightkeeper's note ('dispatch'), the circle's cards ('circle') or the
 // hourglass ('watch'), and nothing for any other part.
 export const TactileSidebar = ({ phonePart }) => {
-  const { character, circle, campaignRoster, circleCreation, fetchRoster } = useGameStore(useShallow(s => ({
+  const { character, circle, campaignRoster, circleCreation, fetchRoster, sheetLiveId } = useGameStore(useShallow(s => ({
     character: s.character,
+    sheetLiveId: s.sheetLiveId,
     circle: s.circle,
     campaignRoster: s.campaignRoster,
     circleCreation: s.circleCreation,
@@ -176,9 +177,12 @@ export const TactileSidebar = ({ phonePart }) => {
   const relationships = circleCreation?.relationships || [];
   const myPhoto = character?.profile_pic || character?.profilePic || null;
 
+  // Only a member may read the roster: a pending investigator, or one retired with its
+  // campaign or replaced (the dead of a retired campaign), would only get a 403 (issue #22).
+  // A reloaded sheet may be stale, so the socket's own sheet decides (sheetLiveId)
   useEffect(() => {
-    if (character?.campaign_id) fetchRoster(character.campaign_id);
-  }, [character?.campaign_id]);
+    if (character?.campaign_id && character.status === 'active' && sheetLiveId === character.id) fetchRoster(character.campaign_id);
+  }, [character?.campaign_id, character?.status, sheetLiveId]);
 
   const phoneShows = (part) => phonePart === undefined || phonePart === part;
   const onPhone = (part) => (phoneShows(part) ? '' : 'max-md:hidden');

@@ -105,7 +105,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **POST /campaign/approve/{character_id}** (line 489, `async def`)
 - Inputs: path `character_id`.
 - Trusted ids: `character_id`.
-- Tables: characters (status `active`, ink_color from `INK_COLORS` by active count; dead predecessors of the same user in the campaign set to `retired`), campaigns (read).
+- Tables: characters (status `active`, ink_color from `INK_COLORS` by active count; dead predecessors of the same user in the campaign set to `retired`; since fix round 6 the new character takes the larger spend count of those still active, as a rejoin does), campaigns (read).
 - Broadcast: `investigator_approved` with `{character, active_investigators, campaign_id}`; the Lightkeeper's copy also carries `fallen_investigators` (the campaign's dead and retired investigators, as `FallenItem`). Since 2026-10-11, when the approval retires a dead investigator of the same player, the table's log reads "<name> joined the circle, in place of <dead>."; an ordinary approval logs "<name> was approved into the circle."
 - Errors: 400 if not pending. If the character's campaign row is missing, `campaign.campaign_code` raises (500).
 
@@ -143,7 +143,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Inputs: JSON body `RejoinRequest {character_id, campaign_code}`.
 - Trusted ids: `character_id`, `campaign_code`.
 - Tables: campaigns (read), characters (retire the same user's other active or dead characters in the campaign; set new character campaign_id, ink_color, status `active`, circle_id to the campaign circle if one exists), users (clear pending_rejoin_campaign_id).
-- Broadcast: `investigator_approved` and `character_joined_mid_campaign`, both with the new character and active list; the Lightkeeper's `investigator_approved` also carries `fallen_investigators`. The log line "<name> joined the circle, in place of <old>." is written.
+- Broadcast: `investigator_approved` and `character_joined_mid_campaign`, both with the new character and active list; the Lightkeeper's `investigator_approved` also carries `fallen_investigators`. Since fix round 6 (issue #39) each investigator it retires gets `investigator_replaced` on its own key, so a desk still open on it goes to the hub. The log line "<name> joined the circle, in place of <old>." is written.
 - Response: `{"success": true, "character": get_char_dict(...)}`.
 - Also writes an Activity Log line ("<name> joined the circle, in place of <old>."), and the new character takes the larger circle-resource spend count of the investigators it retires.
 - Notes: skips GM approval entirely and does not check that an invite exists or that a predecessor died. Imports `INK_COLORS` from engine inside the function.
@@ -181,13 +181,13 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: all three ids.
 - Tables: relationships (insert or reset to proposed).
 - Response: `{"ok": true, "relationships": [...]}`.
-- Notes: unused. Unlike the WebSocket version it does not set `last_actor_id`.
+- Notes: unused. Unlike the WebSocket version it does not set `last_actor_id`. Since fix round 6 (issue #38) a dead proposer or recipient is 409 "<name> is dead: the sheet is a record.", as on the WebSocket.
 
 **POST /circle/relationship/respond** (line 829, `def`)
 - Inputs: JSON `RelationshipRespond {relationship_id, action, counter_type, counter_lore}`.
 - Trusted ids: `relationship_id`.
 - Tables: relationships.
-- Notes: unused. Semantics differ from the WebSocket version: here `counter` sets status `countered` and stores counter fields; the WebSocket version rewrites the terms and sets status back to `proposed`.
+- Notes: unused. Semantics differ from the WebSocket version: here `counter` sets status `countered` and stores counter fields; the WebSocket version rewrites the terms and sets status back to `proposed`. Since fix round 6 (issue #38) a `counter` when either party is dead is 409 "<name> is dead: the sheet is a record.", as on the WebSocket; `accept` is still taken.
 
 **POST /campaign/finalize-roster** (line 845, `async def`)
 - Inputs: JSON `FinalizeRosterRequest {campaign_id, circle_id}`.

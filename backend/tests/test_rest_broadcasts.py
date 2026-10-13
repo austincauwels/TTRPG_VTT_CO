@@ -198,6 +198,25 @@ def test_rejoin_sends_approved_then_joined_mid_campaign(client):
         assert _types(newbie) == ["investigator_approved", "character_joined_mid_campaign", "circle_update", "activity_log"]
 
 
+def test_rejoin_tells_the_desk_of_the_investigator_it_retires(client):
+    """A rejoin from another device left the replaced investigator's open desk live, with
+    the used invite banner (issue #39). That desk is told, and hears nothing else of the
+    campaign; the player's other investigators hear nothing."""
+    camp = support.new_campaign(client)
+    u = support.make_user(pending_rejoin_campaign_id=camp["id"])
+    old = support.active_member(client, camp, user_id=u.id)
+    elsewhere = support.forge(client, user_id=u.id)
+    new = support.forge(client, user_id=u.id)
+    with support.ws_connect(client, old["id"]) as wold, support.ws_connect(client, elsewhere["id"]) as welse:
+        r = client.post("/campaign/rejoin", json={"character_id": new["id"], "campaign_code": camp["campaign_code"]},
+                        headers=support.as_user(u.id))
+        assert r.status_code == 200
+        assert wold.drain() == [{"type": "investigator_replaced", "payload": {
+            "character_id": old["id"], "character_name": old["name"], "campaign_id": camp["id"],
+            "campaign_code": camp["campaign_code"], "campaign_name": camp["name"], "replaced_by": new["name"]}}]
+        assert welse.drain() == []
+
+
 def test_invite_rejoin_reaches_every_character_of_the_user(client):
     camp = support.new_campaign(client)
     u = support.make_user()

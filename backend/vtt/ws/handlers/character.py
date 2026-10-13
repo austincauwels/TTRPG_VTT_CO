@@ -15,7 +15,7 @@ from vtt.sheet_edits import apply_edit, gear_change
 from vtt.ws.access import scar_ability
 from vtt.serializers import awaiting_scar
 from vtt.ws.handlers.circle import announce_downed, announce_status
-from vtt.ws.handlers.marks import close_offers_at_death
+from vtt.ws.handlers.marks import close_offers_at_death, drop_held_at_death
 from vtt.ws.manager import character_key, manager
 
 
@@ -113,6 +113,9 @@ async def handle_apply_scar(ctx):
     if character.scars_count >= 4:
         character.is_dead = True
         character.incapacitated = True
+    # A mark a soak or Death Defy held is dropped with the death, in this commit, so the
+    # sheet sent below draws nothing held
+    dropped = drop_held_at_death(character) if character.is_dead and not was_dead else None
     down, up = payload.get("shift_down"), payload.get("shift_up")
     skip_shifts = payload.get("skip_shifts", False)
     # A scar taken for Not Again (p. 29) or Forbidden Ritual (p. 32); vtt.ws.access checked
@@ -131,7 +134,7 @@ async def handle_apply_scar(ctx):
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     if character.is_dead and not was_dead:
-        await close_offers_at_death(character)
+        await close_offers_at_death(character, dropped)
         # Every desk's log, the Lightkeeper's too: a card leaving Your Circle needs a reason
         await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
             "type": "activity_log",

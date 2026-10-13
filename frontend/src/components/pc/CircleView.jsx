@@ -11,6 +11,7 @@ import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { refillRule } from '../../game/circleResources';
 import { CIRCLE_QUESTIONS, insigniaLabel } from '../../game/circleFormation';
 import { holdBack } from '../stageHistory';
+import { IlluminationRing } from '../shared/IlluminationRing';
 import { ABILITY_TEXTS } from './InvestigatorDossier';
 
 // ─── Canonical game content ───────────────────────────────────────────────────
@@ -731,20 +732,7 @@ export const CircleView = () => {
               </span>
             </div>
           )}
-          <div className="flex gap-1.5 flex-wrap" role="img" aria-label={`Illumination ${illum} of ${TRACK_SIZE}`}>
-            {Array.from({ length: TRACK_SIZE }).map((_, i) => {
-              const filled    = i < illum;
-              const milestone = [3, 6, 9].includes(i + 1);
-              return (
-                <div key={i} title={milestone ? `Illumination ${i + 1}, a milestone` : `Illumination ${i + 1}`}
-                  className={`w-[1.125rem] h-[1.125rem] rounded-full border flex items-center justify-center shadow-inner transition-all ${
-                    filled ? 'bg-ink border-ink text-cream' : 'bg-transparent border-ink/50'
-                  } ${milestone ? 'ring-2 ring-offset-1 ring-candle-gold' : ''}`}>
-                  {milestone && <div className={`w-1.5 h-1.5 rounded-full bg-candle-gold ${filled ? 'opacity-100' : 'opacity-30'}`} />}
-                </div>
-              );
-            })}
-          </div>
+          <IlluminationRing illum={illum} compact />
         </div>
 
         {/* Active Circle Abilities (stacked) */}

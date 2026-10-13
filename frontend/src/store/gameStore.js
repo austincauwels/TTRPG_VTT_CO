@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiFetch, configureApiAuth, WS_CLOSE_UNAUTHENTICATED } from '../utils/api';
 import { playRollSound, playDiceTumble, playTensionTick } from '../game/rollSounds';
 import { driveKeyFor } from '../game/actions';
+import { clearAccountDrafts } from '../utils/drafts';
 
 // Reconnecting after a dropped connection. The server closes an older socket on the same
 // channel with 1001 when a newer one opens (another tab or device), so 1001 never
@@ -131,15 +132,32 @@ const offerHolds = (state, offer) => {
     if (i >= 0) left.splice(i, 1);
     return i < 0;
   });
-  return { heldMarks: { characterId: offer.character_id, offer: { types, ability: offer.ability, seq: offer.seq }, landing } };
+  return { heldMarks: { characterId: offer.character_id, offer: { types, ability: offer.ability, seq: offer.seq, offerId: offer.offer_id }, landing } };
 };
 // The open offer's marks go on their way: let go, or used (answer: the soak or Death Defy
 // keeps them off the sheet, or the server refuses it and lands them). Only the offer with
-// that seq: a card answered after another replaced it holds nothing now.
-const offerLets = (state, answer, seq) => {
+// that seq: a card answered after another replaced it holds nothing now. Marks this desk's
+// own answer sends on their way carry its offerId, so the server's word that it did not
+// hold that offer (offerDropped) takes them back.
+const offerLets = (state, answer, seq, offerId) => {
   const held = state.heldMarks;
   if (!held?.offer || held.offer.seq !== seq) return {};
-  return heldMarksAre({ ...held, offer: null, landing: [...held.landing, ...held.offer.types.map(type => ({ type, answer }))] });
+  return heldMarksAre({ ...held, offer: null,
+    landing: [...held.landing, ...held.offer.types.map(type => ({ type, answer, ...(offerId ? { offerId } : {}) }))] });
+};
+// The server did not hold the offer an answer named (a card from before a restart, or one
+// it had closed meanwhile; backend marks.py _close_stale): that card goes, shown or
+// waiting, and so do the marks the answer sent on their way, since nothing lands for it
+// (#18). Only that offer: another one shown now holds marks of its own.
+const offerDropped = (state, offerId) => {
+  const gone = (o) => holdsOwnMark(o) && o.offer_id === offerId;
+  const queue = state.abilityMarkQueue.filter(o => !gone(o));
+  const held = state.heldMarks;
+  return {
+    ...(gone(state.abilityMarkOffer) ? { abilityMarkOffer: queue[0] || null, abilityMarkQueue: queue.slice(1) } : { abilityMarkQueue: queue }),
+    ...(held ? heldMarksAre({ ...held, offer: held.offer?.offerId === offerId ? null : held.offer,
+      landing: held.landing.filter(m => m.offerId !== offerId) }) : {}),
+  };
 };
 // The sheet arrived. A mark on its way is on it when its track rose, one mark a box; on a
 // full track, at the next sheet (Endurance keeps it at three; a fourth that brings a scar
@@ -175,6 +193,17 @@ const USE_ANSWER_MS = 10000;
 // let go, and a mark sent into a silent socket was lost without a word (playtest 2,
 // silent-socket-loses-mark). An answer to an offer is not sent again: the server sends
 // again an offer that still holds its mark.
+// A mark sent from the sheet and still unanswered is kept over a reload too (#43; store
+// persist below): a mark taken in a silent outage was lost when the page was reloaded
+// before the desk reconnected. The next socket sends it again with its mark_id, which the
+// server stores, so it is taken once even after a restart. One taken longer ago than this
+// is let go instead, with a word under the marks: the table has moved on since.
+const MARK_RESEND_MS = 10 * 60 * 1000;
+const MARK_WORD = { body: 'Body', brain: 'Brain', bleed: 'Bleed' };
+const keptOverReload = (held) => {
+  const landing = (Array.isArray(held?.landing) ? held.landing : []).filter(m => m && !m.answer && !!m.markId);
+  return landing.length ? { characterId: held.characterId, offer: null, landing: landing.map(m => ({ ...m, undoId: null, reloaded: true })) } : null;
+};
 const forgetUnanswered = (set, get, keepMarks = false) => {
   if (get().abilityUseSent) set({ abilityUseSent: null });
   const keep = (m) => keepMarks && !m.answer && !!m.markId;
@@ -182,14 +211,45 @@ const forgetUnanswered = (set, get, keepMarks = false) => {
     set(state => heldMarksAre({ ...state.heldMarks, landing: state.heldMarks.landing.filter(keep) }));
   }
 };
-const resendMarks = (get, socket) => {
-  const held = get().heldMarks;
+// The word under the marks for kept marks let go; whose names the investigator when the
+// marks were taken on another sheet than the one shown
+const reloadNotice = (marks, whose) => {
+  const what = marks.length === 1 ? `A ${MARK_WORD[marks[0].type] || 'marked'} mark` : `${marks.length} marks`;
+  return whose
+    ? `${what} taken on ${whose}'s sheet before the reload may not have counted. Check the trauma record there.`
+    : `${what} taken before the reload may not have counted. Check the trauma record.`;
+};
+const letGoOfKept = (set, marks, whose) => set(state => ({
+  ...heldMarksAre({ ...state.heldMarks, landing: state.heldMarks.landing.filter(m => !marks.includes(m)) }),
+  abilityMarkRefused: reloadNotice(marks, whose),
+}));
+const resendMarks = (set, get, socket) => {
+  let held = get().heldMarks;
   if (!held || held.characterId !== get().character?.id) return;
+  const stale = held.landing.filter(m => m.reloaded && !(Date.now() - (m.at || 0) < MARK_RESEND_MS));
+  if (stale.length) {
+    letGoOfKept(set, stale);
+    held = get().heldMarks;
+    if (!held) return;
+  }
   held.landing.filter(m => m.markId).forEach((m) => {
     try {
       socket.send(JSON.stringify({ type: 'take_mark', payload: { mark_type: m.type, mark_id: m.markId } }));
     } catch { /* this socket closed too: the next one sends it */ }
   });
+};
+// Marks kept over a reload wait for their own investigator's desk. Another desk opening
+// first (another investigator's, or the Lightkeeper's) lets them go with the word under
+// the marks, naming whose they were: that desk would put its own marks in their place, or
+// drop them when it closes, without a word (review of #43). Returns that word, which the
+// caller says again if it clears the store's notes for the new desk.
+const letGoOfKeptElsewhere = (set, get, gameId) => {
+  const held = get().heldMarks;
+  const kept = held && String(held.characterId) !== String(gameId) ? held.landing.filter(m => m.reloaded) : [];
+  if (!kept.length) return null;
+  const whose = (get().characters || []).find(c => c.id === held.characterId)?.name || 'another investigator';
+  letGoOfKept(set, kept, whose);
+  return get().abilityMarkRefused;
 };
 // What one desk's mark offers and ability uses leave in the store: another desk in the
 // tab, or whoever signs in next, starts without them (the server sends again any offer
@@ -241,6 +301,33 @@ export const postRollChoiceWaiting = (s) => {
   if (!drive || !s.character) return false;
   const max = Math.floor((s.character[`${drive}_max`] ?? 0) / 3);
   return max > (s.character[`${drive}_resistance_spent`] || 0);
+};
+
+// Whether two rolls are the same throw: the same action and the same dice
+const sameRoll = (a, b) => !!a && !!b && a.action === b.action && Array.isArray(a.dice) && Array.isArray(b.dice)
+  && a.dice.length === b.dice.length
+  && a.dice.every((d, i) => d.value === b.dice[i].value && !!d.is_gilded === !!b.dice[i].is_gilded);
+
+// The die kept from this desk's last roll (roll_kept), or null
+const keptOf = (s) => (s.lastRoll && s.lastRollKept && s.lastRollKept.rollId === s.lastRoll.id ? s.lastRollKept : null);
+
+// A roll the desk shows, sent again as it opens (roll_result with replayed): what the
+// server has for it now, its outcome (a post-roll ability may have changed it), the die
+// kept from it, the abilities used on it, whether it is settled, and the sheet
+const replayOnto = (s, p) => {
+  const next = { character: p.character || s.character, lastRollSettled: s.lastRollSettled || p.settled === true };
+  if (Array.isArray(p.used)) next.dismissedPrompts = [...new Set([...s.dismissedPrompts, ...p.used])];
+  const kept = keptOf(s);
+  if (p.kept) {
+    if (!kept || kept.index !== p.kept.index || kept.outcome !== p.kept.outcome) {
+      next.lastRollKept = { ...p.kept, is_gilded: !!p.kept.is_gilded, rollId: s.lastRoll.id, seq: ++rollSeq };
+    }
+    next.pendingGildedChoice = null;
+  } else if (p.roll?.outcome && p.roll.outcome !== s.lastRoll.outcome) {
+    // A new id, so the post-roll prompts are worked out for the new outcome
+    next.lastRoll = { ...s.lastRoll, outcome: p.roll.outcome, id: ++rollSeq };
+  }
+  return next;
 };
 
 // A report the table has not answered within this long is not sent, as far as the form knows
@@ -402,6 +489,34 @@ const releasedWords = (by, name, campaignName) => {
     : `The Lightkeeper released ${name} from ${where}. ${name} is free to join another campaign.`;
 };
 
+// The player rejoined a campaign with another investigator from another device, which
+// retired this one (issue #39): its desk goes to the hub, which says so, the invite the
+// rejoin used is spent, it is no longer Last Played, and its socket closes (it is no longer
+// in play). Told by investigator_replaced, or by its own sheet coming back retired to a desk
+// that missed that frame (asleep, reloading or reconnecting). The device that made the
+// rejoin hears it too, on the old channel while its creator is open: it says nothing there,
+// and its timer closes only a socket still on the old investigator.
+const leaveReplacedDesk = (set, get, { characterId, campaignId, notice }) => {
+  const { character: myChar, socketGameId } = get();
+  const mine = characterId != null && myChar?.id === characterId;
+  const onItsChannel = characterId != null && String(socketGameId) === String(characterId);
+  if (!mine && !onItsChannel) return;
+  if (onItsChannel) {
+    setTimeout(() => { if (String(get().socketGameId) === String(characterId)) get().disconnect(); }, 0);
+  }
+  set(state => ({
+    characters: state.characters.map(c => (c.id === characterId ? { ...c, status: 'retired' } : c)),
+    lastPlayedCampaign: state.lastPlayedCampaign?.type === 'player' && state.lastPlayedCampaign.characterId === characterId
+      ? null : state.lastPlayedCampaign,
+    rejoinInvite: campaignId != null && state.rejoinInvite?.campaign_id === campaignId ? null : state.rejoinInvite,
+    ...(mine && state.stage === 'DESK'
+      ? { stage: 'HOME', character: null, circle: null, activityLog: [], unseen: {}, lastActivityLog: null }
+      : mine ? { character: { ...state.character, status: 'retired' } } : {}),
+    ...(mine && (state.stage === 'DESK' || state.stage === 'HOME') ? { hubNotice: notice } : {}),
+  }));
+  get().fetchUserData(get().accessSession?.userId);
+};
+
 // Closes this tab's socket when it is open on the channel about to be deleted (the
 // server would close it), and returns a function that opens it again, for a delete that
 // did not go through. Nothing to reopen when another socket has been opened meanwhile.
@@ -495,10 +610,12 @@ const useGameStore = create(
       abilityMarkOffer: null,    // { ability, mark_type, character_id, options?, intercept?, seq } — mark intercept prompt
       abilityMarkQueue: [],      // offers waiting behind the one shown
       // The marks the sheet draws held, as it does a mark waiting for its Undo: those an open
-      // soak or Death Defy offer holds back (the server's _pending_marks), and those on their
-      // way until the sheet arrives with them. { characterId, offer: { types, ability, seq }
-      // or null, landing: [{ type, answer }] } (offerHolds and the helpers after it;
-      // playtest, mark-undo-then-death-defy: the box went empty for the offer's 30 seconds)
+      // soak or Death Defy offer holds back (the server's characters.held_mark), and those on
+      // their way until the sheet arrives with them. { characterId, offer: { types, ability,
+      // seq, offerId } or null, landing: [{ type, answer, undoId?, markId?, at?, offerId? }] }
+      // (offerHolds and the helpers after it; playtest, mark-undo-then-death-defy: the box
+      // went empty for the offer's 30 seconds). The marks sent from the sheet and still
+      // unanswered are kept over a reload (keptOverReload, #43).
       heldMarks: null,
       abilityUseError: null,     // why the server refused an ability used outside a roll
       abilityMarkRefused: null,  // why the server refused an answer to a mark offer (its mark then landed)
@@ -522,6 +639,10 @@ const useGameStore = create(
       reportError: null,
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
+      // The investigator whose sheet this page has had from the server: a reloaded store's
+      // sheet may be stale (retired with its campaign meanwhile), so the desk asks for the
+      // roster only once the socket's sheet says it is active (#22). Not persisted.
+      sheetLiveId: null,
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
       confirmedPersonalAnswer: null,  // { characterId, answer } as the desk last echoed it
       circleCreation: {
@@ -548,12 +669,17 @@ const useGameStore = create(
       // Parallel 401s end it once.
       endSession: () => {
         if (!get().accessSession) return;
-        get().logout();
+        get().logout({ keepDrafts: true });
         set({ sessionEnded: true });
       },
 
-      // Safely close the connection and wipe the local session data
-      logout: () => {
+      // Safely close the connection and wipe the local session data. An explicit Sign out
+      // also clears this account's Notebook and creator drafts from the browser; a session
+      // the server ended (endSession, a password reset, an undone email change) passes keepDrafts, so the writer
+      // finds them after signing in again (#20). Called straight from an onClick, the
+      // argument is an event, which is not keepDrafts.
+      logout: (opts) => {
+        if (opts?.keepDrafts !== true) clearAccountDrafts(get().accessSession?.userId);
         get().disconnect();
         // Nothing of this user's desk stays in the tab for whoever signs in next: not the
         // felt's roll (a Lightkeeper's secret one among them) and not the log
@@ -641,6 +767,7 @@ const useGameStore = create(
       },
 
       connect: (gameId, { keepLog = false } = {}) => {
+        const keptLetGo = letGoOfKeptElsewhere(set, get, gameId);
         // One socket at a time: an older one would keep writing its own character into the store.
         const { socket: previous } = get();
         if (previous) {
@@ -673,7 +800,8 @@ const useGameStore = create(
         // the hub), and a held gilded roll comes back from the server.
         if (rollDesk !== null && String(rollDesk) !== String(gameId)) {
           answeredRollId = null;
-          set({ ...NO_OFFERS, lastRoll: null, lastRollKept: null, lastRollSettled: false, pendingGildedChoice: null, dismissedPrompts: [], postRollTried: null });
+          set({ ...NO_OFFERS, lastRoll: null, lastRollKept: null, lastRollSettled: false, pendingGildedChoice: null, dismissedPrompts: [], postRollTried: null,
+            ...(keptLetGo ? { abilityMarkRefused: keptLetGo } : {}) });
         }
         rollDesk = gameId;
         const apiBase = import.meta.env.VITE_API_URL || '';
@@ -710,7 +838,7 @@ const useGameStore = create(
             }
           }, HEARTBEAT_TICK_MS);
           if (queuedRoll) sendRoll(set, get, queuedRoll);
-          resendMarks(get, socket);
+          resendMarks(set, get, socket);
           set(state => withoutIntercepts(state));
           // The GM desk opened again (a drop, a laptop waking, "Use this tab"): the members'
           // changes made while it was down never came, so what it shows loads again. So do
@@ -722,12 +850,13 @@ const useGameStore = create(
             const campaignId = lastPlayedCampaign.campaignId ?? accessSession?.campaignId;
             get().fetchRoster(campaignId, { keep: true });
             get().fetchCircleCreationState(campaignId);
-          } else if (keepLog && get().character?.campaign_id) {
+          } else if (keepLog && get().character?.campaign_id && get().character.status === 'active') {
             // A player's desk: a death or a revival (member_status) that came while it was
             // down is in the roster, which its circle's cards and ally pickers read, and the
-            // other players' votes are on its formation papers
+            // other players' votes are on its formation papers. Only a member may read them:
+            // a pending or retired investigator would get a 403 (issue #22)
             get().fetchRoster(get().character.campaign_id, { keep: true });
-            if (get().character.status === 'active') get().fetchCircleCreationState(get().character.campaign_id);
+            get().fetchCircleCreationState(get().character.campaign_id);
           }
         };
         socket.onerror = (err) => console.error("WebSocket connection error:", err);
@@ -786,8 +915,40 @@ const useGameStore = create(
             // (member_update is how it follows them) must not become its store character,
             // which would make that member's dice its own and write their lines here
             if (onGmDesk(get) && incoming?.id !== prevChar?.id) return;
+            // A living investigator is retired only by a rejoin that replaced it: a desk that
+            // missed investigator_replaced learns it from its sheet when it opens again (the
+            // dead: below)
+            if (!onGmDesk(get) && incoming?.status === 'retired' && !incoming.is_dead
+                && incoming.id === prevChar?.id && prevChar.status !== 'retired') {
+              const last = get().lastPlayedCampaign;
+              const where = (last?.type === 'player' && last.characterId === incoming.id ? last.campaignName : null)
+                || get().characters.find(c => c.id === incoming.id)?.campaign_name || 'the campaign';
+              leaveReplacedDesk(set, get, { characterId: incoming.id, campaignId: incoming.campaign_id,
+                notice: `${incoming.name} is no longer in ${where}.` });
+              return;
+            }
+            // A dead investigator is retired by a rejoin that replaced it, or with its retired
+            // campaign (#22, it keeps its record desk). The player's lists say which: after a
+            // rejoin another of their investigators is active in that campaign, and this desk
+            // goes to the hub as above (#39). An invite back to that campaign is spent or
+            // void either way (a retired campaign takes no rejoin)
+            if (!onGmDesk(get) && incoming?.status === 'retired' && incoming.is_dead
+                && incoming.campaign_id != null && incoming.id === prevChar?.id && prevChar.status !== 'retired') {
+              if (get().rejoinInvite?.campaign_id === incoming.campaign_id) set({ rejoinInvite: null });
+              const last = get().lastPlayedCampaign;
+              const where = (last?.type === 'player' && last.characterId === incoming.id ? last.campaignName : null)
+                || get().characters.find(c => c.id === incoming.id)?.campaign_name || 'the campaign';
+              Promise.resolve(get().fetchUserData(get().accessSession?.userId)).then(() => {
+                const replaced = get().characters.some(c => c.id !== incoming.id
+                  && c.campaign_id === incoming.campaign_id && c.status === 'active');
+                if (replaced && get().character?.id === incoming.id) {
+                  leaveReplacedDesk(set, get, { characterId: incoming.id, campaignId: incoming.campaign_id,
+                    notice: `${incoming.name} is no longer in ${where}.` });
+                }
+              });
+            }
             // The sheet, and the held marks that were on their way and are on it now
-            set(state => ({ character: incoming, ...sheetArrived(state, prevChar, incoming) }));
+            set(state => ({ character: incoming, sheetLiveId: incoming?.id ?? null, ...sheetArrived(state, prevChar, incoming) }));
             // The answer to an ability used outside a roll: the server paid its cost (a
             // refusal is action_rejected instead). A use with no answer for a while was
             // dropped, and a sheet now is some other change.
@@ -848,25 +1009,40 @@ const useGameStore = create(
             if (seen && next && seen.id === next.id && value !== seen.value) playTensionTick(value > seen.value ? value : 1);
           }
           else if (message.type === 'roll_result') {
-            // A roll sent twice (a resend after a stall) can be answered twice: the copy
-            // of a result this desk has shown is ignored, so the dice do not land again
             const rollId = message.payload.roll_id;
-            if (rollId && rollId === answeredRollId) return;
-            if (rollId) answeredRollId = rollId;
+            // The desk's last roll, sent again as the socket opens (a reload, another
+            // device; #40): shown with no dice sound, open to a burn while the server holds
+            // it open. A roll this desk is waiting for is its answer, whichever frame brings it.
+            const replay = !!message.payload.replayed && !(rollId && sentRoll?.payload?.roll_id === rollId);
+            if (replay) {
+              const st = get();
+              // A roll on its way from this desk is newer
+              if (st.isRolling) return;
+              if (rollId) answeredRollId = rollId;
+              if (sameRoll(st.lastRoll, message.payload.roll)) { set(replayOnto(st, message.payload)); return; }
+            } else {
+              // A roll sent twice (a resend after a stall) can be answered twice: the copy
+              // of a result this desk has shown is ignored, so the dice do not land again
+              if (rollId && rollId === answeredRollId) return;
+              if (rollId) answeredRollId = rollId;
+            }
+            const kept = message.payload.kept;
             sentRoll = null;
             queuedRoll = null;
             // Each roll gets an id here (the server's roll_id is per throw, not per
             // result), so what is keyed on the roll, such as the post-roll ability
             // prompts, sees a new roll as new
-            const roll = message.payload.roll ? { ...message.payload.roll, id: ++rollSeq } : message.payload.roll;
+            // (a roll sent again is marked replayed: its dice do not tumble in again)
+            const roll = message.payload.roll ? { ...message.payload.roll, id: ++rollSeq, ...(replay ? { replayed: true } : {}) } : message.payload.roll;
             clearRollTimer();
             set({
               lastRoll: roll,
-              lastRollKept: null,
+              // A roll sent again after its gilded die was kept comes with that die
+              lastRollKept: kept && roll ? { ...kept, is_gilded: !!kept.is_gilded, rollId: roll.id, seq: ++rollSeq } : null,
               // A roll the table has moved past while this desk was away (the server says
               // so): its die can be kept, but it offers no burn
               lastRollSettled: message.payload.settled === true,
-              dismissedPrompts: [],
+              dismissedPrompts: Array.isArray(message.payload.used) ? message.payload.used : [],
               postRollTried: null,
               tableRoll: null, // this desk's own roll is the newest on its felt
               character: message.payload.character,
@@ -875,13 +1051,14 @@ const useGameStore = create(
               rollError: null,
               pendingRoll: null,
               pendingRollMods: [],
-              pendingGildedChoice: roll?.needs_gilded_choice
+              pendingGildedChoice: roll?.needs_gilded_choice && !kept
                 ? { action: message.payload.action, roll, character_id: message.payload.character_id }
                 : null,
             });
             // The dice start tumbling on this desk now; a gilded roll's dice wait, still, for
-            // the choice, and tumble when a die is kept (resolveGildedChoice)
-            if (roll?.dice && !roll.needs_gilded_choice) playDiceTumble();
+            // the choice, and tumble when a die is kept (resolveGildedChoice). A roll sent
+            // again has landed already.
+            if (!replay && roll?.dice && !roll.needs_gilded_choice) playDiceTumble();
           }
           else if (message.type === 'roll_kept') {
             // The server scored the die this desk kept: the outcome slip, the post-roll
@@ -902,7 +1079,17 @@ const useGameStore = create(
             const own = p.character_id == null
               ? st.accessSession?.role === 'GM'
               : p.character_id === st.character?.id;
-            if (!own) {
+            if (!own && p.replayed) {
+              // The newest roll on the Lightkeeper's felt, sent again as her desk opens
+              // (#40): it has landed already, so it plays no dice and settles nothing. The
+              // same roll already on the felt only takes its outcome, so it stays still.
+              if (!Array.isArray(p.roll?.dice)) return;
+              const shown = st.tableRoll;
+              set({ tableRoll: shown?.character_id === p.character_id && sameRoll(shown.roll, p.roll)
+                ? { ...shown, kept: p.kept, roll: { ...shown.roll, outcome: p.roll.outcome } }
+                : { ...p, roll: { ...p.roll, replayed: true } } });
+            }
+            else if (!own) {
               playDiceTumble();
               if (Array.isArray(p.roll?.dice)) set({ tableRoll: p });
               // They settle this desk's own roll once its result is known: a gilded roll
@@ -914,11 +1101,20 @@ const useGameStore = create(
               }
             }
           }
-          else if (message.type === 'roll_settled') {
-            // As the socket opens: this investigator's last roll was settled by dice this
-            // desk missed (it was away), so the roll it still shows offers no burn
-            const { lastRoll, character } = get();
-            if (lastRoll && message.payload?.character_id === character?.id) set({ lastRollSettled: true });
+          else if (message.type === 'roll_outcome') {
+            // A post-roll ability (Flourish, Bending Spoons) changed a roll's outcome (#19):
+            // the roller's slip and the Lightkeeper's felt show the new one
+            const p = message.payload || {};
+            const st = get();
+            if (st.lastRoll && p.character_id != null && p.character_id === st.character?.id && st.lastRoll.action === p.action) {
+              const kept = keptOf(st);
+              if (kept) set({ lastRollKept: { ...kept, outcome: p.outcome, seq: ++rollSeq } });
+              // A new id, so the post-roll prompts are worked out for the new outcome
+              else if (!st.lastRoll.needs_gilded_choice) set({ lastRoll: { ...st.lastRoll, outcome: p.outcome, id: ++rollSeq } });
+            }
+            if (st.tableRoll?.roll && st.tableRoll.character_id === p.character_id && st.tableRoll.action === p.action) {
+              set({ tableRoll: { ...st.tableRoll, roll: { ...st.tableRoll.roll, outcome: p.outcome } } });
+            }
           }
           else if (message.type === 'roll_error') {
             failRoll(set, ROLL_FAILED);
@@ -1216,6 +1412,16 @@ const useGameStore = create(
               };
             });
           }
+          else if (message.type === 'investigator_replaced') {
+            // The player rejoined this campaign with another investigator from another device,
+            // which retired this one (issue #39): its desk goes to the hub, which says so, the
+            // invite it used is spent, and its socket closes (it is no longer in play)
+            const p = message.payload || {};
+            leaveReplacedDesk(set, get, {
+              characterId: p.character_id, campaignId: p.campaign_id,
+              notice: `${p.replaced_by || 'Your new investigator'} joined ${p.campaign_name || 'the campaign'} in place of ${p.character_name || get().character?.name}.`,
+            });
+          }
           else if (message.type === 'roster_finalized') {
             if (!isForThisCampaign(message.payload)) return;
             const rejectedIds = message.payload.rejected_character_ids || [];
@@ -1347,7 +1553,8 @@ const useGameStore = create(
             // The offer's mark landed because another mark came (backend marks.py
             // mark_or_offer): its card goes, so its countdown cannot land the mark again.
             // Dropped at the death (close_offers_at_death): its marks are not taken either
-            if (message.payload?.dropped) {
+            if (message.payload?.dropped && message.payload.offer_id) set(state => offerDropped(state, message.payload.offer_id));
+            else if (message.payload?.dropped) {
               set(state => ({ ...withoutOwnOffer(state), ...(state.heldMarks?.offer ? heldMarksAre({ ...state.heldMarks, offer: null }) : {}) }));
             }
             else set(state => ({ ...withoutOwnOffer(state), ...offerLets(state, false, state.heldMarks?.offer?.seq) }));
@@ -1572,7 +1779,7 @@ const useGameStore = create(
         markAnswerOut = holdsOwnMark(get().abilityMarkOffer);
         // Used: its marks stay held until the answer, which keeps them off the sheet or lands them
         set(state => ({ ...nextOffer(state),
-          ...(holdsOwnMark(state.abilityMarkOffer) ? offerLets(state, true, state.abilityMarkOffer.seq) : {}) }));
+          ...(holdsOwnMark(state.abilityMarkOffer) ? offerLets(state, true, state.abilityMarkOffer.seq, offerId) : {}) }));
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'resolve_ability_mark', payload: { ability, choice, offer_id: offerId } }));
         }
@@ -1619,7 +1826,7 @@ const useGameStore = create(
       // (or letting its countdown run out, timedOut) tells the server, which lets the mark land.
       declineAbilityMark: (offer, timedOut = false) => {
         const { socket } = get();
-        set(state => ({ ...nextOffer(state), ...(holdsOwnMark(offer) ? offerLets(state, false, offer.seq) : {}) }));
+        set(state => ({ ...nextOffer(state), ...(holdsOwnMark(offer) ? offerLets(state, false, offer.seq, offer.offer_id) : {}) }));
         if (offer && socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: 'resolve_ability_mark',
@@ -1671,7 +1878,7 @@ const useGameStore = create(
           set((state) => {
             const characterId = state.character?.id;
             const held = state.heldMarks?.characterId === characterId ? state.heldMarks : { characterId, offer: null, landing: [] };
-            return { heldMarks: { ...held, landing: [...held.landing, { type: markType, answer: false, undoId, markId }] } };
+            return { heldMarks: { ...held, landing: [...held.landing, { type: markType, answer: false, undoId, markId, at: Date.now() }] } };
           });
           return true;
         }
@@ -2444,13 +2651,14 @@ const useGameStore = create(
         rejoinInvite: state.rejoinInvite,
         pendingScar: state.pendingScar,
         reportDrafts: state.reportDrafts,
+        heldMarks: keptOverReload(state.heldMarks),
       }),
 
       // A session saved before login tokens existed has no token, and the server
       // refuses every call without one. Drop it, and what belonged to it, so the app
       // starts on the login screen.
       merge: (persisted, current) => {
-        const merged = { ...current, ...(persisted || {}) };
+        const merged = { ...current, ...(persisted || {}), heldMarks: keptOverReload(persisted?.heldMarks) };
         if (merged.accessSession?.token) return merged;
         return {
           ...merged,
@@ -2464,6 +2672,7 @@ const useGameStore = create(
           circle: null,
           rejoinInvite: null,
           pendingScar: null,
+          heldMarks: null,
         };
       },
     }

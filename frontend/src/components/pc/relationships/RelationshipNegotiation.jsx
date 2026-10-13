@@ -16,8 +16,8 @@ export const useRelationshipForms = () => {
 
 const labelClass = 'block font-sans font-bold text-xs uppercase tracking-widest text-sepia mb-1.5';
 const fieldClass = 'w-full border border-sepia/40 bg-cream/80 px-3 py-2 font-serif text-lg text-ink focus:border-oxblood rounded-sm';
-const primaryButton = 'px-4 py-2 bg-oxblood text-cream border border-ink rounded-sm font-sans font-black uppercase tracking-widest text-sm hover:brightness-125 transition disabled:opacity-40';
-const quietButton = 'px-4 py-2 border border-sepia/50 text-sepia hover:text-ink hover:border-ink/50 rounded-sm font-sans font-black uppercase tracking-widest text-sm transition-colors';
+const primaryButton = 'px-4 py-2 bg-oxblood text-cream border border-ink rounded-sm font-sans font-black uppercase tracking-widest text-sm hover:brightness-125 transition disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]';
+const quietButton = 'px-4 py-2 border border-sepia/50 text-sepia hover:text-ink hover:border-ink/50 rounded-sm font-sans font-black uppercase tracking-widest text-sm transition-colors [@media(pointer:coarse)]:min-h-[44px]';
 
 // Relationship type, an optional prompt question, and the answer. The chosen question is
 // kept as its index and shown above the answer box, never in it; tapping it again lets it go.
@@ -93,10 +93,12 @@ const LoreText = ({ rel }) => {
 const formFrom = (rel) => ({ relType: rel.rel_type, ...splitLore(rel.rel_type, rel.lore) });
 
 // One relationship as it stands, with Accept and Counter when it is this player's turn.
+// noCounter: one party is dead. A counter is a new proposal, which the server refuses from
+// or to the dead, so only Accept answers what was proposed before the death.
 // focusRequest: a ref set when this player's press (Propose, Accept, Send counter) is about
 // to replace the button they pressed; the status takes focus when the answer lands, so it
 // does not fall to the page (playtest, keyboard-focus-dropped)
-const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship, onEdit, focusRequest }) => {
+const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship, onEdit, focusRequest, noCounter = false }) => {
   const boxRef = useRef(null);
   useEffect(() => {
     if (!focusRequest?.current) return;
@@ -153,13 +155,13 @@ const RelationshipStatus = ({ rel, myId, theirName, forms, respondToRelationship
           <div className="flex gap-2 flex-wrap">
             <button type="button" onClick={() => respond(rel.id, 'accept')} aria-label={`Accept ${theirName}'s ${rel.rel_type}`} className={primaryButton}>Accept</button>
             {/* Counter starts from what was proposed, so a small change is a small edit */}
-            <button type="button" onClick={() => setCounter(counter.open ? { open: false } : { ...(counter.relType ? {} : formFrom(rel)), open: true })}
+            {!noCounter && <button type="button" onClick={() => setCounter(counter.open ? { open: false } : { ...(counter.relType ? {} : formFrom(rel)), open: true })}
               aria-expanded={!!counter.open} aria-label={`${counter.open ? 'Cancel counter to' : 'Counter'} ${theirName}'s ${rel.rel_type}`} className={quietButton}>
               {counter.open ? 'Cancel counter' : 'Counter'}
-            </button>
+            </button>}
           </div>
           <AnimatePresence initial={false}>
-            {counter.open && (
+            {counter.open && !noCounter && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
@@ -221,11 +223,13 @@ export const RelationshipNegotiation = ({
         <Standing inv={inv} />
       </div>
 
-      <div>
+      {/* The dead are a record: no proposal to or from them, Edit and Counter included (the
+          server refuses each), only what was already there */}
+      {(!inv.is_dead || mine) && <div>
         <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>Your relationship to {inv.name}</h4>
-        {mine && !isEditing ? (
+        {mine && (!isEditing || inv.is_dead) ? (
           <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
-            onEdit={startEdit} focusRequest={focusRequest} />
+            onEdit={inv.is_dead || proposeBlocked ? undefined : startEdit} focusRequest={focusRequest} noCounter={inv.is_dead || proposeBlocked} />
         ) : proposeBlocked ? (
           <p className="font-serif text-base text-sepia">A dead investigator proposes no relationships.</p>
         ) : !formOpen ? (
@@ -243,13 +247,13 @@ export const RelationshipNegotiation = ({
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {theirs && (
         <div className={compact ? 'pt-2' : 'pt-3 border-t border-parchment-deep'}>
           <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>{inv.name}'s relationship to you</h4>
           <RelationshipStatus rel={theirs} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
-            focusRequest={focusRequest} />
+            focusRequest={focusRequest} noCounter={inv.is_dead || proposeBlocked} />
         </div>
       )}
     </div>

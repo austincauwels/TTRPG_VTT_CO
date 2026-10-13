@@ -28,8 +28,9 @@ import { TableStrip, NewDot } from '../shared/TableStrip';
 import { retiredByRejoin, inviteWords } from '../campaignSelector/RejoinInviteBanner';
 
 export const MainDeskView = () => {
-  const { character, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar, unseen, markSeen, characters } = useGameStore(useShallow(s => ({
+  const { character, sheetLiveId, circle, circleCreation, accessSession, socket, connect, logout, fetchCircleCreationState, setStage, pendingRelationshipIntro, rejoinInvite, setRejoinInvite, lastPlayedCampaign, pendingScar, showScarModal, reopenScar, unseen, markSeen, characters } = useGameStore(useShallow(s => ({
     character: s.character,
+    sheetLiveId: s.sheetLiveId,
     circle: s.circle,
     circleCreation: s.circleCreation,
     accessSession: s.accessSession,
@@ -68,11 +69,13 @@ export const MainDeskView = () => {
     }
   }, [character?.id]);
 
+  // Once the socket's own sheet says the investigator is active: a reloaded one may be
+  // stale, retired with its campaign meanwhile, and would only get a 403 (#22)
   useEffect(() => {
-    if (character?.status === 'active' && character?.campaign_id) {
+    if (character?.status === 'active' && character?.campaign_id && sheetLiveId === character.id) {
       fetchCircleCreationState(character.campaign_id);
     }
-  }, [character?.status, character?.campaign_id]);
+  }, [character?.status, character?.campaign_id, sheetLiveId]);
 
   const showCreationPopup =
     character?.status === 'active' &&

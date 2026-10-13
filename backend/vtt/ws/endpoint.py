@@ -47,7 +47,7 @@ from vtt.ws.access import CLOSE_UNAUTHENTICATED, Rejected, check_message, check_
 from vtt.ws.context import WSContext
 from vtt.ws.handlers import HANDLERS
 from vtt.ws.handlers.marks import send_held_mark, send_open_intercepts
-from vtt.ws.handlers.rolls import send_held_roll
+from vtt.ws.handlers.rolls import send_felt_roll, send_held_roll
 from vtt.ws.manager import campaign_key, character_key, manager
 
 router = APIRouter()
@@ -159,6 +159,8 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
             await send_held_roll(websocket, character)
             await send_held_mark(websocket, character)
             await send_open_intercepts(websocket, character)
+        elif is_gm and campaign is not None:
+            await send_felt_roll(websocket, campaign.id)
         # The Activity Log lines this channel was sent lately, so the desk's log is whole
         # again after a reload or a drop (sent only when there are some)
         history = manager.history_for(channel, camp_id)

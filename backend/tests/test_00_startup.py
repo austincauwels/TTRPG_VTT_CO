@@ -122,7 +122,8 @@ def test_migrated_columns_exist(client):
     assert {"gm_user_id", "roster_finalized", "is_retired", "deleted_at", "released_characters"} <= cols["campaigns"]
     assert {"role", "specialty", "personal_circle_answer", "nerve_resistance_spent",
             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
-            "train_bonus", "resources_spent_assignment", "deleted_at", "sheet_edited"} <= cols["characters"]
+            "train_bonus", "resources_spent_assignment", "deleted_at", "sheet_edited",
+            "held_mark", "taken_mark_ids"} <= cols["characters"]
     assert "last_actor_id" in cols["relationships"]
     assert {"entry_type", "visibility", "image_data", "is_deleted", "sketch_scene"} <= cols["notebook_entries"]
     assert {"pending_rejoin_campaign_id", "google_sub", "google_email", "email_proven",
@@ -135,6 +136,7 @@ def test_migrated_columns_exist(client):
         "id", "user_id", "token_hash", "new_email", "old_email", "password_stamp", "created_at", "expires_at"}
     assert {c["name"] for c in insp.get_columns("email_change_undos")} == {
         "id", "user_id", "token_hash", "old_email", "new_email", "google_sub", "created_at", "expires_at"}
+    assert {c["name"] for c in insp.get_columns("activity_lines")} == {"id", "campaign_id", "channels", "line"}
 
 
 def _run_import(env):
@@ -324,6 +326,8 @@ MIGRATED_COLUMNS = {
     ("characters", "resources_spent_assignment"): ("integer", "0"),
     ("characters", "deleted_at"): ("timestamp without time zone", None),
     ("characters", "sheet_edited"): ("boolean", "false"),
+    ("characters", "held_mark"): ("json", None),
+    ("characters", "taken_mark_ids"): ("json", "'[]'::json"),
     ("relationships", "last_actor_id"): ("integer", None),
     ("notebook_entries", "entry_type"): ("text", "'field_log'::text"),
     ("notebook_entries", "visibility"): ("text", "'all'::text"),
@@ -368,6 +372,7 @@ def test_init_db_alters_upgrade_a_legacy_schema(client, monkeypatch):
         assert [(fk["constrained_columns"], fk["referred_table"]) for fk in fks] == [(["campaign_id"], "campaigns")]
         indexes = [(i["name"], i["column_names"], bool(i["unique"])) for i in sa_inspect(eng).get_indexes("users")]
         assert indexes == [("ix_users_google_sub", ["google_sub"], True)]
+        assert {c["name"] for c in sa_inspect(eng).get_columns("activity_lines")} == {"id", "campaign_id", "channels", "line"}
         with eng.connect() as conn:
             assert conn.execute(text("SELECT count(*) FROM circles")).scalar() == 0
             assert conn.execute(text("SELECT count(*) FROM users")).scalar() == 0
@@ -382,11 +387,13 @@ def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client
     "Error seeding database" (found rehearsing the upgrade from main). It reads the id
     alone now, and the new columns are added."""
     added = [("circles", "stamina_dice_used"), ("characters", "warded_by_id"), ("characters", "train_dice"),
-             ("characters", "advancement_set"), ("characters", "sheet_edited"), ("circles", "earn_backs")]
+             ("characters", "advancement_set"), ("characters", "sheet_edited"), ("circles", "earn_backs"),
+             ("characters", "held_mark"), ("characters", "taken_mark_ids")]
     with support.isolated_schema() as (eng, Session, schema):
         with eng.begin() as conn:
             for table, col in added:
                 conn.execute(text(f"ALTER TABLE {table} DROP COLUMN {col}"))
+            conn.execute(text("DROP TABLE activity_lines"))
             conn.execute(text("INSERT INTO circles (id, name) VALUES (1, 'The Order of Light')"))
             conn.execute(text("INSERT INTO users (id, username, email, hashed_password) VALUES (1, 'admin', 'a@b.c', 'x')"))
         monkeypatch.setattr(main, "db_engine", eng)
@@ -396,6 +403,7 @@ def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client
         assert not [r for r in caplog.records if "Error seeding database" in r.getMessage()]
         cols = _schema_columns(eng, schema)
         assert all(key in cols for key in added)
+        assert ("activity_lines", "line") in cols
 
 
 def _column_types(eng, schema):

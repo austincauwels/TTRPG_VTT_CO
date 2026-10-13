@@ -552,12 +552,19 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     require_owner(user, character_or_404(db, body.character_id))
     # who they replace, for the log line: their other investigators now on this roster
     there = by_campaign_code(db.query(Campaign.id), body.campaign_code).scalar_subquery()
-    replaced = [n for (n,) in db.query(Character.name).filter(
+    replaced = db.query(Character.id, Character.name).filter(
         Character.campaign_id == there, Character.user_id == user.id,
-        Character.id != body.character_id, Character.status == "active").order_by(Character.id)]
+        Character.id != body.character_id, Character.status == "active").order_by(Character.id).all()
     campaign, new_char, changed = rejoin(db, body.campaign_code, body.character_id, user)
     if not changed:
         return {"success": True, "character": get_char_dict(new_char)}
+    # A desk still open on an investigator the rejoin retired (the player's other device)
+    # goes to the hub: the investigator is no longer in play there
+    for old_id, old_name in replaced:
+        await manager.broadcast(character_key(old_id), {"type": "investigator_replaced", "payload": {
+            "character_id": old_id, "character_name": old_name, "campaign_id": campaign.id,
+            "campaign_code": campaign.campaign_code, "campaign_name": campaign.name,
+            "replaced_by": new_char.name}})
 
     active = db.query(Character).filter(
         Character.campaign_id == campaign.id,
@@ -583,7 +590,7 @@ async def rejoin_campaign(body: RejoinRequest, db: Session = Depends(get_db),
     }, db)
     await _announce_members_changed(db, campaign)
     await log_line(db, campaign.campaign_code, campaign.id, f"{new_char.name} joined the circle"
-                   + (f", in place of {' and '.join(replaced)}." if replaced else "."))
+                   + (f", in place of {' and '.join(n for _, n in replaced)}." if replaced else "."))
     return {"success": True, "character": get_char_dict(new_char)}
 
 

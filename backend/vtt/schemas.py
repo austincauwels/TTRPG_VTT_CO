@@ -395,6 +395,8 @@ class CharacterSheet(CharacterResponse):
     scar_pending: bool = False
     # A direct edit by the player the Lightkeeper has not seen (vtt/sheet_edits.py)
     sheet_edited: bool = False
+    # The marks an open soak or Death Defy offer holds back: {ability, mark_types}, or None
+    held_marks: Optional[Dict[str, Any]] = None
 
 class CharacterRosterItem(BaseModel):
     id: int

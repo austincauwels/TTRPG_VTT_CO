@@ -267,9 +267,15 @@ def test_a_desk_that_opens_again_is_offered_the_held_gilded_roll(client, dice):
         assert support.types(msgs) == ["roll_kept", "activity_log"]
         assert msgs[1]["payload"]["message"] == f"{ch['name']} rolled control {EM} 6 {DOT} Full Success (3 dice: 4 gilded, 6, 2; kept the 6)."
         assert support.types(gm.drain()) == ["dice_thrown", "activity_log"]
-    # Kept: a desk opening now has nothing waiting for it (only the log's lines)
+    # Kept: a desk opening now has no choice waiting for it. It is shown the roll with the
+    # die kept (#40; it used to get only the log's lines, and an empty tray).
     with support.ws_connect(client, ch["id"]) as third:
-        assert support.types(third.sync()) == ["activity_history"]
+        msgs = third.sync()
+        assert support.types(msgs) == ["roll_result", "activity_history"]
+        assert msgs[0]["payload"] == {
+            "character_id": ch["id"], "action": "control", "roll": first["payload"]["roll"],
+            "character": third.initial[0]["payload"], "replayed": True,
+            "kept": {"index": 1, "is_gilded": False, "value": 6, "outcome": "full_success"}}
     assert support.fetch(Character, ch["id"]).nerve_current == 3
 
 
@@ -291,12 +297,17 @@ def test_a_roll_sent_again_with_its_id_is_answered_not_rolled_again(client, dice
         assert first["roll_id"] == "r-1"
     with support.ws_connect(client, ch["id"]) as again, support.ws_connect(client, camp["campaign_code"]) as gm:
         again.send("roll", action="move", drive_spent=1, roll_id="r-1")
-        # Each desk that opens gets the log's lines first, the first roll's line among them
+        # Each desk that opens gets its last roll back (replayed, #40) and the log's lines
+        # first, the first roll's line among them
         msgs = again.sync()
-        assert support.types(msgs) == ["activity_history", "roll_result"]
-        assert msgs[1] == {"type": "roll_result", "payload": first}
-        # The Lightkeeper's desk gets the sheet it mirrors, and no dice or log line
-        assert support.types(gm.drain()) == ["activity_history", "member_update"]
+        assert support.types(msgs) == ["roll_result", "activity_history", "roll_result"]
+        assert msgs[0] == {"type": "roll_result", "payload": {**first, "replayed": True}}
+        assert msgs[2] == {"type": "roll_result", "payload": first}
+        # The Lightkeeper's desk gets the sheet it mirrors, and no new dice or log line: the
+        # first roll comes back to her felt as it opens, replayed (#40), not thrown again
+        to_gm = gm.drain()
+        assert support.types(to_gm) == ["dice_thrown", "activity_history", "member_update"]
+        assert to_gm[0]["payload"]["replayed"] is True and to_gm[0]["payload"]["roll"] == first["roll"]
         # A new roll
         dice(1, 1, 4)
         again.send("roll", action="move", drive_spent=1, roll_id="r-2")
@@ -564,7 +575,7 @@ def test_a_secret_line_is_kept_for_the_lightkeepers_desk_alone(client, dice):
     """The log's history, which a socket gets as activity_history when it opens, keeps
     the secret line for the Lightkeeper's channel only: a player's reload, second tab or
     first visit never gets it, and the Lightkeeper's next desk does. The server holds it
-    nowhere else (the history lives in memory; no route reads it)."""
+    nowhere else (it is stored for her channel alone; no route reads it)."""
     camp = support.new_campaign(client)
     a = support.active_member(client, camp)
     late = support.active_member(client, camp)   # no desk open while the roll was made
@@ -585,11 +596,11 @@ def test_a_secret_line_is_kept_for_the_lightkeepers_desk_alone(client, dice):
         assert [(e["message"], e.get("is_secret")) for e in entries] == [
             (f"(Secret) Lightkeeper rolled {EM} 3 {DOT} Failure (1 die: 3).", True),
             (f"{a['name']}: hello", None)]
-    holders = {key for key, lines in main.manager._history.items()
-               for camp_id, line in lines if camp_id == camp["id"] and line.get("is_secret")}
+    stored = support.stored_lines(camp["id"])
+    holders = {key for keys, line in stored if line.get("is_secret") for key in keys}
     assert holders == {campaign_key(camp["campaign_code"])}
-    assert all(not line.get("is_secret") for key in (character_key(a["id"]), character_key(late["id"]))
-               for _, line in main.manager._history.get(key, ()))
+    assert all(not line.get("is_secret") for keys, line in stored
+               if {character_key(a["id"]), character_key(late["id"])} & set(keys))
 
 
 def test_a_held_secret_roll_stays_secret_on_a_desk_that_opens_again(client, dice):
@@ -649,8 +660,7 @@ def test_what_answers_a_players_secret_roll_stays_with_the_roller(client, dice):
         with support.ws_connect(client, key) as again:
             entries = again.recv_type("activity_history")["payload"]["entries"]
             assert [(e["message"], e.get("is_secret")) for e in entries] == [(f"{other['name']}: hello", None)]
-    holders = {key for key, lines in main.manager._history.items()
-               for camp_id, line in lines if camp_id == camp["id"] and line.get("is_secret")}
+    holders = {key for keys, line in support.stored_lines(camp["id"]) if line.get("is_secret") for key in keys}
     assert holders == {character_key(ch["id"])}
     row = support.fetch(Character, ch["id"])
     assert (row.cunning_resistance_spent, row.cunning_current) == (1, 4)
@@ -1114,7 +1124,9 @@ def test_a_die_kept_from_the_assignment_before_settles_no_new_roll(client, dice)
 def test_a_desk_that_missed_the_settling_dice_is_told_when_it_opens(client, dice):
     """Fixed (playtest 2 review, roll-settling-client-server-mismatch): a desk that was
     away while another roll settled its own still offered the burn, which the server then
-    refused. It gets roll_settled as it opens; once the character rolls again it does not."""
+    refused. The last roll it is sent as it opens comes marked settled (it was a
+    roll_settled frame until #40 sent the roll itself); once the character rolls again
+    it is not."""
     camp = support.new_campaign(client)
     a = support.active_member(client, camp, move=1, nerve_max=6)
     with support.ws_connect(client, camp["campaign_code"]) as gm:
@@ -1126,13 +1138,128 @@ def test_a_desk_that_missed_the_settling_dice_is_told_when_it_opens(client, dice
         gm.send("roll", action="Lightkeeper", drive_spent=1)
         gm.sync()
         with support.ws_connect(client, a["id"]) as wa:
-            assert support.of_type(wa.sync(), "roll_settled") == [
-                {"type": "roll_settled", "payload": {"character_id": a["id"]}}]
+            [shown] = support.of_type(wa.sync(), "roll_result")
+            assert (shown["payload"]["replayed"], shown["payload"]["settled"]) == (True, True)
             dice(2)
             wa.send("roll", action="move", drive_spent=0)
             wa.sync()
         with support.ws_connect(client, a["id"]) as wa:
-            assert support.of_type(wa.sync(), "roll_settled") == []
+            [shown] = support.of_type(wa.sync(), "roll_result")
+            assert shown["payload"]["replayed"] is True and "settled" not in shown["payload"]
+
+
+def test_a_desk_that_opens_again_is_shown_its_last_roll_open_to_a_burn(client, dice):
+    """Fixed (#40): a reload after a roll emptied the tray and hid Burn and reroll, while
+    the server still took the burn. A desk that opens is sent its last roll again, the
+    same dice and result, marked replayed (no dice sound) and not settled while the
+    server still holds it open; the burn then goes through, and the reroll is the roll
+    shown next time. The rest of the table is sent nothing for it."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, move=1, nerve_max=6)
+    with support.ws_connect(client, ch["id"]) as ws:
+        dice(4)
+        ws.send("roll", action="move", drive_spent=0, roll_id="r-1")
+        first = support.of_type(ws.sync(), "roll_result")[0]["payload"]
+    with support.ws_connect(client, ch["id"]) as again, support.ws_connect(client, camp["campaign_code"]) as gm:
+        [shown] = support.of_type(again.sync(), "roll_result")
+        assert shown["payload"] == {**first, "character": again.initial[0]["payload"], "replayed": True}
+        assert support.of_type(gm.sync(), "roll_result") == []
+        dice(6)
+        again.send("burn_resistance", action="move")
+        reroll = support.of_type(again.sync(), "roll_result")[0]["payload"]["roll"]
+        assert reroll["outcome"] == "full_success"
+    with support.ws_connect(client, ch["id"]) as third:
+        [shown] = support.of_type(third.sync(), "roll_result")
+        assert shown["payload"]["roll"] == reroll and "roll_id" not in shown["payload"]
+    assert support.fetch(Character, ch["id"]).nerve_resistance_spent == 1
+
+
+def test_the_roll_shown_again_has_its_outcome_as_it_is_now(client, dice):
+    """A roll Flourish pushed up comes back with its new outcome, on a plain roll and on a
+    gilded roll whose die was kept (#19, #40), and so does a roll sent again with its id.
+    It names the post-roll abilities used on it. A secret roll comes back still secret."""
+    ch = support.forge(client, sneak=1, hide=2, gilded_hide=True, cunning_max=6, cunning_current=6,
+                       role_ability="Flourish")
+    with support.ws_connect(client, ch["id"]) as ws:
+        dice(2)
+        ws.send("roll", action="sneak", drive_spent=0, roll_id="r-1", is_secret=True)
+        ws.send("use_post_roll_ability", ability="Flourish")
+        ws.sync()
+        ws.send("roll", action="sneak", drive_spent=0, roll_id="r-1")
+        [again] = support.of_type(ws.sync(), "roll_result")
+        assert again["payload"]["roll"]["outcome"] == "mixed_success"
+    with support.ws_connect(client, ch["id"]) as ws:
+        [shown] = support.of_type(ws.sync(), "roll_result")
+        assert (shown["payload"]["roll"]["outcome"], shown["payload"]["roll"]["is_secret"]) == ("mixed_success", True)
+        # Flourish is not offered again on it
+        assert shown["payload"]["used"] == ["Flourish"]
+        dice(2, 4)
+        ws.send("roll", action="hide", drive_spent=0)
+        ws.send("resolve_gilded", action="hide", chosen_type="regular")
+        ws.send("use_post_roll_ability", ability="Flourish")
+        ws.sync()
+    with support.ws_connect(client, ch["id"]) as ws:
+        [shown] = support.of_type(ws.sync(), "roll_result")
+        assert shown["payload"]["roll"]["needs_gilded_choice"] is True
+        assert shown["payload"]["kept"] == {"index": 1, "is_gilded": False, "value": 4, "outcome": "full_success"}
+
+
+def test_a_roll_is_the_one_shown_again_before_its_result_goes_out(client, dice, monkeypatch):
+    """The race between a reload and a roll: a desk that opens while a roll's result is
+    on its way is sent that roll, not the one before, as the roll is remembered before
+    its result goes out (#40)."""
+    from vtt.ws.handlers import rolls
+    ch = support.forge(client, move=1, nerve_max=6)
+    seen = []
+    send = rolls.manager.broadcast
+
+    async def watch(key, message, campaign_id=None):
+        if message.get("type") == "roll_result":
+            seen.append(rolls._shown_roll[ch["id"]]["roll"]["dice"])
+        await send(key, message, campaign_id)
+
+    monkeypatch.setattr(rolls.manager, "broadcast", watch)
+    with support.ws_connect(client, ch["id"]) as ws:
+        dice(2)
+        ws.send("roll", action="move", drive_spent=0)
+        dice(5)
+        ws.send("burn_resistance", action="move")
+        ws.sync()
+    assert seen == [_d(2), _d(5)]
+
+
+def test_the_lightkeepers_desk_that_opens_again_is_shown_the_newest_roll_on_her_felt(client, dice):
+    """Fixed (#40): the Lightkeeper's felt came back empty after a reload. Her desk that
+    opens is sent the newest roll on it, marked replayed (no dice): her own roll as
+    roll_result, or a player's roll as the dice_thrown that put it there, with its
+    outcome as it is now. A player's secret roll never takes her felt, and a player's
+    desk is sent no one else's roll."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, sneak=1, cunning_max=6, cunning_current=6, role_ability="Flourish")
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        dice(4)
+        gm.send("roll", action="Lightkeeper", drive_spent=1, roll_id="g-1")
+        own = support.of_type(gm.sync(), "roll_result")[0]["payload"]
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        msgs = gm.sync()
+        assert support.of_type(msgs, "roll_result") == [{"type": "roll_result", "payload": {**own, "replayed": True}}]
+        assert support.of_type(msgs, "dice_thrown") == []
+    with support.ws_connect(client, ch["id"]) as ws:
+        dice(2)
+        ws.send("roll", action="sneak", drive_spent=0)
+        ws.send("use_post_roll_ability", ability="Flourish")
+        ws.sync()
+        dice(3)
+        ws.send("roll", action="sneak", drive_spent=0, is_secret=True)
+        ws.sync()
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        msgs = gm.sync()
+        assert support.of_type(msgs, "roll_result") == []
+        [thrown] = support.of_type(msgs, "dice_thrown")
+        assert thrown["payload"]["replayed"] is True and thrown["payload"]["character_id"] == ch["id"]
+        assert (thrown["payload"]["roll"]["dice"], thrown["payload"]["roll"]["outcome"]) == (_d(2), "mixed_success")
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert support.of_type(ws.sync(), "dice_thrown") == []
 
 
 def test_a_burn_answers_only_the_newest_roll(client, dice):
@@ -1272,9 +1399,9 @@ def test_post_roll_abilities_check_the_last_roll(client, dice):
         ws.sync()
         ws.send("use_post_roll_ability", ability="Flourish")
         msgs = ws.sync()
-        assert support.types(msgs) == ["character_update", "activity_log"]
+        assert support.types(msgs) == ["character_update", "roll_outcome", "activity_log"]
         assert msgs[0]["payload"]["cunning_current"] == 4
-        assert msgs[1]["payload"]["message"] == (
+        assert msgs[2]["payload"]["message"] == (
             f"{flourish['name']} used Flourish {EM} result pushed up one tier, to Mixed Success.")
         ws.send("use_post_roll_ability", ability="Flourish")  # once per roll
         assert support.types(ws.sync()) == ["action_rejected"]
@@ -1312,9 +1439,9 @@ def test_post_roll_abilities_check_the_last_roll(client, dice):
         ws.sync()
         ws.send("use_post_roll_ability", ability="Bending Spoons")
         msgs = ws.sync()
-        assert support.types(msgs) == ["character_update", "activity_log"]
+        assert support.types(msgs) == ["character_update", "roll_outcome", "activity_log"]
         assert (msgs[0]["payload"]["bleed_marks"], msgs[0]["payload"]["incapacitated"]) == (3, False)
-        assert msgs[1]["payload"]["message"] == (
+        assert msgs[2]["payload"]["message"] == (
             f"{spoons['name']} used Bending Spoons {EM} took 1 Bleed mark to upgrade the result.")
 
 
@@ -1326,7 +1453,7 @@ def test_bending_spoons_fourth_mark_incapacitates(client, dice):
         ws.send("roll", action="sense", drive_spent=0)
         ws.sync()
         ws.send("use_post_roll_ability", ability="Bending Spoons")
-        assert support.types(ws.sync()) == ["trigger_scar", "activity_log", "activity_log"]
+        assert support.types(ws.sync()) == ["trigger_scar", "activity_log", "roll_outcome", "activity_log"]
     assert support.fetch(Character, ch["id"]).incapacitated is True
 
 
@@ -1340,7 +1467,57 @@ def test_flourish_after_a_kept_die(client, dice):
         ws.send("resolve_gilded", action="hide", chosen_type="regular")
         ws.sync()
         ws.send("use_post_roll_ability", ability="Flourish")
-        assert ws.sync()[1]["payload"]["message"].endswith("to Full Success.")
+        msgs = ws.sync()
+        assert msgs[-1]["payload"]["message"].endswith("to Full Success.")
+        assert support.of_type(msgs, "roll_outcome")[0]["payload"]["outcome"] == "full_success"
+
+
+def test_an_ability_that_changes_the_outcome_tells_the_desk_and_the_table(client, dice):
+    """Fixed (#19): Flourish and Bending Spoons changed the roll's outcome on the server
+    and in the log, but the result slip kept the old one: nothing told the desks. The
+    roller and the rest of the table now get roll_outcome with the new outcome."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, sneak=1, cunning_max=6, cunning_current=6, role_ability="Flourish")
+    other = support.active_member(client, camp)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, other["id"]) as wo, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
+        dice(2)
+        ws.send("roll", action="sneak", drive_spent=0)
+        ws.sync()
+        gm.sync()
+        wo.drain()
+        ws.send("use_post_roll_ability", ability="Flourish")
+        msgs = ws.sync()
+        assert support.types(msgs) == ["character_update", "roll_outcome", "activity_log"]
+        told = {"type": "roll_outcome", "payload": {
+            "character_id": ch["id"], "action": "sneak", "outcome": "mixed_success", "by": "Flourish"}}
+        assert msgs[1] == told
+        assert support.of_type(gm.sync(), "roll_outcome") == [told]
+        assert support.of_type(wo.drain(), "roll_outcome") == [told]
+
+    spoons = support.forge(client, sense=1, role_ability="Bending Spoons")
+    with support.ws_connect(client, spoons["id"]) as ws:
+        dice(5)
+        ws.send("roll", action="sense", drive_spent=0)
+        ws.sync()
+        ws.send("use_post_roll_ability", ability="Bending Spoons")
+        assert support.of_type(ws.sync(), "roll_outcome") == [{"type": "roll_outcome", "payload": {
+            "character_id": spoons["id"], "action": "sense", "outcome": "full_success", "by": "Bending Spoons"}}]
+
+
+def test_a_secret_rolls_new_outcome_goes_to_the_roller_alone(client, dice):
+    """The new outcome of a secret roll is the roller's, as the roll is (#19)."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, sneak=1, cunning_max=6, cunning_current=6, role_ability="Flourish")
+    other = support.active_member(client, camp)
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, other["id"]) as wo, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
+        dice(2)
+        ws.send("roll", action="sneak", drive_spent=0, is_secret=True)
+        ws.send("use_post_roll_ability", ability="Flourish")
+        assert support.of_type(ws.sync(), "roll_outcome")[0]["payload"]["outcome"] == "mixed_success"
+        assert support.of_type(gm.sync(), "roll_outcome") == []
+        assert support.of_type(wo.drain(), "roll_outcome") == []
 
 
 def test_first_drive_point_worth_two_dice(client, dice):
