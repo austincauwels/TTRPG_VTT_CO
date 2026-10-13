@@ -722,12 +722,13 @@ const useGameStore = create(
             const campaignId = lastPlayedCampaign.campaignId ?? accessSession?.campaignId;
             get().fetchRoster(campaignId, { keep: true });
             get().fetchCircleCreationState(campaignId);
-          } else if (keepLog && get().character?.campaign_id) {
+          } else if (keepLog && get().character?.campaign_id && get().character.status === 'active') {
             // A player's desk: a death or a revival (member_status) that came while it was
             // down is in the roster, which its circle's cards and ally pickers read, and the
-            // other players' votes are on its formation papers
+            // other players' votes are on its formation papers. Only a member may read them:
+            // a pending or retired investigator would get a 403 (issue #22)
             get().fetchRoster(get().character.campaign_id, { keep: true });
-            if (get().character.status === 'active') get().fetchCircleCreationState(get().character.campaign_id);
+            get().fetchCircleCreationState(get().character.campaign_id);
           }
         };
         socket.onerror = (err) => console.error("WebSocket connection error:", err);

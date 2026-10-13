@@ -176,9 +176,11 @@ export const TactileSidebar = ({ phonePart }) => {
   const relationships = circleCreation?.relationships || [];
   const myPhoto = character?.profile_pic || character?.profilePic || null;
 
+  // Only a member may read the roster: a pending investigator, or one retired with its
+  // campaign or replaced (the dead of a retired campaign), would only get a 403 (issue #22)
   useEffect(() => {
-    if (character?.campaign_id) fetchRoster(character.campaign_id);
-  }, [character?.campaign_id]);
+    if (character?.campaign_id && character.status === 'active') fetchRoster(character.campaign_id);
+  }, [character?.campaign_id, character?.status]);
 
   const phoneShows = (part) => phonePart === undefined || phonePart === part;
   const onPhone = (part) => (phoneShows(part) ? '' : 'max-md:hidden');
