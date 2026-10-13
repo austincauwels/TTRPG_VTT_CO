@@ -278,6 +278,22 @@ def test_approve_retires_dead_predecessor_of_same_user(client):
     assert support.fetch(Character, other_user_dead["id"]).status == "active"
 
 
+def test_approve_keeps_the_players_spends_from_the_dead_predecessor(client):
+    """A replacement approved through a join request started at 0 spends used, so a player
+    could take two more in the same break (issue #41). It keeps the count, as a rejoin does;
+    a dead investigator retired in an earlier break holds an old count, which is not taken."""
+    camp = support.new_campaign(client)
+    u = support.make_user()
+    long_gone = support.active_member(client, camp, user_id=u.id)
+    support.update(Character, long_gone["id"], is_dead=True, status="retired", resources_spent_assignment=2)
+    old = support.active_member(client, camp, user_id=u.id)
+    support.update(Character, old["id"], is_dead=True, resources_spent_assignment=1)
+    new = support.pending_member(client, camp, user_id=u.id)
+    assert support.approve(client, new["id"]).status_code == 200
+    assert support.fetch(Character, new["id"]).resources_spent_assignment == 1
+    assert support.fetch(Character, old["id"]).status == "retired"
+
+
 def test_approve_not_pending(client):
     """The GM approving an active member gets 400. A character with no campaign has no
     GM (403), and an unknown id is 404 (before tokens both were 400)."""

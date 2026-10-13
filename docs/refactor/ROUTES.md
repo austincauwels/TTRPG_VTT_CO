@@ -105,7 +105,7 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 **POST /campaign/approve/{character_id}** (line 489, `async def`)
 - Inputs: path `character_id`.
 - Trusted ids: `character_id`.
-- Tables: characters (status `active`, ink_color from `INK_COLORS` by active count; dead predecessors of the same user in the campaign set to `retired`), campaigns (read).
+- Tables: characters (status `active`, ink_color from `INK_COLORS` by active count; dead predecessors of the same user in the campaign set to `retired`; since fix round 6 the new character takes the larger spend count of those still active, as a rejoin does), campaigns (read).
 - Broadcast: `investigator_approved` with `{character, active_investigators, campaign_id}`; the Lightkeeper's copy also carries `fallen_investigators` (the campaign's dead and retired investigators, as `FallenItem`). Since 2026-10-11, when the approval retires a dead investigator of the same player, the table's log reads "<name> joined the circle, in place of <dead>."; an ordinary approval logs "<name> was approved into the circle."
 - Errors: 400 if not pending. If the character's campaign row is missing, `campaign.campaign_code` raises (500).
 
