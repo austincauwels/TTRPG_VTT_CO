@@ -80,22 +80,25 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   const resistSpent = lastRollDriveKey ? (character?.[lastRollDriveKey + '_resistance_spent'] || 0) : 0;
   const canResist   = !settled && !gildedPending && scoredRoll && scoredRoll.outcome !== 'full_success' && scoredRoll.outcome !== 'critical_success' && resistMax > resistSpent && !showGmControls;
 
-  // Skew values are stable per-roll — computed once when lastRoll changes, not on every render
+  // Skew values are stable per roll: computed once when the dice change, not on every
+  // render, nor when a post-roll ability changes the roll's outcome
+  const rolledDice = lastRoll?.dice;
   const dieSkews = useMemo(() => {
-    const count = lastRoll?.dice?.length || 0;
+    const count = rolledDice?.length || 0;
     return Array.from({ length: count }, () => `${Math.floor(Math.random() * 40) - 20}deg`);
-  }, [lastRoll]);
+  }, [rolledDice]);
 
   // The die kept in a gilded choice, remembered for the result and the phone roll bar until
-  // the next roll. On the GM's felt a player's kept die comes with their dice.
+  // the next roll, with the server's outcome for it (a post-roll ability may change it). On
+  // the GM's felt a player's kept die comes with their dice, and the roll has its outcome.
   const [kept, setKept] = useState(null);
   const tableKept = shownTable?.kept && Number.isInteger(shownTable.kept.index)
     ? { roll: lastRoll, value: shownTable.kept.value, idx: shownTable.kept.index,
       // The roster does not carry the roller's drives, so no "1 X back" is claimed here
       back: '' } : null;
   const keptDie = shownTable ? tableKept
-    : kept && kept.roll === lastRoll ? kept
-    : resolved ? { roll: lastRoll, value: resolved.value, idx: resolved.index } : null;
+    : kept && kept.roll === lastRoll ? { ...kept, outcome: resolved?.outcome }
+    : resolved ? { roll: lastRoll, value: resolved.value, idx: resolved.index, outcome: resolved.outcome } : null;
 
   const getIsCandidate = (die, idx) => {
     if (!lastRoll?.dice) return false;
