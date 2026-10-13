@@ -1,0 +1,1169 @@
+From 25f5fd8a169612a74ec3100160395f82a418b43f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 13 Oct 2026 05:07:23 +0000
+Subject: [PATCH 1/4] Let players edit their own sheet, logged for the
+ Lightkeeper
+
+Issue #64, decision 1 of fix round 5 (detection, not prevention). A new
+edit_sheet message stores any change a player makes to their own sheet
+(name and words, role and specialty, abilities, ratings and gilds, drives,
+maximums, resistances, marks, scars up to three) with only shape checks.
+update_gear no longer refuses a player's change (unmarking, past the
+slots, One Step Ahead's object). A player's pip set by hand, a gear change
+and an edit each write one line for the Lightkeeper and the player
+("Mara: Nerve 2 to 3.") and set characters.sheet_edited, the roster card's
+dot, which gm_sheet_seen clears. member_status carries the name so a
+rename reaches the other members' cards.
+
+Checked: new tests/test_ws_sheet_edits.py; the flipped gear and drive
+tests in test_ws_character.py; test_surface, test_00_startup (fresh
+database), test_access, test_ws_circle, test_ws_marks, test_ws_gm_view,
+test_ws_connect pass.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ETKqHLvkfH9k99JTnJzzKA
+---
+ backend/models.py                    |   4 +
+ backend/tests/data/openapi.json      |   5 +
+ backend/tests/support.py             |   2 +-
+ backend/tests/test_00_startup.py     |   5 +-
+ backend/tests/test_surface.py        |  14 +-
+ backend/tests/test_ws_character.py   |  74 +++++----
+ backend/tests/test_ws_circle.py      |   2 +-
+ backend/tests/test_ws_marks.py       |   6 +-
+ backend/tests/test_ws_sheet_edits.py | 206 ++++++++++++++++++++++++
+ backend/vtt/db.py                    |   3 +
+ backend/vtt/routers/campaigns.py     |   3 +-
+ backend/vtt/schemas.py               |   3 +
+ backend/vtt/serializers.py           |   3 +
+ backend/vtt/sheet_edits.py           | 227 +++++++++++++++++++++++++++
+ backend/vtt/ws/access.py             |  22 ++-
+ backend/vtt/ws/handlers/__init__.py  |   4 +
+ backend/vtt/ws/handlers/character.py | 114 ++++++++++----
+ backend/vtt/ws/handlers/circle.py    |   9 +-
+ 18 files changed, 627 insertions(+), 79 deletions(-)
+ create mode 100644 backend/tests/test_ws_sheet_edits.py
+ create mode 100644 backend/vtt/sheet_edits.py
+
+diff --git a/backend/models.py b/backend/models.py
+index e1dc8d6..25b67db 100644
+--- a/backend/models.py
++++ b/backend/models.py
+@@ -282,6 +282,10 @@ class Character(SoftDeleted, Base):
+     # one person at a time. They take +1d on Move rolls against phenomena.
+     warded_by_id = Column(Integer, nullable=True)
+ 
++    # A change the player made by hand to their own sheet that the Lightkeeper has not
++    # seen yet: the dot on the member's roster card (vtt/sheet_edits.py)
++    sheet_edited = Column(Boolean, default=False)
++
+     # Status
+     incapacitated = Column(Boolean, default=False)
+     is_dead = Column(Boolean, default=False)
+diff --git a/backend/tests/data/openapi.json b/backend/tests/data/openapi.json
+index ebdece5..7869ce8 100644
+--- a/backend/tests/data/openapi.json
++++ b/backend/tests/data/openapi.json
+@@ -831,6 +831,11 @@
+             "title": "Scars Count",
+             "type": "integer"
+           },
++          "sheet_edited": {
++            "default": false,
++            "title": "Sheet Edited",
++            "type": "boolean"
++          },
+           "specialty": {
+             "anyOf": [
+               {
+diff --git a/backend/tests/support.py b/backend/tests/support.py
+index 9142f5c..08e82e9 100644
+--- a/backend/tests/support.py
++++ b/backend/tests/support.py
+@@ -59,7 +59,7 @@ CHAR_DICT_KEYS = {
+     "incapacitated", "is_dead", "circle_id",
+     "pronouns", "style", "catalyst", "question", "role", "specialty",
+     "role_ability", "specialty_ability", "gear", "profile_pic", "status",
+-    "pen_font", "ink_color", "campaign_id", "personal_circle_answer",
++    "pen_font", "ink_color", "campaign_id", "personal_circle_answer", "sheet_edited",
+     "ability_uses", "train_bonus", "train_dice", "resources_spent_assignment",
+     "advancement_picks", "advancement_taken", "warded_by_id", "scar_pending",
+ }
+diff --git a/backend/tests/test_00_startup.py b/backend/tests/test_00_startup.py
+index 9fcabf1..8501cf9 100644
+--- a/backend/tests/test_00_startup.py
++++ b/backend/tests/test_00_startup.py
+@@ -122,7 +122,7 @@ def test_migrated_columns_exist(client):
+     assert {"gm_user_id", "roster_finalized", "is_retired", "deleted_at", "released_characters"} <= cols["campaigns"]
+     assert {"role", "specialty", "personal_circle_answer", "nerve_resistance_spent",
+             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
+-            "train_bonus", "resources_spent_assignment", "deleted_at"} <= cols["characters"]
++            "train_bonus", "resources_spent_assignment", "deleted_at", "sheet_edited"} <= cols["characters"]
+     assert "last_actor_id" in cols["relationships"]
+     assert {"entry_type", "visibility", "image_data", "is_deleted", "sketch_scene"} <= cols["notebook_entries"]
+     assert {"pending_rejoin_campaign_id", "google_sub", "google_email", "email_proven",
+@@ -322,6 +322,7 @@ MIGRATED_COLUMNS = {
+     ("characters", "train_bonus"): ("boolean", "false"),
+     ("characters", "resources_spent_assignment"): ("integer", "0"),
+     ("characters", "deleted_at"): ("timestamp without time zone", None),
++    ("characters", "sheet_edited"): ("boolean", "false"),
+     ("relationships", "last_actor_id"): ("integer", None),
+     ("notebook_entries", "entry_type"): ("text", "'field_log'::text"),
+     ("notebook_entries", "visibility"): ("text", "'all'::text"),
+@@ -380,7 +381,7 @@ def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client
+     "Error seeding database" (found rehearsing the upgrade from main). It reads the id
+     alone now, and the new columns are added."""
+     added = [("circles", "stamina_dice_used"), ("characters", "warded_by_id"), ("characters", "train_dice"),
+-             ("characters", "advancement_set")]
++             ("characters", "advancement_set"), ("characters", "sheet_edited")]
+     with support.isolated_schema() as (eng, Session, schema):
+         with eng.begin() as conn:
+             for table, col in added:
+diff --git a/backend/tests/test_surface.py b/backend/tests/test_surface.py
+index ca7c4e4..dd42abb 100644
+--- a/backend/tests/test_surface.py
++++ b/backend/tests/test_surface.py
+@@ -156,6 +156,7 @@ WS_MESSAGE_TYPES = [
+     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
+     "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
+     "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally",
++    "edit_sheet", "gm_sheet_seen",
+ ]
+ 
+ 
+@@ -307,11 +308,18 @@ WS_CASES = {
+     "gm_add_tally": dict(
+         sender="gm", payload=lambda c: {"circle_id": c.circle_id, "keys": 2},
+         expect=["circle_update", "activity_log"]),
++    # The player's direct edit of their own sheet (vtt/sheet_edits.py)
++    "edit_sheet": dict(payload=lambda c: {"changes": {"name": "Ada Quill"}},
++                       expect=["character_update", "activity_log", "member_status"]),
++    # The Lightkeeper opened a sheet the player edited: the roster card's dot goes
++    "gm_sheet_seen": dict(
++        sender="gm", fields={"sheet_edited": True}, payload=lambda c: {"character_id": c.char_id},
++        expect=["member_update"]),
+ }
+ 
+ 
+ def test_ws_cases_cover_every_message_type():
+-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 38
++    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 40
+     assert list(WS_CASES) == WS_MESSAGE_TYPES
+ 
+ 
+@@ -365,7 +373,7 @@ WS_NEEDS_CHARACTER = {
+     "gm_update_tension", "update_drive", "resolve_gilded", "use_post_roll_ability",
+     "update_pen_font", "take_mark", "resolve_ability_mark", "intercept_mark", "apply_scar",
+     "revive_character", "burn_resistance", "update_gear", "spend_resource", "apply_advancement",
+-    "use_ability", "gm_update_scars",
++    "use_ability", "gm_update_scars", "edit_sheet", "gm_sheet_seen",
+ }
+ 
+ 
+@@ -388,7 +396,7 @@ def test_ws_access_table():
+         "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
+         "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
+         "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
+-        "gm_set_tally_answer", "gm_add_tally",
++        "gm_set_tally_answer", "gm_add_tally", "gm_sheet_seen",
+     }
+ 
+ 
+diff --git a/backend/tests/test_ws_character.py b/backend/tests/test_ws_character.py
+index 876565e..6925740 100644
+--- a/backend/tests/test_ws_character.py
++++ b/backend/tests/test_ws_character.py
+@@ -22,7 +22,9 @@ def _member_pair(client, **fields):
+ 
+ def test_update_drive_sets_value_and_tells_the_sender_and_the_gm(client):
+     """The other members hear nothing; the GM's socket gets the sheet as member_update
+-    (tests/test_ws_gm_view.py)."""
++    (tests/test_ws_gm_view.py) and the change's line. A pip set by hand is a direct edit
++    (decision 1 of fix round 5): its line goes to the Lightkeeper and the player alone (it
++    used to go to every member), and the roster card's dot goes on."""
+     camp, a, b = _member_pair(client, nerve_max=3, nerve_current=3)
+     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
+             support.ws_connect(client, camp["campaign_code"]) as gm:
+@@ -32,8 +34,10 @@ def test_update_drive_sets_value_and_tells_the_sender_and_the_gm(client):
+         assert msg["payload"]["id"] == a["id"]
+         assert msg["payload"]["nerve_current"] == 1
+         wa.sync()
+-        assert [m["type"] for m in wb.drain()] == ["activity_log"]
+-        assert [m["type"] for m in gm.drain()] == ["member_update", "activity_log"]
++        assert wb.drain() == []
++        seen = gm.drain()
++        assert [m["type"] for m in seen] == ["member_update", "activity_log"]
++        assert seen[0]["payload"]["sheet_edited"] is True
+     assert support.fetch(Character, a["id"]).nerve_current == 1
+ 
+ 
+@@ -43,7 +47,7 @@ def test_update_drive_writes_a_log_line_only_when_the_value_changes(client):
+     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
+         wa.send("update_drive", pool="nerve", value=3)
+         logs = [m for m in wa.sync() if m["type"] == "activity_log"]
+-        assert [m["payload"]["message"] for m in logs] == [f"{a['name']} set Nerve to 3 of 3."]
++        assert [m["payload"]["message"] for m in logs] == [f"{a['name']}: Nerve 2 to 3."]
+         wa.send("update_drive", pool="nerve", value=3)
+         assert [m for m in wa.sync() if m["type"] == "activity_log"] == []
+         gm.drain()
+@@ -164,23 +168,30 @@ def test_update_pen_font(client):
+ # --- update_gear ------------------------------------------------------------
+ 
+ def test_update_gear(client):
++    """A player's gear change is a direct edit (decision 1 of fix round 5, issue #64): it is
++    never refused, its line names what was removed and added, and it goes to the
++    Lightkeeper and the player alone. Unmarking gear used to be refused (409, rulebook
++    p. 52), and the line went to every member."""
+     camp, a, b = _member_pair(client)
+-    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
++    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
++            support.ws_connect(client, camp["campaign_code"]) as gm:
+         wa.send("update_gear", gear=["lamp", "rope"])
+         msgs = wa.sync()
+         assert support.types(msgs) == ["character_update", "activity_log"]
+         assert msgs[0]["payload"]["gear"] == ["lamp", "rope"]
+-        assert msgs[1]["payload"] == {"message": f"{a['name']} updated their equipment: lamp, rope.",
+-                                      "log_type": "field", "ink_color": engine.INK_COLORS[0]}
+-        assert support.types(wb.drain()) == ["activity_log"]
+-        # Gear stays marked until the assignment ends (rulebook p. 52): unmarking is refused
+-        wa.send("update_gear", gear=["lamp"])
+-        assert wa.sync() == [{"type": "action_rejected", "payload": {
+-            "action": "update_gear", "status": 409,
+-            "detail": "Marked gear stays until the Lightkeeper ends the assignment."}}]
++        line = {"message": f"{a['name']}: gear lamp added, rope added.",
++                "log_type": "field", "ink_color": engine.INK_COLORS[0]}
++        assert msgs[1]["payload"] == line
++        assert wb.drain() == []
++        seen = gm.drain()
++        assert support.types(seen) == ["member_update", "activity_log"]
++        assert seen[0]["payload"]["sheet_edited"] is True and seen[1]["payload"] == line
++        # Marked gear can be taken off too
++        wa.send("update_gear", gear=["lamp", "Revolver"])
++        assert wa.sync()[1]["payload"]["message"] == f"{a['name']}: gear rope removed, Revolver added."
+         wa.send("update_gear", gear="not a list")
+         assert wa.sync() == []
+-    assert support.fetch(Character, a["id"]).gear == ["lamp", "rope"]
++    assert support.fetch(Character, a["id"]).gear == ["lamp", "Revolver"]
+ 
+ 
+ def test_update_gear_unaffiliated_logs_to_own_channel(client):
+@@ -191,9 +202,9 @@ def test_update_gear_unaffiliated_logs_to_own_channel(client):
+ 
+ 
+ def test_the_gm_may_correct_marked_gear(client):
+-    """A player may not unmark gear during an assignment (rulebook p. 52); the
+-    Lightkeeper may correct the list, and the player's desk gets the corrected sheet
+-    (it used to go to the Lightkeeper's channel alone)."""
++    """The Lightkeeper may correct the list, and the player's desk gets the corrected sheet
++    (it used to go to the Lightkeeper's channel alone). Her correction is no direct edit:
++    the table's line, and no dot."""
+     camp, a, b = _member_pair(client)
+     support.update(Character, a["id"], gear=["Lantern", "Camera"])
+     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+@@ -201,7 +212,9 @@ def test_the_gm_may_correct_marked_gear(client):
+         assert support.types(gm.sync()) == ["member_update", "activity_log"]
+         msg, line = wa.sync()
+         assert (msg["type"], msg["payload"]["gear"], line["type"]) == ("character_update", ["Camera"], "activity_log")
+-    assert support.fetch(Character, a["id"]).gear == ["Camera"]
++        assert line["payload"]["message"] == f"{a['name']} updated their equipment: Camera."
++    row = support.fetch(Character, a["id"])
++    assert (row.gear, row.sheet_edited) == (["Camera"], False)
+ 
+ 
+ @pytest.mark.parametrize("gear", [["map", 7], [None], [["nested"]], [{"name": "lamp"}]])
+@@ -213,7 +226,7 @@ def test_update_gear_non_string_item_is_rejected(client, gear):
+         ws.send("update_gear", gear=gear)
+         assert ws.sync() == [{"type": "action_rejected", "payload": {
+             "action": "update_gear", "status": 422, "detail": "Gear items must be text."}}]
+-        ws.send("update_gear", gear=["lamp", "map"])  # marked gear stays (p. 52)
++        ws.send("update_gear", gear=["lamp", "map"])
+         assert support.types(ws.sync()) == ["character_update", "activity_log"]
+     assert support.fetch(Character, ch["id"]).gear == ["lamp", "map"]
+ 
+@@ -650,19 +663,15 @@ def test_a_refused_use_ability_leaves_no_row_locked(client):
+ 
+ # --- gear slots: three, Geared Up and One Step Ahead ----------------------------------
+ 
+-def _gear_rejected(detail):
+-    return {"type": "action_rejected", "payload": {"action": "update_gear", "status": 409, "detail": detail}}
+-
+-
+-def test_a_player_marks_up_to_three_gear_slots(client):
++def test_a_player_may_mark_past_three_gear_slots(client):
+     """Rulebook p. 52: "PCs have the capacity for three pieces of gear on their person."
+-    The desk stopped at three; the server took any number."""
++    The desk shows the slots and warns past them; the server used to refuse a fourth
++    item (409), and takes it now: detection, not prevention (decision 1 of fix round 5)."""
+     ch = support.forge(client)
+     with support.ws_connect(client, ch["id"]) as ws:
+         ws.send("update_gear", gear=["Lantern", "Camera", "Rope", "Map"])
+-        assert ws.sync() == [_gear_rejected(f"{ch['name']} has 3 gear slots this assignment.")]
+-        ws.send("update_gear", gear=["Lantern", "Camera", "Rope"])
+         assert support.types(ws.sync()) == ["character_update", "activity_log"]
++    assert support.fetch(Character, ch["id"]).gear == ["Lantern", "Camera", "Rope", "Map"]
+ 
+ 
+ def test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot(client):
+@@ -675,8 +684,6 @@ def test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot(client):
+         ws.send("update_gear", gear=four)
+         assert support.types(ws.sync()) == ["character_update", "activity_log"]
+         wa.drain()
+-        wa.send("update_gear", gear=four)
+-        assert wa.sync() == [_gear_rejected(f"{ally['name']} has 3 gear slots this assignment.")]
+         ws.send("use_ability", ability="Geared Up", ally_id=soldier["id"])   # not themselves
+         ws.send("use_ability", ability="Geared Up", ally_id=999999)
+         ws.send("use_ability", ability="Geared Up")
+@@ -711,10 +718,11 @@ def test_one_step_ahead_writes_in_an_object_outside_the_limit(client):
+         assert msgs[-1]["payload"]["message"] == f"{ch['name']} used One Step Ahead (wrote in A hatpin)."
+         ws.send("use_ability", ability="One Step Ahead", item="A key")
+         assert ws.sync() == [_use_rejected(409, "One Step Ahead is used for this assignment.")]
+-        # Only the Use button writes one in
+-        ws.send("update_gear", gear=["Lantern", "Camera", "Rope", "One Step Ahead: A hatpin", "One Step Ahead: A saw"])
+-        assert ws.sync() == [_gear_rejected("One Step Ahead's object is written in with its Use button.")]
+-    assert support.fetch(Character, ch["id"]).gear == ["Lantern", "Camera", "Rope", "One Step Ahead: A hatpin"]
++        # The player may change the object too, as any gear (it used to be refused: only
++        # the Use button wrote one in); the line names it as the sheet does
++        ws.send("update_gear", gear=["Lantern", "Camera", "Rope", "One Step Ahead: A saw"])
++        assert ws.sync()[1]["payload"]["message"] == f"{ch['name']}: gear A hatpin removed, A saw added."
++    assert support.fetch(Character, ch["id"]).gear == ["Lantern", "Camera", "Rope", "One Step Ahead: A saw"]
+ 
+ 
+ def test_gear_is_written_in_by_name(client):
+diff --git a/backend/tests/test_ws_circle.py b/backend/tests/test_ws_circle.py
+index 1f2b1b7..aed9f6e 100644
+--- a/backend/tests/test_ws_circle.py
++++ b/backend/tests/test_ws_circle.py
+@@ -353,7 +353,7 @@ def test_a_death_and_its_undo_reach_the_other_players(client):
+     ally = support.active_member(client, camp)
+     elsewhere = support.active_member(client, support.new_campaign(client))
+     status = lambda is_dead, scars=4: {"type": "member_status", "payload": {
+-        "character_id": dying["id"], "campaign_id": camp["id"], "is_dead": is_dead,
++        "character_id": dying["id"], "campaign_id": camp["id"], "name": dying["name"], "is_dead": is_dead,
+         "incapacitated": True, "scars_count": scars}}
+     four = SCARS + ["The last one"]
+     with support.ws_connect(client, dying["id"]) as wd, support.ws_connect(client, ally["id"]) as wa, \
+diff --git a/backend/tests/test_ws_marks.py b/backend/tests/test_ws_marks.py
+index 4fc8687..4e0ea1c 100644
+--- a/backend/tests/test_ws_marks.py
++++ b/backend/tests/test_ws_marks.py
+@@ -90,8 +90,8 @@ def test_fourth_mark_incapacitates(client):
+         assert msgs[2]["payload"] == {"message": f"{ch['name']} has been incapacitated!",
+                                       "log_type": "danger", "ink_color": engine.INK_COLORS[0]}
+         # The players' circle cards follow who is down
+-        assert msgs[3]["payload"] == {"character_id": ch["id"], "campaign_id": camp["id"], "is_dead": False,
+-                                      "incapacitated": True, "scars_count": 0}
++        assert msgs[3]["payload"] == {"character_id": ch["id"], "campaign_id": camp["id"], "name": ch["name"],
++                                      "is_dead": False, "incapacitated": True, "scars_count": 0}
+         # The GM gets the sheet trigger_scar carries, and not member_status
+         assert gm.drain() == [msgs[0], {"type": "member_update", "payload": msgs[1]["payload"]["character"]}, msgs[2]]
+     row = support.fetch(Character, ch["id"])
+@@ -1551,7 +1551,7 @@ def test_a_scar_owed_is_on_the_sheet_and_the_recorded_scar_is_logged(client):
+         msgs = ws.sync()
+         assert support.types(msgs) == ["character_update", "member_status", "activity_log"]
+         assert msgs[0]["payload"]["scar_pending"] is False
+-        assert msgs[1]["payload"] == {"character_id": ch["id"], "campaign_id": camp["id"], "is_dead": False,
++        assert msgs[1]["payload"] == {"character_id": ch["id"], "campaign_id": camp["id"], "name": ch["name"], "is_dead": False,
+                                       "incapacitated": True, "scars_count": 1}
+         assert msgs[2]["payload"]["message"] == f"{ch['name']} recorded a scar (1 of 4)."
+         assert msgs[2]["payload"]["log_type"] == "field"
+diff --git a/backend/tests/test_ws_sheet_edits.py b/backend/tests/test_ws_sheet_edits.py
+new file mode 100644
+index 0000000..bb1fff9
+--- /dev/null
++++ b/backend/tests/test_ws_sheet_edits.py
+@@ -0,0 +1,206 @@
++"""A player's direct edits of their own sheet (edit_sheet) and the Lightkeeper's dot for
++them (gm_sheet_seen): decision 1 of fix round 5, issue #64. Detection, not prevention:
++nothing is refused for the rules, each edit writes one line for the Lightkeeper, and the
++member's roster card carries a dot until she opens the sheet (vtt/sheet_edits.py)."""
++import pytest
++
++import engine
++import support
++from models import Character
++
++
++def _rejected(detail, action="edit_sheet", status=422):
++    return {"type": "action_rejected", "payload": {"action": action, "status": status, "detail": detail}}
++
++
++def _member_pair(client, **fields):
++    camp = support.new_campaign(client)
++    a = support.active_member(client, camp, role="Slink", specialty="Detective", role_ability="Scout",
++                              specialty_ability="Mind Palace", **fields)
++    b = support.active_member(client, camp)
++    return camp, a, b
++
++
++def _roster(client, camp, headers):
++    r = client.get(f"/campaign/{camp['id']}/roster", headers=headers)
++    assert r.status_code == 200, r.text
++    return {c["id"]: c["sheet_edited"] for c in r.json()["active_investigators"]}
++
++
++def test_an_edit_is_stored_and_logged_for_the_lightkeeper_with_a_dot(client):
++    """Every field the edit names is stored at once, and one line names each change from
++    what to what. The line goes to the Lightkeeper and to the player; the other members
++    are not told. The roster card's dot (sheet_edited) is on, for the Lightkeeper only."""
++    camp, a, b = _member_pair(client, strike=1, nerve_max=5, nerve_current=5, body_marks=2,
++                              gear=["Lantern"], scars_list=["A limp"], scars_count=1)
++    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
++            support.ws_connect(client, camp["campaign_code"]) as gm:
++        wa.send("edit_sheet", changes={
++            "strike": 2, "gilded_strike": True, "nerve_max": 6, "body_marks": 0, "role": "Weird",
++            "specialty": "Medium", "role_ability": "Ritual", "specialty_ability": ["Mind Palace", "Commune"],
++            "scars_list": ["A bad limp"], "pronouns": "they/them"})
++        msgs = wa.sync()
++        assert support.types(msgs) == ["character_update", "activity_log", "member_status"]
++        sheet = msgs[0]["payload"]
++        assert (sheet["strike"], sheet["gilded_strike"], sheet["nerve_max"], sheet["nerve_current"],
++                sheet["body_marks"], sheet["role"], sheet["specialty"], sheet["role_ability"],
++                sheet["specialty_ability"], sheet["scars_list"], sheet["scars_count"], sheet["sheet_edited"]) == (
++            2, True, 6, 5, 0, "Weird", "Medium", "Ritual", "Mind Palace; Commune", ["A bad limp"], 1, True)
++        line = {"message": (
++            f"{a['name']}: pronouns Unlisted to they/them, role Slink to Weird, specialty Detective to Medium, "
++            "abilities Scout removed, Ritual added, Commune added, Strike 1 to 2, Strike gilded, "
++            "Nerve maximum 5 to 6, Nerve resistance 1 to 2, Body marks 2 to 0, scars A limp removed, A bad limp added."),
++            "log_type": "field", "ink_color": engine.INK_COLORS[0]}
++        assert msgs[1]["payload"] == line
++        seen = gm.drain()
++        assert support.types(seen) == ["member_update", "activity_log"]
++        assert seen[0]["payload"]["sheet_edited"] is True and seen[1]["payload"] == line
++        assert support.types(wb.drain()) == ["member_status"]
++    assert _roster(client, camp, support.as_gm(camp)) == {a["id"]: True, b["id"]: False}
++    # The members' roster leaves the dot out: it is the Lightkeeper's
++    assert _roster(client, camp, support.as_owner(b["id"])) == {a["id"]: False, b["id"]: False}
++
++
++def test_the_dot_goes_when_the_lightkeeper_opens_the_sheet(client):
++    """gm_sheet_seen clears sheet_edited and tells the Lightkeeper's desk alone (member_update);
++    a sheet with no dot sends nothing. Only the Lightkeeper may send it."""
++    camp, a, b = _member_pair(client)
++    support.update(Character, a["id"], sheet_edited=True)
++    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
++        wa.send("gm_sheet_seen", character_id=a["id"])
++        assert wa.sync() == [_rejected("Not allowed.", action="gm_sheet_seen", status=403)]
++        gm.send("gm_sheet_seen", character_id=a["id"])
++        seen = gm.sync()
++        assert support.types(seen) == ["member_update"]
++        assert seen[0]["payload"]["sheet_edited"] is False
++        assert wa.drain() == []
++        gm.send("gm_sheet_seen", character_id=a["id"])
++        assert gm.sync() == []
++    assert support.fetch(Character, a["id"]).sheet_edited is False
++    assert _roster(client, camp, support.as_gm(camp))[a["id"]] is False
++
++
++def test_the_rules_guide_and_never_refuse(client):
++    """An edit the rules would not make (three actions at 3, an ability of another role,
++    every gild) is stored: the desk warns, the server does not refuse it."""
++    camp, a, b = _member_pair(client)
++    changes = {"move": 3, "strike": 3, "control": 3, "specialty_ability": ["Mind Palace", "Ghostblade", "Patch Up"],
++               **{f"gilded_{x}": True for x in engine.ALL_ACTIONS}}
++    with support.ws_connect(client, a["id"]) as wa:
++        wa.send("edit_sheet", changes=changes)
++        assert support.types(wa.sync()) == ["character_update", "activity_log", "member_status"]
++    row = support.fetch(Character, a["id"])
++    assert (row.move, row.strike, row.control, row.specialty_ability, row.gilded_sense) == (
++        3, 3, 3, "Mind Palace; Ghostblade; Patch Up", True)
++
++
++def test_a_lowered_maximum_brings_the_drive_and_its_resistance_down(client):
++    """The sheet cannot show a drive or a burned resistance above the maximum: both come
++    down with it, and the line says so."""
++    camp, a, b = _member_pair(client, nerve_max=6, nerve_current=6, nerve_resistance_spent=2)
++    with support.ws_connect(client, a["id"]) as wa:
++        wa.send("edit_sheet", changes={"nerve_max": 3})
++        msgs = wa.sync()
++        assert msgs[1]["payload"]["message"] == f"{a['name']}: Nerve maximum 6 to 3, Nerve 6 to 3."
++    row = support.fetch(Character, a["id"])
++    assert (row.nerve_max, row.nerve_current, row.nerve_resistance_spent) == (3, 3, 1)
++
++
++@pytest.mark.parametrize("changes, detail", [
++    (None, "An edit is the fields to change and their new values."),
++    ({}, "An edit is the fields to change and their new values."),
++    ({"is_dead": True}, "is_dead is not changed this way."),
++    ({"campaign_id": 1}, "campaign_id is not changed this way."),
++    ({"move": 4}, "Move is a rating from 0 to 3."),
++    ({"sneak": "2"}, "Read is a rating from 0 to 3."),
++    ({"gilded_move": 1}, "Gilded Move is yes or no."),
++    ({"nerve_max": 10}, "Nerve's maximum is from 0 to 9."),
++    ({"nerve_current": 4}, "Nerve is from 0 to its maximum."),
++    ({"nerve_resistance_spent": 2}, "Nerve resistance burned is from 0 to a third of its maximum."),
++    ({"body_marks": -1}, "Body marks are from 0 to 3."),
++    ({"name": "   "}, "An investigator needs a name."),
++    ({"name": "x" * 81}, "The name is text of up to 80 characters."),
++    ({"role": "Bard"}, "Choose a role: Face, Muscle, Scholar, Slink, Weird."),
++    ({"specialty": "Medium"}, "Choose a Slink specialty: Criminal or Detective."),
++    ({"role_ability": "Juggling"}, "Choose a role or specialty ability."),
++    ({"specialty_ability": "Mind Palace"}, "Abilities are a list of role and specialty abilities."),
++    ({"specialty_ability": ["Scout"]}, "Each ability is listed once."),
++    ({"scars_list": ["a", ""]}, "Scars are a list of descriptions."),
++    ({"scars_list": ["a", "b", "c", "d"]}, "A fourth scar is taken through the scar form."),
++])
++def test_an_edit_the_sheet_cannot_hold_is_refused_whole(client, changes, detail):
++    """Only the shape is checked: boxes the sheet prints, names the app knows, text within
++    its length. A refused edit stores nothing, even its valid fields."""
++    camp, a, b = _member_pair(client, nerve_max=3, nerve_current=3)
++    with support.ws_connect(client, a["id"]) as wa:
++        payload = {} if changes is None else {"changes": {**changes, "strike": 2}} if changes else {"changes": {}}
++        wa.send("edit_sheet", **payload)
++        assert wa.sync() == [_rejected(detail)]
++    row = support.fetch(Character, a["id"])
++    assert (row.strike, row.sheet_edited) == (0, False)
++
++
++def test_an_edit_that_changes_nothing_sends_nothing(client):
++    camp, a, b = _member_pair(client, strike=1)
++    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
++        wa.send("edit_sheet", changes={"strike": 1, "role": "Slink"})
++        assert wa.sync() == []
++        assert gm.drain() == []
++    assert support.fetch(Character, a["id"]).sheet_edited is False
++
++
++def test_only_the_owner_edits_and_a_dead_sheet_stays_a_record(client):
++    """The Lightkeeper corrects through her own messages, not this one; another player
++    may not edit; a dead investigator's sheet is a record (fix round 4)."""
++    camp, a, b = _member_pair(client)
++    dead = support.active_member(client, camp, is_dead=True, scars_count=4, scars_list=["a", "b", "c", "d"])
++    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, b["id"]) as wb, \
++            support.ws_connect(client, dead["id"]) as wd:
++        gm.send("edit_sheet", character_id=a["id"], changes={"strike": 2})
++        assert gm.sync() == [_rejected("Not allowed.", status=403)]
++        wb.send("edit_sheet", character_id=a["id"], changes={"strike": 2})
++        assert wb.sync() == [_rejected("Not allowed.", status=403)]
++        wd.send("edit_sheet", changes={"strike": 2})
++        assert wd.sync() == [_rejected(f"{dead['name']} is dead: the sheet is a record.", status=409)]
++    assert support.fetch(Character, a["id"]).strike == 0
++    assert support.fetch(Character, dead["id"]).strike == 0
++
++
++def test_an_investigator_with_no_lightkeeper_edits_without_a_dot(client):
++    """Unaffiliated, or waiting for approval: the edit is stored and the player's own log
++    has the line; there is no Lightkeeper to tell, and no dot."""
++    camp = support.new_campaign(client)
++    alone = support.forge(client)
++    waiting = support.pending_member(client, camp)
++    with support.ws_connect(client, alone["id"]) as wa, support.ws_connect(client, waiting["id"]) as ww, \
++            support.ws_connect(client, camp["campaign_code"]) as gm:
++        wa.send("edit_sheet", changes={"name": "Ada Quill"})
++        msgs = wa.sync()
++        assert support.types(msgs) == ["character_update", "activity_log"]
++        # Named as the sheet now has it, the old name in the change
++        assert msgs[1]["payload"]["message"] == f"Ada Quill: name {alone['name']} to Ada Quill."
++        ww.send("edit_sheet", changes={"strike": 1})
++        assert support.types(ww.sync()) == ["character_update", "activity_log"]
++        assert support.types(gm.drain()) == ["member_update"]
++    assert support.fetch(Character, alone["id"]).sheet_edited is False
++    assert support.fetch(Character, waiting["id"]).sheet_edited is False
++
++
++def test_a_new_name_reaches_the_other_members_cards(client):
++    """member_status carries the name, so the circle's cards on the other desks follow it."""
++    camp, a, b = _member_pair(client)
++    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
++        wa.send("edit_sheet", changes={"name": "  Ada Quill "})
++        wa.sync()
++        [status] = wb.drain()
++        assert status["payload"]["name"] == "Ada Quill"
++    assert support.fetch(Character, a["id"]).name == "Ada Quill"
++
++
++def test_a_drive_set_by_the_lightkeeper_puts_no_dot(client):
++    """Her corrections are hers: the table's line, and no dot on the card."""
++    camp, a, b = _member_pair(client, nerve_max=3, nerve_current=3)
++    with support.ws_connect(client, camp["campaign_code"]) as gm:
++        gm.send("update_drive", character_id=a["id"], pool="nerve", value=1)
++        gm.sync()
++    assert support.fetch(Character, a["id"]).sheet_edited is False
+diff --git a/backend/vtt/db.py b/backend/vtt/db.py
+index 4dd9d70..3c43b01 100644
+--- a/backend/vtt/db.py
++++ b/backend/vtt/db.py
+@@ -444,6 +444,9 @@ def init_db():
+     # The Lightkeeper's dispatch in their own words, beside the template's location and
+     # atmosphere. Existing circles get none.
+     add_columns("circles", [("dispatch_text", "TEXT DEFAULT ''")])
++    # A player's direct edit the Lightkeeper has not seen (vtt/sheet_edits.py). Existing
++    # characters get none.
++    add_columns("characters", [("sheet_edited", "BOOLEAN DEFAULT FALSE")])
+ 
+     # Two pens were saved under misspelt family names (Reenie Beenie, Moondance); the
+     # server's list now knows the real ones, so stored choices move over.
+diff --git a/backend/vtt/routers/campaigns.py b/backend/vtt/routers/campaigns.py
+index 2ac3aef..1e4a1d5 100644
+--- a/backend/vtt/routers/campaigns.py
++++ b/backend/vtt/routers/campaigns.py
+@@ -660,7 +660,8 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
+         if is_lk:
+             stands.update(
+                 body_marks=c.body_marks or 0, brain_marks=c.brain_marks or 0, bleed_marks=c.bleed_marks or 0,
+-                advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar)
++                advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar,
++                sheet_edited=bool(c.sheet_edited))
+         return CharacterRosterItem(
+             **stands,
+             owner_username=owners.get(c.user_id, ""),
+diff --git a/backend/vtt/schemas.py b/backend/vtt/schemas.py
+index 2569dea..dde2a6f 100644
+--- a/backend/vtt/schemas.py
++++ b/backend/vtt/schemas.py
+@@ -422,6 +422,9 @@ class CharacterRosterItem(BaseModel):
+     bleed_marks: int = 0
+     advancement_picks: int = 0
+     scar_pending: bool = False
++    # A direct edit by the player the Lightkeeper has not seen (the roster card's dot),
++    # filled for the Lightkeeper alone
++    sheet_edited: bool = False
+     class Config:
+         from_attributes = True
+ 
+diff --git a/backend/vtt/serializers.py b/backend/vtt/serializers.py
+index 09a9024..ce805fe 100644
+--- a/backend/vtt/serializers.py
++++ b/backend/vtt/serializers.py
+@@ -102,6 +102,9 @@ def get_char_dict(char):
+         # reads it; like the rest of this sheet it also reaches the members wherever the whole
+         # sheet is sent: circle-creation-state, investigator_approved, character_joined_mid_campaign)
+         "scar_pending": getattr(char, "id", None) in awaiting_scar,
++        # A change the player made by hand that the Lightkeeper has not seen: the dot on
++        # the roster card (vtt/sheet_edits.py)
++        "sheet_edited": bool(getattr(char, "sheet_edited", False)),
+     }
+ 
+ def fallen_card(char):
+diff --git a/backend/vtt/sheet_edits.py b/backend/vtt/sheet_edits.py
+new file mode 100644
+index 0000000..567aa27
+--- /dev/null
++++ b/backend/vtt/sheet_edits.py
+@@ -0,0 +1,227 @@
++"""A player's direct edits to their own sheet (decision 1 of fix round 5, issue #64):
++detection, not prevention.
++
++A player may change everything on their own sheet at any time: the name and the other
++words, the role and specialty, the abilities, the action ratings and gilds, the drives
++and their maximums, the resistances, the marks and the scars (edit_sheet), and the gear
++(update_gear). Nothing they edit is refused for the rules' sake; the desk shows the
++maximums and warns softly. What is checked here is only what the sheet can hold: whole
++numbers within the boxes the sheet prints, names the app knows, text within a length.
++
++Each edit writes one line for the Lightkeeper naming the investigator and each change
++from what to what (vtt/ws/handlers/character.py record_edit), and sets sheet_edited,
++the dot on the member's roster card, until the Lightkeeper opens the sheet.
++
++A fourth scar is not written in here: it is fatal (rulebook p. 74), and it comes through
++the scar form, as every death does.
++"""
++from collections import Counter
++
++from engine import ALL_ACTIONS, DRIVE_MAX
++from vtt.ability_uses import DRIVES
++from vtt.abilities import ONE_STEP_AHEAD
++from vtt.creation import ACTION_LABELS, ALL_ABILITIES, ROLES
++from vtt.ws.access import SCAR_TEXT_MAX
++
++# The words on the sheet, each with the longest the edit keeps
++TEXT_FIELDS = {"name": 80, "pronouns": 60, "style": 2000, "catalyst": 2000, "question": 2000}
++ACTION_MAX = 3
++MARK_MAX = 3
++# Scars written in by an edit: three at most, as the fourth is a death
++EDIT_SCARS_MAX = 3
++ABILITIES_MAX = 30
++MARK_FIELDS = tuple(f"{t}_marks" for t in ("body", "brain", "bleed"))
++EDIT_FIELDS = frozenset(
++    {*TEXT_FIELDS, "role", "specialty", "role_ability", "specialty_ability", "scars_list",
++     *ALL_ACTIONS, *(f"gilded_{a}" for a in ALL_ACTIONS), *MARK_FIELDS,
++     *(f"{d}_{part}" for d in DRIVES for part in ("max", "current", "resistance_spent"))})
++
++# What a direct edit's log line clips each value to
++SHOWN_MAX = 40
++
++
++def _whole(value, low, high) -> bool:
++    return type(value) is int and low <= value <= high
++
++
++def _ability_list(value):
++    """specialty_ability as a list of names (the column keeps them joined by "; ")."""
++    if isinstance(value, list):
++        return value
++    return [p.strip() for p in str(value or "").split(";") if p.strip() and p.strip() != "None"]
++
++
++def edit_problem(character, changes) -> str | None:
++    """Why this edit cannot be stored, in words for the player, or None. Only the shape is
++    checked, never the rules."""
++    if not isinstance(changes, dict) or not changes:
++        return "An edit is the fields to change and their new values."
++    unknown = sorted(k for k in changes if k not in EDIT_FIELDS)
++    if unknown:
++        return f"{unknown[0]} is not changed this way."
++    for key, longest in TEXT_FIELDS.items():
++        if key in changes:
++            value = changes[key]
++            if not isinstance(value, str) or len(value.strip()) > longest:
++                return f"The {key} is text of up to {longest} characters."
++    if "name" in changes and not changes["name"].strip():
++        return "An investigator needs a name."
++    role = changes.get("role", getattr(character, "role", ""))
++    if "role" in changes and role not in ROLES:
++        return "Choose a role: " + ", ".join(ROLES) + "."
++    if "specialty" in changes or "role" in changes:
++        specialty = changes.get("specialty", getattr(character, "specialty", ""))
++        allowed = ROLES[role]["specialties"] if role in ROLES else \
++            {s for r in ROLES.values() for s in r["specialties"]}
++        if specialty not in allowed:
++            return f"Choose a {role} specialty: " + " or ".join(allowed) + "." if role in ROLES \
++                else "Choose a specialty."
++    if "role_ability" in changes and changes["role_ability"] not in ALL_ABILITIES:
++        return "Choose a role or specialty ability."
++    if "specialty_ability" in changes:
++        names = changes["specialty_ability"]
++        if not isinstance(names, list) or len(names) > ABILITIES_MAX \
++                or not all(isinstance(n, str) and n in ALL_ABILITIES for n in names):
++            return "Abilities are a list of role and specialty abilities."
++    if "role_ability" in changes or "specialty_ability" in changes:
++        names = [changes.get("role_ability", getattr(character, "role_ability", None))] + \
++            _ability_list(changes.get("specialty_ability", getattr(character, "specialty_ability", None)))
++        names = [n for n in names if n and n != "None"]
++        if len(names) != len(set(names)):
++            return "Each ability is listed once."
++    for act in ALL_ACTIONS:
++        if act in changes and not _whole(changes[act], 0, ACTION_MAX):
++            return f"{ACTION_LABELS[act]} is a rating from 0 to {ACTION_MAX}."
++        if f"gilded_{act}" in changes and type(changes[f"gilded_{act}"]) is not bool:
++            return f"Gilded {ACTION_LABELS[act]} is yes or no."
++    for drive in DRIVES:
++        top = changes.get(f"{drive}_max", getattr(character, f"{drive}_max", 0) or 0)
++        if not _whole(top, 0, DRIVE_MAX):
++            return f"{drive.capitalize()}'s maximum is from 0 to {DRIVE_MAX}."
++        if f"{drive}_current" in changes and not _whole(changes[f"{drive}_current"], 0, top):
++            return f"{drive.capitalize()} is from 0 to its maximum."
++        if f"{drive}_resistance_spent" in changes and not _whole(changes[f"{drive}_resistance_spent"], 0, top // 3):
++            return f"{drive.capitalize()} resistance burned is from 0 to a third of its maximum."
++    for field in MARK_FIELDS:
++        if field in changes and not _whole(changes[field], 0, MARK_MAX):
++            return f"{field.split('_')[0].capitalize()} marks are from 0 to {MARK_MAX}."
++    if "scars_list" in changes:
++        scars = changes["scars_list"]
++        if not isinstance(scars, list) or not all(isinstance(s, str) and s.strip() for s in scars):
++            return "Scars are a list of descriptions."
++        if any(len(s.strip()) > SCAR_TEXT_MAX for s in scars):
++            return f"A scar is a description of up to {SCAR_TEXT_MAX} characters."
++        if len(scars) > EDIT_SCARS_MAX:
++            return "A fourth scar is taken through the scar form."
++    return None
++
++
++def _shown(value) -> str:
++    text = " ".join(str(value or "").split())
++    if not text:
++        return "nothing"
++    return text if len(text) <= SHOWN_MAX else text[:SHOWN_MAX].rstrip() + "..."
++
++
++def _scars_of(character) -> list:
++    raw = getattr(character, "scars_list", None)
++    return [s for s in raw if isinstance(s, str)] if isinstance(raw, list) else []
++
++
++def _abilities_in_order(character) -> list:
++    role = getattr(character, "role_ability", None)
++    return ([role] if role and role != "None" else []) + _ability_list(getattr(character, "specialty_ability", None))
++
++
++def _added_removed(label, before, after) -> str | None:
++    """'gear Lantern removed, Revolver added', or None when the two lists hold the same."""
++    gone = list((Counter(before) - Counter(after)).elements())
++    new = list((Counter(after) - Counter(before)).elements())
++    if not gone and not new:
++        return None
++    parts = [f"{_shown(x)} removed" for x in gone] + [f"{_shown(x)} added" for x in new]
++    return f"{label} " + ", ".join(parts)
++
++
++def gear_name(item: str) -> str:
++    """A gear item as the sheet shows it (One Step Ahead's object under its own name)."""
++    return item[len(ONE_STEP_AHEAD):] if item.startswith(ONE_STEP_AHEAD) else item
++
++
++def gear_change(before: list, after: list) -> str | None:
++    """A gear edit in words: 'gear Lantern removed, Revolver added'."""
++    return _added_removed("gear", [gear_name(i) for i in before], [gear_name(i) for i in after])
++
++
++def _resistance_left(character, drive) -> int:
++    return max(0, (getattr(character, f"{drive}_max", 0) or 0) // 3 - (getattr(character, f"{drive}_resistance_spent", 0) or 0))
++
++
++def _snapshot(character) -> dict:
++    snap = {key: getattr(character, key, None) for key in (*TEXT_FIELDS, "role", "specialty", *ALL_ACTIONS,
++                                                           *(f"gilded_{a}" for a in ALL_ACTIONS), *MARK_FIELDS)}
++    for drive in DRIVES:
++        snap[f"{drive}_max"] = getattr(character, f"{drive}_max", 0) or 0
++        snap[f"{drive}_current"] = getattr(character, f"{drive}_current", 0) or 0
++        snap[f"{drive}_resist"] = _resistance_left(character, drive)
++    snap["abilities"] = _abilities_in_order(character)
++    snap["scars"] = _scars_of(character)
++    return snap
++
++
++def apply_edit(character, changes: dict) -> list:
++    """Stores an edit edit_problem accepted and returns what changed, in words, in the
++    sheet's order (empty when nothing did). A drive's amount and its burned resistance
++    come down with a lowered maximum, as the sheet cannot show them above it."""
++    before = _snapshot(character)
++    for key, value in changes.items():
++        if key in TEXT_FIELDS:
++            value = value.strip()
++        if key == "specialty_ability":
++            value = "; ".join(value) if value else "None"
++        if key == "scars_list":
++            value = [s.strip() for s in value]
++            character.scars_count = len(value)
++        setattr(character, key, value)
++    for drive in DRIVES:
++        top = getattr(character, f"{drive}_max", 0) or 0
++        if (getattr(character, f"{drive}_current", 0) or 0) > top:
++            setattr(character, f"{drive}_current", top)
++        if (getattr(character, f"{drive}_resistance_spent", 0) or 0) > top // 3:
++            setattr(character, f"{drive}_resistance_spent", top // 3)
++    after = _snapshot(character)
++
++    said = []
++
++    def text_change(key, label=None):
++        if (before[key] or "") != (after[key] or ""):
++            said.append(f"{label or key} {_shown(before[key])} to {_shown(after[key])}")
++
++    text_change("name")
++    text_change("pronouns")
++    text_change("role")
++    text_change("specialty")
++    abilities = _added_removed("abilities", before["abilities"], after["abilities"])
++    if abilities:
++        said.append(abilities)
++    for act in ALL_ACTIONS:
++        label = ACTION_LABELS[act]
++        if (before[act] or 0) != (after[act] or 0):
++            said.append(f"{label} {before[act] or 0} to {after[act] or 0}")
++        if bool(before[f"gilded_{act}"]) != bool(after[f"gilded_{act}"]):
++            said.append(f"{label} gilded" if after[f"gilded_{act}"] else f"{label} no longer gilded")
++    for drive in DRIVES:
++        name = drive.capitalize()
++        for key, label in ((f"{drive}_max", f"{name} maximum"), (f"{drive}_current", name),
++                           (f"{drive}_resist", f"{name} resistance")):
++            if before[key] != after[key]:
++                said.append(f"{label} {before[key]} to {after[key]}")
++    for field in MARK_FIELDS:
++        if (before[field] or 0) != (after[field] or 0):
++            said.append(f"{field.split('_')[0].capitalize()} marks {before[field] or 0} to {after[field] or 0}")
++    scars = _added_removed("scars", before["scars"], after["scars"])
++    if scars:
++        said.append(scars)
++    for key in ("style", "catalyst", "question"):
++        text_change(key)
++    return said
+diff --git a/backend/vtt/ws/access.py b/backend/vtt/ws/access.py
+index 6cc3649..3965e68 100644
+--- a/backend/vtt/ws/access.py
++++ b/backend/vtt/ws/access.py
+@@ -81,14 +81,14 @@ GM_ONLY = frozenset({
+     "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
+     "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
+     "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
+-    "gm_set_tally_answer", "gm_add_tally",
++    "gm_set_tally_answer", "gm_add_tally", "gm_sheet_seen",
+ })
+ 
+ # A GM socket may aim these at a character of its campaign with payload.character_id.
+ # Every other type acts for a character only on that character's own socket.
+ GM_MAY_TARGET = frozenset({
+     "gm_update_tension", "gm_reset_character", "update_drive", "take_mark", "revive_character", "update_gear",
+-    "gm_update_scars", "gm_return_spend",
++    "gm_update_scars", "gm_return_spend", "gm_sheet_seen",
+ })
+ 
+ 
+@@ -398,6 +398,19 @@ def _update_gear(ctx, payload, character):
+         _invalid("A gear item is a name of up to 80 characters.")
+ 
+ 
++def _edit_sheet(ctx, payload, character):
++    """A player's direct edit of their own sheet (vtt/sheet_edits.py), from the player's
++    own socket (check_target). Only the shape is checked: whole numbers within the boxes
++    the sheet prints, names the app knows, text within its length; never the rules
++    (decision 1 of fix round 5)."""
++    from vtt.sheet_edits import edit_problem
++    if ctx.is_gm:
++        _forbid()
++    problem = edit_problem(character, payload.get("changes"))
++    if problem:
++        _invalid(problem)
++
++
+ def _roll(ctx, payload, character):
+     """A negative drive_spent used to raise the drive above its maximum and commit that
+     before the empty pool failed (QUIRK D15). It is refused before anything changes.
+@@ -450,6 +463,7 @@ RULES = {
+     "gm_return_spend": _gm_circle,
+     "gm_set_tally_answer": _gm_set_tally_answer,
+     "gm_add_tally": _gm_add_tally,
++    "gm_sheet_seen": _gm_only,
+     "update_circle": _gm_circle,
+     "gm_update_scars": _gm_update_scars,
+     "intercept_mark": _intercept_mark,
+@@ -465,6 +479,7 @@ RULES = {
+     "roll": _roll,
+     "chat_message": _chat_message,
+     "add_notebook_entry": _add_notebook_entry,
++    "edit_sheet": _edit_sheet,
+ }
+ 
+ 
+@@ -493,10 +508,11 @@ def _still_in_connect_campaign(ctx):
+ 
+ # What a dead investigator's own socket may no longer do: the sheet is a record once the
+ # fourth scar is taken (p. 74). Chat, the notebook, the pen font and a new investigator stay.
++# A direct edit (edit_sheet) is refused too: a dead sheet stays a record (fix round 4).
+ DEAD_REFUSED = frozenset({
+     "roll", "resolve_gilded", "use_post_roll_ability", "burn_resistance", "take_mark",
+     "resolve_ability_mark", "intercept_mark", "spend_resource", "update_drive", "update_gear",
+-    "apply_advancement", "use_ability", "circle_relationship_propose", "revive_character",
++    "apply_advancement", "use_ability", "circle_relationship_propose", "revive_character", "edit_sheet",
+ })
+ 
+ 
+diff --git a/backend/vtt/ws/handlers/__init__.py b/backend/vtt/ws/handlers/__init__.py
+index cb0302c..7ef02bc 100644
+--- a/backend/vtt/ws/handlers/__init__.py
++++ b/backend/vtt/ws/handlers/__init__.py
+@@ -52,4 +52,8 @@ HANDLERS = {
+     # The Lightkeeper's ticks on the circle's questions, and Add N Illumination, once
+     "gm_set_tally_answer":         (gm.handle_gm_set_tally_answer, False),
+     "gm_add_tally":                (gm.handle_gm_add_tally, False),
++    # A player's direct edit of their own sheet, and the Lightkeeper having seen it
++    # (vtt/sheet_edits.py)
++    "edit_sheet":                  (character.handle_edit_sheet, True),
++    "gm_sheet_seen":               (character.handle_gm_sheet_seen, True),
+ }
+diff --git a/backend/vtt/ws/handlers/character.py b/backend/vtt/ws/handlers/character.py
+index 1419efc..befbe31 100644
+--- a/backend/vtt/ws/handlers/character.py
++++ b/backend/vtt/ws/handlers/character.py
+@@ -1,21 +1,22 @@
+-"""Character sheet messages: drives, pen font, scars, revive, gear, advancement and
+-abilities used outside a roll."""
++"""Character sheet messages: drives, pen font, scars, revive, gear, advancement,
++abilities used outside a roll, and the player's direct edits of their own sheet with
++the Lightkeeper's dot for them (vtt/sheet_edits.py)."""
+ import json
+ 
+ from engine import ALL_ACTIONS, apply_advancement
+ from models import Character, Circle
+-from vtt.abilities import (GEARED_UP_SLOT, ONE_STEP_AHEAD, WARD, count_use, counted_gear, gear_limit, has_ability,
+-                           resistance_left, uses_of, written_in)
++from vtt.abilities import GEARED_UP_SLOT, ONE_STEP_AHEAD, WARD, count_use, has_ability, resistance_left, uses_of
+ from vtt.ability_uses import ABILITY_USES, DRIVES, SCAR_ABILITIES
+ from vtt.circle_queries import RESOURCES, circle_abilities
+ from vtt.config import _SAFE_FONT_NAMES
+ from vtt.creation import ACTION_LABELS
+ from vtt.serializers import get_char_dict, get_circle_dict
++from vtt.sheet_edits import apply_edit, gear_change
+ from vtt.ws.access import scar_ability
+ from vtt.serializers import awaiting_scar
+ from vtt.ws.handlers.circle import announce_downed, announce_status
+ from vtt.ws.handlers.marks import close_offers_at_death
+-from vtt.ws.manager import character_key, manager
++from vtt.ws.manager import campaign_key, character_key, manager
+ 
+ 
+ async def handle_update_drive(ctx):
+@@ -32,24 +33,60 @@ async def handle_update_drive(ctx):
+                 "detail": "A drive is a whole number from 0 to its maximum."}})
+             return
+         before = getattr(character, f"{pool}_current", 0) or 0
++        # A pip the player sets by hand is a direct edit of their sheet (record_edit): the
++        # roster card's dot goes on with it, before the sheet goes out
++        edited = not ctx.is_gm and value != before
++        if edited:
++            mark_edited(ctx, character)
+         setattr(character, f"{pool}_current", value)
+         db.commit()
+         # To the character's own channel, as revive_character: a pip the Lightkeeper sets
+         # from her copy of the sheet must reach the player's desk too (her desk follows
+         # through member_update)
+         await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
+-        # A pip set by hand, up or down, tells the table (not for a character still waiting to be approved); a spend or a refill from a roll has its own line
+-        if value != before and character.status == "active":
+-            who = f"The Lightkeeper set {character.name}'s" if ctx.is_gm else f"{character.name} set"
++        if edited:
++            await record_edit(ctx, character, [f"{pool.capitalize()} {before} to {value}"])
++        # The Lightkeeper's pip, up or down, tells the table (not for a character still
++        # waiting to be approved); a spend or a refill from a roll has its own line
++        elif value != before and character.status == "active":
+             await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
+                 "type": "activity_log",
+                 "payload": {
+-                    "message": f"{who} {pool.capitalize()} to {value} of {maximum}.",
++                    "message": f"The Lightkeeper set {character.name}'s {pool.capitalize()} to {value} of {maximum}.",
+                     "log_type": "field", "ink_color": getattr(character, "ink_color", "") or "",
+                 },
+             }, db)
+ 
+ 
++def _edit_counts(ctx, character) -> bool:
++    """Whether a player's edit goes to the Lightkeeper: the character is an active member
++    of the campaign this socket opened with (a pending, unaffiliated or released one has
++    no Lightkeeper to tell)."""
++    return bool(ctx.camp_id) and character.status == "active" and character.campaign_id == ctx.camp_id
++
++
++def mark_edited(ctx, character):
++    """Puts the dot on the member's roster card (sheet_edited), to be committed with the
++    edit, until the Lightkeeper opens the sheet (gm_sheet_seen)."""
++    if _edit_counts(ctx, character):
++        character.sheet_edited = True
++
++
++async def record_edit(ctx, character, said: list):
++    """The line for a player's direct edit of their own sheet (decision 1 of fix round 5):
++    "Mara: Nerve 2 to 3, gear Lantern removed." It goes to the Lightkeeper's log and to
++    the player's own, so the player sees what the Lightkeeper is told; the other members
++    are not sent it. Rolls, spends and the other in-play flows keep their own lines."""
++    if not said:
++        return
++    message = {"type": "activity_log", "payload": {
++        "message": f"{character.name}: {', '.join(said)}.", "log_type": "field",
++        "ink_color": getattr(character, "ink_color", "") or ""}}
++    if _edit_counts(ctx, character):
++        await manager.broadcast(campaign_key(ctx.camp_code), message, ctx.camp_id)
++    await manager.broadcast(character_key(character.id), message, ctx.camp_id)
++
++
+ async def handle_update_pen_font(ctx):
+     db, payload, character, channel = ctx.db, ctx.payload, ctx.character, ctx.channel
+     new_font = payload.get("pen_font", "")
+@@ -147,9 +184,6 @@ async def handle_revive_character(ctx):
+     await announce_downed(ctx)
+ 
+ 
+-GEAR_STAYS = "Marked gear stays until the Lightkeeper ends the assignment."
+-
+-
+ def _gear_of(character) -> list:
+     raw = character.gear
+     if isinstance(raw, str):
+@@ -161,31 +195,26 @@ def _gear_of(character) -> list:
+ 
+ 
+ async def handle_update_gear(ctx):
+-    db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
++    db, payload, character, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.camp_code, ctx.camp_id
+     new_gear = payload.get("gear", [])
+     if isinstance(new_gear, list):
+         # Gear is marked when it is used, and "Gear slots only reset once an assignment is
+-        # complete" (rulebook p. 52): a player may add items, up to the slots they have
+-        # (three; four with Geared Up, p. 30), but not unmark them. The Lightkeeper may
+-        # correct the list, and ending the assignment clears it.
++        # complete" (rulebook p. 52), up to three slots (four with Geared Up, p. 30). The
++        # desk shows the slots and warns past them; nothing is refused (decision 1 of fix
++        # round 5): a player's change is a direct edit, logged for the Lightkeeper
++        # (record_edit). Ending the assignment clears every member's gear.
+         old_gear = _gear_of(character)
+-        refused = None
+         if not ctx.is_gm:
+-            if any(item not in new_gear for item in old_gear):
+-                refused = GEAR_STAYS
+-            # One Step Ahead's object is written in by its Use button, not here
+-            elif sorted(written_in(new_gear)) != sorted(written_in(old_gear)):
+-                refused = "One Step Ahead's object is written in with its Use button."
+-            elif len(counted_gear(new_gear)) > gear_limit(character):
+-                refused = f"{character.name} has {gear_limit(character)} gear slots this assignment."
+-        if refused:
+-            await manager.broadcast(channel, {"type": "action_rejected", "payload": {
+-                "action": "update_gear", "status": 409, "detail": refused}})
+-            return
++            changed = gear_change(old_gear, new_gear)
++            if changed:
++                mark_edited(ctx, character)
+         character.gear = new_gear
+         db.commit()
+         # To the character's own channel, as update_drive: a Lightkeeper's correction reaches the player's desk
+         await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
++        if not ctx.is_gm:
++            await record_edit(ctx, character, [changed] if changed else [])
++            return
+         gear_names = ", ".join(new_gear) if new_gear else "nothing"
+         await manager.broadcast_campaign(camp_code, camp_id, {
+             "type": "activity_log",
+@@ -197,6 +226,35 @@ async def handle_update_gear(ctx):
+         }, db)
+ 
+ 
++async def handle_edit_sheet(ctx):
++    """A player's direct edit of their own sheet (vtt/sheet_edits.py): every field it names,
++    stored at once, then one line for the Lightkeeper with each change from what to what,
++    and the dot on the member's roster card. vtt.ws.access checked its shape; an edit that
++    changes nothing writes nothing."""
++    db, character = ctx.db, ctx.character
++    said = apply_edit(character, ctx.payload["changes"])
++    if not said:
++        db.rollback()
++        return
++    mark_edited(ctx, character)
++    db.commit()
++    await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
++    await record_edit(ctx, character, said)
++    # The players' circle cards follow the name and the scars
++    await announce_status(ctx, character)
++
++
++async def handle_gm_sheet_seen(ctx):
++    """The Lightkeeper opened a member's sheet: the dot a direct edit put on the roster
++    card (sheet_edited) goes. Her desk gets the sheet as member_update; nothing else is told."""
++    db, character = ctx.db, ctx.character
++    if not character.sheet_edited:
++        return
++    character.sheet_edited = False
++    db.commit()
++    await manager.broadcast(ctx.channel, {"type": "member_update", "payload": get_char_dict(character)})
++
++
+ async def handle_apply_advancement(ctx):
+     db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
+     adv_choice = payload.get("choice")
+diff --git a/backend/vtt/ws/handlers/circle.py b/backend/vtt/ws/handlers/circle.py
+index 43be022..38e645b 100644
+--- a/backend/vtt/ws/handlers/circle.py
++++ b/backend/vtt/ws/handlers/circle.py
+@@ -285,10 +285,10 @@ async def announce_downed(ctx):
+ 
+ 
+ async def announce_status(ctx, character):
+-    """member_status {character_id, campaign_id, is_dead, incapacitated, scars_count} to the
+-    campaign's players when a member's standing changes: a fourth mark or a revive
++    """member_status {character_id, campaign_id, name, is_dead, incapacitated, scars_count}
++    to the campaign's players when a member's standing changes: a fourth mark or a revive
+     (incapacitated), a scar recorded (scars_count), a death or the Lightkeeper lifting one
+-    (is_dead). A player's desk reads the roster once, and its circle cards and ally pickers
++    (is_dead), or the player's own edit of the sheet (name, scars_count). A player's desk reads the roster once, and its circle cards and ally pickers
+     leave the dead out and show who is down, so they follow it without a reload. It carries
+     only what the circle's cards already tell the members; the GM's desk is not sent it, as
+     member_update brings it the whole sheet. Nothing for a character that is not an active
+@@ -296,7 +296,8 @@ async def announce_status(ctx, character):
+     if not ctx.camp_id or character.status != "active" or character.campaign_id != ctx.camp_id:
+         return
+     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "member_status", "payload": {
+-        "character_id": character.id, "campaign_id": ctx.camp_id, "is_dead": bool(character.is_dead),
++        "character_id": character.id, "campaign_id": ctx.camp_id, "name": character.name or "",
++        "is_dead": bool(character.is_dead),
+         "incapacitated": bool(character.incapacitated), "scars_count": character.scars_count or 0}},
+         ctx.db, exclude=campaign_key(ctx.camp_code))
+ 
+-- 
+2.43.0
+

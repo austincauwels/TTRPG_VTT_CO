@@ -1,0 +1,532 @@
+From b8c7ccd74211102a81b31ada8cdea46d0d916ae5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 13 Oct 2026 05:34:33 +0000
+Subject: [PATCH 1/3] Earn back Resource Management's resource through the app,
+ and start a circle at 1 plus its members
+
+A campaign's circle made after members were approved (its desk or formation
+state opened late) started with 1 in each of Stitch, Refresh and Train until
+the seal; it now fills to 1 plus the members when it is made. Each milestone
+a rise in Illumination passes waits on the circle (circles.earn_backs, a new
+column) for Resource Management's earn-back, and the new gm_earn_back message
+applies the circle's choice with one press and logs it. A full resource or
+nothing waiting is refused; the track lowered back past a milestone takes its
+earn-back away, and a refill (the advance) clears any left.
+
+Checked: test_ws_circle, test_ws_character, test_rest_broadcasts,
+test_campaigns, test_circle_rest, test_surface and test_00_startup (on a
+fresh database) pass. Tests that pinned the 1-each start are flipped.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ETKqHLvkfH9k99JTnJzzKA
+---
+ backend/models.py                   |  4 ++
+ backend/tests/support.py            |  2 +-
+ backend/tests/test_00_startup.py    |  5 +-
+ backend/tests/test_campaigns.py     |  3 +-
+ backend/tests/test_circle_rest.py   | 14 ++++++
+ backend/tests/test_surface.py       | 20 ++++++--
+ backend/tests/test_ws_circle.py     | 77 +++++++++++++++++++++++++++--
+ backend/vtt/circle_queries.py       |  9 +++-
+ backend/vtt/db.py                   |  3 ++
+ backend/vtt/serializers.py          |  2 +
+ backend/vtt/ws/access.py            | 13 ++++-
+ backend/vtt/ws/handlers/__init__.py |  2 +
+ backend/vtt/ws/handlers/gm.py       | 69 ++++++++++++++++++++++++--
+ 13 files changed, 203 insertions(+), 20 deletions(-)
+
+diff --git a/backend/models.py b/backend/models.py
+index e1dc8d6..6c7a882 100644
+--- a/backend/models.py
++++ b/backend/models.py
+@@ -183,6 +183,10 @@ class Circle(Base):
+     # Stamina Training's gilded dice used this assignment (rulebook p. 41)
+     stamina_dice_used = Column(Integer, default=0)
+ 
++    # Resource Management's earn-backs (rulebook p. 41): one for each milestone passed,
++    # waiting for the circle's choice of Stitch, Refresh or Train (gm_earn_back)
++    earn_backs = Column(Integer, default=0)
++
+     # Per-player assignment report responses stored in backstory_answers JSON keyed by character_id
+     # Structure: { "selected_question_key": "...", "reports": { "42": { "q0": true, "q1": false, ... } } }
+ 
+diff --git a/backend/tests/support.py b/backend/tests/support.py
+index 9142f5c..607a7c4 100644
+--- a/backend/tests/support.py
++++ b/backend/tests/support.py
+@@ -69,7 +69,7 @@ CIRCLE_DICT_KEYS = {
+     "tension_clock", "tension_label", "location", "atmosphere", "dispatch_text", "max_capacity",
+     "chapter_house_location", "circle_ability", "insignia", "backstory_answers",
+     "is_finalized", "illumination", "resources_editable", "reports_open", "stamina_dice_left",
+-    "incapacitated_members", "saw_this_coming",
++    "incapacitated_members", "saw_this_coming", "earn_backs",
+     "timer_duration_ms", "timer_remaining_ms", "timer_running", "timer_visible",
+ }
+ 
+diff --git a/backend/tests/test_00_startup.py b/backend/tests/test_00_startup.py
+index 9fcabf1..1e3922d 100644
+--- a/backend/tests/test_00_startup.py
++++ b/backend/tests/test_00_startup.py
+@@ -118,7 +118,7 @@ def test_migrated_columns_exist(client):
+             "circle_ability", "insignia", "backstory_answers", "is_finalized", "illumination",
+             "tension_clock", "tension_label", "resources_editable", "reports_open",
+             "campaign_id", "timer_duration_ms", "timer_remaining_ms", "timer_ends_at", "timer_running",
+-            "timer_visible", "dispatch_text"} <= cols["circles"]
++            "timer_visible", "dispatch_text", "earn_backs"} <= cols["circles"]
+     assert {"gm_user_id", "roster_finalized", "is_retired", "deleted_at", "released_characters"} <= cols["campaigns"]
+     assert {"role", "specialty", "personal_circle_answer", "nerve_resistance_spent",
+             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
+@@ -308,6 +308,7 @@ MIGRATED_COLUMNS = {
+     ("circles", "timer_running"): ("boolean", "false"),
+     ("circles", "timer_visible"): ("boolean", "false"),
+     ("circles", "dispatch_text"): ("text", "''::text"),
++    ("circles", "earn_backs"): ("integer", "0"),
+     ("campaigns", "gm_user_id"): ("integer", None),
+     ("campaigns", "roster_finalized"): ("boolean", "false"),
+     ("campaigns", "deleted_at"): ("timestamp without time zone", None),
+@@ -380,7 +381,7 @@ def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client
+     "Error seeding database" (found rehearsing the upgrade from main). It reads the id
+     alone now, and the new columns are added."""
+     added = [("circles", "stamina_dice_used"), ("characters", "warded_by_id"), ("characters", "train_dice"),
+-             ("characters", "advancement_set")]
++             ("characters", "advancement_set"), ("circles", "earn_backs")]
+     with support.isolated_schema() as (eng, Session, schema):
+         with eng.begin() as conn:
+             for table, col in added:
+diff --git a/backend/tests/test_campaigns.py b/backend/tests/test_campaigns.py
+index 7a8e571..4366939 100644
+--- a/backend/tests/test_campaigns.py
++++ b/backend/tests/test_campaigns.py
+@@ -1103,7 +1103,8 @@ def test_circle_creation_state_creates_circle_once(client):
+     circle = support.campaign_circle(camp["id"])
+     assert body["circle_id"] == circle.id
+     assert circle.name == "Unnamed Circle"
+-    assert (circle.stitch, circle.refresh, circle.train) == (1, 1, 1)
++    # 1 plus the member in each (rulebook p. 41); it was 1 each until the seal (issue #66.4)
++    assert (circle.stitch, circle.refresh, circle.train) == (2, 2, 2)
+     assert body["is_finalized"] is False
+     assert [c["id"] for c in body["active_investigators"]] == [member["id"]]
+     assert set(body["active_investigators"][0]) == support.CHAR_DICT_KEYS
+diff --git a/backend/tests/test_circle_rest.py b/backend/tests/test_circle_rest.py
+index e5f6c05..cec419f 100644
+--- a/backend/tests/test_circle_rest.py
++++ b/backend/tests/test_circle_rest.py
+@@ -219,6 +219,20 @@ def test_respond_not_found(client):
+ 
+ # --- finalize roster --------------------------------------------------------
+ 
++def test_a_new_circle_starts_at_one_plus_its_members(client):
++    """Robert's decision 3 (issue #66.4, rulebook p. 41): each of Stitch, Refresh and Train
++    starts at 1 plus the members. A campaign's circle is made when its desk or its
++    formation state is first opened; members approved before that found 1 in each until
++    the seal (seen in the browser: 1 of 4)."""
++    camp, chars, cid = _setup(client, members=3)
++    circle = support.fetch(Circle, cid)
++    assert (circle.stitch, circle.refresh, circle.train) == (4, 4, 4)
++    empty = support.new_campaign(client)
++    cid = client.get(f"/campaign/{empty['id']}/circle-creation-state", headers=support.as_gm(empty['id'])).json()["circle_id"]
++    circle = support.fetch(Circle, cid)
++    assert (circle.stitch, circle.refresh, circle.train) == (1, 1, 1)
++
++
+ def test_finalize_roster(client):
+     camp, (a, b, c), cid = _setup(client, members=3)
+     pending = support.pending_member(client, camp)
+diff --git a/backend/tests/test_surface.py b/backend/tests/test_surface.py
+index ca7c4e4..8c53860 100644
+--- a/backend/tests/test_surface.py
++++ b/backend/tests/test_surface.py
+@@ -155,7 +155,7 @@ WS_MESSAGE_TYPES = [
+     "apply_advancement", "update_circle", "circle_creation_vote",
+     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
+     "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
+-    "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally",
++    "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally", "gm_earn_back",
+ ]
+ 
+ 
+@@ -181,6 +181,12 @@ def _resources_editable(client, ctx):
+     support.update(Circle, r.json()["circle_id"], resources_editable=True)
+ 
+ 
++def _earn_back_waiting(client, ctx):
++    r = client.get(f"/campaign/{ctx.camp_id}/circle-creation-state", headers=support.as_gm(ctx.camp_id))
++    assert r.status_code == 200, r.text
++    support.update(Circle, r.json()["circle_id"], circle_ability="Resource Management", stitch=0, earn_backs=1)
++
++
+ # type -> sender ("player" or "gm"), forge fields for the player's character, the
+ # payload, the frame types the sender gets back, and optional setup steps.
+ WS_CASES = {
+@@ -307,11 +313,17 @@ WS_CASES = {
+     "gm_add_tally": dict(
+         sender="gm", payload=lambda c: {"circle_id": c.circle_id, "keys": 2},
+         expect=["circle_update", "activity_log"]),
++    # Resource Management's earn-back waiting at a milestone, the circle's choice applied
++    "gm_earn_back": dict(
++        sender="gm",
++        before_connect=_earn_back_waiting,
++        payload=lambda c: {"circle_id": c.circle_id, "resource_type": "stitch"},
++        expect=["circle_update", "activity_log"]),
+ }
+ 
+ 
+ def test_ws_cases_cover_every_message_type():
+-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 38
++    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 39
+     assert list(WS_CASES) == WS_MESSAGE_TYPES
+ 
+ 
+@@ -380,7 +392,7 @@ def test_ws_access_table():
+     and GM-target type is a real message type."""
+     from vtt.ws import access
+     gm_rules = (access._gm_only, access._gm_circle, access._gm_update_circle, access._gm_update_scars,
+-                access._gm_set_tally_answer, access._gm_add_tally)
++                access._gm_set_tally_answer, access._gm_add_tally, access._gm_earn_back)
+     assert access.GM_ONLY == {t for t, rule in access.RULES.items() if rule in gm_rules}
+     assert set(access.RULES) <= set(WS_MESSAGE_TYPES)
+     assert access.GM_MAY_TARGET <= set(WS_MESSAGE_TYPES)
+@@ -388,7 +400,7 @@ def test_ws_access_table():
+         "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
+         "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
+         "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
+-        "gm_set_tally_answer", "gm_add_tally",
++        "gm_set_tally_answer", "gm_add_tally", "gm_earn_back",
+     }
+ 
+ 
+diff --git a/backend/tests/test_ws_circle.py b/backend/tests/test_ws_circle.py
+index 1f2b1b7..d18e00e 100644
+--- a/backend/tests/test_ws_circle.py
++++ b/backend/tests/test_ws_circle.py
+@@ -909,14 +909,80 @@ def test_update_circle_milestone_log(client):
+ 
+ def test_resource_management_reminds_at_each_milestone(client):
+     """RULES_CHECK 20: Resource Management gains a resource of the circle's choice at each
+-    milestone; the log says so (the choice stays with the table)."""
++    milestone; the log says so. Since fix round 5 (Robert's issue #66.4) the app asks for
++    the choice and applies it (gm_earn_back): the line says one is waiting, and each
++    milestone passed waits on the circle as an earn-back."""
+     camp, _, cid = _campaign(client, members=0)
+-    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Hunters\nResource Management")
++    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Hunters\nResource Management",
++                   stitch=0)
+     with support.ws_connect(client, camp["campaign_code"]) as gm:
+         gm.send("update_circle", illumination=7)
+-        lines = [m["payload"]["message"] for m in gm.sync()[2:]]
+-        assert lines == ["The Moths milestone 3 reached!", "Resource Management: The Moths gains one resource of its choice.",
+-                         "The Moths milestone 6 reached!", "Resource Management: The Moths gains one resource of its choice."]
++        msgs = gm.sync()
++        assert msgs[0]["payload"]["earn_backs"] == 2
++        lines = [m["payload"]["message"] for m in msgs[2:]]
++        assert lines == [
++            "The Moths milestone 3 reached!",
++            "Resource Management: The Moths earns back one Stitch, Refresh or Train, the circle's choice.",
++            "The Moths milestone 6 reached!",
++            "Resource Management: The Moths earns back one Stitch, Refresh or Train, the circle's choice."]
++
++
++def test_resource_management_earn_back_is_one_press(client):
++    """Robert's decision 3 (issue #66.4): at each milestone (3, 6, 9) Resource
++    Management's earn-back happens through the app. One press applies the circle's choice
++    and logs it; a full resource is refused (choose another), and so is a press with
++    nothing waiting. The track lowered back past a milestone takes its earn-back away."""
++    camp, members, cid = _campaign(client, members=2)
++    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Resource Management",
++                   stitch=1, refresh=3, train=3)
++    with support.ws_connect(client, camp["campaign_code"]) as gm:
++        gm.send("gm_set_tally_answer", index=0, checked=True)
++        gm.sync()
++        gm.send("gm_add_tally", keys=4)  # 2 to 7: milestones 3 and 6
++        assert gm.sync()[0]["payload"]["earn_backs"] == 2
++        gm.send("gm_earn_back", resource_type="refresh")
++        assert gm.sync() == [_rejected("gm_earn_back", status=409,
++                                       detail="The circle's Refresh is full: choose another.")]
++        gm.send("gm_earn_back", resource_type="stitch")
++        msgs = gm.sync()
++        assert support.types(msgs) == ["circle_update", "activity_log"]
++        assert (msgs[0]["payload"]["stitch"], msgs[0]["payload"]["earn_backs"]) == (2, 1)
++        assert msgs[1]["payload"]["message"] == "Resource Management: The Moths earns back a Stitch (2 of 3)."
++        # The Lightkeeper takes a point back past 6: the earn-back it brought goes
++        gm.send("update_circle", illumination=5)
++        assert gm.sync()[0]["payload"]["earn_backs"] == 0
++        gm.send("gm_earn_back", resource_type="stitch")
++        assert gm.sync() == [_rejected("gm_earn_back", status=409, detail="The circle has nothing to earn back.")]
++        gm.send("gm_earn_back", resource_type="lantern")
++        assert gm.sync()[0]["payload"]["status"] == 422
++    assert support.fetch(Circle, cid).stitch == 2
++
++
++def test_resource_management_has_nothing_to_earn_back_when_full(client):
++    """A milestone passed with every resource at its maximum earns nothing back, and the
++    log says so; a circle without Resource Management has no earn-back at all."""
++    camp, _, cid = _campaign(client, members=1)
++    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Resource Management",
++                   stitch=2, refresh=2, train=2)
++    with support.ws_connect(client, camp["campaign_code"]) as gm:
++        gm.send("update_circle", illumination=3)
++        msgs = gm.sync()
++        assert msgs[0]["payload"]["earn_backs"] == 0
++        assert msgs[-1]["payload"]["message"] == \
++            "Resource Management: every resource of The Moths is full, so there is nothing to earn back."
++        support.update(Circle, cid, circle_ability="Hunters", stitch=0)
++        gm.send("update_circle", illumination=6)
++        assert gm.sync()[0]["payload"]["earn_backs"] == 0
++
++
++def test_advancing_the_circle_clears_a_waiting_earn_back(client):
++    """The advance refills every resource (p. 41), so an earn-back still waiting goes."""
++    camp, _, cid = _campaign(client, members=1)
++    support.update(Circle, cid, illumination=12, circle_ability="Resource Management", stitch=0, earn_backs=1)
++    with support.ws_connect(client, camp["campaign_code"]) as gm:
++        gm.send("gm_advance_circle")
++        circle = gm.sync()[-1]["payload"]["circle"]
++    assert (circle["stitch"], circle["earn_backs"]) == (2, 0)
+ 
+ 
+ def test_advancing_the_circle_replenishes_its_resources(client):
+@@ -1523,6 +1589,7 @@ def test_the_lightkeeper_resource_and_report_changes_are_logged(client):
+ def test_the_lightkeeper_gives_a_spend_back(client):
+     camp, (member,), cid = _campaign(client)
+     support.update(Character, member["id"], resources_spent_assignment=2)
++    support.update(Circle, cid, stitch=1)  # one of the two spent
+     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+         before = support.fetch(Circle, cid).stitch
+         gm.send("gm_return_spend", character_id=member["id"], resource_type="stitch", circle_id=cid)
+diff --git a/backend/vtt/circle_queries.py b/backend/vtt/circle_queries.py
+index 37a6ff2..25c8f85 100644
+--- a/backend/vtt/circle_queries.py
++++ b/backend/vtt/circle_queries.py
+@@ -78,10 +78,12 @@ def saw_this_coming(circle, db: Session = None) -> list:
+ def fill_resources(circle, db: Session = None):
+     """Sets each of Stitch, Refresh and Train to 1 plus the active members. (On
+     2026-10-06 this split one pool of that size across the three, a misreading of p. 41
+-    that the p. 62 example rules out.)"""
++    that the p. 62 example rules out.) A full circle has nothing left to earn back, so
++    any Resource Management earn-back still waiting goes."""
+     points = resource_pool(circle, db)
+     for key in RESOURCES:
+         setattr(circle, key, points)
++    circle.earn_backs = 0
+ 
+ 
+ def lower_resources_to_pool(circle, db: Session = None):
+@@ -104,8 +106,11 @@ def get_or_create_campaign_circle(db: Session, campaign_id: int) -> Circle:
+     """Returns the circle owned by this campaign, creating one if it doesn't exist yet."""
+     circle = db.query(Circle).filter(Circle.campaign_id == campaign_id).first()
+     if not circle:
+-        circle = Circle(name="Unnamed Circle", stitch=1, refresh=1, train=1, campaign_id=campaign_id)
++        circle = Circle(name="Unnamed Circle", campaign_id=campaign_id)
+         db.add(circle)
++        # 1 plus the members in each resource, as an approval fills them (rulebook p. 41):
++        # members approved before anyone opened the campaign used to find 1 in each
++        fill_resources(circle, db)
+         db.commit()
+         db.refresh(circle)
+     return circle
+diff --git a/backend/vtt/db.py b/backend/vtt/db.py
+index 4dd9d70..de6a83d 100644
+--- a/backend/vtt/db.py
++++ b/backend/vtt/db.py
+@@ -421,6 +421,9 @@ def init_db():
+ 
+     # Stamina Training's dice used this assignment (RULES_CHECK.md item 20). Existing rows get 0.
+     add_columns("circles", [("stamina_dice_used", "INTEGER DEFAULT 0")])
++    # Resource Management's earn-backs waiting for the circle's choice (RULES_CHECK.md item
++    # 16, fix round 5). Existing rows get 0: none waiting.
++    add_columns("circles", [("earn_backs", "INTEGER DEFAULT 0")])
+ 
+     # Circle advancement picks (RULES_CHECK.md item 14). Existing rows get 0 and an empty
+     # list: no advancement waiting.
+diff --git a/backend/vtt/serializers.py b/backend/vtt/serializers.py
+index 09a9024..0a82b7b 100644
+--- a/backend/vtt/serializers.py
++++ b/backend/vtt/serializers.py
+@@ -137,6 +137,8 @@ def get_circle_dict(circle):
+         # The resource pool (1 plus the active members, rulebook p. 41): any one resource
+         # can hold all of it
+         "max_capacity": resource_pool(circle),
++        # Resource Management's earn-backs waiting for the circle's choice (p. 41)
++        "earn_backs": getattr(circle, "earn_backs", 0) or 0,
+         "stamina_dice_left": max(0, STAMINA_DICE - (getattr(circle, "stamina_dice_used", 0) or 0))
+         if "Stamina Training" in circle_abilities(circle) else 0,
+         # Nobody Left Behind (p. 41): who is down, for the +1d chip on the desks
+diff --git a/backend/vtt/ws/access.py b/backend/vtt/ws/access.py
+index 6cc3649..d23b18f 100644
+--- a/backend/vtt/ws/access.py
++++ b/backend/vtt/ws/access.py
+@@ -81,7 +81,7 @@ GM_ONLY = frozenset({
+     "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
+     "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
+     "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
+-    "gm_set_tally_answer", "gm_add_tally",
++    "gm_set_tally_answer", "gm_add_tally", "gm_earn_back",
+ })
+ 
+ # A GM socket may aim these at a character of its campaign with payload.character_id.
+@@ -189,6 +189,16 @@ def _gm_add_tally(ctx, payload, character):
+         _invalid("The keys are worth 0, 2 or 4.")
+ 
+ 
++# Resource Management's earn-back (rulebook p. 41): one of the circle's three resources
++EARN_BACK_RESOURCES = ("stitch", "refresh", "train")
++
++
++def _gm_earn_back(ctx, payload, character):
++    _gm_circle(ctx, payload, character)
++    if payload.get("resource_type") not in EARN_BACK_RESOURCES:
++        _invalid("Earn back a Stitch, a Refresh or a Train.")
++
++
+ def _intercept_mark(ctx, payload, character):
+     m_type = payload.get("mark_type")
+     if m_type and m_type not in MARK_TYPES:
+@@ -450,6 +460,7 @@ RULES = {
+     "gm_return_spend": _gm_circle,
+     "gm_set_tally_answer": _gm_set_tally_answer,
+     "gm_add_tally": _gm_add_tally,
++    "gm_earn_back": _gm_earn_back,
+     "update_circle": _gm_circle,
+     "gm_update_scars": _gm_update_scars,
+     "intercept_mark": _intercept_mark,
+diff --git a/backend/vtt/ws/handlers/__init__.py b/backend/vtt/ws/handlers/__init__.py
+index cb0302c..9dfff5a 100644
+--- a/backend/vtt/ws/handlers/__init__.py
++++ b/backend/vtt/ws/handlers/__init__.py
+@@ -52,4 +52,6 @@ HANDLERS = {
+     # The Lightkeeper's ticks on the circle's questions, and Add N Illumination, once
+     "gm_set_tally_answer":         (gm.handle_gm_set_tally_answer, False),
+     "gm_add_tally":                (gm.handle_gm_add_tally, False),
++    # Resource Management's earn-back, the circle's choice
++    "gm_earn_back":                (gm.handle_gm_earn_back, False),
+ }
+diff --git a/backend/vtt/ws/handlers/gm.py b/backend/vtt/ws/handlers/gm.py
+index 21c1dd6..dccbf32 100644
+--- a/backend/vtt/ws/handlers/gm.py
++++ b/backend/vtt/ws/handlers/gm.py
+@@ -1,6 +1,7 @@
+ """GM messages: tension (a member's marks), a member's scars, scene, the circle toggles,
+ advancing the circle, refilling resources, ending an assignment, resetting a character,
+-update_circle, the assignment's Illumination tally and giving a spend back.
++update_circle, the assignment's Illumination tally, giving a spend back and Resource
++Management's earn-back.
+ 
+ Only the campaign's GM may send these (vtt.ws.access rejects them from anyone else,
+ and ctx.is_gm comes from the login token, never from the payload's "role"). The
+@@ -78,10 +79,36 @@ def table_lines(before: dict, circle) -> list:
+     return lines
+ 
+ 
++def _resources_full(circle, db) -> bool:
++    """Every one of Stitch, Refresh and Train at its maximum: nothing to earn back."""
++    pool = resource_pool(circle, db)
++    return all((getattr(circle, key, 0) or 0) >= pool for key in RESOURCE_NAMES)
++
++
++def _count_earn_backs(db, circle, old_illum):
++    """Resource Management (rulebook p. 41): "When your circle hits a milestone on the
++    Illumination Track, earn back 1 Stitch, Refresh, or Train resource." Each milestone a
++    rise passes waits on the circle (earn_backs) for the circle's choice, which the
++    Lightkeeper applies with one press (gm_earn_back); with every resource full there is
++    nothing to earn back. A fall back past a milestone takes a waiting one away, so a
++    point added by mistake and taken back leaves none. Called before the commit. The
++    Lightkeeper used to add the resource by hand (Robert's issue #66.4)."""
++    new_illum = getattr(circle, "illumination", 0) or 0
++    if not (isinstance(old_illum, int) and isinstance(new_illum, int)) or \
++            "Resource Management" not in circle_abilities(circle):
++        return
++    waiting = circle.earn_backs or 0
++    passed = sum(1 for m in MILESTONES if old_illum < m <= new_illum)
++    undone = sum(1 for m in MILESTONES if new_illum < m <= old_illum)
++    if passed and not _resources_full(circle, db):
++        waiting += passed
++    circle.earn_backs = max(0, waiting - undone)
++
++
+ async def _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum):
+     """A log line for each milestone a rise in Illumination passed, a Resource Management
+-    line after each when the circle has it, and a line when the track fills (RULES_CHECK.md
+-    items 19 and 20)."""
++    line after each when the circle has it (_count_earn_backs), and a line when the track
++    fills (RULES_CHECK.md items 19 and 20)."""
+     if not (isinstance(old_illum, int) and isinstance(new_illum, int) and new_illum > old_illum):
+         return
+     circle_name = circle.name or "The Circle"
+@@ -93,7 +120,9 @@ async def _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum
+         if old_illum < milestone <= new_illum:
+             await log(f"{circle_name} milestone {milestone} reached!")
+             if "Resource Management" in circle_abilities(circle):
+-                await log(f"Resource Management: {circle_name} gains one resource of its choice.")
++                await log(f"Resource Management: every resource of {circle_name} is full, so there is nothing to earn back."
++                          if _resources_full(circle, db) else
++                          f"Resource Management: {circle_name} earns back one Stitch, Refresh or Train, the circle's choice.")
+     if old_illum < TRACK <= new_illum:
+         await log(f"{circle_name}'s Illumination track is full: the circle can advance.")
+ 
+@@ -382,6 +411,7 @@ async def handle_gm_end_assignment(ctx):
+         old_illum = target_circle.illumination or 0
+         if note_takers:
+             target_circle.illumination = old_illum + len(note_takers)
++            _count_earn_backs(db, target_circle, old_illum)
+         db.commit()
+         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
+         for ch in active_chars:
+@@ -434,6 +464,7 @@ async def handle_update_circle(ctx):
+     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
+     target_circle = resolve_circle(db, circle_id, camp_id)
+     if target_circle:
++        db.refresh(target_circle, with_for_update=True)  # see handle_gm_advance_circle
+         old_illum = getattr(target_circle, "illumination", 0) or 0
+         before = table_before(target_circle)
+         for field in ["name", "stitch", "refresh", "train", "guard_patrol", "miasma_bleed", "location", "atmosphere",
+@@ -441,6 +472,8 @@ async def handle_update_circle(ctx):
+                       "tension_clock", "tension_label"]:
+             if field in payload:
+                 setattr(target_circle, field, payload[field])
++        if "illumination" in payload:
++            _count_earn_backs(db, target_circle, old_illum)
+         db.commit()
+         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
+         for line in table_lines(before, target_circle):
+@@ -522,6 +555,7 @@ async def handle_gm_add_tally(ctx):
+         return
+     old_illum = target_circle.illumination or 0
+     target_circle.illumination = old_illum + total
++    _count_earn_backs(db, target_circle, old_illum)
+     answers[TALLY] = {**tally, "added": total}
+     target_circle.backstory_answers = answers
+     db.commit()
+@@ -570,3 +604,30 @@ async def handle_gm_return_spend(ctx):
+     if returned:
+         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(circle)}, db)
+     await log_line(db, camp_code, camp_id, said + ".")
++
++
++async def handle_gm_earn_back(ctx):
++    """Resource Management's earn-back (rulebook p. 41), the circle's choice applied with
++    one press: field `resource_type`, stitch, refresh or train (vtt.ws.access checks it).
++    One of the earn-backs waiting on the circle (_count_earn_backs) puts one of that
++    resource back. Refused with none waiting, or for a resource already at its maximum."""
++    db, payload, camp_code, camp_id, circle = ctx.db, ctx.payload, ctx.camp_code, ctx.camp_id, ctx.circle
++    if not ctx.is_gm: return
++    target_circle = resolve_circle(db, payload.get("circle_id") or (circle.id if circle else 1), camp_id)
++    if target_circle is None:
++        return
++    db.refresh(target_circle, with_for_update=True)  # see handle_gm_advance_circle
++    resource = payload["resource_type"]
++    if not (target_circle.earn_backs or 0) > 0:
++        await _refuse(ctx, "gm_earn_back", "The circle has nothing to earn back.")
++        return
++    have, pool = getattr(target_circle, resource, 0) or 0, resource_pool(target_circle, db)
++    if have >= pool:
++        await _refuse(ctx, "gm_earn_back", f"The circle's {resource.capitalize()} is full: choose another.")
++        return
++    setattr(target_circle, resource, have + 1)
++    target_circle.earn_backs -= 1
++    db.commit()
++    await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
++    await log_line(db, camp_code, camp_id, f"Resource Management: {target_circle.name or 'The Circle'} earns back "
++                                           f"a {resource.capitalize()} ({have + 1} of {pool}).")
+-- 
+2.43.0
+
