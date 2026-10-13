@@ -5,6 +5,7 @@ import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
 import { useDeleteUndo } from './useDeleteUndo';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
 import { MourningCross } from '../shared/InkMarks';
+import { Standing } from '../shared/Standing';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { ArmedDetail, leaveDetail, leaveError, leaveHint } from '../pc/LeaveCampaign';
 
@@ -123,6 +124,8 @@ export const PlayerRegistryPage = ({
                         <p className="font-serif italic text-base text-sepia truncate">{char.campaign_name}</p>
                       )}
                     </div>
+                    {/* Dead and not yet replaced: its desk is where the new investigator is made */}
+                    {char.is_dead && <Standing inv={char} className="shrink-0" />}
                     <span className={`font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 transition-opacity ${entering === char.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-focus-visible:opacity-100'}`}>
                       {entering === char.id ? 'Opening…' : 'Play →'}
                     </span>
