@@ -380,7 +380,7 @@ def test_ws_access_table():
     and GM-target type is a real message type."""
     from vtt.ws import access
     gm_rules = (access._gm_only, access._gm_circle, access._gm_update_circle, access._gm_update_scars,
-                access._gm_set_tally_answer, access._gm_add_tally)
+                access._gm_set_tally_answer, access._gm_add_tally, access._gm_update_circle_fields)
     assert access.GM_ONLY == {t for t, rule in access.RULES.items() if rule in gm_rules}
     assert set(access.RULES) <= set(WS_MESSAGE_TYPES)
     assert access.GM_MAY_TARGET <= set(WS_MESSAGE_TYPES)

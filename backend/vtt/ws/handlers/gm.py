@@ -30,7 +30,7 @@ MILESTONES = (3, 6, 9)  # its milestones, printed on the circle sheet
 
 RESOURCE_NAMES = ("stitch", "refresh", "train")
 TABLE_FIELDS = ("name", "stitch", "refresh", "train", "location", "atmosphere", "dispatch_text",
-                "tension_clock", "tension_label")
+                "tension_clock", "tension_label", "insignia")
 
 
 def _clip(text, limit: int = 80) -> str:
@@ -66,6 +66,10 @@ def table_lines(before: dict, circle) -> list:
             lines.append(_sentence(f"The Lightkeeper sent a {'new ' if had else ''}dispatch{where}"))
     if (now["name"] or "").strip() and (now["name"] or "").strip() != (before["name"] or "").strip():
         lines.append(_sentence(f"The Lightkeeper renamed the circle to {_clip(now['name'])}"))
+    if (now["insignia"] or "") != (before["insignia"] or "") and now["insignia"]:
+        # Imported here: vtt.routers.circles imports this module
+        from vtt.routers.circles import INSIGNIA_LABELS
+        lines.append(f"The Lightkeeper changed the circle's insignia to {INSIGNIA_LABELS.get(now['insignia'], now['insignia'])}.")
     old_t, new_t = before["tension_clock"] or 0, now["tension_clock"] or 0
     if isinstance(old_t, int) and isinstance(new_t, int) and old_t != new_t:
         lines.append(f"The Lightkeeper {'raised' if new_t > old_t else 'lowered'} the tension to {new_t} of 4.")
@@ -438,7 +442,7 @@ async def handle_update_circle(ctx):
         before = table_before(target_circle)
         for field in ["name", "stitch", "refresh", "train", "guard_patrol", "miasma_bleed", "location", "atmosphere",
                       "chapter_house_location", "circle_ability", "illumination",
-                      "tension_clock", "tension_label"]:
+                      "tension_clock", "tension_label", "insignia"]:
             if field in payload:
                 setattr(target_circle, field, payload[field])
         db.commit()

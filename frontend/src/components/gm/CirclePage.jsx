@@ -39,6 +39,7 @@ import { TickMark, CrossMark } from '../shared/InkMarks';
 import { tallyReports, tallyOf, unfiledNames, notFiledLine, reportsDue } from '../../game/illumination';
 import { reportingMembers } from '../../game/roster';
 import { CIRCLE_QUESTIONS, insigniaLabel, relationshipsAmong, answererOf } from '../../game/circleFormation';
+import { InsigniaStamp } from './desk/InsigniaStamp';
 
 // A line of the charter the Lightkeeper may change: its value with an Edit button, which
 // turns it into a field holding the value. Enter or leaving the field saves, Escape puts
@@ -409,17 +410,8 @@ export const CirclePage = () => {
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia">
               Insignia
             </span>
-            {/* Named only once one is chosen; the stamp's candle is the blank seal until then */}
-            <div {...(circle?.insignia
-              ? { role: 'img', 'aria-label': `Insignia: ${insigniaLabel(circle.insignia)}`, title: insigniaLabel(circle.insignia) }
-              : { 'aria-hidden': true })}
-              className="w-16 h-16 rounded-full border-2 border-ink/70 flex items-center justify-center bg-parchment/40 relative shadow-inner transform -rotate-3">
-              <div className="absolute inset-0 rounded-full border border-ink/20 m-1 border-dashed" />
-              <SafeIcon name={circle?.insignia || 'GiCandleLight'} size={30} className="text-ink/85" />
-            </div>
-            {circle?.insignia
-              ? <span aria-hidden="true" className="font-serif text-xs italic text-sepia text-center">{insigniaLabel(circle.insignia)}</span>
-              : <span className="text-sepia text-xs"><BlankEntry label="None chosen" className="!w-14" /></span>}
+            {/* After the seal the Lightkeeper changes it by clicking it (InsigniaStamp.jsx) */}
+            <InsigniaStamp circle={circle} onSave={insignia => updateCircle({ circle_id: circId, insignia })} />
           </div>
         </div>
 
