@@ -171,6 +171,16 @@ def _gm_update_circle(ctx, payload, character):
             _invalid(DISPATCH_TOO_LONG)
 
 
+def _gm_update_circle_fields(ctx, payload, character):
+    _gm_circle(ctx, payload, character)
+    # The Lightkeeper changes the insignia by clicking it (issue #66.7): one of the eight the
+    # formation papers offer. Imported here: vtt.routers.circles imports this module.
+    if "insignia" in payload:
+        from vtt.routers.circles import INSIGNIA_LABELS
+        if not isinstance(payload["insignia"], str) or payload["insignia"] not in INSIGNIA_LABELS:
+            _invalid("The insignia is one of the eight on the formation papers.")
+
+
 # The assignment's tally (rulebook p. 55): three questions worth 1 each, and the keys 2
 # when some of the investigators fulfilled one, 4 when every one of them did
 TALLY_KEYS = (0, 2, 4)
@@ -475,7 +485,7 @@ RULES = {
     "gm_add_tally": _gm_add_tally,
     "gm_sheet_seen": _gm_only,
     "gm_earn_back": _gm_earn_back,
-    "update_circle": _gm_circle,
+    "update_circle": _gm_update_circle_fields,
     "gm_update_scars": _gm_update_scars,
     "intercept_mark": _intercept_mark,
     "spend_resource": _spend_resource,

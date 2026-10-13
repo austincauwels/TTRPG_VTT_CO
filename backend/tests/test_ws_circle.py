@@ -870,6 +870,31 @@ def test_update_circle_as_gm(client):
         assert support.of_type(wm.drain(), "circle_update") == [msg]
 
 
+def test_update_circle_insignia(client):
+    """The Lightkeeper changes the insignia by clicking it (issue #66.7): one of the eight
+    insignia, with a log line; anything else is refused and nothing is saved."""
+    camp, (member,), cid = _campaign(client)
+    support.update(Circle, cid, insignia="GiCompass")
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
+        gm.send("update_circle", circle_id=cid, insignia="GiMoon")
+        msgs = gm.sync()
+        assert support.types(msgs) == ["circle_update", "activity_log"]
+        assert msgs[0]["payload"]["insignia"] == "GiMoon"
+        assert msgs[1]["payload"]["message"] == "The Lightkeeper changed the circle's insignia to Moon."
+        assert support.types(wm.drain()) == ["circle_update", "activity_log"]
+        gm.send("update_circle", circle_id=cid, insignia="GiMoon")  # the same: no line
+        assert support.types(gm.sync()) == ["circle_update"]
+        for bad in ("Owl", "", None, ["GiMoon"]):
+            gm.send("update_circle", circle_id=cid, insignia=bad, name="Not saved")
+            assert gm.sync() == [_rejected("update_circle", status=422,
+                                           detail="The insignia is one of the eight on the formation papers.")]
+        wm.drain()
+        wm.send("update_circle", circle_id=cid, insignia="GiOuroboros")  # a player may not
+        assert wm.sync() == [_rejected("update_circle")]
+    c = support.fetch(Circle, cid)
+    assert (c.insignia, c.name) == ("GiMoon", "Unnamed Circle")
+
+
 def test_update_circle_from_a_player_is_rejected(client):
     """Before tokens a non-GM could lower stitch, refresh and train and set every
     other field (only the GM screens send update_circle). It is GM only now."""
