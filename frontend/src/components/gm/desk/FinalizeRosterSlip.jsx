@@ -31,7 +31,7 @@ export const FinalizeRosterSlip = ({ handleFinalizeRoster, isFinalizingRoster, c
   // One short sentence that keeps both losses in view (the empty parts and the turned-away
   // requests; fix round 7, 69.4). The waiting relationships are not lost, so it leaves them out
   const losses = [
-    empty.length === 0 ? '' : `leaving ${nameList(empty)} empty`,
+    empty.length === 0 ? '' : empty.length > 2 ? `leaving ${empty.length} parts empty` : `leaving ${nameList(empty)} empty`,
     requests === 0 ? '' : `turning away ${requests === 1 ? '1 waiting request' : `${requests} waiting requests`}`,
   ].filter(Boolean).join(' and ');
   const armedHint = `Press again to seal the circle for good with ${activeCount} investigator${activeCount === 1 ? '' : 's'}${losses ? `, ${losses}` : ''}.`;

@@ -149,6 +149,12 @@ const dispatchOf = (c) => ({ location: c?.location || '', atmosphere: c?.atmosph
 // The unsent draft, with the dispatch it was written over
 const keptDraft = { circleId: undefined, base: dispatchOf(null), location: '', atmosphere: '', ownText: '' };
 
+const Receipt = ({ receipt, className }) => (
+  <p role={receipt.ok ? 'status' : 'alert'} className={`mt-2 font-serif text-base leading-snug ${receipt.ok ? 'text-seal-green' : 'text-oxblood'} ${className}`}>
+    {receipt.text}
+  </p>
+);
+
 export const SceneManager = () => {
   const { circle, socket, accessSession, circleRefusal, circleCreation } = useGameStore();
 
@@ -394,7 +400,8 @@ export const SceneManager = () => {
           off the letter's edge. From xl the letter scrolls inside its column, so the stamps
           are the letter's last row and stay at the foot of the column (sticky, on the
           letter's paper), in view without scrolling (fix round 7, 45.4). */}
-      <div className="mt-8 xl:mt-5 xl:order-last xl:sticky xl:bottom-0 xl:z-10 xl:-mx-5 2xl:-mx-6 xl:px-5 2xl:px-6 xl:pt-3 xl:pb-2 xl:-mb-5 2xl:-mb-6 xl:bg-parchment xl:shadow-[0_-14px_12px_-6px_rgb(var(--c-parchment))] flex flex-wrap justify-between items-start xl:items-end gap-x-4 gap-y-4 relative">
+      <div className="mt-8 xl:mt-5 xl:order-last xl:sticky xl:bottom-[-0.75rem] xl:z-10 xl:-mx-5 2xl:-mx-6 xl:px-5 2xl:px-6 xl:pt-3 xl:pb-5 2xl:pb-6 xl:-mb-5 2xl:-mb-6 xl:bg-parchment xl:shadow-[0_-14px_12px_-6px_rgb(var(--c-parchment))] relative">
+      <div className="flex flex-wrap justify-between items-start xl:items-end gap-x-4 gap-y-4">
         {/* End Assignment: left stamp */}
         <ConfirmAction
           // From xl the armed line floats above the stamp instead of pushing it: the stamp
@@ -410,7 +417,7 @@ export const SceneManager = () => {
               {...props}
               className="relative group transform rotate-2 hover:rotate-0 transition-transform active:scale-95"
             >
-              <div className={`border-[3px] rounded px-3 py-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center font-sans font-black uppercase tracking-widest text-xs ${
+              <div className={`border-[3px] rounded px-3 py-1.5 xl:min-w-[8.5rem] xl:text-center [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center xl:[@media(pointer:coarse)]:justify-center font-sans font-black uppercase tracking-widest text-xs ${
                 armed
                   ? 'border-oxblood bg-oxblood text-cream'
                   : 'border-sepia text-sepia opacity-90 group-hover:opacity-100 group-hover:bg-sepia/5'
@@ -439,6 +446,9 @@ export const SceneManager = () => {
           </p>
         </div>
       </div>
+      {/* From xl the receipt sits under the stamps, in the sticky row, so it is never hidden */}
+      {receipt && <Receipt receipt={receipt} className="hidden xl:block" />}
+      </div>
       <div className="mt-6 xl:mt-4 flex items-center gap-2" aria-hidden="true">
         <PrinterMark size={12} />
         <FormLine>Form C.O. 2 · Dispatch</FormLine>
@@ -446,11 +456,7 @@ export const SceneManager = () => {
       <p className="mt-4 font-sans text-xs font-black uppercase tracking-widest text-sepia">
         {onDesks ? "On the players' desks" : 'Not dispatched yet'}
       </p>
-      {receipt && (
-        <p role={receipt.ok ? 'status' : 'alert'} className={`mt-2 font-serif text-base leading-snug ${receipt.ok ? 'text-seal-green' : 'text-oxblood'}`}>
-          {receipt.text}
-        </p>
-      )}
+      {receipt && <Receipt receipt={receipt} className="xl:hidden" />}
     </div>
   );
 };

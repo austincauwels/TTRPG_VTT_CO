@@ -1099,6 +1099,19 @@ def test_a_milestone_is_not_counted_twice_after_its_earn_back_is_applied(client)
     assert support.fetch(Circle, cid).milestones_earned == 0
 
 
+def test_a_circle_from_before_the_column_loses_its_waiting_earn_back_on_a_fall(client):
+    """A circle whose milestones_earned is still 0 (the column was added under it) counts the
+    milestones its track already stands past, so 7 down to 5 and back to 7 is not a second earn-back."""
+    camp, _, cid = _campaign(client, members=1)
+    support.update(Circle, cid, illumination=7, name="The Moths", circle_ability="Resource Management",
+                   stitch=0, refresh=0, train=0, earn_backs=1, milestones_earned=0)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_circle", illumination=5)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 0
+        gm.send("update_circle", illumination=7)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 1
+
+
 def test_advancing_the_circle_clears_a_waiting_earn_back(client):
     """The advance refills every resource (p. 41), so an earn-back still waiting goes."""
     camp, _, cid = _campaign(client, members=1)

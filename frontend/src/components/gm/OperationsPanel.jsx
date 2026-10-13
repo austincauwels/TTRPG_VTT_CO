@@ -94,7 +94,10 @@ export const OperationsPanel = () => {
   useEffect(() => {
     if (selectedInvestigator?.status !== 'pending') return;
     const waiting = campaignRoster.pending_investigators || [];
-    if (waiting.some(p => p.id === selectedInvestigator.id)) return;
+    if (waiting.some(p => p.id === selectedInvestigator.id)) {
+      setGoneId(null); // asked again: the sheet is a live request once more
+      return;
+    }
     if (answeredHere.current === selectedInvestigator.id) setSelectedInvestigator(null);
     else setGoneId(selectedInvestigator.id);
   }, [campaignRoster.pending_investigators]);
@@ -158,7 +161,7 @@ export const OperationsPanel = () => {
     else setFinalizeError(`The circle was not finalized. ${REQUEST_FAILED}`);
   };
 
-  const handleSelectInvestigator = (inv) => setSelectedInvestigator(inv);
+  const handleSelectInvestigator = (inv) => { setGoneId(null); setSelectedInvestigator(inv); };
 
   // Choosing a page or a part closes the sheet that was open, so the Roster tab brings back
   // the roster, not the last sheet (playtest, section-hides-table-column)
@@ -185,7 +188,7 @@ export const OperationsPanel = () => {
   const pending = useMemo(() => campaignRoster.pending_investigators || [], [campaignRoster.pending_investigators]);
   const { fresh, markSeen } = useNewRequests(activeCampaignId, pending, current === 'requests');
   const popup = fresh[0];
-  const viewRequest = (inv) => { markSeen([inv.id]); chooseTab('requests'); setSelectedInvestigator(inv); };
+  const viewRequest = (inv) => { markSeen([inv.id]); chooseTab('requests'); setGoneId(null); setSelectedInvestigator(inv); };
 
   // Below lg a new page or an opened sheet would start where the page was scrolled to, off
   // screen. Bring the top of the desk back into view.
@@ -262,7 +265,7 @@ export const OperationsPanel = () => {
                   onRelease={handleRelease}
                   busy={requestBusy}
                   error={requestError}
-                  closed={goneId === selectedInvestigator.id}
+                  closed={goneId === selectedInvestigator.id && !(campaignRoster.pending_investigators || []).some(p => p.id === selectedInvestigator.id)}
                 />
               </AnimatePresence>
               </div>

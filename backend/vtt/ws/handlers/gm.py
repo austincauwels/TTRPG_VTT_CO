@@ -116,7 +116,10 @@ def _count_earn_backs(db, circle, old_illum):
             "Resource Management" not in circle_abilities(circle):
         return 0, []
     waiting = circle.earn_backs or 0
-    counted_to = circle.milestones_earned or 0
+    # A circle from before the column existed has milestones_earned 0: the milestones its
+    # track already stands past count as counted
+    counted_to = max(circle.milestones_earned or 0,
+                     max([m for m in MILESTONES if m <= old_illum], default=0))
     counted = [m for m in MILESTONES if max(old_illum, counted_to) < m <= new_illum]
     if counted:
         counted_to = counted[-1]
