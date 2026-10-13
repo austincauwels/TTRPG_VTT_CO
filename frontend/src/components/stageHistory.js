@@ -149,7 +149,23 @@ const onPopState = () => {
 // keeps the screen and calls onHeld instead. Returns the function that lets Back go again.
 export const holdBack = (onHeld) => {
   held = onHeld;
+  ownEntry();
   return () => { if (held === onHeld) held = null; };
+};
+
+// After a reload the desk sits on an entry an earlier page added, and Back from it loads the
+// page again instead of reaching onPopState, which would lose the drawing (#21). So when
+// Back is held, that entry becomes the hub's in place and this page pushes the desk's own
+// entry over it, as the entries are when the desk was opened from the hub on this page.
+const ownEntry = () => {
+  if (shown == null || stepping || !OWN_ENTRY.has(shown)) return;
+  try {
+    const state = window.history.state;
+    if (!entryStage(state) || state.candelaPage === PAGE) return;
+    const channel = channelOf(shown, useGameStore.getState());
+    window.history.replaceState(untagged(), '');
+    window.history.pushState(tagged(shown, channel, true), '');
+  } catch { /* no history */ }
 };
 
 // stage: the screen on show, or null while a page with an address of its own shows

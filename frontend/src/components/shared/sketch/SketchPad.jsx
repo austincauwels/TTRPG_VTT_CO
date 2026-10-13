@@ -149,6 +149,14 @@ export default function SketchPad({ initialElements = null, ink, inks, onSave, o
   // the desk under it, and turns Cancel to Discard as a first press of it does
   useEffect(() => (dirty ? holdBack(cancelStep.arm) : undefined), [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A reload or a closed tab with strokes not yet added would lose them: the browser asks first
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
   useEffect(() => {
     if (api) api.setActiveTool({ type: 'freedraw', locked: true });
   }, [api]);
