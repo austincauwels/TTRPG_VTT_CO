@@ -393,6 +393,8 @@ class CharacterSheet(CharacterResponse):
     advancement_picks: int = 0
     advancement_taken: List[str] = []
     scar_pending: bool = False
+    # A direct edit by the player the Lightkeeper has not seen (vtt/sheet_edits.py)
+    sheet_edited: bool = False
 
 class CharacterRosterItem(BaseModel):
     id: int

@@ -1145,6 +1145,11 @@
             "title": "Sense",
             "type": "integer"
           },
+          "sheet_edited": {
+            "default": false,
+            "title": "Sheet Edited",
+            "type": "boolean"
+          },
           "sneak": {
             "default": 0,
             "title": "Sneak",
