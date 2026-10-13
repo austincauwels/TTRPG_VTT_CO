@@ -2,7 +2,7 @@
 
 Updated 13 October 2026 (Pacific), after the overnight run. This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
-Resume: none (PR 71 may still need its merge; see below)
+Resume: none
 
 ## For the next chat: start here
 
@@ -50,7 +50,7 @@ What worked for fix rounds 4 to 7: one Opus triage of every issue against main (
 
 - **Overnight run, 13 October** (Robert asleep; he allowed merging a round's PR once CI is green and the final checks pass; never deploy):
   - **Fix round 6, PR 70 merged** (main e5356d4, CI green). Closed #17-#26, #38-#44, #46, #47, #67: the Activity Log and held marks stored in the database (restarts lose nothing a player can see), stale offer cards close without landing a mark, held marks on the Lightkeeper's copy and across a reload, roll outcome after Flourish and roll replay after a reload, the dead refused scars and proposals, rejoin and retire reaching open desks, Fallen in the Registry, the Illumination ring around the candle, and small UX. Record: `playtest/results/2026-10-13-fix6/`.
-  - **Fix round 7, PR 71** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/71): 48 low UX lines from #69, #45 and #60. Final review found nothing blocking; full suite 2015 passed. Check whether it merged (CI green) and tick the checklist lines in #45 and #60 by hand if not done (all but 45.16, 60.10, 60.14, 60.24). Record: `playtest/results/2026-10-13-fix7/`.
+  - **Fix round 7, PR 71 merged** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/71, main 1bc48a0, CI green): 48 low UX lines from #69 (closed), #45 and #60 (ticked by hand). Final review found nothing blocking; full suite 2015 passed. Left open: 45.16 (decision), 60.10 and 60.24 (partly), 60.14 (needs a real tablet). Record: `playtest/results/2026-10-13-fix7/`.
 - **Neither round is deployed.** Live ran 770a2ed earlier; Robert said PR 68 goes straight to live. Ask him which build is live. Deploy notes for him: round 6 adds table `activity_lines` and columns `characters.held_mark`, `characters.taken_mark_ids` (log lines from before the deploy are lost once; offers open at the deploy are dropped); round 7 adds `circles.milestones_earned` (filled once from the track).
 - **Calls flagged for Robert** (in PR 68, 70 and 71 bodies), none blocking: PR 68's three (sheet edit lines to the whole table, fourth scar refused in the editor, Account card kept); PR 70's defaults (Fallen at the foot of the Registry, Sign out clears drafts, the ring layout), a dead investigator can still Accept an old proposal, held marks not cleared at End Assignment or on release, two candles on the Circle pages; PR 71's (private recipient stays selected, roll names every toggled ability, skip link position, the felt keeps the last roll). Ask him in one short list.
 - **Decision waiting:** 45.16, open a waiting investigator's sheet from the hub (a new view; recommended: not now, add a line to #16).
