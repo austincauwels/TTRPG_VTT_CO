@@ -639,6 +639,10 @@ const useGameStore = create(
       reportError: null,
       pendingRelationshipIntro: null, // { newCharacter, allActiveCharacters } — mid-campaign join
       rejoinInvite: null,             // { campaign_id, campaign_name, campaign_code }
+      // The investigator whose sheet this page has had from the server: a reloaded store's
+      // sheet may be stale (retired with its campaign meanwhile), so the desk asks for the
+      // roster only once the socket's sheet says it is active (#22). Not persisted.
+      sheetLiveId: null,
       hubNotice: null,                // a line the hub shows once, such as a deleted campaign
       confirmedPersonalAnswer: null,  // { characterId, answer } as the desk last echoed it
       circleCreation: {
@@ -913,7 +917,7 @@ const useGameStore = create(
             if (onGmDesk(get) && incoming?.id !== prevChar?.id) return;
             // A living investigator is retired only by a rejoin that replaced it: a desk that
             // missed investigator_replaced learns it from its sheet when it opens again (the
-            // dead stay, as a record)
+            // dead: below)
             if (!onGmDesk(get) && incoming?.status === 'retired' && !incoming.is_dead
                 && incoming.id === prevChar?.id && prevChar.status !== 'retired') {
               const last = get().lastPlayedCampaign;
@@ -923,8 +927,28 @@ const useGameStore = create(
                 notice: `${incoming.name} is no longer in ${where}.` });
               return;
             }
+            // A dead investigator is retired by a rejoin that replaced it, or with its retired
+            // campaign (#22, it keeps its record desk). The player's lists say which: after a
+            // rejoin another of their investigators is active in that campaign, and this desk
+            // goes to the hub as above (#39). An invite back to that campaign is spent or
+            // void either way (a retired campaign takes no rejoin)
+            if (!onGmDesk(get) && incoming?.status === 'retired' && incoming.is_dead
+                && incoming.campaign_id != null && incoming.id === prevChar?.id && prevChar.status !== 'retired') {
+              if (get().rejoinInvite?.campaign_id === incoming.campaign_id) set({ rejoinInvite: null });
+              const last = get().lastPlayedCampaign;
+              const where = (last?.type === 'player' && last.characterId === incoming.id ? last.campaignName : null)
+                || get().characters.find(c => c.id === incoming.id)?.campaign_name || 'the campaign';
+              Promise.resolve(get().fetchUserData(get().accessSession?.userId)).then(() => {
+                const replaced = get().characters.some(c => c.id !== incoming.id
+                  && c.campaign_id === incoming.campaign_id && c.status === 'active');
+                if (replaced && get().character?.id === incoming.id) {
+                  leaveReplacedDesk(set, get, { characterId: incoming.id, campaignId: incoming.campaign_id,
+                    notice: `${incoming.name} is no longer in ${where}.` });
+                }
+              });
+            }
             // The sheet, and the held marks that were on their way and are on it now
-            set(state => ({ character: incoming, ...sheetArrived(state, prevChar, incoming) }));
+            set(state => ({ character: incoming, sheetLiveId: incoming?.id ?? null, ...sheetArrived(state, prevChar, incoming) }));
             // The answer to an ability used outside a roll: the server paid its cost (a
             // refusal is action_rejected instead). A use with no answer for a while was
             // dropped, and a sheet now is some other change.
