@@ -7,7 +7,7 @@ from models import Character, Circle
 from vtt.abilities import (GEARED_UP_SLOT, ONE_STEP_AHEAD, WARD, count_use, counted_gear, gear_limit, has_ability,
                            resistance_left, uses_of, written_in)
 from vtt.ability_uses import ABILITY_USES, DRIVES, SCAR_ABILITIES
-from vtt.circle_queries import RESOURCES, circle_abilities
+from vtt.circle_queries import RESOURCES, cap_earn_backs, circle_abilities
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.creation import ACTION_LABELS
 from vtt.serializers import get_char_dict, get_circle_dict
@@ -380,6 +380,7 @@ async def handle_use_ability(ctx):
     if effect == "volunteer":
         resource = payload["resource"]
         setattr(circle, resource, (getattr(circle, resource, 0) or 0) + 1)
+        cap_earn_backs(circle, db)  # a refilled point can fill what Resource Management left waiting
         character.resources_spent_assignment = 2  # "You may not spend any resources during this downtime."
         paid.append(f"refilled 1 {resource.capitalize()}")
     if points:

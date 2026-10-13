@@ -914,17 +914,63 @@ def test_resource_management_reminds_at_each_milestone(client):
     milestone passed waits on the circle as an earn-back."""
     camp, _, cid = _campaign(client, members=0)
     support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Hunters\nResource Management",
-                   stitch=0)
+                   stitch=0, refresh=0)
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("update_circle", illumination=7)
         msgs = gm.sync()
         assert msgs[0]["payload"]["earn_backs"] == 2
         lines = [m["payload"]["message"] for m in msgs[2:]]
-        assert lines == [
-            "The Moths milestone 3 reached!",
-            "Resource Management: The Moths earns back one Stitch, Refresh or Train, the circle's choice.",
-            "The Moths milestone 6 reached!",
-            "Resource Management: The Moths earns back one Stitch, Refresh or Train, the circle's choice."]
+        assert lines == ["The Moths milestone 3 reached!", EARN_LINE, "The Moths milestone 6 reached!", EARN_LINE]
+
+
+EARN_LINE = ("Resource Management: The Moths earns back one Stitch, Refresh or Train, the circle's choice "
+             "(the Lightkeeper picks it on the Circle page).")
+
+
+def test_resource_management_earns_back_no_more_than_is_missing(client):
+    """Fixed (fix round 5 review): each milestone passed added an earn-back while any
+    resource was below its maximum, so a tally passing 3 and 6 with one point missing
+    left two waiting. After one press every resource was full and the other stayed, every
+    button 'full', and a later spend let the circle cash it in, which p. 41 does not grant.
+    Earn-backs never outnumber the points missing, the second milestone's line says so,
+    and a correction that fills a resource takes away what it fills."""
+    camp, _, cid = _campaign(client, members=1)
+    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Resource Management",
+                   stitch=1, refresh=2, train=2)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_circle", illumination=7)
+        msgs = gm.sync()
+        assert msgs[0]["payload"]["earn_backs"] == 1
+        assert [m["payload"]["message"] for m in msgs[2:]] == [
+            "The Moths milestone 3 reached!", EARN_LINE, "The Moths milestone 6 reached!",
+            "Resource Management: The Moths has nothing more to earn back: what is waiting already fills its resources."]
+        gm.send("gm_earn_back", resource_type="stitch")
+        assert (gm.sync()[0]["payload"]["stitch"], support.fetch(Circle, cid).earn_backs) == (2, 0)
+        # A spend later does not bring a banked one back
+        support.update(Circle, cid, stitch=1)
+        gm.send("gm_earn_back", resource_type="stitch")
+        assert gm.sync() == [_rejected("gm_earn_back", status=409, detail="The circle has nothing to earn back.")]
+        # The Lightkeeper's square fills the point a waiting earn-back was for: it goes
+        support.update(Circle, cid, earn_backs=1)
+        gm.send("update_circle", stitch=2)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 0
+    assert support.fetch(Circle, cid).earn_backs == 0
+
+
+def test_meticulous_notes_passing_a_milestone_earns_back(client):
+    """End Assignment's Meticulous Notes point (p. 27) passing a milestone counts Resource
+    Management's earn-back like any other rise (p. 41), and logs it."""
+    camp, (a, b), cid = _campaign(client, members=2)
+    support.update(Character, a["id"], role_ability="Meticulous Notes")
+    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Resource Management",
+                   stitch=3, refresh=1, train=3)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_end_assignment")
+        msgs = gm.sync()
+        assert (msgs[0]["payload"]["illumination"], msgs[0]["payload"]["earn_backs"]) == (3, 1)
+        lines = [m["payload"]["message"] for m in msgs if m["type"] == "activity_log"]
+        assert lines[-2:] == ["The Moths milestone 3 reached!", EARN_LINE]
+    assert support.fetch(Circle, cid).earn_backs == 1
 
 
 def test_resource_management_earn_back_is_one_press(client):

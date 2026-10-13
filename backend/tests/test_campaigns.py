@@ -847,8 +847,10 @@ def _table_with_a_ghost(client, sealed):
 def test_release_after_the_seal_drops_the_member_from_everything_the_circle_counts(client):
     """Decision 1 of fix round 4 (playtest, ghost-member-no-release): the votes, the
     relationships at both ends and the report go, and each resource is lowered to the new
-    maximum (1 plus the members), never raised. The investigator is kept, free."""
+    maximum (1 plus the members), never raised. The investigator is kept, free. Resource
+    Management's earn-backs waiting are cut to the points now missing (fix round 5)."""
     camp, cid, a, b, ghost = _table_with_a_ghost(client, sealed=True)
+    support.update(Circle, cid, earn_backs=2)  # Refresh 2 of 4: two missing
     r = client.post(f"/campaign/release/{ghost['id']}", headers=support.as_gm(camp))
     assert r.status_code == 200, r.text
     assert r.json()["character"]["status"] == "unaffiliated"
@@ -861,7 +863,7 @@ def test_release_after_the_seal_drops_the_member_from_everything_the_circle_coun
     circle = support.fetch(Circle, cid)
     assert list(circle.backstory_answers["reports"]) == [str(a["id"])]
     assert circle.backstory_answers["assignment"] == 1
-    assert (circle.stitch, circle.refresh, circle.train) == (3, 2, 3)
+    assert (circle.stitch, circle.refresh, circle.train, circle.earn_backs) == (3, 2, 3, 1)
     roster = client.get(f"/campaign/{camp['id']}/roster", headers=support.as_gm(camp)).json()
     assert [c["id"] for c in roster["active_investigators"]] == [a["id"], b["id"]]
     # free to join again by the normal join flow

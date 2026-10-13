@@ -94,6 +94,27 @@ def lower_resources_to_pool(circle, db: Session = None):
     for key in RESOURCES:
         if (getattr(circle, key, 0) or 0) > points:
             setattr(circle, key, points)
+    cap_earn_backs(circle, db)
+
+
+def cap_earn_backs(circle, db: Session = None):
+    """Resource Management's earn-backs waiting (gm_earn_back) never outnumber the points
+    missing from Stitch, Refresh and Train. One more would wait with every choice full,
+    and could be cashed in after a later spend, which p. 41 does not grant: the earn-back
+    comes when the milestone is hit (fix round 5 review). Called before each commit that
+    changes the resources, the pool or the earn-backs. A value not yet cast (the
+    Lightkeeper's update_circle stores "5" as PostgreSQL casts it) counts as its number."""
+    waiting = getattr(circle, "earn_backs", 0) or 0
+    if not waiting:
+        return
+
+    def have(key):
+        try:
+            return int(getattr(circle, key, 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+    points = resource_pool(circle, db)
+    circle.earn_backs = min(waiting, sum(max(0, points - have(key)) for key in RESOURCES))
 
 
 def circle_abilities(circle) -> list:
