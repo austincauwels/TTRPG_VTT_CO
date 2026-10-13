@@ -26,13 +26,13 @@ Open problems live in GitHub issues; this file only points at them.
 - File an issue for each confirmed bug and medium UX item not fixed in the same phase; low UX items go in one checklist issue per round (#45, #60). Raw playtest findings stay on this branch.
 - A fix PR closes its issues with "Fixes #n" lines; tick checklist lines by hand. Austin rarely reads issues, so notifications are fine.
 - Robert comments on issues himself. **Read new comments on open issues at the start of each phase.** Earlier ones: #29 a newcomer welcome pop-up; #33 closed for #34 custom maps drawn live with the sketch tools; #31 an end-of-assignment "interview" on goals and relationships.
-- Open now: bugs #17-#22, #38-#44; UX #23-#26, #45-#47, #60; ideas #27-#32, #34. **PR 61 closes #49-#59 when merged** and ticks three #60 lines (spend confirm, join notice, key info slip); tick those by hand after the merge.
+- Open now: bugs #17-#22, #38-#44; UX #23-#26, #45-#47, #60; ideas #27-#32, #34. PR 61 closed #49-#59 and ticked three #60 lines.
 
 ## Model and effort
 
 Robert sets the model and effort when he opens the chat. As your first step, check yours with `get_session`; if they differ, say so in one line and carry on. A workflow agent's model and effort can be set per agent (`model`: sonnet, opus, haiku or fable; `effort`). Robert asked to see the plan with models per stage before a workflow runs.
 
-**Next phase (PR 61 follow-through, then Robert's pick): Opus 5.5 at high effort for the chat.** If he picks the fourth playtest, the Lightkeeper seat and triage need Opus; if he picks the older-bug round, it touches rolls and the protocol.
+**Next phase (Robert's pick): Opus 5.5 at high effort for the chat.** If he picks the fourth playtest, the Lightkeeper seat and triage need Opus; if he picks the older-bug round, it touches rolls and the protocol.
 
 | Work | Model | Effort |
 |---|---|---|
@@ -50,8 +50,8 @@ What worked before for a fix round (run 2): fixes in worktrees (`/home/user/wt/<
 
 ## Where things stand
 
-- `main` is at **2d86b77** (PR 48). **Live and beta both run 2d86b77.**
-- **PR 61** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/61, branch `claude/fervent-wozniak-rlk7su`, head 7b498b3 at opening) is the fourth fix round: every confirmed third-playtest item plus Robert's six decisions. Opened 12 October, not merged. Full backend suite 1938 passed, 1 skipped. Robert merges; then he deploys beta (and live when he chooses).
+- `main` is at **770a2ed** (PR 61 merged 12 October Pacific). Live and beta ran 2d86b77 when this was written; ask Robert whether he has deployed 770a2ed to beta yet.
+- **PR 61** (https://github.com/austincauwels/TTRPG_VTT_CO/pull/61, branch `claude/fervent-wozniak-rlk7su`, head 7b498b3 at opening) is the fourth fix round: every confirmed third-playtest item plus Robert's six decisions. Merged 12 October; CI green; #49-#59 closed and the three #60 lines ticked. Full backend suite 1938 passed, 1 skipped.
   - Deploy note for Robert: at startup the server re-signs the Lightkeeper's older notebook entries as "The Lightkeeper" (#54), a one-time change to stored data.
 - **Decisions of 12 October** (all recommendations taken) are in `playtest/results/2026-10-12-fix4/decisions.md` and logged in the vault: release or leave at any time, by the Lightkeeper or the player, dropping votes, relationships and the current report and lowering resource maximums with no refund; spending whenever the Lightkeeper opens it, a Train die kept until used; the spend confirm stays armed; an optional 280-character report line; a non-blocking "Not filed:" line at Add Illumination and End Assignment; ally offers keep 2 minutes and are logged (offered and lapsed).
 - **Fix round 4 record** in `playtest/results/2026-10-12-fix4/`: `decisions.md`, `fix_groups_result.json` (per group: implementer, review, repair), `final_check_result.json` (final review, three browser checks against the 2d86b77 control, repair), `pr_body.md`. Workflows in `playtest/workflows/run4/` (`fix-groups.js`, `final-check.js`).
@@ -60,9 +60,9 @@ What worked before for a fix round (run 2): fixes in worktrees (`/home/user/wt/<
 - **Beta password:** plain environment variables `CANDELA_BETA_USER` and `CANDELA_BETA_PASS` work (Playwright `httpCredentials`). Never a network secret: it replaced the app's token on every API call. Beta's `/api` and `/ws` answer without the password (Robert knows; his call).
 - **How beta is deployed** (Robert, on the server): `cd ~/projects/candela-vtt-beta && git fetch origin && git checkout beta && git merge --ff-only origin/main`, then `cd ~/projects/gatergrid-web/.claude/worktrees/candela-beta && bash candela/update.sh --beta`. Add `--now` if players are connected.
 
-## Next phase: PR 61, then Robert's pick
+## Next phase: Robert's pick
 
-1. Check PR 61: CI, reviews, merged or not. Fix red CI or review comments on its branch (the session may assign a new branch; if 61 is still open, push fixes to `claude/fervent-wozniak-rlk7su` only if the session allows, else ask). Read new comments on open issues. If 61 is merged, tick the three #60 lines it fixed and check #49-#59 closed.
+1. PR 61 is merged (nothing to follow up). Read new comments on open issues. Ask Robert whether beta runs the new `main`.
 2. **Ask Robert which comes next**, with a recommendation (mine: the fourth playtest, once 61 is on beta):
    - **Fourth playtest on beta** (after he deploys 61): first a separate re-check pass replaying every item of 61 on beta, then blind play. Use the run 3 method notes: settle the human seat before approvals, seed a circle near 12 Illumination to reach advancement, a timed script for the 2-minute offer window and the timer running out, and aim at scars and death, which no playtest has reached. Harness: `playtest/run3/` and `playtest/workflows/run3/` (copy to `/home/user/pt4`-style folder; `play.js` has four AI players and a `replace` step). Size: about 45 agents.
    - **Older-bug round**: bugs #17-#22 and #38-#44 and the medium UX #23-#26, #46, #47, same shape as fix round 4 (groups, review, repair, final review, browser check against the current `main`). Read each issue first; some may be stale. Size: about 20 agents.
