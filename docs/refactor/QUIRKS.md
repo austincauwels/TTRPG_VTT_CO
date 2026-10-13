@@ -198,3 +198,16 @@ Issue #64, decision 1: detection, not prevention. The pinned expectations were f
 
 - A player could change little of their sheet after creation (issue #64): gear could not be unmarked, nor go past the slots, nor could One Step Ahead's object be changed (409), and nothing but advancement changed the build, the maximums, the marks or the scars. A player's update_gear is no longer refused for the rules, and the new edit_sheet stores any field of the sheet, checked only for what the sheet can hold (vtt/sheet_edits.py). Each such edit, and a drive pip the player sets, writes one line for the whole table ("<name>: Nerve 2 to 3.", which used to read "<name> set Nerve to 2 of 3.") and sets characters.sheet_edited, a dot on the roster card until gm_sheet_seen. Tests: test_update_gear, test_a_player_may_mark_past_three_gear_slots, test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot, test_one_step_ahead_writes_in_an_object_outside_the_limit, test_update_drive_sets_value_and_tells_the_sender_and_the_gm, test_update_drive_writes_a_log_line_only_when_the_value_changes, tests/test_ws_sheet_edits.py.
 - member_status carries the name, so a rename reaches the other members' circle cards without a reload. Tests: test_a_new_name_reaches_the_other_members_cards, test_a_death_and_its_undo_reach_the_other_players.
+
+## Fix round 6, ui (2026-10-13)
+
+Frontend only; there is no test runner for it, so each was checked in Chromium (390, 820 and 1366 wide).
+
+- Illumination track (issue #67): both Circle pages draw it as a ring of twelve pips around the candle (`shared/IlluminationRing.jsx`), pip 12 at the top. The Lightkeeper's pips are buttons in order 1 to 12 with the old labels and toggle (pressing the current pip lowers to the one before). The Lightkeeper's desk summary card (`CircleLedger.jsx`) keeps its row of small dots.
+- Sheet ability tab (issue #24): kept per character and per view (the player's own sheet, the Lightkeeper's copy) in a module map, so it lasts for the page, not a reload.
+- Notebook and sketch controls are 44px on every touch screen (issue #25), where some had the rule only from md. The contents ribbon is a 44px button around its 26px band.
+- Creator step 3 (issue #26): an action's row wraps its steppers onto a line of their own when they do not fit (under about 356px).
+- Notebook marks (issue #44): Heading, List and Quote with nothing selected put the caret at the end of the line, after the mark; a selection stays selected.
+- Sign out (issue #20): `logout` clears the account's Notebook and creator drafts unless called with `{ keepDrafts: true }`, which `endSession` (a server-ended session) and the password-reset sign-out use.
+- Back after a reload (issue #21): a held Back (an unsaved sketch) first turns the entry an earlier page added into the hub's and pushes the desk's own entry over it. The sketch pad asks before the page unloads while strokes are unsaved.
+- Join request buttons (issue #46): measured at 390x844, Approve, View sheet and Reject are 44px tall on a phone (commit 7be39b1); a mouse keeps 40px.
