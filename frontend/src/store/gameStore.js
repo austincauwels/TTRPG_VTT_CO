@@ -511,6 +511,7 @@ const useGameStore = create(
       advancementError: null,     // why the server refused an advancement pick
       gmSheetRefusal: null,       // { action, detail, at }: a mark or scar correction the server refused
       circleRefusal: null,        // { detail, at }: a gm_update_circle the server refused (the dispatch says so)
+      earnBackRefusal: null,      // { detail, at }: a Resource Management earn-back the server refused
       // The assignment report form: the ticks not sent yet, by character id, with the
       // assignment they belong to ({ assignment, keyChecks }), kept across tabs and
       // reloads (playtest, key-ticks-lost); whether a report is on its way; why the server
@@ -993,6 +994,10 @@ const useGameStore = create(
             // saved, and the dispatch's receipt says why
             if (message.payload.action === 'gm_update_circle') {
               set({ circleRefusal: { detail: message.payload.detail || 'That change was not made.', at: Date.now() } });
+            }
+            // An earn-back refused (a full resource, or another desk chose first): the ask says why
+            if (message.payload.action === 'gm_earn_back') {
+              set({ earnBackRefusal: { detail: message.payload.detail || 'Nothing was earned back.', at: Date.now() } });
             }
             // A correction on the Lightkeeper's trauma record: the sheet reloads and says why
             if (message.payload.action === 'gm_update_scars' || message.payload.action === 'gm_update_tension') {
@@ -1832,14 +1837,12 @@ const useGameStore = create(
         set({ circleAdvancement: null });
       },
 
-      refillResources: (circleId) => {
-        const { socket, accessSession } = get();
-        if (socket?.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: 'refill_resources',
-            payload: { circle_id: circleId, role: accessSession?.role },
-          }));
-        }
+      // Resource Management's earn-back at a milestone: the circle's choice, one press
+      gmEarnBack: (circleId, resourceType) => {
+        const { socket } = get();
+        if (socket?.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ type: 'gm_earn_back', payload: { circle_id: circleId, resource_type: resourceType } }));
+        return true;
       },
 
       // "Later": the picks stay on the character (advancement_picks) and the dialog comes

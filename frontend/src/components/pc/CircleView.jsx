@@ -1016,6 +1016,14 @@ export const CircleView = () => {
         {/* What each does is printed above; when they come back is not (owner's question,
             2026-10-08): not after an assignment, only when the track fills, and one at each
             milestone with Resource Management */}
+        {/* Resource Management's earn-back waiting from a milestone: the circle chooses, and
+            the Lightkeeper's desk applies it (gm/EarnBackAsk.jsx) */}
+        {(circle?.earn_backs || 0) > 0 && (
+          <p role="status" className="mt-2.5 pt-2 border-t border-dashed border-sepia/35 font-serif text-sm leading-snug text-ink">
+            <span className="font-black uppercase tracking-wide mr-1.5">Resource Management</span>
+            {circle.earn_backs === 1 ? 'One' : circle.earn_backs} to earn back, the circle's choice.
+          </p>
+        )}
         <p className="mt-2.5 pt-2 border-t border-dashed border-sepia/35 font-serif italic text-sm leading-snug text-sepia">
           {refillRule(maxCap, (circle?.circle_ability || '').split('\n'))}
         </p>
