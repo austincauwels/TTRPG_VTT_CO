@@ -240,3 +240,12 @@ Frontend only; there is no test runner for it, so each was checked in Chromium (
 - Sign out (issue #20): `logout` clears the account's Notebook and creator drafts unless called with `{ keepDrafts: true }`, which `endSession` (a server-ended session), the password-reset sign-out and the sign-out after an undone email change use.
 - Back after a reload (issue #21): a held Back (an unsaved sketch) first turns the entry an earlier page added into the hub's and pushes the desk's own entry over it. The sketch pad asks before the page unloads while strokes are unsaved.
 - Join request buttons (issue #46): measured at 390x844, Approve, View sheet and Reject are 44px tall on a phone (commit 7be39b1); a mouse keeps 40px.
+
+### Fix round 7, dice
+
+- The tray is emptied by End Assignment (60.7): the store clears `lastRoll`, `lastRollKept` and the dismissed prompts on the assignment change, and the server drops the campaign's replayable rolls, so a reload no longer brings the last scene's roll back marked settled. A held gilded roll stays, settled.
+- `roll.abilities` (45.10) names the abilities that applied to a roll; the log line reads "<name> rolled <action> (<abilities>) ...".
+- The keep-a-die dice are `aria-hidden` and out of the tab order (60.5); the slip's lines are the one control and take the focus.
+- `postRollChoiceWaiting` returns 'keep', 'burn' or false (60.8): the phone's dice button shows a solid dot for a die to keep and a hollow one for the optional burn.
+- Learn from My Mistakes is offered only while a drive is below its maximum (60.12), worked out when the roll lands like Flourish's Cunning test.
+- A private pass note (target other than @Circle) is marked "Private" in the log and beside To: (60.9); the recipient stays after sending.

@@ -296,3 +296,5 @@ A player's To: list offers @Circle, @Lightkeeper only and the other investigator
 - An unsent dispatch (location, text) is kept while the Lightkeeper visits Map, Notebook or Circle, until the page is reloaded; if another dispatch arrives meanwhile, the letter shows that one instead.
 - Reset empties the timer's screen-reader status, so the next start and run-out are announced again.
 - Keeping the gilded die in a gilded roll gives one point back to the action's drive; keeping the regular die does not. The slip says what each choice does before it is made.
+
+Fix round 7 (dice): after End Assignment the dice tray starts empty. The hub marks an investigator the Lightkeeper let in with "Let in: press Play" until Play is pressed. Private pass notes are marked "Private". Learn from My Mistakes is offered only when a drive is short.

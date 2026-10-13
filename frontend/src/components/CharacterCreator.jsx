@@ -831,7 +831,7 @@ export const CharacterCreator = ({ onSubmit, rejoinContext, draftKey = 'candela-
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 items-center lg:items-start">
 
             {/* ── LEFT: stacked card deck ── */}
-            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px] max-lg:[@media(max-height:760px)]:[--card-w:140px] max-lg:[@media(max-height:700px)]:[--card-w:120px]">
+            <div className="shrink-0 flex flex-col items-center gap-4 lg:gap-5 w-full lg:w-[340px] [--card-w:190px] sm:[--card-w:240px] lg:[--card-w:275px] max-lg:[@media(min-height:701px)_and_(max-height:760px)]:[--card-w:140px] max-lg:[@media(max-height:700px)]:[--card-w:120px]">
 
               {/* Card stack */}
               <div onPointerDown={swipeDown} onPointerUp={swipeUp} onPointerCancel={() => { swipeStart.current = null; }}

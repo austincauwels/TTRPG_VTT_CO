@@ -31,18 +31,21 @@ export const LastPlayedTome = ({ lastPlayedCampaign, onResume, busy = false }) =
         leather="#120614"
         className={`${SIZE} rotate-[2deg] translate-y-3 lg:landscape:translate-y-2 lg:landscape:translate-x-3 cursor-not-allowed`}
         frames={<span className="tome-frame tome-frame-gilt opacity-50" data-part="frame" style={{ '--fi': '5%' }} />}
-        overlay={<Strap />}
+        overlay={<>
+          <Strap />
+          {/* The reason it is locked, on the cover where a tap or the keyboard can reach it (it
+              was a hover title); above the strap, and the cover lets the slip out
+              (.tome-cover:has(.info-term)) */}
+          <span className="absolute bottom-[3%] inset-x-0 z-[5] flex justify-center">
+            <InfoTerm label="Locked" ariaLabel="Why Last Played is locked" text="Opens here once you have played a session."
+              className="font-display text-gold-leaf/90 text-[clamp(10px,5cqw,14px)] tracking-[0.14em] uppercase"
+              markClassName="text-gold-leaf group-hover/info:text-cream"
+              slipClassName="right-0 bottom-full mb-1 w-[min(16rem,calc(100vw-2.5rem))]" />
+          </span>
+        </>}
       >
         <span className="absolute inset-x-0 top-[7%] flex justify-center">
           <span className="font-display embossed-gold text-center leading-[1.1] tracking-[0.04em] text-[clamp(20px,11cqw,48px)]">Last<br />Played</span>
-        </span>
-        {/* The reason it is locked, on the cover where a tap or the keyboard can reach it (it
-            was a hover title); the cover lets the slip out (.tome-cover:has(.info-term)) */}
-        <span className="absolute bottom-[3%] inset-x-0 flex justify-center">
-          <InfoTerm label="Locked" ariaLabel="Why Last Played is locked" text="Opens here once you have played a session."
-            className="font-display text-gold-leaf/90 text-[clamp(10px,5cqw,14px)] tracking-[0.14em] uppercase"
-            markClassName="text-gold-leaf group-hover/info:text-cream"
-            slipClassName="right-0 bottom-full mb-1 w-[min(16rem,calc(100vw-2.5rem))]" />
         </span>
       </Tome>
     );

@@ -128,12 +128,12 @@ export const PlayerRegistryPage = ({
                       )}
                       {/* On a phone the stamp sits under the campaign, which it would cut short */}
                       {char.is_dead && <Standing inv={char} className="sm:hidden mt-0.5" />}
+                      {letInIds.includes(char.id) && !char.is_dead && (
+                        <span data-let-in="" className="inline-block mt-1 font-sans text-xs font-black uppercase tracking-widest text-seal-green border-2 border-seal-green rounded-sm px-1.5 py-0.5 -rotate-2">
+                          Let in: press Play
+                        </span>
+                      )}
                     </div>
-                    {letInIds.includes(char.id) && !char.is_dead && (
-                      <span data-let-in="" className="shrink-0 font-sans text-xs font-black uppercase tracking-widest text-seal-green border-2 border-seal-green rounded-sm px-1.5 py-0.5 -rotate-2">
-                        Let in: press Play
-                      </span>
-                    )}
                     {/* Dead and not yet replaced: its desk is where the new investigator is made */}
                     {char.is_dead && <Standing inv={char} className="shrink-0 max-sm:hidden" />}
                     <span className={`font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 transition-opacity ${entering === char.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-focus-visible:opacity-100'}`}>
