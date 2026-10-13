@@ -11,9 +11,9 @@ const RESOURCES = [
 // Resource Management's earn-back (rulebook p. 41): at each milestone the circle earns back
 // one Stitch, Refresh or Train, and the app asks for the circle's choice, one press each
 // (Robert's decision 3, issue #66.4: the Lightkeeper used to add it by hand). Shown while
-// one waits (circle.earn_backs, counted by the server); a full resource cannot be picked.
-// On the circle page's resources and on the desk's charter abstract (titled false: its row
-// names it).
+// one waits (circle.earn_backs, counted by the server, never more than the points missing);
+// a full resource cannot be picked. On the circle page under Add Illumination and on the
+// desk's charter abstract (titled false: its row names it).
 export const EarnBackAsk = ({ className = '', titled = true }) => {
   const { circle, gmEarnBack, refusal } = useGameStore(useShallow(s => ({
     circle: s.circle, gmEarnBack: s.gmEarnBack, refusal: s.earnBackRefusal,
@@ -22,7 +22,9 @@ export const EarnBackAsk = ({ className = '', titled = true }) => {
   // A press waits for the circle's answer, so a second press does not take a second one
   const [sentAt, setSentAt] = useState(0);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setBusy(false); }, [waiting, refusal?.at]);
+  // Any new circle (the answer, or the one a reconnect sends) or a refusal frees the
+  // buttons, so a press lost with a dropped socket does not leave them disabled
+  useEffect(() => { setBusy(false); }, [circle, refusal?.at]);
   if (!waiting) return null;
   const maxCap = circle.max_capacity || 1;
   const refused = refusal && sentAt && refusal.at >= sentAt ? refusal.detail : '';
@@ -54,9 +56,11 @@ export const EarnBackAsk = ({ className = '', titled = true }) => {
               onClick={() => choose(key)}
               disabled={full || busy}
               aria-label={full ? `${label} is full` : `Earn back a ${label}`}
-              className="flex-1 min-w-[5.5rem] min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-2 font-sans text-xs font-black uppercase tracking-widest border border-ink text-ink rounded-sm hover:bg-ink hover:text-cream transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+              className="flex-1 min-w-[5.5rem] min-h-[44px] px-2 flex flex-col items-center justify-center font-sans text-xs font-black uppercase tracking-widest border border-ink text-ink rounded-sm hover:bg-ink hover:text-cream transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
             >
-              {label}{full ? ' · full' : ''}
+              {label}
+              {/* Under the name, so a narrow column does not break "Refresh · full" in two */}
+              {full && <span className="font-serif italic text-xs font-normal normal-case tracking-normal leading-none">full</span>}
             </button>
           );
         })}

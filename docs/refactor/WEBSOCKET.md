@@ -93,7 +93,7 @@ Frontend callers of `connect`: `CampaignSelector.enterAsPlayer` and `handleLastP
 | `gm_return_spend` (since 2026-10-10) | handlers/gm.py | `gmReturnSpend` | GM channel, a member of its campaign | GM |
 | `gm_set_tally_answer` (since 2026-10-11) | handlers/gm.py | `gmSetTallyAnswer` (Circle page, Illumination Questions) | GM channel, its campaign's circle, `index` 0 to 2 and `checked` true or false | GM, until the tally is added |
 | `gm_add_tally` (since 2026-10-11) | handlers/gm.py | `gmAddTally` (Circle page, Add N Illumination) | GM channel, its campaign's circle, `keys` 0, 2 or 4 | GM, once per assignment |
-| `gm_earn_back` (since 2026-10-13) | handlers/gm.py | `gmEarnBack` (Circle page and the desk's charter abstract, EarnBackAsk) | GM channel, its campaign's circle, `resource_type` stitch, refresh or train | GM, once per waiting earn-back |
+| `gm_earn_back` (since 2026-10-13) | handlers/gm.py | `gmEarnBack` (Circle page under Add Illumination, and the desk's charter abstract, EarnBackAsk) | GM channel, its campaign's circle, `resource_type` stitch, refresh or train | GM, once per waiting earn-back |
 | `spend_resource` | 2189 | `spendCircleResource` | character resolved, GM toggle on, under 2 spends | Owner, active member, while GM toggle is on |
 | `apply_advancement` | 2236 | `applyAdvancement` | character resolved | Owner, only when an advancement is pending |
 | `use_ability` (since 2026-10-07) | handlers/character.py | `useAbility` | character resolved | Owner |

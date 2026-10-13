@@ -555,14 +555,19 @@ export const CirclePage = () => {
                 <span>Questions answered yes</span>
                 <span className="font-mono tabular-nums">+{tally.questions}</span>
               </p>
-              {/* What a key is and what the number means now, at a glance; the rule is on its
-                  "i" (Robert's decision 8, issue #66.5: "Keys: no investigators +0" was vague) */}
+              {/* What a key is and what the number means now, at a glance: the keys are on the
+                  reports, and none, some or all is why it is worth 0, 2 or 4 (the number beside
+                  it; "all 3 fulfilled one" is +4, "1 of 3 (some, not all)" +2). The rule is on
+                  its "i" (Robert's decision 8, issue #66.5: "Keys: no investigators +0" was vague) */}
               <p className="relative font-serif text-sm text-ink/85 leading-snug flex items-center justify-between gap-3">
                 <span>
                   {/* Its slip lies against the whole line, so on a phone it stays on the paper */}
-                  Investigators who fulfilled a <InfoTerm label="key" ariaLabel="About keys" text={KEYS_RULE}
+                  <InfoTerm label="Illumination Keys" ariaLabel="About Illumination Keys" text={KEYS_RULE}
                     anchored={false} slipClassName="left-0 right-0 top-full mt-1" />
-                  {': '}{tally.members === 0 ? 'no investigators yet' : `${tally.withKey} of ${tally.members}`}
+                  {' on the reports: '}{tally.members === 0 ? 'no investigators to report yet'
+                    : tally.withKey === 0 ? `none of ${tally.members} fulfilled one`
+                    : tally.withKey === tally.members ? `all ${tally.members} fulfilled one`
+                    : `${tally.withKey} of ${tally.members} fulfilled one (some, not all)`}
                 </span>
                 <span className="font-mono tabular-nums">+{tally.keys}</span>
               </p>
@@ -580,6 +585,10 @@ export const CirclePage = () => {
                   </button>
                 )}
               </div>
+              {/* Resource Management's earn-back, asked for while one waits, next to the
+                  press that usually passes the milestone (it sat deep in the resources card,
+                  out of sight on a phone; fix round 5 review) */}
+              <EarnBackAsk className="mt-1 pt-2 border-t border-dashed border-sepia/35" />
             </div>
 
             {/* GM Toggle: Open Reports */}
@@ -673,8 +682,6 @@ export const CirclePage = () => {
               );
             })}
           </div>
-          {/* Resource Management's earn-back, asked for while one waits from a milestone */}
-          <EarnBackAsk className="pt-2 pb-2.5 border-t border-dashed border-sepia/35" />
           {/* When they come back: not after an assignment, on their own when the track fills,
               and one at each milestone with Resource Management. There is no refill button:
               the advance refills them (Robert's issue #66.4), and the squares above are the

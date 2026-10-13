@@ -116,7 +116,7 @@ Every store send is guarded by `socket.readyState === WebSocket.OPEN` and is sil
 | `submit_assignment_report` | `{circle_id, character_id, responses}` | gameStore.js:581 | CircleView.jsx:431 |
 | `gm_advance_circle` | `{circle_id, circle_ability, role}` | gameStore.js:591 | CirclePage.jsx:177 |
 | `refill_resources` | `{circle_id, role}` | none since 2026-10-13 | none (the Refill button is gone) |
-| `gm_earn_back` | `{circle_id, resource_type}` | gameStore.js `gmEarnBack` | gm/EarnBackAsk.jsx (CirclePage, CircleLedger) |
+| `gm_earn_back` | `{circle_id, resource_type}` | gameStore.js `gmEarnBack` | gm/EarnBackAsk.jsx (CirclePage, under Add Illumination; CircleLedger) |
 | `apply_advancement` | `{character_id: accessSession.characterId, choice, detail}` | gameStore.js:615 | CircleView.jsx:149 (AdvancementModal, called once per pick) |
 | `gm_update_tension` | `{mark_type, value, role}` | gameStore.js:807 | no callers |
 | `circle_creation_vote` | `{circle_id, character_id, vote_type, value}` | gameStore.js:855 | CircleCreationPopup.jsx:298, 303, 306, 307, 308 |
