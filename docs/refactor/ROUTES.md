@@ -181,13 +181,13 @@ Summary. "Caller" is the frontend file that uses the route; "none" means the fro
 - Trusted ids: all three ids.
 - Tables: relationships (insert or reset to proposed).
 - Response: `{"ok": true, "relationships": [...]}`.
-- Notes: unused. Unlike the WebSocket version it does not set `last_actor_id`.
+- Notes: unused. Unlike the WebSocket version it does not set `last_actor_id`. Since fix round 6 (issue #38) a dead proposer or recipient is 409 "<name> is dead: the sheet is a record.", as on the WebSocket.
 
 **POST /circle/relationship/respond** (line 829, `def`)
 - Inputs: JSON `RelationshipRespond {relationship_id, action, counter_type, counter_lore}`.
 - Trusted ids: `relationship_id`.
 - Tables: relationships.
-- Notes: unused. Semantics differ from the WebSocket version: here `counter` sets status `countered` and stores counter fields; the WebSocket version rewrites the terms and sets status back to `proposed`.
+- Notes: unused. Semantics differ from the WebSocket version: here `counter` sets status `countered` and stores counter fields; the WebSocket version rewrites the terms and sets status back to `proposed`. Since fix round 6 (issue #38) a `counter` when either party is dead is 409 "<name> is dead: the sheet is a record.", as on the WebSocket; `accept` is still taken.
 
 **POST /campaign/finalize-roster** (line 845, `async def`)
 - Inputs: JSON `FinalizeRosterRequest {campaign_id, circle_id}`.

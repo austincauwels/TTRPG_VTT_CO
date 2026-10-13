@@ -294,10 +294,16 @@ def _circle_relationship_propose(ctx, payload, character):
             _not_found("Character")
         if other.campaign_id != campaign_id or other.status not in MEMBER_STATUSES:
             _forbid()
-        if other.is_dead:
-            # A proposal from the dead is refused in DEAD_REFUSED; one to the dead here
-            raise Rejected(409, f"{other.name} is dead: the sheet is a record.")
+        # A proposal from the dead is refused in DEAD_REFUSED; one to the dead here
+        _refuse_the_dead(other)
     _circle_of(ctx, _default_circle(ctx, payload), campaign_id)
+
+
+def _refuse_the_dead(*parties):
+    """A dead investigator's sheet is a record: no relationship is proposed to or by it."""
+    for party in parties:
+        if party is not None and party.is_dead:
+            raise Rejected(409, f"{party.name} is dead: the sheet is a record.")
 
 
 def _circle_relationship_respond(ctx, payload, character):
@@ -319,6 +325,11 @@ def _circle_relationship_respond(ctx, payload, character):
     if (rel.last_actor_id is not None and me == rel.last_actor_id) or \
             (rel.last_actor_id is None and me != rel.to_character_id):
         _forbid()
+    if payload.get("action") == "counter":
+        # A counter proposes a new relationship, so it is refused from or to the dead as a
+        # proposal is (fix round 6). Accept answers what was proposed before the death.
+        _refuse_the_dead(character_facts(ctx.db, rel.from_character_id),
+                         character_facts(ctx.db, rel.to_character_id))
     _circle_of(ctx, rel.circle_id, _sender_campaign(ctx))
 
 

@@ -44,6 +44,13 @@ def _require_member_of(character, campaign_id):
         raise forbidden()
 
 
+def _refuse_the_dead(*parties):
+    """A dead investigator's sheet is a record: no relationship is proposed to or by it."""
+    for party in parties:
+        if party.is_dead:
+            raise HTTPException(status_code=409, detail=f"{party.name} is dead: the sheet is a record.")
+
+
 @router.get("/campaign/{campaign_id}/circle-creation-state")
 def get_circle_creation_state(campaign_id: int, db: Session = Depends(get_db),
                               user: User = Depends(get_current_user)):
@@ -131,9 +138,7 @@ def propose_relationship(body: RelationshipPropose, db: Session = Depends(get_db
     _require_member_of(proposer, circle_campaign)
     _require_member_of(other, circle_campaign)
     # A dead investigator's sheet is a record: no proposal from or to it (as on the WebSocket)
-    for party in (proposer, other):
-        if party.is_dead:
-            raise HTTPException(status_code=409, detail=f"{party.name} is dead: the sheet is a record.")
+    _refuse_the_dead(proposer, other)
     existing = db.query(Relationship).filter(
         Relationship.circle_id == body.circle_id,
         Relationship.from_character_id == body.from_character_id,
@@ -190,6 +195,9 @@ def respond_relationship(body: RelationshipRespond, db: Session = Depends(get_db
         campaign_or_404(db, circle_campaign, detail="Relationship not found")
     responder_id = _relationship_responder(db, user, rel)
     _require_member_of(character_or_404(db, responder_id), circle_campaign)
+    if body.action == "counter":
+        # A counter proposes a new relationship: none from or to the dead, as for a proposal
+        _refuse_the_dead(character_or_404(db, rel.from_character_id), character_or_404(db, rel.to_character_id))
     if body.action == "accept":
         rel.status = "accepted"
         rel.counter_type = None
