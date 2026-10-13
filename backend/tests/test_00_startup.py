@@ -118,7 +118,7 @@ def test_migrated_columns_exist(client):
             "circle_ability", "insignia", "backstory_answers", "is_finalized", "illumination",
             "tension_clock", "tension_label", "resources_editable", "reports_open",
             "campaign_id", "timer_duration_ms", "timer_remaining_ms", "timer_ends_at", "timer_running",
-            "timer_visible", "dispatch_text"} <= cols["circles"]
+            "timer_visible", "dispatch_text", "earn_backs"} <= cols["circles"]
     assert {"gm_user_id", "roster_finalized", "is_retired", "deleted_at", "released_characters"} <= cols["campaigns"]
     assert {"role", "specialty", "personal_circle_answer", "nerve_resistance_spent",
             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
@@ -308,6 +308,7 @@ MIGRATED_COLUMNS = {
     ("circles", "timer_running"): ("boolean", "false"),
     ("circles", "timer_visible"): ("boolean", "false"),
     ("circles", "dispatch_text"): ("text", "''::text"),
+    ("circles", "earn_backs"): ("integer", "0"),
     ("campaigns", "gm_user_id"): ("integer", None),
     ("campaigns", "roster_finalized"): ("boolean", "false"),
     ("campaigns", "deleted_at"): ("timestamp without time zone", None),
@@ -381,7 +382,7 @@ def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client
     "Error seeding database" (found rehearsing the upgrade from main). It reads the id
     alone now, and the new columns are added."""
     added = [("circles", "stamina_dice_used"), ("characters", "warded_by_id"), ("characters", "train_dice"),
-             ("characters", "advancement_set"), ("characters", "sheet_edited")]
+             ("characters", "advancement_set"), ("characters", "sheet_edited"), ("circles", "earn_backs")]
     with support.isolated_schema() as (eng, Session, schema):
         with eng.begin() as conn:
             for table, col in added:

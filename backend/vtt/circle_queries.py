@@ -78,10 +78,12 @@ def saw_this_coming(circle, db: Session = None) -> list:
 def fill_resources(circle, db: Session = None):
     """Sets each of Stitch, Refresh and Train to 1 plus the active members. (On
     2026-10-06 this split one pool of that size across the three, a misreading of p. 41
-    that the p. 62 example rules out.)"""
+    that the p. 62 example rules out.) A full circle has nothing left to earn back, so
+    any Resource Management earn-back still waiting goes."""
     points = resource_pool(circle, db)
     for key in RESOURCES:
         setattr(circle, key, points)
+    circle.earn_backs = 0
 
 
 def lower_resources_to_pool(circle, db: Session = None):
@@ -92,6 +94,27 @@ def lower_resources_to_pool(circle, db: Session = None):
     for key in RESOURCES:
         if (getattr(circle, key, 0) or 0) > points:
             setattr(circle, key, points)
+    cap_earn_backs(circle, db)
+
+
+def cap_earn_backs(circle, db: Session = None):
+    """Resource Management's earn-backs waiting (gm_earn_back) never outnumber the points
+    missing from Stitch, Refresh and Train. One more would wait with every choice full,
+    and could be cashed in after a later spend, which p. 41 does not grant: the earn-back
+    comes when the milestone is hit (fix round 5 review). Called before each commit that
+    changes the resources, the pool or the earn-backs. A value not yet cast (the
+    Lightkeeper's update_circle stores "5" as PostgreSQL casts it) counts as its number."""
+    waiting = getattr(circle, "earn_backs", 0) or 0
+    if not waiting:
+        return
+
+    def have(key):
+        try:
+            return int(getattr(circle, key, 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+    points = resource_pool(circle, db)
+    circle.earn_backs = min(waiting, sum(max(0, points - have(key)) for key in RESOURCES))
 
 
 def circle_abilities(circle) -> list:
@@ -104,8 +127,11 @@ def get_or_create_campaign_circle(db: Session, campaign_id: int) -> Circle:
     """Returns the circle owned by this campaign, creating one if it doesn't exist yet."""
     circle = db.query(Circle).filter(Circle.campaign_id == campaign_id).first()
     if not circle:
-        circle = Circle(name="Unnamed Circle", stitch=1, refresh=1, train=1, campaign_id=campaign_id)
+        circle = Circle(name="Unnamed Circle", campaign_id=campaign_id)
         db.add(circle)
+        # 1 plus the members in each resource, as an approval fills them (rulebook p. 41):
+        # members approved before anyone opened the campaign used to find 1 in each
+        fill_resources(circle, db)
         db.commit()
         db.refresh(circle)
     return circle

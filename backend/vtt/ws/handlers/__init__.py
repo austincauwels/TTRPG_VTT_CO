@@ -56,4 +56,6 @@ HANDLERS = {
     # (vtt/sheet_edits.py)
     "edit_sheet":                  (character.handle_edit_sheet, True),
     "gm_sheet_seen":               (character.handle_gm_sheet_seen, True),
+    # Resource Management's earn-back, the circle's choice
+    "gm_earn_back":                (gm.handle_gm_earn_back, False),
 }

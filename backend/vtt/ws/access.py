@@ -81,7 +81,7 @@ GM_ONLY = frozenset({
     "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
     "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
     "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
-    "gm_set_tally_answer", "gm_add_tally", "gm_sheet_seen",
+    "gm_set_tally_answer", "gm_add_tally", "gm_sheet_seen", "gm_earn_back",
 })
 
 # A GM socket may aim these at a character of its campaign with payload.character_id.
@@ -187,6 +187,16 @@ def _gm_add_tally(ctx, payload, character):
     _gm_circle(ctx, payload, character)
     if type(payload.get("keys")) is not int or payload["keys"] not in TALLY_KEYS:
         _invalid("The keys are worth 0, 2 or 4.")
+
+
+# Resource Management's earn-back (rulebook p. 41): one of the circle's three resources
+EARN_BACK_RESOURCES = ("stitch", "refresh", "train")
+
+
+def _gm_earn_back(ctx, payload, character):
+    _gm_circle(ctx, payload, character)
+    if payload.get("resource_type") not in EARN_BACK_RESOURCES:
+        _invalid("Earn back a Stitch, a Refresh or a Train.")
 
 
 def _intercept_mark(ctx, payload, character):
@@ -464,6 +474,7 @@ RULES = {
     "gm_set_tally_answer": _gm_set_tally_answer,
     "gm_add_tally": _gm_add_tally,
     "gm_sheet_seen": _gm_only,
+    "gm_earn_back": _gm_earn_back,
     "update_circle": _gm_circle,
     "gm_update_scars": _gm_update_scars,
     "intercept_mark": _intercept_mark,
