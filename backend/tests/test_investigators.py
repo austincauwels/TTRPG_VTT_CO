@@ -24,7 +24,7 @@ RESPONSE_KEYS = {
 SHEET_KEYS = {
     "is_dead", "campaign_id", "personal_circle_answer", "ability_uses", "train_bonus",
     "train_dice", "warded_by_id", "resources_spent_assignment", "advancement_picks",
-    "advancement_taken", "scar_pending", "sheet_edited",
+    "advancement_taken", "scar_pending", "sheet_edited", "held_marks",
 }
 
 

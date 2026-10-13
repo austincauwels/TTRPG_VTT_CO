@@ -513,11 +513,14 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // has them
   const storeHeld = useGameStore(s => s.heldMarks);
   const tableHeld = !readOnly && storeHeld && storeHeld.characterId === character?.id ? storeHeld : null;
-  const heldOffer = tableHeld?.offer || null;
+  // The Lightkeeper's read-only copy draws what the sheet says an offer holds (held_marks,
+  // sent with every change of it), the same way (#23)
+  const sheetHeld = readOnly && character?.held_marks?.mark_types?.length ? character.held_marks : null;
+  const heldOffer = tableHeld?.offer || (sheetHeld ? { types: sheetHeld.mark_types, ability: sheetHeld.ability } : null);
   // (a mark the Undo has just sent counts as the Undo's until the Undo lets it go)
   const tableHolds = (type) => (tableHeld ? [...(heldOffer?.types || []),
     ...tableHeld.landing.filter(m => m.undoId == null || m.undoId !== heldMark?.id).map(m => m.type)]
-    .filter(t => t === type).length : 0);
+    .filter(t => t === type).length : (heldOffer?.types || []).filter(t => t === type).length);
   // A note under the marks (the Undo strip, the held line, a refusal) that runs the record
   // past the foot of a desk column that scrolls inside itself (xl) brings the record's foot
   // back into view, its top kept in view: the Undo it offers is for the next five seconds.
@@ -540,7 +543,7 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // Death Defy escapes every mark of one harm (p. 27): a mark still held for undo when its
   // offer appears goes now, so it joins the harm the offer counts
   useEffect(() => {
-    if (heldOffer?.ability === 'Death Defy' && tableHeld.characterId === storeChar?.id) flushMark();
+    if (heldOffer?.ability === 'Death Defy' && !!tableHeld && tableHeld.characterId === storeChar?.id) flushMark();
   }, [heldOffer?.seq]);
   // The player's own photo: the answer to a change is the sheet as the table now has it
   const photoInputRef = useRef(null);
@@ -1295,7 +1298,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             {/* Each box is its own target: only the next empty box takes a mark. A mark is
                 held for a few seconds with an Undo before it goes to the table, while a soak
                 or Death Defy offer holds it there, and on its way until the sheet has it; a
-                held mark's box is drawn half inked with a dashed edge. In the Lightkeeper's
+                held mark's box is drawn half inked with a dashed edge, on the Lightkeeper's
+                copy too (the sheet's held_marks). In the Lightkeeper's
                 edit, any box sets the track: to that box, or, for the last filled box, to the
                 one before it. */}
             <div className={`mark-tracks flex flex-col ${readOnly && !editing ? 'gap-2' : 'gap-1'}`}>

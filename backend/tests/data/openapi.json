@@ -1008,6 +1008,18 @@
             "title": "Gilded Sway",
             "type": "boolean"
           },
+          "held_marks": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Held Marks"
+          },
           "hide": {
             "default": 0,
             "title": "Hide",

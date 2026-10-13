@@ -105,7 +105,22 @@ def get_char_dict(char):
         # A change the player made by hand that the Lightkeeper has not seen: the dot on
         # the roster card (vtt/sheet_edits.py)
         "sheet_edited": bool(getattr(char, "sheet_edited", False)),
+        # The marks an open soak or Death Defy offer holds back, which the Lightkeeper's
+        # copy of the sheet draws held (#23): {ability, mark_types}, or None
+        "held_marks": held_marks(char),
     }
+
+
+def held_marks(char):
+    """What an open soak or Death Defy offer holds back (the held_mark column, written by
+    vtt/ws/handlers/marks.py) as the sheet says it: the offer's ability and every mark it
+    holds, or None."""
+    held = getattr(char, "held_mark", None)
+    if not isinstance(held, dict) or not isinstance(held.get("mark_type"), str):
+        return None
+    more = held.get("more")
+    return {"ability": (held.get("offer") or {}).get("ability"),
+            "mark_types": [held["mark_type"], *(more if isinstance(more, list) else [])]}
 
 def fallen_card(char):
     """A dead investigator since replaced, as the Lightkeeper's Fallen card and Circle History
