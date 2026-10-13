@@ -2,7 +2,7 @@
 
 Updated 13 October 2026 (Pacific). This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
-Resume: none
+Resume: fix round 6 running (workflows/run6, results/2026-10-13-fix6); session_01WaLz6UBTQ5XaTKSYwqeMKA
 
 ## For the next chat: start here
 
