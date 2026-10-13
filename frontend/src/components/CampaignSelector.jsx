@@ -37,7 +37,7 @@ export const CampaignSelector = () => {
     enterAsPlayer, enterAsGM, handleLastPlayed,
   } = useCampaignEntry({
     accessSession, characters, gmCampaigns, lastPlayedCampaign,
-    setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData,
+    setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData, setHubNotice,
   });
 
   // Per-character inline join form state  { [charId]: { code, pen, error, loading } }

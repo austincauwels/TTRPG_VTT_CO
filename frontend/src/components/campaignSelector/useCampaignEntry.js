@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import useGameStore from '../../store/gameStore';
 import { playPaperSound } from '../../game/rollSounds';
 
 // Book open/close state and the ways into a campaign. enterAsPlayer and enterAsGM keep their
@@ -8,7 +9,7 @@ import { playPaperSound } from '../../game/rollSounds';
 // book is never seen closing.
 export const useCampaignEntry = ({
   accessSession, characters, gmCampaigns, lastPlayedCampaign,
-  setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData,
+  setLocalCharacter, connect, setLastPlayed, setStage, fetchUserData, setHubNotice,
 }) => {
   const [showBook, setShowBook] = useState(false);
   const [isClosingBook, setIsClosingBook] = useState(false);
@@ -41,7 +42,19 @@ export const useCampaignEntry = ({
     setIsLoadingBook(false);
   };
 
-  const enterAsPlayer = (char) => {
+  // The book may have been open since before the campaign was retired, or the investigator
+  // released or replaced (issue #42): the lists are read again first, and an investigator no
+  // longer active in that campaign opens no desk. The hub says so, and the book shows the
+  // lists as they are now.
+  const enterAsPlayer = async (char) => {
+    if (accessSession?.userId) {
+      await fetchUserData(accessSession.userId);
+      const now = useGameStore.getState().characters.find(c => c.id === char.id);
+      if (!now || now.status !== 'active' || now.campaign_id !== char.campaign_id) {
+        setHubNotice(`${char.name} is no longer in ${char.campaign_name || 'that campaign'}.`);
+        return;
+      }
+    }
     setLocalCharacter({ id: char.id, name: char.name, status: char.status });
     connect(char.id);
     setLastPlayed({ type: 'player', characterId: char.id, campaignName: char.campaign_name || 'Active Campaign', campaignCode: char.campaign_code || '', campaignId: char.campaign_id || null });
