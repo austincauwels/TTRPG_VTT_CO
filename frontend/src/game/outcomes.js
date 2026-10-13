@@ -60,7 +60,8 @@ export const rollPoolText = (roll, keptDie = null, rating = null) => {
   const label = ACTION_LABEL[roll.action];
   if (!label) return thrown;
   const added = !roll.is_resistance_roll && roll.type !== 'zero' && Number.isFinite(rating) ? count - rating : 0;
-  return `${label}${added > 0 ? ` +${added}d` : ''}${roll.is_resistance_roll ? ', resistance burned' : ''}: ${thrown}`;
+  const named = Array.isArray(roll.abilities) && roll.abilities.length ? ` (${roll.abilities.join(', ')})` : '';
+  return `${label}${added > 0 ? ` +${added}d` : ''}${named}${roll.is_resistance_roll ? ', resistance burned' : ''}: ${thrown}`;
 };
 
 const ACTION_KEYS = Object.keys(ACTION_LABEL).join('|');

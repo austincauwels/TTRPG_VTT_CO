@@ -553,6 +553,11 @@ async def handle_roll(ctx):
         # held dice of a gilded choice and a roll sent again keep it too.
         if is_secret:
             res["is_secret"] = True
+        # The abilities that applied to the roll, so the slip and the log can name them (the
+        # sheet's chips untoggle after the roll)
+        used_abilities = plan["applied"] if plan else []
+        if used_abilities:
+            res["abilities"] = list(used_abilities)
         if character:
             if "Patch Up" in mods and act == "read" and "Patch Up" in abilities_of(character):
                 _patch_up_declared.add(character.id)
@@ -594,7 +599,8 @@ async def handle_roll(ctx):
             outcome_label = OUTCOME_LABELS.get(outcome_key, outcome_key)
             # GM rolls omit the internal action name from the log label
             if character:
-                log_msg = f"{char_name} rolled {act} — {result_val} · {outcome_label} {_dice_text(res)}."
+                named = f" ({', '.join(used_abilities)})" if used_abilities else ""
+                log_msg = f"{char_name} rolled {act}{named} — {result_val} · {outcome_label} {_dice_text(res)}."
             else:
                 log_msg = f"Lightkeeper rolled — {result_val} · {outcome_label} {_dice_text(res)}."
 
@@ -663,7 +669,8 @@ async def handle_resolve_gilded(ctx):
     # A burn's reroll that waited for this choice is logged as the burn it was
     # (handle_burn_resistance), with the drive whose resistance went
     verb = f"burned {pending['burned'].capitalize()} resistance on" if pending.get("burned") else "rolled"
-    log_msg = f"{character.name} {verb} {r_act} — {chosen_value} · {outcome_label} {dice_text}."
+    named = f" ({', '.join(roll['abilities'])})" if roll.get("abilities") else ""
+    log_msg = f"{character.name} {verb} {r_act}{named} — {chosen_value} · {outcome_label} {dice_text}."
 
     changed = False
     # A roll made in life, kept after the death it led to: scored and logged, but the sheet

@@ -420,7 +420,7 @@ def test_two_gilds_roll_two_gilded_dice(client, dice):
         ws.send("resolve_gilded", action="hide", chosen_type="gilded")
         msgs = ws.sync()
         assert msgs[1]["payload"]["message"] == (
-            f"{ch['name']} rolled hide {EM} 5 {DOT} Mixed Success (3 dice: 2 gilded, 5 gilded, 4; kept the gilded 5). [gilded {EM} cunning Drive refreshed]")
+            f"{ch['name']} rolled hide (Born in the Shadows) {EM} 5 {DOT} Mixed Success (3 dice: 2 gilded, 5 gilded, 4; kept the gilded 5). [gilded {EM} cunning Drive refreshed]")
         assert msgs[2]["payload"]["cunning_current"] == 2
 
 
@@ -2042,3 +2042,22 @@ def test_an_automatic_gilded_refresh_at_a_full_drive_logs_nothing_extra(client, 
         assert support.types(msgs) == ["roll_result", "activity_log"]
         assert "refreshed" not in msgs[1]["payload"]["message"]
     assert support.fetch(Character, ch["id"]).nerve_current == 3
+
+
+def test_roll_names_the_abilities_that_applied(client, dice):
+    """Fix round 7 (45.10): the sheet's chips untoggle after a roll, so the roll carries
+    the abilities that applied (roll.abilities, absent when none did) and the log line
+    names them after the action; a roll without any is as it was."""
+    ch = support.forge(client, hide=3, gilded_hide=True, specialty_ability="Born in the Shadows",
+                       cunning_max=3, cunning_current=3)
+    dice(2, 5, 4)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("roll", action="hide", drive_spent=0, ability_mods=["Born in the Shadows"])
+        roll = ws.sync()[0]["payload"]["roll"]
+        assert roll["abilities"] == ["Born in the Shadows"]
+        ws.send("resolve_gilded", action="hide", chosen_type="gilded")
+        assert ws.sync()[1]["payload"]["message"].startswith(f"{ch['name']} rolled hide (Born in the Shadows) {EM} 5")
+        dice(1, 2, 3)
+        ws.send("roll", action="hide", drive_spent=0)
+        msgs = ws.sync()
+        assert "abilities" not in msgs[0]["payload"]["roll"]
