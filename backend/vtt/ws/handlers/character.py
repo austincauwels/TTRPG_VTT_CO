@@ -16,7 +16,7 @@ from vtt.ws.access import scar_ability
 from vtt.serializers import awaiting_scar
 from vtt.ws.handlers.circle import announce_downed, announce_status
 from vtt.ws.handlers.marks import close_offers_at_death
-from vtt.ws.manager import campaign_key, character_key, manager
+from vtt.ws.manager import character_key, manager
 
 
 async def handle_update_drive(ctx):
@@ -74,17 +74,19 @@ def mark_edited(ctx, character):
 
 async def record_edit(ctx, character, said: list):
     """The line for a player's direct edit of their own sheet (decision 1 of fix round 5):
-    "Mara: Nerve 2 to 3, gear Lantern removed." It goes to the Lightkeeper's log and to
-    the player's own, so the player sees what the Lightkeeper is told; the other members
-    are not sent it. Rolls, spends and the other in-play flows keep their own lines."""
+    "Mara: Nerve 2 to 3, gear Lantern removed." It goes to the whole table, the Lightkeeper
+    and every member, as the pip and gear lines it replaced did; the dot stays the
+    Lightkeeper's. A character with no Lightkeeper yet gets it in their own log alone.
+    Rolls, spends and the other in-play flows keep their own lines."""
     if not said:
         return
     message = {"type": "activity_log", "payload": {
         "message": f"{character.name}: {', '.join(said)}.", "log_type": "field",
         "ink_color": getattr(character, "ink_color", "") or ""}}
     if _edit_counts(ctx, character):
-        await manager.broadcast(campaign_key(ctx.camp_code), message, ctx.camp_id)
-    await manager.broadcast(character_key(character.id), message, ctx.camp_id)
+        await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, message, ctx.db)
+    else:
+        await manager.broadcast(character_key(character.id), message, ctx.camp_id)
 
 
 async def handle_update_pen_font(ctx):

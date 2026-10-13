@@ -313,7 +313,8 @@ WS_CASES = {
                        expect=["character_update", "activity_log", "member_status"]),
     # The Lightkeeper opened a sheet the player edited: the roster card's dot goes
     "gm_sheet_seen": dict(
-        sender="gm", fields={"sheet_edited": True}, payload=lambda c: {"character_id": c.char_id},
+        sender="gm", before_connect=lambda client, c: support.update(Character, c.char_id, sheet_edited=True),
+        payload=lambda c: {"character_id": c.char_id},
         expect=["member_update"]),
 }
 

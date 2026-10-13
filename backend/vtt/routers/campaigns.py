@@ -530,6 +530,7 @@ def rejoin(db: Session, campaign_code: str, character_id: int, user: User):
     new_char.campaign_id = campaign.id
     new_char.ink_color = INK_COLORS[active_count % len(INK_COLORS)]
     new_char.status = "active"
+    new_char.sheet_edited = False   # a dot from before the rejoin has no line in this log
 
     # Attach to campaign's circle so relationship proposals work mid-campaign
     campaign_circle = db.query(Circle).filter(Circle.campaign_id == campaign.id).first()

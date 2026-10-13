@@ -76,12 +76,17 @@ def edit_problem(character, changes) -> str | None:
         if specialty not in allowed:
             return f"Choose a {role} specialty: " + " or ".join(allowed) + "." if role in ROLES \
                 else "Choose a specialty."
-    if "role_ability" in changes and changes["role_ability"] not in ALL_ABILITIES:
+    # A name the sheet already holds stays, known to the app today or not
+    held = _abilities_in_order(character)
+
+    def known(name):
+        return isinstance(name, str) and (name in ALL_ABILITIES or name in held)
+
+    if "role_ability" in changes and not known(changes["role_ability"]):
         return "Choose a role or specialty ability."
     if "specialty_ability" in changes:
         names = changes["specialty_ability"]
-        if not isinstance(names, list) or len(names) > ABILITIES_MAX \
-                or not all(isinstance(n, str) and n in ALL_ABILITIES for n in names):
+        if not isinstance(names, list) or len(names) > ABILITIES_MAX or not all(known(n) for n in names):
             return "Abilities are a list of role and specialty abilities."
     if "role_ability" in changes or "specialty_ability" in changes:
         names = [changes.get("role_ability", getattr(character, "role_ability", None))] + \
@@ -95,8 +100,11 @@ def edit_problem(character, changes) -> str | None:
         if f"gilded_{act}" in changes and type(changes[f"gilded_{act}"]) is not bool:
             return f"Gilded {ACTION_LABELS[act]} is yes or no."
     for drive in DRIVES:
+        # Only the drives the edit names: a stored value is not this edit's to check
+        if not any(f"{drive}_{part}" in changes for part in ("max", "current", "resistance_spent")):
+            continue
         top = changes.get(f"{drive}_max", getattr(character, f"{drive}_max", 0) or 0)
-        if not _whole(top, 0, DRIVE_MAX):
+        if f"{drive}_max" in changes and not _whole(top, 0, DRIVE_MAX):
             return f"{drive.capitalize()}'s maximum is from 0 to {DRIVE_MAX}."
         if f"{drive}_current" in changes and not _whole(changes[f"{drive}_current"], 0, top):
             return f"{drive.capitalize()} is from 0 to its maximum."
@@ -109,7 +117,8 @@ def edit_problem(character, changes) -> str | None:
         scars = changes["scars_list"]
         if not isinstance(scars, list) or not all(isinstance(s, str) and s.strip() for s in scars):
             return "Scars are a list of descriptions."
-        if any(len(s.strip()) > SCAR_TEXT_MAX for s in scars):
+        # A scar the sheet already holds keeps its length (as gm_update_scars)
+        if any(len(s.strip()) > SCAR_TEXT_MAX and s not in _scars_of(character) for s in scars):
             return f"A scar is a description of up to {SCAR_TEXT_MAX} characters."
         if len(scars) > EDIT_SCARS_MAX:
             return "A fourth scar is taken through the scar form."

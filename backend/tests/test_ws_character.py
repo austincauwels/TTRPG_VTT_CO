@@ -21,10 +21,10 @@ def _member_pair(client, **fields):
 # --- update_drive -----------------------------------------------------------
 
 def test_update_drive_sets_value_and_tells_the_sender_and_the_gm(client):
-    """The other members hear nothing; the GM's socket gets the sheet as member_update
-    (tests/test_ws_gm_view.py) and the change's line. A pip set by hand is a direct edit
-    (decision 1 of fix round 5): its line goes to the Lightkeeper and the player alone (it
-    used to go to every member), and the roster card's dot goes on."""
+    """The other members get the line alone; the GM's socket gets the sheet as member_update
+    (tests/test_ws_gm_view.py) and the line. A pip set by hand is a direct edit
+    (decision 1 of fix round 5): its line, "Name: Nerve 3 to 1." (it used to read "Name set
+    Nerve to 1 of 3."), still goes to every member, and the roster card's dot goes on."""
     camp, a, b = _member_pair(client, nerve_max=3, nerve_current=3)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
@@ -34,7 +34,7 @@ def test_update_drive_sets_value_and_tells_the_sender_and_the_gm(client):
         assert msg["payload"]["id"] == a["id"]
         assert msg["payload"]["nerve_current"] == 1
         wa.sync()
-        assert wb.drain() == []
+        assert [m["payload"]["message"] for m in wb.drain()] == [f"{a['name']}: Nerve 3 to 1."]
         seen = gm.drain()
         assert [m["type"] for m in seen] == ["member_update", "activity_log"]
         assert seen[0]["payload"]["sheet_edited"] is True
@@ -169,9 +169,9 @@ def test_update_pen_font(client):
 
 def test_update_gear(client):
     """A player's gear change is a direct edit (decision 1 of fix round 5, issue #64): it is
-    never refused, its line names what was removed and added, and it goes to the
-    Lightkeeper and the player alone. Unmarking gear used to be refused (409, rulebook
-    p. 52), and the line went to every member."""
+    never refused, its line names what was removed and added, and it still goes to every
+    member. Unmarking gear used to be refused (409, rulebook p. 52), and the line used to
+    list the whole gear ("Name updated their equipment: lamp, rope.")."""
     camp, a, b = _member_pair(client)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
@@ -182,7 +182,7 @@ def test_update_gear(client):
         line = {"message": f"{a['name']}: gear lamp added, rope added.",
                 "log_type": "field", "ink_color": engine.INK_COLORS[0]}
         assert msgs[1]["payload"] == line
-        assert wb.drain() == []
+        assert [m["payload"] for m in wb.drain()] == [line]
         seen = gm.drain()
         assert support.types(seen) == ["member_update", "activity_log"]
         assert seen[0]["payload"]["sheet_edited"] is True and seen[1]["payload"] == line

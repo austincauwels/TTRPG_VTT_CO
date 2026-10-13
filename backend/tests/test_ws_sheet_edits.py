@@ -29,8 +29,8 @@ def _roster(client, camp, headers):
 
 def test_an_edit_is_stored_and_logged_for_the_lightkeeper_with_a_dot(client):
     """Every field the edit names is stored at once, and one line names each change from
-    what to what. The line goes to the Lightkeeper and to the player; the other members
-    are not told. The roster card's dot (sheet_edited) is on, for the Lightkeeper only."""
+    what to what. The line goes to the whole table, the Lightkeeper and every member. The
+    roster card's dot (sheet_edited) is on, for the Lightkeeper only."""
     camp, a, b = _member_pair(client, strike=1, nerve_max=5, nerve_current=5, body_marks=2,
                               gear=["Lantern"], scars_list=["A limp"], scars_count=1)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
@@ -55,7 +55,8 @@ def test_an_edit_is_stored_and_logged_for_the_lightkeeper_with_a_dot(client):
         seen = gm.drain()
         assert support.types(seen) == ["member_update", "activity_log"]
         assert seen[0]["payload"]["sheet_edited"] is True and seen[1]["payload"] == line
-        assert support.types(wb.drain()) == ["member_status"]
+        heard = wb.drain()
+        assert support.types(heard) == ["activity_log", "member_status"] and heard[0]["payload"] == line
     assert _roster(client, camp, support.as_gm(camp)) == {a["id"]: True, b["id"]: False}
     # The members' roster leaves the dot out: it is the Lightkeeper's
     assert _roster(client, camp, support.as_owner(b["id"])) == {a["id"]: False, b["id"]: False}
@@ -192,7 +193,8 @@ def test_a_new_name_reaches_the_other_members_cards(client):
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
         wa.send("edit_sheet", changes={"name": "  Ada Quill "})
         wa.sync()
-        [status] = wb.drain()
+        line, status = wb.drain()
+        assert line["payload"]["message"] == f"Ada Quill: name {a['name']} to Ada Quill."
         assert status["payload"]["name"] == "Ada Quill"
     assert support.fetch(Character, a["id"]).name == "Ada Quill"
 
@@ -204,3 +206,34 @@ def test_a_drive_set_by_the_lightkeeper_puts_no_dot(client):
         gm.send("update_drive", character_id=a["id"], pool="nerve", value=1)
         gm.sync()
     assert support.fetch(Character, a["id"]).sheet_edited is False
+
+
+def test_the_dot_does_not_follow_the_investigator_into_a_campaign(client):
+    """An edit the old Lightkeeper never opened leaves no dot for the next one, who has no
+    line behind it: approval clears sheet_edited."""
+    camp = support.new_campaign(client)
+    ch = support.pending_member(client, camp)
+    support.update(Character, ch["id"], sheet_edited=True)
+    assert support.approve(client, ch["id"]).status_code == 200
+    assert support.fetch(Character, ch["id"]).sheet_edited is False
+
+
+def test_an_edit_checks_only_what_it_changes(client):
+    """A stored value outside today's boxes (a legacy maximum, a long old scar, an ability
+    the app no longer lists) does not refuse an edit of something else, nor one that keeps
+    it. What the edit brings is still checked."""
+    old_scar = "x" * 600
+    camp, a, b = _member_pair(client, nerve_max=12, nerve_current=12,
+                              scars_list=[old_scar], scars_count=1)
+    support.update(Character, a["id"], specialty_ability="Old Trick")
+    with support.ws_connect(client, a["id"]) as wa:
+        wa.send("edit_sheet", changes={"name": "Ada Quill", "scars_list": [old_scar, "A limp"],
+                                       "specialty_ability": ["Old Trick", "Mind Palace"]})
+        assert support.types(wa.sync()) == ["character_update", "activity_log", "member_status"]
+        wa.send("edit_sheet", changes={"role_ability": ["Scout"]})
+        assert wa.sync() == [_rejected("Choose a role or specialty ability.")]
+        wa.send("edit_sheet", changes={"scars_list": [old_scar, "y" * 600]})
+        assert wa.sync() == [_rejected("A scar is a description of up to 500 characters.")]
+    row = support.fetch(Character, a["id"])
+    assert (row.name, row.nerve_max, row.scars_list, row.specialty_ability) == (
+        "Ada Quill", 12, [old_scar, "A limp"], "Old Trick; Mind Palace")
