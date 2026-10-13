@@ -16,8 +16,8 @@ export const useRelationshipForms = () => {
 
 const labelClass = 'block font-sans font-bold text-xs uppercase tracking-widest text-sepia mb-1.5';
 const fieldClass = 'w-full border border-sepia/40 bg-cream/80 px-3 py-2 font-serif text-lg text-ink focus:border-oxblood rounded-sm';
-const primaryButton = 'px-4 py-2 bg-oxblood text-cream border border-ink rounded-sm font-sans font-black uppercase tracking-widest text-sm hover:brightness-125 transition disabled:opacity-40';
-const quietButton = 'px-4 py-2 border border-sepia/50 text-sepia hover:text-ink hover:border-ink/50 rounded-sm font-sans font-black uppercase tracking-widest text-sm transition-colors';
+const primaryButton = 'px-4 py-2 bg-oxblood text-cream border border-ink rounded-sm font-sans font-black uppercase tracking-widest text-sm hover:brightness-125 transition disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]';
+const quietButton = 'px-4 py-2 border border-sepia/50 text-sepia hover:text-ink hover:border-ink/50 rounded-sm font-sans font-black uppercase tracking-widest text-sm transition-colors [@media(pointer:coarse)]:min-h-[44px]';
 
 // Relationship type, an optional prompt question, and the answer. The chosen question is
 // kept as its index and shown above the answer box, never in it; tapping it again lets it go.

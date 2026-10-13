@@ -123,9 +123,11 @@ export const PlayerRegistryPage = ({
                       {char.campaign_name && (
                         <p className="font-serif italic text-base text-sepia truncate">{char.campaign_name}</p>
                       )}
+                      {/* On a phone the stamp sits under the campaign, which it would cut short */}
+                      {char.is_dead && <Standing inv={char} className="sm:hidden mt-0.5" />}
                     </div>
                     {/* Dead and not yet replaced: its desk is where the new investigator is made */}
-                    {char.is_dead && <Standing inv={char} className="shrink-0" />}
+                    {char.is_dead && <Standing inv={char} className="shrink-0 max-sm:hidden" />}
                     <span className={`font-sans font-bold text-xs uppercase tracking-widest text-oxblood shrink-0 transition-opacity ${entering === char.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-focus-visible:opacity-100'}`}>
                       {entering === char.id ? 'Opening…' : 'Play →'}
                     </span>
