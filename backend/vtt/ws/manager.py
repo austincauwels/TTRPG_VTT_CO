@@ -246,6 +246,12 @@ class ConnectionManager:
             await self._send_text(key, encode(message))
         await self._show_gm(message)
 
+    async def show_gm_sheet(self, sheet: dict):
+        """member_update with the sheet to the GM of its campaign, as a broadcast of it
+        would send (_show_gm), and to no one else: for a change that only the
+        Lightkeeper's copy of the sheet draws (a mark held for an offer)."""
+        await self._show_gm({"type": "character_update", "payload": sheet})
+
     async def _show_gm(self, message: dict):
         """member_update with the sheet the message carries, to the GM channel of the
         sheet's campaign while the character is on its roster (active or pending, as

@@ -59,7 +59,7 @@ CHAR_DICT_KEYS = {
     "incapacitated", "is_dead", "circle_id",
     "pronouns", "style", "catalyst", "question", "role", "specialty",
     "role_ability", "specialty_ability", "gear", "profile_pic", "status",
-    "pen_font", "ink_color", "campaign_id", "personal_circle_answer", "sheet_edited",
+    "pen_font", "ink_color", "campaign_id", "personal_circle_answer", "sheet_edited", "held_marks",
     "ability_uses", "train_bonus", "train_dice", "resources_spent_assignment",
     "advancement_picks", "advancement_taken", "warded_by_id", "scar_pending",
 }

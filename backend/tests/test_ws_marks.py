@@ -1,4 +1,5 @@
 """WebSocket harm: take_mark, resolve_ability_mark, intercept_mark, apply_scar, revive_character."""
+import itertools
 from unittest.mock import ANY
 
 import pytest
@@ -51,7 +52,27 @@ def test_a_mark_sent_again_with_its_id_is_taken_once(client):
         ws.send("take_mark", mark_type="brain", mark_id=["m-2"])
         ws.send("take_mark", mark_type="brain", mark_id=["m-2"])
         assert [m["payload"]["brain_marks"] for m in ws.sync() if m["type"] == "character_update"] == [1, 2]
-    assert support.fetch(Character, ch["id"]).body_marks == 2
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.taken_mark_ids) == (2, ["m-1", "m-2"])
+
+
+def test_a_mark_sent_again_after_a_restart_is_taken_once(client, monkeypatch):
+    """Fixed (#43): the ids of the marks taken lived in memory, so a mark sent again after
+    a restart (a reload that brought back a mark held during a silent outage) was taken a
+    second time. The last MARK_IDS_KEPT ids are stored with the character."""
+    ch = support.forge(client)
+    support.update(Character, ch["id"], taken_mark_ids=[f"m-{n}" for n in range(marks.MARK_IDS_KEPT)])
+    _restart(monkeypatch)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", mark_id=f"m-{marks.MARK_IDS_KEPT - 1}")
+        assert support.of_type(ws.sync(), "character_update")[0]["payload"]["body_marks"] == 0
+        ws.send("take_mark", mark_type="body", mark_id="m-new")
+        assert support.of_type(ws.sync(), "character_update")[0]["payload"]["body_marks"] == 1
+        # the oldest id has gone: only the last MARK_IDS_KEPT are kept
+        ws.send("take_mark", mark_type="body", mark_id="m-0")
+        assert support.of_type(ws.sync(), "character_update")[0]["payload"]["body_marks"] == 2
+    ids = support.fetch(Character, ch["id"]).taken_mark_ids
+    assert (len(ids), ids[-2:]) == (marks.MARK_IDS_KEPT, ["m-new", "m-0"])
 
 
 def test_take_mark_without_type_is_ignored(client):
@@ -273,7 +294,8 @@ def test_a_held_mark_that_lands_early_closes_its_offer(client):
     """A mark an open offer holds lands first when another mark comes. The desk's card for
     it stayed up, and its countdown then sent "Take the mark", which (with nothing held,
     as after a restart) landed the mark a second time. The desk is told the offer is
-    closed (mark_offer_closed) before the mark lands."""
+    closed (mark_offer_closed) before the mark lands, and an answer that comes anyway
+    lands nothing and is told again, with its offer_id (#18)."""
     ch = support.forge(client, cunning_max=3, specialty_ability="In the Trenches")
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("take_mark", mark_type="body", is_from_enemy=False)
@@ -287,7 +309,9 @@ def test_a_held_mark_that_lands_early_closes_its_offer(client):
         # A card that answers anyway (the closing came too late) names a closed offer
         ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body",
                 offer_id=offer["payload"]["offer_id"])
-        assert ws.sync() == []
+        assert ws.sync() == [{"type": "mark_offer_closed", "payload": {
+            "character_id": ch["id"], "ability": "In the Trenches", "mark_type": "body",
+            "offer_id": offer["payload"]["offer_id"], "dropped": True}}]
         # Answered or not, a closed offer is not offered again
     with support.ws_connect(client, ch["id"]) as again:
         assert support.types(again.sync()) == ["activity_history"]
@@ -318,7 +342,10 @@ def test_an_answer_to_a_closed_offer_is_ignored(client):
         ws.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body",
                 offer_id=defy["payload"]["offer_id"])
         ws.send("resolve_ability_mark", ability="Death Defy", choice="escape", offer_id=defy["payload"]["offer_id"])
-        assert ws.sync() == []
+        closed = ws.sync()
+        assert support.types(closed) == ["mark_offer_closed", "mark_offer_closed"]
+        assert all(m["payload"]["offer_id"] == defy["payload"]["offer_id"] and m["payload"]["dropped"]
+                   for m in closed)
         # The soak's own card answers it: the Brain mark lands once
         ws.send("resolve_ability_mark", ability="Compartmentalization", choice="decline", mark_type="brain",
                 offer_id=soak["offer_id"])
@@ -327,7 +354,7 @@ def test_an_answer_to_a_closed_offer_is_ignored(client):
         # A second desk's card for it, answered after the first: nothing is held now
         ws.send("resolve_ability_mark", ability="Compartmentalization", choice="decline", mark_type="brain",
                 offer_id=soak["offer_id"])
-        assert ws.sync() == []
+        assert support.types(ws.sync()) == ["mark_offer_closed"]
     row = support.fetch(Character, ch["id"])
     assert (row.body_marks, row.brain_marks, row.nerve_resistance_spent, row.ability_uses) == (1, 1, 0, {})
 
@@ -343,22 +370,152 @@ def test_an_answer_to_a_death_defy_offer_counted_again_is_ignored(client):
         assert (first["count"], second["count"]) == (1, 2) and first["offer_id"] != second["offer_id"]
         ws.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body",
                 offer_id=first["offer_id"])
-        assert ws.sync() == []
+        # Only the card of that offer is closed: the desk matches its offer_id
+        [closed] = ws.sync()
+        assert (closed["type"], closed["payload"]["offer_id"], closed["payload"]["dropped"]) == (
+            "mark_offer_closed", first["offer_id"], True)
         ws.send("resolve_ability_mark", ability="Death Defy", choice="escape", offer_id=second["offer_id"])
         assert ws.sync()[1]["payload"]["message"] == f"{ch['name']} used Death Defy {EM} escaped 2 marks unscathed!"
     row = support.fetch(Character, ch["id"])
     assert (row.body_marks, row.bleed_marks, row.ability_uses) == (0, 0, {"Death Defy": 1})
 
 
-def test_an_answer_from_before_a_restart_still_lands_its_mark(client):
-    """The restart rule stays: with nothing held, an answer whose offer_id is not this
-    process's (the server restarted with the card open) lands the mark it names."""
+def test_an_answer_from_before_a_restart_lands_no_mark(client):
+    """Fixed (#18; was test_an_answer_from_before_a_restart_still_lands_its_mark, the
+    restart rule): with nothing held, an answer whose offer_id the server does not hold
+    (an offer from before an upgrade that kept held marks in memory) landed the mark it
+    named, so a stale card's "Take the mark" put a mark on the sheet. It is ignored, and
+    the desk is told that offer is closed (mark_offer_closed, dropped), so its card goes.
+    An answer with no offer_id lands nothing either with nothing held."""
     ch = support.forge(client, cunning_max=3, specialty_ability="In the Trenches")
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body",
                 offer_id="0000ffff.7")
-        assert support.types(ws.sync()) == ["character_update", "activity_log"]
-    assert support.fetch(Character, ch["id"]).body_marks == 1
+        assert ws.sync() == [{"type": "mark_offer_closed", "payload": {
+            "character_id": ch["id"], "ability": "In the Trenches", "mark_type": "body",
+            "offer_id": "0000ffff.7", "dropped": True}}]
+        ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body")
+        assert ws.sync() == []
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.held_mark) == (0, None)
+
+
+def test_the_lightkeepers_copy_of_the_sheet_draws_a_held_mark(client):
+    """Fixed (#23): the Lightkeeper's copy of a sheet did not show a mark a soak or Death
+    Defy offer held. The sheet carries held_marks, the offer's ability and every mark it
+    holds, and her desk is sent the sheet when an offer holds a mark, as when it lands."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, cunning_max=3, role_ability="Death Defy",
+                               specialty_ability="In the Trenches")
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        ws.send("take_mark", mark_type="body", is_from_enemy=True)
+        [soak] = ws.sync()
+        [update] = support.of_type(gm.drain(), "member_update")
+        assert (update["payload"]["body_marks"], update["payload"]["held_marks"]) == (
+            0, {"ability": "In the Trenches", "mark_types": ["body"]})
+        r = client.get(f"/api/investigators/{ch['id']}", headers=support.as_gm(camp))
+        assert r.json()["held_marks"] == {"ability": "In the Trenches", "mark_types": ["body"]}
+        ws.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body",
+                offer_id=soak["payload"]["offer_id"])
+        ws.send("take_mark", mark_type="brain", is_from_enemy=True)
+        ws.sync()
+        held = [m["payload"]["held_marks"] for m in support.of_type(gm.drain(), "member_update")]
+        assert held == [{"ability": "Death Defy", "mark_types": ["body"]},
+                        {"ability": "Death Defy", "mark_types": ["body", "brain"]}]
+        ws.send("resolve_ability_mark", ability="Death Defy", choice="decline", mark_type="body",
+                offer_id=_held_offer_id(ch["id"]))
+        ws.sync()
+        sheets = [m["payload"] for m in support.of_type(gm.drain(), "member_update")]
+        assert [(s["body_marks"], s["brain_marks"], s["held_marks"]) for s in sheets] == [(1, 0, None), (1, 1, None)]
+    assert client.get(f"/api/investigators/{ch['id']}", headers=support.as_gm(camp)).json()["held_marks"] is None
+
+
+def _held_offer_id(character_id):
+    return support.fetch(Character, character_id).held_mark["offer"]["offer_id"]
+
+
+def _restart(monkeypatch):
+    """What a server restart leaves of the marks' state: none of what is kept in memory,
+    and a new process's offer ids."""
+    monkeypatch.setattr(marks, "_BOOT", "feedf00d")
+    monkeypatch.setattr(marks, "_offer_ids", itertools.count(1))
+    for name in ("_pending_rush", "_interceptable", "_intercept_for", "_watched", "_non_combatant"):
+        monkeypatch.setattr(marks, name, type(getattr(marks, name))())
+
+
+def test_a_held_mark_survives_a_restart(client, monkeypatch):
+    """Fixed (#17, #18): a held mark lived in the server's memory, so a restart lost it,
+    and the desk's card then landed it by the restart rule. It is stored with its offer
+    (characters.held_mark): after a restart the desk that opens gets the same offer, with
+    the same offer_id, and its answer lands the mark once."""
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, cunning_max=3, specialty_ability="In the Trenches")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", is_from_enemy=False)
+        [offer] = ws.sync()
+    assert support.fetch(Character, ch["id"]).held_mark["offer"] == offer["payload"]
+    _restart(monkeypatch)
+    with support.ws_connect(client, ch["id"]) as again:
+        assert again.recv() == offer
+        again.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body",
+                   offer_id=offer["payload"]["offer_id"])
+        msgs = again.sync()
+        assert support.types(msgs) == ["character_update", "activity_log"]
+        assert msgs[0]["payload"]["body_marks"] == 1
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} passed on In the Trenches and took a Body mark (1 of 3)."
+        # answered once: the same card again is told the offer is closed
+        again.send("resolve_ability_mark", ability="In the Trenches", choice="decline", mark_type="body",
+                   offer_id=offer["payload"]["offer_id"])
+        assert support.types(again.sync()) == ["mark_offer_closed"]
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.held_mark) == (1, None)
+
+
+def test_a_death_defy_offer_counts_on_after_a_restart(client, monkeypatch):
+    """A Death Defy offer held over a restart still counts the next enemy mark of the
+    harm, with an offer_id of the new process."""
+    ch = support.forge(client, specialty_ability="Death Defy")
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("take_mark", mark_type="body", is_from_enemy=True)
+        [first] = ws.sync()
+    _restart(monkeypatch)
+    with support.ws_connect(client, ch["id"]) as ws:
+        assert ws.recv() == first
+        ws.send("take_mark", mark_type="bleed", is_from_enemy=True)
+        [second] = ws.sync()
+        assert (second["payload"]["count"], second["payload"]["offer_id"]) == (2, "feedf00d.1")
+        ws.send("resolve_ability_mark", ability="Death Defy", choice="escape", offer_id="feedf00d.1")
+        assert support.of_type(ws.sync(), "activity_log")[0]["payload"]["message"] == \
+            f"{ch['name']} used Death Defy {EM} escaped 2 marks unscathed!"
+    row = support.fetch(Character, ch["id"])
+    assert (row.body_marks, row.bleed_marks, row.held_mark) == (0, 0, None)
+
+
+def test_ally_offers_expire_cleanly_after_a_restart(client, monkeypatch):
+    """Decision 1 of fix round 6: the offers that live only in memory (Behind Me,
+    Premonitions, Adrenaline Rush, Non-Combatant) are gone after a restart. An answer to
+    one is refused as one that came too late, and changes nothing."""
+    camp = support.new_campaign(client)
+    target = support.active_member(client, camp, role_ability="Adrenaline Rush", specialty_ability="Non-Combatant",
+                                   nerve_max=3, nerve_current=1)
+    guard = support.active_member(client, camp, role_ability="Behind Me", nerve_max=3, nerve_current=3,
+                                  cunning_max=3, cunning_current=1)
+    with support.ws_connect(client, target["id"]) as wt, support.ws_connect(client, guard["id"]) as wg:
+        wt.send("take_mark", mark_type="brain", is_from_enemy=False)
+        assert {m["payload"]["ability"] for m in support.of_type(wt.sync(), "ability_mark_offer")} == {"Adrenaline Rush"}
+        assert {m["payload"]["ability"] for m in wg.sync() if m["type"] in ("ability_intercept_offer", "ability_mark_offer")} \
+            == {"Behind Me", "Non-Combatant"}
+    _restart(monkeypatch)
+    with support.ws_connect(client, target["id"]) as wt, support.ws_connect(client, guard["id"]) as wg:
+        assert "ability_intercept_offer" not in support.types(wg.sync())
+        wt.send("resolve_ability_mark", ability="Adrenaline Rush", choice="nerve")
+        wg.send("intercept_mark", ability="Behind Me", target_character_id=target["id"], mark_type="brain")
+        wg.send("resolve_ability_mark", ability="Non-Combatant", choice="cunning")
+        assert [m["payload"]["detail"] for m in support.of_type(wt.sync(), "action_rejected")] == [marks.NO_RUSH_WAITING]
+        assert [m["payload"]["detail"] for m in support.of_type(wg.sync(), "action_rejected")] == [
+            marks.NO_MARK_TO_ANSWER, "No Non-Combatant drive point is waiting."]
+    rows = support.fetch(Character, target["id"]), support.fetch(Character, guard["id"])
+    assert (rows[0].brain_marks, rows[0].nerve_current, rows[1].nerve_current, rows[1].cunning_current) == (1, 1, 3, 1)
 
 
 def test_endurance_six_keeps_the_character_standing(client, dice):
@@ -1528,6 +1685,9 @@ def test_a_held_offer_is_dropped_at_the_death(client):
         assert seen[0]["payload"]["is_dead"] is True
         closed = [m["payload"] for m in seen if m["type"] == "mark_offer_closed"]
         assert closed == [{"character_id": ch["id"], "ability": "In the Trenches", "mark_type": "body", "dropped": True}]
+        # the dead sheet draws nothing held, on the Lightkeeper's copy too
+        assert seen[0]["payload"]["held_marks"] is None
+        assert [m["payload"]["held_marks"] for m in support.of_type(gm.drain(), "member_update")][-1] is None
     with support.ws_connect(client, ch["id"]) as ws:
         assert "ability_mark_offer" not in support.types(ws.drain())
     row = support.fetch(Character, ch["id"])

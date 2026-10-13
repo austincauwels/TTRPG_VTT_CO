@@ -8,12 +8,14 @@ Premonitions. The roll handler's Back Against the Wall cost and Bending
 Spoons use it too (vtt/ws/handlers/rolls.py).
 
 Before a mark lands, mark_or_offer offers a soak (Compartmentalization, Steel Mind, In
-the Trenches) and then, for a mark from an enemy, Death Defy. The mark waits in
-_pending_marks while an offer is open: using the ability spends it, and declining it
-(the desk's "Take the mark", or its countdown running out) lets the mark land
-(RULES_CHECK.md items 10, 11 and 22). Adrenaline Rush can be claimed once per offer
-(_pending_rush). Both are in memory: after a restart an open offer's decline still
-lands the mark it names, and an Adrenaline Rush offer is gone.
+the Trenches) and then, for a mark from an enemy, Death Defy. The mark waits, with its
+offer, in the character's held_mark column while the offer is open: using the ability
+spends it, and declining it (the desk's "Take the mark", or its countdown running out)
+lets the mark land (RULES_CHECK.md items 10, 11 and 22). It is stored, not kept in
+memory, so a held mark and its offer survive a restart and come back to the desk with
+the same offer_id (fix round 6, #17 and #18). Adrenaline Rush can be claimed once per
+offer (_pending_rush), which is in memory: after a restart it is gone, and its answer
+is refused (NO_RUSH_WAITING), like the other ally offers below.
 
 The desk draws a held mark as held, not taken, while its offer is open. A desk that
 opens while a mark is held gets its offer again (send_held_mark), and when a held mark
@@ -22,11 +24,18 @@ lands because another mark came, the desk is told the offer is closed
 its countdown runs out.
 
 Each offer that holds a mark has an offer_id, which the desk sends back with its answer.
-An answer already on its way when the offer closed, one to an offer already answered, or
-one to a Death Defy offer since counted again names an offer the server no longer holds,
-and is ignored (_stale_answer): it used to answer the next held mark, or with nothing
-held land its mark again. The id starts with this process's own (_BOOT), so an answer
-from before a restart is still told apart, and lands the mark it names.
+An answer already on its way when the offer closed, one to an offer already answered, one
+to a Death Defy offer since counted again, or one to an offer from before an upgrade that
+kept held marks in memory names an offer the server no longer holds. It is ignored
+(_stale_answer) and never lands a mark, and the desk is told that offer is closed
+(mark_offer_closed with dropped and its offer_id), so the marks it drew on their way go:
+it used to answer the next held mark, or with nothing held land its mark again (the
+"restart rule", #18). The id starts with the id of the process that made it (_BOOT), so
+a new process never makes an id an earlier one gave out.
+
+The Lightkeeper's copy of the sheet draws the held marks too: the sheet carries them
+(held_marks, vtt.serializers), and each offer sends her the sheet (_offer), as every
+landing, use and drop of a held mark already does (#23).
 
 A mark that sends the allies Behind Me and Premonitions offers opens one answer
 (_interceptable, for INTERCEPT_WINDOW seconds): the first ally to answer takes it, and
@@ -38,7 +47,9 @@ ally offered says who was offered what, and, when the window ran out with the of
 used, that it lapsed (_watch_lapse); no other desk gets these lines (Robert's decision 6,
 playtest 3, behind-me-offer-unseen: the offer opened and lapsed unseen). Non-Combatant's
 drive point, offered to every ally for the same window, is logged the same way. The watch
-is in memory like the offer, so after a restart no lapse is logged.
+is in memory like the offer, so after a restart no lapse is logged, and an answer to
+the offer is refused as one that came too late (NO_MARK_TO_ANSWER, and Non-Combatant's
+own refusal): these offers expire cleanly (fix round 6, decision 1).
 
 A mark that lands through mark_or_offer (one taken on the sheet, dealt by the
 Lightkeeper, or taken for an ally with Behind Me) writes a line in the Activity Log with
@@ -74,8 +85,6 @@ ONCE_PER_ASSIGNMENT = {"Compartmentalization": 1, "Steel Mind": 1, "In the Trenc
 # The offers that hold the character's own mark until they are answered
 HOLDS_A_MARK = {"Circle of Protection", "Death Defy", *SOAK_RESISTANCE}
 
-# character id -> the mark an open soak or Death Defy offer holds back
-_pending_marks: dict = {}
 # The ids of the offers that hold a mark: this process's own, then a count
 _BOOT = secrets.token_hex(4)
 _offer_ids = itertools.count(1)
@@ -101,26 +110,43 @@ _watches: set = set()
 # (an answer takes out the oldest, so that point's lapse watch, _point_waiting, logs nothing)
 _non_combatant: dict = {}
 NO_MARK_TO_ANSWER = "No ally's mark is waiting for that, or another ally answered it first."
-# character id -> the ids of the last marks the player's desk sent (take_mark's mark_id).
-# A desk whose socket went silent sends an unanswered mark again on its next socket, with
-# the same id; one already taken is not taken twice (playtest 2, silent-socket-loses-mark:
-# it was dropped, and lost). In memory only: after a restart a resent mark is taken.
-_taken_marks: dict = {}
+# The ids of the last marks the player's desk sent (take_mark's mark_id) are kept in the
+# character's taken_mark_ids. A desk whose socket went silent sends an unanswered mark again
+# on its next socket, or after a reload, with the same id; one already taken is not taken
+# twice (playtest 2, silent-socket-loses-mark: it was dropped, and lost). They are stored,
+# so a restart in between does not take it twice either (#43).
 MARK_ID_MAX = 64
 MARK_IDS_KEPT = 16
 
 
-def _taken_before(character_id, mark_id) -> bool:
-    """Whether this mark was taken already; a new one is remembered. An id that is not
-    short text is no id."""
+def _taken_before(character, mark_id) -> bool:
+    """Whether this mark was taken already; a new one is remembered, and stored with the
+    mark itself by the commit that lands or holds it (mark_or_offer always commits). An id
+    that is not short text is no id."""
     if not (isinstance(mark_id, str) and 0 < len(mark_id) <= MARK_ID_MAX):
         return False
-    seen = _taken_marks.setdefault(character_id, [])
+    raw = character.taken_mark_ids
+    seen = [m for m in raw if isinstance(m, str)] if isinstance(raw, list) else []
     if mark_id in seen:
         return True
-    seen.append(mark_id)
-    del seen[:-MARK_IDS_KEPT]
+    character.taken_mark_ids = (seen + [mark_id])[-MARK_IDS_KEPT:]
     return False
+
+
+def held_mark(character):
+    """What an open soak or Death Defy offer holds back for the character (a copy):
+    {mark_type, more (Death Defy's further marks of the harm), is_from_enemy,
+    offer_intercepts, stage ("soak" or "escape"), offer (the ability_mark_offer payload,
+    with its offer_id)}, or None."""
+    held = getattr(character, "held_mark", None)
+    return dict(held) if isinstance(held, dict) and held.get("mark_type") in MARK_TYPES else None
+
+
+def _let_go_of_held(character):
+    """The held mark, no longer held; the caller's commit stores that."""
+    held = held_mark(character)
+    character.held_mark = None
+    return held
 
 
 def open_intercept(target_id, m_type, campaign_id=None, name=None):
@@ -466,55 +492,75 @@ async def _land(ctx, character, held, channel, passed_on=None):
                          announce=True, passed_on=None if i else passed_on)
 
 
-async def _offer(channel, held, offer):
-    """Sends an offer that holds the character's mark, kept with it for send_held_mark.
-    Each is a new offer with its own offer_id, a Death Defy offer counted again too."""
-    held["offer"] = offer = {**offer, "offer_id": f"{_BOOT}.{next(_offer_ids)}"}
+async def _offer(ctx, character, channel, held, offer):
+    """Sends an offer that holds the character's mark, stored with it (held_mark, which
+    send_held_mark sends again) and committed. Each is a new offer with its own offer_id,
+    a Death Defy offer counted again too. The Lightkeeper's copy of the sheet is sent the
+    sheet, which now draws the mark held (#23)."""
+    offer = {**offer, "offer_id": f"{_BOOT}.{next(_offer_ids)}"}
+    character.held_mark = {**held, "offer": offer}
+    ctx.db.commit()
     await manager.broadcast(channel, {"type": "ability_mark_offer", "payload": offer})
+    await manager.show_gm_sheet(get_char_dict(character))
 
 
 def _stale_answer(character, payload) -> bool:
-    """The answer names an offer the server no longer holds (see the module's docstring).
-    One without an offer_id (a desk loaded before ids) is taken as it always was, and so
-    is one from before a restart when nothing is held (the restart rule)."""
+    """The answer names an offer the server does not hold (see the module's docstring).
+    One without an offer_id (a desk loaded before ids) answers whatever is held, as it
+    always did; with nothing held it lands nothing."""
     offer_id = payload.get("offer_id")
     if not isinstance(offer_id, str):
         return False
-    held = _pending_marks.get(character.id)
-    if held:
-        return held.get("offer", {}).get("offer_id") != offer_id
-    return offer_id.startswith(f"{_BOOT}.")
+    held = held_mark(character)
+    return not held or held.get("offer", {}).get("offer_id") != offer_id
 
 
-async def _offer_defy(character, channel, held):
+async def _close_stale(ctx, character, payload):
+    """The desk's card answered an offer the server does not hold: that offer is closed
+    (dropped, so the marks the desk drew on their way for it go), and nothing lands."""
+    m_type = payload.get("mark_type")
+    await manager.broadcast(ctx.channel, {"type": "mark_offer_closed", "payload": {
+        "character_id": character.id, "ability": payload.get("ability"),
+        "mark_type": m_type if m_type in MARK_TYPES else None,
+        "offer_id": payload.get("offer_id"), "dropped": True}})
+
+
+async def _offer_defy(ctx, character, channel, held):
     # mark_types: every mark of the harm, so the desk draws each one held
     types = [held["mark_type"], *held.get("more", [])]
-    await _offer(channel, held, {
+    await _offer(ctx, character, channel, held, {
         "ability": "Death Defy", "mark_type": held["mark_type"], "character_id": character.id,
         "action": "escape", "count": len(types), "mark_types": types})
 
 
 async def send_held_mark(websocket, character):
     """A desk that opens while an offer holds the character's mark (a reload, the player
-    back on another device, a dropped connection) gets that offer again, so the sheet
-    draws the mark held and the offer's countdown can still land it. Before, the mark
-    waited unseen, with no countdown, until the character's next mark landed it."""
-    held = _pending_marks.get(character.id)
+    back on another device, a dropped connection, a server restart) gets that offer again,
+    with its offer_id, so the sheet draws the mark held and the offer's countdown can still
+    land it. Before, the mark waited unseen, with no countdown, until the character's next
+    mark landed it."""
+    held = held_mark(character)
     if held and held.get("offer"):
         await websocket.send_json({"type": "ability_mark_offer", "payload": held["offer"]})
 
 
-async def close_offers_at_death(character):
+def drop_held_at_death(character):
+    """The fourth scar: a soak or Death Defy offer that holds a mark is dropped and its
+    mark is not taken (the sheet is a record now). Returns what it held, for
+    close_offers_at_death; the caller's commit stores the drop, so the sheet it sends
+    draws nothing held."""
+    return _let_go_of_held(character)
+
+
+async def close_offers_at_death(character, held=None):
     """The fourth scar: what the investigator could still answer goes, since a dead
-    investigator's answers are refused (vtt.ws.access DEAD_REFUSED). A soak or Death Defy
-    offer that holds a mark is dropped and its mark is not taken (the sheet is a record
-    now), and the desk is told (mark_offer_closed with dropped), so its card goes and is
-    not sent again on the next connect; an Adrenaline Rush and a Non-Combatant drive
-    point waiting go too. The offer could be open then: a mark the Lightkeeper dealt while
-    the fourth scar was still to be recorded."""
+    investigator's answers are refused (vtt.ws.access DEAD_REFUSED). The desk is told of
+    a held mark's offer dropped (held, from drop_held_at_death) with mark_offer_closed
+    (dropped), so its card goes and is not sent again on the next connect; an Adrenaline
+    Rush and a Non-Combatant drive point waiting go too. The offer could be open then: a
+    mark the Lightkeeper dealt while the fourth scar was still to be recorded."""
     _pending_rush.pop(character.id, None)
     _non_combatant.pop(character.id, None)
-    held = _pending_marks.pop(character.id, None)
     if held:
         await manager.broadcast(character_key(character.id), {"type": "mark_offer_closed", "payload": {
             "character_id": character.id, "ability": held.get("offer", {}).get("ability"),
@@ -535,14 +581,12 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
     the soak before it was let go (_let_the_mark_land). dealt: the Lightkeeper dealt it.
     A mark that lands at once is one line naming the dealer (_taken); one held for an
     offer gets its own "dealt" line first, since it lands later."""
-    held = _pending_marks.pop(character.id, None)
+    held = _let_go_of_held(character)
     if dealt and (held or (soaks and _soak_options(character, m_type)) or (is_from_enemy and _can_defy(character))):
         await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark.", "danger")
         dealt = False
     if held and held.get("stage") == "escape" and is_from_enemy:
-        held["more"] = [*held.get("more", []), m_type]
-        _pending_marks[character.id] = held
-        await _offer_defy(character, channel, held)
+        await _offer_defy(ctx, character, channel, {**held, "more": [*held.get("more", []), m_type]})
         return
     if held:
         # The desk's card for it closes: answered later, it would land the mark again
@@ -553,16 +597,13 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
     pending = {"mark_type": m_type, "is_from_enemy": bool(is_from_enemy), "offer_intercepts": offer_intercepts}
     options = _soak_options(character, m_type) if soaks else []
     if options:
-        _pending_marks[character.id] = {**pending, "stage": "soak"}
-        await _offer(channel, _pending_marks[character.id], {
+        await _offer(ctx, character, channel, {**pending, "stage": "soak"}, {
             "ability": options[0]["ability"], "mark_type": m_type, "character_id": character.id,
             "options": options, "action": "soak"})
         return
     if is_from_enemy and _can_defy(character):
-        _pending_marks[character.id] = {**pending, "stage": "escape"}
-        await _offer_defy(character, channel, _pending_marks[character.id])
+        await _offer_defy(ctx, character, channel, {**pending, "stage": "escape"})
         return
-    _pending_marks.pop(character.id, None)
     await apply_mark(ctx, character, m_type, channel, offer_intercepts, announce=True, passed_on=passed_on, dealt=dealt)
 
 
@@ -588,7 +629,7 @@ async def handle_take_mark(ctx):
                             is_from_enemy=ctx.payload.get("is_from_enemy") is not False)
         return
     if m_type:
-        if _taken_before(ctx.character.id, ctx.payload.get("mark_id")):
+        if _taken_before(ctx.character, ctx.payload.get("mark_id")):
             # Sent again after a silent socket: the sheet as it is, which has it
             await manager.broadcast(ctx.channel, {"type": "character_update", "payload": get_char_dict(ctx.character)})
             return
@@ -601,16 +642,13 @@ async def handle_take_mark(ctx):
 
 async def _let_the_mark_land(ctx, character, payload, after, declined=None):
     """A declined soak or Death Defy: the held mark goes on (after a declined soak, Death
-    Defy can still be offered for an enemy's mark). Without a held mark (a restart),
-    the payload's mark_type lands. declined is the ability the player let go, which the
-    log names (None when the server refused it)."""
+    Defy can still be offered for an enemy's mark). With no mark held nothing lands: the
+    payload's mark_type used to, after a restart (the restart rule, #18). declined is the
+    ability the player let go, which the log names (None when the server refused it)."""
     passed_on = _let_go(declined, payload) if declined else None
-    pending = _pending_marks.pop(character.id, None)
+    pending = _let_go_of_held(character)
     if pending is None:
-        m_type = payload.get("mark_type")
-        if m_type not in MARK_TYPES:
-            return
-        pending = {"mark_type": m_type, "is_from_enemy": False, "offer_intercepts": True}
+        return
     if after == "soak":
         await mark_or_offer(ctx, character, pending["mark_type"], ctx.channel, soaks=False,
                             is_from_enemy=pending["is_from_enemy"], offer_intercepts=pending["offer_intercepts"],
@@ -642,21 +680,23 @@ async def handle_resolve_ability_mark(ctx):
         await _log(ctx, character, f"{character.name} recovered 1 {choice.capitalize()} (Non-Combatant).")
         return
     if ab_name in HOLDS_A_MARK and _stale_answer(character, payload):
-        # Its mark has landed, or waits for the offer that replaced it: nothing to answer
+        # Its mark has landed, waits for the offer that replaced it, or was never held
+        # here: nothing to answer, and the desk's card for it is closed
+        await _close_stale(ctx, character, payload)
         return
     if ab_name == "Circle of Protection":
         # The ward an ally's Ritual put around them: it is theirs to use, not an ability
         if choice == "decline":
             await _let_the_mark_land(ctx, character, payload, "soak", ab_name)
             return
-        held = _pending_marks.get(character.id)
+        held = held_mark(character)
         if uses_of(character, WARD) < 1 or not held or held["mark_type"] != "body":
             await _refuse(ctx, "resolve_ability_mark", 409, "No Circle of Protection is holding a Body mark back.")
             if held:
                 await _let_the_mark_land(ctx, character, payload, "soak")
             return
         spend_use(character, WARD)
-        _pending_marks.pop(character.id, None)
+        character.held_mark = None
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await _log(ctx, character, f"{character.name}'s Circle of Protection soaked the Body mark.")
@@ -685,25 +725,25 @@ async def handle_resolve_ability_mark(ctx):
             await _refuse(ctx, "resolve_ability_mark", 409,
                           f"{ab_name} cannot soak this mark: it is used for this assignment or no "
                           f"{SOAK_RESISTANCE[ab_name].capitalize()} resistance is left.")
-            if character.id in _pending_marks:
+            if held_mark(character):
                 await _let_the_mark_land(ctx, character, payload, "soak")
             return
         rkey = SOAK_RESISTANCE[ab_name]
         setattr(character, f"{rkey}_resistance_spent", (getattr(character, f"{rkey}_resistance_spent", 0) or 0) + 1)
         count_use(character, ab_name)
-        _pending_marks.pop(character.id, None)
+        character.held_mark = None
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await _log(ctx, character, f"{character.name} used {ab_name} — soaked the mark.")
 
     elif ab_name == "Death Defy":
         if choice == "decline" or not _can_defy(character):
-            if choice == "decline" or character.id in _pending_marks:
+            if choice == "decline" or held_mark(character):
                 await _let_the_mark_land(ctx, character, payload, "escape",
                                          ab_name if choice == "decline" else None)
             return
         count_use(character, "Death Defy")
-        escaped = _pending_marks.pop(character.id, None)
+        escaped = _let_go_of_held(character)
         count = 1 + len((escaped or {}).get("more", []))
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
