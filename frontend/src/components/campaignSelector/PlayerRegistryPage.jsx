@@ -4,6 +4,7 @@ import { UnaffiliatedCharacterRow } from './UnaffiliatedCharacterRow';
 import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
 import { useDeleteUndo } from './useDeleteUndo';
 import { FormLine, BlankRows } from '../shared/PrintMarks';
+import { MourningCross } from '../shared/InkMarks';
 import { ConfirmAction } from '../shared/ConfirmAction';
 import { ArmedDetail, leaveDetail, leaveError, leaveHint } from '../pc/LeaveCampaign';
 
@@ -81,6 +82,8 @@ export const PlayerRegistryPage = ({
       blockedReason={NOT_DELETABLE[char.status] || null}
     />
   );
+
+  const fallen = characters.filter(c => c.is_dead && c.status === 'retired');
 
   return (
   <div className={`book-page flex flex-col overflow-hidden min-w-0 max-lg:rounded-r-xl ${hiddenOnNarrow ? 'max-lg:hidden' : ''}`} style={{ flex: 1, borderRight: '2px solid rgb(var(--c-sepia) / 0.25)' }}>
@@ -184,6 +187,30 @@ export const PlayerRegistryPage = ({
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* The fallen (issue #47): a dead investigator whose player was replaced, or whose
+              campaign was retired, stays with that campaign. A record only: no Play, Leave or Delete */}
+          {fallen.length > 0 && (
+            <div>
+              <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-sepia">Fallen</p>
+              <ul className="space-y-1.5">
+                {fallen.map(char => (
+                  <li key={char.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5"
+                    style={{ border: '1px solid rgb(var(--c-sepia) / 0.15)', background: 'rgb(var(--c-parchment-deep) / 0.2)' }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-serif font-bold text-xl text-ink/70 truncate" title={char.name}>{char.name}</p>
+                      {char.campaign_name && (
+                        <p className="font-serif italic text-base text-sepia truncate" title={char.campaign_name}>{char.campaign_name}</p>
+                      )}
+                    </div>
+                    <span className="shrink-0 -rotate-3 inline-flex items-center gap-1 border-2 border-ink/70 rounded-sm px-1.5 py-0.5 font-sans text-xs font-black uppercase tracking-wider leading-tight text-ink/80">
+                      <MourningCross className="h-[0.95em]" /> Fallen
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
