@@ -430,6 +430,58 @@ def test_the_lightkeepers_copy_of_the_sheet_draws_a_held_mark(client):
     assert client.get(f"/api/investigators/{ch['id']}", headers=support.as_gm(camp)).json()["held_marks"] is None
 
 
+@pytest.mark.parametrize("ability, choice, from_enemy", [
+    ("In the Trenches", "soak", False), ("Death Defy", "escape", True)])
+def test_a_held_mark_is_answered_once_when_two_desks_meet(client, monkeypatch, ability, choice, from_enemy):
+    """Fixed (review of #18, fix round 6): a held mark stored on the character was let go
+    by a dealt mark only on that socket's own copy of the row, committed after the dealt
+    line was sent. The player's Use, arriving on their own socket meanwhile, still read it
+    held, spent the ability and cleared it, and the dealt mark's handler then landed it (or
+    held it again, counted into the next Death Defy offer): soaked or escaped, and taken
+    too. Letting it go clears the stored offer only if it is still the one read, and
+    commits at once, so the player's answer finds it gone and its card is closed."""
+    import main
+    from vtt.ws.context import WSContext
+    from vtt.ws.manager import character_key
+    camp = support.new_campaign(client)
+    ch = support.active_member(client, camp, cunning_max=3, specialty_ability=ability)
+    real_log = marks._log
+    answered = []  # the offer_id the player's card answers
+
+    async def the_player_answers_meanwhile(ctx, character, message, log_type="field"):
+        if len(answered) == 1:
+            # The dealt line is the first await of the Lightkeeper's handler: the player's
+            # answer, on its own socket and session, comes in there
+            answered.append(True)
+            with main.SessionLocal() as db:
+                await marks.handle_resolve_ability_mark(WSContext(
+                    game_id=str(ch["id"]), db=db, circle=None, camp_code=camp["campaign_code"], camp_id=camp["id"],
+                    own_char_id=ch["id"], channel=character_key(ch["id"]), character=db.get(Character, ch["id"]),
+                    payload={"ability": ability, "choice": choice, "offer_id": answered[0]}))
+        await real_log(ctx, character, message, log_type)
+
+    with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
+        ws.send("take_mark", mark_type="body", is_from_enemy=from_enemy)
+        [offer] = ws.sync()
+        assert offer["payload"]["ability"] == ability
+        answered.append(offer["payload"]["offer_id"])
+        monkeypatch.setattr(marks, "_log", the_player_answers_meanwhile)
+        gm.send("take_mark", character_id=ch["id"], mark_type="brain", is_from_enemy=from_enemy)
+        gm.sync()
+        msgs = ws.sync()
+        # The player's card is closed, and nothing was spent on it
+        assert not [m for m in support.of_type(msgs, "activity_log") if f"used {ability}" in m["payload"]["message"]]
+        assert [m["payload"] for m in support.of_type(msgs, "mark_offer_closed") if m["payload"].get("dropped")] == [{
+            "character_id": ch["id"], "ability": ability, "mark_type": None, "offer_id": answered[0], "dropped": True}]
+    row = support.fetch(Character, ch["id"])
+    assert (row.cunning_resistance_spent, row.ability_uses) == (0, {})
+    if from_enemy:
+        # Death Defy counts the dealt mark with the one it held: one offer for both
+        assert (row.body_marks, row.brain_marks, row.held_mark["offer"]["count"]) == (0, 0, 2)
+    else:
+        assert (row.body_marks, row.brain_marks, row.held_mark) == (1, 1, None)
+
+
 def _held_offer_id(character_id):
     return support.fetch(Character, character_id).held_mark["offer"]["offer_id"]
 

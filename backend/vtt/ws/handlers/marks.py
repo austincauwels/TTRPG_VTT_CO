@@ -13,7 +13,9 @@ offer, in the character's held_mark column while the offer is open: using the ab
 spends it, and declining it (the desk's "Take the mark", or its countdown running out)
 lets the mark land (RULES_CHECK.md items 10, 11 and 22). It is stored, not kept in
 memory, so a held mark and its offer survive a restart and come back to the desk with
-the same offer_id (fix round 6, #17 and #18). Adrenaline Rush can be claimed once per
+the same offer_id (fix round 6, #17 and #18). A message that lets it go (an answer, or
+another mark) takes it off the stored row first (_take_held), so the player's answer and a
+mark the Lightkeeper deals, on two sockets, never both act on it. Adrenaline Rush can be claimed once per
 offer (_pending_rush), which is in memory: after a restart it is gone, and its answer
 is refused (NO_RUSH_WAITING), like the other ally offers below.
 
@@ -147,6 +149,27 @@ def _let_go_of_held(character):
     held = held_mark(character)
     character.held_mark = None
     return held
+
+
+def _take_held(ctx, character, commit=False):
+    """The held mark, taken by this message alone, or None when nothing is held or another
+    socket took it first. Each socket reads the character in its own session, so two of
+    them (the player's Use, and a mark the Lightkeeper deals) can both read one held mark:
+    the stored offer is cleared only while it is still the one read, and only the message
+    that cleared it acts on it (review of #18; the in-memory hold was one shared dict).
+    The caller commits before its first await, or asks for the commit here."""
+    held = held_mark(character)
+    if not held:
+        return None
+    taken = ctx.db.query(Character).filter(
+        Character.id == character.id,
+        Character.held_mark[("offer", "offer_id")].as_string() == held.get("offer", {}).get("offer_id"),
+    ).update({Character.held_mark: None}, synchronize_session=False)
+    if taken:
+        character.held_mark = None
+    if commit:
+        ctx.db.commit()
+    return held if taken else None
 
 
 def open_intercept(target_id, m_type, campaign_id=None, name=None):
@@ -581,7 +604,9 @@ async def mark_or_offer(ctx, character, m_type, channel, *, is_from_enemy=False,
     the soak before it was let go (_let_the_mark_land). dealt: the Lightkeeper dealt it.
     A mark that lands at once is one line naming the dealer (_taken); one held for an
     offer gets its own "dealt" line first, since it lands later."""
-    held = _let_go_of_held(character)
+    # Taken and committed before the first await, so the player's answer to its offer on
+    # another socket finds it gone (_take_held)
+    held = _take_held(ctx, character, commit=True)
     if dealt and (held or (soaks and _soak_options(character, m_type)) or (is_from_enemy and _can_defy(character))):
         await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark.", "danger")
         dealt = False
@@ -646,7 +671,7 @@ async def _let_the_mark_land(ctx, character, payload, after, declined=None):
     payload's mark_type used to, after a restart (the restart rule, #18). declined is the
     ability the player let go, which the log names (None when the server refused it)."""
     passed_on = _let_go(declined, payload) if declined else None
-    pending = _let_go_of_held(character)
+    pending = _take_held(ctx, character, commit=True)
     if pending is None:
         return
     if after == "soak":
@@ -695,8 +720,11 @@ async def handle_resolve_ability_mark(ctx):
             if held:
                 await _let_the_mark_land(ctx, character, payload, "soak")
             return
+        if not _take_held(ctx, character):
+            # Another socket let it go first (_take_held)
+            await _close_stale(ctx, character, payload)
+            return
         spend_use(character, WARD)
-        character.held_mark = None
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await _log(ctx, character, f"{character.name}'s Circle of Protection soaked the Body mark.")
@@ -728,10 +756,12 @@ async def handle_resolve_ability_mark(ctx):
             if held_mark(character):
                 await _let_the_mark_land(ctx, character, payload, "soak")
             return
+        if held_mark(character) and not _take_held(ctx, character):
+            await _close_stale(ctx, character, payload)
+            return
         rkey = SOAK_RESISTANCE[ab_name]
         setattr(character, f"{rkey}_resistance_spent", (getattr(character, f"{rkey}_resistance_spent", 0) or 0) + 1)
         count_use(character, ab_name)
-        character.held_mark = None
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await _log(ctx, character, f"{character.name} used {ab_name} — soaked the mark.")
@@ -742,8 +772,11 @@ async def handle_resolve_ability_mark(ctx):
                 await _let_the_mark_land(ctx, character, payload, "escape",
                                          ab_name if choice == "decline" else None)
             return
+        escaped = _take_held(ctx, character)
+        if held_mark(character) and not escaped:
+            await _close_stale(ctx, character, payload)
+            return
         count_use(character, "Death Defy")
-        escaped = _let_go_of_held(character)
         count = 1 + len((escaped or {}).get("more", []))
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
