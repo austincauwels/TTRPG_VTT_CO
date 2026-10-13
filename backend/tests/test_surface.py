@@ -156,6 +156,7 @@ WS_MESSAGE_TYPES = [
     "circle_backstory_update", "circle_personal_answer", "circle_relationship_propose",
     "circle_relationship_respond", "chat_message", "add_notebook_entry", "use_ability",
     "gm_update_scars", "gm_return_spend", "gm_set_tally_answer", "gm_add_tally",
+    "edit_sheet", "gm_sheet_seen",
 ]
 
 
@@ -307,11 +308,18 @@ WS_CASES = {
     "gm_add_tally": dict(
         sender="gm", payload=lambda c: {"circle_id": c.circle_id, "keys": 2},
         expect=["circle_update", "activity_log"]),
+    # The player's direct edit of their own sheet (vtt/sheet_edits.py)
+    "edit_sheet": dict(payload=lambda c: {"changes": {"name": "Ada Quill"}},
+                       expect=["character_update", "activity_log", "member_status"]),
+    # The Lightkeeper opened a sheet the player edited: the roster card's dot goes
+    "gm_sheet_seen": dict(
+        sender="gm", fields={"sheet_edited": True}, payload=lambda c: {"character_id": c.char_id},
+        expect=["member_update"]),
 }
 
 
 def test_ws_cases_cover_every_message_type():
-    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 38
+    assert len(WS_MESSAGE_TYPES) == len(set(WS_MESSAGE_TYPES)) == 40
     assert list(WS_CASES) == WS_MESSAGE_TYPES
 
 
@@ -365,7 +373,7 @@ WS_NEEDS_CHARACTER = {
     "gm_update_tension", "update_drive", "resolve_gilded", "use_post_roll_ability",
     "update_pen_font", "take_mark", "resolve_ability_mark", "intercept_mark", "apply_scar",
     "revive_character", "burn_resistance", "update_gear", "spend_resource", "apply_advancement",
-    "use_ability", "gm_update_scars",
+    "use_ability", "gm_update_scars", "edit_sheet", "gm_sheet_seen",
 }
 
 
@@ -388,7 +396,7 @@ def test_ws_access_table():
         "gm_update_tension", "gm_update_circle", "gm_timer", "gm_transition_scene", "gm_toggle_resource_edit",
         "gm_toggle_reports", "gm_advance_circle", "refill_resources", "gm_end_assignment",
         "gm_reset_character", "update_circle", "gm_update_scars", "gm_return_spend",
-        "gm_set_tally_answer", "gm_add_tally",
+        "gm_set_tally_answer", "gm_add_tally", "gm_sheet_seen",
     }
 
 

@@ -353,7 +353,7 @@ def test_a_death_and_its_undo_reach_the_other_players(client):
     ally = support.active_member(client, camp)
     elsewhere = support.active_member(client, support.new_campaign(client))
     status = lambda is_dead, scars=4: {"type": "member_status", "payload": {
-        "character_id": dying["id"], "campaign_id": camp["id"], "is_dead": is_dead,
+        "character_id": dying["id"], "campaign_id": camp["id"], "name": dying["name"], "is_dead": is_dead,
         "incapacitated": True, "scars_count": scars}}
     four = SCARS + ["The last one"]
     with support.ws_connect(client, dying["id"]) as wd, support.ws_connect(client, ally["id"]) as wa, \

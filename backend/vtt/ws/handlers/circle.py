@@ -285,10 +285,10 @@ async def announce_downed(ctx):
 
 
 async def announce_status(ctx, character):
-    """member_status {character_id, campaign_id, is_dead, incapacitated, scars_count} to the
-    campaign's players when a member's standing changes: a fourth mark or a revive
+    """member_status {character_id, campaign_id, name, is_dead, incapacitated, scars_count}
+    to the campaign's players when a member's standing changes: a fourth mark or a revive
     (incapacitated), a scar recorded (scars_count), a death or the Lightkeeper lifting one
-    (is_dead). A player's desk reads the roster once, and its circle cards and ally pickers
+    (is_dead), or the player's own edit of the sheet (name, scars_count). A player's desk reads the roster once, and its circle cards and ally pickers
     leave the dead out and show who is down, so they follow it without a reload. It carries
     only what the circle's cards already tell the members; the GM's desk is not sent it, as
     member_update brings it the whole sheet. Nothing for a character that is not an active
@@ -296,7 +296,8 @@ async def announce_status(ctx, character):
     if not ctx.camp_id or character.status != "active" or character.campaign_id != ctx.camp_id:
         return
     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {"type": "member_status", "payload": {
-        "character_id": character.id, "campaign_id": ctx.camp_id, "is_dead": bool(character.is_dead),
+        "character_id": character.id, "campaign_id": ctx.camp_id, "name": character.name or "",
+        "is_dead": bool(character.is_dead),
         "incapacitated": bool(character.incapacitated), "scars_count": character.scars_count or 0}},
         ctx.db, exclude=campaign_key(ctx.camp_code))
 

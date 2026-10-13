@@ -1,21 +1,22 @@
-"""Character sheet messages: drives, pen font, scars, revive, gear, advancement and
-abilities used outside a roll."""
+"""Character sheet messages: drives, pen font, scars, revive, gear, advancement,
+abilities used outside a roll, and the player's direct edits of their own sheet with
+the Lightkeeper's dot for them (vtt/sheet_edits.py)."""
 import json
 
 from engine import ALL_ACTIONS, apply_advancement
 from models import Character, Circle
-from vtt.abilities import (GEARED_UP_SLOT, ONE_STEP_AHEAD, WARD, count_use, counted_gear, gear_limit, has_ability,
-                           resistance_left, uses_of, written_in)
+from vtt.abilities import GEARED_UP_SLOT, ONE_STEP_AHEAD, WARD, count_use, has_ability, resistance_left, uses_of
 from vtt.ability_uses import ABILITY_USES, DRIVES, SCAR_ABILITIES
 from vtt.circle_queries import RESOURCES, circle_abilities
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.creation import ACTION_LABELS
 from vtt.serializers import get_char_dict, get_circle_dict
+from vtt.sheet_edits import apply_edit, gear_change
 from vtt.ws.access import scar_ability
 from vtt.serializers import awaiting_scar
 from vtt.ws.handlers.circle import announce_downed, announce_status
 from vtt.ws.handlers.marks import close_offers_at_death
-from vtt.ws.manager import character_key, manager
+from vtt.ws.manager import campaign_key, character_key, manager
 
 
 async def handle_update_drive(ctx):
@@ -32,22 +33,58 @@ async def handle_update_drive(ctx):
                 "detail": "A drive is a whole number from 0 to its maximum."}})
             return
         before = getattr(character, f"{pool}_current", 0) or 0
+        # A pip the player sets by hand is a direct edit of their sheet (record_edit): the
+        # roster card's dot goes on with it, before the sheet goes out
+        edited = not ctx.is_gm and value != before
+        if edited:
+            mark_edited(ctx, character)
         setattr(character, f"{pool}_current", value)
         db.commit()
         # To the character's own channel, as revive_character: a pip the Lightkeeper sets
         # from her copy of the sheet must reach the player's desk too (her desk follows
         # through member_update)
         await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
-        # A pip set by hand, up or down, tells the table (not for a character still waiting to be approved); a spend or a refill from a roll has its own line
-        if value != before and character.status == "active":
-            who = f"The Lightkeeper set {character.name}'s" if ctx.is_gm else f"{character.name} set"
+        if edited:
+            await record_edit(ctx, character, [f"{pool.capitalize()} {before} to {value}"])
+        # The Lightkeeper's pip, up or down, tells the table (not for a character still
+        # waiting to be approved); a spend or a refill from a roll has its own line
+        elif value != before and character.status == "active":
             await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
                 "type": "activity_log",
                 "payload": {
-                    "message": f"{who} {pool.capitalize()} to {value} of {maximum}.",
+                    "message": f"The Lightkeeper set {character.name}'s {pool.capitalize()} to {value} of {maximum}.",
                     "log_type": "field", "ink_color": getattr(character, "ink_color", "") or "",
                 },
             }, db)
+
+
+def _edit_counts(ctx, character) -> bool:
+    """Whether a player's edit goes to the Lightkeeper: the character is an active member
+    of the campaign this socket opened with (a pending, unaffiliated or released one has
+    no Lightkeeper to tell)."""
+    return bool(ctx.camp_id) and character.status == "active" and character.campaign_id == ctx.camp_id
+
+
+def mark_edited(ctx, character):
+    """Puts the dot on the member's roster card (sheet_edited), to be committed with the
+    edit, until the Lightkeeper opens the sheet (gm_sheet_seen)."""
+    if _edit_counts(ctx, character):
+        character.sheet_edited = True
+
+
+async def record_edit(ctx, character, said: list):
+    """The line for a player's direct edit of their own sheet (decision 1 of fix round 5):
+    "Mara: Nerve 2 to 3, gear Lantern removed." It goes to the Lightkeeper's log and to
+    the player's own, so the player sees what the Lightkeeper is told; the other members
+    are not sent it. Rolls, spends and the other in-play flows keep their own lines."""
+    if not said:
+        return
+    message = {"type": "activity_log", "payload": {
+        "message": f"{character.name}: {', '.join(said)}.", "log_type": "field",
+        "ink_color": getattr(character, "ink_color", "") or ""}}
+    if _edit_counts(ctx, character):
+        await manager.broadcast(campaign_key(ctx.camp_code), message, ctx.camp_id)
+    await manager.broadcast(character_key(character.id), message, ctx.camp_id)
 
 
 async def handle_update_pen_font(ctx):
@@ -147,9 +184,6 @@ async def handle_revive_character(ctx):
     await announce_downed(ctx)
 
 
-GEAR_STAYS = "Marked gear stays until the Lightkeeper ends the assignment."
-
-
 def _gear_of(character) -> list:
     raw = character.gear
     if isinstance(raw, str):
@@ -161,31 +195,26 @@ def _gear_of(character) -> list:
 
 
 async def handle_update_gear(ctx):
-    db, payload, character, channel, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
+    db, payload, character, camp_code, camp_id = ctx.db, ctx.payload, ctx.character, ctx.camp_code, ctx.camp_id
     new_gear = payload.get("gear", [])
     if isinstance(new_gear, list):
         # Gear is marked when it is used, and "Gear slots only reset once an assignment is
-        # complete" (rulebook p. 52): a player may add items, up to the slots they have
-        # (three; four with Geared Up, p. 30), but not unmark them. The Lightkeeper may
-        # correct the list, and ending the assignment clears it.
+        # complete" (rulebook p. 52), up to three slots (four with Geared Up, p. 30). The
+        # desk shows the slots and warns past them; nothing is refused (decision 1 of fix
+        # round 5): a player's change is a direct edit, logged for the Lightkeeper
+        # (record_edit). Ending the assignment clears every member's gear.
         old_gear = _gear_of(character)
-        refused = None
         if not ctx.is_gm:
-            if any(item not in new_gear for item in old_gear):
-                refused = GEAR_STAYS
-            # One Step Ahead's object is written in by its Use button, not here
-            elif sorted(written_in(new_gear)) != sorted(written_in(old_gear)):
-                refused = "One Step Ahead's object is written in with its Use button."
-            elif len(counted_gear(new_gear)) > gear_limit(character):
-                refused = f"{character.name} has {gear_limit(character)} gear slots this assignment."
-        if refused:
-            await manager.broadcast(channel, {"type": "action_rejected", "payload": {
-                "action": "update_gear", "status": 409, "detail": refused}})
-            return
+            changed = gear_change(old_gear, new_gear)
+            if changed:
+                mark_edited(ctx, character)
         character.gear = new_gear
         db.commit()
         # To the character's own channel, as update_drive: a Lightkeeper's correction reaches the player's desk
         await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
+        if not ctx.is_gm:
+            await record_edit(ctx, character, [changed] if changed else [])
+            return
         gear_names = ", ".join(new_gear) if new_gear else "nothing"
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",
@@ -195,6 +224,35 @@ async def handle_update_gear(ctx):
                 "ink_color": getattr(character, "ink_color", "") or "",
             }
         }, db)
+
+
+async def handle_edit_sheet(ctx):
+    """A player's direct edit of their own sheet (vtt/sheet_edits.py): every field it names,
+    stored at once, then one line for the Lightkeeper with each change from what to what,
+    and the dot on the member's roster card. vtt.ws.access checked its shape; an edit that
+    changes nothing writes nothing."""
+    db, character = ctx.db, ctx.character
+    said = apply_edit(character, ctx.payload["changes"])
+    if not said:
+        db.rollback()
+        return
+    mark_edited(ctx, character)
+    db.commit()
+    await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
+    await record_edit(ctx, character, said)
+    # The players' circle cards follow the name and the scars
+    await announce_status(ctx, character)
+
+
+async def handle_gm_sheet_seen(ctx):
+    """The Lightkeeper opened a member's sheet: the dot a direct edit put on the roster
+    card (sheet_edited) goes. Her desk gets the sheet as member_update; nothing else is told."""
+    db, character = ctx.db, ctx.character
+    if not character.sheet_edited:
+        return
+    character.sheet_edited = False
+    db.commit()
+    await manager.broadcast(ctx.channel, {"type": "member_update", "payload": get_char_dict(character)})
 
 
 async def handle_apply_advancement(ctx):

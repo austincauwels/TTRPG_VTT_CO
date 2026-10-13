@@ -22,7 +22,9 @@ def _member_pair(client, **fields):
 
 def test_update_drive_sets_value_and_tells_the_sender_and_the_gm(client):
     """The other members hear nothing; the GM's socket gets the sheet as member_update
-    (tests/test_ws_gm_view.py)."""
+    (tests/test_ws_gm_view.py) and the change's line. A pip set by hand is a direct edit
+    (decision 1 of fix round 5): its line goes to the Lightkeeper and the player alone (it
+    used to go to every member), and the roster card's dot goes on."""
     camp, a, b = _member_pair(client, nerve_max=3, nerve_current=3)
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
             support.ws_connect(client, camp["campaign_code"]) as gm:
@@ -32,8 +34,10 @@ def test_update_drive_sets_value_and_tells_the_sender_and_the_gm(client):
         assert msg["payload"]["id"] == a["id"]
         assert msg["payload"]["nerve_current"] == 1
         wa.sync()
-        assert [m["type"] for m in wb.drain()] == ["activity_log"]
-        assert [m["type"] for m in gm.drain()] == ["member_update", "activity_log"]
+        assert wb.drain() == []
+        seen = gm.drain()
+        assert [m["type"] for m in seen] == ["member_update", "activity_log"]
+        assert seen[0]["payload"]["sheet_edited"] is True
     assert support.fetch(Character, a["id"]).nerve_current == 1
 
 
@@ -43,7 +47,7 @@ def test_update_drive_writes_a_log_line_only_when_the_value_changes(client):
     with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, camp["campaign_code"]) as gm:
         wa.send("update_drive", pool="nerve", value=3)
         logs = [m for m in wa.sync() if m["type"] == "activity_log"]
-        assert [m["payload"]["message"] for m in logs] == [f"{a['name']} set Nerve to 3 of 3."]
+        assert [m["payload"]["message"] for m in logs] == [f"{a['name']}: Nerve 2 to 3."]
         wa.send("update_drive", pool="nerve", value=3)
         assert [m for m in wa.sync() if m["type"] == "activity_log"] == []
         gm.drain()
@@ -164,23 +168,30 @@ def test_update_pen_font(client):
 # --- update_gear ------------------------------------------------------------
 
 def test_update_gear(client):
+    """A player's gear change is a direct edit (decision 1 of fix round 5, issue #64): it is
+    never refused, its line names what was removed and added, and it goes to the
+    Lightkeeper and the player alone. Unmarking gear used to be refused (409, rulebook
+    p. 52), and the line went to every member."""
     camp, a, b = _member_pair(client)
-    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
         wa.send("update_gear", gear=["lamp", "rope"])
         msgs = wa.sync()
         assert support.types(msgs) == ["character_update", "activity_log"]
         assert msgs[0]["payload"]["gear"] == ["lamp", "rope"]
-        assert msgs[1]["payload"] == {"message": f"{a['name']} updated their equipment: lamp, rope.",
-                                      "log_type": "field", "ink_color": engine.INK_COLORS[0]}
-        assert support.types(wb.drain()) == ["activity_log"]
-        # Gear stays marked until the assignment ends (rulebook p. 52): unmarking is refused
-        wa.send("update_gear", gear=["lamp"])
-        assert wa.sync() == [{"type": "action_rejected", "payload": {
-            "action": "update_gear", "status": 409,
-            "detail": "Marked gear stays until the Lightkeeper ends the assignment."}}]
+        line = {"message": f"{a['name']}: gear lamp added, rope added.",
+                "log_type": "field", "ink_color": engine.INK_COLORS[0]}
+        assert msgs[1]["payload"] == line
+        assert wb.drain() == []
+        seen = gm.drain()
+        assert support.types(seen) == ["member_update", "activity_log"]
+        assert seen[0]["payload"]["sheet_edited"] is True and seen[1]["payload"] == line
+        # Marked gear can be taken off too
+        wa.send("update_gear", gear=["lamp", "Revolver"])
+        assert wa.sync()[1]["payload"]["message"] == f"{a['name']}: gear rope removed, Revolver added."
         wa.send("update_gear", gear="not a list")
         assert wa.sync() == []
-    assert support.fetch(Character, a["id"]).gear == ["lamp", "rope"]
+    assert support.fetch(Character, a["id"]).gear == ["lamp", "Revolver"]
 
 
 def test_update_gear_unaffiliated_logs_to_own_channel(client):
@@ -191,9 +202,9 @@ def test_update_gear_unaffiliated_logs_to_own_channel(client):
 
 
 def test_the_gm_may_correct_marked_gear(client):
-    """A player may not unmark gear during an assignment (rulebook p. 52); the
-    Lightkeeper may correct the list, and the player's desk gets the corrected sheet
-    (it used to go to the Lightkeeper's channel alone)."""
+    """The Lightkeeper may correct the list, and the player's desk gets the corrected sheet
+    (it used to go to the Lightkeeper's channel alone). Her correction is no direct edit:
+    the table's line, and no dot."""
     camp, a, b = _member_pair(client)
     support.update(Character, a["id"], gear=["Lantern", "Camera"])
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
@@ -201,7 +212,9 @@ def test_the_gm_may_correct_marked_gear(client):
         assert support.types(gm.sync()) == ["member_update", "activity_log"]
         msg, line = wa.sync()
         assert (msg["type"], msg["payload"]["gear"], line["type"]) == ("character_update", ["Camera"], "activity_log")
-    assert support.fetch(Character, a["id"]).gear == ["Camera"]
+        assert line["payload"]["message"] == f"{a['name']} updated their equipment: Camera."
+    row = support.fetch(Character, a["id"])
+    assert (row.gear, row.sheet_edited) == (["Camera"], False)
 
 
 @pytest.mark.parametrize("gear", [["map", 7], [None], [["nested"]], [{"name": "lamp"}]])
@@ -213,7 +226,7 @@ def test_update_gear_non_string_item_is_rejected(client, gear):
         ws.send("update_gear", gear=gear)
         assert ws.sync() == [{"type": "action_rejected", "payload": {
             "action": "update_gear", "status": 422, "detail": "Gear items must be text."}}]
-        ws.send("update_gear", gear=["lamp", "map"])  # marked gear stays (p. 52)
+        ws.send("update_gear", gear=["lamp", "map"])
         assert support.types(ws.sync()) == ["character_update", "activity_log"]
     assert support.fetch(Character, ch["id"]).gear == ["lamp", "map"]
 
@@ -650,19 +663,15 @@ def test_a_refused_use_ability_leaves_no_row_locked(client):
 
 # --- gear slots: three, Geared Up and One Step Ahead ----------------------------------
 
-def _gear_rejected(detail):
-    return {"type": "action_rejected", "payload": {"action": "update_gear", "status": 409, "detail": detail}}
-
-
-def test_a_player_marks_up_to_three_gear_slots(client):
+def test_a_player_may_mark_past_three_gear_slots(client):
     """Rulebook p. 52: "PCs have the capacity for three pieces of gear on their person."
-    The desk stopped at three; the server took any number."""
+    The desk shows the slots and warns past them; the server used to refuse a fourth
+    item (409), and takes it now: detection, not prevention (decision 1 of fix round 5)."""
     ch = support.forge(client)
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("update_gear", gear=["Lantern", "Camera", "Rope", "Map"])
-        assert ws.sync() == [_gear_rejected(f"{ch['name']} has 3 gear slots this assignment.")]
-        ws.send("update_gear", gear=["Lantern", "Camera", "Rope"])
         assert support.types(ws.sync()) == ["character_update", "activity_log"]
+    assert support.fetch(Character, ch["id"]).gear == ["Lantern", "Camera", "Rope", "Map"]
 
 
 def test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot(client):
@@ -675,8 +684,6 @@ def test_geared_up_gives_the_soldier_and_one_ally_a_fourth_slot(client):
         ws.send("update_gear", gear=four)
         assert support.types(ws.sync()) == ["character_update", "activity_log"]
         wa.drain()
-        wa.send("update_gear", gear=four)
-        assert wa.sync() == [_gear_rejected(f"{ally['name']} has 3 gear slots this assignment.")]
         ws.send("use_ability", ability="Geared Up", ally_id=soldier["id"])   # not themselves
         ws.send("use_ability", ability="Geared Up", ally_id=999999)
         ws.send("use_ability", ability="Geared Up")
@@ -711,10 +718,11 @@ def test_one_step_ahead_writes_in_an_object_outside_the_limit(client):
         assert msgs[-1]["payload"]["message"] == f"{ch['name']} used One Step Ahead (wrote in A hatpin)."
         ws.send("use_ability", ability="One Step Ahead", item="A key")
         assert ws.sync() == [_use_rejected(409, "One Step Ahead is used for this assignment.")]
-        # Only the Use button writes one in
-        ws.send("update_gear", gear=["Lantern", "Camera", "Rope", "One Step Ahead: A hatpin", "One Step Ahead: A saw"])
-        assert ws.sync() == [_gear_rejected("One Step Ahead's object is written in with its Use button.")]
-    assert support.fetch(Character, ch["id"]).gear == ["Lantern", "Camera", "Rope", "One Step Ahead: A hatpin"]
+        # The player may change the object too, as any gear (it used to be refused: only
+        # the Use button wrote one in); the line names it as the sheet does
+        ws.send("update_gear", gear=["Lantern", "Camera", "Rope", "One Step Ahead: A saw"])
+        assert ws.sync()[1]["payload"]["message"] == f"{ch['name']}: gear A hatpin removed, A saw added."
+    assert support.fetch(Character, ch["id"]).gear == ["Lantern", "Camera", "Rope", "One Step Ahead: A saw"]
 
 
 def test_gear_is_written_in_by_name(client):

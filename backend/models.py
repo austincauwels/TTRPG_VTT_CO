@@ -282,6 +282,10 @@ class Character(SoftDeleted, Base):
     # one person at a time. They take +1d on Move rolls against phenomena.
     warded_by_id = Column(Integer, nullable=True)
 
+    # A change the player made by hand to their own sheet that the Lightkeeper has not
+    # seen yet: the dot on the member's roster card (vtt/sheet_edits.py)
+    sheet_edited = Column(Boolean, default=False)
+
     # Status
     incapacitated = Column(Boolean, default=False)
     is_dead = Column(Boolean, default=False)

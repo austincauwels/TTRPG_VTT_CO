@@ -660,7 +660,8 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
         if is_lk:
             stands.update(
                 body_marks=c.body_marks or 0, brain_marks=c.brain_marks or 0, bleed_marks=c.bleed_marks or 0,
-                advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar)
+                advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar,
+                sheet_edited=bool(c.sheet_edited))
         return CharacterRosterItem(
             **stands,
             owner_username=owners.get(c.user_id, ""),

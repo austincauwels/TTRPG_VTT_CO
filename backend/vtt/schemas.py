@@ -422,6 +422,9 @@ class CharacterRosterItem(BaseModel):
     bleed_marks: int = 0
     advancement_picks: int = 0
     scar_pending: bool = False
+    # A direct edit by the player the Lightkeeper has not seen (the roster card's dot),
+    # filled for the Lightkeeper alone
+    sheet_edited: bool = False
     class Config:
         from_attributes = True
 

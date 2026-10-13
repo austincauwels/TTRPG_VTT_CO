@@ -444,6 +444,9 @@ def init_db():
     # The Lightkeeper's dispatch in their own words, beside the template's location and
     # atmosphere. Existing circles get none.
     add_columns("circles", [("dispatch_text", "TEXT DEFAULT ''")])
+    # A player's direct edit the Lightkeeper has not seen (vtt/sheet_edits.py). Existing
+    # characters get none.
+    add_columns("characters", [("sheet_edited", "BOOLEAN DEFAULT FALSE")])
 
     # Two pens were saved under misspelt family names (Reenie Beenie, Moondance); the
     # server's list now knows the real ones, so stored choices move over.

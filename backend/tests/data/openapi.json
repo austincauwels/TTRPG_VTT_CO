@@ -831,6 +831,11 @@
             "title": "Scars Count",
             "type": "integer"
           },
+          "sheet_edited": {
+            "default": false,
+            "title": "Sheet Edited",
+            "type": "boolean"
+          },
           "specialty": {
             "anyOf": [
               {

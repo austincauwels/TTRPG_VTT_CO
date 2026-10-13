@@ -102,6 +102,9 @@ def get_char_dict(char):
         # reads it; like the rest of this sheet it also reaches the members wherever the whole
         # sheet is sent: circle-creation-state, investigator_approved, character_joined_mid_campaign)
         "scar_pending": getattr(char, "id", None) in awaiting_scar,
+        # A change the player made by hand that the Lightkeeper has not seen: the dot on
+        # the roster card (vtt/sheet_edits.py)
+        "sheet_edited": bool(getattr(char, "sheet_edited", False)),
     }
 
 def fallen_card(char):
