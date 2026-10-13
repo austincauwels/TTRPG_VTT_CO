@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for all game entities: users, password reset links, email change links and their undo links, held usernames, campaigns, circles, characters, notebook entries, and relationship votes."""
+"""SQLAlchemy ORM models for all game entities: users, password reset links, email change links and their undo links, held usernames, campaigns, circles, characters, notebook entries, relationship votes, and the campaigns' Activity Log lines."""
 from sqlalchemy import BigInteger, Column, Integer, String, ForeignKey, JSON, Float, Boolean, Text, Index, DateTime, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, column_property, deferred, relationship, with_loader_criteria
@@ -290,6 +290,14 @@ class Character(SoftDeleted, Base):
     # seen yet: the dot on the member's roster card (vtt/sheet_edits.py)
     sheet_edited = Column(Boolean, default=False)
 
+    # The mark an open soak or Death Defy offer holds back, with that offer and its
+    # offer_id (vtt/ws/handlers/marks.py), or None. Kept here, not in memory, so a held
+    # mark and its offer survive a restart (fix round 6, decision 1).
+    held_mark = Column(JSON, nullable=True)
+    # The mark_ids of the last marks the player's desk sent (take_mark), so a mark sent
+    # again after a silent socket, a reload or a restart is taken once (marks.py)
+    taken_mark_ids = Column(JSON, default=list)
+
     # Status
     incapacitated = Column(Boolean, default=False)
     is_dead = Column(Boolean, default=False)
@@ -382,3 +390,20 @@ class NotebookEntry(Base):
 # Whether the entry keeps a drawing, worked out by the database (IS NOT NULL), so reading it
 # never loads the scene itself.
 NotebookEntry.has_scene = column_property(NotebookEntry.__table__.c.sketch_scene.isnot(None))
+
+
+class ActivityLine(Base):
+    """One line of a campaign's Activity Log, kept for the desks it was sent to
+    (vtt/ws/manager.py): channels is the list of channel keys it went to, line the
+    activity_log payload with "at", when it was sent. The last LINES_KEPT of a campaign
+    (vtt.ws.manager) are kept, so a restart empties no desk's log (fix round 6, decision 1).
+
+    campaign_id has no foreign key on purpose: a line is written in its own session while
+    the handler that sent it may still hold its campaign's row FOR UPDATE, and the key's
+    check would wait for that lock, which the handler cannot let go while it waits.
+    Campaigns are only ever deleted softly, and a line of one that comes back is still its own."""
+    __tablename__ = "activity_lines"
+    id = Column(Integer, primary_key=True)
+    campaign_id = Column(Integer, nullable=False, index=True)
+    channels = Column(JSON, nullable=False)
+    line = Column(JSON, nullable=False)

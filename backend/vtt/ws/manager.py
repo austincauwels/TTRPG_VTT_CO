@@ -23,13 +23,14 @@ seconds, and a second socket opened meanwhile was registered first and then push
 out by the first one when its wait ended: the channel's messages (a roll's result
 among them) went to a socket nobody listened on (beta, 2026-10-04).
 
-Every activity_log frame is also kept, for the channel it was meant for, in a short
-history (HISTORY_LINES per channel, with when it was sent and the campaign it came
-from), whether or not a socket was listening then. The endpoint sends a channel's
-history (history_for) as activity_history when a socket opens, so a reload, a second
-tab or a dropped connection does not empty the desk's Activity Log or lose what came
-meanwhile (playtest, activity-log-not-persisted). The history lives in memory like the
-sockets, so a server restart empties it.
+Every activity_log frame is also kept, for the channels it was meant for, whether or
+not a socket was listening then. The endpoint sends a channel's last HISTORY_LINES
+(history_for) as activity_history when a socket opens, so a reload, a second tab or a
+dropped connection does not empty the desk's Activity Log or lose what came meanwhile
+(playtest, activity-log-not-persisted). A campaign's lines are stored in the database
+(models.ActivityLine, the campaign's last LINES_KEPT), each once with the channels it
+went to, so a server restart empties no desk's log either (fix round 6, decision 1).
+The few lines of a socket with no campaign are kept in memory, per channel, as before.
 
 Every frame that carries a character's whole sheet (SHEET_IN) and goes out through
 broadcast also reaches the GM channel of that character's campaign, as member_update,
@@ -44,15 +45,19 @@ from typing import List, Optional
 
 from fastapi import WebSocket
 
-from models import Character
+from models import ActivityLine, Character
+from vtt import db as _db
 from vtt.auth import ROSTER_STATUSES
+from vtt.config import logger
 
 CAMPAIGN_KEY_PREFIX = "campaign:"
 # The close code for a socket whose login token no longer works (the same code the
 # endpoint refuses such a token with; the browser then logs the user out).
 CLOSE_TOKEN_ENDED = 4401
-# The activity_log lines kept per channel (the desk's log shows 50)
+# The activity_log lines a channel is sent when a socket opens (the desk's log shows 50)
 HISTORY_LINES = 100
+# The lines kept of each campaign, whatever channels they went to
+LINES_KEPT = 500
 
 # The frames that carry a character's whole sheet (vtt.serializers.get_char_dict), and
 # where the sheet is in each one's payload
@@ -91,27 +96,33 @@ class ConnectionManager:
         # opened here (a campaign's code never changes), so that a member's sheet finds
         # its GM without a query
         self._gm_channels: dict[int, str] = {}
-        # channel key -> the activity_log lines sent to it lately, oldest first, each
-        # (campaign id or None, the payload with "at": when it was sent)
+        # channel key -> the activity_log lines with no campaign sent to it lately, oldest
+        # first, each the payload with "at": when it was sent (a campaign's are stored)
         self._history: dict[str, deque] = {}
 
     def _remember(self, keys, message: dict, campaign_id):
-        """Keeps an activity_log message in the history of each channel key."""
+        """Keeps an activity_log message for each channel key: in the database for a
+        campaign's line (_store), else in memory."""
         if message.get("type") != "activity_log":
             return
         payload = message.get("payload")
         if not isinstance(payload, dict):
             payload = {"message": payload}
         line = {**payload, "at": datetime.now(timezone.utc).isoformat()}
+        if campaign_id is not None:
+            _store(campaign_id, sorted(keys), line)
+            return
         for key in keys:
-            self._history.setdefault(key, deque(maxlen=HISTORY_LINES)).append((campaign_id, line))
+            self._history.setdefault(key, deque(maxlen=HISTORY_LINES)).append(line)
 
     def history_for(self, key: str, campaign_id) -> list:
-        """The activity_log payloads the channel was sent lately, oldest first, each with
-        "at". Only the lines of campaign_id (the socket's campaign, or None for a socket
-        with none), so a character that moved to another campaign never sees the old
-        one's lines, its private notes among them."""
-        return [line for camp, line in self._history.get(key, ()) if camp == campaign_id]
+        """The last HISTORY_LINES activity_log payloads the channel was sent, oldest first,
+        each with "at". Only the lines of campaign_id (the socket's campaign, or None for a
+        socket with none), so a character that moved to another campaign never sees the
+        old one's lines, its private notes among them."""
+        if campaign_id is None:
+            return list(self._history.get(key, ()))
+        return _stored_for(key, campaign_id)
 
     async def connect(self, key: str, websocket: WebSocket, user_id: Optional[int] = None,
                       campaign_id: Optional[int] = None, subprotocol: Optional[str] = None) -> bool:
@@ -190,7 +201,9 @@ class ConnectionManager:
     def close_channel(self, key: str, code: int) -> int:
         """Closes every socket on the channel with code and forgets them. Used when what
         the channel belongs to is deleted (a character, or a campaign for its GM's
-        channel). Returns how many it closed. Like close_user, the closes run on their own."""
+        channel). Returns how many it closed. Like close_user, the closes run on their own.
+        The channel's lines with no campaign are forgotten; a campaign's stay with it, so
+        an undone delete finds its log again."""
         connections = self.active_connections.pop(key, [])
         self._history.pop(key, None)
         for conn in connections:
@@ -304,6 +317,42 @@ class ConnectionManager:
         text = encode(message)
         for key in keys:
             await self._send_text(key, text)
+
+def _store(campaign_id, keys, line):
+    """Writes a campaign's line with the channels it went to, in a session of its own (a
+    lapse watch has none, and a handler's own may yet roll back), and lets go of the
+    campaign's lines past the last LINES_KEPT. A line that cannot be written is logged
+    and still sent: the log is the record, not the message."""
+    db = _db.SessionLocal()
+    try:
+        db.add(ActivityLine(campaign_id=campaign_id, channels=list(keys), line=line))
+        db.flush()
+        oldest_kept = db.query(ActivityLine.id).filter(ActivityLine.campaign_id == campaign_id) \
+            .order_by(ActivityLine.id.desc()).offset(LINES_KEPT - 1).limit(1).scalar()
+        if oldest_kept is not None:
+            db.query(ActivityLine).filter(ActivityLine.campaign_id == campaign_id,
+                                          ActivityLine.id < oldest_kept).delete(synchronize_session=False)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.error("Could not keep an Activity Log line: campaign_id=%s error=%s", campaign_id, exc)
+    finally:
+        db.close()
+
+
+def _stored_for(key, campaign_id) -> list:
+    """The last HISTORY_LINES lines of the campaign sent to the channel, oldest first."""
+    db = _db.SessionLocal()
+    try:
+        rows = db.query(ActivityLine.channels, ActivityLine.line) \
+            .filter(ActivityLine.campaign_id == campaign_id).order_by(ActivityLine.id).all()
+    except Exception as exc:
+        logger.error("Could not read the Activity Log: campaign_id=%s error=%s", campaign_id, exc)
+        return []
+    finally:
+        db.close()
+    return [line for channels, line in rows if key in (channels or [])][-HISTORY_LINES:]
+
 
 manager = ConnectionManager()
 

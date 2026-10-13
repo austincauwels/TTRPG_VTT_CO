@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
-from models import Circle, EmailChangeToken, EmailChangeUndo, PasswordResetToken, User, UsernameHold
+from models import ActivityLine, Circle, EmailChangeToken, EmailChangeUndo, PasswordResetToken, User, UsernameHold
 from vtt import config
 from vtt.config import SQLALCHEMY_DATABASE_URL, logger
 from vtt.security import pwd_context
@@ -276,7 +276,7 @@ def init_db():
     that older ALTERs added as INTEGER are converted to BOOLEAN (convert_integer_flags). The seeded admin (user 1, which owns characters forged before
     login tokens) gets a random password nobody knows. Tables added after the first
     release (password_reset_tokens, email_change_tokens, email_change_undos,
-    username_holds) are created here when missing, and the columns added to them since
+    username_holds, activity_lines) are created here when missing, and the columns added to them since
     (password_reset_tokens.replaced_at, email_change_undos.google_sub) are added, so
     init_db alone brings an older database up to date. Last, with password sign-in off, it warns how many accounts
     have no Google sign-in (warn_password_only_accounts)."""
@@ -450,6 +450,19 @@ def init_db():
     # A player's direct edit the Lightkeeper has not seen (vtt/sheet_edits.py). Existing
     # characters get none.
     add_columns("characters", [("sheet_edited", "BOOLEAN DEFAULT FALSE")])
+    # A mark held for a soak or Death Defy, and the ids of the marks a desk sent lately,
+    # kept so a restart loses neither (vtt/ws/handlers/marks.py). Existing characters get
+    # none held and no ids.
+    add_columns("characters", [
+        ("held_mark",      "JSON"),
+        ("taken_mark_ids", "JSON DEFAULT '[]'"),
+    ])
+    # The campaigns' Activity Log lines (vtt/ws/manager.py). main.py's create_all makes the
+    # table on a normal start; this makes it on a database that only init_db upgrades.
+    try:
+        ActivityLine.__table__.create(bind=db_engine, checkfirst=True)
+    except Exception as e:
+        logger.error("Could not create the activity_lines table: %s", e)
 
     # Two pens were saved under misspelt family names (Reenie Beenie, Moondance); the
     # server's list now knows the real ones, so stored choices move over.

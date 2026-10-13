@@ -564,7 +564,7 @@ def test_a_secret_line_is_kept_for_the_lightkeepers_desk_alone(client, dice):
     """The log's history, which a socket gets as activity_history when it opens, keeps
     the secret line for the Lightkeeper's channel only: a player's reload, second tab or
     first visit never gets it, and the Lightkeeper's next desk does. The server holds it
-    nowhere else (the history lives in memory; no route reads it)."""
+    nowhere else (it is stored for her channel alone; no route reads it)."""
     camp = support.new_campaign(client)
     a = support.active_member(client, camp)
     late = support.active_member(client, camp)   # no desk open while the roll was made
@@ -585,11 +585,11 @@ def test_a_secret_line_is_kept_for_the_lightkeepers_desk_alone(client, dice):
         assert [(e["message"], e.get("is_secret")) for e in entries] == [
             (f"(Secret) Lightkeeper rolled {EM} 3 {DOT} Failure (1 die: 3).", True),
             (f"{a['name']}: hello", None)]
-    holders = {key for key, lines in main.manager._history.items()
-               for camp_id, line in lines if camp_id == camp["id"] and line.get("is_secret")}
+    stored = support.stored_lines(camp["id"])
+    holders = {key for keys, line in stored if line.get("is_secret") for key in keys}
     assert holders == {campaign_key(camp["campaign_code"])}
-    assert all(not line.get("is_secret") for key in (character_key(a["id"]), character_key(late["id"]))
-               for _, line in main.manager._history.get(key, ()))
+    assert all(not line.get("is_secret") for keys, line in stored
+               if {character_key(a["id"]), character_key(late["id"])} & set(keys))
 
 
 def test_a_held_secret_roll_stays_secret_on_a_desk_that_opens_again(client, dice):
@@ -649,8 +649,7 @@ def test_what_answers_a_players_secret_roll_stays_with_the_roller(client, dice):
         with support.ws_connect(client, key) as again:
             entries = again.recv_type("activity_history")["payload"]["entries"]
             assert [(e["message"], e.get("is_secret")) for e in entries] == [(f"{other['name']}: hello", None)]
-    holders = {key for key, lines in main.manager._history.items()
-               for camp_id, line in lines if camp_id == camp["id"] and line.get("is_secret")}
+    holders = {key for keys, line in support.stored_lines(camp["id"]) if line.get("is_secret") for key in keys}
     assert holders == {character_key(ch["id"])}
     row = support.fetch(Character, ch["id"])
     assert (row.cunning_resistance_spent, row.cunning_current) == (1, 4)

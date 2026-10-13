@@ -317,13 +317,21 @@ def forget_approval_lines():
     """The approval's Activity Log line is setup noise for a test that only wants a member:
     it would arrive as an activity_history on the next socket. test_rest_broadcasts and
     the log tests use approve() directly to see it."""
-    from vtt.ws.manager import manager
-    for key, kept in list(manager._history.items()):
-        left = [item for item in kept if "was approved into the circle." not in item[1]["message"]]
-        kept.clear()
-        kept.extend(left)
-        if not kept:
-            manager._history.pop(key, None)
+    from sqlalchemy import String, cast
+    from models import ActivityLine
+    with main.SessionLocal() as s:
+        s.query(ActivityLine).filter(cast(ActivityLine.line, String).like("%was approved into the circle.%")) \
+            .delete(synchronize_session=False)
+        s.commit()
+
+
+def stored_lines(campaign_id):
+    """A campaign's Activity Log as stored (vtt/ws/manager.py), oldest first: (channel
+    keys, line) for each."""
+    from models import ActivityLine
+    with main.SessionLocal() as s:
+        return [(row.channels, row.line) for row in s.query(ActivityLine)
+                .filter(ActivityLine.campaign_id == campaign_id).order_by(ActivityLine.id)]
 
 
 @contextlib.contextmanager

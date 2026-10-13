@@ -737,27 +737,73 @@ def test_a_private_note_stays_in_the_history_of_who_could_read_it(client):
         assert support.of_type(gm.sync(), "activity_history")
 
 
-def test_the_history_keeps_each_campaigns_lines_apart():
+def test_the_history_keeps_each_campaigns_lines_apart(client):
     """A character that moves to another campaign never sees the old one's lines on
-    its channel, private notes among them."""
+    its channel, private notes among them. A channel with no campaign keeps its own,
+    in memory."""
+    old_camp, new_camp = support.new_campaign(client), support.new_campaign(client)
     mgr = main.ConnectionManager()
-    asyncio.run(mgr.broadcast("7", {"type": "activity_log", "payload": {"message": "old"}}, campaign_id=1))
-    asyncio.run(mgr.broadcast("7", {"type": "activity_log", "payload": {"message": "new"}}, campaign_id=2))
+    asyncio.run(mgr.broadcast("7", {"type": "activity_log", "payload": {"message": "old"}}, campaign_id=old_camp["id"]))
+    asyncio.run(mgr.broadcast("7", {"type": "activity_log", "payload": {"message": "new"}}, campaign_id=new_camp["id"]))
+    asyncio.run(mgr.broadcast("7", {"type": "activity_log", "payload": {"message": "none"}}))
     asyncio.run(mgr.broadcast("7", {"type": "character_update", "payload": {}}))
-    assert [e["message"] for e in mgr.history_for("7", 2)] == ["new"]
-    assert [e["message"] for e in mgr.history_for("7", 1)] == ["old"]
-    assert mgr.history_for("7", None) == []
+    assert [e["message"] for e in mgr.history_for("7", new_camp["id"])] == ["new"]
+    assert [e["message"] for e in mgr.history_for("7", old_camp["id"])] == ["old"]
+    assert [e["message"] for e in mgr.history_for("7", None)] == ["none"]
     mgr.close_channel("7", 4404)
-    assert mgr.history_for("7", 2) == []
+    assert mgr.history_for("7", None) == []
 
 
-def test_the_history_keeps_the_newest_lines():
+def test_the_history_keeps_the_newest_lines(client):
     mgr = main.ConnectionManager()
     for n in range(manager_module.HISTORY_LINES + 5):
         asyncio.run(mgr.broadcast("7", {"type": "activity_log", "payload": {"message": str(n)}}))
     kept = mgr.history_for("7", None)
     assert len(kept) == manager_module.HISTORY_LINES
     assert kept[-1]["message"] == str(manager_module.HISTORY_LINES + 4)
+    # A campaign's channel is sent its newest lines too
+    camp = support.new_campaign(client)
+    for n in range(manager_module.HISTORY_LINES + 5):
+        asyncio.run(mgr.broadcast("8", {"type": "activity_log", "payload": {"message": str(n)}}, campaign_id=camp["id"]))
+    kept = mgr.history_for("8", camp["id"])
+    assert len(kept) == manager_module.HISTORY_LINES
+    assert (kept[0]["message"], kept[-1]["message"]) == ("5", str(manager_module.HISTORY_LINES + 4))
+
+
+def test_the_log_survives_a_restart(client):
+    """Fixed (#17): the Activity Log lived in the server's memory, so a restart (a deploy)
+    emptied every desk's log. A campaign's lines are stored, so a desk that opens after a
+    restart gets them as before, its own private lines among them and no one else's."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp)
+    b = support.active_member(client, camp)
+    with support.ws_connect(client, a["id"]) as wa:
+        wa.send("chat_message", message="before the restart", target="@Circle")
+        wa.send("chat_message", message="psst", target=f"@{b['name']}")
+        wa.sync()
+    restarted = main.ConnectionManager()   # what a new process starts with
+    assert [e["message"] for e in restarted.history_for(campaign_key(camp["campaign_code"]), camp["id"])] == [
+        f"{a['name']}: before the restart", f"{a['name']} → @{b['name']}: psst"]
+    for who, lines in ((a, 2), (b, 2)):
+        assert len(restarted.history_for(str(who["id"]), camp["id"])) == lines
+    c = support.active_member(client, camp)
+    assert [e["message"] for e in restarted.history_for(str(c["id"]), camp["id"])] == []
+    with support.ws_connect(client, c["id"]) as wc:
+        # the approval's line is setup noise, taken out; c joined after both lines
+        assert "activity_history" not in support.types(wc.sync())
+    with support.ws_connect(client, b["id"]) as wb:
+        entries = wb.recv_type("activity_history")["payload"]["entries"]
+        assert [e["message"] for e in entries] == [f"{a['name']}: before the restart", f"{a['name']} → @{b['name']}: psst"]
+
+
+def test_a_campaign_keeps_its_last_lines(client, monkeypatch):
+    """A campaign's stored log is its last LINES_KEPT lines; older ones go."""
+    monkeypatch.setattr(manager_module, "LINES_KEPT", 3)
+    camp = support.new_campaign(client)
+    mgr = main.ConnectionManager()
+    for n in range(5):
+        asyncio.run(mgr.broadcast("9", {"type": "activity_log", "payload": {"message": str(n)}}, campaign_id=camp["id"]))
+    assert [line["message"] for _, line in support.stored_lines(camp["id"])] == ["2", "3", "4"]
 
 
 def test_the_token_can_come_as_a_subprotocol(client):
