@@ -395,7 +395,7 @@ def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client
             for table, col in added:
                 conn.execute(text(f"ALTER TABLE {table} DROP COLUMN {col}"))
             conn.execute(text("DROP TABLE activity_lines"))
-            conn.execute(text("INSERT INTO circles (id, name) VALUES (1, 'The Order of Light')"))
+            conn.execute(text("INSERT INTO circles (id, name, illumination) VALUES (1, 'The Order of Light', 7)"))
             conn.execute(text("INSERT INTO users (id, username, email, hashed_password) VALUES (1, 'admin', 'a@b.c', 'x')"))
         monkeypatch.setattr(main, "db_engine", eng)
         monkeypatch.setattr(main, "SessionLocal", Session)
@@ -405,6 +405,9 @@ def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client
         cols = _schema_columns(eng, schema)
         assert all(key in cols for key in added)
         assert ("activity_lines", "line") in cols
+        # An existing circle counts the milestones its track already stands past (69.3)
+        with eng.connect() as conn:
+            assert conn.execute(text("SELECT milestones_earned FROM circles WHERE id = 1")).scalar() == 6
 
 
 def _column_types(eng, schema):

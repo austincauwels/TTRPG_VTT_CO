@@ -1099,12 +1099,42 @@ def test_a_milestone_is_not_counted_twice_after_its_earn_back_is_applied(client)
     assert support.fetch(Circle, cid).milestones_earned == 0
 
 
+def test_a_milestone_passed_with_every_resource_full_is_not_counted(client):
+    """Fixed (fix round 7 final review, 69.3): a milestone passed while every resource was
+    full earned nothing yet was recorded as counted, so after the Lightkeeper corrected the
+    rise back down, a spend and the real rise past it earned nothing. Only a milestone that
+    earned something counts; of two passed with one point missing, the first counts."""
+    camp, _, cid = _campaign(client, members=1)
+    support.update(Circle, cid, illumination=2, name="The Moths", circle_ability="Resource Management",
+                   stitch=2, refresh=2, train=2)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_circle", illumination=3)  # by mistake, with nothing missing
+        assert gm.sync()[0]["payload"]["earn_backs"] == 0
+        assert support.fetch(Circle, cid).milestones_earned == 0
+        gm.send("update_circle", illumination=2)  # corrected
+        gm.sync()
+        support.update(Circle, cid, stitch=1)  # a Stitch spent
+        gm.send("update_circle", illumination=3)  # the real milestone
+        assert gm.sync()[0]["payload"]["earn_backs"] == 1
+        assert support.fetch(Circle, cid).milestones_earned == 3
+        # Passing 6 and 9 with that one point already waiting earns nothing: neither counts
+        gm.send("update_circle", illumination=9)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 1
+        assert support.fetch(Circle, cid).milestones_earned == 3
+        # 3 to 9 with two points missing and one waiting: 6 earns, 9 has nowhere to go
+        support.update(Circle, cid, illumination=3, refresh=1)
+        gm.send("update_circle", illumination=9)
+        assert gm.sync()[0]["payload"]["earn_backs"] == 2
+    assert support.fetch(Circle, cid).milestones_earned == 6
+
+
 def test_a_circle_from_before_the_column_loses_its_waiting_earn_back_on_a_fall(client):
-    """A circle whose milestones_earned is still 0 (the column was added under it) counts the
-    milestones its track already stands past, so 7 down to 5 and back to 7 is not a second earn-back."""
+    """A circle from before the column is given, when the column is added, the milestones its
+    track already stands past (vtt/db.py; test_00_startup checks the migration), so 7 down
+    to 5 and back to 7 is not a second earn-back."""
     camp, _, cid = _campaign(client, members=1)
     support.update(Circle, cid, illumination=7, name="The Moths", circle_ability="Resource Management",
-                   stitch=0, refresh=0, train=0, earn_backs=1, milestones_earned=0)
+                   stitch=0, refresh=0, train=0, earn_backs=1, milestones_earned=6)
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("update_circle", illumination=5)
         assert gm.sync()[0]["payload"]["earn_backs"] == 0
@@ -1857,5 +1887,22 @@ def test_spending_and_renaming_and_long_names_are_logged(client):
     assert lines[:3] == ["The Lightkeeper opened spending: up to two each.", "The Lightkeeper locked spending.",
                          "The Lightkeeper renamed the circle to The Green Lamp Society."]
     # the clip's ellipsis ends the line: no full stop after it
-    # the cut falls on a space, not in a word (fix round 7, 45.2)
-    assert lines[3] == "The Lightkeeper sent a dispatch: The flooded crypt beneath the Church of Saint Aldric the Unmourned, Newfaire..."
+    # the cut falls on a space, not in a word (fix round 7, 45.2); here the 80th character
+    # ends a word, so "Old" is kept (final review)
+    assert lines[3] == "The Lightkeeper sent a dispatch: The flooded crypt beneath the Church of Saint Aldric the Unmourned, Newfaire Old..."
+
+
+def test_a_clip_keeps_a_whole_last_word_and_a_place_ending_in_a_stop_gets_one_stop(client):
+    """Fixed (fix round 7 final review): a cut whose next character was a space dropped the
+    whole word before it, and a location ending in a full stop was logged with two
+    ("sent a dispatch: The lamp room..")."""
+    from vtt.ws.handlers.gm import _clip
+    words = "a" * 70 + " ninechars"  # 80 characters, then a space
+    assert _clip(words + " more words") == words + "..."
+    assert _clip("b" * 70 + " ninechars and more") == "b" * 70 + " ninechars..."
+    assert _clip("b" * 70 + " ninecharsX more") == "b" * 70 + "..."
+    camp, _, cid = _campaign(client, members=0)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("update_circle", circle_id=cid, location="The lamp room.")
+        lines = [m["payload"]["message"] for m in support.of_type(gm.sync(), "activity_log")]
+    assert lines == ["The Lightkeeper sent a dispatch: The lamp room."]

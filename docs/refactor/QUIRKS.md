@@ -243,7 +243,7 @@ Frontend only; there is no test runner for it, so each was checked in Chromium (
 
 ## Fix round 7, desk (2026-10-13)
 
-- Resource Management counts a milestone once: `circles.milestones_earned` holds the highest counted. A fall past a milestone takes a waiting earn-back (and frees the milestone); an applied one stays counted, so a fall and a rise past it adds nothing. The circle advance resets it. Pinned in test_ws_circle.py (`test_a_milestone_is_not_counted_twice_after_its_earn_back_is_applied`) and the column in test_00_startup.py.
+- Resource Management counts a milestone once: `circles.milestones_earned` holds the highest counted. A fall past a milestone takes a waiting earn-back (and frees the milestone); an applied one stays counted, so a fall and a rise past it adds nothing. A milestone that earned nothing (every resource full) is not counted, so a correction back past it and the real rise later earn it then. A circle from before the column is given, when the column is added, the highest milestone its track stands past. The circle advance resets it. Pinned in test_ws_circle.py (`test_a_milestone_is_not_counted_twice_after_its_earn_back_is_applied`, `test_a_milestone_passed_with_every_resource_full_is_not_counted`) and the column in test_00_startup.py.
 - The log names a milestone only on a circle with Resource Management, in its one earn-back line ("passed milestone 3 and earns back one ..."); `_clip` cuts on a space (a hard cut only when none lies in the last 20 characters). Tests in test_ws_circle.py flipped.
 - `update_circle` with `insignia` is refused (409) before the seal; the test seals the circle first.
 - End Assignment clears and hides the countdown (`test_end_assignment_clears_and_hides_the_timer`).

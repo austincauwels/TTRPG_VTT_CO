@@ -44,14 +44,16 @@ def _clip(text, limit: int = 80) -> str:
         return text
     cut = text[:limit]
     space = cut.rfind(" ")
-    if space >= limit - 20:
+    # A space right after the limit means the cut already ends on a whole word
+    if text[limit] != " " and space >= limit - 20:
         cut = cut[:space]
     return cut.rstrip() + "..."
 
 
 def _sentence(text: str) -> str:
-    """The line with its full stop, unless it ends on a clip's ellipsis (not "....")."""
-    return text if text.endswith("...") else text + "."
+    """The line with its full stop, unless it ends on one already, or on a clip's ellipsis
+    or a ! or ? (not "...." or "The lamp room..")."""
+    return text if text.endswith((".", "!", "?")) else text + "."
 
 
 def table_before(circle) -> dict:
@@ -106,7 +108,8 @@ def _count_earn_backs(db, circle, old_illum):
     missing (cap_earn_backs): with every resource full there is nothing to earn back, and
     a tally passing two milestones with one point missing earns one. A milestone counts
     once: milestones_earned is the highest already counted, so a fall and a rise past it
-    again, after its earn-back was applied, adds nothing. A fall back past a milestone
+    again, after its earn-back was applied, adds nothing; a milestone that earned nothing
+    is not counted. A fall back past a milestone
     takes a waiting one away (and lets it count again); an applied one stays counted.
     Called before the commit; returns (the earn-backs this rise added, the milestones it
     counted) for the log (_log_illumination). The Lightkeeper used to add the resource by
@@ -116,10 +119,9 @@ def _count_earn_backs(db, circle, old_illum):
             "Resource Management" not in circle_abilities(circle):
         return 0, []
     waiting = circle.earn_backs or 0
-    # A circle from before the column existed has milestones_earned 0: the milestones its
-    # track already stands past count as counted
-    counted_to = max(circle.milestones_earned or 0,
-                     max([m for m in MILESTONES if m <= old_illum], default=0))
+    # A circle from before the column was given the milestones its track stood past when
+    # the column was added (vtt/db.py)
+    before = counted_to = circle.milestones_earned or 0
     counted = [m for m in MILESTONES if max(old_illum, counted_to) < m <= new_illum]
     if counted:
         counted_to = counted[-1]
@@ -127,10 +129,16 @@ def _count_earn_backs(db, circle, old_illum):
         if m <= counted_to and waiting > 0:
             waiting -= 1
             counted_to = max([x for x in MILESTONES if x < m], default=0)
-    circle.milestones_earned = counted_to
     circle.earn_backs = waiting + len(counted)
     cap_earn_backs(circle, db)
-    return max(0, circle.earn_backs - waiting), counted
+    granted = max(0, circle.earn_backs - waiting)
+    if granted < len(counted):
+        # Only a milestone that earned something counts: one passed with nothing to earn
+        # back (every resource full) is not counted, so a correction back past it and the
+        # real rise later earn it then
+        counted_to = counted[granted - 1] if granted else before
+    circle.milestones_earned = counted_to
+    return granted, counted
 
 
 async def _log_illumination(db, camp_code, camp_id, circle, old_illum, new_illum, earned=0, counted=()):
