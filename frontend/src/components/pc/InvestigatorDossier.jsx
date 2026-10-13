@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
-import { ABILITY_USES, SCAR_ABILITIES } from '../../game/abilityUses';
+import { ABILITY_USES, QUESTION_MAX, SCAR_ABILITIES } from '../../game/abilityUses';
 import { GEAR_RULES, countedGear, gearLimit, writtenIn } from '../../game/gear';
 import useGameStore from '../../store/gameStore';
 import { SheetDivider } from '../shared/Decorations';
@@ -60,14 +60,16 @@ const spentWords = (cost) => (/^\d/.test(cost) ? `Spent ${cost}`
 const SPENT_SHOWN_MS = 5000;
 
 // An ability used outside a roll: its cost on a button, and the choice it needs, if any
-// (game/abilityUses.js; the server pays the cost). A question ability (ask) starts on no
-// question, so Use waits for the one asked and one stray tap spends nothing, and goes back
-// to none after each use. Once the server has paid, the line after the button says what it
-// cost for a few seconds (playtest, tactician-one-tap: Nerve went with no change near the
-// button).
+// (game/abilityUses.js; the server pays the cost). A question ability (ask) has a box for
+// any question (issue #63), with the book's questions under it while it is empty, a tap
+// filling one in. It starts empty, so Use waits for the question and one stray tap spends
+// nothing, and empties after each use. Once the server has paid, the line after the button
+// says what it cost for a few seconds (playtest, tactician-one-tap: Nerve went with no
+// change near the button).
 const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const optionKeys = use.options ? Object.keys(use.options) : null;
-  const [option, setOption] = useState(optionKeys && !use.ask ? optionKeys[0] : '');
+  const [option, setOption] = useState(optionKeys ? optionKeys[0] : '');
+  const [question, setQuestion] = useState('');
   const usedAt = useGameStore(s => (s.abilityUsed?.ability === name ? s.abilityUsed.at : null));
   const [spentShown, setSpentShown] = useState(false);
   useEffect(() => {
@@ -100,6 +102,7 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const send = () => {
     const sent = onUse(name, {
       ...(optionKeys ? { option } : {}),
+      ...(use.ask ? { question: question.trim() } : {}),
       ...(needsDrive ? { drive: choiceNow } : {}),
       ...(needsResource ? { resource: choiceNow } : {}),
       ...(needsItem ? { item: choiceNow.trim() } : {}),
@@ -110,9 +113,9 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
     if (sent && needsItem) setChoice('');
     if (sent && needsSplit) setSplit({ nerve: 0, cunning: 0, intuition: 0 });
     if (sent && use.ask) {
-      setOption('');
+      setQuestion('');
       // Use goes disabled with the focus on it (a keyboard, a screen reader), which would
-      // drop to the page: it goes to the question, where the next use starts
+      // drop to the page: it goes to the question box, where the next use starts
       if (document.activeElement === buttonRef.current) questionRef.current?.focus({ preventScroll: true });
     }
   };
@@ -120,10 +123,15 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
   const select = 'ml-1 max-w-full min-w-0 border border-sepia/40 bg-cream rounded-sm text-sm font-serif px-1 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:text-base';
   return (
     <span className="ml-2 inline-flex flex-wrap items-center gap-1 align-middle max-w-full">
+      {use.ask && (
+        <input ref={questionRef} type="text" aria-label={`Question for ${name}`} placeholder="Question to ask"
+          maxLength={QUESTION_MAX} value={question} onChange={e => setQuestion(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && question.trim()) { e.preventDefault(); send(); } }}
+          className={`${select} w-72`} />
+      )}
       {optionKeys && (
-        <select ref={questionRef} aria-label={use.ask ? `Question for ${name}` : `How to use ${name}`} value={option}
+        <select aria-label={`How to use ${name}`} value={option}
           onChange={e => { setOption(e.target.value); setChoice(''); }} className={select}>
-          {use.ask && <option value="">Question to ask</option>}
           {optionKeys.map(k => <option key={k} value={k}>{use.options[k]}</option>)}
         </select>
       )}
@@ -166,12 +174,22 @@ const AbilityUse = ({ name, use, onUse, allies = [], character = null }) => {
       ))}
       {needsSplit && <span className="text-sm font-mono text-sepia">{splitTotal} / {splitMax}</span>}
       <button ref={buttonRef} type="button" onClick={send}
-        disabled={(use.ask && !option) || ((needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
+        disabled={(use.ask && !question.trim()) || ((needsDrive || needsResource || needsAlly) ? !choiceNow : needsItem ? !choiceNow.trim()
           : needsSplit ? !(splitTotal >= 1 && splitTotal <= splitMax) : false)}
         className="ml-1 px-2 py-0.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:px-3 text-xs font-sans font-black uppercase tracking-widest border border-oxblood/50 text-oxblood rounded-sm hover:bg-oxblood/10 disabled:opacity-40">
         Use ({use.cost})
       </button>
       <span role="status" className="text-sm italic text-sepia">{spentShown ? spentWords(use.cost) : ''}</span>
+      {use.ask && !question.trim() && (
+        <span role="group" aria-label={`Example questions for ${name}`} className="basis-full flex flex-col items-start">
+          {use.examples.map(q => (
+            <button key={q} type="button" onClick={() => { setQuestion(q); questionRef.current?.focus({ preventScroll: true }); }}
+              className="ml-1 text-left font-serif italic text-sm text-sepia hover:text-ink underline decoration-dotted decoration-sepia/50 underline-offset-2 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:text-base">
+              {q}
+            </button>
+          ))}
+        </span>
+      )}
     </span>
   );
 };

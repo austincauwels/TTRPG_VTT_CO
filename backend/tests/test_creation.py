@@ -93,17 +93,19 @@ def test_the_advancement_dialogs_abilities_agree():
 
 def test_the_sheets_ability_uses_agree():
     """The sheet's "Use" buttons name the abilities, and the options, the server pays for."""
-    from vtt.ability_uses import ABILITY_USES
+    from vtt.ability_uses import ABILITY_USES, QUESTION_MAX
     t = _read(ABILITY_USES_JS, "ABILITY_USES")["ABILITY_USES"]
     assert list(t) == list(ABILITY_USES)
     for name, use in ABILITY_USES.items():
         assert list(t[name].get("options", {})) == list(use.get("options", {})), name
         assert name in creation.ALL_ABILITIES, name
-        # A question ability's choice starts blank on the desk, and the server takes no
-        # blank one, so Use waits for a question (playtest, tactician-one-tap)
+        # A question ability has a box for any question, with the book's three as examples
+        # and no list to choose from (issue #63); the box and the server share one limit
         assert bool(t[name].get("ask")) == bool(use.get("ask")), name
         if use.get("ask"):
-            assert "" not in use["options"] and len(use["options"]) == 3, name
+            assert "options" not in use and "options" not in t[name], name
+            assert len(t[name]["examples"]) == 3 and all(len(q) <= QUESTION_MAX for q in t[name]["examples"]), name
+    assert f"export const QUESTION_MAX = {QUESTION_MAX};" in ABILITY_USES_JS.read_text()
     # The abilities whose "Use" opens the scar form
     from vtt.ability_uses import SCAR_ABILITIES
     assert list(_read(ABILITY_USES_JS, "SCAR_ABILITIES")["SCAR_ABILITIES"]) == list(SCAR_ABILITIES)

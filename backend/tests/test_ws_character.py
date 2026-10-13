@@ -7,6 +7,7 @@ import engine
 import main
 import support
 from models import Character, Circle
+from vtt.ability_uses import QUESTION_MAX
 
 EM = support.EM
 
@@ -517,11 +518,11 @@ def test_use_ability_pays_a_drive_point(client):
     cost outside a roll: its drive pips only raise the drive."""
     ch = support.forge(client, intuition_max=3, intuition_current=1, role_ability="Scout")
     with support.ws_connect(client, ch["id"]) as ws:
-        ws.send("use_ability", ability="Scout", option="What path should we follow?")
+        ws.send("use_ability", ability="Scout", question="What path should we follow?")
         msgs = ws.sync()
         assert msgs[0]["payload"]["intuition_current"] == 0
         assert msgs[1]["payload"]["message"] == f"{ch['name']} used Scout: What path should we follow? (1 Intuition)."
-        ws.send("use_ability", ability="Scout", option="What path should we follow?")
+        ws.send("use_ability", ability="Scout", question="What path should we follow?")
         ws.send("use_ability", ability="Tactician")
         ws.send("use_ability", ability="Juggling")
         assert ws.sync() == [_use_rejected(409, "Not enough Intuition for Scout."),
@@ -530,34 +531,44 @@ def test_use_ability_pays_a_drive_point(client):
 
 
 @pytest.mark.parametrize("name, drive, question", [
-    ("Scout", "intuition", "What do I notice here that others do not see?"),
+    ("Scout", "intuition", "Who has been in this room since the fire?"),
     ("Uncanny Eye", "intuition", "What here doesn't work the way it appears?"),
-    ("Tactician", "nerve", "What poses the largest immediate threat to my circle?"),
+    ("Tactician", "nerve", "Where would the creature go to ground?"),
 ])
-def test_a_question_ability_asks_one_of_its_questions(client, name, drive, question):
+def test_a_question_ability_asks_the_question_written(client, name, drive, question):
     """Fixed (playtest, tactician-one-tap): Tactician's "Use (1 Nerve)" spent the point on
-    one tap, and the log said only "used Tactician", not which of its three questions was
-    asked. Scout, Uncanny Eye and Tactician (pp. 27 to 29) name one of their questions, in
-    the rulebook's words: without one, or with another, nothing is spent, and the log
-    names the one asked. They stay usable while the drive lasts."""
-    ch = support.forge(client, **{f"{drive}_max": 3, f"{drive}_current": 2}, specialty_ability=name)
+    one tap, and the log said only "used Tactician", not which question was asked. Since
+    issue #63 Scout, Uncanny Eye and Tactician (pp. 27 to 29) ask any question the player
+    writes, the book's three being examples: without one nothing is spent, and the log
+    names the one asked, cleaned to one line. They stay usable while the drive lasts."""
+    ch = support.forge(client, **{f"{drive}_max": 3, f"{drive}_current": 3}, specialty_ability=name)
     with support.ws_connect(client, ch["id"]) as ws:
-        # A desk loaded before this change sends no option at all, and has no select to
-        # pick one from: it is told to reload
+        # A desk loaded before the questions were asked sends no question at all, and has
+        # no box to write one in: it is told to reload
         ws.send("use_ability", ability=name)
-        assert ws.sync() == [_use_rejected(422, f"Reload the page to choose the question to ask with {name}.")]
-        ws.send("use_ability", ability=name, option="")
-        ws.send("use_ability", ability=name, option="Who did it?")
+        assert ws.sync() == [_use_rejected(422, f"Reload the page to write the question to ask with {name}.")]
+        ws.send("use_ability", ability=name, question="")
+        ws.send("use_ability", ability=name, question=" \n\t ")
         # Not text: refused the same way (a list or an object ended the socket)
-        ws.send("use_ability", ability=name, option={"a": 1})
-        ws.send("use_ability", ability=name, option=[question])
-        assert ws.sync() == [_use_rejected(422, f"Choose the question to ask with {name}.")] * 4
-        assert getattr(support.fetch(Character, ch["id"]), f"{drive}_current") == 2
-        ws.send("use_ability", ability=name, option=question)
+        ws.send("use_ability", ability=name, question={"a": 1})
+        ws.send("use_ability", ability=name, question=[question])
+        ws.send("use_ability", ability=name, option="")
+        assert ws.sync() == [_use_rejected(422, f"Write the question to ask with {name}.")] * 5
+        ws.send("use_ability", ability=name, question="x" * (QUESTION_MAX + 1))
+        assert ws.sync() == [_use_rejected(422, f"A question is up to {QUESTION_MAX} characters.")]
+        assert getattr(support.fetch(Character, ch["id"]), f"{drive}_current") == 3
+        # Spaces and line breaks run together, and what does not print is left out
+        ws.send("use_ability", ability=name, question="  " + question.replace(" ", "\n  ", 1) + "\x00 ")
+        msgs = ws.sync()
+        assert msgs[0]["payload"][f"{drive}_current"] == 2
+        assert msgs[1]["payload"]["message"] == f"{ch['name']} used {name}: {question} (1 {drive.capitalize()})."
+        # A desk loaded before the question box sends the book's question as option
+        ws.send("use_ability", ability=name, option="What is out of place here?")
         msgs = ws.sync()
         assert msgs[0]["payload"][f"{drive}_current"] == 1
-        assert msgs[1]["payload"]["message"] == f"{ch['name']} used {name}: {question} (1 {drive.capitalize()})."
-        ws.send("use_ability", ability=name, option=question)   # asked again
+        assert msgs[1]["payload"]["message"] == \
+            f"{ch['name']} used {name}: What is out of place here? (1 {drive.capitalize()})."
+        ws.send("use_ability", ability=name, question="y" * QUESTION_MAX)   # the longest
         assert ws.sync()[0]["payload"][f"{drive}_current"] == 0
     assert getattr(support.fetch(Character, ch["id"]), f"{drive}_current") == 0
 

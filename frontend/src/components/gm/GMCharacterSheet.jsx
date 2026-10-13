@@ -7,6 +7,7 @@ import { BrassCornerFiligree } from '../shared/Decorations';
 import { apiFetch } from '../../utils/api';
 import { EdgeLine } from '../shared/PrintMarks';
 import { ConfirmAction } from '../shared/ConfirmAction';
+import { ArmedDetail, trainLost } from '../pc/LeaveCampaign';
 
 // How many of the member's two circle-resource spends this assignment are used, with a way
 // to give one back (a ruling at the table, said in the log). The pool can get the resource
@@ -59,8 +60,9 @@ const SpendBack = ({ character, onGive }) => {
 };
 
 // Takes the member off the roster, at any time (decision 1 of fix round 4, playtest
-// ghost-member-no-release): two presses, the armed line saying what goes with them. A
-// refusal says why under it; the sheet closes once the release goes through.
+// ghost-member-no-release): two presses, the armed line saying what the second does, and
+// what goes with them behind its "i" (issue #62). A refusal says why under it; the sheet
+// closes once the release goes through.
 const ReleaseMember = ({ name, trainDice, onRelease }) => {
   const sealed = useGameStore(s => !!s.circle?.is_finalized);
   const [busy, setBusy] = useState(false);
@@ -80,16 +82,16 @@ const ReleaseMember = ({ name, trainDice, onRelease }) => {
     }
   };
   return (
-    <div className="mt-6 pt-4 border-t border-ink/10">
+    <div className="relative mt-6 pt-4 border-t border-ink/10">
       <ConfirmAction
         className="flex flex-wrap items-center gap-3"
         hintClassName="basis-full"
         onConfirm={release}
         disabled={busy}
         cancelLabel="Keep in the circle"
-        armedHint={`Press again to release ${name}. They go back to the player, out of the campaign. Their circle votes, relationships and this assignment's report are dropped${
-          sealed ? ', and Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' : '.'}${
-          trainDice > 0 ? ' Any Train die they hold is lost.' : ''}`}
+        armedHint={`Press again to release ${name}.`}
+        armedInfo={<ArmedDetail label="What release does" text={`They go back to the player, out of the campaign. Their circle votes, relationships and this assignment's report are dropped.${
+          sealed ? ' Stitch, Refresh and Train come down to the smaller maximum, with nothing refunded.' : ''}${trainLost(trainDice)}`} />}
         renderButton={(armed, props) => (
           <button
             {...props}
@@ -97,7 +99,7 @@ const ReleaseMember = ({ name, trainDice, onRelease }) => {
               armed ? 'bg-ink text-cream border-ink' : 'border-sepia/50 text-sepia hover:bg-sepia/10'
             }`}
           >
-            {busy ? 'Releasing…' : armed ? 'Yes, release' : 'Release from the circle'}
+            {busy ? 'Releasing…' : armed ? 'Release' : 'Release from the circle'}
           </button>
         )}
       />
