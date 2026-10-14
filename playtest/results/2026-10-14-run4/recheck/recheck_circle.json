@@ -1,0 +1,198 @@
+{
+ "items": [
+  {
+   "item": "#67 Illumination ring (both desks, 320/390/820/1366)",
+   "control": "Control: row of 12 small dots, no ring (screenshots out_8141/ctl_lk_laptop.png).",
+   "head": "Main: 12 pips on a clock face, pip 12 at the top, 3/6/9 gold and larger (ringel_lk_phone.png, ringel_pa_s320.png). LK pips are 12 real buttons in order 1-12, labelled 'Set Illumination to n', 44x44 on touch, 50% radius, 0 mis-hits in 972 hit-test points, so round targets do not overlap (square boxes touch at corners only). Ring box 221px on LK, fits 320 with no horizontal scroll (sw=320). Laptop LK ring 169px, 0 overlaps. +1 and -1 present. Player ring is one role=img 'Illumination n of 12' (verified 3, 4, 6, 9, 12). Candle --warm 0/25/33/50/75/100% at 0/3/4/6/9/12, gold flame when full (warm_pl_tablet.png). Desk summary dots not re-opened (not in my pages).",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/ringel_lk_phone.png",
+    "out_8140/ringel_pa_s320.png",
+    "out_8140/ringel_lk_s320.png",
+    "out_8140/warm_pl_tablet.png",
+    "out_8140/ill_full_N.png"
+   ]
+  },
+  {
+   "item": "#66 circle resources start 1+members, refill on full track, no Refill button, manual squares logged",
+   "control": "Control: new circles start 1/1/1 with 3 members; 'REFILL EACH RESOURCE TO 4' button present.",
+   "head": "Main: new circles start at 4/4/4 (3 members) and 3/3/3 (2 members); no Refill button; Advance on a full track refills to 1+members (N table: 1/2/0 became 3/3/3) and resets Illumination, earn_backs and milestones_earned to 0; clicking a manual square writes 'The Lightkeeper set the circle's Stitch to 1 (was 3).'",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/ill_full_N.png"
+   ]
+  },
+  {
+   "item": "#66 Resource Management earn-back choice under Add Illumination, one press; survives reload and server restart",
+   "control": "Control: milestone lines 'milestone 3 reached!' plus 'gains one resource of its choice', nothing to press, resources adjusted by hand.",
+   "head": "Main: passing 3 shows 'Resource Management: earn back one' with Stitch/Refresh/Train under Add Illumination, 45px tall on phone, full resources greyed 'full'. One press applies (double-click applied once: stitch 3 to 4, earn_backs 0). Waiting choice stays after reload and after restart_api (DB column). Player's page shows 'One to earn back, the circle's choice'. Via Add Illumination (+4 from 4) the choice appears too.",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/ill_C_laptop.png",
+    "out_8140/earn_phone_lk.png"
+   ]
+  },
+  {
+   "item": "69.3 each milestone earns once",
+   "control": "Control has no earn-back state (n/a).",
+   "head": "Main: with every resource full, 0 to 3 logs 'every resource is full, so there is nothing to earn back' and milestones_earned stays 0 (not used up); after stitch dropped to 3, -1 then +1 across 3 earned once (earn_backs 1, milestones_earned 3). After applying it, -1 then +1 earned nothing. 3 to 7 with one point missing earned exactly one (milestone 6). Advance reset the counter.",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "45.3 and 45.13 Illumination log lines",
+   "control": "Control: 'gains 7 (0 to 7)' then 'milestone 3 reached!', 'Resource Management: gains one resource of its choice', same for 6 (5 lines).",
+   "head": "Main: one 'gains n Illumination (a to b)' line per addition; without Resource Management no milestone line at all (N table 0 to 6 to 12: gains lines plus 'track is full'); with it one RM line naming the milestone and what it earns back. The RM line is its own second line, as the triage planned.",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "#66.5 Keys line and Illumination questions wording",
+   "control": "Control: 'Keys: no report has one' with a permanent small-print rule under it, no purpose line.",
+   "head": "Main LK: 'Answered together at the end of an assignment: each yes adds 1 Illumination.'; 'Illumination Keys (i) on the reports: 1 of 3 fulfilled one (some, not all) +2'; 'Not filed: Bram Holt, Dev Okafor.'; the long rule is behind the i. Matches FAQ.md.",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/lk_report_laptop.png"
+   ]
+  },
+  {
+   "item": "#58 optional report line with the key, amend, LK reads it",
+   "control": "Control: no line on the report form.",
+   "head": "Main: 'What happened (a line, optional)' with 0/280 counter and maxlength 280 (300 typed gives 280). Sent report shows the line and REPORT SENT. Amend changes it; amending with the line emptied removes it (DB note empty, LK back has no 'What happened'). HTML characters stay text. LK reads it on the flipped report card at phone and laptop, a 280-char note fits without clipping (lkcard_back_phone.png, lkcard_back_laptop.png). The note is on the back of the card only, so the LK must flip the card.",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/rep_sent_phone.png",
+    "out_8140/lkcard_back_phone.png",
+    "out_8140/lkcard_back_laptop.png"
+   ]
+  },
+  {
+   "item": "45.14 close reports with a kept amendment",
+   "control": "Control: LK closes reports while the player is amending; card keeps the amend form with unsent ticks (2 ticks), no REPORT SENT stamp.",
+   "head": "Main: same steps shows the sent report (sent ticks, sent line, REPORT SENT stamp, no form). Reopening brings the draft back (3 ticks, draft line kept). Close and reopen done through the LK socket (SQL changes do not broadcast).",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/amend_closed_phone.png"
+   ]
+  },
+  {
+   "item": "#60 keys info slip opens above heading, not over checkboxes",
+   "control": "Not re-run (known third playtest bug).",
+   "head": "Main, phone 390: slip bottom 397 above the heading (term top 400), checkboxes start at 462, nothing covered (keys_slip_phone.png). It does cover the third question line above, which is a slip behaviour not a checkbox problem.",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/keys_slip_phone.png"
+   ]
+  },
+  {
+   "item": "45.12 own Your Circle card shows Incapacitated and scars",
+   "control": "Not run on control (triage had it present).",
+   "head": "Main, phone and laptop: own card shows 'INCAPACITATED 2 SCARS' above 'You'.",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/yc_phone.png"
+   ]
+  },
+  {
+   "item": "60.17 proposed relationship marked Proposed",
+   "control": "Not run on control.",
+   "head": "Main: Bram's card shows 'Stranger [PROPOSED]' in a dashed stamp on the phone; the sidebar text reads 'Stranger | PROPOSED'; the Circle page row says 'Waiting for Bram Holt' with Edit.",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/yc_phone.png"
+   ]
+  },
+  {
+   "item": "60.18 Chapter House Saved and shared",
+   "control": "Control: no status element under the box (query returned null).",
+   "head": "Main (unsealed table, two players, phone): untouched shows nothing; typing 'Not saved yet'; after blur 'Saved' and the other member sees the text live; after the other member's edit the first member's box updates and the status goes blank (no false Saved); a draft in progress when the other member saves keeps the stale draft and says 'Not saved yet'. The 'Shared' i says the box is shared and what you save replaces what anyone wrote.",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/ch_saved_phone.png",
+    "out_8140/ch_after_other_phone.png"
+   ]
+  },
+  {
+   "item": "69.6 Circle Resources paragraph behind an i",
+   "control": "Control: permanent italic refill paragraph, no i term.",
+   "head": "Main player page (phone and laptop): 'About Circle Resources' i holds the spending and refill rule; no permanent refill paragraph in the page; slip fits (left 68, right 361 at 390). The LK's Circle Resources card still carries the paragraph permanently (the item names only the player's page).",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/cr_slip_phone.png"
+   ]
+  },
+  {
+   "item": "#55 log names only the Intuition Well-Read gave back",
+   "control": "Control: gilded failure line reads '[gilded - intuition Drive refreshed] [Well-Read - 1 Intuition refunded]' though Intuition ended at 3 of 3.",
+   "head": "Main: the same gilded failure logs only the gilded refresh; a regular-die failure logs '[Well-Read - 1 Intuition refunded]' and Intuition returns to 3. Checked through resolve_gilded over a socket, 60 rolls per build.",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "Seams: second tab, double press, reload, restart",
+   "control": "n/a",
+   "head": "Double press on an earn-back button applied once. Reload and restart_api kept the waiting choice. A second tab on the same account takes the desk and the first tab shows 'This desk is open in another tab...' with a 'Use this tab' button (R8, documented). The first tab's Send amended report did nothing silently after the kick (banner is up at the top).",
+   "verdict": "fixed",
+   "shots": [
+    "out_8140/kick_A.png"
+   ]
+  }
+ ],
+ "findings": [
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Illumination can go past 12 with +1 while the page shows 12 / 12",
+   "where": "Lightkeeper Circle page, any size; backend vtt/ws/handlers/gm.py around line 375 (carry = illumination - TRACK)",
+   "steps": "Set Illumination to 12 (pip 12), press '+1 Illumination'. Read the database and the page.",
+   "expected": "Either the +1 stops at 12, or the page shows that 1 is carried over to the next track.",
+   "actual": "The circle row holds 13; the heading and ring still read '12 / 12' and the -1 button brings it back to 12. The server carries the excess over after the advance, but nothing on the page says so, and FAQ.md has no line on it.",
+   "shots": [
+    "out_8140/over_laptop.png"
+   ],
+   "related": "#67 ring, #66"
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Chapter House: a member's unsaved draft hides another member's newer save",
+   "where": "Circle formation papers (unsealed table), phone 390x844, CircleCreationPopup.jsx handleLocationBlur",
+   "steps": "Two members open section III. A types ' plus' after the current text and does not leave the box. B saves a different chapter house. Look at A's box.",
+   "expected": "A is told the shared box changed, or the draft is marked as replacing B's text.",
+   "actual": "A keeps the old draft with 'Not saved yet'. Leaving the box overwrites B's save with no word. The 'Shared' i says saving replaces what anyone wrote, so it is documented, but nothing tells A at that moment.",
+   "shots": [],
+   "related": "60.18"
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Advance the circle log does not say the resources refilled",
+   "where": "Activity Log after gm_advance_circle",
+   "steps": "Fill the track to 12 on a table with spent resources and advance the circle.",
+   "expected": "A log line or the advance line saying resources refill to 1 plus members, since the manual Refill button is gone and the Lightkeeper will look for it.",
+   "actual": "Only 'The Far Watch has advanced and gained Stamina Training!'. The resources do refill (1/2/0 became 3/3/3).",
+   "shots": [],
+   "related": "#66"
+  },
+  {
+   "kind": "idea",
+   "sev": "low",
+   "title": "Report line shows only after turning the Lightkeeper's report card",
+   "where": "Lightkeeper Circle page, report cards, all sizes",
+   "steps": "A player files a report with a line. Look at the Lightkeeper's card without flipping it.",
+   "expected": "Per #58 the Lightkeeper reads the line on the report card.",
+   "actual": "The front shows only the REPORT FILED stamp; the keys and the line are on the back, behind a flip. This matches the card design (nothing says otherwise), but a mark on the front that a line was filed would save a flip.",
+   "shots": [
+    "out_8140/lk_report_laptop.png"
+   ],
+   "related": "#58"
+  }
+ ],
+ "praise": [
+  "The Illumination ring reads like a clock face at every size, including 320px, with the milestone pips clear and the candle warming step by step.",
+  "The earn-back choice is one press, greyed out for full resources, and survives a reload and a server restart.",
+  "Closing the reports with a kept amendment now shows what was sent and keeps the draft for a reopen.",
+  "The Well-Read log line now tells the truth: it names only what came back."
+ ],
+ "method": "Folder /home/user/pt4/verify/circle (scripts lib.js, setup.js, setup2.js, ill1-3.js, rep1-5.js, ring1-3.js etc, state_8140.json, screenshots in out_8140 and out_8141). The lib is a copy of v8404_lib.js using P env (8140 main, 8141 control). Table S (Lantern Watch, Resource Management, 3 members, sealed) and N (2 members, no ability) built through the API and sealed in SQL; table F unsealed with 2 members for formation. Reports and Illumination driven through the page and through a Node WebSocket as the Lightkeeper (gm_toggle_reports; SQL changes to reports_open do not broadcast to open desks, so close and reopen reports over the socket). The #55 check rolls survey over a socket and resolves the gilded choice 60 times per build; Slink is forged then patched to Well-Read in SQL (Focus is the label of Read, intuition actions are survey, read, sense). A circle advance opens an advancement dialog on every player desk (set characters.advancement_picks to 0 to move on). Both servers stopped and databases dropped. Not checked: the desk's small summary-card dots (CircleLedger, not on a page I opened), reduced-motion behaviour of the candle, the Lightkeeper's insignia, tablet touch of the pips with a real finger (tapped with the pointer emulation only); one early run saw a first checkbox click on the Lightkeeper's questions not register (twice, could not repeat in a clean run).\"]"
+}

@@ -1,0 +1,289 @@
+{
+ "items": [
+  {
+   "item": "Scar flow: third mark fills the track, fourth mark asks for a scar (Bram, Brain 2, dealt from the Lightkeeper's desk)",
+   "control": "n/a",
+   "head": "Lightkeeper (laptop 1366x768) dealt a Brain mark: 3 of 3 on both desks live, log 'The Lightkeeper dealt Bram Holt a Brain mark (3 of 3).' A fourth dealt mark cleared the track to 0, set incapacitated, and opened the scar form on the phone (390x844): 'Bram Holt took a fourth Brain mark. The track is cleared, and a scar is owed.' Log: 'dealt ... a fourth Brain mark.' then 'Bram Holt has been incapacitated!'. Lightkeeper's copy read 'Incapacitated: scar owed'. Matches FAQ (scar at the fourth mark, overfilled track cleared; rulebook p. 14).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/04_bram_scar_modal.png",
+    "/home/user/pt4/verify/death/shots/05_lk_after_scar.png"
+   ]
+  },
+  {
+   "item": "Scar form shift and record on the phone",
+   "control": "n/a",
+   "head": "Lowered Survey 2 to 1 and raised Strike 0 to 1. Database matches, Strike at 0 could not be lowered (greyed). Scar stored as 'A tremor in the left hand since the cellar. (-1 Survey, +1 Strike)', scars 1 of 4, log 'Bram Holt recorded a scar (1 of 4).' on every desk. Brain track stayed cleared, other tracks kept. Matches FAQ 'How does the scar sequence work?'. The choice rows are only 28px tall on the phone (see findings).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/05_bram_after_scar.png"
+   ]
+  },
+  {
+   "item": "Revive from the Lightkeeper's copy, double press",
+   "control": "n/a",
+   "head": "dblclick on Revive (laptop): one log line 'Bram Holt has been revived and is operational.', incapacitated false, Brain 0, scars 1. The phone stamp went to 'Able to act' live.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/06_lk_after_revive.png"
+   ]
+  },
+  {
+   "item": "Death Defy offer, held mark and Use (Iris, tablet 820x1180)",
+   "control": "n/a",
+   "head": "The dealt Body mark (from an enemy) put a Death Defy card on the tablet (Use / Take the mark, both 44px). Both the Lightkeeper's copy and the tablet read 'Body marks: 3 of 3, 1 held', and the Lightkeeper's copy said 'Body mark held for Death Defy.' Use: the mark did not land, log 'Iris Vane used Death Defy: escaped unscathed!', ability_uses {Death Defy: 1}.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/09_iris_dd_card.png",
+    "/home/user/pt4/verify/death/shots/08_lk_crop.png"
+   ]
+  },
+  {
+   "item": "Take the mark to a fourth Body mark: fourth scar form",
+   "control": "n/a",
+   "head": "Log 'Iris Vane passed on Death Defy and took a fourth Body mark.' then 'has been incapacitated!'. The form says 'This is the fourth scar. When you record it, Iris Vane dies. It changes no action rating.' It has no shift and no Decide later (matches FAQ).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/10_iris_held_while_owed.png"
+   ]
+  },
+  {
+   "item": "A Death Defy held mark open at the death is dropped",
+   "control": "n/a",
+   "head": "A Brain mark dealt while the scar was owed was held for Death Defy (Lightkeeper's copy: 'Brain marks: 0 of 3, 1 held'). Recording the fourth scar sent mark_offer_closed {dropped:true}. held_mark became null and Brain stayed 0. The card closed. The Death Defy card sat behind the scar form's overlay, so it could not be answered (harmless here).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/10_lk_held_while_owed.png"
+   ]
+  },
+  {
+   "item": "Death live on every desk: log, stamps, roster",
+   "control": "n/a",
+   "head": "Every desk, the Lightkeeper's included, got 'Iris Vane is deceased: a fourth scar.' plus member_status. The tablet showed the 'Iris Vane has died' dialog (Create a new investigator / Stay and look at the sheet). The Lightkeeper's copy stamp reads Dead, with no Deal a mark and no Revive. The roster moved Iris under a '† Deceased' heading. Same after a Lightkeeper reload. The circle resources were not updated live (see findings).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/11_iris_dead.png",
+    "/home/user/pt4/verify/death/shots/11_lk_dead.png",
+    "/home/user/pt4/verify/death/shots/13_lk_roster_reload.png"
+   ]
+  },
+  {
+   "item": "Living player's Circle page after the death (Bram, phone)",
+   "control": "n/a",
+   "head": "Iris's paper is stamped DEAD, shows the proposal still waiting, and offers no Propose. Cora's paper still has Propose. Cards follow live.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/12_bram_circle.png"
+   ]
+  },
+  {
+   "item": "Dead cannot roll, spend or propose on screen",
+   "control": "n/a",
+   "head": "Tablet: the Spend buttons are disabled with 'A dead investigator cannot spend the circle's resources.' Each relationship paper reads 'A dead investigator proposes no relationships.' Pressing an action (Move) sent no roll frame. Burn controls are disabled.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/14_iris_circle.png"
+   ]
+  },
+  {
+   "item": "Dead cannot roll, spend, propose, scar, use ability or burn: crafted WebSocket and REST",
+   "control": "n/a",
+   "head": "Frames injected on the dead desk's own socket: roll, spend_resource, circle_relationship_propose, apply_scar (fifth), use_ability and burn_resistance were each refused with 409 'Iris Vane is dead: the sheet is a record.' REST POST /circle/relationship/propose from the dead and to the dead (as Cora) both returned 409. Nothing changed in the database.",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "Dead cannot file a report (on screen and crafted)",
+   "control": "n/a",
+   "head": "Not refused. On the tablet the dead investigator's Circle page keeps the report form with Send report live. It was sent and the server stored it ('Iris Vane filed an assignment report.' to every desk). A crafted submit_assignment_report with replace:true was taken too ('amended their assignment report'). The Lightkeeper's desk shows Iris's report card as 'Report filed' beside '0 of 2 filed'.",
+   "verdict": "not fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/15_iris_report_try.png",
+    "/home/user/pt4/verify/death/shots/16_lk_circle_keys.png"
+   ]
+  },
+  {
+   "item": "Decided exception: the dead Accept an old proposal",
+   "control": "n/a",
+   "head": "Iris pressed Accept on Bram's proposal made before the death. The relationship became accepted, and Bram's phone read 'Confirmed by you both' live, Lightkeeper 'AGREED'. The Accept button is 101x39 on the tablet (touch).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/18_iris_accepted.png"
+   ]
+  },
+  {
+   "item": "Dead player's desk and hub after a reload",
+   "control": "n/a",
+   "head": "After a reload the desk came back on the record with the dead state kept. Hub Registry before replacement: Iris listed 'In a campaign' with a † Dead tag and Play (record), no Leave. A crafted refused apply_scar re-opened the fourth-scar form with the refusal text (crafted only, not reported).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/20_iris_ledger.png"
+   ]
+  },
+  {
+   "item": "Replacement: build, ask to join, Lightkeeper approves",
+   "control": "n/a",
+   "head": "Wren Ashby was forged over the API and joined through the Registry's Join a campaign / Ask to join on the tablet. The Lightkeeper got a 'New join request' pop-up with a Requests badge, and Approve worked. Every open desk got investigator_approved and circle_update (4/4/3, max 4), and the log said 'Wren Ashby joined the circle, in place of Iris Vane.' Iris went to retired. The tablet hub did not update live but read the lists again on the next ledger open (as FAQ says).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/23_lk_request_popup.png",
+    "/home/user/pt4/verify/death/shots/24_lk_roster.png"
+   ]
+  },
+  {
+   "item": "Replacement keeps the spend count",
+   "control": "n/a",
+   "head": "Iris had spent 1 (Train). Wren's resources_spent_assignment is 1, and Wren's Circle page reads 'Your spends 1 / 2'. Matches decision fix6 #41.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/28_wren_circle.png"
+   ]
+  },
+  {
+   "item": "Resources 1 + members around the death and the replacement",
+   "control": "n/a",
+   "head": "After the replacement the max is 4 (1 + 3) on every desk live, current 4/4/3, nothing refilled after the seal (matches FAQ). Between the death and the replacement the max fell to 3 server side, with no desk told and the current left above it (see findings).",
+   "verdict": "partly",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/13_lk_roster_reload.png"
+   ]
+  },
+  {
+   "item": "Fallen card, Circle History Fallen line, Registry Fallen section",
+   "control": "n/a",
+   "head": "The Lightkeeper's roster shows Iris under † Deceased with a '† Fallen' stamp. Circle History (Lightkeeper) shows 'IRIS VANE · CRIMINAL · FALLEN' with her answer. A line shows only for a fallen investigator with a personal answer, which I gave her in SQL since the table was sealed in SQL. The player's Registry, on the tablet and on a phone at 390, has a FALLEN section at its foot, 'Iris Vane / The Last Lantern / † Fallen', with no Play, Leave or Delete, and no horizontal scroll.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/27_lk_history.png",
+    "/home/user/pt4/verify/death/shots/35_pa_phone_registry.png"
+   ]
+  },
+  {
+   "item": "Release a living member mid-assignment (Cora) per decision fix4 #1",
+   "control": "n/a",
+   "head": "Release from the foot of the sheet: the armed line is 'Press again to release Cora Lune.' with 'What release does' behind an i. Second press: Cora's report was dropped, her pending proposal to Bram was deleted, and her Train die and spend count were cleared. Cora went unaffiliated and was sent to her hub with 'The Lightkeeper released Cora Lune from The Last Lantern...'. Max is now 3, Stitch and Refresh lowered 4 to 3, Train 2 unchanged (nothing refunded). Every desk was told live with 'The Lightkeeper released Cora Lune from the circle.', and the roster reads 'Open · 0 of 2 filed'. Same after reloads, and Cora's Registry shows her under Not in a campaign.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/29_lk_release_armed.png",
+    "/home/user/pt4/verify/death/shots/30_lk_reload.png"
+   ]
+  },
+  {
+   "item": "A scar owed across a server restart",
+   "control": "n/a",
+   "head": "Bram was at scar owed (Decide later) when I restarted the backend. After the reloads the Lightkeeper's copy and the phone's stamp read only 'Incapacitated'. The phone's banner still said 'A scar is waiting' and Record the scar still worked (scars 2 of 4, shift applied). scar_pending is lost on the server (see findings).",
+   "verdict": "partly",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/33_bram_after_restart_reload.png",
+    "/home/user/pt4/verify/death/shots/33_lk_bram_after_restart.png"
+   ]
+  }
+ ],
+ "findings": [
+  {
+   "kind": "bug",
+   "sev": "medium",
+   "title": "A dead investigator can still file and amend an assignment report",
+   "where": "Player Circle page, tablet 820x1180; backend/vtt/ws/access.py DEAD_REFUSED (submit_assignment_report missing) and vtt/ws/handlers/circle.py handle_submit_assignment_report (checks status active only; a dead investigator stays active until replaced)",
+   "steps": "Seal a table with reports open. Kill an investigator with a fourth scar. On the dead player's desk open Circle, tick a key and press Send report. Or send submit_assignment_report with replace:true on the dead desk's socket.",
+   "expected": "Refused like the dead's other actions (409 'Iris Vane is dead: the sheet is a record.'), and the form hidden or off on the dead desk. The task says the dead cannot file a report, and the count already leaves the dead out.",
+   "actual": "Report stored, 'Iris Vane filed an assignment report.' and later 'amended their assignment report.' go to every desk. The Lightkeeper's Circle page shows a 'Report filed' card for Iris next to 'Not filed: Bram Holt, Cora Lune' and '0 of 2 filed'. The report stays in the circle's reports even after Iris is replaced.",
+   "related": "#38 / decisions_fix6 3 (the dead are a record)",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/15_iris_report_try.png",
+    "/home/user/pt4/verify/death/shots/16_lk_circle_keys.png"
+   ]
+  },
+  {
+   "kind": "bug",
+   "sev": "medium",
+   "title": "A death lowers the resource maximum without telling any desk, and leaves each pool above it",
+   "where": "All desks' circle resources; backend/vtt/ws/handlers/character.py handle_apply_scar (no circle_update, no lower_resources_to_pool); vtt/circle_queries.py resource_pool counts living members only",
+   "steps": "Sealed circle of 3 with Stitch 4, Refresh 4, Train 3 (max 4). Kill one member with a fourth scar. Look at the Lightkeeper's roster card and Circle page, then reload.",
+   "expected": "One consistent maximum on every desk, live and after a reload, never a pool above its maximum. Either the dead still count until replaced, or the pools are lowered as a release lowers them (decision fix4 1), with a circle_update.",
+   "actual": "Live, every desk still reads 'Stitch 4 · max 4' and 'Refills: To 4 each'. After a reload the Lightkeeper reads 'Stitch 4 · max 3', 'Refresh 4 · max 3', 'Stitch: 4 of 3 available.' and 'Refills: To 3 each'. Players still read 4 of 4 until they reload. When the replacement is approved the max goes back to 4.",
+   "related": "decisions_fix5 3 / decisions_fix4 1 (1 + members, lowered on leaving)",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/12_lk_roster.png",
+    "/home/user/pt4/verify/death/shots/13_lk_roster_reload.png"
+   ]
+  },
+  {
+   "kind": "bug",
+   "sev": "medium",
+   "title": "A scar owed is forgotten by the server on a restart: the Lightkeeper's copy drops 'scar owed'",
+   "where": "Lightkeeper's copy of a sheet, laptop; backend/vtt/serializers.py awaiting_scar (in memory only, line 16-17), scar_pending in get_char_dict",
+   "steps": "Deal a member a fourth mark, and the player presses Decide later. Restart the backend (restart_api.sh). Reload the Lightkeeper's desk and open the sheet, and reload the player's desk.",
+   "expected": "Per decisions_fix6 1 (restarts lose nothing a player can see): the Lightkeeper's copy still reads 'Incapacitated: scar owed' and the player's stamp still says a scar is owed.",
+   "actual": "The Lightkeeper's copy and the player's stamp read only 'Incapacitated'. The player's banner 'A scar is waiting' survives (kept in the browser), so the two desks disagree. On another device or with cleared storage the owed scar is lost, and the Lightkeeper can Revive with the scar never recorded. Recording it after the restart still works.",
+   "related": "decisions_fix6 1 (#17, #43)",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/33_bram_after_restart_reload.png",
+    "/home/user/pt4/verify/death/shots/33_lk_bram_after_restart.png"
+   ]
+  },
+  {
+   "kind": "rules",
+   "sev": "low",
+   "title": "FAQ says the Lightkeeper revives, but the player's own sheet has Revive too",
+   "where": "Player desk, phone 390x844, trauma record; frontend/src/components/pc/InvestigatorDossier.jsx:1466-1473 (Revive shown when !readOnly); FAQ.md:137 and :147",
+   "steps": "A member is incapacitated and records the scar. On the player's own phone press Revive beside the Incapacitated stamp.",
+   "expected": "FAQ.md: 'After an incapacitation, a GM can revive the character (revive_character action, the Revive button on the Lightkeeper's copy of the sheet)'. Rulebook p. 14: back in play when the circle gets them somewhere safe, the table's call. Either the player's button is not there, or the FAQ says players may revive themselves (detection, not prevention, decision fix5 1).",
+   "actual": "The player revives themselves in one press, and the log line 'Bram Holt has been revived and is operational.' looks the same as the Lightkeeper's, so the Lightkeeper cannot tell who did it. The doc and the code disagree.",
+   "related": "decisions_fix5 1 / FAQ Death section",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/05_bram_after_scar.png",
+    "/home/user/pt4/verify/death/shots/34_bram_self_revive.png"
+   ]
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Scar form action choices are 28px tall on a phone",
+   "where": "Scar form (FORM C.O. 14), phone 390x844 touch; frontend/src/components/pc/ScarModal.jsx",
+   "steps": "Deal a fourth mark to an investigator whose player is on a phone; measure the Lower by 1 / Raise by 1 rows.",
+   "expected": "44px touch targets (DESIGN.md).",
+   "actual": "Each of the 18 choice rows is a 121x28 label with a 14x14 radio. Decide later and Record scar are 44px.",
+   "related": "DESIGN.md 44px touch targets",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/04_bram_scar_modal.png"
+   ]
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Accept on a relationship paper is 39px tall on a touch tablet",
+   "where": "Player Circle page, Circle relationships, tablet 820x1180 touch",
+   "steps": "With a proposal waiting for you, open Circle on a tablet and measure Accept.",
+   "expected": "44px touch target.",
+   "actual": "Accept is 101x39.",
+   "related": "DESIGN.md 44px touch targets",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/18_iris_accepted.png"
+   ]
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "The owed-scar banner says the track 'is full' when the server has already cleared it",
+   "where": "Player desk, phone, after Decide later on the scar form",
+   "steps": "Take a fourth Brain mark, then press Decide later.",
+   "expected": "Wording that matches the sheet and FAQ (the overfilled track is cleared and a scar is owed), as the scar form itself says.",
+   "actual": "The banner reads 'A scar is waiting. Bram Holt's Brain track is full.' while the Brain track above shows 0 of 3.",
+   "related": "FAQ 'What happens on the 4th mark?'",
+   "shots": [
+    "/home/user/pt4/verify/death/shots/31_bram_decided_later.png"
+   ]
+  }
+ ],
+ "method": "Main only, 1bc48a0, backend on 8180 and site on 4180, database death_main (dropped at the end). Folder: /home/user/pt4/verify/death. lib.js is v8405_lib.js with the ports and paths changed. setup.js builds 'The Last Lantern' over the API: Lightkeeper lk; Iris Vane (pa, Slink/Criminal, Death Defy); Bram Holt (pb, Face/Journalist); Cora Lune (pc, Weird/Occultist). It then seals the table in SQL with resources 4/4/4, spending and reports open, Iris at 2 Body and 3 scars, and Bram at 2 Brain. Bram proposes to Iris over REST. Seats: Lightkeeper laptop 1366x768, Bram phone 390x844, Iris tablet 820x1180, Cora laptop, and later pa on a phone for the Registry. To reuse: driver.js is a long-lived Playwright browser that runs JS POSTed by run.sh (steps/*.js), so all desks stay open across steps for live checks. For crafted frames, inject them on the seat's own routed socket (seat.sockets[n].server.send). Never open a second Node socket on a character whose desk is open: the server hands the desk over ('This desk is open in another tab...'), and a mark dealt then lands as 'desk is closed', which cost me one Body mark early on. restart_api.sh needs the database name as the third argument when up.sh got one, or the backend fails to start. I reset Death Defy's use in SQL once to reach a held mark at the death. The fallen's personal_circle_answer was set in SQL, since a Fallen line in Circle History needs an answer and SQL sealing skips formation. Wren was forged over the API, but the join and approval were done on screen. Screenshots are in /home/user/pt4/verify/death/shots.",
+ "praise": [
+  "The Death Defy held mark is drawn the same way on the player's desk and the Lightkeeper's copy ('3 of 3, 1 held', 'Body mark held for Death Defy.'), and is dropped cleanly at the death with no mark taken.",
+  "The fourth-scar form is clear and honest: 'When you record it, Iris Vane dies. It changes no action rating.', with no Decide later.",
+  "The server refusals for the dead are thorough: roll, spend, propose (to and from, REST and WebSocket), a fifth scar, ability use and burn all return the same 409 sentence.",
+  "A double press on Revive logs one revive.",
+  "Release mid-assignment does everything decision fix4 1 lists, live on every desk and the same after reloads.",
+  "The replacement keeps its predecessor's spend count through a join request, and the log names who it replaces.",
+  "The Registry's Fallen section reads well at phone width with no stray controls."
+ ]
+}

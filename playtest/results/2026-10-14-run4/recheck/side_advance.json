@@ -1,0 +1,136 @@
+{
+ "items": [
+  {
+   "item": "Open reports, four players file (keys + optional line, phone/tablet/laptop/wide)",
+   "control": "n/a",
+   "head": "Open Reports logged live to all 5 desks; all four filed; line saved (Cass sent none, card shows none); LK tally 'some, 2 of 4' +2; keys and notes on the Lightkeeper card backs read correctly",
+   "verdict": "fixed",
+   "shots": [
+    "out_8170/rep_sent_p1.png",
+    "out_8170/lk_cards_read.png"
+   ]
+  },
+  {
+   "item": "Add Illumination across 12 (10 + 2 questions + 2 keys = 14)",
+   "control": "n/a",
+   "head": "One log line 'gains 4 Illumination (10 to 14)' plus 'track is full', on every desk live; every desk shows '12 / 12 (+2 carried over)' and the Track full banner; no milestone line (9 already counted)",
+   "verdict": "fixed",
+   "shots": [
+    "out_8170/after_add_p1.png"
+   ]
+  },
+  {
+   "item": "Advance the circle (Nobody Left Behind) on a full track",
+   "control": "n/a",
+   "head": "Live on all desks, no reload: track 2/12 (carry), Stitch/Refresh/Train 5 each (1 plus 4 members), earn_backs 0, milestones_earned 0, new circle ability shown, one log line, each player got 2 picks and the dialog opened by itself",
+   "verdict": "fixed",
+   "shots": [
+    "out_8170/after_adv_p1.png",
+    "out_8170/adv_armed_lk.png"
+   ]
+  },
+  {
+   "item": "Advancement dialog: choices, Later, comes back",
+   "control": "n/a",
+   "head": "Four options (action, drive both or split, new ability from a list, gild; already gilded ones disabled), count (n/2) on the Confirm button; Later closes it, picks stay 2 in the DB, a 'Choose advancements (2)' button (44px high) reopens it, and a reload brings it back. Results applied right: Ada +1 Move, +2 Nerve; Bram +1 Sway, Hide gilded; Cass Great Wards, +1 Nerve +1 Intuition; Dev +1 Strike, Sense gilded. Log lines on all desks, 'Advancement Applied' receipt",
+   "verdict": "fixed",
+   "shots": [
+    "out_8170/p1_later.png",
+    "out_8170/p3_split.png",
+    "out_8170/p1_after_confirm.png"
+   ]
+  },
+  {
+   "item": "Advancement cannot be taken twice (double press, two tabs)",
+   "control": "n/a",
+   "head": "Double press on Confirm sent one batch (picks 2 to 0, one log line each). Two tabs of one desk: opening the second stops the first ('This desk is open in another tab'); the second applied once, the first sent nothing; Use this tab then cleared its stale dialog",
+   "verdict": "fixed",
+   "shots": [
+    "out_8170/p2_A_after.png"
+   ]
+  },
+  {
+   "item": "Earn-back at a milestone (Resource Management)",
+   "control": "n/a",
+   "head": "After a spend (Stitch 4, Train 4) +1 Illumination to 3: one log line naming milestone 3 on all desks, earn_backs 1, milestones_earned 3; LK shows 'Earn back one' with Refresh greyed 'full'; players show 'One to earn back, the circle's choice'. One press on Train applied 'earns back a Train (2 of 5)' to all desks, prompt gone everywhere; a double press applied once",
+   "verdict": "fixed",
+   "shots": [
+    "out_8170/lk_earnback.png"
+   ]
+  },
+  {
+   "item": "End Assignment resets and what stays (FAQ.md)",
+   "control": "n/a",
+   "head": "Reset: ability uses, gear, spend counts (SPENDS 0/2), reports and tally closed and cleared, one log line. Stayed: Illumination 3, Stitch 4 and Train 2 (not refilled), marks, drive and resistance spent, advances, Bram's held Train die, spending open flag. Same live and after a reload of all five desks; no dialog reappears",
+   "verdict": "fixed",
+   "shots": [
+    "out_8170/sheet_p2.png",
+    "out_8170/end_lk.png"
+   ]
+  },
+  {
+   "item": "Reload of each desk after all this",
+   "control": "n/a",
+   "head": "All five desks show the same track, resources, spends and report state as before the reload",
+   "verdict": "fixed",
+   "shots": [
+    "out_8170/reload_p1.png"
+   ]
+  },
+  {
+   "item": "LK roster card shows advancements waiting",
+   "control": "n/a",
+   "head": "Not looked at while picks were waiting (only after all were chosen)",
+   "verdict": "not checked"
+  }
+ ],
+ "findings": [
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Advancement dialog says 'The Illumination track is full' after the track has already rolled over",
+   "where": "Player desk, advancement dialog (phone 390x844 and the others); the text is in the dialog header",
+   "steps": "Advance the circle on a full track. The track now reads 2 / 12 on every desk. Open the player's Circle Advancement dialog (or press Later and reopen it).",
+   "expected": "A line that stays true, for example '2 advancements for Ada Lark.'",
+   "actual": "'The Illumination track is full: 2 advancements for Ada Lark.' while the track reads 2 / 12 right behind it",
+   "related": "advancement dialog"
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "A stale tab keeps a live-looking Confirm that does nothing and says nothing",
+   "where": "Player desk tablet 820x1180, second tab of the same desk",
+   "steps": "Open the same investigator's desk in a second tab while the advancement dialog is open in the first. In the first tab (banner 'This desk is open in another tab') press Confirm advancement.",
+   "expected": "Either Confirm disabled or one short line pointing to 'Use this tab'",
+   "actual": "The press sends no frame, no message and the dialog stays; picks are safe in the DB, so only a silent no-op for the player",
+   "related": "two-tab handling"
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Receipt and log word the drive pick differently",
+   "where": "Advancement receipt vs Activity Log",
+   "steps": "Take 'Add 2 drive points' on Nerve for Ada.",
+   "expected": "Same wording in both",
+   "actual": "Receipt: '+2 nerve drive' (lower case); log: 'gained +2 Nerve drive.'",
+   "related": "advancement log lines"
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "The circle advance writes no line about the resources refilling",
+   "where": "Activity Log, all desks",
+   "steps": "Advance the circle with Stitch 2, Refresh 3, Train 1 (pool 5).",
+   "expected": "A line or a clause that each resource went back to 5, like the earn-back line does",
+   "actual": "Only 'The Lantern Watch has advanced and gained Nobody Left Behind!'; the refill shows only in the counters (FAQ does not require a line)",
+   "related": "FAQ 'How do the circle's resources come back'"
+  }
+ ],
+ "praise": [
+  "The earn-back prompt is clear: the Refresh button is greyed 'full', the log names the milestone, players see 'One to earn back', and a double press applies once.",
+  "Advancement picks survive Later, reload and a second tab; the server applies each set only once.",
+  "The log line for every advancement and the earn-back reaches all five desks live and is worded plainly.",
+  "The ring tracks 3 and 10 correctly with the milestones gold, and '12 / 12 (+2 carried over)' explains the rollover before the Lightkeeper presses Advance."
+ ],
+ "method": "Folder /home/user/pt4/verify/advance. setup.js builds a sealed table through the API and SQL (circle at 10 of 12, Resource Management, milestones_earned 9, Stitch 2, Refresh 3, Train 1, four members so pool 5). daemon.js holds five Playwright seats (LK wide, p1 phone, p2 tablet, p3 laptop, p4 wide) and runs cmd/N.js files through run.sh N, so desks stay live without reloading; screenshots are in out_8170. Avoid: aria-labelled correction squares on the LK page start with 'Train:' and 'Stitch:' (a /^train/ match set Train to 1 by mistake; the earn-back buttons are labelled 'Earn back a Train'); the armed spend button is labelled 'Spend'. One tab opened on the same context displaces the other desk tab (that is intended). Server on 8170 and the database were stopped and dropped at the end.\"]"
+}

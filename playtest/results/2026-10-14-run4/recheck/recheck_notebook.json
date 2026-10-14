@@ -1,0 +1,228 @@
+{
+ "items": [
+  {
+   "item": "#52 Text tool: each click commits the open label; Escape does not overwrite",
+   "control": "Laptop 1366x768 sketch, Text tool. Flow A (click, type, Enter, click elsewhere): the second click closed the editor with no new box, so 'slipway' was never typed; 'Wick Lane' and 'bell rope' kept. Flow C (Escape then click): the next click re-opened the previous label with its text, so typing overwrote it.",
+   "head": "Flow A and C: every click opens an empty label and all three labels ('Wick Lane / loft', 'slipway (choir loudest)', 'bell rope') are on the canvas. Also on phone 390 by tap: slipway and bell rope both kept. The Text tool stays selected after Escape.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/sk52_A.png",
+    "/home/user/pt4/verify/notebook/out_main/sk52_C.png",
+    "/home/user/pt4/verify/notebook/out_control/sk52_A.png"
+   ]
+  },
+  {
+   "item": "#53 Contents line brings its entry into view (phone under sticky header) and the page holds only lines that fit, arrows page the rest",
+   "control": "Phone 390: a click on a Contents line left the card at top 3044 css px, far below the view, scrollTop 0.",
+   "head": "31 entries. Phone 390 and 360: Contents page 3 of 8, first line click puts the entry card top at 112 against a sticky header bottom of 89. Tablet 820: card top 112, 7 lines per page, 5 pages. Laptop: the card is on screen. 4 lines per page on phone (353px in a 720px frame), next arrow works. Not a bug but the page could take one more line on phone (about 120px spare).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/toc_phone.png",
+    "/home/user/pt4/verify/notebook/out_main/n_phone_after_click.png",
+    "/home/user/pt4/verify/notebook/out_main/t2b_phone.png"
+   ]
+  },
+  {
+   "item": "#54 players see 'The Lightkeeper' on notebook entries, author filter, sketch log line (payloads too)",
+   "control": "Player view showed the Lightkeeper's login name (lightkeeper_lk6exr) in the chips, log line, GET /api/notebook entries (author_name) and in the live notebook_entry WebSocket frame.",
+   "head": "Chips read 'The Lightkeeper'; log line 'The Lightkeeper added a sketch'; GET entries author_name 'The Lightkeeper'; initial socket frames and the live notebook_entry frame carry no username. Roster, circle state, investigator, users/campaigns endpoints do not leak it either. Still true after an API restart (history comes back with the neutral name). Filtering by the chip lists only her entries.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/n_phone_contents.png"
+   ]
+  },
+  {
+   "item": "#44 Heading, List, Quote on an empty line keep the caret after the mark",
+   "control": "Phone, Field Notes entry box: Heading, List, Quote then typing 'x' gave 'x' each time (mark erased). Same in Private Notes.",
+   "head": "Gives '## x', '- x', '> x'; on a second empty line after 'first\\n', List then 'y' gives 'first\\n- y'. Also right in Private Notes and on the Lightkeeper desk (tablet).",
+   "verdict": "fixed"
+  },
+  {
+   "item": "#25 every Notebook and sketch control 44px on touch",
+   "control": "Phone 390: Field Notes/Private Notes tabs 32/27px high, author chips 36, Delete x 36x40, Sketch/Photo 37-38, handwriting select 29, Add entry 40, sketch toolbar buttons 40 wide. Tablet: Delete x 36x40; Lightkeeper desk Resources strip 40.",
+   "head": "Phone 390 and 360 and tablet 820: no Notebook control under 43.5px on the Field Notes, Private Notes and sketch views (script measured all buttons, inputs, selects). Lightkeeper desk on tablet also clean. The laptop (no touch) was not required.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "#21 Back after a reload keeps a sketch in progress; leaving warns while strokes are unsaved",
+   "control": "No beforeunload warning with strokes (event not prevented). Cancel discarded at once. The Back case itself did NOT reproduce in headless Chromium on the control: after a reload, start sketch, Back stayed on the desk with the sketch in both builds, with seeded and with real hub-to-desk navigation.",
+   "head": "beforeunload is prevented while there are strokes (a reload shows the browser dialog). After reload, start a sketch, Back (and 3 Backs): stays on the desk with the sketch intact; history length goes 3 to 4. Cancel with strokes asks 'Press again to discard this drawing.'. Reload itself still loses the strokes (warned).",
+   "verdict": "partly",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/sk2_phone_cancel.png"
+   ]
+  },
+  {
+   "item": "#20 Sign out clears that account's drafts; a server-ended session keeps them",
+   "control": "After Sign out the notebook draft (title and text) and creator draft keys were still in localStorage and the draft refilled on the next sign-in.",
+   "head": "Sign out removes the notebook title/text and the creator draft of that account only (another account's keys stay); signing in again shows an empty form. After a password change from another device, the reload lands on the login screen with the notebook draft kept. A plain reload keeps the draft. Phone 390.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.10 posted sketch labels larger; Keep drawing in view",
+   "control": "Text labels small (about 55px wide for 'Wick Lane / loft' at laptop).",
+   "head": "Labels are about 1.4x larger in the editor and on the card on laptop and phone. 'Keep drawing in view' not found as a separate thing I could name; the phone sketch frame keeps the toolbar and canvas in view with the Discard confirm line shown above the tools. Left partly checked, as decisions.md says 60.10 is partly open.",
+   "verdict": "partly"
+  },
+  {
+   "item": "60.21 Preview turns to Edit while previewing",
+   "control": "The toggle kept saying PREVIEW while previewing.",
+   "head": "Reads EDIT while previewing in Field Notes (phone) and Private Notes (Lightkeeper tablet).",
+   "verdict": "fixed"
+  },
+  {
+   "item": "#26 creator step 3 row fits at 320px",
+   "control": "At 320x640 the 'Sway' action row scrolled 285 wide in a 282 box (3px overflow).",
+   "head": "Row is 282 in 282, nothing past the edge; page has no horizontal scroll at 320, 360, 375, 390. I did not check widths between 320 and 356 one by one.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/cr3_320.png"
+   ]
+  },
+  {
+   "item": "45.19 creator path arrows clear the sticky footer at 360x705, 375x667, 390x667",
+   "control": "At 360x705 the title wraps to two lines and the arrows and '1 / 10' are hidden under the footer; same at 375x667 and 390x667 (cut off).",
+   "head": "Title on one line; arrows and '1 / 10' sit above the footer at all three sizes.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/cr_s1_combo.png",
+    "/home/user/pt4/verify/notebook/out_control/cr_s1_combo.png"
+   ]
+  },
+  {
+   "item": "60.23 creator summary shows where drive points came from",
+   "control": "'Nerve 3, Cunning 3, Intuition 3'",
+   "head": "'Nerve 3 (1 from Criminal, 2 placed), Cunning 3 (2 from Criminal, 1 placed), Intuition 3 (3 placed)'",
+   "verdict": "fixed"
+  },
+  {
+   "item": "45.20 and 60.15 Handwriting help says the word once; list inside the Join dialog",
+   "control": "Label 'HANDWRITING' and a second 'Handwriting' next to the info icon on the phone.",
+   "head": "One visible 'HANDWRITING' with the info icon (the second is the screen-reader label). Phone 390 and tablet 820: the opened list sits inside the dialog, above the sample line and the Cancel and Ask buttons.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/nj_j2_list_phone.png",
+    "/home/user/pt4/verify/notebook/out_main/nj_j2_list_tablet.png"
+   ]
+  },
+  {
+   "item": "#60 join notice in the first person",
+   "control": "'Pontius Aganus asked to join. The hub will say when the Lightkeeper answers.'",
+   "head": "'You asked to join Saltmere Verify with Pontius Aganus. The hub will say when the Lightkeeper answers.' (phone and tablet).",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.4 hub keeps 'Let in: press Play' after approval, reload included",
+   "control": "No mark; only a toast. After approval the ledger row just offers PLAY.",
+   "head": "After approval (the hub polls every 15s) the Registry row carries a green 'LET IN: PRESS PLAY' stamp, still there after a reload, and gone after pressing Play and returning. But see the finding on a second device or an approval while no page is open.",
+   "verdict": "partly",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/hub3_reload.png"
+   ]
+  },
+  {
+   "item": "45.17 Check again is 44px on a phone",
+   "control": "CHECK AGAIN 123x30",
+   "head": "CHECK AGAIN 123x44 at 390x844.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "45.18 locked Last Played tome explains itself on tap and focus",
+   "control": "No lock; the Last Played tome was a plain book while the request waited.",
+   "head": "Locked tome with an info button (71x46); tap, keyboard focus and hover all show 'LOCKED: Opens here once you have played a session.'",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/hub4_lock_tap.png"
+   ]
+  },
+  {
+   "item": "#46 Approve, View sheet, Reject 44px on a phone",
+   "control": "Approve 101x40, View sheet 122x44, Reject 88x40 at 390x844.",
+   "head": "Approve 101x44, View sheet 122x44, Reject 88x44, plus All requests 112x44.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.24 sign-in buttons above the fold at 1366x768; Google frame named",
+   "control": "Sign-in: Sign in at 496 to 552, Create account at 574 to 624 (fits). Sign-up form scrolls (page height 852 over 768).",
+   "head": "Sign-in fits (Sign in 498 to 554, Create an account 576 to 626). Sign-up now fits in 768 (Create account 594 to 650, Back to sign in 675 to 723). The Google button and its frame title do not render in the sandbox (no VITE_GOOGLE_CLIENT_ID, no iframes found), so the frame name was not seen live.",
+   "verdict": "partly"
+  },
+  {
+   "item": "60.25 sign-up says 'Sign up with Google'",
+   "control": "n/a",
+   "head": "Not visible in the sandbox. Code only: googleSignIn.jsx maps signup_with to the frame title 'Sign up with Google' and LoginScreen passes signup_with when registering.",
+   "verdict": "not checked"
+  }
+ ],
+ "findings": [
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "The 'Let in: press Play' mark lives only in the browser that saw the approval",
+   "where": "Hub Case Ledger, Player Registry, phone 390x844 and tablet 820x1180 (campaignSelector/usePendingApprovalWatch.js)",
+   "steps": "New account, forge an investigator, ask to join. The Lightkeeper approves. Open the hub only after that (no page open when it happens), then open the Case Ledger. Also: sign in on a second device.",
+   "expected": "The Registry row shows 'Let in: press Play' until she plays, wherever she signs in (60.4 says the hub keeps the mark).",
+   "actual": "No mark and no notice on a first open after the approval, and none on a second device; only the browser that was on the hub during the approval shows it. It survives a reload there.",
+   "related": "60.4",
+   "shots": []
+  },
+  {
+   "kind": "bug",
+   "sev": "low",
+   "title": "A let-in investigator's Play button has no 'Play' in its name for assistive tech",
+   "where": "Player Registry row after approval, phone 390x844",
+   "steps": "Approve a join, wait for the hub notice, open Case Ledger, read the row button's accessible name.",
+   "expected": "A name that says Play (the control build's button read 'Wren Hollis Saltmere Verify PLAY').",
+   "actual": "'Wren Hollis Saltmere Verify LET IN' (the visible PLAY arrow is not in the name). A test that clicks by /PLAY/ no longer finds it.",
+   "related": "60.4",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/hub3_reload.png"
+   ]
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Join dialog buttons are not aligned to the left edge on a tablet",
+   "where": "Join a Campaign dialog (from the creator), tablet 820x1180",
+   "steps": "Creator step 4 draft, press Save and join a campaign.",
+   "expected": "Cancel starts at the dialog's left padding like the fields above it.",
+   "actual": "Cancel and Save and ask to join sit as a right-leaning group, Cancel indented about 70px from the left edge.",
+   "related": "45.20",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/nj_j2_list_tablet.png"
+   ]
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Contents page on a phone leaves room unused",
+   "where": "Notebook Contents, phone 390x844 and 360 wide",
+   "steps": "31 entries, open the Notebook as a player.",
+   "expected": "As many lines as fit.",
+   "actual": "4 lines per page (8 pages), about 120px of blank space below the fourth line where a fifth two-line entry would fit; the control build showed 5.",
+   "related": "#53",
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/toc_phone.png"
+   ]
+  },
+  {
+   "kind": "idea",
+   "sev": "low",
+   "title": "#21 Back case could not be reproduced on the control in Chromium",
+   "where": "Playwright Chromium, phone 390x844",
+   "steps": "Reload the desk, open Notebook, Sketch, draw, Back (history.back).",
+   "expected": "Control loses the sketch (triage6) and main keeps it.",
+   "actual": "Both builds stayed on the desk with the sketch; the original bug may need a browser (Safari or a mobile one) whose history entry loses its state on reload. Only the unload warning and the two-press discard could be verified as new.",
+   "related": "#21",
+   "shots": []
+  }
+ ],
+ "praise": [
+  "Sketch Text tool now behaves like a person expects: every click opens a fresh label, Escape and Enter both commit, and the tool stays selected.",
+  "Sign out clears only that account's drafts, and a server-ended session keeps them (checked with a real password change from another device).",
+  "The Lightkeeper's name is neutral in every payload a player can reach (REST and WebSocket), not just on screen, and survives an API restart.",
+  "Contents lines bring entries in view under the sticky phone header on first try (card top 112 vs header 89), at 390 and 360 wide.",
+  "The creator's path arrows and the Handwriting list are clean at all five sizes tested, and the summary names where each drive point came from."
+ ],
+ "method": "Folder /home/user/pt4/verify/notebook (lib.js is a copy of v8403_lib.js with T=main|control env switching ports 8160/8161 and databases pt4_8160/pt4_8161; setup.js builds the campaign; screenshots in out_main and out_control). Scripts: sk.js (#52), toc.js and toc2.js (#53, touch sizes), ed.js and lknb.js (#44, 60.21, #25), sk2.js, back*.js (#21), out20.js (#20), pay.js and leak.js and rs.js (#54 payloads and restart), cr.js and cr3.js (creator sizes), join.js (summary, join dialog, notice), hub2 to hub5.js (hub, 60.4, 45.17, 45.18, #46, mark second device), login.js. Both servers were stopped and databases dropped at the end. Reuse tip: a password change in out20.js invalidates the account's token, so run relog.js afterwards. restart_api.sh needs the db name as a third argument when the database is not pt4_<tree>_<port>. One caution on contents tests: a locator like 'li button' includes the delete x buttons. Not checked: Google button, its frame title and 'Sign up with Google' (no client id in the sandbox, so nothing renders; read in code only), 60.10 'Keep drawing in view' as a distinct behaviour, a second tab on the same account for the sketch, and the LK desk on a phone for Contents paging.\"]"
+}

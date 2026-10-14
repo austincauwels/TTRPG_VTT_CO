@@ -1,0 +1,157 @@
+{
+ "items": [
+  {
+   "item": "#51 drive with max 0 shows none, no pip",
+   "control": "Pontius (Professor, Nerve max 0) at phone and tablet: 'Nerve: 0 of 1 available', one empty pip with a live 'Set Nerve available to 1' button. On control every roll row of a Nerve action also looked unusable beside it, and Learn from My Mistakes counted Nerve as not full.",
+   "head": "Phone 390x844 and tablet 820x1180: Available reads 'none', no pip, both steppers disabled, Resistance 'none'. Nerve actions roll (Strike rating 0 rolled 2 dice, lower kept). Stepper buttons are 44px on touch.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/dice/out_8150/t51_phone.png"
+   ]
+  },
+  {
+   "item": "#60 spend confirm stays armed, no 4s lapse, double-click guard",
+   "control": "Laptop: 'Press again: Spend 1 Stitch' falls back to 'Spend 1 Stitch' after 6s idle.",
+   "head": "Laptop and phone (touch): armed label 'Spend' stays after 6s; a press on empty page space disarms; dblclick only arms (stitch stays 2); a deliberate second press spends (2 to 1); Escape/blur path armed Refresh stays armed when Tab moves to the Train spend button (by design, same data-spend-key).",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.11 '1 Nerve spent' after a roll",
+   "control": "After +1d Nerve and Strike roll the stepper just returns to +0d, no word.",
+   "head": "Laptop and phone: '1 Nerve spent' appears beside the stepper right after the roll, gone after about 6s, not back after reload. Pips show 2 of 3.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.12 Learn from My Mistakes not offered when every drive is full",
+   "control": "With all drives full (Nerve counted 0 of 1) a failure offers LFMM, and the drive picker lists Nerve, Cunning, Intuition.",
+   "head": "All full (Nerve 0/0, Cunning 5/5, Intuition 4/4): failure shows no After the roll panel. Cunning 3/5: LFMM offered, picker lists Cunning only.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "45.8 Burn and reroll a few Tabs from a keyboard roll; focus stays when the roll closes the panel",
+   "control": "Laptop: 11 Tabs from the roll row to Burn and reroll; after Enter on Burn focus drops to BODY.",
+   "head": "Laptop keyboard roll puts focus on Burn and reroll (0 Tabs). Enter on Burn: focus goes to the result slip. A mouse roll leaves focus on the clicked row. A roll by another player does not close or steal focus on this desk. Phone 44px Burn height not measured (code says min-h 44 on coarse).",
+   "verdict": "fixed"
+  },
+  {
+   "item": "45.9 reroll slip does not cover Burn and reroll at 1366x768",
+   "control": "Slip rect y469..556 sits on the Burn button (y474, centre hit is the slip).",
+   "head": "Slip opens above (y335..444, Burn at y474, no overlap, centre of Burn not hit by the slip).",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.5 keep-a-die choice still and announced once",
+   "control": "Two focusable role=button dice, each with the same label as its slip line, shimmying; 4 labelled controls total.",
+   "head": "Dice are aria-hidden and out of the tab order, the slip lines are the named controls, focus lands on the first line. Dice stop moving on hover (anim none, positions identical over 0.6s) and a click on a die still keeps it. Not hovered they still shimmy about 3px, and a finger has no hover, so on touch they keep moving (not tapped by script).",
+   "verdict": "partly"
+  },
+  {
+   "item": "60.8 optional burn is not a waiting choice",
+   "control": "After a gilded die is kept and only Burn is left the Dice and log button still says 'a choice is waiting' with the oxblood dot.",
+   "head": "Button reads 'Dice and log, burn and reroll available' with a hollow dot; 'a choice is waiting' with the filled dot only while a die is to be kept.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "#63 free typed question for Scout, Uncanny Eye, Tactician; examples tap-to-fill; in the log",
+   "control": "Scout is a select of three questions.",
+   "head": "Scout (laptop and phone), Uncanny Eye and Tactician (laptop) are text inputs; Use is disabled while empty; tapping an example fills it; the log reads 'Iris Vane used Scout: <question> (1 Intuition).' The box empties after a successful use.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "69.2 refused ability use keeps the typed question",
+   "control": "n/a (no control run for the refusal; code path per triage)",
+   "head": "Intuition 0 then Use on Scout: 'Not enough Intuition for Scout.' and the typed question is still in the box (laptop and phone).",
+   "verdict": "fixed"
+  },
+  {
+   "item": "#24 sheet remembers ability tab; tabs 44px",
+   "control": "Specialty Ability tab goes back to Role Ability after Circle and back; tabs 42px high on phone.",
+   "head": "Phone: tab kept after Circle and back, tabs 44px. A full reload goes back to Role Ability (module-level memory, as the triage chose).",
+   "verdict": "fixed"
+  },
+  {
+   "item": "45.11 empty gear note fits, Change Gear not clipped on tablet",
+   "control": "Tablet: tag has a 'Why empty' term, Change Gear right edge 598 past the tag edge 583, scrollWidth 282 over 266.",
+   "head": "Tablet: 'Cleared when the assignment ended.' fits inside the tag, Change Gear 46px high and inside the tag, no overflow.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/dice/out_8150/tgear_empty_tablet.png"
+   ]
+  },
+  {
+   "item": "45.15 sheet scrolls to a new scar",
+   "control": "No Edit sheet on control, so the scar path could not be replayed there.",
+   "head": "Phone, Edit sheet, Add a scar, Save: page scrollY went 0 to 1918 and the scar list sits at top 554 of 844. The scar form that comes from marks (a mark 3 of 3 gave no form for me) and a scar sent by another device were not reproduced; an apply_scar sent from a Node socket was ignored (scars stayed 0/4).",
+   "verdict": "partly"
+  },
+  {
+   "item": "60.16 Skip to actions link; disabled stepper takes no focus",
+   "control": "12 Tabs to the first stepper, no skip link, 'Spend one less' (disabled) at tabindex 0.",
+   "head": "Laptop: 'Skip to actions' is the 6th Tab stop, after the header controls, shown on focus; Enter lands on the Actions heading and the next Tab goes to 'Spend one more Nerve'. 'Spend one less' is tabindex -1 at 0, and keeps focus when pressed down to 0. Steppers 20px on laptop, 44px on touch.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.22 gear limit shows by the finger on a phone",
+   "control": "Control dialog check script failed to find the items, so not compared.",
+   "head": "Phone: with a fourth item ticked the footer is sticky and in view ('4 / 3 selected. Over the limit of 3'), plus an oxblood line near the top; Save gear 44px.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/dice/out_8150/tg22_phone.png"
+   ]
+  },
+  {
+   "item": "69.5 trauma Edit subline behind an i",
+   "control": "A long permanent paragraph under 'Editing Bram Holt's trauma record.'",
+   "head": "Lightkeeper desk: 'Editing Bram Holt's trauma record.' with a 'How editing works' i.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.9 private notes marked for sender and receiver",
+   "control": "n/a",
+   "head": "Sender: PRIVATE tag beside To: after choosing a recipient and after sending (recipient stays selected, as decided). Sender and receiver logs: 'PRIVATE Iris Vane to @Pontius Reed: ...' with the tag and dashed rule. The Lightkeeper's log shows it too (named 'and the Lightkeeper').",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/dice/out_8150/t609_receiver.png"
+   ]
+  },
+  {
+   "item": "Rolls against the rules (pool, 0 rating, gilded, drive spend)",
+   "control": "n/a",
+   "head": "Via sockets and UI on main: rating 0 no spend gives 2 dice kept lower (type zero); rating 0 with 2 Cunning gives 2 dice kept higher; Sway 1 + 5 Cunning gives 6 dice; Control 2 + 3 Nerve gives 5; gilded pool 1 auto-refresh flag present; spending more than held is refused (422 'Not enough Nerve'); a gilded pool 2 holds for a keep. Criticals (two 6s) were not seen in my limited rolls, and a burn's reroll pool was only seen on the slip text, not counted.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "Second tab on the same account: focus after a roll made in the other tab",
+   "control": "n/a",
+   "head": "Tried two tabs; the other tab never showed a Burn panel in 8 tries, so focus stealing was not exercised. Server restart not exercised (none of my items hold server state).",
+   "verdict": "not checked"
+  }
+ ],
+ "findings": [
+  {
+   "kind": "bug",
+   "sev": "low",
+   "title": "The server takes a new roll while a gilded choice is still waiting",
+   "where": "Backend roll handler (rolls.py), seen over the socket on main 1bc48a0; the desk blocks it in rollAction",
+   "steps": "Open a socket for Pontius. Send roll read with 0 drive (gilded pool 2, needs a keep). Without resolving, send roll sway with 1 Cunning.",
+   "expected": "FAQ line 18: the server holds the dice until a die is kept, so a second roll should be refused or wait.",
+   "actual": "The second roll returned a roll_result at once and the first choice was dropped. Only the desk stops it (a second tab or device that has not seen the choice could roll over it)."
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Keep-a-die dice keep shimmying on touch",
+   "where": "Phone 390x844 and tablet touch, DiceTray.jsx (hover:animate-none)",
+   "steps": "Roll a gilded action with a pool of 2 or more and look at the two dice in the tray.",
+   "expected": "60.5: the choice stays still.",
+   "actual": "On a mouse the shimmy stops on hover, but a finger has no hover so the dice keep moving about 3px (laptop reading when not hovered). I did not tap them on a phone to see whether a tap misses."
+  }
+ ],
+ "praise": [
+  "The skip link, Burn and reroll focus hand-off and aria-hidden dice make a keyboard roll start to finish short and quiet.",
+  "Nerve 0 now reads 'none' and Nerve-action rolls work for a Professor; the control could not roll them at all while a choice was waiting beside it.",
+  "Over-limit gear gives a sticky 'Over the limit of 3' by the finger on a phone.",
+  "A refused Scout use keeps the typed question and says why."
+ ],
+ "method": "Folder /home/user/pt4/verify/dice. lib.js (copy of v8401_lib with PORT env, per-port state file state_<port>.json, random X-Forwarded-For start, L.clean() settles a held gilded roll); setup.js builds one sealed table per port with 5 players over the API (a Scout Slink, a Nerve-0 Professor with Learn from My Mistakes, a Uncanny Eye Magician, a Tactician Soldier, a Journalist) and fixes ratings and gear in SQL. Tests: t51b, t45 (keyboard roll, Tab count, slip rect), t60 (circle spend, set circles.resources_editable and stitch in SQL), t11, t12, t5/t5b, t24, t16, tgear, tg22, t63/t63b, tscar2, t609, t695, trolls/trolls2 (socket rolls; filter frames after sending, a new socket replays the held roll). Avoid: setup forge errors leave orphan Iris Vane characters (ids 1 to 4 in the main db); a gilded roll left held by an earlier script disables every roll row on reload, so call L.clean(key) before opening a seat; never look for the burn by data-burn-reroll (control lacks it, use the button text). Phone Circle is under Menu. Screenshots are in out_8150 (main) and out_8151 (control). About 140 tool calls used; the second-tab, restart and tablet pass of several items were not done.\"]"
+}
