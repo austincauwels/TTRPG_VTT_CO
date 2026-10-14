@@ -1,0 +1,45 @@
+{
+ "players": [
+  {
+   "summary": "The hub showed \"In play\" live without reload, and the formation papers were open once I entered the campaign. Done: question \"heroic\" with my answer (Saved), name The Marginalia Circle voted (tie 1-1 with Bram's Whistlers, which leads per the tie rule), Resource Management, Candlelight, and relationships proposed to Bram (Ward), Cass (Rival) and Dev (Old Friend). I accepted Bram's Mentor. Starting resources read 5/5/5, correct. I left the chapter house to Bram. Logged F020 to F022 (no per-part done tick, Bram's approval missing from the activity log, praise). Told the table I'm done. No console errors.",
+   "findings": [
+    "F020",
+    "F021",
+    "F022"
+   ],
+   "blocked": "",
+   "character_name": "Ada Quill",
+   "state": "Ada Quill, Scholar/Professor: no marks, no scars; Nerve 1, Cunning 4, Intuition 4, resistance 1 each in Cunning and Intuition; gear Tome, Lantern, Bleed Detector."
+  },
+  {
+   "summary": "The LK's approval showed on my phone live without a reload (registry stamp \"Let in: press Play\"). I pressed Play and the formation papers were open. I completed all six parts: voted the heroic question and wrote a personal answer (\"Saved\"); suggested and voted \"The Whistlers\"; wrote the chapter house (toll shed, \"Saved\"); voted Nobody Left Behind and Candlelight; accepted Ada's Ward; proposed Mentor to Ada (instantly confirmed), Old Friend to Cass and Ward to Dev (both waiting). Resource points read 5 (Stitch 5, Refresh 5, Train 5) as expected. I logged F019, F023, F024 and F025: two praise, two low ux. The ux ones are that the I-VI strip shows no done ticks, and that my proposal to Ada was confirmed at once without explanation. No console errors. I said at the table that I am done, and updated memory.",
+   "findings": [
+    "F019",
+    "F023",
+    "F024",
+    "F025"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Hub showed the approval live without reload and the formation papers were open on my desk. Filled all six parts: heroic question with answer (Saved), two name suggestions (emoji/markdown, 80-char cap, Enter twice made one), double-click vote on Whistlers, Nobody Left Behind, Compass, proposed relationships to all three, accepted theirs. Resource points read 5/5/5. Console errors clean. Logged 3 findings (1 praise, 2 ux), told the table, updated memory. Dev has not yet answered my Stranger proposal. Activity log still lacks Ada/Bram approvals (F021).",
+   "findings": [
+    "F026",
+    "F027",
+    "F028"
+   ],
+   "blocked": "",
+   "state": "Cass Moreau: no marks or scars; Nerve 3, Cunning 5, Intuition 1 all full; resistance Nerve 1, Cunning 1; gear Lockpicks, Concealed Blade, Lantern; Death Defy and Born in the Shadows unused."
+  },
+  {
+   "summary": "Registry showed approval live without reload; pressed Play and the formation papers were already open. Voted the heroic question and saved my answer (Saved shown), suggested and voted The Quiet Bell, voted In This Together and Candlelight, left the chapter house as Bram wrote it. Accepted Bram's Ward and Ada's Old Friend, proposed Confidant to Ada and Cass (Cass pending). Resources read 5/5/5. Announced done at table. Logged F026-F028 (praise live approval, relationship form disabled/confusing pairing, log silent about formation). No console errors.",
+   "findings": [
+    "F026",
+    "F027",
+    "F028"
+   ],
+   "blocked": "",
+   "state": "Dev Lindqvist: Nerve 2/2, Cunning 2/2, Intuition 5/5, Intuition resistance 1, no marks, no scars, gear Arcane Texts, Occult Supplies, Ritual Dagger, Great Wards unused."
+  }
+ ]
+}

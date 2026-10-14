@@ -1,0 +1,57 @@
+{
+ "players": [
+  {
+   "summary": "Looked first: desk was current without reload (tension 0 of 4, timer cleared, \"opened the assignment reports\" in the log, Brain 1 of 3 shown). Opened the Circle page and filed my report: ticked only Reference Research (the Professor keys are Mentor an Ally, Reference Research and Make a Plan; I did not mentor or make a plan) plus a 175-character line. After Send report the status, locked boxes, stamp and Amend button all appeared, and `errors` reported nothing. The key rule in the keys tooltip (\"any fulfilled: 2; all: 4\") matches the book (p. 55) and FAQ. The LK answered 2 of 3 questions yes, giving +2, and one of four investigators ticking a key gives +2 more, if the others do not tick any. I cannot verify the sum from the player desk because players see no tally. Logged F094 (praise, report filing), F095 (ux, keys have no descriptions and players see no tally) and F096 (ux, hourglass caption still \"The tide turns\" at tension 0). Said a line at the table. Memory file appended. No restart was needed.",
+   "findings": [
+    "F094",
+    "F095",
+    "F096"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Looked first without reloading: desk was current (log, reports-open line, Ada's report filing arrived live). Menu showed a dot on Circle. On the Circle page I ticked Protect Someone and Use Violence of Action, wrote a line about jamming the windlass and hauling Cass out, and sent the report. It showed a REPORT SENT stamp with Amend, and the ticker updated live. I also accepted Cass's Champion relationship; all relationships now read confirmed. On the phone the form works (checkboxes are tappable, the 120/280 counter shows) but sits about two screens down under the charter and Illumination ring. Logged 2 findings, a praise and a low ux. No console errors. Memory appended.",
+   "findings": [],
+   "blocked": "",
+   "state": "Nerve 5/5, Cunning 1, Intuition 3; resistance Nerve 1, Intuition 1; Body mark 1/3; no scars; gear unchanged; report filed."
+  },
+  {
+   "summary": "Looked first: my screen was current without reload (Body 3 of 3, Bleed 1 of 3, other seats' reports in the log). The Body button says the track is full and the next mark brings a scar. On the Circle page I ticked only Do Something Illegal (not Make a Deal or Stand Up to Authority, which Cass did not fulfil), wrote a line with an emoji, and double-clicked Send report: one report filed, boxes locked, Report sent stamp, Amend shown. Then Amend, Enter twice in the line, double-clicked Send amended report: the log shows exactly one filed and one amended line, no duplicates, and the text and keys were kept. Minor: an amend with only trailing newlines changed still sends and logs an amendment. No console errors. Illumination still 0 of 12 (the Lightkeeper adds it). Logged 2 findings (1 praise, 1 ux) and appended my memory entry.",
+   "findings": [
+    "F099",
+    "F100"
+   ],
+   "blocked": "",
+   "character_name": "Cass Moreau",
+   "state": "Body 3/3 (next Body mark scars), Bleed 1/3, Brain 0, scars 0/4; Nerve 1/3, Cunning 5/5, Intuition 1/1; resistance N1 C1 I0; Death Defy used, Born in the Shadows unused; report filed (Do Something Illegal) and amended once."
+  },
+  {
+   "summary": "Desk was current at the start without a reload (Bram's report line was shown). On the Circle page I ticked only Act Bizarre (the salt ward) for Dev, added a line, and sent the report. The boxes locked, the status read \"Report sent to the Lightkeeper\" and Amend appeared. In the Notebook I posted a Markdown entry, \"Closing note: forty-one\", and said so at the table. I logged one praise finding, F099, and the errors check showed nothing. I didn't touch the held Train die, so it is unchanged. I appended the memory entry. No restart was needed.",
+   "findings": [
+    "F099"
+   ],
+   "blocked": "",
+   "character_name": "Dev Lindqvist",
+   "state": "Nerve 1 of 2, Cunning 2, Intuition 4 of 5, Intuition resistance 1 unburned, no marks or scars, gear Arcane Texts / Occult Supplies / Ritual Dagger, Great Wards used on Bram, 1 Train die held, 1 circle spend left. Report filed with Act Bizarre."
+  }
+ ],
+ "dm": {
+  "summary": "I started with 'look' and did not reload. The Circle page was up to date: all four reports were filed, Cass's amend was in the ticker and Bram had accepted Cass's Champion relationship, so all 11 relationships read Agreed. I read the back of each report card. Every player ticked only keys their investigator really fulfilled, and the lines and emoji displayed correctly. The page's total was +6: 2 for the two questions answered yes, plus 4 because all four investigators fulfilled a key. That matches FAQ p.55. I pressed Add 6 Illumination. The ring went from 0 to 6 of 12, the log said 'The Whistlers gains 6 Illumination (0 to 6).' and the question boxes locked. There was no milestone line, which is correct because the circle has no Resource Management. The track did not fill, so there was no advance. Before ending I looked at Cass's sheet, then pressed End Assignment. The confirm's 'i' explains what ends and says 'Drives carry over; a Refresh restores them.' After End, I checked the desk and the sheets: the dispatch was blank, the tray empty, the timer gone, the hourglass at 0 with no name, and gear was cleared, including on Cass's open sheet, live. Spend counts were back to 0 of 2, ability uses were reset, Dev's Train die was kept, the reports were cleared and closed, Illumination stayed at 6, and the circle resources were not refilled (correct by p.41). One question: spending stayed open after End Assignment. I logged 2 praise and 2 low ux findings and told the table (#55) what they will now see on their desks. No console errors, and no restart was needed.",
+  "findings": [
+   "F102",
+   "F103",
+   "F104",
+   "F105"
+  ],
+  "blocked": "",
+  "state": "The Ferryman's Psalm has ended (22:55). Illumination is 6 of 12 (milestones 3 and 6 passed, no advance). Tension is 0 of 4 with no clock name; the timer is cleared and hidden; there is no dispatch. Reports are closed and empty, and the Circle page tally is +0. Spending is still OPEN and every spend count is back to 0 of 2. Resources: Stitch 4 of 5, Refresh 5 of 5, Train 4 of 5, not refilled. Marks: Cass Body 3 of 3 and Bleed 1 of 3 (the next Body mark is a scar); Ada Brain 1; Bram Body 1; Dev none. No scars, no one incapacitated. Ability uses are reset (Death Defy, Great Wards, Adrenaline Rush and Learn from My Mistakes are available again). Gear is cleared for everyone. Dev still holds a Train die. Drives carry over: Cass Nerve 1 of 3, Dev Nerve 1 of 2 and Intuition 4 of 5. The scene is downtime at the toll shed. The LK dice tray is set to 3 and empty.",
+  "story_so_far": "The Whistlers crossed the Gullhaven estuary flats in fog, found the psalm stamped on the chain links and learned that the ferry bell was a recording. In the ferryman's cottage they opened the tide-ledger of fares and found that Absalom Hode had been made part of the ferry. On the ferry mid-channel, Bram jammed the windlass, Dev's salt ward stopped the counting voice, and Cass, battered to Body 3 of 3 by the water, cut the empty coat from the bell. Ada read out the first fare, Hode's own, so he was carried over and the psalm was laid to rest. The circle filed honest reports and gained 6 Illumination (6 of 12). The assignment is ended. The soaked ledger still ends with Ada's name in the slanting hand, a hook for later.",
+  "for_players": "1. Without reloading, check that your desk shows the assignment ended: the log line, a blank dispatch, an empty hourglass with no name, an empty dice tray, empty gear slots, your ability shown as available again, and 'Circle spends this assignment 0 / 2'. Anything stale is a finding. 2. On the Circle page, check that Illumination reads 6 of 12, your report is cleared and reports are closed. 3. Optionally spend between assignments, since spending is still open: Cass could use a Stitch to clear Body 3 and Bleed 1, and anyone low on drives could use a Refresh. Check that the counts and log update. 4. Look at whether the site offers a way to choose gear again for the next assignment.",
+  "prompts": {
+   "ada": "Downtime. Check your desk shows the end (Learn from My Mistakes available, gear empty, spends 0 of 2) and that Illumination 6 of 12 = 2 questions + 4 keys per p.55. Your name is still last in the ledger; note it if you like.",
+   "bram": "Downtime. On the phone, check the end arrived live (Adrenaline Rush back, gear empty, spends 0 of 2). If you want, spend a Refresh or Stitch for yourself at the toll shed and see whether it is easy to find.",
+   "cass": "Downtime. You are at Body 3 of 3 and Bleed 1: decide whether to Stitch at the toll shed (spending is open, Stitch 4 of 5). Check Death Defy shows as available again and gear is empty. Try your edge cases on spending between assignments.",
+   "dev": "Downtime. Check that your Train die is still held after the end, Great Wards is available again and the notebook keeps your closing note. Maybe write the Society's record of the Psalm in the Field Notes."
+  }
+ }
+}

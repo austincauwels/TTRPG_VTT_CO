@@ -1,0 +1,62 @@
+{
+ "players": [
+  {
+   "summary": "Looked first: my desk was current without a reload (dispatch, tension 1 of 4, circle and log all matched the table). I said my action at the table, spent 1 Intuition (+1d) and rolled Focus. The pool was 2+1 = 3 dice, one gilded, which matches the rules. The dice were gilded 5, 6 and 3, and the slip offered \"Keep the gilded 5: Mixed success, 1 Intuition back\" or \"Keep the 6: Success\". I kept the 6 for a Success, which is correct (one 6 is a full success, a critical needs two). The log line appeared at once and Intuition went 4 to 3. Well-Read stayed silent, correctly, since the result was above 3. I found no console errors. I logged F035 (praise: the roll checks out against the rules) and F036 (ux: Intuition pips are not marked until the roll). I did not need start_all.sh. I appended my memory entry.",
+   "findings": [
+    "F035",
+    "F036"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Looked first without reloading: Tension 1/4 showed, and Ada's Focus roll appeared in my log live, so the desk was current. Said my intent at the table, spent 1 Nerve with the + button, tapped Move on the phone. Rolled 3 dice (gilded 5, 2, 3). The dice icon showed a dot and 'a choice is waiting'. I opened the tray and kept the gilded 5 for a Mixed success with 1 Nerve refreshed (Nerve back to 5/5). I did not burn resistance. The log line, result stamp and Nerve count all agreed. No console errors. Logged F037 (praise: phone roll flow) and F038 (ux: bottom choice bar crops the dice, easy to miss). Memory updated. Did not need start_all.sh.",
+   "findings": [
+    "F037",
+    "F038"
+   ],
+   "blocked": "",
+   "state": "Bram: Nerve 5/5, Cunning 1/1, Intuition 3/3; resistance Nerve 1 of 1, Intuition 1 of 1; no marks, no scars. Move rolled Mixed success (gilded 5 kept)."
+  },
+  {
+   "summary": "Looked first without reloading: my screen was current (Ada's and Bram's rolls, dispatch, tension 1 of 4, relationships). Spoke at the table, spent 1 Cunning, double-clicked Roll Hide: one roll only (3 dice, 1 gilded, 1, 3), no console errors. Reloaded with the Keep slip still pending: dice, slip and spent Cunning were restored. Pressed Enter twice on \"Keep the gilded 1\": resolved once as Failure, 1 Cunning refunded (5 of 5), a single log line. Did not burn resistance; told the table. Logged F039 and F040 (praise), F041 (ux). No marks yet.",
+   "findings": [
+    "F039",
+    "F040",
+    "F041"
+   ],
+   "blocked": "",
+   "character_name": "Cass Moreau",
+   "state": "Slink, no marks, no scars; Nerve 3/3, Cunning 5/5, Intuition 1/1; resistance Nerve 1, Cunning 1 (unburnt); Death Defy and Born in the Shadows unused; Hide failed (gilded 1 kept)."
+  },
+  {
+   "summary": "Looked first without reloading: the desk was current (Ada's and Bram's rolls, the dispatch, the tension at 1 of 4, and later Cass's Hide failure arrived live). In character I said at the table that I listen to the bell. I spent 1 Intuition, armed Extend Your Senses (the button said 4 dice) and rolled Sense: 4 dice 6, 4, 5, 6, a Critical success. Intuition went to 4 of 5, and the log named the ability. Then I started the case notebook: a Field Notes entry titled \"The bell on the estuary flats\" with a Markdown heading, list, bold and quote (Preview rendered it), plus mudflats_photo.jpg and a caption. It posted in my handwriting. Findings: 2 praise, plus 2 ux (the photo caption prints under the entry title, not under the photo; the dice tray says \"+2d\" without splitting drive from ability). No console errors. Test-harness note: seat.js run scripts have no touch, so tap fails there and I used click. Did not get to sketch, private notes or pass notes this turn. Memory file updated.",
+   "findings": [
+    "F042",
+    "F043",
+    "F044",
+    "F045"
+   ],
+   "blocked": "",
+   "state": "Dev Lindqvist: Nerve 2, Cunning 2, Intuition 4 of 5 (1 spent on the Sense roll), Intuition resistance 1 of 1 unburned, no marks, no scars, gear Arcane Texts / Occult Supplies / Ritual Dagger, Great Wards unused, Extend Your Senses used once."
+  }
+ ],
+ "dm": {
+  "summary": "I started with 'look' and did not reload. The Lightkeeper desk was current: all four scene 1 rolls were in the log (Ada's Focus success, Bram's gilded Mixed, Dev's Critical with Extend Your Senses, Cass's Hide failure), along with Dev's photograph. Cass's failure was on the tray slip, and her sheet correctly showed Cunning at 5 of 5. I answered each roll in the story at the table. On Cass's sheet I dealt a Bleed mark with 'From an enemy' ticked. Because she has Death Defy, the mark was held correctly ('Bleed mark held for Death Defy.', hatched box, log line). I made an open roll of 3 dice (3, 3, 1, Failure: the thing in the fog misses Cass) and a secret roll of 2 dice (3, 3, Failure, kept behind the screen). I raised the tension to 2 of 4, sent Ada a private pass note, and resent the dispatch with the cottage location (log 'sent a new dispatch', 637 chars). Then I opened scene 2, the ferryman's cottage, and asked each player for a roll. Nothing broke and there were no console errors; I did not need start_all.sh. Things that got in the way: the Secret box and the private pass-note recipient both stay armed after use (I had to untick Secret by hand). My open roll silently closed Cass's chance to burn resistance, and the desk gave no warning, although she had said at the table she was waiting. The roster card does not show a mark held for Death Defy. There are also small wording mismatches between the log and the slip. I appended my memory entry.",
+  "findings": [
+   "F046",
+   "F047",
+   "F048",
+   "F049",
+   "F050"
+  ],
+  "blocked": "",
+  "prompts": {
+   "ada": "Scene 2: read the psalm sheet on the cottage table: where the handwriting changes and what it says after. Roll Read (Read 2 gilded, Cunning available to spend). Also check your private pass note from the Lightkeeper.",
+   "bram": "Scene 2: something wet is trying the latch from outside; brace the door and hold it. Roll Control (Control 2, spend Nerve if you want).",
+   "cass": "Scene 2: get the tarred tide-ledger open; the brass lock is old and swollen. Roll Control (Control 1, spend Nerve if you want). First answer the held Bleed mark on your desk: use Death Defy or take the mark.",
+   "dev": "Scene 2: study the portrait over the hearth: what scratched the face out, and with what. Roll Survey (Survey 2 gilded, spend Intuition if you want)."
+  },
+  "story_so_far": "The Whistlers walked out onto the Gullhaven flats at dusk as the fog came in. Ada found a psalm stamped on every seventh link of the ferry chain ('Bear me over, ferryman, for I have no coin'), and the last line was half filed away. Bram followed the bare footprints to the channel edge, where the last prints sink deeper at the toe, as if the walker was lifted. Dev heard that the bell is a replayed ring with a man's voice under it counting coins to forty. Cass's boot sucked out of the mud, and the thing in the fog turned and tasted her (a Bleed mark, held for Death Defy). It reached for her along the chain and missed. The circle crossed by the chain to the far bank and reached the ferryman's cottage, shut these forty years. Inside are a psalm sheet whose handwriting changes halfway down, a tide-ledger with a swollen brass lock, and a portrait of the ferryman (the dispatch names him Absalom Hode, drowned 1886) with the face scratched out. Something wet is trying the latch.",
+  "state": "Scene 2, the ferryman's cottage. Dispatch resent with the location 'Gullhaven, the ferryman's cottage on the far bank'. Tension 'The fog comes in' at 2 of 4, timer off (saved for scene 3). Cass has a Bleed mark held for Death Defy, not yet resolved; nobody else has marks or scars. Lightkeeper rolls: open 3,3,1 Failure; secret 2 dice 3,3 Failure. Private pass note sent to Ada; the To: picker is still set to Ada (private). Illumination 0 of 12; Stitch, Refresh and Train 5 of 5 each; spending locked; reports closed (0 of 4). No console errors."
+ }
+}

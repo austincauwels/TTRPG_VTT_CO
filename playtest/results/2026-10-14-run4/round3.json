@@ -1,0 +1,73 @@
+{
+ "players": [
+  {
+   "summary": "Looked first without reloading: the desk was current (scene 3 dispatch, timer running, tension 3/4, Brain 1/3, Bram's Adrenaline Rush line in the log). At the table Ada read the fare column. I spent 1 Intuition (the pips and an \"Intuition spent\" note showed the spend before the roll, so the F036 fix holds) and rolled Focus: 3 dice, gilded 4, 1, 3. I kept the gilded 4 for a Mixed success, which refunded the Intuition to 4/4; this matches the rulebook, and Well-Read did not fire because it needs a 3 or less. I did not burn resistance. Then I accepted Cass's and Dev's Confidant relationships, which had been pending since round 1; they are all confirmed now. I spent one Stitch from the Circle page: the Brain mark cleared, spends 1/2, Stitch 4/5, log line present. Findings F073 to F078, covering praise for the pip fix, the Focus rules check, the Stitch spend and the live desk, plus two ux items: the burn preview still reads \"Focus: 2 dice\" after a 3-dice roll, and the armed Stitch confirm button is only named \"Spend\" with no announcement after it. For F076 and F077 I gave screenshot paths that do not exist; the real files are shots/ada/061_r3stitch2.png and 062_r3sheet.png. Console errors: none. No restart was needed. Memory appended.",
+   "findings": [
+    "F073",
+    "F074",
+    "F075",
+    "F076",
+    "F077",
+    "F078"
+   ],
+   "blocked": "",
+   "state": "Ada: Nerve 1/1, Cunning 4/4, Intuition 4/4, resistance 1 Cunning and 1 Intuition unused, no marks (Brain cleared by Stitch), no scars, gear Tome, Lantern, Bleed Detector. Circle spends 1 of 2 used; Well-Read and Learn from My Mistakes unused this roll."
+  },
+  {
+   "summary": "Looked first without reloading: timer ran down live, the dispatch and Ada's Focus roll arrived live, and the full log was intact. Nothing was stale. An Adrenaline Rush offer for my Body mark was waiting; I used it on Nerve and the log recorded it. I said my intent at the table, spent 1 Nerve and rolled Strike (3 dice: gilded 6, 1, 4). I kept the gilded 6 for a Success and got 1 Nerve back, then reported it at the table. No console errors. Logged 3 findings: F070 praise (Adrenaline Rush works, but 'Paused · 30s' is unclear), F071 ux (offer card covers half the phone screen, 'Ner/Cun/Int' are abbreviated, 'Use' is disabled with no hint), F072 praise (desk stayed current). The first click on 'button:Ner' was ambiguous (5 matches) and needed an exact-match selector, which was my selector, not a bug. Memory file updated. No restart was needed.",
+   "findings": [
+    "F070",
+    "F071",
+    "F072"
+   ],
+   "blocked": "",
+   "character_name": "Bram Okafor",
+   "state": "Nerve 5 of 5 after Rush and the refund, Cunning 1, Intuition 3, resistance Nerve 1 and Intuition 1 unspent, Body mark 1 of 3, no scars, able to act, gear unchanged."
+  },
+  {
+   "summary": "Looked first: desk was current without reload (dispatch 3, tension 3/4, running timer, Ada's Stitch, others' rolls). Said Cass's action at the table, spent 1 Nerve and rolled Move: 5,2,5, Mixed success. Burn and reroll was offered but I did not use it. Went to the chapter hub and back through Last Played: roll, Nerve, Bleed 1/3, burn offer and timer were all intact. Opened Edit sheet, appended 'salt-stiffened cuffs from the ferry' to Style and saved; no scar came, so no scar flow. Burn option later closed when Dev rolled (known F060). No console errors. Logged F079-F082: Edit sheet log line truncates old and new text identically (medium), hub round trip praise, burn preview '2 dice' persists (F055/F065), Edit sheet freely lowers marks and adds scars (idea). Memory appended. Seats were reachable; no restart needed.",
+   "findings": [
+    "F079",
+    "F080",
+    "F081",
+    "F082"
+   ],
+   "blocked": "",
+   "character_name": "Cass Moreau",
+   "state": "Bleed 1/3, no other marks, scars 0/4. Nerve 1 of 3 available (1 spent on Move), Cunning 5/5, Intuition 1/1. Resistance N1 C1 I0, none burnt. Death Defy used, Born in the Shadows unused. Gear: Advanced Lockpicks, Concealed Blade, Lantern."
+  },
+  {
+   "summary": "Desk was current at start without reload. I inscribed Great Wards on Bram and rolled Control with 1 Nerve: 6,3,3, Success. On the Circle page I read the Illumination ring, spent 1 Train (two-press confirm, spends 1/2, the Train +1d showed on the Investigator tab), and accepted Cass's Stranger. I logged F083-F089 (praise on live desk, Great Wards, Illumination ring, Train; ux on unclear Great Wards effect and holder, verbose Illumination heading name, bare Spend button). Memory file updated. No errors, no restart needed.",
+   "findings": [
+    "F083",
+    "F084",
+    "F085",
+    "F086",
+    "F087",
+    "F088",
+    "F089"
+   ],
+   "blocked": "",
+   "character_name": "Dev Lindqvist",
+   "state": "Nerve 1 of 2, Cunning 2, Intuition 4 of 5 (resistance 1), no marks or scars, Great Wards used on Bram, 1 Train die held, 1 circle spend left"
+  }
+ ],
+ "dm": {
+  "summary": "I looked first without reloading. The desk was current: every player roll from the round was in the log, along with Bram's Adrenaline Rush, Ada's Stitch, Dev's Great Wards and Train, and Cass's Edit-sheet line. The timer was running live, and Cass's card said \"changed by the player\". In the story, Bram's Strike jammed the windlass and Dev's ward held. Ada's mixed Focus showed that the wet name in the fare column is her own, which cost her a Brain mark. Cass's mixed Move took her into the flooded hold for a Body mark from the water. I made an open 3-dice roll for the tide and got a 6, so the water won: Cass took two more Body marks and is at Body 3 of 3, still able to act. She did not scar, because the site only scars on a fourth mark. Then I ended it: Cass cut the ferryman's empty coat from the bell, Bram hauled her out, and Ada read the first fare, Absalom Hode's own name, so the ferryman is laid to rest. I paused the timer at 3:42, cleared it, and lowered the tension from 3 to 0; every step wrote its own log line. On the Circle page I opened the reports and ticked two Illumination questions: the source of bleed was contained, and the soaked ledger was brought back. Comfort for the afflicted is not ticked. I deliberately did not press Add Illumination yet, because it is a single press allowed once per assignment and would lose the players' keys if pressed before they file. I told the table to file their reports. I logged F090 to F093: Add Illumination is live with no reports filed and has no confirm (medium); praise for how the scene-ending steps chain and log; a full 3 of 3 track gives no warning that the next mark scars, and the handbook (third mark) and FAQ (fourth mark) disagree; and the screen reader hears \"About About Reset\". No console errors, and no restart was needed.",
+  "findings": [
+   "F090",
+   "F091",
+   "F092",
+   "F093"
+  ],
+  "blocked": "",
+  "prompts": {
+   "ada": "In the story: you read Hode's name aloud and kept the soaked fare ledger, and your own name is still the last line in the slanting hand (Brain 1 of 3). On the site: Circle page, file your assignment report. Tick only the Illumination Keys Ada truly fulfilled, and add a line on what happened if you like. Please also check that the +2 from the questions and the keys tally match the book (p. 55).",
+   "bram": "In the story: you jammed the windlass and went down the hatch to haul Cass out by the collar; nobody left behind (Body 1 of 3). On the site: Circle page, file your assignment report with the keys Bram fulfilled. If you like, also answer Cass's Champion relationship, which has been waiting since the papers.",
+   "cass": "In the story: you cut the ferryman's empty coat from the bell, half-drowned, Body 3 of 3 and Bleed 1 of 3, so one more Body mark scars you. On the site: Circle page, file your assignment report with the keys Cass fulfilled. Check that your sheet shows Body 3 of 3.",
+   "dev": "In the story: your salt line stopped the counting at forty-one, and the ward on Bram held. On the site: Circle page, file your assignment report with the keys Dev fulfilled. Your Train die is still held for a later roll."
+  },
+  "story_so_far": "The Whistlers crossed the Gullhaven flats, searched the ferryman's cottage and were taken aboard the ghost ferry mid-channel as the tide turned. Bram jammed the windlass and Dev's salt ward stopped the counting voice at forty-one. Ada read the fare column: the next name was her own, but the first fare, forty years back in the clerk's hand, was Absalom Hode's. The tide rolled a 6 and dragged Cass under, leaving her at Body 3 of 3, but she cut the ferryman's empty coat from the bell, Bram hauled her out, and Ada read Hode's name aloud as his own fare. The ferryman was carried over, the bell rang true once, and the ferry settled on the mud: the Ferryman's Psalm is laid to rest. The circle keeps the soaked fare ledger, which still ends in Ada's name in the slanting hand.",
+  "state": "Roster: Cass is at Body 3 of 3 and Bleed 1 of 3 and able to act (one more Body mark scars her), Ada Brain 1 of 3, Bram Body 1 of 3, Dev unmarked. No scars yet. Cass's Death Defy is used, and Dev holds a Train die. Tension is 0 of 4 (clock still named \"The tide turns\") and the timer is cleared. Circle page: reports are open and 0 of 4 are filed. Questions 1 and 3 are ticked (+2), keys are +0 for now, and \"Not filed\" names all four. Add Illumination has NOT been pressed. Illumination is 0 of 12. Spending is open, with Stitch 4/5, Refresh 5/5 and Train 4/5. Next turn: read the reports as they arrive, press Add N Illumination once (2 plus the keys), then End Assignment and check its confirm and what it clears."
+ }
+}

@@ -1,0 +1,48 @@
+{
+ "players": [
+  {
+   "summary": "Looked first without reloading: the desk was current (log has the 'gains 6 Illumination (0 to 6)' line and the Assignment ended line, dispatch blank, tension 0, reports closed). Investigator tab: gear empty with the note 'Cleared when the assignment ended', drives Nerve 1, Cunning 4, Intuition 4, resistance 1 Cunning and 1 Intuition, Brain 1 of 3 (the second Brain mark after the Stitch), no scars; Learn from My Mistakes text is there but the site shows no ready state for it. Circle page: Illumination 6/12 (ring shows 6, matches 2 questions + 4 keys per p.55), spends 0/2, Stitch 4/5, Refresh 5/5, Train 4/5, report keys cleared and the Send button disabled. No advancement dialog is offered at 6/12. From the source, Later puts the dialog away until the next visit and leaves a 'Choose advancements' strip on the desk, but I could not exercise it. Notebook is intact with 4 field entries and an empty private tab. No console errors. Logged F107 to F110: 2 praise, 2 ux (no visible ready state for abilities, blank dispatch labels vs 'none' to a screen reader). I said a line at the table, and wrote the memory entry and exit notes. I did not roll to check Learn from My Mistakes availability. Seats were reachable, so start_all.sh was not needed.",
+   "findings": [
+    "F107",
+    "F108",
+    "F109",
+    "F110"
+   ],
+   "blocked": "",
+   "state": "Nerve 1/1, Cunning 4/4, Intuition 4/4, resistance 1 Cunning and 1 Intuition, Brain 1 of 3, no scars, gear empty, Learn from My Mistakes and Well-Read available, circle spends 0 of 2."
+  },
+  {
+   "summary": "Looked first without reloading: the End Assignment reached my phone live (log line, spends 0 of 2, gear empty with a note, Adrenaline Rush unused, log current). Found Dev's Great Wards +1d still on my Move after the end (F106). Spent one Stitch via Menu > Circle > Spend 1 Stitch > Spend: Body mark cleared, spends 1 of 2, Stitch 3 of 5, easy to find. No advancement was offered (Illumination 6/12), so I could not test Later. Notebook shows 4 field entries. Logged F106, F111 (praise), F112. Exit notes written in memory/bram.md. No console errors.",
+   "findings": [
+    "F106",
+    "F111",
+    "F112"
+   ],
+   "blocked": ""
+  },
+  {
+   "summary": "Looked first: desk was current without reload. Stitch had dropped to 3 of 5 for Bram's spend, gear was empty, the dispatch was cleared, and the notebook strip showed Dev's newest entry. Death Defy shows no ready marker between assignments (F115). The Circle page had spends 0/2. A double-click on \"Spend 1 Stitch\" only armed it (\"Press again\"). A double-click on the confirm button spent exactly once (Stitch 3 to 2, spends 1/2). Body 3 and Bleed 1 were cleared on the sheet and one log line was written. Stitch can be armed with no marks and gives no warning (F114, not confirmed). Switching to another resource disarms the first. I then spent Refresh, so spends are 2/2 and Nerve is back to 3/3. The buttons then disable with a clear note. No advancement dialog appears at Illumination 6/12, so I could not test what Later does (F117). I did not reload and found no console errors. Logged F113-F117. Posted at the table and appended my memory entry and exit notes to /home/user/play4/memory/cass.md. Two of the three screenshot paths I cited for F113 and F114 did not resolve (the screenshots were saved as 084 and 085); the findings are otherwise complete.",
+   "findings": [
+    "F113",
+    "F114",
+    "F115",
+    "F116",
+    "F117"
+   ],
+   "blocked": "",
+   "character_name": "Cass Moreau",
+   "state": "Marks 0, scars 0. Nerve 3/3, Cunning 5/5, Intuition 1/1. Resistance N1 C1 I0. Death Defy and Born in the Shadows available. Gear empty. Spends 2/2 this period. Circle stores: Stitch 2, Refresh 4, Train 4."
+  },
+  {
+   "summary": "Desk was current at start without reloading: Newest log line showed Bram's Stitch, Circle Stitch read 3 of 5, Illumination 6/12, empty dispatch, tension 0. My Train die is still held (chip plus per-action Train buttons). Gear is cleared. Great Wards is usable again: I used it on Ada, it shows Used, and the log line appeared. No advancement dialog was offered at 6 of 12, so I could not test what Later does. Circle page is correct (relationships, history, reports closed, spends 0/2). Notebook kept every entry, including the closing note. I posted a new Field Notes entry, the Society's record of the Psalm, after previewing the Markdown (an early mistake of mine, typing without a target, did nothing harmful). Logged 4 findings (2 praise, 2 ux). No console errors. Memory file updated with exit notes.",
+   "findings": [
+    "F118",
+    "F119",
+    "F120",
+    "F121"
+   ],
+   "blocked": "",
+   "state": "Nerve 1 of 2, Cunning 2 of 2, Intuition 4 of 5, Intuition resistance 1 unburned, no marks or scars, gear empty, Great Wards used on Ada, Train die held, circle spends 0 of 2"
+  }
+ ]
+}

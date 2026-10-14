@@ -1,0 +1,23 @@
+{
+ "dm": {
+  "summary": "I made the Lightkeeper account lightkeeper_rue_r4 through the sign-up form. It was new, and sign-up went straight to the Chapter Hub with no console errors. From the hub's New campaign ticket I created \"The Gullhaven Chapter\" with the code gullhaven-r4, and the site opened the Lightkeeper's Desk. I went through all five desk sections: Roster (the main desk with dispatch, the hourglass, timer, dice and log), Circle (charter, Illumination ring, questions and reports, resources), Notebook, Map and Requests (with its Invite player panel). I also looked at the dispatch's Template mode, and pressed End Assignment once to see its confirm, then backed out with Keep going. The story is not started: nothing is dispatched and tension is 0. I posted the welcome with the code at the table (message #1). I logged four findings: F001 praise (the code stays in the header on every section and the Requests empty state explains how to join); F002 End Assignment is live on a brand-new campaign and its confirm covers the dispatch character counter; F003 the Illumination milestones at 3, 6 and 9 are drawn differently but never explained, and screen readers don't hear that they are milestones; F004 the Field Notes table of contents is a blank page with no empty-state text. One thing I checked was fine: the outline does not show which desk section is active, but the buttons do carry aria-current, so it is not a bug. My memory is in /home/user/play4/memory/dm.md.",
+  "findings": [
+   "F001",
+   "F002",
+   "F003",
+   "F004"
+  ],
+  "blocked": "",
+  "campaign_code": "gullhaven-r4",
+  "for_players": "1. Sign up on the beta site (your username from personas.md). 2. On the Chapter Hub, make your investigator and join The Gullhaven Chapter with the code gullhaven-r4. 3. Wait for the Lightkeeper to approve your join request.",
+  "prompts": {
+   "ada": "Join with the code gullhaven-r4 as a Scholar (Professor) and wait for approval.",
+   "bram": "Join with the code gullhaven-r4 as a Muscle (Soldier) and wait for approval.",
+   "cass": "Join with the code gullhaven-r4 as a Slink (Criminal) and wait for approval.",
+   "dev": "Join with the code gullhaven-r4 as a Weird (Occultist) and wait for approval."
+  },
+  "state": "Lightkeeper's Desk open on the Roster section, campaign The Gullhaven Chapter (code gullhaven-r4). No investigators or join requests yet; nothing marked or scarred. Tension 0 of 4, timer off, no clock name. Nothing dispatched (dispatch set to Own words), no scene yet. Reports closed, resource spending locked, Illumination 0/12, Stitch, Refresh and Train at 1 each, circle unnamed.",
+  "story_so_far": "The story has not started. The Lightkeeper has opened The Gullhaven Chapter and invited the investigators to join with the code gullhaven-r4."
+ },
+ "code": "gullhaven-r4"
+}

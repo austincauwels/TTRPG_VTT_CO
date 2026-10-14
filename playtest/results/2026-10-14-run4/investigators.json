@@ -1,0 +1,52 @@
+{
+ "players": [
+  {
+   "summary": "Signed up as ada_quill_r4 and built Ada Quill, a Scholar (Professor), in the creator. It took path, profile with portrait upload (hymn_sheet.jpg), action ratings and drives, then gear. I joined gullhaven-r4 with the Homemade Apple handwriting. The hub then showed the Case Ledger as \"Awaiting approval\", with a toast saying the hub will say when the Lightkeeper answers. I introduced Ada at the table. I logged F005 (praise: the waiting state is clear), F006 (the join dialog appears 2-3 seconds late, with no feedback) and F007 (the Portrait control is a hidden file input for screen readers). About a minute later the Lightkeeper had not yet approved, so I could not test whether the hub notices approval by itself; that is for next turn. I made one typo in the Style field (a stray CJK word) and corrected it. No reloads, and no errors beyond \"no new problems\". Memory file updated.",
+   "findings": [
+    "F005",
+    "F006",
+    "F007"
+   ],
+   "blocked": "",
+   "character_name": "Ada Quill",
+   "state": "Ada Quill, Scholar/Professor, pending Lightkeeper approval. Actions: Sway 1, Read 2 (gilded), Survey 2, Focus 2 (gilded), Sense 2, Move/Strike/Control/Hide 0. Drives: Nerve 1, Cunning 4, Intuition 4. Abilities: Learn from My Mistakes, Well-Read. Gear: Thick Reference Tome, Lantern, Bleed Detector. No marks or scars."
+  },
+  {
+   "summary": "Signed up as bram_okafor_r4 via the form. Built Bram Okafor, Soldier/Muscle, in the creator on the phone: abilities Geared Up and Adrenaline Rush, a portrait (mudflats photo, uploaded through the file input because the file chooser never opened from the script), Rock Salt handwriting, 3 gear. Actions: Move 2 (gilded), Strike 2 (gilded), Control 2, Survey 2, Sense 1. Drives: Nerve 5, Cunning 1, Intuition 3. Joined gullhaven-r4. The hub shows 'Case Ledger: 1 waiting for approval' and the Registry has Check again and Withdraw. About a minute later the Lightkeeper had not approved yet, so I could not see whether the hub notices approval by itself. I introduced Bram at the table. Logged F008 (praise for the creator). 'errors' showed no problems. I did not need to run start_all.sh. Memory file written.",
+   "findings": [
+    "F008"
+   ],
+   "blocked": "",
+   "character_name": "Bram Okafor",
+   "state": "Pending join approval. No marks, scars or resistance changes yet. Nerve 5, Cunning 1, Intuition 3. Gear Heavy Firearm, Tactical Armor, Trench Whistle."
+  },
+  {
+   "summary": "Signed up as cass_moreau_r4 through the form, built Cass Moreau (Slink, Criminal) in the creator with portrait upload, emoji and Markdown in Style, long catalyst, gear cap tested (4th item ignored with a clear message), then joined gullhaven-r4 with a messy code (caps, spaces) and Zeyada handwriting. Request is waiting: hub Case Ledger says '1 waiting for approval', roster book has Check again and Withdraw. The Lightkeeper had not answered after about a minute, so whether the hub notices approval by itself is still untested. Introduced Cass at the table. Logged F009 (praise), F010 and F011 (low ux). No console errors. No reload needed, seats daemon fine.",
+   "findings": [
+    "F009",
+    "F010",
+    "F011"
+   ],
+   "blocked": "",
+   "character_name": "Cass Moreau",
+   "state": "Cass Moreau, Slink (Criminal): Nerve 3, Cunning 5, Intuition 1; no marks or scars; gear Advanced Lockpicks, Concealed Blade, Lantern; abilities Born in the Shadows, Death Defy; awaiting Lightkeeper approval."
+  },
+  {
+   "summary": "Signed up as dev_lindqvist_r4 via the form and built Dev Lindqvist (Weird, Occultist) in the creator: path, portrait (hymn_sheet.jpg), profile, ratings, drives and three gear items. I joined gullhaven-r4 with the Shadows Into Light handwriting; the hub shows 'Case Ledger: 1 waiting for approval' and the registry lists me as waiting. The creator worked well by touch. The Lightkeeper had not approved me within about 60 seconds, so I could not test whether the hub notices approval by itself. The registry only offers a manual 'Check again' button. I posted my intro at the table, found no console errors, and did not need to restart anything. Logged F012 (praise for the creator), F013 (handwriting is only offered in the Join dialog) and F014 (approval notice untested), and appended my memory entry.",
+   "findings": [
+    "F012",
+    "F013",
+    "F014"
+   ],
+   "blocked": "",
+   "character_name": "Dev Lindqvist",
+   "state": "Dev Lindqvist, Weird (Occultist). Abilities Extend Your Senses and Great Wards. Actions Control 2, Sway 1, Read 1, Survey 2 (gilded), Focus 1 (gilded), Sense 2. Drives Nerve 2, Cunning 2, Intuition 5. Gear Arcane Texts, Occult Supplies, Ritual Dagger. No marks or scars. Join request to The Gullhaven Chapter pending Lightkeeper approval."
+  }
+ ],
+ "investigators": {
+  "ada": "Ada Quill",
+  "bram": "Bram Okafor",
+  "cass": "Cass Moreau",
+  "dev": "Dev Lindqvist"
+ }
+}
