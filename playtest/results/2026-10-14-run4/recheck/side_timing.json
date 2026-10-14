@@ -1,0 +1,299 @@
+{
+ "items": [
+  {
+   "item": "1.1 Ally offer accepted at about 1:50 lands (Behind Me, Non-Combatant)",
+   "control": "n/a",
+   "head": "Real waits, laptop Finn took a Body mark. At t=110s Dax (phone 390x844) pressed Intercept with the card showing '8s left'; Rhea (1920x1080) used her Non-Combatant point on Nerve. Both landed live without a reload: Dax Body 0->1, Nerve 3->2, Finn Body back to 0, Rhea Nerve 1->2. Log on every desk: 'Dax Moor used Behind Me to intercept a mark for Finn Ash!', 'Dax Moor took a Body mark (1 of 3).', 'Rhea Cole recovered 1 Nerve (Non-Combatant).' This matches FAQ (Behind Me costs 1 Nerve current; first ally to answer takes the mark).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s1_02_dax_at_1m50.png",
+    "/home/user/pt4/verify/timing/out_main/s1_03_dax_after_intercept.png",
+    "/home/user/pt4/verify/timing/out_main/s1_03_rhea_after_nc.png"
+   ]
+  },
+  {
+   "item": "1.2 Lapsed offer answered at about 2:05 is refused",
+   "control": "n/a",
+   "head": "Esme's tablet (820x1180) had page.clock paused after her cards arrived, so the card stayed up past the window, like a device that slept. At about 2:05 the Premonitions Intercept got action_rejected 'No ally's mark is waiting for that, or another ally answered it first.' This shows on the card's place as 'PREMONITIONS NOT USED'. A Non-Combatant Use got 'No Non-Combatant drive point is waiting.', and the next card replaced it, so nothing was shown. Nothing landed: Finn Brain 1, Esme Intuition resistance unchanged.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s1_05_esme_late_2.png",
+    "/home/user/pt4/verify/timing/out_main/s1_05_esme_late_1.png"
+   ]
+  },
+  {
+   "item": "1.3 Log tells the Lightkeeper and the offered ally, and says when it lapsed",
+   "control": "n/a",
+   "head": "Offer lines ('X is offered Behind Me for Finn Ash's Body mark (2 minutes).', Premonitions, and Non-Combatant drive point lines) reached only the LK (1440x900) and each offered ally, live. The target Finn and others got none. At the 120s mark, timestamped lapse lines ('...offer for Finn Ash's Brain mark lapsed unused.') went to the LK and that ally only. No lapse line came for the answered Body intercept or the used points. After a reload of all five desks the same lines came back from the database with their [hh:mm] stamps; Finn still had none.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s1_04_lk_after_lapse.png",
+    "/home/user/pt4/verify/timing/out_main/s1_06_lk_reloaded.png"
+   ]
+  },
+  {
+   "item": "1.4 Countdown shown against the server's window",
+   "control": "n/a",
+   "head": "Server window INTERCEPT_WINDOW = 120 s (asyncio.sleep + monotonic, so only real waits move it), expires_in 120 in every frame. The ally card counts from arrival to 117 s (WINDOW_MARGIN_SECONDS 3, as the code comment intends): '1:55 left' 2.6 s after arrival, '8s left' at 1:50, gone at about 1:57. A queued card keeps its arrival time: Behind Me queued behind Non-Combatant showed 1:53 when it came to the front. The Lightkeeper's desk shows no countdown, only '(2 minutes)' in the log line.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s1_01_dax_cards.png"
+   ]
+  },
+  {
+   "item": "1.5 Approval notice on the hub (its seconds)",
+   "control": "n/a",
+   "head": "Ivo's player on the hub (phone 390x844, signed in through the login slip) with a pending request. The LK approved on the REQUESTS tab after the restart. The notice 'The Lightkeeper let Ivo Crane into The Clockwork Table. Open the Case Ledger and press Play.' appeared 13.2 s later (hub poll POLL_MS 15 s) and stayed 12.1 s (HubNotice NOTICE_SECONDS 12). The pending request had survived the restart on the LK desk.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s3_08_hub_notice.png",
+    "/home/user/pt4/verify/timing/out_main/s3_09_hub_after_notice.png"
+   ]
+  },
+  {
+   "item": "1.6 Circle spend confirm stays armed (decision fix4 #3)",
+   "control": "n/a",
+   "head": "Finn (laptop 1366x768), spending opened: the first press on SPEND 1 STITCH armed 'Press again to spend 1 Stitch for the circle.' It was still armed 30 s later, after a circle_update (tension change) arrived meanwhile. The second press spent it: Stitch 5->4, 'YOUR SPENDS 1 / 2'.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s1b_armed_30s.png",
+    "/home/user/pt4/verify/timing/out_main/s1b_spent.png"
+   ]
+  },
+  {
+   "item": "2.1 Countdown timer: start, pause and resume from the table strip with a sheet open",
+   "control": "n/a",
+   "head": "Real waits. The LK set 0:45 and started it. All five desks agreed each second (0:43 at 3 s on LK, phone, tablet, laptop, 1920). With Dax's sheet open on the LK desk, the strip showed − / + / Pause (36px at 1440 wide, mouse). Pause at about 10 s: every desk showed '0:35 (paused)' and stood still for 5 s (DB timer_remaining_ms 34948). Resume from the strip: every desk 0:33 two seconds later. Log: 'paused the timer (0:35 left)', 'started the timer (0:35 left)'.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s2_02_lk_sheet_open.png",
+    "/home/user/pt4/verify/timing/out_main/s2_03_lk_paused.png",
+    "/home/user/pt4/verify/timing/out_main/s2_03_esme_paused.png"
+   ]
+  },
+  {
+   "item": "2.2 Timer runs out on every desk, live and after reload",
+   "control": "n/a",
+   "head": "At the end every desk showed 'Timer: 0:00, time's up' (oxblood on the phone strip), and the screen-reader status said 'Time's up.' on the LK and the laptop. After reloading all five desks they still showed 0:00, time's up, not running.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s2_04_a_ran_out.png",
+    "/home/user/pt4/verify/timing/out_main/s2_04_lk_ran_out.png",
+    "/home/user/pt4/verify/timing/out_main/s2_05_rhea_reloaded.png"
+   ]
+  },
+  {
+   "item": "3.1 During the outage and reconnecting by itself",
+   "control": "n/a",
+   "head": "API killed for 12.4 s (7 s in the second round). Every desk (LK 1440, phone, tablet, laptop, 1920) showed 'The connection to the table dropped. Reconnecting…' with RECONNECT NOW. Timers kept counting locally, and cards and drafts stayed. Sockets retried at 1.1, 3.2, 7.5 and 15.5 s after the kill and reconnected by themselves; banners went with no reload. The hub has no socket and showed nothing, which is right.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s3_02_dax_outage.png",
+    "/home/user/pt4/verify/timing/out_main/s3_02_lk_outage.png",
+    "/home/user/pt4/verify/timing/out_main/s3_03_lk_reconnected.png"
+   ]
+  },
+  {
+   "item": "3.2 Held mark waiting for its answer survives the restart (decision fix6 #1)",
+   "control": "n/a",
+   "head": "Rhea (1920) Compartmentalization offer 496aa1bd.1, held_mark stored in the DB. After the restart the desk got the same offer_id again, and again after a reload. After a reload, Use soaked it: Brain 0, Nerve resistance 1 spent, held_mark null, log 'Rhea Cole used Compartmentalization — soaked the mark.' The held mark was kept over End Assignment, as decided.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s4_02_rhea_reloaded.png"
+   ]
+  },
+  {
+   "item": "3.3 Ally offers expire after the restart",
+   "control": "n/a",
+   "head": "Behind Me and Premonitions cards were dropped from the desk on reconnect (store withoutIntercepts on socket open) and not sent again, so they expired cleanly. A Behind Me answer was never possible after the restart. The Non-Combatant card instead stayed up with its countdown, and Use was refused with no word on the desk (see findings). No drive point or mark landed.",
+   "verdict": "partly",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s4_01_dax_answer_0.png"
+   ]
+  },
+  {
+   "item": "3.4 Open roll with Burn and reroll across the restart",
+   "control": "n/a",
+   "head": "Finn (laptop) Control roll, BURN AND REROLL shown. After the live reconnect the tray still offered Burn. Pressed, it was refused 'Burn a resistance after a roll of that action.' and the tray then read 'Roll settled'. Nothing was spent. After a reload the tray was empty, as FAQ says. The live desk offering a burn the server refuses is reported as a finding.",
+   "verdict": "partly",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s3_05_finn_burn_after_restart.png"
+   ]
+  },
+  {
+   "item": "3.5 Gilded die waiting for its choice across the restart",
+   "control": "n/a",
+   "head": "Rhea Strike, 2 dice gilded, waiting. After the reconnect, Enter on 'Keep the gilded' was refused 'No roll is waiting for a die to be kept. Roll again.' (in memory only by design). But the slip then showed 'kept the gilded 4, MIXED SUCCESS' with a BURN AND REROLL button (finding).",
+   "verdict": "not fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s3_06_rhea_keep_after_restart.png"
+   ]
+  },
+  {
+   "item": "3.6 Notebook draft and half-filled report across restart and reload",
+   "control": "n/a",
+   "head": "Esme (tablet) Notebook draft (Entry Title 'Second draft', What you found 'Ink on the clock face') and Dax (phone) report (one key ticked, note 'Half a report, round two'). Both survived the outage, the reconnect and a full reload.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s4_02_esme_nb_reloaded.png",
+    "/home/user/pt4/verify/timing/out_main/s4_02_dax_report_reloaded.png",
+    "/home/user/pt4/verify/timing/out_main/s3_00_esme_nb_draft.png"
+   ]
+  },
+  {
+   "item": "3.7 Pending join request, hourglass and running timer across the restart",
+   "control": "n/a",
+   "head": "Ivo's request was still on the LK REQUESTS tab after the restart, and Approve worked. Hourglass stayed 2/4 on every desk. The 3:00 timer kept running through the outage and after it, with the same value on all desks (2:38, then 2:28 in the outage, 2:02 reconnected, 1:41 after reload; consistent with the start time).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s3_07_lk_reloaded.png",
+    "/home/user/pt4/verify/timing/out_main/s3_07_dax_reloaded.png"
+   ]
+  },
+  {
+   "item": "3.8 Activity Log survives the restart",
+   "control": "n/a",
+   "head": "After both restarts and the reloads, every desk got its stored lines back with stamps (LK showed the 06:22 offer lines after the restart). Lines stayed addressed to the right desks only.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s4_05_lk_reconnected.png"
+   ]
+  },
+  {
+   "item": "3.9 Restart during End Assignment's confirm",
+   "control": "n/a",
+   "head": "The LK pressed END ASSIGNMENT: 'Not filed: ...' and 'Press again to end the assignment.' The confirm stayed armed through the 7 s outage and the reconnect. The armed END press then sent gm_end_assignment and it worked: assignment 1->2, reports closed, timer cleared and hidden (switch off), tension 0, spends 0, trays 'Cleared when the assignment ended.' on players. The LK receipt names the timer. After reloading all desks the state held.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s4_04_lk_outage_armed.png",
+    "/home/user/pt4/verify/timing/out_main/s4_05_lk_reconnected.png",
+    "/home/user/pt4/verify/timing/out_main/s5_02_lk_after_end.png",
+    "/home/user/pt4/verify/timing/out_main/s5_03_dax_after_end_reload.png"
+   ]
+  },
+  {
+   "item": "3.10 Lightkeeper's copy of a sheet draws the held mark after the restart (#23)",
+   "control": "n/a",
+   "head": "Not opened on the LK desk during the held mark, to save calls; only the player's desk was checked.",
+   "verdict": "not checked",
+   "shots": []
+  }
+ ],
+ "findings": [
+  {
+   "kind": "bug",
+   "sev": "medium",
+   "title": "After a restart, a refused gilded keep still shows an outcome and offers Burn",
+   "where": "Player desk tray, 1920x1080 (any size); frontend store roll_result or resolve_gilded handling (gameStore.js action_rejected path near line 1170 sets pendingGildedChoice null but leaves the local kept result)",
+   "steps": "Rhea rolls Strike gilded (2 dice) and leaves the choice waiting. Restart the API (restart_api.sh main 8190) and let the desk reconnect. Press Enter on 'Keep the gilded die'.",
+   "expected": "Per rolls.py and WEBSOCKET.md the choice is refused and the player rolls again. The tray should say so and show no outcome and no burn, since nothing counted.",
+   "actual": "The refusal line 'No roll is waiting for a die to be kept. Roll again.' shows under a result slip reading 'Strike: 2 dice, 1 gilded, kept the gilded 4 / MIXED SUCCESS'. 'AFTER THE ROLL: BURN AND REROLL' is offered too, which the server would also refuse. Nothing was logged at the table.",
+   "related": "decisions_fix6 #2 (the tray tells the truth); #40",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s3_06_rhea_keep_after_restart.png"
+   ]
+  },
+  {
+   "item": "",
+   "kind": "bug",
+   "sev": "medium",
+   "title": "Non-Combatant drive point card is not sent again after a reload",
+   "where": "Ally desk, phone 390x844; backend vtt/ws/handlers/marks.py send_open_intercepts (only Behind Me and Premonitions are re-sent; _non_combatant points are not)",
+   "steps": "Finn (Doctor, Non-Combatant) takes a Body mark. Dax gets a Non-Combatant card (front) and a Behind Me card (queued). Reload Dax's desk 8 s later, inside the 2-minute window.",
+   "expected": "Like Behind Me and Premonitions (FAQ: an offer comes back with the time left if the ally's page reloads; QUIRKS ally-offer-cards-lost-or-stale), the Non-Combatant card comes back. The server still holds Dax's point for the rest of the window.",
+   "actual": "Only ability_intercept_offer Behind Me (expires_in 116) was sent again. The Non-Combatant card is gone, and the player cannot claim a point the server would still give. Later its lapse line appears in their log.",
+   "related": "#59, QUIRKS ally-offer-cards-lost-or-stale",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s5_01_dax_reloaded_in_window.png"
+   ]
+  },
+  {
+   "kind": "bug",
+   "sev": "low",
+   "title": "Non-Combatant card outlives a restart and its refusal is silent",
+   "where": "Ally desk, phone 390x844 and tablet; gameStore.js withoutIntercepts drops only intercept offers on socket open; the action_rejected path sets abilityMarkRefused only for own-mark answers",
+   "steps": "Finn takes a mark, so Dax and Esme get a Non-Combatant card. Restart the API and let the desks reconnect. The card is still up with its countdown (1:24 left). Pick NER and press Use.",
+   "expected": "Decision fix6 #1 and FAQ: ally offers (Non-Combatant included) expire after a restart 'with the existing refusal', so the card closes on reconnect like Behind Me and Premonitions. Failing that, the refusal is shown, as 'PREMONITIONS NOT USED' is.",
+   "actual": "Server sends action_rejected 'No Non-Combatant drive point is waiting.' The card just closes with no word on the desk, and no drive point comes. Behind Me and Premonitions cards on the same desk were closed at reconnect, so the two kinds of ally offer behave differently. In normal play, too, a lapsed Non-Combatant answer's refusal is replaced by the next card and never shown.",
+   "related": "decisions_fix6 #1, #59",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s4_01_dax_answer_0.png",
+    "/home/user/pt4/verify/timing/out_main/s3_03_dax_reconnected.png"
+   ]
+  },
+  {
+   "kind": "bug",
+   "sev": "low",
+   "title": "Live desk offers Burn and reroll after a restart; the refusal wording misleads",
+   "where": "Player tray, laptop 1366x768; rolls.py _shown_roll is in memory, and the desk keeps lastRoll over a reconnect",
+   "steps": "Finn rolls Control (Burn and reroll shown). Restart the API and let the desk reconnect without a reload. Press BURN AND REROLL.",
+   "expected": "FAQ line 78: after a server restart the tray starts empty, since the server would refuse a burn. At least the burn should not be offered, or the refusal should say the roll was lost to a restart.",
+   "actual": "Burn and reroll stays on offer after the reconnect. Pressed, it is refused with 'Burn a resistance after a roll of that action.', which is wrong in this case: Finn did roll that action. The tray then shows 'Roll settled'. After a reload the tray is empty, as documented.",
+   "related": "#40, decisions_fix6 #2",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s3_05_finn_burn_after_restart.png"
+   ]
+  },
+  {
+   "kind": "bug",
+   "sev": "low",
+   "title": "Non-Combatant logs 'recovered 1' for a drive that was already full",
+   "where": "backend vtt/ws/handlers/marks.py handle_resolve_ability_mark, Non-Combatant branch (lines 700-705)",
+   "steps": "Esme has Intuition 3 of 3. Finn takes a mark and Esme is offered a Non-Combatant point. Pick INT and press Use.",
+   "expected": "Like Well-Read (FAQ: the log names only what came back, and nothing when the drive was full): no line, or a line saying nothing came back. The card could also mark full drives.",
+   "actual": "Intuition stays 3 (capped), yet every desk logs 'Esme Rook recovered 1 Intuition (Non-Combatant).' The point is used up. Here the answer was given to a card whose own window had lapsed, and the server credited it against the other point still waiting.",
+   "related": "#59",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s1_05_esme_late_0.png"
+   ]
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Drive picker on the Non-Combatant and Adrenaline Rush card is 30px tall on a phone",
+   "where": "components/pc/AbilityMarkOffer.jsx lines 244-258 (py-1.5 text-xs, no coarse-pointer min height); phone 390x844",
+   "steps": "On a phone, open any drive_refresh card (Non-Combatant point from an ally's mark).",
+   "expected": "DESIGN.md: 44px touch targets. The card's own Use and Not now buttons get 44px on coarse pointers.",
+   "actual": "NER, CUN and INT measure 104x30 css px; Use and Not now are 44 high.",
+   "related": "DESIGN.md 44px rule",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s3_02_dax_outage.png"
+   ]
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Behind Me and Premonitions cards do not say which mark",
+   "where": "components/pc/AbilityMarkOffer.jsx ABILITY_OFFER_CONFIG descriptions; phone and tablet",
+   "steps": "Finn takes a Body mark, then a Brain mark. Dax gets two Behind Me cards in turn.",
+   "expected": "The card names the track, as the log does ('Dax Moor is offered Behind Me for Finn Ash's Brain mark').",
+   "actual": "Both cards read 'Take Finn Ash's mark instead (spend 1 Nerve).' (Premonitions: 'Soak Finn Ash's mark ...'). The ally cannot tell which mark they are answering.",
+   "related": "#59",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s1_02_dax_at_1m50.png"
+   ]
+  },
+  {
+   "kind": "rules",
+   "sev": "low",
+   "title": "WEBSOCKET.md still says the desk never reconnects",
+   "where": "docs/refactor/WEBSOCKET.md section 7 line 321 and risk R7 line 358",
+   "steps": "Read section 7 and R7, then restart the API with desks open.",
+   "expected": "The doc matches the code: gameStore.js reconnects with backoff 1, 2, 4, 8, 15 s and a heartbeat ping.",
+   "actual": "The doc says 'There is no onclose handler and no reconnect ... a page reload fixes it' and 'the frontend does not reconnect'. In this check every desk reconnected by itself within 16 s.",
+   "related": "docs/refactor/WEBSOCKET.md",
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s3_03_lk_reconnected.png"
+   ]
+  }
+ ],
+ "method": "Main only, API 8190 / site 4190, database pt4_main_8190 (dropped at the end with down.sh). Folder /home/user/pt4/verify/timing.\n\nSetup and tooling:\n- lib.js is a copy of ../state/lib.js with the ports changed and a 'big' 1920x1080 seat added.\n- setup.js builds 'The Clockwork Table' through the API and SQL. Dax is Muscle/Soldier with Behind Me and Compartmentalization. Esme is Weird/Medium with Premonitions. Finn is Scholar/Doctor with Non-Combatant. Rhea is Muscle/Soldier with Adrenaline Rush, Compartmentalization and gilded Strike 2. Ivo is unaffiliated, for the join request.\n- Desks are opened by seeding the store. Seats: LK wide 1440x900, Dax phone, Esme tablet, Finn laptop, Rhea 1920. Ivo's hub is signed in through the login slip.\n\nScripts:\n- s1.js: ally windows.\n- s1b.js: spend confirm. It used a Node LK socket, which replaced the LK browser desk ('open in another tab'). Do not open Node LK sockets while the LK desk is up.\n- s2.js: timer.\n- s3.js: first restart with everything open.\n- s4.js: second restart, drafts across reload, End Assignment armed. It crashed at the armed button, whose name is 'END', not 'End assignment'.\n- s5.js: Non-Combatant across a reload, then a restart during End Assignment's confirm.\n- Outputs are in s1.out and s3.out; screenshots in out_main/.\n\nWaits:\n- All windows use real waits: the server uses asyncio.sleep and time.monotonic, so page.clock cannot move them. Esme's context had ctx.clock.install() before goto and pauseAt() after her cards came, so a card stays up past 2:00 to try a late answer.\n- Marks taken on the sheet wait 5 s for Undo before they are sent; wait at least 7 s before reading offer frames. My first held-offer id read was too early.\n\nSelectors:\n- Tab names: /^circle$/i, /^notebook$/i, /^requests/i.\n- Phone menu: getByRole('button', {name: /menu/i}).tap(), then getByText(/^circle$/i).last().tap().\n- Table strip: [data-desk=\"table-strip\"]:visible.\n- Burn: [data-burn-reroll].\n- Circle columns: the assignment number is backstory_answers::json->>'assignment'.\n\nRestart: kill the PID from /tmp/pt4_api_8190.pid, snapshot the desks during the outage, then run restart_api.sh.\n\nThe second round's player seats were fresh contexts, so drafts after End Assignment were not compared to the first round. That one LK sheet check is marked not checked.",
+ "praise": [
+  "Reconnect is solid: every desk showed one clear banner, retried by itself with backoff, and came back with no reload. Timers kept counting through the outage.",
+  "The held mark is stored with its offer and comes back with the same offer_id after a restart and after a reload. Use still soaks it.",
+  "End Assignment's armed confirm survives an outage. The second press after the reconnect ends the assignment cleanly, clearing the timer, tension, reports and spends on every desk.",
+  "The timer agrees to the second across five desk sizes. Pause and Resume from the table strip work with a sheet open, and run-out is the same live and after a reload.",
+  "Ally offer log lines go only to the Lightkeeper and the offered ally, carry '(2 minutes)', lapse on time, and come back from the database after a reload.",
+  "The spend confirm stays armed for 30 s and through other table updates, as decided."
+ ]
+}
