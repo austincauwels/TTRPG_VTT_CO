@@ -1,0 +1,194 @@
+{
+ "items": [
+  {
+   "item": "#17 Activity Log survives a server restart (last 100 on open, 500 kept)",
+   "control": "Lines are in memory only. After a restart and a reload, the Lightkeeper's log on a 1366x768 laptop says \"Nothing logged yet\", and Iris's log on a 390x844 phone is empty. A socket opened after the restart gets no activity_history.",
+   "head": "The Lightkeeper's laptop desk and Iris's phone drawer both keep the lines from before the restart, after a reload too, with their own times. Sending 600 lines left 500 rows in activity_lines, and each desk got the last 100 (LINE 500 to LINE 599) after the restart. Who sees a line also survives the restart: a whisper reaches only the sender, the target and the Lightkeeper; a secret roll's line reaches only the roller; an ally-offer line reaches only the Lightkeeper and that ally. Hana sees none of them.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_control/b17_lk_after_restart_reload.png",
+    "/home/user/pt4/verify/state/out_main/b17_lk_after_restart_reload.png",
+    "/home/user/pt4/verify/state/out_main/b17p_phone_log_after_restart.png"
+   ]
+  },
+  {
+   "item": "#18 answering a stale held-mark card after a restart lands nothing and the card closes",
+   "control": "Iris (Death Defy) took a Body mark, laptop 1366x768. After the restart her card stays; pressing Take the mark lands it (Body 1 of 3, logged \"passed on Death Defy\"). Over the socket, a decline naming an unknown offer_id also lands a mark.",
+   "head": "Losing the held mark on the server (cleared while it was down) leaves a stale card. Take the mark lands nothing: body stays 0, the server answers mark_offer_closed {dropped:true}, the card closes and the held box clears. Nothing is logged and the player gets no word, which is the kept call. An unknown offer_id over the socket also lands nothing and is answered with dropped:true.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_control/stale_B2_after.png",
+    "/home/user/pt4/verify/state/out_main/stale_B2_card_before.png",
+    "/home/user/pt4/verify/state/out_main/stale_B2_after.png"
+   ]
+  },
+  {
+   "item": "Held marks (soak, Circle of Protection, Death Defy) come back after a restart with the same offer card",
+   "control": "No offer is sent again after the restart. Bram's In the Trenches card stays on the page but the server no longer holds it, and Use still soaks. The Circle of Protection and Death Defy offers are gone after the restart.",
+   "head": "The same offer_id comes back after the restart for In the Trenches (Bram, laptop), Death Defy (Iris, laptop) and Circle of Protection (Iris over the socket, after Esme's Ritual). The held_mark column holds the offer. Use after the restart soaks once (Cunning resistance 1, In the Trenches 1), and held_mark clears.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_main/held_A2_player_after_restart.png",
+    "/home/user/pt4/verify/state/out_main/held_A3_player_after_use.png"
+   ]
+  },
+  {
+   "item": "#23 the Lightkeeper's copy of a sheet shows held marks live",
+   "control": "The Lightkeeper's copy of Bram's sheet (1440x900) shows Body 0 of 3 with no held box and no \"held for\" line while Bram's own sheet shows 1 held.",
+   "head": "The Lightkeeper's copy draws a dashed held box (\"Body marks: 0 of 3, 1 held\") with \"Body mark held for Death Defy.\" (and for In the Trenches). It stays after the restart and after her reload, and clears live when the player uses the soak.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_main/stale_B0_lk_held.png",
+    "/home/user/pt4/verify/state/out_main/held_A2_lk_after_restart_reload.png",
+    "/home/user/pt4/verify/state/out_main/held_A1_lk.png"
+   ]
+  },
+  {
+   "item": "#43 a mark taken during a silent outage survives a reload and is taken once, even across a restart",
+   "control": "Laptop 1366x768, Cora. The socket was stalled both ways, a Body mark taken and the Undo let run out (box drawn held), then the page reloaded. heldMarks is not persisted, the track is empty and the database has 0. The mark is lost.",
+   "head": "The same steps: the persisted heldMarks keeps the mark_id, it is sent again after the reload, and Body is 1 of 3 in the database. When the server took the mark but its answer never arrived, then a restart and a reload, Body stays 2, not 3, so the stored taken_mark_ids hold across the restart. A second tab of the same account opened while tab 1 was silent took the mark once (db 1), and tab 1 says \"This desk is open in another tab or on another device, so this one stopped updating.\"",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_main/h43_1_held_before_reload.png",
+    "/home/user/pt4/verify/state/out_main/h43_1_after_reload.png",
+    "/home/user/pt4/verify/state/out_main/h43b_tab2.png"
+   ]
+  },
+  {
+   "item": "#43 a kept mark older than 10 minutes is dropped with a notice",
+   "control": "n/a (the control keeps nothing over a reload)",
+   "head": "A kept mark whose time was moved back 11 minutes before the reload is not sent. The database stays at 2, and under the marks: \"A Body mark taken before the reload may not have counted. Check the trauma record.\"",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_main/h43_3_old_mark_notice.png"
+   ]
+  },
+  {
+   "item": "Two desks answering the same held mark at once",
+   "control": "Bram's soak, answered from two sockets on his channel (accept, plus decline and accept from the second) at once: one soak (Cunning resistance 1, In the Trenches 1, Body 0).",
+   "head": "The same result, one soak, Body 0. The second desk's extra answers each get mark_offer_closed for that offer_id. No double soak and no landed mark.",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "#19 after Flourish or Bending Spoons the slip shows the new outcome on the roller and the table; a secret roll goes to the roller only",
+   "control": "Cora (laptop) rolled Read to a Failure and used Flourish. The log says \"pushed up one tier, to Mixed Success\", but the roller's slip and the Lightkeeper's felt still say FAILURE. No roll_outcome is sent.",
+   "head": "Cora's slip and the Lightkeeper's felt (1440x900) both change to MIXED SUCCESS. roll_outcome {by: Flourish} reaches the roller, the Lightkeeper and the table, and the new outcome survives Cora's reload. Bending Spoons (Gale, Sense) sends roll_outcome full_success to the roller, the table and the Lightkeeper, and adds 1 Bleed. On a secret roll, Flourish's roll_outcome goes to Cora only: Iris and the Lightkeeper get nothing, and her reopened desk is not given the secret roll. Player desks never show another player's dice on their own felt, on either build, by design (the GM's tray shows them); the table sees the new outcome in the strip and the log.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_control/f19_2_roller_after.png",
+    "/home/user/pt4/verify/state/out_main/f19_2_roller_after.png",
+    "/home/user/pt4/verify/state/out_main/f19_4_lk_after.png",
+    "/home/user/pt4/verify/state/out_main/f19_3_table_phone_after.png"
+   ]
+  },
+  {
+   "item": "#40 a reload after an open roll restores the tray with its outcome, kept die and Burn and reroll; no dice sound on replay; the Lightkeeper's felt after her reload",
+   "control": "Laptop 1366x768: after the reload the tray says \"No dice thrown yet\" and Burn and reroll is gone. On the phone, the drawer's label loses \"burn and reroll available\". The Lightkeeper's felt is empty after her reload.",
+   "head": "Laptop: the slip comes back as FAILURE with Burn and reroll, and the burn is taken (Cunning resistance 0 to 1, new result). Phone 390x844: the drawer says \"burn and reroll available\", and the Failure, Burn and Flourish come back with no roll bar popping up. HTMLMediaElement.play is called 0 times on the replay and 16 on a live roll. A second tab of the same account shows the open roll with Burn. A double press on Burn spends 1 resistance. Flourish already used is not offered again after a reload (used:[\"Flourish\"]). The Lightkeeper's own roll is back on her felt after her reload. A replayed roll keeps roll.abilities. After a restart the replay is empty and a burn is refused, as the FAQ says; see the finding on an open desk across a restart.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_main/f40_1_after_reload.png",
+    "/home/user/pt4/verify/state/out_main/f40_2_after_burn.png",
+    "/home/user/pt4/verify/state/out_main/f40_3_lk_after_reload.png",
+    "/home/user/pt4/verify/state/out_main/p_phone_after_reload_drawer.png",
+    "/home/user/pt4/verify/state/out_control/f40_1_after_reload.png"
+   ]
+  },
+  {
+   "item": "60.7 End Assignment clears the player's tray; no roll replayed into the next assignment; a held gilded roll is kept, settled",
+   "control": "Cora's laptop tray keeps MIXED SUCCESS with \"Roll settled\" after End Assignment. Over the socket, Cora's reopened desk gets roll_settled.",
+   "head": "Cora's tray goes to \"No dice thrown yet\" at End Assignment and stays empty after a reload. Her reopened socket gets no roll_result. The Lightkeeper's felt keeps the last roll (the kept call). Iris's gilded Hide waiting for its die on the phone survives End Assignment and a reload (\"a choice is waiting\", Keep one die). Keeping the gilded 4 gives MIXED SUCCESS and \"Roll settled\" with no Burn.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_control/a607_cora_after_end.png",
+    "/home/user/pt4/verify/state/out_main/a607_cora_after_end.png",
+    "/home/user/pt4/verify/state/out_main/g607_phone_after_end_reload.png",
+    "/home/user/pt4/verify/state/out_main/g607_phone_after_keep.png"
+   ]
+  },
+  {
+   "item": "45.10 the slip and the log name Open Book and Interrogation after the roll",
+   "control": "Hana's Sway with Open Book (laptop) and Ivo's Read with Interrogation (phone) roll 3 dice. Neither the slip nor the log names the ability, and roll.abilities is undefined.",
+   "head": "Hana's slip on the laptop: \"Sway +1d (Open Book): 3 dice, highest counts\". Her log: \"Hana Pike rolled Sway (Open Book), a 6: Success (3 dice: 2, 1, 6).\" Ivo's phone: \"READ +1D (INTERROGATION)\" and \"Ivo Crane rolled Read (Interrogation) ...\". The Lightkeeper's log names both. roll.abilities is kept on a replayed roll after a reload.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_main/a4510_hana_laptop.png",
+    "/home/user/pt4/verify/state/out_main/a4510_ivo_phone.png"
+   ]
+  },
+  {
+   "item": "#59 ally offers (Behind Me, Premonitions, Non-Combatant): log to the Lightkeeper and the offered ally, lapse line, expiry after a restart",
+   "control": "Cora took a Brain mark. Dax (phone) and Esme (tablet) get offer cards but no log line; the Lightkeeper's log says nothing, and nothing is logged when the offers lapse after 2 minutes.",
+   "head": "The Lightkeeper's log and Dax's get \"Dax Moor is offered Behind Me for Cora Lind's Brain mark (2 minutes).\", and Esme's gets the Premonitions one. Iris gets neither. After 125 s the Lightkeeper's log and each ally's get \"... offer for Cora Lind's Brain mark lapsed unused.\", and Dax's card is gone. Finn's (Doctor) mark logs a Non-Combatant line per ally. After a restart, Behind Me, Premonitions and Non-Combatant answers are refused (\"No ally's mark is waiting for that, or another ally answered it first.\" / \"No Non-Combatant drive point is waiting.\"), and no lapse is logged (documented). See the finding on what the player sees.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/state/out_main/o59_1_dax_phone_offer.png",
+    "/home/user/pt4/verify/state/out_main/o59_2_lk_after_lapse.png",
+    "/home/user/pt4/verify/state/out_main/o59_3_dax_after_restart_answer.png",
+    "/home/user/pt4/verify/state/out_main/o59b_1_after_nc_use.png"
+   ]
+  }
+ ],
+ "findings": [
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "After a restart, stale ally cards end without a word: Behind Me vanishes on reconnect, and Use on a Non-Combatant point is refused silently",
+   "where": "Player desk, phone 390x844 (Dax). frontend/src/store/gameStore.js: the action_rejected handling for resolve_ability_mark on an offer that holds no mark. FAQ.md:120",
+   "steps": "1. Cora (or Finn, a Doctor) takes a mark, so Dax gets a Behind Me card (or a Non-Combatant card). 2. Restart the server and let the desk reconnect. 3a. The Behind Me card disappears when the desk reconnects. 3b. The Non-Combatant card stays; pick NER and press Use.",
+   "expected": "FAQ.md:120 says that after a restart the ally offers are gone \"and an answer to one is refused as too late\". The player should see that it did not count, as the desk does for Behind Me refusals (interceptRefused in the card's place).",
+   "actual": "The Behind Me card simply vanishes on reconnect. The Non-Combatant Use gets action_rejected \"No Non-Combatant drive point is waiting.\", but the card closes with nothing shown and Nerve is unchanged (2), so the player believes the point was recovered. The control does the same; this is not a regression, but the FAQ promises a refusal the player never sees.",
+   "related": "#59; decisions_fix6 decision 1; WEBSOCKET.md 4.5 (\"A refusal of an answer to an offer that holds no mark ... is not shown there\")",
+   "shots": [
+    "/home/user/pt4/verify/state/out_main/o59b_1_after_nc_use.png",
+    "/home/user/pt4/verify/state/out_main/o59d_2_nc_after_restart.png"
+   ]
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "An open desk that reconnects after a restart keeps offering Burn and reroll and Flourish for a roll the server no longer holds",
+   "where": "Player desk, laptop 1366x768 (Cora). FAQ.md:78; frontend DiceVault/RollModifications",
+   "steps": "1. Roll Read to a Failure; the tray offers Burn and reroll and Flourish. 2. Restart the server and do not reload; the desk reconnects. 3. Press Burn and reroll.",
+   "expected": "FAQ.md:78: \"After a server restart the tray starts empty, since the server no longer holds the roll and would refuse a burn on it.\" A reconnecting desk should drop the offers (or mark the roll settled) once the server has no shown roll for it.",
+   "actual": "The tray keeps FAILURE with Burn and reroll and the Flourish prompt. Burn gets action_rejected \"Burn a resistance after a roll of that action.\", which is shown on the slip, and then \"Roll settled\". To a player who has just made that roll, the wording is confusing. Only a reload empties the tray, which is the only case the FAQ describes. The control's open desk behaves the same over a restart.",
+   "related": "#40",
+   "shots": [
+    "/home/user/pt4/verify/state/out_main/u40_after_restart.png"
+   ]
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Post-roll ability Use and Skip buttons are 22px tall on a phone",
+   "where": "Phone 390x844, the dice drawer's After the roll panel. frontend/src/components/pc/dice/RollModifications.jsx:116-135 (px-3 py-0.5 text-xs, no coarse-pointer min-height)",
+   "steps": "1. Cora (Magician, Flourish) rolls Read to a Failure on a phone. 2. Open Dice and log. 3. Measure the Flourish row's USE and SKIP.",
+   "expected": "DESIGN.md: 44px touch targets. Burn and reroll beside them is 44px on touch in this build.",
+   "actual": "USE is 50x22 and Skip Flourish is 46x22, the same on the control. This applies to every post-roll prompt (Flourish, Bending Spoons, Learn from My Mistakes and its drive picker).",
+   "related": "45.8/45.9 (the same panel); DESIGN.md touch targets",
+   "shots": [
+    "/home/user/pt4/verify/state/out_main/p_phone_postroll.png"
+   ]
+  },
+  {
+   "kind": "rules",
+   "sev": "low",
+   "title": "A mark the Lightkeeper deals to a closed desk lands beside a stored held Death Defy mark, and the old offer comes back afterwards",
+   "where": "Server, vtt/ws/handlers/marks.py take_mark from the GM socket when no desk is open; Lightkeeper's desk, Deal a mark",
+   "steps": "1. Iris (Death Defy) takes a Body mark; a Death Defy offer holds it. 2. Close her desk (a restart in between makes no difference). 3. The Lightkeeper deals Iris a Body mark from an enemy. 4. Iris opens her desk.",
+   "expected": "Either the held mark lands first and the offer closes, as WEBSOCKET.md says a mark taken while an offer holds one does, or the new mark joins the Death Defy offer (it escapes every mark of one harm).",
+   "actual": "The dealt mark lands at once (Body 1 of 3, \"Their desk is closed, so it landed without a soak or Death Defy\"), held_mark is kept, and when Iris opens her desk she gets the Death Defy offer for the first mark, which can then escape a mark after another of the same harm has landed. Seen on main with and without a restart; the control lands the dealt mark the same way (its held mark is in memory). Not a regression; for Robert to rule on.",
+   "related": "#17/#18 held marks; WEBSOCKET.md 4.5 take_mark",
+   "shots": []
+  }
+ ],
+ "method": "Folder /home/user/pt4/verify/state. lib.js is a copy of v8401_lib.js set by TGT=main (api 8110, site 4110, db pt4_8110) or TGT=control (8111/4111/pt4_8111). It adds three things: rec.deaf (drops server frames to the page, so with rec.stalled the socket is silent both ways), L.restart(between) (kills the API, runs a callback such as an SQL edit while it is down, then calls restart_api.sh), and a seed guard that skips reseeding localStorage when it already holds the same token, so a second tab reads the real persisted store. setup.js builds one sealed table, \\\"The Restart Table\\\", with 9 investigators. They are forged from a valid Slink template and retyped in SQL, because forge validates ratings per specialty: Iris Death Defy, Bram In the Trenches, Cora Flourish, Dax Behind Me, Esme Ritual+Premonitions, Finn Non-Combatant, Gale Bending Spoons, Hana Open Book, Ivo Interrogation. State is in state_main.json and state_control.json. Scripts: p17/b17/b17p log; bHeld (soak, #23), bStale (#18, Death Defy), pHeld (Circle of Protection, race, unknown id); b43/b43b (stall, reload, restart, 10 min, second tab); b19/b19p/b40b/bUsed/bUsed2/bPhone (#19, #40); pRolls (secret Flourish, Bending Spoons, 45.10, 60.7 protocol, restart); b4510 (45.10, 60.7 UI); b607g (gilded roll across End); b59/b59b/b59c/b59d (#59, 125 s lapse wait); pPriv (log audiences after restart); pDeal/pDeal2; pAb. Screenshots are in out_main and out_control. Tips for later checkers: on a sheet the sneak action is labelled Read (roll button \\\"Roll Read\\\"); the armed End Assignment button is \\\"End\\\" on main and \\\"YES, END IT\\\" on the control; only one socket per channel, so opening a second Lightkeeper socket in a script closes the first; the phone's dice and log live behind \\\"Dice and log\\\"; post-roll prompts use plain Use/Skip buttons. Not covered: release or retire with a held mark (a kept call), and a kept mark let go when another desk opens first in the same browser (it needs one account that is both a Lightkeeper and a player). Both servers are stopped and both databases dropped.",
+ "praise": [
+  "Held marks survive a restart with the same offer_id, and the Lightkeeper's copy draws them dashed with a plain \"Body mark held for Death Defy.\" line that updates live.",
+  "The silent-outage mark is handled carefully end to end: persisted with its id, sent again once, deduplicated across a restart, and let go after 10 minutes with a clear note under the marks.",
+  "The stored Activity Log keeps each line's audience exactly (whispers, secret rolls, ally-offer lines) across a restart.",
+  "A reload restores the tray with no dice sound, keeps Burn and reroll honest, does not offer an ability already used, and a double press on Burn spends one resistance.",
+  "The ally-offer log lines and the lapse lines read naturally and reach only the Lightkeeper and the offered ally."
+ ]
+}

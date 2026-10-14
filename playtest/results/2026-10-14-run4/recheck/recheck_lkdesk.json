@@ -1,0 +1,187 @@
+{
+ "items": [
+  {
+   "item": "#66 one navigation (header, tabs, phone drawer, LK extras)",
+   "control": "Control LK desk had its own layout: a left column of big Roster/Circle/Notebook/Map tabs, Retire campaign in the header, no Requests entry. Join request cards sat in the middle of the roster.",
+   "head": "Main LK header has the investigator desk's pattern: tabs (Roster, Circle, Notebook, Map, plus the LK-only Requests) in the bar, Back to chapter hub and Account at the right. Seen at 1440x900, 1366x768, 1280, 1100, 1024, tablet 820x1180 and 1180x820 (title above buttons, tabs below). Phone 390x844 has the same MENU drawer as the player's, with Roster, Circle, Notebook, Map, Join requests (badge), Dice and log, Pass notes, Dispatch, Hourglass. Same button positions on the player desk at 1279, 1100 and 1366 (the skins differ: navy bar vs paper member card). No horizontal overflow at any size.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "#66 join request pop-up, Requests tab count across a reload, Invite player",
+   "control": "No pop-up; the request card sat on the roster with no count.",
+   "head": "A request arriving live gives a 'New join request' card with Approve, View sheet, Reject, All requests and Later (live region 'Join request from Edda Marsh.'), on laptop, tablet and phone. The Requests tab shows a count that is still there after a reload (also the MENU badge on phone). Invite player stays on the Requests tab. Caveat: with a second tab open the other tab keeps the pop-up and count after one tab approves (see finding).",
+   "verdict": "partly"
+  },
+  {
+   "item": "#66 Dispatch button fits at every size",
+   "control": "Dispatch/End stamps at x 189-317 at 1100/1024, y 1136 and below the fold.",
+   "head": "Dispatch right edge inside the viewport at 1440, 1366, 1280, 1100, 1024, 820 portrait, 1180 landscape and the phone Dispatch drawer; scrollWidth equals viewport everywhere.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "45.1 tension - and + and timer Start/Pause in the table strip",
+   "control": "Strip read-only on every non-roster page.",
+   "head": "With the Circle page, Notebook or a sheet open, the strip has Lower/Raise tension (db 0 to 1 to 0 confirmed) and, with a timer set, Start the timer, Pause the timer, Resume the timer (server timer_running toggled). 36px with a mouse (wide), 44px on touch (820 and 1180). Phone strip is read-only (no buttons). A double click on + gives +1 only (second press swallowed). Works after a backend restart on the reconnected tab.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "45.4 and 45.5 sticky Dispatch and End stamps, receipt in view, End stamp not moving when it arms",
+   "control": "At 1440x761 the stamps sat at y 983-1027 (below the fold); arming End turned the button into 'Yes, end it' and the long hint sat in the column.",
+   "head": "1440x761, 1440x900, 1366x768 and 1280x720 with a long location text: stamps in view (Dispatch 658-702, receipt 'Dispatched at 04:59 AM.' at 707-729 inside 761). Arming End: top moved 638 to 641 (3px), hint opens above, button reads 'End', hint 'Press again to end the assignment.'. Hint card overlays the letter text but is readable.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "69.8b title above the buttons below xl, clear of Back to chapter hub",
+   "control": "Three-column grid from lg; the title and the buttons meet at 1024-1279 (control h1 at 24-64 with Back at x 625 beside it).",
+   "head": "1024, 1100, 1180, 1279: title y 24-64, Back and Account at y 126-164 centred below, no overlap, on both the LK and the player desk. From 1280 the title is screen-reader only.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "45.6 empty requests list points to the campaign code; Invite player wording",
+   "control": "'No one waiting to join' alone; invite slip 'The player rejoins with a new investigator, without waiting for your approval.'",
+   "head": "'No one waiting to join. New players ask with the campaign code elk-hops.' and 'Brings back a player who has played here, with a new investigator, without your approval.' Also after every request was withdrawn and a reload.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "45.7 withdrawn request while its sheet is open: read-only with a note; a new request clears it",
+   "control": "The open sheet vanished with no word.",
+   "head": "Sheet stays with 'EDDA MARSH'S REQUEST IS NO LONGER WAITING.', only Back to requests, no Approve or Reject. The same investigator asking again clears the note and brings Approve back. A different person's new request does NOT clear it (see finding, low).",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.6 End Assignment i says drives carry over; Reset has an i",
+   "control": "No mention of drives; Reset had no help; armed button 'Yes, reset'.",
+   "head": "End Assignment i: '...The reports are closed and cleared, and so is the timer. Drives carry over; a Refresh restores them.' Reset has an About Reset i with the correction text; armed Reset hint is one sentence and its button reads 'Reset'. Reset is 40px with a mouse and 44px on tablet.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.13 End Assignment clears and hides the timer",
+   "control": "After End Assignment: timer_visible t, duration 300000, switch still on.",
+   "head": "After End Assignment: timer_visible f, duration 0, the Timer switch off, the log line 'and so is the timer'.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "60.19 every waiting name has its count",
+   "control": "'Waiting for an answer from Fia One (2 relationships) and Fay Two' (1 has no count).",
+   "head": "'Waiting for an answer from Fia One (2 relationships) and Fay Two (1 relationship)'.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "69.4 Finalize confirm one sentence",
+   "control": "Four sentences, button 'Yes, finalize the circle'.",
+   "head": "'Press again to seal the circle for good with 3 investigators, leaving 4 parts empty.' and with a waiting request '...and turning away 1 waiting request.' Button 'Finalize'. (3 pending relationships are not mentioned, they stay acceptable after the seal.)",
+   "verdict": "fixed"
+  },
+  {
+   "item": "Missing reports named at End Assignment and Add Illumination, not blocking",
+   "control": "No warning.",
+   "head": "Reports open, one of four filed: End hint 'Not filed: Bram Holt, Cora Finch, Dev Okafor.' above 'Press again to end the assignment.'. Add Illumination area shows 'Not filed: ...' in oxblood above the Add button before it is pressed; Add and End still work.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "#56 after the seal the Lightkeeper sees the circle's relationships",
+   "control": "No relationships block on the LK Circle page.",
+   "head": "Circle page has 'Circle relationships': 'Iris Vane to Bram Holt: Stranger AGREED' and 'Cora Finch to Dev Okafor: Stranger waiting for Dev Okafor', with the lore lines.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "#65 Account card offers Edit account, Sign out and Retire",
+   "control": "Retire campaign sat in the header; the Account menu had only its own name.",
+   "head": "Account card: member name and email, Edit account, Retire campaign..., Sign out (at 1440 on the LK desk).",
+   "verdict": "fixed"
+  },
+  {
+   "item": "#57 a refused session lands on sign-in with a note",
+   "control": "Sign-in with no note after a 401.",
+   "head": "Corrupt token in the store: sign-in shows 'Your session ended; please sign in again.' at 1440 and 390. Mid-desk revoke not tried.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "Short confirms across the LK desk (one sentence, one verb)",
+   "control": "'Yes, end it', 'Yes, reset', 'Yes, finalize the circle'.",
+   "head": "Seen: End (End), Reset (Reset), Release (Release), Finalize (Finalize), Retire (Retire), remove circle ability, reject. All hints one sentence. No 'Yes,' strings left in src.",
+   "verdict": "fixed"
+  },
+  {
+   "item": "Server restart and second tab on the LK desk",
+   "control": "n/a",
+   "head": "Backend restarted with the desk open: the live tab reconnected, strip + works, Requests count and tabs intact. A second tab takes the socket; the first shows the banner 'This desk is open in another tab or on another device' and its strip is disabled (by design).",
+   "verdict": "fixed"
+  }
+ ],
+ "findings": [
+  {
+   "kind": "bug",
+   "sev": "medium",
+   "title": "Second LK tab keeps the join-request pop-up and Requests count after the request was approved in the other tab",
+   "where": "LK desk, laptop and tablet (also on control for the card); OperationsPanel / pending list",
+   "steps": "Open the LK desk in two tabs (the later tab owns the socket). A join request is pending. Approve in tab A (pop-up). Look at tab B.",
+   "expected": "Tab B drops the request card, pop-up and the count; the comment at OperationsPanel.jsx:88 says a request 'another tab answered' is handled.",
+   "actual": "Tab B still shows the NEW JOIN REQUEST pop-up (now with 'Already has an investigator here.') and 'Requests 1', although the roster in B lists the approved investigator and the log line arrived. A reload clears it. Same stale card on control.",
+   "shots": [
+    "/home/user/pt4/verify/lkdesk/out_main/two_B_after.png"
+   ],
+   "related": "#66.1, 45.7"
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "A closed request's note stays when a different player's request arrives",
+   "where": "LK desk Requests tab, 1440x900",
+   "steps": "Open a request's sheet, the player withdraws (note appears), another player asks.",
+   "expected": "The decision text says a new request clears the note.",
+   "actual": "Only the same investigator asking again clears it; a different new request leaves the old sheet with 'no longer waiting' and Back to requests, while the new one is only a badge/pop-up.",
+   "shots": [
+    "/home/user/pt4/verify/lkdesk/out_main/wd_wide_3newreq.png"
+   ],
+   "related": "45.7"
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Accessible name 'About About Reset' is doubled",
+   "where": "LK sheet, Reset i, GMCharacterSheet.jsx ~379",
+   "steps": "Open an investigator's sheet on the LK desk and read the button names.",
+   "expected": "'About Reset'.",
+   "actual": "The button is named 'About About Reset' (the label already starts with About).",
+   "shots": [
+    "/home/user/pt4/verify/lkdesk/out_main/sheet_wide_reset_i.png"
+   ],
+   "related": "60.6"
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "A superseded LK tab goes dead without a way back",
+   "where": "LK desk, second tab",
+   "steps": "Open the LK desk in a second tab; look at the first.",
+   "expected": "A way to take the desk back.",
+   "actual": "First tab shows the banner and all tension and timer buttons turn disabled; only a reload recovers. Known last-connection-wins design, noted because the new strip makes it more visible.",
+   "shots": [
+    "/home/user/pt4/verify/lkdesk/out_main/rst_A_displaced.png"
+   ],
+   "related": "WEBSOCKET.md connect"
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "Join request pop-up covers the bottom right of the desk and most of the phone screen",
+   "where": "1440x900 (over Activity Log and Pass Notes), 390x844 (over the lower half)",
+   "steps": "Have a request arrive and do not dismiss it.",
+   "expected": "Small and out of the way.",
+   "actual": "Large card; Later closes it. On phone Reject wraps to a second row.",
+   "shots": [
+    "/home/user/pt4/verify/lkdesk/out_main/ph2_phone_req.png"
+   ],
+   "related": "#66.1"
+  }
+ ],
+ "method": "Folder /home/user/pt4/verify/lkdesk. lib.js is v8401_lib.js made tree-aware (TREE=main|control picks api 8130/8131, db candela_<api>, own state_<tree>.json and out_<tree>/ shots). setup.js builds, per tree, a sealed 4-investigator circle S (one agreed, one pending relationship via seal.js), an empty campaign E and an unsealed 3-member campaign F; extra devices (w1024, w1100, w1279, w1280, wide761, tabland) were added to lib.js. One script per check: nav.js, fit.js, req.js, wd.js, wd2.js, strip2.js, stamp.js, rep.js, end.js, add.js, form.js, form2.js, sheet.js, s57.js, two.js, two2.js, ten3.js, rst.js, disp.js, pc.js. Pitfalls: node scripts holding an open Node WebSocket never exit (use process.exit or timeout; do not pkill -f); a second LK tab on the same account takes the socket and disables the first, so use one seat per account for strip checks; check() on a checkbox can fail because the tick is server driven (use click and wait); text read after pressing Add Illumination no longer has the Not filed line, so read it before. A player can wait in only one campaign. Control phone has no MENU button. Not checked: 45.4 at 1920x1080 (1440x761, 1366x768, 1280x720 done), a refused session while the desk is already open (#57 tried only on load), the phone Requests count after a reload on its own.",
+ "praise": [
+  "The Requests tab with its count and the live-region announcement make join requests easy to find and survive a reload.",
+  "The sticky stamp row at xl keeps Dispatch, End Assignment and the 'Dispatched at' receipt in view at 1440x761, 1366x768 and 1280x720, and the armed End hint opens upward.",
+  "The table strip's tension and Start/Pause/Resume buttons work on Circle, Notebook and sheet views, with 44px targets on touch and read-only on the phone.",
+  "Confirms are one sentence with a one-verb button everywhere checked; the Not filed line works without blocking.",
+  "A server restart with the desk open reconnects cleanly and the strip keeps working."
+ ]
+}

@@ -1,0 +1,202 @@
+{
+ "items": [
+  {
+   "item": "#49 Lightkeeper releases a member from the sheet, after the seal (laptop desk, member's desk on tablet, another player's desk on laptop)",
+   "control": "No Release on the Lightkeeper's copy of the sheet (only Give a spend back and Reset); POST /campaign/release/2 returns 404.",
+   "head": "Release from the circle at the foot of Bram's sheet. The armed line is one sentence, 'Press again to release Bram Holt.', the detail sits behind 'What release does (i)', and the cancel is 'Keep in the circle'. After Release: Bram's report was dropped (reports {} and '0 of 3 filed'). Relationships a>b and b>c were dropped, c>a was kept. Stitch went 5 to 4, Refresh stayed 3, Train stayed 4 (max 1+3), with no refund. Bram is unaffiliated with spends 0, train_dice 0, gear [], ability_uses {} and no ink. investigator_released reached the Lightkeeper, Iris and Bram. Bram's tablet went to the hub with 'The Lightkeeper released Bram Holt from The Saltmere Chapter...'. Log: 'The Lightkeeper released Bram Holt from the circle.' After a Lightkeeper reload the roster shows 3 cards. Crafted calls: another player releasing gets 403, a second release gets 409, a dead investigator gets 409.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/lifecycle/out_main/49a_lk_release_armed.png",
+    "/home/user/pt4/verify/lifecycle/out_main/49a_bram_after.png",
+    "/home/user/pt4/verify/lifecycle/out_main/49a_lk_after.png",
+    "/home/user/pt4/verify/lifecycle/out_main/49a_lk_reload.png"
+   ]
+  },
+  {
+   "item": "#49 player leaves from the desk (phone, with a second tab on laptop) and from the hub Registry (phone), after the seal",
+   "control": "No Leave on the desk or in the Registry.",
+   "head": "Desk: 'Leave the campaign', then the armed 'Leave' (44px), 'Press again to leave The Saltmere Chapter.', 'What leaving does (i)' and Stay. A double press sent one leave. Both of Cora's tabs went to the hub with 'Cora Lisle left The Saltmere Chapter and is free to join another campaign.' Her Train die and spend went, Stitch 4 to 3, Train 4 to 3, and the pending c>a relationship was dropped. Hub: the Registry row's Leave (aria 'Dov Marrow leaves The Saltmere Chapter', 44px), the same one sentence with the i (44px on the phone) and Stay. Pools went to 2/2/2 and Iris's Circle page updated live. Log: '<name> left the circle.'",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/lifecycle/out_main/49b_cora_leave_info.png",
+    "/home/user/pt4/verify/lifecycle/out_main/49c_dov_registry.png"
+   ]
+  },
+  {
+   "item": "#49 before the seal (campaign U, Lightkeeper on tablet; Una leaves from the hub on laptop)",
+   "control": "n/a (no release on the control)",
+   "head": "Release of Ubel before the seal: pools 4 to 3 (filled to 1 + members, as FAQ says), votes 3 to 2, the pending ua>ub relationship dropped. Una leaving from the hub: pools 3 to 2, both investigators unaffiliated, log lines written, no console errors.",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "#49 after a server restart: a freed investigator rejoins by the normal join flow",
+   "control": "n/a",
+   "head": "Ros left, the backend restarted, Ros asked to join and was approved. Ros is active and pools were not raised. Ros's spend count came back as 0 although he had used 2 this assignment (see findings).",
+   "verdict": "partly",
+   "shots": []
+  },
+  {
+   "item": "#62 Leave and Release confirms are one short sentence with the detail behind an i",
+   "control": "No Leave or Release confirms on the control.",
+   "head": "Release, desk Leave and hub Leave all show one sentence ('Press again to release X.' / 'Press again to leave <campaign>.') with a one-verb armed button (Release / Leave). The detail sits behind 'What release does' / 'What leaving does', and the slip stays on screen on a 390px phone.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/lifecycle/out_main/49a_lk_release_armed.png",
+    "/home/user/pt4/verify/lifecycle/out_main/49b_cora_leave_info.png"
+   ]
+  },
+  {
+   "item": "#50 a bought Train die lasts until a roll uses it; one wording everywhere",
+   "control": "Two Train spends, then End Assignment: train_dice 2 to 0 and bonus false, so the dice were lost unused. Log says 'a Train d6 for a roll of their choice this assignment.' No Train chip title on the sheet.",
+   "head": "Two spends gave train_dice 2. End Assignment kept the dice (2) and reset spends to 0. A server restart kept 2. A roll with Train threw 3 dice (hide 2 + 1) and left train_dice 1. Wording matches in all five places: log 'kept until a roll uses it.', roll chip title 'Train (+1d on this roll; 2 Train dice, each kept until a roll uses it)', Circle card 'Take a d6 to add to any roll you choose, kept until a roll uses it.', Lightkeeper's sheet 'TRAIN: 2 DICE, EACH KEPT UNTIL A ROLL USES IT', and FAQ.md and QUIRKS.md say the same. Sizes: tablet and laptop.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/lifecycle/out_main/50_tablet_circle_top.png"
+   ]
+  },
+  {
+   "item": "#38 server refuses a scar from the dead and proposals or counters from or to the dead (REST and WebSocket)",
+   "control": "REST propose to dead, propose from dead, counter by dead and counter on a dead's proposal all 200 and stored. WS apply_scar from the dead was taken (scars_count went to 5). WS propose to the dead was taken. WS counters got 403 'Not allowed.'.",
+   "head": "REST: all four refused with 409 'Yew Hale is dead: the sheet is a record.' WS: apply_scar, propose (both directions) and counter (both directions) refused with action_rejected 409, same detail. Scars stayed at 4 and no relationship rows changed.",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "#38 a dead investigator's paper says Dead with no Propose (living player's Circle page, phone)",
+   "control": "Yew's paper shows '5 SCARS', 'RESPONSE NEEDED' and Accept/Counter on two proposals from the dead.",
+   "head": "Yew's paper shows '+ DEAD' with no Propose. The pre-death proposal x>y reads 'Waiting for Yew Hale' (a dead investigator can still Accept, a call kept as built). Zed (living) keeps Propose a relationship.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/lifecycle/out_main/38_xan_relationships.png"
+   ]
+  },
+  {
+   "item": "#22 no 403 for a player whose investigator is no longer active (dead Yew, retired campaign, laptop, after a reload)",
+   "control": "403 /campaign/3/roster and a console error 'Failed to load resource: ... 403'.",
+   "head": "No responses of 400 or above and no console errors. The desk opens as a record.",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "#39 rejoin from another device sends the replaced investigator's open desk to the hub, clears the invite banner, a reload included",
+   "control": "After the rejoin, device A (tablet) stays on Rho's desk with rejoinInvite still set, and after a reload it is still on the desk with the banner. No investigator_replaced frame.",
+   "head": "Device A shows the invite banner ('Rho Vell will be retired.') until the rejoin. When device B rejoins (API, as the phone), A gets investigator_replaced and goes to the hub with 'Ros Kell joined The Rookery Chapter in place of Rho Vell.' rejoinInvite is null, and after a reload A stays on the hub with no banner. The server's pending_rejoin is cleared. Log: 'Ros Kell joined the circle, in place of Rho Vell.'",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/lifecycle/out_main/39_A_invite_banner.png",
+    "/home/user/pt4/verify/lifecycle/out_main/39_A_after_rejoin.png"
+   ]
+  },
+  {
+   "item": "#41 a replacement approved through a join request keeps its predecessor's spend count",
+   "control": "Rue (spent 2, dead) replaced by Rux via join plus approve: Rux spent 0.",
+   "head": "Rux spent 2. Log: 'Rux Ollin joined the circle, in place of Rue Tamsin.'",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "#42 Play and the Last Played tome on a campaign retired while the hub or Case Ledger is open stay on the hub; double press opens one desk",
+   "control": "Play on the retired Pellmoor opened a desk (stage DESK, socket opened). A double press on the tome of the retired Quillon also opened a desk.",
+   "head": "Play on the retired Pellmoor: stays on HOME with 'Pell Arden is no longer in The Pellmoor Chapter.' and no socket. Double press on the Last Played tome of the retired Quillon: HOME with 'Quin Ashby is no longer in The Quillon Chapter.' and no socket, and the book refreshes (both rows gone). Double press on Play for live Ros (phone): one desk, one socket, no errors. Laptop and phone.",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "#47 the player's Registry has a Fallen section at its foot (phone)",
+   "control": "No Fallen section: Yew (dead, retired campaign) and Rue (dead, replaced) are not listed.",
+   "head": "A Fallen section at the foot lists Yew Hale (The Dunmore Chapter) and Rue Tamsin (The Rookery Chapter), each with a '+ FALLEN' stamp and no buttons.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/lifecycle/out_main/47_fallen_phone.png"
+   ]
+  },
+  {
+   "item": "#64 Edit sheet: fields save, soft warnings only, one log line per save, roster dot cleared when the Lightkeeper opens the sheet (tablet player, laptop Lightkeeper)",
+   "control": "No Edit sheet button on the player's sheet.",
+   "head": "One save changed name, pronouns, role Slink to Face (specialty to Journalist), an added ability, Move 1 to 2, Strike gilded, Nerve max 4 to 5, Body marks 0 to 3, three scars and the question. All were stored. Warnings were soft only ('Not a Face ability.', 'Not a Face or Journalist ability.') and Save was not blocked. Exactly one log line: 'Rux Ollinor: name Rux Ollin to Rux Ollinor, pronouns nothing to they/them, role Slink to Face, ... question Why? to Gruff now.' The roster card has a dot and aria 'changed by the player'. Opening the sheet set sheet_edited to false. Not exercised: drive Available and Resistance steppers, Brain/Bleed through the UI (crafted edit_sheet did set them).",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/lifecycle/out_main/64_lk_dot_crop.png"
+   ]
+  },
+  {
+   "item": "#64 gear unlocked: items removed, written-in items, past the slots with a warning",
+   "control": "The gear dialog offers catalog items only (no write-in, no Take off).",
+   "head": "Take off and write-in work. With 5 items on 3 slots it shows '5 items for 3 gear slots: more than you carry this assignment.' and '5 / 3 selected. Over the limit of 3', and Save gear is not blocked. Log line: '<name>: gear Brass Key added.'",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "#64 a fourth scar is refused in the editor (kept on purpose)",
+   "control": "n/a",
+   "head": "'Add a scar' disappears at 3. A crafted edit_sheet with scars_list of 4 is refused 422: 'A fourth scar is taken through the scar form.'",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "69.1 a refused save keeps the draft; the gear dialog writes only its own changes",
+   "control": "n/a (no editor on the control)",
+   "head": "Refused save: the investigator was marked dead in SQL while the editor was open, then Save. The dialog stays open with the draft ('he/him draft') and shows the server's reason. Gear: Lantern, Rope and Flask were held. The dialog opened, End Assignment cleared the gear to [] meanwhile, then Rope was taken off, Brass Key written in, and Save gear pressed. Result ['Brass Key']: the cleared items did not come back.",
+   "verdict": "fixed",
+   "shots": [
+    "/home/user/pt4/verify/lifecycle/out_main/69_1_refused.png"
+   ]
+  },
+  {
+   "item": "69.8a the ability card after a role change",
+   "control": "n/a",
+   "head": "After role Slink to Face with Death Defy kept, the role ability pane is headed 'Slink ability' (the ability's own role), not 'Face ability', per the triage fix (ROLE_FROM_ABILITY).",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "69.7 an insignia change before the seal is refused (409)",
+   "control": "update_circle with insignia on an unsealed circle broadcasts circle_update but stores nothing (the control does not handle insignia at all).",
+   "head": "action_rejected 409 'The insignia is chosen by the circle's vote until the seal.' Nothing stored.",
+   "verdict": "fixed",
+   "shots": []
+  },
+  {
+   "item": "#66 Lightkeeper changes the insignia by clicking it after the seal, logged, with undo (laptop)",
+   "control": "n/a (control predates PR 68)",
+   "head": "The Circle page stamp ('Insignia: Compass. Change insignia') opens a chooser of the eight. Moon was stored and logged 'The Lightkeeper changed the circle's insignia to Moon.' and the player's phone desk got it live. 'Undo 7s' put Compass back, logged as a second line. A double press on Orbital Ring stored it once. After a reload Orbital Ring is kept and no Undo shows. No console errors.",
+   "verdict": "fixed",
+   "shots": []
+  }
+ ],
+ "findings": [
+  {
+   "kind": "rules",
+   "sev": "low",
+   "title": "Leave and rejoin by request in one assignment resets the player's spend count",
+   "where": "backend vtt/assignment.py release_from_campaign (end_assignment_for zeroes resources_spent_assignment) with vtt/routers/campaigns.py release_member; seam with #41 (backend/engine.py approve_investigator)",
+   "steps": "Sealed campaign R, spending open. Ros has used both spends this assignment (resources_spent_assignment=2). Ros leaves (POST /campaign/release, or Leave on the desk). The backend restarts (optional). Ros asks to join R again and the Lightkeeper approves.",
+   "expected": "The decisions cap circle spends at two per player per assignment, and #41 makes a replacement keep its predecessor's count. A member coming back in the same assignment would keep the count.",
+   "actual": "Ros is active again with resources_spent_assignment=0 and can spend two more this assignment. Pools are not refilled, so only the per-player cap is bypassed, and it needs the Lightkeeper's approval.",
+   "related": "#49, #41, decisions_fix4 decision 2",
+   "shots": []
+  },
+  {
+   "kind": "ux",
+   "sev": "low",
+   "title": "A refused sheet edit shows its reason twice as role=alert",
+   "where": "tablet 820x1180, player's desk: SheetEditor.jsx error line plus InvestigatorDossier.jsx sheetEditError under the sheet",
+   "steps": "Open Edit sheet, change pronouns. The server sees the investigator as dead (SQL is_dead=true while the dialog is open). Press Save.",
+   "expected": "One alert, in the reopened dialog that holds the draft.",
+   "actual": "Two role=alert elements say 'Rux Ollinor is dead: the sheet is a record.', one in the dialog and one under the sheet behind it, so a screen reader announces it twice. The draft itself is kept correctly.",
+   "related": "69.1",
+   "shots": [
+    "/home/user/pt4/verify/lifecycle/out_main/69_1_refused.png"
+   ]
+  }
+ ],
+ "method": "Folder /home/user/pt4/verify/lifecycle. lib.js is a copy of v8405_lib.js with ports and DB picked by env T=main|control (main api 8120/site 4120/db pt4_main_8120, control 8121/4121/pt4_control_8121); state in state_<T>.json, shots in out_<T>/. setup.js builds both tables through the API (6 accounts lk,pa..pe; campaign S sealed with 4 members and relationships, campaign U unsealed with 3), sealed in SQL. Per item scripts: s49_lk.js (release after seal), s49_leave.js (desk leave phone + second tab), s49_hub.js (hub leave, pre-seal release and leave), s49_edge.js (crafted releases, leave/rejoin with restart_api.sh), s50.js (Train dice, End Assignment, restart, wording, roll), s38.js and s38ui.js (dead refusals REST+WS, dead paper, #22 after retiring D), s39.js (rejoin from second device, #41), s42.js (fresh campaigns P1/P2 retired while the hub is open, double Play; #47 Registry), s64.js, s69.js and s64_scar.js (Edit sheet, gear diff using a Lightkeeper End Assignment while the gear dialog is open, refused save by setting is_dead in SQL while the editor is open, crafted fourth scar), s66.js (69.7 crafted update_circle on an unsealed circle, #66 stamp chooser, Undo, reload), probe.js (dump visible buttons). Avoid: opening a Node wsOpen socket on a character whose desk is open in the browser; it takes the desk ('open in another tab') and the page's later saves are lost; use the Lightkeeper's socket for table-side changes instead. Registry Leave buttons are named '<name> leaves <campaign>' and Play buttons '<name><campaign>Play'. Retiring S/U consumes them, so later checks need fresh campaigns. Servers were stopped and both databases dropped at the end. About 85 tool calls.",
+ "praise": [
+  "Release and leave reach every desk live, including a second tab of the leaving player, and a double press sends one request.",
+  "The dead-record refusals are uniform: REST and WebSocket, proposal and counter, both directions, with the same plain sentence.",
+  "The gear dialog applies only its own diff, so an End Assignment while it is open is not undone.",
+  "Edit sheet writes one readable log line naming every change, from and to, and the roster dot clears when the Lightkeeper opens the sheet.",
+  "Train dice survive End Assignment and a server restart, and every surface uses the same 'kept until a roll uses it' wording."
+ ]
+}
