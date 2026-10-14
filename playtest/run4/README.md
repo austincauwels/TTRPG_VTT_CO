@@ -116,8 +116,8 @@ Sense) and rolls d6s equal to its rating, plus dice for drive points spent from 
 drive (Nerve for Move/Strike/Control, Cunning for Sway/Read/Hide, Intuition for
 Survey/Focus/Sense). Highest die counts: 6 full success, 4-5 mixed, 1-3 failure, two 6s a
 critical. A rating of 0 rolls two dice and keeps the lower. Gilded dice let the player choose.
-Resistance (per drive) can be burned to reroll. Harm comes as marks (Body, Brain, Bleed); the
-third mark of a kind becomes a scar; the fourth scar kills. The circle shares resources
+Resistance (per drive) can be burned to reroll. Harm comes as marks (Body, Brain, Bleed);
+a mark on a full track (3 of 3) brings a scar; the fourth scar kills. The circle shares resources
 (Stitch, Refresh, Train) and an Illumination track; when it fills, the circle advances. The
 Lightkeeper sets scenes, calls for rolls, gives marks and raises tension (the hourglass).
 The site's version of every mechanic is in FAQ.md.
